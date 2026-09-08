@@ -230,3 +230,91 @@ ever waiting on the workers.
 - The extractor's vocabulary is v1-closed; M4 engines (bodies,
   relationships) will want new mutation types — extend HANDLERS in apply.js
   and the prompt's vocabulary list together, never one without the other.
+
+---
+
+# M4 — the ledgers: bodies, standings, and the world elsewhere
+
+## What changed
+
+- `js/engine/bodies.js` (new) — the body ledger. Per character:
+  `{injuries:[{what, sev:1|2|3, atMinutes, treated, healed}], strain:[...]}`.
+  Pure functions (`addInjury`/`addStrain`/`healInjury` — fresh copies out).
+  Ages render from the story clock (`clockMinutes − atMinutes`); when no
+  clock is set, entries fall back to the turn count via an additive `atTurn`
+  field (the log's length when written — same pattern as M3's `undo`
+  payload). Healed injuries keep their record but stop rendering (scars of
+  record). Severity words are law: 1 "a graze/bruise-class", 2 "a real
+  wound", 3 "severe" (`SEV_WORDS`).
+- `js/engine/relationships.js` (new) — P:R:S standings toward the main
+  character, and ONLY toward the main character (axis lock: there is no
+  NPC↔NPC type anywhere in the vocabulary, so none can ever be written).
+  Zero-init: no entry exists until the first caused shift. Deltas clamp
+  ±20 per beat, totals ±100. Every shift needs a cause in words — the
+  applier rejects any without one. `historyWords` gives the drawer's
+  "grew warmer after the chapel" line.
+- `js/engine/offscreen.js` (new) — where the absent are: `{location,
+  activity, agenda?, sinceMinutes}` plus additive `atTurn` for recency.
+  presence.leave never seats (the prose has to say where they went);
+  presence.enter auto-unseats, and its undo puts the seat back.
+  `renderOffscreen` shows the top 6 by recency, skipping anyone present.
+- `js/engine/apply.js` (extended) — the v2 vocabulary, validated and
+  undoable like v1:
+  ```
+  body.injure {name, what, sev?, treated?}   body.strain {name, what}
+  body.heal {name, what}
+  rel.shift {name, axis, delta, cause}       rel.set {name, p?, r?, s?, cause}
+  offscreen.set {name, location, activity, agenda?}   offscreen.clear {name}
+  ```
+  New undo kinds ride the same log payload: `body.restore`, `rel.restore`,
+  `offscreen.restore` (deep "before" snapshots), and `presence.remove`
+  gained an `offscreenBefore` for the auto-unseat. `body.heal` matches
+  injuries by exact-then-substring words; when no injury matches it lifts
+  a strain instead (strain keeps no healed flag). Free text is trimmed and
+  length-capped (`capText`) so no single note can blow the render budget.
+- `js/engine/state.js` (extended) — state v3. `loadState` migrates v1/v2
+  objects: the three ledgers are coerced into shape, unknown extra fields
+  ride along, nothing is dropped. `renderStateFacts` now speaks real
+  sections in law-order (clock, presence, bodies top-4, standings top-6 by
+  |total|, elsewhere top-6, mood words; threads trail) under a hard budget:
+  `STATE_BUDGET = 1600` chars (~400 tokens). Section caps do the daily
+  work; if words still run long, lower-priority sections are shed — the
+  hour and who's here always stay.
+- `js/agents/extractor.js` (extended) — the v2 vocabulary joined the prompt
+  with the conservatism law restated (injuries only when the blow lands
+  on-page; feelings only from on-page acts with a cause quoting the beat;
+  never invent off-screen doings). max_tokens is 600 now. Everything else —
+  prefill, tolerant parser, never-throws — unchanged.
+- `js/ui/drawer.js` (extended) — three real panels: "How they're holding
+  up" (heal/lift/add by hand), "On their mind" (standings in plain words +
+  history line; hand shift or outright set, cause always required),
+  "What's happening elsewhere" (seat/edit/let go by hand). All hand edits
+  ride `handMutate` → `applyMutations`, so they're validated, logged, and
+  undoable exactly like the workers' proposals.
+- `sw.js` — cache bumped to v4; the three new engine modules joined the
+  shell list.
+
+## Contracts to preserve (added in M4)
+
+- `bodies.js`: `addInjury(bodies, name, {what, sev, treated}, clockMinutes)`,
+  `addStrain(bodies, name, {what}, clockMinutes)`, `healInjury(bodies, name,
+  what)`, `renderBodies(bodies, clockMinutes)` (optional third arg = turn
+  count), `SEV_WORDS`.
+- `relationships.js`: `shift(relationships, name, {axis, delta, cause},
+  clockMinutes)`, `renderRelationships(relationships)`, `axisWords`,
+  `historyWords`, `AXES`.
+- `offscreen.js`: `seat(offscreen, name, {location, activity, agenda},
+  clockMinutes)`, `unseat(offscreen, name)`, `renderOffscreen(offscreen,
+  present)`.
+- `state.js`: `STATE_BUDGET` export; renderStateFacts section order is law.
+- The v2 mutation types above. Extend HANDLERS and the extractor prompt's
+  vocabulary together, never one without the other.
+
+## Seams for M5+ (do not fill early)
+
+- `state.factions` still has no engine; `threads` remains hand/legacy —
+  rendered but not yet written by any worker.
+- The clock doesn't derive travel ETAs from offscreen locations; that's a
+  later milestone's call.
+- Preset migration (M5) and the referee/memory/continuity agents (M6) are
+  untouched: no new agent joins the send path, ever (the latency law).

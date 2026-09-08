@@ -3,17 +3,22 @@
  * keeps the hour, Who's here carries position and attire when known, the
  * mood of the scene reads its flags in plain words, and "What changed and
  * why" reads the log the applier writes — newest first, each change
- * take-back-able. Hand controls go through the same mutations the extractor
- * proposes, so everything is validated, logged, and undoable alike.
+ * take-back-able. M4 filled the last panels: "How they're holding up" (the
+ * body ledger), "On their mind" (the standings between people, real now),
+ * and "What's happening elsewhere" (the off-screen world). Hand controls go
+ * through the same mutations the extractor proposes, so everything is
+ * validated, logged, and undoable alike.
  *
  * Live refresh: the drawer subscribes to the active story's state
  * (state.subscribe/notify); when the engine writes, the panels re-render if
- * the drawer is open. "On their mind" stays a stub — that is M4 country.
+ * the drawer is open.
  */
 
 import { loadState, saveState, subscribe, notify } from '../engine/state.js';
 import { applyMutations, undoLast, MODE_WORDS } from '../engine/apply.js';
 import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
+import { SEV_WORDS } from '../engine/bodies.js';
+import { axisWords, historyWords, AXES } from '../engine/relationships.js';
 import { db } from '../store.js';
 
 /* ---------- shared helpers ---------- */
@@ -410,6 +415,350 @@ function logPanel(ctx) {
   return wrap;
 }
 
+/* ---------- how they're holding up (M4 — the body ledger) ---------- */
+
+function holdingUpPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bodies-editor';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list';
+
+  /* Add by hand: a hurt or a weariness, riding the same mutations the
+   * workers propose. */
+  const form = document.createElement('form');
+  form.className = 'present-form ledger-form';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.maxLength = 60;
+  nameInput.placeholder = 'Who?';
+  nameInput.setAttribute('aria-label', 'Who carries it');
+  const whatInput = document.createElement('input');
+  whatInput.type = 'text';
+  whatInput.maxLength = 140;
+  whatInput.placeholder = 'What happened?';
+  whatInput.setAttribute('aria-label', 'The hurt or weariness, in a few words');
+  const kindSelect = document.createElement('select');
+  kindSelect.setAttribute('aria-label', 'A hurt, or a weariness');
+  const optHurt = document.createElement('option');
+  optHurt.value = 'injury';
+  optHurt.textContent = 'A hurt';
+  const optStrain = document.createElement('option');
+  optStrain.value = 'strain';
+  optStrain.textContent = 'A weariness';
+  kindSelect.append(optHurt, optStrain);
+  const sevSelect = document.createElement('select');
+  sevSelect.setAttribute('aria-label', 'How bad is it');
+  for (const [sev, words] of [[1, 'A graze'], [2, 'A real wound'], [3, 'Severe']]) {
+    const opt = document.createElement('option');
+    opt.value = String(sev);
+    opt.textContent = words;
+    sevSelect.appendChild(opt);
+  }
+  const treatedLabel = document.createElement('label');
+  treatedLabel.className = 'radio-row';
+  const treatedBox = document.createElement('input');
+  treatedBox.type = 'checkbox';
+  treatedLabel.append(treatedBox, document.createTextNode(' Seen to'));
+  const addBtn = document.createElement('button');
+  addBtn.type = 'submit';
+  addBtn.className = 'text-btn';
+  addBtn.textContent = 'Write it down';
+  form.append(nameInput, whatInput, kindSelect, sevSelect, treatedLabel, addBtn);
+
+  wrap.append(note, list, form);
+
+  function syncKind() {
+    const hurt = kindSelect.value === 'injury';
+    sevSelect.hidden = treatedLabel.hidden = !hurt;
+  }
+  kindSelect.addEventListener('change', syncKind);
+  syncKind();
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = nameInput.value.trim();
+    const what = whatInput.value.trim();
+    if (!name || !what) return;
+    const mutation = kindSelect.value === 'injury'
+      ? { type: 'body.injure', name, what, sev: Number(sevSelect.value), treated: treatedBox.checked }
+      : { type: 'body.strain', name, what };
+    nameInput.value = whatInput.value = '';
+    treatedBox.checked = false;
+    await handMutate(ctx, [mutation]);
+    render();
+  });
+
+  async function render() {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) {
+      note.textContent = 'Open a story and the ledger will know whose bodies these are.';
+      form.hidden = true;
+      return;
+    }
+    form.hidden = false;
+    const state = await loadState(story.id);
+    const bodies = state.bodies && typeof state.bodies === 'object' ? state.bodies : {};
+    const names = Object.keys(bodies).filter((n) => {
+      const b = bodies[n];
+      return b && ((Array.isArray(b.injuries) && b.injuries.length)
+        || (Array.isArray(b.strain) && b.strain.length));
+    });
+    note.textContent = names.length
+      ? 'What the body keeps, and whether it’s healing. Healed hurts stay on record but stop showing.'
+      : 'No one carries a hurt yet. When a blow lands on the page, it will be written down here.';
+    for (const name of names) {
+      const body = bodies[name];
+      const injuries = Array.isArray(body.injuries) ? body.injuries : [];
+      const strain = Array.isArray(body.strain) ? body.strain : [];
+      for (const injury of injuries) {
+        const li = document.createElement('li');
+        li.className = 'present-row';
+        const words = document.createElement('span');
+        words.textContent = name + ' — ' + injury.what
+          + ' (' + (SEV_WORDS[injury.sev] || SEV_WORDS[1])
+          + (injury.healed ? ', healed' : injury.treated ? ', seen to' : ', untreated') + ')';
+        li.appendChild(words);
+        if (!injury.healed) {
+          const healBtn = document.createElement('button');
+          healBtn.type = 'button';
+          healBtn.className = 'text-btn';
+          healBtn.textContent = 'It’s healed';
+          healBtn.addEventListener('click', async () => {
+            await handMutate(ctx, [{ type: 'body.heal', name, what: injury.what }]);
+            render();
+          });
+          li.appendChild(healBtn);
+        }
+        list.appendChild(li);
+      }
+      for (const worn of strain) {
+        const li = document.createElement('li');
+        li.className = 'present-row';
+        const words = document.createElement('span');
+        words.textContent = name + ' — worn: ' + worn.what;
+        const liftBtn = document.createElement('button');
+        liftBtn.type = 'button';
+        liftBtn.className = 'text-btn';
+        liftBtn.textContent = 'It’s lifted';
+        liftBtn.addEventListener('click', async () => {
+          await handMutate(ctx, [{ type: 'body.heal', name, what: worn.what }]);
+          render();
+        });
+        li.append(words, liftBtn);
+        list.appendChild(li);
+      }
+    }
+  }
+
+  render();
+  return wrap;
+}
+
+/* ---------- on their mind (M4 — the standings between people) ---------- */
+
+const AXIS_LABELS = { p: 'Warmth (P)', r: 'Romantic pull (R)', s: 'Sensual charge (S)' };
+
+function onTheirMindPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'relationships-editor';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list';
+
+  const form = document.createElement('form');
+  form.className = 'present-form ledger-form';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.maxLength = 60;
+  nameInput.placeholder = 'Who?';
+  nameInput.setAttribute('aria-label', 'Whose feelings shifted');
+  const axisSelect = document.createElement('select');
+  axisSelect.setAttribute('aria-label', 'Which feeling moved');
+  for (const axis of AXES) {
+    const opt = document.createElement('option');
+    opt.value = axis;
+    opt.textContent = AXIS_LABELS[axis];
+    axisSelect.appendChild(opt);
+  }
+  const modeSelect = document.createElement('select');
+  modeSelect.setAttribute('aria-label', 'Shift it, or set it outright');
+  const optShift = document.createElement('option');
+  optShift.value = 'shift';
+  optShift.textContent = 'Shift by';
+  const optSet = document.createElement('option');
+  optSet.value = 'set';
+  optSet.textContent = 'Set it to';
+  modeSelect.append(optShift, optSet);
+  const amountInput = document.createElement('input');
+  amountInput.type = 'number';
+  amountInput.min = '-100';
+  amountInput.max = '100';
+  amountInput.placeholder = '0';
+  amountInput.setAttribute('aria-label', 'How much — minus means cooler');
+  const causeInput = document.createElement('input');
+  causeInput.type = 'text';
+  causeInput.maxLength = 200;
+  causeInput.placeholder = 'What earned it? (needed)';
+  causeInput.setAttribute('aria-label', 'The cause, in words — required');
+  const addBtn = document.createElement('button');
+  addBtn.type = 'submit';
+  addBtn.className = 'text-btn';
+  addBtn.textContent = 'Write it down';
+  form.append(nameInput, axisSelect, modeSelect, amountInput, causeInput, addBtn);
+
+  wrap.append(note, list, form);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = nameInput.value.trim();
+    const amount = Number(amountInput.value);
+    const cause = causeInput.value.trim();
+    if (!name || !Number.isFinite(amount) || !cause) return; // a cause, always
+    const axis = axisSelect.value;
+    const mutation = modeSelect.value === 'set'
+      ? { type: 'rel.set', name, [axis]: amount, cause }
+      : { type: 'rel.shift', name, axis, delta: amount, cause };
+    nameInput.value = amountInput.value = causeInput.value = '';
+    await handMutate(ctx, [mutation]);
+    render();
+  });
+
+  async function render() {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) {
+      note.textContent = 'Open a story and the ledger will know whose hearts these are.';
+      form.hidden = true;
+      return;
+    }
+    form.hidden = false;
+    const state = await loadState(story.id);
+    const rel = state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
+    const names = Object.keys(rel).filter((n) => rel[n] && typeof rel[n] === 'object');
+    note.textContent = names.length
+      ? 'How they stand toward the main character — warmth, pull, charge. Nothing moves without a cause.'
+      : 'No standings written yet. Feelings are only written down when something on the page earns it.';
+    for (const name of names) {
+      const entry = rel[name];
+      const li = document.createElement('li');
+      li.className = 'present-row mind-row';
+      const parts = AXES.map((axis) => axisWords(axis, entry[axis])).filter(Boolean);
+      const words = document.createElement('span');
+      words.textContent = name + ' — ' + (parts.join(', ') || 'neutral all through');
+      li.appendChild(words);
+      const since = historyWords(entry);
+      if (since) {
+        const hist = document.createElement('small');
+        hist.className = 'quiet';
+        hist.textContent = since;
+        li.appendChild(hist);
+      }
+      list.appendChild(li);
+    }
+  }
+
+  render();
+  return wrap;
+}
+
+/* ---------- what's happening elsewhere (M4 — the off-screen world) ------ */
+
+function elsewherePanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'offscreen-editor';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list';
+
+  const form = document.createElement('form');
+  form.className = 'present-form ledger-form';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.maxLength = 60;
+  nameInput.placeholder = 'Who?';
+  nameInput.setAttribute('aria-label', 'Who is elsewhere');
+  const whereInput = document.createElement('input');
+  whereInput.type = 'text';
+  whereInput.maxLength = 120;
+  whereInput.placeholder = 'Where?';
+  whereInput.setAttribute('aria-label', 'Where they’ve gone');
+  const doingInput = document.createElement('input');
+  doingInput.type = 'text';
+  doingInput.maxLength = 140;
+  doingInput.placeholder = 'What they’re at';
+  doingInput.setAttribute('aria-label', 'What they’re doing there');
+  const agendaInput = document.createElement('input');
+  agendaInput.type = 'text';
+  agendaInput.maxLength = 140;
+  agendaInput.placeholder = 'Meaning to… (if known)';
+  agendaInput.setAttribute('aria-label', 'What they mean to do next, if known');
+  const addBtn = document.createElement('button');
+  addBtn.type = 'submit';
+  addBtn.className = 'text-btn';
+  addBtn.textContent = 'Seat them there';
+  form.append(nameInput, whereInput, doingInput, agendaInput, addBtn);
+
+  wrap.append(note, list, form);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = nameInput.value.trim();
+    const location = whereInput.value.trim();
+    const activity = doingInput.value.trim();
+    if (!name || (!location && !activity)) return;
+    const agenda = agendaInput.value.trim();
+    const mutation = { type: 'offscreen.set', name, location, activity };
+    if (agenda) mutation.agenda = agenda;
+    nameInput.value = whereInput.value = doingInput.value = agendaInput.value = '';
+    await handMutate(ctx, [mutation]);
+    render();
+  });
+
+  async function render() {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) {
+      note.textContent = 'Open a story and the ledger will know whose world this is.';
+      form.hidden = true;
+      return;
+    }
+    form.hidden = false;
+    const state = await loadState(story.id);
+    const offscreen = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
+    const names = Object.keys(offscreen).filter((n) => offscreen[n] && typeof offscreen[n] === 'object');
+    note.textContent = names.length
+      ? 'Where the absent have gone. Coming back into the scene lets the note go on its own.'
+      : 'No one is written elsewhere yet. When someone leaves the page for a known place, it lands here.';
+    for (const name of names) {
+      const entry = offscreen[name];
+      const li = document.createElement('li');
+      li.className = 'present-row mind-row';
+      const words = document.createElement('span');
+      let text = name + ' — '
+        + [entry.location, entry.activity].filter((s) => typeof s === 'string' && s.trim()).join(', ');
+      if (typeof entry.agenda === 'string' && entry.agenda.trim()) {
+        text += ' (meaning to ' + entry.agenda.trim().replace(/\.+$/, '') + ')';
+      }
+      words.textContent = text;
+      const clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.className = 'text-btn';
+      clearBtn.textContent = 'Let it go';
+      clearBtn.addEventListener('click', async () => {
+        await handMutate(ctx, [{ type: 'offscreen.clear', name }]);
+        render();
+      });
+      li.append(words, clearBtn);
+      list.appendChild(li);
+    }
+  }
+
+  render();
+  return wrap;
+}
+
 /* ---------- the panels ---------- */
 
 const PANELS = [
@@ -424,6 +773,21 @@ const PANELS = [
     render: (ctx) => whosHerePanel(ctx),
   },
   {
+    id: 'holding-up',
+    title: 'How they’re holding up',
+    render: (ctx) => holdingUpPanel(ctx),
+  },
+  {
+    id: 'on-their-mind',
+    title: 'On their mind',
+    render: (ctx) => onTheirMindPanel(ctx),
+  },
+  {
+    id: 'elsewhere',
+    title: 'What’s happening elsewhere',
+    render: (ctx) => elsewherePanel(ctx),
+  },
+  {
     id: 'the-mood',
     title: 'The mood of the scene',
     render: (ctx) => moodPanel(ctx),
@@ -432,11 +796,6 @@ const PANELS = [
     id: 'what-changed',
     title: 'What changed and why',
     render: (ctx) => logPanel(ctx),
-  },
-  {
-    id: 'on-their-mind',
-    title: 'On their mind',
-    body: 'Coming as the engine wakes up.',
   },
 ];
 

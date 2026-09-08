@@ -177,3 +177,34 @@
   gap: 0.25rem;
   font-size: 0.92rem;
 }
+
+/* ---------- M4 panels: bodies, standings, elsewhere ---------- */
+
+.bodies-editor,
+.relationships-editor,
+.offscreen-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* The M4 hand forms carry several small fields; they stack instead of
+ * crowding one line. */
+.ledger-form {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.ledger-form input,
+.ledger-form select { width: 100%; }
+
+.ledger-form .radio-row { align-self: flex-start; }
+
+.mind-row {
+  flex-wrap: wrap;
+}
+
+.mind-row small {
+  flex-basis: 100%;
+  padding-left: 0.2rem;
+}

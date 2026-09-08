@@ -5,9 +5,15 @@
  * stream completes, never on the critical path, and it never throws into
  * the chat path: any failure, any garbled answer, resolves {mutations:[]}.
  *
- * Contract (SPEC.md M3):
+ * Contract (SPEC.md M3, extended by M4):
  *   extractTurn({connection, state, userText, assistantText, signal})
  *     -> {mutations:[...]} | {mutations:[]} on any failure
+ *
+ * M4 widened the vocabulary (v2): the body ledger, the standings between
+ * people, and the off-screen world. The conservatism law is restated in the
+ * prompt — only what the prose explicitly shows; injuries only when the blow
+ * lands on-page; feelings shift only from on-page acts; never invent
+ * off-screen activity for characters the prose doesn't mention.
  *
  * Provider specifics: anthropic gets an assistant prefill of "{" to force
  * JSON; openai gets response_format json_object — but only when the address
@@ -23,7 +29,7 @@
 
 import { renderStateFacts } from '../engine/state.js';
 
-const MAX_TOKENS = 400;
+const MAX_TOKENS = 600;
 const TEMPERATURE = 0;
 
 /* ---------- the in-flight tracker (the send path's courtesy wait) ---------- */
@@ -66,12 +72,21 @@ const VOCABULARY = [
   'presence.update {"type":"presence.update","name":"Mira","position":"at the window"} — when someone present moves or changes dress',
   'mode.set {"type":"mode.set","flag":"combat","reason":"blades drawn"} — flag is one of: combat, intimate, travel, socialField, isolation, group',
   'mode.clear {"type":"mode.clear","flag":"combat"} — when that mood clearly ends',
+  'body.injure {"type":"body.injure","name":"Mara","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
+  'body.strain {"type":"body.strain","name":"Mara","what":"the long climb"} — weariness short of injury, when the prose shows it',
+  'body.heal {"type":"body.heal","name":"Mara","what":"forearm"} — only when the prose says a known hurt has healed',
+  'rel.shift {"type":"rel.shift","name":"Samantha","axis":"p","delta":8,"cause":"she bandaged his hand without being asked"} — feelings toward the main character only; axis is p (warmth), r (romantic pull), or s (sensual charge); delta a small number, -20 to +20; cause REQUIRED, quoting the on-page beat that earned it',
+  'rel.set {"type":"rel.set","name":"Samantha","p":40,"cause":"the brief says they grew up together"} — rarely: only when the prose itself states where a standing starts, never as a guess',
+  'offscreen.set {"type":"offscreen.set","name":"Mira","location":"the chapel","activity":"lighting candles for the dead","agenda":"meaning to warn the abbot"} — only for a named character the prose shows leaving or shows elsewhere; never invent off-screen doings for someone the prose doesn’t mention',
+  'offscreen.clear {"type":"offscreen.clear","name":"Mira"} — when the prose says an elsewhere note no longer holds',
 ].join('\n');
 
 const SYSTEM_PROMPT = [
   'You keep the ledger for a slow, warm story told between two writers. After each',
   'page is finished, you read it and note — in small, exact changes — what shifted',
-  'in the scene: the hour, who is present, the mood of the room.',
+  'in the scene: the hour, who is present, the mood of the room, who was hurt,',
+  'how the people involved feel about the main character, and where the absent',
+  'have gone.',
   '',
   'Answer with JSON ONLY, in exactly this shape:',
   '{"mutations":[ ... ]}',
@@ -80,8 +95,11 @@ const SYSTEM_PROMPT = [
   VOCABULARY,
   '',
   'Be conservative. Write down only what the prose explicitly shows — never what it',
-  'merely hints at, never what might be true. Names keep the exact spelling the prose',
-  'uses. Time moves only when the prose says it moved. If nothing changed, return',
+  'merely hints at, never what might be true. Injuries only when the blow lands',
+  'on-page; feelings shift only from on-page acts, and every shift needs its cause',
+  'in words; never invent off-screen activity for characters the prose doesn’t',
+  'mention; when unsure, omit. Names keep the exact spelling the prose uses. Time',
+  'moves only when the prose says it moved. If nothing changed, return',
   '{"mutations":[]} — an empty list is a good and honest answer, and the most common',
   'one. No commentary, no markdown fences, no trailing words: the JSON object only.',
 ].join('\n');

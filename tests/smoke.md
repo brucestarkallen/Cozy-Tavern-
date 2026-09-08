@@ -216,3 +216,82 @@ loss; state round-trip through an IndexedDB shim. All must pass.
 - `node --check` clean on every `.js` file; the shell (now including
   js/engine/clock.js, js/engine/apply.js, js/agents/extractor.js) is in the
   service worker's cache list and the app still loads offline.
+
+---
+
+# M4 — the ledgers: bodies, standings, and the world elsewhere
+
+Run these after anything that touches the ledgers, the applier's v2
+vocabulary, the extractor's prompt, the drawer, or the state render. They
+mirror the M4 acceptance checklist in SPEC.md. The harness checks (§21) are
+Node scripts kept in /tmp during development — not shipped with the app.
+
+## 18. How they're holding up (the body ledger)
+
+1. Tell a turn where a blow lands on the page ("The beam caught Mara's
+   forearm — a crack, and she went white."). Wait a breath after the stream
+   ends; the workers read after the last token, never during.
+2. Open **The ledger → How they're holding up**: the hurt is written down —
+   what it is, how bad (a graze / a real wound / severe), and whether anyone
+   saw to it. The NEXT turn's receipt: **The state of things** carries the
+   same line, with its age on the story clock ("2h, untreated").
+3. Ages move with the clock: advance the hour by hand (The clock → +1h) and
+   the age grows. In a story with no clock set, ages count in turns instead.
+4. By hand: add a hurt (name, what, how bad, "seen to") and a weariness
+   ("A weariness"). Both are logged in What changed and why.
+5. **It's healed** marks a hurt healed: it vanishes from the panel and from
+   the state of things, but stays in the data (scars of record — reload and
+   look at the backup export if you like). **It's lifted** lets a weariness
+   go. **Take it back** undoes each.
+
+## 19. On their mind (the standings between people)
+
+1. Tell a turn where an NPC does something kind (or cruel) to the main
+   character on the page. The ledger → **On their mind** gains a line:
+   warmth (P), pull (R), charge (S) in plain words and numbers, with a
+   history note ("drew closer after the dance").
+2. Zero-init: before the first earned shift, no entry exists at all. A
+   soul with all zeros shows no line in the state of things.
+3. The NEXT turn's receipt slot 5 shows the new standing.
+4. Hand adjust: name, an axis, "Shift by" an amount — the cause field is
+   required; leaving it blank writes nothing. "Set it to" seeds a standing
+   outright (the brief's way in), also with a cause.
+5. There is no NPC↔NPC anywhere: every standing is toward the main
+   character. Undo walks each shift back.
+
+## 20. What's happening elsewhere (the off-screen world)
+
+1. A page where someone clearly leaves for a known place ("Samantha slipped
+   out toward the chapel, to light candles for the dead") → the workers seat
+   her: **What's happening elsewhere** shows where and what she's at.
+   Someone leaving without a stated where gets no seat — the prose has to say.
+2. Bring her back on the page ("Samantha came back in, shaking off the
+   rain") → the elsewhere note lets go of her on its own (presence.enter
+   auto-unseats). Taking that enter back restores the note.
+3. By hand: seat someone (name, where, what they're at, "meaning to…" if
+   known), re-seat to edit, **Let it go** to clear. All logged, all undoable.
+4. The state of things lists at most the six most recently seated, and never
+   anyone who is in the scene right now.
+
+## 21. Harness checks (Node, mocked)
+
+The M4 harness lives outside the app (see /tmp/m4-harness.mjs during
+development; rebuild per the contracts if it's gone). It covers: body aging
+by clock minutes and by turn count, healing (render-gone, data-kept),
+severity words; relationship clamps (±20 per beat, ±100 total),
+cause-required rejection, zero-init, axis lock (no NPC↔NPC exists);
+offscreen top-6-by-recency and present-skip, enter auto-unseat with undo;
+v2→v3 migration with no loss; the state-of-things budget (≤ ~1600 chars
+even with every ledger full); extractor v2 malformed/fenced/prose-wrapped
+JSON resilience and max_tokens 600; undo for every v2 type.
+`node --check` clean on every `.js` file.
+
+## 22. Regression
+
+- M1 (§1–§8), M2 (§9–§12), and M3 (§13–§17) still pass, untouched. The M3
+  harness checks (/tmp/m3-regression.mjs during development) are green.
+- The latency law still holds: exactly one streamed generation per turn;
+  the workers read afterward, and a fast second send waits (5s ceiling)
+  before assembling.
+- `node --check` clean; sw.js cache bumped (v4) with the three new engine
+  modules in the shell list; the app still loads offline.

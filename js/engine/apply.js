@@ -28,6 +28,9 @@
  */
 
 import { createClock, setClock, advanceClock, renderClock, MAX_ADVANCE_MINUTES } from './clock.js';
+import { addInjury, addStrain, findBodyKey, findInjury, SEV_WORDS } from './bodies.js';
+import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
+import { seat, findSeat } from './offscreen.js';
 
 const LOG_CAP = 200;
 
@@ -46,6 +49,12 @@ export const MODE_WORDS = {
 
 /* ---------- small helpers ---------- */
 
+/* The ledger maps are plain JSON data; a JSON round-trip is the deep copy. */
+function cloneMap(map) {
+  if (!map || typeof map !== 'object') return {};
+  try { return JSON.parse(JSON.stringify(map)); } catch (err) { return {}; }
+}
+
 function copyState(state) {
   const safe = state && typeof state === 'object' ? state : {};
   return {
@@ -54,6 +63,9 @@ function copyState(state) {
     mode: { ...(safe.mode || {}) },
     log: Array.isArray(safe.log) ? safe.log.slice() : [],
     clock: safe.clock && typeof safe.clock === 'object' ? { ...safe.clock } : safe.clock ?? null,
+    bodies: cloneMap(safe.bodies),
+    relationships: cloneMap(safe.relationships),
+    offscreen: cloneMap(safe.offscreen),
   };
 }
 
@@ -81,6 +93,25 @@ function appendLog(state, words, undo) {
   state.log.push(entry);
   if (state.log.length > LOG_CAP) state.log = state.log.slice(state.log.length - LOG_CAP);
   return entry;
+}
+
+/* M4: the story clock's minutes (null when the clock was never set) and the
+ * log's length, which the ledgers use as the turn count. */
+function clockMinutesOf(state) {
+  return state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
+}
+
+function turnOf(state) {
+  return Array.isArray(state.log) ? state.log.length : 0;
+}
+
+/* Free text the ledgers accept: cleaned, and capped so no single note can
+ * blow the state-of-things render budget. Over-long text is trimmed, not
+ * rejected — the meaning usually survives the trim. */
+function capText(value, limit) {
+  if (typeof value !== 'string') return '';
+  const clean = value.trim().replace(/\s+/g, ' ');
+  return clean.length > limit ? clean.slice(0, limit - 1).trimEnd() + '…' : clean;
 }
 
 /* ---------- the words the clock speaks ---------- */
@@ -160,7 +191,21 @@ const HANDLERS = {
     const detail = [position, attire].filter(Boolean).join(', ');
     if (detail) words += ' — ' + detail;
     words += '.';
-    return { words, undo: { kind: 'presence.remove', name: entry.name } };
+    /* M4: walking back into the scene lets go of the elsewhere note —
+     * presence.enter auto-unseats (and the undo puts the seat back). */
+    const seated = findSeat(state.offscreen, name);
+    if (seated) {
+      delete state.offscreen[seated.key];
+      words += ' The elsewhere note let go of ' + entry.name + '.';
+    }
+    return {
+      words,
+      undo: {
+        kind: 'presence.remove',
+        name: entry.name,
+        offscreenBefore: seated ? { name: seated.key, entry: seated.entry } : null,
+      },
+    };
   },
 
   'presence.leave'(state, m) {
@@ -224,6 +269,173 @@ const HANDLERS = {
     state.mode[flag] = false;
     return { words: MODE_WORDS[flag].off + '.', undo: { kind: 'mode', flag, before: true } };
   },
+
+  /* ---------- M4: the three ledgers ---------- */
+
+  'body.injure'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const what = capText(m.what, 140);
+    if (!what) return { why: 'it didn’t say what the hurt was' };
+    const key = findBodyKey(state.bodies, name) || name;
+    const before = state.bodies[key] ? cloneMap({ [key]: state.bodies[key] })[key] : null;
+    state.bodies = addInjury(
+      state.bodies, key,
+      { what, sev: m.sev, treated: m.treated },
+      clockMinutesOf(state), turnOf(state)
+    );
+    const sev = state.bodies[key].injuries[state.bodies[key].injuries.length - 1].sev;
+    const words = key + ' was hurt — ' + what + ' (' + (SEV_WORDS[sev] || SEV_WORDS[1])
+      + (m.treated ? ', seen to' : ', untreated') + ').';
+    return { words, undo: { kind: 'body.restore', name: key, before } };
+  },
+
+  'body.strain'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const what = capText(m.what, 140);
+    if (!what) return { why: 'it didn’t say what wore them down' };
+    const key = findBodyKey(state.bodies, name) || name;
+    const before = state.bodies[key] ? cloneMap({ [key]: state.bodies[key] })[key] : null;
+    state.bodies = addStrain(state.bodies, key, { what }, clockMinutesOf(state), turnOf(state));
+    return {
+      words: key + ' is worn — ' + what + '.',
+      undo: { kind: 'body.restore', name: key, before },
+    };
+  },
+
+  'body.heal'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const key = findBodyKey(state.bodies, name);
+    const body = key ? state.bodies[key] : null;
+    const injury = body ? findInjury(body, m.what) : null;
+    if (injury) {
+      const before = cloneMap({ [key]: body })[key];
+      injury.healed = true;
+      return {
+        words: key + ' is mended — ' + injury.what + ', healed.',
+        undo: { kind: 'body.restore', name: key, before },
+      };
+    }
+    /* A weariness lifts the same way a hurt heals — matched by its words,
+     * and simply let go of (strain keeps no healed flag). */
+    const wanted = normalizeName(typeof m.what === 'string' ? m.what : '').toLowerCase();
+    const strain = body && Array.isArray(body.strain) ? body.strain : [];
+    const at = wanted
+      ? strain.findIndex((s) => {
+          const have = normalizeName(s && s.what).toLowerCase();
+          return have === wanted || have.includes(wanted) || wanted.includes(have);
+        })
+      : -1;
+    if (at === -1) {
+      return { why: 'the ledger knows no such hurt on ' + name + ' still needing to heal' };
+    }
+    const before = cloneMap({ [key]: body })[key];
+    const lifted = strain[at];
+    body.strain.splice(at, 1);
+    return {
+      words: key + ' has shaken it off — ' + lifted.what + '.',
+      undo: { kind: 'body.restore', name: key, before },
+    };
+  },
+
+  'rel.shift'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const axis = typeof m.axis === 'string' ? m.axis.trim().toLowerCase() : '';
+    if (!AXES.includes(axis)) {
+      return { why: '“' + (axis || '?') + '” isn’t an axis the ledger keeps (only p, r, s — and only toward the main character)' };
+    }
+    const raw = Number(m.delta);
+    if (!Number.isFinite(raw) || raw === 0) {
+      return { why: 'it didn’t say how far the feeling moved' };
+    }
+    const cause = capText(m.cause, 200);
+    if (!cause) {
+      return { why: 'a shift between people needs its reason in words — what on the page earned it' };
+    }
+    const found = findRelationship(state.relationships, name);
+    const key = found ? found.key : name;
+    const before = found ? cloneMap({ [key]: found.rel })[key] : null;
+    state.relationships = relShift(
+      state.relationships, key,
+      { axis, delta: raw, cause },
+      clockMinutesOf(state)
+    );
+    const total = state.relationships[key][axis];
+    let words = key + ' — ' + axisWords(axis, total) + ', after ' + cause.replace(/\.+$/, '') + '.';
+    if (Math.abs(raw) > MAX_DELTA) {
+      words += ' (It asked for more; a single beat only moves so far.)';
+    }
+    return { words, undo: { kind: 'rel.restore', name: key, before } };
+  },
+
+  'rel.set'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const cause = capText(m.cause, 200);
+    if (!cause) {
+      return { why: 'writing a standing down by hand still needs its reason in words' };
+    }
+    const given = {};
+    for (const axis of AXES) {
+      const raw = Number(m[axis]);
+      if (Number.isFinite(raw)) given[axis] = Math.min(MAX_TOTAL, Math.max(-MAX_TOTAL, Math.round(raw)));
+    }
+    if (!Object.keys(given).length) {
+      return { why: 'it didn’t say where any axis stands' };
+    }
+    const found = findRelationship(state.relationships, name);
+    const key = found ? found.key : name;
+    const before = found ? cloneMap({ [key]: found.rel })[key] : null;
+    if (!found) state.relationships[key] = { p: 0, r: 0, s: 0, history: [] };
+    const rel = state.relationships[key];
+    for (const [axis, value] of Object.entries(given)) rel[axis] = value;
+    rel.history.push({
+      atMinutes: clockMinutesOf(state),
+      axis: Object.keys(given)[0],
+      delta: 0,
+      cause: 'set down by hand — ' + cause.replace(/\.+$/, ''),
+    });
+    if (rel.history.length > 30) rel.history = rel.history.slice(rel.history.length - 30);
+    const parts = AXES.map((axis) => axisWords(axis, rel[axis])).filter(Boolean);
+    const words = key + ' stands ' + (parts.join(', ') || 'neutral all through')
+      + ' — set down by hand: ' + cause.replace(/\.+$/, '') + '.';
+    return { words, undo: { kind: 'rel.restore', name: key, before } };
+  },
+
+  'offscreen.set'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const location = capText(m.location, 120);
+    const activity = capText(m.activity, 140);
+    if (!location && !activity) {
+      return { why: 'it didn’t say where they went or what they’re at' };
+    }
+    const seated = findSeat(state.offscreen, name);
+    const key = seated ? seated.key : name;
+    const before = seated ? { ...seated.entry } : null;
+    state.offscreen = seat(
+      state.offscreen, key,
+      { location, activity, agenda: capText(m.agenda, 140) },
+      clockMinutesOf(state), turnOf(state)
+    );
+    const words = 'Elsewhere: ' + key + ' — ' + [location, activity].filter(Boolean).join(', ') + '.';
+    return { words, undo: { kind: 'offscreen.restore', name: key, before } };
+  },
+
+  'offscreen.clear'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const seated = findSeat(state.offscreen, name);
+    if (!seated) return { why: 'the ledger has no elsewhere note for ' + name };
+    delete state.offscreen[seated.key];
+    return {
+      words: seated.key + '’s elsewhere note was let go.',
+      undo: { kind: 'offscreen.restore', name: seated.key, before: { ...seated.entry } },
+    };
+  },
 };
 
 /* ---------- the contract ---------- */
@@ -273,7 +485,14 @@ export function undoLast(state) {
       ok = true;
     } else if (undo.kind === 'presence.remove') {
       const at = findPresent(next, undo.name || '');
-      if (at !== -1) { next.present.splice(at, 1); ok = true; }
+      if (at !== -1) {
+        next.present.splice(at, 1);
+        /* M4: if coming in let go of an elsewhere note, put it back. */
+        if (undo.offscreenBefore && undo.offscreenBefore.entry) {
+          next.offscreen[undo.offscreenBefore.name] = { ...undo.offscreenBefore.entry };
+        }
+        ok = true;
+      }
     } else if (undo.kind === 'presence.restore') {
       const at = findPresent(next, (undo.before && undo.before.name) || '');
       if (at !== -1) next.present[at] = { ...undo.before };
@@ -281,6 +500,23 @@ export function undoLast(state) {
       ok = true;
     } else if (undo.kind === 'mode') {
       next.mode[undo.flag] = Boolean(undo.before);
+      ok = true;
+    } else if (undo.kind === 'body.restore') {
+      const key = findBodyKey(next.bodies, undo.name) || undo.name;
+      if (undo.before) next.bodies[key] = cloneMap({ [key]: undo.before })[key];
+      else delete next.bodies[key];
+      ok = true;
+    } else if (undo.kind === 'rel.restore') {
+      const found = findRelationship(next.relationships, undo.name);
+      const key = found ? found.key : undo.name;
+      if (undo.before) next.relationships[key] = cloneMap({ [key]: undo.before })[key];
+      else delete next.relationships[key];
+      ok = true;
+    } else if (undo.kind === 'offscreen.restore') {
+      const seated = findSeat(next.offscreen, undo.name);
+      const key = seated ? seated.key : undo.name;
+      if (undo.before) next.offscreen[key] = { ...undo.before };
+      else delete next.offscreen[key];
       ok = true;
     }
 
