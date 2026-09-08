@@ -162,6 +162,16 @@
           </form>
         </section>
 
+        <section class="settings-section" id="section-workers">
+          <h3>The workers</h3>
+          <p class="quiet">Quiet helpers who read each finished page and keep the ledger — the hour, who's here, the mood of the scene. They never speak while the storyteller is writing; they work only after the page is done.</p>
+          <label class="stack-label" for="worker-connection">Who does the reading</label>
+          <select id="worker-connection"></select>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="worker-extraction"> Keep the ledger for <span id="worker-story-name">this story</span></label>
+          </div>
+        </section>
+
         <section class="settings-section" id="section-appearance">
           <h3>Appearance</h3>
           <fieldset class="theme-field">
@@ -208,6 +218,11 @@
       </button>
     </div>
     <ol id="receipt-slots" class="receipt-slots"></ol>
+    <div id="receipt-after" class="receipt-after" hidden>
+      <h3>After this turn</h3>
+      <ul id="receipt-after-list" class="receipt-after-list"></ul>
+      <p id="receipt-after-note" class="quiet"></p>
+    </div>
     <p id="receipt-footer" class="quiet receipt-footer"></p>
   </aside>
   <div id="receipt-scrim" class="scrim" hidden></div>

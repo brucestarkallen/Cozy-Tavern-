@@ -2,7 +2,9 @@
  * "What the storyteller saw this turn" — the sheet that opens from the small
  * receipt line under any assistant message. One row per slot, in the order
  * the stack was built, with roughly how many tokens each carried and why it
- * was (or wasn't) there. The footer names the model and the timings.
+ * was (or wasn't) there. The footer names the model and the timings. M3 adds
+ * an "After this turn" section: the mutations the workers applied once the
+ * page was done, in the plain words the log speaks.
  *
  * The markup lives in index.html (#receipt-sheet); listeners are bound once,
  * lazily, on first open — the sheet needs no shared context.
@@ -15,6 +17,9 @@ function els() {
     sheet: document.getElementById('receipt-sheet'),
     scrim: document.getElementById('receipt-scrim'),
     slots: document.getElementById('receipt-slots'),
+    after: document.getElementById('receipt-after'),
+    afterList: document.getElementById('receipt-after-list'),
+    afterNote: document.getElementById('receipt-after-note'),
     footer: document.getElementById('receipt-footer'),
     btnClose: document.getElementById('btn-receipt-close'),
   };
@@ -43,10 +48,10 @@ export function closeReceipt() {
   setTimeout(() => { sheet.hidden = true; }, 200);
 }
 
-export function openReceipt(receipt) {
+export function openReceipt(receipt, extraction) {
   if (!receipt || !Array.isArray(receipt.slots)) return;
   wire();
-  const { sheet, scrim, slots, footer } = els();
+  const { sheet, scrim, slots, after, afterList, afterNote, footer } = els();
 
   slots.textContent = '';
   for (const slot of receipt.slots) {
@@ -72,6 +77,34 @@ export function openReceipt(receipt) {
       li.appendChild(p);
     }
     slots.appendChild(li);
+  }
+
+  /* M3 — "After this turn": what the workers made of the page, in plain
+   * words. Older pages (and stories keeping their ledger by hand) carry no
+   * extraction, and the section simply stays folded away. */
+  after.hidden = true;
+  afterList.textContent = '';
+  afterNote.textContent = '';
+  if (extraction && typeof extraction === 'object') {
+    const words = Array.isArray(extraction.appliedWords) ? extraction.appliedWords : [];
+    const rejectedCount = typeof extraction.rejectedCount === 'number' ? extraction.rejectedCount : 0;
+    after.hidden = false;
+    if (words.length) {
+      for (const w of words) {
+        const li = document.createElement('li');
+        li.textContent = w;
+        afterList.appendChild(li);
+      }
+    } else {
+      const li = document.createElement('li');
+      li.textContent = 'Nothing in the ledger changed.';
+      afterList.appendChild(li);
+    }
+    if (rejectedCount > 0) {
+      afterNote.textContent = 'The workers also offered '
+        + rejectedCount + (rejectedCount === 1 ? ' change' : ' changes')
+        + ' that didn’t hold, so nothing came of ' + (rejectedCount === 1 ? 'it' : 'them') + '.';
+    }
   }
 
   const parts = [];

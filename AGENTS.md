@@ -132,3 +132,101 @@ point at a next step; they never show a stack.
 - Receipts are written but never read by the app itself; no engine consumes
   them yet.
 
+
+---
+
+# M3 — the scene-state engine & the workers
+
+## What changed
+
+- `js/engine/clock.js` (new) — the in-world clock. State is
+  `{calendar, minutes, label, monthNames?, dayNames?}` where minutes counts
+  from the proleptic Gregorian epoch (Hinnant's days-from-civil, exact leap
+  years, no Date objects or timezones). `createClock`/`setClock`/
+  `advanceClock` are pure (fresh copies out); `advanceClock` clamps deltas
+  to 0..24*365 minutes. Custom calendars carry their own month/day names
+  and borrow the real ones for any unnamed slot. No travel ETAs — that's M4.
+- `js/engine/apply.js` (new) — the only place mutations become true.
+  Validates the closed v1 vocabulary, applies deterministically, writes a
+  plain-words line to `state.log` per change (cap 200), and stores an `undo`
+  payload on each line so `undoLast` can take it back.
+- `js/engine/state.js` (extended) — state v2: `log:[]` joins the shape,
+  present entries may carry `position`/`attire`. `loadState` migrates M2
+  states with no loss (string presence entries become `{name}`; an M2
+  `{iso,label}` clock keeps rendering until the engine sets it properly).
+  Adds `subscribe(storyId, fn)` / `notify(storyId)` — in-memory only; the
+  drawer re-renders on change.
+- `js/agents/extractor.js` (new) — the background worker. Runs AFTER the
+  stream completes, never on the critical path, and never throws into the
+  chat path: every failure is `{mutations:[]}`. Anthropic gets an assistant
+  prefill of `"{"`; OpenAI gets `response_format: json_object` only when the
+  address really is api.openai.com; everywhere relies on the tolerant parser
+  (fences stripped, first balanced `{...}` respecting strings). max_tokens
+  400, temperature 0. Also holds the in-flight tracker:
+  `noteExtraction(storyId, promise)` / `pendingExtraction(storyId, ms)`.
+- `js/ui/drawer.js` (rewritten panels) — The clock (label, set-by-hand,
+  +15m/+1h/custom advance, calendar mode + comma-list names), Who's here
+  (position/attire shown; hand add/remove now rides through mutations so
+  it's logged), The mood of the scene (plain-words checkboxes), What changed
+  and why (newest first, "Take it back" on the newest standing entry).
+  "On their mind" stays a stub — M4.
+- `js/ui/settings.js` (extended) — The workers: agent connection picker
+  (`workerConnectionId` setting; '' = same as the storyteller) and the
+  per-story extraction toggle (`story.extraction`, default on).
+- `js/ui/chat.js` (extended) — fires the extractor after the assistant page
+  is saved (fire-and-forget); the send path awaits
+  `pendingExtraction(storyId, 5000)` before assembling; writes
+  `msg.extraction = {appliedWords, rejectedCount}` back onto the same
+  assistant message and re-renders its receipt line.
+- `js/ui/receiptview.js` (extended) — `openReceipt(receipt, extraction)`;
+  the sheet ends with "After this turn" when an extraction exists.
+- `js/store.js` (additive) — `messages.append` passes `extraction` through
+  the same way it passes `receipt`; re-appending a message with its id
+  re-inks the page (that's how the extraction lands after the fact).
+- `sw.js` — cache bumped to v3; the three new modules joined the shell list.
+
+## The mutation vocabulary (v1 — closed list; unknown types rejected)
+
+```
+clock.set {year,month,day,hour,minute}     clock.advance {minutes, reason}
+presence.enter {name, position?, attire?}  presence.leave {name}
+presence.update {name, position?, attire?}
+mode.set {flag, reason}                    mode.clear {flag}
+```
+flag ∈ combat, intimate, travel, socialField, isolation, group. Names
+normalize (trim, collapse whitespace; matching is case-insensitive, stored
+casing wins). `applyMutations(state, mutations)` → `{state, applied:
+[{mutation, words}], rejected: [{mutation, why}]}` — `words` is the sentence
+the log speaks. `undoLast(state)` → `{state, words}` | null.
+
+## Contracts to preserve (added in M3)
+
+- `clock.js`: `createClock({calendar, start})`, `setClock(state, parts)`,
+  `advanceClock(state, deltaMinutes, reason)`, `renderClock(state)`.
+- `apply.js`: `applyMutations`, `undoLast`, plus `MODE_FLAGS`/`MODE_WORDS`
+  (the drawer's mood panel shares the words).
+- `state.js`: v2 shape + `subscribe`/`notify`.
+- `extractor.js`: `extractTurn({connection, state, userText, assistantText,
+  signal})` → `{mutations}` — never throws; `noteExtraction` /
+  `pendingExtraction` — the send path's courtesy wait.
+
+## The latency law, restated
+
+One streamed generation per user turn. The extractor fires only after the
+stream completes and its promise is never awaited by the turn that fired it.
+The NEXT send awaits `pendingExtraction(storyId, 5000)` — hard ceiling, then
+last-good state — before `buildRequest`. State consistency without prose
+ever waiting on the workers.
+
+## Seams for M4 (do not fill early)
+
+- `state.bodies`, `state.relationships`, `state.offscreen`, `state.factions`
+  exist and `renderStateFacts` already passes anything in them along, but no
+  engine writes them. "On their mind" in the drawer is their panel.
+- The clock doesn't derive travel ETAs; that rides with the offscreen engine.
+- `state.log` entries carry `undo` payloads beyond the documented
+  `{ts, words, undone}` — the additive piece undoLast needs. Keep them when
+  touching the log shape.
+- The extractor's vocabulary is v1-closed; M4 engines (bodies,
+  relationships) will want new mutation types — extend HANDLERS in apply.js
+  and the prompt's vocabulary list together, never one without the other.

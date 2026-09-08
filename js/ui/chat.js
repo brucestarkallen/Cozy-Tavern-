@@ -9,7 +9,9 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState } from '../engine/state.js';
+import { loadState, saveState, notify } from '../engine/state.js';
+import { applyMutations } from '../engine/apply.js';
+import { extractTurn, noteExtraction, pendingExtraction } from '../agents/extractor.js';
 import { openReceipt } from './receiptview.js';
 
 export function initChat(ctx) {
@@ -168,13 +170,15 @@ export function initChat(ctx) {
   /* ---------- thread ---------- */
 
   /* The small receipt line under an assistant message: opens "What the
-   * storyteller saw this turn". Only messages that carry a receipt get it. */
-  function receiptNode(receipt) {
+   * storyteller saw this turn". Only messages that carry a receipt get it.
+   * M3: the extraction (what the workers made of the turn) rides along and
+   * shows up in the sheet's "After this turn" once it lands. */
+  function receiptNode(receipt, extraction) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'msg-receipt';
     btn.textContent = 'What the storyteller saw';
-    btn.addEventListener('click', () => openReceipt(receipt));
+    btn.addEventListener('click', () => openReceipt(receipt, extraction));
     return btn;
   }
 
@@ -187,7 +191,7 @@ export function initChat(ctx) {
     body.textContent = msg.text;
     article.appendChild(body);
     if (msg.role === 'assistant' && msg.receipt) {
-      article.appendChild(receiptNode(msg.receipt));
+      article.appendChild(receiptNode(msg.receipt, msg.extraction));
     }
     return article;
   }
@@ -227,6 +231,65 @@ export function initChat(ctx) {
     return all.find((c) => c.id === wanted) || all[0] || null;
   }
 
+  /* M3: the workers may use a connection of their own (Settings → The
+   * workers); by default they borrow the one telling the story. */
+  async function resolveWorkerConnection() {
+    const wanted = await db.settings.get('workerConnectionId');
+    if (wanted) {
+      const all = await db.connections.list();
+      const found = all.find((c) => c.id === wanted);
+      if (found) return found;
+    }
+    return resolveConnection();
+  }
+
+  /* M3: fire the extractor once a page is finished — never awaited here, so
+   * the stream's end stays the end of the turn. The WHOLE job (read, apply,
+   * save) is what the tracker notes, so the NEXT send waits until the ledger
+   * is truly written — consistency, not just courtesy (the latency law). */
+  function startExtraction(story, msg, userText) {
+    const work = (async () => {
+      try {
+        const connection = await resolveWorkerConnection();
+        if (!connection) return;
+        const stateBefore = await loadState(story.id);
+        const { mutations } = await extractTurn({
+          connection,
+          state: stateBefore,
+          userText,
+          assistantText: msg.text,
+        });
+        const list = Array.isArray(mutations) ? mutations : [];
+
+        /* Re-load at apply time — the ledger may have been touched by hand
+         * while the worker was reading. */
+        const fresh = await loadState(story.id);
+        const { state: next, applied, rejected } = applyMutations(fresh, list);
+        if (applied.length) {
+          await saveState(story.id, next);
+          notify(story.id);
+        }
+
+        /* Write what came of it back onto the SAME assistant message, then
+         * re-render the receipt line so "After this turn" can speak. */
+        msg.extraction = {
+          appliedWords: applied.map((a) => a.words),
+          rejectedCount: rejected.length,
+        };
+        await db.messages.append(story.id, msg);
+        const node = els.thread.querySelector(`.msg[data-id="${msg.id}"]`);
+        if (node && msg.receipt) {
+          const old = node.querySelector('.msg-receipt');
+          if (old) old.remove();
+          node.appendChild(receiptNode(msg.receipt, msg.extraction));
+        }
+      } catch (err) {
+        /* the workers fail quietly — the chat path never hears about it */
+      }
+    })();
+    noteExtraction(story.id, work);
+  }
+
   async function gatherSettings() {
     return {
       frameText: await db.settings.get('frameText'),
@@ -255,7 +318,11 @@ export function initChat(ctx) {
     const settingsValues = await gatherSettings();
     /* M2: the assembler also wants the ledger state and the rulebook. The
      * acoustics predicate reads the story's cast notes, so they ride along
-     * on the state copy handed to selectModules (see modules.js). */
+     * on the state copy handed to selectModules (see modules.js).
+     * M3 (the latency law): if the workers are still reading the previous
+     * page, the send path waits for them — hard five-second ceiling, then we
+     * go on with last-good state — BEFORE the assembler looks at anything. */
+    await pendingExtraction(story.id, 5000);
     const state = await loadState(story.id);
     const allModules = await listModules();
     const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '' });
@@ -320,10 +387,18 @@ export function initChat(ctx) {
     if (full.trim()) {
       const saved = await db.messages.append(story.id, { role: 'assistant', text: full, receipt });
       pending.dataset.id = saved.id;
-      if (saved.receipt) pending.appendChild(receiptNode(saved.receipt));
+      if (saved.receipt) pending.appendChild(receiptNode(saved.receipt, saved.extraction));
       stories = await db.stories.list();
       renderStoryList();
       if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+
+      /* M3: the page is finished — hand it to the workers, in the
+       * background, only if this story keeps its ledger (default: it does).
+       * The workers never touch the stream; they read what it left behind. */
+      if (story.extraction !== false) {
+        const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
+        startExtraction(story, saved, lastUser ? lastUser.text : '');
+      }
     } else {
       pending.remove();
     }

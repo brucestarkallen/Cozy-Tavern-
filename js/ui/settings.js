@@ -2,6 +2,7 @@
  * Connections (add / change / test / let go, with presets), The Frame and
  * The Note at the End (global + per-story override), The Brief and Who's
  * here (per story), The rulebook (M2: pin, edit, fork, write your own),
+ * The workers (M3: who reads for the ledger, and whether they do),
  * appearance, backup.
  */
 
@@ -43,6 +44,9 @@ export function initSettings(ctx) {
     btnExport: document.getElementById('btn-export'),
     importFile: document.getElementById('import-file'),
     backupNote: document.getElementById('backup-note'),
+    workerConn: document.getElementById('worker-connection'),
+    workerExtraction: document.getElementById('worker-extraction'),
+    workerStoryName: document.getElementById('worker-story-name'),
   };
 
   let editingId = null;
@@ -143,6 +147,9 @@ export function initSettings(ctx) {
       li.append(top, result, row);
       els.connList.appendChild(li);
     }
+
+    /* keep the workers' picker in step with who's available */
+    renderWorkers();
   }
 
   function fillFromPreset() {
@@ -401,6 +408,43 @@ export function initSettings(ctx) {
     }
   }
 
+  /* ---------- the workers (M3) ---------- */
+
+  /* Who reads each finished page for the ledger. '' means "the same one
+   * telling the story". The per-story toggle defaults on; a story with
+   * extraction:false keeps its ledger by hand alone. */
+  async function renderWorkers() {
+    const all = await db.connections.list();
+    const wanted = await db.settings.get('workerConnectionId');
+    els.workerConn.textContent = '';
+    const same = document.createElement('option');
+    same.value = '';
+    same.textContent = 'The same one telling the story';
+    els.workerConn.appendChild(same);
+    for (const conn of all) {
+      const opt = document.createElement('option');
+      opt.value = conn.id;
+      opt.textContent = conn.label;
+      els.workerConn.appendChild(opt);
+    }
+    els.workerConn.value = wanted && all.some((c) => c.id === wanted) ? wanted : '';
+
+    const story = await activeStory();
+    els.workerStoryName.textContent = story ? `“${story.title}”` : 'this story';
+    els.workerExtraction.checked = story ? story.extraction !== false : true;
+    els.workerExtraction.disabled = !story;
+  }
+
+  els.workerConn.addEventListener('change', async () => {
+    await db.settings.set('workerConnectionId', els.workerConn.value || null);
+  });
+
+  els.workerExtraction.addEventListener('change', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    await db.stories.update(story.id, { extraction: els.workerExtraction.checked });
+  });
+
   /* ---------- appearance ---------- */
 
   async function loadTheme() {
@@ -466,6 +510,7 @@ export function initSettings(ctx) {
     await renderConnections();
     await loadPromptSlots();
     await renderRulebook();
+    await renderWorkers();
     await loadTheme();
   }
 

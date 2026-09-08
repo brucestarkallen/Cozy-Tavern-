@@ -4,7 +4,7 @@
  * and are never cached or intercepted. */
 'use strict';
 
-const CACHE = 'cozytavern-shell-v2';
+const CACHE = 'cozytavern-shell-v3';
 
 const SHELL = [
   './',
@@ -22,6 +22,9 @@ const SHELL = [
   'js/assemble/modules.js',
   'js/assemble/receipt.js',
   'js/engine/state.js',
+  'js/engine/clock.js',
+  'js/engine/apply.js',
+  'js/agents/extractor.js',
   'js/ui/chat.js',
   'js/ui/settings.js',
   'js/ui/drawer.js',

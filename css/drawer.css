@@ -91,3 +91,89 @@
 .present-form input { flex: 1; min-width: 0; }
 
 .present-form[hidden] { display: none; }
+
+/* ---------- M3 live panels: the clock, the mood, the log ---------- */
+
+.clock-editor,
+.calendar-editor,
+.mood-editor,
+.log-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.clock-label {
+  font-family: var(--font-prose);
+  font-size: 1rem;
+  color: var(--ink) !important;
+}
+
+.clock-set-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: flex-end;
+}
+
+.clock-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  flex: 1 1 4rem;
+  min-width: 3.4rem;
+}
+
+.clock-field input { width: 100%; }
+
+.calendar-editor select,
+.calendar-editor input { width: 100%; }
+
+.mood-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.mood-row { cursor: pointer; }
+
+.log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.log-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
+.log-row.undone { color: var(--ink-soft); }
+
+/* ---------- the receipt's "After this turn" ---------- */
+
+.receipt-after {
+  margin-top: 1rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
+}
+
+.receipt-after h3 { font-size: 1rem; margin-bottom: 0.35rem; }
+
+.receipt-after-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.92rem;
+}

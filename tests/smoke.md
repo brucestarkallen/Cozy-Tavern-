@@ -140,3 +140,79 @@ receipt. They mirror the M2 acceptance checklist in SPEC.md.
      state and rulebook pins/overrides, which ride in the settings store),
    - `node --check` clean on every `.js` file.
 
+
+---
+
+# M3 — the scene-state engine & the workers
+
+Run these after anything that touches the clock, the applier, the extractor,
+the ledger drawer, or the send path. They mirror the M3 acceptance checklist
+in SPEC.md. The mocked-LLM checks (§16) are Node harnesses kept in /tmp
+during development — not shipped with the app.
+
+## 13. The clock comes alive
+
+1. Tell a story turn where time clearly passes ("Half an hour later, the
+   walk to the chapel behind them…"). When the page finishes, wait a breath
+   (the workers read after the last token, never during).
+2. Open **The ledger → The clock**: the hour has moved on. If the clock was
+   never set, prose that fixes a time ("It was two in the afternoon") sets it.
+3. Next turn's receipt: **The state of things** carries "The hour: …".
+4. By hand: The clock panel → set the time (year/month/day/hour/minute) →
+   **Set the clock**; the +15m / +1h buttons and the minutes field move it
+   on. Each move appears in **What changed and why** in plain words.
+5. Calendar: switch to **A calendar of its own**, write month and day names
+   (comma lists), **Keep the names** — the clock speaks them, borrowing the
+   real names for any slot left blank.
+
+## 14. Who's here & the mood of the scene
+
+1. A page where someone clearly leaves ("Samantha slipped out into the
+   rain") → the ledger's Who's here loses her; **What changed and why** says
+   so in a sentence; **Take it back** on the newest entry walks her back in.
+2. A page that turns to combat → **The mood of the scene** shows "A fight is
+   on" checked; the NEXT turn's receipt loads "When words won’t carry it"
+   with the reason from the state ("talk has given way — the moment is
+   contested").
+3. Hand add/remove in Who's here still works and is logged the same way;
+   mood checkboxes toggle by hand, logged the same way.
+4. Position and attire, when the prose shows them, appear beside the name —
+   and ride the next turn's slot 5.
+
+## 15. The workers & the send path
+
+1. Settings → **The workers**: pick who does the reading (default: the same
+   one telling the story). The choice survives a reload.
+2. Uncheck **Keep the ledger for this story** → send turns → no changes in
+   What changed and why, chat entirely unaffected. Re-check → the workers
+   resume.
+3. Rapid second send while the workers are still reading (send again the
+   moment the stream ends): the send waits for them — hard ceiling of five
+   seconds, then it goes on with last-good state. The next turn's receipt
+   shows the consistent state (harness-verified too).
+4. Under an assistant reply, **What the storyteller saw** → the sheet now
+   ends with **After this turn**: each applied change in plain words, or
+   "Nothing in the ledger changed." Reload — it persists on the message.
+5. Point the workers at a connection that will answer garbage (or take the
+   device offline mid-extraction): nothing breaks, no error in the thread,
+   the ledger simply doesn't move.
+
+## 16. Harness checks (Node, mocked)
+
+The M3 harnesses live outside the app. To re-run them, recreate per the
+contracts: clock set/advance/render incl. custom calendars; applyMutations
+validation (junk rejected with reasons, name normalization, delta clamps);
+undoLast reversibility; extractor with a mocked provider (clean JSON, fenced
+JSON, prose-wrapped JSON, garbage → `{"mutations":[]}`); the send path
+awaiting an in-flight extraction (5s ceiling); state v1→v2 migration without
+loss; state round-trip through an IndexedDB shim. All must pass.
+
+## 17. Regression
+
+- M1 (§1–§8) and M2 (§9–§12) still pass, untouched.
+- Exactly one streamed generation per user turn: devtools → Network shows
+  the storytelling call, then (after the stream ends) at most one small,
+  cold worker call. Never a worker call before or during the stream.
+- `node --check` clean on every `.js` file; the shell (now including
+  js/engine/clock.js, js/engine/apply.js, js/agents/extractor.js) is in the
+  service worker's cache list and the app still loads offline.

@@ -19,6 +19,10 @@
  * also lets go of its ledger state (stored under the settings key
  * `state:<storyId>`). Both ride along in backups through the existing
  * stores — no schema change.
+ *
+ * M3 addition: messages may also carry `extraction` — what the background
+ * worker made of the finished turn (js/agents/extractor.js), passed through
+ * by append the same way the receipt is.
  */
 
 const DB_NAME = 'cozytavern.v1';
@@ -181,6 +185,11 @@ const messages = {
     /* The Receipt (M2): a per-turn record of what was sent, kept right on
      * the assistant message it describes. */
     if (msg.receipt && typeof msg.receipt === 'object') row.receipt = msg.receipt;
+    /* M3: what the extractor made of the turn ({appliedWords, rejectedCount}),
+     * written back onto the same assistant message once the workers finish.
+     * Appending a message with an existing id simply re-inks the page, so
+     * this passthrough is how the extraction lands after the fact. */
+    if (msg.extraction && typeof msg.extraction === 'object') row.extraction = msg.extraction;
     await run('messages', 'readwrite', (s) => s.put(row));
     // Touch the story so last-active sorting stays honest.
     const story = await stories.get(storyId);
