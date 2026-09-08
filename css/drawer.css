@@ -1,0 +1,53 @@
+/* Cozy Tavern — right drawer: the story's ledger. */
+
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  z-index: 50;
+  width: min(20rem, 88vw);
+  background: var(--paper-raised);
+  border-left: 1px solid var(--line);
+  box-shadow: -4px 0 24px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  padding-top: calc(1rem + env(safe-area-inset-top));
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  transform: translateX(105%);
+  transition: transform 180ms ease;
+  overflow-y: auto;
+}
+
+.drawer[hidden] { display: none; }
+.drawer.open { transform: translateX(0); }
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.drawer-head h2 { font-size: 1.2rem; }
+
+.drawer-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ledger-panel h3 {
+  font-size: 1.05rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.5rem;
+}
+
+.ledger-panel p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}

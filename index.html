@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cozy Tavern</title>
+  <meta name="description" content="A quiet place to tell stories, one exchange at a time.">
+  <meta name="theme-color" content="#f6f1e7">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/chat.css">
+  <link rel="stylesheet" href="css/drawer.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="btn-stories" class="icon-btn" type="button" aria-label="Show your stories" aria-expanded="false">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <h1 class="brand">Cozy Tavern</h1>
+    <div class="topbar-actions">
+      <button id="btn-settings" class="text-btn" type="button">Settings</button>
+      <button id="btn-ledger" class="text-btn" type="button">The ledger</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Chat view -->
+    <section id="view-chat" class="view view-chat">
+      <aside id="story-panel" class="story-panel" aria-label="Your stories">
+        <div class="story-panel-head">
+          <h2>Your stories</h2>
+          <button id="btn-new-story" class="text-btn" type="button">Start a new story</button>
+        </div>
+        <form id="new-story-form" class="new-story-form" hidden>
+          <input id="new-story-title" type="text" maxlength="80" placeholder="Name the tale…" autocomplete="off">
+          <div class="row">
+            <button type="submit" class="btn">Keep it</button>
+            <button type="button" id="btn-cancel-story" class="text-btn">Not now</button>
+          </div>
+        </form>
+        <ul id="story-list" class="story-list"></ul>
+        <p id="story-list-empty" class="quiet" hidden>No tales yet. When one begins, it will wait for you here.</p>
+      </aside>
+      <div id="story-scrim" class="scrim" hidden></div>
+
+      <section class="thread-wrap" aria-label="The story so far">
+        <div id="thread" class="thread"></div>
+        <p id="thread-empty" class="thread-empty quiet" hidden>Nothing on the page yet. Say something to begin.</p>
+        <form id="composer" class="composer">
+          <label for="composer-input" class="visually-hidden">What's next?</label>
+          <textarea id="composer-input" rows="2" placeholder="What's next?"></textarea>
+          <div class="composer-actions">
+            <button id="btn-send" class="btn" type="submit">Send</button>
+            <button id="btn-stop" class="btn btn-quiet" type="button" hidden>Stop</button>
+          </div>
+        </form>
+      </section>
+    </section>
+
+    <!-- Settings view -->
+    <section id="view-settings" class="view view-settings" hidden>
+      <div class="settings-column">
+        <h2 class="settings-title">Settings</h2>
+        <p class="quiet">Everything here stays on this device, except the words you send to your chosen storyteller.</p>
+
+        <section class="settings-section" id="section-connections">
+          <h3>Connections</h3>
+          <p class="quiet">Who tells the story with you. The key lives only on this device and travels nowhere but to them.</p>
+          <ul id="connection-list" class="connection-list"></ul>
+          <p id="connection-list-empty" class="quiet" hidden>No connections yet. Add one and the tavern can open its doors.</p>
+          <button id="btn-add-connection" class="btn" type="button">Add a connection</button>
+
+          <form id="connection-form" class="connection-form" hidden>
+            <h4 id="connection-form-title">A new connection</h4>
+            <label>Start from
+              <select id="conn-preset">
+                <option value="claude">Claude</option>
+                <option value="openai">OpenAI</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label>Call it
+              <input id="conn-label" type="text" maxlength="60" placeholder="e.g. Claude at home" autocomplete="off">
+            </label>
+            <label>Address
+              <input id="conn-baseurl" type="url" placeholder="https://api.anthropic.com" autocomplete="off" spellcheck="false">
+            </label>
+            <label>Key
+              <input id="conn-apikey" type="password" placeholder="The key they gave you" autocomplete="off" spellcheck="false">
+            </label>
+            <label>Model
+              <input id="conn-model" type="text" placeholder="claude-sonnet-4-5" autocomplete="off" spellcheck="false">
+            </label>
+            <div class="row">
+              <button type="submit" class="btn">Keep it</button>
+              <button type="button" id="btn-conn-cancel" class="text-btn">Not now</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="settings-section" id="section-frame">
+          <h3>The frame</h3>
+          <p class="quiet">The standing word given to the storyteller before anything else. It shapes every tale.</p>
+          <label class="stack-label" for="frame-global">For every story</label>
+          <textarea id="frame-global" rows="8" spellcheck="false"></textarea>
+          <div class="row"><button id="btn-save-frame" class="btn" type="button">Keep it</button><span id="frame-saved" class="quiet" hidden>Kept.</span></div>
+
+          <label class="stack-label" for="frame-story">Just for <span id="frame-story-name">this story</span></label>
+          <textarea id="frame-story" rows="6" spellcheck="false" placeholder="Leave empty and the story borrows the one above."></textarea>
+          <div class="row"><button id="btn-save-frame-story" class="btn" type="button">Keep it</button><span id="frame-story-saved" class="quiet" hidden>Kept.</span></div>
+        </section>
+
+        <section class="settings-section" id="section-note">
+          <h3>The note at the end</h3>
+          <p class="quiet">A last quiet word, slipped in right before the storyteller writes. Small, steady, always there.</p>
+          <label class="stack-label" for="note-global">For every story</label>
+          <textarea id="note-global" rows="5" spellcheck="false"></textarea>
+          <div class="row"><button id="btn-save-note" class="btn" type="button">Keep it</button><span id="note-saved" class="quiet" hidden>Kept.</span></div>
+
+          <label class="stack-label" for="note-story">Just for <span id="note-story-name">this story</span></label>
+          <textarea id="note-story" rows="4" spellcheck="false" placeholder="Leave empty and the story borrows the one above."></textarea>
+          <div class="row"><button id="btn-save-note-story" class="btn" type="button">Keep it</button><span id="note-story-saved" class="quiet" hidden>Kept.</span></div>
+        </section>
+
+        <section class="settings-section" id="section-appearance">
+          <h3>Appearance</h3>
+          <fieldset class="theme-field">
+            <legend class="visually-hidden">Theme</legend>
+            <label class="radio-row"><input type="radio" name="theme" value="system"> Follow the sky — light by day, dark by night</label>
+            <label class="radio-row"><input type="radio" name="theme" value="light"> Daylight</label>
+            <label class="radio-row"><input type="radio" name="theme" value="dark"> Lamplight</label>
+          </fieldset>
+        </section>
+
+        <section class="settings-section" id="section-backup">
+          <h3>Backup</h3>
+          <p class="quiet">Everything — stories, words, connections, the frame and the note — folded into one file you can carry elsewhere.</p>
+          <div class="row">
+            <button id="btn-export" class="btn" type="button">Take a copy</button>
+            <label class="btn btn-quiet file-btn">Bring a copy back
+              <input id="import-file" type="file" accept="application/json,.json" hidden>
+            </label>
+          </div>
+          <p id="backup-note" class="quiet" hidden></p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <!-- Right drawer: the story's ledger -->
+  <aside id="drawer" class="drawer" role="dialog" aria-modal="false" aria-label="The story's ledger" hidden>
+    <div class="drawer-head">
+      <h2>The story's ledger</h2>
+      <button id="btn-drawer-close" class="icon-btn" type="button" aria-label="Close the ledger">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="drawer-panels" class="drawer-panels"></div>
+  </aside>
+  <div id="drawer-scrim" class="scrim" hidden></div>
+
+  <!-- Message context menu -->
+  <div id="msg-menu" class="msg-menu" role="menu" hidden>
+    <button type="button" role="menuitem" data-act="copy">Copy the words</button>
+    <button type="button" role="menuitem" data-act="regenerate">Rewrite from here</button>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
