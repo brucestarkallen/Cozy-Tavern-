@@ -74,10 +74,69 @@ is exercised here in the browser.
 ## 7. The ledger
 
 1. **The ledger** (top right) slides in: "Who's here", "The clock",
-   "On their mind", each saying "Coming as the engine wakes up."
+   "On their mind". The clock and mind still say "Coming as the engine wakes
+   up." Who's here is real now (see §9).
 2. Esc, the ×, or tapping the dimmed page closes it.
 
 ## 8. Voice sweep
 
 Read every visible string aloud. Nothing corporate, nothing gamey, no
 version numbers, no "success!". Errors point at a next step.
+
+---
+
+# M2 — the assembler & the receipt
+
+Run these after anything that touches the stack, the rulebook, state, or the
+receipt. They mirror the M2 acceptance checklist in SPEC.md.
+
+## 9. The receipt, end to end
+
+1. Send a turn. Under the reply, a small line reads **"What the storyteller
+   saw"**. Tap it.
+2. The sheet "What the storyteller saw this turn" opens and lists all ten
+   slots in order: The frame, The craft, The brief, Who's here, The state of
+   things, Active modules, What remains, The story so far, The note at the
+   end, The continue nudge — each with ~tokens (or "not part of this turn").
+3. Footer names the model, "First word in X.Xs", and the total time.
+4. Older messages keep their receipts after a reload (they persist on the
+   message).
+
+## 10. The rulebook
+
+1. Settings → **The rulebook** lists four house rules; The craft is "always
+   on", the others say when they wake.
+2. Pin **When the scene turns intimate** → send a turn → the receipt's
+   Active modules row names it with "pinned on by you". Unpin → next turn's
+   receipt no longer names it.
+3. **Read & change the words** on a builtin, edit, **Keep it** → the card
+   shows "— your version". **Put back the original** restores the shipped text.
+4. **Write a rule of your own**, pin it on, send a turn → it rides in the
+   [story-state] injection (visible in the request payload via devtools).
+
+## 11. The brief & who's here (per story)
+
+1. With a story open: Settings → **The brief** → write a line, **Keep it**.
+   Next turn's receipt: The brief's token count matches the new text;
+   devtools shows it as the third system block (anthropic) / inside the
+   single system message (openai).
+2. Settings → **Who's here**: write cast notes with a name marked she/her.
+   The ledger → Who's here → add that same name. Next turn: slot 4 includes
+   both, and The sound of a voice wakes on its own (receipt says
+   "a she/her voice is in the scene").
+3. Edit the global **frame** → next turn's receipt: slot 1's tokens change.
+4. Add two names in the ledger's Who's here → next receipt's slot 4 includes
+   them. Reload the page → the ledger still lists them.
+5. The receipt's footer shows real timings from the streamed turn, and
+   "The state of things" carries who is present.
+
+## 12. The continue nudge & regression
+
+1. Send "continue" as a message → the request's messages end with
+   "Go on." just before The note at the end; the note stays last.
+2. M1 regression: everything in §1–§8 still passes, including:
+   - the frame edit showing up in the request payload (§4),
+   - export → wipe → import restoring everything (now including ledger
+     state and rulebook pins/overrides, which ride in the settings store),
+   - `node --check` clean on every `.js` file.
+

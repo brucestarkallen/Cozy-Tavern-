@@ -10,9 +10,15 @@
  *   db.messages.list(storyId) / append(storyId, msg)
  *   db.exportAll() -> JSON string; db.importAll(json) -> restore
  *
- * Two additive helpers beyond the contract, needed by the chat UI the spec
+ * Two additive helpers beyond the M1 contract, needed by the chat UI the spec
  * requires (rename, regenerate): db.stories.update(id, patch) and
  * db.messages.deleteFrom(storyId, messageId).
+ *
+ * M2 additions: messages keep an optional `receipt` (the record of what was
+ * sent that turn — see js/assemble/receipt.js), and letting go of a story
+ * also lets go of its ledger state (stored under the settings key
+ * `state:<storyId>`). Both ride along in backups through the existing
+ * stores — no schema change.
  */
 
 const DB_NAME = 'cozytavern.v1';
@@ -138,7 +144,7 @@ const stories = {
   },
   async remove(id) {
     await run('stories', 'readwrite', (s) => s.delete(id));
-    // Let the story's pages go with it.
+    // Let the story's pages go with it, and its ledger state too (M2).
     const pages = await messages.list(id);
     const d = await openDB();
     await new Promise((resolve, reject) => {
@@ -148,6 +154,7 @@ const stories = {
       t.oncomplete = () => resolve();
       t.onerror = () => reject(t.error);
     });
+    await run('settings', 'readwrite', (s) => s.delete('state:' + id));
   },
 };
 
@@ -171,6 +178,9 @@ const messages = {
       text: typeof msg.text === 'string' ? msg.text : '',
       ts: msg.ts || Date.now(),
     };
+    /* The Receipt (M2): a per-turn record of what was sent, kept right on
+     * the assistant message it describes. */
+    if (msg.receipt && typeof msg.receipt === 'object') row.receipt = msg.receipt;
     await run('messages', 'readwrite', (s) => s.put(row));
     // Touch the story so last-active sorting stays honest.
     const story = await stories.get(storyId);

@@ -1,11 +1,14 @@
 /* Cozy Tavern — ui/settings.js
  * Connections (add / change / test / let go, with presets), The Frame and
- * The Note at the End (global + per-story override), appearance, backup.
+ * The Note at the End (global + per-story override), The Brief and Who's
+ * here (per story), The rulebook (M2: pin, edit, fork, write your own),
+ * appearance, backup.
  */
 
 import { db } from '../store.js';
 import { createProvider, presetById } from '../providers/index.js';
 import { STARTER_FRAME, STARTER_NOTE } from '../assemble/stack.js';
+import { listModules, saveModule, removeModule } from '../assemble/modules.js';
 
 export function initSettings(ctx) {
   const els = {
@@ -26,6 +29,17 @@ export function initSettings(ctx) {
     noteGlobal: document.getElementById('note-global'),
     noteStory: document.getElementById('note-story'),
     noteStoryName: document.getElementById('note-story-name'),
+    briefStory: document.getElementById('brief-story'),
+    briefStoryName: document.getElementById('brief-story-name'),
+    castStory: document.getElementById('cast-story'),
+    castStoryName: document.getElementById('cast-story-name'),
+    moduleList: document.getElementById('module-list'),
+    btnAddModule: document.getElementById('btn-add-module'),
+    modForm: document.getElementById('module-form'),
+    modFormTitle: document.getElementById('module-form-title'),
+    modName: document.getElementById('mod-name'),
+    modText: document.getElementById('mod-text'),
+    btnModCancel: document.getElementById('btn-mod-cancel'),
     btnExport: document.getElementById('btn-export'),
     importFile: document.getElementById('import-file'),
     backupNote: document.getElementById('backup-note'),
@@ -219,13 +233,21 @@ export function initSettings(ctx) {
     const storyName = story ? `“${story.title}”` : 'this story';
     els.frameStoryName.textContent = storyName;
     els.noteStoryName.textContent = storyName;
+    els.briefStoryName.textContent = storyName;
+    els.castStoryName.textContent = storyName;
     els.frameStory.value = (story && story.frameOverride) || '';
     els.noteStory.value = (story && story.noteOverride) || '';
+    els.briefStory.value = (story && story.brief) || '';
+    els.castStory.value = (story && story.castNotes) || '';
     const hasStory = Boolean(story);
     els.frameStory.disabled = !hasStory;
     els.noteStory.disabled = !hasStory;
+    els.briefStory.disabled = !hasStory;
+    els.castStory.disabled = !hasStory;
     document.getElementById('btn-save-frame-story').disabled = !hasStory;
     document.getElementById('btn-save-note-story').disabled = !hasStory;
+    document.getElementById('btn-save-brief').disabled = !hasStory;
+    document.getElementById('btn-save-cast').disabled = !hasStory;
   }
 
   document.getElementById('btn-save-frame').addEventListener('click', async () => {
@@ -248,6 +270,136 @@ export function initSettings(ctx) {
     await db.stories.update(story.id, { noteOverride: els.noteStory.value });
     flash('note-story-saved');
   });
+  document.getElementById('btn-save-brief').addEventListener('click', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    await db.stories.update(story.id, { brief: els.briefStory.value });
+    flash('brief-saved');
+  });
+  document.getElementById('btn-save-cast').addEventListener('click', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    await db.stories.update(story.id, { castNotes: els.castStory.value });
+    flash('cast-saved');
+  });
+
+  /* ---------- the rulebook (M2) ---------- */
+
+  let editingModuleId = null;
+  let editingModulePinned = false;
+
+  function openModuleForm(mod) {
+    editingModuleId = mod ? mod.id : null;
+    editingModulePinned = mod ? mod.pinned : true;
+    els.modForm.hidden = false;
+    els.modFormTitle.textContent = mod
+      ? (mod.source === 'builtin' ? `Changing “${mod.name}” — your version stands in for the original` : `Changing “${mod.name}”`)
+      : 'A rule of your own';
+    els.modName.value = mod ? mod.name : '';
+    els.modText.value = mod ? mod.text : '';
+    els.modName.focus();
+  }
+
+  els.btnAddModule.addEventListener('click', () => openModuleForm(null));
+  els.btnModCancel.addEventListener('click', () => { els.modForm.hidden = true; editingModuleId = null; });
+
+  els.modForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = els.modText.value.trim();
+    if (!text) return;
+    /* Editing a builtin forks it: the saved copy shadows the original,
+     * which stays restorable (see modules.js). A rule of your own starts
+     * pinned on, so it joins the stack right away. */
+    await saveModule({
+      id: editingModuleId || undefined,
+      name: els.modName.value,
+      text,
+      pinned: editingModulePinned,
+    });
+    els.modForm.hidden = true;
+    editingModuleId = null;
+    renderRulebook();
+  });
+
+  async function renderRulebook() {
+    const modules = await listModules();
+    els.moduleList.textContent = '';
+
+    for (const mod of modules) {
+      const li = document.createElement('li');
+      li.className = 'connection-card' + (mod.pinned ? ' active' : '');
+
+      const top = document.createElement('div');
+      top.className = 'connection-top';
+      const name = document.createElement('span');
+      name.className = 'connection-name';
+      name.textContent = mod.name;
+      const when = document.createElement('span');
+      when.className = 'connection-kind';
+      when.textContent = mod.whenWords || 'on when you pin it';
+      top.append(name, when);
+      if (mod.overridden) {
+        const tag = document.createElement('span');
+        tag.className = 'connection-active-tag';
+        tag.textContent = '— your version';
+        top.appendChild(tag);
+      }
+      li.appendChild(top);
+
+      const pinRow = document.createElement('label');
+      pinRow.className = 'radio-row';
+      const pin = document.createElement('input');
+      pin.type = 'checkbox';
+      pin.checked = mod.pinned;
+      pin.addEventListener('change', async () => {
+        await saveModule({ id: mod.id, name: mod.name, text: mod.text, pinned: pin.checked });
+        renderRulebook();
+      });
+      const pinLabel = document.createElement('span');
+      pinLabel.textContent = 'Pinned on — in the stack every turn';
+      pinRow.append(pin, pinLabel);
+      li.appendChild(pinRow);
+
+      const row = document.createElement('div');
+      row.className = 'row';
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'text-btn';
+      editBtn.textContent = 'Read & change the words';
+      editBtn.addEventListener('click', () => openModuleForm(mod));
+      row.appendChild(editBtn);
+
+      if (mod.overridden) {
+        const restoreBtn = document.createElement('button');
+        restoreBtn.type = 'button';
+        restoreBtn.className = 'text-btn';
+        restoreBtn.textContent = 'Put back the original';
+        restoreBtn.addEventListener('click', async () => {
+          await removeModule(mod.id);
+          renderRulebook();
+        });
+        row.appendChild(restoreBtn);
+      }
+
+      if (mod.custom) {
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'text-btn';
+        removeBtn.textContent = 'Let go';
+        removeBtn.addEventListener('click', async () => {
+          const sure = window.confirm(`Let go of “${mod.name}”? The rule leaves the book for good.`);
+          if (!sure) return;
+          await removeModule(mod.id);
+          renderRulebook();
+        });
+        row.appendChild(removeBtn);
+      }
+
+      li.appendChild(row);
+      els.moduleList.appendChild(li);
+    }
+  }
 
   /* ---------- appearance ---------- */
 
@@ -313,6 +465,7 @@ export function initSettings(ctx) {
   async function onShow() {
     await renderConnections();
     await loadPromptSlots();
+    await renderRulebook();
     await loadTheme();
   }
 

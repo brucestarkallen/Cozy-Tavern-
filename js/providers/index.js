@@ -2,10 +2,12 @@
  * The registry and factory. One interface for every storyteller:
  *   createProvider(connection) -> {
  *     test(): Promise<{ok, detail}>,
- *     streamChat({system, messages, signal, onToken}): Promise<string>
+ *     streamChat({systemBlocks|system, messages, signal, onToken})
+ *       : Promise<{text, ttftMs, durationMs}>
  *   }
- * Presets feed the connection form in Settings; each is just a starting
- * point the user can edit.
+ * `systemBlocks` is the M2 assembler's shape ([{text, cache}]); the M1
+ * plain-string `system` is still accepted. Presets feed the connection form
+ * in Settings; each is just a starting point the user can edit.
  */
 
 import { createAnthropicProvider } from './anthropic.js';

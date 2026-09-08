@@ -7,6 +7,10 @@
 import { db } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { buildRequest } from '../assemble/stack.js';
+import { finalizeReceipt } from '../assemble/receipt.js';
+import { listModules, selectModules } from '../assemble/modules.js';
+import { loadState } from '../engine/state.js';
+import { openReceipt } from './receiptview.js';
 
 export function initChat(ctx) {
   const els = {
@@ -163,6 +167,17 @@ export function initChat(ctx) {
 
   /* ---------- thread ---------- */
 
+  /* The small receipt line under an assistant message: opens "What the
+   * storyteller saw this turn". Only messages that carry a receipt get it. */
+  function receiptNode(receipt) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'msg-receipt';
+    btn.textContent = 'What the storyteller saw';
+    btn.addEventListener('click', () => openReceipt(receipt));
+    return btn;
+  }
+
   function msgNode(msg) {
     const article = document.createElement('article');
     article.className = `msg msg-${msg.role}`;
@@ -171,6 +186,9 @@ export function initChat(ctx) {
     body.className = 'msg-body';
     body.textContent = msg.text;
     article.appendChild(body);
+    if (msg.role === 'assistant' && msg.receipt) {
+      article.appendChild(receiptNode(msg.receipt));
+    }
     return article;
   }
 
@@ -235,7 +253,19 @@ export function initChat(ctx) {
 
     const history = await db.messages.list(story.id);
     const settingsValues = await gatherSettings();
-    const { system, messages } = buildRequest({ story, messages: history, settings: settingsValues });
+    /* M2: the assembler also wants the ledger state and the rulebook. The
+     * acoustics predicate reads the story's cast notes, so they ride along
+     * on the state copy handed to selectModules (see modules.js). */
+    const state = await loadState(story.id);
+    const allModules = await listModules();
+    const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '' });
+    const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({
+      story,
+      messages: history,
+      settings: settingsValues,
+      state,
+      modules: selected,
+    });
     const provider = createProvider(connection);
 
     const pending = document.createElement('article');
@@ -251,9 +281,10 @@ export function initChat(ctx) {
     els.btnSend.disabled = true;
 
     let full = '';
+    let receipt = null;
     try {
-      full = await provider.streamChat({
-        system,
+      const result = await provider.streamChat({
+        systemBlocks,
         messages,
         signal: abort.signal,
         onToken(piece) {
@@ -263,9 +294,16 @@ export function initChat(ctx) {
           if (stick) scrollToBottom();
         },
       });
+      full = result.text;
+      receipt = finalizeReceipt(receiptDraft, {
+        ttftMs: result.ttftMs,
+        durationMs: result.durationMs,
+        model: connection.model || '',
+      });
     } catch (err) {
       if (err && err.name === 'AbortError') {
-        /* stopped by hand — keep whatever arrived */
+        /* stopped by hand — keep whatever arrived; no receipt, the turn
+         * never finished telling itself */
       } else {
         pending.replaceWith(noteNode(err.message || 'The storyteller went quiet. Try again in a moment.'));
         full = '';
@@ -280,8 +318,9 @@ export function initChat(ctx) {
 
     pending.classList.remove('pending');
     if (full.trim()) {
-      const saved = await db.messages.append(story.id, { role: 'assistant', text: full });
+      const saved = await db.messages.append(story.id, { role: 'assistant', text: full, receipt });
       pending.dataset.id = saved.id;
+      if (saved.receipt) pending.appendChild(receiptNode(saved.receipt));
       stories = await db.stories.list();
       renderStoryList();
       if (ctx.onStoriesChanged) ctx.onStoriesChanged();

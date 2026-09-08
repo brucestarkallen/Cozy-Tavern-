@@ -1,8 +1,11 @@
 /* Cozy Tavern — providers/openai.js
  * OpenAI-compatible chat completions (OpenAI, OpenRouter, or a custom
  * address), streamed over SSE.
- * Contract: { test(): Promise<{ok, detail}>,
- *             streamChat({system, messages, signal, onToken}): Promise<string> }
+ * Contract (M2): { test(): Promise<{ok, detail}>,
+ *   streamChat({systemBlocks|system, messages, signal, onToken})
+ *     : Promise<{text, ttftMs, durationMs}> }
+ * ttftMs is the time from fetch start to the first content token;
+ * durationMs from fetch start to the end of the stream.
  */
 
 const DEFAULT_BASE = 'https://api.openai.com';
@@ -113,12 +116,25 @@ export function createOpenAIProvider(connection) {
     }
   }
 
-  async function streamChat({ system, messages, signal, onToken }) {
-    const systemText = Array.isArray(system) ? system.join('\n\n') : system;
+  async function streamChat({ systemBlocks: blocks, system, messages, signal, onToken }) {
+    /* System mapping (SPEC.md M2): the cache:true blocks concatenate into a
+     * single system message. Dynamic slots travel as user messages inside
+     * `messages` — never as system — on this mapping. The M1 legacy `system`
+     * (string or array of strings) still works, unchanged. */
+    let systemText;
+    if (Array.isArray(blocks) && blocks.length) {
+      systemText = blocks
+        .filter((b) => b && b.cache && typeof b.text === 'string' && b.text.length)
+        .map((b) => b.text)
+        .join('\n\n');
+    } else {
+      systemText = Array.isArray(system) ? system.join('\n\n') : system;
+    }
     const wire = [];
     if (systemText) wire.push({ role: 'system', content: systemText });
     for (const m of messages) wire.push({ role: m.role, content: m.content });
 
+    const startedAt = Date.now();
     let res;
     try {
       res = await fetch(`${base}/v1/chat/completions`, {
@@ -140,10 +156,12 @@ export function createOpenAIProvider(connection) {
 
     let full = '';
     let refusal = '';
+    let ttftMs = null;
     await readSSE(res.body, (data) => {
       const piece = data && data.choices && data.choices[0];
       const text = piece && piece.delta && piece.delta.content;
       if (typeof text === 'string' && text) {
+        if (ttftMs === null) ttftMs = Date.now() - startedAt;
         full += text;
         if (onToken) onToken(text);
       } else if (data && data.error) {
@@ -151,7 +169,8 @@ export function createOpenAIProvider(connection) {
       }
     });
     if (refusal && !full) throw new Error(refusal);
-    return full;
+    const durationMs = Date.now() - startedAt;
+    return { text: full, ttftMs: ttftMs === null ? durationMs : ttftMs, durationMs };
   }
 
   return { test, streamChat };

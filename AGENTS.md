@@ -65,3 +65,70 @@ point at a next step; they never show a stack.
 - Store changes go through `db` only — no direct `indexedDB` calls elsewhere.
 - New user-facing copy gets read aloud once before shipping. If it sounds
   like software, rewrite it.
+
+---
+
+# M2 — what changed, and what to hold onto
+
+## What changed
+
+- `js/assemble/stack.js` was rewritten into the full ten-slot, cache-aware
+  assembler. The export name `buildRequest` and the starter texts did not
+  move. The slot order is law — see the header comment in the file.
+- `js/assemble/modules.js` (new) — the rulebook: builtin + user modules,
+  pins, predicate stubs, persistence. Builtin texts are condensed from the
+  V176 audit, 300–600 words each, no emoji headers.
+- `js/assemble/receipt.js` (new) — token estimation (ceil(chars/4)) and
+  `finalizeReceipt`. Receipts persist on the assistant message
+  (`msg.receipt`) and open via "What the storyteller saw" under each reply.
+- `js/engine/state.js` (new) — the per-story state object. M2 writes only
+  `present` by hand (the ledger's Who's here panel). Everything else is the
+  M3 engine's to fill.
+- `js/ui/receiptview.js` (new) — the receipt sheet.
+- Providers: `streamChat` now resolves `{text, ttftMs, durationMs}` and
+  accepts `systemBlocks` ([{text, cache}]) alongside the M1 string `system`.
+- `js/ui/settings.js` gained The rulebook, plus per-story The brief and
+  Who's here (cast notes). `js/ui/drawer.js`'s Who's here panel is real.
+
+## Contracts added (M2)
+
+- `buildRequest({story, messages, settings, state, modules})` →
+  `{systemBlocks:[{text, cache}], messages, receipt:ReceiptDraft}` where
+  `modules` is the selected list from `selectModules` ([{mod, reason}]).
+- `state.js`: `emptyState()`, `loadState(id)`, `saveState(id, state)`,
+  `renderStateFacts(state)` → string | `''`.
+- `modules.js`: `listModules()`, `saveModule(mod)`, `removeModule(id)`,
+  `selectModules(modules, state)` → `[{mod, reason}]`. Predicates are
+  keyed (`always`/`intimate`/`combat`/`acoustics`) because functions can't
+  persist; saved rows re-attach by key. Editing a builtin forks it (a user
+  row with the same id); removing the fork restores the original.
+- `receipt.js`: `finalizeReceipt(draft, {ttftMs, durationMs, model})` →
+  `{v:1, ts, slots:[{name,tokens,source,reason}], totalTokens, ttftMs,
+  durationMs, model, stateSummary}`.
+- Providers: `streamChat({systemBlocks|system, messages, signal, onToken})`
+  → `{text, ttftMs, durationMs}`. Anthropic: system array, `cache_control`
+  ephemeral on the LAST cache:true block. OpenAI: cache:true blocks
+  concatenate into ONE system message; dynamic slots are user messages,
+  never system.
+- Wire mapping (documented in stack.js): slots 1–4 → systemBlocks;
+  slots 5–6 → ONE user message marked `[story-state]` at the FRONT of the
+  messages array; slot 8 = history; slot 10 (when it fires) just before
+  slot 9; slot 9 (the note) is always the LAST message.
+- State and rulebook persistence ride in the settings store
+  (`state:<storyId>`, `modules`) — no schema change, and backups carry both.
+
+## Known seams for M3 (do not fill early)
+
+- `state.js` keys `clock`, `mode`, `bodies`, `relationships`, `offscreen`,
+  `factions`, `threads` are the engine's to write. `renderStateFacts`
+  already renders anything present.
+- Module predicates read hand-set state. The acoustics heuristic is
+  documented in modules.js: a present name counts as she/her when the
+  story's cast notes (passed in as `state.castNotes` by the send path) mark
+  it so, or when the ledger name itself carries "(she/her)". M3's event
+  extraction replaces the hand-setting, not the predicates.
+- Slot 7 (What remains) is recorded on every receipt, sent as nothing — the
+  memory slot, M6.
+- Receipts are written but never read by the app itself; no engine consumes
+  them yet.
+

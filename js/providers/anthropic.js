@@ -1,7 +1,10 @@
 /* Cozy Tavern — providers/anthropic.js
  * Claude's messages API, streamed over SSE, ready for prompt caching.
- * Contract: { test(): Promise<{ok, detail}>,
- *             streamChat({system, messages, signal, onToken}): Promise<string> }
+ * Contract (M2): { test(): Promise<{ok, detail}>,
+ *   streamChat({systemBlocks|system, messages, signal, onToken})
+ *     : Promise<{text, ttftMs, durationMs}> }
+ * ttftMs is the time from fetch start to the first content token;
+ * durationMs from fetch start to the end of the stream.
  */
 
 const DEFAULT_BASE = 'https://api.anthropic.com';
@@ -41,10 +44,27 @@ async function explain(res) {
   return `Claude said no, and didn’t say why (${res.status}).`;
 }
 
-/* System prompt as an array of blocks, with cache_control on the last one
- * so the stable frame prefix is cached provider-side and TTFT stays low. */
-function systemBlocks(system) {
-  const texts = Array.isArray(system) ? system : [system];
+/* System prompt, two shapes:
+ * - M2 `systemBlocks`: [{text, cache:true|false}] from the assembler. Each
+ *   becomes a text block; the LAST block marked cache:true carries
+ *   cache_control ephemeral, so the stable frame prefix is cached
+ *   provider-side and TTFT stays low.
+ * - M1 legacy `system`: a plain string (or array of strings). Kept working;
+ *   the last block gets cache_control as before. */
+function systemBlocks(systemBlocksArg, legacySystem) {
+  if (Array.isArray(systemBlocksArg) && systemBlocksArg.length) {
+    const blocks = systemBlocksArg
+      .filter((b) => b && typeof b.text === 'string' && b.text.length)
+      .map((b) => ({ type: 'text', text: b.text, cache: Boolean(b.cache) }));
+    let lastCached = -1;
+    blocks.forEach((b, i) => { if (b.cache) lastCached = i; });
+    return blocks.map((b, i) => {
+      const wire = { type: 'text', text: b.text };
+      if (i === lastCached) wire.cache_control = { type: 'ephemeral' };
+      return wire;
+    });
+  }
+  const texts = Array.isArray(legacySystem) ? legacySystem : [legacySystem];
   const blocks = texts
     .filter((t) => typeof t === 'string' && t.length)
     .map((t) => ({ type: 'text', text: t }));
@@ -115,7 +135,8 @@ export function createAnthropicProvider(connection) {
     }
   }
 
-  async function streamChat({ system, messages, signal, onToken }) {
+  async function streamChat({ systemBlocks: blocks, system, messages, signal, onToken }) {
+    const startedAt = Date.now();
     let res;
     try {
       res = await fetch(`${base}/v1/messages`, {
@@ -125,7 +146,7 @@ export function createAnthropicProvider(connection) {
         body: JSON.stringify({
           model: connection.model || 'claude-sonnet-4-5',
           max_tokens: MAX_TOKENS,
-          system: systemBlocks(system),
+          system: systemBlocks(blocks, system),
           messages,
           stream: true,
         }),
@@ -138,8 +159,10 @@ export function createAnthropicProvider(connection) {
 
     let full = '';
     let refusal = '';
+    let ttftMs = null;
     await readSSE(res.body, (data) => {
       if (data.type === 'content_block_delta' && data.delta && data.delta.type === 'text_delta') {
+        if (ttftMs === null) ttftMs = Date.now() - startedAt;
         full += data.delta.text;
         if (onToken) onToken(data.delta.text);
       } else if (data.type === 'error' && data.error) {
@@ -147,7 +170,8 @@ export function createAnthropicProvider(connection) {
       }
     });
     if (refusal && !full) throw new Error(refusal);
-    return full;
+    const durationMs = Date.now() - startedAt;
+    return { text: full, ttftMs: ttftMs === null ? durationMs : ttftMs, durationMs };
   }
 
   return { test, streamChat };

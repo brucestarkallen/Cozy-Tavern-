@@ -125,6 +125,43 @@
           <div class="row"><button id="btn-save-note-story" class="btn" type="button">Keep it</button><span id="note-story-saved" class="quiet" hidden>Kept.</span></div>
         </section>
 
+        <section class="settings-section" id="section-brief">
+          <h3>The brief</h3>
+          <p class="quiet">What this one story is about, in a few lines of your own. It reaches the storyteller right after the frame.</p>
+          <label class="stack-label" for="brief-story">Just for <span id="brief-story-name">this story</span></label>
+          <textarea id="brief-story" rows="5" spellcheck="false" placeholder="A quiet tale about…"></textarea>
+          <div class="row"><button id="btn-save-brief" class="btn" type="button">Keep it</button><span id="brief-saved" class="quiet" hidden>Kept.</span></div>
+        </section>
+
+        <section class="settings-section" id="section-cast">
+          <h3>Who's here</h3>
+          <p class="quiet">The cast of this story, in your own words — who's who, and how they'd sign their names. A name marked she/her helps one of the house rules wake at the right moment.</p>
+          <label class="stack-label" for="cast-story">Just for <span id="cast-story-name">this story</span></label>
+          <textarea id="cast-story" rows="5" spellcheck="false" placeholder="Mira — she/her — a cartographer paying off an old debt…"></textarea>
+          <div class="row"><button id="btn-save-cast" class="btn" type="button">Keep it</button><span id="cast-saved" class="quiet" hidden>Kept.</span></div>
+        </section>
+
+        <section class="settings-section" id="section-rulebook">
+          <h3>The rulebook</h3>
+          <p class="quiet">House rules the storyteller keeps in mind. Some wake on their own when the scene calls for them; any of them can be pinned on by hand, and you can write your own.</p>
+          <ul id="module-list" class="connection-list"></ul>
+          <button id="btn-add-module" class="btn" type="button">Write a rule of your own</button>
+
+          <form id="module-form" class="connection-form" hidden>
+            <h4 id="module-form-title">A rule of your own</h4>
+            <label>Call it
+              <input id="mod-name" type="text" maxlength="80" placeholder="e.g. The house style" autocomplete="off">
+            </label>
+            <label>The rule itself
+              <textarea id="mod-text" rows="8" spellcheck="false" placeholder="In your own words — the storyteller reads this when the rule is on."></textarea>
+            </label>
+            <div class="row">
+              <button type="submit" class="btn">Keep it</button>
+              <button type="button" id="btn-mod-cancel" class="text-btn">Not now</button>
+            </div>
+          </form>
+        </section>
+
         <section class="settings-section" id="section-appearance">
           <h3>Appearance</h3>
           <fieldset class="theme-field">
@@ -161,6 +198,19 @@
     <div id="drawer-panels" class="drawer-panels"></div>
   </aside>
   <div id="drawer-scrim" class="scrim" hidden></div>
+
+  <!-- Receipt sheet: what the storyteller saw this turn -->
+  <aside id="receipt-sheet" class="receipt-sheet" role="dialog" aria-modal="false" aria-label="What the storyteller saw this turn" hidden>
+    <div class="receipt-head">
+      <h2>What the storyteller saw this turn</h2>
+      <button id="btn-receipt-close" class="icon-btn" type="button" aria-label="Put the receipt away">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <ol id="receipt-slots" class="receipt-slots"></ol>
+    <p id="receipt-footer" class="quiet receipt-footer"></p>
+  </aside>
+  <div id="receipt-scrim" class="scrim" hidden></div>
 
   <!-- Message context menu -->
   <div id="msg-menu" class="msg-menu" role="menu" hidden>
