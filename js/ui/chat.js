@@ -34,8 +34,10 @@
  *  - Commands: #question/#p/#pp/#continue/#time and ((…)) / // asides are
  *    parsed in the composer (commands.js), shown as a chip, and ride the
  *    request as a hidden directive. OOC turns do no state work.
- *  - Fate replay: a swipe or rewrite re-asks with the SAME verdict unless
- *    the writer's words changed (referee.verdictFor).
+ *  - Committed fate (M11): the referee fires pre-generation when its local
+ *    gate passes; a swipe or rewrite replays the SAME verdict unless the
+ *    writer's words changed — then the world rewinds and the die rolls
+ *    fresh (referee.refereeStep).
  */
 
 import { db } from '../store.js';
@@ -46,7 +48,7 @@ import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork } from '../agents/extractor.js';
-import { shouldAdjudicate, verdictFor, cacheVerdict } from '../agents/referee.js';
+import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory } from '../agents/memory.js';
 import { checkTurn } from '../agents/continuity.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
@@ -754,12 +756,40 @@ export function initChat(ctx) {
       }
     });
     noteWork(story.id, checking);
+
+    /* 4. The sheet seeder (M11): on the first turns and after a fight lets
+     * go, the actor sheet fills itself in the background. It never blocks a
+     * turn and never troubles the chat path when it can't. */
+    const seeding = checking.then(async () => {
+      try {
+        const connection = await resolveWorkerConnection(story);
+        if (!connection) return;
+        const { signal, done } = workerSignal();
+        try {
+          await maybeSeedSheet({ connection, storyId: story.id, signal });
+        } finally {
+          done();
+        }
+      } catch (err) { /* the seeder's trouble is its own */ }
+    });
+    noteWork(story.id, seeding);
   }
 
   async function gatherSettings() {
     return {
       frameText: await db.settings.get('frameText'),
       noteText: await db.settings.get('noteText'),
+    };
+  }
+
+  /* M11: the referee's dials (Settings → The referee). `on` is the master
+   * switch; the rest shape the gate and the engine. */
+  async function refereeSettings() {
+    return {
+      on: (await db.settings.get('refereeOn')) !== false,
+      sensitivity: (await db.settings.get('refereeSensitivity')) || 'normal',
+      preset: (await db.settings.get('refereePreset')) || 'realistic',
+      fightStyle: (await db.settings.get('refereeFightStyle')) || 'tracked',
     };
   }
 
@@ -841,34 +871,43 @@ export function initChat(ctx) {
       await pendingWork(story.id, 5000);
       let state = await loadState(story.id);
 
-      /* M6: the referee — the ONLY agent call allowed before the story
-       * generation, and only when the trigger law fires. M9 (fate replay):
-       * the same words replay the same verdict — a swipe or rewrite never
-       * re-rolls the die; only changed words earn a fresh roll. OOC turns
-       * never see the referee. */
+      /* M11: the autonomous referee — the ONLY agent call allowed before
+       * the story generation, and only when its local gate passes (a fight
+       * in progress bypasses the gate). Committed fate: the same words
+       * replay the same verdict — a swipe or rewrite never re-rolls;
+       * changed words rewind the world to before the old turn and roll
+       * fresh; deleted or branched-away suffixes rewind with them. OOC
+       * turns never see the referee. On ANY failure it degrades to
+       * nothing: no injection, and the story simply goes on. */
       const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
       const userText = lastUser ? pageText(lastUser) : '';
-      if (!ooc && shouldAdjudicate({ userText, state })) {
-        const { signal, done } = workerSignal();
+      if (!ooc && lastUser) {
+        const { signal, done } = workerSignal(12000); /* the referee's 12s budget */
         try {
-          const workerConnection = await resolveWorkerConnection(story);
-          const ruling = workerConnection
-            ? await verdictFor({ connection: workerConnection, userText, state, signal })
-            : null;
-          if (ruling && ruling.verdict) {
-            state = {
-              ...state,
-              pendingVerdict: ruling.verdict,
-              lastVerdict: ruling.verdict,
-              verdicts: ruling.replayed
-                ? state.verdicts
-                : cacheVerdict(state.verdicts, ruling.hash, ruling.verdict),
-            };
+          const refSettings = await refereeSettings();
+          if (refSettings.on) {
+            const workerConnection = await resolveWorkerConnection(story);
+            const step = await refereeStep({
+              connection: workerConnection,
+              userText,
+              userId: lastUser.id,
+              history,
+              state,
+              settings: refSettings,
+              signal,
+            });
+            state = (step && step.state) || state;
+            if (step && step.ruling) {
+              state = { ...state, pendingVerdict: step.ruling, lastVerdict: step.ruling };
+            }
+            /* The referee's timeline and fight state move even on quiet
+             * turns — save whatever the step settled. */
             await saveState(story.id, state);
             notify(story.id); // the drawer's "The house has ruled" listens
-            await noteWorkerRun(story.id, 'referee', { ok: true });
-          } else {
-            await noteWorkerRun(story.id, 'referee', { ok: false, why: 'no ruling' });
+            await noteWorkerRun(story.id, 'referee', {
+              ok: !step || step.status !== 'degraded',
+              why: (step && step.why) || '',
+            });
           }
         } catch (err) {
           /* a failed ruling never blocks the turn */

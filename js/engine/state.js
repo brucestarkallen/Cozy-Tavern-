@@ -38,6 +38,7 @@ import { renderBodies } from './bodies.js';
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen } from './offscreen.js';
 import { renderCanon } from './canon.js';
+import { renderFightLine, mcName } from './duels.js';
 
 const KEY_PREFIX = 'state:';
 
@@ -58,10 +59,17 @@ export const emptyState = () => ({
   relationships: {},
   offscreen: {},
   canon: {},                // {[name]: {facts:[{key, value, atMinutes}]}} — what's true of them (M6)
-  pendingVerdict: null,     // the referee's ruling, consumed by the next buildRequest (M6)
+  pendingVerdict: null,     // the referee's ruling, consumed by the next buildRequest (M6; the directive rides the "The house has ruled" tail slot in M11)
   lastVerdict: null,        // its echo, kept for the drawer's "The house has ruled" line (M6)
   factions: {},
   threads: [],
+  /* M11: the referee's world. */
+  sheet: { actors: {}, playerName: '' }, // how they measure — 0-10 ratings, domains, lasting conditions
+  duel: null,             // the live duel engine state (engine/duels.js), null when no duel is joined
+  battle: null,           // the live battle/war engine state, null when none is joined
+  composure: null,        // the player's nerve pool (null = untouched; starts at the setting's max)
+  refHistory: [],         // the committed-fate timeline: [{key, msgId, verdict, snap, at}] cap 12
+  seedDueAfterFight: false, // set when a fight lets go — the sheet seeder's cue
 });
 
 /* ---------- pub/sub: the drawer listens for the engine ---------- */
@@ -185,13 +193,60 @@ function migrateCanon(canon) {
 }
 
 /* v4: a verdict rides only if it's shaped like one; anything else is let
- * go (a half-written ruling should never reach the storyteller). */
+ * go (a half-written ruling should never reach the storyteller). M6-era
+ * verdicts carried {dc, roll, outcome, words}; M11 verdicts carry
+ * {kind, tier, words, directive}. Both speak plain words — that is the
+ * shape that matters here. */
 function migrateVerdict(verdict) {
   if (!verdict || typeof verdict !== 'object') return null;
-  if (!Number.isFinite(verdict.dc) || !Number.isFinite(verdict.roll)
-    || typeof verdict.outcome !== 'string' || typeof verdict.words !== 'string'
-    || !verdict.words.trim()) return null;
-  return { ...verdict, margin: Number.isFinite(verdict.margin) ? verdict.margin : verdict.roll - verdict.dc };
+  if (typeof verdict.words !== 'string' || !verdict.words.trim()) return null;
+  return { ...verdict };
+}
+
+/* v5 (M11): the referee's world — the actor sheet, live fights, the nerve
+ * pool, and the committed-fate timeline. */
+function migrateSheet(sheet) {
+  if (!sheet || typeof sheet !== 'object') return { actors: {}, playerName: '' };
+  const actors = {};
+  const raw = sheet.actors && typeof sheet.actors === 'object' ? sheet.actors : {};
+  for (const [name, a] of Object.entries(raw)) {
+    if (!a || typeof a !== 'object') continue;
+    const entry = { ...a };
+    entry.default = Number.isFinite(a.default) ? Math.min(10, Math.max(0, a.default)) : 5;
+    const domains = {};
+    if (a.domains && typeof a.domains === 'object') {
+      for (const [d, v] of Object.entries(a.domains)) {
+        if (Number.isFinite(v)) domains[String(d).toLowerCase()] = Math.min(10, Math.max(0, v));
+      }
+    }
+    entry.domains = domains;
+    if (Array.isArray(a.conditions)) {
+      entry.conditions = a.conditions
+        .filter((c) => c && typeof c === 'object' && typeof c.name === 'string' && c.name.trim() && Number.isFinite(c.mod))
+        .slice(0, 8);
+      if (!entry.conditions.length) delete entry.conditions;
+    } else {
+      delete entry.conditions;
+    }
+    if (!name.trim()) continue;
+    actors[name.trim()] = entry;
+  }
+  return {
+    actors,
+    playerName: typeof sheet.playerName === 'string' ? sheet.playerName.trim().slice(0, 60) : '',
+  };
+}
+
+function migrateFight(fight) {
+  if (!fight || typeof fight !== 'object' || fight.active !== true) return null;
+  return fight; /* shape is the engine's own; it coerces defensively as it runs */
+}
+
+function migrateRefHistory(hist) {
+  if (!Array.isArray(hist)) return [];
+  return hist
+    .filter((e) => e && typeof e === 'object' && typeof e.key === 'string')
+    .slice(-12);
 }
 
 /* Merge whatever was saved over a fresh state, so fields added in later
@@ -232,6 +287,13 @@ function normalize(saved) {
   next.canon = migrateCanon(saved.canon);
   next.pendingVerdict = migrateVerdict(saved.pendingVerdict);
   next.lastVerdict = migrateVerdict(saved.lastVerdict);
+  /* M11 (v5). */
+  next.sheet = migrateSheet(saved.sheet);
+  next.duel = migrateFight(saved.duel);
+  next.battle = migrateFight(saved.battle);
+  next.composure = Number.isFinite(saved.composure) ? Math.max(0, saved.composure) : null;
+  next.refHistory = migrateRefHistory(saved.refHistory);
+  next.seedDueAfterFight = saved.seedDueAfterFight === true;
   return next;
 }
 
@@ -272,13 +334,19 @@ export function renderStateFacts(state) {
    * budget pinches (higher sheds sooner). */
   const sections = [];
 
-  /* M6: the referee's ruling, when one stands, rides at the head of the
-   * facts and is never shed — the whole point of the ruling is that the
-   * storyteller sees it this turn. chat.js clears it once the turn is
-   * assembled (consume-and-clear). */
-  const verdict = state.pendingVerdict;
-  if (verdict && typeof verdict === 'object' && typeof verdict.words === 'string' && verdict.words.trim()) {
-    sections.push({ shed: 0, text: 'The house has ruled: ' + verdict.words.trim() });
+  /* M11: a fight that stands is the freshest fact of the scene and never
+   * sheds. (The referee's ruling itself no longer rides here — it has its
+   * own "The house has ruled" slot in the dynamic tail, assemble/stack.js.) */
+  const fightLine = renderFightLine(state);
+  if (fightLine) sections.push({ shed: 0, text: fightLine });
+
+  /* M11: the player's nerve, when it's fraying — the storyteller should
+   * let strain show without ever speaking numbers. The pool's max rides the
+   * settings (3..12); half of the smallest pool is 1.5, so "fraying" below
+   * 3 is a fair reading of the ported schedule across every setting. */
+  if (Number.isFinite(state.composure)) {
+    if (state.composure < 1.5) sections.push({ shed: 1, text: mcName(state) + ' is near breaking — the strain shows.' });
+    else if (state.composure < 3) sections.push({ shed: 1, text: mcName(state) + '\'s nerve is fraying.' });
   }
 
   if (state.clock && typeof state.clock === 'object') {

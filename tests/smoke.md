@@ -558,3 +558,12 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 58. Ledger edits ride the same validated mutations as everything else; rulebook text edits propose as cards.
 59. The director: New episode / Next / Seed / edit; auto mode writes the next when one concludes; [EPISODE_END] never shows in prose.
 60. The editor's standing notes ride when enabled; both showrunner notes are named on the receipt.
+
+## M11 — the autonomous referee
+- [ ] Settings → The referee: master switch, readiness (conservative/normal/aggressive), world tilt (gritty/realistic/heroic), fight keeping (tracked/outcome-only) — all persist across reload.
+- [ ] A chancy attempt ("I try to sneak past the guard") rules BEFORE the page writes: the receipt names "The house has ruled" in the dynamic tail; the drawer panel echoes the ruling.
+- [ ] Pure dialogue ("He growls 'I could kill you'") and ((OOC)) never trigger a ruling; a quiet beat stays quiet.
+- [ ] A swipe or regenerate replays the SAME ruling word for word; editing the message rolls fresh; deleting the last exchange rewinds the duel.
+- [ ] "I draw my blade" arms a duel without rolling (round 0, standoff directive); the next attack is round 1; the duel line shows in "The state of things" and the combat mood rides the mode ledger.
+- [ ] A duel ends when a pool empties; injuries land in the body ledger when the fight lets go; "How they measure" (drawer) shows/updates the sheet; the sheet seeds itself after the first turns and after fights.
+- [ ] #roll forces a ruling on a quiet beat; #skip waves one off; with no worker connection the story simply goes on unruled.

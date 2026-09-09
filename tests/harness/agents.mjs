@@ -2,7 +2,7 @@
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { firstBalancedObject, parseFirstObject } from '../../js/agents/jsonutil.js';
-import { userMessageHash, cacheVerdict, verdictFor } from '../../js/agents/referee.js';
+import { userMessageHash, refereeStep } from '../../js/agents/referee.js';
 import { noteWorkerRun, loadWorkerStatus, workerSignal } from '../../js/agents/status.js';
 import { saveModule, listModules, selectModules } from '../../js/assemble/modules.js';
 import { workerPlan } from '../../js/ui/chat.js';
@@ -14,19 +14,30 @@ test('B16: firstBalancedObject respects quoted braces; parseFirstObject tolerate
   assert(p && Array.isArray(p.mutations), 'fences stripped, object parsed');
 });
 
-test('fate replay: same words replay the verdict; new words roll fresh', async () => {
-  const hash = userMessageHash('I leap the fence');
-  eq(hash, userMessageHash('  i leap   the fence '), 'hash is wording-stable');
-  const verdict = { dc: 12, roll: 15, outcome: 'success', words: 'You clear it.' };
-  const verdicts = cacheVerdict({}, hash, verdict);
-  const state = { verdicts };
-  const replay = await verdictFor({ connection: null, userText: 'I leap the fence', state });
-  assert(replay && replay.replayed === true && replay.verdict.roll === 15, 'replayed, die and all');
-  const fresh = await verdictFor({ connection: null, userText: 'something else entirely', state });
-  eq(fresh, null, 'no connection, no verdict — never throws');
-  let cache = {};
-  for (let i = 0; i < 20; i += 1) cache = cacheVerdict(cache, 'h' + i, verdict);
-  assert(Object.keys(cache).length <= 12, 'the replay cache is capped');
+/* M11: the M6 referee contract (cacheVerdict/verdictFor, d20 verdicts) is
+ * REPLACED by the autonomous referee — the same fate-replay law now rides
+ * the committed-fate timeline (state.refHistory) inside refereeStep. This
+ * test keeps the law's smoke check; the full battery lives in
+ * tests/harness/referee.mjs. */
+test('committed fate: same words replay the verdict; new words roll fresh', async () => {
+  eq(userMessageHash('I leap the fence'), userMessageHash('  i leap   the fence '), 'hash is wording-stable');
+  const mkState = () => ({ sheet: { actors: {}, playerName: '' }, refHistory: [], turn: 1, mode: {} });
+  const msg = { id: 'u1', role: 'user', pages: [{ text: 'I try to leap the fence' }], page: 0 };
+  const callLLM = async () => JSON.stringify({ check: true, kind: 'task', action: 'leap the fence', tier: 'moderate', circumstance: 0 });
+  const connection = { type: 'openai' };
+  const first = await refereeStep({ connection, userText: 'I try to leap the fence', userId: 'u1', history: [msg], state: mkState(), settings: {}, callLLM });
+  eq(first.status, 'ruled', 'a chancy attempt is ruled');
+  assert(first.ruling && typeof first.ruling.directive === 'string' && first.ruling.directive.includes('The house has ruled'), 'the ruling speaks its name');
+  let calls = 0;
+  const spyLLM = async (...a) => { calls += 1; return callLLM(...a); };
+  const replay = await refereeStep({ connection, userText: 'I try to leap the fence', userId: 'u1', history: [msg], state: first.state, settings: {}, callLLM: spyLLM });
+  eq(replay.status, 'replayed', 'a swipe replays the committed verdict');
+  eq(calls, 0, 'no re-roll — the referee is never re-asked');
+  eq(replay.ruling.directive, first.ruling.directive, 'same ruling, word for word');
+  const fresh = await refereeStep({ connection: null, userText: 'I try to climb the gate', userId: 'u2', history: [msg, { id: 'u2', role: 'user', pages: [{ text: 'I try to climb the gate' }], page: 0 }], state: replay.state, settings: {}, callLLM });
+  eq(fresh.status, 'degraded', 'no connection degrades to nothing — never throws');
+  eq(fresh.ruling, null, 'no ruling without the referee');
+  assert((fresh.state.refHistory || []).length <= 12, 'the timeline is capped');
 });
 
 test('A5: workerSignal hands out an abortable signal with a releasable timer', async () => {

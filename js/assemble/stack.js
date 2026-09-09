@@ -82,10 +82,11 @@
  * memory + lore stays within the keeper's 3200-char budget
  * (agents/memory.js SLOT_BUDGET).
  *
- * M6: when the referee has ruled (state.pendingVerdict), renderStateFacts
- * carries "The house has ruled: …" at the head of slot 5 — the receipt's
- * slot 5 thereby records it. The send path clears the verdict after this
- * build (consume-and-clear; see chat.js).
+ * M11: when the referee has ruled (state.pendingVerdict), its directive
+ * rides the dynamic tail as the receipt-named slot "The house has ruled"
+ * (the `ruling` argument — the last tail part, closest to the history it
+ * governs). The send path clears the verdict after this build
+ * (consume-and-clear; see chat.js).
  *
  * Token estimate per slot = ceil(chars/4) (see assemble/receipt.js).
  */
@@ -245,7 +246,7 @@ function isContinueTurn(history) {
 
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
-  window: windowInfo, directive, directorNote, editorEye,
+  window: windowInfo, directive, directorNote, editorEye, ruling,
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -396,6 +397,9 @@ export function buildRequest({
    * lore shelf, still before history. */
   const directorText = typeof directorNote === 'string' ? directorNote.trim() : '';
   const editorText = typeof editorEye === 'string' ? editorEye.trim() : '';
+  /* M11: the referee's ruling rides last in the dynamic tail — the freshest,
+   * most binding word, sitting closest to the history it governs. */
+  const rulingText = typeof ruling === 'string' ? ruling.trim() : '';
   const stateParts = [];
   if (facts) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
@@ -403,6 +407,7 @@ export function buildRequest({
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   if (directorText) stateParts.push('The director’s note:\n' + directorText);
   if (editorText) stateParts.push('The editor’s eye:\n' + editorText);
+  if (rulingText) stateParts.push(rulingText); /* the directive already speaks its name */
   const stateInjection = stateParts.length
     ? { role: 'user', content: STATE_MARKER + '\n' + stateParts.join('\n\n') }
     : null;
@@ -429,6 +434,9 @@ export function buildRequest({
   }
   if (editorText) {
     pushSlot('The editor’s eye', editorText, 'the standing craft critique');
+  }
+  if (rulingText) {
+    pushSlot('The house has ruled', rulingText, 'the referee’s binding word for this turn');
   }
 
   /* --- 9. The note at the end --- (resolved before slot 8 so the window

@@ -36,6 +36,7 @@ import { addInjury, addStrain, findBodyKey, findInjury, SEV_WORDS } from './bodi
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
 import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
+import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
 
 const LOG_CAP = 200;
 
@@ -72,6 +73,12 @@ function copyState(state) {
     relationships: cloneMap(safe.relationships),
     offscreen: cloneMap(safe.offscreen),
     canon: cloneMap(safe.canon),
+    /* M11: the referee's world — sheet, live fights, strain, and the
+     * committed-fate timeline ride the same copy discipline. */
+    sheet: safe.sheet && typeof safe.sheet === 'object' ? cloneMap(safe.sheet) : safe.sheet,
+    duel: safe.duel && typeof safe.duel === 'object' ? cloneMap({ d: safe.duel }).d : (safe.duel ?? null),
+    battle: safe.battle && typeof safe.battle === 'object' ? cloneMap({ b: safe.battle }).b : (safe.battle ?? null),
+    refHistory: Array.isArray(safe.refHistory) ? cloneMap({ r: safe.refHistory }).r : [],
   };
 }
 
@@ -479,6 +486,83 @@ const HANDLERS = {
       undo: { kind: 'canon.restore', name: canonKey, before },
     };
   },
+
+  /* ---------- M11: the combat ledger bridge ---------- */
+
+  'combat.begin'(state, m) {
+    const kind = ['duel', 'battle', 'war'].includes(m.kind) ? m.kind : null;
+    if (!kind) return { why: 'it didn’t say what kind of fight — duel, battle, or war' };
+    const eng = engineSettings(m.engine && typeof m.engine === 'object' ? m.engine : {});
+    const before = {
+      duel: state.duel ? cloneMap({ d: state.duel }).d : null,
+      battle: state.battle ? cloneMap({ b: state.battle }).b : null,
+      combat: state.mode.combat === true,
+      sheet: cloneMap(state.sheet),
+    };
+    const oppEstimate = Number.isFinite(Number(m.opponentRating)) ? Number(m.opponentRating) : null;
+    const roster = (v) => (Array.isArray(v) ? v.map((x) => normalizeName(String(x))).filter(Boolean) : []);
+    let started = null;
+    if (kind === 'duel') {
+      const opponent = normalizeName(m.opponent || '');
+      if (!opponent) return { why: 'a duel needs an opponent’s name' };
+      started = startDuel(state, {
+        playerName: mcName(state), oppName: opponent,
+        domain: typeof m.domain === 'string' ? m.domain : 'melee',
+        oppEstimate, scaleMismatch: m.scaleMismatch,
+      }, eng);
+    } else if (kind === 'battle') {
+      const enemies = roster(m.enemies);
+      if (!enemies.length) return { why: 'a battle needs an enemy side' };
+      started = startBattle(state, {
+        allies: roster(m.allies), enemies,
+        domain: typeof m.domain === 'string' ? m.domain : 'melee',
+        oppEstimate, scaleMismatch: m.scaleMismatch,
+      }, eng);
+    } else {
+      started = startWar(state, {
+        allies: roster(m.allies), enemies: roster(m.enemies),
+        enemyCommander: normalizeName(m.enemyCommander || '') || null,
+        scaleMismatch: m.scaleMismatch,
+      }, eng);
+    }
+    if (!started) return { why: 'the fight couldn’t be drawn up from what was said' };
+    state.mode.combat = true;
+    let words;
+    if (kind === 'duel') {
+      words = 'A duel is joined — ' + state.duel.player.name + ' against ' + state.duel.opp.name + '.';
+    } else if (kind === 'battle') {
+      words = 'A battle is joined — ' + state.battle.allies.length + ' against ' + state.battle.enemies.length + '.';
+    } else {
+      words = 'A war is joined — ' + (state.battle.allies.length - 1) + ' formations against ' + state.battle.enemies.length + '.';
+    }
+    return { words, undo: { kind: 'combat.restore', before } };
+  },
+
+  'combat.end'(state, m) {
+    if (!state.duel && !state.battle) return { why: 'no fight was on' };
+    const before = {
+      duel: state.duel ? cloneMap({ d: state.duel }).d : null,
+      battle: state.battle ? cloneMap({ b: state.battle }).b : null,
+      combat: state.mode.combat === true,
+      sheet: cloneMap(state.sheet),
+      bodies: cloneMap(state.bodies),
+    };
+    const hurt = teardownFight(state);
+    state.mode.combat = false;
+    const bits = [];
+    for (const h of hurt) {
+      /* The body ledger knows story names, not aliases of the player. */
+      if (!h.name || /^(the player|you|player)$/i.test(h.name)) continue;
+      const key = findBodyKey(state.bodies, h.name) || h.name;
+      const what = capText('wounds taken in the fight with ' + (h.foe || 'their foe'), 140);
+      state.bodies = addInjury(state.bodies, key,
+        { what, sev: h.injuries >= 2 ? 3 : 2, treated: false },
+        clockMinutesOf(state), turnOf(state));
+      bits.push(key + ' carries the fight’s marks (' + (SEV_WORDS[h.injuries >= 2 ? 3 : 2] || 'hurt') + ', untreated).');
+    }
+    const words = 'The fight has ebbed.' + (bits.length ? ' ' + bits.join(' ') : '');
+    return { words, undo: { kind: 'combat.restore', before } };
+  },
 };
 
 /* ---------- the contract ---------- */
@@ -563,6 +647,14 @@ export function undoLast(state) {
       const key = seated ? seated.key : undo.name;
       if (undo.before) next.offscreen[key] = { ...undo.before };
       else delete next.offscreen[key];
+      ok = true;
+    } else if (undo.kind === 'combat.restore') {
+      const b = undo.before || {};
+      next.duel = b.duel ? cloneMap({ d: b.duel }).d : null;
+      next.battle = b.battle ? cloneMap({ b: b.battle }).b : null;
+      next.mode.combat = b.combat === true;
+      if (b.sheet) next.sheet = cloneMap(b.sheet);
+      if (b.bodies) next.bodies = cloneMap(b.bodies);
       ok = true;
     } else if (undo.kind === 'canon.restore') {
       const key = findCanonKey(next.canon, undo.name) || undo.name;

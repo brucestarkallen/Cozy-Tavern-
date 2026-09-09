@@ -82,6 +82,10 @@ export function initSettings(ctx) {
     memoryWindow: document.getElementById('memory-window'),
     memoryWindowValue: document.getElementById('memory-window-value'),
     continuityCheck: document.getElementById('continuity-check'),
+    refereeOn: document.getElementById('referee-on'),
+    refereeSensitivity: document.getElementById('referee-sensitivity'),
+    refereePreset: document.getElementById('referee-preset'),
+    refereeFightStyle: document.getElementById('referee-fightstyle'),
     engineFile: document.getElementById('engine-file'),
     enginePaste: document.getElementById('engine-paste'),
     btnEngineRead: document.getElementById('btn-engine-read'),
@@ -1370,6 +1374,7 @@ export function initSettings(ctx) {
     await renderRulebook();
     await renderWorkers();
     await renderMemory();
+    await renderReferee();
     await renderCast();
     await renderLore();
     await renderThinking();

@@ -4,6 +4,7 @@ import './stack.mjs';
 import './store.mjs';
 import './engine.mjs';
 import './agents.mjs';
+import './referee.mjs';
 import './providers.mjs';
 import './tablock.mjs';
 import './source.mjs';

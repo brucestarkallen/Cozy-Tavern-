@@ -322,6 +322,32 @@
           <p id="spend-line" class="quiet spend-line" hidden></p>
         </section>
 
+        <section class="settings-section" id="section-referee">
+          <h3>The referee</h3>
+          <p class="quiet">When a chancy moment is risked — a swing, a sneak, a press against someone — the house rules on it first, before the storyteller writes, and the ruling rides into the page as fact ("The house has ruled" on the receipt). Fights become real duels and battles with their own economy. The math is the house's; the words are the storyteller's. If the referee can't be reached, the story simply goes on unruled.</p>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="referee-on"> The referee rules on chancy moments</label>
+          </div>
+          <label class="stack-label" for="referee-sensitivity">How readily it rules</label>
+          <select id="referee-sensitivity">
+            <option value="conservative">Conservative — only clear attempts</option>
+            <option value="normal" selected>Normal — attempts and risky deeds</option>
+            <option value="aggressive">Aggressive — even positioning and small risks</option>
+          </select>
+          <label class="stack-label" for="referee-preset">How the world tilts</label>
+          <select id="referee-preset">
+            <option value="gritty">Gritty — wins cost more, disasters bite</option>
+            <option value="realistic" selected>Realistic — an even hand</option>
+            <option value="heroic">Heroic — the player has the wind at their back</option>
+          </select>
+          <label class="stack-label" for="referee-fightstyle">How fights are kept</label>
+          <select id="referee-fightstyle">
+            <option value="tracked" selected>Tracked — the engine keeps the books and calls a winner</option>
+            <option value="outcome">Outcome only — each exchange is scored; the story ends the fight</option>
+          </select>
+          <p class="quiet">A message saying #roll asks for a ruling on a quiet beat; #skip waves one off. Who is good at what lives in the drawer under "How they measure".</p>
+        </section>
+
         <section class="settings-section" id="section-memory">
           <h3>How much the story remembers</h3>
           <p class="quiet">When a tale grows long, the oldest pages can't ride along word for word forever. The memory keeper folds what has scrolled past into short, faithful notes the storyteller still sees ("What remains" on the receipt). It works after each page is done, never during.</p>

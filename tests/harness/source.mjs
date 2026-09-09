@@ -97,7 +97,7 @@ test('A5: every background worker call gets a 60s hard timeout', () => {
 });
 
 test('A8: one VERSION, the sw cache derives from it, harnesses shipped', () => {
-  assert(/export const VERSION = 'm10-/.test(src('js/version.js')), 'single source of version');
+  assert(/export const VERSION = 'm\d+-/.test(src('js/version.js')), 'single source of version');
   assert(src('sw.js').includes("import { VERSION } from './js/version.js'"), 'sw imports it');
   assert(src('sw.js').includes("'cozytavern-shell-' + VERSION"), 'cache name derives');
   assert(src('js/app.js').includes("{ type: 'module' }"), 'module worker registration');

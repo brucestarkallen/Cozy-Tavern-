@@ -1141,6 +1141,11 @@ const PANELS = [
     render: (ctx) => verdictPanel(ctx),
   },
   {
+    id: 'how-they-measure',
+    title: 'How they measure',
+    render: (ctx) => measurePanel(ctx),
+  },
+  {
     id: 'whos-here',
     title: 'Who’s here',
     render: (ctx) => whosHerePanel(ctx),
