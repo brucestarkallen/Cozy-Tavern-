@@ -41,6 +41,21 @@ network doesn't. **One honest note:** each address (Pages, 127.0.0.1,
 localhost) keeps its own separate shelf of stories — pick one as your main,
 and move between them any time with backup/restore in settings.
 
+## Keeping it current
+
+The tavern tops itself up: every `cozytavern` run pulls the latest tales
+before lighting the lamps.
+
+- **When a new version lands, the tavern tells you.** A small toast appears
+  — *"A new coat is on the tavern — tap to refresh."* One tap and you're
+  running the new coat.
+- **On an older tavern (before the nudge existed), the word comes from the
+  command instead.** If `cozytavern` says *"A new coat is on — if the tavern
+  looks the same, pull the page down once to reload."*, do just that: pull
+  the page down once in your browser and the new version takes over.
+- **To see which version is running:** the quiet line under your stories in
+  the sidebar, or the top of Settings — both read `the shelves · <version>`.
+
 ## How the tavern works
 
 One connection does everything. Add a single connection (Claude, OpenAI,

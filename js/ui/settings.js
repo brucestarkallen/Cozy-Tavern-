@@ -130,6 +130,8 @@ export function initSettings(ctx) {
     showThinking: document.getElementById('show-thinking'),
     /* M16: the version line, and the shelf a story sits on. */
     versionLine: document.getElementById('settings-version'),
+    /* M18: the chip row that carries you straight to any room. */
+    quicknav: document.getElementById('settings-quicknav'),
     storyShelf: document.getElementById('story-shelf'),
     shelfStoryName: document.getElementById('shelf-story-name'),
   };
@@ -1490,6 +1492,37 @@ export function initSettings(ctx) {
   /* M16: the version, visible — the header line carries the house's one
    * version word, set once when the view wakes. */
   if (els.versionLine) els.versionLine.textContent = 'the shelves · ' + VERSION;
+
+  /* M18: the quick-nav — one chip per room that actually stands in the
+   * column, named by the room's own heading. Built from the DOM, so a
+   * section added to the page grows its own chip with no second edit. A
+   * tap carries you there (smoothly, unless the device asks for stillness)
+   * and the room's left edge glows ember a breath so the eye lands. */
+  function buildQuickNav() {
+    const nav = els.quicknav;
+    if (!nav) return;
+    nav.textContent = '';
+    document.querySelectorAll('#view-settings .settings-section').forEach((section) => {
+      const head = section.querySelector('h3');
+      if (!section.id || !head) return;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'nav-chip';
+      chip.textContent = head.textContent;
+      chip.addEventListener('click', () => {
+        const still = window.matchMedia
+          && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        section.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+        /* Re-add on the next frame so a repeat tap flashes the room again. */
+        section.classList.remove('ember-flash');
+        requestAnimationFrame(() => section.classList.add('ember-flash'));
+        setTimeout(() => section.classList.remove('ember-flash'), 1800);
+      });
+      nav.appendChild(chip);
+    });
+  }
+
+  buildQuickNav();
 
   /* ---------- shown each time the view opens ---------- */
 

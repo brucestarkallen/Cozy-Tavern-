@@ -25,8 +25,16 @@ echo "The tavern is being made ready…"
 pkg install git python -y
 
 # 2. The tavern itself — cloned fresh, or topped up where it stands.
+#    M18: when the pull brings something new, say the one thing older
+#    shells can't say for themselves (pre-M16 taverns have no in-app
+#    nudge): pull the page down once to reload.
 if [ -d "$REPO_DIR/.git" ]; then
+  HEAD_BEFORE="$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo '')"
   git -C "$REPO_DIR" pull --ff-only || echo "(Couldn't pull — the tavern you have still opens.)"
+  HEAD_AFTER="$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo '')"
+  if [ -n "$HEAD_BEFORE" ] && [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
+    echo "A new coat is on — if the tavern looks the same, pull the page down once to reload."
+  fi
 else
   git clone "$REPO_URL" "$REPO_DIR"
 fi
@@ -48,7 +56,14 @@ else
 fi
 
 cd "$REPO_DIR" || exit 1
+# M18: if the pull brought a new coat, say so — older taverns have no
+# in-app nudge, so this line is the bridge: pull the page down once.
+HEAD_BEFORE="\$(git rev-parse HEAD 2>/dev/null || echo '')"
 git pull --ff-only || echo "(Couldn't pull — the tavern you have still opens.)"
+HEAD_AFTER="\$(git rev-parse HEAD 2>/dev/null || echo '')"
+if [ -n "\$HEAD_BEFORE" ] && [ "\$HEAD_BEFORE" != "\$HEAD_AFTER" ]; then
+  echo "A new coat is on — if the tavern looks the same, pull the page down once to reload."
+fi
 
 # Light the lamps — unless they're already lit on the port.
 if ! (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null; then

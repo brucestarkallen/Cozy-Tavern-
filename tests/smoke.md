@@ -612,3 +612,18 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 64. Settings → The workers shows a row per worker; assigning "the referee" a cheap fast
     connection makes contested turns quicker while the storyteller keeps the best model.
 65. Deleting a connection a worker rode: the worker quietly follows the house choice again.
+
+## M18 additions
+66. At 390px the topbar splits into two rows: ☰ + "Cozy Tavern" up top, then Settings /
+    The ledger / The housekeeper as equal-width quiet buttons with hairline separators.
+    Nothing overflows, no horizontal scroll; in Settings the first button reads
+    "Back to the story" and still fits. At desktop width the header is one row, unchanged.
+67. Settings opens with a wrap-row of quiet chips, one per room, named by each room's own
+    heading. Tap "The workers" → the page smooth-scrolls there and the room's left edge
+    glows ember for a breath. With reduced-motion on, the jump is instant and still.
+68. The chips are data-driven: add a `<section class="settings-section">` with an h3 to
+    index.html and its chip appears with no further edit.
+69. Run `cozytavern` when an update waits → after the pull it prints "A new coat is on —
+    if the tavern looks the same, pull the page down once to reload." No update, no line.
+    README's "Keeping it current" tells the nudge law, the bridge, and where the running
+    version stands (sidebar colophon / top of Settings).

@@ -787,3 +787,40 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   keeper, continuity, seeder, referee, showrunner. housekeeper.js reads the same map.
 - Settings → The workers: per-worker pickers under the general one ("hands of their own").
 - Harness: tests/harness/assign.mjs (5 checks). version.js -> m17-001.
+
+---
+
+# M18 — discoverability + update clarity
+- POCKET HEADER (index.html/css/base.css): the topbar gains a .topbar-main box
+  (☰ + brand; flex:1, min-width:0 — desktop layout is pixel-identical). At
+  <=720px the topbar wraps: row 1 is .topbar-main (flex-basis:100%), row 2 is
+  .topbar-actions (flex-basis:100%, hairline top border) with the three rooms
+  as equal-width quiet buttons (flex:1 1 0, border-left separators, 0.85rem,
+  ellipsis fallback so nothing can ever overflow). Safe-area top padding kept;
+  .settings-section scroll-margin-top grows to 6.5rem to clear the taller
+  header. VISIBLE LAW: no hamburger-for-actions, ever — all three rooms show.
+- QUICK-NAV (settings.js/index.html/css/base.css): #settings-quicknav (a <nav>
+  above the first room) is filled by buildQuickNav() from
+  querySelectorAll('#view-settings .settings-section') — one .nav-chip per
+  room, named by the room's own h3. DATA-DRIVEN LAW: add a section with an h3
+  and its chip appears; there is NO second list to forget. A tap does
+  scrollIntoView({behavior: smooth|auto per prefers-reduced-motion}) and adds
+  .ember-flash (inset 3px ember left edge, @keyframes ember-edge, 1.6s —
+  re-armed via rAF so repeat taps re-flash; the global reduced-motion rule
+  stills it).
+- UPDATE CLARITY (install.sh + the cozytavern it writes + README): both weigh
+  HEAD with rev-parse before/after the pull and, only when it moved, print
+  "A new coat is on — if the tavern looks the same, pull the page down once
+  to reload." (the bridge for pre-M16 shells that have no in-app nudge; in
+  the heredoc the runtime $vars are escaped). README's "Keeping it current"
+  tells the nudge law, the bridge, and where the running version stands
+  (sidebar colophon / top of Settings).
+- Harness: tests/harness/findability.mjs (+5 = 149/149): two-row header CSS +
+  all three buttons, data-driven chips (count==sections by construction, no
+  hardcoded room list), scroll+flash wiring, install.sh line x2 + HEAD
+  weighing x2, README section.
+- Browser QA (python playwright, chromium): 390px — all three actions fully
+  visible, no horizontal scroll, two rows (88.5px), "Back to the story" fits
+  without ellipsis; chip tap lands The workers at top with ember-flash;
+  18 chips == 18 sections; desktop single-row unchanged; 0 page errors.
+  Evidence: /mnt/agents/output/qa-m18-*.png. version.js -> m18-001.

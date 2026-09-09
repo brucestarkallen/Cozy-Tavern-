@@ -198,6 +198,17 @@ button:active { transform: scale(0.96); transition-duration: 0.12s; }
   z-index: 20;
 }
 
+/* M18: the brand row keeps its own box so the rooms can drop to a second
+ * row on narrow screens. On desktop this changes nothing — the row simply
+ * takes the space the ☰ and brand always took. */
+.topbar-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
 .brand {
   font-size: 1.15rem;
   letter-spacing: 0.01em;
@@ -334,6 +345,43 @@ button:active { transform: scale(0.96); transition-duration: 0.12s; }
   scroll-margin-top: 4rem;
 }
 
+/* M18: the quick-nav — a wrap-row of quiet chips at the top of settings,
+ * one per room, so even the workers six screens down are one tap away. */
+.settings-quicknav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: -0.5rem 0 0;
+}
+
+.settings-quicknav:empty { display: none; }
+
+.nav-chip {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.nav-chip:hover {
+  color: var(--ember);
+  border-color: var(--ember-dim);
+}
+
+/* M18: where a chip lands, the room's left edge glows ember for a breath
+ * so the eye follows. An inset shadow, not a real border — nothing shifts.
+ * (The reduced-motion law in this file stills it like everything else.) */
+@keyframes ember-edge {
+  0% { box-shadow: inset 3px 0 0 var(--ember); }
+  100% { box-shadow: inset 3px 0 0 transparent; }
+}
+
+.settings-section.ember-flash {
+  animation: ember-edge 1.6s ease-out;
+}
+
 .stack-label {
   font-size: 0.9rem;
   color: var(--text-2);
@@ -445,9 +493,42 @@ label {
 
 .toast.toast-tap:hover { border-color: var(--ember); }
 
+/* M18: at pocket width the topbar splits into two rows — ☰ + brand up top,
+ * then the three rooms as equal-width quiet buttons with hairline
+ * separators. All three stay in plain sight (the visible law); nothing
+ * crowds off-screen at 390px and the safe-area padding stands. */
 @media (max-width: 720px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 0;
+    padding: 0.5rem 0.6rem 0;
+    padding-top: calc(0.5rem + env(safe-area-inset-top));
+  }
+  .topbar-main {
+    flex-basis: 100%;
+    padding-bottom: 0.35rem;
+  }
   .brand { font-size: 1.02rem; }
-  .topbar { padding: 0.5rem 0.6rem; padding-top: calc(0.5rem + env(safe-area-inset-top)); }
+  .topbar-actions {
+    flex-basis: 100%;
+    gap: 0;
+    border-top: 1px solid var(--border-soft);
+  }
+  .topbar-actions .text-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.55rem 0.15rem;
+    font-size: 0.85rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-radius: 0;
+  }
+  .topbar-actions .text-btn:hover { background: none; color: var(--ember); }
+  .topbar-actions .text-btn + .text-btn { border-left: 1px solid var(--border-soft); }
+  /* The taller header means a jumped-to room needs more clearance. */
+  .settings-section { scroll-margin-top: 6.5rem; }
 }
 
 /* ---------- the welcome mat (M13) ---------- */
