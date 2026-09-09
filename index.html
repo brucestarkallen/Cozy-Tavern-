@@ -186,6 +186,43 @@
           <p id="engine-summary" class="quiet" hidden></p>
         </section>
 
+        <section class="settings-section" id="section-people">
+          <h3>Bring your people</h3>
+          <p class="quiet">Character cards from SillyTavern — a PNG with the character tucked inside, or a plain JSON card. They’re read right here on this device and shelved below; a story invites them in from the ledger’s Who’s here.</p>
+          <div class="row">
+            <label class="btn btn-quiet file-btn">Choose a card
+              <input id="card-file" type="file" accept="image/png,.png,application/json,.json" hidden>
+            </label>
+          </div>
+          <p id="card-note" class="quiet" hidden></p>
+          <ul id="cast-list" class="connection-list"></ul>
+          <p id="cast-list-empty" class="quiet" hidden>No one has arrived yet. When a card comes home, they’ll wait here for a story to invite them in.</p>
+        </section>
+
+        <section class="settings-section" id="section-lore">
+          <h3>Bring your lore</h3>
+          <p class="quiet">A SillyTavern lorebook (World Info) for <span id="lore-story-name">this story</span>. Its entries rest on the shelf until one of their words is spoken in the latest pages — then that entry rides along quietly, within the same budget as What remains. No model is woken for this; it’s plain listening.</p>
+          <div class="row">
+            <label class="btn btn-quiet file-btn">Choose the lorebook
+              <input id="lore-file" type="file" accept="application/json,.json" hidden>
+            </label>
+          </div>
+          <p id="lore-note" class="quiet" hidden></p>
+          <p id="lore-count" class="quiet" hidden></p>
+          <div class="row"><button id="btn-lore-clear" class="text-btn" type="button" hidden>Take the shelf down</button></div>
+        </section>
+
+        <section class="settings-section" id="section-oldchats">
+          <h3>Bring your old chats</h3>
+          <p class="quiet">A SillyTavern chat export (the .jsonl kind) becomes a new story on your shelf — pages in order, roles as they were, every word as written. Then you can simply keep telling it.</p>
+          <div class="row">
+            <label class="btn btn-quiet file-btn">Choose the chat export
+              <input id="chat-file" type="file" accept=".jsonl,.json,.txt,application/json" hidden>
+            </label>
+          </div>
+          <p id="chat-import-note" class="quiet" hidden></p>
+        </section>
+
         <section class="settings-section" id="section-workers">
           <h3>The workers</h3>
           <p class="quiet">Quiet helpers who read each finished page and keep the ledger — the hour, who's here, the mood of the scene. They never speak while the storyteller is writing; they work only after the page is done.</p>

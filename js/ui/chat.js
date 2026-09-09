@@ -15,6 +15,8 @@ import { extractTurn, noteWork, pendingWork } from '../agents/extractor.js';
 import { shouldAdjudicate, adjudicate } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory } from '../agents/memory.js';
 import { checkTurn } from '../agents/continuity.js';
+import { castForStory } from '../import/cards.js';
+import { loadLore, matchLore } from '../import/lorebook.js';
 import { openReceipt } from './receiptview.js';
 
 export function initChat(ctx) {
@@ -402,6 +404,20 @@ export function initChat(ctx) {
     const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '' });
     /* M6: slot 7 — what the keeper has folded of the older pages. */
     const memoryText = renderMemory(await loadMemory(story.id));
+    /* M7: slot 4 — the story's invited cast (the assembler keeps only the
+     * cards of whoever is present, under budget). Slot 7 — the lore shelf's
+     * answer for the latest pages: the last user message + the last
+     * assistant message, pure keyword listening, no LLM anywhere near it. */
+    const invitedCast = await castForStory(story);
+    const loreEntries = await loadLore(story.id);
+    let loreText = '';
+    if (loreEntries.length) {
+      const lastAssistant = [...history].reverse().find((m) => m && m.role === 'assistant');
+      const lastAssistantText = lastAssistant
+        ? (typeof lastAssistant.text === 'string' ? lastAssistant.text : String(lastAssistant.content || ''))
+        : '';
+      loreText = matchLore(loreEntries, [userText, lastAssistantText].filter(Boolean).join('\n'));
+    }
     const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({
       story,
       messages: history,
@@ -409,6 +425,8 @@ export function initChat(ctx) {
       state,
       modules: selected,
       memory: memoryText,
+      cast: invitedCast,
+      lore: loreText,
     });
 
     /* M6 consume-and-clear: the ruling rode into this turn's stack as a

@@ -5,7 +5,9 @@
  * Bring your engine (M5: read a SillyTavern preset, preview the shelves,
  * apply what's wanted), The workers (M3: who reads for the ledger, and
  * whether they do), How much the story remembers (M6: the keeper's switch
- * and window, and the second reader), appearance, backup.
+ * and window, and the second reader), Bring your people / Bring your lore /
+ * Bring your old chats (M7: cards, lorebooks, chat exports), appearance,
+ * backup.
  */
 
 import { db } from '../store.js';
@@ -13,6 +15,9 @@ import { createProvider, presetById } from '../providers/index.js';
 import { STARTER_FRAME, STARTER_NOTE } from '../assemble/stack.js';
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
 import { parsePreset, decompose, applyPlan, summaryWords } from '../import/sillytavern.js';
+import { parseCard, listCast, saveCastMember, removeCastMember } from '../import/cards.js';
+import { parseLorebook, saveLore, loadLore } from '../import/lorebook.js';
+import { parseSTChat, importAsStory } from '../import/chats.js';
 import { cleanWindow } from '../agents/memory.js';
 
 export function initSettings(ctx) {
@@ -64,6 +69,17 @@ export function initSettings(ctx) {
     btnEngineApply: document.getElementById('btn-engine-apply'),
     btnEngineDismiss: document.getElementById('btn-engine-dismiss'),
     engineSummary: document.getElementById('engine-summary'),
+    cardFile: document.getElementById('card-file'),
+    cardNote: document.getElementById('card-note'),
+    castList: document.getElementById('cast-list'),
+    castListEmpty: document.getElementById('cast-list-empty'),
+    loreFile: document.getElementById('lore-file'),
+    loreNote: document.getElementById('lore-note'),
+    loreCount: document.getElementById('lore-count'),
+    loreStoryName: document.getElementById('lore-story-name'),
+    btnLoreClear: document.getElementById('btn-lore-clear'),
+    chatFile: document.getElementById('chat-file'),
+    chatImportNote: document.getElementById('chat-import-note'),
   };
 
   let editingId = null;
@@ -259,6 +275,7 @@ export function initSettings(ctx) {
     els.noteStoryName.textContent = storyName;
     els.briefStoryName.textContent = storyName;
     els.castStoryName.textContent = storyName;
+    els.loreStoryName.textContent = storyName;
     els.frameStory.value = (story && story.frameOverride) || '';
     els.noteStory.value = (story && story.noteOverride) || '';
     els.briefStory.value = (story && story.brief) || '';
@@ -738,6 +755,142 @@ export function initSettings(ctx) {
     }
   });
 
+  /* ---------- bring your people / lore / old chats (M7) ---------- */
+
+  function say(el, message) {
+    el.hidden = !message;
+    el.textContent = message || '';
+  }
+
+  /* The cast library shelf: every card that has come home, with a quiet
+   * note of how it arrived and a way to let it go (which un-invites it
+   * from every story — see cards.js). */
+  async function renderCast() {
+    const cards = await listCast();
+    els.castList.textContent = '';
+    els.castListEmpty.hidden = cards.length > 0;
+    for (const card of cards) {
+      const li = document.createElement('li');
+      li.className = 'connection-card';
+
+      const top = document.createElement('div');
+      top.className = 'connection-top';
+      const name = document.createElement('span');
+      name.className = 'connection-name';
+      name.textContent = card.name;
+      const kind = document.createElement('span');
+      kind.className = 'connection-kind';
+      const bits = [card.source === 'png' ? 'from a picture' : 'from a JSON card'];
+      if (card.alternateGreetings && card.alternateGreetings.length) {
+        bits.push(`${card.alternateGreetings.length} other ${card.alternateGreetings.length === 1 ? 'greeting' : 'greetings'}`);
+      }
+      kind.textContent = bits.join(' · ');
+      top.append(name, kind);
+      li.appendChild(top);
+
+      if (card.description) {
+        const excerpt = document.createElement('p');
+        excerpt.className = 'quiet engine-why';
+        const plain = card.description.replace(/\s+/g, ' ').trim();
+        excerpt.textContent = plain.length > 160 ? plain.slice(0, 160).trimEnd() + '…' : plain;
+        li.appendChild(excerpt);
+      }
+
+      const row = document.createElement('div');
+      row.className = 'row';
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'text-btn';
+      removeBtn.textContent = 'Let go';
+      removeBtn.addEventListener('click', async () => {
+        const sure = window.confirm(`Let go of “${card.name}”? They’ll step out of every story’s cast.`);
+        if (!sure) return;
+        await removeCastMember(card.id);
+        say(els.cardNote, `“${card.name}” has been let go.`);
+        renderCast();
+      });
+      row.appendChild(removeBtn);
+      li.appendChild(row);
+      els.castList.appendChild(li);
+    }
+  }
+
+  els.cardFile.addEventListener('change', async () => {
+    const file = els.cardFile.files && els.cardFile.files[0];
+    els.cardFile.value = '';
+    if (!file) return;
+    try {
+      const card = await parseCard(file);
+      await saveCastMember(card);
+      say(els.cardNote, `${card.name} has come home — a story can invite them in from the ledger’s Who’s here.`);
+      await renderCast();
+    } catch (err) {
+      say(els.cardNote, err.message || 'That card wouldn’t open.');
+    }
+  });
+
+  /* The lore shelf: one per story, for whichever story is open. */
+  async function renderLore() {
+    const story = await activeStory();
+    const entries = story ? await loadLore(story.id) : [];
+    els.loreFile.disabled = !story;
+    els.loreCount.hidden = !entries.length;
+    els.btnLoreClear.hidden = !entries.length;
+    if (entries.length) {
+      els.loreCount.textContent = `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} on the shelf.`;
+    } else {
+      els.loreCount.textContent = '';
+    }
+  }
+
+  els.loreFile.addEventListener('change', async () => {
+    const file = els.loreFile.files && els.loreFile.files[0];
+    els.loreFile.value = '';
+    if (!file) return;
+    const story = await activeStory();
+    if (!story) {
+      say(els.loreNote, 'Open a story first — lore shelves itself per tale.');
+      return;
+    }
+    try {
+      const entries = parseLorebook(await file.text());
+      await saveLore(story.id, entries);
+      say(els.loreNote, `The shelf is stocked for “${story.title}” — entries wake when their words are spoken in the latest pages.`);
+      await renderLore();
+    } catch (err) {
+      say(els.loreNote, err.message || 'That lorebook wouldn’t open.');
+    }
+  });
+
+  els.btnLoreClear.addEventListener('click', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    const sure = window.confirm(`Take the lore shelf down for “${story.title}”? The entries will be gone.`);
+    if (!sure) return;
+    await saveLore(story.id, []);
+    say(els.loreNote, 'The shelf is bare again.');
+    await renderLore();
+  });
+
+  els.chatFile.addEventListener('change', async () => {
+    const file = els.chatFile.files && els.chatFile.files[0];
+    els.chatFile.value = '';
+    if (!file) return;
+    try {
+      const parsed = parseSTChat(await file.text());
+      const storyId = await importAsStory(parsed);
+      say(els.chatImportNote, `“${parsed.title}” is on the shelf now — ${parsed.messages.length} ${parsed.messages.length === 1 ? 'page' : 'pages'} carried over, every word as written.`);
+      if (ctx.chat) {
+        ctx.setActiveStoryId(storyId);
+        await ctx.chat.refreshStories(true);
+        await ctx.chat.renderThread();
+      }
+      if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+    } catch (err) {
+      say(els.chatImportNote, err.message || 'That export wouldn’t open.');
+    }
+  });
+
   /* ---------- appearance ---------- */
 
   async function loadTheme() {
@@ -805,6 +958,8 @@ export function initSettings(ctx) {
     await renderRulebook();
     await renderWorkers();
     await renderMemory();
+    await renderCast();
+    await renderLore();
     await loadTheme();
   }
 

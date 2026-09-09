@@ -28,6 +28,16 @@
  * reader's drift notes (js/agents/continuity.js), same re-ink passthrough.
  * A story's memory nodes live in the settings store under
  * `memory:<storyId>` and are let go with the story, the way its ledger is.
+ *
+ * M7 additions: the cast library (app-wide character cards) lives in the
+ * settings store under `cast:<cardId>`, and a story's lore shelf under
+ * `lore:<storyId>`. Both ride along in backups the same way; letting go of
+ * a story lets its lore go with it, while the cast library stays on its
+ * shelf (letting go of a cast MEMBER un-invites them from every story —
+ * that's import/cards.js's doing). Stories may carry `castIds`: the ids of
+ * the cast invited into that tale. Two additive helpers ride with these:
+ * db.settings.keys() (every setting key, so the library can be listed) and
+ * db.settings.delete(key) (so a card can be let go for good).
  */
 
 const DB_NAME = 'cozytavern.v1';
@@ -90,6 +100,15 @@ const settings = {
   async set(key, val) {
     await run('settings', 'readwrite', (s) => s.put({ key, value: val }));
     return val;
+  },
+  /* Additive helpers (M7, see header): list every key (the cast library
+   * lists its `cast:` shelf this way), and let a key go for good. */
+  async keys() {
+    const rows = await run('settings', 'readonly', (s) => s.getAll());
+    return rows.map((row) => row.key);
+  },
+  async delete(key) {
+    await run('settings', 'readwrite', (s) => s.delete(key));
   },
 };
 
@@ -166,6 +185,9 @@ const stories = {
     await run('settings', 'readwrite', (s) => s.delete('state:' + id));
     /* M6: the keeper's folded pages go with the story too. */
     await run('settings', 'readwrite', (s) => s.delete('memory:' + id));
+    /* M7: and its lore shelf as well. The cast library stays — it's
+     * app-wide, and other stories may still be carrying those cards. */
+    await run('settings', 'readwrite', (s) => s.delete('lore:' + id));
   },
 };
 

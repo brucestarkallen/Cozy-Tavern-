@@ -8,7 +8,9 @@
  * and "What's happening elsewhere" (the off-screen world). M6 brought the
  * agents' shelves: "The house has ruled" (the referee's latest ruling),
  * "What's true of them" (the canon store, hand-editable), and "Something
- * drifted" (the continuity reader's notes). Hand controls go
+ * drifted" (the continuity reader's notes). M7 taught Who's here one more
+ * trick: cards from the cast library can be invited into the story (and the
+ * invitation let go) right beside the hand-written names. Hand controls go
  * through the same mutations the extractor proposes, so everything is
  * validated, logged, and undoable alike.
  *
@@ -22,6 +24,7 @@ import { applyMutations, undoLast, MODE_WORDS } from '../engine/apply.js';
 import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
+import { listCast, attachToStory, detachFromStory } from '../import/cards.js';
 import { db } from '../store.js';
 
 /* ---------- shared helpers ---------- */
@@ -263,14 +266,34 @@ function whosHerePanel(ctx) {
   addBtn.className = 'text-btn';
   addBtn.textContent = 'Add';
   form.append(input, addBtn);
-  wrap.append(list, note, form);
+
+  /* M7: the invited cast — cards from the library this story has booked.
+   * Each carries a book-mark; an invite row offers whoever is still on the
+   * shelf. */
+  const castHead = document.createElement('p');
+  castHead.className = 'quiet cast-head';
+  const castList = document.createElement('ul');
+  castList.className = 'present-list';
+  const inviteForm = document.createElement('form');
+  inviteForm.className = 'present-form';
+  const inviteSelect = document.createElement('select');
+  inviteSelect.setAttribute('aria-label', 'Someone from the cast library to invite in');
+  const inviteBtn = document.createElement('button');
+  inviteBtn.type = 'submit';
+  inviteBtn.className = 'text-btn';
+  inviteBtn.textContent = 'Invite them in';
+  inviteForm.append(inviteSelect, inviteBtn);
+  wrap.append(list, note, form, castHead, castList, inviteForm);
 
   async function render() {
     const story = await currentStory(ctx);
     list.textContent = '';
+    castList.textContent = '';
+    inviteSelect.textContent = '';
     if (!story) {
       note.textContent = 'Open a story and the ledger will know whose scene this is.';
       form.hidden = true;
+      castHead.hidden = castList.hidden = inviteForm.hidden = true;
       return;
     }
     form.hidden = false;
@@ -300,7 +323,67 @@ function whosHerePanel(ctx) {
       li.append(name, out);
       list.appendChild(li);
     }
+
+    /* The invited cast (M7): cards booked into this story. The book-mark
+     * (❧) is simply how a card rows reads; the × lets the invitation go.
+     * When a card's name is also written into the scene above, the next
+     * turn's "Who's here" carries the card's words too (slot 4). */
+    const library = await listCast();
+    const invitedIds = Array.isArray(story.castIds) ? story.castIds : [];
+    const invited = library.filter((c) => invitedIds.includes(c.id));
+    const onTheShelf = library.filter((c) => !invitedIds.includes(c.id));
+
+    castHead.hidden = castList.hidden = inviteForm.hidden = false;
+    castHead.textContent = invited.length
+      ? 'Booked into this story’s cast:'
+      : (library.length
+        ? 'No cards are booked into this story yet.'
+        : 'The cast library is empty — cards come home in Settings, under Bring your people.');
+
+    for (const card of invited) {
+      const li = document.createElement('li');
+      li.className = 'present-row';
+      const words = document.createElement('span');
+      words.textContent = '❧ ' + card.name;
+      words.title = 'A card from the cast library';
+      const out = document.createElement('button');
+      out.type = 'button';
+      out.className = 'story-mini';
+      out.title = 'Let the invitation go';
+      out.setAttribute('aria-label', `${card.name}’s card leaves this story’s cast`);
+      out.textContent = '×';
+      out.addEventListener('click', async () => {
+        await detachFromStory(story.id, card.id);
+        render();
+      });
+      li.append(words, out);
+      castList.appendChild(li);
+    }
+
+    if (onTheShelf.length) {
+      for (const card of onTheShelf) {
+        const opt = document.createElement('option');
+        opt.value = card.id;
+        opt.textContent = card.name;
+        inviteSelect.appendChild(opt);
+      }
+    } else {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = library.length ? 'Everyone’s already invited' : 'No cards on the shelf yet';
+      inviteSelect.appendChild(opt);
+    }
+    inviteBtn.disabled = !onTheShelf.length;
   }
+
+  inviteForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const story = await currentStory(ctx);
+    const cardId = inviteSelect.value;
+    if (!story || !cardId) return;
+    await attachToStory(story.id, cardId);
+    render();
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

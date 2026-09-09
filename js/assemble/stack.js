@@ -3,23 +3,29 @@
  * internals; the export name `buildRequest` (and the starter texts, which
  * the settings view imports) stay put.
  *
- * Contract (SPEC.md M2, extended by M6):
- *   buildRequest({story, messages, settings, state, modules, memory})
+ * Contract (SPEC.md M2, extended by M6 and M7):
+ *   buildRequest({story, messages, settings, state, modules, memory,
+ *                 cast, lore})
  *     -> { systemBlocks:[{text, cache:true|false}], messages:[...],
  *          receipt:ReceiptDraft }
  *   `modules` is the already-selected list from modules.selectModules():
  *   [{mod, reason}] — core-craft is always among them. `memory` is slot 7's
  *   text: what the keeper has folded of the older pages (agents/memory.js
- *   renderMemory), or '' when nothing has been remembered yet.
+ *   renderMemory), or '' when nothing has been remembered yet. M7: `cast`
+ *   is the story's invited cast (import/cards.js castForStory — full Card
+ *   objects), and `lore` is the lore shelf's answer for the latest pages
+ *   (import/lorebook.js matchLore), or '' when no keys spoke.
  *
  * The slot order is law — never reorder:
  *   1. The frame            (story override → global → starter)   cache:true
  *   2. The craft            (the core-craft module text)          cache:true
  *   3. The brief            (story.brief || '')                   cache:true
- *   4. Who's here           (cast notes + state.present names)    cache:true
+ *   4. Who's here           (cast notes + state.present names
+ *                            + attached-present cards, budgeted)  cache:true
  *   5. The state of things  (renderStateFacts(state); omit if '') cache:false
  *   6. Active modules       (non-core selected modules)           cache:false
- *   7. What remains         (memory nodes; M6 — omitted when none)
+ *   7. What remains         (memory nodes; M6 — omitted when none;
+ *                            then lore hits, M7, shared budget)
  *   8. The story so far     — the history, as-is
  *   9. The note at the end  (override → global → starter; LAST message)
  *  10. The continue nudge   — only when the last user message is
@@ -39,8 +45,15 @@
  *   - Slot 10, when it fires, sits just before the note; slot 9 is always
  *     the LAST message. (When the note is empty and the nudge fires, the
  *     nudge is last — there is no note to keep last.)
- *   - Slot 7 appears on the receipt ONLY when memory exists (M6 law); an
- *     empty "What remains" is no longer recorded.
+ *   - Slot 7 appears on the receipt ONLY when something rides it (M6 law,
+ *     widened in M7): memory nodes and lore hits are listed as separate
+ *     sub-parts when present, sharing the one 3200-char budget — memory
+ *     first, lore in the room that's left.
+ *
+ * M7 budgets: slot 4 stays within 1600 chars (the cast notes and who's
+ * present keep their seats; invited cards join while there's room, their
+ * descriptions trimmed to 400 chars each). Slot 7's combined memory + lore
+ * stays within the keeper's 3200-char budget (agents/memory.js SLOT_BUDGET).
  *
  * M6: when the referee has ruled (state.pendingVerdict), renderStateFacts
  * carries "The house has ruled: …" at the head of slot 5 — the receipt's
@@ -52,6 +65,7 @@
 
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts } from '../engine/state.js';
+import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 
 export const STARTER_FRAME = [
   'You are telling a story with one person, slowly and by lamplight.',
@@ -72,6 +86,18 @@ export const STARTER_NOTE = [
 export const CONTINUE_NUDGE = 'Go on.';
 
 const STATE_MARKER = '[story-state]';
+
+/* M7 budgets (see header): slot 4's whole section, and each invited card's
+ * description within it. */
+const SLOT4_BUDGET = 1600;
+const SLOT4_CARD_DESCRIPTION = 400;
+
+/* A present name and a card's name meet case-insensitively, with any
+ * "(she/her)"-style parenthetical aside ignored — the same normalization
+ * the acoustics predicate uses (modules.js). */
+function bareName(raw) {
+  return String(raw || '').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+}
 
 function pickText(storyOverride, globalText, starter) {
   if (typeof storyOverride === 'string' && storyOverride.trim()) {
@@ -106,7 +132,7 @@ function isContinueTurn(history) {
   return text === '' || /^(continue|go on|keep going)[.!…]?$/i.test(text);
 }
 
-export function buildRequest({ story, messages, settings, state, modules, memory }) {
+export function buildRequest({ story, messages, settings, state, modules, memory, cast, lore }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
   const history = Array.isArray(messages) ? messages : [];
@@ -114,6 +140,14 @@ export function buildRequest({ story, messages, settings, state, modules, memory
   /* M6: slot 7's text arrives ready-made from the keeper (renderMemory) —
    * '' when nothing has been remembered, which omits the slot entirely. */
   const memoryText = typeof memory === 'string' ? memory.trim() : '';
+  let loreText = typeof lore === 'string' ? lore.trim() : '';
+  {
+    /* The shared slot-7 budget: memory keeps its seat first, lore rides in
+     * the room that's left (SLOT_BUDGET from agents/memory.js). */
+    const room = SLOT7_BUDGET - memoryText.length;
+    if (loreText && room <= 0) loreText = '';
+    else if (loreText.length > room) loreText = loreText.slice(0, room - 1).trimEnd() + '…';
+  }
 
   const slots = [];
   const pushSlot = (name, text, source, reason) => {
@@ -133,16 +167,52 @@ export function buildRequest({ story, messages, settings, state, modules, memory
   const brief = typeof safeStory.brief === 'string' ? safeStory.brief : '';
   pushSlot('The brief', brief, brief.trim() ? 'this story' : '');
 
-  /* --- 4. Who's here: the cast notes, then who is in the scene right now --- */
+  /* --- 4. Who's here: the cast notes, who is in the scene right now, and
+   * (M7) the invited cards of whoever is present — each description trimmed
+   * to 400 chars, the whole section held to 1600. The cast notes and the
+   * present names keep their seats; the cards join while there's room. --- */
   const castNotes = typeof safeStory.castNotes === 'string' ? safeStory.castNotes.trim() : '';
   const presentNames = state && Array.isArray(state.present)
     ? state.present.map((p) => p && p.name).filter(Boolean)
     : [];
-  const whosHere = [
+  const presentBare = new Set(presentNames.map(bareName).filter(Boolean));
+  const cardLines = [];
+  const invited = Array.isArray(cast) ? cast : [];
+  const invitedNames = [];
+  for (const card of invited) {
+    const cardName = card && typeof card.name === 'string' ? card.name.trim() : '';
+    if (!cardName || !presentBare.has(bareName(cardName))) continue;
+    let description = card && typeof card.description === 'string'
+      ? card.description.replace(/\s+/g, ' ').trim()
+      : '';
+    if (description.length > SLOT4_CARD_DESCRIPTION) {
+      description = description.slice(0, SLOT4_CARD_DESCRIPTION - 1).trimEnd() + '…';
+    }
+    if (!description) continue;
+    cardLines.push(cardName + ' — ' + description);
+    invitedNames.push(cardName);
+  }
+  let whosHere = [
     castNotes,
     presentNames.length ? 'Here right now: ' + presentNames.join(', ') + '.' : '',
   ].filter(Boolean).join('\n\n');
-  pushSlot('Who’s here', whosHere, whosHere ? 'cast notes, and who is present' : '');
+  if (whosHere.length > SLOT4_BUDGET) {
+    whosHere = whosHere.slice(0, SLOT4_BUDGET - 1).trimEnd() + '…';
+  }
+  for (const line of cardLines) {
+    const candidate = whosHere ? whosHere + '\n' + line : line;
+    if (candidate.length > SLOT4_BUDGET) continue; // left on the shelf this turn
+    whosHere = candidate;
+  }
+  pushSlot(
+    'Who’s here',
+    whosHere,
+    whosHere
+      ? (invitedNames.length
+        ? 'cast notes, who is present, and the cards of ' + invitedNames.join(', ')
+        : 'cast notes, and who is present')
+      : ''
+  );
 
   /* Slots 1–4 join into systemBlocks, all cache:true. Empty slot texts are
    * left off the wire (some storytellers refuse empty blocks) but stay on
@@ -176,14 +246,19 @@ export function buildRequest({ story, messages, settings, state, modules, memory
   if (facts) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
   if (memoryText) stateParts.push('What remains of the older pages:\n' + memoryText);
+  if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   const stateInjection = stateParts.length
     ? { role: 'user', content: STATE_MARKER + '\n' + stateParts.join('\n\n') }
     : null;
 
-  /* --- 7. What remains (M6) — the newest memory nodes. The receipt slot
-   * appears only when there is something remembered. --- */
+  /* --- 7. What remains (M6) — the newest memory nodes; then (M7) the lore
+   * hits, sharing the slot's budget. The receipt lists each sub-part only
+   * when it has something to say. --- */
   if (memoryText) {
     pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
+  }
+  if (loreText) {
+    pushSlot('The lore shelf', loreText, 'entries whose keys were spoken in the latest pages');
   }
 
   /* --- 8. The story so far --- */

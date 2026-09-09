@@ -429,3 +429,103 @@ and engine mutations/undo.
   the four new modules in the shell list; backup/restore carries
   `memory:<storyId>`; deleting a story lets its memory go with it.
 
+
+
+---
+
+# M7 — bring your people, your lore, your old chats (v1 complete)
+
+Run these after anything that touches the importers, the cast library, the
+lore shelf, slots 4 or 7, or the settings view. They mirror the M7
+acceptance checklist in SPEC.md. The harness checks (§35) are Node scripts
+kept in /tmp during development — not shipped with the app. PNG card
+fixtures are built in /tmp with Pillow (`/tmp/m7-fixtures.py`); nothing of
+the kind is ever committed.
+
+## 32. Bring your people (character cards)
+
+1. Settings → **Bring your people** → **Choose a card** → pick a v2 PNG
+   card (a harness-built one from /tmp when testing). The shelf lists the
+   character — name, "from a picture", a taste of their description, and
+   any other greetings counted.
+2. Choose a JSON card (with alternate greetings inside): it shelves the
+   same way, "from a JSON card".
+3. Choose an ordinary picture (no character inside): a kind line — "That
+   picture doesn't carry a character." — and nothing shelves.
+4. Open a story → the ledger → **Who's here** → invite the character in
+   (the picker by the list, **Invite them in**). They appear with the
+   book-mark (❧). Write their name into the scene (the same Who's here
+   panel), then send a turn: the receipt's slot 4 carries
+   `name — description`, trimmed to its 400 characters.
+5. Someone invited but NOT written into the scene does not ride slot 4.
+6. **Let go** of a card in Settings (with its confirm): it leaves the
+   shelf AND every story's cast list.
+7. The × beside an invited card in the ledger lets the invitation go
+   without letting go of the card.
+
+## 33. Bring your lore (World Info)
+
+1. With a story open: Settings → **Bring your lore** → choose a lorebook
+   JSON → the count line reads "N entries on the shelf".
+2. Send a turn whose recent words speak one of the entry keys (whole word —
+   "ash" wakes on "the ash pit", never on "Ashford"): the NEXT turn's
+   receipt shows **The lore shelf** under What remains, with the entry's
+   words, within the shared budget. A turn that speaks no key changes
+   nothing — no lore slot at all.
+3. The shelf is per story: another story reads empty until stocked.
+4. **Take the shelf down** (with its confirm) clears it; the lore slot
+   goes quiet.
+
+## 34. Bring your old chats (JSONL)
+
+1. Settings → **Bring your old chats** → choose a SillyTavern .jsonl
+   export → a new story appears on the shelf ("With <name>"), already
+   active, pages in order, roles as they were, prose verbatim.
+2. Send a message in it: the tale simply continues, receipt and all.
+3. A file that isn't a chat export (no metadata up top, a malformed line,
+   a line with no words) fails kindly, names the line when it can, and
+   nothing is created.
+
+## 35. Backup, removal, and the offline shell
+
+1. With a card shelved and a lore shelf stocked: Settings → Backup →
+   **Take a copy**. Wipe the store (devtools → IndexedDB → delete
+   `cozytavern.v1`), reload, **Bring a copy back**: the cast library and
+   every story's lore shelf return (they ride in the settings store).
+2. Let go of a story that had lore: its `lore:` key goes with it; the cast
+   library is untouched.
+3. Devtools → Network → Offline → reload: the shell loads (sw cache v6,
+   every shipped file listed), your stories open and read; sending fails
+   kindly ("Couldn't reach…" style, no stack).
+4. Focus through the app with a keyboard: every control shows a visible
+   ring. With the device's reduce-motion setting on, nothing slides or
+   blinks.
+
+## 36. Harness checks (Node, mocked)
+
+The M7 harness lives outside the app (/tmp/m7-harness.mjs during
+development; fixtures from /tmp/m7-fixtures.py via Pillow). It covers: the
+PNG chunk walker (tEXt, iTXt plain and zlib-compressed, bad CRC on the
+chara chunk, multi-chunk with decoys, truncated files, non-card PNG kind
+errors); JSON cards incl. v1 flat shape and alternate_greetings; lorebook
+parse (entries object and array, `key`/`keys`, `disable`), whole-word
+scoring (distinct keys, case-insensitive, "Ashford" ≠ "ash"), and budget
+enforcement; chat JSONL role mapping (missing is_user → assistant, missing
+send_date keeps order) and kind-failures (no metadata, malformed line with
+line number, missing mes, cover-only); slot 4 budget (1600) and per-card
+trim (400); slot 7 shared budget (memory first, lore in the room left,
+both sub-parts on the receipt only when present); cast/lore store
+round-trips via the IndexedDB shim; story-removal cleanup (lore gone, cast
+survives); backup carrying cast + lore. All green at commit time (115
+checks), plus the full M1–M6 re-run (150 + 73 checks, green).
+
+## 37. Regression
+
+- M1 (§1–§8), M2 (§9–§12), M3 (§13–§17), M4 (§18–§22), M5 (§23–§25), and
+  M6 (§26–§31) still pass, untouched.
+- The latency law stands: importers run only from Settings, only when
+  asked, and make no network calls; lore retrieval is plain keyword
+  listening, no model involved; exactly one streamed generation per turn.
+- `node --check` clean on every `.js` file; sw.js cache bumped (v6) with
+  the three new import modules in the shell list; README.md rewritten as
+  the v1 front door.

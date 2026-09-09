@@ -15,6 +15,7 @@
   padding: 1rem;
   padding-top: calc(1rem + env(safe-area-inset-top));
   padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  padding-right: calc(1rem + env(safe-area-inset-right));
   transform: translateX(105%);
   transition: transform 180ms ease;
   overflow-y: auto;
@@ -226,3 +227,9 @@
 }
 
 .log-row.drift-warn span { color: var(--ink); }
+
+/* ---------- M7: the invited cast in "Who's here" ---------- */
+
+.cast-head { margin-top: 0.6rem !important; }
+
+.present-editor .cast-head { color: var(--ink-soft); }

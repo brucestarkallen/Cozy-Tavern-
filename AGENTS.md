@@ -499,3 +499,123 @@ scan of the tree against the real file must come back empty.
   writes to it from import yet.
 - The verdict is one line of fact per ruling; no roll history or odds
   display beyond "The house has ruled" is promised.
+
+---
+
+# M7 — SillyTavern imports, hardening, polish (v1 complete)
+
+## What changed
+
+- `js/import/cards.js` (new) — character cards. `parseCard(fileOrText)`
+  accepts a browser File (PNG or JSON), a JSON text string, or raw bytes
+  (the harness path) — what a thing IS is read from its contents, never
+  its name. The PNG walker reads chunks by hand (length/type/data/CRC),
+  finds the tEXt or iTXt chunk with keyword `chara`, verifies ITS CRC
+  (a disagreement is a "damaged page" kind error), decodes base64 → JSON
+  → v2 `payload.data` (a flat v1 card reads too). iTXt: uncompressed and
+  zlib-compressed both read (DecompressionStream). Kind errors throughout:
+  "That picture doesn't carry a character." for a cardless PNG, a damaged
+  line for cut-short/bad-CRC, a not-JSON line for garbage. A JSON object
+  with no recognizable card fields is refused kindly. The cast library is
+  app-wide (`cast:<cardId>` in the settings store, so backups carry it);
+  stories hold `castIds`. `removeCastMember` un-invites everywhere.
+  `castForStory(story)` (additive helper) resolves a story's invitations
+  to full Cards for the assembler.
+- `js/import/lorebook.js` (new) — World Info JSON. `parseLorebook` reads
+  entries as object or array, `key`/`keys`, `disable`/`enabled`; kind
+  errors on garbage/wrong-shape/empty. `saveLore`/`loadLore` keep the
+  shelf under `lore:<storyId>` (settings store; backups carry it; it goes
+  with its story). `matchLore(entries, recentText, budgetChars=1200)` is
+  pure and deterministic: case-insensitive whole-word hits (letters and
+  numbers are word, everything else is a boundary; "Ashford" never wakes
+  "ash"), scored by DISTINCT keys hit, strongest first with shelf order
+  breaking ties, contents joined under budget — an overlong lone entry
+  trims with an ellipsis, an entry that no longer fits stays home.
+  recentText = the last user message + the last assistant message. No LLM.
+- `js/import/chats.js` (new) — ST chat JSONL. First line must carry
+  `chat_metadata`; title comes from `character_name` ("With Mara Vane",
+  else "An old tale, brought home"). Each message line:
+  `{name, is_user, mes, send_date}` — is_user true → user, anything else
+  → assistant; prose verbatim; send_date parsed, missing → steady sequence
+  fallback. A malformed line, a line without `mes`, a cover-only file:
+  kind errors (with the line number), nothing half-imported.
+  `importAsStory` creates the story and appends the pages.
+- `js/store.js` (extended) — additive `settings.keys()` and
+  `settings.delete(key)`; `stories.remove` now also lets go of
+  `lore:<storyId>` (cast stays — it's app-wide). Backup/import were
+  already whole-settings-store, so cast + lore ride along unchanged.
+- `js/assemble/stack.js` (extended) — `buildRequest` takes `cast` and
+  `lore`. Slot 4: for each invited card whose name appears in
+  state.present (case-insensitive, "(she/her)"-style parentheticals
+  ignored — same normalization as the acoustics predicate), `name —
+  description` rides, description trimmed to 400 chars; the section holds
+  1600 chars total — cast notes and the present line keep their seats,
+  cards join while there's room. Slot 7: memory first (unchanged), then
+  lore in the room left within the keeper's 3200-char budget
+  (`SLOT_BUDGET` imported from agents/memory.js — single source of truth);
+  the receipt lists "What remains" and "The lore shelf" as separate
+  sub-parts, each only when present (M6's silent-when-empty law widened,
+  not broken).
+- `js/ui/chat.js` (extended) — the send path loads the story's invited
+  cast and lore shelf (store reads only) and passes them to buildRequest.
+  Zero new per-turn calls; the latency law is untouched.
+- `js/ui/settings.js` + `index.html` (extended) — three sections: "Bring
+  your people" (card picker + the cast library shelf with remove), "Bring
+  your lore" (per active story, "N entries on the shelf", take the shelf
+  down), "Bring your old chats" (JSONL → a new story, made active).
+- `js/ui/drawer.js` (extended) — Who's here: invited cast listed with the
+  book-mark (❧) and a × to let the invitation go; an invite picker offers
+  whoever is still on the shelf.
+- `index.html` / css — polish: focus-visible rings extended to links,
+  `@media (prefers-reduced-motion: reduce)` stills every transition and
+  the blinking caret, safe-area right insets on drawer and receipt sheet
+  (top/bottom were already there from M1).
+- `sw.js` — cache bumped to v6; the three import modules joined the shell
+  list; a full audit confirmed every shipped js/css/asset file is listed.
+- `README.md` — rewritten as the v1 front door (what it is, install via
+  Pages or Termux `serve.sh`, the rooms, the engines and agents in plain
+  words, privacy, importing from SillyTavern, the smoke pointer).
+
+## Contracts to preserve (added in M7)
+
+- `parseCard(fileOrText)` → Card `{id, name, description, personality,
+  scenario, firstMes, creatorNotes, alternateGreetings:[], source,
+  importedAt}` — throws kindly on anything that isn't a card.
+- `listCast()` / `saveCastMember(card)` / `removeCastMember(id)` /
+  `attachToStory(storyId, cardId)` / `detachFromStory(storyId, cardId)`.
+- `parseLorebook(jsonText)` → `[{id, keys:[], content, enabled}]`;
+  `saveLore(storyId, entries)` / `loadLore(storyId)`;
+  `matchLore(entries, recentText, budgetChars=1200)` → string.
+- `parseSTChat(jsonlText)` → `{title, messages:[{role, text, ts}]}`;
+  `importAsStory(parsed)` → storyId.
+- Slot 4 budget 1600 / per-card description 400; slot 7 shared budget
+  3200 (memory first). Receipt sub-parts appear only when present.
+- `db.settings.keys()` / `db.settings.delete(key)` (additive).
+
+## Verification
+
+- `node --check` clean on every `.js` file.
+- Harnesses (kept in /tmp during development, not shipped):
+  `/tmp/m7-harness.mjs` (115 checks: chunk walker incl. tEXt/iTXt/zlib/
+  bad-CRC/multi-chunk/truncated/non-card; JSON cards incl. v1 + alternate
+  greetings; whole-word scoring + budgets; JSONL roles + kind-failures;
+  slot 4/7 budgets; cast/lore round-trips via the IndexedDB shim; story
+  removal cleanup; backup carrying cast + lore), fixtures built by
+  `/tmp/m7-fixtures.py` (Pillow). Full M1–M6 re-run green:
+  m6-harness.mjs 150 checks, m6-regression.mjs 73 checks.
+- Static serve + curl: all changed files 200 with correct MIME; sw shell
+  list audited complete.
+
+## The privacy law (unchanged, restated)
+
+Card/lore/chat fixtures live in /tmp for harnesses and hand testing only.
+No user payload is ever committed, shipped, or quoted into shipped files.
+
+## Seams beyond v1 (do not fill early)
+
+- A card's creator notes and alternate greetings are shelved but not yet
+  offered as story starters; firstMes likewise. Deliberate restraint.
+- The lore shelf listens only to the two latest pages; a deeper memory of
+  keys is a later milestone's call, if ever.
+- Nothing from imports writes to the canon store yet; locked truths stay
+  hand-set or engine-earned.
