@@ -537,3 +537,17 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 41. Stop mid-stream: partial page kept, labeled "stopped mid-sentence".
 42. Ember bar fills with context use; glows past 72%.
 43. Themes: hearth (dark, default) and parchment both render; choice persists.
+
+## M9 — the interaction loop & truth fixes
+44. Swipes: on an assistant page, swipe right — a new version generates and the old one is kept; ◂ n/m ▸ walks versions; editing the user message first rolls fresh.
+45. Edit any page (yours or the storyteller's) inline; deleting one page asks kindly and takes only itself.
+46. "Go on" on the last page continues without leaving a visible "continue" bubble.
+47. A reply cut short by length says so, with a "Go on" offer; an empty answer never vanishes silently.
+48. #question, ((…)), // asides answer out of story; #p #pp #continue #time parse to quiet directives with a chip in the composer; unknown # passes through with a hint.
+49. The lore shelf: entries can be seen, edited, toggled, reordered, deleted; constant entries always ride; the receipt names what fired.
+50. Cards: attaching offers their greeting as the opener; personality/scenario ride the who's-here slot; inviting a card seats them in the scene.
+51. Custom rules can pick when they wake (trigger picker) and carry a note.
+52. Per-story connection override; "The workers" line in the ledger shows each worker's last run and any failure.
+53. Second tab opens read-only with a plain notice.
+54. Memory window law: the story-so-far carries only the window; older pages live in What remains; keeper-off cuts by token budget and says so on the receipt.
+55. Harnesses ship in the repo: `node tests/harness/run.mjs`.

@@ -25,6 +25,7 @@ import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
 import { listCast, attachToStory, detachFromStory } from '../import/cards.js';
+import { loadWorkerStatus, WORKER_NAMES } from '../agents/status.js';
 import { db } from '../store.js';
 
 /* ---------- shared helpers ---------- */
@@ -54,6 +55,29 @@ function quietNote(text) {
   p.className = 'quiet';
   p.textContent = text;
   return p;
+}
+
+/* B6 (M9): one in-flight render per panel, latest wins. A panel's render
+ * is async; a second call while the first is still reading the store used
+ * to interleave DOM writes (doubled rows, lost order). latestWins wraps a
+ * render so a call during a run is remembered and re-run once, fresh, when
+ * the run settles. */
+export function latestWins(fn) {
+  let running = false;
+  let queued = false;
+  return async function guarded(...args) {
+    if (running) { queued = true; return; }
+    running = true;
+    try {
+      do {
+        queued = false;
+        await fn.apply(this, args);
+      } while (queued);
+    } finally {
+      running = false;
+      queued = false;
+    }
+  };
 }
 
 /* ---------- the clock ---------- */
@@ -199,7 +223,7 @@ function clockPanel(ctx) {
     render();
   });
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     const state = story ? await loadState(story.id) : null;
     const clock = state && state.clock;
@@ -234,7 +258,7 @@ function clockPanel(ctx) {
     monthsInput.hidden = daysInput.hidden = calSave.hidden = !custom;
     monthsInput.value = Array.isArray(clock.monthNames) ? clock.monthNames.filter(Boolean).join(', ') : '';
     daysInput.value = Array.isArray(clock.dayNames) ? clock.dayNames.filter(Boolean).join(', ') : '';
-  }
+  });
 
   render();
   return wrap;
@@ -285,7 +309,7 @@ function whosHerePanel(ctx) {
   inviteForm.append(inviteSelect, inviteBtn);
   wrap.append(list, note, form, castHead, castList, inviteForm);
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
     castList.textContent = '';
@@ -374,7 +398,7 @@ function whosHerePanel(ctx) {
       inviteSelect.appendChild(opt);
     }
     inviteBtn.disabled = !onTheShelf.length;
-  }
+  });
 
   inviteForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -382,6 +406,33 @@ function whosHerePanel(ctx) {
     const cardId = inviteSelect.value;
     if (!story || !cardId) return;
     await attachToStory(story.id, cardId);
+
+    /* M9: a card arrives properly. If its name isn't already in the scene,
+     * it takes a seat (presence.enter) — the next turn's "Who's here"
+     * carries the card's words (slot 4 only speaks for the present). And
+     * when the page is still blank and the card brought a greeting, the
+     * greeting is OFFERED as the story's opener — never forced. */
+    const library = await listCast();
+    const card = library.find((c) => c.id === cardId);
+    if (card && typeof card.name === 'string' && card.name.trim()) {
+      const state = await loadState(story.id);
+      const present = Array.isArray(state.present) ? state.present : [];
+      const bare = (s) => String(s || '').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (!present.some((p) => p && bare(p.name) === bare(card.name))) {
+        await handMutate(ctx, [{ type: 'presence.enter', name: card.name }]);
+      }
+      const history = await db.messages.list(story.id);
+      const greeting = typeof card.firstMes === 'string' ? card.firstMes.trim() : '';
+      if (greeting && !history.some((m) => m && !m.hidden)) {
+        const yes = window.confirm(
+          `Begin with ${card.name}’s own greeting? Their card brought opening words.`
+        );
+        if (yes) {
+          await db.messages.append(story.id, { role: 'assistant', text: greeting });
+          if (ctx.chat && ctx.chat.renderThread) await ctx.chat.renderThread({ structural: true });
+        }
+      }
+    }
     render();
   });
 
@@ -410,7 +461,7 @@ function moodPanel(ctx) {
   rows.className = 'mood-rows';
   wrap.append(note, rows);
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     rows.textContent = '';
     if (!story) {
@@ -438,7 +489,7 @@ function moodPanel(ctx) {
       row.append(box, words);
       rows.appendChild(row);
     }
-  }
+  });
 
   render();
   return wrap;
@@ -454,7 +505,7 @@ function logPanel(ctx) {
   list.className = 'log-list';
   wrap.append(note, list);
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
     if (!story) {
@@ -495,7 +546,7 @@ function logPanel(ctx) {
       }
       list.appendChild(li);
     }
-  }
+  });
 
   render();
   return wrap;
@@ -575,7 +626,7 @@ function holdingUpPanel(ctx) {
     render();
   });
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
     if (!story) {
@@ -636,7 +687,7 @@ function holdingUpPanel(ctx) {
         list.appendChild(li);
       }
     }
-  }
+  });
 
   render();
   return wrap;
@@ -711,7 +762,7 @@ function onTheirMindPanel(ctx) {
     render();
   });
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
     if (!story) {
@@ -743,7 +794,7 @@ function onTheirMindPanel(ctx) {
       }
       list.appendChild(li);
     }
-  }
+  });
 
   render();
   return wrap;
@@ -802,7 +853,7 @@ function elsewherePanel(ctx) {
     render();
   });
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
     if (!story) {
@@ -839,7 +890,7 @@ function elsewherePanel(ctx) {
       li.append(words, clearBtn);
       list.appendChild(li);
     }
-  }
+  });
 
   render();
   return wrap;
@@ -855,7 +906,7 @@ function verdictPanel(ctx) {
   line.className = 'verdict-line';
   wrap.append(note, line);
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     line.textContent = '';
     line.hidden = true;
@@ -878,7 +929,7 @@ function verdictPanel(ctx) {
       : 'The latest ruling, already woven into the page it ruled on:';
     line.textContent = 'The house has ruled: ' + verdict.words.trim();
     line.hidden = false;
-  }
+  });
 
   render();
   return wrap;
@@ -929,7 +980,7 @@ function canonPanel(ctx) {
     render();
   });
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
     if (!story) {
@@ -965,7 +1016,7 @@ function canonPanel(ctx) {
         list.appendChild(li);
       }
     }
-  }
+  });
 
   render();
   return wrap;
@@ -981,7 +1032,7 @@ function driftPanel(ctx) {
   list.className = 'log-list';
   wrap.append(note, list);
 
-  async function render() {
+  const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
     if (!story) {
@@ -989,11 +1040,13 @@ function driftPanel(ctx) {
       return;
     }
     /* Findings live on the assistant messages they were read from; the
-     * panel gathers the newest few. */
+     * panel gathers the newest few, windowed to the last 100 pages (M9,
+     * B18 — a long tale's early drift is old news). */
     const history = await db.messages.list(story.id);
+    const window = history.slice(-100);
     const found = [];
-    for (let i = history.length - 1; i >= 0 && found.length < 10; i -= 1) {
-      const msg = history[i];
+    for (let i = window.length - 1; i >= 0 && found.length < 10; i -= 1) {
+      const msg = window[i];
       if (!msg || msg.role !== 'assistant' || !Array.isArray(msg.findings)) continue;
       for (let j = msg.findings.length - 1; j >= 0 && found.length < 10; j -= 1) {
         const f = msg.findings[j];
@@ -1015,7 +1068,7 @@ function driftPanel(ctx) {
       li.appendChild(words);
       list.appendChild(li);
     }
-  }
+  });
 
   render();
   return wrap;
@@ -1074,6 +1127,11 @@ const PANELS = [
     title: 'Something drifted',
     render: (ctx) => driftPanel(ctx),
   },
+  {
+    id: 'the-workers',
+    title: 'The workers',
+    render: (ctx) => workersPanel(ctx),
+  },
 ];
 
 export function initDrawer(ctx) {
@@ -1124,10 +1182,19 @@ export function initDrawer(ctx) {
     requestAnimationFrame(() => drawer.classList.add('open'));
   }
 
+  /* B8 (M9): the close timer carries a generation number — a close
+   * followed quickly by an open no longer hides the drawer out from under
+   * the reopen. */
+  let closeGeneration = 0;
+
   function close() {
+    const generation = ++closeGeneration;
     drawer.classList.remove('open');
     scrim.hidden = true;
-    setTimeout(() => { drawer.hidden = true; }, 200);
+    setTimeout(() => {
+      if (generation !== closeGeneration) return; // reopened in between
+      drawer.hidden = true;
+    }, 200);
   }
 
   function toggle() {

@@ -101,14 +101,16 @@ function appendLog(state, words, undo) {
   return entry;
 }
 
-/* M4: the story clock's minutes (null when the clock was never set) and the
- * log's length, which the ledgers use as the turn count. */
+/* M4: the story clock's minutes (null when the clock was never set).
+ * M9 (B14): the turn count is state.turn — a monotonic counter, bumped once
+ * per applied batch, independent of the capped log (the log's length used to
+ * serve, and ages went backwards once the log capped at 200). */
 function clockMinutesOf(state) {
   return state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
 }
 
 function turnOf(state) {
-  return Array.isArray(state.log) ? state.log.length : 0;
+  return Number.isFinite(state.turn) ? state.turn : 0;
 }
 
 /* Free text the ledgers accept: cleaned, and capped so no single note can
@@ -485,6 +487,9 @@ export function applyMutations(state, mutations) {
   const next = copyState(state);
   const applied = [];
   const rejected = [];
+  /* M9 (B14): one batch that writes anything counts as one turn of the
+   * story, marked before any handler asks for it. */
+  next.turn = turnOf(next) + 1;
 
   const list = Array.isArray(mutations) ? mutations : [];
   for (const mutation of list) {

@@ -3,9 +3,9 @@
  * internals; the export name `buildRequest` (and the starter texts, which
  * the settings view imports) stay put.
  *
- * Contract (SPEC.md M2, extended by M6 and M7):
+ * Contract (SPEC.md M2, extended by M6, M7 and M9):
  *   buildRequest({story, messages, settings, state, modules, memory,
- *                 cast, lore})
+ *                 cast, lore, loreFired, window, directive})
  *     -> { systemBlocks:[{text, cache:true|false}], messages:[...],
  *          receipt:ReceiptDraft }
  *   `modules` is the already-selected list from modules.selectModules():
@@ -14,46 +14,69 @@
  *   renderMemory), or '' when nothing has been remembered yet. M7: `cast`
  *   is the story's invited cast (import/cards.js castForStory — full Card
  *   objects), and `lore` is the lore shelf's answer for the latest pages
- *   (import/lorebook.js matchLore), or '' when no keys spoke.
+ *   (import/lorebook.js matchLore), or '' when no keys spoke. M9:
+ *   `loreFired` names the entries that woke (receipt slot 7 says their
+ *   names out loud); `directive` is a parsed house command's instruction
+ *   (commands.js) riding just before the note; and `window` is the M9
+ *   window law below.
  *
  * The slot order is law — never reorder:
  *   1. The frame            (story override → global → starter)   cache:true
  *   2. The craft            (the core-craft module text)          cache:true
- *   3. The brief            (story.brief || '')                   cache:true
+ *   3. The brief            (story.brief || '')                   cache:false
  *   4. Who's here           (cast notes + state.present names
- *                            + attached-present cards, budgeted)  cache:true
+ *                            + attached-present cards, budgeted)  cache:false
  *   5. The state of things  (renderStateFacts(state); omit if '') cache:false
  *   6. Active modules       (non-core selected modules)           cache:false
  *   7. What remains         (memory nodes; M6 — omitted when none;
  *                            then lore hits, M7, shared budget)
- *   8. The story so far     — the history, as-is
+ *   8. The story so far     — the verbatim window ONLY (M9, A1)
  *   9. The note at the end  (override → global → starter; LAST message)
  *  10. The continue nudge   — only when the last user message is
  *                             empty/continue ("Go on.")
  *
+ * The window law (M9, A1): slot 8 sends ONLY the verbatim window. Hidden
+ * pages (the continue nudge's "Go on.") never join it. With the keeper ON,
+ * the window is the story's memory window (memory.window, default 30
+ * messages) — older pages exist ONLY as summary nodes in slot 7. With the
+ * keeper OFF, the window is the last N pages that fit the connection's
+ * estimated context budget minus the assembled prefix (estimateTokens), and
+ * the receipt names the cutoff honestly ("42 pages carried word for word,
+ * the rest rests"). Receipt slots 7/8 report counts.
+ *
  * How slots map onto the wire (provider semantics kept simple):
  *   - Slots 1–4 join into systemBlocks. Anthropic sends them as an array
  *     with cache_control on the last cache:true block; OpenAI concatenates
- *     the cache:true blocks into one system message. Empty slot texts are
- *     left out of the blocks but still appear on the receipt (0 tokens).
+ *     the cache:true blocks into one LEADING system message and lets the
+ *     cache:false blocks follow as separate system messages. Empty slot
+ *     texts are left out of the blocks but still appear on the receipt
+ *     (0 tokens).
+ *   - The cache breakpoint (M9, A4): cache_control sits on the END of
+ *     slot 2 (The craft) — the frame and the craft are the stable prefix.
+ *     Slots 3–4 are separate NON-cached blocks (the brief and Who's here
+ *     drift with the scene; caching them would poison the prefix).
  *   - Slots 5–6 prepend as ONE user-role message marked [story-state] at
  *     the FRONT of the messages array — dynamic text is never system on the
  *     openai mapping, so the stable system prefix stays byte-for-byte. Slot
  *     7, when memory exists, rides inside that same injection after the
  *     active modules (its order in the stack, and still before history).
- *   - Slot 8 follows as plain {role, content} history.
- *   - Slot 10, when it fires, sits just before the note; slot 9 is always
- *     the LAST message. (When the note is empty and the nudge fires, the
+ *   - Slot 8 follows as plain {role, content} history — the window only.
+ *   - Slot 10, when it fires, sits just before the note; a `directive`
+ *     (M9, a parsed house command) rides there too; slot 9 is always the
+ *     LAST message. (When the note is empty and the nudge fires, the
  *     nudge is last — there is no note to keep last.)
  *   - Slot 7 appears on the receipt ONLY when something rides it (M6 law,
  *     widened in M7): memory nodes and lore hits are listed as separate
  *     sub-parts when present, sharing the one 3200-char budget — memory
- *     first, lore in the room that's left.
+ *     first, lore in the room that's left. M9: the lore line names the
+ *     entries that fired.
  *
  * M7 budgets: slot 4 stays within 1600 chars (the cast notes and who's
  * present keep their seats; invited cards join while there's room, their
- * descriptions trimmed to 400 chars each). Slot 7's combined memory + lore
- * stays within the keeper's 3200-char budget (agents/memory.js SLOT_BUDGET).
+ * descriptions trimmed to 400 chars each; M9 adds their personality and
+ * scenario lines, 300 chars each, while room remains). Slot 7's combined
+ * memory + lore stays within the keeper's 3200-char budget
+ * (agents/memory.js SLOT_BUDGET).
  *
  * M6: when the referee has ruled (state.pendingVerdict), renderStateFacts
  * carries "The house has ruled: …" at the head of slot 5 — the receipt's
@@ -88,9 +111,93 @@ export const CONTINUE_NUDGE = 'Go on.';
 const STATE_MARKER = '[story-state]';
 
 /* M7 budgets (see header): slot 4's whole section, and each invited card's
- * description within it. */
+ * description within it. M9 adds personality/scenario lines, 300 chars each,
+ * while room remains. */
 const SLOT4_BUDGET = 1600;
 const SLOT4_CARD_DESCRIPTION = 400;
+const SLOT4_CARD_DETAIL = 300;
+
+/* The window law (M9, A1): with the keeper ON, slot 8 carries only the last
+ * `window` pages; older pages exist ONLY as summary nodes in slot 7. With
+ * the keeper OFF, only the last pages that fit the connection's estimated
+ * context budget minus the assembled prefix travel, and the receipt names
+ * the cutoff honestly. */
+export const DEFAULT_WINDOW = 30;
+
+export function keeperWindow(memory) {
+  const w = memory && Number.isFinite(memory.window) && memory.window > 0
+    ? Math.floor(memory.window)
+    : DEFAULT_WINDOW;
+  return Math.max(2, w);
+}
+
+/* The text the wire and the thread agree on: the shown swipe when a page
+ * has versions, else the plain text. Exported for the harness. */
+export function pageText(msg) {
+  if (msg && Array.isArray(msg.swipes) && msg.swipes.length) {
+    const idx = Number.isFinite(msg.swipeIdx)
+      ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx))
+      : msg.swipes.length - 1;
+    const swipe = msg.swipes[idx];
+    if (swipe && typeof swipe.text === 'string') return swipe.text;
+  }
+  return msg && typeof msg.text === 'string'
+    ? msg.text
+    : (msg && typeof msg.content === 'string' ? msg.content : '');
+}
+
+/* The pages that may travel on the wire: user/assistant, never hidden — a
+ * hidden "Go on." lives in the store for the audit and fires the nudge, but
+ * never sits in the story-so-far. Exported for the harness. */
+export function wireable(messages) {
+  return (messages || [])
+    .filter((m) => m && !m.hidden && (m.role === 'user' || m.role === 'assistant'))
+    .map((m) => ({
+      role: m.role,
+      content: pageText(m),
+      id: m.id,
+    }));
+}
+
+/* The window decision, as a pure function for the harness (M9, A1).
+ *   windowPlan({pages, memory, budgetTokens, prefixTokens})
+ *     -> {mode:'keeper'|'budget', window, total, carried, resting}
+ * pages         — the full wireable history (already filtered)
+ * memory        — null when the keeper is OFF for this story
+ * budgetTokens  — the connection's estimated context room (keeper-off only)
+ * prefixTokens  — what slots 1–7, 9 and 10 already spent (keeper-off only) */
+export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
+  const all = Array.isArray(pages) ? pages : [];
+  const total = all.length;
+  if (!memory) {
+    const room = Number.isFinite(budgetTokens) && budgetTokens > 0
+      ? Math.max(0, budgetTokens - (Number.isFinite(prefixTokens) ? prefixTokens : 0))
+      : 0;
+    let used = 0;
+    let start = total;
+    while (start > 0) {
+      const cost = estimateTokens(pageText(all[start - 1]));
+      if (used + cost > room) break;
+      used += cost;
+      start -= 1;
+    }
+    return {
+      mode: 'budget',
+      window: all.slice(start),
+      total,
+      carried: total - start,
+      resting: start,
+    };
+  }
+  const window = all.slice(-keeperWindow(memory));
+  return {
+    mode: 'keeper',
+    window,
+    total,
+    carried: window.length,
+    resting: total - window.length,
+  };
+}
 
 /* A present name and a card's name meet case-insensitively, with any
  * "(she/her)"-style parenthetical aside ignored — the same normalization
@@ -132,7 +239,10 @@ function isContinueTurn(history) {
   return text === '' || /^(continue|go on|keep going)[.!…]?$/i.test(text);
 }
 
-export function buildRequest({ story, messages, settings, state, modules, memory, cast, lore }) {
+export function buildRequest({
+  story, messages, settings, state, modules, memory, cast, lore, loreFired,
+  window: windowInfo, directive,
+}) {
   const safeStory = story || {};
   const safeSettings = settings || {};
   const history = Array.isArray(messages) ? messages : [];
@@ -148,6 +258,13 @@ export function buildRequest({ story, messages, settings, state, modules, memory
     if (loreText && room <= 0) loreText = '';
     else if (loreText.length > room) loreText = loreText.slice(0, room - 1).trimEnd() + '…';
   }
+  /* M9: the lore receipt names the entries that fired (their keys). */
+  const firedNames = (Array.isArray(loreFired) ? loreFired : [])
+    .map((f) => (f && typeof f === 'object'
+      ? (typeof f.name === 'string' && f.name ? f.name
+        : (Array.isArray(f.keys) && f.keys[0]) || '')
+      : String(f || '')))
+    .map((s) => String(s).trim()).filter(Boolean);
 
   const slots = [];
   const pushSlot = (name, text, source, reason) => {
@@ -188,8 +305,24 @@ export function buildRequest({ story, messages, settings, state, modules, memory
     if (description.length > SLOT4_CARD_DESCRIPTION) {
       description = description.slice(0, SLOT4_CARD_DESCRIPTION - 1).trimEnd() + '…';
     }
-    if (!description) continue;
-    cardLines.push(cardName + ' — ' + description);
+    /* M9: personality and scenario join the card under slot 4's budget —
+     * the description keeps its seat first; these ride while room remains. */
+    const detail = (field, label) => {
+      let text = card && typeof card[field] === 'string'
+        ? card[field].replace(/\s+/g, ' ').trim()
+        : '';
+      if (!text) return '';
+      if (text.length > SLOT4_CARD_DETAIL) {
+        text = text.slice(0, SLOT4_CARD_DETAIL - 1).trimEnd() + '…';
+      }
+      return cardName + ', ' + label + ': ' + text;
+    };
+    const personality = detail('personality', 'how they carry themselves');
+    const scenario = detail('scenario', 'the world they bring');
+    if (!description && !personality && !scenario) continue;
+    if (description) cardLines.push(cardName + ' — ' + description);
+    if (personality) cardLines.push(personality);
+    if (scenario) cardLines.push(scenario);
     invitedNames.push(cardName);
   }
   let whosHere = [
@@ -214,13 +347,26 @@ export function buildRequest({ story, messages, settings, state, modules, memory
       : ''
   );
 
-  /* Slots 1–4 join into systemBlocks, all cache:true. Empty slot texts are
-   * left off the wire (some storytellers refuse empty blocks) but stay on
-   * the receipt above, at 0 tokens. */
-  const systemBlocks = [frame.text, craftText, brief, whosHere]
+  /* Slots 1–4 join into systemBlocks. M9 (A4): the cache breakpoint sits at
+   * the END of slot 2 (The craft) — the frame and the craft are the stable
+   * prefix, so only they carry cache:true; the brief and Who's here are
+   * separate non-cached blocks that follow (they drift with the scene).
+   * Anthropic puts cache_control on the last cache:true block, i.e. the
+   * craft; OpenAI concatenates the cache:true blocks into one leading
+   * system message and lets the non-cached blocks follow in order. Empty
+   * slot texts are left off the wire (some storytellers refuse empty
+   * blocks) but stay on the receipt above, at 0 tokens. */
+  /* Positional stability: slots 1–4 always emit four blocks in law order
+   * (empty text included) so receipts and tests can read them by seat;
+   * the PROVIDERS drop empty blocks when they map to the wire. */
+  const systemBlocks = [frame.text, craftText]
     .map((text) => (typeof text === 'string' ? text : ''))
-    .filter((text) => text.length)
-    .map((text) => ({ text, cache: true }));
+    .map((text) => ({ text, cache: true }))
+    .concat(
+      [brief, whosHere]
+        .map((text) => (typeof text === 'string' ? text : ''))
+        .map((text) => ({ text, cache: false }))
+    );
 
   /* --- 5. The state of things --- */
   const facts = renderStateFacts(state);
@@ -253,38 +399,76 @@ export function buildRequest({ story, messages, settings, state, modules, memory
 
   /* --- 7. What remains (M6) — the newest memory nodes; then (M7) the lore
    * hits, sharing the slot's budget. The receipt lists each sub-part only
-   * when it has something to say. --- */
+   * when it has something to say; M9 names the lore entries that fired. --- */
   if (memoryText) {
     pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
   }
   if (loreText) {
-    pushSlot('The lore shelf', loreText, 'entries whose keys were spoken in the latest pages');
+    pushSlot(
+      'The lore shelf',
+      loreText,
+      'entries whose keys were spoken in the latest pages',
+      firedNames.length ? 'spoke: ' + firedNames.join(', ') : ''
+    );
   }
 
-  /* --- 8. The story so far --- */
-  const wire = history
-    .filter((m) => m && (m.role === 'user' || m.role === 'assistant'))
-    .map((m) => ({
-      role: m.role,
-      content: typeof m.text === 'string' ? m.text : String(m.content || ''),
-    }));
-  const historyText = wire.map((m) => m.content).join('\n');
-  pushSlot('The story so far', historyText, wire.length ? wire.length + ' pages from the thread' : '');
-
-  /* --- 9. The note at the end --- */
+  /* --- 9. The note at the end --- (resolved before slot 8 so the window
+   * law's keeper-off budget can count what the prefix already spent) */
   const note = resolveNote(safeStory.noteOverride, safeSettings.noteText);
   const hasNote = Boolean(note.text && note.text.trim());
-  pushSlot('The note at the end', hasNote ? note.text : '', note.source, hasNote ? '' : 'left empty — nothing slipped in');
 
-  /* --- 10. The continue nudge --- */
+  /* --- 10. The continue nudge + M9 house commands --- */
   const nudges = isContinueTurn(history);
+  const directiveText = typeof directive === 'string' ? directive.trim() : '';
+  const prefixTokens = slots.reduce((sum, s) => sum + s.tokens, 0)
+    + estimateTokens(hasNote ? note.text : '')
+    + estimateTokens(nudges ? CONTINUE_NUDGE : '')
+    + estimateTokens(directiveText);
+
+  /* --- 8. The story so far — the verbatim window ONLY (M9, A1). Hidden
+   * pages never join; the shown swipe's text is what rides. Keeper ON: the
+   * memory window. Keeper OFF: a token-budgeted cutoff against the
+   * connection's context room, with the cutoff named on the receipt. --- */
+  const pages = wireable(history);
+  const w = windowInfo && typeof windowInfo === 'object' ? windowInfo : {};
+  const win = windowPlan({
+    pages,
+    /* The keeper decides the window. Callers that don't say (older call
+     * sites) get the keeper's law at the default window; a caller that
+     * passes {keeperOn:false} gets the token-budgeted cutoff instead. */
+    memory: w.keeperOn === false ? null : { window: w.window },
+    budgetTokens: w.budgetTokens,
+    prefixTokens,
+  });
+  const wire = win.window.map((m) => ({ role: m.role, content: m.content }));
+  const historyText = wire.map((m) => m.content).join('\n');
+  let historySource;
+  if (win.mode === 'keeper') {
+    historySource = win.resting > 0
+      ? `the last ${win.carried} of ${win.total} pages word for word — the older ${win.resting} rest in What remains`
+      : `all ${win.total} pages word for word`;
+  } else {
+    historySource = win.resting > 0
+      ? `${win.carried} pages carried word for word, the rest rests (the keeper is off — only what fits the room)`
+      : `${win.carried} pages carried word for word (the keeper is off — everything fit the room)`;
+  }
+  pushSlot('The story so far', historyText, win.total ? historySource : '');
+
+  /* The receipt rows for 9 and 10 were computed above; push them in law
+   * order now that slot 8 is counted. */
+  pushSlot('The note at the end', hasNote ? note.text : '', note.source, hasNote ? '' : 'left empty — nothing slipped in');
+  if (directiveText) {
+    pushSlot('The house heard', directiveText, 'a command from the writer', 'spoken quietly, never shown as plain words');
+  }
   pushSlot('The continue nudge', nudges ? CONTINUE_NUDGE : '', '', nudges ? 'you only asked it to go on' : '');
 
-  /* Assemble the wire in slot order: state injection first, then history,
-   * then the nudge (when it fires), then the note — always last. */
+  /* Assemble the wire in slot order: state injection first, then the
+   * window, then the command directive (when spoken), then the nudge (when
+   * it fires), then the note — always last. */
   const out = [];
   if (stateInjection) out.push(stateInjection);
   out.push(...wire);
+  if (directiveText) out.push({ role: 'user', content: directiveText });
   if (nudges) out.push({ role: 'user', content: CONTINUE_NUDGE });
   if (hasNote) out.push({ role: 'user', content: note.text });
 

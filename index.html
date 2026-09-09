@@ -25,6 +25,9 @@
     </div>
   </header>
 
+  <!-- A6 (M9): one tab holds the pen; a second tab only reads. -->
+  <p id="read-only-notice" class="read-only-notice" role="status" hidden>Another tab of the tavern is holding the pen — this one only reads. Close the other to write here.</p>
+
   <main class="main">
     <!-- Chat view -->
     <section id="view-chat" class="view view-chat">
@@ -211,6 +214,15 @@
             <label>The rule itself
               <textarea id="mod-text" rows="8" spellcheck="false" placeholder="In your own words — the storyteller reads this when the rule is on."></textarea>
             </label>
+            <!-- M9: a rule of your own may choose when it wakes (the same
+                 words the builtins use) and carry a quiet note. Builtins
+                 keep their own ears; the picker rests for them. -->
+            <label id="mod-when-label">When it wakes
+              <select id="mod-when"></select>
+            </label>
+            <label id="mod-note-label">A quiet note under it (optional)
+              <input id="mod-note" type="text" maxlength="120" placeholder="e.g. you choose when this walks in" autocomplete="off">
+            </label>
             <div class="row">
               <button type="submit" class="btn">Keep it</button>
               <button type="button" id="btn-mod-cancel" class="text-btn">Not now</button>
@@ -265,6 +277,9 @@
           </div>
           <p id="lore-note" class="quiet" hidden></p>
           <p id="lore-count" class="quiet" hidden></p>
+          <!-- M9: the entries themselves — toggle, mark constant, edit the
+               keys and the words, reorder, let one go. -->
+          <ul id="lore-list" class="connection-list"></ul>
           <div class="row"><button id="btn-lore-clear" class="text-btn" type="button" hidden>Take the shelf down</button></div>
         </section>
 
@@ -281,12 +296,29 @@
 
         <section class="settings-section" id="section-workers">
           <h3>The workers</h3>
-          <p class="quiet">Quiet helpers who read each finished page and keep the ledger — the hour, who's here, the mood of the scene. They never speak while the storyteller is writing; they work only after the page is done.</p>
+          <p class="quiet">Quiet helpers who read each finished page and keep the ledger — the hour, who's here, the mood of the scene. They never speak while the storyteller is writing; they work only after the page is done, and each answers to its own switch.</p>
           <label class="stack-label" for="worker-connection">Who does the reading</label>
           <select id="worker-connection"></select>
+          <label class="stack-label" for="story-connection">Who tells <span id="story-conn-name">this story</span></label>
+          <select id="story-connection"></select>
+          <p class="quiet" id="story-conn-note">A story may keep its own storyteller; the rest follow the house's active connection.</p>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="worker-extraction"> Keep the ledger for <span id="worker-story-name">this story</span></label>
           </div>
+          <p class="quiet">The ledger switch gates the extractor only — the worker who reads each finished page and writes down what changed (the hour, who's here, the ledgers). It says nothing about the keeper or the second reader; those answer to their own switches below and in "How much the story remembers".</p>
+          <label class="stack-label" for="worker-keeper">The keeper, for this story</label>
+          <select id="worker-keeper">
+            <option value="">Follow the house (below)</option>
+            <option value="on">On for this story</option>
+            <option value="off">Off for this story</option>
+          </select>
+          <label class="stack-label" for="worker-continuity">The second reader, for this story</label>
+          <select id="worker-continuity">
+            <option value="">Follow the house (below)</option>
+            <option value="on">On for this story</option>
+            <option value="off">Off for this story</option>
+          </select>
+          <p id="spend-line" class="quiet spend-line" hidden></p>
         </section>
 
         <section class="settings-section" id="section-memory">

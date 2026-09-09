@@ -9,7 +9,12 @@
  * ttftMs is the time from fetch start to the first PROSE token; tfftMs to
  * the first THOUGHT (null when the voice stayed quiet); durationMs from
  * fetch start to the end of the stream.
+ * M9: the result also carries `finishReason` (stop_reason — 'end_turn',
+ * 'max_tokens', …) when the stream says why it stopped; 'max_tokens' means
+ * the page ran out of room and the chat view will say so (B9).
  */
+
+import { readSSE } from './sse.js';
 
 const DEFAULT_BASE = 'https://api.anthropic.com';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -84,45 +89,7 @@ function systemBlocks(systemBlocksArg, legacySystem) {
   return blocks;
 }
 
-/* Read an SSE stream body. Handles partial chunks, CRLF, multi-line data,
- * and the [DONE] sentinel. Calls onEvent(parsedJSON) per event. */
-async function readSSE(body, onEvent) {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buf = '';
-  let dataLines = [];
-
-  const dispatch = () => {
-    if (!dataLines.length) return;
-    const raw = dataLines.join('\n');
-    dataLines = [];
-    if (raw === '[DONE]') return;
-    try {
-      onEvent(JSON.parse(raw));
-    } catch (err) {
-      /* a keep-alive or partial frame; keep listening */
-    }
-  };
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let nl;
-    while ((nl = buf.indexOf('\n')) !== -1) {
-      let line = buf.slice(0, nl);
-      buf = buf.slice(nl + 1);
-      if (line.endsWith('\r')) line = line.slice(0, -1);
-      if (line === '') { dispatch(); continue; }
-      if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
-      /* event:, id:, and comment lines are guidance we don't need */
-    }
-  }
-  buf += decoder.decode();
-  const last = buf.replace(/\r$/, '');
-  if (last.startsWith('data:')) dataLines.push(last.slice(5).replace(/^ /, ''));
-  dispatch();
-}
+/* The SSE reader is shared by both providers (M9, B16): providers/sse.js. */
 
 /* The request body, built pure so it can be read (and tested) without a
  * wire. Sampling dials ride only when set on the connection; when the
@@ -216,10 +183,15 @@ export function createAnthropicProvider(connection) {
     let full = '';
     let thinking = '';
     let refusal = '';
+    let finishReason = null;
     let ttftMs = null;
     let tfftMs = null;
     await readSSE(res.body, (data) => {
-      if (data.type === 'content_block_delta' && data.delta) {
+      if (data.type === 'message_delta' && data.delta && typeof data.delta.stop_reason === 'string') {
+        /* M9 (B9): why it stopped — 'max_tokens' means the page ran out
+         * of room. */
+        finishReason = data.delta.stop_reason;
+      } else if (data.type === 'content_block_delta' && data.delta) {
         if (data.delta.type === 'text_delta' && typeof data.delta.text === 'string') {
           if (ttftMs === null) ttftMs = Date.now() - startedAt;
           full += data.delta.text;
@@ -241,6 +213,7 @@ export function createAnthropicProvider(connection) {
     return {
       text: full,
       thinking,
+      finishReason,
       ttftMs: ttftMs === null ? durationMs : ttftMs,
       tfftMs,
       durationMs,

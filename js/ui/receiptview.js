@@ -41,11 +41,19 @@ function wire() {
   });
 }
 
+/* B8 (M9): the close timer carries a generation number — close-then-quick-
+ * reopen no longer hides the sheet out from under the new reading. */
+let closeGeneration = 0;
+
 export function closeReceipt() {
   const { sheet, scrim } = els();
+  const generation = ++closeGeneration;
   sheet.classList.remove('open');
   scrim.hidden = true;
-  setTimeout(() => { sheet.hidden = true; }, 200);
+  setTimeout(() => {
+    if (generation !== closeGeneration) return; // reopened in between
+    sheet.hidden = true;
+  }, 200);
 }
 
 export function openReceipt(receipt, extraction, findings) {
@@ -147,6 +155,7 @@ export function openReceipt(receipt, extraction, findings) {
   if (typeof receipt.totalTokens === 'number') parts.push('~' + receipt.totalTokens + ' tokens sent');
   footer.textContent = parts.join(' · ');
 
+  closeGeneration += 1; // B8: any pending close-timer stands down
   scrim.hidden = false;
   sheet.hidden = false;
   /* let the browser notice we're visible before sliding in */

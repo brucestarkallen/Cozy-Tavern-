@@ -645,3 +645,93 @@
 .engine-why { font-size: 0.85rem; }
 
 .module-note { font-size: 0.85rem; margin: 0; }
+
+/* ---------- M9: the interaction loop ---------- */
+
+/* B13: a page can hold focus — a quiet ember outline, never the default
+ * browser ring's full shout. */
+.msg:focus { outline: none; }
+.msg:focus-visible { outline: 2px solid var(--ember); outline-offset: 4px; border-radius: var(--r); }
+
+/* The swipe walker: ◂ n / m ▸, same whisper voice as the other actions. */
+.msg-swipes { display: inline-flex; align-items: center; gap: 8px; margin-left: 6px; }
+.msg-swipes .swipe-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.msg-act.swipe { font-size: 13px; padding: 0 2px; }
+.msg-act.swipe:disabled { opacity: 0.35; cursor: default; }
+.msg-act.swipe:disabled:hover { color: var(--muted); }
+
+/* An out-of-character aside: the house-note shape, a muted spine. */
+.msg-ooc .msg-body {
+  font-family: var(--font);
+  font-size: 0.95rem;
+  color: var(--text-2);
+  background: var(--bg-2);
+  border-left: 2px dashed var(--muted);
+  border-radius: 0 var(--r) var(--r) 0;
+  padding: 12px 14px;
+}
+
+/* The retry affordance under an empty answer (B9). */
+.msg-act.retry {
+  margin-top: 8px;
+  display: inline-block;
+  color: var(--ember);
+}
+
+/* The inline editor (re-inking a page). */
+.edit-box {
+  width: 100%;
+  font-family: var(--font-prose);
+  font-size: 1rem;
+  line-height: 1.6;
+  background: var(--bg-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  resize: vertical;
+}
+.edit-row { display: flex; gap: 14px; margin-top: 8px; align-items: baseline; }
+.edit-row .btn { padding: 6px 14px; font-size: 0.9rem; }
+
+/* The command chip: what the house understood of a #word, live. */
+.composer-chip {
+  margin: 6px 2px 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.composer-chip[hidden] { display: none; }
+
+/* A6: the read-only notice (another tab holds the pen). */
+.read-only-notice {
+  margin: 0;
+  padding: 8px 16px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--on-ember);
+  background: var(--ember);
+}
+.read-only-notice[hidden] { display: none; }
+body.read-only .send-btn { opacity: 0.4; }
+
+/* The workers' ledger line (drawer, §5). */
+.worker-row .worker-ok { color: var(--ok); }
+.worker-row .worker-failed { color: var(--danger); }
+.worker-row .worker-never { color: var(--muted); }
+
+/* The spend line (settings, §5). */
+.spend-line { margin-top: 10px; font-family: var(--mono); font-size: 11px; }
+.spend-line[hidden] { display: none; }
+
+/* Lore entries (settings, M9). */
+.lore-entry .lore-keys { margin-top: 8px; width: 100%; }
+.lore-entry .lore-content { margin-top: 8px; width: 100%; }
+.lore-entry .row { margin-top: 8px; }

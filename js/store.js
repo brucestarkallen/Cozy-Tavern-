@@ -47,6 +47,24 @@
  * the prose) and `stopped` (the page was stopped by hand mid-sentence).
  * One more additive helper: db.messages.remove(storyId, messageId) lets a
  * single page go.
+ *
+ * M9 additions: messages may carry `swipes` (every version of the page,
+ * [{text, thinking, ts, receipt}] with `swipeIdx` marking which is shown;
+ * msg.text always mirrors the shown swipe), `hidden` (the continue nudge's
+ * user message — on the wire once, never rendered, excluded from history),
+ * `cutShort` (the reply ran out of room), and `ooc` (an out-of-character
+ * aside, kept out of the workers' reading). db.messages.update(id, patch)
+ * re-inks chosen fields of one page (edit, swipe) without rebuilding the
+ * row, and db.messages.appendAll(storyId, msgs) writes many pages in ONE
+ * transaction (B17 — chat imports are atomic per story). importAll now
+ * validates every row BEFORE clearing a thing (B17): a bad backup fails
+ * kindly with nothing touched.
+ *
+ * M9 quota guard (B1): a QuotaExceededError from any write is re-thrown as
+ * a kind, named Error ('The shelf is full…') so callers can show it and
+ * keep the writer's words; and after writes, when storage crosses 80% full,
+ * the registered onStorageWarning listener hears about it (once per
+ * crossing) — the chat view turns that into a toast.
  */
 
 const DB_NAME = 'cozytavern.v1';
@@ -85,14 +103,50 @@ function openDB() {
 
 /* Run one request inside a transaction; resolve with the request result
  * when the transaction completes. */
+/* ---------- the quota guard (M9, B1) ---------- */
+
+export const QUOTA_MESSAGE = 'The shelf is full — this device has no room left for new pages. Export a backup, let an old tale go, and try again.';
+
+function isQuotaError(err) {
+  return err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+}
+
+/* The 80% storage-full warning: a single listener, notified once per
+ * crossing (it re-arms if usage later falls back under the line). */
+let storageWarningListener = null;
+let storageWarned = false;
+
+export function onStorageWarning(fn) {
+  storageWarningListener = typeof fn === 'function' ? fn : null;
+}
+
+async function checkStorage() {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.storage
+      || typeof navigator.storage.estimate !== 'function') return;
+    const { usage, quota } = await navigator.storage.estimate();
+    if (!quota) return;
+    const ratio = usage / quota;
+    if (ratio >= 0.8 && !storageWarned) {
+      storageWarned = true;
+      if (storageWarningListener) storageWarningListener(ratio);
+    } else if (ratio < 0.7) {
+      storageWarned = false;
+    }
+  } catch (err) { /* an estimate that won't come is no reason to fail */ }
+}
+
 async function run(storeName, mode, build) {
   const d = await openDB();
   return new Promise((resolve, reject) => {
     const t = d.transaction(storeName, mode);
     const request = build(t.objectStore(storeName));
-    t.oncomplete = () => resolve(request ? request.result : undefined);
-    t.onerror = () => reject(t.error);
-    t.onabort = () => reject(t.error);
+    t.oncomplete = () => {
+      if (mode === 'readwrite') checkStorage();
+      resolve(request ? request.result : undefined);
+    };
+    t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
+    t.onabort = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
   });
 }
 
@@ -206,7 +260,7 @@ const stories = {
       const s = t.objectStore('messages');
       for (const m of pages) s.delete(m.id);
       t.oncomplete = () => resolve();
-      t.onerror = () => reject(t.error);
+      t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
     });
     await run('settings', 'readwrite', (s) => s.delete('state:' + id));
     /* M6: the keeper's folded pages go with the story too. */
@@ -214,6 +268,8 @@ const stories = {
     /* M7: and its lore shelf as well. The cast library stays — it's
      * app-wide, and other stories may still be carrying those cards. */
     await run('settings', 'readwrite', (s) => s.delete('lore:' + id));
+    /* M9: and the workers' ledger line goes with the story too. */
+    await run('settings', 'readwrite', (s) => s.delete('workers:' + id));
   },
 };
 
@@ -256,11 +312,77 @@ const messages = {
     /* M8: a page stopped by hand keeps this mark, so the "stopped
      * mid-sentence" label survives a reload. */
     if (msg.stopped === true) row.stopped = true;
+    /* M9: every version of the page (swipes) and which one is shown.
+     * msg.text always mirrors swipes[swipeIdx].text — the wire, the
+     * thread, and the receipt all read the same words. */
+    if (Array.isArray(msg.swipes) && msg.swipes.length) {
+      row.swipes = msg.swipes
+        .filter((s) => s && typeof s === 'object' && typeof s.text === 'string')
+        .map((s) => {
+          const swipe = { text: s.text, ts: Number.isFinite(s.ts) ? s.ts : Date.now() };
+          if (typeof s.thinking === 'string' && s.thinking) swipe.thinking = s.thinking;
+          if (s.receipt && typeof s.receipt === 'object') swipe.receipt = s.receipt;
+          return swipe;
+        });
+      if (row.swipes.length) {
+        const idx = Number.isFinite(msg.swipeIdx) ? Math.round(msg.swipeIdx) : row.swipes.length - 1;
+        row.swipeIdx = Math.min(row.swipes.length - 1, Math.max(0, idx));
+        const shown = row.swipes[row.swipeIdx];
+        row.text = shown.text;
+        if (shown.thinking) row.thinking = shown.thinking;
+        if (shown.receipt) row.receipt = shown.receipt;
+      }
+    }
+    /* M9: a hidden page (the continue nudge's "Go on.") stays in the store
+     * for the audit but never renders and never joins history. */
+    if (msg.hidden === true) row.hidden = true;
+    /* M9: the reply ran out of room (finish reason max_tokens / length). */
+    if (msg.cutShort === true) row.cutShort = true;
+    /* M9: an out-of-character aside (#question, ((…)), //…) — kept out of
+     * the workers' reading. */
+    if (msg.ooc === true) row.ooc = true;
     await run('messages', 'readwrite', (s) => s.put(row));
     // Touch the story so last-active sorting stays honest.
     const story = await stories.get(storyId);
     if (story) await stories.update(storyId, {});
     return row;
+  },
+  /* M9 additive helper: re-ink chosen fields of one page (an edit, a swipe
+   * change) without rebuilding the whole row from memory. Unknown ids are
+   * a quiet no-op returning undefined — the workers rely on this when the
+   * page they were reading has gone (B5). */
+  async update(storyId, messageId, patch) {
+    const all = await messages.list(storyId);
+    const found = all.find((m) => m.id === messageId);
+    if (!found) return undefined;
+    const next = { ...found, ...(patch || {}), id: found.id, storyId: found.storyId };
+    await run('messages', 'readwrite', (s) => s.put(next));
+    return next;
+  },
+  /* M9 additive helper (B17): write many pages of one story in a SINGLE
+   * transaction — a chat import either lands whole or not at all. */
+  async appendAll(storyId, msgs) {
+    const list = (Array.isArray(msgs) ? msgs : []).filter((m) => m && typeof m === 'object');
+    if (!storyId || !list.length) return [];
+    const rows = list.map((msg, i) => ({
+      id: msg.id || uid(),
+      storyId,
+      role: msg.role === 'assistant' ? 'assistant' : 'user',
+      text: typeof msg.text === 'string' ? msg.text : '',
+      ts: Number.isFinite(msg.ts) ? msg.ts : Date.now() + i,
+    }));
+    const d = await openDB();
+    await new Promise((resolve, reject) => {
+      const t = d.transaction('messages', 'readwrite');
+      const s = t.objectStore('messages');
+      for (const row of rows) s.put(row);
+      t.oncomplete = () => { checkStorage(); resolve(); };
+      t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
+      t.onabort = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
+    });
+    const story = await stories.get(storyId);
+    if (story) await stories.update(storyId, {});
+    return rows;
   },
   /* Additive helper (see header): remove the message with `messageId` and
    * everything written after it — the backing store for "Rewrite from here". */
@@ -275,7 +397,7 @@ const messages = {
       const s = t.objectStore('messages');
       for (const m of doomed) s.delete(m.id);
       t.oncomplete = () => resolve();
-      t.onerror = () => reject(t.error);
+      t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
     });
     return doomed.length;
   },
@@ -312,18 +434,43 @@ async function importAll(json) {
   if (!envelope || envelope.namespace !== NAMESPACE) {
     throw new Error('That file doesn’t read like a Cozy Tavern backup.');
   }
+  /* M9 (B17): every row is read and checked BEFORE anything is cleared —
+   * a backup with a bent row fails kindly with everything left as it was. */
+  const checked = {};
+  const keyOf = { settings: 'key', connections: 'id', stories: 'id', messages: 'id' };
+  for (const name of STORES) {
+    const rows = envelope[name] == null ? [] : envelope[name];
+    if (!Array.isArray(rows)) {
+      throw new Error(`That backup’s “${name}” shelf isn’t a list — nothing was touched.`);
+    }
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      const key = keyOf[name];
+      if (!row || typeof row !== 'object' || Array.isArray(row)
+        || typeof row[key] !== 'string' || !row[key]) {
+        throw new Error(`Row ${i + 1} of that backup’s “${name}” shelf wouldn’t read — nothing was touched.`);
+      }
+    }
+    if (name === 'messages') {
+      for (const row of rows) {
+        if (typeof row.storyId !== 'string' || !row.storyId) {
+          throw new Error('A page in that backup doesn’t say which tale it belongs to — nothing was touched.');
+        }
+      }
+    }
+    checked[name] = rows;
+  }
   const d = await openDB();
   await new Promise((resolve, reject) => {
     const t = d.transaction(STORES, 'readwrite');
     for (const name of STORES) {
       const s = t.objectStore(name);
       s.clear();
-      const rows = Array.isArray(envelope[name]) ? envelope[name] : [];
-      for (const row of rows) s.put(row);
+      for (const row of checked[name]) s.put(row);
     }
     t.oncomplete = () => resolve();
-    t.onerror = () => reject(t.error);
-    t.onabort = () => reject(t.error);
+    t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
+    t.onabort = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
   });
 }
 
@@ -334,4 +481,5 @@ export const db = {
   messages,
   exportAll,
   importAll,
+  onStorageWarning,
 };

@@ -33,6 +33,9 @@
  */
 
 import { renderStateFacts } from '../engine/state.js';
+/* M9 (B16): the tolerant JSON-finder is shared by every agent —
+ * agents/jsonutil.js. */
+import { firstBalancedObject } from './jsonutil.js';
 
 const MAX_TOKENS = 150;
 const TEMPERATURE = 0;
@@ -146,31 +149,6 @@ export function buildRefereeMessages({ state, userText }) {
 
 /* ---------- the tolerant parser ---------- */
 
-/* Pull the first balanced {...} out of a string, respecting quoted text. */
-function firstBalancedObject(text) {
-  const start = text.indexOf('{');
-  if (start === -1) return '';
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let i = start; i < text.length; i += 1) {
-    const ch = text[i];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (ch === '\\') escaped = true;
-      else if (ch === '"') inString = false;
-      continue;
-    }
-    if (ch === '"') { inString = true; continue; }
-    if (ch === '{') depth += 1;
-    else if (ch === '}') {
-      depth -= 1;
-      if (depth === 0) return text.slice(start, i + 1);
-    }
-  }
-  return '';
-}
-
 /* Exported for the harness. Fences stripped, first balanced object parsed,
  * the mark snapped to an honest rung. Any trouble at all resolves null. */
 export function parseRefereeAnswer(raw) {
@@ -256,6 +234,65 @@ async function callOpenAI(connection, prompt, signal) {
   const choice = body && Array.isArray(body.choices) ? body.choices[0] : null;
   const text = choice && choice.message && choice.message.content;
   return typeof text === 'string' ? text : '';
+}
+
+/* ---------- fate replay (M9): a swipe or regenerate re-asks with the SAME
+ * committed verdict ----------
+
+ * A committed ruling belongs to the words that earned it. Swiping or
+ * rewriting the answer must not re-roll the die — the same user message
+ * replays the same verdict; a fresh roll comes only when the user message
+ * text itself changed. (The full committed-verdict cache lands in M11; for
+ * now each user message's wording holds at most one verdict, in
+ * state.verdicts, keyed by a small hash of the words.) */
+
+const VERDICT_CACHE_CAP = 12;
+
+/* A small stable hash of the user message's words (FNV-1a, 32-bit) —
+ * exported for the harness. */
+export function userMessageHash(userText) {
+  const s = String(userText || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return 'u' + h.toString(36);
+}
+
+/* The verdict for these words: the cached one when these exact words were
+ * already ruled on, else a fresh ruling (die and all). Returns
+ * {verdict, replayed, hash} or null on any failure — never throws, same as
+ * adjudicate. */
+export async function verdictFor({ connection, userText, state, signal } = {}) {
+  try {
+    const hash = userMessageHash(userText);
+    const cache = state && state.verdicts && typeof state.verdicts === 'object' ? state.verdicts : {};
+    const cached = cache[hash];
+    if (cached && Number.isFinite(cached.dc) && Number.isFinite(cached.roll)
+      && typeof cached.words === 'string' && cached.words.trim()) {
+      return { verdict: { ...cached }, replayed: true, hash };
+    }
+    const verdict = await adjudicate({ connection, userText, state, signal });
+    if (!verdict) return null;
+    return { verdict, replayed: false, hash };
+  } catch (err) {
+    return null;
+  }
+}
+
+/* Write a fresh verdict into the state's replay cache (returns a new cache
+ * object; the caller spreads it onto state). Capped — the oldest rulings
+ * let go first. */
+export function cacheVerdict(verdicts, hash, verdict) {
+  const next = { ...(verdicts && typeof verdicts === 'object' ? verdicts : {}) };
+  if (hash && verdict) next[hash] = verdict;
+  const keys = Object.keys(next);
+  while (keys.length > VERDICT_CACHE_CAP) {
+    const oldest = keys.shift();
+    delete next[oldest];
+  }
+  return next;
 }
 
 /* ---------- the contract ---------- */

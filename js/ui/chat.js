@@ -4,34 +4,70 @@
  * performance laws).
  *
  * M8 (the hearth): sender labels in the whisper voice, hover/focus message
- * actions (copy and delete are wired; edit/swipe/branch announce they're
- * landing with the next wave), the ember bar measuring the room the last
- * turn took, and the composer's meta row with deep links into Settings.
- * The composer never swallows words: with no story it starts one from the
- * first words; with no connection it says so kindly and hands the text
- * back. Stopping a stream keeps the partial page, plainly labeled.
+ * actions, the ember bar measuring the room the last turn took, and the
+ * composer's meta row with deep links into Settings. The composer never
+ * swallows words: with no story it starts one from the first words; with no
+ * connection it says so kindly and hands the text back. Stopping a stream
+ * keeps the partial page, plainly labeled.
  *
  * M8.5 (the thinking voice): the reasoning channel streams beside the
  * prose, folded into "what the storyteller weighed" — open while it
  * thinks, folding itself away when the first word lands, re-openable
  * after. It's kept on the message (msg.thinking); pages from before the
  * voice woke render exactly as they always did.
+ *
+ * M9 (the interaction loop & truth fixes):
+ *  - Swipes: an assistant page may carry every version of itself
+ *    (msg.swipes[] + swipeIdx); ◂ ▸ walk them, and walking past the end
+ *    writes a NEW version — the old ones are never lost.
+ *  - Edit: any page can be re-inked in place; an edited assistant page is
+ *    handed back to the extractor so the ledger re-reads the new words.
+ *  - "Go on": a control on the last assistant page sends the hidden
+ *    continue nudge — on the wire once, never rendered, never in history.
+ *  - Truth fixes: B1 (busy finally + quota guard + 80% shelf warning),
+ *    B3 (scrim only in the narrow drawer mode), B4 (findings reach the
+ *    receipt), B5 (workers wait before a rewrite; worker write-backs
+ *    no-op when their page has gone), B9 (empty or cut-short completions
+ *    are named and offered a next step), B12 (the three workers answer to
+ *    three separate per-story switches), B18 (the thread re-renders
+ *    incrementally — append-only when pages have only been added).
+ *  - Commands: #question/#p/#pp/#continue/#time and ((…)) / // asides are
+ *    parsed in the composer (commands.js), shown as a chip, and ride the
+ *    request as a hidden directive. OOC turns do no state work.
+ *  - Fate replay: a swipe or rewrite re-asks with the SAME verdict unless
+ *    the writer's words changed (referee.verdictFor).
  */
 
 import { db } from '../store.js';
 import { createProvider } from '../providers/index.js';
-import { buildRequest } from '../assemble/stack.js';
+import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork } from '../agents/extractor.js';
-import { shouldAdjudicate, adjudicate } from '../agents/referee.js';
+import { shouldAdjudicate, verdictFor, cacheVerdict } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory } from '../agents/memory.js';
 import { checkTurn } from '../agents/continuity.js';
+import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory } from '../import/cards.js';
-import { loadLore, matchLore } from '../import/lorebook.js';
+import { loadLore, matchLoreDetailed } from '../import/lorebook.js';
+import { parseCommand, commandChip } from '../commands.js';
 import { openReceipt } from './receiptview.js';
+
+/* Which workers wake for this story, as one pure decision (M9, B12) —
+ * exported so the harness can hold it to account. Each worker answers to
+ * its own per-story switch; an unset per-story switch falls back to the
+ * house-wide one for the keeper and the second reader. */
+export function workerPlan({ story, settings } = {}) {
+  const s = story || {};
+  const g = settings || {};
+  return {
+    extraction: s.extraction !== false,
+    keeper: s.keeper === true ? true : s.keeper === false ? false : g.memoryKeeper !== false,
+    continuity: s.continuity === true ? true : s.continuity === false ? false : Boolean(g.continuityCheck),
+  };
+}
 
 export function initChat(ctx) {
   const els = {
@@ -52,6 +88,7 @@ export function initChat(ctx) {
     btnSend: document.getElementById('btn-send'),
     btnStop: document.getElementById('btn-stop'),
     composerNote: document.getElementById('composer-note'),
+    composerChip: document.getElementById('composer-chip'),
     emberBar: document.getElementById('ember-bar'),
     emberFill: document.getElementById('ember-fill'),
     metaContext: document.getElementById('meta-context'),
@@ -61,10 +98,17 @@ export function initChat(ctx) {
   let stories = [];
   let busy = false;
   let abort = null;
+  /* B18: what the thread last rendered, so new pages can simply append. */
+  let lastRender = { storyId: null, ids: [] };
 
   function toast(words) {
     if (ctx.toast) ctx.toast(words);
   }
+
+  /* M9 (B1): the shelf warns once per crossing of the 80% line. */
+  db.onStorageWarning(() => {
+    toast('The shelf is four-fifths full. Export a backup from Settings before the pages run out of room.');
+  });
 
   /* ---------- helpers ---------- */
 
@@ -184,14 +228,14 @@ export function initChat(ctx) {
     await db.stories.remove(story.id);
     if (ctx.getActiveStoryId() === story.id) ctx.setActiveStoryId(null);
     await refreshStories();
-    await renderThread();
+    await renderThread({ structural: true });
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
   }
 
   async function openStory(id) {
     ctx.setActiveStoryId(id);
     renderStoryList();
-    await renderThread();
+    await renderThread({ structural: true });
     closePanel();
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
   }
@@ -199,21 +243,20 @@ export function initChat(ctx) {
   /* ---------- thread ---------- */
 
   /* The small receipt line under an assistant message: opens "What the
-   * storyteller saw this turn". Only messages that carry a receipt get it.
-   * M3: the extraction (what the workers made of the turn) rides along and
-   * shows up in the sheet's "After this turn" once it lands. */
-  function receiptNode(receipt, extraction) {
+   * storyteller saw this turn". M9 (B4): the drift findings ride along too —
+   * the sheet's "Something drifted" only ever heard them on the refresh
+   * path before. */
+  function receiptNode(receipt, extraction, findings) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'msg-receipt';
     btn.textContent = 'What the storyteller saw';
-    btn.addEventListener('click', () => openReceipt(receipt, extraction));
+    btn.addEventListener('click', () => openReceipt(receipt, extraction, findings));
     return btn;
   }
 
   /* The folded reasoning block (M8.5): "what the storyteller weighed",
-   * dashed and quiet, above the prose. Live during streaming (the send
-   * path opens and folds it); folded by default on finished pages. */
+   * dashed and quiet, above the prose. */
   function thinkingNode(text) {
     const details = document.createElement('details');
     details.className = 'thinking';
@@ -226,12 +269,50 @@ export function initChat(ctx) {
     return details;
   }
 
-  /* Hover/focus actions (M8): copy and delete are wired now; edit, swipe
-   * and branch render and say kindly that they land with the next wave. */
-  function actionsNode(msg) {
+  /* The swipe walker (M9): ◂ n / m ▸ — keyboard-reachable buttons. Walking
+   * past the last version writes a new one (the old ones keep). */
+  function swipeNode(msg) {
+    const swipes = Array.isArray(msg.swipes) ? msg.swipes : [];
+    if (!swipes.length) return null;
+    const idx = Number.isFinite(msg.swipeIdx)
+      ? Math.min(swipes.length - 1, Math.max(0, msg.swipeIdx))
+      : swipes.length - 1;
+    const wrap = document.createElement('span');
+    wrap.className = 'msg-swipes';
+    const prev = document.createElement('button');
+    prev.type = 'button';
+    prev.className = 'msg-act swipe';
+    prev.dataset.act = 'swipe-prev';
+    prev.dataset.id = msg.id;
+    prev.setAttribute('aria-label', 'An earlier version of this page');
+    prev.textContent = '◂';
+    prev.disabled = idx === 0;
+    const count = document.createElement('span');
+    count.className = 'swipe-count';
+    count.textContent = `${idx + 1} / ${swipes.length}`;
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'msg-act swipe';
+    next.dataset.act = 'swipe-next';
+    next.dataset.id = msg.id;
+    next.setAttribute('aria-label', idx === swipes.length - 1
+      ? 'Write another version of this page'
+      : 'A later version of this page');
+    next.textContent = '▸';
+    wrap.append(prev, count, next);
+    return wrap;
+  }
+
+  /* Hover/focus actions (M8; M9 wired edit, swipe, delete — and "go on"
+   * lives on the last assistant page). */
+  function actionsNode(msg, { isLastAssistant = false } = {}) {
     const row = document.createElement('div');
     row.className = 'msg-actions';
-    for (const act of ['copy', 'edit', 'swipe', 'branch', 'delete']) {
+    const acts = ['copy', 'edit'];
+    if (msg.role === 'assistant') acts.push('swipe');
+    if (isLastAssistant) acts.push('go on');
+    acts.push('delete');
+    for (const act of acts) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'msg-act';
@@ -240,23 +321,32 @@ export function initChat(ctx) {
       btn.textContent = act;
       row.appendChild(btn);
     }
+    if (msg.role === 'assistant') {
+      const swipes = swipeNode(msg);
+      if (swipes) row.appendChild(swipes);
+    }
     return row;
   }
 
-  function msgNode(msg, showThinking) {
+  function msgNode(msg, showThinking, opts = {}) {
     const article = document.createElement('article');
-    article.className = `msg msg-${msg.role}`;
+    article.className = `msg msg-${msg.role}` + (msg.ooc ? ' msg-ooc' : '');
     article.dataset.id = msg.id;
+    /* B13: every page can hold keyboard focus, so its action row (which
+     * appears on focus-within) is reachable without a mouse. */
+    article.tabIndex = 0;
     const label = document.createElement('div');
     label.className = 'msg-label lbl';
-    label.textContent = msg.role === 'user' ? 'you' : 'the storyteller';
+    label.textContent = msg.role === 'user'
+      ? (msg.ooc ? 'you, out of character' : 'you')
+      : (msg.ooc ? 'the storyteller, out of character' : 'the storyteller');
     article.appendChild(label);
     if (msg.thinking && showThinking !== false) {
       article.appendChild(thinkingNode(msg.thinking));
     }
     const body = document.createElement('div');
     body.className = 'msg-body';
-    body.textContent = msg.text;
+    body.textContent = pageText(msg);
     article.appendChild(body);
     if (msg.stopped) {
       const stopped = document.createElement('div');
@@ -264,10 +354,17 @@ export function initChat(ctx) {
       stopped.textContent = 'stopped mid-sentence';
       article.appendChild(stopped);
     }
-    if (msg.role === 'assistant' && msg.receipt) {
-      article.appendChild(receiptNode(msg.receipt, msg.extraction));
+    if (msg.cutShort) {
+      /* B9: the reply ran out of room — named, with the next step offered. */
+      const cut = document.createElement('div');
+      cut.className = 'msg-stopped lbl';
+      cut.textContent = 'cut short — the reply ran out of room';
+      article.appendChild(cut);
     }
-    article.appendChild(actionsNode(msg));
+    if (msg.role === 'assistant' && msg.receipt) {
+      article.appendChild(receiptNode(msg.receipt, msg.extraction, msg.findings));
+    }
+    article.appendChild(actionsNode(msg, opts));
     return article;
   }
 
@@ -284,37 +381,107 @@ export function initChat(ctx) {
     return article;
   }
 
-  async function renderThread() {
-    els.thread.textContent = '';
+  /* B9: an empty completion gets a kind note AND a way to ask again. */
+  function retryNoteNode(text, retry) {
+    const article = noteNode(text);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'msg-act retry';
+    btn.textContent = 'Ask again';
+    btn.addEventListener('click', retry);
+    article.appendChild(btn);
+    return article;
+  }
+
+  /* B18: the thread re-renders incrementally — when pages have only been
+   * ADDED to what is already on screen, the new ones simply append. A
+   * structural change (another story, an edit, a swipe, a delete, a
+   * thinking-voice toggle) rebuilds. */
+  async function renderThread({ structural = false } = {}) {
     const story = await activeStory();
     const showThinking = (await db.settings.get('showThinking')) !== false;
     const connections = els.noConnection ? await db.connections.list() : [];
     if (!story) {
+      els.thread.textContent = '';
+      lastRender = { storyId: null, ids: [] };
       els.threadEmpty.hidden = false;
       els.threadEmpty.textContent = stories.length
         ? 'Pick a tale from the shelf, or start a new one.'
         : 'No tales yet. Say something below and the tavern will open its doors.';
-      /* M8 empty state: no connection gets its own warm call to begin. */
       if (els.noConnection) els.noConnection.hidden = connections.length > 0;
       refreshEmber();
       return;
     }
     const history = await db.messages.list(story.id);
-    els.threadEmpty.hidden = history.length > 0;
+    /* Hidden pages (the continue nudge) never render — they live in the
+     * store for the audit and nowhere else. */
+    const visible = history.filter((m) => m && !m.hidden);
+    els.threadEmpty.hidden = visible.length > 0;
     els.threadEmpty.textContent = 'Nothing on the page yet. Say something to begin.';
     if (els.noConnection) {
-      els.noConnection.hidden = connections.length > 0 || history.length > 0;
+      els.noConnection.hidden = connections.length > 0 || visible.length > 0;
     }
-    for (const msg of history) els.thread.appendChild(msgNode(msg, showThinking));
+
+    const lastAssistantId = (() => {
+      for (let i = visible.length - 1; i >= 0; i -= 1) {
+        if (visible[i].role === 'assistant') return visible[i].id;
+      }
+      return null;
+    })();
+
+    const ids = visible.map((m) => m.id);
+    const canAppend = !structural
+      && lastRender.storyId === story.id
+      && lastRender.showThinking === showThinking
+      && lastRender.ids.length <= ids.length
+      && lastRender.ids.every((id, i) => id === ids[i]);
+
+    if (!canAppend) {
+      els.thread.textContent = '';
+      for (const msg of visible) {
+        els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId }));
+      }
+    } else {
+      for (let i = lastRender.ids.length; i < visible.length; i += 1) {
+        const msg = visible[i];
+        els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId }));
+      }
+      /* A new last assistant page: the "go on" affordance moves with it. */
+      if (lastRender.ids.length !== ids.length) {
+        const rows = els.thread.querySelectorAll('.msg-actions .msg-act[data-act="go on"]');
+        rows.forEach((btn) => {
+          const host = btn.closest('.msg');
+          if (host && host.dataset.id !== lastAssistantId) btn.remove();
+        });
+      }
+    }
+    lastRender = { storyId: story.id, ids, showThinking };
     scrollToBottom();
     refreshEmber();
   }
 
+  /* Re-render one page in place (an edit, a swipe, a worker's write-back). */
+  async function rerenderMessage(storyId, messageId) {
+    const story = await activeStory();
+    if (!story || story.id !== storyId) return;
+    const history = await db.messages.list(storyId);
+    const msg = history.find((m) => m.id === messageId);
+    const node = els.thread.querySelector(`.msg[data-id="${messageId}"]`);
+    if (!msg || msg.hidden) {
+      if (node) node.remove();
+      return;
+    }
+    const showThinking = (await db.settings.get('showThinking')) !== false;
+    const lastAssistant = [...history].reverse().find((m) => m && !m.hidden && m.role === 'assistant');
+    const fresh = msgNode(msg, showThinking, {
+      isLastAssistant: lastAssistant ? lastAssistant.id === messageId : false,
+    });
+    if (node) node.replaceWith(fresh);
+    else els.thread.appendChild(fresh);
+  }
+
   /* ---------- the ember bar & composer meta (M8) ---------- */
 
-  /* How much of the model's room the last turn took: the last receipt's
-   * totalTokens against the connection's contextSize (200k when unnamed).
-   * Past 72% the bar glows; past 85% the label itself warms. */
   async function refreshEmber() {
     if (!els.emberFill) return;
     const story = await activeStory();
@@ -324,7 +491,7 @@ export function initChat(ctx) {
       const last = [...history].reverse().find((m) => m && m.receipt && typeof m.receipt.totalTokens === 'number');
       receipt = last ? last.receipt : null;
     }
-    const connection = await resolveConnection();
+    const connection = await resolveConnection(story);
     const size = connection && typeof connection.contextSize === 'number' && connection.contextSize > 0
       ? connection.contextSize
       : 200000;
@@ -342,22 +509,28 @@ export function initChat(ctx) {
 
   /* ---------- the send path (one call per turn, nothing else) ---------- */
 
-  async function resolveConnection() {
-    const wanted = await db.settings.get('activeConnectionId');
+  /* M9: a story may name its own storyteller (Settings → per-story "Who
+   * tells this story"); by default the house connection tells them all. */
+  async function resolveConnection(story) {
     const all = await db.connections.list();
+    if (story && typeof story.connectionId === 'string' && story.connectionId) {
+      const own = all.find((c) => c.id === story.connectionId);
+      if (own) return own;
+    }
+    const wanted = await db.settings.get('activeConnectionId');
     return all.find((c) => c.id === wanted) || all[0] || null;
   }
 
   /* M3: the workers may use a connection of their own (Settings → The
    * workers); by default they borrow the one telling the story. */
-  async function resolveWorkerConnection() {
+  async function resolveWorkerConnection(story) {
     const wanted = await db.settings.get('workerConnectionId');
     if (wanted) {
       const all = await db.connections.list();
       const found = all.find((c) => c.id === wanted);
       if (found) return found;
     }
-    return resolveConnection();
+    return resolveConnection(story);
   }
 
   /* Refresh the receipt affordance on a message already on the page, so
@@ -371,27 +544,63 @@ export function initChat(ctx) {
     }
   }
 
+  /* B5: write worker results back onto the page they were reading — a
+   * PATCH, never a resurrection. If the page has gone (deleted, or the
+   * whole thread rewritten), the write simply doesn't happen. The page's
+   * current words and swipes are never touched by the workers. */
+  async function reink(storyId, messageId, patch) {
+    const latest = await db.messages.update(storyId, messageId, patch);
+    if (!latest) return undefined; // the page has gone — the write is a no-op
+    refreshReceiptNode(latest);
+    return latest;
+  }
+
+  /* Whether the page the workers are reading still exists — checked before
+   * the ledger learns from it, so a deleted page teaches nothing. */
+  async function stillThere(storyId, messageId) {
+    const all = await db.messages.list(storyId);
+    return all.some((m) => m.id === messageId);
+  }
+
   /* M3/M6: once a page is finished, the workers read it — never awaited by
-   * the turn that fired them, so the stream's end stays the end of the
-   * turn. The fan-out order is law (SPEC.md M6): the extractor first, then
-   * the memory keeper, then the continuity reader. Each link is noted with
-   * the tracker, so the NEXT send waits on the whole chain — five hard
-   * seconds each, then it goes on with last-good state (the latency law).
-   * Every link fails quietly: the chat path never hears about it. */
+   * the turn that fired them. The fan-out order is law (SPEC.md M6): the
+   * extractor first, then the memory keeper, then the continuity reader.
+   * Each link gets a 60-second hard timeout (M9, A5) and records its last
+   * run for the drawer's "The workers" line (M9, §5). Every link fails
+   * quietly: the chat path never hears about it. */
   function startBackgroundWork(story, msg, userText) {
+    const plan = workerPlan({
+      story,
+      settings: { memoryKeeper: undefined, continuityCheck: undefined },
+    });
+    /* The per-story switches decide; the globals the settings row holds are
+     * read fresh inside each link. (plan's keeper/continuity resolve globals
+     * asynchronously below.) */
+    void plan;
+
     /* 1. The extractor (M3): read the page, propose mutations, apply and
      * save them, and write the outcome back onto the same message. */
     const extraction = (async () => {
       try {
-        const connection = await resolveWorkerConnection();
+        if (story.extraction === false) return;
+        const connection = await resolveWorkerConnection(story);
         if (!connection) return;
-        const stateBefore = await loadState(story.id);
-        const { mutations } = await extractTurn({
-          connection,
-          state: stateBefore,
-          userText,
-          assistantText: msg.text,
-        });
+        const { signal, done } = workerSignal();
+        let mutations;
+        try {
+          const stateBefore = await loadState(story.id);
+          ({ mutations } = await extractTurn({
+            connection,
+            state: stateBefore,
+            userText,
+            assistantText: pageText(msg),
+            signal,
+          }));
+        } finally {
+          done();
+        }
+        /* B5: a page that has gone teaches the ledger nothing. */
+        if (!(await stillThere(story.id, msg.id))) return;
         const list = Array.isArray(mutations) ? mutations : [];
 
         /* Re-load at apply time — the ledger may have been touched by hand
@@ -403,53 +612,86 @@ export function initChat(ctx) {
           notify(story.id);
         }
 
-        /* Write what came of it back onto the SAME assistant message, then
-         * re-render the receipt line so "After this turn" can speak. */
-        msg.extraction = {
-          appliedWords: applied.map((a) => a.words),
-          rejectedCount: rejected.length,
-        };
-        await db.messages.append(story.id, msg);
-        refreshReceiptNode(msg);
+        await reink(story.id, msg.id, {
+          extraction: {
+            appliedWords: applied.map((a) => a.words),
+            rejectedCount: rejected.length,
+          },
+        });
+        await noteWorkerRun(story.id, 'extractor', { ok: true });
       } catch (err) {
-        /* the workers fail quietly — the chat path never hears about it */
+        await noteWorkerRun(story.id, 'extractor', {
+          ok: false,
+          why: err && err.message === 'timeout' ? 'outwaited' : (err && err.message) || 'stumbled',
+        });
       }
     })();
     noteWork(story.id, extraction);
 
     /* 2. The memory keeper (M6): fold what has scrolled past the verbatim
-     * window into layered notes. Its own settings (keeper on/off, the
-     * window) gate it from the inside. */
+     * window into layered notes. M9 (B12): its own per-story switch — the
+     * ledger's switch no longer speaks for it. */
     const keeping = extraction.then(async () => {
       try {
-        const connection = await resolveWorkerConnection();
+        if (story.keeper === false) return;
+        if (story.keeper !== true && (await db.settings.get('memoryKeeper')) === false) return;
+        const connection = await resolveWorkerConnection(story);
         if (!connection) return;
-        await maybeSummarize({ connection, storyId: story.id });
-      } catch (err) { /* quiet */ }
+        const { signal, done } = workerSignal();
+        try {
+          await maybeSummarize({ connection, storyId: story.id, signal });
+        } finally {
+          done();
+        }
+        await noteWorkerRun(story.id, 'keeper', { ok: true });
+      } catch (err) {
+        await noteWorkerRun(story.id, 'keeper', {
+          ok: false,
+          why: err && err.message === 'timeout' ? 'outwaited' : (err && err.message) || 'stumbled',
+        });
+      }
     });
     noteWork(story.id, keeping);
 
     /* 3. The continuity reader (M6): advisory drift notes against canon and
-     * the ledgers, stored on the same message. Optional — only when the
-     * user has switched the second reader on. It never touches the words. */
+     * the ledgers, stored on the same message. M9 (B12): its own per-story
+     * switch too. It never touches the words. */
     const checking = keeping.then(async () => {
       try {
-        if (!(await db.settings.get('continuityCheck'))) return;
-        const connection = await resolveWorkerConnection();
+        const on = story.continuity === true
+          ? true
+          : story.continuity === false ? false : Boolean(await db.settings.get('continuityCheck'));
+        if (!on) return;
+        const connection = await resolveWorkerConnection(story);
         if (!connection) return;
-        const fresh = await loadState(story.id);
-        const { findings } = await checkTurn({
-          connection,
-          state: fresh,
-          assistantText: msg.text,
-        });
+        const { signal, done } = workerSignal();
+        let findings;
+        try {
+          const fresh = await loadState(story.id);
+          ({ findings } = await checkTurn({
+            connection,
+            state: fresh,
+            assistantText: pageText(msg),
+            signal,
+          }));
+        } finally {
+          done();
+        }
         const list = Array.isArray(findings) ? findings : [];
-        if (!list.length) return;
-        msg.findings = list;
-        await db.messages.append(story.id, msg);
-        refreshReceiptNode(msg);
+        if (!list.length) {
+          await noteWorkerRun(story.id, 'continuity', { ok: true });
+          return;
+        }
+        if (!(await stillThere(story.id, msg.id))) return;
+        await reink(story.id, msg.id, { findings: list });
         notify(story.id); // the drawer's "Something drifted" listens
-      } catch (err) { /* quiet */ }
+        await noteWorkerRun(story.id, 'continuity', { ok: true });
+      } catch (err) {
+        await noteWorkerRun(story.id, 'continuity', {
+          ok: false,
+          why: err && err.message === 'timeout' ? 'outwaited' : (err && err.message) || 'stumbled',
+        });
+      }
     });
     noteWork(story.id, checking);
   }
@@ -484,176 +726,315 @@ export function initChat(ctx) {
     if (els.composerNote) els.composerNote.hidden = true;
   }
 
+  function restoreComposer(text) {
+    els.input.value = text;
+    els.input.style.height = 'auto';
+    els.input.style.height = Math.min(els.input.scrollHeight, 190) + 'px';
+    els.input.focus();
+  }
+
   /* busy is set synchronously by callers before the first await, so two
-   * quick submits can't slip both sends through the door. Every path out
-   * of generate() sets it false again. */
-  async function generate() {
-    const story = await activeStory();
-    if (!story) { busy = false; return; }
-
-    const connection = await resolveConnection();
-    if (!connection) {
-      els.thread.appendChild(noteNode(
-        'There’s no connection yet. Add one in Settings and the tavern can open its doors.'
-      ));
-      showComposerNote('The tavern needs a storyteller first — add a connection.');
-      scrollToBottom();
-      busy = false;
-      return;
-    }
-    hideComposerNote();
-
-    const history = await db.messages.list(story.id);
-    const settingsValues = await gatherSettings();
-    /* M2: the assembler also wants the ledger state and the rulebook. The
-     * acoustics predicate reads the story's cast notes, so they ride along
-     * on the state copy handed to selectModules (see modules.js).
-     * M3 (the latency law): if the workers are still reading the previous
-     * page, the send path waits for them — hard five-second ceiling on each
-     * link of the chain, then we go on with last-good state — BEFORE the
-     * assembler looks at anything. */
-    await pendingWork(story.id, 5000);
-    let state = await loadState(story.id);
-
-    /* M6: the referee — the ONLY agent call allowed before the story
-     * generation, and only when the trigger law fires (an inline #roll, or
-     * a fight on). It's awaited, tiny, and cold; a referee that can't be
-     * reached simply means no ruling this turn. */
-    const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
-    const userText = lastUser
-      ? (typeof lastUser.text === 'string' ? lastUser.text : String(lastUser.content || ''))
-      : '';
-    if (shouldAdjudicate({ userText, state })) {
-      try {
-        const workerConnection = await resolveWorkerConnection();
-        const verdict = workerConnection
-          ? await adjudicate({ connection: workerConnection, userText, state })
-          : null;
-        if (verdict) {
-          state = { ...state, pendingVerdict: verdict, lastVerdict: verdict };
-          await saveState(story.id, state);
-          notify(story.id); // the drawer's "The house has ruled" listens
-        }
-      } catch (err) { /* a failed ruling never blocks the turn */ }
-    }
-
-    const allModules = await listModules();
-    const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '' });
-    /* M6: slot 7 — what the keeper has folded of the older pages. */
-    const memoryText = renderMemory(await loadMemory(story.id));
-    /* M7: slot 4 — the story's invited cast (the assembler keeps only the
-     * cards of whoever is present, under budget). Slot 7 — the lore shelf's
-     * answer for the latest pages: the last user message + the last
-     * assistant message, pure keyword listening, no LLM anywhere near it. */
-    const invitedCast = await castForStory(story);
-    const loreEntries = await loadLore(story.id);
-    let loreText = '';
-    if (loreEntries.length) {
-      const lastAssistant = [...history].reverse().find((m) => m && m.role === 'assistant');
-      const lastAssistantText = lastAssistant
-        ? (typeof lastAssistant.text === 'string' ? lastAssistant.text : String(lastAssistant.content || ''))
-        : '';
-      loreText = matchLore(loreEntries, [userText, lastAssistantText].filter(Boolean).join('\n'));
-    }
-    const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({
-      story,
-      messages: history,
-      settings: settingsValues,
-      state,
-      modules: selected,
-      memory: memoryText,
-      cast: invitedCast,
-      lore: loreText,
-    });
-
-    /* M6 consume-and-clear: the ruling rode into this turn's stack as a
-     * fact; it clears now, so no later turn inherits it. (lastVerdict stays
-     * — the drawer keeps the echo.) */
-    if (state.pendingVerdict) {
-      try {
-        await saveState(story.id, { ...state, pendingVerdict: null });
-        notify(story.id);
-      } catch (err) { /* the turn is already assembled; never mind */ }
-    }
-
-    /* M8.5: the thinking voice for this turn — the story's choice wins
-     * over the connection's; 'off' sends nothing. */
-    const reasoning = effectiveReasoning(connection, story);
-    const provider = createProvider({ ...connection, reasoning });
-    const showThinking = (await db.settings.get('showThinking')) !== false;
-
-    const pending = document.createElement('article');
-    pending.className = 'msg msg-assistant pending';
-    const pendingLabel = document.createElement('div');
-    pendingLabel.className = 'msg-label lbl';
-    pendingLabel.textContent = 'the storyteller';
-    pending.appendChild(pendingLabel);
-    let thinkDetails = null;
-    let thinkBody = null;
-    const body = document.createElement('div');
-    body.className = 'msg-body';
-    pending.appendChild(body);
-    els.thread.appendChild(pending);
-    scrollToBottom();
-
-    abort = new AbortController();
-    els.btnStop.hidden = false;
-    els.btnSend.hidden = true;
-
-    let full = '';
-    let thinking = '';
-    let sawProse = false;
-    let stoppedByHand = false;
+   * quick submits can't slip both sends through the door. M9 (B1): the
+   * whole body sits in try/finally — no path out can leave busy set.
+   *
+   * opts.directive — a house command's hidden instruction (slot 9/10 area)
+   * opts.ooc       — an out-of-character turn: no referee, no state work
+   * opts.swipeTarget — write the completion in as a NEW SWIPE of this page
+   *                    (history reads only what came before it)
+   * opts.continueId — the hidden "Go on." user page this turn answers
+   *                    (the nudge fires from it; it never renders) */
+  async function generate(opts = {}) {
+    const { directive = '', ooc = false, swipeTarget = null } = opts;
     let receipt = null;
     try {
-      const result = await provider.streamChat({
-        systemBlocks,
-        messages,
-        signal: abort.signal,
-        onToken({ channel, text }) {
-          if (channel === 'thinking') {
-            thinking += text;
-            if (showThinking) {
-              if (!thinkDetails) {
-                thinkDetails = thinkingNode('');
-                thinkBody = thinkDetails.querySelector('.thinking-body');
-                pending.insertBefore(thinkDetails, body);
-              }
-              thinkBody.textContent = thinking;
-              /* open while it weighs the page… */
-              if (!sawProse) thinkDetails.open = true;
-            }
+      const story = await activeStory();
+      if (!story) return;
+
+      const connection = await resolveConnection(story);
+      if (!connection) {
+        els.thread.appendChild(noteNode(
+          'There’s no connection yet. Add one in Settings and the tavern can open its doors.'
+        ));
+        showComposerNote('The tavern needs a storyteller first — add a connection.');
+        scrollToBottom();
+        return;
+      }
+      hideComposerNote();
+
+      const fullHistory = await db.messages.list(story.id);
+      /* Swipe mode re-asks the turn that produced the target page: the
+       * history the assembler sees ends BEFORE the target. */
+      let history = fullHistory;
+      if (swipeTarget) {
+        const at = fullHistory.findIndex((m) => m.id === swipeTarget.id);
+        if (at === -1) {
+          toast('That page has gone — nothing to rewrite.');
+          return;
+        }
+        history = fullHistory.slice(0, at);
+      }
+      const settingsValues = await gatherSettings();
+      /* M3 (the latency law): if the workers are still reading the previous
+       * page, the send path waits for them — hard five-second ceiling on
+       * each link of the chain, then we go on with last-good state — BEFORE
+       * the assembler looks at anything. */
+      await pendingWork(story.id, 5000);
+      let state = await loadState(story.id);
+
+      /* M6: the referee — the ONLY agent call allowed before the story
+       * generation, and only when the trigger law fires. M9 (fate replay):
+       * the same words replay the same verdict — a swipe or rewrite never
+       * re-rolls the die; only changed words earn a fresh roll. OOC turns
+       * never see the referee. */
+      const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
+      const userText = lastUser ? pageText(lastUser) : '';
+      if (!ooc && shouldAdjudicate({ userText, state })) {
+        const { signal, done } = workerSignal();
+        try {
+          const workerConnection = await resolveWorkerConnection(story);
+          const ruling = workerConnection
+            ? await verdictFor({ connection: workerConnection, userText, state, signal })
+            : null;
+          if (ruling && ruling.verdict) {
+            state = {
+              ...state,
+              pendingVerdict: ruling.verdict,
+              lastVerdict: ruling.verdict,
+              verdicts: ruling.replayed
+                ? state.verdicts
+                : cacheVerdict(state.verdicts, ruling.hash, ruling.verdict),
+            };
+            await saveState(story.id, state);
+            notify(story.id); // the drawer's "The house has ruled" listens
+            await noteWorkerRun(story.id, 'referee', { ok: true });
           } else {
-            if (!sawProse) {
-              sawProse = true;
-              /* …folded away again the moment the first word lands. */
-              if (thinkDetails) thinkDetails.open = false;
-            }
-            full += text;
-            body.textContent = full;
+            await noteWorkerRun(story.id, 'referee', { ok: false, why: 'no ruling' });
           }
-          const stick = nearBottom();
-          if (stick) scrollToBottom();
-        },
+        } catch (err) {
+          /* a failed ruling never blocks the turn */
+          await noteWorkerRun(story.id, 'referee', {
+            ok: false,
+            why: err && err.message === 'timeout' ? 'outwaited' : (err && err.message) || 'stumbled',
+          });
+        } finally {
+          done();
+        }
+      }
+
+      const allModules = await listModules();
+      const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '' });
+      /* M6: slot 7 — what the keeper has folded of the older pages. */
+      const mem = await loadMemory(story.id);
+      const memoryText = renderMemory(mem);
+      /* M9 (A1): the window law. The keeper's own switch decides whether the
+       * window is the memory window or a token-budgeted cutoff against the
+       * connection's context room. */
+      const keeperOn = story.keeper === true
+        ? true
+        : story.keeper === false ? false : (await db.settings.get('memoryKeeper')) !== false;
+      const windowInfo = {
+        keeperOn,
+        /* The story's memory keeps its own window once it has one; before
+         * that, the house slider (Settings → How much the story remembers)
+         * speaks — the help text under it is now true (M9, §1). */
+        window: mem && Number.isFinite(mem.window) && mem.window > 0
+          ? mem.window
+          : (await db.settings.get('memoryWindow')),
+        budgetTokens: connection && typeof connection.contextSize === 'number' && connection.contextSize > 0
+          ? connection.contextSize
+          : 200000,
+      };
+      /* M7: slot 4 — the story's invited cast. Slot 7 — the lore shelf's
+       * answer for the latest pages, each entry scanning its own depth;
+       * the receipt names which entries woke. */
+      const invitedCast = await castForStory(story);
+      const loreEntries = await loadLore(story.id);
+      let loreText = '';
+      let loreFired = [];
+      if (loreEntries.length) {
+        const recent = history.slice(-6).map((m) => pageText(m));
+        const matched = matchLoreDetailed(loreEntries, recent);
+        loreText = matched.text;
+        loreFired = matched.fired;
+      }
+      const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({
+        story,
+        messages: history,
+        settings: settingsValues,
+        state,
+        modules: selected,
+        memory: memoryText,
+        cast: invitedCast,
+        lore: loreText,
+        loreFired,
+        window: windowInfo,
+        directive,
       });
-      full = result.text;
-      thinking = result.thinking || thinking;
-      receipt = finalizeReceipt(receiptDraft, {
-        ttftMs: result.ttftMs,
-        tfftMs: result.tfftMs,
-        durationMs: result.durationMs,
-        model: connection.model || '',
-        effort: reasoning.effort === 'off' ? '' : reasoning.effort,
-      });
-    } catch (err) {
-      if (err && err.name === 'AbortError') {
-        /* stopped by hand — keep whatever arrived, plainly labeled; no
-         * receipt, the turn never finished telling itself */
-        stoppedByHand = true;
+
+      /* M6 consume-and-clear: the ruling rode into this turn's stack as a
+       * fact; it clears now, so no later turn inherits it. */
+      if (state.pendingVerdict) {
+        try {
+          await saveState(story.id, { ...state, pendingVerdict: null });
+          notify(story.id);
+        } catch (err) { /* the turn is already assembled; never mind */ }
+      }
+
+      /* M8.5: the thinking voice for this turn. */
+      const reasoning = effectiveReasoning(connection, story);
+      const provider = createProvider({ ...connection, reasoning });
+      const showThinking = (await db.settings.get('showThinking')) !== false;
+
+      const pending = document.createElement('article');
+      pending.className = 'msg msg-assistant pending';
+      const pendingLabel = document.createElement('div');
+      pendingLabel.className = 'msg-label lbl';
+      pendingLabel.textContent = 'the storyteller';
+      pending.appendChild(pendingLabel);
+      let thinkDetails = null;
+      let thinkBody = null;
+      const body = document.createElement('div');
+      body.className = 'msg-body';
+      pending.appendChild(body);
+      els.thread.appendChild(pending);
+      scrollToBottom();
+
+      abort = new AbortController();
+      els.btnStop.hidden = false;
+      els.btnSend.hidden = true;
+
+      let full = '';
+      let thinking = '';
+      let sawProse = false;
+      let stoppedByHand = false;
+      let finishReason = null;
+      try {
+        const result = await provider.streamChat({
+          systemBlocks,
+          messages,
+          signal: abort.signal,
+          onToken({ channel, text }) {
+            if (channel === 'thinking') {
+              thinking += text;
+              if (showThinking) {
+                if (!thinkDetails) {
+                  thinkDetails = thinkingNode('');
+                  thinkBody = thinkDetails.querySelector('.thinking-body');
+                  pending.insertBefore(thinkDetails, body);
+                }
+                thinkBody.textContent = thinking;
+                if (!sawProse) thinkDetails.open = true;
+              }
+            } else {
+              if (!sawProse) {
+                sawProse = true;
+                if (thinkDetails) thinkDetails.open = false;
+              }
+              full += text;
+              body.textContent = full;
+            }
+            const stick = nearBottom();
+            if (stick) scrollToBottom();
+          },
+        });
+        full = result.text;
+        thinking = result.thinking || thinking;
+        finishReason = result.finishReason || null;
+        receipt = finalizeReceipt(receiptDraft, {
+          ttftMs: result.ttftMs,
+          tfftMs: result.tfftMs,
+          durationMs: result.durationMs,
+          model: connection.model || '',
+          effort: reasoning.effort === 'off' ? '' : reasoning.effort,
+        });
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          stoppedByHand = true;
+        } else {
+          pending.replaceWith(noteNode(err.message || 'The storyteller went quiet. Try again in a moment.'));
+          full = '';
+          thinking = '';
+        }
+      }
+
+      pending.classList.remove('pending');
+      /* B9: the reply ran out of room — the page is labeled, and "go on"
+       * is the offered next step. */
+      const cutShort = !stoppedByHand
+        && typeof finishReason === 'string'
+        && /max_tokens|length/i.test(finishReason);
+
+      if (full.trim()) {
+        if (swipeTarget) {
+          /* Swipe mode: the new words become a new version of the SAME
+           * page. The old versions are never lost. */
+          const fresh = await db.messages.list(story.id);
+          const target = fresh.find((m) => m.id === swipeTarget.id);
+          if (!target) {
+            pending.replaceWith(noteNode('That page went away while the storyteller was writing — the new words were kept nowhere. Ask again and they’ll come as their own page.'));
+            return;
+          }
+          const swipes = Array.isArray(target.swipes) && target.swipes.length
+            ? target.swipes.slice()
+            : [{ text: pageText(target), ts: target.ts, thinking: target.thinking, receipt: target.receipt }];
+          swipes.push({ text: full, ts: Date.now(), thinking: thinking || undefined, receipt });
+          const swipeIdx = swipes.length - 1;
+          await db.messages.update(story.id, target.id, {
+            swipes,
+            swipeIdx,
+            text: full,
+            thinking: thinking || target.thinking,
+            receipt,
+            cutShort: cutShort || undefined,
+            stopped: stoppedByHand || undefined,
+          });
+          pending.remove();
+          await rerenderMessage(story.id, target.id);
+          lastRender.ids = []; // the walker changed; next render reconciles
+          scrollToBottom();
+          stories = await db.stories.list();
+          renderStoryList();
+          refreshEmber();
+          if (story.extraction !== false && !stoppedByHand && !ooc) {
+            const updated = (await db.messages.list(story.id)).find((m) => m.id === target.id);
+            if (updated) startBackgroundWork(story, updated, userText);
+          }
+          return;
+        }
+
+        const saved = await db.messages.append(story.id, {
+          role: 'assistant',
+          text: full,
+          thinking: thinking || undefined,
+          receipt,
+          stopped: stoppedByHand || undefined,
+          cutShort: cutShort || undefined,
+          ooc: ooc || undefined,
+        });
+        pending.replaceWith(msgNode(saved, showThinking, { isLastAssistant: true }));
+        lastRender.ids = [];
+        scrollToBottom();
+        stories = await db.stories.list();
+        renderStoryList();
+        if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+        refreshEmber();
+
+        /* M3/M6: the page is finished — hand it to the workers. M9: three
+         * separate per-story switches (B12), and an OOC turn teaches no
+         * state work at all. */
+        if (!ooc && !stoppedByHand) {
+          startBackgroundWork(story, saved, userText);
+        }
+      } else if (!stoppedByHand) {
+        /* B9: nothing came back — named kindly, with a way to ask again. */
+        pending.remove();
+        els.thread.appendChild(retryNoteNode(
+          'The storyteller went quiet — nothing came back. Say the word and I’ll ask again.',
+          () => retryAsk()
+        ));
+        scrollToBottom();
       } else {
-        pending.replaceWith(noteNode(err.message || 'The storyteller went quiet. Try again in a moment.'));
-        full = '';
-        thinking = '';
+        pending.remove();
       }
     } finally {
       abort = null;
@@ -662,79 +1043,100 @@ export function initChat(ctx) {
       els.btnSend.hidden = false;
       els.input.focus();
     }
-
-    pending.classList.remove('pending');
-    if (full.trim()) {
-      const saved = await db.messages.append(story.id, {
-        role: 'assistant',
-        text: full,
-        thinking: thinking || undefined,
-        receipt,
-        stopped: stoppedByHand || undefined,
-      });
-      /* Re-render from the saved page: the folded thinking block, the
-       * "stopped mid-sentence" label, the receipt line and the action row
-       * all come from the one builder. */
-      pending.replaceWith(msgNode(saved, showThinking));
-      scrollToBottom();
-      stories = await db.stories.list();
-      renderStoryList();
-      if (ctx.onStoriesChanged) ctx.onStoriesChanged();
-      refreshEmber();
-
-      /* M3/M6: the page is finished — hand it to the workers, in the
-       * background, only if this story keeps its ledger (default: it does).
-       * The fan-out order is law: extractor → memory keeper → continuity.
-       * The workers never touch the stream; they read what it left behind.
-       * A page stopped by hand mid-sentence stays unread — half a page is
-       * no page to learn from. */
-      if (story.extraction !== false && !stoppedByHand) {
-        startBackgroundWork(story, saved, userText);
-      }
-    } else {
-      pending.remove();
-    }
   }
 
-  /* M8: the composer never swallows words. With no story it starts one,
-   * named from the first words; with no connection it says so kindly under
-   * the composer and hands the text back, unsent but never lost. Only when
-   * a connection stands does the page leave the composer. */
-  async function send(text) {
+  /* B9's retry: re-ask the same turn (the user's words are still last). */
+  async function retryAsk() {
     if (busy) return;
     busy = true;
-    let story = await activeStory();
-    if (!story) {
-      const oneLine = text.replace(/\s+/g, ' ').trim();
-      const title = oneLine.length > 40 ? oneLine.slice(0, 40).trimEnd() + '…' : oneLine;
-      story = await db.stories.create({ title });
-      ctx.setActiveStoryId(story.id);
-      await refreshStories(true);
-      if (ctx.onStoriesChanged) ctx.onStoriesChanged();
-    }
-    const connection = await resolveConnection();
-    if (!connection) {
-      showComposerNote('The tavern needs a storyteller first — add a connection, and these words will still be waiting.');
-      els.input.value = text;
-      els.input.style.height = 'auto';
-      els.input.style.height = Math.min(els.input.scrollHeight, 190) + 'px';
-      els.input.focus();
-      busy = false;
-      return;
-    }
-    hideComposerNote();
-    els.threadEmpty.hidden = true;
-    els.input.value = '';
-    els.input.style.height = '';
-
-    const saved = await db.messages.append(story.id, { role: 'user', text });
-    els.thread.appendChild(msgNode(saved));
-    scrollToBottom();
-
     await generate();
     stories = await db.stories.list();
     renderStoryList();
     refreshEmber();
+  }
+
+  /* M9: "Go on" — the continue control. A hidden user page carries the
+   * nudge: on the wire once (slot 10 fires from it), never rendered,
+   * excluded from history. */
+  async function continueTurn() {
+    if (busy) return;
+    busy = true;
+    try {
+      const story = await activeStory();
+      if (!story) { busy = false; return; }
+      const connection = await resolveConnection(story);
+      if (!connection) {
+        showComposerNote('The tavern needs a storyteller first — add a connection.');
+        busy = false;
+        return;
+      }
+      await db.messages.append(story.id, { role: 'user', text: 'continue', hidden: true });
+      await generate();
+      stories = await db.stories.list();
+      renderStoryList();
+      refreshEmber();
+    } finally {
+      busy = false;
+    }
+  }
+
+  /* M8: the composer never swallows words. M9: the words are parsed for a
+   * house command first (commands.js) — the chip says what the house
+   * understood; the instruction rides the request hidden. */
+  async function send(text) {
+    if (busy) return;
+    busy = true;
+    try {
+      let story = await activeStory();
+      if (!story) {
+        const oneLine = text.replace(/\s+/g, ' ').trim();
+        const title = oneLine.length > 40 ? oneLine.slice(0, 40).trimEnd() + '…' : oneLine;
+        story = await db.stories.create({ title });
+        ctx.setActiveStoryId(story.id);
+        await refreshStories(true);
+        if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+      }
+      const connection = await resolveConnection(story);
+      if (!connection) {
+        showComposerNote('The tavern needs a storyteller first — add a connection, and these words will still be waiting.');
+        restoreComposer(text);
+        return;
+      }
+      hideComposerNote();
+      els.threadEmpty.hidden = true;
+      els.input.value = '';
+      els.input.style.height = '';
+      if (els.composerChip) els.composerChip.hidden = true;
+
+      const parsed = parseCommand(text);
+      let saved;
+      try {
+        saved = await db.messages.append(story.id, {
+          role: 'user',
+          text: parsed.clean,
+          hidden: parsed.hidden || undefined,
+          ooc: parsed.ooc || undefined,
+        });
+      } catch (err) {
+        /* B1: a full shelf never swallows the words — the writer keeps
+         * them and hears why. */
+        showComposerNote(err && err.message ? err.message : 'The page wouldn’t save.');
+        restoreComposer(text);
+        return;
+      }
+      if (!parsed.hidden) {
+        els.thread.appendChild(msgNode(saved));
+        lastRender.ids.push(saved.id);
+        scrollToBottom();
+      }
+
+      await generate({ directive: parsed.directive, ooc: parsed.ooc });
+      stories = await db.stories.list();
+      renderStoryList();
+      refreshEmber();
+    } finally {
+      busy = false;
+    }
   }
 
   /* ---------- regenerate ("rewrite from here") ---------- */
@@ -742,48 +1144,210 @@ export function initChat(ctx) {
   async function regenerateFrom(messageId) {
     if (busy) return;
     busy = true;
-    const story = await activeStory();
-    if (!story) { busy = false; return; }
-    const history = await db.messages.list(story.id);
-    const at = history.findIndex((m) => m.id === messageId);
-    if (at === -1) { busy = false; return; }
-    const target = history[at];
+    try {
+      const story = await activeStory();
+      if (!story) return;
+      const history = await db.messages.list(story.id);
+      const at = history.findIndex((m) => m.id === messageId);
+      if (at === -1) return;
+      const target = history[at];
 
-    if (target.role === 'assistant') {
-      await db.messages.deleteFrom(story.id, target.id);
-    } else {
-      const next = history[at + 1];
-      if (next) await db.messages.deleteFrom(story.id, next.id);
+      /* B5: wait for the workers BEFORE the rewrite — never race a page
+       * the extractor is still reading. */
+      await pendingWork(story.id, 5000);
+
+      if (target.role === 'assistant') {
+        await db.messages.deleteFrom(story.id, target.id);
+      } else {
+        const next = history[at + 1];
+        if (next) await db.messages.deleteFrom(story.id, next.id);
+      }
+      await renderThread({ structural: true });
+      await generate();
+      stories = await db.stories.list();
+      renderStoryList();
+    } finally {
+      busy = false;
     }
-    await renderThread();
-    await generate();
-    stories = await db.stories.list();
-    renderStoryList();
+  }
+
+  /* ---------- swipes (M9) ---------- */
+
+  async function swipeTo(messageId, dir) {
+    if (busy) return;
+    const story = await activeStory();
+    if (!story) return;
+    const history = await db.messages.list(story.id);
+    const msg = history.find((m) => m.id === messageId);
+    if (!msg || !Array.isArray(msg.swipes) || !msg.swipes.length) return;
+    const idx = Number.isFinite(msg.swipeIdx)
+      ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx))
+      : msg.swipes.length - 1;
+    const next = idx + dir;
+    if (next >= msg.swipes.length) {
+      /* Walking past the last version writes a new one (the old keep). */
+      swipeRegenerate(msg);
+      return;
+    }
+    if (next < 0) return;
+    const shown = msg.swipes[next];
+    await db.messages.update(story.id, msg.id, {
+      swipeIdx: next,
+      text: shown.text,
+      thinking: shown.thinking,
+      receipt: shown.receipt || msg.receipt,
+    });
+    await rerenderMessage(story.id, msg.id);
+    refreshEmber();
+  }
+
+  /* Write another version of this page: re-ask its turn, keep the old
+   * versions, land the new one as the shown swipe. B5: the workers finish
+   * first; the referee replays the same verdict for the same words. */
+  async function swipeRegenerate(msg) {
+    if (busy) return;
+    busy = true;
+    try {
+      const story = await activeStory();
+      if (!story) return;
+      await pendingWork(story.id, 5000);
+      await generate({ swipeTarget: msg });
+      stories = await db.stories.list();
+      renderStoryList();
+    } finally {
+      busy = false;
+    }
+  }
+
+  /* ---------- edit (M9) ---------- */
+
+  async function beginEdit(messageId) {
+    if (busy) return;
+    const story = await activeStory();
+    if (!story) return;
+    const history = await db.messages.list(story.id);
+    const msg = history.find((m) => m.id === messageId);
+    if (!msg) return;
+    const node = els.thread.querySelector(`.msg[data-id="${messageId}"]`);
+    if (!node) return;
+    const body = node.querySelector('.msg-body');
+    if (!body) return;
+
+    const editor = document.createElement('textarea');
+    editor.className = 'edit-box';
+    editor.value = pageText(msg);
+    editor.rows = Math.min(18, Math.max(3, editor.value.split('\n').length + 1));
+    editor.setAttribute('aria-label', 'Re-ink this page');
+    const row = document.createElement('div');
+    row.className = 'edit-row';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Keep the new words';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'text-btn';
+    cancelBtn.textContent = 'Never mind';
+    row.append(saveBtn, cancelBtn);
+    body.replaceChildren(editor, row);
+    editor.focus();
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+
+    let done = false;
+    const finish = async (keep) => {
+      if (done) return;
+      done = true;
+      if (keep) {
+        const text = editor.value;
+        const patch = { text };
+        /* An edited shown swipe keeps the versions in step. */
+        if (Array.isArray(msg.swipes) && msg.swipes.length) {
+          const idx = Number.isFinite(msg.swipeIdx)
+            ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx))
+            : msg.swipes.length - 1;
+          const swipes = msg.swipes.slice();
+          swipes[idx] = { ...swipes[idx], text };
+          patch.swipes = swipes;
+        }
+        const updated = await db.messages.update(story.id, msg.id, patch);
+        toast('The page is re-inked.');
+        /* An edited assistant page goes back to the extractor — the ledger
+         * re-reads the new words. */
+        if (updated && msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
+          const before = history.slice(0, history.indexOf(msg));
+          const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
+          startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '');
+        }
+      }
+      await rerenderMessage(story.id, msg.id);
+    };
+    saveBtn.addEventListener('click', () => finish(true));
+    cancelBtn.addEventListener('click', () => finish(false));
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); finish(true); }
+    });
   }
 
   /* ---------- message menu (long-press / right-click) ---------- */
 
   let menuFor = null;
   let pressTimer = null;
+  let menuReturnFocus = null;
 
   function showMenu(x, y, messageId) {
     menuFor = messageId;
+    menuReturnFocus = document.activeElement;
     els.menu.hidden = false;
     const rect = els.menu.getBoundingClientRect();
     els.menu.style.left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8)) + 'px';
     els.menu.style.top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8)) + 'px';
+    /* B13: the menu answers to the keyboard — first item focused on open,
+     * arrows walk, Escape closes and hands the focus back. */
+    const first = els.menu.querySelector('button[data-act]');
+    if (first) first.focus();
   }
 
   function hideMenu() {
     els.menu.hidden = true;
     menuFor = null;
+    if (menuReturnFocus && typeof menuReturnFocus.focus === 'function') {
+      menuReturnFocus.focus();
+    }
+    menuReturnFocus = null;
   }
+
+  els.menu.addEventListener('keydown', (e) => {
+    if (els.menu.hidden) return;
+    const items = [...els.menu.querySelectorAll('button[data-act]')];
+    const at = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      const next = items[(at + step + items.length) % items.length];
+      if (next) next.focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideMenu();
+    }
+  });
 
   els.thread.addEventListener('contextmenu', (e) => {
     const msg = e.target.closest('.msg');
     if (!msg || !msg.dataset.id) return;
     e.preventDefault();
     showMenu(e.clientX, e.clientY, msg.dataset.id);
+  });
+
+  /* B13: Shift+F10 / the context-menu key opens the menu from the
+   * keyboard, at the focused page's corner. */
+  els.thread.addEventListener('keydown', (e) => {
+    const msg = e.target.closest('.msg');
+    if (!msg || !msg.dataset.id) return;
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault();
+      const rect = msg.getBoundingClientRect();
+      showMenu(rect.left + 24, rect.top + 24, msg.dataset.id);
+    }
   });
 
   els.thread.addEventListener('touchstart', (e) => {
@@ -804,7 +1368,7 @@ export function initChat(ctx) {
     if (!els.menu.hidden && !els.menu.contains(e.target)) hideMenu();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hideMenu();
+    if (e.key === 'Escape' && !els.menu.hidden) hideMenu();
   });
 
   els.menu.addEventListener('click', async (e) => {
@@ -816,6 +1380,12 @@ export function initChat(ctx) {
       copyMessage(id);
     } else if (btn.dataset.act === 'regenerate') {
       regenerateFrom(id);
+    } else if (btn.dataset.act === 'edit') {
+      beginEdit(id);
+    } else if (btn.dataset.act === 'delete') {
+      deleteMessage(id);
+    } else if (btn.dataset.act === 'go on') {
+      continueTurn();
     }
   });
 
@@ -827,15 +1397,27 @@ export function initChat(ctx) {
     const msg = history.find((m) => m.id === id);
     if (!msg) return;
     try {
-      await navigator.clipboard.writeText(msg.text);
+      await navigator.clipboard.writeText(pageText(msg));
       toast('Copied.');
     } catch (err) {
-      window.prompt('Copy it by hand, then:', msg.text);
+      window.prompt('Copy it by hand, then:', pageText(msg));
     }
   }
 
-  /* copy and delete are wired now; edit, swipe and branch are honest about
-   * being on their way (M9) — tapped, they say so and never dead-end. */
+  async function deleteMessage(id) {
+    const story = await activeStory();
+    if (!story || busy) return;
+    /* One page lets go — never conflated with rewrite-from-here. */
+    const ok = window.confirm('Let this page go? The ones around it stay exactly as written.');
+    if (!ok) return;
+    await db.messages.remove(story.id, id);
+    const node = els.thread.querySelector(`.msg[data-id="${id}"]`);
+    if (node) node.remove();
+    lastRender.ids = lastRender.ids.filter((x) => x !== id);
+    refreshEmber();
+    toast('The page is gone.');
+  }
+
   els.thread.addEventListener('click', async (e) => {
     const btn = e.target.closest('.msg-act');
     if (!btn) return;
@@ -844,25 +1426,33 @@ export function initChat(ctx) {
     if (act === 'copy') {
       copyMessage(id);
     } else if (act === 'delete') {
-      const story = await activeStory();
-      if (!story || busy) return;
-      const ok = window.confirm('Let this page go? The ones around it stay exactly as written.');
-      if (!ok) return;
-      await db.messages.remove(story.id, id);
-      const node = els.thread.querySelector(`.msg[data-id="${id}"]`);
-      if (node) node.remove();
-      refreshEmber();
-      toast('The page is gone.');
-    } else {
-      toast('That one is still finding its feet — landing with the next wave.');
+      deleteMessage(id);
+    } else if (act === 'edit') {
+      beginEdit(id);
+    } else if (act === 'swipe-prev') {
+      swipeTo(id, -1);
+    } else if (act === 'swipe-next') {
+      swipeTo(id, 1);
+    } else if (act === 'swipe') {
+      /* The plain "swipe" button walks to the next version — or writes
+       * one when there is none yet. */
+      swipeTo(id, 1);
+    } else if (act === 'go on') {
+      continueTurn();
     }
   });
 
   /* ---------- story panel (mobile slide-over) ---------- */
 
+  /* B3: the scrim belongs to the narrow (slide-over) mode only. On a wide
+   * screen the panel sits in the flow — no scrim over the story. */
+  function isNarrow() {
+    return window.matchMedia('(max-width: 899px)').matches;
+  }
+
   function openPanel() {
     els.panel.classList.add('open');
-    els.scrim.hidden = false;
+    els.scrim.hidden = !isNarrow();
     document.getElementById('btn-stories').setAttribute('aria-expanded', 'true');
   }
 
@@ -898,6 +1488,12 @@ export function initChat(ctx) {
   els.input.addEventListener('input', () => {
     els.input.style.height = 'auto';
     els.input.style.height = Math.min(els.input.scrollHeight, 190) + 'px';
+    /* M9: the command chip — what the house understood, live as you type. */
+    if (els.composerChip) {
+      const chip = commandChip(els.input.value);
+      els.composerChip.textContent = chip;
+      els.composerChip.hidden = !chip;
+    }
   });
 
   els.btnStop.addEventListener('click', () => {
@@ -938,7 +1534,7 @@ export function initChat(ctx) {
     els.newForm.hidden = true;
     ctx.setActiveStoryId(story.id);
     await refreshStories(true);
-    await renderThread();
+    await renderThread({ structural: true });
     closePanel();
     els.input.focus();
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
@@ -948,8 +1544,12 @@ export function initChat(ctx) {
 
   (async function start() {
     await refreshStories();
-    await renderThread();
+    await renderThread({ structural: true });
   })();
 
-  ctx.chat = { refreshStories, renderThread };
+  ctx.chat = {
+    refreshStories,
+    renderThread,
+    continueTurn,
+  };
 }

@@ -13,7 +13,7 @@
   --border-soft: #2a231e;
   --text: #efe6dc;
   --text-2: #b8a99c;
-  --muted: #87776a;
+  --muted: #9c8b7e;
   --ember: #e9a13b;
   --ember-hot: #f2762f;
   --ember-dim: #6d5028;
@@ -44,13 +44,16 @@ html[data-theme='light'] {
   --border-soft: #e6dccb;
   --text: #291f18;
   --text-2: #5c4e42;
-  --muted: #8b7a68;
-  --ember: #bd7410;
-  --ember-hot: #cc511a;
+  /* M9 (B19): the light theme's quiet and accent tokens sat under AA
+   * (muted 3.6:1, ember 3.2:1, ok 3.8:1). These read 5.6+, 5.6+ and 5.3+
+   * on the lamplight bg, more on surfaces. */
+  --muted: #6b5c4c;
+  --ember: #8a5205;
+  --ember-hot: #a94d1a;
   --ember-dim: #e0c79a;
   --user-tint: #f0e7d5;
   --danger: #bc4630;
-  --ok: #5b8449;
+  --ok: #4a6b3a;
   --shadow: 0 8px 28px rgba(60, 40, 20, .14);
   --on-ember: #191106;
 }

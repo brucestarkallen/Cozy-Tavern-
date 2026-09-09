@@ -63,6 +63,9 @@ export function initSettings(ctx) {
     modFormTitle: document.getElementById('module-form-title'),
     modName: document.getElementById('mod-name'),
     modText: document.getElementById('mod-text'),
+    modWhen: document.getElementById('mod-when'),
+    modNote: document.getElementById('mod-note'),
+    modWhenLabel: document.getElementById('mod-when-label'),
     btnModCancel: document.getElementById('btn-mod-cancel'),
     btnExport: document.getElementById('btn-export'),
     importFile: document.getElementById('import-file'),
@@ -70,6 +73,11 @@ export function initSettings(ctx) {
     workerConn: document.getElementById('worker-connection'),
     workerExtraction: document.getElementById('worker-extraction'),
     workerStoryName: document.getElementById('worker-story-name'),
+    storyConn: document.getElementById('story-connection'),
+    storyConnName: document.getElementById('story-conn-name'),
+    workerKeeper: document.getElementById('worker-keeper'),
+    workerContinuity: document.getElementById('worker-continuity'),
+    spendLine: document.getElementById('spend-line'),
     memoryKeeper: document.getElementById('memory-keeper'),
     memoryWindow: document.getElementById('memory-window'),
     memoryWindowValue: document.getElementById('memory-window-value'),
@@ -87,9 +95,19 @@ export function initSettings(ctx) {
     cardNote: document.getElementById('card-note'),
     castList: document.getElementById('cast-list'),
     castListEmpty: document.getElementById('cast-list-empty'),
+    cardForm: document.getElementById('card-form'),
+    cardFormTitle: document.getElementById('card-form-title'),
+    cardEditName: document.getElementById('card-edit-name'),
+    cardEditDescription: document.getElementById('card-edit-description'),
+    cardEditPersonality: document.getElementById('card-edit-personality'),
+    cardEditScenario: document.getElementById('card-edit-scenario'),
+    cardEditFirstMes: document.getElementById('card-edit-firstmes'),
+    cardEditNotes: document.getElementById('card-edit-notes'),
+    btnCardCancel: document.getElementById('btn-card-cancel'),
     loreFile: document.getElementById('lore-file'),
     loreNote: document.getElementById('lore-note'),
     loreCount: document.getElementById('lore-count'),
+    loreList: document.getElementById('lore-list'),
     loreStoryName: document.getElementById('lore-story-name'),
     btnLoreClear: document.getElementById('btn-lore-clear'),
     chatFile: document.getElementById('chat-file'),
@@ -436,6 +454,25 @@ export function initSettings(ctx) {
   let editingModuleId = null;
   let editingModulePinned = false;
 
+  /* M9: the when-picker speaks the builtins' own words (WHEN_WORDS). A rule
+   * of your own may choose when it wakes; a builtin keeps its own ears, so
+   * for forks the picker rests, showing what it hears. */
+  function fillWhenPicker(mod) {
+    els.modWhen.textContent = '';
+    const keys = ['always', 'intimate', 'combat', 'acoustics', 'socialField', 'manual'];
+    for (const key of keys) {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = WHEN_WORDS[key] || key;
+      els.modWhen.appendChild(opt);
+    }
+    const isBuiltin = mod && mod.source === 'builtin';
+    els.modWhen.value = mod && mod.whenKey && keys.includes(mod.whenKey) ? mod.whenKey : 'manual';
+    els.modWhen.disabled = Boolean(isBuiltin);
+    els.modWhenLabel.title = isBuiltin ? 'A builtin keeps its own ears — fork it and the words change, the waking doesn’t.' : '';
+    els.modNote.value = mod && typeof mod.note === 'string' ? mod.note : '';
+  }
+
   function openModuleForm(mod) {
     editingModuleId = mod ? mod.id : null;
     editingModulePinned = mod ? mod.pinned : true;
@@ -445,6 +482,7 @@ export function initSettings(ctx) {
       : 'A rule of your own';
     els.modName.value = mod ? mod.name : '';
     els.modText.value = mod ? mod.text : '';
+    fillWhenPicker(mod || null);
     els.modName.focus();
   }
 
@@ -457,12 +495,15 @@ export function initSettings(ctx) {
     if (!text) return;
     /* Editing a builtin forks it: the saved copy shadows the original,
      * which stays restorable (see modules.js). A rule of your own starts
-     * pinned on, so it joins the stack right away. */
+     * pinned on, so it joins the stack right away. M9: its when-key and
+     * quiet note are kept too. */
     await saveModule({
       id: editingModuleId || undefined,
       name: els.modName.value,
       text,
       pinned: editingModulePinned,
+      whenKey: els.modWhen.disabled ? undefined : els.modWhen.value,
+      note: els.modNote.value.trim(),
     });
     els.modForm.hidden = true;
     editingModuleId = null;
@@ -583,10 +624,80 @@ export function initSettings(ctx) {
     els.workerStoryName.textContent = story ? `“${story.title}”` : 'this story';
     els.workerExtraction.checked = story ? story.extraction !== false : true;
     els.workerExtraction.disabled = !story;
+
+    /* M9: the story's own storyteller (per-story connection override) —
+     * '' follows the house's active connection. */
+    els.storyConnName.textContent = story ? `“${story.title}”` : 'this story';
+    els.storyConn.textContent = '';
+    const house = document.createElement('option');
+    house.value = '';
+    house.textContent = 'The same as the house';
+    els.storyConn.appendChild(house);
+    for (const conn of all) {
+      const opt = document.createElement('option');
+      opt.value = conn.id;
+      opt.textContent = conn.label;
+      els.storyConn.appendChild(opt);
+    }
+    els.storyConn.value = story && typeof story.connectionId === 'string'
+      && all.some((c) => c.id === story.connectionId) ? story.connectionId : '';
+    els.storyConn.disabled = !story;
+
+    /* M9 (B12): three separate switches. The keeper's and the second
+     * reader's per-story say ('' follows the house, below). */
+    els.workerKeeper.value = story
+      ? (story.keeper === true ? 'on' : story.keeper === false ? 'off' : '')
+      : '';
+    els.workerKeeper.disabled = !story;
+    els.workerContinuity.value = story
+      ? (story.continuity === true ? 'on' : story.continuity === false ? 'off' : '')
+      : '';
+    els.workerContinuity.disabled = !story;
+
+    /* M9 (§5): what the tale has spent — the sum of its receipts. */
+    if (story) {
+      const history = await db.messages.list(story.id);
+      let tokens = 0;
+      let turns = 0;
+      for (const msg of history) {
+        if (msg && msg.receipt && typeof msg.receipt.totalTokens === 'number') {
+          tokens += msg.receipt.totalTokens;
+          turns += 1;
+        }
+      }
+      if (turns) {
+        els.spendLine.textContent = `This tale has spent ~${tokens.toLocaleString()} tokens across ${turns} ${turns === 1 ? 'turn' : 'turns'}.`;
+        els.spendLine.hidden = false;
+      } else {
+        els.spendLine.hidden = true;
+      }
+    } else {
+      els.spendLine.hidden = true;
+    }
   }
 
   els.workerConn.addEventListener('change', async () => {
     await db.settings.set('workerConnectionId', els.workerConn.value || null);
+  });
+
+  els.storyConn.addEventListener('change', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    await db.stories.update(story.id, { connectionId: els.storyConn.value || null });
+  });
+
+  els.workerKeeper.addEventListener('change', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    const v = els.workerKeeper.value;
+    await db.stories.update(story.id, { keeper: v === 'on' ? true : v === 'off' ? false : null });
+  });
+
+  els.workerContinuity.addEventListener('change', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    const v = els.workerContinuity.value;
+    await db.stories.update(story.id, { continuity: v === 'on' ? true : v === 'off' ? false : null });
   });
 
   els.workerExtraction.addEventListener('change', async () => {
@@ -905,6 +1016,13 @@ export function initSettings(ctx) {
 
       const row = document.createElement('div');
       row.className = 'row';
+      /* M9: read & change what the card brought. */
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'text-btn';
+      editBtn.textContent = 'Read & change';
+      editBtn.addEventListener('click', () => openCardForm(card));
+      row.appendChild(editBtn);
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'text-btn';
@@ -922,6 +1040,51 @@ export function initSettings(ctx) {
     }
   }
 
+  /* M9: the card editor — every field the card brought, re-inkable. The
+   * maker's notes stay home (they never ride the wire). */
+  let editingCardId = null;
+
+  function openCardForm(card) {
+    editingCardId = card ? card.id : null;
+    if (!card) return;
+    els.cardForm.hidden = false;
+    els.cardFormTitle.textContent = `“${card.name}” — the card’s words`;
+    els.cardEditName.value = card.name || '';
+    els.cardEditDescription.value = card.description || '';
+    els.cardEditPersonality.value = card.personality || '';
+    els.cardEditScenario.value = card.scenario || '';
+    els.cardEditFirstMes.value = card.firstMes || '';
+    els.cardEditNotes.value = card.creatorNotes || '';
+    els.cardEditName.focus();
+  }
+
+  els.btnCardCancel.addEventListener('click', () => {
+    els.cardForm.hidden = true;
+    editingCardId = null;
+  });
+
+  els.cardForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!editingCardId) return;
+    const cards = await listCast();
+    const card = cards.find((c) => c.id === editingCardId);
+    if (!card) { els.cardForm.hidden = true; return; }
+    const next = {
+      ...card,
+      name: els.cardEditName.value.trim() || card.name,
+      description: els.cardEditDescription.value,
+      personality: els.cardEditPersonality.value,
+      scenario: els.cardEditScenario.value,
+      firstMes: els.cardEditFirstMes.value,
+      creatorNotes: els.cardEditNotes.value,
+    };
+    await saveCastMember(next);
+    els.cardForm.hidden = true;
+    editingCardId = null;
+    say(els.cardNote, `“${next.name}” is re-inked.`);
+    renderCast();
+  });
+
   els.cardFile.addEventListener('change', async () => {
     const file = els.cardFile.files && els.cardFile.files[0];
     els.cardFile.value = '';
@@ -936,15 +1099,132 @@ export function initSettings(ctx) {
     }
   });
 
-  /* The lore shelf: one per story, for whichever story is open. */
+  /* The lore shelf: one per story, for whichever story is open. M9: the
+   * entries themselves are listed — each can be switched off, marked
+   * constant (always rides), re-keyed, re-worded, moved, or let go. */
+  function loreEntryRow(storyId, entry, index, total) {
+    const li = document.createElement('li');
+    li.className = 'connection-card lore-entry';
+
+    const top = document.createElement('div');
+    top.className = 'connection-top';
+    const name = document.createElement('span');
+    name.className = 'connection-name';
+    const title = (entry.name && String(entry.name).trim())
+      || (Array.isArray(entry.keys) && entry.keys.length ? entry.keys.join(', ') : 'an unnamed entry');
+    name.textContent = title;
+    const kind = document.createElement('span');
+    kind.className = 'connection-kind';
+    const bits = [];
+    if (entry.constant === true) bits.push('always rides');
+    if (Array.isArray(entry.secondaryKeys) && entry.secondaryKeys.length) bits.push('needs a second key too');
+    bits.push(`scans the last ${Number.isFinite(entry.depth) ? entry.depth : 2} pages`);
+    kind.textContent = bits.join(' · ');
+    top.append(name, kind);
+    li.appendChild(top);
+
+    const toggles = document.createElement('div');
+    toggles.className = 'row';
+    const enabledLabel = document.createElement('label');
+    enabledLabel.className = 'radio-row';
+    const enabled = document.createElement('input');
+    enabled.type = 'checkbox';
+    enabled.checked = entry.enabled !== false;
+    enabled.addEventListener('change', async () => {
+      await updateLoreEntry(storyId, entry.id, { enabled: enabled.checked });
+    });
+    enabledLabel.append(enabled, document.createTextNode(' On the shelf'));
+    const constantLabel = document.createElement('label');
+    constantLabel.className = 'radio-row';
+    const constant = document.createElement('input');
+    constant.type = 'checkbox';
+    constant.checked = entry.constant === true;
+    constant.addEventListener('change', async () => {
+      await updateLoreEntry(storyId, entry.id, { constant: constant.checked });
+      renderLore();
+    });
+    constantLabel.append(constant, document.createTextNode(' Always rides'));
+    toggles.append(enabledLabel, constantLabel);
+    li.appendChild(toggles);
+
+    const keysInput = document.createElement('input');
+    keysInput.type = 'text';
+    keysInput.className = 'lore-keys';
+    keysInput.value = Array.isArray(entry.keys) ? entry.keys.join(', ') : '';
+    keysInput.placeholder = 'Words that wake it, comma-parted';
+    keysInput.setAttribute('aria-label', `Words that wake “${title}”`);
+    li.appendChild(keysInput);
+
+    const content = document.createElement('textarea');
+    content.className = 'lore-content';
+    content.rows = 3;
+    content.spellcheck = false;
+    content.value = typeof entry.content === 'string' ? entry.content : '';
+    content.setAttribute('aria-label', `What “${title}” says`);
+    li.appendChild(content);
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'text-btn';
+    saveBtn.textContent = 'Keep it';
+    saveBtn.addEventListener('click', async () => {
+      await updateLoreEntry(storyId, entry.id, {
+        keys: keysInput.value.split(',').map((k) => k.trim()).filter(Boolean),
+        content: content.value,
+      });
+      say(els.loreNote, 'The entry is kept.');
+    });
+    const upBtn = document.createElement('button');
+    upBtn.type = 'button';
+    upBtn.className = 'text-btn';
+    upBtn.textContent = '↑';
+    upBtn.title = 'Earlier on the shelf';
+    upBtn.setAttribute('aria-label', `Move “${title}” earlier on the shelf`);
+    upBtn.disabled = index === 0;
+    upBtn.addEventListener('click', async () => {
+      await moveLoreEntry(storyId, entry.id, -1);
+      renderLore();
+    });
+    const downBtn = document.createElement('button');
+    downBtn.type = 'button';
+    downBtn.className = 'text-btn';
+    downBtn.textContent = '↓';
+    downBtn.title = 'Later on the shelf';
+    downBtn.setAttribute('aria-label', `Move “${title}” later on the shelf`);
+    downBtn.disabled = index === total - 1;
+    downBtn.addEventListener('click', async () => {
+      await moveLoreEntry(storyId, entry.id, 1);
+      renderLore();
+    });
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'text-btn';
+    removeBtn.textContent = 'Let it go';
+    removeBtn.addEventListener('click', async () => {
+      const sure = window.confirm(`Let “${title}” leave the shelf?`);
+      if (!sure) return;
+      await removeLoreEntry(storyId, entry.id);
+      renderLore();
+    });
+    row.append(saveBtn, upBtn, downBtn, removeBtn);
+    li.appendChild(row);
+    return li;
+  }
+
   async function renderLore() {
     const story = await activeStory();
     const entries = story ? await loadLore(story.id) : [];
     els.loreFile.disabled = !story;
     els.loreCount.hidden = !entries.length;
     els.btnLoreClear.hidden = !entries.length;
+    els.loreList.textContent = '';
     if (entries.length) {
       els.loreCount.textContent = `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} on the shelf.`;
+      entries.forEach((entry, index) => {
+        els.loreList.appendChild(loreEntryRow(story.id, entry, index, entries.length));
+      });
     } else {
       els.loreCount.textContent = '';
     }
@@ -1096,5 +1376,18 @@ export function initSettings(ctx) {
     await loadTheme();
   }
 
-  ctx.settings = { onShow };
+  /* B7 (M9): when the shelf of stories changes while Settings stands open,
+   * the per-story blocks (frame/note/brief/cast names, the workers'
+   * switches, the spend line, the lore shelf, the thinking say) refresh
+   * with it. */
+  function onStoriesChanged() {
+    if (document.getElementById('view-settings').hidden) return;
+    loadPromptSlots();
+    renderWorkers();
+    renderMemory();
+    renderLore();
+    renderThinking();
+  }
+
+  ctx.settings = { onShow, onStoriesChanged };
 }

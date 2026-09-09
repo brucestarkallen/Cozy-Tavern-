@@ -205,6 +205,12 @@ function normalize(saved) {
   const fresh = emptyState();
   if (!saved || typeof saved !== 'object') return fresh;
   const next = { ...fresh, ...saved };
+  /* M9 (B14): the turn counter is monotonic and never resets, even when the
+   * log caps. States from before it existed start from the log's length —
+   * the count the ledgers used as turns until now. */
+  next.turn = Number.isFinite(saved.turn) && saved.turn >= 0
+    ? Math.floor(saved.turn)
+    : (Array.isArray(saved.log) ? saved.log.length : 0);
   next.mode = { ...fresh.mode, ...(saved.mode || {}) };
   next.present = Array.isArray(saved.present)
     ? saved.present

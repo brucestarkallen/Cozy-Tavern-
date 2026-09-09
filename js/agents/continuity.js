@@ -22,6 +22,9 @@
 
 import { renderStateFacts } from '../engine/state.js';
 import { renderCanon } from '../engine/canon.js';
+/* M9 (B16): the tolerant JSON-finder is shared by every agent —
+ * agents/jsonutil.js. */
+import { firstBalancedObject } from './jsonutil.js';
 
 const MAX_TOKENS = 400;
 const TEMPERATURE = 0;
@@ -76,31 +79,6 @@ export function buildContinuityMessages({ state, assistantText }) {
 }
 
 /* ---------- the tolerant parser ---------- */
-
-/* Pull the first balanced {...} out of a string, respecting quoted text. */
-function firstBalancedObject(text) {
-  const start = text.indexOf('{');
-  if (start === -1) return '';
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let i = start; i < text.length; i += 1) {
-    const ch = text[i];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (ch === '\\') escaped = true;
-      else if (ch === '"') inString = false;
-      continue;
-    }
-    if (ch === '"') { inString = true; continue; }
-    if (ch === '{') depth += 1;
-    else if (ch === '}') {
-      depth -= 1;
-      if (depth === 0) return text.slice(start, i + 1);
-    }
-  }
-  return '';
-}
 
 function cleanWords(value) {
   if (typeof value !== 'string') return '';

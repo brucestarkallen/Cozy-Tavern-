@@ -631,3 +631,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - store.js: messages.remove(storyId, messageId) added; connections.update treats null as "leave the dial alone".
 - First-send with no story auto-creates one named from the first words; no-connection send keeps the text and shows a kind inline note. Composer never silently swallows words (B2 killed at the root).
 - Design tokens: Hearth (dark, default) + Parchment themes per SPEC M8 exact sheet; serif --font-prose kept for prose/headings; theme key stays 'theme'.
+
+---
+
+# M9 — the interaction loop & truth fixes
+- Slot 8 (story-so-far) law: ONLY the verbatim window rides (keeper on: memory.window;
+  keeper off: token-budgeted cutoff with an honest receipt line). Hidden pages never ride.
+- systemBlocks are positionally stable (slots 1–4 always four blocks, empty text allowed);
+  PROVIDERS drop empties when mapping to the wire. Cache breakpoint = end of slot 2; slots
+  3–4 are cache:false (A4).
+- Messages may carry swipes[]+swipeIdx (text mirrors the shown swipe), hidden, cutShort,
+  ooc. messages.update patches without resurrection; appendAll imports atomically.
+- The command parser (js/commands.js): #question/#p/#pp/#continue/#time, ((…)) and // asides;
+  unknown # passes through with a hint. Commands become hidden directives on the wire.
+- The lore shelf: entries {id, keys, content, enabled, constant?, secondaryKeys?, depth?};
+  ST fields constant/keysecondary/scan_depth are read on import. Constant rides first.
+- The workers: every background call rides workerSignal() (60s hard timeout); worker status
+  lives at workers:<storyId>, shown as "The workers" in the drawer. Per-story switches are
+  separate: ledger (extraction), keeper, reader.
+- Tab lock (js/tablock.js): first tab writes; a second tab reads with a plain notice.
+- One VERSION in js/version.js; sw.js derives its cache name from it. Harnesses ship in
+  tests/harness/ — `node tests/harness/run.mjs` must be green before any commit.
+- Audit closures: B1–B20, A1–A8 all addressed in code (B15 docs this entry).

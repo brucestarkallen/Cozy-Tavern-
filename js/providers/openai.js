@@ -14,6 +14,8 @@
  * durationMs = fetch start to stream end.
  */
 
+import { readSSE } from './sse.js';
+
 const DEFAULT_BASE = 'https://api.openai.com';
 
 /* The thinking voice (M8.5): effort names are passed through as-is; an
@@ -59,44 +61,7 @@ async function explain(res, name) {
   return `The answer was no, without a reason (${res.status}).`;
 }
 
-/* Read an SSE stream body. Handles partial chunks, CRLF, multi-line data,
- * and the [DONE] sentinel. Calls onEvent(parsedJSON) per event. */
-async function readSSE(body, onEvent) {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buf = '';
-  let dataLines = [];
-
-  const dispatch = () => {
-    if (!dataLines.length) return;
-    const raw = dataLines.join('\n');
-    dataLines = [];
-    if (raw === '[DONE]') return;
-    try {
-      onEvent(JSON.parse(raw));
-    } catch (err) {
-      /* a keep-alive or partial frame; keep listening */
-    }
-  };
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let nl;
-    while ((nl = buf.indexOf('\n')) !== -1) {
-      let line = buf.slice(0, nl);
-      buf = buf.slice(nl + 1);
-      if (line.endsWith('\r')) line = line.slice(0, -1);
-      if (line === '') { dispatch(); continue; }
-      if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
-    }
-  }
-  buf += decoder.decode();
-  const last = buf.replace(/\r$/, '');
-  if (last.startsWith('data:')) dataLines.push(last.slice(5).replace(/^ /, ''));
-  dispatch();
-}
+/* The SSE reader is shared by both providers (M9, B16): providers/sse.js. */
 
 /* The V176 interop splitter (M8.5). Some storytellers have no native
  * reasoning channel but open their answer with a literal <think>…</think>
@@ -225,21 +190,29 @@ export function createOpenAIProvider(connection) {
   }
 
   async function streamChat({ systemBlocks: blocks, system, messages, signal, onToken }) {
-    /* System mapping (SPEC.md M2): the cache:true blocks concatenate into a
-     * single system message. Dynamic slots travel as user messages inside
-     * `messages` — never as system — on this mapping. The M1 legacy `system`
-     * (string or array of strings) still works, unchanged. */
-    let systemText;
+    /* System mapping (SPEC.md M2, widened M9 for A4): the cache:true blocks
+     * concatenate into a single LEADING system message — the stable prefix
+     * that provider-side caching keys on. Blocks marked cache:false (M9:
+     * the brief and Who's here, which drift with the scene) follow as
+     * separate system messages, in order, never merged into the stable
+     * prefix. The M1 legacy `system` (string or array of strings) still
+     * works, unchanged. */
+    const wire = [];
     if (Array.isArray(blocks) && blocks.length) {
-      systemText = blocks
+      const stable = blocks
         .filter((b) => b && b.cache && typeof b.text === 'string' && b.text.length)
         .map((b) => b.text)
         .join('\n\n');
+      if (stable) wire.push({ role: 'system', content: stable });
+      for (const b of blocks) {
+        if (b && !b.cache && typeof b.text === 'string' && b.text.length) {
+          wire.push({ role: 'system', content: b.text });
+        }
+      }
     } else {
-      systemText = Array.isArray(system) ? system.join('\n\n') : system;
+      const systemText = Array.isArray(system) ? system.join('\n\n') : system;
+      if (systemText) wire.push({ role: 'system', content: systemText });
     }
-    const wire = [];
-    if (systemText) wire.push({ role: 'system', content: systemText });
     for (const m of messages) wire.push({ role: m.role, content: m.content });
 
     const startedAt = Date.now();
@@ -260,6 +233,7 @@ export function createOpenAIProvider(connection) {
     let full = '';
     let thinking = '';
     let refusal = '';
+    let finishReason = null;
     let ttftMs = null;
     let tfftMs = null;
     let nativeThoughts = false;
@@ -280,6 +254,11 @@ export function createOpenAIProvider(connection) {
     await readSSE(res.body, (data) => {
       const piece = data && data.choices && data.choices[0];
       const delta = piece && piece.delta;
+      /* M9 (B9): why it stopped, when the stream says — 'length' means the
+       * page ran out of room and the chat view will say so. */
+      if (piece && typeof piece.finish_reason === 'string' && piece.finish_reason) {
+        finishReason = piece.finish_reason;
+      }
       if (delta) {
         const thought = delta.reasoning_content ?? delta.reasoning;
         if (typeof thought === 'string' && thought) {
@@ -302,6 +281,7 @@ export function createOpenAIProvider(connection) {
     return {
       text: full,
       thinking,
+      finishReason,
       ttftMs: ttftMs === null ? durationMs : ttftMs,
       tfftMs,
       durationMs,

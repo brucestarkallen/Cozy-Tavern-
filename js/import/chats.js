@@ -35,17 +35,26 @@ export function parseSTChat(jsonlText) {
   } catch (err) {
     throw new Error(NOT_A_CHAT);
   }
-  if (!head || typeof head !== 'object' || Array.isArray(head)
-    || !head.chat_metadata || typeof head.chat_metadata !== 'object') {
+  const looksLikeMessage = (row) => row && typeof row === 'object' && !Array.isArray(row)
+    && (typeof row.mes === 'string' || typeof row.message === 'string');
+
+  let title = 'An old tale, brought home';
+  let firstMessageLine = 1;
+  if (head && typeof head === 'object' && !Array.isArray(head)
+    && head.chat_metadata && typeof head.chat_metadata === 'object') {
+    /* A name for the shelf: who the tale was with, when the export says. */
+    const charName = typeof head.character_name === 'string' ? head.character_name.trim() : '';
+    if (charName) title = `With ${charName}`;
+  } else if (looksLikeMessage(head)) {
+    /* M9 leniency: some exports come home without the metadata line —
+     * every line is a page then, and the shelf name waits for the telling. */
+    firstMessageLine = 0;
+  } else {
     throw new Error(NOT_A_CHAT);
   }
 
-  /* A name for the shelf: who the tale was with, when the export says. */
-  const charName = typeof head.character_name === 'string' ? head.character_name.trim() : '';
-  const title = charName ? `With ${charName}` : 'An old tale, brought home';
-
   const messages = [];
-  for (let i = 1; i < lines.length; i += 1) {
+  for (let i = firstMessageLine; i < lines.length; i += 1) {
     const lineNo = i + 1;
     let row;
     try {
@@ -56,7 +65,9 @@ export function parseSTChat(jsonlText) {
     if (!row || typeof row !== 'object' || Array.isArray(row)) {
       throw new Error(`Line ${lineNo} of that export doesn’t hold a message. Nothing was brought over.`);
     }
-    if (typeof row.mes !== 'string') {
+    const mes = typeof row.mes === 'string' ? row.mes
+      : (typeof row.message === 'string' ? row.message : null);
+    if (mes === null) {
       throw new Error(`Line ${lineNo} of that export has no words in it. Nothing was brought over.`);
     }
     /* The send date keeps the pages honest; when a line lacks one, fall
@@ -65,7 +76,7 @@ export function parseSTChat(jsonlText) {
     const ts = Number.isFinite(parsed) ? parsed : Date.now() + i;
     messages.push({
       role: row.is_user === true ? 'user' : 'assistant',
-      text: row.mes,
+      text: mes,
       ts,
     });
   }
@@ -80,8 +91,14 @@ export async function importAsStory(parsed) {
     throw new Error('There’s nothing to bring over.');
   }
   const story = await db.stories.create({ title: parsed.title });
-  for (const msg of parsed.messages) {
-    await db.messages.append(story.id, msg);
+  /* M9 (B17): the pages land in ONE transaction — the import is atomic per
+   * story; a full shelf or a bent row can't leave half a tale behind. If
+   * the write fails, the empty cover goes too. */
+  try {
+    await db.messages.appendAll(story.id, parsed.messages);
+  } catch (err) {
+    try { await db.stories.remove(story.id); } catch (e) { /* the cover stays, empty */ }
+    throw err;
   }
   return story.id;
 }

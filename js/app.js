@@ -7,6 +7,8 @@ import { db } from './store.js';
 import { initChat } from './ui/chat.js';
 import { initSettings } from './ui/settings.js';
 import { initDrawer } from './ui/drawer.js';
+import { VERSION } from './version.js';
+import { acquirePen } from './tablock.js';
 
 /* ---------- theme: lamplight by default; "follow the sky" is a choice ----
  * M8: the hearth (dark) is the default face. Nothing stored → dark. The
@@ -98,6 +100,8 @@ const ctx = {
   settings: null,
   drawer: null,
   onStoriesChanged: null,
+  /* M9 (A6): false when another tab holds the pen — this one only reads. */
+  holdsPen: true,
 };
 
 /* ---------- router-lite: #/settings or the chat floor ---------- */
@@ -143,14 +147,53 @@ document.getElementById('btn-ledger').addEventListener('click', () => {
   initSettings(ctx);
   initChat(ctx);
 
+  /* B7 (M9): when the shelf of stories changes, every open listener hears
+   * it — the drawer re-points its live subscription, the settings view
+   * refreshes its per-story blocks. */
+  ctx.onStoriesChanged = () => {
+    if (ctx.drawer && typeof ctx.drawer.onStoriesChanged === 'function') ctx.drawer.onStoriesChanged();
+    if (ctx.settings && typeof ctx.settings.onStoriesChanged === 'function') ctx.settings.onStoriesChanged();
+  };
+
   if (ctx.chat) await ctx.chat.refreshStories();
   if (ctx.chat) await ctx.chat.renderThread();
 
   showView(currentRoute());
 
+  /* A8 (M9): the house's one version, visible for debugging; sw.js derives
+   * its cache name from this same constant. */
+  document.documentElement.dataset.version = VERSION;
+
+  /* A6 (M9): one tab holds the pen. A second tab opens read-only, with a
+   * plain notice; if the holder closes, a waiting tab is told it may take
+   * the pen on its next visit. */
+  try {
+    const pen = await acquirePen({
+      onPromoted: () => {
+        toast('The other tab let the pen go — reload this one to write again.');
+      },
+    });
+    ctx.holdsPen = pen.primary;
+    if (!pen.primary) {
+      const notice = document.getElementById('read-only-notice');
+      if (notice) notice.hidden = false;
+      document.body.classList.add('read-only');
+      const input = document.getElementById('composer-input');
+      const sendBtn = document.getElementById('btn-send');
+      if (input) {
+        input.disabled = true;
+        input.placeholder = 'Another tab holds the pen — this one only reads.';
+      }
+      if (sendBtn) sendBtn.disabled = true;
+    }
+    window.addEventListener('beforeunload', () => pen.release());
+  } catch (err) { /* a lock that won't hold is no reason to lock the door */ }
+
+  /* A8 (M9): the worker is a module now, and its cache name comes from the
+   * one VERSION in js/version.js — a deploy can't forget to bump it. */
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     try {
-      await navigator.serviceWorker.register('sw.js');
+      await navigator.serviceWorker.register('sw.js', { type: 'module' });
     } catch (err) {
       /* the shell still works online; offline just won't be cached yet */
     }
