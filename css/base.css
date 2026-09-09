@@ -126,10 +126,24 @@ button:focus-visible, a:focus-visible, summary:focus-visible,
   outline-offset: 2px;
 }
 
-/* All chrome transitions share one quick breath. */
+/* All chrome transitions share one quick breath. M15: transform joins, so
+ * the press and the lift move at the same pace as the warmth. */
 button, .text-btn, .icon-btn, .story-item, .connection-card {
-  transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s, box-shadow 0.15s, transform 0.12s;
 }
+
+/* M15: every button answers the press — a small settle into the hand. */
+button:active { transform: scale(0.96); transition-duration: 0.12s; }
+
+/* M15: the buttons with a wall around them lift a breath on hover, and the
+ * border warms to ember. */
+.btn:not(:disabled):hover, .btn-quiet:not(:disabled):hover,
+.btn-danger:not(:disabled):hover, .send-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.btn-quiet:hover { border-color: var(--ember); }
+.btn-danger:hover { border-color: var(--danger); }
 
 /* When the device asks for stillness, the tavern settles — no transitions,
  * no blinking caret, nothing that moves on its own, no smooth scrolling. */
@@ -303,9 +317,14 @@ button, .text-btn, .icon-btn, .story-item, .connection-card {
 
 .settings-title { font-size: 1.4em; }
 
+/* M15: each settings room rests on its own card — --surface, the large
+ * radius, 18px of air; the hairline dividers are gone, the cards do the
+ * separating now. */
 .settings-section {
-  border-top: 1px solid var(--border-soft);
-  padding-top: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;

@@ -53,6 +53,16 @@
   gap: 0.25rem;
 }
 
+/* M15: the shelf's quiet colophon — "the shelves" and the house's version
+ * word, resting at the foot of the sidebar. */
+.story-panel-foot {
+  margin: auto 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+  text-align: center;
+  opacity: 0.8;
+}
+
 .story-item {
   display: flex;
   align-items: center;
@@ -62,7 +72,9 @@
   padding: 0.15rem 0.25rem;
 }
 
-.story-item:hover { background: var(--surface); }
+/* M15: a row leans toward you on hover — the warmer --surface-2, on the
+ * shared .15s breath (the transition rides the house rule in base.css). */
+.story-item:hover { background: var(--surface-2); }
 
 .story-item.active {
   background: var(--surface);
@@ -150,6 +162,11 @@
   flex-direction: column;
   align-items: center;
   gap: 22px;
+  /* M15: a whisper of texture — the room's heart sits a breath lighter
+   * than its edges (a vignette so quiet you feel it more than see it). */
+  background: radial-gradient(125% 100% at 50% 38%,
+    color-mix(in srgb, var(--bg-2) 60%, var(--bg)) 0%,
+    var(--bg) 78%);
 }
 
 .thread-empty {
@@ -255,6 +272,19 @@
 
 .msg-body p { margin: 0 0 0.85em; }
 
+/* M15: the tracker line becomes typography. A bracketed scene line the
+ * storyteller opens with — [The Wayward Lantern — a wet evening] — rests
+ * above the prose in the whisper voice instead of shouting inside it. */
+.scene-head {
+  margin: 0.5em 0 0.7em;
+  letter-spacing: 0.12em;
+}
+
+.scene-head:first-child { margin-top: 0; }
+
+/* Prose between scene heads keeps its own air (pre-wrap rides .msg-body). */
+.msg-prose + .scene-head { margin-top: 1.2em; }
+
 /* The reader's own words: a quiet tint block with an ember spine. */
 .msg-user .msg-body {
   font-family: var(--font);
@@ -282,13 +312,32 @@
   color: var(--danger);
 }
 
+/* M15: the streaming caret is a small ember bar at the prose's tail —
+ * 7px wide, blinking in two hard steps, a heartbeat while the storyteller
+ * writes. Reduced motion stills it (the house-wide rule). */
 .msg-assistant.pending .msg-body::after {
-  content: '▍';
-  color: var(--ember);
-  animation: caret-blink 1s steps(1) infinite;
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 0.95em;
+  margin-left: 3px;
+  vertical-align: -0.12em;
+  border-radius: 2px;
+  background: var(--ember);
+  animation: caret-blink 1.1s steps(2) infinite;
 }
 
 @keyframes caret-blink { 50% { opacity: 0; } }
+
+/* M15: a new page rises into the room — 12px up, a quarter-second ease-out.
+ * (Applies to every page entering the thread; the reduced-motion rule in
+ * base.css stills it for those who ask.) */
+.msg { animation: msg-rise 0.25s ease-out; }
+
+@keyframes msg-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
 
 /* ---------- the thinking block (M8.5) ---------- */
 
@@ -510,6 +559,20 @@
 
 .ember-bar.hot .ember-fill {
   box-shadow: 0 0 9px 1px var(--ember-hot);
+}
+
+/* M15: while the storyteller writes, the ember breathes — a soft pulse of
+ * glow on the fill and a whisper of warmth on the track itself (so the
+ * pulse shows even before the first turn's measure has a width). */
+.ember-bar.live { box-shadow: 0 0 7px 0 color-mix(in srgb, var(--ember) 30%, transparent); }
+
+.ember-bar.live .ember-fill {
+  animation: ember-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ember-pulse {
+  0%, 100% { box-shadow: 0 0 3px 0 color-mix(in srgb, var(--ember-hot) 35%, transparent); }
+  50% { box-shadow: 0 0 9px 1px var(--ember-hot); }
 }
 
 .composer {

@@ -725,3 +725,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   count (db.messages.count added); ember meta label visible at 0%; story-created toasts.
 - welcome tour verified firing on true first run (fresh-profile browser proof).
 - version.js -> m14-001. Harness 122/122.
+
+---
+
+# M15 — the last polish + the great un-inerting
+- THE BIG ONE: chat.js called showrunner functions (loadDirector, loadEditor, stripEpisodeEnd,
+  maybeAutoDirector, maybeRunEditor, afterEpisodeEnd, renderDirectorNote, renderEditorNote) without
+  importing them (missing since M10) + undeclared episodeEnded — every send threw ReferenceError.
+  The app could not complete a turn. Fixed. New harness law (polish.mjs): no ghost calls — every
+  called cross-module name must be imported; every locally-called function must be declared.
+- More audit fixes: lore hand controls missing imports; renderReferee undefined (killed settings
+  below the memory room) + referee dials now wired; drawer void mcLabel crash; workers line
+  fmtWhenWords missing; tour-again getter-only assignment -> tour.restart(); swipe on fresh page
+  early-return -> now regenerates per M9 law; branch action added to message row.
+- Beauty: msg-rise entrance, ember caret, press/hover states, thread vignette, scene-head
+  typography (parseScene), drawer hairline sections, settings cards, sidebar colophon,
+  ember-bar pulse while streaming.
+- QA TOOLING LAW: SSE mock must send Connection: close (keep-alive hangs fetch streams).
+- Browser audit: 49/49 vs mock provider, 0 page errors; evidence set /mnt/agents/output/qa-m15-*.png.
+- Harness: 132/132 (tests/harness/polish.mjs added). version.js -> m15-001.
+- Known minor: no-connection note visibility refreshes on next thread render (cosmetic).

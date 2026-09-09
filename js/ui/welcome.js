@@ -183,11 +183,10 @@ export function initWelcome(ctx) {
   if (btnTour) {
     btnTour.addEventListener('click', async () => {
       location.hash = '#/';
-      const again = createTour();
-      /* share the same machine: reset ours to the top */
-      while (tour.index > 0) tour.back();
-      tour.done = false;
-      void again;
+      /* The walk starts over from the top. M15 audit: this used to assign
+       * to the machine's getter-only `done` — a TypeError that left the
+       * button dead. restart() is the machine's own way back. */
+      tour.restart();
       if (ctx && ctx.drawer && typeof ctx.drawer.close === 'function') ctx.drawer.close();
       open();
       await markWelcomeSeen();

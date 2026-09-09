@@ -31,6 +31,21 @@ import { db } from '../store.js';
 
 /* ---------- shared helpers ---------- */
 
+/* M15 audit: the workers line below called a whenWords() that never
+ * existed — the panel died exactly when it finally had something to say.
+ * The ledger speaks in relative time, the way a reader remembers. */
+function fmtWhenWords(ts) {
+  if (!ts) return '';
+  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins === 1 ? 'a minute ago' : mins + ' minutes ago';
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return hours === 1 ? 'an hour ago' : hours + ' hours ago';
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'yesterday';
+  return days + ' days ago';
+}
+
 async function currentStory(ctx) {
   const id = ctx.getActiveStoryId();
   return id ? db.stories.get(id) : undefined;
@@ -869,7 +884,6 @@ function onTheirMindPanel(ctx) {
       }
       ledgerList.appendChild(li);
     }
-    void mcLabel;
     for (const name of names) {
       const entry = rel[name];
       const li = document.createElement('li');
@@ -1269,7 +1283,7 @@ function workersPanel(ctx) {
       const li = document.createElement('li');
       li.className = 'log-row';
       const words = document.createElement('span');
-      const when = whenWords(row.at);
+      const when = fmtWhenWords(row.at);
       words.textContent = (WORKER_WORDS[name] || name) + ' ran ' + when
         + (row.ok ? ' and it went well.' : ' and stumbled — ' + (row.why || 'stumbled') + '.');
       li.appendChild(words);

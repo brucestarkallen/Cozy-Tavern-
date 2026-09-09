@@ -20,7 +20,12 @@ import { STARTER_FRAME, STARTER_NOTE } from '../assemble/stack.js';
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
 import { parsePreset, decompose, applyPlan, summaryWords } from '../import/sillytavern.js';
 import { parseCard, listCast, saveCastMember, removeCastMember } from '../import/cards.js';
-import { parseLorebook, saveLore, loadLore } from '../import/lorebook.js';
+/* M15 audit: the lore shelf's hand controls (toggle, mark constant, edit,
+ * reorder, let go) called updateLoreEntry/moveLoreEntry/removeLoreEntry
+ * without importing them — every one of those clicks threw. */
+import {
+  parseLorebook, saveLore, loadLore, updateLoreEntry, moveLoreEntry, removeLoreEntry,
+} from '../import/lorebook.js';
 import { parseSTChat, importAsStory } from '../import/chats.js';
 import { cleanWindow } from '../agents/memory.js';
 
@@ -747,6 +752,31 @@ export function initSettings(ctx) {
 
   els.continuityCheck.addEventListener('change', async () => {
     await db.settings.set('continuityCheck', els.continuityCheck.checked);
+  });
+
+  /* ---------- the referee's dials (M11) ----------
+   * M15 audit: onShow() called renderReferee() but no such function lived
+   * here — the throw cut off every section below the memory room (cast,
+   * lore, the thinking say, the theme) and the four dials themselves had
+   * no listeners at all. Now they render and they write. */
+  async function renderReferee() {
+    els.refereeOn.checked = (await db.settings.get('refereeOn')) !== false;
+    els.refereeSensitivity.value = (await db.settings.get('refereeSensitivity')) || 'normal';
+    els.refereePreset.value = (await db.settings.get('refereePreset')) || 'realistic';
+    els.refereeFightStyle.value = (await db.settings.get('refereeFightStyle')) || 'tracked';
+  }
+
+  els.refereeOn.addEventListener('change', async () => {
+    await db.settings.set('refereeOn', els.refereeOn.checked);
+  });
+  els.refereeSensitivity.addEventListener('change', async () => {
+    await db.settings.set('refereeSensitivity', els.refereeSensitivity.value);
+  });
+  els.refereePreset.addEventListener('change', async () => {
+    await db.settings.set('refereePreset', els.refereePreset.value);
+  });
+  els.refereeFightStyle.addEventListener('change', async () => {
+    await db.settings.set('refereeFightStyle', els.refereeFightStyle.value);
   });
 
   /* ---------- bring your engine (M5) ---------- */

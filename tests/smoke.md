@@ -586,3 +586,10 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 52. The ledger and the housekeeper open from the header, desktop and mobile (390px sheet).
 53. Settings shows the frame starter text when never edited; deliberately-cleared stays empty.
 54. Story shelf rows show relative time + page count; creating a story toasts.
+
+## M15 additions
+55. Send a real turn against any connection: it streams (caret + ember pulse), scene header lines
+    render as whisper-typography, thinking folds, receipt lists all slots with timings.
+56. Message row actions all work: copy, edit, swipe (walker + walk-back), branch, delete, go-on.
+57. Settings renders fully including referee dials, lore shelf controls toggle/edit/reorder/delete.
+58. "Show me around again" re-opens the tour. 390px mobile: no horizontal scroll, sheets work.

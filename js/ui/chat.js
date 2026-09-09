@@ -58,6 +58,17 @@ import { castForStory } from '../import/cards.js';
 import { loadLore, matchLoreDetailed } from '../import/lorebook.js';
 import { parseCommand, commandChip } from '../commands.js';
 import { openReceipt } from './receiptview.js';
+/* M10's showrunners ride the send path too (the episode mark is stripped
+ * from the prose before the page is saved, and their standing texts join
+ * the assembled tail). M15 audit found these names used below but never
+ * imported — every send threw a ReferenceError before the storyteller was
+ * ever asked. The imports ARE the fix; the M15 no-ghost-calls harness law
+ * keeps the class from returning. */
+import {
+  stripEpisodeEnd, loadDirector, maybeAutoDirector, afterEpisodeEnd, renderDirectorNote,
+} from '../agents/director.js';
+import { loadEditor, maybeRunEditor, renderEditorNote } from '../agents/editor.js';
+import { VERSION } from '../version.js';
 
 /* ---------- M14: THE HEARTH — the empty room is never a void ----------
  * When no tale is open (or the open one has no pages yet), the thread area
@@ -118,6 +129,34 @@ export function buildHearth({ hasStories = false, onSeed } = {}) {
     hearth.appendChild(pickup);
   }
   return hearth;
+}
+
+/* M15: the tracker line becomes typography. A whole bracketed line of
+ * assistant prose — [The Wayward Lantern — a wet evening] — is lifted out
+ * of the flow and set in the whisper voice above the paragraph it opens.
+ * Pure and exported so the harness can hold it to account. */
+export const SCENE_HEAD_RE = /^\[[^\[\]\n]{2,120}\]$/;
+
+export function parseScene(text) {
+  const lines = String(text == null ? '' : text).split('\n');
+  const parts = [];
+  let prose = [];
+  const flush = () => {
+    if (!prose.length) return;
+    parts.push({ type: 'prose', text: prose.join('\n') });
+    prose = [];
+  };
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (SCENE_HEAD_RE.test(trimmed)) {
+      flush();
+      parts.push({ type: 'head', text: trimmed.slice(1, -1).trim() });
+    } else {
+      prose.push(line);
+    }
+  }
+  flush();
+  return parts;
 }
 
 /* Which workers wake for this story, as one pure decision (M9, B12) —
@@ -430,6 +469,9 @@ export function initChat(ctx) {
     row.className = 'msg-actions';
     const acts = ['copy', 'edit'];
     if (msg.role === 'assistant') acts.push('swipe');
+    /* M15: branch — the tale forks from this page into a new telling
+     * (the M8 row promised it; this wave makes it real). */
+    acts.push('branch');
     if (isLastAssistant) acts.push('go on');
     acts.push('delete');
     for (const act of acts) {
@@ -466,7 +508,24 @@ export function initChat(ctx) {
     }
     const body = document.createElement('div');
     body.className = 'msg-body';
-    body.textContent = pageText(msg);
+    if (msg.role === 'assistant') {
+      /* M15: scene heads set in the whisper voice; the rest stays prose. */
+      for (const part of parseScene(pageText(msg))) {
+        if (part.type === 'head') {
+          const head = document.createElement('div');
+          head.className = 'scene-head lbl';
+          head.textContent = part.text;
+          body.appendChild(head);
+        } else {
+          const p = document.createElement('div');
+          p.className = 'msg-prose';
+          p.textContent = part.text;
+          body.appendChild(p);
+        }
+      }
+    } else {
+      body.textContent = pageText(msg);
+    }
     article.appendChild(body);
     if (msg.stopped) {
       const stopped = document.createElement('div');
@@ -938,6 +997,10 @@ export function initChat(ctx) {
   async function generate(opts = {}) {
     const { directive = '', ooc = false, swipeTarget = null } = opts;
     let receipt = null;
+    /* M10: set when the prose carried [EPISODE_END] (M15 audit: this was
+     * assigned below but never declared — a second ReferenceError waiting
+     * behind the missing imports). */
+    let episodeEnded = false;
     try {
       const story = await activeStory();
       if (!story) return;
@@ -1113,6 +1176,8 @@ export function initChat(ctx) {
       abort = new AbortController();
       els.btnStop.hidden = false;
       els.btnSend.hidden = true;
+      /* M15: the ember breathes while the storyteller writes. */
+      if (els.emberBar) els.emberBar.classList.add('live');
 
       let full = '';
       let thinking = '';
@@ -1266,6 +1331,7 @@ export function initChat(ctx) {
       busy = false;
       els.btnStop.hidden = true;
       els.btnSend.hidden = false;
+      if (els.emberBar) els.emberBar.classList.remove('live');
       els.input.focus();
     }
   }
@@ -1405,7 +1471,14 @@ export function initChat(ctx) {
     if (!story) return;
     const history = await db.messages.list(story.id);
     const msg = history.find((m) => m.id === messageId);
-    if (!msg || !Array.isArray(msg.swipes) || !msg.swipes.length) return;
+    if (!msg) return;
+    /* M15 audit: with no versions yet, the early return below swallowed
+     * the plain "swipe" action whole — a dead button on every fresh page.
+     * Swiping right with nothing after writes the first new version. */
+    if (!Array.isArray(msg.swipes) || !msg.swipes.length) {
+      if (dir > 0 && msg.role === 'assistant') swipeRegenerate(msg);
+      return;
+    }
     const idx = Number.isFinite(msg.swipeIdx)
       ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx))
       : msg.swipes.length - 1;
@@ -1512,6 +1585,45 @@ export function initChat(ctx) {
       if (e.key === 'Escape') { e.preventDefault(); finish(false); }
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); finish(true); }
     });
+  }
+
+  /* ---------- branch (M15): the tale forks from this page ----------
+
+   * A new story is shelved carrying every visible page up to and including
+   * this one (hidden nudges stay behind), along with the story's own ways
+   * (overrides, cast, connections, switches). The ledger starts clean for
+   * the new telling — the engine's checkpoints belong to the old thread. */
+  const BRANCH_CARRY = [
+    'frameOverride', 'noteOverride', 'brief', 'castNotes', 'connectionId',
+    'reasoningEffort', 'extraction', 'keeper', 'continuity', 'castIds',
+  ];
+
+  async function branchFrom(messageId) {
+    if (busy) return;
+    const story = await activeStory();
+    if (!story) return;
+    const history = await db.messages.list(story.id);
+    const at = history.findIndex((m) => m.id === messageId);
+    if (at === -1) return;
+    const pages = history.slice(0, at + 1).filter((m) => m && !m.hidden);
+    const branch = await db.stories.create({ title: story.title + ' — a branch' });
+    const carry = {};
+    for (const key of BRANCH_CARRY) {
+      if (story[key] !== undefined && story[key] !== null) carry[key] = story[key];
+    }
+    if (Object.keys(carry).length) await db.stories.update(branch.id, carry);
+    for (const m of pages) {
+      const page = { ...m };
+      delete page.id;
+      delete page.storyId;
+      await db.messages.append(branch.id, page);
+    }
+    ctx.setActiveStoryId(branch.id);
+    await refreshStories(true);
+    await renderThread({ structural: true });
+    closePanel();
+    toast(`The tale forks here — “${branch.title}” waits on the shelf.`);
+    if (ctx.onStoriesChanged) ctx.onStoriesChanged();
   }
 
   /* ---------- message menu (long-press / right-click) ---------- */
@@ -1663,6 +1775,8 @@ export function initChat(ctx) {
       /* The plain "swipe" button walks to the next version — or writes
        * one when there is none yet. */
       swipeTo(id, 1);
+    } else if (act === 'branch') {
+      branchFrom(id);
     } else if (act === 'go on') {
       continueTurn();
     }
@@ -1692,6 +1806,13 @@ export function initChat(ctx) {
     if (els.panel.classList.contains('open')) closePanel(); else openPanel();
   });
   els.scrim.addEventListener('click', closePanel);
+
+  /* M15: the shelf's quiet colophon — "the shelves" and the house's
+   * version word, at the foot of the sidebar. */
+  const panelFoot = document.createElement('p');
+  panelFoot.className = 'story-panel-foot lbl';
+  panelFoot.textContent = 'the shelves · ' + VERSION;
+  els.panel.appendChild(panelFoot);
 
   /* ---------- composer & new-story form ---------- */
 

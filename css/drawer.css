@@ -67,10 +67,26 @@
   gap: 1rem;
 }
 
+/* M15: the panels read as rooms of one ledger — a hairline between them,
+ * and each name spoken in the whisper voice (.lbl), not shouted. */
+.ledger-panel {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.9rem;
+}
+
+.ledger-panel:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
 .ledger-panel h3 {
-  padding-bottom: 0.35rem;
-  border-bottom: 1px solid var(--border-soft);
-  margin-bottom: 0.5rem;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.55rem;
 }
 
 .ledger-panel p {
@@ -194,7 +210,17 @@
   border-top: 1px solid var(--border-soft);
 }
 
-.receipt-after h3 { margin-bottom: 0.35rem; }
+/* M15: the receipt's inner sections take the same whisper-voice headers
+ * and hairline rests as the ledger's panels. */
+.receipt-after h3 {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
 
 .receipt-after-list {
   margin: 0;
