@@ -48,6 +48,8 @@ import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork } from '../agents/extractor.js';
+import { enqueueWork } from '../agents/queue.js';
+import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory } from '../agents/memory.js';
 import { checkTurn } from '../agents/continuity.js';
@@ -630,149 +632,132 @@ export function initChat(ctx) {
     })();
   }
 
+  /* M3/M6/M12: once a page is finished, the workers read it — never awaited
+   * by the turn that fired them. M12 routes every link through the workers'
+   * channel (agents/queue.js): jobs run SEQUENTIALLY in queue order — the
+   * extractor, then the scribe, then the keeper, then the second reader,
+   * then the seeder — each with a 60-second call ceiling, up to five
+   * retries on the 2s→60s backoff (Retry-After honored), and every settled
+   * run written on the drawer's workers line. A story switch purges the
+   * channel; each job also checks stale() before committing anything, so a
+   * left-behind story is never written into. noteWork still tracks each
+   * link, so the send path's courtesy wait (pendingWork, 5s a link) holds. */
   function startBackgroundWork(story, msg, userText) {
-    const plan = workerPlan({
-      story,
-      settings: { memoryKeeper: undefined, continuityCheck: undefined },
-    });
-    /* The per-story switches decide; the globals the settings row holds are
-     * read fresh inside each link. (plan's keeper/continuity resolve globals
-     * asynchronously below.) */
-    void plan;
+    const enqueue = (name, run) => {
+      const promise = enqueueWork(story.id, { name, run });
+      noteWork(story.id, promise);
+      return promise;
+    };
 
     /* 1. The extractor (M3): read the page, propose mutations, apply and
      * save them, and write the outcome back onto the same message. */
-    const extraction = (async () => {
-      try {
-        if (story.extraction === false) return;
-        const connection = await resolveWorkerConnection(story);
-        if (!connection) return;
-        const { signal, done } = workerSignal();
-        let mutations;
-        try {
-          const stateBefore = await loadState(story.id);
-          ({ mutations } = await extractTurn({
-            connection,
-            state: stateBefore,
-            userText,
-            assistantText: pageText(msg),
-            signal,
-          }));
-        } finally {
-          done();
-        }
-        /* B5: a page that has gone teaches the ledger nothing. */
-        if (!(await stillThere(story.id, msg.id))) return;
-        const list = Array.isArray(mutations) ? mutations : [];
+    enqueue('extractor', async ({ signal, stale }) => {
+      if (story.extraction === false) return { silent: true };
+      const connection = await resolveWorkerConnection(story);
+      if (!connection) return { silent: true };
+      const stateBefore = await loadState(story.id);
+      const { mutations } = await extractTurn({
+        connection,
+        state: stateBefore,
+        userText,
+        assistantText: pageText(msg),
+        signal,
+      });
+      /* B5: a page that has gone teaches the ledger nothing. M12: nor does
+       * a page of a story the writer has left. */
+      if (stale()) return { silent: true };
+      if (!(await stillThere(story.id, msg.id))) return { silent: true };
+      const list = Array.isArray(mutations) ? mutations : [];
 
-        /* Re-load at apply time — the ledger may have been touched by hand
-         * while the worker was reading. */
-        const fresh = await loadState(story.id);
-        const { state: next, applied, rejected } = applyMutations(fresh, list);
-        if (applied.length) {
-          await saveState(story.id, next);
-          notify(story.id);
-        }
-
-        await reink(story.id, msg.id, {
-          extraction: {
-            appliedWords: applied.map((a) => a.words),
-            rejectedCount: rejected.length,
-          },
-        });
-        await noteWorkerRun(story.id, 'extractor', { ok: true });
-      } catch (err) {
-        await noteWorkerRun(story.id, 'extractor', {
-          ok: false,
-          why: err && err.message === 'timeout' ? 'outwaited' : (err && err.message) || 'stumbled',
-        });
+      /* Re-load at apply time — the ledger may have been touched by hand
+       * while the worker was reading. */
+      const fresh = await loadState(story.id);
+      const { state: next, applied, rejected } = applyMutations(fresh, list);
+      if (applied.length) {
+        if (stale()) return { silent: true };
+        await saveState(story.id, next);
+        notify(story.id);
       }
-    })();
-    noteWork(story.id, extraction);
 
-    /* 2. The memory keeper (M6): fold what has scrolled past the verbatim
-     * window into layered notes. M9 (B12): its own per-story switch — the
-     * ledger's switch no longer speaks for it. */
-    const keeping = extraction.then(async () => {
-      try {
-        if (story.keeper === false) return;
-        if (story.keeper !== true && (await db.settings.get('memoryKeeper')) === false) return;
-        const connection = await resolveWorkerConnection(story);
-        if (!connection) return;
-        const { signal, done } = workerSignal();
-        try {
-          await maybeSummarize({ connection, storyId: story.id, signal });
-        } finally {
-          done();
-        }
-        await noteWorkerRun(story.id, 'keeper', { ok: true });
-      } catch (err) {
-        await noteWorkerRun(story.id, 'keeper', {
-          ok: false,
-          why: err && err.message === 'timeout' ? 'outwaited' : (err && err.message) || 'stumbled',
-        });
-      }
+      await reink(story.id, msg.id, {
+        extraction: {
+          appliedWords: applied.map((a) => a.words),
+          rejectedCount: rejected.length,
+        },
+      });
+      return { silent: false };
     });
-    noteWork(story.id, keeping);
 
-    /* 3. The continuity reader (M6): advisory drift notes against canon and
+    /* 2. The scribe (M12): sparse deltas onto the character pages — who
+     * they are, where they are, how things stand, loose ends. It answers
+     * to the ledger's own switch, like the extractor. */
+    enqueue('scribe', async ({ signal, stale }) => {
+      if (story.extraction === false) return { silent: true };
+      const connection = await resolveWorkerConnection(story);
+      if (!connection) return { silent: true };
+      await scribeTurn({
+        connection,
+        storyId: story.id,
+        userText,
+        assistantText: pageText(msg),
+        signal,
+        stale,
+      });
+      return { silent: false };
+    });
+
+    /* 3. The memory keeper (M6; M12 grew the detail auditor inside it):
+     * fold what has scrolled past the verbatim window into layered notes.
+     * M9 (B12): its own per-story switch — the ledger's switch no longer
+     * speaks for it. */
+    enqueue('keeper', async ({ signal, stale }) => {
+      if (story.keeper === false) return { silent: true };
+      if (story.keeper !== true && (await db.settings.get('memoryKeeper')) === false) return { silent: true };
+      const connection = await resolveWorkerConnection(story);
+      if (!connection) return { silent: true };
+      if (stale()) return { silent: true };
+      await maybeSummarize({ connection, storyId: story.id, signal });
+      return { silent: false };
+    });
+
+    /* 4. The continuity reader (M6): advisory drift notes against canon and
      * the ledgers, stored on the same message. M9 (B12): its own per-story
      * switch too. It never touches the words. */
-    const checking = keeping.then(async () => {
-      try {
-        const on = story.continuity === true
-          ? true
-          : story.continuity === false ? false : Boolean(await db.settings.get('continuityCheck'));
-        if (!on) return;
-        const connection = await resolveWorkerConnection(story);
-        if (!connection) return;
-        const { signal, done } = workerSignal();
-        let findings;
-        try {
-          const fresh = await loadState(story.id);
-          ({ findings } = await checkTurn({
-            connection,
-            state: fresh,
-            assistantText: pageText(msg),
-            signal,
-          }));
-        } finally {
-          done();
-        }
-        const list = Array.isArray(findings) ? findings : [];
-        if (!list.length) {
-          await noteWorkerRun(story.id, 'continuity', { ok: true });
-          return;
-        }
-        if (!(await stillThere(story.id, msg.id))) return;
-        await reink(story.id, msg.id, { findings: list });
-        notify(story.id); // the drawer's "Something drifted" listens
-        await noteWorkerRun(story.id, 'continuity', { ok: true });
-      } catch (err) {
-        await noteWorkerRun(story.id, 'continuity', {
-          ok: false,
-          why: err && err.message === 'timeout' ? 'outwaited' : (err && err.message) || 'stumbled',
-        });
-      }
+    enqueue('continuity', async ({ signal, stale }) => {
+      const on = story.continuity === true
+        ? true
+        : story.continuity === false ? false : Boolean(await db.settings.get('continuityCheck'));
+      if (!on) return { silent: true };
+      const connection = await resolveWorkerConnection(story);
+      if (!connection) return { silent: true };
+      const fresh = await loadState(story.id);
+      const { findings } = await checkTurn({
+        connection,
+        state: fresh,
+        assistantText: pageText(msg),
+        signal,
+      });
+      const list = Array.isArray(findings) ? findings : [];
+      if (!list.length) return { silent: false };
+      if (stale()) return { silent: true };
+      if (!(await stillThere(story.id, msg.id))) return { silent: true };
+      await reink(story.id, msg.id, { findings: list });
+      notify(story.id); // the drawer's "Something drifted" listens
+      return { silent: false };
     });
-    noteWork(story.id, checking);
 
-    /* 4. The sheet seeder (M11): on the first turns and after a fight lets
+    /* 5. The sheet seeder (M11): on the first turns and after a fight lets
      * go, the actor sheet fills itself in the background. It never blocks a
-     * turn and never troubles the chat path when it can't. */
-    const seeding = checking.then(async () => {
+     * turn, and it keeps its own quiet ways (failures stay off the workers
+     * line, as M11 shipped them). */
+    enqueue('seeder', async ({ signal }) => {
       try {
         const connection = await resolveWorkerConnection(story);
-        if (!connection) return;
-        const { signal, done } = workerSignal();
-        try {
-          await maybeSeedSheet({ connection, storyId: story.id, signal });
-        } finally {
-          done();
-        }
+        if (!connection) return { silent: true };
+        await maybeSeedSheet({ connection, storyId: story.id, signal });
       } catch (err) { /* the seeder's trouble is its own */ }
+      return { silent: true };
     });
-    noteWork(story.id, seeding);
   }
 
   async function gatherSettings() {

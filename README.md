@@ -11,16 +11,50 @@ happening elsewhere — so a long tale stays true to itself.
 
 ## Opening the door
 
-Any static file server will do. The one that ships in the box:
+**On Termux (Android) — one line, once:**
 
 ```bash
-bash serve.sh        # serves on http://localhost:8080 (Termux-friendly)
+bash <(curl -sL https://raw.githubusercontent.com/brucestarkallen/Cozy-Tavern-/main/install.sh)
 ```
 
-Then visit `http://localhost:8080`. Hosted on GitHub Pages it works exactly
-the same — every URL in the app is relative. On a phone, add it to your home
-screen and it behaves like a small book that remembers where you left off;
-the shell keeps working even when the network doesn't.
+That installs what you need, clones the tavern, and leaves you a single word
+for the rest of your life:
+
+```bash
+cozytavern      # updates, lights the lamps, opens the browser
+```
+
+The tavern lives at **http://127.0.0.1:8080** (we print 127.0.0.1 on purpose —
+on some phones "localhost" wanders to IPv6 while the server listens on IPv4;
+the number never wanders).
+
+**Anywhere else** — any static file server will do. The one in the box:
+
+```bash
+bash serve.sh        # serves on http://127.0.0.1:8080
+```
+
+Hosted on GitHub Pages it works exactly the same — every URL in the app is
+relative. On a phone, add it to your home screen and it behaves like a small
+book that remembers where you left off; the shell keeps working even when the
+network doesn't. **One honest note:** each address (Pages, 127.0.0.1,
+localhost) keeps its own separate shelf of stories — pick one as your main,
+and move between them any time with backup/restore in settings.
+
+## How the tavern works
+
+One connection does everything. Add a single connection (Claude, OpenAI,
+OpenRouter, or a compatible address) and it tells the story *and* carries the
+workers — the quiet hands that keep the ledger, the memory, and the referee
+honest. If you want the story to feel faster, you may give the workers their
+own cheaper, quicker connection in settings ("The workers") — never required.
+
+Each turn: the tavern assembles only what the scene needs — the frame, the
+craft, who's here, the state of things, the rules this scene calls for, what
+remains of older pages — and the storyteller streams back. Then the workers
+read the page in the background and update the ledger. Every reply carries a
+receipt: tap it to see exactly what the storyteller saw, and why.
+
 
 ## The rooms
 

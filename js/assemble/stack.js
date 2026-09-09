@@ -93,6 +93,7 @@
 
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts } from '../engine/state.js';
+import { renderPeopleTiers } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 
 export const STARTER_FRAME = [
@@ -164,11 +165,31 @@ export function wireable(messages) {
     }));
 }
 
+/* M12: the coverage law. Slot 8 may never let a page fall that no summary
+ * node holds. `coveredUntil` walks the nodes' spans from the top of the
+ * thread and returns one past the last page of the contiguous covered
+ * prefix — pages before that mark rest in What remains; pages at or after
+ * it must ride the window word for word, even when that means the window
+ * reaches further back than its usual size (the keeper hasn't folded them
+ * yet — say, after a quiet stretch or a stumbled worker). */
+export function coveredUntil(nodes) {
+  const spans = (Array.isArray(nodes) ? nodes : [])
+    .filter((n) => n && Array.isArray(n.span) && n.span.length === 2)
+    .map((n) => [Number(n.span[0]) || 0, Number(n.span[1]) || 0])
+    .sort((a, b) => a[0] - b[0]);
+  let reach = 0;
+  for (const [from, to] of spans) {
+    if (from <= reach && to + 1 > reach) reach = to + 1;
+  }
+  return reach;
+}
+
 /* The window decision, as a pure function for the harness (M9, A1).
  *   windowPlan({pages, memory, budgetTokens, prefixTokens})
- *     -> {mode:'keeper'|'budget', window, total, carried, resting}
+ *     -> {mode:'keeper'|'budget', window, total, carried, resting, extended}
  * pages         — the full wireable history (already filtered)
- * memory        — null when the keeper is OFF for this story
+ * memory        — null when the keeper is OFF for this story; when it
+ *                 carries a `nodes` array, the coverage law (above) applies
  * budgetTokens  — the connection's estimated context room (keeper-off only)
  * prefixTokens  — what slots 1–7, 9 and 10 already spent (keeper-off only) */
 export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
@@ -192,15 +213,30 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
       total,
       carried: total - start,
       resting: start,
+      extended: 0,
     };
   }
-  const window = all.slice(-keeperWindow(memory));
+  const windowSize = keeperWindow(memory);
+  let start = Math.max(0, total - windowSize);
+  /* The coverage law (M12): never drop a page no summary node covers. Only
+   * computable when the caller hands the nodes over; without them the M9
+   * assumption stands (the keeper has folded everything older). */
+  let extended = 0;
+  if (Array.isArray(memory.nodes)) {
+    const reach = coveredUntil(memory.nodes);
+    if (reach < start) {
+      extended = start - reach;
+      start = reach;
+    }
+  }
+  const window = all.slice(start);
   return {
     mode: 'keeper',
     window,
     total,
     carried: window.length,
-    resting: total - window.length,
+    resting: start,
+    extended,
   };
 }
 
@@ -373,6 +409,25 @@ export function buildRequest({
         .map((text) => ({ text, cache: false }))
     );
 
+  /* --- M12: the character ledger rides the slot-5 area as its own block,
+   * "On their mind", just before the state of things — tiered (full cards
+   * for the present, mention-recall, the rotating roster) and
+   * budget-guarded inside engine/people.js. Omitted when no page of the
+   * ledger has anything to say. Rotation derives from the page count, so
+   * the roster steps once per turn with no writes of its own. --- */
+  const recentPages = wireable(history).slice(-3).map((m) => m.content);
+  const people = renderPeopleTiers(state, { recentPages, rotation: history.length });
+  const peopleText = people ? people.text : '';
+  if (peopleText) {
+    const t = people.tiers;
+    const said = [];
+    if (t.cards) said.push(t.cards + (t.cards === 1 ? ' card' : ' cards') + ' for who is here');
+    if (t.also) said.push('the rest of the room in a line');
+    if (t.recall) said.push(t.recall + ' named, not in the scene');
+    if (t.roster) said.push('the roster of the absent');
+    pushSlot('On their mind', peopleText, 'the character ledger', said.join('; '));
+  }
+
   /* --- 5. The state of things --- */
   const facts = renderStateFacts(state);
   pushSlot('The state of things', facts);
@@ -463,7 +518,7 @@ export function buildRequest({
     /* The keeper decides the window. Callers that don't say (older call
      * sites) get the keeper's law at the default window; a caller that
      * passes {keeperOn:false} gets the token-budgeted cutoff instead. */
-    memory: w.keeperOn === false ? null : { window: w.window },
+    memory: w.keeperOn === false ? null : { window: w.window, nodes: w.nodes },
     budgetTokens: w.budgetTokens,
     prefixTokens,
   });
@@ -471,9 +526,17 @@ export function buildRequest({
   const historyText = wire.map((m) => m.content).join('\n');
   let historySource;
   if (win.mode === 'keeper') {
-    historySource = win.resting > 0
-      ? `the last ${win.carried} of ${win.total} pages word for word — the older ${win.resting} rest in What remains`
-      : `all ${win.total} pages word for word`;
+    /* M12: when the coverage law widened the window past its usual size,
+     * the receipt says so plainly. */
+    if (win.extended > 0) {
+      historySource = win.resting > 0
+        ? `${win.carried} of ${win.total} pages word for word — ${win.extended} past the usual window, still unfolded by the keeper; the older ${win.resting} rest in What remains`
+        : `${win.carried} of ${win.total} pages word for word — ${win.extended} past the usual window, still unfolded by the keeper`;
+    } else {
+      historySource = win.resting > 0
+        ? `the last ${win.carried} of ${win.total} pages word for word — the older ${win.resting} rest in What remains`
+        : `all ${win.total} pages word for word`;
+    }
   } else {
     historySource = win.resting > 0
       ? `${win.carried} pages carried word for word, the rest rests (the keeper is off — only what fits the room)`

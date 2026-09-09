@@ -235,6 +235,11 @@
   padding-left: 0.2rem;
 }
 
+/* M12: the character pages within "On their mind". */
+.ledger-subhead {
+  margin: 1rem 0 0.2rem;
+}
+
 /* ---------- M6 panels: the ruling, the canon store, the drift notes ------ */
 
 .verdict-editor,

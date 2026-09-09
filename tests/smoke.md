@@ -567,3 +567,14 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 - [ ] "I draw my blade" arms a duel without rolling (round 0, standoff directive); the next attack is round 1; the duel line shows in "The state of things" and the combat mood rides the mode ledger.
 - [ ] A duel ends when a pool empties; injuries land in the body ledger when the fight lets go; "How they measure" (drawer) shows/updates the sheet; the sheet seeds itself after the first turns and after fights.
 - [ ] #roll forces a ruling on a quiet beat; #skip waves one off; with no worker connection the story simply goes on unruled.
+
+## M12/M13 additions
+44. First run: the welcome tour shows (3 steps), dismisses, never returns unless "The guided tour" is
+    opened from settings.
+45. "How the tavern works" sheet reads in plain words and matches the actual behavior.
+46. Ledger: after a turn naming a new character, "On their mind" shows their page; hand-edit via
+    people.set appears in "What changed and why" and undoes.
+47. Workers line shows each worker's last run + plain-word failures; airplane-mode a worker connection
+    and watch it say so honestly (story generation unaffected).
+48. install.sh on Termux: `cozytavern` updates, serves, opens the browser at 127.0.0.1:8080.
+49. serve.py prints http://127.0.0.1:8080.

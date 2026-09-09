@@ -7,6 +7,9 @@ import { db } from './store.js';
 import { initChat } from './ui/chat.js';
 import { initSettings } from './ui/settings.js';
 import { initDrawer } from './ui/drawer.js';
+import { initHousekeeper } from './ui/housekeeper.js';
+import { initWelcome } from './ui/welcome.js';
+import { switchWorkerStory } from './agents/queue.js';
 import { VERSION } from './version.js';
 import { acquirePen } from './tablock.js';
 
@@ -148,6 +151,7 @@ document.getElementById('btn-ledger').addEventListener('click', () => {
   initSettings(ctx);
   initChat(ctx);
   initHousekeeper(ctx);
+  initWelcome(ctx);
 
   /* B7 (M9): when the shelf of stories changes, every open listener hears
    * it — the drawer re-points its live subscription, the settings view

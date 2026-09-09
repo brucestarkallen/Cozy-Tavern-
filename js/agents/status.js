@@ -22,7 +22,9 @@ const KEY_PREFIX = 'workers:';
 export const WORKER_TIMEOUT_MS = 60000;
 /* M10: the housekeeper's household joins the ledger — the panel talk
  * itself, and the two showrunners. */
-export const WORKER_NAMES = ['extractor', 'keeper', 'referee', 'continuity', 'housekeeper', 'director', 'editor'];
+/* M12: the scribe joins the ledger — the quiet writer of the character
+ * pages. */
+export const WORKER_NAMES = ['extractor', 'scribe', 'keeper', 'referee', 'continuity', 'housekeeper', 'director', 'editor'];
 
 /* A per-call abort signal with a hard timeout. done() clears the timer —
  * callers must settle it in a finally. */

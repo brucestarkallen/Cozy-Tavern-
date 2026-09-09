@@ -39,6 +39,7 @@ import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen } from './offscreen.js';
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
+import { migrateCharacters } from './people.js';
 
 const KEY_PREFIX = 'state:';
 
@@ -70,6 +71,10 @@ export const emptyState = () => ({
   composure: null,        // the player's nerve pool (null = untouched; starts at the setting's max)
   refHistory: [],         // the committed-fate timeline: [{key, msgId, verdict, snap, at}] cap 12
   seedDueAfterFight: false, // set when a fight lets go — the sheet seeder's cue
+  /* M12 (v6): the character ledger — who each person is (core/state/arc/
+   * threads), written by the scribe and by hand (engine/people.js). The
+   * main character's entry is record-only (state + threads). */
+  characters: {},
 });
 
 /* ---------- pub/sub: the drawer listens for the engine ---------- */
@@ -294,6 +299,8 @@ function normalize(saved) {
   next.composure = Number.isFinite(saved.composure) ? Math.max(0, saved.composure) : null;
   next.refHistory = migrateRefHistory(saved.refHistory);
   next.seedDueAfterFight = saved.seedDueAfterFight === true;
+  /* M12 (v6): the character ledger — no-loss, coerced by engine/people.js. */
+  next.characters = migrateCharacters(saved.characters);
   return next;
 }
 

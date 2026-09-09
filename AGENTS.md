@@ -680,3 +680,32 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - apply.js v4: combat.begin/combat.end (mode.combat + engine state + injuries→bodies on end; undo kind combat.restore). state.js v5: sheet/duel/battle/composure/refHistory/seedDueAfterFight.
 - Committed fate: state.refHistory (cap 12) holds {key=userMessageHash, msgId, verdict, snap(pre-turn duel/battle/composure/turn)}; swipes replay; edits rewind+fresh roll; deleted/branched suffixes rewind.
 - Injection: buildRequest `ruling` → dynamic-tail slot receipt-named "The house has ruled" (last tail part); chat.js consumes pendingVerdict per turn. Seeding: maybeSeedSheet (4th background link). Settings keys: refereeOn/refereeSensitivity/refereePreset/refereeFightStyle. Harness: tests/harness/referee.mjs.
+
+---
+
+# M12 + M13 — the finishing wave
+- js/engine/people.js: character ledger {core, state, arc, threads[], updatedAtTurn}; MC record-only
+  enforced in mergeDeltas (persona redirect + contamination guard + bounded-Levenshtein name resolution).
+  Tiered injection via renderPeopleTiers: present full cards cap 6, also-present lines, mention-recall
+  cap 3 (500 chars, "not in the scene"), rotating roster cap 12; aging labels ("Now:" -> "Last noted N
+  turns ago:" >20 turns); 2400-char budget with shed order.
+- apply.js: people.set {name, field, text} (MC core/arc refused) + people.restore undo.
+- js/agents/queue.js: exclusive SEQUENTIAL worker channel per story; epoch purge on story switch
+  (purged jobs settle stale); 5 retries 2s->60s exponential honoring Retry-After floor; 60s per-call
+  workerSignal; every settled run lands on the drawer workers line with one plain word.
+- js/agents/scribe.js: live ledger scribe after extraction (gated by the ledger switch).
+- memory.js: detail auditor per fold — NONE or one DETAIL line stored on the node, injected as a slot-7
+  bullet; discard-if-moved guard via store re-read + node signature.
+- stack.js: "On their mind" tiered block in the slot-5 area (named receipt slot); coverage law in
+  windowPlan — slot 8's verbatim window extends so no uncovered turn is ever dropped (activates when
+  callers pass nodes; chat.js always does).
+- chat.js: worker chain routed through the queue (extractor -> scribe -> keeper -> continuity -> seeder),
+  stale() checked before every commit.
+- FIXED a latent HEAD defect: app.js called initHousekeeper(ctx) without importing it (boot-time
+  ReferenceError). Import added.
+- js/ui/welcome.js: createTour machine (3 steps), welcomeSeen flag (shows once), "The guided tour"
+  re-opens from settings; "How the tavern works" sheet (settings link + welcome step 3).
+- serve.py binds and prints http://127.0.0.1:PORT (Android localhost->::1 ambiguity avoided).
+- install.sh: idempotent Termux one-shot; writes $PREFIX/bin/cozytavern (wake-lock hint + pull +
+  port-check + serve + open-url).
+- js/version.js is the single version source; sw.js cache name derives from it.

@@ -24,6 +24,9 @@
  * rel.shift / rel.set, offscreen.set / offscreen.clear.
  * M6 (v3) adds the canon store: canon.lock {name, key, value} and
  * canon.unlock {name, key} — certainties written down and let go.
+ * M12 (v4) adds the character ledger: people.set {name, field, text} —
+ * field is core, state, arc or threads; the main character's page takes
+ * state and threads only (record-only, enforced in engine/people.js).
  *
  * Reversal rides on the log entry as `undo` — a small payload saying what
  * was true before. The spec's documented log shape {ts, words, undone} is
@@ -37,6 +40,7 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
+import { setPersonField, findPersonKey } from './people.js';
 
 const LOG_CAP = 200;
 
@@ -73,6 +77,8 @@ function copyState(state) {
     relationships: cloneMap(safe.relationships),
     offscreen: cloneMap(safe.offscreen),
     canon: cloneMap(safe.canon),
+    /* M12: the character ledger rides the same copy discipline. */
+    characters: cloneMap(safe.characters),
     /* M11: the referee's world — sheet, live fights, strain, and the
      * committed-fate timeline ride the same copy discipline. */
     sheet: safe.sheet && typeof safe.sheet === 'object' ? cloneMap(safe.sheet) : safe.sheet,
@@ -487,6 +493,33 @@ const HANDLERS = {
     };
   },
 
+  /* ---------- M12: the character ledger ---------- */
+
+  /* people.set {name, field, text} — the writer's hand on a character's
+   * page: core (their nature), state (where they are, how they're doing),
+   * arc (how things stand, and why), threads (loose ends, semicolon- or
+   * newline-separated). The main character's page is record-only — state
+   * and threads, never core or arc (engine/people.js enforces it). */
+  'people.set'(state, m) {
+    const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
+    const result = setPersonField(state, state.characters, m.name, field, m.text, turnOf(state));
+    if (!result.entry) return { why: result.why };
+    const before = result.before ? cloneMap({ [result.key]: result.before })[result.key] : null;
+    state.characters[result.key] = result.entry;
+    const FIELD_WORDS = {
+      core: 'their nature',
+      state: 'where they are',
+      arc: 'how things stand with them',
+      threads: 'their loose ends',
+    };
+    const words = result.key + ' — ' + (FIELD_WORDS[field] || 'their page') + ' was written down'
+      + (field === 'threads'
+        ? (result.entry.threads.length ? ': ' + result.entry.threads.join('; ') : ' — all let go')
+        : ': ' + result.entry[field])
+      + '.';
+    return { words, undo: { kind: 'people.restore', name: result.key, before } };
+  },
+
   /* ---------- M11: the combat ledger bridge ---------- */
 
   'combat.begin'(state, m) {
@@ -660,6 +693,11 @@ export function undoLast(state) {
       const key = findCanonKey(next.canon, undo.name) || undo.name;
       if (undo.before) next.canon[key] = cloneMap({ [key]: undo.before })[key];
       else delete next.canon[key];
+      ok = true;
+    } else if (undo.kind === 'people.restore') {
+      const key = findPersonKey(next.characters, undo.name) || undo.name;
+      if (undo.before) next.characters[key] = cloneMap({ [key]: undo.before })[key];
+      else delete next.characters[key];
       ok = true;
     }
 

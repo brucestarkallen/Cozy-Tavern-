@@ -44,8 +44,11 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    with TavernServer(('', PORT), TavernHandler) as server:
-        print('The tavern is warm at http://localhost:%d' % PORT)
+    # Bind AND print 127.0.0.1 (M13): on some Android setups "localhost"
+    # resolves to ::1 while the server sits on IPv4 — the printed URL must
+    # be the deterministic one.
+    with TavernServer(('127.0.0.1', PORT), TavernHandler) as server:
+        print('The tavern is warm at http://127.0.0.1:%d' % PORT, flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

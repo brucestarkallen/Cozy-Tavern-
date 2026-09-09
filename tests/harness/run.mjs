@@ -10,6 +10,7 @@ import './tablock.mjs';
 import './source.mjs';
 import './housekeeper.mjs';
 import './showrunners.mjs';
+import './finishing.mjs';
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

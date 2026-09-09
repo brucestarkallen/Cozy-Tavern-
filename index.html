@@ -391,6 +391,15 @@
           </fieldset>
         </section>
 
+        <section class="settings-section" id="section-welcome">
+          <h3>The welcome mat</h3>
+          <p class="quiet">New here, or just curious how the house runs? The guided tour walks the first three steps; the other page tells the whole model in plain words.</p>
+          <div class="row">
+            <button id="btn-guided-tour" class="btn btn-quiet" type="button">Show me around again</button>
+            <button id="btn-how-it-works" class="btn btn-quiet" type="button">How the tavern works</button>
+          </div>
+        </section>
+
         <section class="settings-section" id="section-backup">
           <h3>Backup</h3>
           <p class="quiet">Everything — stories, words, connections, the frame and the note — folded into one file you can carry elsewhere.</p>
@@ -479,6 +488,50 @@
     </div>
   </aside>
   <div id="hk-scrim" class="scrim" hidden></div>
+
+  <!-- The welcome mat (M13): three warm steps, shown once, always
+       re-openable from Settings as "The guided tour". -->
+  <div id="welcome-overlay" class="welcome-overlay" role="dialog" aria-modal="true" aria-label="Welcome to the tavern" hidden>
+    <div class="welcome-card">
+      <p id="welcome-steps" class="lbl welcome-steps"></p>
+      <h2 id="welcome-title"></h2>
+      <p id="welcome-body" class="welcome-body"></p>
+      <div class="welcome-actions">
+        <button id="btn-welcome-back" class="text-btn" type="button" hidden>Back</button>
+        <button id="btn-welcome-next" class="btn" type="button"></button>
+      </div>
+      <div class="welcome-foot">
+        <button id="btn-welcome-more" class="text-btn" type="button" hidden>How the tavern works — learn more</button>
+        <button id="btn-welcome-enough" class="text-btn" type="button">Enough — let me in</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- How the tavern works (M13): the whole model in plain words. -->
+  <aside id="how-sheet" class="receipt-sheet how-sheet" role="dialog" aria-modal="false" aria-label="How the tavern works" hidden>
+    <div class="receipt-head">
+      <h2>How the tavern works</h2>
+      <button id="btn-how-close" class="icon-btn" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="how-body">
+      <p><strong>One connection does everything.</strong> The address you add in Settings is both the storyteller and the house's quiet workers — the same key, the same device. Nothing is ever sent anywhere you didn't point it.</p>
+      <p><strong>A second connection can carry the workers.</strong> If you like, a cheaper or faster address in Settings → The workers takes over the background reading, so the story itself answers sooner. It's a frugality, not a need.</p>
+      <p><strong>What happens when you send a line:</strong></p>
+      <ol class="how-list">
+        <li>The house assembles what the storyteller sees — the frame, the craft, the brief, who's here, the state of things, what remains of older pages, and your words.</li>
+        <li>The storyteller writes one answer, streaming as it comes. One generation per turn, always — nothing queues ahead of the story.</li>
+        <li>Afterward, in the background, the workers read the finished page: the extractor keeps the ledger true, the scribe tends the character pages, the keeper folds old pages into memory notes, the second reader flags drift.</li>
+      </ol>
+      <p><strong>The ledger</strong> (the drawer on the right) is what the house knows: the hour, who's here, who's hurt, what stands between people, what's happening elsewhere, what's true of them — and what the characters are like, where they are, and what they still owe. Every line of it is hand-editable and undoable.</p>
+      <p><strong>The rulebook</strong> holds standing instructions that wake when the scene calls for them — or when you pin them on.</p>
+      <p><strong>The frame and the note at the end</strong> are your standing words to the storyteller — one at the top, one slipped in last, before it writes.</p>
+      <p><strong>The receipt</strong> under any answer shows exactly what was sent that turn, slot by slot, with timings. The tavern keeps no secrets about what the storyteller saw.</p>
+      <p><strong>Your words live here.</strong> Everything — stories, keys, ledger, memories — sits in this browser's storage on this device. Backups are a single file you carry yourself (Settings → Backup).</p>
+    </div>
+  </aside>
+  <div id="how-scrim" class="scrim" hidden></div>
 
   <!-- Message context menu -->
   <div id="msg-menu" class="msg-menu" role="menu" hidden>

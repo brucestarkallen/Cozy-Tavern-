@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Cozy Tavern — the Termux one-shot (M13).
+# Installs the deps, clones (or updates) the tavern, and leaves a
+# `cozytavern` command behind that updates + launches it forever after.
+#
+#   bash install.sh          # from a clone of the repo, or:
+#   curl -sL <raw install.sh> | bash   # fetched straight down
+#
+# Idempotent: run it as often as you like; it only ever tops things up.
+set -e
+
+REPO_URL="${COZY_REPO_URL:-https://github.com/brucestarkallen/Cozy-Tavern-.git}"
+REPO_DIR="${COZY_HOME:-$HOME/cozytavern}"
+PORT=8080
+
+# If this script already sits inside a checkout, that checkout is home.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo '')"
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/serve.py" ]; then
+  REPO_DIR="$SCRIPT_DIR"
+fi
+
+echo "The tavern is being made ready…"
+
+# 1. The two things the tavern needs.
+pkg install git python -y
+
+# 2. The tavern itself — cloned fresh, or topped up where it stands.
+if [ -d "$REPO_DIR/.git" ]; then
+  git -C "$REPO_DIR" pull --ff-only || echo "(Couldn't pull — the tavern you have still opens.)"
+else
+  git clone "$REPO_URL" "$REPO_DIR"
+fi
+
+# 3. The `cozytavern` command: wake the phone, top up the tales, light the
+#    lamps if they aren't lit, and open the door.
+mkdir -p "$PREFIX/bin"
+cat > "$PREFIX/bin/cozytavern" <<TAVERN
+#!/usr/bin/env bash
+# cozytavern — update + launch. Written by install.sh; safe to re-run.
+set -e
+
+# Keep the phone awake while the lamps are lit (a hint when termux-api
+# isn't installed — the tavern works regardless).
+if command -v termux-wake-lock >/dev/null 2>&1; then
+  termux-wake-lock
+else
+  echo "(Tip: pkg install termux-api keeps the phone awake while you read.)"
+fi
+
+cd "$REPO_DIR" || exit 1
+git pull --ff-only || echo "(Couldn't pull — the tavern you have still opens.)"
+
+# Light the lamps — unless they're already lit on the port.
+if ! (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null; then
+  (python3 serve.py >/dev/null 2>&1 &)
+  for try in 1 2 3 4 5 6 7 8 9 10; do
+    if (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null; then
+      break
+    fi
+    sleep 0.5
+  done
+fi
+
+if command -v termux-open-url >/dev/null 2>&1; then
+  termux-open-url "http://127.0.0.1:$PORT"
+else
+  echo "The tavern is warm at http://127.0.0.1:$PORT — open it in your browser."
+fi
+TAVERN
+chmod +x "$PREFIX/bin/cozytavern"
+
+echo ""
+echo "The tavern is ready. From now on, one word does everything:"
+echo "  cozytavern"
+echo "It updates the tales, lights the lamps, and opens the door."

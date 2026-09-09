@@ -90,9 +90,15 @@ test('§2: swipes model + edit re-extraction hook', () => {
 });
 
 test('A5: every background worker call gets a 60s hard timeout', () => {
+  /* M12: the timeouts moved into the workers' channel — agents/queue.js
+   * wraps every queued job's every attempt in workerSignal(); the referee
+   * keeps its own 12s budget on the pre-generation path. */
+  const queue = src('js/agents/queue.js');
+  assert(queue.includes('workerSignal()'), 'the channel times every job');
   const chat = src('js/ui/chat.js');
-  assert((chat.match(/workerSignal\(\)/g) || []).length >= 3, 'extractor, keeper, reader all timed');
-  assert(chat.includes('workerSignal()'), 'referee timed too');
+  assert(chat.includes('workerSignal(12000)'), 'the referee keeps its 12s budget');
+  assert(chat.includes("from '../agents/queue.js'"), 'the channel is imported');
+  assert((chat.match(/enqueue\('/g) || []).length >= 4, 'extractor, scribe, keeper, reader all queued');
   assert(src('js/agents/status.js').includes('60000'), 'the ceiling is 60s');
 });
 

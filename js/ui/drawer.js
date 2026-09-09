@@ -24,6 +24,7 @@ import { applyMutations, undoLast, MODE_WORDS } from '../engine/apply.js';
 import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
+import { isMc } from '../engine/people.js';
 import { listCast, attachToStory, detachFromStory } from '../import/cards.js';
 import { loadWorkerStatus, WORKER_NAMES } from '../agents/status.js';
 import { db } from '../store.js';
@@ -762,21 +763,113 @@ function onTheirMindPanel(ctx) {
     render();
   });
 
+  /* M12: the character ledger lives here too — who each person is, where
+   * they are, how things stand, and their loose ends; the scribe writes it
+   * after each turn, and the writer's hand writes it through the same
+   * validated, undoable mutation (people.set). */
+  const ledgerHead = document.createElement('h4');
+  ledgerHead.className = 'lbl ledger-subhead';
+  ledgerHead.textContent = 'The character pages';
+  const ledgerNote = quietNote('');
+  const ledgerList = document.createElement('ul');
+  ledgerList.className = 'present-list';
+
+  const ledgerForm = document.createElement('form');
+  ledgerForm.className = 'present-form ledger-form';
+  const personInput = document.createElement('input');
+  personInput.type = 'text';
+  personInput.maxLength = 60;
+  personInput.placeholder = 'Whose page?';
+  personInput.setAttribute('aria-label', 'Whose character page');
+  const fieldSelect = document.createElement('select');
+  fieldSelect.setAttribute('aria-label', 'Which page of their ledger');
+  for (const [value, words] of [
+    ['state', 'Where they are'],
+    ['core', 'Their nature'],
+    ['arc', 'How things stand'],
+    ['threads', 'Loose ends (separate with ;)'],
+  ]) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = words;
+    fieldSelect.appendChild(opt);
+  }
+  const textInput = document.createElement('input');
+  textInput.type = 'text';
+  textInput.maxLength = 300;
+  textInput.placeholder = 'What to write down';
+  textInput.setAttribute('aria-label', 'What to write on their page');
+  const writeBtn = document.createElement('button');
+  writeBtn.type = 'submit';
+  writeBtn.className = 'text-btn';
+  writeBtn.textContent = 'Write it on their page';
+  ledgerForm.append(personInput, fieldSelect, textInput, writeBtn);
+
+  ledgerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = personInput.value.trim();
+    const text = textInput.value.trim();
+    if (!name || !text) return;
+    const mutation = { type: 'people.set', name, field: fieldSelect.value, text };
+    personInput.value = textInput.value = '';
+    await handMutate(ctx, [mutation]);
+    render();
+  });
+
+  wrap.append(ledgerHead, ledgerNote, ledgerList, ledgerForm);
+
   const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
+    ledgerList.textContent = '';
     if (!story) {
       note.textContent = 'Open a story and the ledger will know whose hearts these are.';
+      ledgerNote.textContent = '';
       form.hidden = true;
+      ledgerForm.hidden = true;
       return;
     }
     form.hidden = false;
+    ledgerForm.hidden = false;
     const state = await loadState(story.id);
     const rel = state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
     const names = Object.keys(rel).filter((n) => rel[n] && typeof rel[n] === 'object');
     note.textContent = names.length
       ? 'How they stand toward the main character — warmth, pull, charge. Nothing moves without a cause.'
       : 'No standings written yet. Feelings are only written down when something on the page earns it.';
+
+    /* The character pages (M12). The main character's page is record-only —
+     * where they are and their loose ends; nature and arc are never
+     * written there. */
+    const characters = state.characters && typeof state.characters === 'object' ? state.characters : {};
+    const people = Object.keys(characters).filter((n) => characters[n] && typeof characters[n] === 'object');
+    ledgerNote.textContent = people.length
+      ? 'Who they are, where they are, how it stands, what’s still open. The scribe writes after each turn; you can write by hand, and every line can be taken back from “What changed and why”.'
+      : 'No character pages yet. As the story turns, the scribe writes them here — or write one by hand below.';
+    for (const name of people) {
+      const entry = characters[name];
+      const isTheMc = isMc(state, name);
+      const li = document.createElement('li');
+      li.className = 'present-row mind-row';
+      const head = document.createElement('span');
+      head.textContent = name + (isTheMc ? ' (that’s you)' : '');
+      li.appendChild(head);
+      const line = (label, text) => {
+        if (!text) return;
+        const small = document.createElement('small');
+        small.className = 'quiet';
+        small.textContent = label + text;
+        li.appendChild(small);
+      };
+      line('', entry.core);
+      line('Now: ', entry.state);
+      line('Between you: ', entry.arc);
+      if (Array.isArray(entry.threads) && entry.threads.length) {
+        line('Loose ends: ', entry.threads.join('; '));
+      }
+      ledgerList.appendChild(li);
+    }
+    void mcLabel;
     for (const name of names) {
       const entry = rel[name];
       const li = document.createElement('li');
@@ -1082,6 +1175,7 @@ function driftPanel(ctx) {
  * ended well, and one plain word of why not when it didn't. */
 const WORKER_WORDS = {
   extractor: 'the extractor',
+  scribe: 'the scribe',
   keeper: 'the keeper',
   referee: 'the referee',
   continuity: 'the second reader',

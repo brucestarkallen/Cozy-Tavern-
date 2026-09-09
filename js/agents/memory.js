@@ -25,6 +25,12 @@
  *     level-2 node.
  *   - Slot 7 = the newest 3 node texts (level descending), budget 3200
  *     chars; omitted when no nodes.
+ *   - M12: the detail auditor — a second cheap pass per fold catches what
+ *     the note dropped that would be hard to reconstruct (exact numbers,
+ *     named plans, conditional promises, first-appearance descriptions);
+ *     it answers NONE or one DETAIL line, stored on the node and injected
+ *     with it in slot 7. If the node moved while the auditor was thinking,
+ *     the answer is discarded.
  *
  * The window and the on/off switch live in Settings ("How much the story
  * remembers") as app-wide keys — memoryWindow, memoryKeeper — so the store
@@ -97,6 +103,11 @@ export function renderMemory(mem) {
   let out = '';
   for (const node of chosen) {
     let text = node.text.trim();
+    /* M12: the detail the auditor caught rides with its node, as a bullet
+     * beneath it. */
+    if (typeof node.detail === 'string' && node.detail.trim()) {
+      text += '\n• Detail worth keeping: ' + node.detail.trim();
+    }
     /* A single memory longer than the whole budget is trimmed to fit; a
      * later one that no longer fits is simply left at home this turn. */
     if (!out && text.length > SLOT_BUDGET) {
@@ -237,6 +248,75 @@ export function parseMemoryAnswer(raw) {
   }
 }
 
+/* ---------- M12: the detail auditor ---------- */
+
+/* A second, cheap pass over each summary fold: did the note drop something
+ * hard to reconstruct — an exact number, a named plan, a conditional
+ * promise, a first-appearance description? It answers NONE, or one DETAIL
+ * line that is stored on the node and injected with it in slot 7. */
+
+const AUDIT_SYSTEM = [
+  'You audit memory notes for a slow, warm story. A note was just folded from',
+  'older pages. Your one question: did the fold drop a detail that would be',
+  'hard to reconstruct later — an exact number, a named plan, a conditional',
+  'promise, the first description of someone or something new?',
+  '',
+  'Answer NONE, or a single line beginning DETAIL: naming exactly what was',
+  'dropped, in plain words, one sentence. Never more than one line. When in',
+  'doubt, NONE.',
+].join('\n');
+
+export function buildAuditMessages(sourceText, noteText) {
+  const user = [
+    'The pages that were folded:',
+    '"""',
+    String(sourceText || '').slice(0, 12000),
+    '"""',
+    '',
+    'The note they became:',
+    '"""',
+    String(noteText || '').slice(0, 4000),
+    '"""',
+    '',
+    'NONE, or one DETAIL: line.',
+  ].join('\n');
+  return { system: AUDIT_SYSTEM, user };
+}
+
+/* '' when the auditor says the note stands as it is; else the detail line,
+ * capped short — it rides inside slot 7's budget. */
+export function parseAuditAnswer(raw) {
+  try {
+    let text = String(raw || '').replace(/```(?:\w+)?/g, '').trim();
+    if (!text) return '';
+    const firstLine = text.split('\n')[0].trim();
+    if (/^none\b/i.test(firstLine)) return '';
+    const m = firstLine.match(/^detail\s*:\s*(.+)$/i);
+    if (!m) return '';
+    let detail = m[1].trim();
+    if (!detail) return '';
+    if (detail.length > 200) detail = detail.slice(0, 199).trimEnd() + '…';
+    return detail;
+  } catch (err) {
+    return '';
+  }
+}
+
+/* The discard-if-moved guard: a signature of the node as it stood when the
+ * auditor was sent away. If the node has moved since (re-folded, rewritten,
+ * let go), the audit belongs to a node that no longer stands and is let go
+ * with it. Exported for the harness. */
+export function nodeSignature(node) {
+  if (!node || typeof node !== 'object') return '';
+  return [node.id, node.span && node.span[0], node.span && node.span[1], node.text].join('|');
+}
+
+/* Exported for the harness. */
+export function nodeUnmoved(nodes, id, signature) {
+  const node = (Array.isArray(nodes) ? nodes : []).find((n) => n && n.id === id);
+  return Boolean(node) && nodeSignature(node) === signature;
+}
+
 /* ---------- the contract ---------- */
 
 let nodeCounter = 0;
@@ -272,7 +352,7 @@ export async function maybeSummarize({ connection, storyId, signal } = {}) {
     const window = cleanWindow(await db.settings.get('memoryWindow'));
 
     const history = await db.messages.list(storyId);
-    const mem = await loadMemory(storyId);
+    let mem = await loadMemory(storyId);
     mem.window = window;
 
     /* The level-1 nodes always cover a prefix of the thread, so the next
@@ -290,8 +370,31 @@ export async function maybeSummarize({ connection, storyId, signal } = {}) {
       const raw = await callWorker(connection, buildMemoryMessages(pages), signal);
       const text = parseMemoryAnswer(raw);
       if (!text) return null; // the worker went quiet — leave everything be
-      mem.nodes.push({ id: nodeId(), span: [covered, end - 1], text, level: 1, at: Date.now() });
+      const node = { id: nodeId(), span: [covered, end - 1], text, level: 1, at: Date.now() };
+      mem.nodes.push(node);
       changed = true;
+      await saveMemory(storyId, mem);
+
+      /* M12: the detail auditor — a second cheap pass over the fold. The
+       * discard-if-moved guard is read back from the STORE: if another
+       * hand (a second fold, a rewrite, a let-go) moved the node while the
+       * auditor was thinking, the answer belongs to a node that no longer
+       * stands and is let go with it. */
+      try {
+        const signature = nodeSignature(node);
+        const sourceText = pages.map((p) => String(p && p.text || '')).join('\n\n');
+        const auditRaw = await callWorker(connection, buildAuditMessages(sourceText, text), signal);
+        const detail = parseAuditAnswer(auditRaw);
+        if (detail) {
+          const current = await loadMemory(storyId);
+          if (nodeUnmoved(current.nodes, node.id, signature)) {
+            const standing = current.nodes.find((n) => n && n.id === node.id);
+            standing.detail = detail;
+            await saveMemory(storyId, current);
+            mem = current;
+          }
+        }
+      } catch (err) { /* an auditor that stumbles changes nothing */ }
     }
 
     /* Layering: more than six level-1 notes → the oldest three fold into
@@ -305,14 +408,35 @@ export async function maybeSummarize({ connection, storyId, signal } = {}) {
       if (text) {
         const ids = new Set(batch.map((n) => n.id));
         mem.nodes = mem.nodes.filter((n) => !ids.has(n.id));
-        mem.nodes.push({
+        const node = {
           id: nodeId(),
           span: [batch[0].span[0], batch[batch.length - 1].span[1]],
           text,
           level: 2,
           at: Date.now(),
-        });
+        };
+        mem.nodes.push(node);
         changed = true;
+        await saveMemory(storyId, mem);
+
+        /* M12: the auditor reads a level-2 fold the same way — the notes
+         * that folded are its source, and the same store-read guard lets
+         * the answer go if the node moved mid-flight. */
+        try {
+          const signature = nodeSignature(node);
+          const sourceText = batch.map((n) => String(n && n.text || '')).join('\n\n');
+          const auditRaw = await callWorker(connection, buildAuditMessages(sourceText, text), signal);
+          const detail = parseAuditAnswer(auditRaw);
+          if (detail) {
+            const current = await loadMemory(storyId);
+            if (nodeUnmoved(current.nodes, node.id, signature)) {
+              const standing = current.nodes.find((n) => n && n.id === node.id);
+              standing.detail = detail;
+              await saveMemory(storyId, current);
+              mem = current;
+            }
+          }
+        } catch (err) { /* an auditor that stumbles changes nothing */ }
       }
       /* A failed fold is fine: the level-1 notes simply stay as they are. */
     }
