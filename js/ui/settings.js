@@ -6,8 +6,12 @@
  * apply what's wanted), The workers (M3: who reads for the ledger, and
  * whether they do), How much the story remembers (M6: the keeper's switch
  * and window, and the second reader), Bring your people / Bring your lore /
- * Bring your old chats (M7: cards, lorebooks, chat exports), appearance,
- * backup.
+ * Bring your old chats (M7: cards, lorebooks, chat exports), The thinking
+ * voice (M8.5: the story's own reasoning effort, and whether the weighing
+ * shows at all), appearance, backup. M8 grew the connection editor: model
+ * fetch ("Fetch what's on offer"), the sampling dials (temperature, top-p,
+ * longest reply), the model's room (context size, feeding the ember bar),
+ * and the real thinking control — no placeholders.
  */
 
 import { db } from '../store.js';
@@ -32,6 +36,16 @@ export function initSettings(ctx) {
     baseUrl: document.getElementById('conn-baseurl'),
     apiKey: document.getElementById('conn-apikey'),
     model: document.getElementById('conn-model'),
+    btnFetchModels: document.getElementById('btn-fetch-models'),
+    modelsNote: document.getElementById('conn-models-note'),
+    modelsLabel: document.getElementById('conn-models-label'),
+    modelsPick: document.getElementById('conn-models'),
+    connReasoning: document.getElementById('conn-reasoning'),
+    connBudget: document.getElementById('conn-budget'),
+    connTemperature: document.getElementById('conn-temperature'),
+    connTopP: document.getElementById('conn-topp'),
+    connMaxTokens: document.getElementById('conn-maxtokens'),
+    connContextSize: document.getElementById('conn-contextsize'),
     btnCancel: document.getElementById('btn-conn-cancel'),
     frameGlobal: document.getElementById('frame-global'),
     frameStory: document.getElementById('frame-story'),
@@ -80,6 +94,9 @@ export function initSettings(ctx) {
     btnLoreClear: document.getElementById('btn-lore-clear'),
     chatFile: document.getElementById('chat-file'),
     chatImportNote: document.getElementById('chat-import-note'),
+    thinkingStory: document.getElementById('thinking-story'),
+    thinkingStoryName: document.getElementById('thinking-story-name'),
+    showThinking: document.getElementById('show-thinking'),
   };
 
   let editingId = null;
@@ -212,25 +229,89 @@ export function initSettings(ctx) {
   els.preset.addEventListener('change', fillFromPreset);
   els.label.addEventListener('input', () => { els.label.dataset.autofill = '0'; });
 
+  function hideModelPicker() {
+    els.modelsLabel.hidden = true;
+    els.modelsNote.hidden = true;
+    els.modelsPick.textContent = '';
+  }
+
   function openForm(conn) {
     editingId = conn ? conn.id : null;
     els.form.hidden = false;
     els.formTitle.textContent = conn ? `Changing “${conn.label}”` : 'A new connection';
+    hideModelPicker();
     if (conn) {
       els.preset.value = presetFor(conn);
       els.label.value = conn.label;
       els.baseUrl.value = conn.baseUrl;
       els.apiKey.value = conn.apiKey;
       els.model.value = conn.model;
+      const r = conn.reasoning && typeof conn.reasoning === 'object' ? conn.reasoning : {};
+      els.connReasoning.value = typeof r.effort === 'string' ? r.effort : 'off';
+      els.connBudget.value = typeof r.budgetTokens === 'number' && r.budgetTokens > 0 ? String(r.budgetTokens) : '';
+      els.connTemperature.value = typeof conn.temperature === 'number' ? String(conn.temperature) : '';
+      els.connTopP.value = typeof conn.topP === 'number' ? String(conn.topP) : '';
+      els.connMaxTokens.value = typeof conn.maxTokens === 'number' ? String(conn.maxTokens) : '';
+      els.connContextSize.value = typeof conn.contextSize === 'number' ? String(conn.contextSize) : '';
     } else {
       els.preset.value = 'claude';
       els.apiKey.value = '';
       els.label.value = '';
       els.label.dataset.autofill = '1';
+      els.connReasoning.value = 'off';
+      els.connBudget.value = '';
+      els.connTemperature.value = '';
+      els.connTopP.value = '';
+      els.connMaxTokens.value = '';
+      els.connContextSize.value = '';
       fillFromPreset();
     }
     els.label.focus();
   }
+
+  /* "Fetch what's on offer" (M8): ask the provider for its models and offer
+   * them as a picker that fills the model field. A refusal never breaks the
+   * form — the hand-typed name stays. */
+  els.btnFetchModels.addEventListener('click', async () => {
+    const p = presetById(els.preset.value);
+    const draft = {
+      type: p.type,
+      baseUrl: els.baseUrl.value.trim() || p.baseUrl || '',
+      apiKey: els.apiKey.value.trim(),
+    };
+    els.btnFetchModels.disabled = true;
+    hideModelPicker();
+    els.modelsNote.hidden = false;
+    els.modelsNote.textContent = 'Asking what’s on offer…';
+    try {
+      const models = await createProvider(draft).listModels();
+      if (!models.length) {
+        els.modelsNote.textContent = 'The list came back empty — the model name above still stands.';
+        return;
+      }
+      els.modelsNote.textContent = `${models.length} on offer. Pick one and it fills the model field.`;
+      els.modelsPick.textContent = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Choose one…';
+      els.modelsPick.appendChild(placeholder);
+      for (const m of models) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.label === m.id ? m.id : `${m.label} (${m.id})`;
+        els.modelsPick.appendChild(opt);
+      }
+      els.modelsLabel.hidden = false;
+    } catch (err) {
+      els.modelsNote.textContent = err.message || 'The offer wouldn’t come through — the model name above still stands.';
+    } finally {
+      els.btnFetchModels.disabled = false;
+    }
+  });
+
+  els.modelsPick.addEventListener('change', () => {
+    if (els.modelsPick.value) els.model.value = els.modelsPick.value;
+  });
 
   els.btnAdd.addEventListener('click', () => openForm(null));
   els.btnCancel.addEventListener('click', () => { els.form.hidden = true; editingId = null; });
@@ -238,15 +319,39 @@ export function initSettings(ctx) {
   els.form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const p = presetById(els.preset.value);
+    /* A dial left empty stays unset — the providers then send nothing for
+     * it and the storyteller's own defaults rule (M8). */
+    const numOrUnset = (input) => {
+      const n = parseFloat(input.value);
+      return input.value.trim() !== '' && Number.isFinite(n) ? n : undefined;
+    };
     const fields = {
       label: els.label.value.trim() || p.label,
       type: p.type,
       baseUrl: els.baseUrl.value.trim(),
       apiKey: els.apiKey.value.trim(),
       model: els.model.value.trim(),
+      temperature: numOrUnset(els.connTemperature),
+      topP: numOrUnset(els.connTopP),
+      maxTokens: numOrUnset(els.connMaxTokens),
+      contextSize: numOrUnset(els.connContextSize),
     };
+    /* M8.5: the thinking voice — kept only when it's on. */
+    const effort = els.connReasoning.value;
+    if (effort === 'low' || effort === 'medium' || effort === 'high') {
+      fields.reasoning = { effort };
+      const budget = numOrUnset(els.connBudget);
+      if (budget) fields.reasoning.budgetTokens = budget;
+    } else {
+      fields.reasoning = undefined;
+    }
     if (editingId) {
-      await db.connections.update(editingId, fields);
+      /* update() treats null as "let the dial go" (store.js, M8). */
+      const patch = { ...fields };
+      for (const key of ['temperature', 'topP', 'maxTokens', 'contextSize', 'reasoning']) {
+        if (patch[key] === undefined) patch[key] = null;
+      }
+      await db.connections.update(editingId, patch);
     } else {
       const saved = await db.connections.add(fields);
       if (!(await activeConnectionId())) {
@@ -255,6 +360,7 @@ export function initSettings(ctx) {
     }
     els.form.hidden = true;
     editingId = null;
+    hideModelPicker();
     renderConnections();
   });
 
@@ -276,6 +382,7 @@ export function initSettings(ctx) {
     els.briefStoryName.textContent = storyName;
     els.castStoryName.textContent = storyName;
     els.loreStoryName.textContent = storyName;
+    els.thinkingStoryName.textContent = storyName;
     els.frameStory.value = (story && story.frameOverride) || '';
     els.noteStory.value = (story && story.noteOverride) || '';
     els.briefStory.value = (story && story.brief) || '';
@@ -891,10 +998,35 @@ export function initSettings(ctx) {
     }
   });
 
+  /* ---------- the thinking voice (M8.5) ---------- */
+
+  /* The story's own say over its connection's reasoning effort ('' follows
+   * the connection), and the house-wide choice of whether the folded
+   * weighing shows at all (default: it shows). */
+  async function renderThinking() {
+    const story = await activeStory();
+    els.thinkingStory.value = story && typeof story.reasoningEffort === 'string'
+      ? story.reasoningEffort
+      : '';
+    els.thinkingStory.disabled = !story;
+    els.showThinking.checked = (await db.settings.get('showThinking')) !== false;
+  }
+
+  els.thinkingStory.addEventListener('change', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    await db.stories.update(story.id, { reasoningEffort: els.thinkingStory.value });
+  });
+
+  els.showThinking.addEventListener('change', async () => {
+    await db.settings.set('showThinking', els.showThinking.checked);
+    if (ctx.chat) await ctx.chat.renderThread();
+  });
+
   /* ---------- appearance ---------- */
 
   async function loadTheme() {
-    const mode = (await db.settings.get('theme')) || 'system';
+    const mode = (await db.settings.get('theme')) || 'dark';
     const radio = document.querySelector(`input[name="theme"][value="${mode}"]`);
     if (radio) radio.checked = true;
   }
@@ -960,6 +1092,7 @@ export function initSettings(ctx) {
     await renderMemory();
     await renderCast();
     await renderLore();
+    await renderThinking();
     await loadTheme();
   }
 

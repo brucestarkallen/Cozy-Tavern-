@@ -2,9 +2,12 @@
  * The registry and factory. One interface for every storyteller:
  *   createProvider(connection) -> {
  *     test(): Promise<{ok, detail}>,
+ *     listModels(): Promise<[{id, label}]>,
  *     streamChat({systemBlocks|system, messages, signal, onToken})
- *       : Promise<{text, ttftMs, durationMs}>
+ *       : Promise<{text, thinking, ttftMs, tfftMs, durationMs}>
  *   }
+ * onToken receives {channel:'thinking'|'prose', text} (M8.5 — the
+ * reasoning channel; M1's contract silently dropped thinking).
  * `systemBlocks` is the M2 assembler's shape ([{text, cache}]); the M1
  * plain-string `system` is still accepted. Presets feed the connection form
  * in Settings; each is just a starting point the user can edit.

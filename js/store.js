@@ -38,6 +38,15 @@
  * the cast invited into that tale. Two additive helpers ride with these:
  * db.settings.keys() (every setting key, so the library can be listed) and
  * db.settings.delete(key) (so a card can be let go for good).
+ *
+ * M8/M8.5 additions: connections may carry sampling dials (`temperature`,
+ * `topP`, `maxTokens`), a `contextSize` (the ember bar's measure of the
+ * model's room), and a `reasoning` object ({effort, budgetTokens?}) — all
+ * optional, all omitted from the wire when unset. Messages may carry
+ * `thinking` (the storyteller's reasoning channel, rendered folded above
+ * the prose) and `stopped` (the page was stopped by hand mid-sentence).
+ * One more additive helper: db.messages.remove(storyId, messageId) lets a
+ * single page go.
  */
 
 const DB_NAME = 'cozytavern.v1';
@@ -127,13 +136,30 @@ const connections = {
       model: conn.model || '',
       createdAt: conn.createdAt || Date.now(),
     };
+    /* M8: sampling dials and the ember bar's idea of the model's room.
+     * Unset means "the storyteller's own defaults" — the providers send
+     * nothing for a dial that was never turned. */
+    if (typeof conn.temperature === 'number') row.temperature = conn.temperature;
+    if (typeof conn.topP === 'number') row.topP = conn.topP;
+    if (typeof conn.maxTokens === 'number') row.maxTokens = conn.maxTokens;
+    if (typeof conn.contextSize === 'number') row.contextSize = conn.contextSize;
+    /* M8.5: the thinking voice — {effort:'low|medium|high', budgetTokens?}.
+     * 'off' (or absence) sends nothing. */
+    if (conn.reasoning && typeof conn.reasoning === 'object') row.reasoning = conn.reasoning;
     await run('connections', 'readwrite', (s) => s.put(row));
     return row;
   },
   async update(id, patch) {
     const row = await run('connections', 'readonly', (s) => s.get(id));
     if (!row) return undefined;
-    const next = { ...row, ...patch, id: row.id };
+    /* M8: a null in the patch lets the dial go entirely — the providers
+     * read absence as "the storyteller's own default". */
+    const clean = {};
+    for (const [key, value] of Object.entries(patch || {})) {
+      if (value === null) delete row[key];
+      else clean[key] = value;
+    }
+    const next = { ...row, ...clean, id: row.id };
     await run('connections', 'readwrite', (s) => s.put(next));
     return next;
   },
@@ -222,6 +248,14 @@ const messages = {
     /* M6: the continuity reader's drift notes ([{words, severity}]), same
      * re-ink passthrough — they land on the page after the fact. */
     if (Array.isArray(msg.findings)) row.findings = msg.findings;
+    /* M8.5: what the storyteller weighed before writing (the reasoning
+     * channel), kept on the page it preceded. Pages from before the voice
+     * woke simply carry no `thinking` and render exactly as they always
+     * did. */
+    if (typeof msg.thinking === 'string' && msg.thinking) row.thinking = msg.thinking;
+    /* M8: a page stopped by hand keeps this mark, so the "stopped
+     * mid-sentence" label survives a reload. */
+    if (msg.stopped === true) row.stopped = true;
     await run('messages', 'readwrite', (s) => s.put(row));
     // Touch the story so last-active sorting stays honest.
     const story = await stories.get(storyId);
@@ -244,6 +278,15 @@ const messages = {
       t.onerror = () => reject(t.error);
     });
     return doomed.length;
+  },
+  /* M8 additive helper: let one single page go (the delete action in the
+   * thread). Everything around it stays exactly as written. */
+  async remove(storyId, messageId) {
+    const all = await messages.list(storyId);
+    const found = all.find((m) => m.id === messageId);
+    if (!found) return false;
+    await run('messages', 'readwrite', (s) => s.delete(messageId));
+    return true;
   },
 };
 

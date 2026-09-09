@@ -136,7 +136,13 @@ export function openReceipt(receipt, extraction, findings) {
 
   const parts = [];
   if (receipt.model) parts.push('Told by ' + receipt.model);
-  if (typeof receipt.ttftMs === 'number') parts.push('First word in ' + fmtSeconds(receipt.ttftMs));
+  /* M8.5: the two firsts — the thought, then the word. Old receipts carry
+   * no tfft and simply keep their one first. */
+  const firsts = [];
+  if (typeof receipt.tfftMs === 'number') firsts.push('first thought ' + fmtSeconds(receipt.tfftMs));
+  if (typeof receipt.ttftMs === 'number') firsts.push('first word ' + fmtSeconds(receipt.ttftMs));
+  if (firsts.length) parts.push(firsts.join(' · '));
+  if (receipt.effort) parts.push('thinking ' + receipt.effort);
   if (typeof receipt.durationMs === 'number') parts.push(fmtSeconds(receipt.durationMs) + ' all told');
   if (typeof receipt.totalTokens === 'number') parts.push('~' + receipt.totalTokens + ' tokens sent');
   footer.textContent = parts.join(' · ');

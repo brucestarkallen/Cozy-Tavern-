@@ -1,35 +1,58 @@
-/* Cozy Tavern — base styles: palette, type, shared chrome.
- * Book-warm, low-saturation paper/ink tones. No gradients, no neon. */
+/* Cozy Tavern — base styles: the hearth-at-night design system (M8).
+ * Book-warm, low-saturation, ember-lit. No neon, no cold gradients — the
+ * only gradient in the house is the ember bar's fill. Dark (Hearth) is the
+ * default face; Parchment is the light one. Tokens are law (SPEC.md M8). */
 
 :root {
-  --paper: #f6f1e7;
-  --paper-raised: #fdfaf3;
-  --paper-sunken: #ede6d6;
-  --ink: #32291f;
-  --ink-soft: #6b5f4e;
-  --ink-faint: #97897a;
-  --line: #ddd2bd;
-  --accent: #8a5a33;
-  --accent-ink: #fdfaf3;
-  --danger: #8c3b2e;
-  --shadow: rgba(50, 41, 31, 0.18);
+  /* Hearth (dark, DEFAULT) */
+  --bg: #16120f;
+  --bg-2: #1d1815;
+  --surface: #241e1a;
+  --surface-2: #2e2620;
+  --border: #392f28;
+  --border-soft: #2a231e;
+  --text: #efe6dc;
+  --text-2: #b8a99c;
+  --muted: #87776a;
+  --ember: #e9a13b;
+  --ember-hot: #f2762f;
+  --ember-dim: #6d5028;
+  --user-tint: #221a14;
+  --danger: #d9634a;
+  --ok: #83b06d;
+  --shadow: 0 8px 28px rgba(0, 0, 0, .45);
+  --on-ember: #191106;
+
+  --r: 10px;
+  --r-lg: 16px;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   --font-prose: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
-  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --measure: 65ch;
+
+  --scrim: rgba(0, 0, 0, .55);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --vvh: 100vh; /* set from visualViewport.height by app.js */
 }
 
-html[data-theme='dark'] {
-  --paper: #211c16;
-  --paper-raised: #2a241c;
-  --paper-sunken: #1a1611;
-  --ink: #ece3d1;
-  --ink-soft: #b3a48d;
-  --ink-faint: #7d705c;
-  --line: #453b2d;
-  --accent: #c8956a;
-  --accent-ink: #241d14;
-  --danger: #d08a7c;
-  --shadow: rgba(0, 0, 0, 0.45);
+html[data-theme='light'] {
+  /* Parchment (light) */
+  --bg: #f5efe4;
+  --bg-2: #ede5d7;
+  --surface: #fffdf8;
+  --surface-2: #f2ebdd;
+  --border: #dccfba;
+  --border-soft: #e6dccb;
+  --text: #291f18;
+  --text-2: #5c4e42;
+  --muted: #8b7a68;
+  --ember: #bd7410;
+  --ember-hot: #cc511a;
+  --ember-dim: #e0c79a;
+  --user-tint: #f0e7d5;
+  --danger: #bc4630;
+  --ok: #5b8449;
+  --shadow: 0 8px 28px rgba(60, 40, 20, .14);
+  --on-ember: #191106;
 }
 
 * { box-sizing: border-box; }
@@ -41,11 +64,13 @@ html, body {
 }
 
 body {
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -54,43 +79,59 @@ body {
 
 h1, h2, h3, h4 {
   font-family: var(--font-prose);
-  font-weight: 600;
+  font-weight: 650;
   line-height: 1.25;
   margin: 0;
 }
 
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.22em; }
+h3 { font-size: 1.08em; }
+h4 { font-size: 1em; }
+
 button {
-  font-family: var(--font-ui);
+  font-family: var(--font);
   font-size: 1rem;
   color: inherit;
   cursor: pointer;
 }
 
 input, select, textarea {
-  font-family: var(--font-ui);
+  font-family: var(--font);
   font-size: 1rem;
-  color: var(--ink);
-  background: var(--paper-raised);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
   padding: 0.55rem 0.7rem;
   width: 100%;
+  transition: border-color 0.15s;
 }
+
+input:focus, select:focus, textarea:focus { border-color: var(--ember); }
 
 textarea {
   resize: vertical;
   line-height: 1.5;
 }
 
+/* The ember ring — one clear focus voice for the whole house. */
 input:focus-visible, select:focus-visible, textarea:focus-visible,
-button:focus-visible, a:focus-visible {
-  outline: 2px solid var(--accent);
+button:focus-visible, a:focus-visible, summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ember);
   outline-offset: 2px;
 }
 
-/* M7: when the device asks for stillness, the tavern settles — no
- * transitions, no blinking caret, nothing that moves on its own. */
+/* All chrome transitions share one quick breath. */
+button, .text-btn, .icon-btn, .story-item, .connection-card {
+  transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s, box-shadow 0.15s;
+}
+
+/* When the device asks for stillness, the tavern settles — no transitions,
+ * no blinking caret, nothing that moves on its own, no smooth scrolling. */
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
@@ -98,8 +139,20 @@ button:focus-visible, a:focus-visible {
   }
 }
 
+/* ---------- the whisper voice ---------- */
+
+/* .lbl — the chrome whisper: mono micro-caps for labels and senders. */
+.lbl {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .quiet {
-  color: var(--ink-soft);
+  color: var(--text-2);
   font-size: 0.925rem;
 }
 
@@ -121,15 +174,15 @@ button:focus-visible, a:focus-visible {
   gap: 0.75rem;
   padding: 0.6rem 1rem;
   padding-top: calc(0.6rem + env(safe-area-inset-top));
-  border-bottom: 1px solid var(--line);
-  background: var(--paper-raised);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-2);
   position: sticky;
   top: 0;
   z-index: 20;
 }
 
 .brand {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   letter-spacing: 0.01em;
   flex: 1;
   white-space: nowrap;
@@ -143,51 +196,53 @@ button:focus-visible, a:focus-visible {
 .icon-btn {
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r);
   padding: 0.45rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--ink-soft);
+  color: var(--text-2);
 }
 
-.icon-btn:hover { background: var(--paper-sunken); color: var(--ink); }
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
 
 .text-btn {
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r);
   padding: 0.45rem 0.6rem;
-  color: var(--accent);
+  color: var(--ember);
   font-size: 0.95rem;
 }
 
-.text-btn:hover { background: var(--paper-sunken); }
+.text-btn:hover { background: var(--surface-2); }
 
 .btn {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ember);
+  color: var(--on-ember);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r);
   padding: 0.55rem 1rem;
   font-size: 0.95rem;
+  font-weight: 600;
 }
 
-.btn:hover { filter: brightness(1.06); }
+.btn:hover { background: var(--ember-hot); }
 .btn:disabled { opacity: 0.55; cursor: default; }
+.btn:disabled:hover { background: var(--ember); }
 
 .btn-quiet {
   background: transparent;
-  color: var(--accent);
-  border: 1px solid var(--line);
+  color: var(--ember);
+  border: 1px solid var(--border);
 }
 
-.btn-quiet:hover { background: var(--paper-sunken); }
+.btn-quiet:hover { background: var(--surface-2); }
 
 .btn-danger {
   background: transparent;
   color: var(--danger);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
 }
 
 .row {
@@ -228,24 +283,39 @@ button:focus-visible, a:focus-visible {
   gap: 2rem;
 }
 
-.settings-title { font-size: 1.6rem; }
+.settings-title { font-size: 1.4em; }
 
 .settings-section {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-soft);
   padding-top: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  scroll-margin-top: 4rem;
 }
-
-.settings-section h3 { font-size: 1.25rem; }
-.settings-section h4 { font-size: 1.05rem; }
 
 .stack-label {
   font-size: 0.9rem;
-  color: var(--ink-soft);
+  color: var(--text-2);
   margin-top: 0.5rem;
 }
+
+/* M8: the per-story overrides, proper labeled blocks instead of floating
+ * rows — a quiet panel with a whisper-voice head. */
+.override-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border-soft);
+  border-left: 2px solid var(--ember-dim);
+  border-radius: var(--r);
+  padding: 0.8rem 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.override-block textarea,
+.override-block select { background: var(--surface); }
 
 label {
   display: flex;
@@ -279,16 +349,53 @@ label {
   width: auto;
 }
 
+/* ---------- scrim & sheets ---------- */
+
 .scrim {
   position: fixed;
   inset: 0;
-  background: var(--shadow);
+  background: var(--scrim);
   z-index: 30;
 }
 
 .scrim[hidden] { display: none; }
 
+/* ---------- toasts (M8) ---------- */
+
+.toasts {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(84px + var(--safe-b));
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  max-width: min(92vw, 30rem);
+}
+
+.toast {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.18s, transform 0.18s;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: none;
+}
+
 @media (max-width: 720px) {
-  .brand { font-size: 1.05rem; }
+  .brand { font-size: 1.02rem; }
   .topbar { padding: 0.5rem 0.6rem; padding-top: calc(0.5rem + env(safe-area-inset-top)); }
 }

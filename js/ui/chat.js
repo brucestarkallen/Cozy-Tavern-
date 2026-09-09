@@ -2,6 +2,20 @@
  * Story list, message thread, composer. Streaming renders token by token.
  * One generation call per user turn — the send path is sacred (see SPEC.md
  * performance laws).
+ *
+ * M8 (the hearth): sender labels in the whisper voice, hover/focus message
+ * actions (copy and delete are wired; edit/swipe/branch announce they're
+ * landing with the next wave), the ember bar measuring the room the last
+ * turn took, and the composer's meta row with deep links into Settings.
+ * The composer never swallows words: with no story it starts one from the
+ * first words; with no connection it says so kindly and hands the text
+ * back. Stopping a stream keeps the partial page, plainly labeled.
+ *
+ * M8.5 (the thinking voice): the reasoning channel streams beside the
+ * prose, folded into "what the storyteller weighed" — open while it
+ * thinks, folding itself away when the first word lands, re-openable
+ * after. It's kept on the message (msg.thinking); pages from before the
+ * voice woke render exactly as they always did.
  */
 
 import { db } from '../store.js';
@@ -31,16 +45,26 @@ export function initChat(ctx) {
     btnCancelNew: document.getElementById('btn-cancel-story'),
     thread: document.getElementById('thread'),
     threadEmpty: document.getElementById('thread-empty'),
+    noConnection: document.getElementById('no-connection'),
+    btnAddFirstConnection: document.getElementById('btn-add-first-connection'),
     composer: document.getElementById('composer'),
     input: document.getElementById('composer-input'),
     btnSend: document.getElementById('btn-send'),
     btnStop: document.getElementById('btn-stop'),
+    composerNote: document.getElementById('composer-note'),
+    emberBar: document.getElementById('ember-bar'),
+    emberFill: document.getElementById('ember-fill'),
+    metaContext: document.getElementById('meta-context'),
     menu: document.getElementById('msg-menu'),
   };
 
   let stories = [];
   let busy = false;
   let abort = null;
+
+  function toast(words) {
+    if (ctx.toast) ctx.toast(words);
+  }
 
   /* ---------- helpers ---------- */
 
@@ -187,45 +211,133 @@ export function initChat(ctx) {
     return btn;
   }
 
-  function msgNode(msg) {
+  /* The folded reasoning block (M8.5): "what the storyteller weighed",
+   * dashed and quiet, above the prose. Live during streaming (the send
+   * path opens and folds it); folded by default on finished pages. */
+  function thinkingNode(text) {
+    const details = document.createElement('details');
+    details.className = 'thinking';
+    const summary = document.createElement('summary');
+    summary.innerHTML = '<span class="thinking-arrow" aria-hidden="true">▸</span> what the storyteller weighed';
+    const body = document.createElement('div');
+    body.className = 'thinking-body';
+    body.textContent = text;
+    details.append(summary, body);
+    return details;
+  }
+
+  /* Hover/focus actions (M8): copy and delete are wired now; edit, swipe
+   * and branch render and say kindly that they land with the next wave. */
+  function actionsNode(msg) {
+    const row = document.createElement('div');
+    row.className = 'msg-actions';
+    for (const act of ['copy', 'edit', 'swipe', 'branch', 'delete']) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'msg-act';
+      btn.dataset.act = act;
+      btn.dataset.id = msg.id;
+      btn.textContent = act;
+      row.appendChild(btn);
+    }
+    return row;
+  }
+
+  function msgNode(msg, showThinking) {
     const article = document.createElement('article');
     article.className = `msg msg-${msg.role}`;
     article.dataset.id = msg.id;
+    const label = document.createElement('div');
+    label.className = 'msg-label lbl';
+    label.textContent = msg.role === 'user' ? 'you' : 'the storyteller';
+    article.appendChild(label);
+    if (msg.thinking && showThinking !== false) {
+      article.appendChild(thinkingNode(msg.thinking));
+    }
     const body = document.createElement('div');
     body.className = 'msg-body';
     body.textContent = msg.text;
     article.appendChild(body);
+    if (msg.stopped) {
+      const stopped = document.createElement('div');
+      stopped.className = 'msg-stopped lbl';
+      stopped.textContent = 'stopped mid-sentence';
+      article.appendChild(stopped);
+    }
     if (msg.role === 'assistant' && msg.receipt) {
       article.appendChild(receiptNode(msg.receipt, msg.extraction));
     }
+    article.appendChild(actionsNode(msg));
     return article;
   }
 
   function noteNode(text) {
     const article = document.createElement('article');
     article.className = 'msg msg-note';
+    const label = document.createElement('div');
+    label.className = 'msg-label lbl';
+    label.textContent = 'a word from the house';
     const body = document.createElement('div');
     body.className = 'msg-body';
     body.textContent = text;
-    article.appendChild(body);
+    article.append(label, body);
     return article;
   }
 
   async function renderThread() {
     els.thread.textContent = '';
     const story = await activeStory();
+    const showThinking = (await db.settings.get('showThinking')) !== false;
+    const connections = els.noConnection ? await db.connections.list() : [];
     if (!story) {
       els.threadEmpty.hidden = false;
       els.threadEmpty.textContent = stories.length
         ? 'Pick a tale from the shelf, or start a new one.'
-        : 'No tales yet. Start a new story and the tavern will open its doors.';
+        : 'No tales yet. Say something below and the tavern will open its doors.';
+      /* M8 empty state: no connection gets its own warm call to begin. */
+      if (els.noConnection) els.noConnection.hidden = connections.length > 0;
+      refreshEmber();
       return;
     }
     const history = await db.messages.list(story.id);
     els.threadEmpty.hidden = history.length > 0;
     els.threadEmpty.textContent = 'Nothing on the page yet. Say something to begin.';
-    for (const msg of history) els.thread.appendChild(msgNode(msg));
+    if (els.noConnection) {
+      els.noConnection.hidden = connections.length > 0 || history.length > 0;
+    }
+    for (const msg of history) els.thread.appendChild(msgNode(msg, showThinking));
     scrollToBottom();
+    refreshEmber();
+  }
+
+  /* ---------- the ember bar & composer meta (M8) ---------- */
+
+  /* How much of the model's room the last turn took: the last receipt's
+   * totalTokens against the connection's contextSize (200k when unnamed).
+   * Past 72% the bar glows; past 85% the label itself warms. */
+  async function refreshEmber() {
+    if (!els.emberFill) return;
+    const story = await activeStory();
+    let receipt = null;
+    if (story) {
+      const history = await db.messages.list(story.id);
+      const last = [...history].reverse().find((m) => m && m.receipt && typeof m.receipt.totalTokens === 'number');
+      receipt = last ? last.receipt : null;
+    }
+    const connection = await resolveConnection();
+    const size = connection && typeof connection.contextSize === 'number' && connection.contextSize > 0
+      ? connection.contextSize
+      : 200000;
+    const total = receipt ? receipt.totalTokens : 0;
+    const pct = total ? Math.min(100, Math.max(1, (total / size) * 100)) : 0;
+    els.emberFill.style.width = pct + '%';
+    els.emberBar.classList.toggle('hot', pct > 72);
+    if (els.metaContext) {
+      els.metaContext.textContent = total
+        ? '~' + total.toLocaleString() + ' of ~' + size.toLocaleString() + ' tokens in the room'
+        : '';
+      els.metaContext.classList.toggle('hot', pct > 85);
+    }
   }
 
   /* ---------- the send path (one call per turn, nothing else) ---------- */
@@ -349,6 +461,29 @@ export function initChat(ctx) {
     };
   }
 
+  /* M8.5: which thinking voice speaks this turn. The story's own choice
+   * wins; otherwise the connection's; otherwise the voice stays off. */
+  function effectiveReasoning(connection, story) {
+    const override = story && typeof story.reasoningEffort === 'string' ? story.reasoningEffort : '';
+    if (override === 'low' || override === 'medium' || override === 'high') return { effort: override };
+    if (override === 'off') return { effort: 'off' };
+    const r = connection && connection.reasoning;
+    if (r && (r.effort === 'low' || r.effort === 'medium' || r.effort === 'high')) return r;
+    return { effort: 'off' };
+  }
+
+  /* The kind inline note under the composer (M8): says what the tavern
+   * needs and keeps every typed word. */
+  function showComposerNote(words) {
+    if (!els.composerNote) return;
+    els.composerNote.textContent = words;
+    els.composerNote.hidden = false;
+  }
+
+  function hideComposerNote() {
+    if (els.composerNote) els.composerNote.hidden = true;
+  }
+
   /* busy is set synchronously by callers before the first await, so two
    * quick submits can't slip both sends through the door. Every path out
    * of generate() sets it false again. */
@@ -361,10 +496,12 @@ export function initChat(ctx) {
       els.thread.appendChild(noteNode(
         'There’s no connection yet. Add one in Settings and the tavern can open its doors.'
       ));
+      showComposerNote('The tavern needs a storyteller first — add a connection.');
       scrollToBottom();
       busy = false;
       return;
     }
+    hideComposerNote();
 
     const history = await db.messages.list(story.id);
     const settingsValues = await gatherSettings();
@@ -439,10 +576,20 @@ export function initChat(ctx) {
       } catch (err) { /* the turn is already assembled; never mind */ }
     }
 
-    const provider = createProvider(connection);
+    /* M8.5: the thinking voice for this turn — the story's choice wins
+     * over the connection's; 'off' sends nothing. */
+    const reasoning = effectiveReasoning(connection, story);
+    const provider = createProvider({ ...connection, reasoning });
+    const showThinking = (await db.settings.get('showThinking')) !== false;
 
     const pending = document.createElement('article');
     pending.className = 'msg msg-assistant pending';
+    const pendingLabel = document.createElement('div');
+    pendingLabel.className = 'msg-label lbl';
+    pendingLabel.textContent = 'the storyteller';
+    pending.appendChild(pendingLabel);
+    let thinkDetails = null;
+    let thinkBody = null;
     const body = document.createElement('div');
     body.className = 'msg-body';
     pending.appendChild(body);
@@ -451,58 +598,97 @@ export function initChat(ctx) {
 
     abort = new AbortController();
     els.btnStop.hidden = false;
-    els.btnSend.disabled = true;
+    els.btnSend.hidden = true;
 
     let full = '';
+    let thinking = '';
+    let sawProse = false;
+    let stoppedByHand = false;
     let receipt = null;
     try {
       const result = await provider.streamChat({
         systemBlocks,
         messages,
         signal: abort.signal,
-        onToken(piece) {
-          full += piece;
+        onToken({ channel, text }) {
+          if (channel === 'thinking') {
+            thinking += text;
+            if (showThinking) {
+              if (!thinkDetails) {
+                thinkDetails = thinkingNode('');
+                thinkBody = thinkDetails.querySelector('.thinking-body');
+                pending.insertBefore(thinkDetails, body);
+              }
+              thinkBody.textContent = thinking;
+              /* open while it weighs the page… */
+              if (!sawProse) thinkDetails.open = true;
+            }
+          } else {
+            if (!sawProse) {
+              sawProse = true;
+              /* …folded away again the moment the first word lands. */
+              if (thinkDetails) thinkDetails.open = false;
+            }
+            full += text;
+            body.textContent = full;
+          }
           const stick = nearBottom();
-          body.textContent = full;
           if (stick) scrollToBottom();
         },
       });
       full = result.text;
+      thinking = result.thinking || thinking;
       receipt = finalizeReceipt(receiptDraft, {
         ttftMs: result.ttftMs,
+        tfftMs: result.tfftMs,
         durationMs: result.durationMs,
         model: connection.model || '',
+        effort: reasoning.effort === 'off' ? '' : reasoning.effort,
       });
     } catch (err) {
       if (err && err.name === 'AbortError') {
-        /* stopped by hand — keep whatever arrived; no receipt, the turn
-         * never finished telling itself */
+        /* stopped by hand — keep whatever arrived, plainly labeled; no
+         * receipt, the turn never finished telling itself */
+        stoppedByHand = true;
       } else {
         pending.replaceWith(noteNode(err.message || 'The storyteller went quiet. Try again in a moment.'));
         full = '';
+        thinking = '';
       }
     } finally {
       abort = null;
       busy = false;
       els.btnStop.hidden = true;
-      els.btnSend.disabled = false;
+      els.btnSend.hidden = false;
       els.input.focus();
     }
 
     pending.classList.remove('pending');
     if (full.trim()) {
-      const saved = await db.messages.append(story.id, { role: 'assistant', text: full, receipt });
-      pending.dataset.id = saved.id;
-      if (saved.receipt) pending.appendChild(receiptNode(saved.receipt, saved.extraction, saved.findings));
+      const saved = await db.messages.append(story.id, {
+        role: 'assistant',
+        text: full,
+        thinking: thinking || undefined,
+        receipt,
+        stopped: stoppedByHand || undefined,
+      });
+      /* Re-render from the saved page: the folded thinking block, the
+       * "stopped mid-sentence" label, the receipt line and the action row
+       * all come from the one builder. */
+      pending.replaceWith(msgNode(saved, showThinking));
+      scrollToBottom();
       stories = await db.stories.list();
       renderStoryList();
       if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+      refreshEmber();
 
       /* M3/M6: the page is finished — hand it to the workers, in the
        * background, only if this story keeps its ledger (default: it does).
        * The fan-out order is law: extractor → memory keeper → continuity.
-       * The workers never touch the stream; they read what it left behind. */
-      if (story.extraction !== false) {
+       * The workers never touch the stream; they read what it left behind.
+       * A page stopped by hand mid-sentence stays unread — half a page is
+       * no page to learn from. */
+      if (story.extraction !== false && !stoppedByHand) {
         startBackgroundWork(story, saved, userText);
       }
     } else {
@@ -510,12 +696,36 @@ export function initChat(ctx) {
     }
   }
 
+  /* M8: the composer never swallows words. With no story it starts one,
+   * named from the first words; with no connection it says so kindly under
+   * the composer and hands the text back, unsent but never lost. Only when
+   * a connection stands does the page leave the composer. */
   async function send(text) {
     if (busy) return;
     busy = true;
-    const story = await activeStory();
-    if (!story) { busy = false; return; }
+    let story = await activeStory();
+    if (!story) {
+      const oneLine = text.replace(/\s+/g, ' ').trim();
+      const title = oneLine.length > 40 ? oneLine.slice(0, 40).trimEnd() + '…' : oneLine;
+      story = await db.stories.create({ title });
+      ctx.setActiveStoryId(story.id);
+      await refreshStories(true);
+      if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+    }
+    const connection = await resolveConnection();
+    if (!connection) {
+      showComposerNote('The tavern needs a storyteller first — add a connection, and these words will still be waiting.');
+      els.input.value = text;
+      els.input.style.height = 'auto';
+      els.input.style.height = Math.min(els.input.scrollHeight, 190) + 'px';
+      els.input.focus();
+      busy = false;
+      return;
+    }
+    hideComposerNote();
     els.threadEmpty.hidden = true;
+    els.input.value = '';
+    els.input.style.height = '';
 
     const saved = await db.messages.append(story.id, { role: 'user', text });
     els.thread.appendChild(msgNode(saved));
@@ -524,6 +734,7 @@ export function initChat(ctx) {
     await generate();
     stories = await db.stories.list();
     renderStoryList();
+    refreshEmber();
   }
 
   /* ---------- regenerate ("rewrite from here") ---------- */
@@ -602,18 +813,48 @@ export function initChat(ctx) {
     const id = menuFor;
     hideMenu();
     if (btn.dataset.act === 'copy') {
-      const story = await activeStory();
-      const history = story ? await db.messages.list(story.id) : [];
-      const msg = history.find((m) => m.id === id);
-      if (msg) {
-        try {
-          await navigator.clipboard.writeText(msg.text);
-        } catch (err) {
-          window.prompt('Copy it by hand, then:', msg.text);
-        }
-      }
+      copyMessage(id);
     } else if (btn.dataset.act === 'regenerate') {
       regenerateFrom(id);
+    }
+  });
+
+  /* ---------- hover/focus message actions (M8) ---------- */
+
+  async function copyMessage(id) {
+    const story = await activeStory();
+    const history = story ? await db.messages.list(story.id) : [];
+    const msg = history.find((m) => m.id === id);
+    if (!msg) return;
+    try {
+      await navigator.clipboard.writeText(msg.text);
+      toast('Copied.');
+    } catch (err) {
+      window.prompt('Copy it by hand, then:', msg.text);
+    }
+  }
+
+  /* copy and delete are wired now; edit, swipe and branch are honest about
+   * being on their way (M9) — tapped, they say so and never dead-end. */
+  els.thread.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.msg-act');
+    if (!btn) return;
+    const act = btn.dataset.act;
+    const id = btn.dataset.id;
+    if (act === 'copy') {
+      copyMessage(id);
+    } else if (act === 'delete') {
+      const story = await activeStory();
+      if (!story || busy) return;
+      const ok = window.confirm('Let this page go? The ones around it stay exactly as written.');
+      if (!ok) return;
+      await db.messages.remove(story.id, id);
+      const node = els.thread.querySelector(`.msg[data-id="${id}"]`);
+      if (node) node.remove();
+      refreshEmber();
+      toast('The page is gone.');
+    } else {
+      toast('That one is still finding its feet — landing with the next wave.');
     }
   });
 
@@ -638,12 +879,12 @@ export function initChat(ctx) {
 
   /* ---------- composer & new-story form ---------- */
 
+  /* The words stay in the composer until send() knows they can fly —
+   * nothing typed is ever lost (M8). */
   els.composer.addEventListener('submit', (e) => {
     e.preventDefault();
     const text = els.input.value.trim();
     if (!text || busy) return;
-    els.input.value = '';
-    els.input.style.height = '';
     send(text);
   });
 
@@ -656,12 +897,30 @@ export function initChat(ctx) {
 
   els.input.addEventListener('input', () => {
     els.input.style.height = 'auto';
-    els.input.style.height = Math.min(els.input.scrollHeight, window.innerHeight * 0.4) + 'px';
+    els.input.style.height = Math.min(els.input.scrollHeight, 190) + 'px';
   });
 
   els.btnStop.addEventListener('click', () => {
     if (abort) abort.abort();
   });
+
+  /* The composer's quiet meta links — deep links into Settings. */
+  document.querySelectorAll('.composer-meta [data-goto]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      location.hash = '#/settings';
+      const target = document.getElementById(btn.dataset.goto);
+      if (target) setTimeout(() => target.scrollIntoView({ block: 'start' }), 80);
+    });
+  });
+
+  /* The "no connection yet" empty state: one tap to the settings floor. */
+  if (els.btnAddFirstConnection) {
+    els.btnAddFirstConnection.addEventListener('click', () => {
+      location.hash = '#/settings';
+      const target = document.getElementById('section-connections');
+      if (target) setTimeout(() => target.scrollIntoView({ block: 'start' }), 80);
+    });
+  }
 
   els.btnNew.addEventListener('click', () => {
     els.newForm.hidden = false;

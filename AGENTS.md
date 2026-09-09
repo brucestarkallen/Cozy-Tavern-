@@ -619,3 +619,15 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   keys is a later milestone's call, if ever.
 - Nothing from imports writes to the canon store yet; locked truths stay
   hand-set or engine-earned.
+
+---
+
+# M8 + M8.5 — hearth design + the thinking voice
+- onToken signature is now channel-aware: onToken({channel:'thinking'|'prose', text}).
+- streamChat resolves {text, thinking, ttftMs, tfftMs, durationMs}. ttft = first PROSE; tfft = first THOUGHT (null when quiet).
+- Connections carry: temperature, topP, maxTokens (default 4096), contextSize, reasoning {effort:'off|low|medium|high', budgetTokens?}. Provider mapping: anthropic thinking{budget_tokens} + FORCES temperature:1 and drops top_p (effort→budget low 2048 / medium 8192 / high 24576, explicit budget wins); openai reasoning_effort; openrouter reasoning{effort|max_tokens}; custom openai passthrough.
+- openai-compatible parser routes delta.reasoning_content ?? delta.reasoning to the thinking channel; a leading literal <think>…</think> in the prose channel is split out by a stream state machine (chunk-safe).
+- Messages may carry msg.thinking (persisted) and msg.stopped (user aborted mid-stream; UI labels "stopped mid-sentence").
+- store.js: messages.remove(storyId, messageId) added; connections.update treats null as "leave the dial alone".
+- First-send with no story auto-creates one named from the first words; no-connection send keeps the text and shows a kind inline note. Composer never silently swallows words (B2 killed at the root).
+- Design tokens: Hearth (dark, default) + Parchment themes per SPEC M8 exact sheet; serif --font-prose kept for prose/headings; theme key stays 'theme'.

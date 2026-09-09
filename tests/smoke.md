@@ -529,3 +529,11 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 - `node --check` clean on every `.js` file; sw.js cache bumped (v6) with
   the three new import modules in the shell list; README.md rewritten as
   the v1 front door.
+
+## M8/M8.5 additions
+38. First run: no story, no connection — type words, Send → story is auto-created from the words; a kind note asks for a connection; typed text is never lost.
+39. Connection editor: "Fetch what's on offer" lists models (openai-compatible + anthropic); thinking effort control; temperature/top-p/longest reply/context size dials persist.
+40. Reasoning on (Claude or reasoning_content provider): thinking streams into the folded "what the storyteller weighed" block; folds when prose starts; persists folded after reload; receipt shows first-thought/first-word timings + effort.
+41. Stop mid-stream: partial page kept, labeled "stopped mid-sentence".
+42. Ember bar fills with context use; glows past 72%.
+43. Themes: hearth (dark, default) and parchment both render; choice persists.

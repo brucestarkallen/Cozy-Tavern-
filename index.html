@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Cozy Tavern</title>
   <meta name="description" content="A quiet place to tell stories, one exchange at a time.">
-  <meta name="theme-color" content="#f6f1e7">
+  <meta name="theme-color" content="#16120f">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
@@ -48,14 +48,32 @@
       <section class="thread-wrap" aria-label="The story so far">
         <div id="thread" class="thread"></div>
         <p id="thread-empty" class="thread-empty quiet" hidden>Nothing on the page yet. Say something to begin.</p>
-        <form id="composer" class="composer">
-          <label for="composer-input" class="visually-hidden">What's next?</label>
-          <textarea id="composer-input" rows="2" placeholder="What's next?"></textarea>
-          <div class="composer-actions">
-            <button id="btn-send" class="btn" type="submit">Send</button>
-            <button id="btn-stop" class="btn btn-quiet" type="button" hidden>Stop</button>
+        <div id="no-connection" class="no-connection" hidden>
+          <p>Add a connection to begin — it stays on this device.</p>
+          <button id="btn-add-first-connection" class="btn" type="button">Add a connection</button>
+        </div>
+        <div class="composer-zone">
+          <div id="ember-bar" class="ember-bar" role="presentation"><div id="ember-fill" class="ember-fill"></div></div>
+          <form id="composer" class="composer">
+            <label for="composer-input" class="visually-hidden">What's next?</label>
+            <textarea id="composer-input" rows="1" placeholder="What's next?"></textarea>
+            <button id="btn-send" class="send-btn" type="submit" aria-label="Send">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button id="btn-stop" class="send-btn stop" type="button" hidden aria-label="Stop the telling, keep what's written">
+              <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></svg>
+            </button>
+          </form>
+          <p id="composer-note" class="composer-note" hidden></p>
+          <div class="composer-meta">
+            <span id="meta-context" class="meta-left"></span>
+            <span class="meta-links">
+              <button type="button" data-goto="section-frame">The frame</button> ·
+              <button type="button" data-goto="section-note">The note</button> ·
+              <button type="button" data-goto="section-rulebook">Rulebook</button>
+            </span>
           </div>
-        </form>
+        </div>
       </section>
     </section>
 
@@ -95,6 +113,36 @@
               <input id="conn-model" type="text" placeholder="claude-sonnet-4-5" autocomplete="off" spellcheck="false">
             </label>
             <div class="row">
+              <button type="button" id="btn-fetch-models" class="text-btn">Fetch what's on offer</button>
+            </div>
+            <p id="conn-models-note" class="quiet" hidden></p>
+            <label id="conn-models-label" hidden>What's on offer
+              <select id="conn-models"></select>
+            </label>
+            <label>Thinking — how long the storyteller weighs the page before writing
+              <select id="conn-reasoning">
+                <option value="off">Off — straight to the words</option>
+                <option value="low">Low — a quick weighing</option>
+                <option value="medium">Medium — a considered weighing</option>
+                <option value="high">High — a deep weighing</option>
+              </select>
+            </label>
+            <label>Thinking room, in tokens (optional)
+              <input id="conn-budget" type="number" min="512" step="512" placeholder="Leave empty to follow the effort" autocomplete="off">
+            </label>
+            <label>Temperature (0–2)
+              <input id="conn-temperature" type="number" min="0" max="2" step="0.1" placeholder="Their own default" autocomplete="off">
+            </label>
+            <label>Top-p (0–1)
+              <input id="conn-topp" type="number" min="0" max="1" step="0.05" placeholder="Their own default" autocomplete="off">
+            </label>
+            <label>Longest reply, in tokens
+              <input id="conn-maxtokens" type="number" min="1" step="256" placeholder="The house default" autocomplete="off">
+            </label>
+            <label>The model's room, in tokens (feeds the ember bar)
+              <input id="conn-contextsize" type="number" min="1000" step="1000" placeholder="200000" autocomplete="off">
+            </label>
+            <div class="row">
               <button type="submit" class="btn">Keep it</button>
               <button type="button" id="btn-conn-cancel" class="text-btn">Not now</button>
             </div>
@@ -108,9 +156,11 @@
           <textarea id="frame-global" rows="8" spellcheck="false"></textarea>
           <div class="row"><button id="btn-save-frame" class="btn" type="button">Keep it</button><span id="frame-saved" class="quiet" hidden>Kept.</span></div>
 
-          <label class="stack-label" for="frame-story">Just for <span id="frame-story-name">this story</span></label>
-          <textarea id="frame-story" rows="6" spellcheck="false" placeholder="Leave empty and the story borrows the one above."></textarea>
-          <div class="row"><button id="btn-save-frame-story" class="btn" type="button">Keep it</button><span id="frame-story-saved" class="quiet" hidden>Kept.</span></div>
+          <div class="override-block">
+            <span class="lbl">Just for <span id="frame-story-name">this story</span></span>
+            <textarea id="frame-story" rows="6" spellcheck="false" placeholder="Leave empty and the story borrows the one above."></textarea>
+            <div class="row"><button id="btn-save-frame-story" class="btn" type="button">Keep it</button><span id="frame-story-saved" class="quiet" hidden>Kept.</span></div>
+          </div>
         </section>
 
         <section class="settings-section" id="section-note">
@@ -120,25 +170,31 @@
           <textarea id="note-global" rows="5" spellcheck="false"></textarea>
           <div class="row"><button id="btn-save-note" class="btn" type="button">Keep it</button><span id="note-saved" class="quiet" hidden>Kept.</span></div>
 
-          <label class="stack-label" for="note-story">Just for <span id="note-story-name">this story</span></label>
-          <textarea id="note-story" rows="4" spellcheck="false" placeholder="Leave empty and the story borrows the one above."></textarea>
-          <div class="row"><button id="btn-save-note-story" class="btn" type="button">Keep it</button><span id="note-story-saved" class="quiet" hidden>Kept.</span></div>
+          <div class="override-block">
+            <span class="lbl">Just for <span id="note-story-name">this story</span></span>
+            <textarea id="note-story" rows="4" spellcheck="false" placeholder="Leave empty and the story borrows the one above."></textarea>
+            <div class="row"><button id="btn-save-note-story" class="btn" type="button">Keep it</button><span id="note-story-saved" class="quiet" hidden>Kept.</span></div>
+          </div>
         </section>
 
         <section class="settings-section" id="section-brief">
           <h3>The brief</h3>
           <p class="quiet">What this one story is about, in a few lines of your own. It reaches the storyteller right after the frame.</p>
-          <label class="stack-label" for="brief-story">Just for <span id="brief-story-name">this story</span></label>
-          <textarea id="brief-story" rows="5" spellcheck="false" placeholder="A quiet tale about…"></textarea>
-          <div class="row"><button id="btn-save-brief" class="btn" type="button">Keep it</button><span id="brief-saved" class="quiet" hidden>Kept.</span></div>
+          <div class="override-block">
+            <span class="lbl">Just for <span id="brief-story-name">this story</span></span>
+            <textarea id="brief-story" rows="5" spellcheck="false" placeholder="A quiet tale about…"></textarea>
+            <div class="row"><button id="btn-save-brief" class="btn" type="button">Keep it</button><span id="brief-saved" class="quiet" hidden>Kept.</span></div>
+          </div>
         </section>
 
         <section class="settings-section" id="section-cast">
           <h3>Who's here</h3>
           <p class="quiet">The cast of this story, in your own words — who's who, and how they'd sign their names. A name marked she/her helps one of the house rules wake at the right moment.</p>
-          <label class="stack-label" for="cast-story">Just for <span id="cast-story-name">this story</span></label>
-          <textarea id="cast-story" rows="5" spellcheck="false" placeholder="Mira — she/her — a cartographer paying off an old debt…"></textarea>
-          <div class="row"><button id="btn-save-cast" class="btn" type="button">Keep it</button><span id="cast-saved" class="quiet" hidden>Kept.</span></div>
+          <div class="override-block">
+            <span class="lbl">Just for <span id="cast-story-name">this story</span></span>
+            <textarea id="cast-story" rows="5" spellcheck="false" placeholder="Mira — she/her — a cartographer paying off an old debt…"></textarea>
+            <div class="row"><button id="btn-save-cast" class="btn" type="button">Keep it</button><span id="cast-saved" class="quiet" hidden>Kept.</span></div>
+          </div>
         </section>
 
         <section class="settings-section" id="section-rulebook">
@@ -248,6 +304,24 @@
           <p class="quiet">The second reader only notes drift in the ledger ("Something drifted") and on the receipt — it never touches the words themselves.</p>
         </section>
 
+        <section class="settings-section" id="section-thinking">
+          <h3>The thinking voice</h3>
+          <p class="quiet">Some storytellers weigh the page aloud before writing it. The weighing rides its own channel and rests, folded, above the prose as "what the storyteller weighed". How hard the storyteller thinks is set on each connection above; here the story gets its own say, and you choose whether the weighing shows at all.</p>
+          <div class="override-block">
+            <span class="lbl">Just for <span id="thinking-story-name">this story</span></span>
+            <select id="thinking-story" aria-label="Thinking effort, just for this story">
+              <option value="">Follow the connection</option>
+              <option value="off">Off — straight to the words</option>
+              <option value="low">Low — a quick weighing</option>
+              <option value="medium">Medium — a considered weighing</option>
+              <option value="high">High — a deep weighing</option>
+            </select>
+          </div>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="show-thinking"> Show what the storyteller weighed</label>
+          </div>
+        </section>
+
         <section class="settings-section" id="section-appearance">
           <h3>Appearance</h3>
           <fieldset class="theme-field">
@@ -308,6 +382,9 @@
     <button type="button" role="menuitem" data-act="copy">Copy the words</button>
     <button type="button" role="menuitem" data-act="regenerate">Rewrite from here</button>
   </div>
+
+  <!-- Toasts: small warm words, bottom-centred, gone in a breath -->
+  <div id="toasts" class="toasts" aria-live="polite"></div>
 
   <script type="module" src="js/app.js"></script>
 </body>

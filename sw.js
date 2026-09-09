@@ -4,7 +4,7 @@
  * and are never cached or intercepted. */
 'use strict';
 
-const CACHE = 'cozytavern-shell-v6';
+const CACHE = 'cozytavern-shell-v7';
 
 const SHELL = [
   './',

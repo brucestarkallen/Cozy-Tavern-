@@ -8,20 +8,23 @@ import { initChat } from './ui/chat.js';
 import { initSettings } from './ui/settings.js';
 import { initDrawer } from './ui/drawer.js';
 
-/* ---------- theme: follow the sky unless told otherwise ---------- */
+/* ---------- theme: lamplight by default; "follow the sky" is a choice ----
+ * M8: the hearth (dark) is the default face. Nothing stored → dark. The
+ * "system" choice still follows the sky and listens for its changes. */
 
-const sky = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-let themeMode = 'system';
+const sky = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+let themeMode = 'dark';
 
 function resolveTheme() {
   if (themeMode === 'dark' || themeMode === 'light') return themeMode;
-  return sky && sky.matches ? 'dark' : 'light';
+  /* system mode: follow the sky, hearth when the sky is silent */
+  return sky && sky.matches ? 'light' : 'dark';
 }
 
 function applyTheme() {
   document.documentElement.dataset.theme = resolveTheme();
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', resolveTheme() === 'dark' ? '#211c16' : '#f6f1e7');
+  if (meta) meta.setAttribute('content', resolveTheme() === 'dark' ? '#16120f' : '#f5efe4');
 }
 
 function setTheme(mode) {
@@ -30,12 +33,42 @@ function setTheme(mode) {
 }
 
 async function applyStoredTheme() {
-  themeMode = (await db.settings.get('theme')) || 'system';
+  themeMode = (await db.settings.get('theme')) || 'dark';
   applyTheme();
 }
 
 if (sky && sky.addEventListener) {
   sky.addEventListener('change', () => { if (themeMode === 'system') applyTheme(); });
+}
+
+/* ---------- the visible viewport (--vvh), keyboard-safe (M8) ---------- */
+
+function setVvh() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--vvh', h + 'px');
+}
+
+setVvh();
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', setVvh);
+} else {
+  window.addEventListener('resize', setVvh);
+}
+
+/* ---------- toasts: small warm words, bottom-centred (M8) ---------- */
+
+function toast(words) {
+  const host = document.getElementById('toasts');
+  if (!host) return;
+  const pill = document.createElement('div');
+  pill.className = 'toast';
+  pill.textContent = words;
+  host.appendChild(pill);
+  requestAnimationFrame(() => pill.classList.add('show'));
+  setTimeout(() => {
+    pill.classList.remove('show');
+    setTimeout(() => pill.remove(), 250);
+  }, 2600);
 }
 
 /* ---------- active story ---------- */
@@ -59,6 +92,7 @@ const ctx = {
   setActiveStoryId,
   setTheme,
   applyStoredTheme,
+  toast,
   /* filled in by the ui modules: */
   chat: null,
   settings: null,

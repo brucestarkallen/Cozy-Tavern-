@@ -1,4 +1,7 @@
-/* Cozy Tavern — right drawer: the story's ledger. */
+/* Cozy Tavern — right drawer: the story's ledger. Hearth system (M8):
+ * sheets rest on --bg-2 with the large radius and the house shadow, enter
+ * with the shared rise-and-settle, and become keyboard-safe bottom sheets
+ * on small screens. */
 
 .drawer {
   position: fixed;
@@ -6,23 +9,46 @@
   bottom: 0;
   right: 0;
   z-index: 50;
-  width: min(20rem, 88vw);
-  background: var(--paper-raised);
-  border-left: 1px solid var(--line);
-  box-shadow: -4px 0 24px var(--shadow);
+  width: min(22rem, 88vw);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg) 0 0 var(--r-lg);
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   padding: 1rem;
   padding-top: calc(1rem + env(safe-area-inset-top));
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(1rem + var(--safe-b));
   padding-right: calc(1rem + env(safe-area-inset-right));
-  transform: translateX(105%);
-  transition: transform 180ms ease;
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  pointer-events: none;
+  transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1), opacity 0.18s;
   overflow-y: auto;
 }
 
 .drawer[hidden] { display: none; }
-.drawer.open { transform: translateX(0); }
+
+.drawer.open {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* Small screens: the sheets become full-height bottom sheets, sized from
+ * the visible viewport so the keyboard never swallows them. */
+@media (max-width: 720px) {
+  .drawer, .receipt-sheet {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: calc(var(--vvh, 100vh) - 44px);
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    border-right: none;
+  }
+}
 
 .drawer-head {
   display: flex;
@@ -32,7 +58,7 @@
   margin-bottom: 1rem;
 }
 
-.drawer-head h2 { font-size: 1.2rem; }
+.drawer-head h2 { font-size: 1.22em; }
 
 .drawer-panels {
   display: flex;
@@ -41,15 +67,14 @@
 }
 
 .ledger-panel h3 {
-  font-size: 1.05rem;
   padding-bottom: 0.35rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border-soft);
   margin-bottom: 0.5rem;
 }
 
 .ledger-panel p {
   margin: 0;
-  color: var(--ink-soft);
+  color: var(--text-2);
   font-size: 0.92rem;
 }
 
@@ -81,7 +106,7 @@
   border-radius: 8px;
 }
 
-.present-row:hover { background: var(--paper-sunken); }
+.present-row:hover { background: var(--surface); }
 
 .present-form {
   display: flex;
@@ -107,7 +132,7 @@
 .clock-label {
   font-family: var(--font-prose);
   font-size: 1rem;
-  color: var(--ink) !important;
+  color: var(--text) !important;
 }
 
 .clock-set-form {
@@ -122,7 +147,7 @@
   flex-direction: column;
   gap: 0.15rem;
   font-size: 0.78rem;
-  color: var(--ink-soft);
+  color: var(--text-2);
   flex: 1 1 4rem;
   min-width: 3.4rem;
 }
@@ -155,20 +180,20 @@
   align-items: flex-start;
   gap: 0.15rem;
   font-size: 0.92rem;
-  color: var(--ink);
+  color: var(--text);
 }
 
-.log-row.undone { color: var(--ink-soft); }
+.log-row.undone { color: var(--text-2); }
 
 /* ---------- the receipt's "After this turn" ---------- */
 
 .receipt-after {
   margin-top: 1rem;
   padding-top: 0.6rem;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border-soft);
 }
 
-.receipt-after h3 { font-size: 1rem; margin-bottom: 0.35rem; }
+.receipt-after h3 { margin-bottom: 0.35rem; }
 
 .receipt-after-list {
   margin: 0;
@@ -223,13 +248,13 @@
 .verdict-line {
   font-family: var(--font-prose);
   font-size: 0.98rem;
-  color: var(--ink) !important;
+  color: var(--text) !important;
 }
 
-.log-row.drift-warn span { color: var(--ink); }
+.log-row.drift-warn span { color: var(--text); }
 
 /* ---------- M7: the invited cast in "Who's here" ---------- */
 
 .cast-head { margin-top: 0.6rem !important; }
 
-.present-editor .cast-head { color: var(--ink-soft); }
+.present-editor .cast-head { color: var(--text-2); }
