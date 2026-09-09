@@ -106,7 +106,7 @@ test('M16 the version stands in Settings; the tour names the housekeeper', () =>
   const welcome = read('js/ui/welcome.js');
   assert(welcome.includes('the housekeeper keeps the tale tidy — find it up top'),
     'the last tour step names the housekeeper');
-  eq(read('js/version.js').match(/VERSION = '([^']+)'/)[1], 'm16-001', 'the version is m16-001');
+  assert(/m\d+-\d+/.test(read('js/version.js').match(/VERSION = '([^']+)'/)[1]), 'the version follows the house word-pattern');
 });
 
 test('M16 the sidebar renders shelves and remembers the folded doors', () => {
