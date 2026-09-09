@@ -593,6 +593,9 @@ export function initHousekeeper(ctx) {
     sheet.hidden = false;
     scrim.hidden = false;
     requestAnimationFrame(() => sheet.classList.add('open'));
+    /* M14: the header keeps the ember on the room that's open. */
+    const btn = document.getElementById('btn-housekeeper');
+    if (btn) btn.classList.add('current');
     await ensureSession();
     render();
     await Promise.all([loadRules(), refreshStatusLine()]);
@@ -606,6 +609,8 @@ export function initHousekeeper(ctx) {
     sheet.classList.remove('open');
     scrim.hidden = true;
     setTimeout(() => { sheet.hidden = true; }, 220);
+    const btn = document.getElementById('btn-housekeeper');
+    if (btn) btn.classList.remove('current');
   }
 
   closeBtn.addEventListener('click', closeSheet);

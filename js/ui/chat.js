@@ -59,6 +59,67 @@ import { loadLore, matchLoreDetailed } from '../import/lorebook.js';
 import { parseCommand, commandChip } from '../commands.js';
 import { openReceipt } from './receiptview.js';
 
+/* ---------- M14: THE HEARTH — the empty room is never a void ----------
+ * When no tale is open (or the open one has no pages yet), the thread area
+ * shows the hearth: the open-book mark, a lamplight greeting, and a few
+ * starter chips whose seed lines drop into the composer (the writer edits
+ * or sends as-is — the auto-create flow does the rest). All copy lives
+ * here, at the top, editable. */
+export const HEARTH_GREETING = 'The lamps are lit. What story tonight?';
+export const HEARTH_PICKUP = '…or pick up a tale from the left.';
+export const HEARTH_CHIPS = [
+  {
+    label: 'Begin a slow-burn fantasy',
+    seed: 'Begin a slow-burn fantasy — a small village at the edge of an old forest, and a stranger who arrives at dusk.',
+  },
+  {
+    label: 'A mystery in the rain',
+    seed: 'A mystery in the rain — a city street shining wet at night, and a knock at the wrong door.',
+  },
+  {
+    label: 'Just start — I’ll follow',
+    seed: 'Just start — open on any scene you like, and I’ll follow.',
+  },
+];
+
+/* The hearth's DOM, built here so the harness can hold it to account
+ * without booting the whole chat view. onSeed(chip.seed) is how a tapped
+ * chip reaches the composer. */
+export function buildHearth({ hasStories = false, onSeed } = {}) {
+  const hearth = document.createElement('div');
+  hearth.className = 'hearth';
+
+  const mark = document.createElement('img');
+  mark.src = 'assets/icon.svg';
+  mark.alt = '';
+  mark.className = 'hearth-mark';
+  mark.setAttribute('aria-hidden', 'true');
+
+  const greeting = document.createElement('p');
+  greeting.className = 'hearth-greeting';
+  greeting.textContent = HEARTH_GREETING;
+
+  const chips = document.createElement('div');
+  chips.className = 'hearth-chips';
+  for (const chip of HEARTH_CHIPS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hearth-chip';
+    btn.textContent = chip.label;
+    btn.addEventListener('click', () => { if (onSeed) onSeed(chip.seed); });
+    chips.appendChild(btn);
+  }
+
+  hearth.append(mark, greeting, chips);
+  if (hasStories) {
+    const pickup = document.createElement('p');
+    pickup.className = 'hearth-pickup quiet';
+    pickup.textContent = HEARTH_PICKUP;
+    hearth.appendChild(pickup);
+  }
+  return hearth;
+}
+
 /* Which workers wake for this story, as one pure decision (M9, B12) —
  * exported so the harness can hold it to account. Each worker answers to
  * its own per-story switch; an unset per-story switch falls back to the
@@ -100,6 +161,7 @@ export function initChat(ctx) {
   };
 
   let stories = [];
+  let pageCounts = new Map();
   let busy = false;
   let abort = null;
   /* B18: what the thread last rendered, so new pages can simply append. */
@@ -126,6 +188,21 @@ export function initChat(ctx) {
       : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
 
+  /* M14: the shelf speaks in relative time — "an hour ago", "yesterday" —
+   * the way a reader remembers, not a database. */
+  function fmtRelative(ts) {
+    if (!ts) return '';
+    const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins === 1 ? 'a minute ago' : mins + ' minutes ago';
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return hours === 1 ? 'an hour ago' : hours + ' hours ago';
+    const days = Math.round(hours / 24);
+    if (days === 1) return 'yesterday';
+    if (days < 30) return days + ' days ago';
+    return fmtWhen(ts);
+  }
+
   function nearBottom() {
     const t = els.thread;
     return t.scrollHeight - t.scrollTop - t.clientHeight < 120;
@@ -140,10 +217,41 @@ export function initChat(ctx) {
     return id ? db.stories.get(id) : undefined;
   }
 
+  /* ---------- the hearth (M14): warmth in the empty room ---------- */
+
+  /* A tapped chip drops its seed line into the composer — the writer edits
+   * or sends as-is; the auto-create flow opens a story from the words. */
+  function seedComposer(seed) {
+    els.input.value = seed;
+    els.input.style.height = 'auto';
+    els.input.style.height = Math.min(els.input.scrollHeight, 190) + 'px';
+    if (els.composerChip) {
+      const chip = commandChip(els.input.value);
+      els.composerChip.textContent = chip;
+      els.composerChip.hidden = !chip;
+    }
+    els.input.focus();
+  }
+
+  function showHearth(hasStories) {
+    hideHearth();
+    els.thread.appendChild(buildHearth({ hasStories, onSeed: seedComposer }));
+  }
+
+  function hideHearth() {
+    const node = els.thread.querySelector('.hearth');
+    if (node) node.remove();
+    els.threadEmpty.hidden = true;
+  }
+
   /* ---------- story list ---------- */
 
   async function refreshStories(keepActive) {
     stories = await db.stories.list();
+    /* M14: page counts ride the shelf rows; the byStory index counts
+     * without reading a single page. */
+    const counts = await Promise.all(stories.map((s) => db.messages.count(s.id).catch(() => 0)));
+    pageCounts = new Map(stories.map((s, i) => [s.id, counts[i]]));
     if (!keepActive) {
       const id = ctx.getActiveStoryId();
       if (!id || !stories.some((s) => s.id === id)) {
@@ -167,10 +275,18 @@ export function initChat(ctx) {
       const title = document.createElement('span');
       title.className = 'story-title';
       title.textContent = story.title;
+      const meta = document.createElement('span');
+      meta.className = 'story-when';
+      /* M14: last-active in the reader's own tense, then the page count
+       * in the whisper voice. */
       const when = document.createElement('span');
-      when.className = 'story-when';
-      when.textContent = fmtWhen(story.updatedAt);
-      openBtn.append(title, when);
+      when.textContent = fmtRelative(story.updatedAt);
+      const pages = document.createElement('span');
+      pages.className = 'lbl story-pages';
+      const count = pageCounts.get(story.id) || 0;
+      pages.textContent = count ? count + (count === 1 ? ' page' : ' pages') : 'unwritten';
+      meta.append(when, pages);
+      openBtn.append(title, meta);
       openBtn.addEventListener('click', () => openStory(story.id));
 
       const renameBtn = document.createElement('button');
@@ -408,10 +524,8 @@ export function initChat(ctx) {
     if (!story) {
       els.thread.textContent = '';
       lastRender = { storyId: null, ids: [] };
-      els.threadEmpty.hidden = false;
-      els.threadEmpty.textContent = stories.length
-        ? 'Pick a tale from the shelf, or start a new one.'
-        : 'No tales yet. Say something below and the tavern will open its doors.';
+      /* M14: never a blank center — the hearth greets instead. */
+      showHearth(stories.length > 0);
       if (els.noConnection) els.noConnection.hidden = connections.length > 0;
       refreshEmber();
       return;
@@ -420,8 +534,6 @@ export function initChat(ctx) {
     /* Hidden pages (the continue nudge) never render — they live in the
      * store for the audit and nowhere else. */
     const visible = history.filter((m) => m && !m.hidden);
-    els.threadEmpty.hidden = visible.length > 0;
-    els.threadEmpty.textContent = 'Nothing on the page yet. Say something to begin.';
     if (els.noConnection) {
       els.noConnection.hidden = connections.length > 0 || visible.length > 0;
     }
@@ -442,10 +554,14 @@ export function initChat(ctx) {
 
     if (!canAppend) {
       els.thread.textContent = '';
+      /* M14: a story with no pages yet still gets the hearth, not a void. */
+      if (!visible.length) showHearth(false);
       for (const msg of visible) {
         els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId }));
       }
     } else {
+      /* Pages arriving onto a hearth-warmed room: the hearth steps aside. */
+      if (visible.length && lastRender.ids.length === 0) hideHearth();
       for (let i = lastRender.ids.length; i < visible.length; i += 1) {
         const msg = visible[i];
         els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId }));
@@ -504,9 +620,10 @@ export function initChat(ctx) {
     els.emberFill.style.width = pct + '%';
     els.emberBar.classList.toggle('hot', pct > 72);
     if (els.metaContext) {
+      /* M14: at 0% the bar still says what it is, quietly — never blank. */
       els.metaContext.textContent = total
         ? '~' + total.toLocaleString() + ' of ~' + size.toLocaleString() + ' tokens in the room'
-        : '';
+        : 'the ember line — how much of the room the last turn took';
       els.metaContext.classList.toggle('hot', pct > 85);
     }
   }
@@ -1202,6 +1319,7 @@ export function initChat(ctx) {
         story = await db.stories.create({ title });
         ctx.setActiveStoryId(story.id);
         await refreshStories(true);
+        toast(`“${story.title}” is begun.`);
         if (ctx.onStoriesChanged) ctx.onStoriesChanged();
       }
       const connection = await resolveConnection(story);
@@ -1211,7 +1329,7 @@ export function initChat(ctx) {
         return;
       }
       hideComposerNote();
-      els.threadEmpty.hidden = true;
+      hideHearth();
       els.input.value = '';
       els.input.style.height = '';
       if (els.composerChip) els.composerChip.hidden = true;
@@ -1645,6 +1763,7 @@ export function initChat(ctx) {
     await renderThread({ structural: true });
     closePanel();
     els.input.focus();
+    toast(`“${story.title}” is begun.`);
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
   });
 

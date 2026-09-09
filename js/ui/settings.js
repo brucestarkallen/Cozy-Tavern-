@@ -123,6 +123,10 @@ export function initSettings(ctx) {
 
   let editingId = null;
 
+  /* M14: the house's small warm words — settings answers with a toast as
+   * well as its inline notes, so the writer hears it even mid-scroll. */
+  const toast = (words) => { if (ctx.toast) ctx.toast(words); };
+
   function flash(id) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -191,6 +195,9 @@ export function initSettings(ctx) {
         const { ok, detail } = await createProvider(conn).test();
         result.className = 'test-result ' + (ok ? 'ok' : 'bad');
         result.textContent = detail;
+        toast(ok
+          ? `“${conn.label}” answered — the connection works.`
+          : 'No answer came back — the address, key, or model may be off.');
         testBtn.disabled = false;
       });
 
@@ -555,6 +562,9 @@ export function initSettings(ctx) {
       pin.checked = mod.pinned;
       pin.addEventListener('change', async () => {
         await saveModule({ id: mod.id, name: mod.name, text: mod.text, pinned: pin.checked });
+        toast(pin.checked
+          ? `“${mod.name}” is pinned on — it rides every turn.`
+          : `“${mod.name}” rests until its moment comes.`);
         renderRulebook();
       });
       const pinLabel = document.createElement('span');
@@ -1339,6 +1349,7 @@ export function initSettings(ctx) {
     URL.revokeObjectURL(url);
     els.backupNote.hidden = false;
     els.backupNote.textContent = 'A copy is in your downloads. Keep it somewhere warm.';
+    toast('The tavern’s words are folded into one file — a copy is in your downloads.');
   });
 
   els.importFile.addEventListener('change', async () => {

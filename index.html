@@ -68,6 +68,7 @@
               <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></svg>
             </button>
           </form>
+          <p id="composer-chip" class="composer-chip" hidden></p>
           <p id="composer-note" class="composer-note" hidden></p>
           <div class="composer-meta">
             <span id="meta-context" class="meta-left"></span>
@@ -266,6 +267,34 @@
           <p id="card-note" class="quiet" hidden></p>
           <ul id="cast-list" class="connection-list"></ul>
           <p id="cast-list-empty" class="quiet" hidden>No one has arrived yet. When a card comes home, they’ll wait here for a story to invite them in.</p>
+
+          <!-- M9: read & change what a card brought — every field re-inkable,
+               the maker's notes stay home. -->
+          <form id="card-form" class="connection-form" hidden>
+            <h4 id="card-form-title">The card’s words</h4>
+            <label>Their name
+              <input id="card-edit-name" type="text" maxlength="60" autocomplete="off">
+            </label>
+            <label>Who they are
+              <textarea id="card-edit-description" rows="5" spellcheck="false"></textarea>
+            </label>
+            <label>How they carry themselves
+              <textarea id="card-edit-personality" rows="4" spellcheck="false"></textarea>
+            </label>
+            <label>Where their tale opens
+              <textarea id="card-edit-scenario" rows="4" spellcheck="false"></textarea>
+            </label>
+            <label>Their first words
+              <textarea id="card-edit-firstmes" rows="4" spellcheck="false"></textarea>
+            </label>
+            <label>The maker’s notes (never ride the wire)
+              <textarea id="card-edit-notes" rows="3" spellcheck="false"></textarea>
+            </label>
+            <div class="row">
+              <button type="submit" class="btn">Keep it</button>
+              <button type="button" id="btn-card-cancel" class="text-btn">Not now</button>
+            </div>
+          </form>
         </section>
 
         <section class="settings-section" id="section-lore">

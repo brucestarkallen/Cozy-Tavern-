@@ -123,8 +123,11 @@ function showView(name) {
   views.chat.hidden = name !== 'chat';
   views.settings.hidden = name !== 'settings';
   if (name === 'settings' && ctx.settings) ctx.settings.onShow();
-  document.getElementById('btn-settings').textContent =
+  const btnSettings = document.getElementById('btn-settings');
+  btnSettings.textContent =
     name === 'settings' ? 'Back to the story' : 'Settings';
+  /* M14: the room you're in keeps the ember. */
+  btnSettings.classList.toggle('current', name === 'settings');
 }
 
 window.addEventListener('hashchange', () => showView(currentRoute()));
@@ -135,6 +138,10 @@ document.getElementById('btn-settings').addEventListener('click', () => {
 
 document.getElementById('btn-ledger').addEventListener('click', () => {
   if (ctx.drawer) ctx.drawer.toggle();
+});
+
+document.getElementById('btn-housekeeper').addEventListener('click', () => {
+  if (ctx.housekeeper) ctx.housekeeper.toggle();
 });
 
 /* ---------- wake the tavern ---------- */

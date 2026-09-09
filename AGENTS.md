@@ -709,3 +709,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - install.sh: idempotent Termux one-shot; writes $PREFIX/bin/cozytavern (wake-lock hint + pull +
   port-check + serve + open-url).
 - js/version.js is the single version source; sw.js cache name derives from it.
+
+---
+
+# M14 — the beauty pass + latent bug sweep
+- ROOT CAUSE of the "dead app" the user saw: index.html was missing the card-editor form
+  (#card-form etc.); initSettings threw at boot, aborting start() before initChat /
+  initHousekeeper / initWelcome. One missing element killed the tour, the thread, and the
+  frame textarea. NEW LAW enforced by tests/harness/beauty.mjs: every getElementById literal
+  must exist in index.html (id-coverage harness check).
+- drawer.js: measurePanel implemented (was referenced, never defined — ledger click threw).
+- app.js: #btn-housekeeper wired (no listener existed). composer-chip element added.
+- chat.js: THE HEARTH empty state (book mark, serif greeting, starter chips seed the
+  composer, "pick up a tale" when stories exist); story rows gain relative time + page
+  count (db.messages.count added); ember meta label visible at 0%; story-created toasts.
+- welcome tour verified firing on true first run (fresh-profile browser proof).
+- version.js -> m14-001. Harness 122/122.

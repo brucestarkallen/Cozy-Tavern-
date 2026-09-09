@@ -1115,6 +1115,64 @@ function canonPanel(ctx) {
   return wrap;
 }
 
+/* ---------- how they measure (M11 — the referee's cast sheet) ---------- */
+
+/* The sheet the referee rules from: each named soul's standing (0–10),
+ * the domains they're known for, and what ails them (lasting conditions).
+ * The referee and its seeder keep these numbers; the panel reads them
+ * plainly and never invents one that isn't written down. */
+function measurePanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'measure-editor';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list';
+  wrap.append(note, list);
+
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) {
+      note.textContent = 'Open a story and the ledger will know who stands on these scales.';
+      return;
+    }
+    const state = await loadState(story.id);
+    const sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
+    const names = Object.keys(sheet.actors || {});
+    if (!names.length) {
+      note.textContent = 'No one is weighed yet. Once the referee has ruled on a chancy moment — or the tale has found its footing — the cast’s measure is written here, 0 to 10.';
+      return;
+    }
+    note.textContent = 'How the house weighs each of them, 0 to 10 — what they’re known for, and what ails them. The referee rules from these numbers.';
+    for (const name of names) {
+      const actor = sheet.actors[name];
+      if (!actor || typeof actor !== 'object') continue;
+      const li = document.createElement('li');
+      li.className = 'present-row measure-row';
+      const words = document.createElement('span');
+      const standing = Number.isFinite(actor.default) ? actor.default : 5;
+      words.textContent = name + (isMc(state, name) ? ' (you)' : '') + ' — ' + standing + ' of 10';
+      li.appendChild(words);
+      const extras = [];
+      const domains = actor.domains && typeof actor.domains === 'object' ? actor.domains : {};
+      const domainBits = Object.entries(domains).map(([d, v]) => d + ' ' + v);
+      if (domainBits.length) extras.push('known for ' + domainBits.join(', '));
+      if (Array.isArray(actor.conditions) && actor.conditions.length) {
+        extras.push(actor.conditions.map((c) => c.name + (c.mod ? ' (' + (c.mod > 0 ? '+' : '') + c.mod + ')' : '')).join('; '));
+      }
+      if (extras.length) {
+        const small = document.createElement('small');
+        small.textContent = extras.join(' — ');
+        li.appendChild(small);
+      }
+      list.appendChild(li);
+    }
+  });
+
+  render();
+  return wrap;
+}
+
 /* ---------- something drifted (M6 — the continuity reader's notes) ------ */
 
 function driftPanel(ctx) {
@@ -1332,6 +1390,9 @@ export function initDrawer(ctx) {
     scrim.hidden = false;
     /* let the browser notice we're visible before sliding in */
     requestAnimationFrame(() => drawer.classList.add('open'));
+    /* M14: the header keeps the ember on the room that's open. */
+    const btn = document.getElementById('btn-ledger');
+    if (btn) btn.classList.add('current');
   }
 
   /* B8 (M9): the close timer carries a generation number — a close
@@ -1343,6 +1404,8 @@ export function initDrawer(ctx) {
     const generation = ++closeGeneration;
     drawer.classList.remove('open');
     scrim.hidden = true;
+    const btn = document.getElementById('btn-ledger');
+    if (btn) btn.classList.remove('current');
     setTimeout(() => {
       if (generation !== closeGeneration) return; // reopened in between
       drawer.hidden = true;

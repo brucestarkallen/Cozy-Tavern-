@@ -34,7 +34,11 @@ class FakeStore {
   index(indexName) {
     const storeName = this.name;
     const keyPath = INDEX_KEY_PATHS[indexName] || indexName;
-    return { getAll: (v) => makeReq([...stores[storeName].values()].filter((r) => r && r[keyPath] === v).map((x) => structuredClone(x))) };
+    return {
+      getAll: (v) => makeReq([...stores[storeName].values()].filter((r) => r && r[keyPath] === v).map((x) => structuredClone(x))),
+      /* M14: the shelf's page counts ride this. */
+      count: (v) => makeReq([...stores[storeName].values()].filter((r) => r && r[keyPath] === v).length),
+    };
   }
 }
 class FakeTx {

@@ -11,6 +11,7 @@ import './source.mjs';
 import './housekeeper.mjs';
 import './showrunners.mjs';
 import './finishing.mjs';
+import './beauty.mjs';
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

@@ -60,10 +60,11 @@
 
 .drawer-head h2 { font-size: 1.22em; }
 
+/* M14: the panels keep a consistent 16px rhythm. */
 .drawer-panels {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .ledger-panel h3 {
@@ -238,6 +239,19 @@
 /* M12: the character pages within "On their mind". */
 .ledger-subhead {
   margin: 1rem 0 0.2rem;
+}
+
+/* M14: "How they measure" — the small print under each soul's standing. */
+.measure-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.measure-row small {
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding-left: 0.2rem;
 }
 
 /* ---------- M6 panels: the ruling, the canon store, the drift notes ------ */

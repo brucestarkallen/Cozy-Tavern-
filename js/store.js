@@ -290,6 +290,18 @@ const messages = {
     });
     return rows.sort((a, b) => (a.ts || 0) - (b.ts || 0));
   },
+  /* M14: how many pages a tale holds, without reading them — the story
+   * shelf shows the count beside each title. */
+  async count(storyId) {
+    const d = await openDB();
+    return new Promise((resolve, reject) => {
+      const t = d.transaction('messages', 'readonly');
+      const idx = t.objectStore('messages').index('byStory');
+      const req = idx.count(storyId);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
   async append(storyId, msg) {
     const row = {
       id: msg.id || uid(),

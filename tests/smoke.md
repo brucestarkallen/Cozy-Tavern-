@@ -578,3 +578,11 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
     and watch it say so honestly (story generation unaffected).
 48. install.sh on Termux: `cozytavern` updates, serves, opens the browser at 127.0.0.1:8080.
 49. serve.py prints http://127.0.0.1:8080.
+
+## M14 additions
+50. Fresh profile: the guided tour shows on first run, dismisses, re-opens from settings.
+51. Empty home shows the hearth — book mark, "The lamps are lit. What story tonight?",
+    three starter chips that seed the composer.
+52. The ledger and the housekeeper open from the header, desktop and mobile (390px sheet).
+53. Settings shows the frame starter text when never edited; deliberately-cleared stays empty.
+54. Story shelf rows show relative time + page count; creating a story toasts.

@@ -93,10 +93,15 @@
 }
 
 .story-open .story-when {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--muted);
 }
+
+.story-open .story-pages { white-space: nowrap; }
 
 .story-mini {
   background: none;
@@ -154,6 +159,63 @@
   text-align: center;
   font-family: var(--font-prose);
   font-size: 1.05rem;
+}
+
+/* ---------- M14: THE HEARTH — the empty room, warm ---------- */
+
+.hearth {
+  margin: auto;
+  max-width: 760px;
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  text-align: center;
+}
+
+/* The open-book mark, large and quiet — ember-dim, never shouting. */
+.hearth-mark {
+  width: 88px;
+  height: 88px;
+  border-radius: 18px;
+  opacity: 0.6;
+  box-shadow: 0 0 28px 2px color-mix(in srgb, var(--ember-dim) 45%, transparent);
+}
+
+.hearth-greeting {
+  margin: 0;
+  font-family: var(--font-prose);
+  font-size: 1.45rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.hearth-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+/* Starter chips: pills that lift to an ember border on hover. */
+.hearth-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  color: var(--text-2);
+}
+
+.hearth-chip:hover {
+  border-color: var(--ember);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.hearth-pickup {
+  margin: 0;
 }
 
 .no-connection {
@@ -423,6 +485,12 @@
 .composer-zone {
   background: var(--bg-2);
   padding-bottom: var(--safe-b);
+  transition: box-shadow 0.15s;
+}
+
+/* M14: when the writer leans in, a thin ember glow crowns the zone. */
+.composer-zone:focus-within {
+  box-shadow: 0 -1px 0 var(--ember-dim);
 }
 
 /* The ember bar (the signature): how much of the model's room the last
@@ -531,7 +599,11 @@
   color: var(--muted);
 }
 
-.meta-links button:hover { color: var(--ember); }
+.meta-links button:hover {
+  color: var(--ember);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 
 /* ---------- message context menu ---------- */
 

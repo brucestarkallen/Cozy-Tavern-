@@ -196,6 +196,21 @@ button, .text-btn, .icon-btn, .story-item, .connection-card {
   gap: 0.25rem;
 }
 
+/* M14: the header's rooms are quiet text buttons that warm to ember on
+ * hover; the room you're in keeps the ember and a whisper of a line. */
+.topbar-actions .text-btn {
+  color: var(--muted);
+}
+
+.topbar-actions .text-btn:hover {
+  color: var(--ember);
+}
+
+.topbar-actions .text-btn.current {
+  color: var(--ember);
+  box-shadow: inset 0 -2px 0 var(--ember-dim);
+}
+
 .icon-btn {
   background: none;
   border: none;
