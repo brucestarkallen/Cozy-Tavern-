@@ -99,6 +99,7 @@ const ctx = {
   chat: null,
   settings: null,
   drawer: null,
+  housekeeper: null,
   onStoriesChanged: null,
   /* M9 (A6): false when another tab holds the pen — this one only reads. */
   holdsPen: true,
@@ -146,6 +147,7 @@ document.getElementById('btn-ledger').addEventListener('click', () => {
   initDrawer(ctx);
   initSettings(ctx);
   initChat(ctx);
+  initHousekeeper(ctx);
 
   /* B7 (M9): when the shelf of stories changes, every open listener hears
    * it — the drawer re-points its live subscription, the settings view

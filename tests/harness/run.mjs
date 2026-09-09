@@ -7,6 +7,8 @@ import './agents.mjs';
 import './providers.mjs';
 import './tablock.mjs';
 import './source.mjs';
+import './housekeeper.mjs';
+import './showrunners.mjs';
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

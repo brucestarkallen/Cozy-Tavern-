@@ -1076,6 +1076,59 @@ function driftPanel(ctx) {
 
 /* ---------- the panels ---------- */
 
+/* The workers' ledger line (M9, SPEC §5 — background work is quiet in the
+ * story but never silent in the ledger; M10 added the housekeeper's
+ * household to the names). One row per worker: its last run, whether it
+ * ended well, and one plain word of why not when it didn't. */
+const WORKER_WORDS = {
+  extractor: 'the extractor',
+  keeper: 'the keeper',
+  referee: 'the referee',
+  continuity: 'the second reader',
+  housekeeper: 'the housekeeper',
+  director: 'the director',
+  editor: 'the editor',
+};
+
+function workersPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'workers-panel';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'log-list';
+  wrap.append(note, list);
+
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) {
+      note.textContent = 'Open a story and the workers will keep their honest line here.';
+      return;
+    }
+    const shelf = await loadWorkerStatus(story.id);
+    const seen = WORKER_NAMES.filter((name) => shelf[name]);
+    if (!seen.length) {
+      note.textContent = 'No worker has run yet. When one does — a reading of the ledger, a weighing of a page — its last run is noted here, well or ill.';
+      return;
+    }
+    note.textContent = 'Background work is quiet in the story but never silent here. Each worker’s last run:';
+    for (const name of seen) {
+      const row = shelf[name];
+      const li = document.createElement('li');
+      li.className = 'log-row';
+      const words = document.createElement('span');
+      const when = whenWords(row.at);
+      words.textContent = (WORKER_WORDS[name] || name) + ' ran ' + when
+        + (row.ok ? ' and it went well.' : ' and stumbled — ' + (row.why || 'stumbled') + '.');
+      li.appendChild(words);
+      list.appendChild(li);
+    }
+  });
+
+  render();
+  return wrap;
+}
+
 const PANELS = [
   {
     id: 'the-clock',

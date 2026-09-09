@@ -45,6 +45,7 @@ const SHELL = [
   'js/ui/settings.js',
   'js/ui/drawer.js',
   'js/ui/receiptview.js',
+  'js/ui/housekeeper.js',
   'assets/icon.svg',
   'assets/icon-192.png',
   'assets/icon-512.png',

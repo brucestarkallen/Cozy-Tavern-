@@ -258,3 +258,187 @@
 .cast-head { margin-top: 0.6rem !important; }
 
 .present-editor .cast-head { color: var(--text-2); }
+
+
+/* ---------- M10: the housekeeper's sheet ---------- */
+
+/* A full right-side sheet, wider than the ledger drawer so proposal cards
+ * and diffs can breathe. */
+.hk-sheet {
+  width: min(34rem, 94vw);
+}
+
+.hk-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.25rem 0.25rem 0.5rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.hk-tagline {
+  margin: 0;
+}
+
+.hk-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  border-block: 1px dashed var(--border);
+  padding-block: 0.5rem;
+}
+
+.hk-seed-form {
+  display: flex;
+  gap: 0.5rem;
+}
+.hk-seed-form input {
+  flex: 1;
+}
+
+.hk-status {
+  margin: 0;
+  min-height: 1.2em;
+}
+
+.hk-rules summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+.hk-rule {
+  display: block;
+  margin-block: 0.5rem;
+  color: var(--muted);
+}
+.hk-rule input[type="number"] {
+  width: 4rem;
+}
+
+.hk-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Bubbles — the writer leans right and warm, the housekeeper leans left
+ * and quiet, matching the chat's own speech. */
+.hk-bubble {
+  max-width: 88%;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--r);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.hk-bubble.hk-writer {
+  align-self: flex-end;
+  background: color-mix(in oklab, var(--ember) 16%, var(--surface-2));
+}
+.hk-bubble.hk-housekeeper {
+  align-self: flex-start;
+  background: var(--surface-2);
+}
+.hk-bubble.hk-pending {
+  opacity: 0.6;
+  font-style: italic;
+}
+.hk-thinking {
+  align-self: flex-start;
+  max-width: 88%;
+  color: var(--muted);
+  font-size: 0.92em;
+}
+.hk-thinking summary {
+  cursor: pointer;
+}
+.hk-thinking > div {
+  white-space: pre-wrap;
+  border-inline-start: 2px solid var(--border);
+  padding-inline-start: 0.5rem;
+  margin-block-start: 0.25rem;
+}
+
+/* Proposal cards. */
+.hk-card {
+  align-self: stretch;
+  background: var(--surface-2);
+  border-radius: var(--r);
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.hk-card.hk-applied { opacity: 0.75; }
+.hk-card.hk-skipped,
+.hk-card.hk-superseded,
+.hk-card.hk-refused,
+.hk-card.hk-stale { opacity: 0.6; }
+
+.hk-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-weight: 600;
+}
+.hk-card-kind {
+  font-size: 0.82em;
+  font-weight: 400;
+  color: var(--muted);
+}
+.hk-card-reason {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92em;
+}
+
+/* The diff: translucent washes only, never solid red or green — the
+ * house's design law. Delete: danger tint with a 2px danger bar on the
+ * left. Add: ok tint with an ok bar. */
+.hk-diff {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border-inline-start: 2px solid transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-size: 0.92em;
+}
+.hk-diff.hk-del {
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  border-inline-start-color: color-mix(in oklab, var(--danger) 70%, transparent);
+}
+.hk-diff.hk-add {
+  background: color-mix(in oklab, var(--ok) 12%, transparent);
+  border-inline-start-color: color-mix(in oklab, var(--ok) 70%, transparent);
+}
+
+.hk-card-words {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.hk-card-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+.hk-batch-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.hk-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  border-block-start: 1px solid var(--border-soft);
+  padding-block-start: 0.5rem;
+}
+.hk-form textarea {
+  flex: 1;
+  resize: vertical;
+}

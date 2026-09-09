@@ -65,6 +65,11 @@
  * keep the writer's words; and after writes, when storage crosses 80% full,
  * the registered onStorageWarning listener hears about it (once per
  * crossing) — the chat view turns that into a toast.
+ *
+ * M10 additions: the housekeeper's per-story session lives under
+ * `hk:<storyId>`, the director's marching orders under `director:<storyId>`,
+ * and the editor's standing critique under `editor:<storyId>` — all in the
+ * settings store, all riding backups, all let go with their story.
  */
 
 const DB_NAME = 'cozytavern.v1';

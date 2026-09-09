@@ -568,6 +568,66 @@ export function initChat(ctx) {
    * Each link gets a 60-second hard timeout (M9, A5) and records its last
    * run for the drawer's "The workers" line (M9, §5). Every link fails
    * quietly: the chat path never hears about it. */
+  /* M10: the showrunners' background work. Deliberately OUTSIDE the
+   * tracked worker chain — the M10 latency law says housekeeper work must
+   * never delay a story turn, so pendingWork never awaits any of this.
+   * Everything here fails quietly and reports to the workers' ledger line. */
+  function startShowrunnerWork(story, { episodeEnded = false } = {}) {
+    (async () => {
+      try {
+        const connection = await resolveWorkerConnection(story);
+        if (!connection) return;
+        const { signal, done } = workerSignal();
+        try {
+          if (episodeEnded) {
+            /* close the episode: editor review, then auto-next */
+            const rituals = await afterEpisodeEnd({ connection, storyId: story.id, story, signal });
+            await noteWorkerRun(story.id, 'director', {
+              ok: !(rituals && rituals.director && rituals.director.ok === false),
+              why: (rituals && rituals.director && rituals.director.error) || '',
+            });
+            if (rituals && rituals.editor) {
+              await noteWorkerRun(story.id, 'editor', {
+                ok: rituals.editor.ok !== false,
+                why: rituals.editor.error || '',
+              });
+            }
+          } else {
+            /* auto mode fills an empty board, in the background */
+            const ran = await maybeAutoDirector({ connection, storyId: story.id, story, signal });
+            if (ran) {
+              await noteWorkerRun(story.id, 'director', {
+                ok: ran.ok !== false,
+                why: ran.error || '',
+              });
+            }
+            /* the editor's cadence, when it's on */
+            const edited = await maybeRunEditor({
+              connection, story, storyId: story.id, reason: 'cadence', signal,
+            });
+            if (edited) {
+              await noteWorkerRun(story.id, 'editor', {
+                ok: edited.ok !== false,
+                why: edited.error || '',
+              });
+            }
+          }
+        } finally {
+          done();
+        }
+        /* the panel shows what the showrunners settled, if it's open */
+        if (ctx.housekeeper && typeof ctx.housekeeper.onStoriesChanged === 'function') {
+          ctx.housekeeper.onStoriesChanged();
+        }
+      } catch (err) {
+        await noteWorkerRun(story.id, 'director', {
+          ok: false,
+          why: (err && err.message) || 'stumbled',
+        });
+      }
+    })();
+  }
+
   function startBackgroundWork(story, msg, userText) {
     const plan = workerPlan({
       story,
@@ -857,6 +917,12 @@ export function initChat(ctx) {
         loreText = matched.text;
         loreFired = matched.fired;
       }
+      /* M10: the showrunners' standing states, read fresh each turn so the
+       * dynamic tail carries what stands right now. */
+      const [directorState, editorState] = await Promise.all([
+        loadDirector(story.id),
+        loadEditor(story.id),
+      ]);
       const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({
         story,
         messages: history,
@@ -869,6 +935,10 @@ export function initChat(ctx) {
         loreFired,
         window: windowInfo,
         directive,
+        /* M10: the showrunners' standing texts — their own receipt-named
+         * slots in the dynamic tail, before history; empty = omitted. */
+        directorNote: renderDirectorNote(directorState),
+        editorEye: renderEditorNote(editorState),
       });
 
       /* M6 consume-and-clear: the ruling rode into this turn's stack as a
@@ -938,6 +1008,14 @@ export function initChat(ctx) {
           },
         });
         full = result.text;
+        /* M10: [EPISODE_END] marks a natural close; the mark is stripped
+         * from the prose BEFORE the page is saved, and the closing rituals
+         * run in the background after. */
+        const episodeMark = stripEpisodeEnd(full);
+        if (episodeMark.ended) {
+          episodeEnded = true;
+          full = episodeMark.text;
+        }
         thinking = result.thinking || thinking;
         finishReason = result.finishReason || null;
         receipt = finalizeReceipt(receiptDraft, {
@@ -998,6 +1076,8 @@ export function initChat(ctx) {
           if (story.extraction !== false && !stoppedByHand && !ooc) {
             const updated = (await db.messages.list(story.id)).find((m) => m.id === target.id);
             if (updated) startBackgroundWork(story, updated, userText);
+            /* M10: the showrunners read a swiped close all the same. */
+            if (!ooc) startShowrunnerWork(story, { episodeEnded });
           }
           return;
         }
@@ -1024,6 +1104,10 @@ export function initChat(ctx) {
          * state work at all. */
         if (!ooc && !stoppedByHand) {
           startBackgroundWork(story, saved, userText);
+          /* M10: the showrunners run after, off the story path — episode
+           * rituals when the mark was struck, auto-director and the
+           * editor's cadence otherwise. */
+          startShowrunnerWork(story, { episodeEnded });
         }
       } else if (!stoppedByHand) {
         /* B9: nothing came back — named kindly, with a way to ask again. */

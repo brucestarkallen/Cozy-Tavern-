@@ -18,7 +18,11 @@
  *   `loreFired` names the entries that woke (receipt slot 7 says their
  *   names out loud); `directive` is a parsed house command's instruction
  *   (commands.js) riding just before the note; and `window` is the M9
- *   window law below.
+ *   window law below. M10: `directorNote` and `editorEye` are the
+ *   showrunners' standing texts (agents/director.js renderDirectorNote,
+ *   agents/editor.js renderEditorNote) — each rides the dynamic tail as
+ *   its own receipt-named slot ("The director's note" / "The editor's
+ *   eye"), still before history; empty means the slot is omitted.
  *
  * The slot order is law — never reorder:
  *   1. The frame            (story override → global → starter)   cache:true
@@ -241,7 +245,7 @@ function isContinueTurn(history) {
 
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
-  window: windowInfo, directive,
+  window: windowInfo, directive, directorNote, editorEye,
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -387,12 +391,18 @@ export function buildRequest({
 
   /* Slots 5–7 ride together as ONE user-role message at the FRONT of the
    * messages array, marked [story-state] so the storyteller can tell it
-   * apart from dialogue. All empty → no injection at all. */
+   * apart from dialogue. All empty → no injection at all. M10: the
+   * showrunners' standing texts ride in the same dynamic tail, after the
+   * lore shelf, still before history. */
+  const directorText = typeof directorNote === 'string' ? directorNote.trim() : '';
+  const editorText = typeof editorEye === 'string' ? editorEye.trim() : '';
   const stateParts = [];
   if (facts) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
   if (memoryText) stateParts.push('What remains of the older pages:\n' + memoryText);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
+  if (directorText) stateParts.push('The director’s note:\n' + directorText);
+  if (editorText) stateParts.push('The editor’s eye:\n' + editorText);
   const stateInjection = stateParts.length
     ? { role: 'user', content: STATE_MARKER + '\n' + stateParts.join('\n\n') }
     : null;
@@ -410,6 +420,15 @@ export function buildRequest({
       'entries whose keys were spoken in the latest pages',
       firedNames.length ? 'spoke: ' + firedNames.join(', ') : ''
     );
+  }
+
+  /* --- M10: the showrunners' slots — their own receipt names, in the
+   * dynamic tail before history; empty = omitted (the slot-7 law). --- */
+  if (directorText) {
+    pushSlot('The director’s note', directorText, 'the showrunner’s marching orders for the episode that stands');
+  }
+  if (editorText) {
+    pushSlot('The editor’s eye', editorText, 'the standing craft critique');
   }
 
   /* --- 9. The note at the end --- (resolved before slot 8 so the window

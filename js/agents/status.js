@@ -20,7 +20,9 @@ import { db } from '../store.js';
 
 const KEY_PREFIX = 'workers:';
 export const WORKER_TIMEOUT_MS = 60000;
-export const WORKER_NAMES = ['extractor', 'keeper', 'referee', 'continuity'];
+/* M10: the housekeeper's household joins the ledger — the panel talk
+ * itself, and the two showrunners. */
+export const WORKER_NAMES = ['extractor', 'keeper', 'referee', 'continuity', 'housekeeper', 'director', 'editor'];
 
 /* A per-call abort signal with a hard timeout. done() clears the timer —
  * callers must settle it in a finally. */
