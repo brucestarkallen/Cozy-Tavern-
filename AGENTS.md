@@ -653,3 +653,22 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - One VERSION in js/version.js; sw.js derives its cache name from it. Harnesses ship in
   tests/harness/ — `node tests/harness/run.mjs` must be green before any commit.
 - Audit closures: B1–B20, A1–A8 all addressed in code (B15 docs this entry).
+
+---
+
+# M10 — the housekeeper & the showrunners
+- js/agents/housekeeper.js: the master-AI. Protocol blocks: <edits> (pages: find/replace,
+  whole-replace, hide, bulk_replace), <ledits> (ledger mutations — MUST ride engine/apply.js's
+  closed vocabulary; module.pin routes to modules.js), <redits> (rulebook find/replace),
+  <fetch> (self-serve pages), <supersede>. locate(): exact -> normalized -> fuzzy (>=0.78,
+  ambiguity refuses); minimalDiff salvage once. Proposal cards staged with review-hashes;
+  undo = node-scoped batches (before-values + after-hashes, cap 50) that REFUSE on drift.
+  Session store hk:<storyId>; context = brief + message index + last-N full (hkContextPages,
+  default 12) + ledger summary + rulebook names + director/editor blocks.
+- js/agents/director.js: {text, episode, concluded, auto}; modes new/next/seed/edit/restart;
+  3 passes (skippable); [EPISODE_END] stripped in chat.js before save; conclusion chain =
+  editor review then auto-next when auto. js/agents/editor.js: standing critique, diffed,
+  cadence/manual/episode-end.
+- stack.js gains dynamic-tail slots "The director's note" / "The editor's eye" (empty =
+  omitted, receipt-named), before history. Showrunner work never joins pendingWork (latency law).
+- Fixed a latent M9 ReferenceError: drawer.js PANELS referenced an undefined workersPanel.

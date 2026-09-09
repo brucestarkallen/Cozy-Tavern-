@@ -551,3 +551,10 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 53. Second tab opens read-only with a plain notice.
 54. Memory window law: the story-so-far carries only the window; older pages live in What remains; keeper-off cuts by token budget and says so on the receipt.
 55. Harnesses ship in the repo: `node tests/harness/run.mjs`.
+
+## M10 — the housekeeper & the showrunners
+56. The housekeeper (right sheet) sees the whole tale; ask it to fix a line and it proposes red/green cards — Apply, hand-edit, or Skip; Apply-all with staleness marks.
+57. Undo refuses loudly when the page drifted since the proposal.
+58. Ledger edits ride the same validated mutations as everything else; rulebook text edits propose as cards.
+59. The director: New episode / Next / Seed / edit; auto mode writes the next when one concludes; [EPISODE_END] never shows in prose.
+60. The editor's standing notes ride when enabled; both showrunner notes are named on the receipt.
