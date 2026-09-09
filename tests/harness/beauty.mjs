@@ -66,10 +66,13 @@ test('M14 welcome: first run shows the tour, then it remembers', async () => {
   await db.settings.set(WELCOME_SEEN_KEY, false); // fresh shelf (suite shares one shim)
   eq(await welcomeShouldShow(), true, 'fresh profile should show the tour');
   const tour = createTour();
-  eq(tour.step, 0, 'tour starts at step 0');
+  eq(tour.index, 0, 'tour starts at step 0');
   assert(TOUR_STEPS.length === 3, 'three steps');
-  tour.next(); eq(tour.step, 1); tour.next(); eq(tour.step, 2);
-  tour.dismiss(); eq(tour.done, true, 'dismiss finishes the tour');
+  assert(tour.step() === TOUR_STEPS[0], 'step() returns the first step');
+  tour.next(); eq(tour.index, 1); tour.next(); eq(tour.index, 2);
+  tour.next(); eq(tour.done, true, 'walking off the end finishes the tour');
+  eq(tour.step(), null, 'a finished tour offers no step');
+  tour.restart(); eq(tour.index, 0, 'guided tour restarts from the top');
   await markWelcomeSeen();
   eq(await welcomeShouldShow(), false, 'seen flag persists');
 });
