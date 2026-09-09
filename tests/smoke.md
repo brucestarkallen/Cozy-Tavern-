@@ -295,3 +295,73 @@ JSON resilience and max_tokens 600; undo for every v2 type.
   before assembling.
 - `node --check` clean; sw.js cache bumped (v4) with the three new engine
   modules in the shell list; the app still loads offline.
+
+---
+
+# M5 — bring your engine (preset migration)
+
+Run these after anything that touches the importer, the rulebook's predicate
+keys, or the settings view. They mirror the M5 acceptance checklist in
+SPEC.md. The harness checks (§24) are Node scripts kept in /tmp during
+development — not shipped with the app. **The real V176 preset lives at
+/tmp/v176-preset.json for harness and hand testing only. It must never be
+committed, copied into fixtures, or shipped — grep the tree for its words
+before every commit.**
+
+## 23. Bringing a preset home, end to end
+
+1. Settings → **Bring your engine**. Choose the preset file (the /tmp copy
+   when testing) — or paste its whole text — and **Read it over**.
+2. The preview sorts every block into plain-word groups: **The craft**
+   (always with the storyteller), **The rulebook** (each row says when it
+   wakes — "wakes when the scene turns intimate", "wakes when the room is
+   full of voices", "you choose when this walks in"), **Seeds for the frame
+   & the note** (copy-only, with **Copy for the frame** / **Copy for the
+   note** buttons), **Retired into the house** (each with its why — "the
+   ledger renders it"), and a quiet count of what was left behind (markers,
+   off-switches, empty husks).
+3. With the real V176 file: 50 blocks read, all accounted for — 10 craft,
+   9 rulebook, 3 seeds, 10 retired (5 to the engines, 2 to the house, 3
+   thinking-aloud blocks), 18 left behind. Nothing marked "a guess".
+4. Untick one rulebook row → **Bring it home** → the summary line speaks in
+   plain words (the craft now carries your words; N rules joined; M rest on
+   the retired shelf), and the unticked rule is absent from the rulebook.
+5. The rulebook shows the new rules immediately; the manual ones carry the
+   quiet line "you choose when this walks in". **The craft** card shows
+   "— your version"; **Put back the original** restores the shipped text.
+6. Send a turn: the receipt's **The craft** slot has grown to the imported
+   word count. Pin the imported NSFW rule → next turn's receipt names it in
+   Active modules with "pinned on by you".
+7. Read the same preset in again → **Bring it home** → the summary says the
+   rules were already home; the rulebook shows no duplicates.
+8. Empty textarea → **Read it over** → a kind nudge, nothing applied.
+   Garbage text or a non-preset JSON → a kind error ("doesn't read like…"),
+   nothing applied, the rulebook untouched.
+9. Frame seeds are never written for you: after apply, The frame and The
+   note hold exactly what they held before.
+
+## 24. Harness checks (Node, mocked)
+
+The M5 harness lives outside the app (/tmp/m5-harness.mjs during
+development; rebuild per the contracts if it's gone). It covers: full
+known-map classification of the real preset (counts above, zero guessed,
+zero unaccounted); heuristic fallback classes (intimate/combat/socialField/
+manual/frameSeed/skipped/craft, all marked "guessed"); applyPlan round-trip
+through an IndexedDB shim (craft fork restorable, whenKeys survive
+persistence, manual notes ride along); dedupe-on-apply (identical re-import
+adds nothing; same name + different words gets a numbered suffix, and that
+suffix is itself idempotent); exclusions respected; garbage/empty/wrong-
+shape JSON all failing kindly. A second harness (/tmp/m5-regression.mjs)
+re-proves the M1–M4 contracts the M5 files touch: builtin modules and
+reasons, fork/restore, the ten-slot receipt order, note-last message law,
+and engine mutations/undo.
+
+## 25. Regression
+
+- M1 (§1–§8), M2 (§9–§12), M3 (§13–§17), and M4 (§18–§22) still pass,
+  untouched. Both /tmp harnesses are green.
+- The importer never joins the send path: it runs only from settings, only
+  when asked, and makes no network calls at all.
+- `node --check` clean on every `.js` file; sw.js cache bumped (v5) with
+  the two new import modules in the shell list; the app still loads
+  offline.

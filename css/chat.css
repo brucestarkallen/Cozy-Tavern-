@@ -393,3 +393,22 @@
 .test-result { font-size: 0.9rem; color: var(--ink-soft); }
 .test-result.ok { color: var(--accent); }
 .test-result.bad { color: var(--danger); }
+
+/* ---------- bring your engine (M5) ---------- */
+
+.engine-preview {
+  margin-top: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.engine-preview[hidden] { display: none; }
+
+.engine-group h4 { margin: 0 0 0.2rem; }
+
+.engine-group .quiet { margin: 0 0 0.4rem; }
+
+.engine-why { font-size: 0.85rem; }
+
+.module-note { font-size: 0.85rem; margin: 0; }

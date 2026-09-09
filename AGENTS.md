@@ -318,3 +318,78 @@ ever waiting on the workers.
   later milestone's call.
 - Preset migration (M5) and the referee/memory/continuity agents (M6) are
   untouched: no new agent joins the send path, ever (the latency law).
+
+---
+
+# M5 — bring your engine (preset migration)
+
+## What changed
+
+- `js/import/v176map.js` (new) — the known-entry map for the Simulation
+  Engine V176 preset, keyed by name with case-insensitive, emoji-tolerant
+  whole-phrase matching (`normalizeName` + containment on word boundaries).
+  Buckets: craft (10), modules with triggers (9: intimate ×1, combat ×1,
+  socialField ×1, manual ×6), frame seeds (3, copy-only), retired-engine
+  (5), retired-house (2 + all CoT blocks), skipped (markers by
+  identifier/name, "⛔ … IS OFF" toggles — checked FIRST so their names
+  can't false-match retired keys —, Enhance Definitions / Auxiliary Prompt,
+  Post-History Instructions when empty). `heuristicSort` catches every
+  other preset: keyword guesses (intimate/combat/socialField), "jailbreak"
+  → frame seed, empty → skipped, in-chat (pos 1) unknowns → manual module,
+  everything else → craft — all marked `guessed` so the preview says so.
+- `js/import/sillytavern.js` (new) — `parsePreset(jsonText)` (throws kind,
+  human Errors on garbage/empty/wrong-shape JSON; marries `prompt_order`'s
+  enabled flags back onto entries), `decompose(entries)` → Plan with
+  per-item `include` flags the preview checkboxes flip in place, and
+  `applyPlan(plan)` → summary. Craft entries join in original order into a
+  `core-craft` user override (a fork — the shipped original stays
+  restorable). Modules land as user modules, deduped: identical text under
+  the same name (or one of its numbered suffixes) is "already home" —
+  re-imports are no-ops — while a taken name with different words gets
+  ` (2)`, ` (3)`… Frame seeds are copy-button only, never auto-written.
+  `summaryWords` phrases the after-apply line.
+- `js/assemble/modules.js` (extended) — two new predicate keys:
+  `socialField` (mode.socialField, reason "the room is full of voices") and
+  `manual` (never wakes on its own). New exported `WHEN_WORDS` table maps
+  every key to plain-words trigger text for custom rules and the preview.
+  Custom rules may now carry a known `whenKey` (unknown keys fall back to
+  pin-only) and a `note` string, both persisted on the saved row; manual
+  imported rules carry "you choose when this walks in", shown in the
+  rulebook. Builtin behavior and existing keys are byte-identical.
+- `js/ui/settings.js` (extended) — "Bring your engine" section: file picker
+  or paste → **Read it over** → grouped preview (The craft / The rulebook /
+  Seeds for the frame & the note / Retired into the house + a quiet skipped
+  count) with per-item include checkboxes → **Bring it home** → applyPlan →
+  plain-words summary and the rulebook re-rendered in place. All parsing is
+  client-side; nothing uploads.
+- `index.html`, `css/chat.css` — markup and a few quiet styles for the
+  section. `sw.js` — cache bumped to v5, the two import modules joined the
+  shell list.
+
+## Contracts to preserve (added in M5)
+
+- `parsePreset(jsonText)` → `{entries:[{name, identifier, content, enabled,
+  role, pos, depth}], warnings:[]}` — throws (kindly) on bad input.
+- `decompose(entries)` → `{craft, modules, frameSeeds, retired, skipped}`;
+  `applyPlan(plan, opts)` → `{craftWords, modulesAdded,
+  modulesAlreadyHome, retiredCount, skippedCount}`.
+- `modules.js`: `WHEN_WORDS`, predicate keys now `always`, `intimate`,
+  `combat`, `acoustics`, `socialField`, `manual`.
+
+## The privacy law (locked, restated)
+
+The user's real preset (`/tmp/v176-preset.json`) is harness material only.
+It is never committed, never a fixture, never quoted into shipped files.
+Before any commit touching import code: `grep -r "Simulation Engine V176" .`
+must find only code references (map names, comments), and a content-snippets
+scan of the tree against the real file must come back empty.
+
+## Seams for M6 (do not fill early)
+
+- The retired shelf's whys point at engines ("the registry keeps names
+  unique", "the canon store verifies") that partially still land in M6 —
+  the words are promises the house intends to keep.
+- Frame seeds stay copy-only; nothing yet writes Frame/Note text on the
+  user's behalf, and that restraint is deliberate.
+- Referee/memory/continuity agents remain M6's; no agent joins the send
+  path, ever (the latency law).

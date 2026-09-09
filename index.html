@@ -162,6 +162,30 @@
           </form>
         </section>
 
+        <section class="settings-section" id="section-engine">
+          <h3>Bring your engine</h3>
+          <p class="quiet">Have a SillyTavern preset you were fond of? Read it in and see how it sorts onto these shelves — the craft, the rulebook, seeds for the frame. Everything is read right here on this device; nothing travels.</p>
+          <div class="row">
+            <label class="btn btn-quiet file-btn">Choose the preset file
+              <input id="engine-file" type="file" accept="application/json,.json" hidden>
+            </label>
+          </div>
+          <label class="stack-label" for="engine-paste">Or paste its words here</label>
+          <textarea id="engine-paste" rows="5" spellcheck="false" placeholder="The whole preset, copied out…"></textarea>
+          <div class="row">
+            <button id="btn-engine-read" class="btn" type="button">Read it over</button>
+          </div>
+          <p id="engine-note" class="quiet" hidden></p>
+          <div id="engine-preview" class="engine-preview" hidden>
+            <div id="engine-groups"></div>
+            <div class="row">
+              <button id="btn-engine-apply" class="btn" type="button">Bring it home</button>
+              <button id="btn-engine-dismiss" class="text-btn" type="button">Not now</button>
+            </div>
+          </div>
+          <p id="engine-summary" class="quiet" hidden></p>
+        </section>
+
         <section class="settings-section" id="section-workers">
           <h3>The workers</h3>
           <p class="quiet">Quiet helpers who read each finished page and keep the ledger — the hour, who's here, the mood of the scene. They never speak while the storyteller is writing; they work only after the page is done.</p>

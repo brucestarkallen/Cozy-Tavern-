@@ -19,6 +19,12 @@
  *
  * Until the M3 engines land, predicates mostly read hand-set state, so most
  * modules wake by pin. That's the seam, on purpose.
+ *
+ * M5: two more predicate keys — `socialField` (the room is full of voices)
+ * and `manual` (never wakes on its own; the rule carries a `note` shown in
+ * the rulebook: "you choose when this walks in"). Custom rules may now
+ * carry a known `whenKey`, which is how imported presets keep their
+ * triggers (see js/import/sillytavern.js).
  */
 
 import { db } from '../store.js';
@@ -39,6 +45,16 @@ const PREDICATES = {
     const on = Boolean(state && state.mode && state.mode.combat);
     return { load: on, reason: on ? 'talk has given way — the moment is contested' : '' };
   },
+
+  /* socialField (M5) — a room full of voices: crowds, parties, group chats. */
+  socialField: (state) => {
+    const on = Boolean(state && state.mode && state.mode.socialField);
+    return { load: on, reason: on ? 'the room is full of voices' : '' };
+  },
+
+  /* manual (M5) — no predicate at all; the rule walks in only when you pin
+   * it. The note on the module says so in the rulebook. */
+  manual: () => ({ load: false, reason: '' }),
 
   /* vocal-acoustics — the simple M2 heuristic, spelled out honestly:
    * a "she/her voice is present" when someone in state.present is marked
@@ -63,6 +79,19 @@ const PREDICATES = {
     });
     return { load: found, reason: found ? 'a she/her voice is in the scene' : '' };
   },
+};
+
+/* Plain-words trigger descriptions, keyed like the predicates, so rules
+ * brought over by the importer (M5) can say when they wake without
+ * re-wording it. The builtins below keep their own whenWords; this table
+ * serves custom rules and the import preview. */
+export const WHEN_WORDS = {
+  always: 'always on — it is the craft',
+  intimate: 'wakes when the scene turns intimate',
+  combat: 'wakes when talk gives way to contest',
+  acoustics: 'wakes when a she/her voice is in the scene',
+  socialField: 'wakes when the room is full of voices',
+  manual: 'on when you pin it — you choose when this walks in',
 };
 
 /* ---------- builtin text (condensed from the V176 audit, in the house voice) ---------- */
@@ -154,8 +183,11 @@ function uid() {
   return 'mod-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
 
-/* Saved rows: {id, name, text, pinned, whenKey, custom} — custom:true means
- * a rule written from scratch; custom:false means a fork of a builtin. */
+/* Saved rows: {id, name, text, pinned, whenKey, note, custom} — custom:true
+ * means a rule written from scratch (or brought over by the importer, M5);
+ * custom:false means a fork of a builtin. `whenKey` persists a predicate by
+ * key and is kept only when it's a known key; `note` is a quiet line shown
+ * under the rule (manual rules carry "you choose when this walks in"). */
 async function readSaved() {
   const rows = await db.settings.get(STORAGE_KEY);
   return Array.isArray(rows) ? rows : [];
@@ -192,14 +224,16 @@ export async function listModules() {
   });
   for (const row of saved) {
     if (!row.custom) continue;
+    const whenKey = typeof row.whenKey === 'string' && PREDICATES[row.whenKey] ? row.whenKey : null;
     merged.push(attachPredicate({
       id: row.id,
       name: row.name || 'A rule of your own',
       text: typeof row.text === 'string' ? row.text : '',
       source: 'user',
       pinned: Boolean(row.pinned),
-      whenKey: row.whenKey || null,
-      whenWords: 'on when you pin it',
+      whenKey,
+      whenWords: whenKey ? WHEN_WORDS[whenKey] : 'on when you pin it',
+      note: typeof row.note === 'string' ? row.note : '',
       overridden: false,
       custom: true,
     }));
@@ -212,12 +246,18 @@ export async function listModules() {
 export async function saveModule(mod) {
   const rows = await readSaved();
   const isBuiltin = BUILTIN_MODULES.some((b) => b.id === mod.id);
+  /* Custom rules may carry a predicate key (imported rules do); only known
+   * keys are kept — anything stranger simply means "on when you pin it". */
+  const customKey = typeof mod.whenKey === 'string' && PREDICATES[mod.whenKey]
+    ? mod.whenKey
+    : null;
   const row = {
     id: mod.id || uid(),
     name: (mod.name || '').trim() || 'A rule of your own',
     text: typeof mod.text === 'string' ? mod.text : '',
     pinned: Boolean(mod.pinned),
-    whenKey: isBuiltin ? mod.whenKey || null : null,
+    whenKey: isBuiltin ? mod.whenKey || null : customKey,
+    note: typeof mod.note === 'string' ? mod.note : '',
     custom: !isBuiltin,
   };
   const at = rows.findIndex((r) => r.id === row.id);

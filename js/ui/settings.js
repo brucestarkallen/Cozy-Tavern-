@@ -2,14 +2,16 @@
  * Connections (add / change / test / let go, with presets), The Frame and
  * The Note at the End (global + per-story override), The Brief and Who's
  * here (per story), The rulebook (M2: pin, edit, fork, write your own),
- * The workers (M3: who reads for the ledger, and whether they do),
- * appearance, backup.
+ * Bring your engine (M5: read a SillyTavern preset, preview the shelves,
+ * apply what's wanted), The workers (M3: who reads for the ledger, and
+ * whether they do), appearance, backup.
  */
 
 import { db } from '../store.js';
 import { createProvider, presetById } from '../providers/index.js';
 import { STARTER_FRAME, STARTER_NOTE } from '../assemble/stack.js';
-import { listModules, saveModule, removeModule } from '../assemble/modules.js';
+import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
+import { parsePreset, decompose, applyPlan, summaryWords } from '../import/sillytavern.js';
 
 export function initSettings(ctx) {
   const els = {
@@ -47,6 +49,15 @@ export function initSettings(ctx) {
     workerConn: document.getElementById('worker-connection'),
     workerExtraction: document.getElementById('worker-extraction'),
     workerStoryName: document.getElementById('worker-story-name'),
+    engineFile: document.getElementById('engine-file'),
+    enginePaste: document.getElementById('engine-paste'),
+    btnEngineRead: document.getElementById('btn-engine-read'),
+    engineNote: document.getElementById('engine-note'),
+    enginePreview: document.getElementById('engine-preview'),
+    engineGroups: document.getElementById('engine-groups'),
+    btnEngineApply: document.getElementById('btn-engine-apply'),
+    btnEngineDismiss: document.getElementById('btn-engine-dismiss'),
+    engineSummary: document.getElementById('engine-summary'),
   };
 
   let editingId = null;
@@ -353,6 +364,15 @@ export function initSettings(ctx) {
       }
       li.appendChild(top);
 
+      /* A quiet line some rules carry — manual rules brought over by the
+       * importer say "you choose when this walks in" (M5). */
+      if (mod.note) {
+        const note = document.createElement('p');
+        note.className = 'quiet module-note';
+        note.textContent = mod.note;
+        li.appendChild(note);
+      }
+
       const pinRow = document.createElement('label');
       pinRow.className = 'radio-row';
       const pin = document.createElement('input');
@@ -443,6 +463,244 @@ export function initSettings(ctx) {
     const story = await activeStory();
     if (!story) return;
     await db.stories.update(story.id, { extraction: els.workerExtraction.checked });
+  });
+
+  /* ---------- bring your engine (M5) ---------- */
+
+  /* The plan currently on the table, or null when nothing has been read.
+   * Checkboxes in the preview flip `include` on this very object, so what
+   * you see is exactly what applyPlan acts on. */
+  let pendingPlan = null;
+
+  function engineSay(message) {
+    els.engineNote.hidden = !message;
+    els.engineNote.textContent = message || '';
+  }
+
+  function hideEnginePreview() {
+    pendingPlan = null;
+    els.enginePreview.hidden = true;
+    els.engineGroups.textContent = '';
+  }
+
+  /* One checkbox row for a craft/module item — everything starts included,
+   * and unticking simply leaves that piece behind. */
+  function includeRow(item, detailText) {
+    const li = document.createElement('li');
+    li.className = 'connection-card';
+    const label = document.createElement('label');
+    label.className = 'radio-row';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = item.include !== false;
+    box.addEventListener('change', () => { item.include = box.checked; });
+    const words = document.createElement('span');
+    words.textContent = item.name;
+    label.append(box, words);
+    li.appendChild(label);
+    if (item.guessed) {
+      const guess = document.createElement('p');
+      guess.className = 'quiet engine-why';
+      guess.textContent = '— a guess, from how it reads';
+      li.appendChild(guess);
+    }
+    if (detailText) {
+      const detail = document.createElement('p');
+      detail.className = 'quiet engine-why';
+      detail.textContent = detailText;
+      li.appendChild(detail);
+    }
+    return li;
+  }
+
+  function group(title, intro) {
+    const wrap = document.createElement('section');
+    wrap.className = 'engine-group';
+    const h = document.createElement('h4');
+    h.textContent = title;
+    wrap.appendChild(h);
+    if (intro) {
+      const p = document.createElement('p');
+      p.className = 'quiet';
+      p.textContent = intro;
+      wrap.appendChild(p);
+    }
+    const list = document.createElement('ul');
+    list.className = 'connection-list';
+    wrap.appendChild(list);
+    return { wrap, list };
+  }
+
+  async function copyWords(text, doneWords) {
+    try {
+      await navigator.clipboard.writeText(text);
+      engineSay(doneWords);
+    } catch (err) {
+      engineSay('The copy didn’t take — your device said no. The words stand just above; you can take them by hand.');
+    }
+  }
+
+  function renderEnginePreview(plan, warnings) {
+    els.engineGroups.textContent = '';
+    els.engineSummary.hidden = true;
+
+    if (plan.craft.length) {
+      const { wrap, list } = group(
+        'The craft',
+        'Standing guidance, always with the storyteller. What you keep here joins The craft as your own version — the shipped original stays underneath, restorable from the rulebook.'
+      );
+      for (const item of plan.craft) {
+        list.appendChild(includeRow(item, `${item.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words`));
+      }
+      els.engineGroups.appendChild(wrap);
+    }
+
+    if (plan.modules.length) {
+      const { wrap, list } = group(
+        'The rulebook',
+        'Rules that load when the scene calls for them — or when you pin them on. Each says when it wakes.'
+      );
+      for (const item of plan.modules) {
+        const when = WHEN_WORDS[item.whenKey] || item.why || 'on when you pin it';
+        list.appendChild(includeRow(item, when));
+      }
+      els.engineGroups.appendChild(wrap);
+    }
+
+    if (plan.frameSeeds.length) {
+      const { wrap, list } = group(
+        'Seeds for the frame & the note',
+        'These read like opening and closing words, so they aren’t brought in on their own. Take a copy and paste it into The frame or The note at the end, if you like.'
+      );
+      for (const item of plan.frameSeeds) {
+        const li = document.createElement('li');
+        li.className = 'connection-card';
+        const top = document.createElement('div');
+        top.className = 'connection-top';
+        const name = document.createElement('span');
+        name.className = 'connection-name';
+        name.textContent = item.name;
+        top.appendChild(name);
+        if (item.guessed) {
+          const tag = document.createElement('span');
+          tag.className = 'connection-active-tag';
+          tag.textContent = '— a guess';
+          top.appendChild(tag);
+        }
+        const row = document.createElement('div');
+        row.className = 'row';
+        /* A taste of the words, so the seeds can be read (and taken by
+         * hand) even where the clipboard is refused. */
+        const excerpt = document.createElement('p');
+        excerpt.className = 'quiet engine-why';
+        const plain = item.text.replace(/\s+/g, ' ').trim();
+        excerpt.textContent = plain.length > 160 ? plain.slice(0, 160).trimEnd() + '…' : plain;
+        const frameBtn = document.createElement('button');
+        frameBtn.type = 'button';
+        frameBtn.className = 'text-btn';
+        frameBtn.textContent = 'Copy for the frame';
+        frameBtn.addEventListener('click', () => copyWords(item.text, 'Copied — paste it into The frame above, if it suits.'));
+        const noteBtn = document.createElement('button');
+        noteBtn.type = 'button';
+        noteBtn.className = 'text-btn';
+        noteBtn.textContent = 'Copy for the note';
+        noteBtn.addEventListener('click', () => copyWords(item.text, 'Copied — paste it into The note at the end above, if it suits.'));
+        row.append(frameBtn, noteBtn);
+        li.append(top, excerpt, row);
+        list.appendChild(li);
+      }
+      els.engineGroups.appendChild(wrap);
+    }
+
+    if (plan.retired.length) {
+      const { wrap, list } = group(
+        'Retired into the house',
+        'These blocks did work the house and its engines now do themselves. They rest here, with the reason why — nothing to bring home.'
+      );
+      for (const item of plan.retired) {
+        const li = document.createElement('li');
+        li.className = 'connection-card';
+        const top = document.createElement('div');
+        top.className = 'connection-top';
+        const name = document.createElement('span');
+        name.className = 'connection-name';
+        name.textContent = item.name;
+        top.appendChild(name);
+        const why = document.createElement('p');
+        why.className = 'quiet engine-why';
+        why.textContent = item.why;
+        li.append(top, why);
+        list.appendChild(li);
+      }
+      els.engineGroups.appendChild(wrap);
+    }
+
+    if (plan.skipped.length) {
+      const p = document.createElement('p');
+      p.className = 'quiet';
+      p.textContent = `${plan.skipped.length} ${plan.skipped.length === 1 ? 'block was' : 'blocks were'} left behind — markers, off-switches, and empty husks the house keeps for itself.`;
+      els.engineGroups.appendChild(p);
+    }
+
+    els.enginePreview.hidden = false;
+    const counted = plan.craft.length + plan.modules.length + plan.frameSeeds.length
+      + plan.retired.length + plan.skipped.length;
+    const warnText = warnings && warnings.length ? ' (' + warnings.join(' ') + ')' : '';
+    engineSay(`Read ${counted} ${counted === 1 ? 'block' : 'blocks'} from the preset.${warnText} Untick anything you'd rather leave behind, then bring it home.`);
+  }
+
+  function readEngine(text) {
+    hideEnginePreview();
+    els.engineSummary.hidden = true;
+    try {
+      const { entries, warnings } = parsePreset(text);
+      pendingPlan = decompose(entries);
+      renderEnginePreview(pendingPlan, warnings);
+    } catch (err) {
+      engineSay(err.message || 'That file wouldn’t open. Is it a preset export?');
+    }
+  }
+
+  els.engineFile.addEventListener('change', async () => {
+    const file = els.engineFile.files && els.engineFile.files[0];
+    els.engineFile.value = '';
+    if (!file) return;
+    try {
+      readEngine(await file.text());
+    } catch (err) {
+      engineSay('That file wouldn’t open — the device couldn’t read it. Try pasting its words instead.');
+    }
+  });
+
+  els.btnEngineRead.addEventListener('click', () => {
+    const text = els.enginePaste.value.trim();
+    if (!text) {
+      engineSay('Paste the preset’s words first — or choose the file just above.');
+      return;
+    }
+    readEngine(text);
+  });
+
+  els.btnEngineDismiss.addEventListener('click', () => {
+    hideEnginePreview();
+    engineSay('Left as it was. The preset waits whenever you want to look again.');
+  });
+
+  els.btnEngineApply.addEventListener('click', async () => {
+    if (!pendingPlan) return;
+    els.btnEngineApply.disabled = true;
+    try {
+      const summary = await applyPlan(pendingPlan);
+      hideEnginePreview();
+      engineSay('');
+      els.engineSummary.hidden = false;
+      els.engineSummary.textContent = summaryWords(summary);
+      await renderRulebook();
+    } catch (err) {
+      engineSay('Something went wrong while writing it down — nothing was brought home. The preset is unchanged.');
+    } finally {
+      els.btnEngineApply.disabled = false;
+    }
   });
 
   /* ---------- appearance ---------- */
