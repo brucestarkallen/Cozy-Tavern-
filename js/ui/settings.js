@@ -28,6 +28,7 @@ import {
 } from '../import/lorebook.js';
 import { parseSTChat, importAsStory } from '../import/chats.js';
 import { cleanWindow } from '../agents/memory.js';
+import { WORKER_ROWS } from '../agents/assign.js';
 /* M16: the house's version word stands in the header line. */
 import { VERSION } from '../version.js';
 
@@ -78,6 +79,7 @@ export function initSettings(ctx) {
     importFile: document.getElementById('import-file'),
     backupNote: document.getElementById('backup-note'),
     workerConn: document.getElementById('worker-connection'),
+    workerAssignments: document.getElementById('worker-assignments'),
     workerExtraction: document.getElementById('worker-extraction'),
     workerStoryName: document.getElementById('worker-story-name'),
     storyConn: document.getElementById('story-connection'),
@@ -684,6 +686,38 @@ export function initSettings(ctx) {
       els.workerConn.appendChild(opt);
     }
     els.workerConn.value = wanted && all.some((c) => c.id === wanted) ? wanted : '';
+
+    /* M17: per-worker hands — each quiet helper may ride a connection of its own */
+    const assignMap = (await db.settings.get('workerConnections')) || {};
+    els.workerAssignments.textContent = '';
+    for (const [key, words] of WORKER_ROWS) {
+      const row = document.createElement('label');
+      row.className = 'stack-label worker-assign-row';
+      const sel = document.createElement('select');
+      sel.dataset.worker = key;
+      const dflt = document.createElement('option');
+      dflt.value = '';
+      dflt.textContent = 'The house choice';
+      sel.appendChild(dflt);
+      for (const conn of all) {
+        const opt = document.createElement('option');
+        opt.value = conn.id;
+        opt.textContent = conn.label;
+        sel.appendChild(opt);
+      }
+      sel.value = assignMap[key] && all.some((c) => c.id === assignMap[key]) ? assignMap[key] : '';
+      sel.addEventListener('change', async () => {
+        const next = (await db.settings.get('workerConnections')) || {};
+        if (sel.value) next[key] = sel.value; else delete next[key];
+        await db.settings.set('workerConnections', next);
+        toast(sel.value ? `${words.split(' — ')[0]} has hands of its own now.` : `${words.split(' — ')[0]} follows the house again.`);
+      });
+      const labelText = document.createElement('span');
+      labelText.textContent = words;
+      row.appendChild(labelText);
+      row.appendChild(sel);
+      els.workerAssignments.appendChild(row);
+    }
 
     const story = await activeStory();
     els.workerStoryName.textContent = story ? `“${story.title}”` : 'this story';

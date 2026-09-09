@@ -607,3 +607,8 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
     Settings → "The shelf it sits on" moves the story; the sidebar re-gathers at once.
 63. Taking a shelf down NEVER deletes its tales — they stand loose, pages intact.
     Renaming a shelf works inline; a backup carries the shelves (settings store).
+
+## M17 additions
+64. Settings → The workers shows a row per worker; assigning "the referee" a cheap fast
+    connection makes contested turns quicker while the storyteller keeps the best model.
+65. Deleting a connection a worker rode: the worker quietly follows the house choice again.

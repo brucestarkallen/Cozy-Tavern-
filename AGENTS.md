@@ -776,3 +776,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Browser QA (mock SSE provider, fresh profile, 0 page errors): shelves render, collapse
   persists across reload, move picker works, takedown keeps tales loose, SW active.
   Evidence: /mnt/agents/output/qa-m16-*.png. version.js -> m16-001.
+
+---
+
+# M17 — every worker may have hands of its own
+- js/agents/assign.js: pickWorkerConnection + WORKER_ROWS. Chain: per-worker pick
+  (settings.workerConnections map) -> M3 general workers' pick (workerConnectionId) ->
+  caller falls back to the story's connection. Stale ids degrade down the chain, never shadow.
+- chat.js resolveWorkerConnection(story, worker); call sites tagged: extractor, scribe,
+  keeper, continuity, seeder, referee, showrunner. housekeeper.js reads the same map.
+- Settings → The workers: per-worker pickers under the general one ("hands of their own").
+- Harness: tests/harness/assign.mjs (5 checks). version.js -> m17-001.

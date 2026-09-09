@@ -62,7 +62,9 @@ export function initHousekeeper(ctx) {
 
   /* The worker connection, exactly as chat.js resolves it. */
   async function resolveWorkerConnection(story) {
-    const wanted = await db.settings.get('workerConnectionId');
+    /* M17: the housekeeper may have hands of its own. */
+    const map = (await db.settings.get('workerConnections')) || {};
+    const wanted = map.housekeeper || await db.settings.get('workerConnectionId');
     const all = await db.connections.list();
     if (wanted) {
       const found = all.find((c) => c.id === wanted);

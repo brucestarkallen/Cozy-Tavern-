@@ -49,6 +49,7 @@ import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork } from '../agents/extractor.js';
 import { enqueueWork } from '../agents/queue.js';
+import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory } from '../agents/memory.js';
@@ -869,13 +870,13 @@ export function initChat(ctx) {
 
   /* M3: the workers may use a connection of their own (Settings → The
    * workers); by default they borrow the one telling the story. */
-  async function resolveWorkerConnection(story) {
-    const wanted = await db.settings.get('workerConnectionId');
-    if (wanted) {
-      const all = await db.connections.list();
-      const found = all.find((c) => c.id === wanted);
-      if (found) return found;
-    }
+  async function resolveWorkerConnection(story, worker) {
+    /* M17: a worker may have hands of its own (Settings → The workers). */
+    const map = (await db.settings.get('workerConnections')) || {};
+    const legacy = await db.settings.get('workerConnectionId');
+    const all = await db.connections.list();
+    const picked = pickWorkerConnection({ map, legacy, connections: all }, worker);
+    if (picked) return picked;
     return resolveConnection(story);
   }
 
@@ -921,7 +922,7 @@ export function initChat(ctx) {
   function startShowrunnerWork(story, { episodeEnded = false } = {}) {
     (async () => {
       try {
-        const connection = await resolveWorkerConnection(story);
+        const connection = await resolveWorkerConnection(story, 'showrunner');
         if (!connection) return;
         const { signal, done } = workerSignal();
         try {
@@ -995,7 +996,7 @@ export function initChat(ctx) {
      * save them, and write the outcome back onto the same message. */
     enqueue('extractor', async ({ signal, stale }) => {
       if (story.extraction === false) return { silent: true };
-      const connection = await resolveWorkerConnection(story);
+      const connection = await resolveWorkerConnection(story, 'extractor');
       if (!connection) return { silent: true };
       const stateBefore = await loadState(story.id);
       const { mutations } = await extractTurn({
@@ -1035,7 +1036,7 @@ export function initChat(ctx) {
      * to the ledger's own switch, like the extractor. */
     enqueue('scribe', async ({ signal, stale }) => {
       if (story.extraction === false) return { silent: true };
-      const connection = await resolveWorkerConnection(story);
+      const connection = await resolveWorkerConnection(story, 'scribe');
       if (!connection) return { silent: true };
       await scribeTurn({
         connection,
@@ -1055,7 +1056,7 @@ export function initChat(ctx) {
     enqueue('keeper', async ({ signal, stale }) => {
       if (story.keeper === false) return { silent: true };
       if (story.keeper !== true && (await db.settings.get('memoryKeeper')) === false) return { silent: true };
-      const connection = await resolveWorkerConnection(story);
+      const connection = await resolveWorkerConnection(story, 'keeper');
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
       await maybeSummarize({ connection, storyId: story.id, signal });
@@ -1070,7 +1071,7 @@ export function initChat(ctx) {
         ? true
         : story.continuity === false ? false : Boolean(await db.settings.get('continuityCheck'));
       if (!on) return { silent: true };
-      const connection = await resolveWorkerConnection(story);
+      const connection = await resolveWorkerConnection(story, 'continuity');
       if (!connection) return { silent: true };
       const fresh = await loadState(story.id);
       const { findings } = await checkTurn({
@@ -1094,7 +1095,7 @@ export function initChat(ctx) {
      * line, as M11 shipped them). */
     enqueue('seeder', async ({ signal }) => {
       try {
-        const connection = await resolveWorkerConnection(story);
+        const connection = await resolveWorkerConnection(story, 'seeder');
         if (!connection) return { silent: true };
         await maybeSeedSheet({ connection, storyId: story.id, signal });
       } catch (err) { /* the seeder's trouble is its own */ }
@@ -1217,7 +1218,7 @@ export function initChat(ctx) {
         try {
           const refSettings = await refereeSettings();
           if (refSettings.on) {
-            const workerConnection = await resolveWorkerConnection(story);
+            const workerConnection = await resolveWorkerConnection(story, 'referee');
             const step = await refereeStep({
               connection: workerConnection,
               userText,
