@@ -3,12 +3,14 @@
  * internals; the export name `buildRequest` (and the starter texts, which
  * the settings view imports) stay put.
  *
- * Contract (SPEC.md M2):
- *   buildRequest({story, messages, settings, state, modules})
+ * Contract (SPEC.md M2, extended by M6):
+ *   buildRequest({story, messages, settings, state, modules, memory})
  *     -> { systemBlocks:[{text, cache:true|false}], messages:[...],
  *          receipt:ReceiptDraft }
  *   `modules` is the already-selected list from modules.selectModules():
- *   [{mod, reason}] — core-craft is always among them.
+ *   [{mod, reason}] — core-craft is always among them. `memory` is slot 7's
+ *   text: what the keeper has folded of the older pages (agents/memory.js
+ *   renderMemory), or '' when nothing has been remembered yet.
  *
  * The slot order is law — never reorder:
  *   1. The frame            (story override → global → starter)   cache:true
@@ -17,7 +19,7 @@
  *   4. Who's here           (cast notes + state.present names)    cache:true
  *   5. The state of things  (renderStateFacts(state); omit if '') cache:false
  *   6. Active modules       (non-core selected modules)           cache:false
- *   7. What remains         — omitted in M2 (memory slot, M6)
+ *   7. What remains         (memory nodes; M6 — omitted when none)
  *   8. The story so far     — the history, as-is
  *   9. The note at the end  (override → global → starter; LAST message)
  *  10. The continue nudge   — only when the last user message is
@@ -30,12 +32,20 @@
  *     left out of the blocks but still appear on the receipt (0 tokens).
  *   - Slots 5–6 prepend as ONE user-role message marked [story-state] at
  *     the FRONT of the messages array — dynamic text is never system on the
- *     openai mapping, so the stable system prefix stays byte-for-byte.
+ *     openai mapping, so the stable system prefix stays byte-for-byte. Slot
+ *     7, when memory exists, rides inside that same injection after the
+ *     active modules (its order in the stack, and still before history).
  *   - Slot 8 follows as plain {role, content} history.
  *   - Slot 10, when it fires, sits just before the note; slot 9 is always
  *     the LAST message. (When the note is empty and the nudge fires, the
  *     nudge is last — there is no note to keep last.)
- *   - Slot 7 is a kept place, recorded on the receipt, sent as nothing.
+ *   - Slot 7 appears on the receipt ONLY when memory exists (M6 law); an
+ *     empty "What remains" is no longer recorded.
+ *
+ * M6: when the referee has ruled (state.pendingVerdict), renderStateFacts
+ * carries "The house has ruled: …" at the head of slot 5 — the receipt's
+ * slot 5 thereby records it. The send path clears the verdict after this
+ * build (consume-and-clear; see chat.js).
  *
  * Token estimate per slot = ceil(chars/4) (see assemble/receipt.js).
  */
@@ -96,11 +106,14 @@ function isContinueTurn(history) {
   return text === '' || /^(continue|go on|keep going)[.!…]?$/i.test(text);
 }
 
-export function buildRequest({ story, messages, settings, state, modules }) {
+export function buildRequest({ story, messages, settings, state, modules, memory }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
   const history = Array.isArray(messages) ? messages : [];
   const selected = Array.isArray(modules) ? modules : [];
+  /* M6: slot 7's text arrives ready-made from the keeper (renderMemory) —
+   * '' when nothing has been remembered, which omits the slot entirely. */
+  const memoryText = typeof memory === 'string' ? memory.trim() : '';
 
   const slots = [];
   const pushSlot = (name, text, source, reason) => {
@@ -156,18 +169,22 @@ export function buildRequest({ story, messages, settings, state, modules }) {
     active.map(({ mod, reason }) => mod.name + ' (' + reason + ')').join('; ')
   );
 
-  /* Slots 5–6 ride together as ONE user-role message at the FRONT of the
+  /* Slots 5–7 ride together as ONE user-role message at the FRONT of the
    * messages array, marked [story-state] so the storyteller can tell it
-   * apart from dialogue. Both empty → no injection at all. */
+   * apart from dialogue. All empty → no injection at all. */
   const stateParts = [];
   if (facts) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
+  if (memoryText) stateParts.push('What remains of the older pages:\n' + memoryText);
   const stateInjection = stateParts.length
     ? { role: 'user', content: STATE_MARKER + '\n' + stateParts.join('\n\n') }
     : null;
 
-  /* --- 7. What remains — a kept place, not yet in use (M6) --- */
-  pushSlot('What remains', '', '', 'a place kept for what the story remembers — not yet in use');
+  /* --- 7. What remains (M6) — the newest memory nodes. The receipt slot
+   * appears only when there is something remembered. --- */
+  if (memoryText) {
+    pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
+  }
 
   /* --- 8. The story so far --- */
   const wire = history

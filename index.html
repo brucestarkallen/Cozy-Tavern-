@@ -196,6 +196,21 @@
           </div>
         </section>
 
+        <section class="settings-section" id="section-memory">
+          <h3>How much the story remembers</h3>
+          <p class="quiet">When a tale grows long, the oldest pages can't ride along word for word forever. The memory keeper folds what has scrolled past into short, faithful notes the storyteller still sees ("What remains" on the receipt). It works after each page is done, never during.</p>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="memory-keeper"> The keeper folds the older pages into notes</label>
+          </div>
+          <label class="stack-label" for="memory-window">Pages kept word for word: <span id="memory-window-value">30</span></label>
+          <input id="memory-window" type="range" min="10" max="100" step="5" value="30" aria-label="How many recent pages stay word for word">
+          <p class="quiet">Fewer pages kept word for word means smaller, quicker turns; more means the recent tale stays exactly as written for longer.</p>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="continuity-check"> A second reader checks each finished page against what's written down</label>
+          </div>
+          <p class="quiet">The second reader only notes drift in the ledger ("Something drifted") and on the receipt — it never touches the words themselves.</p>
+        </section>
+
         <section class="settings-section" id="section-appearance">
           <h3>Appearance</h3>
           <fieldset class="theme-field">

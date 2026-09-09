@@ -20,6 +20,10 @@
  *   presence.enter {name, position?, attire?}  presence.leave {name}
  *   presence.update {name, position?, attire?}
  *   mode.set {flag, reason}                    mode.clear {flag}
+ * M4 (v2) added the ledgers: body.injure / body.strain / body.heal,
+ * rel.shift / rel.set, offscreen.set / offscreen.clear.
+ * M6 (v3) adds the canon store: canon.lock {name, key, value} and
+ * canon.unlock {name, key} — certainties written down and let go.
  *
  * Reversal rides on the log entry as `undo` — a small payload saying what
  * was true before. The spec's documented log shape {ts, words, undone} is
@@ -31,6 +35,7 @@ import { createClock, setClock, advanceClock, renderClock, MAX_ADVANCE_MINUTES }
 import { addInjury, addStrain, findBodyKey, findInjury, SEV_WORDS } from './bodies.js';
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
 import { seat, findSeat } from './offscreen.js';
+import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 
 const LOG_CAP = 200;
 
@@ -66,6 +71,7 @@ function copyState(state) {
     bodies: cloneMap(safe.bodies),
     relationships: cloneMap(safe.relationships),
     offscreen: cloneMap(safe.offscreen),
+    canon: cloneMap(safe.canon),
   };
 }
 
@@ -436,6 +442,41 @@ const HANDLERS = {
       undo: { kind: 'offscreen.restore', name: seated.key, before: { ...seated.entry } },
     };
   },
+
+  /* ---------- M6: the canon store ---------- */
+
+  'canon.lock'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const key = capText(m.key, 40);
+    if (!key) return { why: 'it didn’t say what the truth is called — hair, eyes, a limp' };
+    const value = capText(m.value, 140);
+    if (!value) return { why: 'it didn’t say what’s true of ' + name };
+    const canonKey = findCanonKey(state.canon, name) || name;
+    const before = state.canon[canonKey] ? cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey] : null;
+    const held = before ? findFact(before, key) : null;
+    state.canon = lockFact(state.canon, canonKey, { key, value }, clockMinutesOf(state));
+    const words = held
+      ? canonKey + ' — ' + held.entry.key + ' stands corrected: ' + value + ' (it was ' + held.entry.value + ').'
+      : canonKey + ' — it is now true: ' + key + ': ' + value + '.';
+    return { words, undo: { kind: 'canon.restore', name: canonKey, before } };
+  },
+
+  'canon.unlock'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const canonKey = findCanonKey(state.canon, name);
+    if (!canonKey) return { why: 'nothing is locked true of ' + name };
+    const key = capText(m.key, 40);
+    const held = findFact(state.canon[canonKey], key);
+    if (!held) return { why: 'no truth called “' + (key || '?') + '” is locked for ' + canonKey };
+    const before = cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey];
+    state.canon = unlockFact(state.canon, canonKey, key);
+    return {
+      words: canonKey + ' — “' + held.entry.key + '” is no longer written as certain.',
+      undo: { kind: 'canon.restore', name: canonKey, before },
+    };
+  },
 };
 
 /* ---------- the contract ---------- */
@@ -517,6 +558,11 @@ export function undoLast(state) {
       const key = seated ? seated.key : undo.name;
       if (undo.before) next.offscreen[key] = { ...undo.before };
       else delete next.offscreen[key];
+      ok = true;
+    } else if (undo.kind === 'canon.restore') {
+      const key = findCanonKey(next.canon, undo.name) || undo.name;
+      if (undo.before) next.canon[key] = cloneMap({ [key]: undo.before })[key];
+      else delete next.canon[key];
       ok = true;
     }
 

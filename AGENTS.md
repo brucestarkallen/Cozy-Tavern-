@@ -393,3 +393,109 @@ scan of the tree against the real file must come back empty.
   user's behalf, and that restraint is deliberate.
 - Referee/memory/continuity agents remain M6's; no agent joins the send
   path, ever (the latency law).
+
+# M6 — the referee, the canon store, the memory keeper, the continuity check
+
+## What changed
+
+- `js/agents/referee.js` (new) — the ONLY agent allowed before the story
+  generation, and only when `shouldAdjudicate` fires: an inline `#roll` in
+  the user's words, or `state.mode.combat === true` (the trigger law). The
+  model reads the board and picks a rung (5 clearly favored / 10 even / 14
+  disadvantaged / 18 outclassed — snapped if it invents one); the d20 is
+  rolled IN CODE with crypto.getRandomValues (rejection-sampled, perfectly
+  uniform). Margin → outcome: +10 decisive / +5 clean / +1 a success with a
+  cost / 0 partial / −5 failure / −10 failure with consequences / −15
+  catastrophic. Tiny and cold (max_tokens 150, temperature 0); never
+  throws; a failure simply means no ruling this turn.
+- `js/engine/canon.js` (new) — `state.canon = { [name]: {facts:[{key,
+  value, atMinutes}]} }`, what's true of them. `lockFact` / `unlockFact`
+  are pure (fresh copies out), case-insensitive on name and key.
+  `renderCanon` speaks the present characters' facts only, compact; it
+  joins slot 5, counts toward the 1600-char budget, and sheds after the
+  body ledger.
+- `js/agents/memory.js` (new) — the keeper. Store key `memory:<storyId>` =
+  `{window:30, nodes:[{id, span:[fromIdx,toIdx], text, level, at}]}` in the
+  settings store, so backups carry it. Threshold: history beyond window+20
+  folds the oldest pages into a level-1 note (~150 words, faithful); more
+  than 6 level-1 notes folds the oldest 3 into a level-2 note. Slot 7,
+  "What remains", is the newest 3 node texts (level descending), budget
+  3200 chars — and the receipt slot appears ONLY when memory exists (this
+  supersedes M2's "kept place" row). The switch (`memoryKeeper`, default
+  on) and the window (`memoryWindow`, 10–100, default 30) are app-wide
+  settings under "How much the story remembers".
+- `js/agents/continuity.js` (new) — the second reader: advisory only, OFF
+  by default (`continuityCheck`). Compares each finished page against ALL
+  canon and the ledgers; findings `[{words, severity:'note'|'warn'}]` are
+  stored on the assistant message (`msg.findings`), shown on the receipt
+  ("Drift") and the drawer ("Something drifted"). It never edits prose,
+  never blocks, never throws.
+- `js/engine/apply.js` (extended) — v3 of the closed vocabulary:
+  `canon.lock` / `canon.unlock`, validated, logged, undoable
+  (`canon.restore`).
+- `js/engine/state.js` (extended) — state v4: `canon`, `pendingVerdict`
+  (consumed by the next buildRequest, then cleared), `lastVerdict` (the
+  drawer's echo); memorySettings and anything unknown pass through on
+  migration. `renderStateFacts` speaks the ruling at the head of slot 5
+  (never shed) and the locked truths after presence.
+- `js/assemble/stack.js` (extended) — `buildRequest` takes `memory` (slot
+  7's text); the receipt's "What remains" appears only when memory exists;
+  slot 7 rides the `[story-state]` injection after the active modules.
+- `js/agents/extractor.js` (extended) — the in-flight tracker widened to a
+  chain: `noteWork` / `pendingWork(storyId, 5000)` give EACH background
+  link its own hard five seconds; the M3 names remain as aliases.
+- `js/ui/chat.js` (extended) — the send path: await the background chain →
+  referee pre-send when triggered (verdict into state) → buildRequest →
+  consume-and-clear the verdict. Post-stream fan-out, in order: extractor →
+  memory keeper → continuity reader, all in the background.
+- `js/ui/drawer.js` (extended) — three panels: "The house has ruled" (the
+  latest ruling), "What's true of them" (the canon store, hand-editable via
+  the v3 mutations), "Something drifted" (the second reader's notes).
+- `js/ui/settings.js` + `index.html` (extended) — "How much the story
+  remembers": the keeper's switch, the word-for-word window slider, and the
+  second reader's switch.
+- `js/ui/receiptview.js` (extended) — the receipt gains a "Drift" section
+  when a page carries findings.
+- `js/store.js` (additive, same pattern as M3's `extraction`) — messages
+  carry `findings`; a story's `memory:<storyId>` key is let go with the
+  story.
+
+## Contracts to preserve (added in M6)
+
+- `shouldAdjudicate({userText, state})` → true iff inline `#roll` OR
+  `state.mode.combat === true`. No other trigger, ever.
+- `adjudicate({connection, userText, state, signal})` →
+  `{dc, roll, margin, outcome, words}` | null on any failure. Never throws;
+  never rolls the die anywhere but in code.
+- The referee's verdict is consumed by exactly one buildRequest and
+  cleared; slot 5's receipt records it.
+- `maybeSummarize({connection, storyId, signal})` — threshold-gated
+  (window+20), layered (7+ level-1 → fold oldest 3 into level 2), never
+  throws; the keeper's off-switch means it never wakes.
+- Slot 7 = newest 3 node texts, level descending, 3200 chars; receipt slot
+  only when memory exists.
+- `checkTurn({connection, state, assistantText, signal})` →
+  `{findings:[{words, severity:'note'|'warn'}]}`; advisory only; never
+  throws; never touches prose.
+- The fan-out order (extractor → keeper → reader) and the 5-seconds-each
+  courtesy wait are the latency law, restated.
+
+## Verification
+
+- `node --check` clean on every `.js` file.
+- Harnesses (kept in /tmp during development, not shipped):
+  `m6-harness.mjs` (150 checks: curve/DC boundaries, crypto d20
+  distribution over 1000 rolls, trigger truth table, consume-and-clear
+  across a buildRequest, memory threshold/layering math, slot-7 budget,
+  canon lock/unlock/render-budget, continuity parse tolerance,
+  referee/keeper/reader never-throws under a failing provider, v3→v4
+  migration no-loss, the pendingWork chain) and `m6-regression.mjs`
+  (73 checks re-proving M1–M5). All green at commit time.
+
+## Seams for M7 (do not fill early)
+
+- SillyTavern character cards, lorebooks, and chat import remain M7's; the
+  canon store is the landing shelf for a card's locked truths, but nothing
+  writes to it from import yet.
+- The verdict is one line of fact per ruling; no roll history or odds
+  display beyond "The house has ruled" is promised.

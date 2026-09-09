@@ -365,3 +365,67 @@ and engine mutations/undo.
 - `node --check` clean on every `.js` file; sw.js cache bumped (v5) with
   the two new import modules in the shell list; the app still loads
   offline.
+
+## 26. The referee — the trigger law
+
+- In a calm scene, send `#roll I leap the gap between the roofs`. Before
+  the storyteller writes, the drawer’s “The house has ruled” panel shows
+  the ruling — the roll, the mark, the outcome words — and the page that
+  follows honors it. Receipt → slot 5 carries “The house has ruled: …”.
+- Send a plain message in a calm scene: no ruling, and no ruling line rides
+  the stack.
+- Switch combat on in the drawer, send a plain message: the referee rules
+  again (a fight counts as contested). Switch it off: quiet again.
+- After the ruled page, send one more plain message: its slot 5 no longer
+  carries the ruling (consumed and cleared); the drawer keeps the echo.
+
+## 27. The canon store
+
+- Drawer → “What’s true of them”: lock “Mara — hair: black”. It lists; the
+  next turn’s slot 5 carries “True of them: Mara — hair: black.” while Mara
+  is present (a locked truth about someone off-page stays off the stack).
+- Tap × beside it: the truth lets go, the next receipt no longer carries
+  it. Both the lock and the unlock undo from “What changed and why”.
+
+## 28. The memory keeper
+
+- Settings → “How much the story remembers”: the keeper is on by default,
+  30 pages word for word (slider 10–100).
+- Tell a story past window+20 pages (51 by default): the receipt gains
+  “What remains” with a short, faithful note of the oldest pages — names,
+  promises, hurts, not embellishments. Older turns without memory show no
+  “What remains” slot at all (M6: the slot appears only when present,
+  superseding §9.2’s “kept place”).
+- Slide the window down to 10: notes gather sooner. Switch the keeper off:
+  no new notes; the ones already folded stay.
+- Keep writing long enough for seven level-1 notes: the oldest three fold
+  into one wider note (level 2), which leads “What remains”.
+
+## 29. The continuity check
+
+- Default OFF. Settings → switch the second reader on.
+- With “Mara — hair: black” locked, coax a page where her hair reads
+  blonde. Moments after the page finishes: the message’s receipt shows a
+  “Drift” section, and the drawer’s “Something drifted” lists it. The words
+  themselves are never touched; an empty findings list renders nothing.
+- With the switch off, no reading happens at all.
+
+## 30. One stream, as ever (M6 latency law)
+
+- Watch traffic (or a local mock): each send streams exactly ONE story
+  call. The referee, when triggered, is one tiny cold call (max 150 tokens)
+  before it. Extractor → memory keeper → continuity reader run only after
+  the stream completes, in that order; the next send waits on each for at
+  most five seconds, then goes on with last-good state.
+- Kill the network mid-flight: the story still streams; every worker fails
+  quietly; no ruling, no notes, no drift — and no error in the chat.
+
+## 31. Regression
+
+- M1 (§1–§8), M2 (§9–§12), M3 (§13–§17), M4 (§18–§22), and M5 (§23–§25)
+  still pass, untouched. Both /tmp harnesses are green
+  (m6-harness.mjs: 150 checks; m6-regression.mjs: 73 checks).
+- `node --check` clean on every `.js` file; sw.js cache bumped (v6) with
+  the four new modules in the shell list; backup/restore carries
+  `memory:<storyId>`; deleting a story lets its memory go with it.
+

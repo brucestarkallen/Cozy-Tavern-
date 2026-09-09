@@ -21,11 +21,16 @@
  * knob); everywhere else we rely on the prompt plus a tolerant parser.
  * max_tokens ~400, temperature 0.
  *
- * Also living here: the in-flight tracker. chat.js notes each extraction it
- * fires; the send path awaits pendingExtraction(storyId, 5000) before
- * assembling the next request, so state is consistent without prose ever
- * waiting on the workers (the latency law, SPEC.md M3).
- */
+ * Also living here: the in-flight tracker. chat.js notes each piece of
+ * background work it fires; the send path awaits pendingWork(storyId, 5000)
+ * before assembling the next request, so state is consistent without prose
+ * ever waiting on the workers (the latency law, SPEC.md M3). M6 widened the
+ * chain (extractor → memory keeper → continuity check): noteWork tracks
+ * every link, and pendingWork gives EACH link its own hard five seconds —
+ * first overrun, the send simply proceeds with last-good state (the chain
+ * is ordered, so a late link means the later links can't land in time).
+ * The M3 names (noteExtraction / pendingExtraction) remain as aliases —
+ * they were the published contract. */
 
 import { renderStateFacts } from '../engine/state.js';
 
@@ -34,32 +39,52 @@ const TEMPERATURE = 0;
 
 /* ---------- the in-flight tracker (the send path's courtesy wait) ---------- */
 
-const inFlight = new Map(); // storyId -> Promise
+const inFlight = new Map(); // storyId -> Promise[]
 
-/* Note an extraction just fired. The promise's own fate is swallowed here —
- * the tracker only cares when it settles. */
-export function noteExtraction(storyId, promise) {
+/* Note a piece of background work just fired. The promise's own fate is
+ * swallowed here — the tracker only cares when it settles. */
+export function noteWork(storyId, promise) {
   if (!storyId || !promise || typeof promise.then !== 'function') return;
-  inFlight.set(storyId, promise);
-  const settle = () => { if (inFlight.get(storyId) === promise) inFlight.delete(storyId); };
+  let list = inFlight.get(storyId);
+  if (!list) { list = []; inFlight.set(storyId, list); }
+  list.push(promise);
+  const settle = () => {
+    const at = list.indexOf(promise);
+    if (at !== -1) list.splice(at, 1);
+    if (!list.length && inFlight.get(storyId) === list) inFlight.delete(storyId);
+  };
   promise.then(settle, settle);
 }
 
-/* Await any extraction in flight for this story — hard timeout, then we
- * simply proceed with last-good state. Never rejects. */
+/* Await each piece of background work in flight for this story, in order —
+ * each gets its own hard timeout; on the first overrun we stop waiting and
+ * go on with last-good state. Never rejects. Resolves true when everything
+ * settled in time, false when nothing was pending or something overran. */
+export async function pendingWork(storyId, timeoutMs = 5000) {
+  let any = false;
+  for (;;) {
+    const list = inFlight.get(storyId);
+    if (!list || !list.length) return any;
+    any = true;
+    const promise = list[0];
+    let timer = null;
+    const done = await Promise.race([
+      promise.then(() => 'settled', () => 'settled'),
+      new Promise((resolve) => { timer = setTimeout(() => resolve('timeout'), timeoutMs); }),
+    ]);
+    clearTimeout(timer);
+    if (done === 'timeout') return false;
+  }
+}
+
+/* The M3 names, kept: an extraction noted is one link of work; awaiting an
+ * extraction is awaiting the chain. */
+export function noteExtraction(storyId, promise) {
+  noteWork(storyId, promise);
+}
+
 export async function pendingExtraction(storyId, timeoutMs = 5000) {
-  const promise = inFlight.get(storyId);
-  if (!promise) return false;
-  let timer = null;
-  const timedOut = new Promise((resolve) => {
-    timer = setTimeout(() => resolve('timeout'), timeoutMs);
-  });
-  const done = await Promise.race([
-    promise.then(() => 'settled', () => 'settled'),
-    timedOut,
-  ]);
-  clearTimeout(timer);
-  return done === 'settled';
+  return pendingWork(storyId, timeoutMs);
 }
 
 /* ---------- the prompt (human-voiced, kept in the code) ---------- */

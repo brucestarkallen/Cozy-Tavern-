@@ -11,7 +11,10 @@ import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
-import { extractTurn, noteExtraction, pendingExtraction } from '../agents/extractor.js';
+import { extractTurn, noteWork, pendingWork } from '../agents/extractor.js';
+import { shouldAdjudicate, adjudicate } from '../agents/referee.js';
+import { maybeSummarize, loadMemory, renderMemory } from '../agents/memory.js';
+import { checkTurn } from '../agents/continuity.js';
 import { openReceipt } from './receiptview.js';
 
 export function initChat(ctx) {
@@ -243,12 +246,28 @@ export function initChat(ctx) {
     return resolveConnection();
   }
 
-  /* M3: fire the extractor once a page is finished — never awaited here, so
-   * the stream's end stays the end of the turn. The WHOLE job (read, apply,
-   * save) is what the tracker notes, so the NEXT send waits until the ledger
-   * is truly written — consistency, not just courtesy (the latency law). */
-  function startExtraction(story, msg, userText) {
-    const work = (async () => {
+  /* Refresh the receipt affordance on a message already on the page, so
+   * late-arriving worker notes (extraction, drift findings) can speak. */
+  function refreshReceiptNode(msg) {
+    const node = els.thread.querySelector(`.msg[data-id="${msg.id}"]`);
+    if (node && msg.receipt) {
+      const old = node.querySelector('.msg-receipt');
+      if (old) old.remove();
+      node.appendChild(receiptNode(msg.receipt, msg.extraction, msg.findings));
+    }
+  }
+
+  /* M3/M6: once a page is finished, the workers read it — never awaited by
+   * the turn that fired them, so the stream's end stays the end of the
+   * turn. The fan-out order is law (SPEC.md M6): the extractor first, then
+   * the memory keeper, then the continuity reader. Each link is noted with
+   * the tracker, so the NEXT send waits on the whole chain — five hard
+   * seconds each, then it goes on with last-good state (the latency law).
+   * Every link fails quietly: the chat path never hears about it. */
+  function startBackgroundWork(story, msg, userText) {
+    /* 1. The extractor (M3): read the page, propose mutations, apply and
+     * save them, and write the outcome back onto the same message. */
+    const extraction = (async () => {
       try {
         const connection = await resolveWorkerConnection();
         if (!connection) return;
@@ -277,17 +296,48 @@ export function initChat(ctx) {
           rejectedCount: rejected.length,
         };
         await db.messages.append(story.id, msg);
-        const node = els.thread.querySelector(`.msg[data-id="${msg.id}"]`);
-        if (node && msg.receipt) {
-          const old = node.querySelector('.msg-receipt');
-          if (old) old.remove();
-          node.appendChild(receiptNode(msg.receipt, msg.extraction));
-        }
+        refreshReceiptNode(msg);
       } catch (err) {
         /* the workers fail quietly — the chat path never hears about it */
       }
     })();
-    noteExtraction(story.id, work);
+    noteWork(story.id, extraction);
+
+    /* 2. The memory keeper (M6): fold what has scrolled past the verbatim
+     * window into layered notes. Its own settings (keeper on/off, the
+     * window) gate it from the inside. */
+    const keeping = extraction.then(async () => {
+      try {
+        const connection = await resolveWorkerConnection();
+        if (!connection) return;
+        await maybeSummarize({ connection, storyId: story.id });
+      } catch (err) { /* quiet */ }
+    });
+    noteWork(story.id, keeping);
+
+    /* 3. The continuity reader (M6): advisory drift notes against canon and
+     * the ledgers, stored on the same message. Optional — only when the
+     * user has switched the second reader on. It never touches the words. */
+    const checking = keeping.then(async () => {
+      try {
+        if (!(await db.settings.get('continuityCheck'))) return;
+        const connection = await resolveWorkerConnection();
+        if (!connection) return;
+        const fresh = await loadState(story.id);
+        const { findings } = await checkTurn({
+          connection,
+          state: fresh,
+          assistantText: msg.text,
+        });
+        const list = Array.isArray(findings) ? findings : [];
+        if (!list.length) return;
+        msg.findings = list;
+        await db.messages.append(story.id, msg);
+        refreshReceiptNode(msg);
+        notify(story.id); // the drawer's "Something drifted" listens
+      } catch (err) { /* quiet */ }
+    });
+    noteWork(story.id, checking);
   }
 
   async function gatherSettings() {
@@ -320,19 +370,57 @@ export function initChat(ctx) {
      * acoustics predicate reads the story's cast notes, so they ride along
      * on the state copy handed to selectModules (see modules.js).
      * M3 (the latency law): if the workers are still reading the previous
-     * page, the send path waits for them — hard five-second ceiling, then we
-     * go on with last-good state — BEFORE the assembler looks at anything. */
-    await pendingExtraction(story.id, 5000);
-    const state = await loadState(story.id);
+     * page, the send path waits for them — hard five-second ceiling on each
+     * link of the chain, then we go on with last-good state — BEFORE the
+     * assembler looks at anything. */
+    await pendingWork(story.id, 5000);
+    let state = await loadState(story.id);
+
+    /* M6: the referee — the ONLY agent call allowed before the story
+     * generation, and only when the trigger law fires (an inline #roll, or
+     * a fight on). It's awaited, tiny, and cold; a referee that can't be
+     * reached simply means no ruling this turn. */
+    const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
+    const userText = lastUser
+      ? (typeof lastUser.text === 'string' ? lastUser.text : String(lastUser.content || ''))
+      : '';
+    if (shouldAdjudicate({ userText, state })) {
+      try {
+        const workerConnection = await resolveWorkerConnection();
+        const verdict = workerConnection
+          ? await adjudicate({ connection: workerConnection, userText, state })
+          : null;
+        if (verdict) {
+          state = { ...state, pendingVerdict: verdict, lastVerdict: verdict };
+          await saveState(story.id, state);
+          notify(story.id); // the drawer's "The house has ruled" listens
+        }
+      } catch (err) { /* a failed ruling never blocks the turn */ }
+    }
+
     const allModules = await listModules();
     const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '' });
+    /* M6: slot 7 — what the keeper has folded of the older pages. */
+    const memoryText = renderMemory(await loadMemory(story.id));
     const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({
       story,
       messages: history,
       settings: settingsValues,
       state,
       modules: selected,
+      memory: memoryText,
     });
+
+    /* M6 consume-and-clear: the ruling rode into this turn's stack as a
+     * fact; it clears now, so no later turn inherits it. (lastVerdict stays
+     * — the drawer keeps the echo.) */
+    if (state.pendingVerdict) {
+      try {
+        await saveState(story.id, { ...state, pendingVerdict: null });
+        notify(story.id);
+      } catch (err) { /* the turn is already assembled; never mind */ }
+    }
+
     const provider = createProvider(connection);
 
     const pending = document.createElement('article');
@@ -387,17 +475,17 @@ export function initChat(ctx) {
     if (full.trim()) {
       const saved = await db.messages.append(story.id, { role: 'assistant', text: full, receipt });
       pending.dataset.id = saved.id;
-      if (saved.receipt) pending.appendChild(receiptNode(saved.receipt, saved.extraction));
+      if (saved.receipt) pending.appendChild(receiptNode(saved.receipt, saved.extraction, saved.findings));
       stories = await db.stories.list();
       renderStoryList();
       if (ctx.onStoriesChanged) ctx.onStoriesChanged();
 
-      /* M3: the page is finished — hand it to the workers, in the
+      /* M3/M6: the page is finished — hand it to the workers, in the
        * background, only if this story keeps its ledger (default: it does).
+       * The fan-out order is law: extractor → memory keeper → continuity.
        * The workers never touch the stream; they read what it left behind. */
       if (story.extraction !== false) {
-        const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
-        startExtraction(story, saved, lastUser ? lastUser.text : '');
+        startBackgroundWork(story, saved, userText);
       }
     } else {
       pending.remove();

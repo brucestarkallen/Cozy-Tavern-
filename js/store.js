@@ -23,6 +23,11 @@
  * M3 addition: messages may also carry `extraction` — what the background
  * worker made of the finished turn (js/agents/extractor.js), passed through
  * by append the same way the receipt is.
+ *
+ * M6 additions: messages may also carry `findings` — the continuity
+ * reader's drift notes (js/agents/continuity.js), same re-ink passthrough.
+ * A story's memory nodes live in the settings store under
+ * `memory:<storyId>` and are let go with the story, the way its ledger is.
  */
 
 const DB_NAME = 'cozytavern.v1';
@@ -159,6 +164,8 @@ const stories = {
       t.onerror = () => reject(t.error);
     });
     await run('settings', 'readwrite', (s) => s.delete('state:' + id));
+    /* M6: the keeper's folded pages go with the story too. */
+    await run('settings', 'readwrite', (s) => s.delete('memory:' + id));
   },
 };
 
@@ -190,6 +197,9 @@ const messages = {
      * Appending a message with an existing id simply re-inks the page, so
      * this passthrough is how the extraction lands after the fact. */
     if (msg.extraction && typeof msg.extraction === 'object') row.extraction = msg.extraction;
+    /* M6: the continuity reader's drift notes ([{words, severity}]), same
+     * re-ink passthrough — they land on the page after the fact. */
+    if (Array.isArray(msg.findings)) row.findings = msg.findings;
     await run('messages', 'readwrite', (s) => s.put(row));
     // Touch the story so last-active sorting stays honest.
     const story = await stories.get(storyId);

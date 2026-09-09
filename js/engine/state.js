@@ -19,6 +19,12 @@
  * (engine/bodies.js, relationships.js, offscreen.js). loadState migrates
  * v1/v2 state objects on the way up — adds log:[], presence fields, and the
  * three ledgers — keeping every name and mark it finds; nothing is lost.
+ * State v4 (M6): the canon store (what's true of them, engine/canon.js),
+ * the referee's pendingVerdict (consumed by the next buildRequest and
+ * cleared) with its lastVerdict echo for the drawer, and memorySettings
+ * passed through untouched (the keeper's own store lives at
+ * memory:<storyId>). renderStateFacts speaks the ruling and the locked
+ * truths alongside the ledgers, still inside the same hard budget.
  * renderStateFacts gained compact sections with a hard budget (see
  * STATE_BUDGET below) so slot 5 never swells past ~400 tokens.
  *
@@ -31,6 +37,7 @@ import { renderClock } from './clock.js';
 import { renderBodies } from './bodies.js';
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen } from './offscreen.js';
+import { renderCanon } from './canon.js';
 
 const KEY_PREFIX = 'state:';
 
@@ -50,6 +57,9 @@ export const emptyState = () => ({
   bodies: {},
   relationships: {},
   offscreen: {},
+  canon: {},                // {[name]: {facts:[{key, value, atMinutes}]}} — what's true of them (M6)
+  pendingVerdict: null,     // the referee's ruling, consumed by the next buildRequest (M6)
+  lastVerdict: null,        // its echo, kept for the drawer's "The house has ruled" line (M6)
   factions: {},
   threads: [],
 });
@@ -157,6 +167,33 @@ function migrateOffscreen(offscreen) {
   return out;
 }
 
+/* v4: the canon store. Every fact it can read is kept — key and value
+ * tidied, the clock mark coerced — and unknown extra fields ride along. */
+function migrateCanon(canon) {
+  if (!canon || typeof canon !== 'object') return {};
+  const out = {};
+  for (const [name, entry] of Object.entries(canon)) {
+    if (!entry || typeof entry !== 'object') continue;
+    const facts = (Array.isArray(entry.facts) ? entry.facts : [])
+      .filter((f) => f && typeof f === 'object'
+        && typeof f.key === 'string' && f.key.trim()
+        && typeof f.value === 'string' && f.value.trim())
+      .map((f) => ({ ...f, key: f.key.trim(), value: f.value.trim(), atMinutes: numOrNull(f.atMinutes) }));
+    if (facts.length) out[name] = { ...entry, facts };
+  }
+  return out;
+}
+
+/* v4: a verdict rides only if it's shaped like one; anything else is let
+ * go (a half-written ruling should never reach the storyteller). */
+function migrateVerdict(verdict) {
+  if (!verdict || typeof verdict !== 'object') return null;
+  if (!Number.isFinite(verdict.dc) || !Number.isFinite(verdict.roll)
+    || typeof verdict.outcome !== 'string' || typeof verdict.words !== 'string'
+    || !verdict.words.trim()) return null;
+  return { ...verdict, margin: Number.isFinite(verdict.margin) ? verdict.margin : verdict.roll - verdict.dc };
+}
+
 /* Merge whatever was saved over a fresh state, so fields added in later
  * milestones appear even in states written before they existed. v1 → v2:
  * log appears; present entries become objects with room for position and
@@ -186,6 +223,9 @@ function normalize(saved) {
   next.relationships = migrateRelationships(saved.relationships);
   next.offscreen = migrateOffscreen(saved.offscreen);
   next.factions = saved.factions && typeof saved.factions === 'object' ? saved.factions : {};
+  next.canon = migrateCanon(saved.canon);
+  next.pendingVerdict = migrateVerdict(saved.pendingVerdict);
+  next.lastVerdict = migrateVerdict(saved.lastVerdict);
   return next;
 }
 
@@ -204,13 +244,17 @@ export async function saveState(storyId, state) {
  * ("The state of things") hands to the storyteller. '' when nothing is set,
  * so the slot can be omitted entirely.
  *
- * M4 section order (SPEC.md, law): the clock, presence, how they're holding
+ * Section order (law): the referee's ruling first when one stands (M6 — it
+ * is the freshest fact, and binding this turn), then the clock, presence,
+ * what's true of them (canon, present characters only), how they're holding
  * up (top 4 most recent unhealed; strain when no injuries), the standings
  * between people (nonzero only, top 6 by |total|), elsewhere (top 6, never
  * anyone present), then the mood words. Threads (M3) trail last. Sections
  * with nothing to say are omitted. The whole block stays inside
  * STATE_BUDGET: the caps do the daily work, and if words still ran long the
- * lowest-priority sections are let go until it fits. */
+ * lowest-priority sections are let go until it fits — canon sheds after the
+ * body ledger (SPEC.md M6), and the ruling, the hour, and who's here
+ * always stay. */
 export function renderStateFacts(state) {
   if (!state || typeof state !== 'object') return '';
 
@@ -221,6 +265,15 @@ export function renderStateFacts(state) {
   /* Sections, most vital first. `shed` ranks what goes first when the
    * budget pinches (higher sheds sooner). */
   const sections = [];
+
+  /* M6: the referee's ruling, when one stands, rides at the head of the
+   * facts and is never shed — the whole point of the ruling is that the
+   * storyteller sees it this turn. chat.js clears it once the turn is
+   * assembled (consume-and-clear). */
+  const verdict = state.pendingVerdict;
+  if (verdict && typeof verdict === 'object' && typeof verdict.words === 'string' && verdict.words.trim()) {
+    sections.push({ shed: 0, text: 'The house has ruled: ' + verdict.words.trim() });
+  }
 
   if (state.clock && typeof state.clock === 'object') {
     /* Prefer a fresh render (the cached label can lag a hand-edited
@@ -240,9 +293,14 @@ export function renderStateFacts(state) {
     .filter(Boolean);
   if (here.length) sections.push({ shed: 0, text: 'Here now: ' + here.join(', ') + '.' });
 
+  /* M6: what's true of them — locked facts for whoever is in the scene.
+   * Counts toward the budget and sheds after the body ledger. */
+  const canonLines = renderCanon(state.canon, present.map((p) => p && p.name));
+  if (canonLines) sections.push({ shed: 2, text: 'True of them: ' + canonLines.split('\n').join('\n') });
+
   const bodyLines = renderBodies(state.bodies, clockMinutes, turnCount)
     .split('\n').filter(Boolean).slice(0, BODIES_TOP);
-  if (bodyLines.length) sections.push({ shed: 2, text: bodyLines.join('\n') });
+  if (bodyLines.length) sections.push({ shed: 3, text: bodyLines.join('\n') });
 
   /* Standings: nonzero only, top 6 by how strongly they feel (|p|+|r|+|s|). */
   const rel = state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
@@ -258,10 +316,10 @@ export function renderStateFacts(state) {
     .slice(0, RELATIONSHIPS_TOP)
     .map((row) => row.name + ' — '
       + AXES.map((axis) => axisWords(axis, row.rel[axis])).filter(Boolean).join(', '));
-  if (standings.length) sections.push({ shed: 3, text: standings.join('\n') });
+  if (standings.length) sections.push({ shed: 4, text: standings.join('\n') });
 
   const elsewhere = renderOffscreen(state.offscreen, present);
-  if (elsewhere) sections.push({ shed: 4, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
+  if (elsewhere) sections.push({ shed: 5, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
 
   const mode = state.mode || {};
   const moods = [];
@@ -276,10 +334,10 @@ export function renderStateFacts(state) {
   const threads = Array.isArray(state.threads)
     ? state.threads.map((t) => (typeof t === 'string' ? t : t && (t.label || t.name))).filter(Boolean)
     : [];
-  if (threads.length) sections.push({ shed: 5, text: 'Threads still open: ' + threads.join('; ') + '.' });
+  if (threads.length) sections.push({ shed: 6, text: 'Threads still open: ' + threads.join('; ') + '.' });
 
-  /* The budget: shed the least vital until the block fits. The hour and
-   * who's here (shed 0) always stay. */
+  /* The budget: shed the least vital until the block fits. The ruling, the
+   * hour, and who's here (shed 0) always stay. */
   const kept = sections.slice();
   const join = () => kept.map((s) => s.text).join('\n');
   while (join().length > STATE_BUDGET && kept.some((s) => s.shed > 0)) {

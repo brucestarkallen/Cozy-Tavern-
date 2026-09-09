@@ -48,7 +48,7 @@ export function closeReceipt() {
   setTimeout(() => { sheet.hidden = true; }, 200);
 }
 
-export function openReceipt(receipt, extraction) {
+export function openReceipt(receipt, extraction, findings) {
   if (!receipt || !Array.isArray(receipt.slots)) return;
   wire();
   const { sheet, scrim, slots, after, afterList, afterNote, footer } = els();
@@ -105,6 +105,33 @@ export function openReceipt(receipt, extraction) {
         + rejectedCount + (rejectedCount === 1 ? ' change' : ' changes')
         + ' that didn’t hold, so nothing came of ' + (rejectedCount === 1 ? 'it' : 'them') + '.';
     }
+  }
+
+  /* M6 — "Drift": the second reader's notes, when it found the page
+   * sitting awkwardly beside what's written down. Built on the fly after
+   * "After this turn"; nothing renders when there were no findings. */
+  let drift = sheet.querySelector('.receipt-drift');
+  if (drift) drift.remove();
+  const list = Array.isArray(findings)
+    ? findings.filter((f) => f && typeof f.words === 'string' && f.words.trim())
+    : [];
+  if (list.length) {
+    drift = document.createElement('div');
+    drift.className = 'receipt-after receipt-drift';
+    const h = document.createElement('h3');
+    h.textContent = 'Drift';
+    const ul = document.createElement('ul');
+    ul.className = 'receipt-after-list';
+    for (const f of list) {
+      const li = document.createElement('li');
+      li.textContent = f.words.trim();
+      ul.appendChild(li);
+    }
+    const p = document.createElement('p');
+    p.className = 'quiet';
+    p.textContent = 'Noted by the second reader, against what’s written down. The words above were left as written.';
+    drift.append(h, ul, p);
+    after.after(drift);
   }
 
   const parts = [];

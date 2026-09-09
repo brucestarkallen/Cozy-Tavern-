@@ -4,7 +4,8 @@
  * here (per story), The rulebook (M2: pin, edit, fork, write your own),
  * Bring your engine (M5: read a SillyTavern preset, preview the shelves,
  * apply what's wanted), The workers (M3: who reads for the ledger, and
- * whether they do), appearance, backup.
+ * whether they do), How much the story remembers (M6: the keeper's switch
+ * and window, and the second reader), appearance, backup.
  */
 
 import { db } from '../store.js';
@@ -12,6 +13,7 @@ import { createProvider, presetById } from '../providers/index.js';
 import { STARTER_FRAME, STARTER_NOTE } from '../assemble/stack.js';
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
 import { parsePreset, decompose, applyPlan, summaryWords } from '../import/sillytavern.js';
+import { cleanWindow } from '../agents/memory.js';
 
 export function initSettings(ctx) {
   const els = {
@@ -49,6 +51,10 @@ export function initSettings(ctx) {
     workerConn: document.getElementById('worker-connection'),
     workerExtraction: document.getElementById('worker-extraction'),
     workerStoryName: document.getElementById('worker-story-name'),
+    memoryKeeper: document.getElementById('memory-keeper'),
+    memoryWindow: document.getElementById('memory-window'),
+    memoryWindowValue: document.getElementById('memory-window-value'),
+    continuityCheck: document.getElementById('continuity-check'),
     engineFile: document.getElementById('engine-file'),
     enginePaste: document.getElementById('engine-paste'),
     btnEngineRead: document.getElementById('btn-engine-read'),
@@ -465,6 +471,35 @@ export function initSettings(ctx) {
     await db.stories.update(story.id, { extraction: els.workerExtraction.checked });
   });
 
+  /* ---------- how much the story remembers (M6) ---------- */
+
+  /* The keeper's switch (default on), the verbatim window (10–100, default
+   * 30), and the second reader's switch (default off — it only ever notes
+   * drift, and some stories don't want the extra reading). */
+  async function renderMemory() {
+    const keeperOn = await db.settings.get('memoryKeeper');
+    els.memoryKeeper.checked = keeperOn !== false;
+    const window = cleanWindow(await db.settings.get('memoryWindow'));
+    els.memoryWindow.value = String(window);
+    els.memoryWindowValue.textContent = String(window);
+    els.continuityCheck.checked = Boolean(await db.settings.get('continuityCheck'));
+  }
+
+  els.memoryKeeper.addEventListener('change', async () => {
+    await db.settings.set('memoryKeeper', els.memoryKeeper.checked);
+  });
+
+  els.memoryWindow.addEventListener('input', () => {
+    els.memoryWindowValue.textContent = els.memoryWindow.value;
+  });
+  els.memoryWindow.addEventListener('change', async () => {
+    await db.settings.set('memoryWindow', cleanWindow(els.memoryWindow.value));
+  });
+
+  els.continuityCheck.addEventListener('change', async () => {
+    await db.settings.set('continuityCheck', els.continuityCheck.checked);
+  });
+
   /* ---------- bring your engine (M5) ---------- */
 
   /* The plan currently on the table, or null when nothing has been read.
@@ -769,6 +804,7 @@ export function initSettings(ctx) {
     await loadPromptSlots();
     await renderRulebook();
     await renderWorkers();
+    await renderMemory();
     await loadTheme();
   }
 

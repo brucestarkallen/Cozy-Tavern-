@@ -5,7 +5,10 @@
  * why" reads the log the applier writes — newest first, each change
  * take-back-able. M4 filled the last panels: "How they're holding up" (the
  * body ledger), "On their mind" (the standings between people, real now),
- * and "What's happening elsewhere" (the off-screen world). Hand controls go
+ * and "What's happening elsewhere" (the off-screen world). M6 brought the
+ * agents' shelves: "The house has ruled" (the referee's latest ruling),
+ * "What's true of them" (the canon store, hand-editable), and "Something
+ * drifted" (the continuity reader's notes). Hand controls go
  * through the same mutations the extractor proposes, so everything is
  * validated, logged, and undoable alike.
  *
@@ -759,6 +762,182 @@ function elsewherePanel(ctx) {
   return wrap;
 }
 
+/* ---------- the house has ruled (M6 — the referee's latest ruling) ------ */
+
+function verdictPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'verdict-editor';
+  const note = quietNote('');
+  const line = document.createElement('p');
+  line.className = 'verdict-line';
+  wrap.append(note, line);
+
+  async function render() {
+    const story = await currentStory(ctx);
+    line.textContent = '';
+    line.hidden = true;
+    if (!story) {
+      note.textContent = 'Open a story and the house will know whose chances these are.';
+      return;
+    }
+    const state = await loadState(story.id);
+    /* The standing ruling (pendingVerdict) is consumed by the very next
+     * turn; what the drawer keeps is the echo (lastVerdict). */
+    const verdict = (state.pendingVerdict && typeof state.pendingVerdict === 'object'
+      ? state.pendingVerdict : null)
+      || (state.lastVerdict && typeof state.lastVerdict === 'object' ? state.lastVerdict : null);
+    if (!verdict || typeof verdict.words !== 'string' || !verdict.words.trim()) {
+      note.textContent = 'No rulings yet. When a chancy moment is called — a #roll, or a fight on — the house rules here first, before the storyteller writes.';
+      return;
+    }
+    note.textContent = state.pendingVerdict
+      ? 'Ruled just now — it rides into the very next page as fact:'
+      : 'The latest ruling, already woven into the page it ruled on:';
+    line.textContent = 'The house has ruled: ' + verdict.words.trim();
+    line.hidden = false;
+  }
+
+  render();
+  return wrap;
+}
+
+/* ---------- what's true of them (M6 — the canon store) ---------- */
+
+function canonPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'canon-editor';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list';
+
+  const form = document.createElement('form');
+  form.className = 'present-form ledger-form';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.maxLength = 60;
+  nameInput.placeholder = 'Who?';
+  nameInput.setAttribute('aria-label', 'Whose truth this is');
+  const keyInput = document.createElement('input');
+  keyInput.type = 'text';
+  keyInput.maxLength = 40;
+  keyInput.placeholder = 'What it’s called — hair, eyes, a limp';
+  keyInput.setAttribute('aria-label', 'What the truth is called');
+  const valueInput = document.createElement('input');
+  valueInput.type = 'text';
+  valueInput.maxLength = 140;
+  valueInput.placeholder = 'What’s true — black, grey, from the war';
+  valueInput.setAttribute('aria-label', 'What’s true of them');
+  const addBtn = document.createElement('button');
+  addBtn.type = 'submit';
+  addBtn.className = 'text-btn';
+  addBtn.textContent = 'Lock it in';
+  form.append(nameInput, keyInput, valueInput, addBtn);
+
+  wrap.append(note, list, form);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = nameInput.value.trim();
+    const key = keyInput.value.trim();
+    const value = valueInput.value.trim();
+    if (!name || !key || !value) return;
+    nameInput.value = keyInput.value = valueInput.value = '';
+    await handMutate(ctx, [{ type: 'canon.lock', name, key, value }]);
+    render();
+  });
+
+  async function render() {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) {
+      note.textContent = 'Open a story and the ledger will know whose truths these are.';
+      form.hidden = true;
+      return;
+    }
+    form.hidden = false;
+    const state = await loadState(story.id);
+    const canon = state.canon && typeof state.canon === 'object' ? state.canon : {};
+    const names = Object.keys(canon).filter((n) => canon[n]
+      && Array.isArray(canon[n].facts) && canon[n].facts.length);
+    note.textContent = names.length
+      ? 'Locked truths — the story treats these as simply so, and the second reader checks each page against them.'
+      : 'Nothing is locked yet. When something about a person is simply so — hair: black; eyes: grey — write it down here and the story will hold to it.';
+    for (const name of names) {
+      for (const fact of canon[name].facts) {
+        const li = document.createElement('li');
+        li.className = 'present-row';
+        const words = document.createElement('span');
+        words.textContent = name + ' — ' + fact.key + ': ' + fact.value;
+        const out = document.createElement('button');
+        out.type = 'button';
+        out.className = 'story-mini';
+        out.title = 'No longer certain';
+        out.setAttribute('aria-label', `“${fact.key}” is no longer locked for ${name}`);
+        out.textContent = '×';
+        out.addEventListener('click', async () => {
+          await handMutate(ctx, [{ type: 'canon.unlock', name, key: fact.key }]);
+          render();
+        });
+        li.append(words, out);
+        list.appendChild(li);
+      }
+    }
+  }
+
+  render();
+  return wrap;
+}
+
+/* ---------- something drifted (M6 — the continuity reader's notes) ------ */
+
+function driftPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'drift-editor';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'log-list';
+  wrap.append(note, list);
+
+  async function render() {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) {
+      note.textContent = 'Open a story and the second reader will know which pages to mind.';
+      return;
+    }
+    /* Findings live on the assistant messages they were read from; the
+     * panel gathers the newest few. */
+    const history = await db.messages.list(story.id);
+    const found = [];
+    for (let i = history.length - 1; i >= 0 && found.length < 10; i -= 1) {
+      const msg = history[i];
+      if (!msg || msg.role !== 'assistant' || !Array.isArray(msg.findings)) continue;
+      for (let j = msg.findings.length - 1; j >= 0 && found.length < 10; j -= 1) {
+        const f = msg.findings[j];
+        if (f && typeof f.words === 'string' && f.words.trim()) {
+          found.push({ words: f.words.trim(), severity: f.severity === 'warn' ? 'warn' : 'note' });
+        }
+      }
+    }
+    if (!found.length) {
+      note.textContent = 'Nothing has drifted. When a finished page disagrees with what’s written down, the second reader will note it here — it only ever notes; it never touches the words.';
+      return;
+    }
+    note.textContent = 'Where recent pages sat awkwardly beside what’s written down. Newest first; the words themselves were left as written.';
+    for (const f of found) {
+      const li = document.createElement('li');
+      li.className = 'log-row' + (f.severity === 'warn' ? ' drift-warn' : '');
+      const words = document.createElement('span');
+      words.textContent = (f.severity === 'warn' ? 'Drifted: ' : 'Worth a look: ') + f.words;
+      li.appendChild(words);
+      list.appendChild(li);
+    }
+  }
+
+  render();
+  return wrap;
+}
+
 /* ---------- the panels ---------- */
 
 const PANELS = [
@@ -768,9 +947,19 @@ const PANELS = [
     render: (ctx) => clockPanel(ctx),
   },
   {
+    id: 'the-ruling',
+    title: 'The house has ruled',
+    render: (ctx) => verdictPanel(ctx),
+  },
+  {
     id: 'whos-here',
     title: 'Who’s here',
     render: (ctx) => whosHerePanel(ctx),
+  },
+  {
+    id: 'whats-true',
+    title: 'What’s true of them',
+    render: (ctx) => canonPanel(ctx),
   },
   {
     id: 'holding-up',
@@ -796,6 +985,11 @@ const PANELS = [
     id: 'what-changed',
     title: 'What changed and why',
     render: (ctx) => logPanel(ctx),
+  },
+  {
+    id: 'something-drifted',
+    title: 'Something drifted',
+    render: (ctx) => driftPanel(ctx),
   },
 ];
 
