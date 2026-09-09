@@ -62,18 +62,32 @@ if (window.visualViewport) {
 
 /* ---------- toasts: small warm words, bottom-centred (M8) ---------- */
 
-function toast(words) {
+function toast(words, onTap) {
   const host = document.getElementById('toasts');
   if (!host) return;
   const pill = document.createElement('div');
   pill.className = 'toast';
   pill.textContent = words;
+  /* M16: a toast that asks for a tap (the update nudge) stays until it is
+   * heard — it never fades out from under the reader. */
+  if (typeof onTap === 'function') {
+    pill.classList.add('toast-tap');
+    pill.setAttribute('role', 'button');
+    pill.tabIndex = 0;
+    const go = () => { pill.remove(); onTap(); };
+    pill.addEventListener('click', go);
+    pill.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+    });
+  }
   host.appendChild(pill);
   requestAnimationFrame(() => pill.classList.add('show'));
-  setTimeout(() => {
-    pill.classList.remove('show');
-    setTimeout(() => pill.remove(), 250);
-  }, 2600);
+  if (typeof onTap !== 'function') {
+    setTimeout(() => {
+      pill.classList.remove('show');
+      setTimeout(() => pill.remove(), 250);
+    }, 2600);
+  }
 }
 
 /* ---------- active story ---------- */
@@ -203,10 +217,31 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   } catch (err) { /* a lock that won't hold is no reason to lock the door */ }
 
   /* A8 (M9): the worker is a module now, and its cache name comes from the
-   * one VERSION in js/version.js — a deploy can't forget to bump it. */
+   * one VERSION in js/version.js — a deploy can't forget to bump it.
+   * M16: the update nudge. When a new worker finishes installing while an
+   * old controller still holds the room, the tavern says so warmly — one
+   * tap refreshes. And when the new worker takes over (controllerchange),
+   * the page reloads ONCE: the guard keeps it from looping, and a page
+   * that loaded with no controller (a first visit) simply settles in. */
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     try {
-      await navigator.serviceWorker.register('sw.js', { type: 'module' });
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || reloading) return;
+        reloading = true;
+        location.reload();
+      });
+      const registration = await navigator.serviceWorker.register('sw.js', { type: 'module' });
+      registration.addEventListener('updatefound', () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+            toast('A new coat is on the tavern — tap to refresh.', () => location.reload());
+          }
+        });
+      });
     } catch (err) {
       /* the shell still works online; offline just won't be cached yet */
     }

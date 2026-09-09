@@ -745,3 +745,34 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Browser audit: 49/49 vs mock provider, 0 page errors; evidence set /mnt/agents/output/qa-m15-*.png.
 - Harness: 132/132 (tests/harness/polish.mjs added). version.js -> m15-001.
 - Known minor: no-connection note visibility refreshes on next thread render (cosmetic).
+
+---
+
+# M16 — projects + the update nudge + version you can see
+- THE UPDATE NUDGE (app.js): registration wires updatefound -> installing worker's
+  statechange; when state=='installed' AND an old controller exists, a TAPPABLE toast
+  ("A new coat is on the tavern — tap to refresh.") appears — toast(words, onTap) variant
+  never auto-dismisses and gets pointer-events:auto (the toasts layer is pointer-events:none).
+  controllerchange -> location.reload() with TWO guards: `reloading` once-flag AND
+  `hadController` (a first visit settles in without a reload; no loop possible).
+- PROJECTS (store.js): the shelves live as ONE list under settings key `projects`
+  ({id,name,createdAt}) — no schema change, rides backups. db.projects: list/create/rename/
+  remove; remove NEVER deletes tales (projectId -> null, they stand loose). stories.create
+  accepts projectId. shelvesOf(stories, projects) is the exported pure grouping (recency
+  order preserved; bent/unknown projectId -> loose) — the harness walks it.
+- SIDEBAR (chat.js/index.html/css/chat.css): sections per shelf — collapsible .lbl header
+  (caret, name, page-count badge = summed pages), tales in interaction-recency order,
+  "Loose tales" section last. Fold state persists under settings key `shelfCollapsed`
+  ({id|'loose': true}). Shelf rename inline (beginShelfRename), takedown via confirm with
+  "the tales stay" copy. "A new shelf" inline form beside "Start a new story"; the new-story
+  form gains a shelf pick defaulting to the open tale's shelf (or loose).
+- STORY SETTINGS (settings.js): new section "The shelf it sits on" (#section-shelf,
+  #story-shelf) moves the active story; sidebar re-gathers immediately. Settings header
+  shows "the shelves · <VERSION>" (#settings-version, .lbl micro-caps).
+- TOUR (welcome.js): last step gains "the housekeeper keeps the tale tidy — find it up top".
+- Harness: tests/harness/projects.mjs (+7 = 139/139): projects CRUD, story move,
+  delete-keeps-stories (pages survive too), shelvesOf grouping/ordering/bent-id laws,
+  updatefound+controllerchange wiring, version line + tour line, sidebar wiring.
+- Browser QA (mock SSE provider, fresh profile, 0 page errors): shelves render, collapse
+  persists across reload, move picker works, takedown keeps tales loose, SW active.
+  Evidence: /mnt/agents/output/qa-m16-*.png. version.js -> m16-001.

@@ -13,6 +13,7 @@ import './showrunners.mjs';
 import './finishing.mjs';
 import './beauty.mjs';
 import './polish.mjs';
+import './projects.mjs';
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

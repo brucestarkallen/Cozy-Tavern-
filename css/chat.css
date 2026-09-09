@@ -126,6 +126,65 @@
 
 .story-mini:hover { color: var(--text); background: var(--surface-2); }
 
+/* ---------- the shelves (M16) ---------- */
+
+/* Each project is a shelf: a quiet collapsible header in the whisper
+ * voice — caret, name, the shelf's page-count badge — over its tales. */
+.shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.shelf-head {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.3rem 0.25rem 0.1rem;
+}
+
+.shelf-toggle {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  color: var(--muted);
+  padding: 0.25rem 0.3rem;
+  border-radius: 6px;
+}
+
+.shelf-toggle:hover { color: var(--text); background: var(--surface-2); }
+
+.shelf-caret { font-size: 9px; }
+
+.shelf-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shelf-badge {
+  margin-left: auto;
+  white-space: nowrap;
+  opacity: 0.75;
+}
+
+.shelf-stories {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.15rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* "A new shelf" rests beside "Start a new story", quiet as a footnote. */
+.shelf-new { align-self: flex-start; }
+
 /* On narrower screens the sidebar becomes a fixed drawer over a scrim. */
 @media (max-width: 900px) {
   .story-panel {

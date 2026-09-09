@@ -28,6 +28,8 @@ import {
 } from '../import/lorebook.js';
 import { parseSTChat, importAsStory } from '../import/chats.js';
 import { cleanWindow } from '../agents/memory.js';
+/* M16: the house's version word stands in the header line. */
+import { VERSION } from '../version.js';
 
 export function initSettings(ctx) {
   const els = {
@@ -124,6 +126,10 @@ export function initSettings(ctx) {
     thinkingStory: document.getElementById('thinking-story'),
     thinkingStoryName: document.getElementById('thinking-story-name'),
     showThinking: document.getElementById('show-thinking'),
+    /* M16: the version line, and the shelf a story sits on. */
+    versionLine: document.getElementById('settings-version'),
+    storyShelf: document.getElementById('story-shelf'),
+    shelfStoryName: document.getElementById('shelf-story-name'),
   };
 
   let editingId = null;
@@ -417,6 +423,7 @@ export function initSettings(ctx) {
     els.castStoryName.textContent = storyName;
     els.loreStoryName.textContent = storyName;
     els.thinkingStoryName.textContent = storyName;
+    els.shelfStoryName.textContent = storyName;
     els.frameStory.value = (story && story.frameOverride) || '';
     els.noteStory.value = (story && story.noteOverride) || '';
     els.briefStory.value = (story && story.brief) || '';
@@ -426,6 +433,24 @@ export function initSettings(ctx) {
     els.noteStory.disabled = !hasStory;
     els.briefStory.disabled = !hasStory;
     els.castStory.disabled = !hasStory;
+    /* M16: the shelf picker — every shelf the house knows, plus loose. */
+    if (els.storyShelf) {
+      const shelves = await db.projects.list();
+      els.storyShelf.textContent = '';
+      const looseOpt = document.createElement('option');
+      looseOpt.value = '';
+      looseOpt.textContent = 'Loose — no shelf';
+      els.storyShelf.appendChild(looseOpt);
+      for (const shelf of shelves) {
+        const opt = document.createElement('option');
+        opt.value = shelf.id;
+        opt.textContent = shelf.name;
+        els.storyShelf.appendChild(opt);
+      }
+      const onShelf = story && story.projectId && shelves.some((p) => p.id === story.projectId);
+      els.storyShelf.value = onShelf ? story.projectId : '';
+      els.storyShelf.disabled = !hasStory;
+    }
     document.getElementById('btn-save-frame-story').disabled = !hasStory;
     document.getElementById('btn-save-note-story').disabled = !hasStory;
     document.getElementById('btn-save-brief').disabled = !hasStory;
@@ -464,6 +489,27 @@ export function initSettings(ctx) {
     await db.stories.update(story.id, { castNotes: els.castStory.value });
     flash('cast-saved');
   });
+
+  /* M16: moving a tale to another shelf (or letting it stand loose). The
+   * sidebar re-gathers itself the moment the move lands. */
+  if (els.storyShelf) {
+    els.storyShelf.addEventListener('change', async () => {
+      const story = await activeStory();
+      if (!story) return;
+      const shelfId = els.storyShelf.value || null;
+      await db.stories.update(story.id, { projectId: shelfId });
+      const shelfName = shelfId
+        ? (els.storyShelf.selectedOptions[0] ? els.storyShelf.selectedOptions[0].textContent : 'its shelf')
+        : null;
+      toast(shelfName
+        ? `“${story.title}” rests on ${shelfName} now.`
+        : `“${story.title}” stands loose now.`);
+      if (ctx.chat && typeof ctx.chat.refreshStories === 'function') {
+        await ctx.chat.refreshStories(true);
+      }
+      if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+    });
+  }
 
   /* ---------- the rulebook (M2) ---------- */
 
@@ -1406,6 +1452,10 @@ export function initSettings(ctx) {
       els.backupNote.textContent = err.message || 'That file wouldn’t open. Is it a Cozy Tavern copy?';
     }
   });
+
+  /* M16: the version, visible — the header line carries the house's one
+   * version word, set once when the view wakes. */
+  if (els.versionLine) els.versionLine.textContent = 'the shelves · ' + VERSION;
 
   /* ---------- shown each time the view opens ---------- */
 

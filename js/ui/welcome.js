@@ -33,7 +33,9 @@ export const TOUR_STEPS = [
   },
   {
     title: 'Write the first line',
-    body: 'Say what happens, or ask for a scene — the tavern opens a story around your words. After the answer arrives, the small “receipt” line under it shows exactly what the storyteller saw.',
+    /* M16: the last step names the housekeeper, so finding it later never
+     * depends on luck. */
+    body: 'Say what happens, or ask for a scene — the tavern opens a story around your words. After the answer arrives, the small “receipt” line under it shows exactly what the storyteller saw. And the housekeeper keeps the tale tidy — find it up top.',
     button: 'Begin',
     target: null,
     more: true, /* offers the "How the tavern works" sheet */

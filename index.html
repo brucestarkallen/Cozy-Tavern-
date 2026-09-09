@@ -39,9 +39,21 @@
         </div>
         <form id="new-story-form" class="new-story-form" hidden>
           <input id="new-story-title" type="text" maxlength="80" placeholder="Name the tale…" autocomplete="off">
+          <!-- M16: a new tale may begin already resting on a shelf. -->
+          <label class="stack-label" for="new-story-shelf">The shelf it starts on</label>
+          <select id="new-story-shelf"></select>
           <div class="row">
             <button type="submit" class="btn">Keep it</button>
             <button type="button" id="btn-cancel-story" class="text-btn">Not now</button>
+          </div>
+        </form>
+        <!-- M16: a shelf gathers tales that belong together. -->
+        <button id="btn-new-shelf" class="text-btn shelf-new" type="button">A new shelf</button>
+        <form id="new-shelf-form" class="new-story-form" hidden>
+          <input id="new-shelf-name" type="text" maxlength="60" placeholder="Name the shelf…" autocomplete="off">
+          <div class="row">
+            <button type="submit" class="btn">Keep it</button>
+            <button type="button" id="btn-cancel-shelf" class="text-btn">Not now</button>
           </div>
         </form>
         <ul id="story-list" class="story-list"></ul>
@@ -86,6 +98,8 @@
     <section id="view-settings" class="view view-settings" hidden>
       <div class="settings-column">
         <h2 class="settings-title">Settings</h2>
+        <!-- M16: the house's version word, always visible here. -->
+        <p id="settings-version" class="lbl settings-version"></p>
         <p class="quiet">Everything here stays on this device, except the words you send to your chosen storyteller.</p>
 
         <section class="settings-section" id="section-connections">
@@ -189,6 +203,17 @@
             <span class="lbl">Just for <span id="brief-story-name">this story</span></span>
             <textarea id="brief-story" rows="5" spellcheck="false" placeholder="A quiet tale about…"></textarea>
             <div class="row"><button id="btn-save-brief" class="btn" type="button">Keep it</button><span id="brief-saved" class="quiet" hidden>Kept.</span></div>
+          </div>
+        </section>
+
+        <!-- M16: the shelf it sits on — move a tale between shelves, or let
+             it stand loose. The words never move, only where it rests. -->
+        <section class="settings-section" id="section-shelf">
+          <h3>The shelf it sits on</h3>
+          <p class="quiet">A shelf gathers tales that belong together in the sidebar. Move the story to another shelf, or let it stand loose — the words never move, only where it rests.</p>
+          <div class="override-block">
+            <span class="lbl">Just for <span id="shelf-story-name">this story</span></span>
+            <select id="story-shelf" aria-label="The shelf this story sits on"></select>
           </div>
         </section>
 

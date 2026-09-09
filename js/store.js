@@ -70,6 +70,14 @@
  * `hk:<storyId>`, the director's marching orders under `director:<storyId>`,
  * and the editor's standing critique under `editor:<storyId>` — all in the
  * settings store, all riding backups, all let go with their story.
+ *
+ * M16 additions: the shelves. A project is a shelf that gathers tales —
+ * {id, name, createdAt}, kept as one list under the settings key
+ * `projects` (so it rides backups the way every other setting does), and
+ * a story may carry `projectId` naming its shelf. db.projects offers
+ * list/create/rename/remove; taking a shelf down NEVER deletes a tale —
+ * its stories simply stand loose again. shelvesOf(stories, projects) is
+ * the pure grouping the sidebar renders (and the harness checks).
  */
 
 const DB_NAME = 'cozytavern.v1';
@@ -236,7 +244,7 @@ const stories = {
   async get(id) {
     return run('stories', 'readonly', (s) => s.get(id));
   },
-  async create({ title } = {}) {
+  async create({ title, projectId } = {}) {
     const now = Date.now();
     const row = {
       id: uid(),
@@ -244,6 +252,8 @@ const stories = {
       createdAt: now,
       updatedAt: now,
     };
+    /* M16: a tale may begin already resting on a shelf. */
+    if (typeof projectId === 'string' && projectId) row.projectId = projectId;
     await run('stories', 'readwrite', (s) => s.put(row));
     return row;
   },
@@ -429,6 +439,70 @@ const messages = {
   },
 };
 
+/* M16: the shelves. The whole list rests under one settings key, so it
+ * rides backups like every other setting — no schema change. */
+const PROJECTS_KEY = 'projects';
+
+const projects = {
+  async list() {
+    const rows = await settings.get(PROJECTS_KEY);
+    return (Array.isArray(rows) ? rows : [])
+      .filter((p) => p && typeof p === 'object' && typeof p.id === 'string' && p.id)
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  },
+  async create({ name } = {}) {
+    const rows = await projects.list();
+    const row = {
+      id: uid(),
+      name: (name && name.trim()) || 'A new shelf',
+      createdAt: Date.now(),
+    };
+    await settings.set(PROJECTS_KEY, [...rows, row]);
+    return row;
+  },
+  async rename(id, name) {
+    const rows = await projects.list();
+    const row = rows.find((p) => p.id === id);
+    if (!row) return undefined;
+    const next = (name && name.trim()) || row.name;
+    await settings.set(PROJECTS_KEY, rows.map((p) => (p.id === id ? { ...p, name: next } : p)));
+    return { ...row, name: next };
+  },
+  /* Taking a shelf down NEVER deletes a tale — every story it held simply
+   * stands loose again (projectId let go). */
+  async remove(id) {
+    const rows = await projects.list();
+    const next = rows.filter((p) => p.id !== id);
+    if (next.length === rows.length) return false;
+    await settings.set(PROJECTS_KEY, next);
+    const shelved = await stories.list();
+    for (const story of shelved) {
+      if (story.projectId === id) await stories.update(story.id, { projectId: null });
+    }
+    return true;
+  },
+};
+
+/* M16: group the tale list onto its shelves — the pure logic the sidebar
+ * renders and the harness walks. Stories keep the caller's order
+ * (stories.list() hands them over last-active-first, so each shelf reads
+ * in interaction-recency order); a missing or unknown projectId simply
+ * stands loose. Shelves come back in shelf order, loose tales last. */
+export function shelvesOf(storyList, projectList) {
+  const shelfList = Array.isArray(projectList) ? projectList : [];
+  const byShelf = new Map(shelfList.map((p) => [p.id, []]));
+  const loose = [];
+  for (const story of Array.isArray(storyList) ? storyList : []) {
+    const bucket = story && story.projectId ? byShelf.get(story.projectId) : undefined;
+    if (bucket) bucket.push(story);
+    else loose.push(story);
+  }
+  return {
+    shelves: shelfList.map((project) => ({ project, stories: byShelf.get(project.id) })),
+    loose,
+  };
+}
+
 async function exportAll() {
   const envelope = {
     namespace: NAMESPACE,
@@ -496,6 +570,7 @@ export const db = {
   connections,
   stories,
   messages,
+  projects,
   exportAll,
   importAll,
   onStorageWarning,

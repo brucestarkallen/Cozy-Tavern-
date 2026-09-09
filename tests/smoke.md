@@ -593,3 +593,17 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 56. Message row actions all work: copy, edit, swipe (walker + walk-back), branch, delete, go-on.
 57. Settings renders fully including referee dials, lore shelf controls toggle/edit/reorder/delete.
 58. "Show me around again" re-opens the tour. 390px mobile: no horizontal scroll, sheets work.
+
+## M16 additions
+59. Update nudge: bump js/version.js, reload twice — the toast "A new coat is on the tavern —
+    tap to refresh." appears while the new worker installs; tapping refreshes; the
+    controllerchange reload-once guard never loops (first-ever visit does NOT reload).
+60. Settings header shows "THE SHELVES · <VERSION>" in micro-caps, matching js/version.js.
+    The tour's last step names the housekeeper.
+61. Shelves: "A new shelf" creates one; the sidebar shows a collapsible .lbl header per shelf
+    (caret + name + page-count badge) with its tales in last-active order; "Loose tales"
+    holds the unshelved. Folding a shelf persists across reload.
+62. "Start a new story" offers a shelf pick defaulting to the open tale's shelf (or loose).
+    Settings → "The shelf it sits on" moves the story; the sidebar re-gathers at once.
+63. Taking a shelf down NEVER deletes its tales — they stand loose, pages intact.
+    Renaming a shelf works inline; a backup carries the shelves (settings store).

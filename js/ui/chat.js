@@ -40,7 +40,7 @@
  *    fresh (referee.refereeStep).
  */
 
-import { db } from '../store.js';
+import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
@@ -181,8 +181,14 @@ export function initChat(ctx) {
     listEmpty: document.getElementById('story-list-empty'),
     newForm: document.getElementById('new-story-form'),
     newTitle: document.getElementById('new-story-title'),
+    newShelfPick: document.getElementById('new-story-shelf'),
     btnNew: document.getElementById('btn-new-story'),
     btnCancelNew: document.getElementById('btn-cancel-story'),
+    /* M16: the shelves — a new shelf begins from the sidebar. */
+    btnNewShelf: document.getElementById('btn-new-shelf'),
+    newShelfForm: document.getElementById('new-shelf-form'),
+    newShelfName: document.getElementById('new-shelf-name'),
+    btnCancelShelf: document.getElementById('btn-cancel-shelf'),
     thread: document.getElementById('thread'),
     threadEmpty: document.getElementById('thread-empty'),
     noConnection: document.getElementById('no-connection'),
@@ -201,6 +207,10 @@ export function initChat(ctx) {
 
   let stories = [];
   let pageCounts = new Map();
+  /* M16: the shelves the tales rest on, and which shelf doors stand folded
+   * (persisted, so the sidebar remembers its shape between visits). */
+  let projects = [];
+  let shelfCollapsed = {};
   let busy = false;
   let abort = null;
   /* B18: what the thread last rendered, so new pages can simply append. */
@@ -285,8 +295,15 @@ export function initChat(ctx) {
 
   /* ---------- story list ---------- */
 
+  /* M16: which shelf doors stand folded rides one settings key — a map of
+   * shelf id (or 'loose') to true. */
+  const SHELF_COLLAPSED_KEY = 'shelfCollapsed';
+
   async function refreshStories(keepActive) {
     stories = await db.stories.list();
+    /* M16: the shelves gather alongside their tales. */
+    projects = await db.projects.list();
+    shelfCollapsed = (await db.settings.get(SHELF_COLLAPSED_KEY)) || {};
     /* M14: page counts ride the shelf rows; the byStory index counts
      * without reading a single page. */
     const counts = await Promise.all(stories.map((s) => db.messages.count(s.id).catch(() => 0)));
@@ -298,55 +315,204 @@ export function initChat(ctx) {
       }
     }
     renderStoryList();
+    renderShelfPick();
   }
 
-  function renderStoryList() {
-    els.list.textContent = '';
-    els.listEmpty.hidden = stories.length > 0;
-    const activeId = ctx.getActiveStoryId();
-    for (const story of stories) {
-      const li = document.createElement('li');
-      li.className = 'story-item' + (story.id === activeId ? ' active' : '');
+  /* One tale's row — title, last-active in the reader's tense, page count. */
+  function storyItem(story, activeId) {
+    const li = document.createElement('li');
+    li.className = 'story-item' + (story.id === activeId ? ' active' : '');
 
-      const openBtn = document.createElement('button');
-      openBtn.type = 'button';
-      openBtn.className = 'story-open';
-      const title = document.createElement('span');
-      title.className = 'story-title';
-      title.textContent = story.title;
-      const meta = document.createElement('span');
-      meta.className = 'story-when';
-      /* M14: last-active in the reader's own tense, then the page count
-       * in the whisper voice. */
-      const when = document.createElement('span');
-      when.textContent = fmtRelative(story.updatedAt);
-      const pages = document.createElement('span');
-      pages.className = 'lbl story-pages';
-      const count = pageCounts.get(story.id) || 0;
-      pages.textContent = count ? count + (count === 1 ? ' page' : ' pages') : 'unwritten';
-      meta.append(when, pages);
-      openBtn.append(title, meta);
-      openBtn.addEventListener('click', () => openStory(story.id));
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'story-open';
+    const title = document.createElement('span');
+    title.className = 'story-title';
+    title.textContent = story.title;
+    const meta = document.createElement('span');
+    meta.className = 'story-when';
+    /* M14: last-active in the reader's own tense, then the page count
+     * in the whisper voice. */
+    const when = document.createElement('span');
+    when.textContent = fmtRelative(story.updatedAt);
+    const pages = document.createElement('span');
+    pages.className = 'lbl story-pages';
+    const count = pageCounts.get(story.id) || 0;
+    pages.textContent = count ? count + (count === 1 ? ' page' : ' pages') : 'unwritten';
+    meta.append(when, pages);
+    openBtn.append(title, meta);
+    openBtn.addEventListener('click', () => openStory(story.id));
 
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'story-mini';
+    renameBtn.title = 'Rename';
+    renameBtn.setAttribute('aria-label', `Rename “${story.title}”`);
+    renameBtn.textContent = '✎';
+    renameBtn.addEventListener('click', () => beginRename(li, story));
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'story-mini';
+    removeBtn.title = 'Let go';
+    removeBtn.setAttribute('aria-label', `Let go of “${story.title}”`);
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', () => removeStory(story));
+
+    li.append(openBtn, renameBtn, removeBtn);
+    return li;
+  }
+
+  /* M16: one shelf section — a collapsible .lbl header (caret, name, the
+   * shelf's page-count badge) over its tales in interaction-recency order.
+   * project === null is the "Loose tales" section. */
+  function shelfSection(project, shelfStories, activeId) {
+    const key = project ? project.id : 'loose';
+    const name = project ? project.name : 'Loose tales';
+    const collapsed = shelfCollapsed[key] === true;
+
+    const section = document.createElement('li');
+    section.className = 'shelf' + (collapsed ? ' collapsed' : '');
+
+    const head = document.createElement('div');
+    head.className = 'shelf-head';
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'shelf-toggle lbl';
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    toggle.setAttribute('aria-label', collapsed ? `Open the shelf “${name}”` : `Fold the shelf “${name}”`);
+    const caret = document.createElement('span');
+    caret.className = 'shelf-caret';
+    caret.textContent = collapsed ? '▸' : '▾';
+    const label = document.createElement('span');
+    label.className = 'shelf-name';
+    label.textContent = name;
+    const total = shelfStories.reduce((n, s) => n + (pageCounts.get(s.id) || 0), 0);
+    const badge = document.createElement('span');
+    badge.className = 'shelf-badge';
+    badge.textContent = total ? total + (total === 1 ? ' page' : ' pages') : 'unwritten';
+    toggle.append(caret, label, badge);
+    toggle.addEventListener('click', () => toggleShelf(key));
+    head.appendChild(toggle);
+
+    if (project) {
       const renameBtn = document.createElement('button');
       renameBtn.type = 'button';
       renameBtn.className = 'story-mini';
-      renameBtn.title = 'Rename';
-      renameBtn.setAttribute('aria-label', `Rename “${story.title}”`);
+      renameBtn.title = 'Rename the shelf';
+      renameBtn.setAttribute('aria-label', `Rename the shelf “${name}”`);
       renameBtn.textContent = '✎';
-      renameBtn.addEventListener('click', () => beginRename(li, story));
+      renameBtn.addEventListener('click', () => beginShelfRename(head, project));
 
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'story-mini';
-      removeBtn.title = 'Let go';
-      removeBtn.setAttribute('aria-label', `Let go of “${story.title}”`);
+      removeBtn.title = 'Take the shelf down';
+      removeBtn.setAttribute('aria-label', `Take down the shelf “${name}” — the tales stay`);
       removeBtn.textContent = '×';
-      removeBtn.addEventListener('click', () => removeStory(story));
+      removeBtn.addEventListener('click', () => removeShelf(project));
 
-      li.append(openBtn, renameBtn, removeBtn);
-      els.list.appendChild(li);
+      head.append(renameBtn, removeBtn);
     }
+    section.appendChild(head);
+
+    if (!collapsed) {
+      const inner = document.createElement('ul');
+      inner.className = 'shelf-stories';
+      for (const story of shelfStories) inner.appendChild(storyItem(story, activeId));
+      section.appendChild(inner);
+    }
+    return section;
+  }
+
+  function toggleShelf(key) {
+    if (shelfCollapsed[key]) delete shelfCollapsed[key];
+    else shelfCollapsed[key] = true;
+    db.settings.set(SHELF_COLLAPSED_KEY, shelfCollapsed).catch(() => {});
+    renderStoryList();
+  }
+
+  function beginShelfRename(head, project) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = project.name;
+    input.maxLength = 60;
+    input.setAttribute('aria-label', 'A new name for the shelf');
+    head.replaceChildren(input);
+
+    let done = false;
+    const commit = async (keep) => {
+      if (done) return;
+      done = true;
+      const name = input.value.trim();
+      if (keep && name && name !== project.name) {
+        await db.projects.rename(project.id, name);
+        await refreshStories(true);
+        toast(`The shelf is “${name}” now.`);
+        if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+      } else {
+        renderStoryList();
+      }
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') commit(true);
+      if (e.key === 'Escape') commit(false);
+    });
+    input.addEventListener('blur', () => commit(true));
+    input.focus();
+    input.select();
+  }
+
+  /* Taking a shelf down NEVER deletes a tale — its stories stand loose. */
+  async function removeShelf(project) {
+    const ok = window.confirm(
+      `Take down the shelf “${project.name}”? The tales on it stay — they simply stand loose.`
+    );
+    if (!ok) return;
+    await db.projects.remove(project.id);
+    await refreshStories(true);
+    toast(`The shelf “${project.name}” is down — its tales stand loose.`);
+    if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+  }
+
+  /* M16: the sidebar in sections — each shelf (in shelf order) with its
+   * tales, then the loose ones. shelvesOf keeps the recency order
+   * stories.list() hands over. */
+  function renderStoryList() {
+    els.list.textContent = '';
+    els.listEmpty.hidden = stories.length > 0;
+    const activeId = ctx.getActiveStoryId();
+    const grouped = shelvesOf(stories, projects);
+    for (const { project, stories: onShelf } of grouped.shelves) {
+      els.list.appendChild(shelfSection(project, onShelf, activeId));
+    }
+    if (grouped.loose.length || !projects.length) {
+      els.list.appendChild(shelfSection(null, grouped.loose, activeId));
+    }
+  }
+
+  /* The new-story form's shelf pick: every shelf the house knows, plus
+   * loose — defaulting to the shelf the open tale rests on. */
+  function renderShelfPick() {
+    if (!els.newShelfPick) return;
+    const activeId = ctx.getActiveStoryId();
+    const open = stories.find((s) => s.id === activeId);
+    const current = open && open.projectId && projects.some((p) => p.id === open.projectId)
+      ? open.projectId
+      : '';
+    els.newShelfPick.textContent = '';
+    const looseOpt = document.createElement('option');
+    looseOpt.value = '';
+    looseOpt.textContent = 'Loose — no shelf';
+    els.newShelfPick.appendChild(looseOpt);
+    for (const project of projects) {
+      const opt = document.createElement('option');
+      opt.value = project.id;
+      opt.textContent = project.name;
+      els.newShelfPick.appendChild(opt);
+    }
+    els.newShelfPick.value = current;
   }
 
   function beginRename(li, story) {
@@ -1868,6 +2034,7 @@ export function initChat(ctx) {
   els.btnNew.addEventListener('click', () => {
     els.newForm.hidden = false;
     els.newTitle.value = '';
+    renderShelfPick();
     els.newTitle.focus();
   });
 
@@ -1877,7 +2044,9 @@ export function initChat(ctx) {
 
   els.newForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const story = await db.stories.create({ title: els.newTitle.value });
+    /* M16: the tale may begin already resting on a shelf. */
+    const shelfId = els.newShelfPick ? els.newShelfPick.value : '';
+    const story = await db.stories.create({ title: els.newTitle.value, projectId: shelfId || undefined });
     els.newForm.hidden = true;
     ctx.setActiveStoryId(story.id);
     await refreshStories(true);
@@ -1885,6 +2054,26 @@ export function initChat(ctx) {
     closePanel();
     els.input.focus();
     toast(`“${story.title}” is begun.`);
+    if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+  });
+
+  /* M16: "A new shelf" — a small inline form beside the new-story one. */
+  els.btnNewShelf.addEventListener('click', () => {
+    els.newShelfForm.hidden = false;
+    els.newShelfName.value = '';
+    els.newShelfName.focus();
+  });
+
+  els.btnCancelShelf.addEventListener('click', () => {
+    els.newShelfForm.hidden = true;
+  });
+
+  els.newShelfForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const shelf = await db.projects.create({ name: els.newShelfName.value });
+    els.newShelfForm.hidden = true;
+    await refreshStories(true);
+    toast(`A new shelf — “${shelf.name}” waits for tales.`);
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
   });
 
