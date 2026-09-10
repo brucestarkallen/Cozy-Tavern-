@@ -65,3 +65,26 @@ test('M45-3 the house runs the founder first, once per material, and by hand', (
   const sw = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');
   assert(sw.includes("'js/agents/founder.js'"));
 });
+
+test('M45-4 AXIS LOCK: the founder refuses a standing whose cause is about anyone but the main character', async () => {
+  const storyId = 'm45-lock';
+  await saveState(storyId, emptyState());
+  const answer = JSON.stringify({ mutations: [
+    { type: 'mc.set', name: 'Jovan' },
+    { type: 'rel.set', name: 'Rias', p: 85, r: 65, s: 45, cause: 'the brief says Rias is devoted to Jovan, a childhood kiss only she remembers' },
+    { type: 'rel.set', name: 'Caleb', p: 35, r: 45, s: 30, cause: 'the brief says Caleb is Rias’s possessive ex who wants answers' },
+    { type: 'rel.set', name: 'Alaric', p: 50, r: 60, s: 25, cause: 'a romantic crush on Rias' },
+    { type: 'people.set', name: 'Caleb', field: 'core', text: 'Rias’s ex; still possessive; wants answers' },
+  ] });
+  const house = thinkingHouse({ answer });
+  const r = await withHouse(house, () => foundWorld({ connection: HOUSES[0].conn, storyId, brief: 'x', stale: () => false }));
+  const st = await loadState(storyId);
+  assert(st.relationships.Rias && st.relationships.Rias.p === 85, 'a bond with the main character stands');
+  assert(!st.relationships.Caleb && !st.relationships.Alaric, 'feelings for Rias are not standings toward Jovan');
+  eq(r.rejected.filter((x) => /toward the main character only/.test(x.why)).length, 2);
+  assert(st.characters.Caleb && /possessive/.test(st.characters.Caleb.core), 'the feeling lives in the page as words');
+  const p = buildFounderMessages({ state: emptyState(), brief: 'x' });
+  assert(/AXIS LOCK/.test(p.system) && /never as numbers/.test(p.system));
+  const aud = readFileSync(new URL('../../js/agents/auditor.js', import.meta.url), 'utf8');
+  assert(/AXIS LOCK: a standing exists only TOWARD THE MAIN CHARACTER/.test(aud), 'the auditor zeroes the ones already written');
+});

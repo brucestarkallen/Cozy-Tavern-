@@ -35,7 +35,7 @@ const MAX_TOKENS = 6000;
 const VOCABULARY = [
   'mc.set {"type":"mc.set","name":"Jovan"} — the main character, when the brief makes it plain and the ledger does not know',
   'people.set {"type":"people.set","name":"Aurora","field":"core","text":"Jovan\'s childhood friend; lives next door; ex-idol; reads rooms performatively"} — one core per named person the brief, the cast notes, the cards or the lore establish (never the main character\'s core or arc); field "arc" for how they stand with the main character when stated; field "state" for where they are in their life now when stated',
-  'rel.set {"type":"rel.set","name":"Aurora","p":40,"r":25,"s":10,"cause":"the brief says she has loved him since school"} — ONLY standings the brief states; a stranger starts at zero and needs no line',
+  'rel.set {"type":"rel.set","name":"Aurora","p":40,"r":25,"s":10,"cause":"the brief says Aurora has loved Jovan since school"} — a standing is how a person stands TOWARD THE MAIN CHARACTER and nothing else (AXIS LOCK): only when the brief states a bond or history between that person and the main character, and the cause names the main character. A person who has never met the main character has no standing (zero, no line). Feelings toward ANYONE ELSE (a crush on Rias, a grudge against Kris) are NOT standings — they go in that person\'s page (core or arc) as words',
   'canon.lock {"type":"canon.lock","name":"Aurora","key":"hair","value":"black, waist-length"} — the five canonical features (hair, eyes, build, height, skin tone) and scars when stated; one lock per fact',
   'faction.set {"type":"faction.set","name":"the studio","stance":"…","agenda":"…"} — every group the brief gives a stance or an agenda',
   'offscreen.set {"type":"offscreen.set","name":"Kris","location":"…","activity":"…","agenda":"…","stance":"waiting|toward|seeking|tense|busy"} — where the brief places a named person who is NOT in the opening scene',
@@ -62,6 +62,11 @@ function law({ mc }) {
     '    real record — true name, family, role — unless the brief says otherwise.',
     '  - SEALED IS SEALED: what the brief says nobody knows, or a person does not know, gets no',
     '    knowledge line for that person. Public records are what people work from.',
+    '  - AXIS LOCK: a standing (rel.set) exists ONLY from a person toward the main character. Before any',
+    '    rel.set ask: does the brief establish that THIS person and THE MAIN CHARACTER have a bond or a',
+    '    history? No → no standing (they start at zero, exactly as strangers do). A feeling toward anyone',
+    '    else — a crush on the sister, an ex\'s possessiveness, a rivalry — is written into that person\'s',
+    '    page as words, never as numbers. A standing whose cause names another person is refused.',
     '  - The main character gets no page of their own beyond mc.set: their state and threads are the',
     '    story\'s to write.',
     '  - Do not narrate, do not summarize the brief, do not add the opening scene\'s presence (the',
@@ -159,7 +164,23 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   const fresh = await loadState(storyId);
   /* the main character's page: mc.set first so people.set can refuse the MC's core */
   const ordered = [...read.mutations.filter((m) => m.type === 'mc.set'), ...read.mutations.filter((m) => m.type !== 'mc.set')];
-  const { state: next, applied, rejected } = applyMutations(fresh, ordered);
+  /* AXIS LOCK, enforced in code: a standing rides only when its cause names
+   * the main character (the brief's bond WITH the MC). The MC's name is the
+   * one the answer's mc.set names, else the ledger's. */
+  const mcFromAnswer = ordered.find((m) => m.type === 'mc.set' && typeof m.name === 'string');
+  const mcKnown = (mcFromAnswer && mcFromAnswer.name.trim()) || (mcName(fresh) !== 'the player' ? mcName(fresh) : '');
+  const guarded = [];
+  const refusedByLock = [];
+  for (const m of ordered) {
+    if (m.type === 'rel.set' || m.type === 'rel.shift') {
+      const cause = String(m.cause || '').toLowerCase();
+      const namesMc = (mcKnown && cause.includes(mcKnown.toLowerCase())) || /main character/.test(cause);
+      if (!namesMc) { refusedByLock.push({ mutation: m, why: 'a standing is toward the main character only — this cause does not name ' + (mcKnown || 'the main character') + '; the feeling belongs in the page as words' }); continue; }
+    }
+    guarded.push(m);
+  }
+  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
+  const rejected = [...rejectedByApplier, ...refusedByLock];
   const out = { ...next, founded: { at: Date.now(), print: founderFingerprint({ brief, castNotes, cast, lore }) } };
   if (stale && stale()) return null;
   await saveState(storyId, out);

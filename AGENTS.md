@@ -1444,3 +1444,10 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the founder runs once, and again when any of it changes; by hand: Drawer → The workers →
   "Found the world from the brief" (foundNow). First in the chain, before the extractor.
 - Harness: m45.mjs (3 checks incl. end to end). 272/272 + 19/19. version.js -> m45-001.
+- M45-002 (FIELD REPORT: "Caleb and Alaric's P:R:S are for Rias, not the MC — Caleb never met
+  Jovan"): the founder broke the writer's AXIS LOCK. Law: a standing exists only TOWARD THE MAIN
+  CHARACTER, only when the brief states a bond with them; feelings for anyone else go in the page
+  as words. Code guard in foundWorld: a rel.set/rel.shift whose cause does not name the main
+  character (or "main character") is refused with the reason. The auditor's law: a standing whose
+  history speaks of a feeling for someone else, or for a person who never met the MC, is zeroed
+  (rel.set 0/0/0, "the brief gives no bond with <MC>") and the feeling moved to the page.
