@@ -344,6 +344,27 @@ test('DOM-7b a version keeps its own ledger: walking back restores it; the peopl
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-12b a tale moves to a shelf from its menu, and back to loose', async () => {
+  const before = errors.length;
+  const shelf = await db.projects.create({ name: 'Summer tales' });
+  const sid = await storyId();
+  const row = await until(() => qa('.story-item').find((li) => li.classList.contains('active')), 'the active row');
+  const menuBtn = qa('.story-mini', row).find((b) => /Take this tale with you/.test(b.title));
+  assert(menuBtn, 'the row’s menu button: ' + qa('.story-mini', row).map((b) => b.title).join(' | '));
+  click(menuBtn);
+  await until(() => !q('#story-menu').hidden, 'the story menu');
+  const move = qa('#story-menu button[data-act="move-shelf"]').find((b) => /Summer tales/.test(b.textContent));
+  assert(move, 'the shelf is offered');
+  click(move);
+  await until(async () => (await db.stories.get(sid)).projectId === shelf.id, 'moved to the shelf');
+  click(menuBtn);
+  await until(() => !q('#story-menu').hidden, 'the story menu again');
+  const loose = qa('#story-menu button[data-act="move-shelf"]').find((b) => /No shelf/.test(b.textContent));
+  click(loose);
+  await until(async () => !(await db.stories.get(sid)).projectId, 'loose again');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-13b reset to the house’s defaults: settings go back, connections and stories stay, my own regex rules stay', async () => {
   const before = errors.length;
   await db.settings.set('memoryWindow', 55);

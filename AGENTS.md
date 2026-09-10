@@ -1624,3 +1624,12 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   lacked projectId. Carried now, with workerConnections, mend, audit, worldAgent (the story's own
   switches). DOM-8 puts the origin on a shelf and asserts the branch is on the same one.
 - 294/294 + 20/20. version.js -> m55-001.
+
+---
+
+# M56 — a tale moves to a shelf
+- FIELD REPORT: "can we move a chat to a project?" The story row's menu (the "Take this tale with
+  you" button) now has a "Move to a shelf" section: one entry per shelf and "No shelf (loose)",
+  the current one omitted; the shelves are re-read at menu open. Moving changes projectId only —
+  nothing inside the tale. DOM-12b moves a tale to a shelf and back through the real UI.
+- 294/294 + 21/21. version.js -> m56-001.

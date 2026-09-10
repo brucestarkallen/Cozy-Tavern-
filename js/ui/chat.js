@@ -594,11 +594,33 @@ export function initChat(ctx) {
    * menuFor is the message id — these never share). */
   let storyMenuFor = null;
 
-  function openStoryMenu(e, story) {
+  async function openStoryMenu(e, story) {
     e.stopPropagation();
     const menu = els.storyMenu;
     if (!menu) return;
     storyMenuFor = story.id;
+    projects = await db.projects.list(); /* M56: the shelves as they stand now */
+    /* M56: move the tale to a shelf — one button per shelf, and "no shelf" */
+    const shelves = menu.querySelector('#story-menu-shelves');
+    if (shelves) {
+      shelves.textContent = '';
+      const head = document.createElement('div');
+      head.className = 'lbl msg-menu-head';
+      head.textContent = 'Move to a shelf';
+      shelves.appendChild(head);
+      const options = [{ id: '', name: 'No shelf (loose)' }, ...projects.map((p) => ({ id: p.id, name: p.name || 'a shelf' }))];
+      for (const opt of options) {
+        if ((story.projectId || '') === opt.id) continue;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'menu-item';
+        b.setAttribute('role', 'menuitem');
+        b.dataset.act = 'move-shelf';
+        b.dataset.shelf = opt.id;
+        b.textContent = opt.name;
+        shelves.appendChild(b);
+      }
+    }
     menu.hidden = false;
     menu.style.left = Math.max(8, Math.min(e.clientX, window.innerWidth - 240)) + 'px';
     menu.style.top = Math.max(8, Math.min(e.clientY, window.innerHeight - 120)) + 'px';
@@ -3008,6 +3030,14 @@ export function initChat(ctx) {
       if (!story) return;
       if (act === 'export-md') await exportStory(story, 'md');
       else if (act === 'export-jsonl') await exportStory(story, 'jsonl');
+      else if (act === 'move-shelf') {
+        /* M56: the tale moves shelves; nothing inside it changes */
+        await db.stories.update(story.id, { projectId: btn.dataset.shelf || undefined });
+        stories = await db.stories.list();
+        renderStoryList();
+        const to = btn.dataset.shelf ? (projects.find((p) => p.id === btn.dataset.shelf) || {}).name : null;
+        toast(to ? `“${story.title}” is on the shelf “${to}” now.` : `“${story.title}” is loose now.`);
+      }
     });
     els.storyMenu.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); hideStoryMenu(); }
