@@ -411,22 +411,24 @@ test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work t
   /* a command expands on the wire but the talk shows what was typed */
   const optionsNow = () => qa('#hk-session option').length;
   const base = optionsNow();
+  await until(() => !q('#hk-send').disabled, 'the housekeeper free to be asked', 10000);
   type(q('#hk-input'), '#s');
   submit(q('#hk-form'));
   await until(() => qa('#hk-thread .hk-writer').some((b) => /#s/.test(b.textContent)) && !q('#hk-thread .hk-pending'), 'the typed command is what the talk shows, and the answer landed', 10000);
   const firstId = q('#hk-session').value;
+  await until(() => !q('#hk-send').disabled, 'the housekeeper free again', 10000);
   /* new session, branch, switch back */
   click(q('#hk-sess-new'));
-  await until(() => optionsNow() === base + 1, 'a second session');
+  await until(() => optionsNow() === base + 1, 'a second session', 10000);
   eq(qa('#hk-thread .hk-bubble').length, 0, 'the new session is empty');
   q('#hk-session').value = firstId; q('#hk-session').dispatchEvent(new window.Event('change', { bubbles: true }));
   await until(() => qa('#hk-thread .hk-writer').some((b) => /#s/.test(b.textContent)), 'back to the first');
   click(q('#hk-sess-branch'));
-  await until(() => optionsNow() === base + 2, 'a branch');
+  await until(() => optionsNow() === base + 2, 'a branch', 10000);
   assert(/branch/.test(q('#hk-session').selectedOptions[0].textContent));
   /* branch here on a writer bubble */
   click(q('#hk-thread .hk-branch-here'));
-  await until(() => optionsNow() === base + 3, 'branched at a turn');
+  await until(() => optionsNow() === base + 3, 'branched at a turn', 10000);
   /* the more menu: context viewer */
   click(q('#hk-more'));
   click(q('#hk-more-menu button[data-act="context"]'));
@@ -434,7 +436,7 @@ test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work t
   assert(/THE RECORD|PENDING CARDS/.test(q('#hk-thread .hk-viewer').textContent), 'the context is the real one');
   /* delete the branch sessions back down */
   click(q('#hk-sess-delete'));
-  await until(() => optionsNow() === base + 2, 'deleted');
+  await until(() => optionsNow() === base + 2, 'deleted', 10000);
   house.state.workerAnswer = priorAnswer;
   click(q('#btn-hk-close'));
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
@@ -460,6 +462,7 @@ test('DOM-11c the housekeeper sees the brief, stages a card, Apply changes the p
   };
   click(q('#btn-housekeeper'));
   await until(() => !q('#hk-sheet').hidden, 'the housekeeper');
+  await until(() => !q('#hk-send').disabled, 'the housekeeper free to be asked', 10000);
   type(q('#hk-input'), 'fix the first words of the last page');
   submit(q('#hk-form'));
   const apply = await until(() => qa('#hk-sheet button').find((b) => /^Apply$/i.test(b.textContent.trim())), 'an Apply button on a card', 10000);

@@ -1768,3 +1768,10 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   memory-source detector, renamechat slash).
 - Harness: m62.mjs (4 checks); DOM-11d drives sessions, a command, the context viewer and
   branch-here through the real UI. 311/311 + 24/24. version.js -> m62-001.
+- M62-002: two bugs the walk exposed after the M62 push (which went out red — chaining through
+  `tail` again; the rule stands, obey it): (1) closing the sheet then reopening it within 220 ms
+  hid it again — a stale close timer; the ledger drawer had a generation guard, the housekeeper
+  did not (closeTimer cleared on open, and the timer only hides when still closed); (2) a send
+  while the housekeeper was busy was dropped silently — it now says so. The walk waits for the
+  ask button to be enabled before asking or touching sessions (busy ↔ send disabled).
+  16 green walks in a row. 311/311 + 24/24. version.js -> m62-002.

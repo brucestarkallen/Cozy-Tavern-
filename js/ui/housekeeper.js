@@ -460,7 +460,8 @@ export function initHousekeeper(ctx) {
 
   async function send(writerText) {
     const raw = String(writerText || '').trim();
-    if (!raw || busy) return;
+    if (!raw) return;
+    if (busy) { toast('The housekeeper is still busy — press ⏹ Stop, or wait.'); return; }
     /* M62: the shortcut commands — #d steers the director, #e seeds it, the rest expand to a standing request */
     const cmd = expandCommand(raw);
     if (cmd.tag === 'd' || cmd.tag === 'e') {
@@ -825,6 +826,7 @@ export function initHousekeeper(ctx) {
   async function openSheet() {
     if (open) return;
     open = true;
+    if (closeTimer) { clearTimeout(closeTimer); closeTimer = 0; }
     sheet.hidden = false;
     scrim.hidden = false;
     requestAnimationFrame(() => sheet.classList.add('open'));
@@ -838,13 +840,17 @@ export function initHousekeeper(ctx) {
     input.focus();
   }
 
+  let closeTimer = 0;
   function closeSheet() {
     if (!open) return;
     open = false;
     if (workerCtl) { try { workerCtl.abort(); } catch (err) { /* still */ } }
     sheet.classList.remove('open');
     scrim.hidden = true;
-    setTimeout(() => { sheet.hidden = true; }, 220);
+    /* M62: an open that comes before the close's timer fires must win —
+     * the stale timer used to hide a sheet the writer had just reopened */
+    if (closeTimer) clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => { closeTimer = 0; if (!open) sheet.hidden = true; }, 220);
     const btn = document.getElementById('btn-housekeeper');
     if (btn) btn.classList.remove('current');
   }
