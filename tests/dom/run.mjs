@@ -401,6 +401,73 @@ test('DOM-11b the housekeeper: fullscreen (Esc leaves it), a draggable top bar, 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-8a branch 0→0 keeps the ledger; branch N→0 carries page 0’s ledger and nothing later, even after an old page was swiped', async () => {
+  const before = errors.length;
+  const startSid = await storyId();
+  /* the reader seats Kim when a page says she walked in */
+  const priorWorker = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => {
+    const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+    if (/keep the ledger/i.test(sys) && /Kim walked in/.test(user)) return '{"mutations":[{"type":"presence.enter","name":"Kim","position":"in the booth"}]}';
+    return priorWorker(body, sys);
+  };
+  /* a fresh story: one exchange, then branch at its only page → the present ledger comes along */
+  click(q('#btn-new-story'));
+  await until(() => !q('#new-story-form').hidden, 'the new-story form');
+  type(q('#new-story-title'), 'Checkpoints');
+  submit(q('#new-story-form'));
+  const sid = await until(async () => { const id = await storyId(); const s0 = id && (await db.stories.get(id)); return s0 && s0.title === 'Checkpoints' ? id : null; }, 'the story is open');
+  type(q('#composer-input'), 'I walk in.');
+  submit(q('#composer'));
+  await until(() => assistantPages().length >= 1, 'page 0', 10000);
+  await settled();
+  const at0 = await db.settings.get('state:' + sid);
+  assert(at0 && (at0.place || (at0.present || []).length), 'turn 0 founded a ledger');
+  click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
+  await until(async () => (await storyId()) !== sid, 'branch 0→0 is open', 10000);
+  const b1 = await storyId();
+  const b1st = await db.settings.get('state:' + b1);
+  eq(JSON.stringify({ p: b1st.place, pr: b1st.present }), JSON.stringify({ p: at0.place, pr: at0.present }), '0→0 keeps the ledger');
+  /* back to the origin; two more turns; swipe an OLD page; then branch at page 0 */
+  const row = qa('.story-item').find((li) => /Checkpoints/.test(li.textContent) && !/a branch/.test(li.textContent));
+  click(q('.story-open', row) || row);
+  await until(async () => (await storyId()) === sid, 'back on the origin', 10000);
+  house.state.storyAnswer = () => 'Later, Kim walked in and sat down.\n\nThe booth was quiet.';
+  type(q('#composer-input'), 'Later.'); submit(q('#composer'));
+  await until(() => assistantPages().length >= 2, 'page 1', 10000);
+  await settled();
+  type(q('#composer-input'), 'And later.'); submit(q('#composer'));
+  await until(() => assistantPages().length >= 3, 'page 2', 10000);
+  await settled();
+  house.state.storyAnswer = null;
+  const atN = await db.settings.get('state:' + sid);
+  const present = (atN.present || []).map((p) => p.name);
+  assert(present.some((n) => /Kim/.test(n)), 'turn N has Kim present: ' + present.join(','));
+  /* walk a swipe on page 0 (an old page) — this used to save the turn-N ledger under page 0 */
+  const first = assistantPages()[0];
+  click(q('.swipe-bar .msg-act[data-act="swipe-next"]', first) || q('.msg-act[data-act="swipe"]', first));
+  await until(() => q('.swipe-count', assistantPages()[0]) && /2/.test(q('.swipe-count', assistantPages()[0]).textContent), 'a second version of page 0', 15000);
+  await settled();
+  const versions = (await db.settings.get('versionState:' + sid)) || {};
+  const page0 = assistantPages()[0].dataset.id;
+  for (const [key, st] of Object.entries(versions)) {
+    if (key.startsWith(page0 + ':')) assert(!(st.present || []).some((p) => /Kim/.test(p.name)), 'page 0’s checkpoint never holds the later Kim: ' + key);
+  }
+  click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
+  await until(async () => { const id = await storyId(); return id !== sid && id !== b1; }, 'branch N→0 is open', 10000);
+  const b2 = await storyId();
+  const b2st = await db.settings.get('state:' + b2);
+  assert(!(b2st.present || []).some((p) => /Kim/.test(p.name)), 'N→0 does not carry Kim: ' + JSON.stringify(b2st.present));
+  await settled();
+  house.state.workerAnswer = priorWorker;
+  /* back to the story the walk began with, for the scenarios that follow */
+  const startTitle = (await db.stories.get(startSid)).title;
+  const row2 = qa('.story-item').find((li) => li.textContent.includes(startTitle) && !/a branch|Checkpoints/.test(li.textContent));
+  click(q('.story-open', row2) || row2);
+  await until(async () => (await storyId()) === startSid, 'back on the first story', 10000);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-8b a branch at the start never carries a later ledger: no checkpoint → a clean ledger and a re-reading', async () => {
   const before = errors.length;
   const sid = await storyId();

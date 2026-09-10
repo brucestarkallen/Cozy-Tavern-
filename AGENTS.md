@@ -1844,3 +1844,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Harness: m43-2 updated; DOM-8b wipes a story's checkpoints, branches at the first page, and
   asserts the branch starts clean and is then founded from its own page. 312/312 + 25/25.
   version.js -> m66-001.
+
+---
+
+# M67 — a version checkpoint belongs to the LAST page only
+- FIELD REPORT: "branch from turn 10 to 0 — the ledger is still there; branch from 0 to 0 — the
+  ledger is gone." Two bugs:
+  (1) 0→0: M66 removed the "ledger as it stands" fallback entirely, but for the LAST page the
+      standing ledger IS the exact checkpoint (the page's own checkpoint is written only after
+      its workers finish, which a fast branch beats). branchFrom now awaits pendingWork and
+      carries the present when the target is the last page.
+  (2) N→0: page 0's version checkpoint was being OVERWRITTEN with the present — walking a swipe
+      on an old page saved "the ledger being left" (the turn-N ledger) under page 0's key, and
+      the chain's checkpoint job did the same whenever it ran on an old page (edit, rescan).
+      The branch then carried it faithfully. Now: isLastAssistantPage gates every checkpoint
+      write; an OLDER page's versions never own a ledger — walking or re-writing an old page
+      changes its words, lets its record line go and asks the auditor; it never rewinds,
+      restores, or saves a checkpoint (M40's per-version ledger applies to the last page only,
+      which is also all SillyTavern allows).
+- DOM-8a drives both reports: a fresh story, branch 0→0 keeps the ledger; two more turns with
+  Kim entering, a swipe walked on page 0, then branch N→0 — page 0's checkpoints never hold
+  Kim and the branch does not carry her. 312/312 + 26/26 (×4). version.js -> m67-001.

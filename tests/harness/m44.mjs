@@ -87,7 +87,7 @@ test('M44-6 the house wires the laws: retry truncates the record, delete slides 
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/memoryTruncatedAt\(await loadMemory\(story\.id\), k\)/.test(chat), 'retry/regenerate truncates');
   assert(/memoryAfterDeletion\(await loadMemory\(story\.id\), k\)/.test(chat), 'delete slides');
-  eq((chat.match(/memoryWithoutPage\(await loadMemory\(story\.id\), k\)/g) || []).length, 3, 'swipe-new, swipe-walk, edit leave a hole');
+  eq((chat.match(/memoryWithoutPage\(await loadMemory\(story\.id\), k\)/g) || []).length, 4, 'swipe-new, swipe-walk (last page and older page), edit leave a hole');
   const edit = chat.slice(chat.indexOf('const isLast = !history.slice'), chat.indexOf('const isLast = !history.slice') + 700);
   assert(/if \(isLast\) \{[\s\S]*rewindTo\(story, history, boundary\.id\)/.test(edit) && /else \{[\s\S]*pendingAudit\.add\(story\.id\)/.test(edit));
   assert(/pendingAudit\.delete\(story\.id\);/.test(chat), 'the auditor honors a pending audit');

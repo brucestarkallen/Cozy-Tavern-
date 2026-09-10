@@ -10,7 +10,7 @@ const chat = () => readFileSync(new URL('../../js/ui/chat.js', import.meta.url),
 
 test('M40-1 a cancelled swipe gives the ledger back; every version keeps the ledger it earned', () => {
   const c = chat();
-  assert(/const leaving = await loadState\(story\.id\);[\s\S]*const landed = await generate\(\{ swipeTarget: msg \}\);[\s\S]*if \(!landed\) \{[\s\S]*await saveState\(story\.id, leaving\);/.test(c), 'the swipe keeps the ledger it left and gives it back on a cancel');
+  assert(/const leaving = await loadState\(story\.id\);[\s\S]*const landed = await generate\(\{ swipeTarget: msg \}\);[\s\S]*if \(!landed && lastPage\) \{[\s\S]*await saveState\(story\.id, leaving\);/.test(c), 'the swipe keeps the ledger it left and gives it back on a cancel (the last page, M67)');
   assert(/enqueue\('checkpoint'/.test(c) && /saveVersionState\(story\.id, msg\.id, idx, await loadState\(story\.id\)\)/.test(c), 'a checkpoint per version after the readers finish');
   assert(/const known = await versionStateFor\(story\.id, msg\.id, next\);[\s\S]*if \(known\) \{[\s\S]*await saveState\(story\.id, known\);/.test(c), 'walking to a version restores its ledger');
   assert(/return landed;/.test(c), 'generate says whether a page landed');

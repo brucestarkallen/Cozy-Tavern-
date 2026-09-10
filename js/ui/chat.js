@@ -1827,7 +1827,9 @@ export function initChat(ctx) {
     enqueue('checkpoint', async ({ stale }) => {
       if (stale()) return { silent: true };
       if (!(await stillThere(story.id, msg.id))) return { silent: true };
-      const fresh = (await db.messages.list(story.id)).find((m) => m.id === msg.id);
+      const all = await db.messages.list(story.id);
+      if (!isLastAssistantPage(all, msg.id)) return { silent: true }; /* M67: an older page owns no checkpoint */
+      const fresh = all.find((m) => m.id === msg.id);
       const idx = fresh && Array.isArray(fresh.swipes) && fresh.swipes.length
         ? (Number.isFinite(fresh.swipeIdx) ? Math.min(fresh.swipes.length - 1, Math.max(0, fresh.swipeIdx)) : fresh.swipes.length - 1)
         : 0;
@@ -1910,6 +1912,20 @@ export function initChat(ctx) {
     return true;
   }
   const pendingAudit = new Set();
+
+  /* M67: a version checkpoint belongs to the LAST storyteller page only. An
+   * older page's versions never own a ledger — the ledger standing now is
+   * the later turns', not theirs — so walking or re-writing an older page
+   * changes its words, lets its record line go, and asks the auditor; it
+   * never rewinds, restores, or saves a checkpoint. (The turn-10 ledger was
+   * being saved under page 0's key by a swipe walked on page 0, and a branch
+   * at page 0 then carried it faithfully.) */
+  function isLastAssistantPage(history, messageId) {
+    const list = Array.isArray(history) ? history : [];
+    const at = list.findIndex((m) => m && m.id === messageId);
+    if (at === -1) return false;
+    return !list.slice(at + 1).some((m) => m && m.role === 'assistant' && !m.hidden);
+  }
 
   /* M40: every VERSION of a page keeps the ledger as it stood after its
    * workers finished — Summaryception's per-swipe checkpoint. Walking back
@@ -2671,8 +2687,9 @@ export function initChat(ctx) {
     }
     if (next < 0) return;
     const shown = msg.swipes[next];
-    /* M40: the version being left keeps the ledger it earned */
-    await saveVersionState(story.id, msg.id, idx, await loadState(story.id));
+    const last = isLastAssistantPage(history, msg.id);
+    /* M40: the version being left keeps the ledger it earned — the last page only (M67) */
+    if (last) await saveVersionState(story.id, msg.id, idx, await loadState(story.id));
     const updated = await db.messages.update(story.id, msg.id, {
       swipeIdx: next,
       text: shown.text,
@@ -2681,6 +2698,15 @@ export function initChat(ctx) {
       receipt: shown.receipt || msg.receipt,
     });
     await rerenderMessage(story.id, msg.id);
+    if (!last) {
+      /* M67: an older page's words changed — its record line goes, the auditor reconciles */
+      { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
+      pendingAudit.add(story.id);
+      await refreshPreview(story.id);
+      renderStoryList();
+      refreshEmber();
+      return;
+    }
     /* M40: the version walked to gets ITS ledger back — or, never read, the
      * boundary before the turn and a fresh reading by the workers. */
     const known = await versionStateFor(story.id, msg.id, next);
@@ -2720,17 +2746,24 @@ export function initChat(ctx) {
        * to vanish when the writer stopped a swipe halfway). */
       const historyNow = await db.messages.list(story.id);
       const leaving = await loadState(story.id);
+      const lastPage = isLastAssistantPage(historyNow, msg.id);
       const leavingIdx = Array.isArray(msg.swipes) && msg.swipes.length
         ? (Number.isFinite(msg.swipeIdx) ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx)) : msg.swipes.length - 1)
         : 0;
-      await saveVersionState(story.id, msg.id, leavingIdx, leaving);
-      /* M21: TRUE rollback — swipe-creation restores the boundary too. */
-      const boundary = boundaryFor(historyNow, msg.id);
-      if (boundary) await rewindTo(story, historyNow, boundary.id);
+      if (lastPage) await saveVersionState(story.id, msg.id, leavingIdx, leaving);
+      /* M21: TRUE rollback — swipe-creation restores the boundary too — for the
+       * last page. An older page's new version never rewinds the later turns'
+       * ledger (M67); the auditor reconciles after the readers see the new words. */
+      if (lastPage) {
+        const boundary = boundaryFor(historyNow, msg.id);
+        if (boundary) await rewindTo(story, historyNow, boundary.id);
+      } else {
+        pendingAudit.add(story.id);
+      }
       /* M44: a swiped page's record line is let go (a hole, refilled) */
       { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
       const landed = await generate({ swipeTarget: msg });
-      if (!landed) {
+      if (!landed && lastPage) {
         await saveState(story.id, leaving);
         notify(story.id);
       }
@@ -2876,7 +2909,13 @@ export function initChat(ctx) {
      * old telling's later turns crosses over. */
     const target = history[at];
     let carried = null;
-    if (target.role === 'assistant') {
+    /* M67: a branch from the LAST page carries the ledger as it stands — after
+     * the workers finish with it — that IS the exact checkpoint */
+    if (isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden)) {
+      await pendingWork(story.id, 8000);
+      carried = await loadState(story.id);
+    }
+    if (!carried && target.role === 'assistant') {
       const idx = Array.isArray(target.swipes) && target.swipes.length
         ? (Number.isFinite(target.swipeIdx) ? Math.min(target.swipes.length - 1, Math.max(0, target.swipeIdx)) : target.swipes.length - 1)
         : 0;
