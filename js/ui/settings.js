@@ -140,6 +140,9 @@ export function initSettings(ctx) {
     continuityCheck: document.getElementById('continuity-check'),
     mendPages: document.getElementById('mend-pages'),
     worldAgent: document.getElementById('world-agent'),
+    auditOn: document.getElementById('audit-on'),
+    auditEvery: document.getElementById('audit-every'),
+    auditEveryValue: document.getElementById('audit-every-value'),
     worldEffort: document.getElementById('world-effort'),
     refereeOn: document.getElementById('referee-on'),
     refereeSensitivity: document.getElementById('referee-sensitivity'),
@@ -1051,9 +1054,23 @@ export function initSettings(ctx) {
     els.memoryBatchValue.textContent = String(batch);
     /* M29: the world agent — on by default; its effort, off by default. */
     els.worldAgent.checked = (await db.settings.get('worldAgent')) !== false;
+    /* M41: the auditor */
+    els.auditOn.checked = (await db.settings.get('auditOn')) !== false;
+    const ae = Math.round(Number(await db.settings.get('auditEvery')));
+    const everyV = Number.isFinite(ae) && ae >= 1 ? Math.min(20, ae) : 3;
+    els.auditEvery.value = String(everyV);
+    els.auditEveryValue.textContent = String(everyV);
     const eff = await db.settings.get('worldEffort');
     els.worldEffort.value = ['off', 'low', 'medium', 'high'].includes(eff) ? eff : 'off';
   }
+
+  els.auditOn.addEventListener('change', async () => {
+    await db.settings.set('auditOn', els.auditOn.checked);
+  });
+  els.auditEvery.addEventListener('input', () => { els.auditEveryValue.textContent = els.auditEvery.value; });
+  els.auditEvery.addEventListener('change', async () => {
+    await db.settings.set('auditEvery', Math.round(Number(els.auditEvery.value)) || 3);
+  });
 
   els.worldAgent.addEventListener('change', async () => {
     await db.settings.set('worldAgent', els.worldAgent.checked);

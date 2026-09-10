@@ -11,6 +11,7 @@ export const WORKER_ROWS = [
   ['scribe', 'The character scribe — keeps every soul true to itself'],
   ['keeper', 'The memory keeper — folds old pages into notes'],
   ['continuity', 'The second reader — quietly flags what drifts'],
+  ['auditor', 'The auditor — every few turns, the whole ledger against the brief, the pages and the record'],
   ['referee', 'The referee — rules on contested moments, fast and cold'],
   ['showrunner', 'The showrunners — the director and the editor'],
   ['housekeeper', 'The housekeeper — the one you talk to, who tidies everything'],

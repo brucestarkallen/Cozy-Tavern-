@@ -1262,6 +1262,23 @@ function driftPanel(ctx) {
         }
       }
     }
+    /* M41: the auditor's last report leads */
+    const stateNow = await loadState(story.id);
+    const audit = stateNow && stateNow.audit;
+    if (audit && Array.isArray(audit.issues)) {
+      const head = document.createElement('li');
+      head.className = 'log-row';
+      head.textContent = audit.issues.length
+        ? 'The auditor’s last reading of the whole ledger (turn ' + audit.turn + '):'
+        : 'The auditor’s last reading (turn ' + audit.turn + '): the ledger is true to the story.';
+      list.appendChild(head);
+      for (const i of audit.issues) {
+        const li = document.createElement('li');
+        li.className = 'log-row' + (i.fixable ? '' : ' drift-warn');
+        li.textContent = (i.fixable ? 'Set right: ' : 'Noted, not fixable by the ledger: ') + i.what + (i.fix ? ' → ' + i.fix : '');
+        list.appendChild(li);
+      }
+    }
     if (!found.length) {
       note.textContent = 'Nothing has drifted. When a finished page disagrees with what’s written down, the second reader will note it here — it only ever notes; it never touches the words.';
       return;
@@ -1458,6 +1475,7 @@ const WORKER_WORDS = {
   keeper: 'the keeper',
   referee: 'the referee',
   continuity: 'the second reader',
+  auditor: 'the auditor',
   housekeeper: 'the housekeeper',
   director: 'the director',
   editor: 'the editor',
@@ -1478,7 +1496,19 @@ function workersPanel(ctx) {
   rescan.addEventListener('click', async () => {
     if (ctx.chat && typeof ctx.chat.rescanLedger === 'function') await ctx.chat.rescanLedger();
   });
-  wrap.append(note, rescan, list);
+  /* M41: audit the ledger — the whole of it against the brief, the pages and the record */
+  const audit = document.createElement('button');
+  audit.type = 'button';
+  audit.className = 'text-btn';
+  audit.textContent = 'Audit the ledger';
+  audit.title = 'The auditor holds the whole ledger against the brief, the latest pages and the record, sets right what it can, and notes the rest.';
+  audit.addEventListener('click', async () => {
+    if (ctx.chat && typeof ctx.chat.auditNow === 'function') await ctx.chat.auditNow();
+  });
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.append(rescan, audit);
+  wrap.append(note, row, list);
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);

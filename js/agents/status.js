@@ -24,7 +24,7 @@ export const WORKER_TIMEOUT_MS = 60000;
  * itself, and the two showrunners. */
 /* M12: the scribe joins the ledger — the quiet writer of the character
  * pages. */
-export const WORKER_NAMES = ['extractor', 'world', 'scribe', 'keeper', 'referee', 'continuity', 'housekeeper', 'director', 'editor'];
+export const WORKER_NAMES = ['extractor', 'world', 'scribe', 'keeper', 'referee', 'continuity', 'auditor', 'housekeeper', 'director', 'editor'];
 
 /* A per-call abort signal with a hard timeout. done() clears the timer —
  * callers must settle it in a finally. */

@@ -1341,3 +1341,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   page with the eight before it in view (deep), by hand, when something looks missing.
 - Harness: m40.mjs (5 checks); DOM-7b walks versions, checks the people panel and the rescan;
   m29-8 expects the auto-page. 258/258 + 18/18. version.js -> m40-001.
+
+---
+
+# M41 — the auditor: the whole ledger against the brief, the pages and the record
+- FIELD REPORT: "is there an agent that sees all the ledger and compares it with the story, the
+  brief, everything — so no mistake happens?" There wasn't. The second reader minds a page; the
+  verifier minds a record line; nobody minded the LEDGER.
+- js/agents/auditor.js: auditLedger reads the whole ledger (state facts, every seat, every
+  character page, the canon, the threads, who knows what, the factions), the brief and cast notes,
+  the record, and the last AUDIT_PAGES=10 pages; holds them together in the order of authority
+  (brief > pages > record); answers {issues:[{what, fix, mutations}]}. Mutations ride the closed
+  vocabulary through applyMutations — validated, logged, take-back-able (the auditor MAY move the
+  clock, the ground and the presence: it is correcting the ledger to the story). Unfixable
+  disagreements carry an empty list and are noted. The report lands as state.audit {at, turn,
+  issues:[{what, fix, fixable}]}. One sharper retry on an unusable answer; raw kept.
+- Runs LAST in the chain (after the second reader, before the checkpoint) every auditEvery turns
+  (default 3; Settings slider 1–20; auditOn default on; story.audit override), and by hand:
+  Drawer → The workers → "Audit the ledger" (auditNow). "Something drifted" shows the auditor's
+  last reading first. Roster/ledger know 'auditor' (hands of its own).
+- Harness: m41.mjs (3 checks incl. end to end: a stale presence, a wrong clock, a wrong mother
+  set right; an unfixable brief/pages contradiction noted). 261/261 + 18/18. version.js -> m41-001.

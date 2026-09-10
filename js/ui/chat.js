@@ -57,6 +57,7 @@ import { checkTurn, mendPages } from '../agents/continuity.js';
 import { recordFor } from '../agents/memory.js'; /* M35: the record as the mender's canon */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
+import { auditLedger, auditRunWords, auditOn, auditEvery } from '../agents/auditor.js'; /* M41: the ledger auditor */
 import { renderWorldBrief } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory } from '../import/cards.js';
@@ -1399,6 +1400,21 @@ export function initChat(ctx) {
     return true;
   }
 
+  /* M41: audit the ledger, by hand. */
+  async function auditNow() {
+    const story = await activeStory();
+    if (!story) return false;
+    const connection = await resolveWorkerConnection(story, 'auditor');
+    if (!connection) { toast('The auditor needs a connection first.'); return false; }
+    const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale }) => {
+      const result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
+      return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
+    } });
+    noteWork(story.id, promise);
+    toast('The auditor is reading the whole ledger.');
+    return true;
+  }
+
   /* M35: the mend — the second reader (and the record's verifier) may edit
    * a storyteller page by the smallest amount so it stops contradicting the
    * record. The page remembers its earlier words (msg.mended) and shows a
@@ -1473,7 +1489,7 @@ export function initChat(ctx) {
    * channel; each job also checks stale() before committing anything, so a
    * left-behind story is never written into. noteWork still tracks each
    * link, so the send path's courtesy wait (pendingWork, 5s a link) holds. */
-  function startBackgroundWork(story, msg, userText, { deep = false } = {}) {
+  function startBackgroundWork(story, msg, userText, { deep = false, audit = false } = {}) {
     const enqueue = (name, run) => {
       const promise = enqueueWork(story.id, { name, run });
       noteWork(story.id, promise);
@@ -1670,6 +1686,24 @@ export function initChat(ctx) {
         mended = changed.length;
       }
       return { silent: false, detail: `${list.length} ${list.length === 1 ? 'finding' : 'findings'}` + (mended ? `, mended ${mended} ${mended === 1 ? 'page' : 'pages'}` : '') };
+    });
+
+    /* 4a. M41: the auditor — every few turns (or by hand), the whole ledger
+     * against the brief, the pages and the record; what is wrong is set
+     * right through the closed vocabulary, what cannot be is noted. */
+    enqueue('auditor', async ({ signal, stale }) => {
+      if (story.extraction === false) return { silent: true };
+      if (!(await auditOn(story))) return { silent: true };
+      if (!audit) {
+        const visible = (await db.messages.list(story.id)).filter((m) => !m.hidden && m.role === 'assistant').length;
+        const every = await auditEvery();
+        if (visible === 0 || visible % every !== 0) return { silent: true };
+      }
+      const connection = await resolveWorkerConnection(story, 'auditor');
+      if (!connection) return { silent: true };
+      if (stale()) return { silent: true };
+      const result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
+      return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     });
 
     /* 4b. M40: the version's checkpoint — the ledger as it stands once the
@@ -3211,6 +3245,7 @@ export function initChat(ctx) {
 
   ctx.chat = {
     rescanLedger,
+    auditNow,
     renderPromptChips,
     refreshStories,
     renderThread,
