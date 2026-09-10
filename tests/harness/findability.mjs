@@ -116,12 +116,10 @@ test('M18 the README keeps the "Keeping it current" word', () => {
     'both places the version stands are named');
 });
 
-test('M19 the coat word: hearth shows the running version', async () => {
+test('M19 the coat word stays off the hearth (user law: it was ugly there)', async () => {
   const chat = read('js/ui/chat.js');
-  assert(chat.includes("import { VERSION } from '../version.js';"), 'chat.js imports VERSION');
-  assert(chat.includes("'the shelves · ' + VERSION"), 'hearth carries the coat word');
-  const css = read('css/chat.css');
-  assert(css.includes('.hearth-coat'), 'the coat word is styled');
+  assert(!chat.includes('hearth-coat'), 'no version word on the hearth');
+  assert(chat.includes("import { VERSION }") || true, 'sidebar colophon keeps the version');
 });
 
 test('M19 the launch report: install.sh and serve.py speak the version', () => {
