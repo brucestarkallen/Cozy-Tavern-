@@ -20,6 +20,7 @@ import './projects.mjs';
 import './findability.mjs';
 import './m21.mjs';
 import './m28.mjs';
+import './m29.mjs';
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

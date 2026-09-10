@@ -27,6 +27,7 @@ import { axisWords, historyWords, AXES } from '../engine/relationships.js';
 import { isMc } from '../engine/people.js';
 import { listCast, attachToStory, detachFromStory } from '../import/cards.js';
 import { loadWorkerStatus, WORKER_NAMES } from '../agents/status.js';
+import { renderArrival } from '../engine/world.js'; /* M29: the world beyond the page */
 import { db } from '../store.js';
 
 /* ---------- shared helpers ---------- */
@@ -1023,6 +1024,9 @@ function elsewherePanel(ctx) {
       if (typeof entry.agenda === 'string' && entry.agenda.trim()) {
         text += ' (meaning to ' + entry.agenda.trim().replace(/\.+$/, '') + ')';
       }
+      /* M29: the stance and the arrival on the clock */
+      const approach = renderArrival(entry, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null);
+      if (approach) text += ' — ' + approach;
       words.textContent = text;
       const clearBtn = document.createElement('button');
       clearBtn.type = 'button';
@@ -1283,8 +1287,125 @@ function driftPanel(ctx) {
  * story but never silent in the ledger; M10 added the housekeeper's
  * household to the names). One row per worker: its last run, whether it
  * ended well, and one plain word of why not when it didn't. */
+/* ---------- the world beyond the page (M29 — the world agent's book) ---------- */
+
+function worldPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'world-panel';
+  const note = quietNote('');
+  const briefBox = document.createElement('div');
+  briefBox.className = 'world-brief';
+  const threadsHead = quietNote('Threads');
+  const threads = document.createElement('ul');
+  threads.className = 'present-list';
+  const knowHead = quietNote('Who knows what');
+  const know = document.createElement('ul');
+  know.className = 'present-list';
+  const facHead = quietNote('Factions');
+  const fac = document.createElement('ul');
+  fac.className = 'present-list';
+  wrap.append(note, briefBox, threadsHead, threads, knowHead, know, facHead, fac);
+
+  const line = (text, cls) => {
+    const p = document.createElement('p');
+    p.className = cls || 'quiet';
+    p.textContent = text;
+    return p;
+  };
+
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    briefBox.textContent = '';
+    threads.textContent = '';
+    know.textContent = '';
+    fac.textContent = '';
+    if (!story) {
+      note.textContent = 'Open a story and the world beyond its page will keep its book here.';
+      threadsHead.hidden = knowHead.hidden = facHead.hidden = true;
+      return;
+    }
+    const state = await loadState(story.id);
+    const brief = state.worldBrief;
+    const turnNow = Number.isFinite(state.turn) ? state.turn : 0;
+    if (!brief || brief.empty) {
+      note.textContent = brief
+        ? 'The world agent read the last page and found nothing pressing on this scene — a quiet turn, honestly kept.'
+        : 'The world agent has not spoken yet. After a page is finished it moves the absent by the clock and leaves its word here.';
+    } else {
+      const age = Number.isFinite(brief.atTurn) ? Math.max(0, turnNow - brief.atTurn) : 0;
+      note.textContent = 'What the storyteller will be told about the world beyond this page' + (age > 1 ? ' (written ' + age + ' turns ago)' : '') + ':';
+      if (brief.pressure.length) {
+        briefBox.appendChild(line('Could reach this scene:', 'quiet'));
+        for (const p of brief.pressure) briefBox.appendChild(line('• ' + p, 'world-line'));
+      }
+      if (brief.ripe.length) {
+        briefBox.appendChild(line('Ripened out of sight:', 'quiet'));
+        for (const r of brief.ripe) briefBox.appendChild(line('• ' + r, 'world-line'));
+      }
+      if (brief.twb) {
+        briefBox.appendChild(line('A window beyond, if the scene has room: ' + [brief.twb.who, brief.twb.where].filter(Boolean).join(', ') + ' — ' + brief.twb.changed, 'world-line'));
+      }
+    }
+
+    /* threads, with a hand "let it rest" (thread.close rides the log like any change) */
+    const list = Array.isArray(state.threads) ? state.threads.filter((t) => t && typeof t === 'object' && t.title) : [];
+    threadsHead.hidden = !list.length;
+    for (const t of list) {
+      const li = document.createElement('li');
+      li.className = 'present-row mind-row';
+      const words = document.createElement('span');
+      words.textContent = (t.heat === 'cold' ? '(cold) ' : '') + t.title
+        + (t.owner ? ' — ' + t.owner : '') + (t.next ? (t.owner ? ' means to ' : ' — next: ') + t.next : '');
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'text-btn';
+      closeBtn.textContent = 'Let it rest';
+      closeBtn.addEventListener('click', async () => {
+        await handMutate(ctx, [{ type: 'thread.close', title: t.title }]);
+        render();
+      });
+      li.append(words, closeBtn);
+      threads.appendChild(li);
+    }
+
+    /* who knows what — the present */
+    const present = Array.isArray(state.present) ? state.present.map((p) => p && p.name).filter(Boolean) : [];
+    const knowledge = state.knowledge && typeof state.knowledge === 'object' ? state.knowledge : {};
+    const knowRows = [];
+    for (const name of present) {
+      const key = Object.keys(knowledge).find((k) => k.trim().toLowerCase() === name.trim().toLowerCase());
+      if (!key || !Array.isArray(knowledge[key]) || !knowledge[key].length) continue;
+      knowRows.push(key + ' knows: ' + knowledge[key].slice(-4).reverse().map((k) => k.fact).join('; '));
+    }
+    knowHead.hidden = !knowRows.length;
+    for (const text of knowRows) {
+      const li = document.createElement('li');
+      li.className = 'log-row';
+      li.textContent = text;
+      know.appendChild(li);
+    }
+
+    /* factions */
+    const factions = state.factions && typeof state.factions === 'object' ? state.factions : {};
+    const facNames = Object.keys(factions).filter((n) => factions[n] && typeof factions[n] === 'object');
+    facHead.hidden = !facNames.length;
+    for (const name of facNames) {
+      const f = factions[name];
+      const li = document.createElement('li');
+      li.className = 'log-row';
+      li.textContent = name + ' — ' + [f.stance, f.agenda ? 'wants ' + f.agenda : '', f.move ? 'last move: ' + f.move : ''].filter(Boolean).join('; ');
+      fac.appendChild(li);
+    }
+  });
+
+  render();
+  return wrap;
+}
+
+/* ---------- the workers' line (M12) ---------- */
 const WORKER_WORDS = {
   extractor: 'the extractor',
+  world: 'the world agent',
   scribe: 'the scribe',
   keeper: 'the keeper',
   referee: 'the referee',
@@ -1374,6 +1495,11 @@ const PANELS = [
     id: 'elsewhere',
     title: 'What’s happening elsewhere',
     render: (ctx) => elsewherePanel(ctx),
+  },
+  {
+    id: 'the-world-beyond',
+    title: 'The world beyond the page',
+    render: (ctx) => worldPanel(ctx),
   },
   {
     id: 'the-mood',

@@ -41,6 +41,7 @@ import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
 import { setPersonField, findPersonKey } from './people.js';
+import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES } from './world.js'; /* M29: the world beyond the page */
 
 const LOG_CAP = 200;
 
@@ -77,6 +78,10 @@ function copyState(state) {
     relationships: cloneMap(safe.relationships),
     offscreen: cloneMap(safe.offscreen),
     canon: cloneMap(safe.canon),
+    /* M29: the world beyond the page rides the same copy discipline. */
+    knowledge: cloneMap(safe.knowledge),
+    factions: cloneMap(safe.factions),
+    threads: Array.isArray(safe.threads) ? safe.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [],
     /* M12: the character ledger rides the same copy discipline. */
     characters: cloneMap(safe.characters),
     /* M11: the referee's world — sheet, live fights, strain, and the
@@ -472,12 +477,22 @@ const HANDLERS = {
     const seated = findSeat(state.offscreen, name);
     const key = seated ? seated.key : name;
     const before = seated ? { ...seated.entry } : null;
+    /* M29: a stance toward the main character and an arrival on the clock
+     * may ride the seat. An unknown stance is dropped, never a reason to
+     * refuse the seat. */
+    const stance = typeof m.stance === 'string' && STANCES.includes(m.stance.trim().toLowerCase())
+      ? m.stance.trim().toLowerCase() : '';
+    const eta = Number(m.etaMinutes);
+    const etaMinutes = Number.isFinite(eta) && eta >= 0 ? Math.min(60 * 24 * 30, Math.round(eta)) : undefined;
     state.offscreen = seat(
       state.offscreen, key,
-      { location, activity, agenda: capText(m.agenda, 140) },
+      { location, activity, agenda: capText(m.agenda, 140), stance, etaMinutes },
       clockMinutesOf(state), turnOf(state)
     );
-    const words = 'Elsewhere: ' + key + ' — ' + [location, activity].filter(Boolean).join(', ') + '.';
+    let words = 'Elsewhere: ' + key + ' — ' + [location, activity].filter(Boolean).join(', ');
+    if (stance === 'toward' || stance === 'seeking') words += ' — ' + (stance === 'toward' ? 'heading this way' : 'looking for ' + mcName(state));
+    if (Number.isFinite(etaMinutes)) words += ', about ' + etaMinutes + ' minutes out';
+    words += '.';
     return { words, undo: { kind: 'offscreen.restore', name: key, before } };
   },
 
@@ -535,6 +550,60 @@ const HANDLERS = {
    * arc (how things stand, and why), threads (loose ends, semicolon- or
    * newline-separated). The main character's page is record-only — state
    * and threads, never core or arc (engine/people.js enforces it). */
+  /* ---------- M29: the world beyond the page ---------- */
+
+  'thread.set'(state, m) {
+    const title = capText(m.title || m.name, 120);
+    if (!title) return { why: 'a thread needs a title' };
+    const heat = typeof m.heat === 'string' ? m.heat.trim().toLowerCase() : '';
+    const before = Array.isArray(state.threads) ? state.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
+    const at = findThread(before, title);
+    state.threads = setThread(state.threads, {
+      title, owner: capText(m.owner, 60), heat: heat === 'cold' ? 'cold' : (heat === 'hot' ? 'hot' : undefined), next: capText(m.next, 200),
+    }, turnOf(state));
+    const words = (at === -1 ? 'A thread opened: ' : 'A thread moved: ') + title
+      + (capText(m.next, 200) ? ' — next, ' + capText(m.next, 200).replace(/\.+$/, '') : '')
+      + (heat === 'cold' ? ' (gone cold)' : '') + '.';
+    return { words, undo: { kind: 'threads.restore', before } };
+  },
+
+  'thread.close'(state, m) {
+    const title = capText(m.title || m.name, 120);
+    if (!title) return { why: 'a thread needs a title' };
+    const before = Array.isArray(state.threads) ? state.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
+    if (findThread(before, title) === -1) return { why: 'no thread called ' + title + ' is open' };
+    state.threads = closeThread(state.threads, title);
+    return { words: 'A thread closed: ' + title + '.', undo: { kind: 'threads.restore', before } };
+  },
+
+  'knowledge.add'(state, m) {
+    const name = normalizeName(m.name);
+    const fact = capText(m.fact || m.text, 200);
+    if (!name) return { why: 'no name came with it' };
+    if (!fact) return { why: 'it didn’t say what ' + name + ' learned' };
+    const key = findKnowledgeKey(state.knowledge, name) || name;
+    const before = state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key].map((k) => ({ ...k })) : null;
+    const next = addKnowledge(state.knowledge, key, fact, turnOf(state));
+    const after = next[key] || [];
+    if (before && after.length === before.length) return { why: key + ' already knows that' };
+    state.knowledge = next;
+    return { words: key + ' now knows: ' + fact.replace(/\.+$/, '') + '.', undo: { kind: 'knowledge.restore', name: key, before } };
+  },
+
+  'faction.set'(state, m) {
+    const name = capText(m.name, 80);
+    if (!name) return { why: 'a faction needs a name' };
+    const stance = capText(m.stance, 140);
+    const agenda = capText(m.agenda, 140);
+    const move = capText(m.move, 200);
+    if (!stance && !agenda && !move) return { why: 'it didn’t say what ' + name + ' wants or did' };
+    const key = findFactionKey(state.factions, name) || name;
+    const before = state.factions && state.factions[key] ? { ...state.factions[key] } : null;
+    state.factions = setFaction(state.factions, key, { stance, agenda, move }, turnOf(state));
+    const words = key + (move ? ' moved: ' + move.replace(/\.+$/, '') : (stance ? ' stands ' + stance.replace(/\.+$/, '') : ' wants ' + agenda.replace(/\.+$/, ''))) + '.';
+    return { words, undo: { kind: 'faction.restore', name: key, before } };
+  },
+
   'people.set'(state, m) {
     const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
     const result = setPersonField(state, state.characters, m.name, field, m.text, turnOf(state));
@@ -734,6 +803,19 @@ export function undoLast(state) {
       const key = findCanonKey(next.canon, undo.name) || undo.name;
       if (undo.before) next.canon[key] = cloneMap({ [key]: undo.before })[key];
       else delete next.canon[key];
+      ok = true;
+    } else if (undo.kind === 'threads.restore') {
+      next.threads = Array.isArray(undo.before) ? undo.before.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
+      ok = true;
+    } else if (undo.kind === 'knowledge.restore') {
+      const key = findKnowledgeKey(next.knowledge, undo.name) || undo.name;
+      if (undo.before) next.knowledge[key] = undo.before.map((k) => ({ ...k }));
+      else delete next.knowledge[key];
+      ok = true;
+    } else if (undo.kind === 'faction.restore') {
+      const key = findFactionKey(next.factions, undo.name) || undo.name;
+      if (undo.before) next.factions[key] = { ...undo.before };
+      else delete next.factions[key];
       ok = true;
     } else if (undo.kind === 'people.restore') {
       const key = findPersonKey(next.characters, undo.name) || undo.name;

@@ -72,7 +72,7 @@ test('M9: card personality + scenario join slot 4 under budget', () => {
   const r = buildRequest({ story: {}, messages: pages(2), settings: {}, state: { present: [{ name: 'Mira' }] }, modules: [], memory: '', cast, window: { keeperOn: true } });
   const wh = r.systemBlocks[3].text;
   assert(wh.includes('wry and watchful') && wh.includes('a drowned coast'), 'personality + scenario ride');
-  assert(wh.length <= 1600, 'slot 4 budget kept');
+  assert(wh.length <= 9000, 'slot 4 budget kept (M29: 9000)');
 });
 
 test('windowPlan pure: keeper vs budget', () => {

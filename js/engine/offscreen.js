@@ -23,6 +23,8 @@
  * Pure functions: fresh copies out.
  */
 
+import { renderArrival } from './world.js'; /* M29: stance and arrival on the clock */
+
 const RENDER_TOP = 6;
 
 function cleanText(value) {
@@ -41,7 +43,7 @@ function copyOffscreen(offscreen) {
 
 /* ---------- the contract ---------- */
 
-export function seat(offscreen, name, { location, activity, agenda } = {}, clockMinutes, atTurn) {
+export function seat(offscreen, name, { location, activity, agenda, stance, etaMinutes } = {}, clockMinutes, atTurn) {
   const next = copyOffscreen(offscreen);
   const who = cleanText(name);
   if (!who) return next;
@@ -54,6 +56,17 @@ export function seat(offscreen, name, { location, activity, agenda } = {}, clock
   };
   const what = cleanText(agenda);
   if (what) entry.agenda = what;
+  /* M29: a stance toward the main character, and an arrival on the clock.
+   * etaMinutes is "from now"; with a clock set it becomes an absolute
+   * arrivesAtMinutes (so the clock moving forward makes them nearer, never
+   * the seat re-written); without one the relative figure is kept. */
+  const st = cleanText(stance).toLowerCase();
+  if (st) entry.stance = st;
+  const eta = Number(etaMinutes);
+  if (Number.isFinite(eta) && eta >= 0) {
+    if (Number.isFinite(clockMinutes)) entry.arrivesAtMinutes = Math.round(clockMinutes + eta);
+    else entry.etaMinutes = Math.round(eta);
+  }
   next[found ? found.key : who] = entry;
   return next;
 }
@@ -83,18 +96,20 @@ function recencyKey(entry) {
   return -Infinity;
 }
 
-function seatWords(name, entry) {
+function seatWords(name, entry, clockMinutes) {
   const parts = [];
   if (cleanText(entry.location)) parts.push(cleanText(entry.location));
   if (cleanText(entry.activity)) parts.push(cleanText(entry.activity));
   let line = name + ' — ' + (parts.join(', ') || 'somewhere out of sight');
   if (cleanText(entry.agenda)) line += ' (meaning to ' + cleanText(entry.agenda).replace(/\.+$/, '') + ')';
+  const approach = renderArrival(entry, clockMinutes);
+  if (approach) line += ' — ' + approach;
   return line;
 }
 
 /* The six most recently seated who are NOT in the scene right now.
  * `present` is state.present ([{name}] — plain strings tolerated). */
-export function renderOffscreen(offscreen, present) {
+export function renderOffscreen(offscreen, present, clockMinutes, top = RENDER_TOP) {
   const safe = offscreen && typeof offscreen === 'object' ? offscreen : {};
   const here = new Set(
     (Array.isArray(present) ? present : [])
@@ -105,8 +120,8 @@ export function renderOffscreen(offscreen, present) {
   for (const [name, entry] of Object.entries(safe)) {
     if (!entry || typeof entry !== 'object') continue;
     if (here.has(name.trim().toLowerCase())) continue; // they're in the scene
-    rows.push({ line: seatWords(name, entry), recency: recencyKey(entry) });
+    rows.push({ line: seatWords(name, entry, clockMinutes), recency: recencyKey(entry) });
   }
   rows.sort((a, b) => b.recency - a.recency);
-  return rows.slice(0, RENDER_TOP).map((r) => r.line).join('\n');
+  return rows.slice(0, top).map((r) => r.line).join('\n');
 }

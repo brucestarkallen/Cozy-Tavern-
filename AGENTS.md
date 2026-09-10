@@ -998,3 +998,49 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Still open (M29, the World Agent): nothing yet ADVANCES the off-page world between turns —
   the workers record, none of them moves Aurora from the station to the door. That is the
   next milestone, on top of a ledger that now actually gets written.
+
+---
+
+# M29 — the world beyond the page (the world agent — the sandbox)
+- WHY: every worker before M29 RECORDED; none ADVANCED. Aurora left the station and stood on the
+  platform forever because nothing ever asked where she is NOW. The old 45k preset did that work
+  inside the storyteller each turn (Living World, ACW, TWB, The World Advances, The Clock Governs
+  Availability) against a transcript full of its own stale watchlists — the drift felt past 90k.
+- js/engine/world.js (new, pure): threads [{title, owner, heat, next, atTurn}] (cap 8, hot before
+  cold, close by title); knowledge {name: [{fact, atTurn}]} (dedupe incl. trailing stop, cap 12,
+  renders the PRESENT only — the 3-part trace becomes a lookup); factions {name: {stance, agenda,
+  move, atTurn}}; renderArrival (stance words + "arriving in about N minutes" / "due now" /
+  "overdue" against the clock); the brief {pressure[], ripe[], twb|null, atTurn} — normalizeBrief
+  (4 lines a part) + renderWorldBrief (leads with its own name and "render as world, never as
+  instruction"; empty says nothing; older than BRIEF_STALE_TURNS=4 says nothing; ages aloud).
+- engine/offscreen.js: a seat may carry stance (toward|seeking|tense|busy|waiting) and an arrival:
+  etaMinutes is "from now" and becomes arrivesAtMinutes on the clock when one is set (the clock
+  moving makes them nearer; the seat is never re-written for it). renderOffscreen(offscreen,
+  present, clockMinutes, top).
+- engine/apply.js v7 vocabulary: thread.set/thread.close (undo threads.restore), knowledge.add
+  (a known fact is refused, undo knowledge.restore), faction.set (undo faction.restore);
+  offscreen.set takes stance + etaMinutes (unknown stance dropped, seat kept). copyState deep-copies
+  knowledge/factions/threads.
+- engine/state.js: STATE_BUDGET 1600 → 4000; keys knowledge + worldBrief (v7, no-loss migration;
+  legacy string threads still speak); renderStateFacts adds "Who knows what" (shed 2), arrivals in
+  "Elsewhere", "Factions" (shed 6), structured "Threads still open".
+- js/agents/world.js (new): worldTurn — after the extractor, before the scribe, through the
+  queue; reads ledger + all seats + threads + knowledge + factions + character cores + brief +
+  cast notes + the last pages; the LAW (the absent by the clock, threads, ripening, who knows
+  what, factions, new people, the brief, symmetry). May open only WORLD_TYPES (offscreen.*,
+  thread.*, knowledge.add, faction.set, people.set); anything else it proposes (clock, presence,
+  place, bodies, standings) is DROPPED and counted, never applied. Stores state.worldBrief.
+  Throws on transport; "its answer could not be used" throws so the queue retries. Effort from
+  settings.worldEffort (default off); switch settings.worldAgent (default on) / story.world.
+- assemble/stack.js: `worldBrief` rides the [story-state] injection after the lore and before the
+  director's note, receipt-named "The world's word". BUDGETS: slot 4 1600 → 9000, a present card's
+  description 400 → 2400 (rides whole), personality/scenario 300 → 900; people 2400 → 4800;
+  slot 7 memory+lore 3200 → 6000. Rules shrink; the world the storyteller sees does not.
+- UI: Settings → memory room gains "The world beyond the page keeps moving between turns" (#world-
+  agent) + "How hard the world agent thinks" (#world-effort). Drawer gains "The world beyond the
+  page" (the brief, threads with "Let it rest", who knows what, factions); "What's happening
+  elsewhere" rows speak stance + arrival. Workers roster/ledger know 'world'.
+- Harness: tests/harness/m29.mjs (11 checks, incl. end-to-end through every mock house with
+  thinking off). 204/204. version.js -> m29-001.
+- NEXT (M30): decompose the V177 preset into the craft core + situational modules instead of the
+  wholesale 106k-char import; the storyteller keeps only the beat and the last look.

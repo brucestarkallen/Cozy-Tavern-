@@ -51,7 +51,7 @@ export const WINDOW_MAX = 100;
 export const OVERFLOW = 20;         // history must exceed window + this
 export const L2_TRIGGER = 6;        // more than this many level-1 nodes…
 export const L2_BATCH = 3;          // …folds the oldest this many into level 2
-export const SLOT_BUDGET = 3200;    // chars for slot 7, "What remains"
+export const SLOT_BUDGET = 6000;    // chars for slot 7, "What remains" (M29: raised — memory and lore share it)
 export const SLOT_NODES = 3;        // newest this many node texts ride slot 7
 
 /* ---------- the store (settings namespaced, so backups carry it) ---------- */

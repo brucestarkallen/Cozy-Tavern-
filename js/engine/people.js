@@ -43,7 +43,7 @@ export const PRESENT_CARDS_MAX = 6;
 export const RECALL_MAX = 3;
 export const ROSTER_MAX = 12;
 export const FRESH_TURNS = 20;       /* past this, "now" ages into "last noted N turns ago" */
-export const PEOPLE_BUDGET = 2400;   /* chars for the whole tiered block */
+export const PEOPLE_BUDGET = 4800;   /* chars for the whole tiered block (M29: doubled — the people are the world) */
 
 export function emptyPerson() {
   return { core: '', state: '', arc: '', threads: [], updatedAtTurn: 0 };

@@ -7,6 +7,7 @@
 
 export const WORKER_ROWS = [
   ['extractor', 'The ledger reader — writes down what each page changed'],
+  ['world', 'The world beyond — keeps the absent alive, moves the world by the clock, briefs the storyteller'],
   ['scribe', 'The character scribe — keeps every soul true to itself'],
   ['keeper', 'The memory keeper — folds old pages into notes'],
   ['continuity', 'The second reader — quietly flags what drifts'],

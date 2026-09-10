@@ -44,6 +44,7 @@ import { renderClock } from './clock.js';
 import { renderBodies } from './bodies.js';
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen } from './offscreen.js';
+import { renderThreads, renderKnowledge, renderFactions } from './world.js'; /* M29: the world beyond the page */
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters } from './people.js';
@@ -54,7 +55,12 @@ const KEY_PREFIX = 'state:';
  * a strict figure: ~1600 chars ≈ ~400 tokens for the whole block, even when
  * every ledger is full (SPEC.md M4). Section caps below keep it honest, and
  * a final drop-order trims the least vital sections if words ran long. */
-export const STATE_BUDGET = 1600;
+/* M29: the state of things may run to ~1000 tokens now. The old 1600 chars
+ * starved the world — the storyteller got a name and an hour; the point of
+ * a ledger is that the world it hands over is rich and specific while the
+ * RULES stay short. Section caps still do the daily work; the shed order
+ * still holds when a scene is enormous. */
+export const STATE_BUDGET = 4000;
 const BODIES_TOP = 4;
 const RELATIONSHIPS_TOP = 6;
 
@@ -70,8 +76,10 @@ export const emptyState = () => ({
   canon: {},                // {[name]: {facts:[{key, value, atMinutes}]}} — what's true of them (M6)
   pendingVerdict: null,     // the referee's ruling, consumed by the next buildRequest (M6; the directive rides the "The house has ruled" tail slot in M11)
   lastVerdict: null,        // its echo, kept for the drawer's "The house has ruled" line (M6)
-  factions: {},
-  threads: [],
+  factions: {},             // {[name]: {stance, agenda, move, atTurn}} — M29 engine/world.js
+  threads: [],              // [{title, owner, heat, next, atTurn}] — M29 engine/world.js
+  knowledge: {},            // {[name]: [{fact, atTurn}]} — who knows what (M29)
+  worldBrief: null,         // the world agent's word for the next turn (M29) — {pressure, ripe, twb, atTurn}
   /* M11: the referee's world. */
   sheet: { actors: {}, playerName: '' }, // how they measure — 0-10 ratings, domains, lasting conditions
   duel: null,             // the live duel engine state (engine/duels.js), null when no duel is joined
@@ -297,6 +305,10 @@ function normalize(saved) {
   next.relationships = migrateRelationships(saved.relationships);
   next.offscreen = migrateOffscreen(saved.offscreen);
   next.factions = saved.factions && typeof saved.factions === 'object' ? saved.factions : {};
+  /* M29 (v7): knowledge and the world brief — no-loss; legacy string
+   * threads keep rendering (renderStateFacts tolerates both shapes). */
+  next.knowledge = saved.knowledge && typeof saved.knowledge === 'object' ? saved.knowledge : {};
+  next.worldBrief = saved.worldBrief && typeof saved.worldBrief === 'object' ? saved.worldBrief : null;
   next.canon = migrateCanon(saved.canon);
   next.pendingVerdict = migrateVerdict(saved.pendingVerdict);
   next.lastVerdict = migrateVerdict(saved.lastVerdict);
@@ -463,8 +475,16 @@ export function renderStateFacts(state) {
       + AXES.map((axis) => axisWords(axis, row.rel[axis])).filter(Boolean).join(', '));
   if (standings.length) sections.push({ shed: 4, text: standings.join('\n') });
 
-  const elsewhere = renderOffscreen(state.offscreen, present);
+  /* M29: who knows what — the present only, so the storyteller never has
+   * to search the transcript for whether Liara was in the room. */
+  const knowledgeLines = renderKnowledge(state.knowledge, present);
+  if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n') });
+
+  const elsewhere = renderOffscreen(state.offscreen, present, clockMinutes);
   if (elsewhere) sections.push({ shed: 5, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
+
+  const factionLines = renderFactions(state.factions);
+  if (factionLines) sections.push({ shed: 6, text: 'Factions: ' + factionLines.split('\n').join('\n') });
 
   const mode = state.mode || {};
   const moods = [];
@@ -476,10 +496,14 @@ export function renderStateFacts(state) {
   if (mode.group) moods.push('in company');
   if (moods.length) sections.push({ shed: 1, text: 'The scene is ' + moods.join('; ') + '.' });
 
-  const threads = Array.isArray(state.threads)
-    ? state.threads.map((t) => (typeof t === 'string' ? t : t && (t.label || t.name))).filter(Boolean)
+  /* Threads: M29's structured threads render with owner and next move;
+   * legacy string/label threads still speak. */
+  const structured = Array.isArray(state.threads) ? state.threads.filter((t) => t && typeof t === 'object' && typeof t.title === 'string') : [];
+  const legacy = Array.isArray(state.threads)
+    ? state.threads.map((t) => (typeof t === 'string' ? t : t && !t.title && (t.label || t.name))).filter(Boolean)
     : [];
-  if (threads.length) sections.push({ shed: 6, text: 'Threads still open: ' + threads.join('; ') + '.' });
+  const threadText = [renderThreads(structured), legacy.join('; ')].filter(Boolean).join('\n');
+  if (threadText) sections.push({ shed: 5, text: 'Threads still open: ' + threadText.split('\n').join('\n') });
 
   /* The budget: shed the least vital until the block fits. The ruling, the
    * hour, and who's here (shed 0) always stay. */

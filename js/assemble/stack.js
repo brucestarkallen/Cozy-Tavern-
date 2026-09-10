@@ -127,9 +127,13 @@ const STATE_MARKER = '[story-state]';
 /* M7 budgets (see header): slot 4's whole section, and each invited card's
  * description within it. M9 adds personality/scenario lines, 300 chars each,
  * while room remains. */
-const SLOT4_BUDGET = 1600;
-const SLOT4_CARD_DESCRIPTION = 400;
-const SLOT4_CARD_DETAIL = 300;
+/* M29: a present character rides WHOLE. The old 400-char trim turned a
+ * 2,000-char card into a name and a sentence — the storyteller was handed
+ * less about a present person than the writer had written. Rules shrink;
+ * the world the storyteller sees does not. */
+const SLOT4_BUDGET = 9000;
+const SLOT4_CARD_DESCRIPTION = 2400;
+const SLOT4_CARD_DETAIL = 900;
 
 /* The window law (M9, A1): with the keeper ON, slot 8 carries only the last
  * `window` pages; older pages exist ONLY as summary nodes in slot 7. With
@@ -302,7 +306,7 @@ function isContinueTurn(history) {
 
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
-  window: windowInfo, directive, directorNote, editorEye, ruling,
+  window: windowInfo, directive, directorNote, editorEye, ruling, worldBrief,
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -488,11 +492,16 @@ export function buildRequest({
   /* M11: the referee's ruling rides last in the dynamic tail — the freshest,
    * most binding word, sitting closest to the history it governs. */
   const rulingText = typeof ruling === 'string' ? ruling.trim() : '';
+  /* M29: the world agent's word — after the lore, before the showrunners:
+   * it is a fact block about the world, and the director's note governs
+   * what to do with it. */
+  const worldText = typeof worldBrief === 'string' ? worldBrief.trim() : '';
   const stateParts = [];
   if (facts) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
   if (memoryText) stateParts.push('What remains of the older pages:\n' + memoryText);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
+  if (worldText) stateParts.push(worldText); /* the brief leads with its own name */
   if (directorText) stateParts.push('The director’s note:\n' + directorText);
   if (editorText) stateParts.push('The editor’s eye:\n' + editorText);
   if (rulingText) stateParts.push(rulingText); /* the directive already speaks its name */
@@ -517,6 +526,9 @@ export function buildRequest({
 
   /* --- M10: the showrunners' slots — their own receipt names, in the
    * dynamic tail before history; empty = omitted (the slot-7 law). --- */
+  if (worldText) {
+    pushSlot('The world’s word', worldText, 'the world agent’s brief — what could reach this scene, what ripened out of sight');
+  }
   if (directorText) {
     pushSlot('The director’s note', directorText, 'the showrunner’s marching orders for the episode that stands');
   }

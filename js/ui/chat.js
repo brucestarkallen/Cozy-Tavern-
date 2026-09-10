@@ -54,6 +54,8 @@ import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory } from '../agents/memory.js';
 import { checkTurn } from '../agents/continuity.js';
+import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
+import { renderWorldBrief } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory } from '../import/cards.js';
 import { loadLore, matchLoreDetailed } from '../import/lorebook.js';
@@ -1362,6 +1364,38 @@ export function initChat(ctx) {
       return { silent: false, detail };
     });
 
+    /* 1b. The world agent (M29): once the page's own truth has landed,
+     * advance the world beyond it by the clock — the absent, the threads,
+     * who knows what, the factions, who must now exist — and leave the
+     * storyteller a brief for the next turn. Off the send path; the next
+     * send reads whatever brief stands (pendingWork's courtesy wait). */
+    enqueue('world', async ({ signal, stale }) => {
+      if (story.extraction === false) return { silent: true };
+      if (!(await worldAgentOn(story))) return { silent: true };
+      const connection = await resolveWorkerConnection(story, 'world');
+      if (!connection) return { silent: true };
+      if (!(await stillThere(story.id, msg.id))) return { silent: true };
+      const ordered = (await db.messages.list(story.id)).filter((m) => !m.hidden);
+      const atSelf = ordered.findIndex((m) => m.id === msg.id);
+      const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
+      /* the page before the pair, for the thread of things */
+      const before = prior.slice(-3, -1).map((m) => ({ role: m.role, text: pageText(m) }));
+      const result = await worldTurn({
+        connection,
+        storyId: story.id,
+        userText,
+        assistantText: pageText(msg),
+        before,
+        brief: story.brief || '',
+        castNotes: story.castNotes || '',
+        effort: await worldEffort(),
+        signal,
+        stale,
+      });
+      if (result && result.note === 'unusable') throw new Error('its answer could not be used');
+      return { silent: false, detail: worldRunWords(result) };
+    });
+
     /* 2. The scribe (M12): sparse deltas onto the character pages — who
      * they are, where they are, how things stand, loose ends. It answers
      * to the ledger's own switch, like the extractor. */
@@ -1656,6 +1690,8 @@ export function initChat(ctx) {
          * slots in the dynamic tail, before history; empty = omitted. */
         directorNote: renderDirectorNote(directorState),
         editorEye: renderEditorNote(editorState),
+        /* M29: the world agent's word for this turn. */
+        worldBrief: renderWorldBrief(state.worldBrief, state.turn),
       });
 
       /* M6 consume-and-clear: the ruling rode into this turn's stack as a

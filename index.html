@@ -490,6 +490,18 @@
             <label class="radio-row"><input type="checkbox" id="continuity-check"> A second reader checks each finished page against what's written down</label>
           </div>
           <p class="quiet">The second reader only notes drift in the ledger ("Something drifted") and on the receipt — it never touches the words themselves.</p>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="world-agent"> The world beyond the page keeps moving between turns</label>
+          </div>
+          <p class="quiet">After each page, the world agent moves the absent by the clock — where they are, what they want, who is heading your way and when — ripens what's out of sight, and leaves the storyteller a brief. Its word rides the receipt as "The world's word" and the drawer as "The world beyond the page". Give it hands of its own under The workers if you like.</p>
+          <label class="stack-label" for="world-effort">How hard the world agent thinks</label>
+          <select id="world-effort" aria-label="How hard the world agent thinks">
+            <option value="off">Not at all — quick and cheap (fine for most models)</option>
+            <option value="low">A little</option>
+            <option value="medium">Some</option>
+            <option value="high">Hard</option>
+          </select>
+          <p class="quiet">Only matters on a model that can think. "Not at all" is right for DeepSeek and other non-reasoning workers.</p>
         </section>
 
         <section class="settings-section" id="section-thinking">

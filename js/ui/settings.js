@@ -114,6 +114,8 @@ export function initSettings(ctx) {
     memoryWindow: document.getElementById('memory-window'),
     memoryWindowValue: document.getElementById('memory-window-value'),
     continuityCheck: document.getElementById('continuity-check'),
+    worldAgent: document.getElementById('world-agent'),
+    worldEffort: document.getElementById('world-effort'),
     refereeOn: document.getElementById('referee-on'),
     refereeSensitivity: document.getElementById('referee-sensitivity'),
     refereePreset: document.getElementById('referee-preset'),
@@ -1016,7 +1018,18 @@ export function initSettings(ctx) {
     els.memoryWindow.value = String(window);
     els.memoryWindowValue.textContent = String(window);
     els.continuityCheck.checked = Boolean(await db.settings.get('continuityCheck'));
+    /* M29: the world agent — on by default; its effort, off by default. */
+    els.worldAgent.checked = (await db.settings.get('worldAgent')) !== false;
+    const eff = await db.settings.get('worldEffort');
+    els.worldEffort.value = ['off', 'low', 'medium', 'high'].includes(eff) ? eff : 'off';
   }
+
+  els.worldAgent.addEventListener('change', async () => {
+    await db.settings.set('worldAgent', els.worldAgent.checked);
+  });
+  els.worldEffort.addEventListener('change', async () => {
+    await db.settings.set('worldEffort', els.worldEffort.value);
+  });
 
   els.memoryKeeper.addEventListener('change', async () => {
     await db.settings.set('memoryKeeper', els.memoryKeeper.checked);

@@ -487,3 +487,7 @@
   flex: 1;
   resize: vertical;
 }
+
+/* M29 — the world beyond the page */
+.world-brief { margin: 0 0 .5rem; }
+.world-line { margin: .15rem 0 .15rem .35rem; font-family: var(--font-prose); color: var(--text-1); line-height: 1.4; }
