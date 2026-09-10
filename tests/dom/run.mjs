@@ -400,6 +400,40 @@ test('DOM-11b the housekeeper: fullscreen (Esc leaves it), a draggable top bar, 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-11c the housekeeper sees the brief, stages a card, Apply changes the page, Undo takes it back', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await db.stories.update(sid, { brief: 'Jovan comes home to Ravenwood. Rias is his older sister.' });
+  const pages = (await db.messages.list(sid)).filter((m) => !m.hidden && m.role === 'assistant');
+  const target = pages[pages.length - 1];
+  const ref = '#' + target.id.slice(0, 6);
+  const words = target.text.split(/\s+/).slice(0, 3).join(' ');
+  let sawBrief = false;
+  const priorAnswer = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => {
+    if (/housekeeper of a cozy tavern/i.test(sys)) {
+      const user = String((body.messages || []).map((m) => m.content).join('\n'));
+      sawBrief = /Rias is his older sister/.test(user);
+      return 'One fix.\n<edits>[{"id":"' + ref + '","find":' + JSON.stringify(words) + ',"replace":"MENDED WORDS","reason":"a test"}]</edits>';
+    }
+    return priorAnswer(body, sys);
+  };
+  click(q('#btn-housekeeper'));
+  await until(() => !q('#hk-sheet').hidden, 'the housekeeper');
+  type(q('#hk-input'), 'fix the first words of the last page');
+  submit(q('#hk-form'));
+  const apply = await until(() => qa('#hk-sheet button').find((b) => /^Apply$/i.test(b.textContent.trim())), 'an Apply button on a card', 10000);
+  assert(sawBrief, 'the housekeeper was shown the brief');
+  click(apply);
+  await until(async () => /MENDED WORDS/.test((await db.messages.list(sid)).find((m) => m.id === target.id).text), 'the page changed', 10000);
+  const undo = qa('#hk-sheet button').find((b) => /^Undo$/i.test(b.textContent.trim()));
+  click(undo);
+  await until(async () => !/MENDED WORDS/.test((await db.messages.list(sid)).find((m) => m.id === target.id).text), 'undo took it back', 10000);
+  house.state.workerAnswer = priorAnswer;
+  click(q('#btn-hk-close'));
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-13b reset to the house’s defaults: settings go back, connections and stories stay, my own regex rules stay', async () => {
   const before = errors.length;
   await db.settings.set('memoryWindow', 55);
