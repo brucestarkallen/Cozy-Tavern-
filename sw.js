@@ -67,6 +67,7 @@ const SHELL = [
   'js/providers/sse.js',
   'js/providers/wire.js',
   'js/regex.js',
+  'js/regex-styles.js',
   'js/sync.js',
   'js/tablock.js',
   'js/ui/download.js',

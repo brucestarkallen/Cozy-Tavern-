@@ -323,6 +323,21 @@ export function initChat(ctx) {
     return fmtWhen(ts);
   }
 
+  /* M34: a touch device raises its keyboard when the composer is focused,
+   * the viewport shrinks, the whole page reflows and the thread jumps — so
+   * the house never focuses the composer on its own there. The reader's
+   * finger does. (Field report: "after every output it pulls up the keyboard
+   * and bounces around the screen.") */
+  function isTouch() {
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return true;
+    } catch (err) { /* no matchMedia — a desktop-shaped world */ }
+    return 'ontouchstart' in window && (navigator.maxTouchPoints || 0) > 0;
+  }
+  function focusComposerIfDesktop() {
+    if (!isTouch()) els.input.focus();
+  }
+
   function nearBottom() {
     const t = els.thread;
     return t.scrollHeight - t.scrollTop - t.clientHeight < 120;
@@ -1442,8 +1457,12 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'keeper');
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
-      await maybeSummarize({ connection, storyId: story.id, signal });
-      return { silent: false };
+      const beforeCount = (await loadMemory(story.id)).nodes.length;
+      const mem = await maybeSummarize({ connection, storyId: story.id, signal });
+      if (!mem) return { silent: false, detail: 'nothing due yet' };
+      const lines = mem.nodes.filter((n) => !n.empty).length;
+      const added = mem.nodes.length - beforeCount;
+      return { silent: false, detail: `${added > 0 ? 'wrote ' + added + (added === 1 ? ' line' : ' lines') : 'reshaped the record'} — ${lines} ${lines === 1 ? 'line' : 'lines'} on the record` };
     });
 
     /* 4. The continuity reader (M6): advisory drift notes against canon and
@@ -1900,7 +1919,9 @@ export function initChat(ctx) {
          * renderThread re-appends every page, doubling the thread and
          * flinging the reader back to the top. */
         lastRender.ids.push(saved.id);
-        scrollToBottom();
+        /* M34: the scroll law (M27) holds at the landing too — the thread
+         * moves only if the reader was already at its tail. */
+        if (nearBottom()) scrollToBottom();
         await refreshPreview(story.id); // M21: the shelf hears the new page
         stories = await db.stories.list();
         renderStoryList();
@@ -1934,7 +1955,7 @@ export function initChat(ctx) {
       els.btnStop.hidden = true;
       els.btnSend.hidden = false;
       if (els.emberBar) els.emberBar.classList.remove('live');
-      els.input.focus();
+      focusComposerIfDesktop();
     }
   }
 
@@ -2689,7 +2710,7 @@ export function initChat(ctx) {
     await refreshStories(true);
     await renderThread({ structural: true });
     closePanel();
-    els.input.focus();
+    focusComposerIfDesktop();
     toast(`“${story.title}” is begun.`);
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
   });

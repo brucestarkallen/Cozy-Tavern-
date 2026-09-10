@@ -34,6 +34,7 @@
  */
 
 import { db } from './store.js';
+import { STYLE_PACK } from './regex-styles.js'; /* M34: the 🎨 pack */
 
 export const REGEX_KEY = 'regexRules';
 export const MODES = ['page', 'display', 'wire'];
@@ -50,7 +51,7 @@ export const VOICE_WORDS = {
   both: 'both voices',
 };
 
-export const BUILTIN_RULES = [
+const HOUSE_RULES = [
   {
     id: 'builtin-preset-header',
     name: 'Remove the preset’s header line',
@@ -88,6 +89,9 @@ export const BUILTIN_RULES = [
     note: '{PULSE}…{/PULSE} and {WATCHLIST}…{/WATCHLIST} — pure state the ledger keeps now; sent back every turn they are the drift the world agent ends. {VOICES} is left alone: it is content, and a display rule can style it.',
   },
 ];
+
+/* The shelf's builtins: the house rules, then the 🎨 pack (display only). */
+export const BUILTIN_RULES = [...HOUSE_RULES, ...STYLE_PACK.map((r) => ({ ...r }))];
 
 /* Compile a rule, or null when it cannot be. 'g' is always on: a rule takes
  * every match. Exported for the harness and the settings form's "try it". */
@@ -161,6 +165,7 @@ function normalizeRule(r, i) {
     builtin: r.builtin === true,
     note: typeof r.note === 'string' ? r.note.slice(0, 300) : '',
     touched: r.touched === true,
+    pack: typeof r.pack === 'string' ? r.pack : '',
   };
 }
 

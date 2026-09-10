@@ -1167,3 +1167,33 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - switchWorkerStory: the unused import is gone from app.js; the purge-on-switch idea is documented
   as deliberately unwired (it would throw away the ledger writes of the tale the writer just left).
 - version.js -> m33-001.
+
+---
+
+# M34 — the record (Summaryception, ported); the keyboard stays down; the 🎨 pack ships on
+- FIELD REPORTS: "does the keeper summarize like Summaryception?" (honest answer: it did not);
+  "after every output it pulls up the keyboard and bounces the screen"; "my header is not
+  beautiful — I already gave you the regex".
+- agents/memory.js rewritten as a RECORD, the Summaryception principle whole: as pages leave the
+  verbatim window, each batch (memoryBatch, default 6 pages = 3 exchanges; setting slider 2–20)
+  becomes ONE dense line of what is NEW against the record so far — the writer's own summarizer
+  prompt verbatim (player name = mcName; prior_context = the record's newest CONTEXT_CAP chars;
+  passage = the batch with authors). No hysteresis (nextBatch); catch-up at BATCHES_PER_RUN=3
+  lines per finished page. "(no new state)" → an empty node (covers its pages, says nothing).
+  Layers: a layer past NOTES_PER_LAYER=100 merges its oldest two with the same prompt (the two
+  lines are the passage, the layers above the record) behind a shrink guard (SHRINK_FLOOR 0.4 →
+  one stricter ask, then accept). The detail auditor (M12) runs on every line and merge. Slot 7
+  renders the WHOLE record oldest→newest under "Our story so far … established canon" (SLOT_BUDGET
+  30000 chars; over budget the oldest lines rest, with a word). The lore shelf keeps LORE_BUDGET
+  3000 of its own beside it. Transport failures throw to the queue. Store shape unchanged.
+  Workers line: "wrote N lines — M lines on the record".
+- chat.js: isTouch() (pointer: coarse / touch points); focusComposerIfDesktop() replaces the
+  composer focus after an answer and after a new tale — on a phone the keyboard rises only when
+  the reader taps. The landing scroll obeys the M27 law (nearBottom()).
+- regex-styles.js (new): the writer's 🎨 SillyTavern display pack as built-in display rules
+  (pack:'styles'), on by default; the TWB open/close pair (which relied on a tracker block after
+  it) is replaced by a self-closing house rule that boxes the marker, the optional [Location —
+  Day, Time] line, and the paragraph after. The shelf folds the pack under one heading.
+- Harness: m34.mjs (7 checks incl. end-to-end lines/coverage/promotion through the mock house);
+  finishing.mjs's M12 auditor test rewritten to the ledger law; the dom walk's DOM-12 reads the
+  pack's card. 236/236 + 16/16. version.js -> m34-001. sw.js gains regex-styles.js.

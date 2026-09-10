@@ -30,7 +30,7 @@ import {
   loreToWorldbook, worldbookFilename,
 } from '../import/lorebook.js';
 import { parseSTChat, importAsStory } from '../import/chats.js';
-import { cleanWindow } from '../agents/memory.js';
+import { cleanWindow, cleanBatch } from '../agents/memory.js';
 import { WORKER_ROWS } from '../agents/assign.js';
 /* M16: the house's version word stands in the header line. */
 import { VERSION } from '../version.js';
@@ -133,6 +133,8 @@ export function initSettings(ctx) {
     colourSpeech: document.getElementById('colour-speech'),
     memoryKeeper: document.getElementById('memory-keeper'),
     memoryWindow: document.getElementById('memory-window'),
+    memoryBatch: document.getElementById('memory-batch'),
+    memoryBatchValue: document.getElementById('memory-batch-value'),
     memoryWindowValue: document.getElementById('memory-window-value'),
     continuityCheck: document.getElementById('continuity-check'),
     worldAgent: document.getElementById('world-agent'),
@@ -1039,6 +1041,10 @@ export function initSettings(ctx) {
     els.memoryWindow.value = String(window);
     els.memoryWindowValue.textContent = String(window);
     els.continuityCheck.checked = Boolean(await db.settings.get('continuityCheck'));
+    /* M34: the record's pace */
+    const batch = cleanBatch(await db.settings.get('memoryBatch'));
+    els.memoryBatch.value = String(batch);
+    els.memoryBatchValue.textContent = String(batch);
     /* M29: the world agent — on by default; its effort, off by default. */
     els.worldAgent.checked = (await db.settings.get('worldAgent')) !== false;
     const eff = await db.settings.get('worldEffort');
@@ -1061,6 +1067,13 @@ export function initSettings(ctx) {
   });
   els.memoryWindow.addEventListener('change', async () => {
     await db.settings.set('memoryWindow', cleanWindow(els.memoryWindow.value));
+  });
+
+  els.memoryBatch.addEventListener('input', () => {
+    els.memoryBatchValue.textContent = els.memoryBatch.value;
+  });
+  els.memoryBatch.addEventListener('change', async () => {
+    await db.settings.set('memoryBatch', cleanBatch(els.memoryBatch.value));
   });
 
   els.continuityCheck.addEventListener('change', async () => {
@@ -1648,7 +1661,26 @@ export function initSettings(ctx) {
   async function renderRegex() {
     const rules = await loadRules();
     els.regexList.textContent = '';
-    for (const rule of rules) els.regexList.appendChild(regexRow(rule, rules));
+    /* M34: the 🎨 pack folds under one heading so the shelf stays short */
+    const pack = rules.filter((r) => r.pack === 'styles');
+    const rest = rules.filter((r) => r.pack !== 'styles');
+    for (const rule of rest) els.regexList.appendChild(regexRow(rule, rules));
+    if (pack.length) {
+      const li = document.createElement('li');
+      li.className = 'connection-card';
+      const fold = document.createElement('details');
+      const sum = document.createElement('summary');
+      sum.className = 'connection-name';
+      const on = pack.filter((r) => r.enabled !== false).length;
+      sum.textContent = `The 🎨 styles — ${on} of ${pack.length} on: the header card, the folded trackers, thoughts, the cut-away`;
+      fold.appendChild(sum);
+      const inner = document.createElement('ul');
+      inner.className = 'connection-list';
+      for (const rule of pack) inner.appendChild(regexRow(rule, rules));
+      fold.appendChild(inner);
+      li.appendChild(fold);
+      els.regexList.appendChild(li);
+    }
   }
 
   function openRegexForm(rule) {

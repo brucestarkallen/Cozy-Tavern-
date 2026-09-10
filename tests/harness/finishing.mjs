@@ -263,7 +263,7 @@ test('M12 detail auditor: discard-if-moved — a node that changed mid-flight ke
     }
     const content = calls === 1
       ? 'They crossed the dark water, promised to meet at midsummer, and parted at the chapel steps.'
-      : 'DETAIL: the ferry cost was forty crowns';
+      : (calls === 2 || !moveMidFlight ? 'DETAIL: the ferry cost was forty crowns' : '(no new state)');
     /* M28: the keeper rides the provider now, which streams — the mock
      * answers as an SSE body, the way the real house would. */
     const sseText = 'data: ' + JSON.stringify({ choices: [{ delta: { content } }] }) + '\n\n'
@@ -273,22 +273,28 @@ test('M12 detail auditor: discard-if-moved — a node that changed mid-flight ke
   };
   try {
     const connection = { type: 'openai', baseUrl: 'https://x', apiKey: 'k', model: 'm' };
+    /* M34: the ledger law — 51 pages, window 30, batch 6: three lines are due at the
+     * catch-up pace (0–5, 6–11, 12–17); the mock's first answer is the line, its
+     * second the DETAIL, so only the first line earns a detail. */
+    await db.settings.set('memoryBatch', 6);
     await maybeSummarize({ connection, storyId });
     let mem = await loadMemory(storyId);
-    eq(mem.nodes.length, 1, 'one node folded');
+    eq(mem.nodes.length, 3, 'three lines at the catch-up pace');
+    eq(mem.nodes[0].span.join('-'), '0-5', 'the first batch');
     eq(mem.nodes[0].detail, 'the ferry cost was forty crowns', 'the detail lands on the unmoved node');
     assert(nodeUnmoved(mem.nodes, mem.nodes[0].id, nodeSignature(mem.nodes[0])), 'the guard knows the standing node');
 
-    /* now the node moves mid-flight — the audit must be discarded */
+    /* now the node moves mid-flight — the audit must be discarded. The store is
+     * emptied while the auditor thinks (call 2); the line it audited no longer
+     * stands, so its DETAIL must not land anywhere. The batches that follow
+     * answer "(no new state)" and earn no audit at all. */
+    await saveMemory(storyId, { window: 30, nodes: [] });
     moveMidFlight = true;
     calls = 0;
-    /* stretch history so a second fold is owed */
-    for (const p of pages(30)) await db.messages.append(storyId, { role: p.role, text: 'later ' + p.text });
     await maybeSummarize({ connection, storyId });
     mem = await loadMemory(storyId);
-    const fresh = mem.nodes.find((n) => n.span[0] === 21);
-    assert(fresh, 'the second fold happened');
-    eq(fresh.detail || '', '', 'the moved node keeps no detail');
+    assert(mem.nodes.every((n) => !n.detail), 'the discarded audit landed nowhere: ' + JSON.stringify(mem.nodes.map((n) => [n.span, n.detail || '', n.empty || false])));
+    assert(mem.nodes.some((n) => n.empty), '"(no new state)" covers pages without a line');
   } finally {
     globalThis.fetch = real;
   }

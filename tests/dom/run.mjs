@@ -230,7 +230,7 @@ test('DOM-10 the drawer: every panel renders, the world beyond the page speaks, 
 test('DOM-11 settings: the rooms render; the regex shelf adds a rule, tries it, and brings a SillyTavern file', async () => {
   const before = errors.length;
   await openSettings();
-  assert(qa('#regex-list > li').length >= 3, 'the builtins are on the shelf');
+  assert(qa('#regex-list > li').length >= 4, 'the house rules and the 🎨 pack are on the shelf');
   click(q('#btn-regex-add'));
   await until(() => !q('#regex-form').hidden, 'the form');
   type(q('#regex-name'), 'Kill the em dash');
@@ -240,7 +240,7 @@ test('DOM-11 settings: the rooms render; the regex shelf adds a rule, tries it, 
   click(q('#btn-regex-try'));
   await until(() => !q('#regex-try-note').hidden && /match/i.test(q('#regex-try-note').textContent), 'a try note: ' + (q('#regex-try-note') && q('#regex-try-note').textContent));
   submit(q('#regex-form'));
-  await until(() => qa('#regex-list > li').length >= 4, 'the rule joined the shelf');
+  await until(() => qa('#regex-list > li').length >= 5, 'the rule joined the shelf');
   const stored = await db.settings.get('regexRules');
   assert(stored.some((r) => r.name === 'Kill the em dash' && r.mode === 'display'));
   /* bring a SillyTavern regex file */
@@ -264,8 +264,10 @@ test('DOM-12 a dressed page renders through the allowlist: the header becomes a 
   /* the imported 🎨 rule dresses the bracketed line on the next render */
   await openSettings(); await closeSettings();
   await tick(200);
-  const dressed = qa('.msg-assistant .msg-body .hdr');
-  assert(dressed.length >= 1, 'a header rendered as a styled div through the allowlist');
+  /* M34: the 🎨 pack dresses the header first (shelf order), as a card with a 📍 */
+  const dressed = qa('.msg-assistant .msg-body div').filter((d) => /📍/.test(d.textContent) && d.getAttribute('style'));
+  assert(dressed.length >= 1, 'the header rendered as the 🎨 card through the allowlist');
+  assert(!qa('.msg-assistant .msg-body').some((b) => /^\s*\[Lakeside Park/.test(b.textContent)), 'the bracketed line itself is no longer shown raw');
   assert(!q('.msg-body script'), 'no script ever');
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

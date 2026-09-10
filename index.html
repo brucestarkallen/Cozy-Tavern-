@@ -409,7 +409,7 @@
 
         <section class="settings-section" id="section-regex">
           <h3>The regex shelf</h3>
-          <p class="quiet">Find-and-replace rules over the words, the way SillyTavern's regex scripts work. A rule runs at one of three moments: on <em>the page itself</em> before it is saved (what it removes is gone from the story, from the history sent back every turn, and from every worker's reading — this is the one that matters); on <em>the thread only</em>; or on <em>what the storyteller is sent</em>, only. Three rules ship with the house for the leftovers of a SillyTavern preset — the bracketed header line, the Plot Momentum block, the tracker blocks.</p>
+          <p class="quiet">Find-and-replace rules over the words, the way SillyTavern's regex scripts work. A rule runs at one of three moments: on <em>the page itself</em> before it is saved (what it removes is gone from the story, from the history sent back every turn, and from every worker's reading — this is the one that matters); on <em>the thread only</em>; or on <em>what the storyteller is sent</em>, only. Three house rules ship for the leftovers of a SillyTavern preset — the header line (off by default), the Plot Momentum block, the state blocks — and the 🎨 styles: the bracketed header as a card, the trackers folded, thoughts marked, the cut-away boxed. All on. Bring your own file below to replace or add to them.</p>
           <ul id="regex-list" class="connection-list"></ul>
           <form id="regex-form" class="stack" hidden>
             <label class="stack-label" for="regex-name">Its name</label>
@@ -533,6 +533,9 @@
           <label class="stack-label" for="memory-window">Pages kept word for word: <span id="memory-window-value">30</span></label>
           <input id="memory-window" type="range" min="10" max="100" step="5" value="30" aria-label="How many recent pages stay word for word">
           <p class="quiet">Fewer pages kept word for word means smaller, quicker turns; more means the recent tale stays exactly as written for longer.</p>
+          <label class="stack-label" for="memory-batch">Pages folded into one line of the record: <span id="memory-batch-value">6</span></label>
+          <input id="memory-batch" type="range" min="2" max="20" step="2" value="6" aria-label="How many pages become one record line">
+          <p class="quiet">The keeper keeps a record, not a retelling: as pages leave the word-for-word window, each batch becomes one dense line of what was NEW — your decisions first, then each named character's actions, new facts, plans and promises, who knows what — with the Summaryception rules (explicit actors, no pronouns, a date prefix, corrections). The whole record rides to the storyteller, oldest to newest, as established canon. Six pages (three exchanges) per line is the tested pace; two is the finest.</p>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="continuity-check"> A second reader checks each finished page against what's written down</label>
           </div>

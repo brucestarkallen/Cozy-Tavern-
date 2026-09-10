@@ -95,6 +95,7 @@ import { estimateTokens } from './receipt.js';
 import { renderStateFacts } from '../engine/state.js';
 import { renderPeopleTiers } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
+const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
 
 export const STARTER_FRAME = [
   'You are telling a story with one person, slowly and by lamplight.',
@@ -320,11 +321,10 @@ export function buildRequest({
   const memoryText = typeof memory === 'string' ? memory.trim() : '';
   let loreText = typeof lore === 'string' ? lore.trim() : '';
   {
-    /* The shared slot-7 budget: memory keeps its seat first, lore rides in
-     * the room that's left (SLOT_BUDGET from agents/memory.js). */
-    const room = SLOT7_BUDGET - memoryText.length;
-    if (loreText && room <= 0) loreText = '';
-    else if (loreText.length > room) loreText = loreText.slice(0, room - 1).trimEnd() + '…';
+    /* M34: the record rides whole (SLOT_BUDGET is the keeper's own); the
+     * lore shelf keeps a room of its own beside it, never squeezed out. */
+    const room = Math.max(LORE_BUDGET, SLOT7_BUDGET - memoryText.length);
+    if (loreText.length > room) loreText = loreText.slice(0, room - 1).trimEnd() + '…';
   }
   /* M9: the lore receipt names the entries that fired (their keys). */
   const firedNames = (Array.isArray(loreFired) ? loreFired : [])
