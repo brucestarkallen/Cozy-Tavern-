@@ -143,9 +143,12 @@ export function historyWords(rel) {
   const last = rel.history[rel.history.length - 1];
   if (!last || !last.cause) return '';
   const axis = AXES.includes(last.axis) ? last.axis : 'p';
-  const grew = last.delta >= 0;
+  const cause = last.cause.replace(/\.+$/, '');
+  /* M50: a standing SET (delta 0) is not a movement — say what set it */
+  if (!last.delta) return 'set — ' + cause.replace(/^set(?: down by hand)?\s*[—–-]\s*/i, '');
+  const grew = last.delta > 0;
   const verb = { p: grew ? 'grew warmer' : 'cooled',
                  r: grew ? 'drew closer' : 'stepped back',
                  s: grew ? 'kindled' : 'banked' }[axis];
-  return verb + ' after ' + last.cause.replace(/\.+$/, '');
+  return verb + ' after ' + cause;
 }

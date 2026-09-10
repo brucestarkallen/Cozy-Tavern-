@@ -236,7 +236,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const lowering = m.type === 'rel.shift' ? Number(m.delta) < 0
         : rel ? ['p', 'r', 's'].some((ax) => Number.isFinite(m[ax]) && m[ax] < (rel[ax] || 0)) : false;
       if (rel && lowering) {
-        const earned = Array.isArray(rel.history) && rel.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set down by hand\b|^the founder\b/i.test(h.cause.trim()));
+        const earned = Array.isArray(rel.history) && rel.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim()));
         const inBrief = material.includes(m.name.trim().toLowerCase());
         if (earned || inBrief) {
           keptStandings.push({ mutation: m, why: (earned ? 'the standing was earned on the pages' : 'the brief names ' + m.name) + ' — the auditor may not take it away' });

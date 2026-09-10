@@ -479,12 +479,12 @@ const HANDLERS = {
       atMinutes: clockMinutesOf(state),
       axis: Object.keys(given)[0],
       delta: 0,
-      cause: 'set down by hand — ' + cause.replace(/\.+$/, ''),
+      cause: 'set — ' + cause.replace(/\.+$/, ''), /* M50: whose hand, the cause says */
     });
     if (rel.history.length > 30) rel.history = rel.history.slice(rel.history.length - 30);
     const parts = AXES.map((axis) => axisWords(axis, rel[axis])).filter(Boolean);
     const words = key + ' stands ' + (parts.join(', ') || 'neutral all through')
-      + ' — set down by hand: ' + cause.replace(/\.+$/, '') + '.';
+      + ' — set: ' + cause.replace(/\.+$/, '') + '.';
     return { words, undo: { kind: 'rel.restore', name: key, before } };
   },
 
