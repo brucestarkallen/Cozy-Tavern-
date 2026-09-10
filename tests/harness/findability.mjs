@@ -130,3 +130,13 @@ test('M19 the launch report: install.sh and serve.py speak the version', () => {
   const serve = read('serve.py');
   assert(serve.includes('_ver()'), 'serve.py prints the version');
 });
+
+test('M25 the visible retry law: Try again is wired and answers busy', () => {
+  const chat = read('js/ui/chat.js');
+  const html = read('index.html');
+  assert(html.includes('id="btn-retry"'), 'the button exists in the page');
+  assert(chat.includes("getElementById('btn-retry')"), 'wired in chat.js');
+  assert(chat.includes('refreshRetry'), 'visibility law exists');
+  assert(chat.includes("regenerateFrom(lastAssistant.dataset.id)"), 'it regenerates the latest page');
+  assert(!html.includes('save a starter'), 'the loud chip label is gone');
+});

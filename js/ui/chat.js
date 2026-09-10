@@ -260,6 +260,7 @@ export function initChat(ctx) {
     /* M22-E1/E3/E4: the prompt library chips, the jump-to-latest pill,
      * the per-story export menu, and a chip's manage menu. */
     promptChips: document.getElementById('prompt-chips'),
+    btnRetry: document.getElementById('btn-retry'),
     btnJump: document.getElementById('btn-jump'),
     storyMenu: document.getElementById('story-menu'),
     chipMenu: document.getElementById('chip-menu'),
@@ -1004,9 +1005,11 @@ export function initChat(ctx) {
       showHearth(stories.length > 0);
       if (els.noConnection) els.noConnection.hidden = connections.length > 0;
       refreshEmber();
+      refreshRetry(null);
       return;
     }
     const history = await db.messages.list(story.id);
+    refreshRetry(history.filter((m) => !m.hidden));
     /* Hidden pages (the continue nudge) never render — they live in the
      * store for the audit and nowhere else. */
     const visible = history.filter((m) => m && !m.hidden);
@@ -1797,6 +1800,7 @@ export function initChat(ctx) {
   async function retryAsk() {
     if (busy) return;
     busy = true;
+  refreshRetry(null, true);
     await generate();
     stories = await db.stories.list();
     renderStoryList();
@@ -1892,6 +1896,21 @@ export function initChat(ctx) {
   }
 
   /* ---------- regenerate ("rewrite from here") ---------- */
+
+  /* The visible retry (user law: regeneration must be findable — not only in
+   * the long-press menu). Shows when the latest page is the storyteller's. */
+  function refreshRetry(msgs, busyNow = false) {
+    if (!els.btnRetry) return;
+    const last = msgs && msgs[msgs.length - 1];
+    els.btnRetry.hidden = !(last && last.role === 'assistant' && !busyNow);
+  }
+  if (els.btnRetry) {
+    els.btnRetry.addEventListener('click', () => {
+      const nodes = [...els.thread.querySelectorAll('.msg[data-id]')];
+      const lastAssistant = [...nodes].reverse().find((n) => n.classList.contains('assistant'));
+      if (lastAssistant) regenerateFrom(lastAssistant.dataset.id);
+    });
+  }
 
   async function regenerateFrom(messageId) {
     if (busy) return;
@@ -2538,7 +2557,7 @@ export function initChat(ctx) {
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'prompt-chip prompt-chip-add';
-    add.textContent = '＋ save a starter';
+    add.textContent = '＋ starter';
     add.title = 'Save a one-tap starter for later';
     add.addEventListener('click', () => {
       const typed = els.input.value.trim();

@@ -915,3 +915,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   stdlib-thin. Harness books.mjs: decideBoot matrix + keeper core in-process (the sandbox's
   loopback is too flaky for socket-level harness runs; curl QA proved the wire).
 - version.js -> m24-001.
+
+---
+
+# M25 — findable retry + quiet starter-add (user field reports)
+- "Where's the regenerate button": it lived only in the long-press menu — invisible on
+  phones. Now a quiet "Try again" sits in the composer meta row whenever the latest page
+  is the storyteller's; refreshRetry(history) on every render, hidden while busy.
+- "save a starter" was loud: now a dashed ghost "＋ starter" in the whisper voice.
+- New harness law (findability.mjs): the retry must exist, be wired, and answer busy.
+  version.js -> m25-001.

@@ -988,3 +988,10 @@ body.read-only .send-btn { opacity: 0.4; }
 /* inline code */
 .msg-body code { font-family: var(--mono); font-size: .92em; background: var(--bg-2);
   border-radius: 6px; padding: 1px 5px; }
+
+/* M25: the quiet starter-add + the visible retry */
+.prompt-chip-add { border-style: dashed; opacity: .65; font-family: var(--mono);
+  font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; padding: 6px 11px; }
+.prompt-chip-add:hover { opacity: 1; }
+#btn-retry { margin-right: 2px; }
+#btn-retry:not([hidden]) { display: inline; }
