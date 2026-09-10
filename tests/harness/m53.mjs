@@ -20,3 +20,12 @@ test('M53-2 a nudge carries the number only; the bands are symmetric', () => {
   eq(axisWords('s', 30), 'wanting (S+30)');
   eq(axisWords('p', 0), '');
 });
+
+test('M54 the scribe carries Character Gravity; the world agent carries the people’s physics', async () => {
+  const { buildScribeMessages } = await import('../../js/agents/scribe.js');
+  const { buildWorldMessages } = await import('../../js/agents/world.js');
+  const sc = buildScribeMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
+  for (const k of ['STACK', 'ROUTE', 'VELOCITY', 'RECALL', 'A PERSON IS NOT THEIR CORE', 'DEFEAT IS NOT REDEMPTION', 'GOALS PERSIST']) assert(sc.system.includes(k), 'scribe: ' + k);
+  const w = buildWorldMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
+  for (const k of ['STRATEGIC PERSISTENCE', 'Goal Death Test', 'SELF-PRESERVATION > LOYALTY', 'STAKES WEB', 'SETTING BASELINE', 'COST IS WORLD LOGIC']) assert(w.system.includes(k), 'world: ' + k);
+});

@@ -1595,3 +1595,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - relationships.js AXIS_WORDS: symmetric bands, a word only at |v| ≥ 10 ("distant" for R-8 was
   the drawer shouting a whisper): friendly/cooler, a spark/holding back, a charge/cool.
 - Harness: m53.mjs. 293/293 + 20/20. version.js -> m53-001.
+
+---
+
+# M54 — the workers carry their slices of the writer's preset
+- FIELD REPORT: "does the whole frontend carry all parts of my preset, or only the storyteller?"
+  Inventory (grep of law names by file): the craft carries every law; the workers carried slices
+  — the extractor the standings law (M53), the founder/auditor the Axis Lock and the real record,
+  the world agent the quarantine's pathways. Missing: the SCRIBE had no Character Gravity, so a
+  page could drift to "grudgingly impressed" and the storyteller would inherit it; the WORLD AGENT
+  had no Strategic Persistence / Goal Death Test, Self-Preservation > Loyalty > MC, Stakes Web,
+  Setting Baseline, Cost Is World Logic.
+- scribe.js: CHARACTER GRAVITY block (STACK, ROUTE, VELOCITY, RECALL, A Person Is Not Their CORE,
+  Defeat Is Not Redemption, Goals Persist). world.js: THE PEOPLE'S PHYSICS block (Strategic
+  Persistence + Goal Death Test, Self-Preservation > Loyalty > MC, Stakes Web, Setting Baseline
+  + transactional indifference, Cost Is World Logic Not Punishment).
+- The preset itself is on disk (/home/claude/preset, 39 modules; the V177 JSON in uploads) and
+  the craft core is in js/assemble/craft.js — none of it depends on conversation memory.
+- 294/294 + 20/20. version.js -> m54-001.
