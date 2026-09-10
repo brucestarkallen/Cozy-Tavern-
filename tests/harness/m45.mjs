@@ -28,7 +28,7 @@ test('M45-2 end to end: pages, standings, locks, factions, seats, threads and kn
     { type: 'mc.set', name: 'Jovan' },
     { type: 'people.set', name: 'Aurora', field: 'core', text: 'childhood friend; lives next door; has loved him since school' },
     { type: 'people.set', name: 'Jovan', field: 'core', text: 'should be refused' },
-    { type: 'rel.set', name: 'Aurora', p: 40, r: 30, s: 10, cause: 'the brief says she has loved him since school' },
+    { type: 'rel.set', name: 'Aurora', p: 40, r: 30, s: 10, cause: 'the brief says Aurora has loved Jovan since school' },
     { type: 'canon.lock', name: 'Aurora', key: 'hair', value: 'black, waist-length' },
     { type: 'faction.set', name: 'the studio', stance: 'furious', agenda: 'bury the story' },
     { type: 'offscreen.set', name: 'Kris', location: 'the office', activity: 'on calls', agenda: 'keep it out of the papers', stance: 'busy' },
