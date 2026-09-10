@@ -132,3 +132,38 @@ test('M30-8 the offline shell carries every shipped module and sheet (the audit 
   const missing = shipped.filter((f) => !sw.includes(`'${f}'`));
   eq(missing.length, 0, 'missing from the shell: ' + missing.join(', '));
 });
+
+test('M30-9 a window beyond the page wakes the cut-away’s craft, and the agent remembers what it opened', async () => {
+  const { selectModules, WHEN_WORDS, saveModule, listModules, removeModule } = await import('../../js/assemble/modules.js');
+  const { emptyState, saveState, loadState } = await import('../../js/engine/state.js');
+  const { normalizeBrief } = await import('../../js/engine/world.js');
+  const { worldTurn, buildWorldMessages, WORLD_SHOWN_MAX } = await import('../../js/agents/world.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  /* the real path: a saved rule gets its predicate attached by listModules */
+  await saveModule({ id: 'm30-twb', name: 'The World Beyond (TWB)', text: 'cut-away craft', whenKey: 'worldWindow' });
+  const mods = (await listModules()).filter((m) => m.id === 'm30-twb');
+  eq(mods.length, 1, 'the rule is on the shelf');
+  const closed = emptyState();
+  eq(selectModules(mods, closed).length, 0, 'no window, no craft');
+  const open = emptyState();
+  open.worldBrief = normalizeBrief({ pressure: [], ripe: [], twb: { who: 'Aurora', where: 'the train', changed: 'she decided' } }, 1);
+  const sel = selectModules(mods, open);
+  assert(sel.length === 1 && /window beyond/.test(sel[0].reason), 'the window wakes the craft');
+  await removeModule('m30-twb');
+  assert(/window beyond the page/.test(WHEN_WORDS.worldWindow));
+  /* memory of windows */
+  const storyId = 'm30-shown';
+  const s0 = emptyState(); s0.sheet.playerName = 'Jovan';
+  await saveState(storyId, s0);
+  const answer = (n) => JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: { who: 'Aurora', where: 'the train', changed: 'beat ' + n } } });
+  for (let n = 0; n < WORLD_SHOWN_MAX + 2; n += 1) {
+    const house = thinkingHouse({ answer: answer(n) });
+    await withHouse(house, () => worldTurn({ connection: HOUSES[0].conn, storyId, userText: 'u', assistantText: 'a', stale: () => false }));
+  }
+  const st = await loadState(storyId);
+  eq(st.worldShown.length, WORLD_SHOWN_MAX, 'the last six windows are kept');
+  eq(st.worldShown[WORLD_SHOWN_MAX - 1].changed, 'beat ' + (WORLD_SHOWN_MAX + 1));
+  const p = buildWorldMessages({ state: st, userText: 'u', assistantText: 'a' });
+  assert(/WINDOWS BEYOND THE PAGE ALREADY OPENED/.test(p.user) && p.user.includes('beat ' + (WORLD_SHOWN_MAX + 1)), 'the agent is shown them');
+  assert(/Two absent people who share a place and a stake talk to/.test(p.system), 'two absent people talking is a window worth opening');
+});

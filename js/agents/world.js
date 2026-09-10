@@ -50,6 +50,7 @@ import { mcName } from '../engine/duels.js';
 import { renderThreads, renderKnowledge, renderFactions, normalizeBrief, STANCES } from '../engine/world.js';
 
 const MAX_TOKENS = 2400;
+export const WORLD_SHOWN_MAX = 6;
 
 /* The only doors the world agent may open. Anything else it proposes is
  * dropped before the applier sees it (and counted, so the workers line can
@@ -122,7 +123,9 @@ function law({ mc, clockWords }) {
     '    NEVER on a timer — only when a cause on the ledger produces it. Empty is a valid and common answer.',
     '  ripe — what ripened and whom it reached, one line each. Empty when nothing did.',
     '  twb — at most ONE window into the world beyond, only when something CHANGED since that thread was',
-    '    last shown and it does something (a decision, a discovery, a confrontation, a plan):',
+    '    last shown (the list of windows already opened is below) and it does something (a decision, a',
+    '    discovery, a confrontation, a plan). Two absent people who share a place and a stake talk to',
+    '    each other — that is a window worth opening, and what each learns goes into knowledge.add.',
     '    {"who","where","changed"}. null is the common answer.',
     '',
     'SYMMETRY. The world bends for no one — no gifts on a timer, no ambushes on a timer. Outcome follows',
@@ -141,6 +144,14 @@ function law({ mc, clockWords }) {
 }
 
 const FENCE = '"""';
+
+function shownWindows(state) {
+  const list = Array.isArray(state && state.worldShown) ? state.worldShown : [];
+  return list.slice(-WORLD_SHOWN_MAX).map((w) => {
+    const bits = [w.who, w.where].filter(Boolean).join(', ');
+    return '  - ' + (bits ? bits + ': ' : '') + (w.changed || '') + (Number.isFinite(w.atTurn) ? ' (turn ' + w.atTurn + ')' : '');
+  }).join('\n');
+}
 
 function characterCores(state) {
   const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
@@ -184,6 +195,9 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     '',
     'FACTIONS:',
     factions || 'None written yet.',
+    '',
+    'WINDOWS BEYOND THE PAGE ALREADY OPENED (never the same beat twice — a thread with nothing new is not eligible):',
+    shownWindows(state) || 'None yet.',
     '',
     ...(cores ? ['THE PEOPLE, AS THE LEDGER KNOWS THEM:', cores, ''] : []),
     ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 2000), FENCE, ''] : []),
@@ -261,7 +275,11 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   const { state: next, applied, rejected } = applyMutations(fresh, read.mutations);
   const turnNow = Number.isFinite(next.turn) ? next.turn : 0;
   const normalized = read.brief ? normalizeBrief(read.brief, turnNow) : null;
-  const out = { ...next, worldBrief: normalized };
+  /* M30: a window opened is a window remembered — the agent is shown the
+   * last six so "never the same beat twice" is a mechanism, not a wish. */
+  const shown = Array.isArray(next.worldShown) ? next.worldShown.slice() : [];
+  if (normalized && normalized.twb) shown.push({ ...normalized.twb, atTurn: turnNow });
+  const out = { ...next, worldBrief: normalized, worldShown: shown.slice(-WORLD_SHOWN_MAX) };
   if (stale && stale()) return null;
   await saveState(storyId, out);
   notify(storyId);

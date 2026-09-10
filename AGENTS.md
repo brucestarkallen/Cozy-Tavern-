@@ -1080,3 +1080,9 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NEXT (M31): the craft core — distill the remaining ~90k-char craft (Main, Simulation Core,
   Character Integrity, Information Quarantine, NPC Psychology, Living World, Writing Guidelines)
   into a ~12k-token core that binds the storyteller to the ledger and the world's word.
+- M30-002: the cut-away's craft rides when it should. New predicate key `worldWindow` (modules.js)
+  wakes a rule when state.worldBrief carries a TWB seed; the import maps "The World Beyond (TWB)"
+  to it (was manual). The agent remembers the windows it opened — state.worldShown (cap
+  WORLD_SHOWN_MAX=6), shown to it each read as "windows already opened" — so "never the same
+  beat twice" is a mechanism. Law: two absent people sharing a place and a stake talk, and what
+  each learns lands in knowledge.add. 213/213.

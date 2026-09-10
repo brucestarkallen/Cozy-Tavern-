@@ -80,6 +80,7 @@ export const emptyState = () => ({
   threads: [],              // [{title, owner, heat, next, atTurn}] — M29 engine/world.js
   knowledge: {},            // {[name]: [{fact, atTurn}]} — who knows what (M29)
   worldBrief: null,         // the world agent's word for the next turn (M29) — {pressure, ripe, twb, atTurn}
+  worldShown: [],           // windows beyond the page already opened — [{who, where, changed, atTurn}] cap 6 (M30)
   /* M11: the referee's world. */
   sheet: { actors: {}, playerName: '' }, // how they measure — 0-10 ratings, domains, lasting conditions
   duel: null,             // the live duel engine state (engine/duels.js), null when no duel is joined
@@ -309,6 +310,7 @@ function normalize(saved) {
    * threads keep rendering (renderStateFacts tolerates both shapes). */
   next.knowledge = saved.knowledge && typeof saved.knowledge === 'object' ? saved.knowledge : {};
   next.worldBrief = saved.worldBrief && typeof saved.worldBrief === 'object' ? saved.worldBrief : null;
+  next.worldShown = Array.isArray(saved.worldShown) ? saved.worldShown.filter((w) => w && typeof w === 'object') : [];
   next.canon = migrateCanon(saved.canon);
   next.pendingVerdict = migrateVerdict(saved.pendingVerdict);
   next.lastVerdict = migrateVerdict(saved.lastVerdict);

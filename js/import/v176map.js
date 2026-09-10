@@ -86,8 +86,8 @@ const MODULE_ROWS = [
     why: 'you choose when this walks in' },
   { name: 'Twitter X Feed', whenKey: 'manual',
     why: 'you choose when this walks in' },
-  { name: 'The World Beyond (TWB)', whenKey: 'manual',
-    why: 'you choose when this walks in' },
+  { name: 'The World Beyond (TWB)', whenKey: 'worldWindow',
+    why: 'wakes when the world agent opens a window beyond the page' },
   { name: 'NPC Private Thoughts', whenKey: 'manual',
     why: 'you choose when this walks in' },
 ];

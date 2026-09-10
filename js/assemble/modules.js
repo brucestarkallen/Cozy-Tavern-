@@ -55,6 +55,13 @@ const PREDICATES = {
   /* manual (M5) — no predicate at all; the rule walks in only when you pin
    * it. The note on the module says so in the rulebook. */
   manual: () => ({ load: false, reason: '' }),
+  /* worldWindow (M30) — the world agent opened a window beyond the page
+   * this turn (a TWB seed in the brief), so the cut-away's craft rides. */
+  worldWindow: (state) => {
+    const b = state && state.worldBrief;
+    const open = Boolean(b && !b.empty && b.twb && (b.twb.who || b.twb.changed));
+    return open ? { load: true, reason: 'the world agent opened a window beyond the page' } : { load: false, reason: '' };
+  },
 
   /* vocal-acoustics — the simple M2 heuristic, spelled out honestly:
    * a "she/her voice is present" when someone in state.present is marked
@@ -92,6 +99,7 @@ export const WHEN_WORDS = {
   acoustics: 'wakes when a she/her voice is in the scene',
   socialField: 'wakes when the room is full of voices',
   manual: 'on when you pin it — you choose when this walks in',
+  worldWindow: 'wakes when the world agent opens a window beyond the page',
 };
 
 /* ---------- builtin text (condensed from the V176 audit, in the house voice) ---------- */
