@@ -87,7 +87,11 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         if self.path.split('?')[0] == '/api/books':
             data = _read_books()
             if data is None:
-                self.send_response(204)  # no books yet — a clean shelf, not an error
+                # no books yet — a clean shelf, not an error. (end_headers
+                # matters: without it the response never completes and the
+                # browser reads ERR_EMPTY_RESPONSE.)
+                self.send_response(204)
+                self.end_headers()
             else:
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')

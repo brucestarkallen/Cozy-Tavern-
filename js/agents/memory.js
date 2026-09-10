@@ -41,7 +41,8 @@ import { db } from '../store.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
 const KEY_PREFIX = 'memory:';
-const MAX_TOKENS = 400;
+const MAX_TOKENS = 1600; /* thinking models spend tokens before the first
+  word of the fold — 400 starved them into silence */
 const TEMPERATURE = 0;
 
 /* The laws of layering (SPEC.md M6). */

@@ -27,7 +27,8 @@ import { renderCanon } from '../engine/canon.js';
 import { firstBalancedObject } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
-const MAX_TOKENS = 400;
+const MAX_TOKENS = 1200; /* thinking models spend tokens before the first
+  word of JSON — 400 starved them into silence */
 const TEMPERATURE = 0;
 const FINDINGS_CAP = 6;
 const WORDS_CAP = 200;

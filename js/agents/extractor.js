@@ -37,7 +37,9 @@ import { withFictionFrame } from './voice.js'; /* M21: the workers never break t
 
 import { renderStateFacts } from '../engine/state.js';
 
-const MAX_TOKENS = 600;
+const MAX_TOKENS = 2000; /* thinking models burn tokens before a word of
+  JSON appears — the old 600 let them think the whole budget away and answer
+  with nothing, silently starving the ledger */
 const TEMPERATURE = 0;
 
 /* ---------- the in-flight tracker (the send path's courtesy wait) ---------- */
@@ -250,12 +252,32 @@ async function callOpenAI(connection, prompt, signal) {
   if (base.includes('api.openai.com')) {
     payload.response_format = { type: 'json_object' };
   }
-  const res = await fetch(`${base}/v1/chat/completions`, {
+  let res = await fetch(`${base}/v1/chat/completions`, {
     method: 'POST',
     headers,
     signal,
     body: JSON.stringify(payload),
   });
+  if (!res.ok && res.status === 400) {
+    /* Newer houses refuse the old knobs outright: gpt-5/o-series want
+     * max_completion_tokens and no temperature. One patient retry with the
+     * offending knob swapped or dropped — otherwise the ledger would starve
+     * silently on exactly the models people pick today. */
+    const detail = await res.text().catch(() => '');
+    if (/max_tokens|max_completion_tokens/i.test(detail)) {
+      delete payload.max_tokens;
+      payload.max_completion_tokens = MAX_TOKENS;
+    }
+    if (/temperature/i.test(detail)) delete payload.temperature;
+    if (payload.max_completion_tokens || !('temperature' in payload)) {
+      res = await fetch(`${base}/v1/chat/completions`, {
+        method: 'POST',
+        headers,
+        signal,
+        body: JSON.stringify(payload),
+      });
+    }
+  }
   if (!res.ok) return '';
   const body = await res.json();
   const choice = body && Array.isArray(body.choices) ? body.choices[0] : null;
@@ -272,7 +294,10 @@ export async function extractTurn({ connection, state, userText, assistantText, 
   try {
     if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
     if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
-    const prompt = buildExtractorMessages({ state, userText, assistantText });
+    /* M27 fix: the founding read's pages (`before`) were gathered by the
+     * caller and then dropped here — the extractor never saw them. Pass
+     * them through so a young ledger has something to found itself on. */
+    const prompt = buildExtractorMessages({ state, userText, assistantText, before });
     let raw = '';
     if (connection.type === 'anthropic') {
       raw = await callAnthropic(connection, prompt, signal);

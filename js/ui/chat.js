@@ -1302,8 +1302,13 @@ export function initChat(ctx) {
       let before = [];
       const young = !stateBefore.place && !(stateBefore.present || []).length;
       if (young) {
-        const recent = (await db.messages.list(story.id)).filter((m) => !m.hidden && m.id < msg.id);
-        before = recent.slice(-4).map((m) => ({ role: m.role, text: pageText(m) }));
+        /* "The pages just before this one" — the store lists pages in
+         * telling order (ts). Comparing UUID strings (m.id < msg.id) picked
+         * an arbitrary handful instead, starving the founding read. */
+        const ordered = (await db.messages.list(story.id)).filter((m) => !m.hidden);
+        const atSelf = ordered.findIndex((m) => m.id === msg.id);
+        const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
+        before = prior.slice(-4).map((m) => ({ role: m.role, text: pageText(m) }));
       }
       const { mutations, note: extractNote, failed: extractFailed } = await extractTurn({
         connection,
@@ -1792,7 +1797,10 @@ export function initChat(ctx) {
           });
           pending.remove();
           await rerenderMessage(story.id, target.id);
-          lastRender.ids = []; // the walker changed; next render reconciles
+          /* The walker's ids still hold: the page was re-inked in place,
+           * no page came or went. Emptying ids here used to make the next
+           * render re-append the whole thread — every page twice, and the
+           * reader thrown back up the scroll. */
           if (nearBottom()) scrollToBottom();
           await refreshPreview(story.id); // M21: the shelf hears the new version
           stories = await db.stories.list();
@@ -1819,7 +1827,12 @@ export function initChat(ctx) {
           sources: streamSources || undefined,
         });
         pending.replaceWith(msgNode(saved, showThinking, { isLastAssistant: true }));
-        lastRender.ids = [];
+        /* The pending node was never in the walker's ids; the saved page
+         * takes its place at the tail. Record the id — do NOT clear the
+         * list: an empty walker passes the append check and the next
+         * renderThread re-appends every page, doubling the thread and
+         * flinging the reader back to the top. */
+        lastRender.ids.push(saved.id);
         scrollToBottom();
         await refreshPreview(story.id); // M21: the shelf hears the new page
         stories = await db.stories.list();
@@ -1972,7 +1985,9 @@ export function initChat(ctx) {
   if (els.btnRetry) {
     els.btnRetry.addEventListener('click', () => {
       const nodes = [...els.thread.querySelectorAll('.msg[data-id]')];
-      const lastAssistant = [...nodes].reverse().find((n) => n.classList.contains('assistant'));
+      /* The page's class is msg-assistant (msg-<role>) — looking for a bare
+       * "assistant" class found nothing, and the tap died silently. */
+      const lastAssistant = [...nodes].reverse().find((n) => n.classList.contains('msg-assistant'));
       if (lastAssistant) regenerateFrom(lastAssistant.dataset.id);
     });
   }
