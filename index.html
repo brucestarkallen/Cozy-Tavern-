@@ -68,12 +68,19 @@
 
       <section class="thread-wrap" aria-label="The story so far">
         <div id="thread" class="thread"></div>
+        <!-- M22-E3: the way back down. Shows only while you're reading
+             above the tail; nothing ever drags you down. -->
+        <button id="btn-jump" class="jump-pill" type="button" hidden>↓ the latest page</button>
         <p id="thread-empty" class="thread-empty quiet" hidden>Nothing on the page yet. Say something to begin.</p>
         <div id="no-connection" class="no-connection" hidden>
           <p>Add a connection to begin — it stays on this device.</p>
           <button id="btn-add-first-connection" class="btn" type="button">Add a connection</button>
         </div>
         <div class="composer-zone">
+          <!-- M22-E1: the prompt library — saved one-tap starters above
+               the composer. Tap to use; long-press (or right-click) to
+               change the words or let one go. -->
+          <div id="prompt-chips" class="prompt-chips" role="toolbar" aria-label="Saved starters"></div>
           <div id="ember-bar" class="ember-bar" role="presentation"><div id="ember-fill" class="ember-fill"></div></div>
           <form id="composer" class="composer">
             <label for="composer-input" class="visually-hidden">What's next?</label>
@@ -125,6 +132,10 @@
                 <option value="claude">Claude</option>
                 <option value="openai">OpenAI</option>
                 <option value="openrouter">OpenRouter</option>
+                <option value="zai">Z.ai GLM</option>
+                <option value="google">Gemini</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="hermes">Hermes Agent</option>
                 <option value="custom">Custom</option>
               </select>
             </label>
@@ -134,12 +145,17 @@
             <label>Address
               <input id="conn-baseurl" type="url" placeholder="https://api.anthropic.com" autocomplete="off" spellcheck="false">
             </label>
+            <!-- M22-B: the address courtesy — live hint; when the typed
+                 address is a known house missing its /v1, the one-tap
+                 offers itself. -->
+            <p id="conn-urlhint" class="quiet"><span id="conn-urlhint-text">Usually ends in /v1</span> <button type="button" id="conn-addv1" class="text-btn" hidden>add /v1</button></p>
             <label>Key
               <input id="conn-apikey" type="password" placeholder="The key they gave you" autocomplete="off" spellcheck="false">
             </label>
             <label>Model
               <input id="conn-model" type="text" placeholder="claude-sonnet-4-5" autocomplete="off" spellcheck="false">
             </label>
+            <p id="conn-model-hint" class="quiet" hidden></p>
             <div class="row">
               <button type="button" id="btn-fetch-models" class="text-btn">Fetch what's on offer</button>
             </div>
@@ -153,8 +169,11 @@
                 <option value="low">Low — a quick weighing</option>
                 <option value="medium">Medium — a considered weighing</option>
                 <option value="high">High — a deep weighing</option>
+                <option value="xhigh">XHigh — a long, deep weighing</option>
+                <option value="max">Max — everything it has</option>
               </select>
             </label>
+            <p class="quiet">A level this address can't name is spoken as the nearest one below it — never a name the endpoint rejects. If the wire ever refuses the thinking settings, the turn is sent again without them and the connection remembers until the model changes.</p>
             <label>Thinking room, in tokens (optional)
               <input id="conn-budget" type="number" min="512" step="512" placeholder="Leave empty to follow the effort" autocomplete="off">
             </label>
@@ -170,6 +189,26 @@
             <label>The model's room, in tokens (feeds the ember bar)
               <input id="conn-contextsize" type="number" min="1000" step="1000" placeholder="200000" autocomplete="off">
             </label>
+            <!-- M22-C: "let it look things up" — the provider-native web
+                 search. Only houses with a native tool offer it; elsewhere
+                 the row rests with a kind note on hover. -->
+            <div class="row" id="conn-search-row">
+              <label class="radio-row"><input type="checkbox" id="conn-search"> Let it look things up (web search)</label>
+            </div>
+            <label id="conn-search-count-label">At most how many look-ups per reply
+              <input id="conn-search-count" type="number" min="1" max="20" step="1" placeholder="5" autocomplete="off">
+            </label>
+            <p id="conn-search-note" class="quiet" hidden></p>
+            <!-- M22-D: the storyteller prefill — "start the reply for it",
+                 with the test probe and the refusal memory's note. -->
+            <label>Start the reply for it (optional — the prefill)
+              <textarea id="conn-prefill" rows="2" spellcheck="false" placeholder="The reply opens with these words already written…"></textarea>
+            </label>
+            <div class="row">
+              <button type="button" id="btn-prefill-test" class="text-btn">Test it</button>
+              <span id="conn-prefill-verdict" class="quiet" hidden></span>
+            </div>
+            <p id="conn-down-note" class="quiet" hidden></p>
             <div class="row">
               <button type="submit" class="btn">Keep it</button>
               <button type="button" id="btn-conn-cancel" class="text-btn">Not now</button>
@@ -356,7 +395,12 @@
           <!-- M9: the entries themselves — toggle, mark constant, edit the
                keys and the words, reorder, let one go. -->
           <ul id="lore-list" class="connection-list"></ul>
-          <div class="row"><button id="btn-lore-clear" class="text-btn" type="button" hidden>Take the shelf down</button></div>
+          <div class="row">
+            <!-- M22-E7: the shelf walks both ways — back out as a
+                 SillyTavern World Info file. -->
+            <button id="btn-lore-export" class="text-btn" type="button" hidden>Carry it to SillyTavern (worldbook export)</button>
+            <button id="btn-lore-clear" class="text-btn" type="button" hidden>Take the shelf down</button>
+          </div>
         </section>
 
         <section class="settings-section" id="section-oldchats">
@@ -451,6 +495,8 @@
               <option value="low">Low — a quick weighing</option>
               <option value="medium">Medium — a considered weighing</option>
               <option value="high">High — a deep weighing</option>
+              <option value="xhigh">XHigh — a long, deep weighing</option>
+              <option value="max">Max — everything it has</option>
             </select>
           </div>
           <div class="row">
@@ -614,6 +660,18 @@
   <div id="msg-menu" class="msg-menu" role="menu" hidden>
     <button type="button" role="menuitem" data-act="copy">Copy the words</button>
     <button type="button" role="menuitem" data-act="regenerate">Rewrite from here</button>
+  </div>
+
+  <!-- M22-E4: the per-story export menu (the tale as markdown / jsonl) -->
+  <div id="story-menu" class="msg-menu" role="menu" hidden>
+    <button type="button" role="menuitem" data-act="export-md">Take it as markdown</button>
+    <button type="button" role="menuitem" data-act="export-jsonl">Take it as jsonl</button>
+  </div>
+
+  <!-- M22-E1: a saved starter's manage menu (long-press / right-click) -->
+  <div id="chip-menu" class="msg-menu" role="menu" hidden>
+    <button type="button" role="menuitem" data-act="chip-edit">Change the words</button>
+    <button type="button" role="menuitem" data-act="chip-del">Let it go</button>
   </div>
 
   <!-- Toasts: small warm words, bottom-centred, gone in a breath -->

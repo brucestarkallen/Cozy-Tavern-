@@ -210,9 +210,19 @@ const connections = {
     if (typeof conn.topP === 'number') row.topP = conn.topP;
     if (typeof conn.maxTokens === 'number') row.maxTokens = conn.maxTokens;
     if (typeof conn.contextSize === 'number') row.contextSize = conn.contextSize;
-    /* M8.5: the thinking voice — {effort:'low|medium|high', budgetTokens?}.
+    /* M8.5: the thinking voice — {effort:'low|…|max', budgetTokens?}.
      * 'off' (or absence) sends nothing. */
     if (conn.reasoning && typeof conn.reasoning === 'object') row.reasoning = conn.reasoning;
+    /* M22: the preset the form started from (the ladder reads it), the
+     * per-connection web-search switch and its ceiling, and the prefill
+     * ("start the reply for it"). The refusal memories (reasoningDownAt /
+     * prefillDownAt) land later through update(). */
+    if (typeof conn.preset === 'string' && conn.preset) row.preset = conn.preset;
+    if (conn.searchOn === true) row.searchOn = true;
+    if (typeof conn.searchMaxUses === 'number' && conn.searchMaxUses > 0) {
+      row.searchMaxUses = Math.round(conn.searchMaxUses);
+    }
+    if (typeof conn.prefill === 'string' && conn.prefill) row.prefill = conn.prefill;
     await run('connections', 'readwrite', (s) => s.put(row));
     return row;
   },
@@ -370,6 +380,14 @@ const messages = {
     /* M9: an out-of-character aside (#question, ((…)), //…) — kept out of
      * the workers' reading. */
     if (msg.ooc === true) row.ooc = true;
+    /* M22-C: where the storyteller looked things up ([{title, url}]),
+     * folded under the page it informed. */
+    if (Array.isArray(msg.sources) && msg.sources.length) {
+      row.sources = msg.sources
+        .filter((s) => s && typeof s.url === 'string' && s.url)
+        .map((s) => ({ title: typeof s.title === 'string' && s.title ? s.title : s.url, url: s.url }));
+      if (!row.sources.length) delete row.sources;
+    }
     await run('messages', 'readwrite', (s) => s.put(row));
     // Touch the story so last-active sorting stays honest.
     const story = await stories.get(storyId);

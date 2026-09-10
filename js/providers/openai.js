@@ -15,12 +15,14 @@
  */
 
 import { readSSE } from './sse.js';
+/* M22-A/D: the full reasoning ladder (per-house spellings, alias-down,
+ * rejection memory) and the storyteller prefill live in effort.js. */
+import {
+  reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL,
+  applyPrefill, markConnectionDown,
+} from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
-
-/* The thinking voice (M8.5): effort names are passed through as-is; an
- * explicit token budget is an OpenRouter-only refinement. */
-const EFFORTS = ['low', 'medium', 'high'];
 
 /* The endpoint is {base}/v1/chat/completions (SPEC.md). Trim trailing
  * slashes, and forgive a pasted address that already ends in /v1. */
@@ -133,13 +135,24 @@ function makeThinkSplitter(emit) {
 }
 
 /* The request body, built pure. Sampling dials ride only when set on the
- * connection; the thinking voice maps per house (M8.5): OpenRouter takes
- * reasoning:{effort} (or {max_tokens} when a budget was named), everything
- * else on this API takes reasoning_effort. 'off' sends nothing. */
-function requestBody(connection, wireMessages) {
+ * connection. The thinking voice maps per house (M8.5, full ladder M22-A):
+ * OpenRouter takes reasoning:{effort} (or {max_tokens} when a budget was
+ * named) — xhigh/max included, mapped down per model on their side;
+ * Z.ai takes thinking:{enabled} plus reasoning_effort above low (its
+ * ladder skips medium/xhigh — the alias-down in effort.js has already
+ * spoken them as high/max); qwen takes enable_thinking; the Hermes agent
+ * takes model_options.reasoning; DeepSeek decides for itself; everything
+ * else takes reasoning_effort. 'off' sends nothing. A connection the wire
+ * has refused (reasoningDownAt) sends nothing until its model changes.
+ * M22-C: OpenRouter connections with searchOn ride plugins:[{id:'web'}].
+ * M22-D: the prefill joins per the house's profile (effort.js). */
+function requestBody(connection, wireMessages, opts = {}) {
+  const pf = opts.suppressPrefill
+    ? { messages: wireMessages, applied: false }
+    : applyPrefill(wireMessages, connection);
   const body = {
     model: connection.model || 'gpt-4o-mini',
-    messages: wireMessages,
+    messages: pf.messages,
     stream: true,
   };
   if (typeof connection.temperature === 'number') body.temperature = connection.temperature;
@@ -147,19 +160,41 @@ function requestBody(connection, wireMessages) {
   if (typeof connection.maxTokens === 'number' && connection.maxTokens > 0) {
     body.max_tokens = Math.round(connection.maxTokens);
   }
-  const r = connection && connection.reasoning;
-  const effort = r && typeof r.effort === 'string' ? r.effort : 'off';
-  if (EFFORTS.includes(effort)) {
+  const style = reasonStyle(connection);
+  const r = (connection && connection.reasoning) || {};
+  const wanted = r && typeof r.effort === 'string' ? r.effort : 'off';
+  const suppressed = opts.suppressReasoning || Boolean(connection && connection.reasoningDownAt);
+  const effort = suppressed ? 'off' : effortFor(style, wanted);
+  if (style === 'none') {
+    /* the model decides on its own — nothing extra is ever sent */
+  } else if (suppressed) {
+    /* the wire refused these params once — nothing is spent on them again */
+  } else if (style === 'openrouter') {
     const budget = typeof r.budgetTokens === 'number' && r.budgetTokens > 0
       ? Math.round(r.budgetTokens)
       : 0;
-    if ((connection.baseUrl || '').includes('openrouter.ai')) {
-      body.reasoning = budget ? { max_tokens: budget } : { effort };
-    } else {
-      body.reasoning_effort = effort;
+    body.reasoning = effort === 'off'
+      ? { enabled: false }
+      : (budget ? { max_tokens: budget } : { effort });
+  } else if (style === 'zai') {
+    body.thinking = { type: effort === 'off' ? 'disabled' : 'enabled' };
+    if (effort !== 'off' && effort !== 'low') body.reasoning_effort = effort;
+  } else if (style === 'qwen') {
+    body.enable_thinking = effort !== 'off';
+  } else if (style === 'hermes') {
+    if (effort !== 'off') {
+      body.model_options = { ...(body.model_options || {}), reasoning: { enabled: true, effort } };
     }
+  } else if (effort !== 'off') {
+    body.reasoning_effort = effort;
   }
-  return body;
+  /* M22-C: "let it look things up" — OpenRouter's web plugin. Only the
+   * openrouter host shape carries it; other openai-compatible addresses
+   * hide the control in the form. */
+  if (connection && connection.searchOn && style === 'openrouter') {
+    body.plugins = [{ id: 'web' }];
+  }
+  return { body, prefill: pf };
 }
 
 export function createOpenAIProvider(connection) {
@@ -216,19 +251,57 @@ export function createOpenAIProvider(connection) {
     for (const m of messages) wire.push({ role: m.role, content: m.content });
 
     const startedAt = Date.now();
-    let res;
-    try {
-      res = await fetch(`${base}/v1/chat/completions`, {
-        method: 'POST',
-        headers: headersOf(connection),
-        signal,
-        body: JSON.stringify(requestBody(connection, wire)),
-      });
-    } catch (err) {
-      if (err && err.name === 'AbortError') throw err;
-      throw new Error(`Couldn’t reach ${name} — check the connection and try again.`);
+    const notes = [];
+    /* M22: the rejection memory — a 400-style no citing the reasoning
+     * params or the prefill marks the connection, and the turn goes out
+     * ONE more time without them; then never again until the model field
+     * changes. */
+    let res = null;
+    let opts = {};
+    for (let attempt = 0; attempt < 2 && !res; attempt += 1) {
+      const { body, prefill } = requestBody(connection, wire, opts);
+      let out;
+      try {
+        out = await fetch(`${base}/v1/chat/completions`, {
+          method: 'POST',
+          headers: headersOf(connection),
+          signal,
+          body: JSON.stringify(body),
+        });
+      } catch (err) {
+        if (err && err.name === 'AbortError') throw err;
+        throw new Error(`Couldn’t reach ${name} — check the connection and try again.`);
+      }
+      if (out.ok) {
+        if (prefill.note) notes.push(prefill.note);
+        res = out;
+        break;
+      }
+      let detail = '';
+      try {
+        const j = await out.clone().json();
+        detail = (j && j.error && j.error.message) || '';
+      } catch (err) { /* not JSON — the status still tells a story */ }
+      const fourHundred = out.status === 400 || out.status === 422;
+      const sentReasoning = Boolean(
+        body.reasoning_effort || body.reasoning || body.thinking
+        || 'enable_thinking' in body || (body.model_options && body.model_options.reasoning)
+      );
+      if (fourHundred && !opts.suppressReasoning && sentReasoning && REASONING_REFUSAL.test(detail)) {
+        await markConnectionDown(connection, 'reasoningDownAt');
+        notes.push('The thinking settings weren’t accepted, so this turn went without them — it won’t be asked again until the model changes.');
+        opts = { ...opts, suppressReasoning: true };
+        continue;
+      }
+      if (fourHundred && !opts.suppressPrefill && prefill.applied && PREFILL_REFUSAL.test(detail)) {
+        await markConnectionDown(connection, 'prefillDownAt');
+        notes.push('A reply that starts before the storyteller wasn’t accepted — the prefill is off for this connection until the model changes.');
+        opts = { ...opts, suppressPrefill: true };
+        continue;
+      }
+      throw new Error(await explain(out, name));
     }
-    if (!res.ok) throw new Error(await explain(res, name));
+    if (!res) throw new Error(`The answer was no, without a reason (400).`);
 
     let full = '';
     let thinking = '';
@@ -282,10 +355,57 @@ export function createOpenAIProvider(connection) {
       text: full,
       thinking,
       finishReason,
+      notes,
+      sources: [],
       ttftMs: ttftMs === null ? durationMs : ttftMs,
       tfftMs,
       durationMs,
     };
+  }
+
+  /* M22-D: "Test it" — a tiny non-streamed probe carrying the prefill per
+   * this house's profile, reporting plainly. A refusal marks the
+   * connection's memory. */
+  async function testPrefill() {
+    const prefill = String(connection.prefill || '').trim();
+    if (!prefill) return { ok: false, detail: 'There’s no prefill to try — write one first.' };
+    const { body } = requestBody(connection, [
+      { role: 'user', content: 'A' },
+      { role: 'assistant', content: 'B' },
+      { role: 'user', content: 'C' },
+    ]);
+    body.stream = false;
+    body.max_tokens = 8;
+    delete body.reasoning;
+    delete body.reasoning_effort;
+    delete body.thinking;
+    delete body.enable_thinking;
+    delete body.model_options;
+    delete body.plugins;
+    if (!body.messages.length || body.messages[body.messages.length - 1].role !== 'assistant') {
+      return { ok: false, detail: 'This address has no known way to start the reply for it — nothing was sent.' };
+    }
+    let res;
+    try {
+      res = await fetch(`${base}/v1/chat/completions`, {
+        method: 'POST',
+        headers: headersOf(connection),
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      return { ok: false, detail: `Couldn’t reach ${name} — check the connection and try again.` };
+    }
+    if (res.ok) return { ok: true, detail: 'Took it — the reply picked up where the prefill left off.' };
+    let detail = '';
+    try {
+      const j = await res.json();
+      detail = (j && j.error && j.error.message) || '';
+    } catch (err) { /* the status speaks for itself */ }
+    if ((res.status === 400 || res.status === 422) && PREFILL_REFUSAL.test(detail)) {
+      await markConnectionDown(connection, 'prefillDownAt');
+      return { ok: false, detail: 'Won’t take a prefill — sent without it from here on, until the model changes.' };
+    }
+    return { ok: false, detail: await explain(res, name) };
   }
 
   /* "Fetch what's on offer" (M8): GET {base}/v1/models. Throws with human
@@ -306,5 +426,5 @@ export function createOpenAIProvider(connection) {
       .map((id) => ({ id, label: id }));
   }
 
-  return { test, listModels, streamChat };
+  return { test, listModels, streamChat, testPrefill };
 }

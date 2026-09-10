@@ -259,3 +259,66 @@ export function matchLoreDetailed(entries, recent, budgetChars = 1200) {
 export function matchLore(entries, recent, budgetChars = 1200) {
   return matchLoreDetailed(entries, recent, budgetChars).text;
 }
+
+/* ---------- M22-E7: the shelf walks both ways ----------
+ * loreToWorldbook(entries) folds the story's lore shelf back into a valid
+ * SillyTavern World Info JSON object ({entries: {"0": {…}}}), so lore
+ * brought in from ST can go home again. The mapping keeps what the shelf
+ * keeps: keys, secondaryKeys (selective AND-mode), enabled (ST's switch is
+ * `disable`, inverted), content — and a constant entry becomes position 0
+ * (before the character definitions: always-on world spine); every other
+ * entry sits at position 1 (after the definitions, close to the acting
+ * character). Shelf order becomes insertion order. */
+export function loreToWorldbook(entries, name) {
+  const list = (Array.isArray(entries) ? entries : []).filter((e) => e && typeof e === 'object');
+  const out = { entries: {} };
+  list.forEach((e, i) => {
+    const constant = e.constant === true;
+    const keys = Array.isArray(e.keys) ? e.keys.slice() : [];
+    const secondary = Array.isArray(e.secondaryKeys) ? e.secondaryKeys.slice() : [];
+    out.entries[String(i)] = {
+      uid: i,
+      key: constant ? [] : keys,
+      keysecondary: secondary,
+      comment: typeof e.name === 'string' && e.name ? e.name : keys.slice(0, 2).join(', '),
+      content: typeof e.content === 'string' ? e.content : '',
+      constant,
+      vectorized: !constant,
+      selective: !constant && secondary.length > 0,
+      selectiveLogic: 0,
+      addMemo: true,
+      order: 100 - i,
+      position: constant ? 0 : 1,
+      disable: e.enabled === false,
+      excludeRecursion: false,
+      preventRecursion: false,
+      delayUntilRecursion: false,
+      probability: 100,
+      useProbability: false,
+      depth: Number.isFinite(e.depth) && e.depth > 0 ? Math.floor(e.depth) : 4,
+      group: '',
+      groupOverride: false,
+      groupWeight: 100,
+      scanDepth: null,
+      caseSensitive: null,
+      matchWholeWords: null,
+      useGroupScoring: null,
+      automationId: '',
+      role: null,
+      sticky: 0,
+      cooldown: 0,
+      delay: 0,
+      displayIndex: i,
+    };
+  });
+  return out;
+}
+
+/* The file the export downloads — named for the story it came from. */
+export function worldbookFilename(storyTitle) {
+  const base = String(storyTitle || 'story')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .slice(0, 50) || 'story';
+  return base + ' — worldbook.json';
+}

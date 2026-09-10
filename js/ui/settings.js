@@ -15,7 +15,9 @@
  */
 
 import { db } from '../store.js';
-import { createProvider, presetById } from '../providers/index.js';
+import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '../providers/index.js';
+import { EFFORT_RANK, effortFor, reasonStyle } from '../providers/effort.js';
+import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
 import { parsePreset, decompose, applyPlan, summaryWords } from '../import/sillytavern.js';
@@ -25,6 +27,7 @@ import { parseCard, listCast, saveCastMember, removeCastMember } from '../import
  * without importing them — every one of those clicks threw. */
 import {
   parseLorebook, saveLore, loadLore, updateLoreEntry, moveLoreEntry, removeLoreEntry,
+  loreToWorldbook, worldbookFilename,
 } from '../import/lorebook.js';
 import { parseSTChat, importAsStory } from '../import/chats.js';
 import { cleanWindow } from '../agents/memory.js';
@@ -42,8 +45,23 @@ export function initSettings(ctx) {
     preset: document.getElementById('conn-preset'),
     label: document.getElementById('conn-label'),
     baseUrl: document.getElementById('conn-baseurl'),
+    /* M22-B/C/D: the address courtesy, the model hint, the search row,
+     * and the prefill with its probe. */
+    urlhint: document.getElementById('conn-urlhint'),
+    urlhintText: document.getElementById('conn-urlhint-text'),
+    addv1: document.getElementById('conn-addv1'),
+    modelHint: document.getElementById('conn-model-hint'),
     apiKey: document.getElementById('conn-apikey'),
     model: document.getElementById('conn-model'),
+    searchRow: document.getElementById('conn-search-row'),
+    search: document.getElementById('conn-search'),
+    searchCountLabel: document.getElementById('conn-search-count-label'),
+    searchCount: document.getElementById('conn-search-count'),
+    searchNote: document.getElementById('conn-search-note'),
+    prefill: document.getElementById('conn-prefill'),
+    btnPrefillTest: document.getElementById('btn-prefill-test'),
+    prefillVerdict: document.getElementById('conn-prefill-verdict'),
+    downNote: document.getElementById('conn-down-note'),
     btnFetchModels: document.getElementById('btn-fetch-models'),
     modelsNote: document.getElementById('conn-models-note'),
     modelsLabel: document.getElementById('conn-models-label'),
@@ -127,6 +145,8 @@ export function initSettings(ctx) {
     loreList: document.getElementById('lore-list'),
     loreStoryName: document.getElementById('lore-story-name'),
     btnLoreClear: document.getElementById('btn-lore-clear'),
+    /* M22-E7: the shelf walks back to SillyTavern. */
+    btnLoreExport: document.getElementById('btn-lore-export'),
     chatFile: document.getElementById('chat-file'),
     chatImportNote: document.getElementById('chat-import-note'),
     thinkingStory: document.getElementById('thinking-story'),
@@ -177,6 +197,18 @@ export function initSettings(ctx) {
       const kind = document.createElement('span');
       kind.className = 'connection-kind';
       kind.textContent = `${conn.type === 'anthropic' ? 'Claude' : 'OpenAI-compatible'} · ${conn.model || 'no model named'}`;
+      /* M22-A: what the thinking level is actually SPOKEN as on this wire
+       * (the alias-down made visible) — only when it's on. */
+      const effort = conn.reasoning && typeof conn.reasoning.effort === 'string' ? conn.reasoning.effort : 'off';
+      if (effort !== 'off') {
+        const spoken = document.createElement('span');
+        spoken.className = 'connection-kind';
+        const said = conn.reasoningDownAt
+          ? 'unsent — the wire refused it once'
+          : `spoken as “${effortFor(reasonStyle(conn), effort)}”`;
+        spoken.textContent = `thinking: ${effort} — ${said}`;
+        top.appendChild(spoken);
+      }
       top.append(name, kind);
       if (conn.id === activeId) {
         const tag = document.createElement('span');
@@ -254,6 +286,13 @@ export function initSettings(ctx) {
     const p = presetById(els.preset.value);
     els.baseUrl.placeholder = p.baseUrl || 'https://example.com/api';
     els.model.placeholder = p.model || 'the model’s name';
+    /* M22-B: the model's-room placeholder and the hint under the model
+     * field follow the preset's proven numbers. */
+    els.connContextSize.placeholder = String(p.contextSize || 200000);
+    if (els.modelHint) {
+      els.modelHint.textContent = p.hint || '';
+      els.modelHint.hidden = !p.hint;
+    }
     if (!editingId) {
       els.baseUrl.value = p.baseUrl;
       els.model.value = p.model;
@@ -262,20 +301,76 @@ export function initSettings(ctx) {
         els.label.dataset.autofill = '1';
       }
     }
+    refreshAddressHint();
+    refreshSearchRow();
+  }
+
+  /* M22-B: the live address courtesy. Claude's address is left as-is;
+   * everywhere else the hint says "Usually ends in /v1", and when the
+   * typed address is a known house missing its version segment, the
+   * one-tap "add /v1" offers itself. */
+  function refreshAddressHint() {
+    if (!els.urlhintText) return;
+    const p = presetById(els.preset.value);
+    if (p.type === 'anthropic') {
+      els.urlhintText.textContent = 'Leave as-is unless you know otherwise.';
+      els.addv1.hidden = true;
+      return;
+    }
+    els.urlhintText.textContent = 'Usually ends in /v1';
+    const typed = els.baseUrl.value.trim();
+    els.addv1.hidden = !(typed && wouldNormalize(typed));
+  }
+
+  /* M22-C: "let it look things up" is offered only where the house has a
+   * native tool for it — Claude connections and OpenRouter. Elsewhere the
+   * row rests, hidden, with a kind note on hover. */
+  function searchOffered() {
+    const p = presetById(els.preset.value);
+    if (p.type === 'anthropic') return true;
+    if (p.id === 'openrouter') return true;
+    return /\bopenrouter\.ai\b/.test(els.baseUrl.value.trim());
+  }
+
+  function refreshSearchRow() {
+    if (!els.searchRow) return;
+    const offered = searchOffered();
+    els.searchRow.hidden = !offered;
+    els.searchCountLabel.hidden = !offered;
+    if (els.searchNote) {
+      els.searchNote.hidden = offered;
+      if (!offered) {
+        els.searchNote.textContent = 'This address has no looking-things-up of its own — the switch rests.';
+        els.searchNote.title = 'Web search rides a storyteller’s own tool: Claude’s native search, or OpenRouter’s web plugin. A plain OpenAI-compatible address has neither, so the switch stays home rather than pretend.';
+      }
+    }
   }
 
   /* Which preset a saved connection most resembles, so "Change" opens the
    * form on familiar footing. */
   function presetFor(conn) {
+    /* M22: the form stores the preset it started from — trust it first. */
+    if (conn.preset && typeof conn.preset === 'string') return conn.preset;
     if (conn.type === 'anthropic') return 'claude';
-    const base = conn.baseUrl || '';
+    const base = (conn.baseUrl || '').toLowerCase();
     if (base.includes('openrouter.ai')) return 'openrouter';
     if (base.includes('api.openai.com')) return 'openai';
+    if (base.includes('api.z.ai')) return 'zai';
+    if (base.includes('generativelanguage.googleapis.com')) return 'google';
+    if (base.includes('api.deepseek.com')) return 'deepseek';
+    if (base.includes('127.0.0.1:8642')) return 'hermes';
     return 'custom';
   }
 
   els.preset.addEventListener('change', fillFromPreset);
   els.label.addEventListener('input', () => { els.label.dataset.autofill = '0'; });
+  /* M22-B: the address courtesy is live as you type. */
+  els.baseUrl.addEventListener('input', () => { refreshAddressHint(); refreshSearchRow(); });
+  els.addv1.addEventListener('click', () => {
+    els.baseUrl.value = normalizeBaseUrl(els.baseUrl.value);
+    refreshAddressHint();
+    refreshSearchRow();
+  });
 
   function hideModelPicker() {
     els.modelsLabel.hidden = true;
@@ -301,6 +396,20 @@ export function initSettings(ctx) {
       els.connTopP.value = typeof conn.topP === 'number' ? String(conn.topP) : '';
       els.connMaxTokens.value = typeof conn.maxTokens === 'number' ? String(conn.maxTokens) : '';
       els.connContextSize.value = typeof conn.contextSize === 'number' ? String(conn.contextSize) : '';
+      /* M22-C/D: the search switch, its ceiling, and the prefill. */
+      els.search.checked = conn.searchOn === true;
+      els.searchCount.value = typeof conn.searchMaxUses === 'number' ? String(conn.searchMaxUses) : '';
+      els.prefill.value = typeof conn.prefill === 'string' ? conn.prefill : '';
+      /* The refusal memories speak plainly while they stand. */
+      if (els.downNote) {
+        const bits = [];
+        if (conn.reasoningDownAt) bits.push('it once refused the thinking settings, so they ride unsent');
+        if (conn.prefillDownAt) bits.push('it once refused a started reply, so the prefill rides unsent');
+        els.downNote.hidden = !bits.length;
+        els.downNote.textContent = bits.length
+          ? `A note from the wire: ${bits.join('; and ')} — until the model changes. Saving with a new model tries again.`
+          : '';
+      }
     } else {
       els.preset.value = 'claude';
       els.apiKey.value = '';
@@ -312,8 +421,15 @@ export function initSettings(ctx) {
       els.connTopP.value = '';
       els.connMaxTokens.value = '';
       els.connContextSize.value = '';
+      els.search.checked = false;
+      els.searchCount.value = '';
+      els.prefill.value = '';
+      if (els.downNote) els.downNote.hidden = true;
       fillFromPreset();
     }
+    if (els.prefillVerdict) els.prefillVerdict.hidden = true;
+    refreshAddressHint();
+    refreshSearchRow();
     els.label.focus();
   }
 
@@ -361,6 +477,43 @@ export function initSettings(ctx) {
     if (els.modelsPick.value) els.model.value = els.modelsPick.value;
   });
 
+  /* M22-D: "Test it" — the prefill probe. Sends a tiny exchange with the
+   * prefill applied per this house's rules and reports plainly: took it,
+   * or won't take a prefill (which also marks the connection's memory, so
+   * no real turn is ever spent on it). */
+  els.btnPrefillTest.addEventListener('click', async () => {
+    const p = presetById(els.preset.value);
+    const draft = {
+      id: editingId || undefined,
+      type: p.type,
+      preset: p.id,
+      baseUrl: p.type === 'anthropic'
+        ? els.baseUrl.value.trim().replace(/\/+$/, '')
+        : normalizeBaseUrl(els.baseUrl.value),
+      apiKey: els.apiKey.value.trim(),
+      model: els.model.value.trim(),
+      prefill: els.prefill.value,
+    };
+    els.btnPrefillTest.disabled = true;
+    els.prefillVerdict.hidden = false;
+    els.prefillVerdict.className = 'quiet';
+    els.prefillVerdict.textContent = 'Asking, just a whisper of a request…';
+    try {
+      const { ok, detail } = await createProvider(draft).testPrefill();
+      els.prefillVerdict.textContent = detail;
+      els.prefillVerdict.className = ok ? 'quiet test-result ok' : 'quiet test-result bad';
+      toast(ok ? 'The prefill took.' : 'The prefill wouldn’t take — the words above say why.');
+      if (ok && editingId) {
+        /* A fresh yes lifts an old refusal — the model behind the address
+         * may have changed. */
+        await db.connections.update(editingId, { prefillDownAt: null });
+        if (els.downNote) els.downNote.hidden = true;
+      }
+    } finally {
+      els.btnPrefillTest.disabled = false;
+    }
+  });
+
   els.btnAdd.addEventListener('click', () => openForm(null));
   els.btnCancel.addEventListener('click', () => { els.form.hidden = true; editingId = null; });
 
@@ -373,10 +526,17 @@ export function initSettings(ctx) {
       const n = parseFloat(input.value);
       return input.value.trim() !== '' && Number.isFinite(n) ? n : undefined;
     };
+    /* M22-B: the SillyTavern courtesy — the address is normalized as it's
+     * kept (trailing slashes stripped, a known house's missing /v1 added).
+     * Claude's address is left exactly as typed. */
+    const address = p.type === 'anthropic'
+      ? els.baseUrl.value.trim().replace(/\/+$/, '')
+      : normalizeBaseUrl(els.baseUrl.value);
     const fields = {
       label: els.label.value.trim() || p.label,
       type: p.type,
-      baseUrl: els.baseUrl.value.trim(),
+      preset: p.id,
+      baseUrl: address,
       apiKey: els.apiKey.value.trim(),
       model: els.model.value.trim(),
       temperature: numOrUnset(els.connTemperature),
@@ -384,9 +544,16 @@ export function initSettings(ctx) {
       maxTokens: numOrUnset(els.connMaxTokens),
       contextSize: numOrUnset(els.connContextSize),
     };
-    /* M8.5: the thinking voice — kept only when it's on. */
+    /* M22-C/D: the search switch and its ceiling, and the prefill —
+     * kept only when they're on/filled. */
+    fields.searchOn = searchOffered() && els.search.checked ? true : undefined;
+    fields.searchMaxUses = fields.searchOn ? numOrUnset(els.searchCount) : undefined;
+    fields.prefill = els.prefill.value.trim() ? els.prefill.value : undefined;
+    /* M8.5/M22-A: the thinking voice — the full ladder, kept only when on.
+     * What the wire can actually say is resolved per house at send time
+     * (effort.js). */
     const effort = els.connReasoning.value;
-    if (effort === 'low' || effort === 'medium' || effort === 'high') {
+    if (EFFORT_RANK.includes(effort) && effort !== 'off') {
       fields.reasoning = { effort };
       const budget = numOrUnset(els.connBudget);
       if (budget) fields.reasoning.budgetTokens = budget;
@@ -396,8 +563,15 @@ export function initSettings(ctx) {
     if (editingId) {
       /* update() treats null as "let the dial go" (store.js, M8). */
       const patch = { ...fields };
-      for (const key of ['temperature', 'topP', 'maxTokens', 'contextSize', 'reasoning']) {
+      for (const key of ['temperature', 'topP', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill']) {
         if (patch[key] === undefined) patch[key] = null;
+      }
+      /* M22-A/D: the refusal memories stand until the model field
+       * changes — a new model (or a new address) tries again. */
+      const stored = await db.connections.list().then((all) => all.find((c) => c.id === editingId));
+      if (stored && (stored.model !== fields.model || stored.baseUrl !== fields.baseUrl)) {
+        patch.reasoningDownAt = null;
+        patch.prefillDownAt = null;
       }
       await db.connections.update(editingId, patch);
     } else {
@@ -1367,6 +1541,8 @@ export function initSettings(ctx) {
     els.loreFile.disabled = !story;
     els.loreCount.hidden = !entries.length;
     els.btnLoreClear.hidden = !entries.length;
+    /* M22-E7: the shelf walks back — the export shows whenever lore does. */
+    els.btnLoreExport.hidden = !entries.length;
     els.loreList.textContent = '';
     if (entries.length) {
       els.loreCount.textContent = `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} on the shelf.`;
@@ -1395,6 +1571,21 @@ export function initSettings(ctx) {
     } catch (err) {
       say(els.loreNote, err.message || 'That lorebook wouldn’t open.');
     }
+  });
+
+  /* M22-E7: lore walks both ways — the shelf folds back into a valid
+   * SillyTavern World Info file and downloads. */
+  els.btnLoreExport.addEventListener('click', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    const entries = await loadLore(story.id);
+    if (!entries.length) {
+      say(els.loreNote, 'The shelf is bare — nothing to carry over.');
+      return;
+    }
+    const book = loreToWorldbook(entries, story.title);
+    download(worldbookFilename(story.title), JSON.stringify(book, null, 2), 'application/json');
+    toast(`The lore of “${story.title}” is folded as a SillyTavern worldbook — in your Downloads.`);
   });
 
   els.btnLoreClear.addEventListener('click', async () => {

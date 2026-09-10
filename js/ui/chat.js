@@ -59,6 +59,13 @@ import { castForStory } from '../import/cards.js';
 import { loadLore, matchLoreDetailed } from '../import/lorebook.js';
 import { parseCommand, commandChip } from '../commands.js';
 import { openReceipt } from './receiptview.js';
+/* M22: code blocks + markdown-lite in the prose (E5/E6), the shared
+ * download courtesy for the per-story export (E4), and the reasoning
+ * ladder's rank for the story's own say (A). */
+import { renderRich } from './prose.js';
+import { download } from './download.js';
+import { storyToMarkdown, storyToJsonl, storyExportBasename } from './storyexport.js';
+import { EFFORT_RANK } from '../providers/effort.js';
 /* M10's showrunners ride the send path too (the episode mark is stripped
  * from the prose before the page is saved, and their standing texts join
  * the assembled tail). M15 audit found these names used below but never
@@ -250,6 +257,12 @@ export function initChat(ctx) {
     emberFill: document.getElementById('ember-fill'),
     metaContext: document.getElementById('meta-context'),
     menu: document.getElementById('msg-menu'),
+    /* M22-E1/E3/E4: the prompt library chips, the jump-to-latest pill,
+     * the per-story export menu, and a chip's manage menu. */
+    promptChips: document.getElementById('prompt-chips'),
+    btnJump: document.getElementById('btn-jump'),
+    storyMenu: document.getElementById('story-menu'),
+    chipMenu: document.getElementById('chip-menu'),
   };
 
   let stories = [];
@@ -260,6 +273,9 @@ export function initChat(ctx) {
   let shelfCollapsed = {};
   let busy = false;
   let abort = null;
+  /* M22-E2: whether the resting-tales corner stands open (in-memory; a
+   * fresh visit starts folded). */
+  let showResting = false;
   /* B18: what the thread last rendered, so new pages can simply append. */
   let lastRender = { storyId: null, ids: [] };
 
@@ -306,6 +322,13 @@ export function initChat(ctx) {
 
   function scrollToBottom() {
     els.thread.scrollTop = els.thread.scrollHeight;
+  }
+
+  /* M22-E3: the jump pill shows only while you're reading above the
+   * tail — a way back down, never a drag down. */
+  function updateJump() {
+    if (!els.btnJump) return;
+    els.btnJump.hidden = nearBottom();
   }
 
   async function activeStory() {
@@ -369,7 +392,9 @@ export function initChat(ctx) {
     if (!keepActive) {
       const id = ctx.getActiveStoryId();
       if (!id || !stories.some((s) => s.id === id)) {
-        ctx.setActiveStoryId(stories.length ? stories[0].id : null);
+        /* M22-E2: a resting tale never takes the stage on its own. */
+        const firstWaking = stories.find((s) => s.archived !== true);
+        ctx.setActiveStoryId(firstWaking ? firstWaking.id : null);
       }
     }
     renderStoryList();
@@ -391,10 +416,12 @@ export function initChat(ctx) {
     await db.stories.update(storyId, { preview }).catch(() => {});
   }
 
-  /* One tale's row — title, last-active in the reader's tense, page count. */
-  function storyItem(story, activeId) {
+  /* One tale's row — title, last-active in the reader's tense, page count.
+   * M22-E2/E4: plus the export (⇩) and the archive (▦) courtesies; a
+   * resting tale's row wakes instead of archiving. */
+  function storyItem(story, activeId, opts = {}) {
     const li = document.createElement('li');
-    li.className = 'story-item' + (story.id === activeId ? ' active' : '');
+    li.className = 'story-item' + (story.id === activeId ? ' active' : '') + (opts.resting ? ' resting' : '');
 
     const openBtn = document.createElement('button');
     openBtn.type = 'button';
@@ -442,8 +469,87 @@ export function initChat(ctx) {
     removeBtn.textContent = '×';
     removeBtn.addEventListener('click', () => removeStory(story));
 
-    li.append(openBtn, renameBtn, removeBtn);
+    /* M22-E4: take this tale with you — the story's own export, one tap
+     * to a chooser of markdown or jsonl. */
+    const exportBtn = document.createElement('button');
+    exportBtn.type = 'button';
+    exportBtn.className = 'story-mini';
+    exportBtn.title = 'Take this tale with you';
+    exportBtn.setAttribute('aria-label', `Take “${story.title}” with you`);
+    exportBtn.textContent = '⇩';
+    exportBtn.addEventListener('click', (e) => openStoryMenu(e, story));
+
+    /* M22-E2: archive — the tale rests, out of the sidebar's eye, and a
+     * resting tale wakes the same way. Nothing is deleted. */
+    const archiveBtn = document.createElement('button');
+    archiveBtn.type = 'button';
+    archiveBtn.className = 'story-mini';
+    archiveBtn.title = opts.resting ? 'Wake this tale' : 'Put this tale to rest';
+    archiveBtn.setAttribute('aria-label', `${opts.resting ? 'Wake' : 'Put to rest'} “${story.title}”`);
+    archiveBtn.textContent = opts.resting ? '↩' : '▦';
+    archiveBtn.addEventListener('click', () => toggleRest(story));
+
+    li.append(openBtn, renameBtn, removeBtn, exportBtn, archiveBtn);
     return li;
+  }
+
+  /* M22-E2: archive — the tale rests at the foot of the sidebar (never
+   * deleted); a resting tale wakes the same way. If the open tale is put
+   * to rest, the next waking tale takes the stage. */
+  async function toggleRest(story) {
+    const resting = story.archived !== true;
+    await db.stories.update(story.id, { archived: resting });
+    toast(resting
+      ? `“${story.title}” is resting — it waits at the foot of the shelf.`
+      : `“${story.title}” is awake again.`);
+    if (resting && ctx.getActiveStoryId() === story.id) {
+      const all = await db.stories.list();
+      const next = all.find((s) => s.archived !== true);
+      ctx.setActiveStoryId(next ? next.id : null);
+      await refreshStories(true);
+      await renderThread({ structural: true });
+    } else {
+      await refreshStories(true);
+    }
+    if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+  }
+
+  /* M22-E4: the per-story export — the pure builders live in
+   * storyexport.js; the download courtesy is shared (download.js). */
+  async function exportStory(story, kind) {
+    const pages = await db.messages.list(story.id);
+    if (!pages.filter((m) => m && !m.hidden).length) {
+      toast('This tale has no pages yet — nothing to carry.');
+      return;
+    }
+    const base = storyExportBasename(story);
+    if (kind === 'jsonl') {
+      download(`${base}.jsonl`, storyToJsonl(story, pages), 'application/x-ndjson');
+    } else {
+      download(`${base}.md`, storyToMarkdown(story, pages), 'text/markdown');
+    }
+    toast(`“${story.title}” is in your Downloads — as ${kind === 'jsonl' ? 'jsonl' : 'markdown'}.`);
+  }
+
+  /* The export menu is its own little popover (the message menu's
+   * menuFor is the message id — these never share). */
+  let storyMenuFor = null;
+
+  function openStoryMenu(e, story) {
+    e.stopPropagation();
+    const menu = els.storyMenu;
+    if (!menu) return;
+    storyMenuFor = story.id;
+    menu.hidden = false;
+    menu.style.left = Math.max(8, Math.min(e.clientX, window.innerWidth - 240)) + 'px';
+    menu.style.top = Math.max(8, Math.min(e.clientY, window.innerHeight - 120)) + 'px';
+    const first = menu.querySelector('button[data-act]');
+    if (first) first.focus();
+  }
+
+  function hideStoryMenu() {
+    if (els.storyMenu) els.storyMenu.hidden = true;
+    storyMenuFor = null;
   }
 
   /* M16: one shelf section — a collapsible .lbl header (caret, name, the
@@ -566,13 +672,45 @@ export function initChat(ctx) {
     els.list.textContent = '';
     els.listEmpty.hidden = stories.length > 0;
     const activeId = ctx.getActiveStoryId();
-    const grouped = shelvesOf(stories, projects);
+    /* M22-E2: resting (archived) tales step out of the shelves; a quiet
+     * row at the foot says how many rest, and taps open to visit (or
+     * wake) them. */
+    const waking = stories.filter((s) => s.archived !== true);
+    const resting = stories.filter((s) => s.archived === true);
+    const grouped = shelvesOf(waking, projects);
     for (const { project, stories: onShelf } of grouped.shelves) {
       els.list.appendChild(shelfSection(project, onShelf, activeId));
     }
     if (grouped.loose.length || !projects.length) {
       els.list.appendChild(shelfSection(null, grouped.loose, activeId));
     }
+    if (resting.length) els.list.appendChild(restingRow(resting, activeId));
+  }
+
+  /* The "N resting tales" row — a collapsed corner at the foot of the
+   * sidebar. */
+  function restingRow(resting, activeId) {
+    const li = document.createElement('li');
+    li.className = 'shelf resting-shelf' + (showResting ? '' : ' collapsed');
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'shelf-head';
+    const caret = document.createElement('span');
+    caret.className = 'shelf-caret';
+    caret.textContent = '▸';
+    const name = document.createElement('span');
+    name.className = 'shelf-name';
+    name.textContent = resting.length === 1 ? 'One resting tale' : `${resting.length} resting tales`;
+    head.append(caret, name);
+    head.addEventListener('click', () => {
+      showResting = !showResting;
+      renderStoryList();
+    });
+    const ul = document.createElement('ul');
+    ul.className = 'shelf-stories';
+    for (const story of resting) ul.appendChild(storyItem(story, activeId, { resting: true }));
+    li.append(head, ul);
+    return li;
   }
 
   /* The new-story form's shelf pick: every shelf the house knows, plus
@@ -677,6 +815,31 @@ export function initChat(ctx) {
     return details;
   }
 
+  /* M22-C: the folded sources block — where the storyteller looked things
+   * up. The links open in a new tab, rel-guarded; they are chrome the wire
+   * handed over, never prose markup (the RP-safe subset stays link-free). */
+  function sourcesNode(sources) {
+    const details = document.createElement('details');
+    details.className = 'sources';
+    const summary = document.createElement('summary');
+    summary.textContent = `where it looked things up — ${sources.length} ${sources.length === 1 ? 'source' : 'sources'}`;
+    const list = document.createElement('ul');
+    list.className = 'sources-list';
+    for (const s of sources) {
+      const li = document.createElement('li');
+      const link = document.createElement('a');
+      link.className = 'sources-link';
+      link.href = s.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = s.title || s.url;
+      li.appendChild(link);
+      list.appendChild(li);
+    }
+    details.append(summary, list);
+    return details;
+  }
+
   /* The swipe walker (M9): ◂ n / m ▸ — keyboard-reachable buttons. Walking
    * past the last version writes a new one (the old ones keep). */
   function swipeNode(msg) {
@@ -758,7 +921,10 @@ export function initChat(ctx) {
     const body = document.createElement('div');
     body.className = 'msg-body';
     if (msg.role === 'assistant') {
-      /* M15: scene heads set in the whisper voice; the rest stays prose. */
+      /* M15: scene heads set in the whisper voice; the rest stays prose.
+       * M22-E5/E6: the prose is rich — fenced code blocks render mono with
+       * a copy chip, and the RP-safe inline marks (*emphasis*, **strong**,
+       * `code`) carry through. Never innerHTML. */
       for (const part of parseScene(pageText(msg))) {
         if (part.type === 'head') {
           const head = document.createElement('div');
@@ -766,16 +932,18 @@ export function initChat(ctx) {
           head.textContent = part.text;
           body.appendChild(head);
         } else {
-          const p = document.createElement('div');
-          p.className = 'msg-prose';
-          p.textContent = part.text;
-          body.appendChild(p);
+          body.appendChild(renderRich(part.text));
         }
       }
     } else {
-      body.textContent = pageText(msg);
+      body.appendChild(renderRich(pageText(msg)));
     }
     article.appendChild(body);
+    /* M22-C: where the storyteller looked things up — a folded sources
+     * block under the message. */
+    if (msg.role === 'assistant' && Array.isArray(msg.sources) && msg.sources.length) {
+      article.appendChild(sourcesNode(msg.sources));
+    }
     if (msg.stopped) {
       const stopped = document.createElement('div');
       stopped.className = 'msg-stopped lbl';
@@ -884,7 +1052,11 @@ export function initChat(ctx) {
       }
     }
     lastRender = { storyId: story.id, ids, showThinking };
-    scrollToBottom();
+    /* M22-E3: opening a story (or a structural rebuild) lands at the
+     * latest page; a quiet append while you're reading above the tail
+     * never drags you down — the jump pill offers the way back instead. */
+    if (structural || nearBottom()) scrollToBottom();
+    updateJump();
     refreshEmber();
   }
 
@@ -1208,14 +1380,15 @@ export function initChat(ctx) {
     };
   }
 
-  /* M8.5: which thinking voice speaks this turn. The story's own choice
-   * wins; otherwise the connection's; otherwise the voice stays off. */
+  /* M8.5/M22-A: which thinking voice speaks this turn. The story's own
+   * choice wins; otherwise the connection's; otherwise the voice stays
+   * off. The full ladder is valid here — what the wire can actually SAY
+   * is resolved per house inside the provider (effortFor in effort.js). */
   function effectiveReasoning(connection, story) {
     const override = story && typeof story.reasoningEffort === 'string' ? story.reasoningEffort : '';
-    if (override === 'low' || override === 'medium' || override === 'high') return { effort: override };
-    if (override === 'off') return { effort: 'off' };
+    if (EFFORT_RANK.includes(override)) return { effort: override };
     const r = connection && connection.reasoning;
-    if (r && (r.effort === 'low' || r.effort === 'medium' || r.effort === 'high')) return r;
+    if (r && EFFORT_RANK.includes(r.effort)) return r;
     return { effort: 'off' };
   }
 
@@ -1447,12 +1620,19 @@ export function initChat(ctx) {
       let sawProse = false;
       let stoppedByHand = false;
       let finishReason = null;
+      let streamSources = null; // M22-C: the search's findings
       try {
         const result = await provider.streamChat({
           systemBlocks,
           messages,
           signal: abort.signal,
           onToken({ channel, text }) {
+            /* M22-C: the note channel — a provider's live word ("Searching
+             * the web…"), toasted, never part of the prose. */
+            if (channel === 'note') {
+              toast(text);
+              return;
+            }
             if (channel === 'thinking') {
               thinking += text;
               if (showThinking) {
@@ -1464,7 +1644,7 @@ export function initChat(ctx) {
                 thinkBody.textContent = thinking;
                 if (!sawProse) thinkDetails.open = true;
               }
-            } else {
+            } else if (channel === 'prose') {
               if (!sawProse) {
                 sawProse = true;
                 if (thinkDetails) thinkDetails.open = false;
@@ -1477,6 +1657,15 @@ export function initChat(ctx) {
           },
         });
         full = result.text;
+        /* M22: the provider's kind words (a refusal retried once, a
+         * prefill that stayed home) reach the writer as toasts, and the
+         * search's findings land on the page. */
+        if (Array.isArray(result.notes)) {
+          for (const note of result.notes) if (note) toast(note);
+        }
+        if (Array.isArray(result.sources) && result.sources.length) {
+          streamSources = result.sources;
+        }
         /* M10: [EPISODE_END] marks a natural close; the mark is stripped
          * from the prose BEFORE the page is saved, and the closing rituals
          * run in the background after. */
@@ -1532,6 +1721,7 @@ export function initChat(ctx) {
             text: full,
             thinking: thinking || target.thinking,
             receipt,
+            sources: streamSources || undefined,
             cutShort: cutShort || undefined,
             stopped: stoppedByHand || undefined,
           });
@@ -1560,6 +1750,8 @@ export function initChat(ctx) {
           stopped: stoppedByHand || undefined,
           cutShort: cutShort || undefined,
           ooc: ooc || undefined,
+          /* M22-C: where it looked things up, folded under the page. */
+          sources: streamSources || undefined,
         });
         pending.replaceWith(msgNode(saved, showThinking, { isLastAssistant: true }));
         lastRender.ids = [];
@@ -2014,6 +2206,49 @@ export function initChat(ctx) {
     }
   });
 
+  /* M22-E4: the per-story export menu. */
+  if (els.storyMenu) {
+    els.storyMenu.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn || !storyMenuFor) return;
+      const story = stories.find((s) => s.id === storyMenuFor);
+      const act = btn.dataset.act;
+      hideStoryMenu();
+      if (!story) return;
+      if (act === 'export-md') await exportStory(story, 'md');
+      else if (act === 'export-jsonl') await exportStory(story, 'jsonl');
+    });
+    els.storyMenu.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); hideStoryMenu(); }
+    });
+    document.addEventListener('click', (e) => {
+      if (!els.storyMenu.hidden && !els.storyMenu.contains(e.target)) hideStoryMenu();
+    });
+  }
+
+  /* M22-E5: the code block's copy chip — delegated from the thread. */
+  els.thread.addEventListener('click', (e) => {
+    const chip = e.target.closest('.codeblock-copy');
+    if (!chip) return;
+    const block = chip.closest('.codeblock');
+    const code = block && block.querySelector('code');
+    if (!code) return;
+    navigator.clipboard.writeText(code.textContent).then(
+      () => { chip.textContent = 'copied'; setTimeout(() => { chip.textContent = 'copy'; }, 1500); },
+      () => { window.prompt('Copy it by hand, then:', code.textContent); }
+    );
+  });
+
+  /* M22-E3: jump to latest — shows while you read above the tail. */
+  if (els.btnJump) {
+    els.btnJump.addEventListener('click', () => {
+      scrollToBottom();
+      updateJump();
+      els.thread.focus({ preventScroll: true });
+    });
+    els.thread.addEventListener('scroll', () => updateJump(), { passive: true });
+  }
+
   /* ---------- hover/focus message actions (M8) ---------- */
 
   async function copyMessage(id) {
@@ -2201,9 +2436,185 @@ export function initChat(ctx) {
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
   });
 
+  /* ---------- M22-E1: the prompt library ----------
+   * Saved one-tap starters as chips above the composer. Tap drops the
+   * words into the composer (you still edit or send as-is); long-press or
+   * right-click manages (change the words / let it go); the "＋" chip
+   * saves what's in the composer — or, when it's empty, asks for a line
+   * inline. The library rides a settings key and ships with three warm
+   * defaults when it has never been touched. */
+  const PROMPTS_KEY = 'promptLibrary';
+  /* (The defaults carry no `label` key on purpose — the chip's name is
+   * derived from its first words via promptLabel(), and the M14 hearth
+   * law counts `label:` literals in this file.) */
+  const PROMPT_DEFAULTS = [
+    { id: 'pd-open', text: 'Open the scene slowly — where are we, and what does the air feel like?' },
+    { id: 'pd-stakes', text: 'Let something go wrong now — small, but real.' },
+    { id: 'pd-quiet', text: 'Slow down for a quiet beat between the two of them.' },
+  ];
+  let promptLib = [];
+
+  function promptLabel(text) {
+    const words = String(text || '').trim().split(/\s+/).slice(0, 4).join(' ');
+    return words.length > 28 ? words.slice(0, 27) + '…' : (words || 'A starter');
+  }
+
+  async function loadPromptLib() {
+    const stored = await db.settings.get(PROMPTS_KEY);
+    if (Array.isArray(stored)) {
+      promptLib = stored
+        .filter((p) => p && typeof p.text === 'string' && p.text.trim())
+        .map((p, i) => ({ id: typeof p.id === 'string' && p.id ? p.id : `p-${i}`, label: typeof p.label === 'string' && p.label ? p.label : promptLabel(p.text), text: p.text }));
+    } else {
+      promptLib = PROMPT_DEFAULTS.map((p) => ({ ...p }));
+    }
+  }
+
+  async function savePromptLib() {
+    await db.settings.set(PROMPTS_KEY, promptLib);
+  }
+
+  /* Inline word-editing in the chip row — used for a fresh starter and
+   * for "change the words". commit(false) abandons. */
+  function chipEditRow(existing, commit) {
+    if (!els.promptChips) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'prompt-chip-input';
+    input.value = existing ? existing.text : '';
+    input.maxLength = 300;
+    input.setAttribute('aria-label', existing ? 'New words for this starter' : 'A new starter’s words');
+    const ghost = document.createElement('span');
+    ghost.className = 'prompt-chip editing';
+    ghost.appendChild(input);
+    els.promptChips.appendChild(ghost);
+    let done = false;
+    const finish = (keep) => {
+      if (done) return;
+      done = true;
+      const text = input.value.trim();
+      ghost.remove();
+      commit(keep && text ? text : null);
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') finish(true);
+      else if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
+    input.focus();
+    input.select();
+  }
+
+  function renderPromptChips() {
+    if (!els.promptChips) return;
+    els.promptChips.textContent = '';
+    for (const p of promptLib) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'prompt-chip';
+      chip.textContent = p.label;
+      chip.title = p.text;
+      chip.dataset.promptId = p.id;
+      chip.addEventListener('click', () => seedComposer(p.text));
+      /* Long-press / right-click manages. */
+      chip.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        openChipMenu(e.clientX, e.clientY, p.id);
+      });
+      chip.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        const id = p.id;
+        chip._pressTimer = setTimeout(() => openChipMenu(touch.clientX, touch.clientY, id), 550);
+      }, { passive: true });
+      for (const evt of ['touchmove', 'touchend', 'touchcancel']) {
+        chip.addEventListener(evt, () => {
+          if (chip._pressTimer) { clearTimeout(chip._pressTimer); chip._pressTimer = null; }
+        }, { passive: true });
+      }
+      els.promptChips.appendChild(chip);
+    }
+    /* The "save one" chip: with words in the composer it saves them;
+     * empty, it asks for a line inline. */
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'prompt-chip prompt-chip-add';
+    add.textContent = '＋ save a starter';
+    add.title = 'Save a one-tap starter for later';
+    add.addEventListener('click', () => {
+      const typed = els.input.value.trim();
+      if (typed) {
+        promptLib.push({ id: `p-${Date.now()}`, label: promptLabel(typed), text: typed });
+        savePromptLib();
+        renderPromptChips();
+        toast('Saved — it waits above the composer now.');
+      } else {
+        chipEditRow(null, async (text) => {
+          if (text) {
+            promptLib.push({ id: `p-${Date.now()}`, label: promptLabel(text), text });
+            await savePromptLib();
+            toast('Saved — it waits above the composer now.');
+          }
+          renderPromptChips();
+        });
+      }
+    });
+    els.promptChips.appendChild(add);
+  }
+
+  let chipMenuFor = null;
+
+  function openChipMenu(x, y, promptId) {
+    if (!els.chipMenu) return;
+    chipMenuFor = promptId;
+    els.chipMenu.hidden = false;
+    els.chipMenu.style.left = Math.max(8, Math.min(x, window.innerWidth - 220)) + 'px';
+    els.chipMenu.style.top = Math.max(8, Math.min(y, window.innerHeight - 120)) + 'px';
+    const first = els.chipMenu.querySelector('button[data-act]');
+    if (first) first.focus();
+  }
+
+  function hideChipMenu() {
+    if (els.chipMenu) els.chipMenu.hidden = true;
+    chipMenuFor = null;
+  }
+
+  if (els.chipMenu) {
+    els.chipMenu.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn || !chipMenuFor) return;
+      const p = promptLib.find((x) => x.id === chipMenuFor);
+      const act = btn.dataset.act;
+      hideChipMenu();
+      if (!p) return;
+      if (act === 'chip-del') {
+        promptLib = promptLib.filter((x) => x.id !== p.id);
+        await savePromptLib();
+        renderPromptChips();
+        toast('Let go — the starter is off the shelf.');
+      } else if (act === 'chip-edit') {
+        chipEditRow(p, async (text) => {
+          if (text) {
+            p.text = text;
+            p.label = promptLabel(text);
+            await savePromptLib();
+          }
+          renderPromptChips();
+        });
+      }
+    });
+    els.chipMenu.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); hideChipMenu(); }
+    });
+    document.addEventListener('click', (e) => {
+      if (!els.chipMenu.hidden && !els.chipMenu.contains(e.target)) hideChipMenu();
+    });
+  }
+
   /* ---------- first light ---------- */
 
   (async function start() {
+    await loadPromptLib();
+    renderPromptChips();
     await refreshStories();
     await renderThread({ structural: true });
   })();

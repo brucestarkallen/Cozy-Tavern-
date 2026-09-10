@@ -870,3 +870,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   extractor, scribe, keeper (fold + audit), continuity, referee (all four systems +
   seeder), housekeeper, and both showrunners prepend it to every system prompt.
 - version.js -> m21-002. Harness 168/168 (16 new M21 checks).
+
+---
+
+# M22 — the Cozy Chat parity wave
+- js/providers/effort.js: the full reasoning ladder (off..max) with per-kind levels + alias-down
+  (zai: medium→high, xhigh→max), rejection memory (reasoningDownAt/prefillDownAt persist;
+  400/422 citing reasoning/prefill params → retry once without, never spend again until the
+  model changes). PREFILL_PROFILES: anthropic native trailing assistant; moonshot partial;
+  deepseek prefix; generic: reasoning_content only when the prefill carries a think span,
+  else skip kindly. "Test it" probe per connection.
+- js/providers/index.js: normalizeBaseUrl (strip trailing slashes; known openai-shaped hosts
+  gain /v1; anthropic stays bare) + the 8-preset set with url/sample-model/ctx/hint.
+- Web search: per-connection toggle+count; anthropic native web_search_20250305 with
+  server_tool_use toast + web_search_tool_result (Array.isArray-guarded) → folded sources;
+  openrouter plugins:[{id:'web'}]; hidden elsewhere with a kind note.
+- js/ui/prose.js: markdown-lite (code/strong/emphasis only; asterisk action convention intact),
+  fenced codeblocks on --bg-2 with copy chip. js/ui/storyexport.js (md/jsonl), download.js.
+- Prompt library chips above the composer (add/edit/delete via long-press); archive
+  (resting tales row); jump-to-latest pill (never drags you down); lore → ST worldbook export
+  ("Carry it to SillyTavern"). Reverse id-coverage harness law: every control in index.html
+  must be wired in js. version.js -> m22-001.

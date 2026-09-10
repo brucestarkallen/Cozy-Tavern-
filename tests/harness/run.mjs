@@ -13,6 +13,7 @@ import './showrunners.mjs';
 import './finishing.mjs';
 import './beauty.mjs';
 import './assign.mjs';
+import './m22.mjs';
 import './polish.mjs';
 import './projects.mjs';
 import './findability.mjs';

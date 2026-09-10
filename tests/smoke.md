@@ -645,3 +645,14 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 73. The workers (extractor, scribe, keeper, continuity, referee, housekeeper,
     showrunners) all open their system prompts with the same standing fiction line —
     visible in any logged worker request.
+
+## M22 additions
+74. Connections: reasoning picker offers xhigh/max where the provider can hear them; a
+    provider that refuses reasoning is remembered and never re-charged for it.
+75. Address field: type api.openai.com and /v1 offers itself; presets fill everything.
+76. Claude/OpenRouter connections gain "let it look things up"; a search turn shows
+    "Searching the web…" then a folded sources block.
+77. Prefill: "Test it" reports plainly; a refusal is remembered per connection.
+78. Starter chips seed the composer; stories archive to "resting tales"; the jump pill
+    appears only when scrolled up; a story exports to markdown/jsonl; the lore shelf
+    carries "Carry it to SillyTavern".
