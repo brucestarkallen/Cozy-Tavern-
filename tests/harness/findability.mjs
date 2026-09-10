@@ -89,7 +89,7 @@ test('M18 the reload-once bridge stands in install.sh and cozytavern', () => {
   const line = 'A new coat is on — if the tavern looks the same, pull the page down once to reload.';
   eq(src.split(line).length - 1, 2, 'the bridge is spoken twice — by install.sh and by the cozytavern it writes');
   eq(src.split('rev-parse HEAD').length - 1, 4, 'both shells weigh HEAD before and after the pull');
-  const heredoc = src.slice(src.indexOf('<<TAVERN'), src.indexOf('\nTAVERN'));
+  const heredoc = src.slice(src.indexOf('<<TAVERN'), src.indexOf('\nTAVERN\n')); /* the delimiter is a line of its own — TAVERN_VER= must not fool it */
   assert(heredoc.includes('HEAD_BEFORE') && heredoc.includes('HEAD_AFTER'),
     'the cozytavern command weighs HEAD itself');
   assert(heredoc.includes('\\$HEAD_BEFORE'), 'the runtime variables escape the heredoc');
@@ -103,4 +103,21 @@ test('M18 the README keeps the "Keeping it current" word', () => {
   assert(src.includes('the shelves · <version>'), 'where the running version stands is told');
   assert(/under your stories/.test(src) && /top of Settings/.test(src),
     'both places the version stands are named');
+});
+
+test('M19 the coat word: hearth shows the running version', async () => {
+  const chat = read('js/ui/chat.js');
+  assert(chat.includes("import { VERSION } from '../version.js';"), 'chat.js imports VERSION');
+  assert(chat.includes("'the shelves · ' + VERSION"), 'hearth carries the coat word');
+  const css = read('css/chat.css');
+  assert(css.includes('.hearth-coat'), 'the coat word is styled');
+});
+
+test('M19 the launch report: install.sh and serve.py speak the version', () => {
+  const inst = read('install.sh');
+  assert(inst.includes("Already on"), 'install.sh reports when current (like the cozy command they love)');
+  assert(inst.includes('Fresh coat on:'), 'install.sh reports when it updated');
+  assert(inst.toLowerCase().includes('close every tab'), 'the bridge instruction names closing tabs');
+  const serve = read('serve.py');
+  assert(serve.includes('_ver()'), 'serve.py prints the version');
 });

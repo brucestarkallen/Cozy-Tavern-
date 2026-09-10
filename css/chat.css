@@ -929,3 +929,11 @@ body.read-only .send-btn { opacity: 0.4; }
 .lore-entry .lore-keys { margin-top: 8px; width: 100%; }
 .lore-entry .lore-content { margin-top: 8px; width: 100%; }
 .lore-entry .row { margin-top: 8px; }
+
+/* M19: the coat word on the hearth — the running version, visible without
+ * opening the shelves. */
+.hearth-coat {
+  margin-top: 28px;
+  opacity: .55;
+  text-align: center;
+}

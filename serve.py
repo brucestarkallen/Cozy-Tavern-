@@ -12,6 +12,15 @@ PORT = int(os.environ.get('PORT', 8080))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
+def _ver():
+    try:
+        import re as _re
+        src = open(os.path.join(ROOT, 'js', 'version.js')).read()
+        return _re.search(r"VERSION = '([^']+)'", src).group(1)
+    except Exception:
+        return 'the current coat'
+
+
 class TavernServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     """Many hands, no waiting: browsers hold connections open, and a
     single-threaded server would make the whole tavern queue behind one."""
@@ -48,7 +57,7 @@ if __name__ == '__main__':
     # resolves to ::1 while the server sits on IPv4 — the printed URL must
     # be the deterministic one.
     with TavernServer(('127.0.0.1', PORT), TavernHandler) as server:
-        print('The tavern is warm at http://127.0.0.1:%d' % PORT, flush=True)
+        print('The tavern is warm at http://127.0.0.1:%d  ·  %s' % (PORT, _ver()), flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

@@ -32,11 +32,18 @@ if [ -d "$REPO_DIR/.git" ]; then
   HEAD_BEFORE="$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo '')"
   git -C "$REPO_DIR" pull --ff-only || echo "(Couldn't pull — the tavern you have still opens.)"
   HEAD_AFTER="$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo '')"
+  TAVERN_VER="$(grep -o "VERSION = '[^']*'" "$REPO_DIR/js/version.js" 2>/dev/null | head -1 | cut -d"'" -f2)"
   if [ -n "$HEAD_BEFORE" ] && [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
+    echo "Fresh coat on: the tavern is now at $TAVERN_VER."
     echo "A new coat is on — if the tavern looks the same, pull the page down once to reload."
+    echo "Still the same after that? Close every tab of the tavern, then open it again."
+  else
+    echo "Already on $TAVERN_VER — the tavern is current."
   fi
 else
   git clone "$REPO_URL" "$REPO_DIR"
+  TAVERN_VER="$(grep -o "VERSION = '[^']*'" "$REPO_DIR/js/version.js" 2>/dev/null | head -1 | cut -d"'" -f2)"
+  echo "The tavern moves in at $TAVERN_VER."
 fi
 
 # 3. The `cozytavern` command: wake the phone, top up the tales, light the
@@ -61,8 +68,13 @@ cd "$REPO_DIR" || exit 1
 HEAD_BEFORE="\$(git rev-parse HEAD 2>/dev/null || echo '')"
 git pull --ff-only || echo "(Couldn't pull — the tavern you have still opens.)"
 HEAD_AFTER="\$(git rev-parse HEAD 2>/dev/null || echo '')"
+TAVERN_VER="\$(grep -o "VERSION = '[^']*'" js/version.js 2>/dev/null | head -1 | cut -d"'" -f2)"
 if [ -n "\$HEAD_BEFORE" ] && [ "\$HEAD_BEFORE" != "\$HEAD_AFTER" ]; then
+  echo "Fresh coat on: the tavern is now at \$TAVERN_VER."
   echo "A new coat is on — if the tavern looks the same, pull the page down once to reload."
+  echo "Still the same? Close every tab of the tavern, then open it again."
+else
+  echo "Already on \$TAVERN_VER — the tavern is current."
 fi
 
 # Light the lamps — unless they're already lit on the port.

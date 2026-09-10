@@ -122,7 +122,11 @@ export function buildHearth({ hasStories = false, onSeed } = {}) {
     chips.appendChild(btn);
   }
 
-  hearth.append(mark, greeting, chips);
+  const coat = document.createElement('p');
+  coat.className = 'hearth-coat lbl';
+  coat.textContent = 'the shelves · ' + VERSION;
+
+  hearth.append(mark, greeting, chips, coat);
   if (hasStories) {
     const pickup = document.createElement('p');
     pickup.className = 'hearth-pickup quiet';

@@ -824,3 +824,15 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   without ellipsis; chip tap lands The workers at top with ember-flash;
   18 chips == 18 sections; desktop single-row unchanged; 0 page errors.
   Evidence: /mnt/agents/output/qa-m18-*.png. version.js -> m18-001.
+
+---
+
+# M19 — the launch report (the cozy-chat lesson)
+- install.sh + the cozytavern command now report the running version every launch:
+  "Already on mNN-NNN — the tavern is current." / "Fresh coat on: the tavern is now at mNN-NNN."
+  (the pattern the user loves from Cozy Chat's "Already on 5.24.3"). Bridge lines kept for
+  stale shells: pull-to-reload once; still same → close every tab of the tavern and reopen.
+- serve.py prints the version alongside the address. The hearth shows "the shelves · mNN-NNN"
+  (visible on the home screen, phone included — sidebar colophon alone wasn't enough).
+- Harness: two heredoc/case traps fixed in findability.mjs (delimiter is a line of its own;
+  case-insensitive copy checks). version.js -> m19-001.
