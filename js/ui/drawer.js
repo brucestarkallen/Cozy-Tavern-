@@ -20,7 +20,7 @@
  */
 
 import { loadState, saveState, subscribe, notify } from '../engine/state.js';
-import { applyMutations, undoLast, MODE_WORDS } from '../engine/apply.js';
+import { applyMutations, undoLast, undoEntry, MODE_WORDS } from '../engine/apply.js';
 import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
@@ -573,27 +573,30 @@ function logPanel(ctx) {
       note.textContent = 'Nothing has changed hands yet. When the story moves, it will be written down here, in plain words.';
       return;
     }
-    note.textContent = 'Newest first. The last change that still stands can be taken back.';
-    const newestFirst = log.slice(-12).reverse();
-    /* Only the newest entry that still stands is undoable (undoLast). */
-    const newestUndoable = log.length - 1 - [...log].reverse().findIndex((e) => e && !e.undone && e.undo);
-    for (const entry of newestFirst) {
+    note.textContent = 'Newest first. Any change that still stands can be taken back — unless a later change touched the same thing.';
+    const shown = log.slice(-40).reverse();
+    for (const entry of shown) {
+      const idx = log.indexOf(entry);
       const li = document.createElement('li');
       li.className = 'log-row' + (entry.undone ? ' undone' : '');
       const words = document.createElement('span');
       words.textContent = entry.words + (entry.undone ? ' (taken back)' : '');
       li.appendChild(words);
-      if (!entry.undone && entry.undo && log.indexOf(entry) === newestUndoable) {
+      if (!entry.undone && entry.undo) {
+        /* M49: every standing entry offers its own take-back */
         const undoBtn = document.createElement('button');
         undoBtn.type = 'button';
         undoBtn.className = 'text-btn';
         undoBtn.textContent = 'Take it back';
         undoBtn.addEventListener('click', async () => {
           const fresh = await loadState(story.id);
-          const result = undoLast(fresh);
-          if (result) {
+          const at = fresh.log.findIndex((e) => e && e.ts === entry.ts && e.words === entry.words && !e.undone);
+          const result = at === -1 ? null : undoEntry(fresh, at);
+          if (result && result.state) {
             await saveState(story.id, result.state);
             notify(story.id);
+          } else if (result && result.refused && ctx.toast) {
+            ctx.toast('Not taken back — ' + result.refused);
           }
           render();
         });

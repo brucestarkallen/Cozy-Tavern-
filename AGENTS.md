@@ -1508,3 +1508,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   named in the brief or the cast notes; the refusal is on the workers' line. Raising is never
   blocked. Recovery for a standing already zeroed: "Take it back" in What changed and why.
 - Harness: m48.mjs. 280/280 + 20/20. version.js -> m48-001.
+
+---
+
+# M49 — the writer's digits are read in code; any entry can be taken back
+- FIELD REPORT: "the auditor still doesn't put Aurora's P:R:S back — the cast notes literally say
+  (P:65 R:30 S:5)". Digits in the brief or cast notes are no longer left to a model's reading.
+  founder.js explicitStandings(text): one per line — the name is the line's head (before " — "
+  or ":"), the numbers the first P/R/S triple. The founder applies them in code (rel.set, cause
+  "the brief states (P:.. R:.. S:..)"); the auditor restores any that are MISSING or all-zero in
+  the ledger, every audit, in code — and never touches one the pages have moved.
+- FIELD REPORT: "why can't I undo a specific entry in What changed instead of the last one?"
+  apply.js undoEntry(state, index): takes back ONE entry anywhere in the log, refusing with a
+  reason when a later standing entry touched the same thing (undoTarget: kind + name); the
+  reversal (applyUndo) is shared with undoLast. The drawer offers "Take it back" on every
+  standing entry (last 40 shown) and toasts a refusal's reason.
+- Harness: m49.mjs (3 checks). 283/283 + 20/20. version.js -> m49-001.

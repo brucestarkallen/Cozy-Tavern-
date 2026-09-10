@@ -761,12 +761,44 @@ export function applyMutations(state, mutations) {
  * {state, words} — words a plain sentence about the reversal — or null when
  * there's nothing left to undo. The reversal itself is written into the log
  * (marked already-undone, so undoLast walks past it). */
-export function undoLast(state) {
+/* M49: what an undo payload touches — one word for the kind, one for the
+ * target — so a later change to the same thing can be seen. */
+export function undoTarget(undo) {
+  if (!undo || typeof undo !== 'object') return '';
+  const k = String(undo.kind || '');
+  if (k === 'mode' || k === 'mode.restore') return 'mode';
+  if (k === 'mc.restore') return 'mc';
+  if (k === 'place') return 'place';
+  if (k === 'clock') return 'clock';
+  if (k === 'threads.restore') return 'threads';
+  if (k === 'combat.restore') return 'combat';
+  const name = String(undo.name || (undo.before && undo.before.name) || '').trim().toLowerCase();
+  return k.replace(/\.restore$/, '') + ':' + name;
+}
+
+/* M49: take back ONE entry, anywhere in the log — refused when a later
+ * standing entry touched the same thing (take those back first). Returns
+ * {state, words} | {refused: why} | null. */
+export function undoEntry(state, index) {
   const next = copyState(state);
-  for (let i = next.log.length - 1; i >= 0; i -= 1) {
-    const entry = next.log[i];
-    if (!entry || entry.undone || !entry.undo) continue;
-    const undo = entry.undo;
+  const entry = next.log[index];
+  if (!entry || entry.undone || !entry.undo) return null;
+  const target = undoTarget(entry.undo);
+  for (let j = index + 1; j < next.log.length; j += 1) {
+    const later = next.log[j];
+    if (!later || later.undone || !later.undo) continue;
+    if (undoTarget(later.undo) === target) return { refused: 'a later change touched the same thing — take that one back first: ' + later.words };
+  }
+  const applied = applyUndo(next, entry.undo);
+  if (!applied) return { refused: 'the world moved on; that change cannot be walked back' };
+  next.log[index] = { ...entry, undone: true };
+  appendLog(next, 'Taken back — ' + entry.words, null);
+  return { state: next, words: 'Taken back — ' + entry.words };
+}
+
+/* The reversal of one payload against a copy of the state. Shared by
+ * undoLast and undoEntry. Returns true when it could be applied. */
+function applyUndo(next, undo) {
     let ok = false;
 
     if (undo.kind === 'mode.restore') {
@@ -849,10 +881,16 @@ export function undoLast(state) {
       ok = true;
     }
 
-    if (!ok) continue; // the world moved on; look further back
+    return ok;
+}
+
+export function undoLast(state) {
+  const next = copyState(state);
+  for (let i = next.log.length - 1; i >= 0; i -= 1) {
+    const entry = next.log[i];
+    if (!entry || entry.undone || !entry.undo) continue;
+    if (!applyUndo(next, entry.undo)) continue; // the world moved on; look further back
     next.log[i] = { ...entry, undone: true };
-    /* The reversal is written down too — carrying no undo payload of its
-     * own, so undoLast walks naturally past it. */
     appendLog(next, 'Taken back — ' + entry.words, null);
     return { state: next, words: 'Taken back — ' + entry.words };
   }

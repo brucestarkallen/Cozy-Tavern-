@@ -88,6 +88,23 @@ function law({ mc }) {
 
 const FENCE = '"""';
 
+/* M49: standings the writer states in digits — "Aurora … (P:65 R:30 S:5)" —
+ * are read in CODE, never left to a model's reading. One per line: the
+ * name is the line's head (before " — " or ":"), the numbers the first
+ * P/R/S triple on that line. Exported for the auditor and the harness. */
+export function explicitStandings(text) {
+  const out = [];
+  for (const raw of String(text || '').split('\n')) {
+    const m = raw.match(/P\s*:\s*([+-]?\d+)\s*[,\/|]?\s*R\s*:\s*([+-]?\d+)\s*[,\/|]?\s*S\s*:\s*([+-]?\d+)/i);
+    if (!m) continue;
+    const head = raw.split(/\s+[—–-]\s+|:/)[0].replace(/^[\s\-*•]+/, '').trim();
+    if (!head || head.length > 60 || /^P\s*$/i.test(head)) continue;
+    const clamp = (v) => Math.max(-100, Math.min(100, Number(v)));
+    out.push({ name: head, p: clamp(m[1]), r: clamp(m[2]), s: clamp(m[3]) });
+  }
+  return out;
+}
+
 export function founderFingerprint({ brief = '', castNotes = '', cast = [], lore = [] } = {}) {
   const parts = [
     String(brief || ''), String(castNotes || ''),
@@ -185,6 +202,14 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
       if (!namesMc) { refusedByLock.push({ mutation: m, why: 'a standing is toward the main character only — this cause does not name ' + (mcKnown || 'the main character') + '; the feeling belongs in the page as words' }); continue; }
     }
     guarded.push(m);
+  }
+  /* M49: the writer's digits, applied in code — a rel.set per explicit
+   * standing, whether or not the model wrote one */
+  const stated = explicitStandings(String(brief || '') + '\n' + String(castNotes || ''));
+  const named = new Set(guarded.filter((m) => m.type === 'rel.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));
+  for (const st of stated) {
+    if (named.has(st.name.toLowerCase())) continue;
+    guarded.push({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mcKnown || 'the main character') });
   }
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...refusedByLock];

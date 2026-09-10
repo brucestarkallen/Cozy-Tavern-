@@ -29,6 +29,7 @@ import { renderOffscreen } from '../engine/offscreen.js';
 import { renderCanon } from '../engine/canon.js';
 import { renderThreads, renderKnowledge, renderFactions } from '../engine/world.js';
 import { mcName } from '../engine/duels.js';
+import { explicitStandings } from './founder.js'; /* M49: the writer's digits, restored in code */
 import { loadMemory, recordFor } from './memory.js';
 import { pageText } from '../assemble/stack.js';
 
@@ -244,6 +245,17 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       }
     }
     guarded.push(m);
+  }
+  /* M49: a standing the writer states in digits that is missing or all
+   * zero in the ledger is restored in code, every audit, no judgment */
+  const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : 'the main character';
+  for (const st of explicitStandings(String(brief || '') + '\n' + String(castNotes || ''))) {
+    const key = Object.keys(fresh.relationships || {}).find((k) => k.trim().toLowerCase() === st.name.toLowerCase());
+    const rel = key ? fresh.relationships[key] : null;
+    const zeroed = !rel || (!(rel.p || 0) && !(rel.r || 0) && !(rel.s || 0));
+    if (zeroed && (st.p || st.r || st.s)) {
+      guarded.push({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + mcKnown + ' — restored' });
+    }
   }
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...keptStandings];
