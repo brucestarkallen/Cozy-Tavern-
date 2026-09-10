@@ -28,11 +28,19 @@ const WORLD = JSON.stringify({ mutations: [
 ], brief: { pressure: ['Kim could reach the restaurant in about forty minutes'], ripe: [], twb: null } });
 
 /* the workers answer by what they were asked */
+house.state.mend = false;
 house.state.workerAnswer = (body, sys) => {
+  const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+  if (/mend a story/i.test(sys) || /<contradiction>/.test(user)) {
+    /* the mender: change the one word, keep the page */
+    const blocks = [...user.matchAll(/\[(\d+)\] \((STORY|PLAYER)\) ([\s\S]*?)(?=\n\n\[\d+\] \(|\n<\/passage>)/g)];
+    const hit = blocks.find((b) => b[2] === 'STORY' && /Kim/.test(b[3]));
+    return hit ? JSON.stringify([{ index: Number(hit[1]), text: hit[3].replace('Kim', 'Kris') }]) : '[]';
+  }
   if (/keep the ledger/i.test(sys)) return FOUNDING;
   if (/world beyond the page/i.test(sys)) return WORLD;
   if (/character scribe/i.test(sys)) return '{"deltas":[]}';
-  if (/second reader/i.test(sys)) return '{"findings":[]}';
+  if (/continuity reader/i.test(sys)) return house.state.mend ? '{"findings":[{"words":"Kim is written as the mother; the record says Kris.","severity":"warn","fix":"Kris is the mother"}]}' : '{"findings":[]}';
   return '{"mutations":[],"deltas":[],"findings":[]}';
 };
 
@@ -298,6 +306,26 @@ test('DOM-14 a refused house is said out loud, the words are kept, and the next 
   if (retry) click(retry); else { type(q('#composer-input'), 'Again.'); submit(q('#composer')); }
   await until(() => assistantPages().length >= answers + 1, 'an answer after the refusal', 10000);
   await settled();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-14b the second reader mends a drifted page by the smallest edit, and the chip takes it back', async () => {
+  const before = errors.length;
+  house.state.mend = true;
+  house.state.storyAnswer = () => 'Liara looked at Kim, who was not her mother.\n\nThe booth was quiet.';
+  type(q('#composer-input'), 'What will your mother think?');
+  submit(q('#composer'));
+  await until(() => assistantPages().length >= 1 && /Kim/.test(bodyText(assistantPages()[assistantPages().length - 1])), 'the drifted answer', 10000);
+  await settled();
+  const sid = await storyId();
+  const page = await until(async () => (await db.messages.list(sid)).find((m) => m.mended && /Kris/.test(m.text)), 'the mend to land', 15000);
+  assert(/Kris, who was not her mother/.test(page.text) && /The booth was quiet\./.test(page.text), 'one word changed, the page kept: ' + page.text);
+  eq(page.mended.before, 'Liara looked at Kim, who was not her mother.\n\nThe booth was quiet.');
+  const chip = await until(() => q(`.msg[data-id="${page.id}"] .msg-act.mended`), 'the mended chip');
+  click(chip);
+  await until(async () => { const m = (await db.messages.list(sid)).find((x) => x.id === page.id); return m && !m.mended && /Kim/.test(m.text); }, 'the earlier words back');
+  house.state.mend = false;
+  house.state.storyAnswer = null;
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

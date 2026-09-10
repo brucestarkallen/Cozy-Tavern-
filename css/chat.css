@@ -1014,3 +1014,7 @@ body.read-only .send-btn { opacity: 0.4; }
 .figure-veil { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.82);
   display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
 .figure-veil img { max-width: 94vw; max-height: 92vh; border-radius: var(--r); }
+
+/* M35 — a mended page says so, and offers the earlier words back */
+.msg-act.mended { display: inline-block; margin-top: 6px; font-size: 0.78rem; color: var(--text-2); border: 1px dashed var(--ember-dim); border-radius: 999px; padding: 2px 10px; background: transparent; }
+.msg-act.mended:hover { color: var(--ember); border-color: var(--ember); }

@@ -319,6 +319,124 @@ export function parseAuditAnswer(raw) {
   }
 }
 
+/* ---------- M35: the verifier (Summaryception's continuity auditor, ported) ----------
+ * After a line is written, it is checked against its passage and the record:
+ * DRIFT — the line misrepresents a correct passage → the line is rewritten;
+ * CONTINUITY — the passage itself contradicts the record → the caller is told
+ * (chat.js mends the page by the smallest edit when the reader may). */
+
+export const VERIFY_USER = [
+  '<player_name>{{player_name}}</player_name>',
+  '<record>{{context_str}}</record>',
+  '<passage>{{story_txt}}</passage>',
+  '<snippet>{{snippet}}</snippet>',
+  '',
+  '<snippet> is the compact memory line recorded for <passage>. <record> is what the story has already established elsewhere.',
+  '',
+  'Check for exactly two things:',
+  '1) DRIFT — does <snippet> distort, misattribute, or omit something materially important that IS in <passage>?',
+  '2) CONTINUITY — does anything in <passage> or <snippet> CONTRADICT <record> — wrong location/presence, knowledge a character could not have, broken timeline, inconsistent relationship/stat, confused identity?',
+  '',
+  'Flag ONLY genuine problems, grounded in the text. Ignore style, pacing, and trivial detail. Do not invent.',
+  '',
+  'For each problem set "where": "snippet" if the SNIPPET is the wrong one (it misrepresents a correct <passage> — fixable by rewriting the snippet), or "source" if <passage> itself is wrong (it contradicts <record> and the snippet only repeats it — needs a page edit, not a snippet rewrite).',
+  '',
+  'If all consistent, output exactly:',
+  'NONE',
+  '',
+  'Otherwise output ONLY a JSON array, e.g.:',
+  '[{"issue":"Snippet says Alexia boarded the train, but the passage says she stayed at the academy","fix":"Alexia stayed at the academy; she did not board the train","kind":"drift","where":"snippet"},{"issue":"The passage itself puts Alexia on the train, but the record establishes she is at the academy and never left","fix":"Alexia is at the academy, not on the train","kind":"continuity","where":"source"}]',
+].join('\n');
+
+export const REWRITE_USER = [
+  '<snippet>{{snippet}}</snippet>',
+  '<correction>{{story_txt}}</correction>',
+  '<record>{{context_str}}</record>',
+  '',
+  'Rewrite <snippet> so it is consistent with <correction>, changing only what is needed and keeping everything else intact. Output only the corrected snippet text.',
+].join('\n');
+
+export function buildVerifyMessages({ playerName, record, passage, snippet }) {
+  return {
+    system: withFictionFrame(subst(SUMMARIZER_SYSTEM, { player_name: playerName })),
+    user: subst(VERIFY_USER, { player_name: playerName, context_str: record || '(nothing recorded yet)', story_txt: passage, snippet }),
+  };
+}
+
+export function buildRewriteMessages({ playerName, record, snippet, correction }) {
+  return {
+    system: withFictionFrame(subst(SUMMARIZER_SYSTEM, { player_name: playerName })),
+    user: subst(REWRITE_USER, { context_str: record || '(nothing recorded yet)', story_txt: correction, snippet }),
+  };
+}
+
+/* NONE → []; else the issues, kept only when they carry an issue and a where. */
+export function parseVerifyAnswer(raw) {
+  try {
+    let text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '').trim();
+    if (!text || /^none\b/i.test(text)) return [];
+    const start = text.indexOf('[');
+    if (start === -1) return [];
+    let depth = 0; let inStr = false; let esc = false; let end = -1;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true;
+      else if (ch === '[') depth += 1;
+      else if (ch === ']') { depth -= 1; if (depth === 0) { end = i; break; } }
+    }
+    if (end === -1) return [];
+    const list = JSON.parse(text.slice(start, end + 1));
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((e) => e && typeof e === 'object' && typeof e.issue === 'string' && e.issue.trim())
+      .map((e) => ({
+        issue: e.issue.trim().slice(0, 300),
+        fix: typeof e.fix === 'string' ? e.fix.trim().slice(0, 300) : '',
+        kind: e.kind === 'continuity' ? 'continuity' : 'drift',
+        where: e.where === 'source' ? 'source' : 'snippet',
+      }))
+      .slice(0, 6);
+  } catch (err) {
+    return [];
+  }
+}
+
+async function verify(connection, storyId, node, passage, record, playerName, signal, onSourceIssue) {
+  try {
+    const raw = await callKeeper(connection, buildVerifyMessages({ playerName, record, passage, snippet: node.text }), signal);
+    const issues = parseVerifyAnswer(raw);
+    if (!issues.length) return { rewritten: false, sourceIssues: [] };
+    const snippetIssues = issues.filter((i) => i.where === 'snippet');
+    const sourceIssues = issues.filter((i) => i.where === 'source');
+    let rewritten = false;
+    if (snippetIssues.length) {
+      const correction = snippetIssues.map((i) => i.fix || i.issue).join('; ');
+      const fixedRaw = await callKeeper(connection, buildRewriteMessages({ playerName, record, snippet: node.text, correction }), signal);
+      const fixed = parseMemoryAnswer(fixedRaw);
+      if (fixed && fixed !== '(no new state)' && fixed !== node.text) {
+        const current = await loadMemory(storyId);
+        const standing = current.nodes.find((n) => n && n.id === node.id);
+        if (standing && standing.text === node.text) {
+          standing.text = fixed;
+          standing.verified = { at: Date.now(), fixed: correction };
+          await saveMemory(storyId, current);
+          node.text = fixed;
+          rewritten = true;
+        }
+      }
+    }
+    if (sourceIssues.length && typeof onSourceIssue === 'function') {
+      for (const issue of sourceIssues) {
+        try { await onSourceIssue({ issue: issue.issue, fix: issue.fix, span: node.span }); } catch (err) { /* the mend is the caller's; a stumble there is theirs to say */ }
+      }
+    }
+    return { rewritten, sourceIssues };
+  } catch (err) {
+    return { rewritten: false, sourceIssues: [] };
+  }
+}
+
 /* The discard-if-moved guard (M12). Exported for the harness. */
 export function nodeSignature(node) {
   if (!node || typeof node !== 'object') return '';
@@ -378,7 +496,7 @@ async function audit(connection, storyId, node, sourceText, signal) {
 
 /* Write the lines that are due, then promote any layer that has grown past
  * its size. Returns the memory when something changed, else null. */
-export async function maybeSummarize({ connection, storyId, signal } = {}) {
+export async function maybeSummarize({ connection, storyId, signal, onSourceIssue } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   const keeperOn = await db.settings.get('memoryKeeper');
@@ -409,7 +527,12 @@ export async function maybeSummarize({ connection, storyId, signal } = {}) {
     mem.nodes.push(node);
     changed = true;
     await saveMemory(storyId, mem);
-    if (!node.empty) await audit(connection, storyId, node, passageOf(pages, playerName), signal);
+    if (!node.empty) {
+      const passage = passageOf(pages, playerName);
+      const recordBefore = recordFor({ nodes: mem.nodes.filter((n) => n.id !== node.id) });
+      await verify(connection, storyId, node, passage, recordBefore, playerName, signal, onSourceIssue);
+      await audit(connection, storyId, node, passage, signal);
+    }
     mem = await loadMemory(storyId);
     mem.window = window;
   }

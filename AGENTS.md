@@ -1197,3 +1197,36 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Harness: m34.mjs (7 checks incl. end-to-end lines/coverage/promotion through the mock house);
   finishing.mjs's M12 auditor test rewritten to the ledger law; the dom walk's DOM-12 reads the
   pack's card. 236/236 + 16/16. version.js -> m34-001. sw.js gains regex-styles.js.
+
+---
+
+# M35 — the record is verified and mended (Summaryception's auditor, ported); relations and the real record
+- FIELD REPORTS: "make sure fully autonomous, no continuity issues" (→ the auditor that FIXES, not
+  just flags); "my MC said 'what will your mother think' to Kendall and the agent didn't put the
+  mother on the ledger; if it's a real person, use the real source".
+- agents/memory.js: after every level-1 line, the VERIFIER runs Summaryception's audit prompt
+  (VERIFY_USER: <record>/<passage>/<snippet>; DRIFT vs CONTINUITY; where: snippet|source). A
+  snippet issue rewrites the line in place (REWRITE_USER; node.verified = {at, fixed}); a source
+  issue is handed to the caller's onSourceIssue({issue, fix, span}). Exported: buildVerifyMessages,
+  buildRewriteMessages, parseVerifyAnswer.
+- agents/continuity.js: findings on a warn now carry `fix` (how the page should read). New: the
+  MEND — buildMendMessages/parseMendAnswer/mendPages: Summaryception's source-edit law ("edit the
+  fewest STORY pages by the smallest amount; never a PLAYER page; [] if no safe edit"). A change
+  larger than half the page (by length or by lines, editDistanceRatio) is refused as a rewrite.
+- ui/chat.js: mendAround(story, connection, pageIds, contradiction) — the drifted page and up to
+  five before it, the record as canon; applyMend writes {text, mended:{before, why, at}} (swipes
+  in step) and re-inks; the page shows a chip "mended by the second reader — take it back"
+  (act 'unmend' → the earlier words return). The keeper hands verifier source issues to it; the
+  second reader mends on any warn with a fix. The second reader is ON by default now
+  (continuityCheck !== false); mendPages (default on) switches the mending.
+- world agent law: a person referred to by RELATION ("your mother" said to Kendall, "his manager")
+  exists from that line on; THE REAL RECORD — a real person's or canon character's relations and
+  core come from the real record (Kendall Jenner's mother is Kris Jenner), never invented or
+  renamed; invent only where the record is silent. The scribe writes real people from the record.
+- Harness: m35.mjs (5 checks); the dom walk gains DOM-14b (a drifted page mended by one word
+  through the real UI, the chip takes it back) and its mock house knows the mender's voice.
+  241/241 + 17/17. version.js -> m35-001.
+- STILL OPEN: the craft core (M36) — distilling the ~90k-char imported craft into a ~12k-token
+  core that binds the storyteller to the ledger, the record and the world's word. That is the
+  last structural piece of "no continuity issues": the workers now keep the truth; the
+  storyteller's own rules must tell it to obey the truth it is handed.

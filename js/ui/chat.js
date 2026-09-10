@@ -53,7 +53,9 @@ import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory } from '../agents/memory.js';
-import { checkTurn } from '../agents/continuity.js';
+import { checkTurn, mendPages } from '../agents/continuity.js';
+import { recordFor } from '../agents/memory.js'; /* M35: the record as the mender's canon */
+import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { renderWorldBrief } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
@@ -1014,6 +1016,16 @@ export function initChat(ctx) {
     if (msg.role === 'assistant' && Array.isArray(msg.sources) && msg.sources.length) {
       article.appendChild(sourcesNode(msg.sources));
     }
+    if (msg.mended && msg.mended.before) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'msg-act mended';
+      chip.dataset.act = 'unmend';
+      chip.dataset.id = msg.id;
+      chip.title = msg.mended.why || '';
+      chip.textContent = 'mended by the second reader — take it back';
+      article.appendChild(chip);
+    }
     if (msg.stopped) {
       const stopped = document.createElement('div');
       stopped.className = 'msg-stopped lbl';
@@ -1302,6 +1314,70 @@ export function initChat(ctx) {
     })();
   }
 
+  /* M35: the mend — the second reader (and the record's verifier) may edit
+   * a storyteller page by the smallest amount so it stops contradicting the
+   * record. The page remembers its earlier words (msg.mended) and shows a
+   * "mended — take it back" chip. Off with the setting mendPages. */
+  async function mendOn(story) {
+    if (story && story.mend === false) return false;
+    return (await db.settings.get('mendPages')) !== false;
+  }
+
+  async function applyMend(storyId, page, after, why) {
+    const before = String(page.text || '');
+    const patch = { text: after, mended: { before, why: String(why || '').slice(0, 300), at: Date.now() } };
+    if (Array.isArray(page.swipes) && page.swipes.length) {
+      const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
+      const swipes = page.swipes.slice();
+      swipes[idx] = { ...swipes[idx], text: after };
+      patch.swipes = swipes;
+    }
+    await db.messages.update(storyId, page.id, patch);
+    await rerenderMessage(storyId, page.id);
+  }
+
+  async function mendAround(story, connection, pageIds, contradiction, signal) {
+    if (!(await mendOn(story))) return [];
+    const all = await db.messages.list(story.id);
+    const wanted = new Set(pageIds);
+    const last = Math.max(...all.map((m, i) => (wanted.has(m.id) ? i : -1)));
+    if (last === -1) return [];
+    const pages = all.slice(Math.max(0, last - 5), last + 1).filter((m) => !m.hidden);
+    const mem = await loadMemory(story.id);
+    const state = await loadState(story.id);
+    const playerName = mcName(state) !== 'the player' ? mcName(state) : 'the player';
+    const changed = await mendPages({
+      connection,
+      storyId: story.id,
+      pages,
+      contradiction,
+      record: recordFor(mem),
+      playerName,
+      signal,
+      apply: (page, after, why) => applyMend(story.id, page, after, why),
+    });
+    if (changed.length) toast(`The second reader mended ${changed.length} ${changed.length === 1 ? 'page' : 'pages'} — the earlier words are a tap away.`);
+    return changed;
+  }
+
+  async function unmend(messageId) {
+    const story = await activeStory();
+    if (!story) return;
+    const all = await db.messages.list(story.id);
+    const page = all.find((m) => m.id === messageId);
+    if (!page || !page.mended) return;
+    const patch = { text: page.mended.before, mended: null };
+    if (Array.isArray(page.swipes) && page.swipes.length) {
+      const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
+      const swipes = page.swipes.slice();
+      swipes[idx] = { ...swipes[idx], text: page.mended.before };
+      patch.swipes = swipes;
+    }
+    await db.messages.update(story.id, page.id, patch);
+    await rerenderMessage(story.id, page.id);
+    toast('The earlier words are back.');
+  }
+
   /* M3/M6/M12: once a page is finished, the workers read it — never awaited
    * by the turn that fired them. M12 routes every link through the workers'
    * channel (agents/queue.js): jobs run SEQUENTIALLY in queue order — the
@@ -1458,7 +1534,17 @@ export function initChat(ctx) {
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
       const beforeCount = (await loadMemory(story.id)).nodes.length;
-      const mem = await maybeSummarize({ connection, storyId: story.id, signal });
+      const mem = await maybeSummarize({
+        connection,
+        storyId: story.id,
+        signal,
+        /* M35: a line's passage contradicts the record → mend those pages */
+        onSourceIssue: async ({ issue, fix, span }) => {
+          const all = await db.messages.list(story.id);
+          const ids = all.slice(span[0], span[1] + 1).map((m) => m.id);
+          await mendAround(story, connection, ids, issue + (fix ? '. It should read: ' + fix : ''), signal);
+        },
+      });
       if (!mem) return { silent: false, detail: 'nothing due yet' };
       const lines = mem.nodes.filter((n) => !n.empty).length;
       const added = mem.nodes.length - beforeCount;
@@ -1469,9 +1555,11 @@ export function initChat(ctx) {
      * the ledgers, stored on the same message. M9 (B12): its own per-story
      * switch too. It never touches the words. */
     enqueue('continuity', async ({ signal, stale }) => {
+      /* M35: the second reader is ON by default now — the writer asked for
+       * no continuity issues, and a reader that only speaks when asked
+       * cannot keep that promise. */
       const on = story.continuity === true
-        ? true
-        : story.continuity === false ? false : Boolean(await db.settings.get('continuityCheck'));
+        || (story.continuity !== false && (await db.settings.get('continuityCheck')) !== false);
       if (!on) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'continuity');
       if (!connection) return { silent: true };
@@ -1488,7 +1576,15 @@ export function initChat(ctx) {
       if (!(await stillThere(story.id, msg.id))) return { silent: true };
       await reink(story.id, msg.id, { findings: list });
       notify(story.id); // the drawer's "Something drifted" listens
-      return { silent: false };
+      /* M35: a warn that carries a fix mends the page by the smallest edit */
+      const fixes = list.filter((f) => f.severity === 'warn' && f.fix);
+      let mended = 0;
+      if (fixes.length) {
+        const contradiction = fixes.map((f) => f.words + ' It should read: ' + f.fix).join(' ');
+        const changed = await mendAround(story, connection, [msg.id], contradiction, signal);
+        mended = changed.length;
+      }
+      return { silent: false, detail: `${list.length} ${list.length === 1 ? 'finding' : 'findings'}` + (mended ? `, mended ${mended} ${mended === 1 ? 'page' : 'pages'}` : '') };
     });
 
     /* 5. The sheet seeder (M11): on the first turns and after a fight lets
@@ -2596,6 +2692,8 @@ export function initChat(ctx) {
       swipeTo(id, 1);
     } else if (act === 'branch') {
       branchFrom(id);
+    } else if (act === 'unmend') {
+      unmend(id);
     } else if (act === 'try again') {
       /* M33: the row's "try again" was never routed here — only the
        * long-press menu knew the word. A button that renders is a button

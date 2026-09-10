@@ -137,6 +137,7 @@ export function initSettings(ctx) {
     memoryBatchValue: document.getElementById('memory-batch-value'),
     memoryWindowValue: document.getElementById('memory-window-value'),
     continuityCheck: document.getElementById('continuity-check'),
+    mendPages: document.getElementById('mend-pages'),
     worldAgent: document.getElementById('world-agent'),
     worldEffort: document.getElementById('world-effort'),
     refereeOn: document.getElementById('referee-on'),
@@ -1040,7 +1041,9 @@ export function initSettings(ctx) {
     const window = cleanWindow(await db.settings.get('memoryWindow'));
     els.memoryWindow.value = String(window);
     els.memoryWindowValue.textContent = String(window);
-    els.continuityCheck.checked = Boolean(await db.settings.get('continuityCheck'));
+    /* M35: the second reader is on by default, and may mend */
+    els.continuityCheck.checked = (await db.settings.get('continuityCheck')) !== false;
+    els.mendPages.checked = (await db.settings.get('mendPages')) !== false;
     /* M34: the record's pace */
     const batch = cleanBatch(await db.settings.get('memoryBatch'));
     els.memoryBatch.value = String(batch);
@@ -1078,6 +1081,9 @@ export function initSettings(ctx) {
 
   els.continuityCheck.addEventListener('change', async () => {
     await db.settings.set('continuityCheck', els.continuityCheck.checked);
+  });
+  els.mendPages.addEventListener('change', async () => {
+    await db.settings.set('mendPages', els.mendPages.checked);
   });
 
   /* ---------- the referee's dials (M11) ----------

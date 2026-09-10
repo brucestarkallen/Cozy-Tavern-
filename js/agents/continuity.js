@@ -41,11 +41,13 @@ const SYSTEM_PROMPT = [
   'scene — and note where the page disagrees with them.',
   '',
   'Answer with JSON ONLY, in exactly this shape:',
-  '{"findings":[{"words":"Mara’s hair is written blonde here, but it is locked black.","severity":"warn"}]}',
+  '{"findings":[{"words":"Mara’s hair is written blonde here, but it is locked black.","severity":"warn","fix":"Mara’s hair is black"}]}',
   '',
   'severity is "warn" when the page plainly contradicts something written down,',
   'and "note" when it merely sits awkwardly beside it. The words are one plain',
-  'sentence each, naming both what the page says and what the ledger says.',
+  'sentence each, naming both what the page says and what the ledger says. `fix`',
+  'is how the page should read instead, in a short plain phrase — the truth from',
+  'the ledger, never a rewrite of the scene — and only on a warn.',
   '',
   'Be conservative. Drift means disagreement with what is written down — not a',
   'surprise, not a choice you wouldn’t have made. People change clothes, moods,',
@@ -103,10 +105,13 @@ export function parseContinuityAnswer(raw) {
     for (const item of list) {
       const words = cleanWords(item && item.words);
       if (!words) continue;
-      findings.push({
+      const finding = {
         words,
         severity: item && item.severity === 'warn' ? 'warn' : 'note',
-      });
+      };
+      const fix = cleanWords(item && item.fix);
+      if (fix && finding.severity === 'warn') finding.fix = fix;
+      findings.push(finding);
       if (findings.length >= FINDINGS_CAP) break;
     }
     return { findings };
@@ -132,4 +137,96 @@ export async function checkTurn({ connection, state, assistantText, signal } = {
     signal,
   });
   return parseContinuityAnswer(text);
+}
+
+
+/* ---------- M35: the mend — the smallest edit that ends a contradiction ----------
+ * Summaryception's law, ported: when a page contradicts the record, edit the
+ * fewest storyteller pages by the smallest amount so it no longer does. Never
+ * the writer's own pages. Keep each page's style, length, formatting and all
+ * unrelated words. If no safe minimal edit exists, edit nothing. */
+
+const MEND_SYSTEM = 'You mend a story\'s pages so they stop contradicting what is established. You edit the fewest storyteller pages by the smallest amount, keep every page\'s style, length, formatting and unrelated words exactly, and never touch the player\'s pages. Output only the JSON array asked for.';
+
+export function buildMendMessages({ record, contradiction, pages, playerName = 'the player' }) {
+  const passage = (Array.isArray(pages) ? pages : [])
+    .map((p, i) => '[' + i + '] (' + (p.role === 'assistant' ? 'STORY' : 'PLAYER') + ') ' + String(p.text || '').slice(0, 6000))
+    .join('\n\n');
+  const user = [
+    '<player_name>' + playerName + '</player_name>',
+    '<record>' + String(record || '') + '</record>',
+    '<contradiction>' + String(contradiction || '') + '</contradiction>',
+    '<passage>',
+    passage,
+    '</passage>',
+    '',
+    '<passage> is the story as written, one page per block, each prefixed with its [index] and author. <record> is established canon. <contradiction> names what in the passage contradicts the record and how it should read instead.',
+    '',
+    'Edit the fewest (STORY) pages by the smallest amount so the passage no longer contradicts the record. Keep each edited page\'s style, length, formatting, and all unrelated content. Never edit a (PLAYER) page. If a page\'s text is embedded in another page\'s quote, edit the ORIGINAL, not the quote. If no safe minimal edit exists, output [].',
+    '',
+    'Output ONLY the JSON array: [{"index":<number>,"text":"<complete corrected page text>"}]',
+  ].join('\n');
+  return { system: withFictionFrame(MEND_SYSTEM), user };
+}
+
+export function parseMendAnswer(raw) {
+  try {
+    let text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '').trim();
+    const start = text.indexOf('[');
+    if (start === -1) return [];
+    /* the first balanced array */
+    let depth = 0; let inStr = false; let esc = false; let end = -1;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true;
+      else if (ch === '[') depth += 1;
+      else if (ch === ']') { depth -= 1; if (depth === 0) { end = i; break; } }
+    }
+    if (end === -1) return [];
+    const list = JSON.parse(text.slice(start, end + 1));
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((e) => e && typeof e === 'object' && Number.isInteger(e.index) && typeof e.text === 'string' && e.text.trim())
+      .map((e) => ({ index: e.index, text: e.text }));
+  } catch (err) {
+    return [];
+  }
+}
+
+/* Mend the pages that contradict the record. `pages` are the candidate
+ * pages in order (the drifted page and a few before it); only STORY pages
+ * may change, and only by a real, small edit (a change larger than half the
+ * page is refused — that is a rewrite, not a mend). Applies the edits to the
+ * store with `mended:{before, why, at}` so the page can be taken back.
+ * Returns [{id, before, after}] for what changed. Throws on transport. */
+export async function mendPages({ connection, storyId, pages, contradiction, record, playerName, signal, apply }) {
+  if (!connection || !storyId || !Array.isArray(pages) || !pages.length || !contradiction) return [];
+  const prompt = buildMendMessages({ record, contradiction, pages, playerName });
+  const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, effort: 'off', signal });
+  const edits = parseMendAnswer(text);
+  const changed = [];
+  for (const e of edits) {
+    const page = pages[e.index];
+    if (!page || page.role !== 'assistant') continue;
+    const before = String(page.text || '');
+    const after = e.text;
+    if (after === before) continue;
+    /* a mend is small: a change larger than half the page is a rewrite */
+    const delta = Math.abs(after.length - before.length);
+    if (delta > before.length * 0.5 || editDistanceRatio(before, after) > 0.5) continue;
+    if (typeof apply === 'function') await apply(page, after, contradiction);
+    changed.push({ id: page.id, before, after });
+  }
+  return changed;
+}
+
+/* A cheap sense of how much changed: the share of lines that differ. */
+export function editDistanceRatio(a, b) {
+  const la = String(a).split('\n'); const lb = String(b).split('\n');
+  const set = new Set(la);
+  let same = 0;
+  for (const line of lb) if (set.has(line)) same += 1;
+  const total = Math.max(la.length, lb.length, 1);
+  return 1 - same / total;
 }
