@@ -133,9 +133,11 @@ export function explicitStandings(text, mc = '') {
     const m = line.match(TRIPLE);
     const hasArrow = ARROW.test(line) && !/^[\s\-*•]*[A-Za-z]/.test(line.replace(ARROW, '')) === false && /^[\s\-*•]*(?:→|->|=>)/.test(line);
     if (!m) {
-      /* a heading: short, no digits, no marker, reads like a name */
+      /* a heading: short, no digits, no marker, reads like a name — and never
+       * a label ("CORE: Warm, sociable…" is a section of the heading above,
+       * not a new owner) */
       const head = clean(line.split(/\s+[—–-]\s+|:/)[0]);
-      if (!hasArrow && head && head.length <= 40 && /^[A-Z][A-Za-z'’.\- ]*$/.test(head) && head.split(/\s+/).length <= 4) owner = head;
+      if (!hasArrow && head && !isLabel(head) && head.length <= 40 && /^[A-Z][A-Za-z'’.\- ]*$/.test(head) && head.split(/\s+/).length <= 4) owner = head;
       continue;
     }
     const clampN = (v) => Math.max(-100, Math.min(100, Number(v)));

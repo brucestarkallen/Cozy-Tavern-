@@ -103,3 +103,20 @@ test('M51 the auditor, the rebuild and the mender read the WHOLE record, not the
   const chat = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/record: wholeRecord\(mem\)/.test(chat), 'the mender too');
 });
+
+test('M57-002 the writer’s exact block: a CORE line WITHOUT digits is not a heading — Aurora owns her → Jovan line', () => {
+  const brief = `Rias Wells
+CORE: devoted older sister with a secret romantic attachment (P:85 R:65 S:45)
+
+Aurora Sterling
+CORE: Warm, sociable, quietly perceptive; trusted by classmates and firm when it matters. Forms deep, steady attachments early and holds onto them.
+→ Jovan: childhood best friend, reunion stirring she won't name (P:65 R:30 S:5)
+→ Claire Stone: close friend and the one who says what Aurora won't (P:60 R:0 S:0)`;
+  const out = explicitStandings(brief, 'Jovan');
+  eq(out.map((s) => s.name + ':' + s.p + '/' + s.r + '/' + s.s).join(' | '), 'Rias Wells:85/65/45 | Aurora Sterling:65/30/5');
+  let s = emptyState(); s.sheet.playerName = 'Jovan';
+  s = applyMutations(s, [{ type: 'rel.set', name: 'CORE', p: 85, r: 65, s: 45, cause: 'x' }, { type: 'rel.set', name: 'Aurora Sterling', p: 0, r: 0, s: 0, cause: 'the brief gives no bond' }]).state;
+  const after = applyMutations(s, standingsHousekeeping(s, brief, '', 'Jovan')).state;
+  assert(!after.relationships.CORE, 'CORE cleared');
+  eq(after.relationships['Aurora Sterling'].r, 30, 'Aurora restored from her own line');
+});
