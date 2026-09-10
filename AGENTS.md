@@ -1706,3 +1706,37 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   is verified line by line as it is written; the auditor reads the whole ledger every three
   turns); the writing-room commands (#i, #p, #br) and #opt/#cl are candidates, not gaps in
   correctness.
+
+---
+
+# M61 — Chat Assistant's fixed bugs, held against the housekeeper in one pass
+- FIELD REPORT: "you keep fixing bugs Chat Assistant already fixed." Its AGENTS.md invariants and
+  README version notes (v2.72–v2.83) were read in full and each held against the housekeeper:
+  - v2.72 SERVED WHOLE: FULL_PAGE_CAP/FETCH_PAGE_CAP were bare slices labelled "in full" — the
+    exact undetectable truncation. Now 0 (no cap); formatPage stamps "(N chars, COMPLETE — first
+    character to last)"; over-cap fetch ids are named back, never dropped.
+  - v2.76 ANCHORS ARE COPIES: every edit's find is checked at ARRIVAL with Apply's own locate;
+    a miss gets ONE [ANCHOR CHECK] round naming the target and the reason; a still-bad card is
+    staged REFUSED with the reason, never a failed Apply the writer must notice. A pending card
+    whose anchor is dead is retired by any newer proposal on the same page (retireDead) —
+    never by anchor equality.
+  - v2.80/v2.76 BLIND EDITS: the model's held-whole set is tracked (the served window + every
+    fetched page); an edit to a page seen only as an index line is fetched whole and the answer
+    asked again, once ([BLIND EDIT]).
+  - v2.82 STALE CARDS: the context now carries PENDING CARDS with ⚠ STALE where the anchor no
+    longer matches; the law says withdraw with <supersede> in the same answer.
+  - v2.77 ONE FACT, EVERY SURFACE: rippleScan — the words an edit removes (find minus the shared
+    head/tail, widened to word boundaries) are found in code on every other surface (other pages,
+    the record's lines, the pages of the people, the canon, the lore) and handed back once
+    ([RIPPLE]) for a sweep in the same run; the law ships on every request.
+  - v2.79 FETCH IS THE BLOCK: parseFetchRefs accepts only handles; a fetch in words is
+    fetchMalformed and told once with the shape.
+  - v2.78 WITHDRAW: applySupersede matches labels loosely (labelKey), returns {count, unmatched};
+    unmatched labels are named in the reply; a supersede-only reply says "Withdrew N".
+  - THE RECORD IN THE CONTEXT (Chat Assistant's [STORY MEMORY]): every line with its handle
+    (#r + id) and page span; <record>[{line, find, replace}] edits a line by the smallest change
+    (applyRecordOp, staleness on the line's hash, undo restores the whole line).
+- Harness: m61.mjs (7 checks, each a Chat Assistant bug re-proven here); housekeeper.mjs
+  supersede law updated. 307/307 + 23/23. version.js -> m61-001.
+- Not ported (features, not bugs): the four-pass deep audit with a call budget, #opt, #cl,
+  #a, #o, #i, #p, auto-name.

@@ -52,6 +52,7 @@ import { loadState, saveState, notify, renderStateFacts } from '../engine/state.
 import { applyMutations } from '../engine/apply.js';
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
 import { loadLore, saveLore } from '../import/lorebook.js'; /* M38: the housekeeper keeps the lore shelf too */
+import { loadMemory, saveMemory } from './memory.js'; /* M61: and the record */
 import { pageText } from '../assemble/stack.js';
 import { createProvider } from '../providers/index.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
@@ -65,8 +66,18 @@ const CONTEXT_PAGES_MIN = 4;
 const CONTEXT_PAGES_MAX = 40;
 const PREVIEW_CHARS = 150;
 const INDEX_CAP = 200;         // index lines served; older pages still fetchable
-const FULL_PAGE_CAP = 4000;    // chars per full page served
-const FETCH_PAGE_CAP = 8000;   // chars per fetched page
+/* M61 (Chat Assistant v2.72, ported): a page is served WHOLE, or it says
+ * it is not. The old caps cut a page at 4,000/8,000 chars with "…" while
+ * labelling it "in full" — a truncation the reader cannot detect produces
+ * confident wrong answers about where a page ends. No cap now; every
+ * served page carries its exact character count and COMPLETE. */
+export const FULL_PAGE_CAP = 0;
+export const FETCH_PAGE_CAP = 0;
+export function formatPage(msg) {
+  const speaker = msg.role === 'assistant' ? 'the storyteller' : 'the writer';
+  const text = pageText(msg);
+  return refOf(msg) + ' ' + speaker + ' wrote (' + text.length + ' chars, COMPLETE — first character to last):\n"""' + '\n' + text + '\n' + '"""';
+}
 
 /* ---------- small faithful tools ---------- */
 
@@ -444,14 +455,15 @@ export function tolerantJson(raw) {
  * strings, or bare #codes (not valid JSON), so refs are read token-wise
  * after a tolerant parse attempt. */
 function parseFetchRefs(body) {
+  const isRef = (t) => /^#?[0-9a-f]{3,12}$/i.test(t) || /^\d{1,5}$/.test(t);
   const parsed = tolerantJson(body);
   if (Array.isArray(parsed)) {
-    return parsed.map((r) => String(r).trim()).filter(Boolean);
+    return parsed.map((r) => String(r).trim()).filter((t) => t && isRef(t));
   }
   const inner = String(body || '').replace(/^\s*\[/, '').replace(/\]\s*$/, '');
   return inner.split(',')
     .map((t) => t.trim().replace(/^["']+|["']+$/g, ''))
-    .filter(Boolean);
+    .filter((t) => t && isRef(t));
 }
 
 /* <supersede>label one, label two</supersede> — commas or newlines. */
@@ -467,14 +479,17 @@ function parseLabels(body) {
  * what the panel bubble shows. Never throws. */
 export function parseProtocol(raw) {
   const source = String(raw == null ? '' : raw);
-  const out = { edits: [], ledits: [], redits: [], lore: [], fetch: [], supersede: [], text: '' };
+  const out = { edits: [], ledits: [], redits: [], lore: [], record: [], fetch: [], supersede: [], fetchMalformed: false, text: '' };
   try {
     const spans = [];
-    for (const tag of ['edits', 'ledits', 'redits', 'lore', 'fetch', 'supersede']) {
+    for (const tag of ['edits', 'ledits', 'redits', 'lore', 'record', 'fetch', 'supersede']) {
       for (const block of innerBlocks(source, tag)) {
         spans.push(block);
         if (tag === 'fetch') {
-          out.fetch.push(...parseFetchRefs(block.body));
+          const refs = parseFetchRefs(block.body);
+          /* M61 (v2.79): words instead of refs is unreadable, not "no fetch" */
+          if (!refs.length && String(block.body || '').trim()) out.fetchMalformed = true;
+          out.fetch.push(...refs);
         } else if (tag === 'supersede') {
           out.supersede.push(...parseLabels(block.body));
         } else {
@@ -548,7 +563,7 @@ export function cleanContextPages(value) {
  * the last N visible pages in full, the ledger summary, the rulebook's
  * names, and the showrunners' blocks when they have something to say. */
 export function buildHousekeeperContext({
-  story, messages, state, modules, lore, directorText, editorText, contextPages,
+  story, messages, state, modules, lore, memory, session, directorText, editorText, contextPages,
 } = {}) {
   const visible = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
   const n = cleanContextPages(contextPages);
@@ -562,12 +577,7 @@ export function buildHousekeeperContext({
     indexLines.push(messageIndexLine(visible[i], i + 1));
   }
 
-  const fullPages = visible.slice(-n).map((m) => {
-    const speaker = m.role === 'assistant' ? 'the storyteller' : 'the writer';
-    let text = pageText(m);
-    if (text.length > FULL_PAGE_CAP) text = text.slice(0, FULL_PAGE_CAP - 1).trimEnd() + '…';
-    return refOf(m) + ' ' + speaker + ' wrote, in full:\n"""' + '\n' + text + '\n' + '"""';
-  });
+  const fullPages = visible.slice(-n).map((m) => formatPage(m));
 
   const ledger = renderStateFacts(state) || 'The ledger is blank so far.';
   const rulebook = (Array.isArray(modules) ? modules : [])
@@ -586,6 +596,35 @@ export function buildHousekeeperContext({
   }
   parts.push('What the ledger says:\n' + ledger);
   parts.push('The rulebook holds: ' + (rulebook.join('; ') || 'nothing but the craft itself') + '.');
+  /* M61: the record — the memory the housekeeper keeps consistent — whole,
+   * each line with its handle (#r…) so a <record> edit can name it */
+  const recordLines = (memory && Array.isArray(memory.nodes) ? memory.nodes : [])
+    .filter((nd) => nd && Array.isArray(nd.span) && typeof nd.text === 'string' && nd.text.trim())
+    .sort((a, b) => a.span[0] - b.span[0]);
+  if (recordLines.length) {
+    parts.push('THE RECORD (the memory of the pages that left the window; oldest to newest; each line covers pages ' + '"span"' + ' — quote a line exactly to edit it with <record>):\n'
+      + recordLines.map((nd) => '[#r' + String(nd.id).slice(0, 6) + ' pages ' + (nd.span[0] + 1) + '–' + (nd.span[1] + 1) + '] ' + nd.text.trim()).join('\n'));
+  } else {
+    parts.push('THE RECORD: nothing folded yet — every page is still in the window.');
+  }
+  /* M61 (v2.82): the pending cards, with STALE marked where the anchor no
+   * longer matches — so the model can withdraw or re-anchor, never guess */
+  const pending = [];
+  for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
+    for (const pr of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
+      if (!pr || pr.status !== 'pending') continue;
+      let stale = '';
+      if (pr.kind === 'edit' && pr.op && pr.op.find && pr.op.messageId) {
+        const m = (Array.isArray(messages) ? messages : []).find((x) => x && x.id === pr.op.messageId);
+        if (!m) stale = ' ⚠ STALE — the page is gone';
+        else if (!locate(pageText(m), pr.op.find).ok) stale = ' ⚠ STALE — its anchor no longer matches (already fixed, or the text changed)';
+      }
+      pending.push('- “' + pr.label + '”' + (pr.op && pr.op.messageId ? ' on ' + refOf({ id: pr.op.messageId }) : '') + stale);
+    }
+  }
+  parts.push(pending.length
+    ? 'PENDING CARDS (staged earlier, not yet applied by the writer). A card marked STALE must be withdrawn with <supersede> or re-proposed with a fresh anchor in THIS answer; a card the writer no longer needs is withdrawn the same way — prose never removes a card:\n' + pending.join('\n')
+    : 'PENDING CARDS: none.');
   const shelf = Array.isArray(lore) ? lore : [];
   if (shelf.length) {
     parts.push('The lore shelf holds:\n' + shelf.map((e) => '- ' + (e.name || (e.keys || [])[0] || 'an unnamed entry') + ' [' + (e.keys || []).join(', ') + ']' + (e.enabled === false ? ' (off)' : '') + (e.constant ? ' (always rides)' : '') + ': ' + String(e.content || '').slice(0, 200).replace(/\s+/g, ' ')).join('\n'));
@@ -629,6 +668,10 @@ const SYSTEM_PROMPT = [
   '  Every op carries its "type". Unknown types are rejected by the ledger itself.',
   '<redits>[ ... ]</redits> — changes to a rulebook rule’s text:',
   '  {"module":"the rule’s name","find":"…","replace":"…","reason":"why"}',
+  '<record>[ ... ]</record> — changes to the record’s lines (the memory of the pages that',
+  '  left the window): {"line":"#r1a2b3c","find":"…","replace":"…","reason":"why"} — "line" is the',
+  '  handle shown with each line; find is quoted exactly from that line. Never invent an event',
+  '  into the record; repair what it says.',
   '<lore>[ ... ]</lore> — changes to the lore shelf (the entries that wake when',
   '  their keys are spoken in the latest pages):',
   '  {"add":true,"name":"Aurora","keys":["Aurora","the neighbor"],"content":"…","constant":false,"reason":"why"}',
@@ -645,6 +688,18 @@ const SYSTEM_PROMPT = [
   'clearly needs repair; say plainly when nothing needs doing. Never rewrite a',
   'page wholesale when a sentence will do. The find text must always be the',
   'story’s own words, exactly as they stand.',
+  '',
+  'ANCHORS ARE COPIES, NOT DESCRIPTIONS. A find is quoted from the full text you hold.',
+  'The one-line index shows what is roughly where and can never be quoted; if you do',
+  'not hold a page whole, <fetch> it first. Fetching is the block, not the words —',
+  'never ask the writer whether to fetch, never announce a fetch: write the block.',
+  'ONE FACT, EVERY SURFACE. A story fact lives in the pages, the record’s lines, the',
+  'pages of the people, the canon and the lore at once; correcting one and leaving the',
+  'rest manufactures a new contradiction. When you correct a fact, sweep the other',
+  'surfaces in the same answer and say what you checked.',
+  'WITHDRAW WITH THE BLOCK. When a pending card is stale, moot, or you agree with the',
+  'writer it is unneeded, name its label in <supersede> in that same answer; agreeing',
+  'in prose removes nothing.',
 ].join('\n');
 
 /* ---------- fingerprints (staleness + drift) ---------- */
@@ -721,13 +776,24 @@ function parseRange(range, visibleCount) {
 /* Turn a parsed reply into staged proposal cards, each fingerprinted
  * against its targets (the review-hash: if a target drifts after staging,
  * the card reads stale). */
-export function stageProposals(parsed, { messages, state, modules, lore } = {}) {
+export function stageProposals(parsed, { messages, state, modules, lore, memory, session } = {}) {
   const proposals = [];
   const all = Array.isArray(messages) ? messages : [];
   const visible = all.filter((m) => m && !m.hidden);
   const mods = Array.isArray(modules) ? modules : [];
   let auto = 0;
   const nextLabel = (base) => { auto += 1; return base + ' ' + auto; };
+  /* M61 (v2.76): a pending card whose anchor is dead is retired by a newer
+   * proposal for the same page — never by anchor equality */
+  const retireDead = (messageId) => {
+    for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
+      for (const pr of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
+        if (!pr || pr.status !== 'pending' || pr.kind !== 'edit' || !pr.op || pr.op.messageId !== messageId || !pr.op.find) continue;
+        const m = all.find((x) => x && x.id === messageId);
+        if (!m || !locate(pageText(m), pr.op.find).ok) { pr.status = 'superseded'; pr.words = 'Set aside — its anchor no longer matches; replaced by the newer proposal.'; }
+      }
+    }
+  };
 
   for (const op of (parsed && Array.isArray(parsed.edits) ? parsed.edits : [])) {
     if (!op || typeof op !== 'object') continue;
@@ -781,17 +847,44 @@ export function stageProposals(parsed, { messages, state, modules, lore } = {}) 
       continue;
     }
     if (typeof op.find === 'string' && op.find && typeof op.replace === 'string') {
+      /* M61 (v2.76): the anchor is checked at arrival with Apply's own matcher —
+       * a card that cannot land says so now, never as a failed Apply later */
+      const loc = locate(pageText(msg), op.find);
+      retireDead(msg.id);
       proposals.push({
         id: uid(), ts: Date.now(), kind: 'edit',
         label: typeof op.label === 'string' && op.label.trim()
           ? op.label.trim() : 're-ink ' + refOf(msg),
         reason: cleanReason(op.reason),
         op: { messageId: msg.id, find: op.find, replace: op.replace },
-        status: 'pending',
-        words: '',
-        review: [{ target: 'msg:' + msg.id, hash: messageHashOf(msg) }],
+        status: loc.ok ? 'pending' : 'refused',
+        words: loc.ok ? '' : 'its anchor does not match the page: ' + loc.reason,
+        review: loc.ok ? [{ target: 'msg:' + msg.id, hash: messageHashOf(msg) }] : [],
       });
     }
+  }
+
+  /* M61: the record's lines */
+  const nodes = memory && Array.isArray(memory.nodes) ? memory.nodes : [];
+  for (const op of (parsed && Array.isArray(parsed.record) ? parsed.record : [])) {
+    if (!op || typeof op !== 'object' || typeof op.find !== 'string' || !op.find || typeof op.replace !== 'string') continue;
+    const handle = String(op.line || '').replace(/^#?r/i, '').trim().toLowerCase();
+    let node = handle ? nodes.find((nd) => nd && String(nd.id).slice(0, 6).toLowerCase() === handle.slice(0, 6)) : null;
+    if (!node) node = nodes.find((nd) => nd && typeof nd.text === 'string' && locate(nd.text, op.find).ok) || null;
+    if (!node) {
+      proposals.push({ id: uid(), ts: Date.now(), kind: 'record', label: 'record: ' + (op.line || '?'), reason: cleanReason(op.reason), op, status: 'refused', words: 'no record line answers to “' + (op.line || op.find.slice(0, 40)) + '”', review: [] });
+      continue;
+    }
+    const loc = locate(node.text, op.find);
+    proposals.push({
+      id: uid(), ts: Date.now(), kind: 'record',
+      label: typeof op.label === 'string' && op.label.trim() ? op.label.trim() : 'record line #r' + String(node.id).slice(0, 6),
+      reason: cleanReason(op.reason),
+      op: { nodeId: node.id, find: op.find, replace: op.replace },
+      status: loc.ok ? 'pending' : 'refused',
+      words: loc.ok ? '' : 'its anchor does not match the line: ' + loc.reason,
+      review: loc.ok ? [{ target: 'record:' + node.id, hash: hashText(node.text) }] : [],
+    });
   }
 
   const ledits = parsed && Array.isArray(parsed.ledits) ? parsed.ledits : [];
@@ -906,23 +999,74 @@ export function stageProposals(parsed, { messages, state, modules, lore } = {}) 
   return proposals;
 }
 
+/* M61 (v2.77): what an edit actually removes — find minus the head and tail
+ * it shares with replace — and every other surface where those words still
+ * sit. Pure; exported for the harness. */
+export function removedWords(find, replace) {
+  const f = String(find || ''); const r = String(replace || '');
+  let head = 0;
+  while (head < f.length && head < r.length && f[head] === r[head]) head += 1;
+  let tail = 0;
+  while (tail < f.length - head && tail < r.length - head && f[f.length - 1 - tail] === r[r.length - 1 - tail]) tail += 1;
+  /* never split a word: widen to the whitespace on either side */
+  while (head > 0 && /\S/.test(f[head - 1])) head -= 1;
+  while (tail > 0 && /\S/.test(f[f.length - tail])) tail -= 1;
+  return f.slice(head, f.length - tail).trim();
+}
+export function rippleScan(edits, { messages, memory, state, lore } = {}) {
+  const out = [];
+  const pages = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
+  for (const op of (Array.isArray(edits) ? edits : [])) {
+    if (!op || typeof op !== 'object' || typeof op.find !== 'string' || typeof op.replace !== 'string') continue;
+    const removed = removedWords(op.find, op.replace);
+    if (removed.length < 3 || !/\p{L}|\d/u.test(removed)) continue; /* a name like "Kim" counts; bare punctuation does not */
+    const where = [];
+    const target = op.bulk_replace ? null : resolveMessageRef(pages, op.id);
+    for (const m of pages) {
+      if (target && m.id === target.id) continue;
+      if (pageText(m).includes(removed)) where.push(refOf(m));
+      if (where.length >= 8) break;
+    }
+    for (const nd of (memory && Array.isArray(memory.nodes) ? memory.nodes : [])) {
+      if (nd && typeof nd.text === 'string' && nd.text.includes(removed)) where.push('the record line #r' + String(nd.id).slice(0, 6));
+    }
+    for (const [name, c] of Object.entries((state && state.characters) || {})) {
+      if (c && ['core', 'state', 'arc'].some((k) => typeof c[k] === 'string' && c[k].includes(removed))) where.push('the page of ' + name);
+    }
+    for (const [name, facts] of Object.entries((state && state.canon) || {})) {
+      if (facts && Object.values(facts).some((v) => typeof v === 'string' && v.includes(removed))) where.push('the canon of ' + name);
+    }
+    for (const e of (Array.isArray(lore) ? lore : [])) {
+      if (e && typeof e.content === 'string' && e.content.includes(removed)) where.push('the lore entry “' + (e.name || (e.keys || [])[0] || '?') + '”');
+    }
+    if (where.length) out.push({ removed: removed.slice(0, 80), where: [...new Set(where)] });
+  }
+  return out;
+}
+
+/* M61 (v2.78): labels match loosely — "memory fix #1" lands on "Memory fix 1" */
+function labelKey(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+
 /* Supersede: retire still-pending cards whose labels the reply named.
- * Returns how many were set aside. */
+ * Returns {count, unmatched}. */
 export function applySupersede(session, labels) {
-  const wanted = new Set((Array.isArray(labels) ? labels : [])
-    .map((l) => String(l).trim().toLowerCase()).filter(Boolean));
-  if (!wanted.size) return 0;
+  const wanted = new Map((Array.isArray(labels) ? labels : []).map((l) => [labelKey(l), String(l).trim()]).filter(([k]) => k));
+  if (!wanted.size) return { count: 0, unmatched: [] };
   let count = 0;
+  const hit = new Set();
   for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
     for (const p of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
-      if (p && p.status === 'pending' && wanted.has(String(p.label).toLowerCase())) {
+      const k = labelKey(p && p.label);
+      if (p && p.status === 'pending' && wanted.has(k)) {
         p.status = 'superseded';
-        p.words = 'Set aside — a later answer replaced it.';
+        p.words = 'Set aside — a later answer withdrew it.';
         count += 1;
+        hit.add(k);
       }
     }
   }
-  return count;
+  const unmatched = [...wanted.entries()].filter(([k]) => !hit.has(k)).map(([, raw]) => raw);
+  return { count, unmatched };
 }
 
 export function findProposal(session, proposalId) {
@@ -963,6 +1107,11 @@ async function stalenessCheck(storyId, p) {
       if (hashText(targets.map(messageHashOf).join('|')) !== r.hash) {
         return 'some of those pages have shifted since this was staged';
       }
+    } else if (r.target.startsWith('record:')) {
+      const mem = await loadMemory(storyId);
+      const nd = (mem.nodes || []).find((x) => x && x.id === r.target.slice(7));
+      if (!nd) return 'that record line has gone';
+      if (hashText(nd.text) !== r.hash) return 'that record line has been rewritten since this was staged';
     } else if (r.target === 'lore:shelf') {
       const shelf = await loadLore(storyId);
       if (hashText(JSON.stringify(shelf.map((e) => e.id))) !== r.hash) return 'the lore shelf has changed since this was staged';
@@ -1156,6 +1305,25 @@ async function applyReditOp(storyId, p, batch) {
   return { ok: true, words: 'The rule “' + mod.name + '” reads differently now.' };
 }
 
+/* M61: a record line, re-inked by the smallest edit; the whole line is kept
+ * for the undo. */
+async function applyRecordOp(storyId, p, batch) {
+  const op = p.op;
+  const mem = await loadMemory(storyId);
+  const at = (mem.nodes || []).findIndex((nd) => nd && nd.id === op.nodeId);
+  if (at === -1) return { ok: false, words: 'that record line has gone' };
+  const node = mem.nodes[at];
+  const located = locate(node.text, op.find);
+  if (!located.ok) return { ok: false, words: located.reason };
+  const newText = applyLocated(node.text, located, op.replace);
+  if (newText === node.text) return { ok: false, words: 'the new words are the words already there' };
+  const nodes = mem.nodes.slice();
+  nodes[at] = { ...node, text: newText, verified: { at: Date.now(), fixed: 'the housekeeper' } };
+  await saveMemory(storyId, { ...mem, nodes });
+  batch.items.push({ kind: 'record', nodeId: node.id, before: node.text, afterHash: hashText(newText) });
+  return { ok: true, words: 'The record line reads differently now.' };
+}
+
 /* M38: the lore shelf. Every op reads the shelf, changes it, writes it
  * back; the batch keeps the whole shelf as it was. */
 async function applyLoreOp(storyId, p, batch) {
@@ -1221,6 +1389,7 @@ export async function applyProposal(session, storyId, proposalId) {
     const run = p.kind === 'ledit' ? applyLeditOp
       : p.kind === 'redit' ? applyReditOp
       : p.kind === 'lore' ? applyLoreOp
+      : p.kind === 'record' ? applyRecordOp
       : applyEditOp;
     const result = await run(storyId, p, batch);
     if (!result.ok) {
@@ -1303,6 +1472,12 @@ export async function undoLatest(session, storyId) {
       if (!mod || moduleHashOf(mod) !== item.afterHash) {
         return { ok: false, refused: true, words: 'Not taken back — the rule “' + batch.label + '” touched has changed since. The change stands; edit the rulebook by hand if it must move.' };
       }
+    } else if (item.kind === 'record') {
+      const mem = await loadMemory(storyId);
+      const nd = (mem.nodes || []).find((x) => x && x.id === item.nodeId);
+      if (!nd || hashText(nd.text) !== item.afterHash) {
+        return { ok: false, refused: true, words: 'Not taken back — that record line has been rewritten since “' + batch.label + '” landed.' };
+      }
     } else if (item.kind === 'lore') {
       const now = await loadLore(storyId);
       if (hashText(JSON.stringify(now)) !== item.afterHash) {
@@ -1322,6 +1497,10 @@ export async function undoLatest(session, storyId) {
     } else if (item.kind === 'module') {
       if (item.beforeRow) await saveModule(item.beforeRow);
       else await removeModule(item.moduleId); // lifts the fork; a builtin returns
+    } else if (item.kind === 'record') {
+      const mem = await loadMemory(storyId);
+      const nodes = (mem.nodes || []).map((x) => (x && x.id === item.nodeId ? { ...x, text: item.before } : x));
+      await saveMemory(storyId, { ...mem, nodes });
     } else if (item.kind === 'lore') {
       await saveLore(storyId, item.beforeShelf);
     } else if (item.kind === 'ledger') {
@@ -1376,11 +1555,10 @@ function serveFetch(refs, messages) {
       lines.push(refOf({ id: ref }) + ' — no page answers to “' + ref + '”.');
       continue;
     }
-    let text = pageText(msg);
-    if (text.length > FETCH_PAGE_CAP) text = text.slice(0, FETCH_PAGE_CAP - 1).trimEnd() + '…';
-    const speaker = msg.role === 'assistant' ? 'the storyteller' : 'the writer';
-    lines.push(refOf(msg) + ' ' + speaker + ' wrote, in full:\n"""\n' + text + '\n"""');
+    lines.push(formatPage(msg));
   }
+  /* M61 (v2.72): over-cap ids are named back, never dropped */
+  if (refs.length > 4) lines.push('Not served this round (ask again for them): ' + refs.slice(4).join(', '));
   return lines.join('\n\n');
 }
 
@@ -1388,7 +1566,7 @@ function serveFetch(refs, messages) {
  * `call` is injectable for the harness; the default rides callModel.
  * Never throws. Returns {ok, raw, parsed, fetchRounds, thinking, error?}. */
 export async function runConversation({
-  connection, story, messages, state, modules, lore, directorText, editorText,
+  connection, story, messages, state, modules, lore, memory, directorText, editorText,
   session, writerText, contextPages, call, signal, onToken,
 } = {}) {
   try {
@@ -1396,8 +1574,16 @@ export async function runConversation({
       ? call
       : (req) => callModel(connection, req);
     const contextDoc = buildHousekeeperContext({
-      story, messages, state, modules, lore, directorText, editorText, contextPages,
+      story, messages, state, modules, lore, memory, session, directorText, editorText, contextPages,
     });
+    /* M61: which pages the model holds WHOLE — the served window plus every
+     * fetched page. An edit to any other page is blind (v2.76/v2.80). */
+    const visibleAll = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
+    const served = new Set(visibleAll.slice(-cleanContextPages(contextPages)).map((m) => m.id));
+    let correctedAnchors = false;
+    let sweptRipple = false;
+    let fetchedBlind = false;
+    let toldMalformed = false;
     /* Session history rides after the served context — newest first is NOT
      * wanted here; the talk reads in order, capped. */
     const sessionWire = (session && Array.isArray(session.turns) ? session.turns : [])
@@ -1428,12 +1614,62 @@ export async function runConversation({
       const parsed = parseProtocol(raw);
       if (parsed.fetch.length && round < MAX_FETCH_ROUNDS) {
         round += 1;
+        for (const ref of parsed.fetch.slice(0, 4)) { const m = resolveMessageRef(messages, ref); if (m) served.add(m.id); }
         wire.push({ role: 'assistant', content: raw });
         wire.push({
           role: 'user',
           content: 'The pages you asked for:\n\n' + serveFetch(parsed.fetch, messages),
         });
         continue;
+      }
+      /* M61 (v2.79): a fetch written in words is unreadable — say so once */
+      if (parsed.fetchMalformed && !parsed.fetch.length && !toldMalformed) {
+        toldMalformed = true;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: 'Your <fetch> block could not be read — it must hold page handles only, like <fetch>["#a1b2c3", "#d4e5f6"]</fetch> (the handles shown in the index). Resend it as such, or answer without it.' });
+        continue;
+      }
+      /* M61 (v2.76/v2.80): a blind edit — a page the model never held whole —
+       * is fetched and the answer asked again, once, instead of staged */
+      const blind = [];
+      for (const op of parsed.edits) {
+        if (!op || typeof op !== 'object' || op.bulk_replace === true) continue;
+        const m = resolveMessageRef(messages, op.id);
+        if (m && !served.has(m.id) && typeof op.find === 'string' && op.find) blind.push(m);
+      }
+      if (blind.length && !fetchedBlind) {
+        fetchedBlind = true;
+        for (const m of blind.slice(0, 4)) served.add(m.id);
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: '[BLIND EDIT] You proposed edits to pages you had only seen as one-line index entries: ' + blind.slice(0, 4).map(refOf).join(', ') + '. Here they are whole. Re-send your whole answer with anchors quoted from these pages (and keep any other proposals you still stand by):\n\n' + serveFetch(blind.slice(0, 4).map(refOf), messages) });
+        continue;
+      }
+      /* M61 (v2.76): anchors are checked at arrival with the apply's own
+       * resolver; a miss is corrected in the same run, once */
+      const misses = [];
+      for (const op of parsed.edits) {
+        if (!op || typeof op !== 'object' || op.bulk_replace === true || typeof op.find !== 'string' || !op.find) continue;
+        const m = resolveMessageRef(messages, op.id);
+        if (!m) continue;
+        const loc = locate(pageText(m), op.find);
+        if (!loc.ok) misses.push({ ref: refOf(m), find: op.find, why: loc.reason });
+      }
+      if (misses.length && !correctedAnchors) {
+        correctedAnchors = true;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: '[ANCHOR CHECK] These finds do not match the page as it stands (checked with the same matcher Apply uses):\n' + misses.map((x) => '- ' + x.ref + ': “' + x.find.slice(0, 120) + '” — ' + x.why).join('\n') + '\nRe-send your whole answer with each find copied exactly from the page (quote more of it if it could land in two places); keep the proposals that were fine.' });
+        continue;
+      }
+      /* M61 (v2.77): the ripple — the words an edit removes still sit on
+       * other surfaces; they are found in code and handed back once */
+      if (!sweptRipple) {
+        const leftovers = rippleScan(parsed.edits, { messages, memory, state, lore });
+        if (leftovers.length) {
+          sweptRipple = true;
+          wire.push({ role: 'assistant', content: raw });
+          wire.push({ role: 'user', content: '[RIPPLE] The words your edits remove still stand elsewhere:\n' + leftovers.map((l) => '- “' + l.removed + '” in ' + l.where.join(', ')).join('\n') + '\nSweep them in this answer — bulk_replace for pages (or one edit each), <record> for a record line, <ledits> people.set for a page of the people, <lore> for an entry — and say what you checked. Keep every proposal you already made.' });
+          continue;
+        }
       }
       return { ok: true, raw, parsed, fetchRounds: round, thinking };
     }
@@ -1453,16 +1689,17 @@ export async function housekeeperTurn({
     if (!storyId) return { ok: false, error: 'no story is open' };
     const story = await db.stories.get(storyId);
     if (!story) return { ok: false, error: 'that story has gone' };
-    const [messages, state, modules, session, pagesSetting, lore] = await Promise.all([
+    const [messages, state, modules, session, pagesSetting, lore, mem] = await Promise.all([
       db.messages.list(storyId),
       loadState(storyId),
       listModules(),
       loadSession(storyId),
       db.settings.get('hkContextPages'),
       loadLore(storyId),
+      loadMemory(storyId),
     ]);
     const result = await runConversation({
-      connection, story, messages, state, modules, lore,
+      connection, story, messages, state, modules, lore, memory: mem,
       directorText, editorText,
       session, writerText,
       contextPages: cleanContextPages(pagesSetting),
@@ -1470,13 +1707,18 @@ export async function housekeeperTurn({
     });
     if (!result.ok) return { ok: false, error: result.error || 'the housekeeper went quiet' };
 
-    const proposals = stageProposals(result.parsed, { messages, state, modules, lore });
-    if (result.parsed.supersede.length) applySupersede(session, result.parsed.supersede);
+    const proposals = stageProposals(result.parsed, { messages, state, modules, lore, memory: mem, session });
+    let withdrawNote = '';
+    if (result.parsed.supersede.length) {
+      const sup = applySupersede(session, result.parsed.supersede);
+      if (sup.unmatched.length) withdrawNote = '\n\n(No pending card answers to: ' + sup.unmatched.map((l) => '“' + l + '”').join(', ') + ' — nothing was withdrawn for those.)';
+      else if (sup.count && !proposals.length) withdrawNote = '\n\n(Withdrew ' + sup.count + (sup.count === 1 ? ' card' : ' cards') + '.)';
+    }
 
     session.turns.push({ role: 'writer', text: String(writerText || ''), ts: Date.now() });
     const turn = {
       role: 'housekeeper',
-      text: result.parsed.text,
+      text: result.parsed.text + withdrawNote,
       ts: Date.now(),
     };
     if (proposals.length) turn.proposals = proposals;

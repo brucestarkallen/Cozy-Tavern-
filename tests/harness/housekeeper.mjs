@@ -218,8 +218,9 @@ test('M10 supersede: a later answer retires pending cards; applying refuses', as
   const { story, session } = await storyWithPage('The window stood open.');
   const card = await stageEdit(session, story, 'stood open', 'stood shut', 'window-fix');
   eq(card.status, 'pending', 'pending before the answer');
-  const retired = applySupersede(session, ['window-fix']);
-  eq(retired, 1, 'one card retired');
+  const retired = applySupersede(session, ['Window Fix']); /* M61: labels match loosely */
+  eq(retired.count, 1, 'one card retired');
+  eq(retired.unmatched.length, 0);
   eq(card.status, 'superseded', 'the card reads superseded');
   const result = await applyProposal(session, story.id, card.id);
   assert(!result.ok, 'a superseded card cannot apply');
