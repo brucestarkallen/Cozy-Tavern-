@@ -11,7 +11,7 @@ import { thinkingHouse, withHouse, HOUSES } from './thinkinghouse.mjs';
 test('M45-1 the founder sees the brief, the cast notes, the cards and the lore; the law is stated-never-invented and sealed-is-sealed', () => {
   const p = buildFounderMessages({ state: emptyState(), brief: 'Jovan comes home. Aurora, his childhood friend, has loved him since school; nobody knows.', castNotes: 'Mira — his sister', cast: [{ name: 'Kris', description: 'The mother. Runs everything.', personality: 'iron', scenario: 'the house' }], lore: [{ name: 'The studio', keys: ['studio'], content: 'wants the story buried', enabled: true }, { name: 'Off', keys: ['x'], content: 'no', enabled: false }] });
   assert(p.hasMaterial);
-  for (const k of ['STATED, NEVER INVENTED', 'THE REAL RECORD', 'SEALED IS SEALED', 'found the WORLD']) assert(p.system.includes(k), 'law: ' + k);
+  for (const k of ['STATED, NEVER INVENTED', 'THE REAL RECORD', 'SEALED IS SEALED', 'Found the WORLD']) assert(p.system.includes(k), 'law: ' + k);
   assert(p.user.includes('has loved him since school') && p.user.includes('Mira — his sister') && p.user.includes('## Kris') && p.user.includes('Personality: iron') && p.user.includes('The studio [studio]'));
   assert(!p.user.includes('Off [x]'), 'a disabled lore entry is not material');
   assert(!buildFounderMessages({ state: emptyState() }).hasMaterial, 'nothing to found from');

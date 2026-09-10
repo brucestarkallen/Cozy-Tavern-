@@ -26,7 +26,7 @@ import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
 import { isMc } from '../engine/people.js';
 import { listCast, attachToStory, detachFromStory } from '../import/cards.js';
-import { loadWorkerStatus, WORKER_NAMES } from '../agents/status.js';
+import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '../agents/status.js';
 import { renderArrival } from '../engine/world.js'; /* M29: the world beyond the page */
 import { db } from '../store.js';
 
@@ -1547,12 +1547,24 @@ function workersPanel(ctx) {
       return;
     }
     const shelf = await loadWorkerStatus(story.id);
+    /* M46: what is reading right now, first */
+    const live = runningWorkers(story.id);
+    for (const name of live) {
+      const li = document.createElement('li');
+      li.className = 'log-row worker-live';
+      li.textContent = (WORKER_WORDS[name] || name) + ' is reading now…';
+      list.appendChild(li);
+    }
+    for (const b of [found, rescan, audit]) b.disabled = false;
+    if (live.includes('founder')) { found.disabled = true; found.textContent = 'Founding…'; } else found.textContent = 'Found the world from the brief';
+    if (live.includes('auditor')) { audit.disabled = true; audit.textContent = 'Auditing…'; } else audit.textContent = 'Audit the ledger';
+    if (live.includes('extractor') || live.includes('world')) { rescan.disabled = true; rescan.textContent = 'Reading…'; } else rescan.textContent = 'Read the pages again';
     const seen = WORKER_NAMES.filter((name) => shelf[name]);
-    if (!seen.length) {
+    if (!seen.length && !live.length) {
       note.textContent = 'No worker has run yet. When one does — a reading of the ledger, a weighing of a page — its last run is noted here, well or ill.';
       return;
     }
-    note.textContent = 'Background work is quiet in the story but never silent here. Each worker’s last run:';
+    note.textContent = live.length ? 'Reading now — the line lands here the moment it is done:' : 'Background work is quiet in the story but never silent here. Each worker’s last run:';
     for (const name of seen) {
       const row = shelf[name];
       const li = document.createElement('li');
@@ -1697,6 +1709,10 @@ export function initDrawer(ctx) {
       panelsEl.appendChild(section);
     }
   }
+
+  /* M46: the drawer follows the workers as they start and settle — one
+   * subscription for the whole drawer, never one per panel render. */
+  onWorkerChange(() => { if (!drawer.hidden) render(); });
 
   function open() {
     render();

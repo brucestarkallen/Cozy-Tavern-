@@ -19,7 +19,7 @@
  * committing results — a stale job's work is discarded, not written.
  */
 
-import { workerSignal, noteWorkerRun } from './status.js';
+import { workerSignal, noteWorkerRun, markWorkerRunning } from './status.js';
 
 export const MAX_RETRIES = 5;          /* retries after the first try */
 export const BACKOFF_BASE_MS = 2000;   /* the first wait */
@@ -129,9 +129,11 @@ async function runJob(job) {
       if (isStale()) return { ok: false, stale: true, why: 'left behind' };
     }
     const { signal, done } = workerSignal();
+    markWorkerRunning(storyId, name, true); /* M46: "reading now…" on the workers line */
     try {
       const value = await job.run({ signal, stale: isStale });
       done();
+      markWorkerRunning(storyId, name, false);
       if (isStale()) return { ok: false, stale: true, why: 'left behind' };
       /* The job may ask for silence (a switch was off, nothing to note);
        * every honest run is otherwise written on the workers line. */
@@ -141,6 +143,7 @@ async function runJob(job) {
       return { ok: true, value };
     } catch (err) {
       done();
+      markWorkerRunning(storyId, name, false);
       lastErr = err;
       if (isStale()) return { ok: false, stale: true, why: 'left behind' };
     }

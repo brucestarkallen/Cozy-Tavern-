@@ -496,3 +496,6 @@
 .worker-said { margin: .25rem 0 0; }
 .worker-said summary { cursor: pointer; }
 .worker-raw { white-space: pre-wrap; word-break: break-word; font-size: .78em; max-height: 14rem; overflow: auto; background: var(--bg-2); padding: .4rem .5rem; border-radius: 4px; margin: .25rem 0 0; }
+
+/* M46 — a worker reading now */
+.worker-live { color: var(--ember); font-style: italic; }

@@ -41,8 +41,12 @@ const VOCABULARY = [
   'offscreen.set {"type":"offscreen.set","name":"Kris","location":"…","activity":"…","agenda":"…","stance":"waiting|toward|seeking|tense|busy"} — where the brief places a named person who is NOT in the opening scene',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} — the premise\'s live agendas: who wants what, pushing toward the main character',
   'knowledge.add {"type":"knowledge.add","name":"Aurora","fact":"…"} — what the brief says a person KNOWS (a secret they hold, a thing they witnessed) — and nothing the brief seals from them',
-  'place.set / clock.set — only when the brief fixes the opening ground or date and hour',
 ].join('\n');
+
+/* M46: the scene is the extractor's. The founder founds the WORLD — never the
+ * scene's ground, hour, presence or mood (it set "the scene now stands in"
+ * once per place the brief mentioned). */
+export const NOT_THE_FOUNDERS = new Set(['place.set', 'clock.set', 'clock.advance', 'presence.enter', 'presence.leave', 'presence.update', 'mode.set', 'mode.clear', 'body.injure', 'body.strain', 'body.heal', 'combat.begin', 'combat.end']);
 
 function law({ mc }) {
   return [
@@ -69,8 +73,10 @@ function law({ mc }) {
     '    page as words, never as numbers. A standing whose cause names another person is refused.',
     '  - The main character gets no page of their own beyond mc.set: their state and threads are the',
     '    story\'s to write.',
-    '  - Do not narrate, do not summarize the brief, do not add the opening scene\'s presence (the',
-    '    extractor founds the scene from the first page); found the WORLD.',
+    '  - Do not narrate, do not summarize the brief. The SCENE is not yours: no place.set, no',
+    '    clock.set, no presence, no mood — the extractor founds the scene from the first page. A',
+    '    place the brief mentions is world; it needs no line. Found the WORLD: people, bonds,',
+    '    appearances, factions, seats, threads, knowledge.',
     '',
     'Answer with JSON ONLY: {"mutations":[ ... ]}',
     'The only mutations that exist:',
@@ -172,6 +178,7 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   const guarded = [];
   const refusedByLock = [];
   for (const m of ordered) {
+    if (NOT_THE_FOUNDERS.has(m.type)) { refusedByLock.push({ mutation: m, why: 'the scene (its ground, hour, who is in it) is the extractor’s to found from the first page, not the founder’s' }); continue; }
     if (m.type === 'rel.set' || m.type === 'rel.shift') {
       const cause = String(m.cause || '').toLowerCase();
       const namesMc = (mcKnown && cause.includes(mcKnown.toLowerCase())) || /main character/.test(cause);

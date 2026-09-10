@@ -26,6 +26,28 @@ export const WORKER_TIMEOUT_MS = 60000;
  * pages. */
 export const WORKER_NAMES = ['founder', 'extractor', 'world', 'scribe', 'keeper', 'referee', 'continuity', 'auditor', 'housekeeper', 'director', 'editor'];
 
+/* M46: what is running right now, and who wants to know. The drawer's
+ * workers panel shows "reading now…" the moment a job starts and re-reads
+ * the shelf the moment it settles — the writer could not tell whether the
+ * auditor was working or done. In-memory only. */
+const running = new Map(); // storyId -> Set<name>
+const listeners = new Set();
+export function markWorkerRunning(storyId, name, on) {
+  if (!storyId || !name) return;
+  let set = running.get(storyId);
+  if (!set) { set = new Set(); running.set(storyId, set); }
+  if (on) set.add(name); else set.delete(name);
+  for (const fn of listeners) { try { fn(storyId, name, on); } catch (err) { /* a listener that trips is its own trouble */ } }
+}
+export function runningWorkers(storyId) {
+  return [...(running.get(storyId) || [])];
+}
+export function onWorkerChange(fn) {
+  if (typeof fn !== 'function') return () => {};
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
 /* A per-call abort signal with a hard timeout. done() clears the timer —
  * callers must settle it in a finally. */
 export function workerSignal(timeoutMs = WORKER_TIMEOUT_MS) {
@@ -55,6 +77,7 @@ export async function noteWorkerRun(storyId, name, { ok, why, detail, raw } = {}
     const said = typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, RAW_CAP) : '';
     shelf[name] = { at: Date.now(), ok: ok !== false, why: ok === false ? cleanWhy(why) || 'stumbled' : '', detail: typeof detail === 'string' ? detail : '', raw: said };
     await db.settings.set(KEY_PREFIX + storyId, shelf);
+    markWorkerRunning(storyId, name, false); /* M46: settled — the panel re-reads */
   } catch (err) { /* the ledger of workers never makes work of its own */ }
 }
 

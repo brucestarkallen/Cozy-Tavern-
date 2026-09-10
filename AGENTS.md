@@ -1451,3 +1451,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   character (or "main character") is refused with the reason. The auditor's law: a standing whose
   history speaks of a feeling for someone else, or for a person who never met the MC, is zeroed
   (rel.set 0/0/0, "the brief gives no bond with <MC>") and the feeling moved to the page.
+
+---
+
+# M46 — "reading now…"; the founder keeps out of the scene
+- FIELD REPORT: "I pressed Audit and can't tell if it's loading or done." The workers' panel only
+  ever showed a FINISHED run. status.js gains markWorkerRunning/runningWorkers/onWorkerChange (in
+  memory); queue.js marks start and every exit; noteWorkerRun marks settle. The drawer subscribes
+  once (re-renders while open): "the auditor is reading now…" leads the panel, the button that is
+  reading is disabled and says "Auditing…"/"Founding…"/"Reading…", and the finished line lands
+  the moment it is done.
+- FIELD REPORT (from the founder's own line): "The scene now stands in Ravenwood · …the Wells house
+  · …Ravenwood High" — the founder set the scene's place once per place the brief mentioned.
+  NOT_THE_FOUNDERS: place/clock/presence/mode/body/combat are refused in code with the reason (the
+  scene is the extractor's from the first page); the law says a place the brief mentions is
+  world and needs no line.
+- Harness: m46.mjs (3 checks). 276/276 + 19/19. version.js -> m46-001.
