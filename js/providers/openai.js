@@ -15,7 +15,7 @@
  */
 
 import { readSSE } from './sse.js';
-import { withImagePart } from './wire.js';
+import { withImagePart, transportError } from './wire.js';
 /* M22-A/D: the full reasoning ladder (per-house spellings, alias-down,
  * rejection memory) and the storyteller prefill live in effort.js. */
 import {
@@ -300,7 +300,7 @@ export function createOpenAIProvider(connection) {
         opts = { ...opts, suppressPrefill: true };
         continue;
       }
-      throw new Error(await explain(out, name));
+      throw transportError(out, await explain(out, name));
     }
     if (!res) throw new Error(`The answer was no, without a reason (400).`);
 

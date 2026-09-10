@@ -20,7 +20,7 @@
  */
 
 import { readSSE } from './sse.js';
-import { withImagePart } from './wire.js';
+import { withImagePart, transportError } from './wire.js';
 /* M22-A/D: the full reasoning ladder + rejection memory, and the
  * storyteller prefill — the mechanics live in providers/effort.js. */
 import {
@@ -191,7 +191,7 @@ export function createAnthropicProvider(connection) {
     } catch (err) {
       throw new Error('Couldn’t reach Claude — check the connection and try again.');
     }
-    if (!res.ok) throw new Error(await explain(res));
+    if (!res.ok) throw transportError(res, await explain(res));
     const body = await res.json();
     const rows = body && Array.isArray(body.data) ? body.data : [];
     return rows
@@ -245,7 +245,7 @@ export function createAnthropicProvider(connection) {
         opts = { ...opts, suppressPrefill: true };
         continue;
       }
-      throw new Error(await explain(res));
+      throw transportError(res, await explain(res));
     }
     throw new Error('Claude said no, and didn’t say why (400).');
   }

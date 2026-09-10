@@ -16,16 +16,18 @@
  * (it rides agents/queue.js, which retries with backoff and keeps the chat
  * path safe — the queue is the boundary that never throws). A response
  * that asks for patience (Retry-After on a 429/503) is honored: the error
- * carries retryAfterMs for the queue's backoff.
+ * carries retryAfterMs for the queue's backoff (M28: providers/wire.js).
  */
 
 import { firstBalancedObject } from './jsonutil.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { mergeDeltas, renderPeopleTiers } from '../engine/people.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
+import { callWorker } from './call.js'; /* M28: the one wire path for workers */
+import { retryAfterMs } from '../providers/wire.js'; /* M28: moved to the wire; re-exported for the harness contract */
+export { retryAfterMs };
 
-const MAX_TOKENS = 600;
-const TEMPERATURE = 0;
+const MAX_TOKENS = 600; /* sparse deltas; thinking is off on the wire (M28) */
 
 /* ---------- the prompt (human-voiced, kept in the code) ---------- */
 
@@ -110,96 +112,6 @@ export function parseScribeAnswer(raw) {
 
 /* ---------- the provider calls (non-streaming, small, cold) ---------- */
 
-/* The Retry-After header, in seconds (or an HTTP date — rounded up). 0
- * when the house didn't ask for anything. */
-export function retryAfterMs(headers) {
-  try {
-    const raw = headers && typeof headers.get === 'function' ? headers.get('retry-after') : null;
-    if (!raw) return 0;
-    const seconds = Number(raw);
-    if (Number.isFinite(seconds)) return Math.max(0, Math.ceil(seconds * 1000));
-    const when = Date.parse(raw);
-    return Number.isFinite(when) ? Math.max(0, when - Date.now()) : 0;
-  } catch (err) {
-    return 0;
-  }
-}
-
-/* A failed call throws — carrying the house's requested wait when it named
- * one — so the queue's retry schedule can do its work. */
-function transportError(res) {
-  const err = new Error(res.status === 429 ? 'too many asks' : 'the house said no (' + res.status + ')');
-  const wait = retryAfterMs(res.headers);
-  if (wait > 0) err.retryAfterMs = wait;
-  return err;
-}
-
-async function callAnthropic(connection, prompt, signal) {
-  const base = (connection.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
-  const res = await fetch(`${base}/v1/messages`, {
-    method: 'POST',
-    signal,
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': connection.apiKey || '',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: connection.model || 'claude-sonnet-4-5',
-      max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
-      system: prompt.system,
-      messages: [
-        { role: 'user', content: prompt.user },
-        /* the prefill: the answer must begin mid-JSON */
-        { role: 'assistant', content: '{' },
-      ],
-    }),
-  });
-  if (!res.ok) throw transportError(res);
-  const body = await res.json();
-  const piece = body && Array.isArray(body.content)
-    ? body.content.find((b) => b && b.type === 'text' && typeof b.text === 'string')
-    : null;
-  /* the prefill's "{" belongs back on the front of the answer */
-  return piece ? '{' + piece.text : '';
-}
-
-async function callOpenAI(connection, prompt, signal) {
-  const base = (connection.baseUrl || 'https://api.openai.com')
-    .replace(/\/+$/, '')
-    .replace(/\/v1$/i, '');
-  const headers = { 'content-type': 'application/json' };
-  if (connection.apiKey) headers.authorization = `Bearer ${connection.apiKey}`;
-  const payload = {
-    model: connection.model || 'gpt-4o-mini',
-    max_tokens: MAX_TOKENS,
-    temperature: TEMPERATURE,
-    messages: [
-      { role: 'system', content: prompt.system },
-      { role: 'user', content: prompt.user },
-    ],
-  };
-  /* response_format json_object is an OpenAI-house knob; OpenRouter and
-   * custom servers may not know it, so only api.openai.com gets it — the
-   * tolerant parser carries the rest. */
-  if (base.includes('api.openai.com')) {
-    payload.response_format = { type: 'json_object' };
-  }
-  const res = await fetch(`${base}/v1/chat/completions`, {
-    method: 'POST',
-    headers,
-    signal,
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw transportError(res);
-  const body = await res.json();
-  const choice = body && Array.isArray(body.choices) ? body.choices[0] : null;
-  const text = choice && choice.message && choice.message.content;
-  return typeof text === 'string' ? text : '';
-}
-
 /* ---------- the contract ---------- */
 
 /* Read one finished turn and write what shifted onto the character pages.
@@ -215,14 +127,16 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
 
   const before = await loadState(storyId);
   const prompt = buildScribeMessages({ state: before, userText, assistantText });
-  let raw;
-  if (connection.type === 'anthropic') {
-    raw = await callAnthropic(connection, prompt, signal);
-  } else if (connection.type === 'openai') {
-    raw = await callOpenAI(connection, prompt, signal);
-  } else {
-    return null;
-  }
+  /* M28: the one wire path — thinking off per house, temperature 0; a
+   * transport failure throws (with retryAfterMs when the house named a wait)
+   * and the queue retries. */
+  const { text: raw } = await callWorker(connection, {
+    system: prompt.system,
+    user: prompt.user,
+    maxTokens: MAX_TOKENS,
+    effort: 'off',
+    signal,
+  });
   const { deltas } = parseScribeAnswer(raw);
   if (!deltas.length) return { changes: [], dropped: [] };
 

@@ -15,11 +15,13 @@
  * lands on-page; feelings shift only from on-page acts; never invent
  * off-screen activity for characters the prose doesn't mention.
  *
- * Provider specifics: anthropic gets an assistant prefill of "{" to force
- * JSON; openai gets response_format json_object — but only when the address
- * really is api.openai.com (OpenRouter and custom servers may not know that
- * knob); everywhere else we rely on the prompt plus a tolerant parser.
- * max_tokens ~400, temperature 0.
+ * M28: the call rides agents/call.js — the same providers the storyteller
+ * uses, thinking explicitly OFF per house, temperature 0 — and the tolerant
+ * parser reads the answer. (Before M28 this file carried its own two
+ * fetches that never disabled thinking; on a reasoning model the budget
+ * went to thought and the ledger starved.) The extractor also knows who the
+ * main character is now, and founds a young ledger instead of asking
+ * "what changed?" of a page that is the whole world so far.
  *
  * Also living here: the in-flight tracker. chat.js notes each piece of
  * background work it fires; the send path awaits pendingWork(storyId, 5000)
@@ -32,15 +34,18 @@
  * The M3 names (noteExtraction / pendingExtraction) remain as aliases —
  * they were the published contract. */
 
-import { firstBalancedObject, balancedCandidates } from './jsonutil.js';
+import { balancedCandidates } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
+import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 
 import { renderStateFacts } from '../engine/state.js';
+import { mcName } from '../engine/duels.js';
 
-const MAX_TOKENS = 2000; /* thinking models burn tokens before a word of
-  JSON appears — the old 600 let them think the whole budget away and answer
-  with nothing, silently starving the ledger */
-const TEMPERATURE = 0;
+/* M28: the answer is JSON only and thinking is OFF on the wire (call.js),
+ * so the budget is the answer's — 1200 tokens holds a long founding read
+ * with room to spare. (M26's 2000 was a bandage over thinking models
+ * spending the budget on thought; the wire now tells them not to.) */
+const MAX_TOKENS = 1200;
 
 /* ---------- the in-flight tracker (the send path's courtesy wait) ---------- */
 
@@ -95,6 +100,7 @@ export async function pendingExtraction(storyId, timeoutMs = 5000) {
 /* ---------- the prompt (human-voiced, kept in the code) ---------- */
 
 const VOCABULARY = [
+  'mc.set {"type":"mc.set","name":"Jovan"} — ONLY when the ledger does not yet know the main character: the one person the writer plays or narrates as their own',
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — only when the prose states or clearly fixes the time',
   'place.set {"type":"place.set","name":"the chapel"} — the ground the scene stands on, only when first named or it truly moves',
   'clock.advance {"type":"clock.advance","minutes":30,"reason":"the walk to the chapel"} — when time clearly passes; minutes is a number',
@@ -112,37 +118,72 @@ const VOCABULARY = [
   'offscreen.clear {"type":"offscreen.clear","name":"Mira"} — when the prose says an elsewhere note no longer holds',
 ].join('\n');
 
-const SYSTEM_PROMPT = [
-  'You keep the ledger for a slow, warm story told between two writers. After each',
-  'page is finished, you read it and note — in small, exact changes — what shifted',
-  'in the scene: the hour, who is present, the mood of the room, who was hurt,',
-  'how the people involved feel about the main character, and where the absent',
-  'have gone.',
-  '',
-  'Answer with JSON ONLY, in exactly this shape:',
-  '{"mutations":[ ... ]}',
-  '',
-  'The only mutations that exist:',
-  VOCABULARY,
-  '',
-  'Be conservative. Write down only what the prose explicitly shows — never what it',
-  'merely hints at, never what might be true. Injuries only when the blow lands',
-  'on-page; feelings shift only from on-page acts, and every shift needs its cause',
-  'in words; never invent off-screen activity for characters the prose doesn’t',
-  'mention; when unsure, omit. Names keep the exact spelling the prose uses. Time',
-  'moves only when the prose says it moved. If nothing changed, return',
-  '{"mutations":[]} — an empty list is a good and honest answer, and the most common',
-  'one. No commentary, no markdown fences, no trailing words: the JSON object only.',
-].join('\n');
+/* The standing law of the ledger. M28: it is built per turn now, because two
+ * things it says depend on the ledger's age and what it knows — who the
+ * main character is, and whether an empty answer is honest. */
+function systemPrompt({ mc, founding }) {
+  const who = mc
+    ? `The main character — the one the writer plays — is ${mc}. Feelings (rel.*) are always toward ${mc}.`
+    : 'The ledger does not yet know the main character\'s name. The writer plays or narrates one person as their own — the one whose actions the writer types, the one the story follows. Name them with mc.set (once), and treat rel.* feelings as feelings toward that person.';
+  const law = founding
+    ? [
+      'THE LEDGER IS YOUNG — nothing is written in it yet. Found it from these pages:',
+      '  - place.set for the ground the scene stands on (a booth at McDonald\'s, a chapel, a train car — the place the prose puts them);',
+      '  - presence.enter for EVERY person the pages put in the scene, the main character included, with position/attire only if shown;',
+      '  - clock.set only if the pages fix a date and hour (never guess a date; if only the hour is known, leave the clock alone);',
+      '  - mc.set if the main character is not yet known;',
+      '  - mode.set for a mood the pages plainly show (socialField for a crowded public place, intimate, combat, travel, group).',
+      'On a young ledger an empty answer is almost always wrong: the scene exists, so someone is somewhere. Write the founding down.',
+    ].join('\n')
+    : [
+      'Be conservative. Write down only what the prose explicitly shows — never what it',
+      'merely hints at, never what might be true. Injuries only when the blow lands',
+      'on-page; feelings shift only from on-page acts, and every shift needs its cause',
+      'in words; never invent off-screen activity for characters the prose doesn\'t',
+      'mention; when unsure, omit. Time moves only when the prose says it moved. If',
+      'nothing changed, return {"mutations":[]} — an empty list is a good and honest',
+      'answer on a settled ledger.',
+    ].join('\n');
+  return [
+    'You keep the ledger for a slow, warm story told between two writers. After each',
+    'page is finished, you read it and note — in small, exact changes — what shifted',
+    'in the scene: the hour, the ground, who is present, the mood of the room, who',
+    'was hurt, how the people involved feel about the main character, and where the',
+    'absent have gone.',
+    '',
+    who,
+    '',
+    'Answer with JSON ONLY, in exactly this shape:',
+    '{"mutations":[ ... ]}',
+    '',
+    'The only mutations that exist:',
+    VOCABULARY,
+    '',
+    law,
+    'Names keep the exact spelling the prose uses. No commentary, no markdown fences,',
+    'no trailing words: the JSON object only.',
+  ].join('\n');
+}
 
 /* Exported for the harness: the two messages any provider flavor receives. */
-export function buildExtractorMessages({ state, userText, assistantText, before = [] }) {
+export function buildExtractorMessages({ state, userText, assistantText, before = [], founding, brief = '', castNotes = '' }) {
+  /* founding: passed explicitly by the send path (it already knows), else
+   * read off the ledger's own youth. */
+  if (typeof founding !== 'boolean') founding = isYoungLedger(state);
   const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
+  const known = mcName(state);
+  const mc = known && known !== 'the player' ? known : '';
   const FENCE = '"""';
   const user = [
     'Here is what the ledger currently says:',
     facts,
     '',
+    ...(brief && String(brief).trim()
+      ? ['What this story is about, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 1500), FENCE, '']
+      : []),
+    ...(castNotes && String(castNotes).trim()
+      ? ['Who is in it, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 1500), FENCE, '']
+      : []),
     ...(before.length
       ? ['The pages just before this one:', FENCE, before.map((b) => (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + String(b.text || '').slice(0, 2000)).join('\n\n'), FENCE, '']
       : []),
@@ -156,9 +197,15 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     String(assistantText || '').slice(0, 8000),
     '"""',
     '',
-    'What changed, if anything? JSON only.',
+    founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
-  return { system: withFictionFrame(SYSTEM_PROMPT), user };
+  return { system: withFictionFrame(systemPrompt({ mc, founding })), user, founding, mc };
+}
+
+/* M28: a ledger is young when it has no ground and nobody in it — the same
+ * test the founding read (M27) uses in chat.js. One home for it. */
+export function isYoungLedger(state) {
+  return !(state && state.place) && !((state && state.present) || []).length;
 }
 
 /* ---------- the tolerant parser ---------- */
@@ -197,117 +244,26 @@ export function parseExtractorAnswer(raw) {
   }
 }
 
-/* ---------- the provider calls (non-streaming, small, cold) ---------- */
-
-async function callAnthropic(connection, prompt, signal) {
-  const base = (connection.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
-  const res = await fetch(`${base}/v1/messages`, {
-    method: 'POST',
-    signal,
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': connection.apiKey || '',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: connection.model || 'claude-sonnet-4-5',
-      max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
-      system: prompt.system,
-      messages: [
-        { role: 'user', content: prompt.user },
-        /* the prefill: the answer must begin mid-JSON */
-        { role: 'assistant', content: '{' },
-      ],
-    }),
-  });
-  if (!res.ok) return '';
-  const body = await res.json();
-  const piece = body && Array.isArray(body.content)
-    ? body.content.find((b) => b && b.type === 'text' && typeof b.text === 'string')
-    : null;
-  /* the prefill's "{" belongs back on the front of the answer */
-  return piece ? '{' + piece.text : '';
-}
-
-async function callOpenAI(connection, prompt, signal) {
-  const base = (connection.baseUrl || 'https://api.openai.com')
-    .replace(/\/+$/, '')
-    .replace(/\/v1$/i, '');
-  const headers = { 'content-type': 'application/json' };
-  if (connection.apiKey) headers.authorization = `Bearer ${connection.apiKey}`;
-  const payload = {
-    model: connection.model || 'gpt-4o-mini',
-    max_tokens: MAX_TOKENS,
-    temperature: TEMPERATURE,
-    messages: [
-      { role: 'system', content: prompt.system },
-      { role: 'user', content: prompt.user },
-    ],
-  };
-  /* response_format json_object is an OpenAI-house knob; OpenRouter and
-   * custom servers may not know it, so only api.openai.com gets it — the
-   * tolerant parser carries the rest. */
-  if (base.includes('api.openai.com')) {
-    payload.response_format = { type: 'json_object' };
-  }
-  let res = await fetch(`${base}/v1/chat/completions`, {
-    method: 'POST',
-    headers,
-    signal,
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok && res.status === 400) {
-    /* Newer houses refuse the old knobs outright: gpt-5/o-series want
-     * max_completion_tokens and no temperature. One patient retry with the
-     * offending knob swapped or dropped — otherwise the ledger would starve
-     * silently on exactly the models people pick today. */
-    const detail = await res.text().catch(() => '');
-    if (/max_tokens|max_completion_tokens/i.test(detail)) {
-      delete payload.max_tokens;
-      payload.max_completion_tokens = MAX_TOKENS;
-    }
-    if (/temperature/i.test(detail)) delete payload.temperature;
-    if (payload.max_completion_tokens || !('temperature' in payload)) {
-      res = await fetch(`${base}/v1/chat/completions`, {
-        method: 'POST',
-        headers,
-        signal,
-        body: JSON.stringify(payload),
-      });
-    }
-  }
-  if (!res.ok) return '';
-  const body = await res.json();
-  const choice = body && Array.isArray(body.choices) ? body.choices[0] : null;
-  const text = choice && choice.message && choice.message.content;
-  return typeof text === 'string' ? text : '';
-}
-
 /* ---------- the contract ---------- */
 
-/* Read one finished turn and propose mutations. NEVER throws into the chat
- * path — every failure (no connection, network, non-JSON, prose-wrapped
- * JSON) lands as {mutations:[]}. */
-export async function extractTurn({ connection, state, userText, assistantText, before = [], signal } = {}) {
-  try {
-    if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
-    if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
-    /* M27 fix: the founding read's pages (`before`) were gathered by the
-     * caller and then dropped here — the extractor never saw them. Pass
-     * them through so a young ledger has something to found itself on. */
-    const prompt = buildExtractorMessages({ state, userText, assistantText, before });
-    let raw = '';
-    if (connection.type === 'anthropic') {
-      raw = await callAnthropic(connection, prompt, signal);
-    } else if (connection.type === 'openai') {
-      raw = await callOpenAI(connection, prompt, signal);
-    } else {
-      return { mutations: [], failed: true };
-    }
-    return parseExtractorAnswer(raw);
-  } catch (err) {
-    return { mutations: [], failed: true };
-  }
+/* Read one finished turn and propose mutations.
+ *
+ * M28: transport failures THROW — the workers' queue retries them with
+ * backoff (honoring Retry-After) and writes one plain word on the workers
+ * line. What never throws: an answer we can't use, which resolves
+ * {mutations:[], note:'unusable'} so the drawer can say so. A missing
+ * connection or an empty page resolves {mutations:[], failed:true}. */
+export async function extractTurn({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', signal } = {}) {
+  if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
+  if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
+  const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
+  const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes });
+  const { text } = await callWorker(connection, {
+    system: prompt.system,
+    user: prompt.user,
+    maxTokens: MAX_TOKENS,
+    effort: 'off',
+    signal,
+  });
+  return parseExtractorAnswer(text);
 }

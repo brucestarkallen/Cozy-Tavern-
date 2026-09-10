@@ -264,10 +264,15 @@ test('M12 detail auditor: discard-if-moved — a node that changed mid-flight ke
     const content = calls === 1
       ? 'They crossed the dark water, promised to meet at midsummer, and parted at the chapel steps.'
       : 'DETAIL: the ferry cost was forty crowns';
-    return { ok: true, json: async () => ({ choices: [{ message: { content } }] }) };
+    /* M28: the keeper rides the provider now, which streams — the mock
+     * answers as an SSE body, the way the real house would. */
+    const sseText = 'data: ' + JSON.stringify({ choices: [{ delta: { content } }] }) + '\n\n'
+      + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+    const body = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sseText)); c.close(); } });
+    return { ok: true, status: 200, headers: new Headers(), body, clone() { return this; }, json: async () => ({}), text: async () => sseText };
   };
   try {
-    const connection = { type: 'openai' };
+    const connection = { type: 'openai', baseUrl: 'https://x', apiKey: 'k', model: 'm' };
     await maybeSummarize({ connection, storyId });
     let mem = await loadMemory(storyId);
     eq(mem.nodes.length, 1, 'one node folded');

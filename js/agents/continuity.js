@@ -26,10 +26,9 @@ import { renderCanon } from '../engine/canon.js';
  * agents/jsonutil.js. */
 import { firstBalancedObject } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
+import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 
-const MAX_TOKENS = 1200; /* thinking models spend tokens before the first
-  word of JSON — 400 starved them into silence */
-const TEMPERATURE = 0;
+const MAX_TOKENS = 1200; /* findings are a short JSON list; thinking is off on the wire (M28) */
 const FINDINGS_CAP = 6;
 const WORDS_CAP = 200;
 
@@ -116,92 +115,21 @@ export function parseContinuityAnswer(raw) {
   }
 }
 
-/* ---------- the provider calls (non-streaming, small, cold) ---------- */
-
-async function callAnthropic(connection, prompt, signal) {
-  const base = (connection.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
-  const res = await fetch(`${base}/v1/messages`, {
-    method: 'POST',
-    signal,
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': connection.apiKey || '',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: connection.model || 'claude-sonnet-4-5',
-      max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
-      system: prompt.system,
-      messages: [
-        { role: 'user', content: prompt.user },
-        /* the prefill: the answer must begin mid-JSON */
-        { role: 'assistant', content: '{' },
-      ],
-    }),
-  });
-  if (!res.ok) return '';
-  const body = await res.json();
-  const piece = body && Array.isArray(body.content)
-    ? body.content.find((b) => b && b.type === 'text' && typeof b.text === 'string')
-    : null;
-  /* the prefill's "{" belongs back on the front of the answer */
-  return piece ? '{' + piece.text : '';
-}
-
-async function callOpenAI(connection, prompt, signal) {
-  const base = (connection.baseUrl || 'https://api.openai.com')
-    .replace(/\/+$/, '')
-    .replace(/\/v1$/i, '');
-  const headers = { 'content-type': 'application/json' };
-  if (connection.apiKey) headers.authorization = `Bearer ${connection.apiKey}`;
-  const payload = {
-    model: connection.model || 'gpt-4o-mini',
-    max_tokens: MAX_TOKENS,
-    temperature: TEMPERATURE,
-    messages: [
-      { role: 'system', content: prompt.system },
-      { role: 'user', content: prompt.user },
-    ],
-  };
-  /* response_format json_object only where the knob is known to exist. */
-  if (base.includes('api.openai.com')) {
-    payload.response_format = { type: 'json_object' };
-  }
-  const res = await fetch(`${base}/v1/chat/completions`, {
-    method: 'POST',
-    headers,
-    signal,
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) return '';
-  const body = await res.json();
-  const choice = body && Array.isArray(body.choices) ? body.choices[0] : null;
-  const text = choice && choice.message && choice.message.content;
-  return typeof text === 'string' ? text : '';
-}
-
 /* ---------- the contract ---------- */
 
-/* Read one finished page against canon and the ledgers. NEVER throws into
- * the chat path — every failure (no connection, network, non-JSON,
- * prose-wrapped JSON) lands as {findings:[]}. */
+/* Read one finished page against canon and the ledgers. M28: a transport
+ * failure THROWS so the queue retries with backoff; a garbled answer is
+ * {findings:[]}. A missing connection or an empty page: {findings:[]}. */
 export async function checkTurn({ connection, state, assistantText, signal } = {}) {
-  try {
-    if (!connection || typeof connection !== 'object') return { findings: [] };
-    if (!assistantText || !String(assistantText).trim()) return { findings: [] };
-    const prompt = buildContinuityMessages({ state, assistantText });
-    let raw = '';
-    if (connection.type === 'anthropic') {
-      raw = await callAnthropic(connection, prompt, signal);
-    } else if (connection.type === 'openai') {
-      raw = await callOpenAI(connection, prompt, signal);
-    } else {
-      return { findings: [] };
-    }
-    return parseContinuityAnswer(raw);
-  } catch (err) {
-    return { findings: [] };
-  }
+  if (!connection || typeof connection !== 'object') return { findings: [] };
+  if (!assistantText || !String(assistantText).trim()) return { findings: [] };
+  const prompt = buildContinuityMessages({ state, assistantText });
+  const { text } = await callWorker(connection, {
+    system: prompt.system,
+    user: prompt.user,
+    maxTokens: MAX_TOKENS,
+    effort: 'off',
+    signal,
+  });
+  return parseContinuityAnswer(text);
 }

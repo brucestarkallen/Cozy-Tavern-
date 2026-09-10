@@ -961,3 +961,40 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - User pages carry "try again" — rewind-and-regenerate for reader input, riding the M21
   rollback law.
 - version.js -> m27-001. Harness 184/184.
+
+---
+
+# M28 — the workers speak through the wire; the ledger is founded (field-reported)
+- THE FIELD REPORT: first message of a new story ("Jovan … eating at McDonald's with Liara"),
+  the storyteller answers, the ledger stays empty, nothing populates the world. Three root
+  causes, all proved by tests/harness/m28.mjs against a mock reasoning house
+  (tests/harness/thinkinghouse.mjs — GLM/Kimi/Qwen law: unless told to stop thinking in the
+  house's own spelling, it thinks first and spends the budget; content comes back empty):
+  1. SIX WIRE PATHS. extractor, scribe, keeper, second reader and referee each carried their
+     own hand-rolled anthropic+openai fetch that NEVER disabled thinking. Before: 0/3 reasoning
+     houses produced a mutation. M26's max_tokens 600→2000 was a bandage. Now every worker
+     rides js/agents/call.js → createProvider().streamChat — the same providers, the same
+     effort ladder (Z.ai thinking:{type:'disabled'}, OpenRouter reasoning:{enabled:false},
+     Qwen enable_thinking:false, Anthropic no thinking block), rejection memory, address
+     normalization. After: 3/3. LAW (harness-enforced): no fetch() in js/agents/*.
+  2. THE FOUNDING. The extractor asked "what changed?" of a page that IS the world so far and
+     was told the empty list is the most common honest answer. Now a young ledger (no place,
+     nobody present — isYoungLedger, one home) switches the prompt into founding mode:
+     place.set, presence.enter for everyone (MC included), clock.set only if fixed, mode.set,
+     and "an empty answer here is almost always wrong". The brief and cast notes ride along.
+  3. WHO IS THE MAIN CHARACTER. state.sheet.playerName was learned only by the referee's sheet
+     seeder (after the first fight) or by hand; every worker said "the main character" to a
+     model that had no idea who that was. New mutation mc.set {name} (apply.js, undo kind
+     mc.restore): set once, a known name is never overwritten by a worker (hand wins), and
+     the seeder no longer clobbers a known name either.
+- Transport truth: providers/wire.js gains retryAfterMs + transportError(res, message) —
+  a refused call throws an Error carrying status and retryAfterMs; the queue's backoff honors
+  it. Workers THROW on transport failure now (the queue retries; the workers line says
+  "stumbled"/"too many asks") instead of resolving a silent empty list.
+- scribe.js re-exports retryAfterMs from its new home (harness contract kept).
+- Harness: tests/harness/m28.mjs (9 checks) + thinkinghouse.mjs; finishing.mjs's keeper mock
+  answers as SSE now (the keeper streams like everything else). 193/193.
+- version.js -> m28-001. sw.js shell list gains js/agents/call.js.
+- Still open (M29, the World Agent): nothing yet ADVANCES the off-page world between turns —
+  the workers record, none of them moves Aurora from the station to the door. That is the
+  next milestone, on top of a ledger that now actually gets written.

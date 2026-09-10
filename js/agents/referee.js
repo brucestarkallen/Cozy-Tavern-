@@ -32,6 +32,7 @@
 
 import { parseFirstObject } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
+import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 import { applyMutations } from '../engine/apply.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { db } from '../store.js';
@@ -49,8 +50,7 @@ import {
   buildBattleDirective, buildWarDirective, renderFightLine, RULED_HEAD,
 } from '../engine/duels.js';
 
-const MAX_TOKENS = 600;
-const TEMPERATURE = 0;
+const MAX_TOKENS = 600; /* one small JSON object; thinking is off on the wire (M28) */
 const TIMELINE_CAP = 12;
 
 /* ==================================================================== */
@@ -316,63 +316,12 @@ export const SEED_SYSTEM = [
 /* ==================================================================== */
 
 async function callRefereeOnce(connection, system, user, signal) {
+  /* M28: the one wire path (agents/call.js) — thinking OFF per house, cold,
+   * small. A refused call throws here and callReferee reads that as '' —
+   * on the send path a failure means no ruling this turn, never a stall. */
   if (!connection || typeof connection !== 'object') return '';
-  if (connection.type === 'anthropic') {
-    const base = (connection.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
-    const res = await fetch(`${base}/v1/messages`, {
-      method: 'POST',
-      signal,
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': connection.apiKey || '',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: connection.model || 'claude-sonnet-4-5',
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
-        system,
-        messages: [
-          { role: 'user', content: user },
-          { role: 'assistant', content: '{' }, // the prefill
-        ],
-      }),
-    });
-    if (!res.ok) return '';
-    const body = await res.json();
-    const piece = body && Array.isArray(body.content)
-      ? body.content.find((b) => b && b.type === 'text' && typeof b.text === 'string')
-      : null;
-    return piece ? '{' + piece.text : '';
-  }
-  if (connection.type === 'openai') {
-    const base = (connection.baseUrl || 'https://api.openai.com').replace(/\/+$/, '').replace(/\/v1$/i, '');
-    const headers = { 'content-type': 'application/json' };
-    if (connection.apiKey) headers.authorization = `Bearer ${connection.apiKey}`;
-    const payload = {
-      model: connection.model || 'gpt-4o-mini',
-      max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    };
-    if (base.includes('api.openai.com')) payload.response_format = { type: 'json_object' };
-    const res = await fetch(`${base}/v1/chat/completions`, {
-      method: 'POST',
-      headers,
-      signal,
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) return '';
-    const body = await res.json();
-    const choice = body && Array.isArray(body.choices) ? body.choices[0] : null;
-    const text = choice && choice.message && choice.message.content;
-    return typeof text === 'string' ? text : '';
-  }
-  return '';
+  const { text } = await callWorker(connection, { system, user, maxTokens: MAX_TOKENS, effort: 'off', signal });
+  return text;
 }
 
 /* Strict JSON via the shared balanced-brace walker, then exactly ONE retry
@@ -1008,7 +957,10 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM } = 
     if (!state.sheet.actors || typeof state.sheet.actors !== 'object') state.sheet.actors = {};
     if (typeof parsed.player_story_name === 'string' && parsed.player_story_name.trim()) {
       const nm = parsed.player_story_name.trim().slice(0, 60);
-      if (!isMcAlias(state, nm)) state.sheet.playerName = nm;
+      /* M28: a name the ledger already knows — from the founding read
+       * (mc.set) or the hand — is never clobbered by a seeder's guess. */
+      const known = typeof state.sheet.playerName === 'string' ? state.sheet.playerName.trim() : '';
+      if (!known) state.sheet.playerName = nm;
     }
     let touched = 0;
     const list = Array.isArray(parsed.actors) ? parsed.actors.slice(0, 16) : [];

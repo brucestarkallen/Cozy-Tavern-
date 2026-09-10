@@ -155,6 +155,28 @@ function describeDelta(minutes) {
 /* ---------- the individual mutations ---------- */
 
 const HANDLERS = {
+  'mc.set'(state, m) {
+    /* M28: who the writer plays. Until now the ledger learned the main
+     * character's name only from the referee's sheet seeder — after the
+     * first fight — or by hand; every worker before that spoke of "the main
+     * character" without knowing who that was. The founding read names them
+     * on turn one. A name already known is never overwritten by a worker:
+     * the hand (How they measure) wins, and a worker's second guess is
+     * refused rather than logged. */
+    const name = normalizeName(m.name || '');
+    if (!name) return { ok: false, why: 'the main character needs a name' };
+    if (!state.sheet || typeof state.sheet !== 'object') state.sheet = { actors: {}, playerName: '' };
+    const before = typeof state.sheet.playerName === 'string' ? state.sheet.playerName.trim() : '';
+    if (before && before.toLowerCase() === name.toLowerCase()) return { ok: false, why: 'the main character is already known as ' + before };
+    if (before) return { ok: false, why: 'the main character is already known as ' + before + ' — change it by hand in How they measure' };
+    state.sheet = { ...state.sheet, playerName: name.slice(0, 60) };
+    return {
+      ok: true,
+      words: 'The main character is ' + name + '.',
+      undo: { kind: 'mc.restore', before },
+    };
+  },
+
   'place.set'(state, m) {
     /* M26: where the scene stands — set when the ground moves or is first named. */
     const name = normalizeName(m.name || m.place || '');
@@ -656,7 +678,10 @@ export function undoLast(state) {
     const undo = entry.undo;
     let ok = false;
 
-    if (undo.kind === 'place') {
+    if (undo.kind === 'mc.restore') {
+      next.sheet = { ...(next.sheet || { actors: {} }), playerName: undo.before || '' };
+      ok = true;
+    } else if (undo.kind === 'place') {
       next.place = undo.before ? { name: undo.before } : null;
       ok = true;
     } else if (undo.kind === 'clock') {

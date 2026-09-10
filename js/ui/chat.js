@@ -47,7 +47,7 @@ import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot , renderMasthead} from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
-import { extractTurn, noteWork, pendingWork } from '../agents/extractor.js';
+import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { enqueueWork } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
@@ -1298,9 +1298,13 @@ export function initChat(ctx) {
       const stateBefore = await loadState(story.id);
       /* M27: the founding read. A young ledger (no ground named yet, nobody
        * here yet) reads the pages just before too — the writer often sets
-       * the scene in the first posts, and a one-pair read would starve it. */
+       * the scene in the first posts, and a one-pair read would starve it.
+       * M28: the same youth switches the extractor into founding mode (it
+       * writes the ground, the people, the hour and the main character down
+       * instead of asking "what changed?"), and the writer's brief and cast
+       * notes ride along so the names are known. */
       let before = [];
-      const young = !stateBefore.place && !(stateBefore.present || []).length;
+      const young = isYoungLedger(stateBefore);
       if (young) {
         /* "The pages just before this one" — the store lists pages in
          * telling order (ts). Comparing UUID strings (m.id < msg.id) picked
@@ -1316,6 +1320,9 @@ export function initChat(ctx) {
         userText,
         assistantText: pageText(msg),
         before,
+        founding: young,
+        brief: story.brief || '',
+        castNotes: story.castNotes || '',
         signal,
       });
       /* B5: a page that has gone teaches the ledger nothing. M12: nor does

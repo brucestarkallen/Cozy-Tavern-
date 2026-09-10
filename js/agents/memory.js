@@ -39,11 +39,10 @@
 
 import { db } from '../store.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
+import { callWorker as sharedCall } from './call.js'; /* M28: the one wire path for workers */
 
 const KEY_PREFIX = 'memory:';
-const MAX_TOKENS = 1600; /* thinking models spend tokens before the first
-  word of the fold — 400 starved them into silence */
-const TEMPERATURE = 0;
+const MAX_TOKENS = 1600; /* a fold is ~150 words; the audit line is one line; thinking is off on the wire (M28) */
 
 /* The laws of layering (SPEC.md M6). */
 export const DEFAULT_WINDOW = 30;
@@ -173,66 +172,19 @@ export function buildFoldMessages(nodes) {
   return { system: withFictionFrame(SYSTEM_PROMPT), user };
 }
 
-/* ---------- the provider calls (non-streaming, small, cold) ---------- */
+/* ---------- the call (M28: the one wire path, agents/call.js) ---------- */
 
-async function callAnthropic(connection, prompt, signal) {
-  const base = (connection.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
-  const res = await fetch(`${base}/v1/messages`, {
-    method: 'POST',
+/* The keeper's answer is prose, read whole. Thinking is OFF on the wire per
+ * house; a transport failure throws so the queue retries with backoff. */
+async function callKeeper(connection, prompt, signal) {
+  const { text } = await sharedCall(connection, {
+    system: prompt.system,
+    user: prompt.user,
+    maxTokens: MAX_TOKENS,
+    effort: 'off',
     signal,
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': connection.apiKey || '',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: connection.model || 'claude-sonnet-4-5',
-      max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
-      system: prompt.system,
-      messages: [{ role: 'user', content: prompt.user }],
-    }),
   });
-  if (!res.ok) return '';
-  const body = await res.json();
-  const piece = body && Array.isArray(body.content)
-    ? body.content.find((b) => b && b.type === 'text' && typeof b.text === 'string')
-    : null;
-  return piece ? piece.text : '';
-}
-
-async function callOpenAI(connection, prompt, signal) {
-  const base = (connection.baseUrl || 'https://api.openai.com')
-    .replace(/\/+$/, '')
-    .replace(/\/v1$/i, '');
-  const headers = { 'content-type': 'application/json' };
-  if (connection.apiKey) headers.authorization = `Bearer ${connection.apiKey}`;
-  const res = await fetch(`${base}/v1/chat/completions`, {
-    method: 'POST',
-    headers,
-    signal,
-    body: JSON.stringify({
-      model: connection.model || 'gpt-4o-mini',
-      max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
-      messages: [
-        { role: 'system', content: prompt.system },
-        { role: 'user', content: prompt.user },
-      ],
-    }),
-  });
-  if (!res.ok) return '';
-  const body = await res.json();
-  const choice = body && Array.isArray(body.choices) ? body.choices[0] : null;
-  const text = choice && choice.message && choice.message.content;
-  return typeof text === 'string' ? text : '';
-}
-
-async function callWorker(connection, prompt, signal) {
-  if (connection.type === 'anthropic') return callAnthropic(connection, prompt, signal);
-  if (connection.type === 'openai') return callOpenAI(connection, prompt, signal);
-  return '';
+  return text;
 }
 
 /* A memory note is plain prose, not JSON — fences and wrapper words are
@@ -369,7 +321,7 @@ export async function maybeSummarize({ connection, storyId, signal } = {}) {
     const end = overflowEnd(history.length, window, covered);
     if (end !== -1) {
       const pages = history.slice(covered, end);
-      const raw = await callWorker(connection, buildMemoryMessages(pages), signal);
+      const raw = await callKeeper(connection, buildMemoryMessages(pages), signal);
       const text = parseMemoryAnswer(raw);
       if (!text) return null; // the worker went quiet — leave everything be
       const node = { id: nodeId(), span: [covered, end - 1], text, level: 1, at: Date.now() };
@@ -385,7 +337,7 @@ export async function maybeSummarize({ connection, storyId, signal } = {}) {
       try {
         const signature = nodeSignature(node);
         const sourceText = pages.map((p) => String(p && p.text || '')).join('\n\n');
-        const auditRaw = await callWorker(connection, buildAuditMessages(sourceText, text), signal);
+        const auditRaw = await callKeeper(connection, buildAuditMessages(sourceText, text), signal);
         const detail = parseAuditAnswer(auditRaw);
         if (detail) {
           const current = await loadMemory(storyId);
@@ -405,7 +357,7 @@ export async function maybeSummarize({ connection, storyId, signal } = {}) {
       .sort((a, b) => (a.span[0] - b.span[0]) || ((a.at || 0) - (b.at || 0)));
     if (ones.length > L2_TRIGGER) {
       const batch = ones.slice(0, L2_BATCH);
-      const raw = await callWorker(connection, buildFoldMessages(batch), signal);
+      const raw = await callKeeper(connection, buildFoldMessages(batch), signal);
       const text = parseMemoryAnswer(raw);
       if (text) {
         const ids = new Set(batch.map((n) => n.id));
@@ -427,7 +379,7 @@ export async function maybeSummarize({ connection, storyId, signal } = {}) {
         try {
           const signature = nodeSignature(node);
           const sourceText = batch.map((n) => String(n && n.text || '')).join('\n\n');
-          const auditRaw = await callWorker(connection, buildAuditMessages(sourceText, text), signal);
+          const auditRaw = await callKeeper(connection, buildAuditMessages(sourceText, text), signal);
           const detail = parseAuditAnswer(auditRaw);
           if (detail) {
             const current = await loadMemory(storyId);

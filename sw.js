@@ -35,6 +35,7 @@ const SHELL = [
   'js/engine/people.js',
   'js/agents/extractor.js',
   'js/agents/queue.js',
+  'js/agents/call.js',
   'js/agents/scribe.js',
   'js/agents/referee.js',
   'js/agents/memory.js',
