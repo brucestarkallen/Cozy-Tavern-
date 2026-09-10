@@ -82,3 +82,11 @@ test('B17: chat import lands in ONE transaction; a mid-write quota failure leave
   const id = await importAsStory(parsed);
   eq((await db.messages.list(id)).length, 2, 'a clean retry lands whole');
 });
+
+test('M46: append keeps the page’s clock, its masthead and its mend (a branch copies pages through append)', async () => {
+  const { db } = await import('../../js/store.js');
+  const sid = 'm46-store';
+  const saved = await db.messages.append(sid, { role: 'assistant', text: 'a', thinking: 't', thinkingMs: 1234, masthead: 'McDonald’s — 14:30', mended: { before: 'b', why: 'w', at: 1 }, swipes: [{ text: 'a', thinking: 't', thinkingMs: 1234 }], swipeIdx: 0 });
+  const back = (await db.messages.list(sid)).find((m) => m.id === saved.id);
+  eq(back.thinkingMs, 1234); eq(back.masthead, 'McDonald’s — 14:30'); eq(back.mended.before, 'b'); eq(back.swipes[0].thinkingMs, 1234);
+});

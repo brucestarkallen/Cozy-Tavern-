@@ -348,6 +348,12 @@ const messages = {
      * woke simply carry no `thinking` and render exactly as they always
      * did. */
     if (typeof msg.thinking === 'string' && msg.thinking) row.thinking = msg.thinking;
+    /* M46: how long it weighed (ms) — the page's own clock, kept beside the thought. */
+    if (Number.isFinite(msg.thinkingMs) && msg.thinkingMs >= 0) row.thinkingMs = msg.thinkingMs;
+    /* M26/M35: the house's masthead and a mend ride an append too (a branch
+     * copies pages through append; a re-ink through update). */
+    if (typeof msg.masthead === 'string' && msg.masthead) row.masthead = msg.masthead;
+    if (msg.mended && typeof msg.mended === 'object' && typeof msg.mended.before === 'string') row.mended = msg.mended;
     /* M27: a page may carry a picture ({image: {dataUrl, mediaType}}). Kept
      * on the page, shown as a keepsake, and ridden on the wire only on its
      * own turn (the assembler's picture law). */
@@ -364,6 +370,7 @@ const messages = {
         .map((s) => {
           const swipe = { text: s.text, ts: Number.isFinite(s.ts) ? s.ts : Date.now() };
           if (typeof s.thinking === 'string' && s.thinking) swipe.thinking = s.thinking;
+          if (Number.isFinite(s.thinkingMs) && s.thinkingMs >= 0) swipe.thinkingMs = s.thinkingMs;
           if (s.receipt && typeof s.receipt === 'object') swipe.receipt = s.receipt;
           return swipe;
         });
@@ -373,6 +380,7 @@ const messages = {
         const shown = row.swipes[row.swipeIdx];
         row.text = shown.text;
         if (shown.thinking) row.thinking = shown.thinking;
+        if (Number.isFinite(shown.thinkingMs)) row.thinkingMs = shown.thinkingMs;
         if (shown.receipt) row.receipt = shown.receipt;
       }
     }

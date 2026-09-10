@@ -28,7 +28,7 @@ test('M40-2 the swipe bar: arrows and n/N at the page’s foot; the word "swipe"
 test('M40-3 the thinking clock is kept on the page and its versions', () => {
   const c = chat();
   assert(/function thinkingWords\(ms\)/.test(c) && /thinkingNode\(msg\.thinking, msg\.thinkingMs\)/.test(c));
-  assert(/thinkingMs: thinkMs \|\| undefined/.test(c), 'saved on the page and the swipe');
+  assert(/thinkingMs: thinkStart \? Math\.max\(1, thinkMs\) : undefined/.test(c), 'saved on the page and the swipe whenever a thought was seen (M46)');
   assert(/setInterval\(\(\) => \{/.test(c) && /thinking-took/.test(c), 'a live clock while it thinks');
 });
 

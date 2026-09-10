@@ -1467,3 +1467,12 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   scene is the extractor's from the first page); the law says a place the brief mentions is
   world and needs no line.
 - Harness: m46.mjs (3 checks). 276/276 + 19/19. version.js -> m46-001.
+- M46-002/003 (FIELD REPORT: "after thinking it should also say how long it thought"): the clock was
+  measured but never SAVED — store.js's append copies fields by an explicit list and thinkingMs
+  was not on it (nor masthead, nor mended: a branch copies pages through append and would have
+  dropped both). All three ride now, on the page and on each swipe. The finished page's thinking
+  block reads "what the storyteller weighed — thought for 12s"; under half a second reads so.
+  DOM-14a drives a THINKING storyteller through the real UI (the mock house emits
+  reasoning_content first) and proves the thought and its time are kept and shown.
+  LAW (relearned, the hard way, twice this session): never push with a red harness.
+  277/277 + 20/20. version.js -> m46-002.
