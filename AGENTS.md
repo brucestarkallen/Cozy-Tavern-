@@ -1921,3 +1921,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   re-taken from the folded timeline. branchFrom's inexact case is the fold too.
 - The invariant walk (DOM-8c) holds throughout; DOM-8b now asserts the branch at page 0 equals
   the fold at page 0 (better than clean). 312/312 + 27/27 (×3). version.js -> m69-001.
+
+---
+
+# M70 — a branch at a WRITER'S page
+- FIELD REPORT: "branching to my first user message from page 24 — the ledger is still there."
+  ROOT: branchFrom reckoned only from a storyteller page; for a writer's page it took the
+  checkpoint after storyteller page 0, so a branch holding NO storyteller page got page 0's
+  ledger. With the journal there is one rule for any page: fold to the last storyteller page
+  the branch actually contains — for the first writer's message that is k = -1: empty but for
+  what the founder wrote from the brief (foldJournal re-applies the founding, stamped -1, when
+  it starts from an empty base). The checkpoint reckoning stands only for a store with no
+  journal. Also: branchFrom while busy or replaying used to return silently — it says so now.
+- DOM-8d: a long story, branch at the first writer's message → no storyteller page, no one
+  present, no ground. 312/312 + 28/28 (×3). version.js -> m70-001.

@@ -2970,7 +2970,7 @@ export function initChat(ctx) {
   ];
 
   async function branchFrom(messageId) {
-    if (busy) return;
+    if (busy || replaying) { toast('The house is still writing — one moment, then branch.'); return; }
     const story = await activeStory();
     if (!story) return;
     const history = await db.messages.list(story.id);
@@ -3002,11 +3002,20 @@ export function initChat(ctx) {
      * old telling's later turns crosses over. */
     const target = history[at];
     let carried = null;
-    /* M67: a branch from the LAST page carries the ledger as it stands — after
-     * the workers finish with it — that IS the exact checkpoint */
-    if (isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden)) {
-      await pendingWork(story.id, 8000);
-      carried = await loadState(story.id);
+    /* M70: with a journal, ONE rule for any page: the branch's ledger is the
+     * fold up to the last storyteller page the branch actually contains — for
+     * a writer's first message that is none (k = -1): empty but for what the
+     * founder wrote from the brief. The checkpoint reckoning below stands only
+     * for a store from before the journal. */
+    await pendingWork(story.id, 8000);
+    const nowState = await loadState(story.id);
+    if ((nowState.journal || []).length) {
+      const k = pages.filter((m) => m.role === 'assistant').length - 1;
+      carried = foldJournal(nowState, await loadSnapshots(story.id), k, applyMutations);
+    }
+    /* M67: a branch from the LAST page carries the ledger as it stands */
+    if (!carried && (isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden))) {
+      carried = nowState;
     }
     if (!carried && target.role === 'assistant') {
       const idx = Array.isArray(target.swipes) && target.swipes.length

@@ -620,8 +620,9 @@ export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
     state.clock = current.clock ? { ...current.clock, minutes: 0 } : null;
     state.founded = current.founded || null;
   }
-  const from = base ? base.page : -1;
-  state.journal = journal.filter((e) => e.p <= from);
+  /* with no base, everything from the founding (stamped -1) forward is re-applied */
+  const from = base ? base.page : -2;
+  state.journal = base ? journal.filter((e) => e.p <= from) : [];
   const groups = new Map();
   for (const e of journal) {
     if (e.p <= from || e.p > targetPage) continue;

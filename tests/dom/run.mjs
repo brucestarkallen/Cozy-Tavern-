@@ -599,6 +599,30 @@ test('DOM-8c the checkpoint invariant holds under a random sequence of sends, sw
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-8d a branch at the FIRST WRITER’S message carries no storyteller page and no ledger of one', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  const now = await db.settings.get('state:' + sid);
+  assert((now.present || []).length || now.place, 'the story has a ledger to leave behind');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  await until(() => !env.ctx.chat.isBusy() && queuedCount(sid) === 0 && !q('.msg-pending'), 'the house free', 30000);
+  await tick(300);
+  click(q('.msg-act[data-act="branch"]', userPages()[0]));
+  await until(async () => (await storyId()) !== sid, 'the branch is open', 10000);
+  const bid = await storyId();
+  await settled();
+  const bst = await db.settings.get('state:' + bid);
+  const pages = (await db.messages.list(bid)).filter((m) => !m.hidden);
+  eq(pages.filter((m) => m.role === 'assistant').length, 0, 'no storyteller page in the branch');
+  eq((bst.present || []).length, 0, 'no one present: ' + JSON.stringify(bst.present));
+  eq(bst.place, null, 'no ground');
+  const originTitle = (await db.stories.get(sid)).title;
+  const row = qa('.story-item').find((li) => li.textContent.includes(originTitle) && !/a branch/.test(li.textContent));
+  click(q('.story-open', row) || row);
+  await until(async () => (await storyId()) === sid, 'back on the origin', 10000);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-8b a branch at the start never carries a later ledger: no checkpoint → a clean ledger and a re-reading', async () => {
   const before = errors.length;
   const sid = await storyId();
