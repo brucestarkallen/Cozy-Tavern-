@@ -836,3 +836,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   (visible on the home screen, phone included — sidebar colophon alone wasn't enough).
 - Harness: two heredoc/case traps fixed in findability.mjs (delimiter is a line of its own;
   case-insensitive copy checks). version.js -> m19-001.
+
+---
+
+# M20 — the word that never goes stale
+- cozytavern.sh now lives IN the repo; install.sh copies it (home path baked). After any
+  update the command re-copies itself from the fresh repo — fixing the root cause the user
+  exposed: the launcher was written once and never updated, so long-lived installs printed
+  no version. Launch report law: every launch prints "Already on <ver>"/"Fresh coat on: <ver>".
+- Port sanity: if 8080 answers but not as the tavern (ghost lamp from a deleted folder),
+  the command prints the exact douse line (with the cozy-chat lamp warning).
+- version.js -> m20-001. Harness 152/152.

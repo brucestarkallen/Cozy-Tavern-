@@ -84,16 +84,27 @@ test('M18 a chip tap scrolls gently and the room flashes ember', () => {
   assert(/inset 3px 0 0 var\(--ember\)/.test(css), 'the flash is an ember left edge that shifts nothing');
 });
 
-test('M18 the reload-once bridge stands in install.sh and cozytavern', () => {
-  const src = read('install.sh');
+test('M18 the reload-once bridge stands in install.sh and the shipped launcher', () => {
+  const inst = read('install.sh');
+  const launcher = read('cozytavern.sh');
   const line = 'A new coat is on — if the tavern looks the same, pull the page down once to reload.';
-  eq(src.split(line).length - 1, 2, 'the bridge is spoken twice — by install.sh and by the cozytavern it writes');
-  eq(src.split('rev-parse HEAD').length - 1, 4, 'both shells weigh HEAD before and after the pull');
-  const heredoc = src.slice(src.indexOf('<<TAVERN'), src.indexOf('\nTAVERN\n')); /* the delimiter is a line of its own — TAVERN_VER= must not fool it */
-  assert(heredoc.includes('HEAD_BEFORE') && heredoc.includes('HEAD_AFTER'),
-    'the cozytavern command weighs HEAD itself');
-  assert(heredoc.includes('\\$HEAD_BEFORE'), 'the runtime variables escape the heredoc');
+  assert(inst.includes(line), 'install.sh speaks the bridge');
+  assert(launcher.includes(line), 'the launcher speaks the bridge');
+  assert(inst.includes('rev-parse HEAD'), 'the installer weighs HEAD around the pull');
+  assert(launcher.includes('rev-parse HEAD'), 'the launcher weighs HEAD itself');
 });
+
+test('M20 the launcher re-arms itself and reports the version', () => {
+  const launcher = read('cozytavern.sh');
+  assert(launcher.includes('cp cozytavern.sh'), 'after an update the word re-arms itself from the repo');
+  assert(launcher.includes('__COZY_HOME__'), 'the home placeholder is baked at install time');
+  assert(launcher.includes('Already on'), 'the launcher reports when current');
+  assert(launcher.includes('Fresh coat on:'), 'the launcher reports when it updated');
+  const inst = read('install.sh');
+  assert(inst.includes('cozytavern.sh'), 'install.sh copies the launcher from the repo (never a stale word)');
+  assert(inst.includes('Already on'), 'install.sh reports the version too');
+});
+
 
 test('M18 the README keeps the "Keeping it current" word', () => {
   const src = read('README.md');

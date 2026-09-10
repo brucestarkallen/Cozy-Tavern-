@@ -140,3 +140,17 @@ shell. No frameworks, no CDNs, no fonts fetched from elsewhere. See
 `AGENTS.md` if you're here to tend the code, and `tests/smoke.md` for the
 evening walkthrough — the by-hand checklist that keeps every milestone
 honest.
+
+## Starting over clean
+
+The tavern's files are just files — deleting them never touches your stories,
+your keys, or your settings; those live in the browser. To wipe and replant:
+
+```bash
+rm -rf ~/cozytavern
+bash <(curl -sL https://raw.githubusercontent.com/brucestarkallen/Cozy-Tavern-/main/install.sh)
+cozytavern
+```
+
+(If a lamp stayed lit from an old folder, douse it first: `pkill -f "python3 serve.py"`
+— mind: that also douses Cozy Chat's lamp; relight it anytime with `cozy`.)
