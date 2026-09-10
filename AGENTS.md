@@ -1895,3 +1895,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Also: a send while the house is busy kept silently dropping the typed words — they stay in the
   box now, with a toast; window.__cozy exposes ctx (the walk waits on ctx.chat.isBusy()).
 - 312/312 + 27/27 (the invariant walk green ×4). version.js -> m68-001.
+
+---
+
+# M69 — Summaryception's journal, ported: the ledger is a fold; the timeline judges itself
+- FIELD REPORT (from Summaryception's author): "Summaryception had the same class of problem —
+  branch at the start not clearing the ledger and snippets — and solved it. 'ST only swipes the
+  last message' makes no sense." Correct, and I was wrong. repairIfBranched + rewindLedgerFromNotes
+  are the design: every ledger write is a NOTE stamped with its turn, the ledger is a FOLD of the
+  notes, a rewind is "keep notes ≤ T and fold" (exact, no model call), and a branch is repaired
+  by its own stamps (_t/_st past the chat end), never by trusting a pointer or a checkpoint.
+- state.journal [{id, p, m}] — every applied mutation, stamped with the storyteller-page index
+  (state.page, set by the extractor's job before it applies; the founder's writes before it carry
+  the previous page) and tied to its log entry (jid) so a take-back drops it from the fold.
+  JOURNAL_CAP 6000; older folds start from the sparse snapshots (which carry page + journal).
+- foldJournal(current, snapshots, P, applyMutations): the ledger at the end of page P — from the
+  nearest snapshot with page ≤ P (else empty, keeping the MC's name, the calendar's shape and the
+  founding print), re-applying the journal's entries with page in (base, P]. Pure, deterministic.
+- timelineAhead(state, pages): the stamps judge the ledger — state.page or any journal entry at
+  or past the end = another timeline's ledger. repairTimeline runs on every story open and folds
+  back to the last page that exists (Summaryception's repairIfBranched).
+- The replay (M68) is now a FOLD: fold to the page before the change; ONE reading for the page
+  whose words changed (walk, edit); the later pages' writes re-applied exactly from the journal
+  (shifted down after a delete, via kOverride/atOverride/shiftAfter); every later boundary
+  re-taken from the folded timeline. branchFrom's inexact case is the fold too.
+- The invariant walk (DOM-8c) holds throughout; DOM-8b now asserts the branch at page 0 equals
+  the fold at page 0 (better than clean). 312/312 + 27/27 (×3). version.js -> m69-001.

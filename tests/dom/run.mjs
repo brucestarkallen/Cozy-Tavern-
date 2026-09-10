@@ -607,15 +607,17 @@ test('DOM-8b a branch at the start never carries a later ledger: no checkpoint â
   await db.settings.delete('versionState:' + sid);
   const now = await db.settings.get('state:' + sid);
   assert(now && ((now.present || []).length || now.place || Object.keys(now.offscreen || {}).length), 'the present ledger has content');
+  const { foldJournal } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const expected = foldJournal(now, [], 0, applyMutations); /* M69: page 0's exact ledger, from the journal */
   click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
   await until(async () => (await storyId()) !== sid, 'the branch is open', 10000);
   const bid = await storyId();
-  const bst = await db.settings.get('state:' + bid);
-  assert(!bst.place && !(bst.present || []).length && !Object.keys(bst.offscreen || {}).length, 'the branch starts clean, not with the later ledger: ' + JSON.stringify({ place: bst.place, present: bst.present, offscreen: Object.keys(bst.offscreen || {}) }));
   await settled();
-  /* the re-reading founded the branch's own scene from its carried page */
-  const after = await db.settings.get('state:' + bid);
-  assert(after.place || (after.present || []).length, 'the workers re-read the carried page and founded the scene');
+  const bst = await db.settings.get('state:' + bid);
+  const names = (st) => (st.present || []).map((p) => p.name).sort().join(',');
+  eq(names(bst), names(expected), 'the branch at page 0 carries page 0â€™s exact ledger (the fold), never the later one');
+  assert(names(bst) !== names(now) || (now.present || []).length <= (expected.present || []).length, 'and the later people are not there');
   /* back to the origin (rows carry no id; find it by title) */
   const originTitle = (await db.stories.get(sid)).title;
   const row = qa('.story-item').find((li) => li.textContent.includes(originTitle) && !/a branch/.test(li.textContent));

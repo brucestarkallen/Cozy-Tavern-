@@ -87,10 +87,10 @@ test('M44-6 the house wires the laws: retry truncates the record, delete slides 
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/memoryTruncatedAt\(await loadMemory\(story\.id\), k\)/.test(chat), 'retry/regenerate truncates');
   assert(/memoryAfterDeletion\(await loadMemory\(story\.id\), kGone\)/.test(chat), 'delete slides');
-  assert(/replayFrom\(story, after\.id, \{ boundaryId: goneBoundary/.test(chat), 'delete replays from the next page, rewound to the deleted turn’s boundary');
+  assert(/replayFrom\(story, after\.id, \{ changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone \}\)/.test(chat), 'delete folds back and re-applies the later pages’ writes, shifted down (M69)');
   eq((chat.match(/memoryWithoutPage\(await loadMemory\(story\.id\), k\)/g) || []).length, 3, 'swipe-new, swipe-walk (last page), edit leave a hole');
   const edit = chat.slice(chat.indexOf('const isLast = !history.slice'), chat.indexOf('const isLast = !history.slice') + 700);
-  assert(/if \(isLast\) \{[\s\S]*rewindTo\(story, history, boundary\.id\)/.test(edit) && /else \{[\s\S]*replayFrom\(story, updated\.id\)/.test(edit), 'the last page rewinds; an older page replays');
+  assert(/if \(isLast\) \{[\s\S]*rewindTo\(story, history, boundary\.id\)/.test(edit) && /else \{[\s\S]*replayFrom\(story, updated\.id, \{ changed: true \}\)/.test(edit), 'the last page rewinds; an older page folds back and is read again');
   assert(/async function replayFrom\(story, fromMessageId/.test(chat) && /if \(!replaying && !isLastAssistantPage\(all, msg\.id\)\) return \{ silent: true \};/.test(chat), 'the replay exists and re-takes checkpoints as it runs');
   assert(/pendingAudit\.delete\(story\.id\);/.test(chat), 'the auditor honors a pending audit');
 });

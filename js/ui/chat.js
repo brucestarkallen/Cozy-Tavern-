@@ -45,7 +45,7 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, timelineAhead } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { enqueueWork } from '../agents/queue.js';
@@ -865,6 +865,9 @@ export function initChat(ctx) {
     await renderThread({ structural: true });
     closePanel();
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+    /* M69: a ledger from a longer telling is caught by its own stamps on open */
+    const story = await db.stories.get(id);
+    if (story) repairTimeline(story).catch(() => {});
   }
 
   /* ---------- thread ---------- */
@@ -1656,7 +1659,10 @@ export function initChat(ctx) {
        * while the worker was reading. */
       const fresh = await loadState(story.id);
       if (extractFailed) throw new Error('no answer reached us');
+      /* M69: every write from this chain is stamped with this page's index */
+      { const k = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id); fresh.page = k === -1 ? fresh.page : k; }
       const { state: next, applied, rejected } = applyMutations(fresh, list);
+      if (!applied.length) { await saveState(story.id, next); } /* the stamp stands even when nothing was written */
       if (applied.length) {
         if (stale()) return { silent: true };
         await saveState(story.id, next);
@@ -1923,43 +1929,80 @@ export function initChat(ctx) {
    * alone was not enough — a branch at a later page carried the wrong
    * version's people until the next send. */
   let replaying = false;
-  async function replayFrom(story, fromMessageId, { boundaryId = null } = {}) {
+  /* M69: the replay is a FOLD (Summaryception's rewindLedgerFromNotes) — the
+   * ledger at the end of the page BEFORE the change, rebuilt from the journal
+   * with no model call; then ONE chain for the page whose words changed
+   * (`changedPageIndex`, if any); then the journal entries of the pages after
+   * it re-applied, shifted when a page was let go. Exact for every page whose
+   * words did not change; one reading for the one that did. */
+  async function replayFrom(story, fromMessageId, { changed = true, shiftAfter = null, kOverride = null, atOverride = null } = {}) {
     if (replaying) return false;
     replaying = true;
     try {
       const history = await db.messages.list(story.id);
       const vis = visiblePages(history);
-      const at = vis.findIndex((m) => m.id === fromMessageId);
+      const at = atOverride !== null ? atOverride : vis.findIndex((m) => m.id === fromMessageId);
       if (at === -1) return false;
-      /* a deleted page's replay rewinds to the boundary of the DELETED turn (passed in), not the next page's */
-      const boundary = boundaryId ? { id: boundaryId } : boundaryFor(history, fromMessageId);
-      if (boundary) await rewindTo(story, history, boundary.id);
-      else { const s0 = await loadState(story.id); const clean = emptyState(); clean.sheet = { ...clean.sheet, playerName: (s0.sheet && s0.sheet.playerName) || '' }; clean.clock = s0.clock ? { ...s0.clock } : null; await saveState(story.id, clean); }
+      const assistantIndex = (id) => vis.filter((m) => m.role === 'assistant').findIndex((m) => m.id === id);
+      const k = kOverride !== null ? kOverride : assistantIndex(fromMessageId); /* storyteller-page index of the change */
+      const current = await loadState(story.id);
+      /* the writes that come after the change: after page k when its words changed (k is re-read); from page k on when page k was let go (they shift down) */
+      const later = (current.journal || []).filter((e) => (changed ? e.p > k : e.p > k));
+      /* 1. fold to the page before the change */
+      const snaps = await loadSnapshots(story.id);
+      const folded = foldJournal(current, snaps, k - 1, applyMutations);
+      await saveState(story.id, folded);
       await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), at));
-      /* the version checkpoints from this page on are stale — they are re-taken as the replay runs */
-      {
-        const all = await loadVersionStates(story.id);
-        const staleIds = new Set(vis.slice(at).map((m) => m.id));
-        for (const key of Object.keys(all)) if (staleIds.has(key.split(':')[0])) delete all[key];
-        await db.settings.set('versionState:' + story.id, all);
-      }
+      { const all = await loadVersionStates(story.id); const staleIds = new Set(vis.slice(at).map((m) => m.id)); for (const key of Object.keys(all)) if (staleIds.has(key.split(':')[0])) delete all[key]; await db.settings.set('versionState:' + story.id, all); }
+      /* 2. one reading for the page whose words changed */
       let pages = 0;
-      for (let i = at; i < vis.length; i += 1) {
-        const m = vis[i];
-        if (m.role === 'user') { await snapshotState(story.id, m.id, await loadState(story.id)); continue; }
-        if (m.ooc) continue;
-        const lastUser = [...vis.slice(0, i)].reverse().find((x) => x.role === 'user');
-        startBackgroundWork(story, m, lastUser ? pageText(lastUser) : '');
+      if (changed && vis[at] && vis[at].role === 'assistant' && !vis[at].ooc) {
+        const lastUser = [...vis.slice(0, at)].reverse().find((x) => x.role === 'user');
+        startBackgroundWork(story, vis[at], lastUser ? pageText(lastUser) : '');
         await pendingWork(story.id, 120000);
-        pages += 1;
+        pages = 1;
+      }
+      /* 3. the later pages' writes, re-applied exactly (shifted down when a page went) */
+      let st = await loadState(story.id);
+      const groups = new Map();
+      for (const e of later) { const p = shiftAfter !== null && e.p > shiftAfter ? e.p - 1 : e.p; if (!groups.has(p)) groups.set(p, []); groups.get(p).push(e.m); }
+      for (const p of [...groups.keys()].sort((a, b) => a - b)) { st.page = p; st = applyMutations(st, groups.get(p)).state; }
+      st.page = Math.max(st.page, vis.filter((m) => m.role === 'assistant').length - 1);
+      await saveState(story.id, st);
+      /* the boundaries after the change are re-taken from the folded timeline */
+      for (let i = at; i < vis.length; i += 1) {
+        if (vis[i].role !== 'user') continue;
+        const nextA = vis.slice(i).find((m) => m.role === 'assistant');
+        const upto = nextA ? assistantIndex(nextA.id) - 1 : st.page;
+        await snapshotState(story.id, vis[i].id, foldJournal(st, [], upto, applyMutations));
       }
       pendingAudit.delete(story.id);
       notify(story.id);
-      if (pages) toast(`History changed at page ${at + 1} — the ledger was rebuilt over ${pages} ${pages === 1 ? 'page' : 'pages'}.`);
+      toast(`History changed at page ${at + 1} — the ledger was folded back and rebuilt${pages ? ' with one reading' : ''}.`);
       return true;
     } finally {
       replaying = false;
     }
+  }
+
+  /* M69: judge the ledger by its own stamps when a story opens (Summaryception's
+   * repairIfBranched) — a page stamp past the end means another timeline's
+   * ledger; fold it back to the last page that exists. */
+  async function repairTimeline(story) {
+    if (!story) return false;
+    const history = await db.messages.list(story.id);
+    const vis = visiblePages(history);
+    const pages = vis.filter((m) => m.role === 'assistant').length;
+    const state = await loadState(story.id);
+    const why = timelineAhead(state, pages);
+    if (!why.length) return false;
+    const snaps = await loadSnapshots(story.id);
+    const folded = foldJournal(state, snaps, pages - 1, applyMutations);
+    await saveState(story.id, folded);
+    await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), vis.length));
+    notify(story.id);
+    toast('The ledger belonged to a longer telling (' + why[0] + ') — folded back to this one.');
+    return true;
   }
 
   /* M67: a version checkpoint belongs to the LAST storyteller page only. An
@@ -2754,7 +2797,7 @@ export function initChat(ctx) {
       await refreshPreview(story.id);
       renderStoryList();
       refreshEmber();
-      replayFrom(story, msg.id);
+      replayFrom(story, msg.id, { changed: true });
       return;
     }
     /* M40: the version walked to gets ITS ledger back — or, never read, the
@@ -2896,8 +2939,8 @@ export function initChat(ctx) {
             if (boundary) await rewindTo(story, history, boundary.id);
             startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '');
           } else {
-            /* M68: history changed at an older page — replay from it */
-            replayFrom(story, updated.id);
+            /* M68/M69: history changed at an older page — fold back, read this page again, re-apply the rest */
+            replayFrom(story, updated.id, { changed: true });
           }
         } else if (updated && msg.role === 'user') {
           pendingAudit.add(story.id);
@@ -2995,10 +3038,11 @@ export function initChat(ctx) {
       }
     }
     if (!carried) {
+      /* M69: the FOLD — the ledger at the end of the branch page, from the journal, no model */
       const now = await loadState(story.id);
-      carried = emptyState();
-      carried.sheet = { ...carried.sheet, playerName: (now.sheet && now.sheet.playerName) || '' };
-      carried.clock = now.clock ? { ...now.clock } : null; /* the calendar's shape, not its hour */
+      const k = pages.filter((m) => m.role === 'assistant').findIndex((m) => m.id === target.id);
+      carried = foldJournal(now, await loadSnapshots(story.id), k === -1 ? -1 : k, applyMutations);
+      exact = (now.journal || []).length > 0; /* a journal makes the fold exact; an old store without one is caught up below */
     }
     await saveState(branch.id, JSON.parse(JSON.stringify(carried)));
     const carriedIds = new Set(pages.map((m) => m.id));
@@ -3232,7 +3276,11 @@ export function initChat(ctx) {
     renderStoryList();
     refreshEmber();
     toast('The page is gone.');
-    if (after) replayFrom(story, after.id, { boundaryId: goneBoundary && goneBoundary.id !== id ? goneBoundary.id : null });
+    if (after) {
+      /* the deleted page's index among storyteller pages: later stamps shift down by one */
+      const goneK = visBefore.filter((m) => m.role === 'assistant').findIndex((m) => m.id === id);
+      replayFrom(story, after.id, { changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone });
+    }
   }
 
   els.thread.addEventListener('click', async (e) => {
@@ -3590,6 +3638,7 @@ export function initChat(ctx) {
 
   ctx.chat = {
     isBusy: () => busy,
+    repairTimeline,
     rescanLedger,
     auditNow,
     foundNow,

@@ -83,6 +83,15 @@ export const emptyState = () => ({
   worldShown: [],           // windows beyond the page already opened — [{who, where, changed, atTurn}] cap 6 (M30)
   audit: null,              // the auditor's last report — {at, turn, issues:[{what, fix, fixable}]} (M41)
   founded: null,            // the founder's fingerprint of the material it founded from — {at, print} (M45)
+  /* M69 (Summaryception's journal, ported): every applied mutation, stamped
+   * with the storyteller page it was written at — the ledger is a FOLD of
+   * this journal, so any earlier page's ledger can be rebuilt exactly, with
+   * no model call, and a ledger that belongs to another timeline is caught by
+   * its own stamps. `page` is the index of the latest storyteller page the
+   * readers have written for; -1 before any. */
+  journal: [],              // [{id, p, m}] — page index, the mutation as applied (cap JOURNAL_CAP)
+  journalSeq: 0,
+  page: -1,
   /* M11: the referee's world. */
   sheet: { actors: {}, playerName: '' }, // how they measure — 0-10 ratings, domains, lasting conditions
   duel: null,             // the live duel engine state (engine/duels.js), null when no duel is joined
@@ -314,6 +323,9 @@ function normalize(saved) {
   next.worldBrief = saved.worldBrief && typeof saved.worldBrief === 'object' ? saved.worldBrief : null;
   next.worldShown = Array.isArray(saved.worldShown) ? saved.worldShown.filter((w) => w && typeof w === 'object') : [];
   next.audit = saved.audit && typeof saved.audit === 'object' ? saved.audit : null; /* M41 */
+  next.journal = Array.isArray(saved.journal) ? saved.journal.filter((e) => e && Number.isInteger(e.p) && e.m && typeof e.m === 'object' && typeof e.m.type === 'string') : []; /* M69 */
+  next.page = Number.isInteger(saved.page) ? saved.page : -1;
+  next.journalSeq = Number.isInteger(saved.journalSeq) ? saved.journalSeq : 0;
   next.founded = saved.founded && typeof saved.founded === 'object' ? saved.founded : null; /* M45 */
   next.canon = migrateCanon(saved.canon);
   next.pendingVerdict = migrateVerdict(saved.pendingVerdict);
@@ -583,4 +595,56 @@ export function renderMasthead(state) {
   const here = (state.present || []).map((p) => p.name).filter(Boolean);
   if (here.length) bits.push('here: ' + here.join(', '));
   return bits.join('  ·  ');
+}
+
+/* ---------- M69: the fold ----------
+ * The ledger at the end of page P, rebuilt from the journal with no model
+ * call: start from the nearest snapshot whose own `page` is at or before P
+ * (or from an empty ledger, keeping the main character's name and the
+ * calendar's shape), then re-apply every journal entry with page in
+ * (base.page, P], in order. The journal is the CURRENT state's — the log of
+ * everything ever applied on this timeline. Pure; returns the folded state. */
+export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
+  const journal = Array.isArray(current.journal) ? current.journal : [];
+  let base = null;
+  for (const e of (Array.isArray(snapshots) ? snapshots : [])) {
+    const snap = e && e.snap;
+    if (!snap || !Number.isInteger(snap.page) || snap.page > targetPage) continue;
+    if (!base || snap.page > base.page) base = snap;
+  }
+  let state;
+  if (base) state = deepCopy(base);
+  else {
+    state = emptyState();
+    state.sheet = { ...state.sheet, playerName: (current.sheet && current.sheet.playerName) || '' };
+    state.clock = current.clock ? { ...current.clock, minutes: 0 } : null;
+    state.founded = current.founded || null;
+  }
+  const from = base ? base.page : -1;
+  state.journal = journal.filter((e) => e.p <= from);
+  const groups = new Map();
+  for (const e of journal) {
+    if (e.p <= from || e.p > targetPage) continue;
+    if (!groups.has(e.p)) groups.set(e.p, []);
+    groups.get(e.p).push(e.m);
+  }
+  for (const p of [...groups.keys()].sort((a, b) => a - b)) {
+    state.page = p;
+    state = applyMutationsFn(state, groups.get(p)).state;
+  }
+  state.page = targetPage;
+  return state;
+}
+
+/* M69: judge a ledger by its own stamps. `pages` is the count of visible
+ * storyteller pages in the story as it stands. Ahead = a page stamp at or
+ * past the end — the branch-at-N case, an old timeline carried by a bug, a
+ * restored backup. Returns the reasons, or an empty list when healthy. */
+export function timelineAhead(state, pages) {
+  const why = [];
+  if (Number.isInteger(state.page) && state.page >= pages) why.push('the ledger stands at page ' + (state.page + 1) + ' of ' + pages);
+  if (Array.isArray(state.journal) && state.journal.some((e) => e.p >= pages)) why.push('the journal holds pages beyond the end');
+  const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  if (Object.values(chars).some((c) => c && Number.isInteger(c.updatedAtPage) && c.updatedAtPage >= pages)) why.push('a character page was written past the end');
+  return why;
 }

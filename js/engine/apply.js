@@ -761,6 +761,7 @@ const HANDLERS = {
 
 /* ---------- the contract ---------- */
 
+export const JOURNAL_CAP = 6000; /* M69: ~1000 turns of a busy ledger; beyond it the sparse snapshots carry the base */
 export function applyMutations(state, mutations) {
   const next = copyState(state);
   const applied = [];
@@ -782,7 +783,15 @@ export function applyMutations(state, mutations) {
     }
     const result = handler(next, mutation);
     if (result && result.words) {
-      appendLog(next, result.words, result.undo || null);
+      /* M69: the journal — the mutation as applied, stamped with the page, and
+       * tied to its log entry so a take-back drops it from the fold */
+      if (!Array.isArray(next.journal)) next.journal = [];
+      next.journalSeq = (Number.isInteger(next.journalSeq) ? next.journalSeq : 0) + 1;
+      const jid = next.journalSeq;
+      next.journal.push({ id: jid, p: Number.isInteger(next.page) ? next.page : -1, m: JSON.parse(JSON.stringify(mutation)) });
+      if (next.journal.length > JOURNAL_CAP) next.journal = next.journal.slice(next.journal.length - JOURNAL_CAP);
+      const logEntry = appendLog(next, result.words, result.undo || null);
+      logEntry.jid = jid;
       applied.push({ mutation, words: result.words });
     } else {
       rejected.push({ mutation, why: (result && result.why) || 'it didn’t hold' });
@@ -826,6 +835,7 @@ export function undoEntry(state, index) {
   }
   const applied = applyUndo(next, entry.undo);
   if (!applied) return { refused: 'the world moved on; that change cannot be walked back' };
+  if (Number.isInteger(entry.jid) && Array.isArray(next.journal)) next.journal = next.journal.filter((e) => e.id !== entry.jid); /* M69 */
   next.log[index] = { ...entry, undone: true };
   appendLog(next, 'Taken back — ' + entry.words, null);
   return { state: next, words: 'Taken back — ' + entry.words };
@@ -925,6 +935,7 @@ export function undoLast(state) {
     const entry = next.log[i];
     if (!entry || entry.undone || !entry.undo) continue;
     if (!applyUndo(next, entry.undo)) continue; // the world moved on; look further back
+    if (Number.isInteger(entry.jid) && Array.isArray(next.journal)) next.journal = next.journal.filter((e) => e.id !== entry.jid); /* M69 */
     next.log[i] = { ...entry, undone: true };
     appendLog(next, 'Taken back — ' + entry.words, null);
     return { state: next, words: 'Taken back — ' + entry.words };
