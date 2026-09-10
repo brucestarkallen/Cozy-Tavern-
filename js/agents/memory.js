@@ -152,6 +152,17 @@ export function recordFor(mem, minLevel = 1) {
   return text;
 }
 
+/* M51: the WHOLE record, oldest to newest — what a reader of the whole story
+ * (the auditor, the rebuild, the mender) should see. Trimmed from the
+ * oldest only when it truly overflows the slot budget, exactly as the
+ * storyteller's copy is. */
+export function wholeRecord(mem) {
+  const lines = orderedLines(mem).map((n) => n.text.trim()).filter(Boolean);
+  let kept = lines.slice();
+  while (kept.length > 1 && kept.join('\n').length > SLOT_BUDGET) kept.shift();
+  return kept.join('\n');
+}
+
 /* ---------- the prompt: Summaryception's, verbatim in substance ---------- */
 
 export const SUMMARIZER_SYSTEM = 'You are a precise narrative-state tracker for an ongoing fiction. Output one line of short phrases — no preamble, no commentary, no markdown. Record only what the passage states. Never infer, never guess. Out-of-character material inside the passage (parenthetical notes, analysis or verification blocks before/after the scene) counts as part of the record when it establishes background facts not already in prior context; OOC framing or words like "Confirmed" do not make a fact established.';

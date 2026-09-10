@@ -89,3 +89,17 @@ Caleb Thorne — Rias's ex, never met Jovan`;
   assert(!after.relationships.CORE, 'the label entry is gone');
   eq(after.relationships['Rias Wells'].p, 85, 'and Rias has her digits');
 });
+
+test('M51 the auditor, the rebuild and the mender read the WHOLE record, not the summarizer’s 14k tail', async () => {
+  const { wholeRecord, recordFor, saveMemory, loadMemory, CONTEXT_CAP } = await import('../../js/agents/memory.js');
+  const nodes = Array.from({ length: 200 }, (_, i) => ({ id: 'n' + i, span: [i * 6, i * 6 + 5], text: '[Day ' + i + '] line ' + i + ' ' + 'x'.repeat(100), level: 1, at: i }));
+  const mem = { window: 30, nodes };
+  const whole = wholeRecord(mem);
+  const tail = recordFor(mem);
+  assert(whole.includes('[Day 0]'), 'the founding is in the whole record');
+  assert(!tail.includes('[Day 0]') && tail.length <= CONTEXT_CAP, 'the summarizer’s tail drops it');
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/auditor.js', import.meta.url), 'utf8');
+  assert(!/recordFor\(/.test(src) && /wholeRecord\(mem\)/.test(src), 'the auditor and the rebuild read the whole record');
+  const chat = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/record: wholeRecord\(mem\)/.test(chat), 'the mender too');
+});

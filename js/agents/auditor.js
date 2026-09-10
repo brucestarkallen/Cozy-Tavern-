@@ -30,7 +30,7 @@ import { renderCanon } from '../engine/canon.js';
 import { renderThreads, renderKnowledge, renderFactions } from '../engine/world.js';
 import { mcName } from '../engine/duels.js';
 import { explicitStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
-import { loadMemory, recordFor } from './memory.js';
+import { loadMemory, wholeRecord } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
 
 const MAX_TOKENS = 6000;
@@ -205,7 +205,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const all = (await db.messages.list(storyId)).filter((m) => !m.hidden);
   const pages = all.slice(-AUDIT_PAGES).map((m) => ({ role: m.role, text: pageText(m) }));
   if (!pages.length) return null;
-  const prompt = buildAuditorMessages({ state, brief, castNotes, record: recordFor(mem), pages });
+  const prompt = buildAuditorMessages({ state, brief, castNotes, record: wholeRecord(mem), pages });
   let read = null;
   let raw = '';
   let user = prompt.user;
@@ -357,7 +357,7 @@ export async function rebuildStandings({ connection, storyId, brief = '', castNo
   const mem = await loadMemory(storyId);
   const all = (await db.messages.list(storyId)).filter((m) => !m.hidden);
   const pages = all.slice(-AUDIT_PAGES).map((m) => ({ role: m.role, text: pageText(m) }));
-  const prompt = buildRebuildMessages({ state: s1, brief, castNotes, record: recordFor(mem), pages, mc });
+  const prompt = buildRebuildMessages({ state: s1, brief, castNotes, record: wholeRecord(mem), pages, mc });
   const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, effort: 'off', signal });
   const read = parseFounderLike(text);
   if (stale && stale()) return null;

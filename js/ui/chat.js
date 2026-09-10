@@ -54,7 +54,7 @@ import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
-import { recordFor } from '../agents/memory.js'; /* M35: the record as the mender's canon */
+import { wholeRecord } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -1480,7 +1480,7 @@ export function initChat(ctx) {
       storyId: story.id,
       pages,
       contradiction,
-      record: recordFor(mem),
+      record: wholeRecord(mem),
       playerName,
       signal,
       apply: (page, after, why) => applyMend(story.id, page, after, why),
