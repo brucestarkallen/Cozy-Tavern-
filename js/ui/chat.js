@@ -45,7 +45,7 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork } from '../agents/extractor.js';
 import { enqueueWork } from '../agents/queue.js';
@@ -158,6 +158,52 @@ export function parseScene(text) {
   }
   flush();
   return parts;
+}
+
+/* M21: the shelf preview (the Too-Many-Chats lesson, native). A tale's row
+ * shows the FIRST sentence or two of its latest page (~120 chars) — never
+ * the tail. Bracketed scene-header lines ([The Wayward Lantern — a wet
+ * evening]) are skipped, and the thinking voice never leaks in (the
+ * preview reads pageText only, which thinking never joins). Pure and
+ * exported so the harness can hold it to account. */
+export function makePreview(text, max = 120) {
+  const clean = String(text == null ? '' : text)
+    .split('\n')
+    .filter((line) => !SCENE_HEAD_RE.test(line.trim()))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!clean) return '';
+  const sentences = clean.match(/[^.!?…]+(?:[.!?…]+["'”’)\]]*)?/g) || [clean];
+  let out = '';
+  let taken = 0;
+  for (const raw of sentences) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    if (taken >= 2) break; // the first sentence or two, never more
+    if (out && (out + ' ' + sentence).length > max) break;
+    out = out ? out + ' ' + sentence : sentence;
+    taken += 1;
+    if (out.length > max) {
+      out = out.slice(0, max - 1).trimEnd() + '…';
+      break;
+    }
+  }
+  return out;
+}
+
+/* M21: the rewind law's boundary. A rewind at a page restores the snapshot
+ * taken BEFORE that page's turn began — for an assistant page, the turn
+ * began at the nearest user page before it; for a user page, the boundary
+ * is the page itself. Pure and exported for the harness. */
+export function boundaryFor(history, messageId) {
+  const list = Array.isArray(history) ? history : [];
+  const at = list.findIndex((m) => m && m.id === messageId);
+  if (at === -1) return null;
+  for (let i = at; i >= 0; i -= 1) {
+    if (list[i] && list[i].role === 'user') return list[i];
+  }
+  return null;
 }
 
 /* Which workers wake for this story, as one pure decision (M9, B12) —
@@ -309,6 +355,17 @@ export function initChat(ctx) {
      * without reading a single page. */
     const counts = await Promise.all(stories.map((s) => db.messages.count(s.id).catch(() => 0)));
     pageCounts = new Map(stories.map((s, i) => [s.id, counts[i]]));
+    /* M21 backfill: a row without a preview derives it from its last page
+     * on load. In-memory only — persisting through stories.update would
+     * bump updatedAt and reshuffle the shelf the reader remembers. */
+    await Promise.all(stories.map(async (s) => {
+      if (typeof s.preview === 'string' && s.preview.trim()) return;
+      if (!(pageCounts.get(s.id) > 0)) return;
+      const pages = await db.messages.list(s.id).catch(() => []);
+      const visible = pages.filter((m) => m && !m.hidden);
+      const last = visible[visible.length - 1];
+      if (last) s.preview = makePreview(pageText(last));
+    }));
     if (!keepActive) {
       const id = ctx.getActiveStoryId();
       if (!id || !stories.some((s) => s.id === id)) {
@@ -317,6 +374,21 @@ export function initChat(ctx) {
     }
     renderStoryList();
     renderShelfPick();
+  }
+
+  /* M21: after every append/swipe/delete, the tale's row re-reads its
+   * latest page (the shown swipe, hidden nudges aside) and the preview
+   * follows. The ledger of previews lives on the story row itself, so it
+   * rides backups like every other story field. */
+  async function refreshPreview(storyId) {
+    if (!storyId) return;
+    const pages = await db.messages.list(storyId).catch(() => []);
+    const visible = pages.filter((m) => m && !m.hidden);
+    const last = visible[visible.length - 1];
+    const preview = last ? makePreview(pageText(last)) : '';
+    const story = stories.find((s) => s.id === storyId);
+    if (story) story.preview = preview;
+    await db.stories.update(storyId, { preview }).catch(() => {});
   }
 
   /* One tale's row — title, last-active in the reader's tense, page count. */
@@ -330,6 +402,15 @@ export function initChat(ctx) {
     const title = document.createElement('span');
     title.className = 'story-title';
     title.textContent = story.title;
+    /* M21: the shelf preview — the first sentence or two of the latest
+     * page, quiet under the title (the Too-Many-Chats lesson: the
+     * beginning, never the tail). */
+    const preview = typeof story.preview === 'string' ? story.preview.trim() : '';
+    const previewNode = preview ? document.createElement('span') : null;
+    if (previewNode) {
+      previewNode.className = 'story-preview';
+      previewNode.textContent = preview;
+    }
     const meta = document.createElement('span');
     meta.className = 'story-when';
     /* M14: last-active in the reader's own tense, then the page count
@@ -341,7 +422,8 @@ export function initChat(ctx) {
     const count = pageCounts.get(story.id) || 0;
     pages.textContent = count ? count + (count === 1 ? ' page' : ' pages') : 'unwritten';
     meta.append(when, pages);
-    openBtn.append(title, meta);
+    if (previewNode) openBtn.append(title, previewNode, meta);
+    else openBtn.append(title, meta);
     openBtn.addEventListener('click', () => openStory(story.id));
 
     const renameBtn = document.createElement('button');
@@ -1107,6 +1189,11 @@ export function initChat(ctx) {
     return {
       frameText: await db.settings.get('frameText'),
       noteText: await db.settings.get('noteText'),
+      /* M21: the frame's purpose line (on unless switched off) and its
+       * end-of-request echo (off unless switched on). */
+      framePurpose: await db.settings.get('framePurpose'),
+      framePurposeOn: (await db.settings.get('framePurposeOn')) !== false,
+      frameEcho: (await db.settings.get('frameEcho')) === true,
     };
   }
 
@@ -1213,6 +1300,15 @@ export function initChat(ctx) {
        * nothing: no injection, and the story simply goes on. */
       const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
       const userText = lastUser ? pageText(lastUser) : '';
+      /* M21: TRUE rollback — the boundary snapshot. Before the referee and
+       * the worker chain commit anything for this turn, the state as it
+       * stands is keyed by this turn's user-message id, so a later rewind
+       * (regenerate-from-here, swipe-creation, deleteFrom) can hand the
+       * ledger back to exactly here. OOC turns do no state work and take
+       * no snapshot. */
+      if (!ooc && lastUser) {
+        await snapshotState(story.id, lastUser.id, state);
+      }
       if (!ooc && lastUser) {
         const { signal, done } = workerSignal(12000); /* the referee's 12s budget */
         try {
@@ -1443,6 +1539,7 @@ export function initChat(ctx) {
           await rerenderMessage(story.id, target.id);
           lastRender.ids = []; // the walker changed; next render reconciles
           scrollToBottom();
+          await refreshPreview(story.id); // M21: the shelf hears the new version
           stories = await db.stories.list();
           renderStoryList();
           refreshEmber();
@@ -1467,6 +1564,7 @@ export function initChat(ctx) {
         pending.replaceWith(msgNode(saved, showThinking, { isLastAssistant: true }));
         lastRender.ids = [];
         scrollToBottom();
+        await refreshPreview(story.id); // M21: the shelf hears the new page
         stories = await db.stories.list();
         renderStoryList();
         if (ctx.onStoriesChanged) ctx.onStoriesChanged();
@@ -1587,6 +1685,9 @@ export function initChat(ctx) {
         els.thread.appendChild(msgNode(saved));
         lastRender.ids.push(saved.id);
         scrollToBottom();
+        /* M21: the shelf preview follows the newest page, even before the
+         * storyteller answers. */
+        await refreshPreview(story.id);
       }
 
       await generate({ directive: parsed.directive, ooc: parsed.ooc });
@@ -1615,12 +1716,20 @@ export function initChat(ctx) {
        * the extractor is still reading. */
       await pendingWork(story.id, 5000);
 
+      /* M21: TRUE rollback — the ledger lets go of everything the doomed
+       * pages caused. Restore the boundary snapshot taken before this
+       * turn's user page; the newer snapshots drop with it. The undo log
+       * stays independent. */
+      const boundary = boundaryFor(history, target.id);
+      if (boundary) await restoreSnapshot(story.id, boundary.id);
+
       if (target.role === 'assistant') {
         await db.messages.deleteFrom(story.id, target.id);
       } else {
         const next = history[at + 1];
         if (next) await db.messages.deleteFrom(story.id, next.id);
       }
+      await refreshPreview(story.id); // M21: the shelf re-reads what's left
       await renderThread({ structural: true });
       await generate();
       stories = await db.stories.list();
@@ -1664,12 +1773,17 @@ export function initChat(ctx) {
       receipt: shown.receipt || msg.receipt,
     });
     await rerenderMessage(story.id, msg.id);
+    /* M21: the preview always reads the SHOWN version of the latest page. */
+    await refreshPreview(story.id);
+    renderStoryList();
     refreshEmber();
   }
 
   /* Write another version of this page: re-ask its turn, keep the old
    * versions, land the new one as the shown swipe. B5: the workers finish
-   * first; the referee replays the same verdict for the same words. */
+   * first; the referee replays the same verdict for the same words. M21:
+   * the ledger rewinds to the boundary before this turn first, so no
+   * consequence of a version that no longer stands survives. */
   async function swipeRegenerate(msg) {
     if (busy) return;
     busy = true;
@@ -1677,6 +1791,10 @@ export function initChat(ctx) {
       const story = await activeStory();
       if (!story) return;
       await pendingWork(story.id, 5000);
+      /* M21: TRUE rollback — swipe-creation restores the boundary too. */
+      const historyNow = await db.messages.list(story.id);
+      const boundary = boundaryFor(historyNow, msg.id);
+      if (boundary) await restoreSnapshot(story.id, boundary.id);
       await generate({ swipeTarget: msg });
       stories = await db.stories.list();
       renderStoryList();
@@ -1736,6 +1854,8 @@ export function initChat(ctx) {
         }
         const updated = await db.messages.update(story.id, msg.id, patch);
         toast('The page is re-inked.');
+        /* M21: new words on the latest page mean a new preview. */
+        await refreshPreview(story.id);
         /* An edited assistant page goes back to the extractor — the ledger
          * re-reads the new words. */
         if (updated && msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
@@ -1919,6 +2039,9 @@ export function initChat(ctx) {
     const node = els.thread.querySelector(`.msg[data-id="${id}"]`);
     if (node) node.remove();
     lastRender.ids = lastRender.ids.filter((x) => x !== id);
+    /* M21: with the page gone, the preview re-reads the page before it. */
+    await refreshPreview(story.id);
+    renderStoryList();
     refreshEmber();
     toast('The page is gone.');
   }

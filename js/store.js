@@ -285,6 +285,8 @@ const stories = {
     await run('settings', 'readwrite', (s) => s.delete('lore:' + id));
     /* M9: and the workers' ledger line goes with the story too. */
     await run('settings', 'readwrite', (s) => s.delete('workers:' + id));
+    /* M21: and the rollback snapshots as well. */
+    await run('settings', 'readwrite', (s) => s.delete('snapshots:' + id));
   },
 };
 

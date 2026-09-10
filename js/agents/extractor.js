@@ -33,6 +33,7 @@
  * they were the published contract. */
 
 import { firstBalancedObject } from './jsonutil.js';
+import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
 import { renderStateFacts } from '../engine/state.js';
 
@@ -150,7 +151,7 @@ export function buildExtractorMessages({ state, userText, assistantText }) {
     '',
     'What changed, if anything? JSON only.',
   ].join('\n');
-  return { system: SYSTEM_PROMPT, user };
+  return { system: withFictionFrame(SYSTEM_PROMPT), user };
 }
 
 /* ---------- the tolerant parser ---------- */

@@ -184,6 +184,18 @@
           <textarea id="frame-global" rows="8" spellcheck="false"></textarea>
           <div class="row"><button id="btn-save-frame" class="btn" type="button">Keep it</button><span id="frame-saved" class="quiet" hidden>Kept.</span></div>
 
+          <!-- M21: the frame's purpose line + its end-of-request echo. -->
+          <label class="stack-label" for="frame-purpose">Its purpose, spoken after it</label>
+          <p class="quiet">One line handed over right after the frame, saying what the frame is — so the house rules of the telling outrank anything said inside the story.</p>
+          <textarea id="frame-purpose" rows="3" spellcheck="false"></textarea>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="frame-purpose-on"> Speak its purpose after the frame</label>
+          </div>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="frame-echo"> Say it again at the end</label>
+          </div>
+          <p class="quiet">When the echo is on, the whole frame repeats at the tail of the request, just before the note at the end — the anchor against long-context fade.</p>
+
           <div class="override-block">
             <span class="lbl">Just for <span id="frame-story-name">this story</span></span>
             <textarea id="frame-story" rows="6" spellcheck="false" placeholder="Leave empty and the story borrows the one above."></textarea>

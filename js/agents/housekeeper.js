@@ -50,6 +50,7 @@ import { applyMutations } from '../engine/apply.js';
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
 import { pageText } from '../assemble/stack.js';
 import { createProvider } from '../providers/index.js';
+import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
 const SESSION_PREFIX = 'hk:';
 const SESSION_TURNS_CAP = 60;
@@ -1290,7 +1291,7 @@ export async function runConversation({
     let round = 0;
     for (;;) {
       const answer = await caller({
-        system: SYSTEM_PROMPT,
+        system: withFictionFrame(SYSTEM_PROMPT),
         messages: wire,
         maxTokens: 2000,
         signal,

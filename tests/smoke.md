@@ -627,3 +627,21 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
     if the tavern looks the same, pull the page down once to reload." No update, no line.
     README's "Keeping it current" tells the nudge law, the bridge, and where the running
     version stands (sidebar colophon / top of Settings).
+
+## M21 additions
+70. Shelf previews: each tale's row shows the first sentence or two of its latest page
+    (quiet, 2-line clamp) — a [bracketed scene-header] line is skipped, the thinking
+    voice never leaks, and the preview is the BEGINNING, never the tail. Send, swipe,
+    edit, and delete all refresh it; tales from before M21 derive it on load.
+71. Settings → The frame: "Its purpose, spoken after it" is editable with the toggle ON
+    by default — the receipt's "The frame" row reasons "its purpose spoken after it",
+    and slot 1 on the wire ends with the line. "Say it again at the end" (default OFF)
+    repeats the whole frame just before the note; the receipt names it "The frame,
+    said again".
+72. TRUE rollback: a turn that wounds someone, regenerated (rewrite-from-here or a new
+    swipe), leaves the ledger WITHOUT the wound — the boundary snapshot before the
+    turn's user page is restored and newer snapshots drop. The drawer's undo log still
+    works on its own.
+73. The workers (extractor, scribe, keeper, continuity, referee, housekeeper,
+    showrunners) all open their system prompts with the same standing fiction line —
+    visible in any logged worker request.

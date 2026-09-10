@@ -16,7 +16,7 @@
 
 import { db } from '../store.js';
 import { createProvider, presetById } from '../providers/index.js';
-import { STARTER_FRAME, STARTER_NOTE } from '../assemble/stack.js';
+import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
 import { parsePreset, decompose, applyPlan, summaryWords } from '../import/sillytavern.js';
 import { parseCard, listCast, saveCastMember, removeCastMember } from '../import/cards.js';
@@ -58,6 +58,10 @@ export function initSettings(ctx) {
     frameGlobal: document.getElementById('frame-global'),
     frameStory: document.getElementById('frame-story'),
     frameStoryName: document.getElementById('frame-story-name'),
+    /* M21: the frame's purpose line and its end-of-request echo. */
+    framePurpose: document.getElementById('frame-purpose'),
+    framePurposeOn: document.getElementById('frame-purpose-on'),
+    frameEcho: document.getElementById('frame-echo'),
     noteGlobal: document.getElementById('note-global'),
     noteStory: document.getElementById('note-story'),
     noteStoryName: document.getElementById('note-story-name'),
@@ -418,6 +422,11 @@ export function initSettings(ctx) {
   async function loadPromptSlots() {
     els.frameGlobal.value = (await db.settings.get('frameText')) ?? STARTER_FRAME;
     els.noteGlobal.value = (await db.settings.get('noteText')) ?? STARTER_NOTE;
+    /* M21: the frame's purpose line (?? — a cleared line stays cleared) and
+     * the two toggles: purpose on by default, the echo off by default. */
+    if (els.framePurpose) els.framePurpose.value = (await db.settings.get('framePurpose')) ?? FRAME_PURPOSE;
+    if (els.framePurposeOn) els.framePurposeOn.checked = (await db.settings.get('framePurposeOn')) !== false;
+    if (els.frameEcho) els.frameEcho.checked = (await db.settings.get('frameEcho')) === true;
 
     const story = await activeStory();
     const storyName = story ? `“${story.title}”` : 'this story';
@@ -463,8 +472,21 @@ export function initSettings(ctx) {
 
   document.getElementById('btn-save-frame').addEventListener('click', async () => {
     await db.settings.set('frameText', els.frameGlobal.value);
+    /* M21: the purpose line keeps with the frame — one "Keep it" for both. */
+    if (els.framePurpose) await db.settings.set('framePurpose', els.framePurpose.value);
     flash('frame-saved');
   });
+  /* M21: the two frame toggles save the moment they're touched. */
+  if (els.framePurposeOn) {
+    els.framePurposeOn.addEventListener('change', async () => {
+      await db.settings.set('framePurposeOn', els.framePurposeOn.checked);
+    });
+  }
+  if (els.frameEcho) {
+    els.frameEcho.addEventListener('change', async () => {
+      await db.settings.set('frameEcho', els.frameEcho.checked);
+    });
+  }
   document.getElementById('btn-save-note').addEventListener('click', async () => {
     await db.settings.set('noteText', els.noteGlobal.value);
     flash('note-saved');

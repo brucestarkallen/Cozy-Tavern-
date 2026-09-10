@@ -847,3 +847,26 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Port sanity: if 8080 answers but not as the tavern (ghost lamp from a deleted folder),
   the command prints the exact douse line (with the cozy-chat lamp warning).
 - version.js -> m20-001. Harness 152/152.
+
+# M21 — shelf previews, the frame's purpose + echo, TRUE rollback, the fiction frame
+- Shelf previews (A): every tale's row carries `preview` — the FIRST sentence or two of
+  the latest page (~120 chars), skipping [bracketed scene-header] lines and never the
+  thinking voice (makePreview reads pageText only). Refreshed on append/swipe/delete/
+  edit/regenerate via refreshPreview(storyId); rows without one derive it from their
+  last page on load (in-memory only, so the shelf order never reshuffles). CSS: a
+  2-line clamp in --text-2 under the title.
+- The frame's purpose line + echo (B): Settings → The frame gains "Its purpose, spoken
+  after it" (editable, toggle default ON — a cleared line stays cleared) and "Say it
+  again at the end" (default OFF — the whole frame repeats just before The note at the
+  end, the anchor against long-context fade). Slot 1 = frame + "\n\n" + line when on;
+  the receipt names both ("its purpose spoken after it" / "The frame, said again").
+- TRUE rollback (C): state.js keeps a deep snapshot per turn boundary under
+  `snapshots:<storyId>` (keyed by the turn's user-message id, cap 50, deep copy via
+  structuredClone). The send path snapshots BEFORE the referee/workers commit;
+  regenerate-from-here, swipe-creation, and deleteFrom (boundaryFor) restore the
+  boundary before the doomed turn and drop newer snapshots. Undo log stays
+  independent; snapshots go with a let-go story (store.js).
+- The fiction frame (D): js/agents/voice.js exports FICTION_FRAME + withFictionFrame;
+  extractor, scribe, keeper (fold + audit), continuity, referee (all four systems +
+  seeder), housekeeper, and both showrunners prepend it to every system prompt.
+- version.js -> m21-002. Harness 168/168 (16 new M21 checks).

@@ -23,6 +23,7 @@ import { db } from '../store.js';
 import { loadState, renderStateFacts } from '../engine/state.js';
 import { pageText } from '../assemble/stack.js';
 import { callModel } from './housekeeper.js';
+import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
 const KEY_PREFIX = 'editor:';
 const DEFAULT_EVERY_N = 8;
@@ -168,7 +169,7 @@ export function buildEditorMessages({ story, messages, state, prev } = {}) {
     parts.push('The critique now standing — revise it, don’t rewrite it:\n' + lines.join('\n'));
   }
   parts.push('Read, and give the standing critique.');
-  return { system: EDITOR_SYSTEM, user: parts.join('\n\n') };
+  return { system: withFictionFrame(EDITOR_SYSTEM), user: parts.join('\n\n') };
 }
 
 /* Fire one reading. Never throws; {ok:true, critique, diff} or

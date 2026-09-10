@@ -31,6 +31,7 @@
  */
 
 import { parseFirstObject } from './jsonutil.js';
+import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { applyMutations } from '../engine/apply.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { db } from '../store.js';
@@ -794,7 +795,7 @@ export async function refereeStep({ connection, userText, userId, history, state
     const inWar = battleActive(state) && state.battle.kind === 'war';
     const inBattle = battleActive(state) && !inWar;
     const inDuel = duelActive(state);
-    const system = inWar ? WAR_SYSTEM : inBattle ? BATTLE_SYSTEM : inDuel ? DUEL_SYSTEM : ADJ_SYSTEM;
+    const system = withFictionFrame(inWar ? WAR_SYSTEM : inBattle ? BATTLE_SYSTEM : inDuel ? DUEL_SYSTEM : ADJ_SYSTEM);
     const normalize = inWar ? normalizeWarAdj : inBattle ? normalizeBattleAdj : inDuel ? normalizeDuelAdj : normalizeAdj;
 
     const raw = await callReferee(connection, system, user, signal, callLLM);
@@ -1001,7 +1002,7 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM } = 
       return who + ': ' + clip(pageText(m), 600);
     }).join('\n');
     const user = '<transcript>\n' + transcript + '\n</transcript>\n<sheet>\n' + sheetBlock(state) + '\n</sheet>';
-    const parsed = await callReferee(connection, SEED_SYSTEM, user, signal, callLLM);
+    const parsed = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM);
     if (!parsed || typeof parsed !== 'object') return { ok: false, why: 'no usable answer' };
     state.sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
     if (!state.sheet.actors || typeof state.sheet.actors !== 'object') state.sheet.actors = {};

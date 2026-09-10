@@ -37,6 +37,7 @@ import { pageText } from '../assemble/stack.js';
 import { parseFirstObject } from './jsonutil.js';
 import { callModel } from './housekeeper.js';
 import { maybeRunEditor } from './editor.js';
+import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
 const KEY_PREFIX = 'director:';
 export const EPISODE_MARK = '[EPISODE_END]';
@@ -200,7 +201,7 @@ export async function writeDirective({
 
     /* 1 — the draft. */
     const draftAns = await caller({
-      system: DIRECTOR_SYSTEM,
+      system: withFictionFrame(DIRECTOR_SYSTEM),
       messages: [{ role: 'user', content: brief }],
       maxTokens: 900,
       signal,
@@ -213,7 +214,7 @@ export async function writeDirective({
     /* 2 — the showrunner's polish (skippable). */
     if (!skipPolish) {
       const polishAns = await caller({
-        system: POLISH_SYSTEM,
+        system: withFictionFrame(POLISH_SYSTEM),
         messages: [{ role: 'user', content: 'The draft:\n\n' + text }],
         maxTokens: 900,
         signal,
@@ -228,7 +229,7 @@ export async function writeDirective({
      * verdict never sinks a good directive — the polished text stands. */
     if (!skipWatch) {
       const watchAns = await caller({
-        system: WATCHER_SYSTEM,
+        system: withFictionFrame(WATCHER_SYSTEM),
         messages: [{ role: 'user', content: 'The directive:\n\n' + text }],
         maxTokens: 1200,
         signal,

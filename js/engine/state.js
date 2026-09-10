@@ -28,8 +28,15 @@
  * renderStateFacts gained compact sections with a hard budget (see
  * STATE_BUDGET below) so slot 5 never swells past ~400 tokens.
  *
- * Persistence: kept in the existing settings store under `state:<storyId>`,
- * so it travels with backups and needs no schema migration.
+ * State v7 (M21): TRUE rollback — a deep snapshot per turn boundary, keyed
+ * by the turn's user-message id under `snapshots:<storyId>` (cap 50).
+ * Regenerate-from-here, swipe-creation, and deleteFrom restore the boundary
+ * before the doomed turn and drop the newer snapshots; the undo log stays
+ * independent.
+ *
+ * Persistence: kept in the existing settings store under `state:<storyId>`
+ * (snapshots under `snapshots:<storyId>`), so both travel with backups and
+ * need no schema migration.
  */
 
 import { db } from '../store.js';
@@ -313,6 +320,62 @@ export async function loadState(storyId) {
 export async function saveState(storyId, state) {
   if (!storyId) return;
   await db.settings.set(KEY_PREFIX + storyId, normalize(state));
+}
+
+/* ---------- M21: TRUE rollback — turn-boundary snapshots ----------
+ * Before the worker chain (and the referee) commits a turn's mutations,
+ * the send path saves a deep snapshot of the state object keyed by that
+ * turn's user-message id. The rewind law: regenerate-from-here,
+ * swipe-creation, and deleteFrom restore the snapshot taken at the
+ * boundary BEFORE that message, then drop the newer snapshots — so the
+ * ledger never carries consequences of a page that no longer exists. The
+ * undo log (state.log / apply.js undoLast) stays independent. */
+
+const SNAP_PREFIX = 'snapshots:';
+export const SNAP_CAP = 50;
+
+const deepCopy = (v) => (typeof structuredClone === 'function'
+  ? structuredClone(v)
+  : JSON.parse(JSON.stringify(v)));
+
+async function loadSnapshots(storyId) {
+  const saved = await db.settings.get(SNAP_PREFIX + storyId);
+  return (Array.isArray(saved) ? saved : [])
+    .filter((e) => e && typeof e === 'object' && typeof e.id === 'string' && e.snap && typeof e.snap === 'object');
+}
+
+async function saveSnapshots(storyId, list) {
+  await db.settings.set(SNAP_PREFIX + storyId, list.slice(-SNAP_CAP));
+}
+
+/* Save a deep snapshot of the state as it stands at a turn boundary.
+ * `turnId` is that turn's user-message id; `state` is the already-loaded
+ * state (loadState runs again when it isn't handed over). Re-keying the
+ * same boundary simply re-takes the snapshot. */
+export async function snapshotState(storyId, turnId, state) {
+  if (!storyId || typeof turnId !== 'string' || !turnId) return;
+  const current = state && typeof state === 'object' ? state : await loadState(storyId);
+  const list = await loadSnapshots(storyId);
+  const entry = { id: turnId, snap: deepCopy(current), at: Date.now() };
+  const at = list.findIndex((e) => e.id === turnId);
+  if (at === -1) list.push(entry);
+  else list[at] = entry;
+  await saveSnapshots(storyId, list);
+}
+
+/* Restore the snapshot taken at the boundary BEFORE the given user
+ * message, then drop the newer snapshots. Returns the restored state, or
+ * null when no such boundary was ever taken (the ledger stays as it is). */
+export async function restoreSnapshot(storyId, turnId) {
+  if (!storyId || typeof turnId !== 'string' || !turnId) return null;
+  const list = await loadSnapshots(storyId);
+  const at = list.findIndex((e) => e.id === turnId);
+  if (at === -1) return null;
+  const restored = deepCopy(list[at].snap);
+  await saveState(storyId, restored);
+  await saveSnapshots(storyId, list.slice(0, at + 1));
+  notify(storyId); // the ledger drawer re-reads what stands now
+  return restored;
 }
 
 /* Render the state as a short block of plain sentences — this is what slot 5

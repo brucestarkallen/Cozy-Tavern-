@@ -38,6 +38,7 @@
  */
 
 import { db } from '../store.js';
+import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
 const KEY_PREFIX = 'memory:';
 const MAX_TOKENS = 400;
@@ -151,7 +152,7 @@ export function buildMemoryMessages(pages) {
     '',
     'Fold them into one note of about 150 words.',
   ].join('\n');
-  return { system: SYSTEM_PROMPT, user };
+  return { system: withFictionFrame(SYSTEM_PROMPT), user };
 }
 
 /* The level-2 fold: three older notes become one. */
@@ -168,7 +169,7 @@ export function buildFoldMessages(nodes) {
     '',
     'Fold them together. The note only.',
   ].join('\n');
-  return { system: SYSTEM_PROMPT, user };
+  return { system: withFictionFrame(SYSTEM_PROMPT), user };
 }
 
 /* ---------- the provider calls (non-streaming, small, cold) ---------- */
@@ -280,7 +281,7 @@ export function buildAuditMessages(sourceText, noteText) {
     '',
     'NONE, or one DETAIL: line.',
   ].join('\n');
-  return { system: AUDIT_SYSTEM, user };
+  return { system: withFictionFrame(AUDIT_SYSTEM), user };
 }
 
 /* '' when the auditor says the note stands as it is; else the detail line,

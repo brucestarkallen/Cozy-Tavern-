@@ -104,6 +104,19 @@
   white-space: nowrap;
 }
 
+/* M21: the shelf preview — the first sentence or two of the latest page,
+ * quiet under the title, clamped to two lines. */
+.story-open .story-preview {
+  font-family: var(--font-prose);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .story-open .story-when {
   display: flex;
   align-items: baseline;

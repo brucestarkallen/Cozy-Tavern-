@@ -25,6 +25,7 @@ import { renderCanon } from '../engine/canon.js';
 /* M9 (B16): the tolerant JSON-finder is shared by every agent —
  * agents/jsonutil.js. */
 import { firstBalancedObject } from './jsonutil.js';
+import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
 const MAX_TOKENS = 400;
 const TEMPERATURE = 0;
@@ -75,7 +76,7 @@ export function buildContinuityMessages({ state, assistantText }) {
     '',
     'Where does the page drift from what is written down, if anywhere? JSON only.',
   ].join('\n');
-  return { system: SYSTEM_PROMPT, user };
+  return { system: withFictionFrame(SYSTEM_PROMPT), user };
 }
 
 /* ---------- the tolerant parser ---------- */

@@ -22,6 +22,7 @@
 import { firstBalancedObject } from './jsonutil.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { mergeDeltas, renderPeopleTiers } from '../engine/people.js';
+import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
 const MAX_TOKENS = 600;
 const TEMPERATURE = 0;
@@ -79,7 +80,7 @@ export function buildScribeMessages({ state, userText, assistantText }) {
     '',
     'What shifted on the character pages, if anything? JSON only.',
   ].join('\n');
-  return { system: SYSTEM_PROMPT, user };
+  return { system: withFictionFrame(SYSTEM_PROMPT), user };
 }
 
 /* ---------- the tolerant parser ---------- */
