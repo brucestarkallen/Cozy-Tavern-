@@ -1362,3 +1362,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   last reading first. Roster/ledger know 'auditor' (hands of its own).
 - Harness: m41.mjs (3 checks incl. end to end: a stale presence, a wrong clock, a wrong mother
   set right; an unfixable brief/pages contradiction noted). 261/261 + 18/18. version.js -> m41-001.
+
+---
+
+# M42 — reset every setting to the house's defaults (connections untouched)
+- Settings → Backup → "Reset settings to the house's defaults". The recommended settings are the
+  ABSENCE of a stored value (every room reads its default when the key is missing), so the reset
+  deletes the app-wide preference keys (RESET_KEYS: theme/colour/starters/masthead/thinking; the
+  memory room; the world agent; the auditor; the referee's dials; the frame and the note; the
+  housekeeper's context pages; the shelf folds) and re-seeds the regex shelf's built-ins to their
+  shipped words and switches while the writer's own rules stay. Untouched: connections,
+  activeConnectionId, workerConnectionId/workerConnections (which worker uses which), stories and
+  every per-story store (ledgers, records, snapshots, versions, lore, cast, sessions), the rulebook
+  (modules), the starters library. Confirm first; the rooms re-read; theme back to Lamplight.
+- DOM-13b proves it through the real UI. 261/261 + 19/19. version.js -> m42-001.

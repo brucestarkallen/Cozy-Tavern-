@@ -100,6 +100,8 @@ export function initSettings(ctx) {
     modWhenLabel: document.getElementById('mod-when-label'),
     btnModCancel: document.getElementById('btn-mod-cancel'),
     btnExport: document.getElementById('btn-export'),
+    btnResetSettings: document.getElementById('btn-reset-settings'),
+    resetNote: document.getElementById('reset-note'),
     importFile: document.getElementById('import-file'),
     backupNote: document.getElementById('backup-note'),
     booksLive: document.getElementById('books-live'),
@@ -1960,6 +1962,43 @@ export function initSettings(ctx) {
       await db.settings.set('theme', radio.value);
       ctx.setTheme(radio.value);
     });
+  });
+
+  /* ---------- M42: reset to the house's defaults ----------
+   * The recommended settings are the ABSENCE of a stored value — every
+   * room reads its default when the key is missing — so a reset is a
+   * delete of the app-wide preference keys. Connections, worker
+   * assignments, stories and every per-story store stay untouched; the
+   * regex shelf's built-ins go back to their shipped words and switches
+   * while the writer's own rules stay. */
+  const RESET_KEYS = [
+    'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
+    'memoryKeeper', 'memoryWindow', 'memoryBatch', 'continuityCheck', 'mendPages',
+    'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages',
+    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle',
+    'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
+    'shelfCollapsed',
+  ];
+  async function resetSettings() {
+    for (const key of RESET_KEYS) {
+      try { await db.settings.delete(key); } catch (err) { /* a key that isn't there is already at its default */ }
+    }
+    /* the regex shelf: built-ins back to shipped, the writer's own rules kept */
+    const rules = await loadRules();
+    const kept = rules.filter((r) => !r.builtin);
+    await saveRules(kept);
+    await loadRules(); /* re-seeds every builtin untouched */
+    ctx.setTheme('dark');
+    document.body.classList.remove('plain-speech');
+    await onShow();
+    if (ctx.chat && typeof ctx.chat.renderPromptChips === 'function') ctx.chat.renderPromptChips();
+    if (ctx.chat && typeof ctx.chat.renderThread === 'function') ctx.chat.renderThread({ structural: true });
+  }
+
+  els.btnResetSettings.addEventListener('click', async () => {
+    if (!window.confirm('Reset every setting to the house’s defaults? Connections, stories and everything in them stay.')) return;
+    await resetSettings();
+    say(els.resetNote, 'Every setting is back at the house’s recommended default. Connections, worker assignments and stories were not touched.');
   });
 
   /* ---------- backup ---------- */

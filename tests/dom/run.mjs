@@ -334,6 +334,33 @@ test('DOM-7b a version keeps its own ledger: walking back restores it; the peopl
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-13b reset to the house’s defaults: settings go back, connections and stories stay, my own regex rules stay', async () => {
+  const before = errors.length;
+  await db.settings.set('memoryWindow', 55);
+  await db.settings.set('auditEvery', 9);
+  await db.settings.set('colourSpeech', false);
+  await db.settings.set('theme', 'light');
+  const conns = (await db.connections.list()).length;
+  const stories = (await db.stories.list()).length;
+  const sid = await storyId();
+  const stateBefore = await db.settings.get('state:' + sid);
+  await openSettings();
+  click(q('#btn-reset-settings'));
+  await until(() => !q('#reset-note').hidden, 'the reset note');
+  eq(await db.settings.get('memoryWindow'), undefined, 'the window is back at its default');
+  eq(await db.settings.get('auditEvery'), undefined);
+  eq(await db.settings.get('colourSpeech'), undefined);
+  eq((await db.connections.list()).length, conns, 'connections stay');
+  eq((await db.stories.list()).length, stories, 'stories stay');
+  assert(JSON.stringify(await db.settings.get('state:' + sid)) === JSON.stringify(stateBefore), 'the ledger stays');
+  const rules = await db.settings.get('regexRules');
+  assert(rules.some((r) => r.name === 'Kill the em dash'), 'my own rule stays');
+  assert(rules.find((r) => r.id === 'builtin-preset-header').enabled === false, 'a builtin is back at its shipped switch');
+  assert(q('#colour-speech').checked && !document.body.classList.contains('plain-speech'), 'the rooms re-read their defaults');
+  await closeSettings();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-14b the second reader mends a drifted page by the smallest edit, and the chip takes it back', async () => {
   const before = errors.length;
   house.state.mend = true;
