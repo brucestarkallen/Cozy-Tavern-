@@ -261,6 +261,9 @@ export function initChat(ctx) {
      * the per-story export menu, and a chip's manage menu. */
     promptChips: document.getElementById('prompt-chips'),
     btnRetry: document.getElementById('btn-retry'),
+    btnAttach: document.getElementById('btn-attach'),
+    attachFile: document.getElementById('attach-file'),
+    attachPreview: document.getElementById('attach-preview'),
     btnJump: document.getElementById('btn-jump'),
     storyMenu: document.getElementById('story-menu'),
     chipMenu: document.getElementById('chip-menu'),
@@ -881,6 +884,9 @@ export function initChat(ctx) {
     const row = document.createElement('div');
     row.className = 'msg-actions';
     const acts = ['copy', 'edit'];
+    /* M27: a reader's page can be tried again too — the house rewinds to just
+     * after it and hears a fresh answer (ledger rewinds per M21 law). */
+    if (msg.role === 'user') acts.push('try again');
     if (msg.role === 'assistant') acts.push('swipe');
     /* M15: branch — the tale forks from this page into a new telling
      * (the M8 row promised it; this wave makes it real). */
@@ -918,6 +924,28 @@ export function initChat(ctx) {
     article.appendChild(label);
     if (msg.thinking && showThinking !== false) {
       article.appendChild(thinkingNode(msg.thinking));
+    }
+    if (msg.image && msg.image.dataUrl) {
+      const fig = document.createElement('button');
+      fig.type = 'button';
+      fig.className = 'msg-figure';
+      fig.setAttribute('aria-label', 'See the picture whole');
+      const im = document.createElement('img');
+      im.src = msg.image.dataUrl;
+      im.alt = 'A picture from this page';
+      im.loading = 'lazy';
+      fig.appendChild(im);
+      fig.addEventListener('click', () => {
+        const veil = document.createElement('div');
+        veil.className = 'figure-veil';
+        const big = document.createElement('img');
+        big.src = msg.image.dataUrl;
+        big.alt = 'The picture, whole';
+        veil.appendChild(big);
+        veil.addEventListener('click', () => veil.remove());
+        document.body.appendChild(veil);
+      });
+      article.appendChild(fig);
     }
     const body = document.createElement('div');
     body.className = 'msg-body';
@@ -1268,11 +1296,21 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'extractor');
       if (!connection) return { silent: true };
       const stateBefore = await loadState(story.id);
+      /* M27: the founding read. A young ledger (no ground named yet, nobody
+       * here yet) reads the pages just before too — the writer often sets
+       * the scene in the first posts, and a one-pair read would starve it. */
+      let before = [];
+      const young = !stateBefore.place && !(stateBefore.present || []).length;
+      if (young) {
+        const recent = (await db.messages.list(story.id)).filter((m) => !m.hidden && m.id < msg.id);
+        before = recent.slice(-4).map((m) => ({ role: m.role, text: pageText(m) }));
+      }
       const { mutations, note: extractNote, failed: extractFailed } = await extractTurn({
         connection,
         state: stateBefore,
         userText,
         assistantText: pageText(msg),
+        before,
         signal,
       });
       /* B5: a page that has gone teaches the ledger nothing. M12: nor does
@@ -1465,7 +1503,7 @@ export function initChat(ctx) {
           'There’s no connection yet. Add one in Settings and the tavern can open its doors.'
         ));
         showComposerNote('The tavern needs a storyteller first — add a connection.');
-        scrollToBottom();
+        if (nearBottom()) scrollToBottom();
         return;
       }
       hideComposerNote();
@@ -1634,7 +1672,7 @@ export function initChat(ctx) {
       body.className = 'msg-body';
       pending.appendChild(body);
       els.thread.appendChild(pending);
-      scrollToBottom();
+      if (nearBottom()) scrollToBottom();
 
       abort = new AbortController();
       els.btnStop.hidden = false;
@@ -1755,7 +1793,7 @@ export function initChat(ctx) {
           pending.remove();
           await rerenderMessage(story.id, target.id);
           lastRender.ids = []; // the walker changed; next render reconciles
-          scrollToBottom();
+          if (nearBottom()) scrollToBottom();
           await refreshPreview(story.id); // M21: the shelf hears the new version
           stories = await db.stories.list();
           renderStoryList();
@@ -1888,12 +1926,15 @@ export function initChat(ctx) {
       const parsed = parseCommand(text);
       let saved;
       try {
+        const imageToSend = pendingImage;
         saved = await db.messages.append(story.id, {
           role: 'user',
           text: parsed.clean,
           hidden: parsed.hidden || undefined,
           ooc: parsed.ooc || undefined,
+          image: imageToSend || undefined,
         });
+        if (imageToSend) setPendingImage(null);
       } catch (err) {
         /* B1: a full shelf never swallows the words — the writer keeps
          * them and hears why. */
@@ -1934,6 +1975,82 @@ export function initChat(ctx) {
       const lastAssistant = [...nodes].reverse().find((n) => n.classList.contains('assistant'));
       if (lastAssistant) regenerateFrom(lastAssistant.dataset.id);
     });
+  }
+
+  /* M27: retrying a reader's page = rewind to just after it, then generate.
+   * The ledger's M21 snapshots restore whatever the erased answers wrote. */
+  /* ---------- M27: a picture for the page ---------- */
+  let pendingImage = null;
+
+  function setPendingImage(img) {
+    pendingImage = img;
+    if (!els.attachPreview) return;
+    els.attachPreview.textContent = '';
+    if (!img) { els.attachPreview.hidden = true; return; }
+    const thumb = document.createElement('img');
+    thumb.src = img.dataUrl;
+    thumb.alt = 'The picture you are about to share';
+    const drop = document.createElement('button');
+    drop.type = 'button';
+    drop.className = 'attach-drop';
+    drop.textContent = '×';
+    drop.setAttribute('aria-label', 'Take the picture back');
+    drop.addEventListener('click', () => setPendingImage(null));
+    els.attachPreview.append(thumb, drop);
+    els.attachPreview.hidden = false;
+  }
+
+  function readImageFile(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX = 1568;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+          if (!blob) { reject(new Error('the picture would not read')); return; }
+          const reader = new FileReader();
+          reader.onload = () => resolve({ dataUrl: reader.result, mediaType: 'image/jpeg' });
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  if (els.btnAttach && els.attachFile) {
+    els.btnAttach.addEventListener('click', () => els.attachFile.click());
+    els.attachFile.addEventListener('change', async () => {
+      const file = els.attachFile.files && els.attachFile.files[0];
+      els.attachFile.value = '';
+      if (!file) return;
+      try {
+        setPendingImage(await readImageFile(file));
+      } catch {
+        toast('That picture would not read — another one might.');
+      }
+    });
+  }
+
+  async function retryUserMessage(messageId) {
+    const story = await activeStory();
+    if (!story) return;
+    const msgs = await db.messages.list(story.id);
+    const after = msgs.filter((m) => m.id > messageId && m.role === 'assistant');
+    if (after.length) {
+      await regenerateFrom(after[0].id);
+      return;
+    }
+    /* no answer followed — the page is the tail: a plain generate answers it anew */
+    await generate({});
   }
 
   async function regenerateFrom(messageId) {
@@ -2240,6 +2357,8 @@ export function initChat(ctx) {
       copyMessage(id);
     } else if (btn.dataset.act === 'regenerate') {
       regenerateFrom(id);
+    } else if (btn.dataset.act === 'try again') {
+      retryUserMessage(id);
     } else if (btn.dataset.act === 'edit') {
       beginEdit(id);
     } else if (btn.dataset.act === 'delete') {

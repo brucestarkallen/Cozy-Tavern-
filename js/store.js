@@ -348,6 +348,10 @@ const messages = {
      * woke simply carry no `thinking` and render exactly as they always
      * did. */
     if (typeof msg.thinking === 'string' && msg.thinking) row.thinking = msg.thinking;
+    /* M27: a page may carry a picture ({image: {dataUrl, mediaType}}). Kept
+     * on the page, shown as a keepsake, and ridden on the wire only on its
+     * own turn (the assembler's picture law). */
+    if (msg.image && typeof msg.image === 'object' && msg.image.dataUrl) row.image = msg.image;
     /* M8: a page stopped by hand keeps this mark, so the "stopped
      * mid-sentence" label survives a reload. */
     if (msg.stopped === true) row.stopped = true;

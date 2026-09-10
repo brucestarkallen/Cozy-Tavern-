@@ -164,13 +164,25 @@ export function pageText(msg) {
  * hidden "Go on." lives in the store for the audit and fires the nudge, but
  * never sits in the story-so-far. Exported for the harness. */
 export function wireable(messages) {
-  return (messages || [])
-    .filter((m) => m && !m.hidden && (m.role === 'user' || m.role === 'assistant'))
-    .map((m) => ({
-      role: m.role,
-      content: pageText(m),
-      id: m.id,
-    }));
+  const list = (messages || [])
+    .filter((m) => m && !m.hidden && (m.role === 'user' || m.role === 'assistant'));
+  /* M27: a picture rides the wire only on its own page's turn — later turns
+   * carry a quiet note instead, so a gallery never becomes a tax. */
+  let lastUserId = null;
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    if (list[i].role === 'user') { lastUserId = list[i].id; break; }
+  }
+  return list.map((m) => {
+    const out = { role: m.role, content: pageText(m), id: m.id };
+    if (m.image && m.image.dataUrl) {
+      if (m.id === lastUserId) {
+        out.image = m.image;
+      } else if (!out.content.includes('[a picture was shared here]')) {
+        out.content = (out.content ? out.content + ' ' : '') + '[a picture was shared here]';
+      }
+    }
+    return out;
+  });
 }
 
 /* M12: the coverage law. Slot 8 may never let a page fall that no summary

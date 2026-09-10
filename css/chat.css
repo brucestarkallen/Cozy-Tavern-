@@ -995,3 +995,22 @@ body.read-only .send-btn { opacity: 0.4; }
 .prompt-chip-add:hover { opacity: 1; }
 #btn-retry { margin-right: 2px; }
 #btn-retry:not([hidden]) { display: inline; }
+
+/* M27: pictures — attach, preview, keepsake, whole view */
+.attach-btn { align-self: flex-end; margin-bottom: 10px; background: transparent;
+  border: 1px dashed var(--border); color: var(--muted); border-radius: 50%;
+  width: 32px; height: 32px; cursor: pointer; transition: color .15s, border-color .15s; }
+.attach-btn:hover, .attach-btn:focus-visible { color: var(--ember); border-color: var(--ember); }
+.attach-preview { margin: 0 0 8px; display: flex; align-items: center; gap: 10px; }
+.attach-preview img { max-width: 96px; max-height: 96px; border-radius: var(--r);
+  border: 1px solid var(--border); }
+.attach-drop { background: transparent; border: none; color: var(--muted); font-size: 18px;
+  cursor: pointer; }
+.attach-drop:hover { color: var(--danger); }
+.msg-figure { display: block; background: transparent; border: none; padding: 0;
+  margin: 0 0 12px; cursor: zoom-in; }
+.msg-figure img { max-width: min(420px, 82%); border-radius: var(--r);
+  border: 1px solid var(--border); box-shadow: var(--shadow); }
+.figure-veil { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.82);
+  display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+.figure-veil img { max-width: 94vw; max-height: 92vh; border-radius: var(--r); }

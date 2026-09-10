@@ -945,3 +945,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Craft agency law hardened: never give the other writer's character words, choices,
   reactions, or unwritten stillness; if the next beat needs their answer, stop.
 - version.js -> m26-001.
+
+---
+
+# M27 — field-reported fixes (image upload, founding read, scroll law, user retry)
+- Pictures: attach button in the composer; downscale to 1568px jpeg; the picture rides the
+  wire ONLY on its own page's turn (older pages carry "[a picture was shared here]") —
+  providers/wire.js withImagePart maps anthropic base64 blocks / openai data-url parts;
+  keepsake thumbnail on the page, tap for whole view. Store keeps msg.image.
+- Founding read: a young ledger (no place, nobody here) reads the four pages just before
+  too — scene-setting posts no longer starve the ledger (the "does it only read one page"
+  field report). buildExtractorMessages gains `before`.
+- Scroll law: completion/pending/send scrolls are gated on nearBottom() — the thread stays
+  where the reader left it. (Jump pill remains for finding the tail.)
+- User pages carry "try again" — rewind-and-regenerate for reader input, riding the M21
+  rollback law.
+- version.js -> m27-001. Harness 184/184.

@@ -662,3 +662,9 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
     tales walk back in from the device's own file (~/.cozytavern/books.json).
 80. Settings → Backup shows "Where the tales live: on this device, in files…" when served;
     "in this browser" on static hosting.
+
+## M27 additions
+81. Attach a picture — it rides that page's turn, shows as a keepsake, opens whole on tap.
+82. A young story with the scene set in early posts: the ledger fills from them.
+83. Scroll up mid-generation — the page never yanks you down when the answer lands.
+84. Long-press your own page: "try again" rewinds and hears a fresh answer.

@@ -249,3 +249,30 @@ test('M26 the workers line carries outcomes', () => {
   const chat = read('js/ui/chat.js');
   assert(chat.includes('nothing to write down') && chat.includes('could not be used'), 'honest words exist');
 });
+
+test('M27 the picture law: a picture rides its own turn only', async () => {
+  const { wireable } = await import('../../js/assemble/stack.js');
+  const msgs = [
+    { id: '1', role: 'user', text: 'look', image: { dataUrl: 'data:image/jpeg;base64,AA==' } },
+    { id: '2', role: 'assistant', text: 'I see it.' },
+    { id: '3', role: 'user', text: 'and now?', image: { dataUrl: 'data:image/jpeg;base64,BB==' } },
+  ];
+  const wire = wireable(msgs);
+  assert(!wire[0].image, 'the older picture stays home');
+  assert(wire[0].content.includes('[a picture was shared here]'), 'a quiet note marks it');
+  assert(wire[2].image, 'the current page carries its picture');
+  const { withImagePart } = await import('../../js/providers/wire.js');
+  const an = withImagePart(wire[2], 'anthropic');
+  eq(an.content[1].type, 'image', 'anthropic block');
+  eq(an.content[1].source.data, 'BB==', 'base64 without the prefix');
+  const oa = withImagePart(wire[2], 'openai');
+  eq(oa.content[1].type, 'image_url', 'openai part');
+});
+
+test('M27 the reader can try again, and the scroll stays where they left it', () => {
+  const chat = read('js/ui/chat.js');
+  assert(chat.includes("acts.push('try again')"), 'user pages carry try again');
+  assert(chat.includes('retryUserMessage'), 'the retry path exists');
+  const ungated = [...chat.matchAll(/(?<!if \(nearBottom\)\n)\s+scrollToBottom\(\);/g)];
+  assert(chat.includes('if (nearBottom()) scrollToBottom();'), 'completion scroll is gated');
+});

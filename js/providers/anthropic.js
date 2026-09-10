@@ -20,6 +20,7 @@
  */
 
 import { readSSE } from './sse.js';
+import { withImagePart } from './wire.js';
 /* M22-A/D: the full reasoning ladder + rejection memory, and the
  * storyteller prefill — the mechanics live in providers/effort.js. */
 import {
@@ -130,7 +131,7 @@ function requestBody(connection, blocks, legacySystem, messages, opts = {}) {
       ? Math.round(connection.maxTokens)
       : MAX_TOKENS,
     system: systemBlocks(blocks, legacySystem),
-    messages: pf.messages,
+    messages: pf.messages.map((m) => withImagePart(m, 'anthropic')),
     stream: true,
   };
   if (typeof connection.temperature === 'number') body.temperature = connection.temperature;

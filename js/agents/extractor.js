@@ -134,12 +134,16 @@ const SYSTEM_PROMPT = [
 ].join('\n');
 
 /* Exported for the harness: the two messages any provider flavor receives. */
-export function buildExtractorMessages({ state, userText, assistantText }) {
+export function buildExtractorMessages({ state, userText, assistantText, before = [] }) {
   const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
+  const FENCE = '"""';
   const user = [
     'Here is what the ledger currently says:',
     facts,
     '',
+    ...(before.length
+      ? ['The pages just before this one:', FENCE, before.map((b) => (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + String(b.text || '').slice(0, 2000)).join('\n\n'), FENCE, '']
+      : []),
     'The writer just wrote:',
     '"""',
     String(userText || '').slice(0, 4000),
@@ -264,7 +268,7 @@ async function callOpenAI(connection, prompt, signal) {
 /* Read one finished turn and propose mutations. NEVER throws into the chat
  * path — every failure (no connection, network, non-JSON, prose-wrapped
  * JSON) lands as {mutations:[]}. */
-export async function extractTurn({ connection, state, userText, assistantText, signal } = {}) {
+export async function extractTurn({ connection, state, userText, assistantText, before = [], signal } = {}) {
   try {
     if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
     if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };

@@ -15,6 +15,7 @@
  */
 
 import { readSSE } from './sse.js';
+import { withImagePart } from './wire.js';
 /* M22-A/D: the full reasoning ladder (per-house spellings, alias-down,
  * rejection memory) and the storyteller prefill live in effort.js. */
 import {
@@ -248,7 +249,7 @@ export function createOpenAIProvider(connection) {
       const systemText = Array.isArray(system) ? system.join('\n\n') : system;
       if (systemText) wire.push({ role: 'system', content: systemText });
     }
-    for (const m of messages) wire.push({ role: m.role, content: m.content });
+    for (const m of messages) wire.push(withImagePart(m, 'openai'));
 
     const startedAt = Date.now();
     const notes = [];
