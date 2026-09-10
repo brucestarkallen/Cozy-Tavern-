@@ -29,7 +29,7 @@ import { renderOffscreen } from '../engine/offscreen.js';
 import { renderCanon } from '../engine/canon.js';
 import { renderThreads, renderKnowledge, renderFactions } from '../engine/world.js';
 import { mcName } from '../engine/duels.js';
-import { explicitStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
+import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { loadMemory, wholeRecord } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
 
@@ -251,7 +251,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   guarded.push(...peopleHousekeeping(fresh));
   /* M50: the standings, kept clean in code — no judgment anywhere here. */
   const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
-  guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown));
+  const statedByModel = await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
+  guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...keptStandings];
   const report = { at: Date.now(), turn: Number.isFinite(next.turn) ? next.turn : 0, issues: read.issues.map((i) => ({ what: i.what, fix: i.fix, fixable: i.mutations.length > 0 })) };
@@ -302,7 +303,7 @@ export function peopleHousekeeping(state) {
  *   3. the writer's digits — a standing stated in the brief or the cast
  *      notes toward the main character that is missing or all zero is
  *      restored; one the pages have moved is left alone. */
-export function standingsHousekeeping(state, brief, castNotes, mc) {
+export function standingsHousekeeping(state, brief, castNotes, mc, stated = null) {
   const out = [];
   const rels = state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
   const keys = Object.keys(rels);
@@ -331,7 +332,8 @@ export function standingsHousekeeping(state, brief, castNotes, mc) {
    * junk is gone and the duplicates have merged — a merged standing that
    * carries numbers is not "zero" */
   const merged = out.length ? applyMutations(state, out).state.relationships : rels;
-  for (const st of explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mc)) {
+  const digits = Array.isArray(stated) ? stated : explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mc);
+  for (const st of digits) {
     const key = Object.keys(merged).find((k) => samePersonLoose(k, st.name));
     const rel = key ? merged[key] : null;
     if (isZero(rel) && (st.p || st.r || st.s)) {
@@ -382,7 +384,7 @@ export async function rebuildStandings({ connection, storyId, brief = '', castNo
   const clear = Object.keys(state.relationships || {}).map((k) => ({ type: 'rel.clear', name: k, cause: 'rebuilt by the writer’s hand' }));
   let { state: s1 } = applyMutations(state, clear);
   /* 2. the writer's digits */
-  const digits = explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mc)
+  const digits = (await readStatedStandings({ connection, brief, castNotes, mc, signal }))
     .map((st) => ({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mc || 'the main character') }));
   ({ state: s1 } = applyMutations(s1, digits));
   await saveState(storyId, s1);

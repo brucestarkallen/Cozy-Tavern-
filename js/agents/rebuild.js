@@ -34,7 +34,7 @@ import { renderPeopleTiers } from '../engine/people.js';
 import { renderRelationships } from '../engine/relationships.js';
 import { loadMemory, saveMemory, maybeSummarize, dueRange, cleanWindow, cleanBatch, visiblePages, DEFAULT_BATCH } from './memory.js';
 import { pageText } from '../assemble/stack.js';
-import { explicitStandings, samePersonLoose } from './founder.js';
+import { readStatedStandings, samePersonLoose } from './founder.js';
 
 const MAX_TOKENS = 3000;
 
@@ -150,7 +150,7 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
   let { state: s } = applyMutations(state, clear);
   s = { ...s, characters: {} };
   /* the standings' origin: the writer's digits */
-  const digits = explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mc)
+  const digits = (await readStatedStandings({ connection, brief, castNotes, mc, signal }))
     .map((st) => ({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mc || 'the main character') }));
   ({ state: s } = applyMutations(s, digits));
   await saveState(storyId, s);

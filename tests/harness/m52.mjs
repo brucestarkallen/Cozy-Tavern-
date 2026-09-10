@@ -47,10 +47,11 @@ test('M52-2 the people are re-read six pages at a time with the record-so-far; d
     const h = thinkingHouse({ answer }); return h.fetch(url, opts);
   } };
   const r = await withHouse(house, () => rebuildPeople({ connection: HOUSES[0].conn, storyId, brief: 'Rias Wells — sister (P:85 R:65 S:45)', stale: () => false }));
-  eq(contexts.length, 3, 'fourteen pages, three batches');
-  assert(/THE RECORD SO FAR[\s\S]*first pages/.test(contexts[0]), 'the first batch has no record before it');
-  assert(/Rias hugged Jovan on the porch/.test(contexts[1]), 'the second batch sees the record covering the pages before it');
-  assert(/THE STANDINGS AS THEY STAND[\s\S]*Rias/.test(contexts[1]), 'and the standings so far');
+  const batches = contexts.filter((c) => /THE NEXT PAGES:/.test(c)); /* M58: one more call reads the brief's digits */
+  eq(batches.length, 3, 'fourteen pages, three batches');
+  assert(/THE RECORD SO FAR[\s\S]*first pages/.test(batches[0]), 'the first batch has no record before it');
+  assert(/Rias hugged Jovan on the porch/.test(batches[1]), 'the second batch sees the record covering the pages before it');
+  assert(/THE STANDINGS AS THEY STAND[\s\S]*Rias/.test(batches[1]), 'and the standings so far');
   const st = await loadState(storyId);
   assert(!st.characters.Old, 'the stale page is gone');
   const riasKey = Object.keys(st.characters).find((k) => /^Rias/.test(k));

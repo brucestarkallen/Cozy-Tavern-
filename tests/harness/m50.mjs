@@ -146,3 +146,27 @@ CORE: whatever (P:50 R:50 S:50)`;
   const after = applyMutations(s, standingsHousekeeping(s, brief, '', 'Jovan')).state;
   assert(after.relationships['Rias Wells'] && after.relationships['Rias Wells'].p === 85, 'Rias restored from her own block');
 });
+
+test('M58 the model reads the stated standings; code only validates; the line parser is the fallback', async () => {
+  const { readStatedStandings, validateStatedStandings, buildStatedStandingsMessages } = await import('../../js/agents/founder.js');
+  const v = validateStatedStandings([
+    { name: 'Aurora Sterling', p: 65, r: 30, s: 5 },
+    { name: 'CORE', p: 85, r: 65, s: 45 },
+    { name: 'Vanderbilt family', p: 1, r: 0, s: 0 },
+    { name: 'Jovan', p: 50, r: 0, s: 0 },
+    { name: 'Aurora', p: 1, r: 1, s: 1 },
+    { name: 'Rias Wells (18)', p: 85, r: 65, s: 45 },
+  ], 'Jovan');
+  eq(v.map((x) => x.name + ':' + x.p).join(' | '), 'Aurora Sterling:65 | Rias Wells:85', 'labels, groups, the MC out; the same person once');
+  const p = buildStatedStandingsMessages({ brief: 'b', castNotes: 'c', mc: 'Jovan' });
+  assert(/WHOSE stance it is and TOWARD WHOM/.test(p.user) && /section labels, never\s*people/.test(p.user.replace(/\n/g, ' ')));
+  /* the model's reading wins */
+  const house = thinkingHouse({ answer: '{"standings":[{"name":"Rias Wells","p":85,"r":65,"s":45},{"name":"CORE","p":1,"r":1,"s":1}]}' });
+  const read = await withHouse(house, () => readStatedStandings({ connection: HOUSES[0].conn, brief: 'anything', mc: 'Jovan' }));
+  eq(read.map((x) => x.name).join(','), 'Rias Wells');
+  /* nothing usable → the parser */
+  const dumb = thinkingHouse({ answer: 'no idea' });
+  const fb = await withHouse(dumb, () => readStatedStandings({ connection: HOUSES[0].conn, brief: 'Rias Wells — sister (P:85 R:65 S:45)', mc: 'Jovan' }));
+  eq(fb.length, 1); eq(fb[0].p, 85);
+  eq((await readStatedStandings({ connection: null, brief: '', mc: 'Jovan' })).length, 0);
+});

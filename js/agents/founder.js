@@ -181,6 +181,67 @@ export function explicitStandings(text, mc = '') {
 }
 export { sameName as samePersonLoose };
 
+/* M58: the stated standings are READ BY THE MODEL — as Chat Assistant reads
+ * a text: by understanding it — and only VALIDATED in code (a person, not
+ * the main character, toward the main character). The line parser above
+ * is the fallback when the model returns nothing usable. */
+const STATED_SYSTEM = 'You read a writer\'s brief for the standings it states in digits. Answer with JSON only.';
+export function buildStatedStandingsMessages({ brief = '', castNotes = '', mc = '' }) {
+  const user = [
+    'The main character is ' + (mc || 'the one the writer plays') + '. A standing is one person\'s stance TOWARD THE MAIN',
+    'CHARACTER on three axes: P (warmth/trust), R (romantic pull), S (sexual charge), each -100..100.',
+    '',
+    'Below is the writer\'s brief and cast notes. Find every place the writer STATES a standing in digits',
+    '— shapes like "(P:65 R:30 S:5)" or "P:65, R:30, S:5" — and say WHOSE stance it is and TOWARD WHOM.',
+    'Read the structure the way a person would: a block usually opens with a person\'s name, then lines',
+    'about them; a line like "→ Jovan: … (P:65 R:30 S:5)" inside Aurora\'s block is AURORA\'s stance toward',
+    'Jovan; a line like "→ Claire: … (P:60 R:0 S:0)" in the same block is Aurora\'s stance toward Claire —',
+    'NOT toward the main character, so leave it out. "CORE:", "ARC:", "NOTES:" are section labels, never',
+    'people. A family, a school, a faction is not a person. Output ONLY stances toward the main character.',
+    '',
+    'THE BRIEF:', String(brief || '').slice(0, 14000) || '(none)',
+    '', 'THE CAST NOTES:', String(castNotes || '').slice(0, 8000) || '(none)',
+    '',
+    'Answer with JSON ONLY: {"standings":[{"name":"Aurora Sterling","p":65,"r":30,"s":5}]} — the person\'s full',
+    'name as the brief writes it; an empty list if the writer states none.',
+  ].join('\n');
+  return { system: STATED_SYSTEM, user };
+}
+
+export function validateStatedStandings(list, mc = '') {
+  const clampN = (v) => Math.max(-100, Math.min(100, Math.round(Number(v) || 0)));
+  const out = [];
+  for (const st of (Array.isArray(list) ? list : [])) {
+    if (!st || typeof st.name !== 'string') continue;
+    const name = clean(st.name.split(/[,(]/)[0]);
+    if (!name || isLabel(name) || (mc && sameName(name, mc))) continue;
+    if (!looksLikePersonHeading(name) && name.split(/\s+/).length > 3) continue;
+    if (GROUP_WORDS.test(name)) continue;
+    const row = { name, p: clampN(st.p), r: clampN(st.r), s: clampN(st.s) };
+    const at = out.findIndex((x) => sameName(x.name, row.name));
+    if (at === -1) out.push(row); else if (row.name.length > out[at].name.length) out[at] = row;
+  }
+  return out;
+}
+
+/* The model first; the line parser only when the model gave nothing usable. */
+export async function readStatedStandings({ connection, brief = '', castNotes = '', mc = '', signal } = {}) {
+  const material = String(brief || '').trim() || String(castNotes || '').trim();
+  if (!material) return [];
+  if (connection) {
+    try {
+      const prompt = buildStatedStandingsMessages({ brief, castNotes, mc });
+      const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 1500, effort: 'off', signal });
+      const cleaned = String(text || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '');
+      for (const c of balancedCandidates(cleaned, 5)) {
+        const p = parseLenient(c);
+        if (p && Array.isArray(p.standings)) return validateStatedStandings(p.standings, mc);
+      }
+    } catch (err) { /* the fallback below */ }
+  }
+  return explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mc);
+}
+
 export function founderFingerprint({ brief = '', castNotes = '', cast = [], lore = [] } = {}) {
   const parts = [
     String(brief || ''), String(castNotes || ''),
@@ -281,7 +342,7 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   }
   /* M49: the writer's digits, applied in code — a rel.set per explicit
    * standing, whether or not the model wrote one */
-  const stated = explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mcKnown);
+  const stated = await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
   const named = new Set(guarded.filter((m) => m.type === 'rel.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));
   for (const st of stated) {
     if (named.has(st.name.toLowerCase())) continue;

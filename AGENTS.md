@@ -1648,3 +1648,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The bottom count ("~N of ~M tokens in the room") is the last request whole — ledger included;
   the receipt under a reply is its breakdown. Documented in the reply, no change.
 - Harness: m57.mjs. 296/296 + 21/21. version.js -> m57-001.
+
+---
+
+# M58 — the model reads the brief's standings; code only validates
+- FIELD REPORT: "why a dumb parser when Chat Assistant can read any text and understand it?" Because
+  I put a code guard where a model reader belonged (M49, after one model miss), then chased the
+  brief's shapes one line at a time (M50, M50-002, M57-002, M57-003). Code cannot misjudge — and
+  cannot understand. The house's own design is: models READ, code GUARDS.
+- founder.js: readStatedStandings({connection, brief, castNotes, mc}) — one small focused call
+  (buildStatedStandingsMessages: whose stance, toward whom; labels are not people; a family is
+  not a person; only toward the MC); validateStatedStandings in code (a person, not a label, not
+  a group, not the MC, deduped to the fuller name, clamped). explicitStandings (the line parser)
+  remains ONLY as the fallback when the model returns nothing usable or there is no connection.
+  Used by the founder, the auditor's housekeeping (standingsHousekeeping takes the list), the
+  M50 one-shot rebuild and the M52 gradual rebuild.
+- Harness: M58 law in m50.mjs; m52-2 counts batch calls only. 299/299 + 21/21. version.js ->
+  m58-001.
