@@ -959,6 +959,33 @@ export function initChat(ctx) {
     return row;
   }
 
+  /* M39: one way to dress a page — the display regex, then the allowlisted
+   * HTML or the scene heads + rich prose. msgNode paints a finished page
+   * with it; the stream paints every frame with it, so the header card, the
+   * spoken colour, the thoughts and the 🎨 styles appear as the words
+   * arrive (the SillyTavern way), never only when the page is done. */
+  function dressInto(host, text, role) {
+    const raw = String(text || '');
+    const shown = applyRules(raw, currentRules(), { on: role, mode: 'display' });
+    const dressed = shown !== raw && looksHtml(shown);
+    const frag = document.createDocumentFragment();
+    if (dressed) {
+      frag.appendChild(renderHtmlProse(shown));
+    } else {
+      for (const part of parseScene(shown)) {
+        if (part.type === 'head') {
+          const head = document.createElement('div');
+          head.className = 'scene-head lbl';
+          head.textContent = part.text;
+          frag.appendChild(head);
+        } else {
+          frag.appendChild(renderRich(part.text));
+        }
+      }
+    }
+    host.replaceChildren(frag);
+  }
+
   function msgNode(msg, showThinking, opts = {}) {
     const article = document.createElement('article');
     article.className = `msg msg-${msg.role}` + (msg.ooc ? ' msg-ooc' : '');
@@ -1895,6 +1922,15 @@ export function initChat(ctx) {
       let full = '';
       let thinking = '';
       let sawProse = false;
+      /* M39: the live paint — dressed, at most once per frame */
+      let paintRaf = 0;
+      const paintLive = () => {
+        if (paintRaf) return;
+        paintRaf = requestAnimationFrame(() => {
+          paintRaf = 0;
+          try { dressInto(body, full, 'assistant'); } catch (err) { body.textContent = full; }
+        });
+      };
       let stoppedByHand = false;
       let finishReason = null;
       let streamSources = null; // M22-C: the search's findings
@@ -1927,7 +1963,7 @@ export function initChat(ctx) {
                 if (thinkDetails) thinkDetails.open = false;
               }
               full += text;
-              body.textContent = full;
+              paintLive();
             }
             followTail();
           },

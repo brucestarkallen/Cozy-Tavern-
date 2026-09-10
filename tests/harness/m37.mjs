@@ -66,3 +66,12 @@ test('M37-5 the workers say what they wrote, not only how much', () => {
   const world = readFileSync(new URL('../../js/agents/world.js', import.meta.url), 'utf8');
   assert(/result\.applied\.slice\(0, 4\)\.map\(\(a\) => a\.words/.test(world), 'the world agent names what moved');
 });
+
+test('M39 the stream is dressed as it arrives: the live paint rides the same dresser as a finished page, one frame at a time', () => {
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/function dressInto\(host, text, role\)/.test(chat), 'one dresser');
+  const stream = chat.slice(chat.indexOf("} else if (channel === 'prose') {"), chat.indexOf("} else if (channel === 'prose') {") + 300);
+  assert(/paintLive\(\);/.test(stream) && !/body\.textContent = full;\n\s*\}\n\s*followTail/.test(stream), 'the stream paints dressed');
+  const live = chat.slice(chat.indexOf('const paintLive = () => {'), chat.indexOf('const paintLive = () => {') + 400);
+  assert(/requestAnimationFrame/.test(live) && /dressInto\(body, full, 'assistant'\)/.test(live), 'per frame, through the dresser');
+});

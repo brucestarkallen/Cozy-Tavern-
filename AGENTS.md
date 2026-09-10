@@ -1299,3 +1299,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   before in the undo batch; undo refuses on drift. The context shows the shelf (name, keys, off/
   always, 200 chars of content); the prompt teaches the block; touched.lore refreshes Settings.
 - Harness: m38.mjs (2 checks). 252/252 + 17/17. version.js -> m38-001.
+
+---
+
+# M39 — the stream is dressed as it arrives
+- FIELD REPORT: "regex must render first, like SillyTavern — it rendered only after the output was
+  done." ROOT: the pending page painted raw text (body.textContent = full) per token; the display
+  regex, the 🎨 styles, the spoken colour, the thoughts and the scene heads ran only in msgNode on
+  the finished page. Now dressInto(host, text, role) is the ONE dresser (display rules → allowlisted
+  HTML or scene heads + rich prose); msgNode uses it, and the stream paints through it at most
+  once per frame (paintLive, requestAnimationFrame). A rule needing a complete line (the header
+  card, the boxed cut-away) dresses the moment its line completes, as it does in SillyTavern.
+- Settings: the record-line slider is labelled in Summaryception's terms ("turns per record line";
+  one turn = the writer's page + the storyteller's).
+- 253/253 + 17/17. version.js -> m39-001.
