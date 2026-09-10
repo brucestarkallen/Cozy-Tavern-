@@ -676,6 +676,13 @@
     </div>
     <div class="drawer-panels hk-body">
       <p class="quiet hk-tagline">The one pair of eyes that sees the whole story. Ask it to notice, to repair, to show the way — nothing changes until you say so.</p>
+      <div class="hk-sessions" role="group" aria-label="Sessions">
+        <select id="hk-session" class="hk-session-pick" aria-label="Which session"></select>
+        <button id="hk-sess-new" class="text-btn" type="button" title="New session — a fresh talk for a new problem">＋</button>
+        <button id="hk-sess-branch" class="text-btn" type="button" title="Branch — copy this session into a new one">⑂</button>
+        <button id="hk-sess-rename" class="text-btn" type="button" title="Rename this session">✎</button>
+        <button id="hk-sess-delete" class="text-btn" type="button" title="Delete this session">✕</button>
+      </div>
       <div class="hk-quick">
         <button id="hk-audit" class="text-btn" type="button">Audit</button>
         <button id="hk-new" class="text-btn" type="button">New episode</button>
@@ -684,6 +691,29 @@
         <button id="hk-critique" class="text-btn" type="button">Critique</button>
         <button id="hk-retry" class="text-btn" type="button" title="Ask the last question again — the last answer and its cards are let go">↻ Retry</button>
         <button id="hk-undo" class="text-btn" type="button">Undo</button>
+        <button id="hk-stop" class="text-btn" type="button" title="Stop what the housekeeper is doing" hidden>⏹ Stop</button>
+        <button id="hk-more" class="text-btn" type="button" title="More tools" aria-haspopup="menu">⋯ More</button>
+      </div>
+      <div id="hk-more-menu" class="msg-menu hk-more-menu" role="menu" hidden>
+        <button type="button" role="menuitem" class="menu-item" data-act="context">Show the full context it reads</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="raw">Raw ledger and record</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="dir-status">Episode progress (spoiler-free)</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="dir-peek">Reveal the directive (spoiler)</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="dir-ideas">Three episode seeds to pick from</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="dir-off">Director off — clear the episode</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="crit-peek">View the editor’s notes</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="name-story">Auto-name this story</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="rename-story">Rename this story</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="del-last">Delete the last question and answer</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="clear">Clear this session</button>
+        <button type="button" role="menuitem" class="menu-item" data-act="commands">The shortcut commands</button>
+      </div>
+      <div id="hk-cards-bar" class="hk-cards-bar" hidden>
+        <button id="hk-apply-all" class="text-btn" type="button">Apply all pending</button>
+        <button id="hk-dismiss-all" class="text-btn" type="button" title="Set aside every pending card">Dismiss all</button>
+        <button id="hk-clear-done" class="text-btn" type="button" title="Hide the applied and skipped cards">Clear done</button>
+        <button id="hk-repropose" class="text-btn" type="button" title="Ask the housekeeper to re-read the current text and send corrected versions of the failed cards">Re-propose failed</button>
+        <button id="hk-toggle-cards" class="text-btn" type="button">Hide cards</button>
       </div>
       <form id="hk-seed-form" class="hk-seed-form" hidden>
         <input id="hk-seed-input" type="text" maxlength="200" placeholder="A seed of a scene, a person, a want…" autocomplete="off">

@@ -390,11 +390,51 @@ test('DOM-11b the housekeeper: fullscreen (Esc leaves it), a draggable top bar, 
   submit(q('#hk-form'));
   await until(() => qa('#hk-thread .hk-bubble').length >= 2, 'the first answer', 10000);
   const sid = await storyId();
-  const sess1 = await db.settings.get('hk:' + sid);
+  const active = (root) => root.sessions.find((x) => x.id === root.activeId);
+  const sess1 = active(await db.settings.get('hk:' + sid));
   eq(sess1.turns.length, 2);
   house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'Answer two.' : priorAnswer(body, sys));
   click(q('#hk-retry'));
-  await until(async () => { const s2 = await db.settings.get('hk:' + sid); return s2 && s2.turns.length === 2 && /Answer two/.test(s2.turns[1].text); }, 'the question asked again, the old answer gone', 10000);
+  await until(async () => { const s2 = active(await db.settings.get('hk:' + sid)); return s2 && s2.turns.length === 2 && /Answer two/.test(s2.turns[1].text); }, 'the question asked again, the old answer gone', 10000);
+  house.state.workerAnswer = priorAnswer;
+  click(q('#btn-hk-close'));
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work through the real UI', async () => {
+  const before = errors.length;
+  click(q('#btn-housekeeper'));
+  await until(() => !q('#hk-sheet').hidden, 'the housekeeper');
+  const sid = await storyId();
+  const priorAnswer = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'Nothing drifted.' : priorAnswer(body, sys));
+  /* a command expands on the wire but the talk shows what was typed */
+  const optionsNow = () => qa('#hk-session option').length;
+  const base = optionsNow();
+  type(q('#hk-input'), '#s');
+  submit(q('#hk-form'));
+  await until(() => qa('#hk-thread .hk-writer').some((b) => /#s/.test(b.textContent)) && !q('#hk-thread .hk-pending'), 'the typed command is what the talk shows, and the answer landed', 10000);
+  const firstId = q('#hk-session').value;
+  /* new session, branch, switch back */
+  click(q('#hk-sess-new'));
+  await until(() => optionsNow() === base + 1, 'a second session');
+  eq(qa('#hk-thread .hk-bubble').length, 0, 'the new session is empty');
+  q('#hk-session').value = firstId; q('#hk-session').dispatchEvent(new window.Event('change', { bubbles: true }));
+  await until(() => qa('#hk-thread .hk-writer').some((b) => /#s/.test(b.textContent)), 'back to the first');
+  click(q('#hk-sess-branch'));
+  await until(() => optionsNow() === base + 2, 'a branch');
+  assert(/branch/.test(q('#hk-session').selectedOptions[0].textContent));
+  /* branch here on a writer bubble */
+  click(q('#hk-thread .hk-branch-here'));
+  await until(() => optionsNow() === base + 3, 'branched at a turn');
+  /* the more menu: context viewer */
+  click(q('#hk-more'));
+  click(q('#hk-more-menu button[data-act="context"]'));
+  await until(() => q('#hk-thread .hk-viewer'), 'the context viewer');
+  assert(/THE RECORD|PENDING CARDS/.test(q('#hk-thread .hk-viewer').textContent), 'the context is the real one');
+  /* delete the branch sessions back down */
+  click(q('#hk-sess-delete'));
+  await until(() => optionsNow() === base + 2, 'deleted');
   house.state.workerAnswer = priorAnswer;
   click(q('#btn-hk-close'));
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));

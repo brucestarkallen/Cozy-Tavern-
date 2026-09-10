@@ -719,35 +719,162 @@ function stateHashOf(state) {
 
 /* ---------- the session store ---------- */
 
-export async function loadSession(storyId) {
-  const fresh = { turns: [], batches: [] };
+/* M62 (Chat Assistant's sessions, ported): a story holds SEVERAL housekeeper
+ * conversations — "Session 1", a branch of it, one for a fresh problem —
+ * and one shelf of undo batches shared by all (a change is a change to the
+ * story, whichever talk proposed it). Store: hk:<storyId> =
+ *   { sessions:[{id, name, turns}], activeId, batches }
+ * The old shape ({turns, batches}) is migrated on read into "Session 1".
+ * loadSession returns the ACTIVE session's view — {id, name, turns, batches}
+ * — so every caller that reads session.turns / session.batches still
+ * works; saveSession writes that view back into the root. */
+function cleanTurns(list) {
+  return (Array.isArray(list) ? list : [])
+    .filter((t) => t && typeof t === 'object' && typeof t.text === 'string')
+    .map((t) => ({
+      role: t.role === 'housekeeper' ? 'housekeeper' : 'writer',
+      text: t.text,
+      ts: Number.isFinite(t.ts) ? t.ts : 0,
+      ...(Array.isArray(t.proposals) ? { proposals: t.proposals } : {}),
+      ...(typeof t.thinking === 'string' && t.thinking ? { thinking: t.thinking } : {}),
+    }));
+}
+export async function loadSessionRoot(storyId) {
+  const fresh = { sessions: [{ id: 1, name: 'Session 1', turns: [] }], activeId: 1, batches: [] };
   if (!storyId) return fresh;
   try {
     const saved = await db.settings.get(SESSION_PREFIX + storyId);
     if (!saved || typeof saved !== 'object') return fresh;
-    return {
-      turns: (Array.isArray(saved.turns) ? saved.turns : [])
-        .filter((t) => t && typeof t === 'object' && typeof t.text === 'string')
-        .map((t) => ({
-          role: t.role === 'housekeeper' ? 'housekeeper' : 'writer',
-          text: t.text,
-          ts: Number.isFinite(t.ts) ? t.ts : 0,
-          ...(Array.isArray(t.proposals) ? { proposals: t.proposals } : {}),
-        })),
-      batches: (Array.isArray(saved.batches) ? saved.batches : [])
-        .filter((b) => b && typeof b === 'object' && Array.isArray(b.items)),
-    };
+    let root;
+    if (Array.isArray(saved.sessions)) {
+      root = {
+        sessions: saved.sessions.filter((x) => x && typeof x === 'object').map((x, i) => ({ id: Number.isFinite(x.id) ? x.id : i + 1, name: typeof x.name === 'string' && x.name.trim() ? x.name : 'Session ' + (i + 1), turns: cleanTurns(x.turns) })),
+        activeId: saved.activeId,
+        batches: (Array.isArray(saved.batches) ? saved.batches : []).filter((b) => b && typeof b === 'object' && Array.isArray(b.items)),
+      };
+    } else {
+      root = { sessions: [{ id: 1, name: 'Session 1', turns: cleanTurns(saved.turns) }], activeId: 1, batches: (Array.isArray(saved.batches) ? saved.batches : []).filter((b) => b && typeof b === 'object' && Array.isArray(b.items)) };
+    }
+    if (!root.sessions.length) root.sessions.push({ id: 1, name: 'Session 1', turns: [] });
+    if (!root.sessions.some((x) => x.id === root.activeId)) root.activeId = root.sessions[0].id;
+    return root;
   } catch (err) {
     return fresh;
   }
 }
-
+export async function saveSessionRoot(storyId, root) {
+  if (!storyId || !root) return;
+  await db.settings.set(SESSION_PREFIX + storyId, {
+    sessions: root.sessions.map((x) => ({ id: x.id, name: x.name, turns: (x.turns || []).slice(-SESSION_TURNS_CAP) })),
+    activeId: root.activeId,
+    batches: (root.batches || []).slice(-UNDO_CAP),
+  });
+}
+export async function loadSession(storyId) {
+  const root = await loadSessionRoot(storyId);
+  const active = root.sessions.find((x) => x.id === root.activeId) || root.sessions[0];
+  return { id: active.id, name: active.name, turns: active.turns, batches: root.batches };
+}
 export async function saveSession(storyId, session) {
   if (!storyId || !session || typeof session !== 'object') return;
-  await db.settings.set(SESSION_PREFIX + storyId, {
-    turns: (session.turns || []).slice(-SESSION_TURNS_CAP),
-    batches: (session.batches || []).slice(-UNDO_CAP),
-  });
+  const root = await loadSessionRoot(storyId);
+  const id = Number.isFinite(session.id) ? session.id : root.activeId;
+  const at = root.sessions.findIndex((x) => x.id === id);
+  if (at === -1) root.sessions.push({ id, name: session.name || 'Session', turns: session.turns || [] });
+  else root.sessions[at] = { ...root.sessions[at], turns: session.turns || [] };
+  root.batches = session.batches || root.batches;
+  await saveSessionRoot(storyId, root);
+}
+/* the session shelf: list, switch, new, branch (whole or at a turn), rename, delete, clear */
+export async function listSessions(storyId) {
+  const root = await loadSessionRoot(storyId);
+  return { sessions: root.sessions.map((x) => ({ id: x.id, name: x.name, turns: x.turns.length })), activeId: root.activeId };
+}
+export async function switchSession(storyId, id) {
+  const root = await loadSessionRoot(storyId);
+  if (!root.sessions.some((x) => x.id === Number(id))) return null;
+  root.activeId = Number(id);
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+export async function newSession(storyId, name) {
+  const root = await loadSessionRoot(storyId);
+  const id = Math.max(0, ...root.sessions.map((x) => x.id)) + 1;
+  const used = new Set(root.sessions.map((x) => { const m = /^Session (\d+)$/.exec(x.name); return m ? Number(m[1]) : 0; }));
+  let n = 1; while (used.has(n)) n += 1;
+  root.sessions.push({ id, name: (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 40) : 'Session ' + n, turns: [] });
+  root.activeId = id;
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+export async function branchSession(storyId, atTurn) {
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === root.activeId) || root.sessions[0];
+  const id = Math.max(0, ...root.sessions.map((x) => x.id)) + 1;
+  const whole = !Number.isInteger(atTurn);
+  const turns = JSON.parse(JSON.stringify(whole ? cur.turns : cur.turns.slice(0, atTurn + 1)));
+  /* cards in a branch are the branch's own view of the same story: pending ones stay pending */
+  root.sessions.push({ id, name: (cur.name + (whole ? ' (branch)' : ' @' + (atTurn + 1))).slice(0, 40), turns });
+  root.activeId = id;
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+export async function renameSession(storyId, name) {
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === root.activeId);
+  if (!cur || typeof name !== 'string' || !name.trim()) return null;
+  cur.name = name.trim().slice(0, 40);
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+export async function deleteSession(storyId) {
+  const root = await loadSessionRoot(storyId);
+  if (root.sessions.length <= 1) { root.sessions[0].turns = []; await saveSessionRoot(storyId, root); return loadSession(storyId); }
+  root.sessions = root.sessions.filter((x) => x.id !== root.activeId);
+  root.activeId = root.sessions[root.sessions.length - 1].id;
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+export async function clearSession(storyId) {
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === root.activeId);
+  if (cur) cur.turns = [];
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+export async function deleteLastExchange(storyId) {
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === root.activeId);
+  if (!cur) return loadSession(storyId);
+  let i = cur.turns.length - 1;
+  while (i >= 0 && cur.turns[i].role !== 'writer') i -= 1;
+  if (i >= 0) cur.turns = cur.turns.slice(0, i);
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+
+/* M62: the shortcut commands (Chat Assistant's, in the house's words). The
+ * tag at the start of what the writer types expands to a standing request;
+ * the rest of the line rides as detail. */
+export const COMMANDS = {
+  f: 'Check the chat against the record and the ledger and FIX the continuity errors you find: the pages that contradict the record, the ledger, the brief or the pages of the people. Propose the edits as cards — pages, the record’s lines, the pages of the people, the lore — one fact on every surface. Say what you checked and what you left alone.',
+  s: 'Check the CURRENT SESSION — the pages in the window — against the record and the ledger. Note where it drifted; propose the fixes as cards; say plainly if nothing drifted.',
+  a: 'Fidelity audit: do the record’s lines match what actually happened on the pages they cover? Read each line against its pages (fetch the pages you do not hold whole). Propose <record> edits where a line misreads a page; never invent an event into the record.',
+  o: 'Harvest OOC and meta asides from the pages — notes to the storyteller, out-of-character remarks, analysis blocks that are not story — and propose hiding those pages or trimming the asides out of the prose. Never touch story.',
+  i: 'Brainstorm four genuinely different directions the story could go next — a sentence each on what would happen, whose want drives it, and what it would cost. No ranking; no scripted player action.',
+  p: 'A psychology read of the person named (or, unnamed, of the most present NPC): their drives, their contradictions, how consistent their pages are with their core and the brief, and the likely next move they would make on their own. Cite the pages.',
+  opt: 'Optimize the record for tokens with ZERO loss: propose <record> edits that compress each line — strip references and dead words, aggregate sequential facts, keep every event, name, number, relation and knowledge exactly. For each edit say what was removed and prove nothing of substance is lost. Never touch a line you cannot verify against its pages.',
+  cl: 'Clean the record like a showrunner: the throughline, a cold-read test, broken coherence, what is missing, a motivation check, then a manifest — SPINE / SUPPORT / TEXTURE / NOISE. Propose subtractive <record> edits only; restructuring is described and waits for the writer.',
+  br: 'Write a short handoff paragraph for a fresh storyteller: where the story stands right now, who is where, what is in motion, and the open questions. No proposals.',
+  d: 'DIRECTOR: steer the current episode with the writer’s direction below — re-aim it while keeping what works. Answer with the re-aimed directive as a short plan; propose nothing to the pages.',
+  e: 'DIRECTOR: seed the next episode with the writer’s premise below — expand it into a hidden episode built around it: an open EPISODE QUESTION, the world’s half of the collision, the landing per possible answer. Propose nothing to the pages.',
+};
+export function expandCommand(text) {
+  const m = /^#(f|s|a|o|i|p|opt|cl|br|d|e)\b\s*([\s\S]*)$/i.exec(String(text || '').trim());
+  if (!m) return { text: String(text || ''), tag: '' };
+  const tag = m[1].toLowerCase();
+  const rest = m[2].trim();
+  return { text: COMMANDS[tag] + (rest ? '\n\nThe writer adds: ' + rest : ''), tag };
 }
 
 /* ---------- staging: parsed protocol -> proposal cards ---------- */
@@ -1682,7 +1809,7 @@ export async function runConversation({
  * conversation, stage the cards, honor supersede, persist the session.
  * Never throws. */
 export async function housekeeperTurn({
-  storyId, writerText, connection, call, signal, onToken,
+  storyId, writerText, shownText, connection, call, signal, onToken,
   directorText, editorText,
 } = {}) {
   try {
@@ -1715,7 +1842,7 @@ export async function housekeeperTurn({
       else if (sup.count && !proposals.length) withdrawNote = '\n\n(Withdrew ' + sup.count + (sup.count === 1 ? ' card' : ' cards') + '.)';
     }
 
-    session.turns.push({ role: 'writer', text: String(writerText || ''), ts: Date.now() });
+    session.turns.push({ role: 'writer', text: String(shownText || writerText || ''), ts: Date.now() });
     const turn = {
       role: 'housekeeper',
       text: result.parsed.text + withdrawNote,

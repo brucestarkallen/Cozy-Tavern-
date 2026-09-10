@@ -1740,3 +1740,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   supersede law updated. 307/307 + 23/23. version.js -> m61-001.
 - Not ported (features, not bugs): the four-pass deep audit with a call budget, #opt, #cl,
   #a, #o, #i, #p, auto-name.
+
+---
+
+# M62 — Chat Assistant's panel, whole
+- FIELD REPORT: "port EVERYTHING on Chat Assistant — sessions, branch, clear chat — not three
+  functions." Every button in its panel was listed from the code (cc_*) and each is here now:
+  SESSIONS (per story, batches shared): a picker + New / Branch (copy) / Rename / Delete; "⑂ branch
+  here" on every writer bubble (branchAt); More → Clear this session / Delete the last question
+  and answer. Store hk:<storyId> = {sessions:[{id,name,turns}], activeId, batches}; the old
+  shape migrates into "Session 1"; loadSession returns the active view so every caller stands.
+  COMMANDS in the ask box: #f fix continuity, #s check the session, #a fidelity of the record,
+  #o harvest OOC, #i brainstorm four directions, #p psychology read, #opt zero-loss record
+  optimize, #cl showrunner cleanup with a SPINE/SUPPORT/TEXTURE/NOISE manifest, #br handoff,
+  #d steer the director (directorSteer — re-aims, keeps the number), #e seed the next episode.
+  The talk shows what was typed; the expanded request rides the wire.
+  MORE: Show the full context it reads (with its char/token count), Raw ledger and record,
+  Episode progress (spoiler-free, directorStatus), Reveal the directive, Three episode seeds
+  (directorIdeas), Director off (directorOff — clear + reset numbering), View the editor's
+  notes, Auto-name this story (one small call), Rename this story, the shortcut list.
+  CARDS BAR: Apply all pending / Dismiss all / Clear done (hides applied+skipped) / Re-propose
+  failed (asks for corrected anchors or a withdrawal) / Hide-Show cards.
+  ⏹ Stop while the housekeeper runs (aborts the worker call).
+- Not ported, deliberately: the four-pass deep audit (#m) — the house verifies every record
+  line as it is written and audits the whole ledger every three turns, so the pass exists
+  as a standing process rather than a command; ST-specific tools (worldbook detector,
+  memory-source detector, renamechat slash).
+- Harness: m62.mjs (4 checks); DOM-11d drives sessions, a command, the context viewer and
+  branch-here through the real UI. 311/311 + 24/24. version.js -> m62-001.

@@ -505,3 +505,12 @@
 .hk-sheet.floating { border-radius: var(--r-lg); box-shadow: var(--shadow); }
 @media (pointer: fine) { .hk-head { cursor: grab; user-select: none; } .hk-head:active { cursor: grabbing; } }
 .hk-sheet.fullscreen .hk-head { cursor: default; }
+
+/* M62 — the housekeeper's sessions, tools and cards bar */
+.hk-sessions { display: flex; gap: 4px; align-items: center; }
+.hk-session-pick { flex: 1; min-width: 0; background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; font: inherit; }
+.hk-more-menu { position: static; display: flex; flex-direction: column; margin: 4px 0; }
+.hk-cards-bar { display: flex; flex-wrap: wrap; gap: 4px; }
+.hk-viewer { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.8rem; max-height: 50vh; overflow: auto; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+.hk-bubble .hk-branch-here { float: right; font-size: 0.75rem; opacity: 0.6; }
+.hk-cards-hidden .hk-card { display: none; }
