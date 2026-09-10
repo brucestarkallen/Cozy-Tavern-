@@ -181,6 +181,8 @@ test('DOM-7 swipe writes a second version and the counter says so; swipe-prev wa
 });
 
 test('DOM-8 branch shelves a new tale with the pages up to here; delete lets a page go', async () => {
+  /* M55: the origin sits on a shelf, so the branch must too */
+  { const sid0 = await storyId(); await db.stories.update(sid0, { projectId: 'shelf-m55' }); }
   const before = errors.length;
   const sid = await storyId();
   const storiesBefore = (await db.stories.list()).length;
@@ -190,6 +192,9 @@ test('DOM-8 branch shelves a new tale with the pages up to here; delete lets a p
   const bid = await storyId();
   const pages = (await db.messages.list(bid)).filter((m) => !m.hidden);
   eq(pages.length, 2, 'the branch carries the exchange');
+  /* M55: a branch stays on its project's shelf */
+  const branchStory = await db.stories.get(bid);
+  eq(branchStory.projectId, 'shelf-m55', 'the branch is on the same shelf as its origin');
   /* M43: the branch carries its checkpoint — the ledger, not a blank one */
   const bst = await db.settings.get('state:' + bid);
   assert(bst && (bst.place || (bst.present || []).length || Object.keys(bst.offscreen || {}).length), 'the branch has the ledger as it stood: ' + JSON.stringify(bst && { place: bst.place, present: bst.present }));

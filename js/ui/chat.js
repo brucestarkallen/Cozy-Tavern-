@@ -543,7 +543,9 @@ export function initChat(ctx) {
     archiveBtn.className = 'story-mini';
     archiveBtn.title = opts.resting ? 'Wake this tale' : 'Put this tale to rest';
     archiveBtn.setAttribute('aria-label', `${opts.resting ? 'Wake' : 'Put to rest'} “${story.title}”`);
-    archiveBtn.textContent = opts.resting ? '↩' : '▦';
+    /* M55: ▦ drew as a white tile on Android (a "prison bar"); a moon reads
+     * as rest and renders as text everywhere. */
+    archiveBtn.textContent = opts.resting ? '↩' : '☾';
     archiveBtn.addEventListener('click', () => toggleRest(story));
 
     li.append(openBtn, renameBtn, removeBtn, exportBtn, archiveBtn);
@@ -2815,6 +2817,8 @@ export function initChat(ctx) {
   const BRANCH_CARRY = [
     'frameOverride', 'noteOverride', 'brief', 'castNotes', 'connectionId',
     'reasoningEffort', 'extraction', 'keeper', 'continuity', 'castIds',
+    'projectId', /* M55: a branch stays on its project's shelf */
+    'workerConnections', 'mend', 'audit', 'worldAgent',
   ];
 
   async function branchFrom(messageId) {

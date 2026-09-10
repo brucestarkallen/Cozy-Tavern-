@@ -1613,3 +1613,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The preset itself is on disk (/home/claude/preset, 39 modules; the V177 JSON in uploads) and
   the craft core is in js/assemble/craft.js — none of it depends on conversation memory.
 - 294/294 + 20/20. version.js -> m54-001.
+
+---
+
+# M55 — the rest glyph; a branch stays on its shelf
+- FIELD REPORT: "a bar like prison bars on the chat that makes resting, with a white banner" — the
+  story list's archive button drew "▦" (crosshatched square), which Android renders as a white
+  tile. Now "☾" (put to rest) / "↩" (wake) — plain text glyphs everywhere.
+- FIELD REPORT: "when I branch a chat from a project it lands outside the project" — BRANCH_CARRY
+  lacked projectId. Carried now, with workerConnections, mend, audit, worldAgent (the story's own
+  switches). DOM-8 puts the origin on a shelf and asserts the branch is on the same one.
+- 294/294 + 20/20. version.js -> m55-001.
