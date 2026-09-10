@@ -1492,3 +1492,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   (with the concrete cases: stepped out of the car is not in transit, an emptied room is not a
   social field, an ended fight is not combat). The auditor holds the moods to the latest page too.
 - Harness: m47.mjs. 279/279 + 20/20. version.js -> m47-001.
+
+---
+
+# M48 — the auditor may not take a standing away on judgment
+- FIELD REPORT: "the auditor deleted Aurora's P:R:S because 'not in the brief' — she is his childhood
+  best friend." My M45-002 law let the auditor zero "a standing for a person who has never met
+  the main character" — a judgment call it cannot make. Standings are earned on the pages and set
+  by the founder from the brief; the auditor corrects only what it can PROVE.
+- Law: the only standing the auditor may zero is one whose own history says it was written for a
+  feeling toward someone else (the Caleb case); never because it does not see the bond; when in
+  doubt, leave every standing — the pages move standings, not the auditor.
+- Code guard in auditLedger: a rel.set/rel.shift that LOWERS a standing is refused when that
+  standing has any on-page history (a cause not from the brief/hand/founder) or when the person is
+  named in the brief or the cast notes; the refusal is on the workers' line. Raising is never
+  blocked. Recovery for a standing already zeroed: "Take it back" in What changed and why.
+- Harness: m48.mjs. 280/280 + 20/20. version.js -> m48-001.

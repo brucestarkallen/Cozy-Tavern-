@@ -83,11 +83,14 @@ function law({ mc }) {
     '  - THE CANON: does anything locked contradict the brief? Unlock and relock it right.',
     '  - THE BODIES AND THE STANDINGS: a wound the pages show healed still open; a standing that',
     '    contradicts the brief\'s established relationship (rel.set with the cause "the brief says").',
-    '    AXIS LOCK: a standing exists only TOWARD THE MAIN CHARACTER. A standing whose history line',
-    '    speaks of a feeling for someone else (a crush on the sister, an ex\'s possessiveness), or a',
-    '    standing for a person who has never met the main character, is an error: rel.set it to',
-    '    p:0 r:0 s:0 with the cause "the brief gives no bond with <main character>", and put the',
-    '    feeling into that person\'s page as words (people.set arc).',
+    '    AXIS LOCK: a standing exists only TOWARD THE MAIN CHARACTER. The ONLY standing you may zero',
+    '    is one whose own history line says it was written for a feeling toward SOMEONE ELSE (a crush',
+    '    on the sister, an ex\'s possessiveness toward her) — rel.set p:0 r:0 s:0 with the cause',
+    '    "the standing was for <other person>, not <main character>", and move the feeling into that',
+    '    person\'s page as words. NEVER zero a standing because you do not see the bond yourself: a',
+    '    childhood friend, a sister, a lover the brief or the pages name has a bond; a standing the',
+    '    pages moved was earned on the page. When in doubt, leave every standing exactly as it is —',
+    '    the pages move standings, not the auditor.',
     '  - THE THREADS: a thread the pages show resolved still hot (thread.close); a live agenda the',
     '    pages show and the ledger lacks (thread.set).',
     '  - WHO KNOWS WHAT: a present person who plainly witnessed something on the latest pages with no',
@@ -213,8 +216,34 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   if (read.note !== 'ok') return { applied: [], rejected: [], issues: [], note: read.note, raw };
   if (stale && stale()) return null;
   const fresh = await loadState(storyId);
-  const mutations = read.issues.flatMap((i) => i.mutations);
-  const { state: next, applied, rejected } = applyMutations(fresh, mutations);
+  /* M48: the auditor may not take a standing away on judgment. A rel.set
+   * that lowers a standing is refused when that standing has ANY on-page
+   * history (a cause the extractor wrote from a page) or when the person is
+   * named in the brief or the cast notes (the founder's bond stands). Only
+   * a standing with no page behind it and no place in the brief — the
+   * Caleb case, a feeling for someone else — may be zeroed. */
+  const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
+  const keptStandings = [];
+  const guarded = [];
+  for (const m of read.issues.flatMap((i) => i.mutations)) {
+    if (m && (m.type === 'rel.set' || m.type === 'rel.shift') && typeof m.name === 'string') {
+      const key = Object.keys(fresh.relationships || {}).find((k) => k.trim().toLowerCase() === m.name.trim().toLowerCase());
+      const rel = key ? fresh.relationships[key] : null;
+      const lowering = m.type === 'rel.shift' ? Number(m.delta) < 0
+        : rel ? ['p', 'r', 's'].some((ax) => Number.isFinite(m[ax]) && m[ax] < (rel[ax] || 0)) : false;
+      if (rel && lowering) {
+        const earned = Array.isArray(rel.history) && rel.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set down by hand\b|^the founder\b/i.test(h.cause.trim()));
+        const inBrief = material.includes(m.name.trim().toLowerCase());
+        if (earned || inBrief) {
+          keptStandings.push({ mutation: m, why: (earned ? 'the standing was earned on the pages' : 'the brief names ' + m.name) + ' — the auditor may not take it away' });
+          continue;
+        }
+      }
+    }
+    guarded.push(m);
+  }
+  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
+  const rejected = [...rejectedByApplier, ...keptStandings];
   const report = { at: Date.now(), turn: Number.isFinite(next.turn) ? next.turn : 0, issues: read.issues.map((i) => ({ what: i.what, fix: i.fix, fixable: i.mutations.length > 0 })) };
   const out = { ...next, audit: report };
   if (stale && stale()) return null;
