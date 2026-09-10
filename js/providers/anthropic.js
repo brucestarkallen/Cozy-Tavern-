@@ -144,6 +144,16 @@ function requestBody(connection, blocks, legacySystem, messages, opts = {}) {
       : 5;
     body.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }];
   }
+  /* M37: a DeepSeek house behind the Anthropic shape takes reasoning:
+   * {effort: none|low|high|max} — none disables — instead of the thinking
+   * block (the writer's provider notes, verbatim). */
+  const deepseekShaped = /deepseek/i.test(String((connection && connection.baseUrl) || '') + ' ' + String((connection && connection.model) || ''));
+  if (deepseekShaped) {
+    const ladder = { off: 'none', low: 'low', medium: 'high', high: 'high', xhigh: 'max', max: 'max' };
+    body.reasoning = { effort: ladder[effort] || 'none' };
+    if (thinkingOn) { body.temperature = 1; delete body.top_p; }
+    return { body, prefill: pf };
+  }
   if (thinkingOn) {
     if (budget) {
       /* The fixed-budget shape (Claude 4.6 and older). */

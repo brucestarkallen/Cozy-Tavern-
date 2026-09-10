@@ -40,7 +40,7 @@ test('M28-1: every house is told to stop thinking, in its own spelling, and the 
     const sent = house.calls[0].body;
     assert(thinkingOff(sent, house.calls[0].anthropic), `${h.name}: thinking is off on the wire`);
     eq(sent.temperature, 0, `${h.name}: cold`);
-    eq(sent.max_tokens, 1200, `${h.name}: the worker budget, not the storyteller’s`);
+    eq(sent.max_tokens, 2400, `${h.name}: the worker budget, not the storyteller’s (M37: 2400)`);
     assert(!('top_p' in sent), `${h.name}: no storyteller dials`);
   }
 });

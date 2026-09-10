@@ -19,7 +19,7 @@ import { withImagePart, transportError } from './wire.js';
 /* M22-A/D: the full reasoning ladder (per-house spellings, alias-down,
  * rejection memory) and the storyteller prefill live in effort.js. */
 import {
-  reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL,
+  reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
   applyPrefill, markConnectionDown,
 } from './effort.js';
 
@@ -186,8 +186,19 @@ function requestBody(connection, wireMessages, opts = {}) {
     if (effort !== 'off') {
       body.model_options = { ...(body.model_options || {}), reasoning: { enabled: true, effort } };
     }
-  } else if (effort !== 'off') {
-    body.reasoning_effort = effort;
+  } else if (style === 'deepseek') {
+    /* M37: the writer's provider, verbatim — thinking on by default at high;
+     * off is thinking:{type:'disabled'}; effort rides reasoning_effort. */
+    body.thinking = { type: effort === 'off' ? 'disabled' : 'enabled' };
+    if (effort !== 'off') body.reasoning_effort = effort;
+  } else {
+    /* the generic openai shape: reasoning_effort when on — and, off the
+     * real OpenAI host, the explicit thinking switch too, because more and
+     * more houses think by default unless told not to. */
+    if (effort !== 'off') body.reasoning_effort = effort;
+    if (!hostIsOpenAI(connection && connection.baseUrl)) {
+      body.thinking = { type: effort === 'off' ? 'disabled' : 'enabled' };
+    }
   }
   /* M22-C: "let it look things up" — OpenRouter's web plugin. Only the
    * openrouter host shape carries it; other openai-compatible addresses

@@ -49,7 +49,7 @@ import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
 import { renderThreads, renderKnowledge, renderFactions, normalizeBrief, STANCES } from '../engine/world.js';
 
-const MAX_TOKENS = 4000; /* M31: room for a long founding — thinking is off, so the budget is the answer's */
+const MAX_TOKENS = 6000; /* M37: room for a long founding even if a house thinks a little anyway */
 export const WORLD_SHOWN_MAX = 6;
 
 /* The only doors the world agent may open. Anything else it proposes is
@@ -313,6 +313,8 @@ export function worldRunWords(result) {
   const n = result.applied ? result.applied.length : 0;
   const bits = [];
   bits.push(n ? `moved the world in ${n} ${n === 1 ? 'way' : 'ways'}` : 'the world stood still');
+  /* M37: say what moved, not only how much */
+  if (n) bits.push(result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 4 ? ' · …' : ''));
   if (result.brief && !result.brief.empty) bits.push('left the world’s word');
   if (result.rejected && result.rejected.length) bits.push(`${result.rejected.length} refused`);
   if (result.dropped) bits.push(`${result.dropped} it may not touch`);

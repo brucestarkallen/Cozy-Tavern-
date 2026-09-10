@@ -163,7 +163,7 @@ test('M29-8 end to end: the world agent moves the world and leaves a brief, thro
     const house = thinkingHouse({ answer: ANSWER });
     const result = await withHouse(house, () => worldTurn({ connection: h.conn, storyId, userText: 'u', assistantText: 'Liara watched him not eat.', stale: () => false }));
     assert(thinkingOff(house.calls[0].body, house.calls[0].anthropic), h.name + ': thinking off');
-    eq(house.calls[0].body.max_tokens, 4000, h.name + ': the world agent’s budget (M31: 4000)');
+    eq(house.calls[0].body.max_tokens, 6000, h.name + ': the world agent’s budget (M37: 6000)');
     eq(result.applied.length, 5, h.name + ': five applied — ' + result.rejected.map((x) => x.why).join(' | '));
     eq(result.dropped, 1, h.name + ': the clock move was dropped, not refused');
     const after = await loadState(storyId);
@@ -173,7 +173,7 @@ test('M29-8 end to end: the world agent moves the world and leaves a brief, thro
     assert(after.characters && Object.keys(after.characters).some((k) => /Dmitri/.test(k)), 'a new person exists');
     assert(after.worldBrief && after.worldBrief.pressure.length === 1 && after.worldBrief.twb.who === 'Aurora', 'the brief is stored');
     eq(after.worldBrief.atTurn, after.turn, 'the brief is stamped with the turn');
-    assert(/moved the world in 5 ways, left the world’s word, 1 it may not touch/.test(worldRunWords(result)), worldRunWords(result));
+    assert(/moved the world in 5 ways, Elsewhere: Aurora[\s\S]*left the world’s word, 1 it may not touch/.test(worldRunWords(result)), worldRunWords(result));
     assert(after.log.some((l) => /Aurora — the 6:10 train, reading his letter — heading this way, about 25 minutes out/.test(l.words)), 'the change is logged in plain words');
   }
   /* stale: nothing written */

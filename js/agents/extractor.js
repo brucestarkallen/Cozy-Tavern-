@@ -45,7 +45,7 @@ import { mcName } from '../engine/duels.js';
  * so the budget is the answer's — 1200 tokens holds a long founding read
  * with room to spare. (M26's 2000 was a bandage over thinking models
  * spending the budget on thought; the wire now tells them not to.) */
-const MAX_TOKENS = 1200;
+const MAX_TOKENS = 2400; /* M37: room for a long founding even if a house thinks a little anyway */
 
 /* ---------- the in-flight tracker (the send path's courtesy wait) ---------- */
 

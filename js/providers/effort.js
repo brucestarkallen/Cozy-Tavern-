@@ -24,6 +24,9 @@ export const EFFORT_LEVELS = {
   zai: ['off', 'low', 'high', 'max'],
   qwen: ['off', 'low', 'medium', 'high'],
   hermes: ['off', 'low', 'medium', 'high'],
+  /* M37: DeepSeek's current API — thinking:{type:enabled|disabled} plus
+   * reasoning_effort low|high|max; medium and xhigh alias down/up. */
+  deepseek: ['off', 'low', 'high', 'max'],
   none: ['off', 'low', 'medium', 'high'],
 };
 
@@ -31,7 +34,7 @@ export const EFFORT_LEVELS = {
  * puts it, or on the nearest level below: GLM maps xhigh to max and medium
  * to high on its own side, so saying so here changes nothing it would have
  * done — while sending it "xhigh" verbatim is a request it rejects. */
-export const EFFORT_ALIAS = { zai: { medium: 'high', xhigh: 'max' } };
+export const EFFORT_ALIAS = { zai: { medium: 'high', xhigh: 'max' }, deepseek: { medium: 'high', xhigh: 'max' } };
 
 export function effortLabel(l) {
   return l === 'off' ? 'Off' : l === 'xhigh' ? 'XHigh' : l.charAt(0).toUpperCase() + l.slice(1);
@@ -49,8 +52,10 @@ export function reasonStyle(conn) {
   if (c.preset === 'openrouter' || url.includes('openrouter.ai')) return 'openrouter';
   if (c.preset === 'zai' || url.includes('api.z.ai') || /\bglm\b|^glm|glm-/.test(model)) return 'zai';
   if (/qwen/.test(model)) return 'qwen';
-  /* DeepSeek's reasoner decides for itself — nothing extra is sent. */
-  if (c.preset === 'deepseek' || url.includes('api.deepseek.com')) return 'none';
+  /* M37: DeepSeek thinks by default (at high) and is told not to with
+   * thinking:{type:'disabled'} — "decides for itself" left the workers
+   * thinking their whole budget away. */
+  if (c.preset === 'deepseek' || url.includes('deepseek') || /^deepseek/.test(model)) return 'deepseek';
   return 'openai';
 }
 
@@ -177,4 +182,11 @@ export function applyPrefill(messages, conn) {
     applied: false,
     note: 'This address has no known way to start the reply for it — the prefill stayed home. (A <think>…</think> prefill rides as reasoning.)',
   };
+}
+
+/* M37: real OpenAI never takes a `thinking` block; every other openai-shaped
+ * house either honors it or ignores it (a 400 that names it marks the
+ * connection down and the turn is retried without, as before). */
+export function hostIsOpenAI(baseUrl) {
+  return /(^|\/\/)api\.openai\.com(\/|$)/i.test(String(baseUrl || ''));
 }

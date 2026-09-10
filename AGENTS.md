@@ -1263,3 +1263,26 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - First turn now: frame 139 + craft 14,468 tokens cached (was ~26k+ of imported craft).
 - Harness: m36.mjs (4 checks); m30-7 / m31-7 updated to the distilled law. 245/245 + 17/17.
   version.js -> m36-001. sw.js gains assemble/craft.js.
+
+---
+
+# M37 — the writer's provider speaks thinking on/off in its own words; the thread follows only until the hand moves
+- FIELD REPORT: "ledger empty again — its answer ran out of room" on a 'DeepSeek Non Reasoning'
+  worker. ROOT: the writer's provider (DeepSeek's current API) thinks BY DEFAULT at high effort
+  and is told not to with {"thinking":{"type":"disabled"}}; the house had DeepSeek as "decides for
+  itself" and sent nothing, so the worker thought its budget away. Now: reasonStyle 'deepseek'
+  (preset, any address containing deepseek, or a deepseek model) → thinking:{type:disabled|enabled}
+  + reasoning_effort on DeepSeek's ladder off|low|high|max (medium→high, xhigh→max). The generic
+  openai shape sends the thinking switch too — except to the real api.openai.com (hostIsOpenAI),
+  which never takes it. DeepSeek behind the Anthropic shape: reasoning:{effort: none|low|high|
+  max} instead of the thinking block. Worker budgets: extractor 2400, world agent 6000.
+- FIELD REPORT: "when the output is streaming I can't move my screen; SillyTavern lets me". ROOT:
+  the follow test was "within 120px of the tail" per token, so a small upward scroll was snapped
+  back every token. THE FOLLOW LAW (SillyTavern's): `following` is true until a scroll/wheel/
+  touchmove takes the thread up off the tail; then the thread stays where the hand put it; it
+  follows again only when the hand brings it back within 8px of the tail. One scroll per frame
+  (requestAnimationFrame). scrollToBottom() (a send, a structural render, the jump pill) sets
+  following back on.
+- The workers say WHAT they wrote: the extractor lists its applied changes (5), the world agent
+  what moved (4) — the drawer's line is a ledger of the turn, not a count.
+- Harness: m37.mjs (5 checks). 250/250 + 17/17. version.js -> m37-001.

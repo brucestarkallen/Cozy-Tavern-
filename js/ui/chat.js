@@ -345,7 +345,36 @@ export function initChat(ctx) {
     return t.scrollHeight - t.scrollTop - t.clientHeight < 120;
   }
 
+  /* M37: the follow law (SillyTavern's). While a page streams the thread
+   * follows the tail ONLY until the hand moves it up; from then on it stays
+   * exactly where the reader put it, and follows again only when the hand
+   * brings it back to the tail. The old test — "within 120px" — snapped a
+   * reader back down on every token the moment they scrolled a little. */
+  let following = true;
+  let lastScrollTop = 0;
+  let scrollRaf = 0;
+  function atTail() {
+    const t = els.thread;
+    return t.scrollHeight - t.scrollTop - t.clientHeight < 8;
+  }
+  els.thread.addEventListener('scroll', () => {
+    const t = els.thread;
+    if (t.scrollTop < lastScrollTop - 2 && !atTail()) following = false; /* the hand went up */
+    else if (atTail()) following = true;                                   /* the hand came back */
+    lastScrollTop = t.scrollTop;
+    updateJump();
+  }, { passive: true });
+  for (const ev of ['wheel', 'touchmove']) {
+    els.thread.addEventListener(ev, () => { if (!atTail()) following = false; }, { passive: true });
+  }
+  function followTail() {
+    if (!following) return;
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; if (following) els.thread.scrollTop = els.thread.scrollHeight; });
+  }
+
   function scrollToBottom() {
+    following = true;
     els.thread.scrollTop = els.thread.scrollHeight;
   }
 
@@ -1467,7 +1496,7 @@ export function initChat(ctx) {
         ? 'its answer could not be used'
         : extractNote === 'cut short'
           ? 'its answer ran out of room'
-          : n ? `wrote ${n} ${n === 1 ? 'change' : 'changes'}${refused}` : 'nothing to write down' + refused;
+          : n ? `wrote ${n} ${n === 1 ? 'change' : 'changes'}: ` + applied.slice(0, 5).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 5 ? ' · …' : '') + refused : 'nothing to write down' + refused;
       return { silent: false, detail, raw: extractRaw };
     });
 
@@ -1900,8 +1929,7 @@ export function initChat(ctx) {
               full += text;
               body.textContent = full;
             }
-            const stick = nearBottom();
-            if (stick) scrollToBottom();
+            followTail();
           },
         });
         full = result.text;
