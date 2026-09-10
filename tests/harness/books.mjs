@@ -19,8 +19,10 @@ test('M24 the shelf: write is atomic, rotated, and returns word for word', () =>
      refuse-smudge). This harness proves the keeper's core without the sandbox's
      flaky loopback: in-process, deterministic. */
   const py = `
-import os, sys
-os.environ['COZY_DATA_DIR'] = '/tmp/m24-shelf-%d' % os.getpid()
+import os, sys, shutil, uuid
+d = '/tmp/m24-shelf-%s' % uuid.uuid4().hex[:8]
+shutil.rmtree(d, ignore_errors=True)
+os.environ['COZY_DATA_DIR'] = d
 sys.path.insert(0, sys.argv[1])
 import serve
 assert serve._read_books() is None, 'a clean shelf reads as nothing'

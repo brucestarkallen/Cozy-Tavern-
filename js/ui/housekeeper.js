@@ -768,6 +768,12 @@ export function initHousekeeper(ctx) {
     const act = btn.dataset.act;
     const story = await ensureSession();
     if (!story) { toast('Open a story first.'); return; }
+    /* M63: the useful asks as named tools — the tags still work quietly */
+    if (act === 'ask-i') { await send('#i'); return; }
+    if (act === 'ask-br') { await send('#br'); return; }
+    if (act === 'ask-opt') { await send('#opt'); return; }
+    if (act === 'ask-cl') { await send('#cl'); return; }
+    if (act === 'ask-p') { const who = window.prompt('Whose psychology? (leave empty for the most present person)', ''); if (who === null) return; await send('#p ' + who.trim()); return; }
     if (act === 'context') {
       const [messages, state, modules, lore, mem] = await Promise.all([db.messages.list(story.id), loadState(story.id), listModules(), loadLore(story.id), loadMemory(story.id)]);
       const text = buildHousekeeperContext({ story, messages, state, modules, lore, memory: mem, session, contextPages: await db.settings.get('hkContextPages') });
@@ -784,7 +790,12 @@ export function initHousekeeper(ctx) {
     else if (act === 'rename-story') await nameStory(false);
     else if (act === 'del-last') await sessionAct('del-last');
     else if (act === 'clear') await sessionAct('clear');
-    else if (act === 'commands') viewer('Shortcut commands — type the tag first', Object.entries(COMMANDS).map(([k, v]) => '#' + k + ' — ' + v.split('.')[0] + '.').join('\n'));
+    else if (act === 'commands') viewer('Shortcuts for the ask box (or just say it in words)', [
+      '#i — four directions the story could go', '#p <name> — a psychology read', '#br — a handoff paragraph',
+      '#opt — compress the record without loss', '#cl — clean the record like a showrunner',
+      '#d <direction> — steer the current episode', '#e <premise> — seed the next episode',
+      '', 'The house does these on its own, every turn: fixing continuity (the second reader mends pages; the auditor reads the whole ledger every three turns), checking the record against its pages (the verifier), keeping OOC out of the story. #f, #s, #a and #o still answer, but you should never need them.',
+    ].join('\n'));
   });
   document.addEventListener('click', (e) => { if (!moreMenu.hidden && !moreMenu.contains(e.target) && e.target !== moreBtn) moreMenu.hidden = true; });
 

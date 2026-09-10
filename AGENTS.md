@@ -1775,3 +1775,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   while the housekeeper was busy was dropped silently — it now says so. The walk waits for the
   ask button to be enabled before asking or touching sessions (busy ↔ send disabled).
   16 green walks in a row. 311/311 + 24/24. version.js -> m62-002.
+
+---
+
+# M63 — the shortcuts adjusted to the house; M24 was never flaky
+- FIELD REPORT: "why port SillyTavern's #-commands into a frontend that is different and better?"
+  Because I had just been burned for skipping things and stopped judging what belongs. The
+  split, by what the house already does: #f/#s (fix/check continuity) → the second reader and
+  the auditor do it every turn; #a (fidelity) → the verifier does it on every record line;
+  #o (harvest OOC) → the tavern never writes OOC into pages. Those tags still answer but are
+  demoted and explained. The asks with no other door become named tools in the More menu:
+  Four directions (#i), Read a character's psychology (#p, asks whom), A handoff paragraph
+  (#br), Compress the record without loss (#opt), Clean the record like a showrunner (#cl);
+  #d/#e stay as the director's steer/seed. The tags remain for muscle memory.
+- M24 "the shelf" was failing intermittently since M24: its python check wrote to
+  /tmp/m24-shelf-<pid>, and pids recycle in a long-lived sandbox, so a later run inherited an
+  earlier run's shelf. A fresh uuid directory per run, cleaned first. Not the keeper's bug; the
+  test's. Four clean runs since.
+- 311/311 + 24/24. version.js -> m63-001.
