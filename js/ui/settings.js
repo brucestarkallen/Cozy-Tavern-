@@ -131,6 +131,7 @@ export function initSettings(ctx) {
     regexImportNote: document.getElementById('regex-import-note'),
     regexCleanNote: document.getElementById('regex-clean-note'),
     colourSpeech: document.getElementById('colour-speech'),
+    showStarters: document.getElementById('show-starters'),
     memoryKeeper: document.getElementById('memory-keeper'),
     memoryWindow: document.getElementById('memory-window'),
     memoryBatch: document.getElementById('memory-batch'),
@@ -1922,8 +1923,14 @@ export function initSettings(ctx) {
     /* M32: the speech colour switch, on by default */
     const on = (await db.settings.get('colourSpeech')) !== false;
     els.colourSpeech.checked = on;
+    els.showStarters.checked = (await db.settings.get('showStarters')) === true;
     document.body.classList.toggle('plain-speech', !on);
   }
+
+  els.showStarters.addEventListener('change', async () => {
+    await db.settings.set('showStarters', els.showStarters.checked);
+    if (ctx.chat && typeof ctx.chat.renderPromptChips === 'function') ctx.chat.renderPromptChips();
+  });
 
   els.colourSpeech.addEventListener('change', async () => {
     await db.settings.set('colourSpeech', els.colourSpeech.checked);

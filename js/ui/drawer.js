@@ -1402,6 +1402,54 @@ function worldPanel(ctx) {
   return wrap;
 }
 
+/* ---------- the people (M40 — the character ledger, visible) ---------- */
+
+function peoplePanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'people-panel';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list';
+  wrap.append(note, list);
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) { note.textContent = 'Open a story and every character’s page will be here.'; return; }
+    const state = await loadState(story.id);
+    const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
+    const names = Object.keys(chars).filter((n) => chars[n] && typeof chars[n] === 'object');
+    if (!names.length) { note.textContent = 'No character pages yet. The scribe writes one for everyone who acts on a page; the world agent for everyone it seats.'; return; }
+    note.textContent = names.length + (names.length === 1 ? ' page' : ' pages') + ' — who each person is (core), how they are now (state), how they stand with the main character (arc), and their loose ends.';
+    const present = new Set((state.present || []).map((p) => String(p && p.name || '').toLowerCase()));
+    names.sort((a, b) => (present.has(b.toLowerCase()) - present.has(a.toLowerCase())) || a.localeCompare(b));
+    for (const name of names) {
+      const c = chars[name];
+      const li = document.createElement('li');
+      li.className = 'present-row mind-row people-row';
+      const head = document.createElement('strong');
+      head.textContent = name + (present.has(name.toLowerCase()) ? ' — here' : (state.offscreen && Object.keys(state.offscreen).some((k) => k.toLowerCase() === name.toLowerCase()) ? ' — elsewhere' : ''));
+      li.appendChild(head);
+      for (const [label, key] of [['Core', 'core'], ['Now', 'state'], ['Arc', 'arc']]) {
+        if (typeof c[key] === 'string' && c[key].trim()) {
+          const p = document.createElement('div');
+          p.className = 'quiet';
+          p.textContent = label + ': ' + c[key].trim();
+          li.appendChild(p);
+        }
+      }
+      if (Array.isArray(c.threads) && c.threads.length) {
+        const p = document.createElement('div');
+        p.className = 'quiet';
+        p.textContent = 'Loose ends: ' + c.threads.map((t) => (typeof t === 'string' ? t : t && t.text)).filter(Boolean).join('; ');
+        li.appendChild(p);
+      }
+      list.appendChild(li);
+    }
+  });
+  render();
+  return wrap;
+}
+
 /* ---------- the workers' line (M12) ---------- */
 const WORKER_WORDS = {
   extractor: 'the extractor',
@@ -1421,7 +1469,16 @@ function workersPanel(ctx) {
   const note = quietNote('');
   const list = document.createElement('ul');
   list.className = 'log-list';
-  wrap.append(note, list);
+  /* M40: read the pages again — by hand, when something looks missing */
+  const rescan = document.createElement('button');
+  rescan.type = 'button';
+  rescan.className = 'text-btn';
+  rescan.textContent = 'Read the pages again';
+  rescan.title = 'The workers read the latest page again, with the eight before it in view, and write what they find.';
+  rescan.addEventListener('click', async () => {
+    if (ctx.chat && typeof ctx.chat.rescanLedger === 'function') await ctx.chat.rescanLedger();
+  });
+  wrap.append(note, rescan, list);
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);
@@ -1529,6 +1586,11 @@ const PANELS = [
     id: 'something-drifted',
     title: 'Something drifted',
     render: (ctx) => driftPanel(ctx),
+  },
+  {
+    id: 'the-people',
+    title: 'The people',
+    render: (ctx) => peoplePanel(ctx),
   },
   {
     id: 'the-workers',

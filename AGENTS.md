@@ -1313,3 +1313,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Settings: the record-line slider is labelled in Summaryception's terms ("turns per record line";
   one turn = the writer's page + the storyteller's).
 - 253/253 + 17/17. version.js -> m39-001.
+
+---
+
+# M40 — versions keep their ledger; the swipe bar; the thinking clock; seated people have pages; rescan
+- FIELD REPORT: "when I swipe the ledger is gone even though I cancelled". ROOT: swipe-creation
+  restored the boundary (M21) BEFORE asking, so a cancelled or empty swipe left the pre-turn
+  ledger and threw the standing version's consequences away. Now the ledger being left is saved
+  as that version's checkpoint (versionState:<storyId>, key '<msgId>:<swipeIdx>', cap 60), the
+  boundary is restored, and if nothing landed (generate returns `landed`) the ledger is given
+  straight back. A 'checkpoint' job at the end of every chain saves the version's ledger; walking
+  to a version (swipe-prev/next) restores ITS ledger, or, never read, restores the boundary and
+  re-reads that version with the workers. Summaryception's per-swipe checkpoints, in the house.
+- The swipe bar: ◀ n/N ▶ at the page's foot (SillyTavern's), on the last storyteller page always
+  (▶ past the last version writes a new one) and on any page with versions; the word "swipe" left
+  the action row.
+- The thinking clock: starts at the first thought, stops at the first word of prose; live
+  ("what the storyteller weighed — 4s…"), kept as msg.thinkingMs on the page and each version.
+- Starters: the saved-starters row above the composer is hidden unless Settings → Appearance
+  "Show the saved starters row" is on (it filled the screen).
+- FIELD REPORT: "the character page gives two people while elsewhere shows three". ROOT: the world
+  agent seated people without writing them a page. Now every offscreen.set without a people.set
+  in the same answer gets a minimal core from the seat (activity; wants agenda; at location);
+  the scribe enriches it later. Drawer gains "The people" — every character page (core/now/arc/
+  loose ends), the present first.
+- Rescan: Drawer → The workers → "Read the pages again": the chain reads the latest storyteller
+  page with the eight before it in view (deep), by hand, when something looks missing.
+- Harness: m40.mjs (5 checks); DOM-7b walks versions, checks the people panel and the rescan;
+  m29-8 expects the auto-page. 258/258 + 18/18. version.js -> m40-001.

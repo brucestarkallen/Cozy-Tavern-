@@ -1018,3 +1018,8 @@ body.read-only .send-btn { opacity: 0.4; }
 /* M35 — a mended page says so, and offers the earlier words back */
 .msg-act.mended { display: inline-block; margin-top: 6px; font-size: 0.78rem; color: var(--text-2); border: 1px dashed var(--ember-dim); border-radius: 999px; padding: 2px 10px; background: transparent; }
 .msg-act.mended:hover { color: var(--ember); border-color: var(--ember); }
+
+/* M40 — the swipe bar, the SillyTavern way */
+.swipe-bar { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 4px; }
+.swipe-bar .msg-act.swipe { font-size: 16px; padding: 2px 8px; border-radius: 6px; }
+.swipe-bar .swipe-count { font-size: 12px; color: var(--text-2); min-width: 3ch; text-align: center; }

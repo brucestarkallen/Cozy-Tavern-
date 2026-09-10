@@ -88,7 +88,7 @@ test('DOM-2 a turn: send → the storyteller answers → the ledger is founded �
 test('DOM-3 every act rendered under a page is one the thread answers', async () => {
   const u = userPages()[0];
   const a = assistantPages()[0];
-  const acts = [...new Set([...qa('.msg-act', u), ...qa('.msg-act', a)].map((b) => b.dataset.act).filter(Boolean))];
+  const acts = [...new Set([...qa('.msg-actions .msg-act', u), ...qa('.msg-actions .msg-act', a)].map((b) => b.dataset.act).filter(Boolean))];
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   /* the thread has more than one click listener (code-copy chips first) — the
    * one that routes acts is the one that reads .msg-act */
@@ -167,7 +167,8 @@ test('DOM-7 swipe writes a second version and the counter says so; swipe-prev wa
   const before = errors.length;
   const a = assistantPages()[0];
   const first = bodyText(a);
-  click(q('.msg-act[data-act="swipe"]', a));
+  /* M40: the swipe bar — ▶ past the last version writes a new one */
+  click(q('.swipe-bar .msg-act[data-act="swipe-next"]', a));
   await until(() => q('.swipe-count') && /2\s*\/\s*2/.test(q('.swipe-count').textContent), 'the counter at 2/2', 10000);
   await settled();
   assert(bodyText(assistantPages()[0]) !== first, 'a new version is shown');
@@ -306,6 +307,29 @@ test('DOM-14 a refused house is said out loud, the words are kept, and the next 
   if (retry) click(retry); else { type(q('#composer-input'), 'Again.'); submit(q('#composer')); }
   await until(() => assistantPages().length >= answers + 1, 'an answer after the refusal', 10000);
   await settled();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-7b a version keeps its own ledger: walking back restores it; the people panel shows everyone seated; rescan works', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await until(async () => ((await db.settings.get('versionState:' + sid)) || {}) && Object.keys((await db.settings.get('versionState:' + sid)) || {}).length >= 1, 'a version checkpoint exists', 15000);
+  const a = assistantPages()[0];
+  const counter = q('.swipe-count', a);
+  const idxBefore = counter.textContent;
+  const dir = /^\s*1\s*\//.test(idxBefore) ? 'swipe-next' : 'swipe-prev';
+  click(q(`.swipe-bar .msg-act[data-act="${dir}"]`, a));
+  await until(() => q('.swipe-count', assistantPages()[0]).textContent !== idxBefore, 'walked to another version');
+  await tick(300);
+  const st = await db.settings.get('state:' + sid);
+  assert(st && (st.place || (st.present || []).length), 'the ledger stands after walking versions');
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await tick(400);
+  assert(/The people/.test(q('#drawer-panels').textContent), 'the people panel is there');
+  assert(/Kim/.test(q('#drawer-panels').textContent), 'Kim, seated by the world agent, has a page');
+  const rescan = qa('#drawer-panels button').find((b) => /Read the pages again/.test(b.textContent));
+  assert(rescan, 'the rescan button');
+  click(rescan); await tick(400);
+  click(q('#btn-ledger'));
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

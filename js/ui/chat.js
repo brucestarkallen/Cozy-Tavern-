@@ -857,11 +857,19 @@ export function initChat(ctx) {
 
   /* The folded reasoning block (M8.5): "what the storyteller weighed",
    * dashed and quiet, above the prose. */
-  function thinkingNode(text) {
+  function thinkingWords(ms) {
+    if (!Number.isFinite(ms) || ms <= 0) return '';
+    const sec = ms / 1000;
+    return sec < 60 ? Math.round(sec) + 's' : Math.floor(sec / 60) + 'm ' + Math.round(sec % 60) + 's';
+  }
+
+  function thinkingNode(text, ms) {
     const details = document.createElement('details');
     details.className = 'thinking';
     const summary = document.createElement('summary');
-    summary.innerHTML = '<span class="thinking-arrow" aria-hidden="true">▸</span> what the storyteller weighed';
+    /* M40: how long it weighed, like SillyTavern's "thought for 12s" */
+    const took = thinkingWords(ms);
+    summary.innerHTML = '<span class="thinking-arrow" aria-hidden="true">▸</span> what the storyteller weighed' + (took ? ' — <span class="thinking-took">' + took + '</span>' : '');
     const body = document.createElement('div');
     body.className = 'thinking-body';
     body.textContent = text;
@@ -896,14 +904,17 @@ export function initChat(ctx) {
 
   /* The swipe walker (M9): ◂ n / m ▸ — keyboard-reachable buttons. Walking
    * past the last version writes a new one (the old ones keep). */
-  function swipeNode(msg) {
-    const swipes = Array.isArray(msg.swipes) ? msg.swipes : [];
-    if (!swipes.length) return null;
-    const idx = Number.isFinite(msg.swipeIdx)
-      ? Math.min(swipes.length - 1, Math.max(0, msg.swipeIdx))
-      : swipes.length - 1;
-    const wrap = document.createElement('span');
-    wrap.className = 'msg-swipes';
+  /* M40: the swipe bar — ◀ n/N ▶ at the foot of the page. Shown on the
+   * last storyteller page always (▶ past the last version writes a new
+   * one), and on any earlier page that has versions to walk. */
+  function swipeNode(msg, { isLastAssistant = false } = {}) {
+    const swipes = Array.isArray(msg.swipes) && msg.swipes.length ? msg.swipes : [{ text: msg.text }];
+    if (swipes.length < 2 && !isLastAssistant) return null;
+    const idx = Array.isArray(msg.swipes) && msg.swipes.length
+      ? (Number.isFinite(msg.swipeIdx) ? Math.min(swipes.length - 1, Math.max(0, msg.swipeIdx)) : swipes.length - 1)
+      : 0;
+    const wrap = document.createElement('div');
+    wrap.className = 'swipe-bar';
     const prev = document.createElement('button');
     prev.type = 'button';
     prev.className = 'msg-act swipe';
@@ -937,7 +948,8 @@ export function initChat(ctx) {
     /* M27: a reader's page can be tried again too — the house rewinds to just
      * after it and hears a fresh answer (ledger rewinds per M21 law). */
     if (msg.role === 'user') acts.push('try again');
-    if (msg.role === 'assistant') acts.push('swipe');
+    /* M40: the swipe lives on its own bar (◀ 1/3 ▶) at the page's foot,
+     * the SillyTavern way — the word "swipe" left the row. */
     /* M15: branch — the tale forks from this page into a new telling
      * (the M8 row promised it; this wave makes it real). */
     acts.push('branch');
@@ -951,10 +963,6 @@ export function initChat(ctx) {
       btn.dataset.id = msg.id;
       btn.textContent = act;
       row.appendChild(btn);
-    }
-    if (msg.role === 'assistant') {
-      const swipes = swipeNode(msg);
-      if (swipes) row.appendChild(swipes);
     }
     return row;
   }
@@ -1000,7 +1008,7 @@ export function initChat(ctx) {
       : (msg.ooc ? 'the storyteller, out of character' : 'the storyteller');
     article.appendChild(label);
     if (msg.thinking && showThinking !== false) {
-      article.appendChild(thinkingNode(msg.thinking));
+      article.appendChild(thinkingNode(msg.thinking, msg.thinkingMs));
     }
     if (msg.image && msg.image.dataUrl) {
       const fig = document.createElement('button');
@@ -1071,6 +1079,10 @@ export function initChat(ctx) {
      * block under the message. */
     if (msg.role === 'assistant' && Array.isArray(msg.sources) && msg.sources.length) {
       article.appendChild(sourcesNode(msg.sources));
+    }
+    if (msg.role === 'assistant') {
+      const bar = swipeNode(msg, { isLastAssistant: Boolean(opts.isLastAssistant) });
+      if (bar) article.appendChild(bar);
     }
     if (msg.mended && msg.mended.before) {
       const chip = document.createElement('button');
@@ -1370,6 +1382,23 @@ export function initChat(ctx) {
     })();
   }
 
+  /* M40: read the pages again. The workers read the last storyteller page
+   * with a founding-deep look behind it (the last eight pages), so a
+   * ledger that missed something — a worker that ran out of room, a
+   * connection that was wrong at the time — can be caught up by hand. */
+  async function rescanLedger() {
+    const story = await activeStory();
+    if (!story) return false;
+    const pages = (await db.messages.list(story.id)).filter((m) => !m.hidden);
+    const last = [...pages].reverse().find((m) => m.role === 'assistant');
+    if (!last) return false;
+    const before = pages.slice(0, pages.indexOf(last));
+    const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
+    startBackgroundWork(story, last, lastUser ? pageText(lastUser) : '', { deep: true });
+    toast('The workers are reading the pages again.');
+    return true;
+  }
+
   /* M35: the mend — the second reader (and the record's verifier) may edit
    * a storyteller page by the smallest amount so it stops contradicting the
    * record. The page remembers its earlier words (msg.mended) and shows a
@@ -1444,7 +1473,7 @@ export function initChat(ctx) {
    * channel; each job also checks stale() before committing anything, so a
    * left-behind story is never written into. noteWork still tracks each
    * link, so the send path's courtesy wait (pendingWork, 5s a link) holds. */
-  function startBackgroundWork(story, msg, userText) {
+  function startBackgroundWork(story, msg, userText, { deep = false } = {}) {
     const enqueue = (name, run) => {
       const promise = enqueueWork(story.id, { name, run });
       noteWork(story.id, promise);
@@ -1467,14 +1496,14 @@ export function initChat(ctx) {
        * notes ride along so the names are known. */
       let before = [];
       const young = isYoungLedger(stateBefore);
-      if (young) {
+      if (young || deep) {
         /* "The pages just before this one" — the store lists pages in
          * telling order (ts). Comparing UUID strings (m.id < msg.id) picked
          * an arbitrary handful instead, starving the founding read. */
         const ordered = (await db.messages.list(story.id)).filter((m) => !m.hidden);
         const atSelf = ordered.findIndex((m) => m.id === msg.id);
         const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
-        before = prior.slice(-4).map((m) => ({ role: m.role, text: pageText(m) }));
+        before = prior.slice(deep ? -8 : -4).map((m) => ({ role: m.role, text: pageText(m) }));
       }
       const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw } = await extractTurn({
         connection,
@@ -1643,6 +1672,19 @@ export function initChat(ctx) {
       return { silent: false, detail: `${list.length} ${list.length === 1 ? 'finding' : 'findings'}` + (mended ? `, mended ${mended} ${mended === 1 ? 'page' : 'pages'}` : '') };
     });
 
+    /* 4b. M40: the version's checkpoint — the ledger as it stands once the
+     * readers have finished, kept for this version of this page. */
+    enqueue('checkpoint', async ({ stale }) => {
+      if (stale()) return { silent: true };
+      if (!(await stillThere(story.id, msg.id))) return { silent: true };
+      const fresh = (await db.messages.list(story.id)).find((m) => m.id === msg.id);
+      const idx = fresh && Array.isArray(fresh.swipes) && fresh.swipes.length
+        ? (Number.isFinite(fresh.swipeIdx) ? Math.min(fresh.swipes.length - 1, Math.max(0, fresh.swipeIdx)) : fresh.swipes.length - 1)
+        : 0;
+      await saveVersionState(story.id, msg.id, idx, await loadState(story.id));
+      return { silent: true };
+    });
+
     /* 5. The sheet seeder (M11): on the first turns and after a fight lets
      * go, the actor sheet fills itself in the background. It never blocks a
      * turn, and it keeps its own quiet ways (failures stay off the workers
@@ -1704,6 +1746,27 @@ export function initChat(ctx) {
     if (els.composerNote) els.composerNote.hidden = true;
   }
 
+  /* M40: every VERSION of a page keeps the ledger as it stood after its
+   * workers finished — Summaryception's per-swipe checkpoint. Walking back
+   * to a version restores its ledger; a version with none yet gets the
+   * boundary and a fresh reading. Store: versionState:<storyId> = {
+   * '<msgId>:<swipeIdx>': state }, capped at 60. */
+  async function loadVersionStates(storyId) {
+    const saved = await db.settings.get('versionState:' + storyId);
+    return saved && typeof saved === 'object' ? saved : {};
+  }
+  async function saveVersionState(storyId, messageId, swipeIdx, state) {
+    const all = await loadVersionStates(storyId);
+    all[messageId + ':' + swipeIdx] = JSON.parse(JSON.stringify(state));
+    const keys = Object.keys(all);
+    if (keys.length > 60) for (const k of keys.slice(0, keys.length - 60)) delete all[k];
+    await db.settings.set('versionState:' + storyId, all);
+  }
+  async function versionStateFor(storyId, messageId, swipeIdx) {
+    const all = await loadVersionStates(storyId);
+    return all[messageId + ':' + swipeIdx] || null;
+  }
+
   function restoreComposer(text) {
     els.input.value = text;
     els.input.style.height = 'auto';
@@ -1724,6 +1787,7 @@ export function initChat(ctx) {
   async function generate(opts = {}) {
     const { directive = '', ooc = false, swipeTarget = null } = opts;
     let receipt = null;
+    let landed = false; /* M40: true once a page (or a version) was written */
     /* M10: set when the prose carried [EPISODE_END] (M15 audit: this was
      * assigned below but never declared — a second ReferenceError waiting
      * behind the missing imports). */
@@ -1922,6 +1986,19 @@ export function initChat(ctx) {
       let full = '';
       let thinking = '';
       let sawProse = false;
+      /* M40: the thinking clock — starts at the first thought, stops at the
+       * first word of prose (or the end); shown live, kept on the page. */
+      let thinkStart = 0;
+      let thinkMs = 0;
+      let thinkTimer = 0;
+      const stopThinkClock = () => {
+        if (thinkStart && !thinkMs) thinkMs = Date.now() - thinkStart;
+        if (thinkTimer) { clearInterval(thinkTimer); thinkTimer = 0; }
+        if (thinkDetails) {
+          const took = thinkDetails.querySelector('.thinking-took');
+          if (took) took.textContent = thinkingWords(thinkMs);
+        }
+      };
       /* M39: the live paint — dressed, at most once per frame */
       let paintRaf = 0;
       const paintLive = () => {
@@ -1948,9 +2025,16 @@ export function initChat(ctx) {
             }
             if (channel === 'thinking') {
               thinking += text;
+              if (!thinkStart) {
+                thinkStart = Date.now();
+                thinkTimer = setInterval(() => {
+                  const took = thinkDetails && thinkDetails.querySelector('.thinking-took');
+                  if (took) took.textContent = thinkingWords(Date.now() - thinkStart) + '…';
+                }, 1000);
+              }
               if (showThinking) {
                 if (!thinkDetails) {
-                  thinkDetails = thinkingNode('');
+                  thinkDetails = thinkingNode('', 1);
                   thinkBody = thinkDetails.querySelector('.thinking-body');
                   pending.insertBefore(thinkDetails, body);
                 }
@@ -1960,6 +2044,7 @@ export function initChat(ctx) {
             } else if (channel === 'prose') {
               if (!sawProse) {
                 sawProse = true;
+                stopThinkClock();
                 if (thinkDetails) thinkDetails.open = false;
               }
               full += text;
@@ -1991,6 +2076,7 @@ export function initChat(ctx) {
          * history, and every worker's reading. */
         full = applyRules(full, currentRules(), { on: 'storyteller', mode: 'page' });
         thinking = result.thinking || thinking;
+        stopThinkClock();
         finishReason = result.finishReason || null;
         receipt = finalizeReceipt(receiptDraft, {
           ttftMs: result.ttftMs,
@@ -2002,6 +2088,7 @@ export function initChat(ctx) {
       } catch (err) {
         if (err && err.name === 'AbortError') {
           stoppedByHand = true;
+          stopThinkClock();
         } else {
           pending.replaceWith(noteNode(err.message || 'The storyteller went quiet. Try again in a moment.'));
           full = '';
@@ -2017,6 +2104,7 @@ export function initChat(ctx) {
         && /max_tokens|length/i.test(finishReason);
 
       if (full.trim()) {
+        landed = true;
         if (swipeTarget) {
           /* Swipe mode: the new words become a new version of the SAME
            * page. The old versions are never lost. */
@@ -2029,13 +2117,14 @@ export function initChat(ctx) {
           const swipes = Array.isArray(target.swipes) && target.swipes.length
             ? target.swipes.slice()
             : [{ text: pageText(target), ts: target.ts, thinking: target.thinking, receipt: target.receipt }];
-          swipes.push({ text: full, ts: Date.now(), thinking: thinking || undefined, receipt });
+          swipes.push({ text: full, ts: Date.now(), thinking: thinking || undefined, thinkingMs: thinkMs || undefined, receipt });
           const swipeIdx = swipes.length - 1;
           await db.messages.update(story.id, target.id, {
             swipes,
             swipeIdx,
             text: full,
             thinking: thinking || target.thinking,
+            thinkingMs: thinkMs || undefined,
             receipt,
             sources: streamSources || undefined,
             cutShort: cutShort || undefined,
@@ -2065,6 +2154,7 @@ export function initChat(ctx) {
           role: 'assistant',
           text: full,
           thinking: thinking || undefined,
+          thinkingMs: thinkMs || undefined,
           receipt,
           stopped: stoppedByHand || undefined,
           cutShort: cutShort || undefined,
@@ -2117,6 +2207,7 @@ export function initChat(ctx) {
       if (els.emberBar) els.emberBar.classList.remove('live');
       focusComposerIfDesktop();
     }
+    return landed;
   }
 
   /* B9's retry: re-ask the same turn (the user's words are still last). */
@@ -2406,13 +2497,31 @@ export function initChat(ctx) {
     }
     if (next < 0) return;
     const shown = msg.swipes[next];
-    await db.messages.update(story.id, msg.id, {
+    /* M40: the version being left keeps the ledger it earned */
+    await saveVersionState(story.id, msg.id, idx, await loadState(story.id));
+    const updated = await db.messages.update(story.id, msg.id, {
       swipeIdx: next,
       text: shown.text,
       thinking: shown.thinking,
+      thinkingMs: shown.thinkingMs,
       receipt: shown.receipt || msg.receipt,
     });
     await rerenderMessage(story.id, msg.id);
+    /* M40: the version walked to gets ITS ledger back — or, never read, the
+     * boundary before the turn and a fresh reading by the workers. */
+    const known = await versionStateFor(story.id, msg.id, next);
+    if (known) {
+      await saveState(story.id, known);
+      notify(story.id);
+    } else {
+      const boundary = boundaryFor(history, msg.id);
+      if (boundary) await restoreSnapshot(story.id, boundary.id);
+      if (updated && msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
+        const before = history.slice(0, history.findIndex((m) => m.id === msg.id));
+        const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
+        startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '');
+      }
+    }
     /* M21: the preview always reads the SHOWN version of the latest page. */
     await refreshPreview(story.id);
     renderStoryList();
@@ -2431,11 +2540,23 @@ export function initChat(ctx) {
       const story = await activeStory();
       if (!story) return;
       await pendingWork(story.id, 5000);
-      /* M21: TRUE rollback — swipe-creation restores the boundary too. */
+      /* M40: the ledger as it stands — the version being left keeps it, and
+       * a cancelled or empty swipe gives it straight back (the ledger used
+       * to vanish when the writer stopped a swipe halfway). */
       const historyNow = await db.messages.list(story.id);
+      const leaving = await loadState(story.id);
+      const leavingIdx = Array.isArray(msg.swipes) && msg.swipes.length
+        ? (Number.isFinite(msg.swipeIdx) ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx)) : msg.swipes.length - 1)
+        : 0;
+      await saveVersionState(story.id, msg.id, leavingIdx, leaving);
+      /* M21: TRUE rollback — swipe-creation restores the boundary too. */
       const boundary = boundaryFor(historyNow, msg.id);
       if (boundary) await restoreSnapshot(story.id, boundary.id);
-      await generate({ swipeTarget: msg });
+      const landed = await generate({ swipeTarget: msg });
+      if (!landed) {
+        await saveState(story.id, leaving);
+        notify(story.id);
+      }
       stories = await db.stories.list();
       renderStoryList();
     } finally {
@@ -2966,9 +3087,13 @@ export function initChat(ctx) {
     input.select();
   }
 
-  function renderPromptChips() {
+  async function renderPromptChips() {
     if (!els.promptChips) return;
     els.promptChips.textContent = '';
+    /* M40: the starter row is hidden unless the writer asks for it
+     * (Settings → Appearance) — it filled the screen for nothing. */
+    if ((await db.settings.get('showStarters')) !== true) { els.promptChips.hidden = true; return; }
+    els.promptChips.hidden = false;
     for (const p of promptLib) {
       const chip = document.createElement('button');
       chip.type = 'button';
@@ -3085,6 +3210,8 @@ export function initChat(ctx) {
   loadRules().catch(() => {});
 
   ctx.chat = {
+    rescanLedger,
+    renderPromptChips,
     refreshStories,
     renderThread,
     continueTurn,

@@ -291,7 +291,25 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   /* Re-read at write time — the ledger may have moved (the extractor's
    * masthead, a hand edit) while the world was being read. */
   const fresh = await loadState(storyId);
-  const { state: next, applied, rejected } = applyMutations(fresh, read.mutations);
+  /* M40: everyone the agent seats has a page. A seat without a people.set
+   * in the same answer gets a minimal core from the seat itself, so the
+   * character ledger never shows two people while "elsewhere" shows three;
+   * the scribe enriches it later. */
+  const known = new Set(Object.keys(fresh.characters || {}).map((k) => k.trim().toLowerCase()));
+  const pagesInAnswer = new Set(read.mutations.filter((m) => m.type === 'people.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));
+  const withPages = [];
+  for (const m of read.mutations) {
+    if (m.type === 'offscreen.set' && typeof m.name === 'string' && m.name.trim()) {
+      const key = m.name.trim().toLowerCase();
+      if (!known.has(key) && !pagesInAnswer.has(key)) {
+        const bits = [m.activity, m.agenda ? 'wants ' + m.agenda : '', m.location ? 'at ' + m.location : ''].filter(Boolean);
+        withPages.push({ type: 'people.set', name: m.name.trim(), field: 'core', text: (bits.join('; ') || 'seated by the world agent').slice(0, 280) });
+        pagesInAnswer.add(key);
+      }
+    }
+    withPages.push(m);
+  }
+  const { state: next, applied, rejected } = applyMutations(fresh, withPages);
   const turnNow = Number.isFinite(next.turn) ? next.turn : 0;
   const normalized = read.brief ? normalizeBrief(read.brief, turnNow) : null;
   /* M30: a window opened is a window remembered — the agent is shown the
