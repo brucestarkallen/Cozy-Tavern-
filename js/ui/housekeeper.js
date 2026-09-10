@@ -312,6 +312,10 @@ export function initHousekeeper(ctx) {
     if (touched && touched.messages && ctx.chat && typeof ctx.chat.renderThread === 'function') {
       ctx.chat.renderThread({ structural: true });
     }
+    /* M38: a lore change shows in Settings' shelf at once */
+    if (touched && touched.lore && ctx.settings && typeof ctx.settings.onStoriesChanged === 'function') {
+      ctx.settings.onStoriesChanged();
+    }
   }
 
   /* ---------- applying and undoing ---------- */

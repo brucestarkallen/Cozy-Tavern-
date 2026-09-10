@@ -1286,3 +1286,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The workers say WHAT they wrote: the extractor lists its applied changes (5), the world agent
   what moved (4) — the drawer's line is a ledger of the turn, not a count.
 - Harness: m37.mjs (5 checks). 250/250 + 17/17. version.js -> m37-001.
+
+---
+
+# M38 — the housekeeper keeps the lore shelf
+- The one thing Chat Assistant could do that the housekeeper could not. New protocol block
+  <lore>[…]</lore>: {add:true, name, keys, content, constant?} | {entry, content?, keys?, name?,
+  enabled?, constant?} | {entry, remove:true} — "entry" is an entry's name or its first key.
+  Staged as cards like every other change (kind 'lore'), refused kindly when the entry is not
+  there or the op says nothing; review hashes on the entry (or the shelf's ids for an add) make
+  a card stale when the shelf moved under it; apply writes the shelf and keeps the WHOLE shelf
+  before in the undo batch; undo refuses on drift. The context shows the shelf (name, keys, off/
+  always, 200 chars of content); the prompt teaches the block; touched.lore refreshes Settings.
+- Harness: m38.mjs (2 checks). 252/252 + 17/17. version.js -> m38-001.

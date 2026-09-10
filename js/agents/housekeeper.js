@@ -14,6 +14,9 @@
  *                            (clock/presence/mode/body/rel/offscreen/canon),
  *                            plus {type:'module.pin', module, pinned}
  *   <redits>[...]</redits>   rulebook ops: {module, find, replace, reason}
+ *   <lore>[...]</lore>       lore ops (M38): {add:true, name, keys, content, constant?}
+ *                            | {entry, content?, keys?, name?, enabled?, constant?}
+ *                            | {entry, remove:true}
  *   <fetch>[refs]</fetch>    self-serve full pages (<= 3 rounds a turn)
  *   <supersede>a, b</supersede>  retire pending cards by label
  *
@@ -48,6 +51,7 @@ import { db } from '../store.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
+import { loadLore, saveLore } from '../import/lorebook.js'; /* M38: the housekeeper keeps the lore shelf too */
 import { pageText } from '../assemble/stack.js';
 import { createProvider } from '../providers/index.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
@@ -463,10 +467,10 @@ function parseLabels(body) {
  * what the panel bubble shows. Never throws. */
 export function parseProtocol(raw) {
   const source = String(raw == null ? '' : raw);
-  const out = { edits: [], ledits: [], redits: [], fetch: [], supersede: [], text: '' };
+  const out = { edits: [], ledits: [], redits: [], lore: [], fetch: [], supersede: [], text: '' };
   try {
     const spans = [];
-    for (const tag of ['edits', 'ledits', 'redits', 'fetch', 'supersede']) {
+    for (const tag of ['edits', 'ledits', 'redits', 'lore', 'fetch', 'supersede']) {
       for (const block of innerBlocks(source, tag)) {
         spans.push(block);
         if (tag === 'fetch') {
@@ -544,7 +548,7 @@ export function cleanContextPages(value) {
  * the last N visible pages in full, the ledger summary, the rulebook's
  * names, and the showrunners' blocks when they have something to say. */
 export function buildHousekeeperContext({
-  story, messages, state, modules, directorText, editorText, contextPages,
+  story, messages, state, modules, lore, directorText, editorText, contextPages,
 } = {}) {
   const visible = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
   const n = cleanContextPages(contextPages);
@@ -582,6 +586,12 @@ export function buildHousekeeperContext({
   }
   parts.push('What the ledger says:\n' + ledger);
   parts.push('The rulebook holds: ' + (rulebook.join('; ') || 'nothing but the craft itself') + '.');
+  const shelf = Array.isArray(lore) ? lore : [];
+  if (shelf.length) {
+    parts.push('The lore shelf holds:\n' + shelf.map((e) => '- ' + (e.name || (e.keys || [])[0] || 'an unnamed entry') + ' [' + (e.keys || []).join(', ') + ']' + (e.enabled === false ? ' (off)' : '') + (e.constant ? ' (always rides)' : '') + ': ' + String(e.content || '').slice(0, 200).replace(/\s+/g, ' ')).join('\n'));
+  } else {
+    parts.push('The lore shelf is empty.');
+  }
   if (directorText) parts.push('[DIRECTOR]\n' + directorText);
   if (editorText) parts.push('[EDITOR]\n' + editorText);
   return parts.join('\n\n');
@@ -619,6 +629,13 @@ const SYSTEM_PROMPT = [
   '  Every op carries its "type". Unknown types are rejected by the ledger itself.',
   '<redits>[ ... ]</redits> — changes to a rulebook rule’s text:',
   '  {"module":"the rule’s name","find":"…","replace":"…","reason":"why"}',
+  '<lore>[ ... ]</lore> — changes to the lore shelf (the entries that wake when',
+  '  their keys are spoken in the latest pages):',
+  '  {"add":true,"name":"Aurora","keys":["Aurora","the neighbor"],"content":"…","constant":false,"reason":"why"}',
+  '  {"entry":"Aurora","content":"…","keys":[…],"enabled":true|false,"constant":true|false,"reason":"why"}',
+  '  {"entry":"Aurora","remove":true,"reason":"why"}',
+  '  "entry" is the entry’s name or its first key. Content is the truth the',
+  '  storyteller should carry when the key is spoken — facts, not prose.',
   '<fetch>["#a1b2c3", "#d4e5f6"]</fetch> — ask to be served full pages you',
   '  only have one-line previews of. You may ask up to three times in a turn.',
   '<supersede>label, label</supersede> — retire still-pending cards from your',
@@ -704,7 +721,7 @@ function parseRange(range, visibleCount) {
 /* Turn a parsed reply into staged proposal cards, each fingerprinted
  * against its targets (the review-hash: if a target drifts after staging,
  * the card reads stale). */
-export function stageProposals(parsed, { messages, state, modules } = {}) {
+export function stageProposals(parsed, { messages, state, modules, lore } = {}) {
   const proposals = [];
   const all = Array.isArray(messages) ? messages : [];
   const visible = all.filter((m) => m && !m.hidden);
@@ -832,6 +849,60 @@ export function stageProposals(parsed, { messages, state, modules } = {}) {
     });
   }
 
+  /* M38: the lore shelf */
+  const shelf = Array.isArray(lore) ? lore : [];
+  const findEntry = (ref) => {
+    const w = String(ref || '').trim().toLowerCase();
+    if (!w) return null;
+    return shelf.find((e) => e && ((typeof e.name === 'string' && e.name.trim().toLowerCase() === w) || e.id === ref))
+      || shelf.find((e) => e && Array.isArray(e.keys) && e.keys.some((k) => String(k).trim().toLowerCase() === w))
+      || null;
+  };
+  for (const op of (parsed && Array.isArray(parsed.lore) ? parsed.lore : [])) {
+    if (!op || typeof op !== 'object') continue;
+    const reason = cleanReason(op.reason);
+    if (op.add === true) {
+      const keys = Array.isArray(op.keys) ? op.keys.map((k) => String(k == null ? '' : k).trim()).filter(Boolean) : [];
+      const content = typeof op.content === 'string' ? op.content.trim() : '';
+      const name = typeof op.name === 'string' ? op.name.trim() : '';
+      if (!keys.length && !name) { proposals.push({ id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: (unnamed)', reason, op, status: 'refused', words: 'an entry needs a name or a key', review: [] }); continue; }
+      if (!content) { proposals.push({ id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: ' + (name || keys[0]), reason, op, status: 'refused', words: 'an entry needs its content', review: [] }); continue; }
+      proposals.push({
+        id: uid(), ts: Date.now(), kind: 'lore',
+        label: typeof op.label === 'string' && op.label.trim() ? op.label.trim() : 'lore: add ' + (name || keys[0]),
+        reason,
+        op: { add: true, name: name || null, keys: keys.length ? keys : [name], content, constant: op.constant === true },
+        status: 'pending', words: '', review: [{ target: 'lore:shelf', hash: hashText(JSON.stringify(shelf.map((e) => e.id))) }],
+      });
+      continue;
+    }
+    const entry = findEntry(op.entry);
+    if (!entry) {
+      proposals.push({ id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: ' + (op.entry || '?'), reason, op, status: 'refused', words: op.entry ? 'the shelf holds no entry called “' + op.entry + '”' : 'it didn’t say which entry', review: [] });
+      continue;
+    }
+    if (op.remove === true) {
+      proposals.push({
+        id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: remove ' + (entry.name || entry.keys[0]), reason,
+        op: { entryId: entry.id, remove: true },
+        status: 'pending', words: '', review: [{ target: 'lore:' + entry.id, hash: hashText(JSON.stringify(entry)) }],
+      });
+      continue;
+    }
+    const patch = {};
+    if (typeof op.content === 'string') patch.content = op.content;
+    if (typeof op.name === 'string') patch.name = op.name;
+    if (Array.isArray(op.keys)) patch.keys = op.keys;
+    if (typeof op.enabled === 'boolean') patch.enabled = op.enabled;
+    if (typeof op.constant === 'boolean') patch.constant = op.constant;
+    if (!Object.keys(patch).length) { proposals.push({ id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: ' + (entry.name || entry.keys[0]), reason, op, status: 'refused', words: 'it didn’t say what should change', review: [] }); continue; }
+    proposals.push({
+      id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: ' + (entry.name || entry.keys[0]), reason,
+      op: { entryId: entry.id, patch },
+      status: 'pending', words: '', review: [{ target: 'lore:' + entry.id, hash: hashText(JSON.stringify(entry)) }],
+    });
+  }
+
   return proposals;
 }
 
@@ -892,6 +963,14 @@ async function stalenessCheck(storyId, p) {
       if (hashText(targets.map(messageHashOf).join('|')) !== r.hash) {
         return 'some of those pages have shifted since this was staged';
       }
+    } else if (r.target === 'lore:shelf') {
+      const shelf = await loadLore(storyId);
+      if (hashText(JSON.stringify(shelf.map((e) => e.id))) !== r.hash) return 'the lore shelf has changed since this was staged';
+    } else if (r.target.startsWith('lore:')) {
+      const shelf = await loadLore(storyId);
+      const entry = shelf.find((e) => e && e.id === r.target.slice(5));
+      if (!entry) return 'that lore entry has gone from the shelf';
+      if (hashText(JSON.stringify(entry)) !== r.hash) return 'that lore entry has been edited since this was staged';
     } else if (r.target === 'state') {
       const fresh = await loadState(storyId);
       if (stateHashOf(fresh) !== r.hash) return 'the ledger has been written since this was staged';
@@ -1077,6 +1156,42 @@ async function applyReditOp(storyId, p, batch) {
   return { ok: true, words: 'The rule “' + mod.name + '” reads differently now.' };
 }
 
+/* M38: the lore shelf. Every op reads the shelf, changes it, writes it
+ * back; the batch keeps the whole shelf as it was. */
+async function applyLoreOp(storyId, p, batch) {
+  const op = p.op;
+  const shelf = await loadLore(storyId);
+  const beforeShelf = JSON.parse(JSON.stringify(shelf));
+  let next;
+  let words;
+  if (op.add) {
+    const id = 'lore-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+    const entry = { id, name: op.name || null, keys: op.keys, content: op.content, enabled: true, constant: op.constant === true, secondaryKeys: [], depth: 2 };
+    next = [...shelf, entry];
+    words = 'The shelf gained “' + (entry.name || entry.keys[0]) + '”.';
+  } else {
+    const at = shelf.findIndex((e) => e && e.id === op.entryId);
+    if (at === -1) return { ok: false, words: 'that entry has gone from the shelf' };
+    if (op.remove) {
+      next = shelf.filter((e) => e.id !== op.entryId);
+      words = 'The shelf let “' + (shelf[at].name || shelf[at].keys[0]) + '” go.';
+    } else {
+      const e = { ...shelf[at] };
+      const pch = op.patch || {};
+      if (typeof pch.content === 'string') e.content = pch.content;
+      if (typeof pch.name === 'string') e.name = pch.name.trim() || null;
+      if (Array.isArray(pch.keys)) e.keys = pch.keys.map((k) => String(k == null ? '' : k).trim()).filter(Boolean);
+      if (typeof pch.enabled === 'boolean') e.enabled = pch.enabled;
+      if (typeof pch.constant === 'boolean') e.constant = pch.constant;
+      next = shelf.slice(); next[at] = e;
+      words = 'The entry “' + (e.name || e.keys[0]) + '” reads differently now.';
+    }
+  }
+  await saveLore(storyId, next);
+  batch.items.push({ kind: 'lore', beforeShelf, afterHash: hashText(JSON.stringify(next)) });
+  return { ok: true, words };
+}
+
 /* Apply one card. Claim-then-apply: the status flips synchronously at the
  * door, so a second click (or a racing render) meets "already spoken for"
  * instead of a double write. Returns {ok, words, stale?, touched}. */
@@ -1105,6 +1220,7 @@ export async function applyProposal(session, storyId, proposalId) {
     };
     const run = p.kind === 'ledit' ? applyLeditOp
       : p.kind === 'redit' ? applyReditOp
+      : p.kind === 'lore' ? applyLoreOp
       : applyEditOp;
     const result = await run(storyId, p, batch);
     if (!result.ok) {
@@ -1122,6 +1238,7 @@ export async function applyProposal(session, storyId, proposalId) {
         messages: batch.items.some((i) => i.kind === 'message'),
         state: batch.items.some((i) => i.kind === 'ledger'),
         modules: batch.items.some((i) => i.kind === 'module'),
+        lore: batch.items.some((i) => i.kind === 'lore'),
       },
     };
   } catch (err) {
@@ -1186,6 +1303,11 @@ export async function undoLatest(session, storyId) {
       if (!mod || moduleHashOf(mod) !== item.afterHash) {
         return { ok: false, refused: true, words: 'Not taken back — the rule “' + batch.label + '” touched has changed since. The change stands; edit the rulebook by hand if it must move.' };
       }
+    } else if (item.kind === 'lore') {
+      const now = await loadLore(storyId);
+      if (hashText(JSON.stringify(now)) !== item.afterHash) {
+        return { ok: false, refused: true, words: 'Not taken back — the lore shelf has changed since “' + batch.label + '” landed. The change stands; edit the shelf by hand if it must move.' };
+      }
     } else if (item.kind === 'ledger') {
       const fresh = await loadState(storyId);
       if (stateHashOf(fresh) !== item.afterHash) {
@@ -1200,6 +1322,8 @@ export async function undoLatest(session, storyId) {
     } else if (item.kind === 'module') {
       if (item.beforeRow) await saveModule(item.beforeRow);
       else await removeModule(item.moduleId); // lifts the fork; a builtin returns
+    } else if (item.kind === 'lore') {
+      await saveLore(storyId, item.beforeShelf);
     } else if (item.kind === 'ledger') {
       const restored = JSON.parse(JSON.stringify(item.before));
       restored.log = Array.isArray(restored.log) ? restored.log : [];
@@ -1264,7 +1388,7 @@ function serveFetch(refs, messages) {
  * `call` is injectable for the harness; the default rides callModel.
  * Never throws. Returns {ok, raw, parsed, fetchRounds, thinking, error?}. */
 export async function runConversation({
-  connection, story, messages, state, modules, directorText, editorText,
+  connection, story, messages, state, modules, lore, directorText, editorText,
   session, writerText, contextPages, call, signal, onToken,
 } = {}) {
   try {
@@ -1272,7 +1396,7 @@ export async function runConversation({
       ? call
       : (req) => callModel(connection, req);
     const contextDoc = buildHousekeeperContext({
-      story, messages, state, modules, directorText, editorText, contextPages,
+      story, messages, state, modules, lore, directorText, editorText, contextPages,
     });
     /* Session history rides after the served context — newest first is NOT
      * wanted here; the talk reads in order, capped. */
@@ -1329,15 +1453,16 @@ export async function housekeeperTurn({
     if (!storyId) return { ok: false, error: 'no story is open' };
     const story = await db.stories.get(storyId);
     if (!story) return { ok: false, error: 'that story has gone' };
-    const [messages, state, modules, session, pagesSetting] = await Promise.all([
+    const [messages, state, modules, session, pagesSetting, lore] = await Promise.all([
       db.messages.list(storyId),
       loadState(storyId),
       listModules(),
       loadSession(storyId),
       db.settings.get('hkContextPages'),
+      loadLore(storyId),
     ]);
     const result = await runConversation({
-      connection, story, messages, state, modules,
+      connection, story, messages, state, modules, lore,
       directorText, editorText,
       session, writerText,
       contextPages: cleanContextPages(pagesSetting),
@@ -1345,7 +1470,7 @@ export async function housekeeperTurn({
     });
     if (!result.ok) return { ok: false, error: result.error || 'the housekeeper went quiet' };
 
-    const proposals = stageProposals(result.parsed, { messages, state, modules });
+    const proposals = stageProposals(result.parsed, { messages, state, modules, lore });
     if (result.parsed.supersede.length) applySupersede(session, result.parsed.supersede);
 
     session.turns.push({ role: 'writer', text: String(writerText || ''), ts: Date.now() });
