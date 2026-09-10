@@ -465,12 +465,13 @@ test('DOM-11c the housekeeper sees the brief, stages a card, Apply changes the p
   await until(() => !q('#hk-send').disabled, 'the housekeeper free to be asked', 10000);
   type(q('#hk-input'), 'fix the first words of the last page');
   submit(q('#hk-form'));
-  const apply = await until(() => qa('#hk-sheet button').find((b) => /^Apply$/i.test(b.textContent.trim())), 'an Apply button on a card', 10000);
+  const apply = await until(() => qa('#hk-cards button').find((b) => /^Apply$/i.test(b.textContent.trim())), 'an Apply button on a card, in the cards box', 10000);
+  assert(!q('#hk-cards').hidden, 'the cards box shows only now that a card stands');
   assert(sawBrief, 'the housekeeper was shown the brief');
   click(apply);
   await until(async () => /MENDED WORDS/.test((await db.messages.list(sid)).find((m) => m.id === target.id).text), 'the page changed', 10000);
-  const undo = qa('#hk-sheet button').find((b) => /^Undo$/i.test(b.textContent.trim()));
-  click(undo);
+  await until(() => q('#hk-cards').hidden && qa('#hk-thread .hk-receipt').length >= 1, 'the box folds away, a receipt stays in the talk', 10000);
+  click(q('#hk-undo'));
   await until(async () => !/MENDED WORDS/.test((await db.messages.list(sid)).find((m) => m.id === target.id).text), 'undo took it back', 10000);
   house.state.workerAnswer = priorAnswer;
   click(q('#btn-hk-close'));

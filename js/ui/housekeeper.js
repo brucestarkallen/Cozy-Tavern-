@@ -61,6 +61,7 @@ export function initHousekeeper(ctx) {
 
   let open = false;
   let busy = false;
+  let applying = false; /* M64: applying and undoing never wait on the model's lock */
   let workerCtl = null;
   let session = { turns: [], batches: [] };
   let sessionStoryId = null;
@@ -340,20 +341,39 @@ export function initHousekeeper(ctx) {
     session.turns.forEach((turn, i) => {
       if (turn.text) thread.append(bubble(turn.role, turn.text, turn.role === 'writer' ? i : undefined));
       if (turn.thinking) thread.append(thinkingFold(turn.thinking));
+      /* M64: done cards leave a one-line receipt in the talk; the live ones stand in the cards box */
       for (const p of (turn.proposals || [])) {
-        if (hideDone && p.status !== 'pending' && !/^refused/.test(p.status)) continue;
-        thread.append(renderCard(p));
+        if (p.status === 'pending' || p.status === 'refused') continue;
+        const r = document.createElement('div');
+        r.className = 'hk-receipt';
+        r.textContent = (p.status === 'applied' ? '✓ ' : '– ') + p.label + ' — ' + (p.words || cardStatusWords(p));
+        thread.append(r);
       }
     });
-    const pending = pendingProposals();
-    const anyCards = session.turns.some((t) => Array.isArray(t.proposals) && t.proposals.length);
-    if (cardsBar) cardsBar.hidden = !anyCards;
-    thread.classList.toggle('hk-cards-hidden', cardsHidden);
+    renderCardsBox();
     thread.scrollTop = thread.scrollHeight;
   }
-  let hideDone = false;
-  let cardsHidden = false;
-  const cardsBar = document.getElementById('hk-cards-bar');
+  let cardsFolded = false;
+  const cardsBox = document.getElementById('hk-cards');
+  const cardsList = document.getElementById('hk-cards-list');
+  const cardsCount = document.getElementById('hk-cards-count');
+  /* M64: the cards box exists only while a card is pending or refused (Chat Assistant's renderEditCards) */
+  function renderCardsBox() {
+    if (!cardsBox) return;
+    const live = session.turns.flatMap((t) => (t.proposals || []).filter((p) => p.status === 'pending' || p.status === 'refused'));
+    cardsBox.hidden = !live.length;
+    if (!live.length) { cardsList.textContent = ''; return; }
+    const pending = live.filter((p) => p.status === 'pending').length;
+    const failed = live.length - pending;
+    cardsCount.textContent = pending + (pending === 1 ? ' card' : ' cards') + (failed ? ', ' + failed + ' refused' : '');
+    document.getElementById('hk-apply-all').hidden = pending < 2;
+    document.getElementById('hk-dismiss-all').hidden = pending < 1;
+    document.getElementById('hk-repropose').hidden = failed < 1;
+    cardsBox.classList.toggle('folded', cardsFolded);
+    document.getElementById('hk-toggle-cards').textContent = cardsFolded ? 'Show' : 'Hide';
+    cardsList.textContent = '';
+    for (const p of live) cardsList.append(renderCard(p));
+  }
 
   function setBusy(next, words) {
     busy = next;
@@ -384,10 +404,12 @@ export function initHousekeeper(ctx) {
   /* ---------- applying and undoing ---------- */
 
   async function applyOne(proposalId) {
-    if (busy) return;
+    if (applying) { toast('One moment — a change is still landing.'); return; }
+    applying = true;
+    try {
     const story = await ensureSession();
     if (!story) return;
-    setBusy(true, 'Applying…');
+    statusLine.textContent = 'Applying…';
     try {
       const result = await applyProposal(session, story.id, proposalId);
       await persistSession();
@@ -397,15 +419,18 @@ export function initHousekeeper(ctx) {
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t hold — nothing was changed.');
     } finally {
-      setBusy(false, '');
+      statusLine.textContent = '';
     }
+    } finally { applying = false; }
   }
 
   async function applyAll() {
-    if (busy) return;
+    if (applying) { toast('One moment — a change is still landing.'); return; }
+    applying = true;
+    try {
     const story = await ensureSession();
     if (!story) return;
-    setBusy(true, 'Applying…');
+    statusLine.textContent = 'Applying…';
     try {
       const result = await applyAllPending(session, story.id);
       await persistSession();
@@ -415,15 +440,18 @@ export function initHousekeeper(ctx) {
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t hold — nothing was changed.');
     } finally {
-      setBusy(false, '');
+      statusLine.textContent = '';
     }
+    } finally { applying = false; }
   }
 
   async function undo() {
-    if (busy) return;
+    if (applying) { toast('One moment — a change is still landing.'); return; }
+    applying = true;
+    try {
     const story = await ensureSession();
     if (!story) return;
-    setBusy(true, 'Taking it back…');
+    statusLine.textContent = 'Taking it back…';
     try {
       const result = await undoLatest(session, story.id);
       await persistSession();
@@ -433,8 +461,9 @@ export function initHousekeeper(ctx) {
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t come back — nothing was touched.');
     } finally {
-      setBusy(false, '');
+      statusLine.textContent = '';
     }
+    } finally { applying = false; }
   }
 
   /* ---------- the talk ---------- */
@@ -788,8 +817,7 @@ export function initHousekeeper(ctx) {
     else if (act === 'crit-peek') { const ed = await loadEditor(story.id); viewer('The editor’s standing notes', renderEditorNote(ed) || '(none yet)'); }
     else if (act === 'name-story') await nameStory(true);
     else if (act === 'rename-story') await nameStory(false);
-    else if (act === 'del-last') await sessionAct('del-last');
-    else if (act === 'clear') await sessionAct('clear');
+    else if (act === 'rules') { const r = document.getElementById('hk-rules'); r.hidden = !r.hidden; if (!r.hidden) r.open = true; }
     else if (act === 'commands') viewer('Shortcuts for the ask box (or just say it in words)', [
       '#i — four directions the story could go', '#p <name> — a psychology read', '#br — a handoff paragraph',
       '#opt — compress the record without loss', '#cl — clean the record like a showrunner',
@@ -799,14 +827,16 @@ export function initHousekeeper(ctx) {
   });
   document.addEventListener('click', (e) => { if (!moreMenu.hidden && !moreMenu.contains(e.target) && e.target !== moreBtn) moreMenu.hidden = true; });
 
-  /* M62: the cards bar */
+  /* M64: the cards box */
   document.getElementById('hk-apply-all').addEventListener('click', () => { applyAll(); });
   document.getElementById('hk-dismiss-all').addEventListener('click', async () => {
     for (const p of pendingProposals()) { p.status = 'skipped'; p.words = 'Set aside by the writer.'; }
     await persistSession(); render();
   });
-  document.getElementById('hk-clear-done').addEventListener('click', () => { hideDone = !hideDone; document.getElementById('hk-clear-done').textContent = hideDone ? 'Show done' : 'Clear done'; render(); });
-  document.getElementById('hk-toggle-cards').addEventListener('click', () => { cardsHidden = !cardsHidden; document.getElementById('hk-toggle-cards').textContent = cardsHidden ? 'Show cards' : 'Hide cards'; render(); });
+  document.getElementById('hk-toggle-cards').addEventListener('click', () => { cardsFolded = !cardsFolded; renderCardsBox(); });
+  document.getElementById('hk-clear').addEventListener('click', () => sessionAct('clear'));
+  document.getElementById('hk-del-last').addEventListener('click', () => sessionAct('del-last'));
+  document.getElementById('hk-dir-status').addEventListener('click', () => directorTool('status'));
   document.getElementById('hk-repropose').addEventListener('click', () => {
     const failed = session.turns.flatMap((t) => (t.proposals || []).filter((p) => p.status === 'refused' || p.status === 'stale'));
     if (!failed.length) { toast('No failed cards to re-propose.'); return; }

@@ -70,8 +70,9 @@ test('M62-3 the director’s tools: status (spoiler-free), ideas, steer, off', a
 
 test('M62-4 the panel wears the whole toolbar', () => {
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
-  for (const id of ['hk-session', 'hk-sess-new', 'hk-sess-branch', 'hk-sess-rename', 'hk-sess-delete', 'hk-stop', 'hk-more', 'hk-more-menu', 'hk-apply-all', 'hk-dismiss-all', 'hk-clear-done', 'hk-repropose', 'hk-toggle-cards', 'btn-hk-full', 'hk-retry']) assert(html.includes('id="' + id + '"'), id);
-  for (const act of ['context', 'raw', 'dir-status', 'dir-peek', 'dir-ideas', 'dir-off', 'crit-peek', 'name-story', 'rename-story', 'del-last', 'clear', 'commands']) assert(html.includes('data-act="' + act + '"'), act);
+  for (const id of ['hk-session', 'hk-sess-new', 'hk-sess-branch', 'hk-sess-rename', 'hk-sess-delete', 'hk-stop', 'hk-more', 'hk-more-menu', 'hk-cards', 'hk-apply-all', 'hk-dismiss-all', 'hk-repropose', 'hk-toggle-cards', 'hk-clear', 'hk-del-last', 'hk-dir-status', 'btn-hk-full', 'hk-retry']) assert(html.includes('id="' + id + '"'), id);
+  for (const act of ['context', 'raw', 'dir-peek', 'dir-ideas', 'dir-off', 'crit-peek', 'name-story', 'rename-story', 'commands', 'rules', 'ask-i', 'ask-p', 'ask-br', 'ask-opt', 'ask-cl']) assert(html.includes('data-act="' + act + '"'), act);
+  assert(!html.includes('hk-clear-done'), 'no "clear done" — done cards leave a receipt in the talk');
   const ui = readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
   assert(/hk-branch-here/.test(ui) && /async function sessionAct/.test(ui) && /async function directorTool/.test(ui) && /async function nameStory/.test(ui));
 });

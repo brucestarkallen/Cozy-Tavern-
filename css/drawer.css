@@ -506,11 +506,25 @@
 @media (pointer: fine) { .hk-head { cursor: grab; user-select: none; } .hk-head:active { cursor: grabbing; } }
 .hk-sheet.fullscreen .hk-head { cursor: default; }
 
-/* M62 — the housekeeper's sessions, tools and cards bar */
-.hk-sessions { display: flex; gap: 4px; align-items: center; }
-.hk-session-pick { flex: 1; min-width: 0; background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; font: inherit; }
-.hk-more-menu { position: static; display: flex; flex-direction: column; margin: 4px 0; }
-.hk-cards-bar { display: flex; flex-wrap: wrap; gap: 4px; }
+/* M64 — the housekeeper's sheet, Chat Assistant's shape: head, sessions, the talk
+ * filling the room, a cards box only while cards stand, one composer at the foot */
+.hk-sheet { display: flex; flex-direction: column; }
+.hk-sessions { display: flex; gap: 4px; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--border-soft); flex: 0 0 auto; }
+.hk-session-pick { flex: 1; min-width: 0; background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; font: inherit; font-size: 0.85rem; }
+.hk-sheet .hk-thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px; }
+.hk-cards { flex: 0 0 auto; max-height: 42%; display: flex; flex-direction: column; border-top: 1px solid var(--border-soft); background: color-mix(in oklab, var(--ember) 5%, var(--bg-2)); }
+.hk-cards-bar { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 4px 8px; }
+.hk-cards-bar .lbl { margin-right: auto; }
+.hk-cards-list { overflow-y: auto; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 8px; }
+.hk-cards.folded .hk-cards-list { display: none; }
+.hk-composer { flex: 0 0 auto; border-top: 1px solid var(--border-soft); padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 4px; }
+.hk-composer .hk-quick { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.hk-composer .text-btn { font-size: 0.8rem; padding: 3px 8px; }
+.hk-more-wrap { position: relative; display: inline-block; }
+.hk-more-menu { position: absolute; bottom: 110%; left: 0; min-width: 16rem; max-height: 60vh; overflow-y: auto; z-index: 61; }
+.hk-form { border: none; padding: 0; margin-top: 2px; }
+.hk-form textarea { min-height: 2.4rem; }
 .hk-viewer { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.8rem; max-height: 50vh; overflow: auto; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
-.hk-bubble .hk-branch-here { float: right; font-size: 0.75rem; opacity: 0.6; }
-.hk-cards-hidden .hk-card { display: none; }
+.hk-bubble .hk-branch-here { float: right; font-size: 0.72rem; opacity: 0.55; margin-left: 6px; }
+.hk-receipt { font-size: 0.78rem; color: var(--text-2); align-self: stretch; }
+.hk-receipt.hidden { display: none; }

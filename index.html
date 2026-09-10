@@ -674,58 +674,70 @@
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
     </div>
-    <div class="drawer-panels hk-body">
-      <p class="quiet hk-tagline">The one pair of eyes that sees the whole story. Ask it to notice, to repair, to show the way — nothing changes until you say so.</p>
-      <div class="hk-sessions" role="group" aria-label="Sessions">
-        <select id="hk-session" class="hk-session-pick" aria-label="Which session"></select>
-        <button id="hk-sess-new" class="text-btn" type="button" title="New session — a fresh talk for a new problem">＋</button>
-        <button id="hk-sess-branch" class="text-btn" type="button" title="Branch — copy this session into a new one">⑂</button>
-        <button id="hk-sess-rename" class="text-btn" type="button" title="Rename this session">✎</button>
-        <button id="hk-sess-delete" class="text-btn" type="button" title="Delete this session">✕</button>
-      </div>
-      <div class="hk-quick">
-        <button id="hk-audit" class="text-btn" type="button">Audit</button>
-        <button id="hk-new" class="text-btn" type="button">New episode</button>
-        <button id="hk-next" class="text-btn" type="button">Next</button>
-        <button id="hk-seed" class="text-btn" type="button">Seed</button>
-        <button id="hk-critique" class="text-btn" type="button">Critique</button>
-        <button id="hk-retry" class="text-btn" type="button" title="Ask the last question again — the last answer and its cards are let go">↻ Retry</button>
-        <button id="hk-undo" class="text-btn" type="button">Undo</button>
-        <button id="hk-stop" class="text-btn" type="button" title="Stop what the housekeeper is doing" hidden>⏹ Stop</button>
-        <button id="hk-more" class="text-btn" type="button" title="More tools" aria-haspopup="menu">⋯ More</button>
-      </div>
-      <div id="hk-more-menu" class="msg-menu hk-more-menu" role="menu" hidden>
-        <button type="button" role="menuitem" class="menu-item" data-act="ask-i">Four directions the story could go</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="ask-p">Read a character’s psychology</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="ask-br">A handoff paragraph for a fresh storyteller</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="ask-opt">Compress the record without loss</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="ask-cl">Clean the record like a showrunner</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="context">Show the full context it reads</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="raw">Raw ledger and record</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="dir-status">Episode progress (spoiler-free)</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="dir-peek">Reveal the directive (spoiler)</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="dir-ideas">Three episode seeds to pick from</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="dir-off">Director off — clear the episode</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="crit-peek">View the editor’s notes</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="name-story">Auto-name this story</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="rename-story">Rename this story</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="del-last">Delete the last question and answer</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="clear">Clear this session</button>
-        <button type="button" role="menuitem" class="menu-item" data-act="commands">Shortcuts, for the ask box</button>
-      </div>
-      <div id="hk-cards-bar" class="hk-cards-bar" hidden>
+    <div class="hk-sessions" role="group" aria-label="Sessions">
+      <select id="hk-session" class="hk-session-pick" aria-label="Which session"></select>
+      <button id="hk-sess-new" class="text-btn" type="button" title="New session — a fresh talk for a new problem">＋ New</button>
+      <button id="hk-sess-branch" class="text-btn" type="button" title="Branch — copy this session into a new one">⑂ Branch</button>
+      <button id="hk-sess-rename" class="text-btn" type="button" title="Rename this session">✎</button>
+      <button id="hk-sess-delete" class="text-btn" type="button" title="Delete this session">✕</button>
+    </div>
+    <div id="hk-thread" class="hk-thread"></div>
+    <div id="hk-cards" class="hk-cards" hidden>
+      <div id="hk-cards-bar" class="hk-cards-bar">
+        <span class="lbl" id="hk-cards-count"></span>
         <button id="hk-apply-all" class="text-btn" type="button">Apply all pending</button>
         <button id="hk-dismiss-all" class="text-btn" type="button" title="Set aside every pending card">Dismiss all</button>
-        <button id="hk-clear-done" class="text-btn" type="button" title="Hide the applied and skipped cards">Clear done</button>
-        <button id="hk-repropose" class="text-btn" type="button" title="Ask the housekeeper to re-read the current text and send corrected versions of the failed cards">Re-propose failed</button>
-        <button id="hk-toggle-cards" class="text-btn" type="button">Hide cards</button>
+        <button id="hk-repropose" class="text-btn" type="button" title="Ask the housekeeper to re-read the current text and send corrected versions of the failed cards" hidden>Re-propose failed</button>
+        <button id="hk-toggle-cards" class="text-btn" type="button">Hide</button>
+      </div>
+      <div id="hk-cards-list" class="hk-cards-list"></div>
+    </div>
+    <div class="hk-composer">
+      <div class="hk-quick">
+        <button id="hk-audit" class="text-btn" type="button" title="Read the whole house and say what drifted">🔍 Audit</button>
+        <button id="hk-new" class="text-btn" type="button" title="Write the secret episode">🎬 New</button>
+        <button id="hk-next" class="text-btn" type="button" title="Conclude this episode and write the next">🎬 Next</button>
+        <button id="hk-seed" class="text-btn" type="button" title="Seed the next episode with your own premise">🎬 Seed</button>
+        <button id="hk-dir-status" class="text-btn" type="button" title="Spoiler-free episode progress">🎬 ?</button>
+        <button id="hk-critique" class="text-btn" type="button" title="The editor’s pass on the telling">📝 Critique</button>
+      </div>
+      <div class="hk-quick">
+        <button id="hk-retry" class="text-btn" type="button" title="Ask the last question again — the last answer and its cards are let go">↻ Retry</button>
+        <button id="hk-del-last" class="text-btn" type="button" title="Delete the last question and answer">⌫ Del last</button>
+        <button id="hk-undo" class="text-btn" type="button" title="Take back the last applied change">↶ Undo</button>
+        <button id="hk-clear" class="text-btn" type="button" title="Clear this session’s talk (applied changes stay)">🧹 Clear</button>
+        <span class="hk-more-wrap">
+          <button id="hk-more" class="text-btn" type="button" title="More tools" aria-haspopup="menu">⋯ More</button>
+          <div id="hk-more-menu" class="msg-menu hk-more-menu" role="menu" hidden>
+            <button type="button" role="menuitem" class="menu-item" data-act="ask-i">Four directions the story could go</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="ask-p">Read a character’s psychology</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="ask-br">A handoff paragraph for a fresh storyteller</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="ask-opt">Compress the record without loss</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="ask-cl">Clean the record like a showrunner</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="dir-ideas">Three episode seeds to pick from</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="dir-peek">Reveal the directive (spoiler)</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="dir-off">Director off — clear the episode</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="crit-peek">View the editor’s notes</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="context">Show the full context it reads</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="raw">Raw ledger and record</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="name-story">Auto-name this story</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="rename-story">Rename this story</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="commands">Shortcuts, for the ask box</button>
+            <button type="button" role="menuitem" class="menu-item" data-act="rules">The house rules</button>
+          </div>
+        </span>
+        <button id="hk-stop" class="text-btn" type="button" title="Stop what the housekeeper is doing" hidden>⏹ Stop</button>
       </div>
       <form id="hk-seed-form" class="hk-seed-form" hidden>
         <input id="hk-seed-input" type="text" maxlength="200" placeholder="A seed of a scene, a person, a want…" autocomplete="off">
         <button class="btn" type="submit">Plant it</button>
       </form>
+      <form id="hk-form" class="hk-form">
+        <textarea id="hk-input" rows="2" maxlength="4000" placeholder="e.g. wait, why is Rias on the porch? she went inside — fix it" aria-label="Ask the housekeeper"></textarea>
+        <button id="hk-send" class="btn" type="submit">Ask</button>
+      </form>
       <p id="hk-status" class="quiet hk-status"></p>
-      <details class="hk-rules">
+      <details class="hk-rules" id="hk-rules" hidden>
         <summary>The house rules</summary>
         <label class="hk-rule">Pages it reads in full
           <input id="hk-pages" type="number" min="4" max="40" step="1" autocomplete="off">
@@ -736,11 +748,6 @@
           <input id="hk-editor-n" type="number" min="2" max="50" step="1" autocomplete="off"> turns
         </label>
       </details>
-      <div id="hk-thread" class="hk-thread"></div>
-      <form id="hk-form" class="hk-form">
-        <textarea id="hk-input" rows="3" maxlength="4000" placeholder="Ask the housekeeper…" aria-label="Ask the housekeeper"></textarea>
-        <button id="hk-send" class="btn" type="submit">Ask</button>
-      </form>
     </div>
   </aside>
   <div id="hk-scrim" class="scrim" hidden></div>

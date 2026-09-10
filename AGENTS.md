@@ -1793,3 +1793,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   earlier run's shelf. A fresh uuid directory per run, cleaned first. Not the keeper's bug; the
   test's. Four clean runs since.
 - 311/311 + 24/24. version.js -> m63-001.
+
+---
+
+# M64 — the housekeeper's sheet in Chat Assistant's shape
+- FIELD REPORT: "the cards toolbar shows always; where is Clear; the UI is a cluttered mess." True
+  on all three: I had stacked a tagline, a sessions row, a nine-button quick row, a cards bar
+  and a rules fold ABOVE the talk, and the cards bar was never conditional.
+- Now, Chat Assistant's layout exactly: head (title, fullscreen, close) → sessions row (select,
+  ＋ New, ⑂ Branch, ✎, ✕) → THE TALK, filling the room → a CARDS BOX that exists only while a
+  card is pending or refused (count, Apply all when ≥2, Dismiss all, Re-propose failed when any
+  refused, Hide/Show) → the composer at the foot: row one 🔍 Audit · 🎬 New · 🎬 Next · 🎬 Seed ·
+  🎬 ? · 📝 Critique; row two ↻ Retry · ⌫ Del last · ↶ Undo · 🧹 Clear · ⋯ More (a drop-up) ·
+  ⏹ Stop while busy; then the ask box, the status line, and the house rules folded away (More →
+  The house rules). Done cards leave a one-line receipt in the talk ("✓ label — applied"); the
+  tagline is gone; "Clear done" is gone (there is nothing to clear).
+- Two bugs the walk exposed: Apply/Apply all/Undo were refused while the housekeeper's model
+  lock was held — they never call a model; they run on their own `applying` lock now and touch
+  only the status line (they used to flip `busy` off mid-turn, which could re-enable the ask
+  box while an answer was streaming).
+- 311/311 + 24/24 (ten green walks). version.js -> m64-001.
