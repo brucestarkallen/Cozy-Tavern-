@@ -57,7 +57,14 @@ function plainWhy(err) {
 
 /* A story switch: the pending queue is purged and the epoch turns, so
  * anything still in flight for the story the writer left knows its results
- * are no longer wanted. */
+ * are no longer wanted.
+ *
+ * M33: NOT wired to the app, on purpose. It was imported by app.js from M12
+ * and never called; wiring it would throw away the ledger writes of the
+ * story the writer just left — a chain finishing for tale A while tale B
+ * is open should still land in tale A (the queue is per story, and every
+ * job re-checks its page is still there before writing). Kept for the
+ * harness and for a future "abandon this tale's workers" control. */
 export function switchWorkerStory(storyId) {
   if (activeStoryId === storyId) return;
   activeStoryId = storyId || null;

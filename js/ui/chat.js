@@ -1982,6 +1982,15 @@ export function initChat(ctx) {
     busy = true;
     try {
       let story = await activeStory();
+      /* M33: the storyteller is looked for BEFORE a tale is begun — the old
+       * order begat an empty story named after the words ("Hello?") and
+       * only then noticed there was no one to answer them. */
+      const connection = await resolveConnection(story);
+      if (!connection) {
+        showComposerNote('The tavern needs a storyteller first — add a connection, and these words will still be waiting.');
+        restoreComposer(text);
+        return;
+      }
       if (!story) {
         const oneLine = text.replace(/\s+/g, ' ').trim();
         const title = oneLine.length > 40 ? oneLine.slice(0, 40).trimEnd() + '…' : oneLine;
@@ -1990,12 +1999,6 @@ export function initChat(ctx) {
         await refreshStories(true);
         toast(`“${story.title}” is begun.`);
         if (ctx.onStoriesChanged) ctx.onStoriesChanged();
-      }
-      const connection = await resolveConnection(story);
-      if (!connection) {
-        showComposerNote('The tavern needs a storyteller first — add a connection, and these words will still be waiting.');
-        restoreComposer(text);
-        return;
       }
       hideComposerNote();
       hideHearth();
@@ -2126,16 +2129,35 @@ export function initChat(ctx) {
   }
 
   async function retryUserMessage(messageId) {
+    if (busy) return;
     const story = await activeStory();
     if (!story) return;
     const msgs = await db.messages.list(story.id);
-    const after = msgs.filter((m) => m.id > messageId && m.role === 'assistant');
-    if (after.length) {
-      await regenerateFrom(after[0].id);
+    /* M33: the store lists pages in telling order. The old `m.id > messageId`
+     * compared UUID strings — meaningless — so the retry landed on an
+     * arbitrary later page, or fell through and answered the tail instead
+     * of this page. The first storyteller page AFTER this one, by order. */
+    const at = msgs.findIndex((m) => m.id === messageId);
+    if (at === -1) return;
+    const after = msgs.slice(at + 1).find((m) => m.role === 'assistant' && !m.hidden);
+    if (after) {
+      await regenerateFrom(after.id);
       return;
     }
-    /* no answer followed — the page is the tail: a plain generate answers it anew */
-    await generate({});
+    /* no answer followed — the page is the tail: answer it anew. Anything
+     * hidden after it (a stale nudge) goes first, so the answer is to
+     * THIS page. */
+    const trailing = msgs.slice(at + 1);
+    if (trailing.length) await db.messages.deleteFrom(story.id, trailing[0].id);
+    busy = true;
+    try {
+      await renderThread({ structural: true });
+      await generate();
+      stories = await db.stories.list();
+      renderStoryList();
+    } finally {
+      busy = false;
+    }
   }
 
   async function regenerateFrom(messageId) {
@@ -2263,6 +2285,10 @@ export function initChat(ctx) {
     row.className = 'edit-row';
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
+    /* M33: it had no class — the browser's own white button in a lamplit
+     * room (the "white banner"). Every button the house makes wears the
+     * house's clothes (the dom harness checks). */
+    saveBtn.className = 'btn';
     saveBtn.textContent = 'Keep the new words';
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
@@ -2549,6 +2575,11 @@ export function initChat(ctx) {
       swipeTo(id, 1);
     } else if (act === 'branch') {
       branchFrom(id);
+    } else if (act === 'try again') {
+      /* M33: the row's "try again" was never routed here — only the
+       * long-press menu knew the word. A button that renders is a button
+       * that answers (the dom harness now presses every act). */
+      retryUserMessage(id);
     } else if (act === 'go on') {
       continueTurn();
     }

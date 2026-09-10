@@ -1,0 +1,373 @@
+/* Cozy Tavern — tests/dom/run.mjs
+ * M33: the walk-through, done by a machine, every commit. Run it:
+ *   node tests/dom/run.mjs           (after: cd tests/dom && npm install)
+ * It boots the real app in jsdom (env.mjs) and presses what a person
+ * presses: sends, tries again, edits, swipes, branches, deletes, goes on;
+ * opens the drawer, the settings, the regex shelf; brings a regex file.
+ * Every scenario ends with the same question: any errors? An app that
+ * renders a button that answers nothing, or a button in the browser's own
+ * clothes, fails here — that is the field report that founded this file.
+ */
+import { boot, until, click, type, submit, q, qa, tick, openSettings, closeSettings } from './env.mjs';
+import { test, assert, eq, runAll } from '../harness/lib.mjs';
+import { readFileSync, existsSync } from 'node:fs';
+
+const env = await boot();
+const { document, db, house, errors } = env;
+
+const FOUNDING = JSON.stringify({ mutations: [
+  { type: 'mc.set', name: 'Jovan' },
+  { type: 'place.set', name: 'McDonald’s' },
+  { type: 'clock.set', year: 2025, month: 3, day: 14, hour: 14, minute: 30 },
+  { type: 'presence.enter', name: 'Jovan', position: 'in the booth' },
+  { type: 'presence.enter', name: 'Liara' },
+] });
+const WORLD = JSON.stringify({ mutations: [
+  { type: 'offscreen.set', name: 'Kim', location: 'her apartment', activity: 'scrolling', agenda: 'find out who Jovan is with', stance: 'seeking', etaMinutes: 40 },
+  { type: 'thread.set', title: 'Kim and the sighting', owner: 'Kim', next: 'text Liara' },
+], brief: { pressure: ['Kim could reach the restaurant in about forty minutes'], ripe: [], twb: null } });
+
+/* the workers answer by what they were asked */
+house.state.workerAnswer = (body, sys) => {
+  if (/keep the ledger/i.test(sys)) return FOUNDING;
+  if (/world beyond the page/i.test(sys)) return WORLD;
+  if (/character scribe/i.test(sys)) return '{"deltas":[]}';
+  if (/second reader/i.test(sys)) return '{"findings":[]}';
+  return '{"mutations":[],"deltas":[],"findings":[]}';
+};
+
+const errorsSince = (n) => errors.slice(n);
+const assistantPages = () => qa('.msg-assistant');
+const userPages = () => qa('.msg-user');
+const bodyText = (node) => node.querySelector('.msg-body').textContent;
+const settled = async () => { await until(() => !q('.msg-pending') && !q('.msg.streaming'), 'the stream to settle'); await tick(120); };
+const storyId = async () => (await db.settings.get('activeStoryId'));
+
+test('DOM-1 the app boots with no errors and no connection prompts a kind note on send', async () => {
+  eq(errors.length, 0, errors.join(' | '));
+  eq(document.documentElement.dataset.version.length > 0, true);
+  const input = q('#composer-input');
+  type(input, 'Hello?');
+  submit(q('#composer'));
+  await tick(100);
+  assert(!q('.msg-user'), 'no page without a connection');
+  assert(input.value === 'Hello?', 'the words are kept');
+  eq(errors.length, 0, errors.join(' | '));
+});
+
+test('DOM-2 a turn: send → the storyteller answers → the ledger is founded → the world agent speaks', async () => {
+  await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  await db.settings.set('memoryKeeper', false);
+  const before = errors.length;
+  type(q('#composer-input'), '#story Jovan is eating at McDonald’s with Liara.');
+  submit(q('#composer'));
+  await until(() => assistantPages().length === 1, 'the answer');
+  await settled();
+  const sid = await storyId();
+  assert(sid, 'a story was begun from the first words');
+  await until(async () => (await db.settings.get('state:' + sid) || {}).place, 'the ledger to be founded', 10000);
+  const st = await db.settings.get('state:' + sid);
+  eq(st.place.name, 'McDonald’s');
+  eq(st.sheet.playerName, 'Jovan');
+  eq(st.present.length, 2);
+  await until(async () => (await db.settings.get('state:' + sid) || {}).worldBrief, 'the world’s word', 10000);
+  const st2 = await db.settings.get('state:' + sid);
+  eq(st2.worldBrief.pressure.length, 1);
+  assert(st2.offscreen.Kim && st2.offscreen.Kim.stance === 'seeking', 'Kim is seated');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-3 every act rendered under a page is one the thread answers', async () => {
+  const u = userPages()[0];
+  const a = assistantPages()[0];
+  const acts = [...new Set([...qa('.msg-act', u), ...qa('.msg-act', a)].map((b) => b.dataset.act).filter(Boolean))];
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  /* the thread has more than one click listener (code-copy chips first) — the
+   * one that routes acts is the one that reads .msg-act */
+  let handlerStart = -1;
+  for (let i = chat.indexOf("els.thread.addEventListener('click'"); i !== -1; i = chat.indexOf("els.thread.addEventListener('click'", i + 1)) {
+    if (chat.slice(i, i + 400).includes('.msg-act')) { handlerStart = i; break; }
+  }
+  assert(handlerStart !== -1, 'the act-routing listener exists');
+  const handler = chat.slice(handlerStart, chat.indexOf('\n  });', handlerStart));
+  const unrouted = acts.filter((act) => !new RegExp("act === '" + act.replace(/[-\\]/g, '\\$&') + "'").test(handler));
+  eq(unrouted.length, 0, 'unrouted acts: ' + unrouted.join(', '));
+});
+
+test('DOM-4 "try again" under the writer’s page hears a fresh answer to THAT page (field report)', async () => {
+  const before = errors.length;
+  const first = bodyText(assistantPages()[0]);
+  const tryBtn = q('.msg-user .msg-act[data-act="try again"]');
+  assert(tryBtn, 'the row has try again');
+  click(tryBtn);
+  await until(() => assistantPages().length === 1 && bodyText(assistantPages()[0]) !== first, 'a fresh answer replacing the old', 10000);
+  await settled();
+  const sid = await storyId();
+  const pages = (await db.messages.list(sid)).filter((m) => !m.hidden);
+  eq(pages.length, 2, 'still one exchange');
+  eq(pages[1].role, 'assistant');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-5 "try again" on a page in the middle rewinds to just after it', async () => {
+  const before = errors.length;
+  type(q('#composer-input'), 'She looked away.');
+  submit(q('#composer'));
+  await until(() => assistantPages().length === 2, 'the second answer', 10000);
+  await settled();
+  const firstUser = userPages()[0];
+  const secondAnswerText = bodyText(assistantPages()[1]);
+  click(q('.msg-act[data-act="try again"]', firstUser));
+  await until(() => assistantPages().length === 1, 'the tale rewound to the first exchange', 10000);
+  await settled();
+  const sid = await storyId();
+  const pages = (await db.messages.list(sid)).filter((m) => !m.hidden);
+  eq(pages.length, 2, 'u1 + a fresh a1; u2/a2 are gone');
+  assert(bodyText(assistantPages()[0]) !== secondAnswerText);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-6 edit: the buttons wear the house’s clothes, and the new words are kept (field report)', async () => {
+  const before = errors.length;
+  const a = assistantPages()[0];
+  click(q('.msg-act[data-act="edit"]', a));
+  const box = await until(() => q('.edit-box', a), 'the edit box');
+  const keep = q('.edit-row button:not(.text-btn)', a);
+  assert(keep && /Keep the new words/.test(keep.textContent), 'the keep button');
+  assert(keep.classList.contains('btn'), 'the keep button is the house’s (was a bare browser button — the white banner)');
+  assert(q('.edit-row .text-btn', a), 'never mind is a text button');
+  type(box, 'Liara set the cup down. "You knew," she said.');
+  click(keep);
+  await until(() => !q('.edit-box', a) || !a.isConnected, 'the page re-inked');
+  await tick(100);
+  const sid = await storyId();
+  const pages = (await db.messages.list(sid)).filter((m) => !m.hidden);
+  eq(pages[1].text, 'Liara set the cup down. "You knew," she said.');
+  const node = assistantPages()[0];
+  assert(node.querySelector('.spoken'), 'the spoken line is coloured');
+  /* the writer's own page edits too */
+  const u = userPages()[0];
+  click(q('.msg-act[data-act="edit"]', u));
+  const ubox = await until(() => q('.edit-box', u), 'the writer’s edit box');
+  type(ubox, 'Jovan is eating with Liara.');
+  click(q('.edit-row .btn', u));
+  await until(async () => (await db.messages.list(sid))[0].text === 'Jovan is eating with Liara.', 'the writer’s page kept');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-7 swipe writes a second version and the counter says so; swipe-prev walks back', async () => {
+  const before = errors.length;
+  const a = assistantPages()[0];
+  const first = bodyText(a);
+  click(q('.msg-act[data-act="swipe"]', a));
+  await until(() => q('.swipe-count') && /2\s*\/\s*2/.test(q('.swipe-count').textContent), 'the counter at 2/2', 10000);
+  await settled();
+  assert(bodyText(assistantPages()[0]) !== first, 'a new version is shown');
+  click(q('.msg-act[data-act="swipe-prev"]'));
+  await until(() => /1\s*\/\s*2/.test(q('.swipe-count').textContent), 'walked back to 1/2');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-8 branch shelves a new tale with the pages up to here; delete lets a page go', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  const storiesBefore = (await db.stories.list()).length;
+  click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
+  await until(async () => (await db.stories.list()).length === storiesBefore + 1, 'a new tale on the shelf');
+  await until(async () => (await storyId()) !== sid, 'the branch is open');
+  const bid = await storyId();
+  const pages = (await db.messages.list(bid)).filter((m) => !m.hidden);
+  eq(pages.length, 2, 'the branch carries the exchange');
+  await until(() => assistantPages().length === 1 && pages.some((p) => p.id === assistantPages()[0].dataset.id), 'the branch renders its own pages');
+  click(q('.msg-act[data-act="delete"]', assistantPages()[0]));
+  await until(async () => (await db.messages.list(bid)).filter((m) => !m.hidden).length === 1, 'the page is gone');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-9 "go on" asks for more without a page of the writer’s', async () => {
+  const before = errors.length;
+  /* back to the first tale */
+  const stories = await db.stories.list();
+  const first = stories.find((s) => s.title.startsWith('#story') && !/— a branch$/.test(s.title));
+  assert(first, 'the first tale is named from its first words (no empty "Hello?" tale was begotten): ' + stories.map((s) => s.title).join(' / '));
+  const row = qa('.story-item').find((el) => el.textContent.includes('#story') && !el.textContent.includes('a branch'));
+  assert(row, 'the first tale is on the shelf');
+  click(q('.story-open', row) || row);
+  await until(async () => (await storyId()) === first.id, 'the first tale is open');
+  await until(() => assistantPages().length >= 1 && assistantPages()[0].dataset.id && (assistantPages()[0].dataset.id !== undefined), 'the first tale renders');
+  await tick(150);
+  const answers = assistantPages().length;
+  const go = q('.msg-act[data-act="go on"]');
+  assert(go, 'the last storyteller page offers go on');
+  click(go);
+  await until(() => assistantPages().length === answers + 1, 'one more answer', 10000);
+  await settled();
+  eq(userPages().length, 1, 'no visible page of the writer’s was added');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-10 the drawer: every panel renders, the world beyond the page speaks, the workers say what they did and what they said', async () => {
+  const before = errors.length;
+  /* the workers are still writing after "go on" — wait for the world agent's seat before reading the drawer */
+  const sid = await storyId();
+  await until(async () => { const st = await db.settings.get('state:' + sid); return st && st.offscreen && st.offscreen.Kim; }, 'Kim to be seated by the world agent', 15000);
+  click(q('#btn-ledger'));
+  await until(() => !q('#drawer').hidden, 'the drawer opens');
+  await until(() => /Kim/.test(q('#drawer-panels').textContent), 'the drawer to speak of Kim: ' + q('#drawer-panels').textContent.slice(0, 200));
+  const titles = qa('#drawer-panels .ledger-panel h3, #drawer-panels .ledger-panel summary, #drawer-panels .ledger-panel .panel-title').map((h) => h.textContent.trim());
+  for (const want of ['The clock', 'Who’s here', 'What’s happening elsewhere', 'The world beyond the page', 'What changed and why', 'The workers']) {
+    assert(titles.some((t) => t.includes(want)), 'panel: ' + want + ' in ' + titles.join(' / '));
+  }
+  const drawerText = q('#drawer-panels').textContent;
+  assert(/Kim/.test(drawerText), 'Kim is in the drawer');
+  assert(/wrote \d+ changes|nothing to write down/.test(drawerText), 'the extractor says what it did: ' + drawerText.slice(-300));
+  assert(/moved the world in/.test(drawerText), 'the world agent says what it did');
+  assert(qa('#drawer-panels .worker-said').length >= 1, 'what it said is folded under a worker');
+  click(q('#btn-ledger'));
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-11 settings: the rooms render; the regex shelf adds a rule, tries it, and brings a SillyTavern file', async () => {
+  const before = errors.length;
+  await openSettings();
+  assert(qa('#regex-list > li').length >= 3, 'the builtins are on the shelf');
+  click(q('#btn-regex-add'));
+  await until(() => !q('#regex-form').hidden, 'the form');
+  type(q('#regex-name'), 'Kill the em dash');
+  type(q('#regex-find'), '—');
+  type(q('#regex-replace'), '-');
+  q('#regex-mode').value = 'display';
+  click(q('#btn-regex-try'));
+  await until(() => !q('#regex-try-note').hidden && /match/i.test(q('#regex-try-note').textContent), 'a try note: ' + (q('#regex-try-note') && q('#regex-try-note').textContent));
+  submit(q('#regex-form'));
+  await until(() => qa('#regex-list > li').length >= 4, 'the rule joined the shelf');
+  const stored = await db.settings.get('regexRules');
+  assert(stored.some((r) => r.name === 'Kill the em dash' && r.mode === 'display'));
+  /* bring a SillyTavern regex file */
+  const st = [{ id: 'abc', scriptName: '🎨 Header', findRegex: '/^\\[([^\\]]+)\\]$/gm', replaceString: '<div class="hdr">$1</div>', placement: [2], markdownOnly: true }];
+  const file = new File([JSON.stringify(st)], 'regex.json', { type: 'application/json' });
+  const input = q('#regex-file');
+  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  input.dispatchEvent(new window.Event('change', { bubbles: true }));
+  await until(() => !q('#regex-import-note').hidden && /brought home/.test(q('#regex-import-note').textContent), 'the import note', 10000);
+  assert((await db.settings.get('regexRules')).some((r) => r.id === 'st-abc' && r.mode === 'display'));
+  /* the workers room and the world switch */
+  assert(q('#world-agent').checked, 'the world agent is on by default');
+  assert(q('#colour-speech').checked, 'speech colour is on by default');
+  await closeSettings();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-12 a dressed page renders through the allowlist: the header becomes a styled box, the prose stays', async () => {
+  const before = errors.length;
+  await until(() => assistantPages().length >= 1, 'pages');
+  /* the imported 🎨 rule dresses the bracketed line on the next render */
+  await openSettings(); await closeSettings();
+  await tick(200);
+  const dressed = qa('.msg-assistant .msg-body .hdr');
+  assert(dressed.length >= 1, 'a header rendered as a styled div through the allowlist');
+  assert(!q('.msg-body script'), 'no script ever');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-13 the housekeeper and the welcome tour open and close without a sound', async () => {
+  const before = errors.length;
+  click(q('#btn-housekeeper'));
+  await tick(100);
+  click(q('#btn-housekeeper'));
+  await tick(50);
+  await openSettings();
+  const tour = q('#btn-tour-again') || qa('#view-settings button').find((b) => /tour/i.test(b.textContent));
+  if (tour) { click(tour); await tick(100); const next = q('#welcome-next') || qa('#welcome-overlay button').find((b) => /next|begin|start/i.test(b.textContent)); if (next) { click(next); await tick(50); } const done = qa('#welcome-overlay button').find((b) => /begin|done|start|close|Not now/i.test(b.textContent)); if (done) click(done); }
+  await closeSettings();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-14 a refused house is said out loud, the words are kept, and the next send works', async () => {
+  const before = errors.length;
+  house.state.fail = 500;
+  type(q('#composer-input'), 'Does it hold?');
+  submit(q('#composer'));
+  await until(() => q('.msg-note') || /went quiet|said no|couldn’t|wouldn’t/i.test(q('#thread').textContent), 'the kind note', 10000);
+  house.state.fail = null;
+  await settled();
+  const answers = assistantPages().length;
+  const retry = q('.msg-act[data-act="try again"]', userPages()[userPages().length - 1]);
+  if (retry) click(retry); else { type(q('#composer-input'), 'Again.'); submit(q('#composer')); }
+  await until(() => assistantPages().length >= answers + 1, 'an answer after the refusal', 10000);
+  await settled();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+/* The sweep: press every button the eye can reach, in every room, once.
+ * A button that throws, a handler that reaches for an element that isn't
+ * there, a menu act with no route — all of it lands here as an error with
+ * the button's own words. Runs LAST: it presses destructive things too. */
+const visible = (el) => !el.closest('[hidden]') && !el.disabled;
+const words = (el) => (el.textContent || el.getAttribute('aria-label') || el.id || el.className).trim().replace(/\s+/g, ' ').slice(0, 40);
+const swept = { rooms: {} };
+async function sweep(rootSel, { skip = /reload|start over|wipe|forget everything|let the tale go|take the shelf down/i, before } = {}) {
+  const found = [];
+  let pressed = 0;
+  for (const btn of qa(rootSel + ' button')) {
+    if (!visible(btn) || skip.test(words(btn))) continue;
+    pressed += 1;
+    swept.rooms[rootSel] = pressed;
+    const label = words(btn);
+    const n = errors.length;
+    try { click(btn); } catch (err) { errors.push('threw on click: ' + label + ' — ' + err.message); }
+    await tick(40);
+    if (errors.length > n) found.push(label + ' → ' + errors.slice(n).join(' | '));
+  }
+  return found;
+}
+
+test('DOM-15 the sweep: every button in the story room, the drawer, the settings rooms, the housekeeper and the message menu answers without a sound', async () => {
+  /* the message menu (long-press / right-click) */
+  const page = assistantPages()[0] || userPages()[0];
+  page.dispatchEvent(new window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }));
+  await tick(50);
+  const menuAll = [];
+  if (!q('#msg-menu').hidden) {
+    for (const btn of qa('#msg-menu button[data-act]')) {
+      if (/regenerate|delete|go on|try again/.test(btn.dataset.act)) continue; /* each proven above; they generate */
+      const n = errors.length; click(btn); await tick(40);
+      if (errors.length > n) menuAll.push(btn.dataset.act + ' → ' + errors.slice(n).join(' | '));
+      page.dispatchEvent(new window.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+      await tick(30);
+    }
+    if (!q('#msg-menu').hidden) document.body.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  }
+  eq(menuAll.length, 0, 'menu: ' + menuAll.join(' || '));
+  /* the drawer, every panel's hand controls (empty forms just return) */
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer');
+  await tick(400); /* the panels render async (latestWins) — let every form unhide */
+  for (const d of qa('#drawer-panels details')) d.open = true;
+  const drawerHits = await sweep('#drawer-panels', { skip: /take it back|let it go|let it rest|un-invite|×/i });
+  eq(drawerHits.length, 0, 'drawer: ' + drawerHits.join(' || '));
+  if (!q('#drawer').hidden) click(q('#btn-ledger'));
+  /* the housekeeper */
+  click(q('#btn-housekeeper')); await tick(300);
+  const hkHits = await sweep('#housekeeper, .hk-body, [id^="hk-"]', { skip: /send|ask/i });
+  eq(hkHits.length, 0, 'housekeeper: ' + hkHits.join(' || '));
+  click(q('#btn-housekeeper')); await tick(40);
+  /* the story room: panel, shelf, composer chips */
+  const roomHits = await sweep('#view-chat', { skip: /send|go on|try again|swipe|branch|delete|regenerate|the ledger|the housekeeper|settings/i });
+  eq(roomHits.length, 0, 'story room: ' + roomHits.join(' || '));
+  /* settings, every room, every control */
+  await openSettings();
+  const settingsHits = await sweep('#view-settings', { skip: /bring a copy back|back to the story|let it go|remove|take the shelf down|forget|start over|reload|test it/i });
+  eq(settingsHits.length, 0, 'settings: ' + settingsHits.join(' || '));
+  await closeSettings();
+  const total = Object.values(swept.rooms).reduce((a, b) => a + b, 0);
+  console.log('     pressed', JSON.stringify(swept.rooms), 'total', total);
+  assert(total >= 60, 'the sweep pressed enough buttons to mean something: ' + total);
+});
+
+test('DOM-16 nothing leaked: zero errors across the whole walk', () => {
+  eq(errors.length, 0, errors.join(' | '));
+});
+
+console.log('Cozy Tavern — the dom walk');
+await runAll();
+process.exit(process.exitCode || 0);

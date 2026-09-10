@@ -1,0 +1,16 @@
+{
+  "name": "cozytavern-dom-walk",
+  "version": "1.0.0",
+  "description": "The dom walk: boots the real app in jsdom and presses every button. Not shipped.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "private": true,
+  "devDependencies": {
+    "jsdom": "^24.1.3"
+  }
+}

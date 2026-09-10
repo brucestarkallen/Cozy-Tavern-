@@ -1138,3 +1138,32 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - world agent law: a person the page names in passing ("my sister Kim would laugh") exists from
   that line on — people.set core + a seat with a want.
 - Harness: tests/harness/m32.mjs (4 checks). 224/224. version.js -> m32-001.
+
+---
+
+# M33 — the dom walk (the field reports that founded it: "try again does nothing", "the white banner")
+- FIELD REPORT 1: the "try again" under a writer's page did nothing. TWO roots: the thread's click
+  listener routed copy/edit/swipe/branch/go on/delete and never 'try again' (only the long-press
+  menu knew the word); and retryUserMessage found "the answer after this page" with
+  `m.id > messageId` — a lexical comparison of UUID strings — so even via the menu it landed on an
+  arbitrary page or answered the tail. Now: routed from the row; the store's ORDER decides (first
+  storyteller page after this one); a tail page with a stale hidden nudge after it is answered anew.
+- FIELD REPORT 2: "Keep the new words" was a bare browser button — no class, so white in a lamplit
+  room. Now .btn. LAW (m33.mjs): every button the house creates wears a class.
+- Found by the walk: a send with NO connection begat an empty story named after the words ("Hello?")
+  before noticing there was no storyteller. The storyteller is looked for first now.
+- THE DOM WALK — tests/dom/run.mjs boots the REAL app (index.html + every module) in jsdom
+  (tests/dom/env.mjs: the idb shim, a mock house that answers the storyteller with prose and the
+  workers with JSON, browser globals, Blob.text / object-URL polyfills) and presses what a person
+  presses: send, try again (tail + middle), edit (both voices), swipe/swipe-prev, branch, delete,
+  go on, the drawer (panels, the world's word, the workers' lines and "what it said"), settings
+  (regex shelf add/try/keep, bring a SillyTavern regex file, the switches), a dressed page through
+  the allowlist, housekeeper/tour, a refused house — then THE SWEEP: every visible button in every
+  room pressed once (≈100), any error attributed to the button's own words. Zero errors is the law.
+  Run: `cd tests/dom && npm install` once, then `node tests/dom/run.mjs`. tests/dom/node_modules is
+  gitignored; the app itself keeps its no-npm law.
+- LAW: both harnesses green before any commit — `node tests/harness/run.mjs` (229) AND
+  `node tests/dom/run.mjs` (16).
+- switchWorkerStory: the unused import is gone from app.js; the purge-on-switch idea is documented
+  as deliberately unwired (it would throw away the ledger writes of the tale the writer just left).
+- version.js -> m33-001.

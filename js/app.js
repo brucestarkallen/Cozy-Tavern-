@@ -9,7 +9,6 @@ import { initSettings } from './ui/settings.js';
 import { initDrawer } from './ui/drawer.js';
 import { initHousekeeper } from './ui/housekeeper.js';
 import { initWelcome } from './ui/welcome.js';
-import { switchWorkerStory } from './agents/queue.js';
 import { VERSION } from './version.js';
 import { acquirePen } from './tablock.js';
 import { initSync } from './sync.js';
