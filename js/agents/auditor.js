@@ -29,7 +29,7 @@ import { renderOffscreen } from '../engine/offscreen.js';
 import { renderCanon } from '../engine/canon.js';
 import { renderThreads, renderKnowledge, renderFactions } from '../engine/world.js';
 import { mcName } from '../engine/duels.js';
-import { explicitStandings, samePersonLoose } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
+import { explicitStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { loadMemory, recordFor } from './memory.js';
 import { pageText } from '../assemble/stack.js';
 
@@ -275,7 +275,7 @@ export function standingsHousekeeping(state, brief, castNotes, mc) {
   const isZero = (r) => !r || (!(r.p || 0) && !(r.r || 0) && !(r.s || 0));
   const gone = new Set();
   for (const k of keys) {
-    if (/^[\s\-*•→>]/.test(k) || (mc && samePersonLoose(k, mc))) {
+    if (/^[\s\-*•→>]/.test(k) || isLabel(k) || (mc && samePersonLoose(k, mc))) {
       out.push({ type: 'rel.clear', name: k, cause: 'not a standing toward ' + (mc || 'the main character') });
       gone.add(k);
     }

@@ -115,6 +115,15 @@ function sameName(a, b) {
   const at = A.split(/\s+/); const bt = B.split(/\s+/);
   return at[0] === bt[0] && (at.length === 1 || bt.length === 1 || at.every((t) => bt.includes(t)) || bt.every((t) => at.includes(t)));
 }
+/* A line's head that is a section label, never a person: ALL CAPS, or one
+ * of the words briefs use for sections. Exported for the housekeeping. */
+export const LABEL_WORDS = new Set(['core', 'arc', 'state', 'now', 'notes', 'note', 'prs', 'p:r:s', 'standing', 'standings', 'relationship', 'relationships', 'stance', 'bond', 'bonds', 'toward', 'towards', 'mc', 'main character', 'appearance', 'voice', 'history', 'secret', 'secrets', 'goal', 'goals', 'want', 'wants', 'traits', 'personality', 'role']);
+export function isLabel(head) {
+  const h = String(head || '').trim();
+  if (!h) return false;
+  if (LABEL_WORDS.has(h.toLowerCase())) return true;
+  return /^[A-Z0-9 :\/&'’.-]{2,}$/.test(h) && !/[a-z]/.test(h);
+}
 export function explicitStandings(text, mc = '') {
   const out = [];
   let owner = '';
@@ -136,10 +145,15 @@ export function explicitStandings(text, mc = '') {
       /* "→ Target: …": the target must be the main character, the owner the heading above */
       if (!owner || !mc || !sameName(head, mc)) continue;
       out.push({ name: owner, ...numbers });
+    } else if (isLabel(head)) {
+      /* "CORE: … (P R S)" under a heading: a label is never a person — the heading owns it */
+      if (!owner || (mc && sameName(owner, mc))) continue;
+      out.push({ name: owner, ...numbers });
     } else {
       /* "Name — … (P R S)": the head owns it, toward the MC — unless the head IS the MC */
       if (!head || (mc && sameName(head, mc))) continue;
       out.push({ name: head, ...numbers });
+      owner = head;
     }
   }
   /* dedupe by person, the fuller name kept */

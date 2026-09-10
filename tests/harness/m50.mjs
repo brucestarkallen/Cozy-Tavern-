@@ -71,3 +71,21 @@ test('M50-3 the rebuild: everything let go, the digits written in code, the mode
   const p = buildRebuildMessages({ state: st, brief: BRIEF, castNotes: '', record: 'r', pages: [], mc: 'Jovan' });
   assert(/exist ONLY toward the main character/.test(p.user) && /THE PEOPLE THE LEDGER KNOWS: /.test(p.user) && !/THE PEOPLE THE LEDGER KNOWS:[^\n]*Jovan/.test(p.user));
 });
+
+test('M50-4 a label is never a person: "CORE: … (P R S)" under a heading belongs to the heading; a CORE entry is cleared', () => {
+  const brief = `Rias Wells
+CORE: devoted older sister with a secret romantic attachment (P:85 R:65 S:45)
+ARC: hasn't seen him in years
+
+Aurora Sterling
+→ Jovan: childhood best friend (P:65 R:30 S:5)
+
+Caleb Thorne — Rias's ex, never met Jovan`;
+  const out = explicitStandings(brief, 'Jovan');
+  eq(out.map((s) => s.name + ':' + s.p).join(' | '), 'Rias Wells:85 | Aurora Sterling:65');
+  let s = emptyState(); s.sheet.playerName = 'Jovan';
+  s = applyMutations(s, [{ type: 'rel.set', name: 'CORE', p: 85, r: 65, s: 45, cause: 'x' }, { type: 'rel.set', name: 'Rias Wells', p: 0, r: 0, s: 0, cause: 'x' }]).state;
+  const after = applyMutations(s, standingsHousekeeping(s, brief, '', 'Jovan')).state;
+  assert(!after.relationships.CORE, 'the label entry is gone');
+  eq(after.relationships['Rias Wells'].p, 85, 'and Rias has her digits');
+});
