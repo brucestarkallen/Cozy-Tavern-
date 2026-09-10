@@ -160,6 +160,7 @@ function normalizeRule(r, i) {
     enabled: r.enabled !== false,
     builtin: r.builtin === true,
     note: typeof r.note === 'string' ? r.note.slice(0, 300) : '',
+    touched: r.touched === true,
   };
 }
 
@@ -169,7 +170,16 @@ export async function loadRules() {
   let list = Array.isArray(stored) ? stored.map(normalizeRule).filter(Boolean) : [];
   let seeded = false;
   for (const b of BUILTIN_RULES) {
-    if (!list.some((r) => r.id === b.id)) { list.push({ ...b }); seeded = true; }
+    const at = list.findIndex((r) => r.id === b.id);
+    if (at === -1) { list.push({ ...b }); seeded = true; continue; }
+    /* M32: a builtin the writer never touched follows the shipped words and
+     * switch — so an m30 shelf seeded with the header removal ON lands on
+     * the m31 default (OFF) without the writer lifting a finger. A builtin
+     * the writer toggled or edited (touched) stands as they left it. */
+    if (!list[at].touched) {
+      const fresh = { ...b, touched: false };
+      if (JSON.stringify(normalizeRule(list[at], at)) !== JSON.stringify(normalizeRule(fresh, at))) { list[at] = fresh; seeded = true; }
+    }
   }
   if (!Array.isArray(stored) || seeded) await db.settings.set(REGEX_KEY, list);
   live = list;

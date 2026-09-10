@@ -127,7 +127,10 @@ function systemPrompt({ mc, founding }) {
     : 'The ledger does not yet know the main character\'s name. The writer plays or narrates one person as their own — the one whose actions the writer types, the one the story follows. Name them with mc.set (once), and treat rel.* feelings as feelings toward that person.';
   const law = founding
     ? [
-      'THE LEDGER IS YOUNG — nothing is written in it yet. Found it from these pages:',
+      'THE LEDGER IS YOUNG — nothing is written in it yet. Found it from these pages. If the page opens',
+      'with a bracketed header line — [Place — Day, Month DD, Year | HH:MM | weather | attire | position] —',
+      'that line is the truth for place.set and clock.set (all five numbers are in it), and the attire',
+      'and position are the main character\'s (presence.enter with them):',
       '  - place.set for the ground the scene stands on (a booth at McDonald\'s, a chapel, a train car — the place the prose puts them);',
       '  - presence.enter for EVERY person the pages put in the scene, the main character included, with position/attire only if shown;',
       '  - clock.set only if the pages fix a date and hour (never guess a date; if only the hour is known, leave the clock alone);',
@@ -136,6 +139,9 @@ function systemPrompt({ mc, founding }) {
       'On a young ledger an empty answer is almost always wrong: the scene exists, so someone is somewhere. Write the founding down.',
     ].join('\n')
     : [
+      'If the page opens with a bracketed header line — [Place — Day, Month DD, Year | HH:MM | weather |',
+      'attire | position] — it is the truth for the hour (clock.set when the date or hour differs from',
+      'the ledger), the ground (place.set when it moved), and the main character\'s attire and position.',
       'Be conservative. Write down only what the prose explicitly shows — never what it',
       'merely hints at, never what might be true. Injuries only when the blow lands',
       'on-page; feelings shift only from on-page acts, and every shift needs its cause',

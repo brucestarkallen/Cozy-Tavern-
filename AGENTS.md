@@ -1115,3 +1115,26 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   re-flipped (the writer's switch stands).
 - Harness: tests/harness/m31.mjs (7 checks, incl. the writer's real regex file at /tmp during
   development — never committed). 220/220. version.js -> m31-001. sw.js gains ui/richhtml.js.
+
+---
+
+# M32 — the spoken lines and the thoughts have a colour; untouched builtins follow the coat
+- FIELD REPORTS: "npc dialog is all white, ugly"; "does the npc thought have colour and format";
+  "the time is not on the ledger — is it your regex?" (yes: m30's header-removal rule ran BEFORE the
+  extractor read the page, so it never saw the [… | HH:MM …] line); "the agent didn't invent my
+  sister Kim though the prose named her".
+- ui/prose.js: inlineMd now tokenizes spoken lines ("…", “…”, „…“, «…» — one line, marks kept)
+  and the preset's thoughts (~t~*…*~/t~ or *~t~…~/t~*, marks removed) as spans with children; the
+  M22 marks (`code`, **strong**, *em*) still work inside both (inlineMarks is the old pipeline,
+  exported). An unclosed quote is plain text. CSS: .spoken → --spoken, .thought → --thought
+  (both themes); Settings → Appearance "Colour the spoken lines and the thoughts" (colourSpeech,
+  default on) toggles body.plain-speech; applied at boot in app.js. Works inside a 🎨-dressed page
+  too (richhtml's text nodes ride appendInline).
+- regex.js: builtins carry `touched` (settings sets it on toggle/edit/restore). loadRules syncs an
+  UNTOUCHED builtin to the shipped words and switch — so an m30 shelf seeded with header removal
+  ON lands on the m31 default (OFF) by itself; a touched builtin stands as the writer left it.
+- extractor prompt: the bracketed header line is the truth for place.set/clock.set (all five
+  numbers) and the main character's attire/position — on a founding and on a settled ledger.
+- world agent law: a person the page names in passing ("my sister Kim would laugh") exists from
+  that line on — people.set core + a seat with a want.
+- Harness: tests/harness/m32.mjs (4 checks). 224/224. version.js -> m32-001.

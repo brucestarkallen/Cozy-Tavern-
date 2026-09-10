@@ -130,6 +130,7 @@ export function initSettings(ctx) {
     regexFile: document.getElementById('regex-file'),
     regexImportNote: document.getElementById('regex-import-note'),
     regexCleanNote: document.getElementById('regex-clean-note'),
+    colourSpeech: document.getElementById('colour-speech'),
     memoryKeeper: document.getElementById('memory-keeper'),
     memoryWindow: document.getElementById('memory-window'),
     memoryWindowValue: document.getElementById('memory-window-value'),
@@ -1605,7 +1606,7 @@ export function initSettings(ctx) {
     on.type = 'checkbox';
     on.checked = rule.enabled !== false;
     on.addEventListener('change', async () => {
-      const next = rules.map((r) => (r.id === rule.id ? { ...r, enabled: on.checked } : r));
+      const next = rules.map((r) => (r.id === rule.id ? { ...r, enabled: on.checked, touched: true } : r));
       await saveRules(next);
       afterRegexChange();
     });
@@ -1624,7 +1625,7 @@ export function initSettings(ctx) {
         restore.className = 'text-btn';
         restore.textContent = 'Restore the original';
         restore.addEventListener('click', async () => {
-          await saveRules(rules.map((r) => (r.id === rule.id ? { ...orig, enabled: r.enabled } : r)));
+          await saveRules(rules.map((r) => (r.id === rule.id ? { ...orig, enabled: r.enabled, touched: true } : r)));
           afterRegexChange();
         });
         row.appendChild(restore);
@@ -1714,7 +1715,7 @@ export function initSettings(ctx) {
     const rules = await loadRules();
     let next;
     if (regexEditing) {
-      next = rules.map((r) => (r.id === regexEditing ? { ...r, ...draft, id: r.id, builtin: r.builtin, note: r.note, enabled: r.enabled } : r));
+      next = rules.map((r) => (r.id === regexEditing ? { ...r, ...draft, id: r.id, builtin: r.builtin, note: r.note, enabled: r.enabled, touched: true } : r));
     } else {
       next = [...rules, draft];
     }
@@ -1880,7 +1881,16 @@ export function initSettings(ctx) {
     const mode = (await db.settings.get('theme')) || 'dark';
     const radio = document.querySelector(`input[name="theme"][value="${mode}"]`);
     if (radio) radio.checked = true;
+    /* M32: the speech colour switch, on by default */
+    const on = (await db.settings.get('colourSpeech')) !== false;
+    els.colourSpeech.checked = on;
+    document.body.classList.toggle('plain-speech', !on);
   }
+
+  els.colourSpeech.addEventListener('change', async () => {
+    await db.settings.set('colourSpeech', els.colourSpeech.checked);
+    document.body.classList.toggle('plain-speech', !els.colourSpeech.checked);
+  });
 
   document.querySelectorAll('input[name="theme"]').forEach((radio) => {
     radio.addEventListener('change', async () => {

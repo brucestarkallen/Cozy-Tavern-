@@ -64,7 +64,7 @@ test('M30-4 the shelf persists; builtins are seeded, a writer’s edit to one st
   await db.settings.delete(REGEX_KEY);
   const first = await loadRules();
   eq(first.length, BUILTIN_RULES.length, 'seeded');
-  const edited = first.map((r) => (r.id === 'builtin-plot-momentum' ? { ...r, enabled: false, flags: 'g' } : r));
+  const edited = first.map((r) => (r.id === 'builtin-plot-momentum' ? { ...r, enabled: false, flags: 'g', touched: true } : r)); /* M32: the settings UI marks a writer's edit */
   await saveRules(edited);
   await db.settings.set(REGEX_KEY, (await db.settings.get(REGEX_KEY)).filter((r) => r.id !== 'builtin-tracker-blocks'));
   const again = await loadRules();

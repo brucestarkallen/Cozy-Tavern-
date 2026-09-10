@@ -145,9 +145,9 @@ test('M31-7 the defaults: the header is kept (styled by the writer), state block
   const out = applyRules(page, [state], { on: 'storyteller', mode: 'page' });
   assert(!/PULSE|WATCHLIST/.test(out) && /VOICES/.test(out) && /VOICE: a/.test(out), out);
   /* an existing shelf where the header rule was on (m30) is left as the writer had it — only a missing builtin is seeded */
-  await db.settings.set(REGEX_KEY, [{ id: 'builtin-preset-header', name: 'x', find: 'y', flags: 'g', replace: '', on: 'storyteller', mode: 'page', enabled: true, builtin: true }]);
+  await db.settings.set(REGEX_KEY, [{ id: 'builtin-preset-header', name: 'x', find: 'y', flags: 'g', replace: '', on: 'storyteller', mode: 'page', enabled: true, builtin: true, touched: true }]);
   const rules = await loadRules();
-  eq(rules.find((r) => r.id === 'builtin-preset-header').enabled, true, 'the writer’s own switch stands');
+  eq(rules.find((r) => r.id === 'builtin-preset-header').enabled, true, 'the writer’s own switch stands (touched)');
   eq(rules.length, BUILTIN_RULES.length, 'the other builtins were seeded');
   const preset = { prompts: [
     { identifier: 't', name: '⏰ Time and Place 🌅', content: 'header words', enabled: true },

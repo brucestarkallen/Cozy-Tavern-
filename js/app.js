@@ -41,6 +41,8 @@ function setTheme(mode) {
 async function applyStoredTheme() {
   themeMode = (await db.settings.get('theme')) || 'dark';
   applyTheme();
+  /* M32: the speech colour switch */
+  try { document.body.classList.toggle('plain-speech', (await db.settings.get('colourSpeech')) === false); } catch (err) { /* colour is a courtesy */ }
 }
 
 if (sky && sky.addEventListener) {

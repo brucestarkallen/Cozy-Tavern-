@@ -17,6 +17,8 @@
   --ember: #e9a13b;
   --ember-hot: #f2762f;
   --ember-dim: #6d5028;
+  --spoken: #e8c98a;      /* M32: the spoken lines */
+  --thought: #b9a7dd;     /* M32: a private thought */
   --user-tint: #221a14;
   --danger: #d9634a;
   --ok: #83b06d;
@@ -51,6 +53,8 @@ html[data-theme='light'] {
   --ember: #8a5205;
   --ember-hot: #a94d1a;
   --ember-dim: #e0c79a;
+  --spoken: #2f5f7e;
+  --thought: #6f4d8f;
   --user-tint: #f0e7d5;
   --danger: #bc4630;
   --ok: #4a6b3a;
@@ -599,3 +603,10 @@ label {
 
 /* M30 — the regex shelf */
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85em; word-break: break-all; }
+
+/* M32 — the spoken lines and the thoughts, coloured by the theme */
+.spoken { color: var(--spoken); }
+.thought { color: var(--thought); font-style: italic; }
+.thought::before { content: '\2009'; }
+body.plain-speech .spoken, body.plain-speech .thought { color: inherit; }
+body.plain-speech .thought { font-style: italic; }

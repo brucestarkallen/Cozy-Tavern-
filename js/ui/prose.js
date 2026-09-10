@@ -54,7 +54,42 @@ export function splitBlocks(text) {
  * text}]. Order of carving: `code` first (its insides are literal), then
  * **strong**, then *emphasis*. A marker with nothing inside, or one never
  * closed, is plain text — the storyteller's asterisks are safe. */
+/* M32: the spoken lines and the private thoughts are tokens of their own,
+ * so the thread can colour them. A spoken line is a "..." or “...” span
+ * on one line (the marks stay in the text — the reader sees them); a
+ * thought is the preset's exact markup ~t~*…*~/t~ (or *~t~…~/t~*), marks
+ * removed. Both carry children: the inline marks still work inside. An
+ * unclosed quote is plain text — no borrowing across the paragraph. */
+const QUOTE_RE = /(?:"([^"\n]+)"|“([^”\n]+)”|„([^“\n]+)“|«([^»\n]+)»)/g;
+const THOUGHT_RE = /(?:~t~\*([^\n]*?)\*~\/t~|\*~t~([^\n]*?)~\/t~\*)/g;
+
 export function inlineMd(text) {
+  const src = String(text == null ? '' : text);
+  const out = [];
+  /* pass 0: thoughts, then spoken lines, each carrying its own inline marks */
+  let last = 0;
+  const pieces = [];
+  const both = [];
+  let m;
+  while ((m = THOUGHT_RE.exec(src)) !== null) both.push({ at: m.index, len: m[0].length, k: 'thought', inner: m[1] ?? m[2] ?? '' });
+  while ((m = QUOTE_RE.exec(src)) !== null) both.push({ at: m.index, len: m[0].length, k: 'quote', inner: m[0] });
+  both.sort((a, b) => a.at - b.at);
+  for (const hit of both) {
+    if (hit.at < last) continue; /* overlapped an earlier span */
+    if (hit.at > last) pieces.push({ k: 'text', text: src.slice(last, hit.at) });
+    pieces.push({ k: hit.k, children: inlineMarks(hit.inner) });
+    last = hit.at + hit.len;
+  }
+  if (last < src.length) pieces.push({ k: 'text', text: src.slice(last) });
+  for (const piece of pieces) {
+    if (piece.k === 'text') out.push(...inlineMarks(piece.text));
+    else out.push(piece);
+  }
+  return out;
+}
+
+/* The M22 inline marks — `code`, **strong**, *emphasis* — over one span. */
+export function inlineMarks(text) {
   const out = [];
   const carve = (str, k) => { if (str) out.push({ k, text: str }); };
   /* `code` */
@@ -108,17 +143,29 @@ export function inlineMd(text) {
 
 const INLINE_TAGS = { strong: 'strong', em: 'em', code: 'code' };
 
-/* One prose paragraph's worth of inline marks, appended into `host`. */
-export function appendInline(host, text) {
-  for (const tok of inlineMd(text)) {
+/* One prose paragraph's worth of inline marks, appended into `host`. M32:
+ * spoken lines and thoughts are spans with a class the theme colours. */
+const SPAN_CLASSES = { quote: 'spoken', thought: 'thought' };
+
+function appendTokens(host, tokens) {
+  for (const tok of tokens) {
     if (tok.k === 'text') {
       host.appendChild(document.createTextNode(tok.text));
+    } else if (tok.children) {
+      const el = document.createElement('span');
+      el.className = SPAN_CLASSES[tok.k] || tok.k;
+      appendTokens(el, tok.children);
+      host.appendChild(el);
     } else {
       const el = document.createElement(INLINE_TAGS[tok.k]);
       el.textContent = tok.text;
       host.appendChild(el);
     }
   }
+}
+
+export function appendInline(host, text) {
+  appendTokens(host, inlineMd(text));
 }
 
 /* A fenced block: mono on --code-bg, with the language whispered and a
