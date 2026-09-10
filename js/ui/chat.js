@@ -58,6 +58,7 @@ import { recordFor } from '../agents/memory.js'; /* M35: the record as the mende
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery } from '../agents/auditor.js'; /* M41: the ledger auditor */
+import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
 import { renderWorldBrief } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory } from '../import/cards.js';
@@ -1393,6 +1394,24 @@ export function initChat(ctx) {
     return true;
   }
 
+  /* M45: found the world, by hand — from the brief, the cast notes, the
+   * cards and the lore, regardless of the fingerprint. */
+  async function foundNow() {
+    const story = await activeStory();
+    if (!story) return false;
+    const connection = await resolveWorkerConnection(story, 'founder');
+    if (!connection) { toast('The founder needs a connection first.'); return false; }
+    const promise = enqueueWork(story.id, { name: 'founder', run: async ({ signal, stale }) => {
+      const cast = await castForStory(story);
+      const lore = await loadLore(story.id);
+      const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale });
+      return { silent: false, detail: founderRunWords(result), raw: result && result.raw };
+    } });
+    noteWork(story.id, promise);
+    toast('The founder is reading the brief, the cast, the cards and the lore.');
+    return true;
+  }
+
   /* M41: audit the ledger, by hand. */
   async function auditNow() {
     const story = await activeStory();
@@ -1482,12 +1501,31 @@ export function initChat(ctx) {
    * channel; each job also checks stale() before committing anything, so a
    * left-behind story is never written into. noteWork still tracks each
    * link, so the send path's courtesy wait (pendingWork, 5s a link) holds. */
-  function startBackgroundWork(story, msg, userText, { deep = false, audit = false } = {}) {
+  function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false } = {}) {
     const enqueue = (name, run) => {
       const promise = enqueueWork(story.id, { name, run });
       noteWork(story.id, promise);
       return promise;
     };
+
+    /* 0. M45: the founder — before the page is read, the world the writer
+     * already wrote (brief, cast notes, cards, lore) becomes ledger, once,
+     * and again whenever that material changes (a fingerprint on
+     * state.founded). The extractor then founds the scene on top of it. */
+    enqueue('founder', async ({ signal, stale }) => {
+      if (story.extraction === false) return { silent: true };
+      const cast = await castForStory(story);
+      const lore = await loadLore(story.id);
+      const print = founderFingerprint({ brief: story.brief || '', castNotes: story.castNotes || '', cast, lore });
+      if (!print) return { silent: true };
+      const st = await loadState(story.id);
+      if (st.founded && st.founded.print === print && !refound) return { silent: true };
+      const connection = await resolveWorkerConnection(story, 'founder');
+      if (!connection) return { silent: true };
+      if (stale()) return { silent: true };
+      const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale });
+      return { silent: false, detail: founderRunWords(result), raw: result && result.raw };
+    });
 
     /* 1. The extractor (M3): read the page, propose mutations, apply and
      * save them, and write the outcome back onto the same message. */
@@ -3331,6 +3369,7 @@ export function initChat(ctx) {
   ctx.chat = {
     rescanLedger,
     auditNow,
+    foundNow,
     unmend,
     renderPromptChips,
     refreshStories,

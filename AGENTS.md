@@ -1426,3 +1426,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   also covers a widened window and a branch).
 - Harness: m44.mjs (6 checks incl. an end-to-end hole refill); m21's cap/rewind laws updated.
   269/269 + 19/19. version.js -> m44-001.
+
+---
+
+# M45 — the founder: the ledger from the ground up
+- FIELD REPORT: "the ledger only parses the chat, not the brief — then how do they know the world?"
+  True: the brief, cast notes, cards and lore rode to the storyteller and were read by workers
+  as context, but nothing turned them into LEDGER; the first pages had to rebuild the world.
+- js/agents/founder.js: foundWorld reads the brief, the cast notes, the invited cards
+  (description/personality/scenario) and the enabled lore, and writes the world through the
+  closed vocabulary — mc.set; a people.set page for every named person (never the MC's core);
+  rel.set only for standings the brief states ("the brief says…"); canon.lock for the five
+  features and scars when stated; faction.set; offscreen.set for everyone the brief places
+  elsewhere; thread.set for the premise's live wants; knowledge.add for what a person knows,
+  never what is sealed from them. STATED, NEVER INVENTED; THE REAL RECORD; the opening scene's
+  presence is the extractor's. state.founded = {at, print}: a fingerprint over the material so
+  the founder runs once, and again when any of it changes; by hand: Drawer → The workers →
+  "Found the world from the brief" (foundNow). First in the chain, before the extractor.
+- Harness: m45.mjs (3 checks incl. end to end). 272/272 + 19/19. version.js -> m45-001.

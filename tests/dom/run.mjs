@@ -42,6 +42,7 @@ house.state.workerAnswer = (body, sys) => {
   if (/character scribe/i.test(sys)) return '{"deltas":[]}';
   if (/continuity reader/i.test(sys)) return house.state.mend ? '{"findings":[{"words":"Kim is written as the mother; the record says Kris.","severity":"warn","fix":"Kris is the mother"}]}' : '{"findings":[]}';
   if (/auditor of the ledger/i.test(sys)) return '{"issues":[]}';
+  if (/found the ledger/i.test(sys)) return '{"mutations":[]}';
   return '{"mutations":[],"deltas":[],"findings":[]}';
 };
 

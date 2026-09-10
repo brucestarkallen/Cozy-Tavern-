@@ -1488,6 +1488,7 @@ function peoplePanel(ctx) {
 
 /* ---------- the workers' line (M12) ---------- */
 const WORKER_WORDS = {
+  founder: 'the founder',
   extractor: 'the extractor',
   world: 'the world agent',
   scribe: 'the scribe',
@@ -1524,9 +1525,18 @@ function workersPanel(ctx) {
   audit.addEventListener('click', async () => {
     if (ctx.chat && typeof ctx.chat.auditNow === 'function') await ctx.chat.auditNow();
   });
+  /* M45: found the world from the brief, the cast, the cards and the lore */
+  const found = document.createElement('button');
+  found.type = 'button';
+  found.className = 'text-btn';
+  found.textContent = 'Found the world from the brief';
+  found.title = 'The founder reads the brief, the cast notes, the invited cards and the lore, and writes every named person, bond, appearance, faction, seat and thread they establish into the ledger.';
+  found.addEventListener('click', async () => {
+    if (ctx.chat && typeof ctx.chat.foundNow === 'function') await ctx.chat.foundNow();
+  });
   const row = document.createElement('div');
   row.className = 'row';
-  row.append(rescan, audit);
+  row.append(found, rescan, audit);
   wrap.append(note, row, list);
 
   const render = latestWins(async () => {

@@ -40,6 +40,7 @@ const SHELL = [
   'js/agents/call.js',
   'js/agents/world.js',
   'js/agents/auditor.js',
+  'js/agents/founder.js',
   'js/agents/scribe.js',
   'js/agents/referee.js',
   'js/agents/memory.js',

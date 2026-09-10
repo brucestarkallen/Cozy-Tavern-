@@ -6,6 +6,7 @@
  * fallback). Pure and unit-tested; the DOM never comes here. */
 
 export const WORKER_ROWS = [
+  ['founder', 'The founder — reads the brief, the cast, the cards and the lore, and writes the world into the ledger before the story begins'],
   ['extractor', 'The ledger reader — writes down what each page changed'],
   ['world', 'The world beyond — keeps the absent alive, moves the world by the clock, briefs the storyteller'],
   ['scribe', 'The character scribe — keeps every soul true to itself'],

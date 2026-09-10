@@ -82,6 +82,7 @@ export const emptyState = () => ({
   worldBrief: null,         // the world agent's word for the next turn (M29) — {pressure, ripe, twb, atTurn}
   worldShown: [],           // windows beyond the page already opened — [{who, where, changed, atTurn}] cap 6 (M30)
   audit: null,              // the auditor's last report — {at, turn, issues:[{what, fix, fixable}]} (M41)
+  founded: null,            // the founder's fingerprint of the material it founded from — {at, print} (M45)
   /* M11: the referee's world. */
   sheet: { actors: {}, playerName: '' }, // how they measure — 0-10 ratings, domains, lasting conditions
   duel: null,             // the live duel engine state (engine/duels.js), null when no duel is joined
@@ -313,6 +314,7 @@ function normalize(saved) {
   next.worldBrief = saved.worldBrief && typeof saved.worldBrief === 'object' ? saved.worldBrief : null;
   next.worldShown = Array.isArray(saved.worldShown) ? saved.worldShown.filter((w) => w && typeof w === 'object') : [];
   next.audit = saved.audit && typeof saved.audit === 'object' ? saved.audit : null; /* M41 */
+  next.founded = saved.founded && typeof saved.founded === 'object' ? saved.founded : null; /* M45 */
   next.canon = migrateCanon(saved.canon);
   next.pendingVerdict = migrateVerdict(saved.pendingVerdict);
   next.lastVerdict = migrateVerdict(saved.lastVerdict);

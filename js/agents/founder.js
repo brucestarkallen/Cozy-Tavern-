@@ -1,0 +1,177 @@
+/* Cozy Tavern — agents/founder.js
+ * M45: the founder — the ledger from the ground up.
+ *
+ * Until M45 the ledger was founded from the first PAGE: place, who was in
+ * the scene, the hour. Everything the writer had already established — the
+ * brief, the cast notes, the invited character cards, the lore shelf — rode
+ * to the storyteller every turn but never became ledger: no character
+ * page for a person the brief names, no standing the brief sets ("she has
+ * loved him since school"), no canon lock for a stated appearance, no
+ * faction, no seat for the rival the brief puts across town with an
+ * agenda, no thread for the premise's live want. The world agent and the
+ * auditor read the brief as context, but a ledger that starts empty is a
+ * ledger the first pages have to rebuild from nothing.
+ *
+ * The founder reads all of it and writes the world into the ledger through
+ * the closed vocabulary — validated, logged, take-back-able — BEFORE the
+ * first page is read (the extractor then founds the scene on top of it).
+ * It runs again when the brief, the cast notes, the cards or the lore
+ * change (a fingerprint on state.founded), and by hand from the drawer.
+ *
+ *   foundWorld({connection, storyId, brief, castNotes, cast, lore, signal, stale})
+ *     -> {applied, rejected, note} | null when there is nothing to found from
+ */
+
+import { db } from '../store.js';
+import { callWorker } from './call.js';
+import { balancedCandidates, parseLenient } from './jsonutil.js';
+import { withFictionFrame } from './voice.js';
+import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
+import { applyMutations } from '../engine/apply.js';
+import { mcName } from '../engine/duels.js';
+
+const MAX_TOKENS = 6000;
+
+const VOCABULARY = [
+  'mc.set {"type":"mc.set","name":"Jovan"} — the main character, when the brief makes it plain and the ledger does not know',
+  'people.set {"type":"people.set","name":"Aurora","field":"core","text":"Jovan\'s childhood friend; lives next door; ex-idol; reads rooms performatively"} — one core per named person the brief, the cast notes, the cards or the lore establish (never the main character\'s core or arc); field "arc" for how they stand with the main character when stated; field "state" for where they are in their life now when stated',
+  'rel.set {"type":"rel.set","name":"Aurora","p":40,"r":25,"s":10,"cause":"the brief says she has loved him since school"} — ONLY standings the brief states; a stranger starts at zero and needs no line',
+  'canon.lock {"type":"canon.lock","name":"Aurora","key":"hair","value":"black, waist-length"} — the five canonical features (hair, eyes, build, height, skin tone) and scars when stated; one lock per fact',
+  'faction.set {"type":"faction.set","name":"the studio","stance":"…","agenda":"…"} — every group the brief gives a stance or an agenda',
+  'offscreen.set {"type":"offscreen.set","name":"Kris","location":"…","activity":"…","agenda":"…","stance":"waiting|toward|seeking|tense|busy"} — where the brief places a named person who is NOT in the opening scene',
+  'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} — the premise\'s live agendas: who wants what, pushing toward the main character',
+  'knowledge.add {"type":"knowledge.add","name":"Aurora","fact":"…"} — what the brief says a person KNOWS (a secret they hold, a thing they witnessed) — and nothing the brief seals from them',
+  'place.set / clock.set — only when the brief fixes the opening ground or date and hour',
+].join('\n');
+
+function law({ mc }) {
+  return [
+    'You found the ledger for a slow story told between two writers. The writer has written what the',
+    'world is before a single page exists: a brief, notes on the cast, character cards, a shelf of lore.',
+    'Your job is to turn what is STATED there into the ledger — the house\'s memory — so the story begins',
+    'with the world already standing: every named person with a page, every stated bond as a standing,',
+    'every stated appearance locked, every group as a faction, everyone placed where the brief puts',
+    'them, the premise\'s live wants as threads, and what each person knows or is sealed from knowing.',
+    mc ? `The main character is ${mc}.` : 'The main character is the one the writer will play; if the brief makes that plain, name them with mc.set.',
+    '',
+    'Laws:',
+    '  - STATED, NEVER INVENTED. Write down what the material says; where it is silent, write nothing —',
+    '    the story will invent as it goes. A page needs at least a core; give it the substance (role,',
+    '    relation to the main character, what they want, what they are like), compact.',
+    '  - THE REAL RECORD: a real person or a character from an established canon is written from the',
+    '    real record — true name, family, role — unless the brief says otherwise.',
+    '  - SEALED IS SEALED: what the brief says nobody knows, or a person does not know, gets no',
+    '    knowledge line for that person. Public records are what people work from.',
+    '  - The main character gets no page of their own beyond mc.set: their state and threads are the',
+    '    story\'s to write.',
+    '  - Do not narrate, do not summarize the brief, do not add the opening scene\'s presence (the',
+    '    extractor founds the scene from the first page); found the WORLD.',
+    '',
+    'Answer with JSON ONLY: {"mutations":[ ... ]}',
+    'The only mutations that exist:',
+    VOCABULARY,
+    '',
+    'Names keep the spelling the material uses. No commentary, no fences: the JSON only.',
+  ].join('\n');
+}
+
+const FENCE = '"""';
+
+export function founderFingerprint({ brief = '', castNotes = '', cast = [], lore = [] } = {}) {
+  const parts = [
+    String(brief || ''), String(castNotes || ''),
+    (Array.isArray(cast) ? cast : []).map((c) => [c.name, c.description, c.personality, c.scenario].join('|')).join('\n'),
+    (Array.isArray(lore) ? lore : []).map((e) => [e.name, (e.keys || []).join(','), e.content, e.enabled].join('|')).join('\n'),
+  ].join('\n---\n');
+  const material = String(brief || '').trim() || String(castNotes || '').trim() || (Array.isArray(cast) && cast.length) || (Array.isArray(lore) && lore.some((e) => e && e.enabled !== false));
+  if (!material) return '';
+  let h = 5381;
+  for (let i = 0; i < parts.length; i += 1) h = ((h * 33) ^ parts.charCodeAt(i)) >>> 0;
+  return 'f' + h.toString(36) + '-' + parts.length;
+}
+
+/* Exported for the harness. */
+export function buildFounderMessages({ state, brief = '', castNotes = '', cast = [], lore = [] }) {
+  const known = mcName(state);
+  const mc = known && known !== 'the player' ? known : '';
+  const cards = (Array.isArray(cast) ? cast : []).map((c) => {
+    const bits = [];
+    if (c.description) bits.push(String(c.description).slice(0, 3000));
+    if (c.personality) bits.push('Personality: ' + String(c.personality).slice(0, 1200));
+    if (c.scenario) bits.push('Scenario: ' + String(c.scenario).slice(0, 1200));
+    return '## ' + c.name + '\n' + bits.join('\n');
+  }).join('\n\n');
+  const shelf = (Array.isArray(lore) ? lore : []).filter((e) => e && e.enabled !== false).map((e) => '- ' + (e.name || (e.keys || [])[0] || 'an entry') + ' [' + (e.keys || []).join(', ') + ']: ' + String(e.content || '').slice(0, 800)).join('\n');
+  const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
+  const user = [
+    'THE BRIEF (the writer\'s own words):',
+    FENCE, String(brief || '').trim().slice(0, 12000) || '(none written)', FENCE,
+    '',
+    'THE CAST NOTES (the writer\'s own words):',
+    FENCE, String(castNotes || '').trim().slice(0, 6000) || '(none written)', FENCE,
+    '',
+    'THE CHARACTER CARDS INVITED TO THIS STORY:',
+    FENCE, cards || '(none)', FENCE,
+    '',
+    'THE LORE SHELF:',
+    FENCE, shelf.slice(0, 12000) || '(empty)', FENCE,
+    '',
+    'WHAT THE LEDGER ALREADY SAYS (found once before; write only what it lacks or gets wrong):',
+    facts,
+    '',
+    'Found the world. JSON only.',
+  ].join('\n');
+  return { system: withFictionFrame(law({ mc })), user, hasMaterial: Boolean(String(brief || '').trim() || String(castNotes || '').trim() || cards || shelf) };
+}
+
+/* Exported for the harness. */
+export function parseFounderAnswer(raw) {
+  try {
+    let text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '');
+    const candidates = balancedCandidates(text, 5);
+    let parsed = null;
+    for (const c of candidates) { const p = parseLenient(c); if (p && Array.isArray(p.mutations)) { parsed = p; break; } }
+    if (!parsed) return { mutations: [], note: 'unusable' };
+    const mutations = parsed.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim());
+    return { mutations, note: mutations.length ? 'ok' : 'empty' };
+  } catch (err) {
+    return { mutations: [], note: 'unusable' };
+  }
+}
+
+/* The contract. */
+export async function foundWorld({ connection, storyId, brief = '', castNotes = '', cast = [], lore = [], signal, stale } = {}) {
+  if (!connection || typeof connection !== 'object' || !storyId) return null;
+  const state = await loadState(storyId);
+  const prompt = buildFounderMessages({ state, brief, castNotes, cast, lore });
+  if (!prompt.hasMaterial) return null;
+  let read = null; let raw = ''; let user = prompt.user;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { text, finishReason } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, effort: 'off', signal });
+    raw = text;
+    read = parseFounderAnswer(text);
+    if (finishReason === 'length' && read.note === 'unusable') read.note = 'cut short';
+    if (read.note !== 'unusable' && read.note !== 'cut short') break;
+    user = prompt.user + '\n\nYour last answer was not a JSON object with a "mutations" list. Answer with the JSON object only, and keep it compact.';
+  }
+  if (read.note === 'unusable' || read.note === 'cut short') return { applied: [], rejected: [], note: read.note, raw };
+  if (stale && stale()) return null;
+  const fresh = await loadState(storyId);
+  /* the main character's page: mc.set first so people.set can refuse the MC's core */
+  const ordered = [...read.mutations.filter((m) => m.type === 'mc.set'), ...read.mutations.filter((m) => m.type !== 'mc.set')];
+  const { state: next, applied, rejected } = applyMutations(fresh, ordered);
+  const out = { ...next, founded: { at: Date.now(), print: founderFingerprint({ brief, castNotes, cast, lore }) } };
+  if (stale && stale()) return null;
+  await saveState(storyId, out);
+  notify(storyId);
+  return { applied, rejected, note: read.note, raw };
+}
+
+export function founderRunWords(result) {
+  if (!result) return 'nothing to found from';
+  if (result.note === 'unusable') return 'its answer could not be used';
+  if (result.note === 'cut short') return 'its answer ran out of room';
+  const n = result.applied.length;
+  if (!n) return 'the world was already standing';
+  return `founded the world in ${n} ${n === 1 ? 'way' : 'ways'}: ` + result.applied.slice(0, 5).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 5 ? ' · …' : '') + (result.rejected.length ? ` (${result.rejected.length} refused)` : '');
+}
