@@ -1279,10 +1279,29 @@ function driftPanel(ctx) {
         list.appendChild(li);
       }
     }
-    if (!found.length) {
-      note.textContent = 'Nothing has drifted. When a finished page disagrees with what’s written down, the second reader will note it here — it only ever notes; it never touches the words.';
+    /* M43: the pages the reader mended, with the earlier words a tap away */
+    const mended = history.slice(-100).filter((m) => m && m.role === 'assistant' && m.mended && m.mended.before).reverse().slice(0, 6);
+    for (const m of mended) {
+      const li = document.createElement('li');
+      li.className = 'log-row';
+      const words = document.createElement('span');
+      words.textContent = 'Mended a page' + (m.mended.why ? ' — ' + m.mended.why : '') + '. ';
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'text-btn';
+      back.textContent = 'Put the earlier words back';
+      back.addEventListener('click', async () => {
+        if (ctx.chat && typeof ctx.chat.unmend === 'function') await ctx.chat.unmend(m.id);
+        render();
+      });
+      li.append(words, back);
+      list.appendChild(li);
+    }
+    if (!found.length && !mended.length) {
+      note.textContent = 'Nothing has drifted. When a finished page disagrees with what’s written down, the reader mends it and notes it here.';
       return;
     }
+    if (!found.length) { note.textContent = 'What the reader mended; the earlier words are a tap away.'; return; }
     note.textContent = 'Where recent pages sat awkwardly beside what’s written down. Newest first; the words themselves were left as written.';
     for (const f of found) {
       const li = document.createElement('li');

@@ -1376,3 +1376,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   every per-story store (ledgers, records, snapshots, versions, lore, cast, sessions), the rulebook
   (modules), the starters library. Confirm first; the rooms re-read; theme back to Lamplight.
 - DOM-13b proves it through the real UI. 261/261 + 19/19. version.js -> m42-001.
+
+---
+
+# M43 — the mend is quiet on the page; a branch carries its checkpoint
+- FIELD REPORT: "the mended chip hurts my eyes; everything is autonomous, don't put it on the page."
+  The chip is gone. The mend stays recorded (msg.mended); "Something drifted" lists mended pages
+  with "Put the earlier words back" (ctx.chat.unmend).
+- FIELD REPORT: "branching puts a checkpoint on the ledger like Summaryception, right?" It did NOT
+  — M15's branch started with a clean ledger. Now branchFrom carries: the ledger as it stood after
+  the branch page (that page's version checkpoint; else the boundary snapshot before the NEXT
+  turn, which is the state after this page's chain; else, from the tail, the ledger as it
+  stands), the snapshots up to the branch point re-keyed to the branch's page ids (so a rewind in
+  the branch lands right), the version checkpoints of carried pages re-keyed, the record's lines
+  that cover carried pages only, and the lore shelf. Nothing of the old telling's later turns
+  crosses over. loadSnapshots/saveSnapshots exported from engine/state.js.
+- Harness: m43.mjs; DOM-8 asserts the branch has a ledger; DOM-14b takes the mend back from the
+  drawer. 263/263 + 19/19. version.js -> m43-001.

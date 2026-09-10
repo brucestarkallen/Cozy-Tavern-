@@ -355,13 +355,13 @@ const deepCopy = (v) => (typeof structuredClone === 'function'
   ? structuredClone(v)
   : JSON.parse(JSON.stringify(v)));
 
-async function loadSnapshots(storyId) {
+export async function loadSnapshots(storyId) {
   const saved = await db.settings.get(SNAP_PREFIX + storyId);
   return (Array.isArray(saved) ? saved : [])
     .filter((e) => e && typeof e === 'object' && typeof e.id === 'string' && e.snap && typeof e.snap === 'object');
 }
 
-async function saveSnapshots(storyId, list) {
+export async function saveSnapshots(storyId, list) {
   await db.settings.set(SNAP_PREFIX + storyId, list.slice(-SNAP_CAP));
 }
 

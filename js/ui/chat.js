@@ -45,14 +45,14 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot , renderMasthead} from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, renderMasthead, loadSnapshots, saveSnapshots } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { enqueueWork } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, loadMemory, renderMemory } from '../agents/memory.js';
+import { maybeSummarize, loadMemory, renderMemory, saveMemory } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { recordFor } from '../agents/memory.js'; /* M35: the record as the mender's canon */
 import { mcName } from '../engine/duels.js';
@@ -61,7 +61,7 @@ import { auditLedger, auditRunWords, auditOn, auditEvery } from '../agents/audit
 import { renderWorldBrief } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory } from '../import/cards.js';
-import { loadLore, matchLoreDetailed } from '../import/lorebook.js';
+import { loadLore, matchLoreDetailed, saveLore } from '../import/lorebook.js';
 import { parseCommand, commandChip } from '../commands.js';
 import { openReceipt } from './receiptview.js';
 /* M22: code blocks + markdown-lite in the prose (E5/E6), the shared
@@ -1085,16 +1085,9 @@ export function initChat(ctx) {
       const bar = swipeNode(msg, { isLastAssistant: Boolean(opts.isLastAssistant) });
       if (bar) article.appendChild(bar);
     }
-    if (msg.mended && msg.mended.before) {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'msg-act mended';
-      chip.dataset.act = 'unmend';
-      chip.dataset.id = msg.id;
-      chip.title = msg.mended.why || '';
-      chip.textContent = 'mended by the second reader — take it back';
-      article.appendChild(chip);
-    }
+    /* M43: a mended page carries no chip on the page — the writer trusts
+     * the reader. The mend stays recorded (msg.mended) and the earlier
+     * words are a tap away in the drawer's "Something drifted". */
     if (msg.stopped) {
       const stopped = document.createElement('div');
       stopped.className = 'msg-stopped lbl';
@@ -2698,12 +2691,57 @@ export function initChat(ctx) {
       if (story[key] !== undefined && story[key] !== null) carry[key] = story[key];
     }
     if (Object.keys(carry).length) await db.stories.update(branch.id, carry);
+    const idMap = {};
     for (const m of pages) {
       const page = { ...m };
       delete page.id;
       delete page.storyId;
-      await db.messages.append(branch.id, page);
+      const saved = await db.messages.append(branch.id, page);
+      if (saved && saved.id) idMap[m.id] = saved.id;
     }
+    /* M43: the branch carries its checkpoint (Summaryception's law). The
+     * ledger as it stood after the branch page: that page's version
+     * checkpoint when the readers have finished it; else the boundary
+     * before the NEXT turn (which is the state after this page's chain);
+     * else, branching from the tail, the ledger as it stands now. With it:
+     * the snapshots up to the branch point (so a rewind in the branch
+     * lands right), the version checkpoints of carried pages, the record's
+     * lines that cover carried pages, and the lore shelf. Nothing of the
+     * old telling's later turns crosses over. */
+    const target = history[at];
+    let carried = null;
+    if (target.role === 'assistant') {
+      const idx = Array.isArray(target.swipes) && target.swipes.length
+        ? (Number.isFinite(target.swipeIdx) ? Math.min(target.swipes.length - 1, Math.max(0, target.swipeIdx)) : target.swipes.length - 1)
+        : 0;
+      carried = await versionStateFor(story.id, target.id, idx);
+    }
+    if (!carried) {
+      const nextUser = history.slice(at + 1).find((m) => m && m.role === 'user' && !m.hidden);
+      if (nextUser) {
+        const snaps = await loadSnapshots(story.id);
+        const hit = snaps.find((e) => e.id === nextUser.id);
+        if (hit) carried = hit.snap;
+      }
+    }
+    if (!carried) carried = await loadState(story.id);
+    await saveState(branch.id, JSON.parse(JSON.stringify(carried)));
+    const carriedIds = new Set(pages.map((m) => m.id));
+    const snaps = (await loadSnapshots(story.id)).filter((e) => carriedIds.has(e.id)).map((e) => ({ ...e, id: idMap[e.id] }));
+    if (snaps.length) await saveSnapshots(branch.id, snaps);
+    const versions = await loadVersionStates(story.id);
+    const branchVersions = {};
+    for (const [key, st] of Object.entries(versions)) {
+      const [oldId, idx] = key.split(':');
+      if (idMap[oldId]) branchVersions[idMap[oldId] + ':' + idx] = st;
+    }
+    if (Object.keys(branchVersions).length) await db.settings.set('versionState:' + branch.id, branchVersions);
+    const mem = await loadMemory(story.id);
+    const visibleCount = pages.length;
+    const nodes = mem.nodes.filter((n) => n.span[1] < visibleCount);
+    await saveMemory(branch.id, { ...mem, nodes });
+    const lore = await loadLore(story.id);
+    if (lore.length) await saveLore(branch.id, lore.map((e) => ({ ...e })));
     ctx.setActiveStoryId(branch.id);
     await refreshStories(true);
     await renderThread({ structural: true });
@@ -3246,6 +3284,7 @@ export function initChat(ctx) {
   ctx.chat = {
     rescanLedger,
     auditNow,
+    unmend,
     renderPromptChips,
     refreshStories,
     renderThread,

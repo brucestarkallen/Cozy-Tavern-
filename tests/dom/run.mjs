@@ -188,6 +188,9 @@ test('DOM-8 branch shelves a new tale with the pages up to here; delete lets a p
   const bid = await storyId();
   const pages = (await db.messages.list(bid)).filter((m) => !m.hidden);
   eq(pages.length, 2, 'the branch carries the exchange');
+  /* M43: the branch carries its checkpoint — the ledger, not a blank one */
+  const bst = await db.settings.get('state:' + bid);
+  assert(bst && (bst.place || (bst.present || []).length || Object.keys(bst.offscreen || {}).length), 'the branch has the ledger as it stood: ' + JSON.stringify(bst && { place: bst.place, present: bst.present }));
   await until(() => assistantPages().length === 1 && pages.some((p) => p.id === assistantPages()[0].dataset.id), 'the branch renders its own pages');
   click(q('.msg-act[data-act="delete"]', assistantPages()[0]));
   await until(async () => (await db.messages.list(bid)).filter((m) => !m.hidden).length === 1, 'the page is gone');
@@ -373,9 +376,14 @@ test('DOM-14b the second reader mends a drifted page by the smallest edit, and t
   const page = await until(async () => (await db.messages.list(sid)).find((m) => m.mended && /Kris/.test(m.text)), 'the mend to land', 15000);
   assert(/Kris, who was not her mother/.test(page.text) && /The booth was quiet\./.test(page.text), 'one word changed, the page kept: ' + page.text);
   eq(page.mended.before, 'Liara looked at Kim, who was not her mother.\n\nThe booth was quiet.');
-  const chip = await until(() => q(`.msg[data-id="${page.id}"] .msg-act.mended`), 'the mended chip');
-  click(chip);
+  /* M43: no chip on the page; the earlier words are a tap away in the drawer */
+  assert(!q(`.msg[data-id="${page.id}"] .msg-act.mended`), 'no chip on the page');
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await tick(400);
+  const back = qa('#drawer-panels button').find((b) => /Put the earlier words back/.test(b.textContent));
+  assert(back, 'the take-back lives in Something drifted');
+  click(back);
   await until(async () => { const m = (await db.messages.list(sid)).find((x) => x.id === page.id); return m && !m.mended && /Kim/.test(m.text); }, 'the earlier words back');
+  click(q('#btn-ledger'));
   house.state.mend = false;
   house.state.storyAnswer = null;
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
