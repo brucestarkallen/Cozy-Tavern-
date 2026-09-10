@@ -120,3 +120,29 @@ CORE: Warm, sociable, quietly perceptive; trusted by classmates and firm when it
   assert(!after.relationships.CORE, 'CORE cleared');
   eq(after.relationships['Aurora Sterling'].r, 30, 'Aurora restored from her own line');
 });
+
+test('M57-003 a heading is a person, never a group; a blank line ends a block; commas and parentheticals after the name are fine; an unrecognized block owns nothing', () => {
+  const brief = `Vanderbilt family
+Old money. Owns half the marina.
+
+Rias Wells, 18, senior
+CORE: devoted older sister with a secret romantic attachment (P:85 R:65 S:45)
+
+Aurora Sterling (17)
+CORE: Warm, sociable, quietly perceptive.
+→ Jovan: childhood best friend, reunion stirring she won't name (P:65 R:30 S:5)
+→ Claire Stone: close friend (P:60 R:0 S:0)
+
+Ravenwood High
+The school. (P:1 R:0 S:0)
+
+?? Some Unknown Format ??
+CORE: whatever (P:50 R:50 S:50)`;
+  const out = explicitStandings(brief, 'Jovan');
+  eq(out.map((s) => s.name + ':' + s.p).join(' | '), 'Rias Wells:85 | Aurora Sterling:65', JSON.stringify(out));
+  assert(!out.some((s) => /Vanderbilt|Ravenwood|Unknown|CORE/.test(s.name)), 'no group, no school, no label, no stale owner');
+  let s = emptyState(); s.sheet.playerName = 'Jovan';
+  s = applyMutations(s, [{ type: 'rel.set', name: 'Vanderbilt family', p: 85, r: 65, s: 45, cause: 'x' }]).state;
+  const after = applyMutations(s, standingsHousekeeping(s, brief, '', 'Jovan')).state;
+  assert(after.relationships['Rias Wells'] && after.relationships['Rias Wells'].p === 85, 'Rias restored from her own block');
+});

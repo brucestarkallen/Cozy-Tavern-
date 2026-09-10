@@ -124,20 +124,32 @@ export function isLabel(head) {
   if (LABEL_WORDS.has(h.toLowerCase())) return true;
   return /^[A-Z0-9 :\/&'’.-]{2,}$/.test(h) && !/[a-z]/.test(h);
 }
+/* A heading names a PERSON: one to three capitalised words, never a group
+ * ("Vanderbilt family", "the council", "Ravenwood High"). A comma or a
+ * parenthetical may follow the name ("Rias Wells, 18, senior"). */
+const GROUP_WORDS = /\b(family|families|house|clan|council|school|high|academy|team|club|guild|faction|gang|crew|company|corp|corporation|studio|band|the|of)\b/i;
+export function looksLikePersonHeading(head) {
+  const h = String(head || '').trim();
+  if (!h || isLabel(h)) return false;
+  const words = h.split(/\s+/);
+  if (words.length < 1 || words.length > 3) return false;
+  if (GROUP_WORDS.test(h)) return false;
+  return words.every((w) => /^[A-Z][A-Za-z'’.\-]*$/.test(w));
+}
 export function explicitStandings(text, mc = '') {
   const out = [];
   let owner = '';
   for (const raw of String(text || '').split('\n')) {
     const line = raw.trim();
-    if (!line) continue;
+    if (!line) { owner = ''; continue; } /* a blank line ends the block — no stale owner */
     const m = line.match(TRIPLE);
     const hasArrow = ARROW.test(line) && !/^[\s\-*•]*[A-Za-z]/.test(line.replace(ARROW, '')) === false && /^[\s\-*•]*(?:→|->|=>)/.test(line);
     if (!m) {
       /* a heading: short, no digits, no marker, reads like a name — and never
        * a label ("CORE: Warm, sociable…" is a section of the heading above,
        * not a new owner) */
-      const head = clean(line.split(/\s+[—–-]\s+|:/)[0]);
-      if (!hasArrow && head && !isLabel(head) && head.length <= 40 && /^[A-Z][A-Za-z'’.\- ]*$/.test(head) && head.split(/\s+/).length <= 4) owner = head;
+      const head = clean(line.split(/\s+[—–-]\s+|[:,(]/)[0]);
+      if (!hasArrow && looksLikePersonHeading(head)) owner = head;
       continue;
     }
     const clampN = (v) => Math.max(-100, Math.min(100, Number(v)));
@@ -152,10 +164,10 @@ export function explicitStandings(text, mc = '') {
       if (!owner || (mc && sameName(owner, mc))) continue;
       out.push({ name: owner, ...numbers });
     } else {
-      /* "Name — … (P R S)": the head owns it, toward the MC — unless the head IS the MC */
-      if (!head || (mc && sameName(head, mc))) continue;
-      out.push({ name: head, ...numbers });
-      owner = head;
+      /* "Name — … (P R S)": the head owns it, toward the MC — unless the head IS the MC or not a person */
+      if (!head || (mc && sameName(head, mc)) || !looksLikePersonHeading(clean(head.split(/[,(]/)[0]))) continue;
+      out.push({ name: clean(head.split(/[,(]/)[0]), ...numbers });
+      owner = clean(head.split(/[,(]/)[0]);
     }
   }
   /* dedupe by person, the fuller name kept */
