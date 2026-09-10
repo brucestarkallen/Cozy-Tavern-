@@ -1476,3 +1476,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   reasoning_content first) and proves the thought and its time are kept and shown.
   LAW (relearned, the hard way, twice this session): never push with a red harness.
   277/277 + 20/20. version.js -> m46-002.
+
+---
+
+# M47 — the mood is stated whole, every page
+- FIELD REPORT: "he got out of the Uber and hugged his sister on the porch and the scene is still
+  'on the road' — is something ticked never un-ticked?" Exactly that: the reader was told to
+  mode.clear "when a mood clearly ends", which means remembering to un-tick; models forget. And a
+  stale mood is not cosmetic — combat left on makes the referee rule every turn, intimate wakes
+  the NSFW module in a kitchen, socialField wakes Voices in an empty room.
+- apply.js: mode.snapshot {flags:[…]} — the WHOLE BOARD: every mood that holds at the end of the
+  page; anything not named is cleared; diffed against the ledger so only real changes are
+  logged (undo kind mode.restore). mode.set/mode.clear stay for the hand.
+- extractor: the reader is shown the moods on the board and told to restate it whole every page
+  (with the concrete cases: stepped out of the car is not in transit, an emptied room is not a
+  social field, an ended fight is not combat). The auditor holds the moods to the latest page too.
+- Harness: m47.mjs. 279/279 + 20/20. version.js -> m47-001.

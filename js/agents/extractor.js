@@ -107,8 +107,7 @@ const VOCABULARY = [
   'presence.enter {"type":"presence.enter","name":"Mira","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown',
   'presence.leave {"type":"presence.leave","name":"Samantha"} — when someone clearly leaves the scene',
   'presence.update {"type":"presence.update","name":"Mira","position":"at the window"} — when someone present moves or changes dress',
-  'mode.set {"type":"mode.set","flag":"combat","reason":"blades drawn"} — flag is one of: combat, intimate, travel, socialField, isolation, group',
-  'mode.clear {"type":"mode.clear","flag":"combat"} — when that mood clearly ends',
+  'mode.snapshot {"type":"mode.snapshot","flags":["travel"]} — THE WHOLE BOARD, EVERY PAGE: every mood that holds at the END of this page, from: combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit — a car, a train, a road; NOT once they have arrived and stepped out), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several). Anything you do not name is cleared. An empty list clears them all.',
   'body.injure {"type":"body.injure","name":"Mara","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
   'body.strain {"type":"body.strain","name":"Mara","what":"the long climb"} — weariness short of injury, when the prose shows it',
   'body.heal {"type":"body.heal","name":"Mara","what":"forearm"} — only when the prose says a known hurt has healed',
@@ -165,6 +164,10 @@ function systemPrompt({ mc, founding }) {
     'The only mutations that exist:',
     VOCABULARY,
     '',
+    'THE MOOD IS STATED WHOLE, EVERY PAGE: include one mode.snapshot naming every mood that holds at',
+    'the end of this page — a mood you leave out is cleared. A man who has stepped out of the car is',
+    'not in transit; a room that emptied is not a social field; a fight that ended is not combat.',
+    '',
     law,
     'Names keep the exact spelling the prose uses. No commentary, no markdown fences,',
     'no trailing words: the JSON object only.',
@@ -179,10 +182,12 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
   const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
+  const onNow = Object.entries((state && state.mode) || {}).filter(([, v]) => v).map(([k]) => k);
   const FENCE = '"""';
   const user = [
     'Here is what the ledger currently says:',
     facts,
+    'Moods on the board right now: ' + (onNow.length ? onNow.join(', ') : 'none') + ' — restate the whole board with mode.snapshot.',
     '',
     ...(brief && String(brief).trim()
       ? ['What this story is about, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 1500), FENCE, '']

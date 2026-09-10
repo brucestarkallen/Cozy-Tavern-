@@ -182,6 +182,28 @@ const HANDLERS = {
     };
   },
 
+  /* M47: the mood as a whole board. The reader states EVERY mood that holds
+   * on this page; anything not named is cleared. Diffed against the ledger
+   * so only real changes are logged. The old mode.set/mode.clear stay for
+   * the hand and for a single change. */
+  'mode.snapshot'(state, m) {
+    const list = Array.isArray(m.flags) ? m.flags : (typeof m.flags === 'string' ? m.flags.split(/[,\s]+/) : []);
+    const wanted = new Set(list.map((f) => String(f || '').trim()).filter((f) => MODE_FLAGS.includes(f)));
+    const before = { ...state.mode };
+    const turnedOn = MODE_FLAGS.filter((f) => wanted.has(f) && !state.mode[f]);
+    const turnedOff = MODE_FLAGS.filter((f) => !wanted.has(f) && state.mode[f]);
+    if (!turnedOn.length && !turnedOff.length) return { why: 'the mood is as it was' };
+    for (const f of turnedOn) state.mode[f] = true;
+    for (const f of turnedOff) state.mode[f] = false;
+    const on = (f) => (MODE_WORDS[f] && MODE_WORDS[f].on) || f;
+    const off = (f) => (MODE_WORDS[f] && MODE_WORDS[f].off) || f;
+    const words = [
+      turnedOn.length ? turnedOn.map(on).join('; ') : '',
+      turnedOff.length ? turnedOff.map(off).join('; ') : '',
+    ].filter(Boolean).join('; ') + '.';
+    return { words, undo: { kind: 'mode.restore', before } };
+  },
+
   'place.set'(state, m) {
     /* M26: where the scene stands — set when the ground moves or is first named. */
     const name = normalizeName(m.name || m.place || '');
@@ -747,7 +769,10 @@ export function undoLast(state) {
     const undo = entry.undo;
     let ok = false;
 
-    if (undo.kind === 'mc.restore') {
+    if (undo.kind === 'mode.restore') {
+      next.mode = { ...next.mode, ...(undo.before || {}) };
+      ok = true;
+    } else if (undo.kind === 'mc.restore') {
       next.sheet = { ...(next.sheet || { actors: {} }), playerName: undo.before || '' };
       ok = true;
     } else if (undo.kind === 'place') {
