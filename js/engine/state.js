@@ -615,10 +615,11 @@ export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
   let state;
   if (base) state = deepCopy(base);
   else {
+    /* M71: from nothing means nothing — no clock (its cached label showed the
+     * old date), no founding print (the founder runs again on the first
+     * page, and its writes, when journaled at -1, are re-applied below) */
     state = emptyState();
     state.sheet = { ...state.sheet, playerName: (current.sheet && current.sheet.playerName) || '' };
-    state.clock = current.clock ? { ...current.clock, minutes: 0 } : null;
-    state.founded = current.founded || null;
   }
   /* with no base, everything from the founding (stamped -1) forward is re-applied */
   const from = base ? base.page : -2;

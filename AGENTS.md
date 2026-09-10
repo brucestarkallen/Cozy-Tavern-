@@ -1935,3 +1935,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   journal. Also: branchFrom while busy or replaying used to return silently — it says so now.
 - DOM-8d: a long story, branch at the first writer's message → no storyteller page, no one
   present, no ground. 312/312 + 28/28 (×3). version.js -> m70-001.
+
+---
+
+# M71 — a branch at a writer's page: no clock from nothing; a pre-journal story uses that message's own checkpoint
+- FIELD REPORT (screenshots): branch at the first writer's message from page 24 — the branch holds
+  only that message (right) but its ledger shows the clock "Thursday, August 20, 2026 — 11:04".
+  Two causes: (1) foldJournal's empty base copied the clock object "for the calendar's shape" —
+  and the clock carries a cached date label, so a ledger that should have no clock showed page
+  0's date; now from nothing means nothing (no clock, no founding print — the founder runs again
+  on the first page). (2) The story predates the journal (M69), so the fold was not used and the
+  fallback for a WRITER'S page took the checkpoint keyed to the NEXT turn — the state after the
+  page that answered it. A writer's page now uses the checkpoint keyed to that very message: the
+  ledger before its turn. DOM-8d asserts no clock and no seats as well.
+- 312/312 + 28/28 (×8). version.js -> m71-001.

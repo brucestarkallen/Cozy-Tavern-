@@ -616,6 +616,8 @@ test('DOM-8d a branch at the FIRST WRITER’S message carries no storyteller pag
   eq(pages.filter((m) => m.role === 'assistant').length, 0, 'no storyteller page in the branch');
   eq((bst.present || []).length, 0, 'no one present: ' + JSON.stringify(bst.present));
   eq(bst.place, null, 'no ground');
+  eq(bst.clock, null, 'no clock — not even the old date');
+  eq(Object.keys(bst.offscreen || {}).length, 0, 'no seats');
   const originTitle = (await db.stories.get(sid)).title;
   const row = qa('.story-item').find((li) => li.textContent.includes(originTitle) && !/a branch/.test(li.textContent));
   click(q('.story-open', row) || row);

@@ -3002,6 +3002,7 @@ export function initChat(ctx) {
      * old telling's later turns crosses over. */
     const target = history[at];
     let carried = null;
+    let exact = false;
     /* M70: with a journal, ONE rule for any page: the branch's ledger is the
      * fold up to the last storyteller page the branch actually contains — for
      * a writer's first message that is none (k = -1): empty but for what the
@@ -3016,6 +3017,14 @@ export function initChat(ctx) {
     /* M67: a branch from the LAST page carries the ledger as it stands */
     if (!carried && (isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden))) {
       carried = nowState;
+    }
+    /* M71: a WRITER'S page, no journal (a story from before it): the checkpoint
+     * keyed to that very message — the ledger before its turn — never the one
+     * after the page that answered it */
+    if (!carried && target.role === 'user') {
+      const snaps = await loadSnapshots(story.id);
+      const hit = snaps.find((e) => e.id === target.id);
+      if (hit) { carried = hit.snap; exact = true; }
     }
     if (!carried && target.role === 'assistant') {
       const idx = Array.isArray(target.swipes) && target.swipes.length
@@ -3037,7 +3046,7 @@ export function initChat(ctx) {
      * of the carried pages rebuild it in the branch. The old fallback was
      * the ledger as it stands now, which for a branch at the start carried
      * everything that happened afterwards. */
-    let exact = Boolean(carried);
+    exact = exact || Boolean(carried);
     if (!carried) {
       const snaps = await loadSnapshots(story.id);
       const carriedOrder = pages.filter((m) => m.role === 'user').map((m) => m.id);
