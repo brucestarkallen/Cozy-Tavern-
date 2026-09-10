@@ -491,3 +491,8 @@
 /* M29 — the world beyond the page */
 .world-brief { margin: 0 0 .5rem; }
 .world-line { margin: .15rem 0 .15rem .35rem; font-family: var(--font-prose); color: var(--text-1); line-height: 1.4; }
+
+/* M31 — what a worker said */
+.worker-said { margin: .25rem 0 0; }
+.worker-said summary { cursor: pointer; }
+.worker-raw { white-space: pre-wrap; word-break: break-word; font-size: .78em; max-height: 14rem; overflow: auto; background: var(--bg-2); padding: .4rem .5rem; border-radius: 4px; margin: .25rem 0 0; }

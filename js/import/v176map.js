@@ -61,6 +61,7 @@ const MARKER_NAMES = [
 /* ---------- Bucket A — the craft (stable core, joined in original order) ---------- */
 const CRAFT_NAMES = [
   'Main Prompt',
+  'Time and Place',
   'Writing Guidelines (Anti-Slop)',
   'Banned Words',
   'Simulation Core',
@@ -113,7 +114,6 @@ const RETIRED_ENGINE_ROWS = [
 /* ---------- Bucket D — retired into the house ---------- */
 const RETIRED_HOUSE_ROWS = [
   { name: 'Output Systems', why: 'the house keeps the order of things' },
-  { name: 'Time and Place', why: 'the house writes the masthead from the ledger (place, date, hour, who’s here); travel and ETAs are the world agent’s clock' },
   { name: 'Commands (#p #pp #q)', why: 'the house hears commands' },
   { name: 'CoT', why: 'the storyteller thinks natively now' },
 ];

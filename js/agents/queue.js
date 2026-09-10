@@ -129,7 +129,7 @@ async function runJob(job) {
       /* The job may ask for silence (a switch was off, nothing to note);
        * every honest run is otherwise written on the workers line. */
       if (!value || value.silent !== true) {
-        await noteWorkerRun(storyId, name, { ok: true, detail: value && value.detail });
+        await noteWorkerRun(storyId, name, { ok: true, detail: value && value.detail, raw: value && value.raw });
       }
       return { ok: true, value };
     } catch (err) {
@@ -139,7 +139,7 @@ async function runJob(job) {
     }
   }
   const why = plainWhy(lastErr);
-  await noteWorkerRun(storyId, name, { ok: false, why });
+  await noteWorkerRun(storyId, name, { ok: false, why, raw: lastErr && typeof lastErr.raw === 'string' ? lastErr.raw : '' });
   return { ok: false, why };
 }
 

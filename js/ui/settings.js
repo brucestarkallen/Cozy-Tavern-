@@ -34,7 +34,7 @@ import { cleanWindow } from '../agents/memory.js';
 import { WORKER_ROWS } from '../agents/assign.js';
 /* M16: the house's version word stands in the header line. */
 import { VERSION } from '../version.js';
-import { loadRules, saveRules, tryRule, applyRules, builtinOriginal, MODE_WORDS, VOICE_WORDS } from '../regex.js'; /* M30: the regex shelf */
+import { loadRules, saveRules, tryRule, applyRules, builtinOriginal, importSillyTavernRegex, MODE_WORDS, VOICE_WORDS } from '../regex.js'; /* M30: the regex shelf; M31: bring your SillyTavern regex */
 import { pageText } from '../assemble/stack.js';
 
 export function initSettings(ctx) {
@@ -127,6 +127,8 @@ export function initSettings(ctx) {
     regexTryNote: document.getElementById('regex-try-note'),
     btnRegexAdd: document.getElementById('btn-regex-add'),
     btnRegexClean: document.getElementById('btn-regex-clean'),
+    regexFile: document.getElementById('regex-file'),
+    regexImportNote: document.getElementById('regex-import-note'),
     regexCleanNote: document.getElementById('regex-clean-note'),
     memoryKeeper: document.getElementById('memory-keeper'),
     memoryWindow: document.getElementById('memory-window'),
@@ -1681,6 +1683,26 @@ export function initSettings(ctx) {
   }
 
   els.btnRegexAdd.addEventListener('click', () => openRegexForm(null));
+
+  /* M31: bring your SillyTavern regex — a rule already on the shelf (same id)
+   * is replaced by the file's version; the rest join. */
+  els.regexFile.addEventListener('change', async () => {
+    const file = els.regexFile.files && els.regexFile.files[0];
+    els.regexFile.value = '';
+    if (!file) return;
+    try {
+      const { rules: incoming, skipped } = importSillyTavernRegex(await file.text());
+      if (!incoming.length) { say(els.regexImportNote, 'Nothing in that file could be read as a regex script.'); return; }
+      const have = await loadRules();
+      const ids = new Set(incoming.map((r) => r.id));
+      const next = [...have.filter((r) => !ids.has(r.id)), ...incoming];
+      await saveRules(next);
+      say(els.regexImportNote, `${incoming.length} ${incoming.length === 1 ? 'rule' : 'rules'} brought home` + (skipped.length ? ` — ${skipped.length} skipped (not over the storyteller’s or the writer’s words).` : '.'));
+      afterRegexChange();
+    } catch (err) {
+      say(els.regexImportNote, err.message || 'That file wouldn’t open.');
+    }
+  });
   els.btnRegexCancel.addEventListener('click', () => { els.regexForm.hidden = true; regexEditing = null; });
 
   els.regexForm.addEventListener('submit', async (e) => {

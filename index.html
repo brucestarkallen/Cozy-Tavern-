@@ -443,8 +443,13 @@
           </form>
           <div class="row">
             <button id="btn-regex-add" class="text-btn" type="button">＋ a rule</button>
+            <label class="btn btn-quiet file-btn">Bring your SillyTavern regex
+              <input id="regex-file" type="file" accept="application/json,.json" hidden>
+            </label>
             <button id="btn-regex-clean" class="text-btn" type="button">Clean this story's pages now</button>
           </div>
+          <p id="regex-import-note" class="quiet" hidden></p>
+          <p class="quiet">A SillyTavern regex export lands on the shelf as it was: "Alter chat display" rules become thread-only rules and may dress the page in HTML (a styled header, a folded tracker) — the thread renders it through an allowlist. "Alter outgoing prompt" rules become wire-only. The rest rewrite the page itself.</p>
           <p class="quiet">"Clean this story's pages now" runs the page-mode rules over every page already written in the open story — for a tale that began before the rules did. It rewrites the pages; there is no take-back.</p>
           <p id="regex-clean-note" class="quiet" hidden></p>
         </section>

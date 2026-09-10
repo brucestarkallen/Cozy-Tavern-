@@ -70,3 +70,40 @@ export function parseFirstObject(raw) {
     return null;
   }
 }
+
+/* M31: the repair pass. A cheap model's JSON fails in three known ways —
+ * comments, trailing commas, and raw newlines inside a string — and each
+ * is mechanical to mend. Run only when a strict parse has failed; the
+ * repaired text is parsed again by the caller. Never throws. */
+export function repairJson(text) {
+  const src = String(text || '');
+  let out = '';
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < src.length; i += 1) {
+    const ch = src[i];
+    if (inStr) {
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === '\\') { out += ch; esc = true; continue; }
+      if (ch === '"') { out += ch; inStr = false; continue; }
+      /* a raw newline or tab inside a string becomes a space */
+      if (ch === '\n' || ch === '\r' || ch === '\t') { out += ' '; continue; }
+      out += ch;
+      continue;
+    }
+    if (ch === '"') { out += ch; inStr = true; continue; }
+    /* comments outside strings */
+    if (ch === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i += 1; continue; }
+    if (ch === '/' && src[i + 1] === '*') { const end = src.indexOf('*/', i + 2); i = end === -1 ? src.length : end + 1; continue; }
+    out += ch;
+  }
+  /* trailing commas before a closing bracket or brace */
+  out = out.replace(/,\s*([}\]])/g, '$1');
+  return out;
+}
+
+/* Parse leniently: strict first, then the repair pass. null on trouble. */
+export function parseLenient(candidate) {
+  try { return JSON.parse(candidate); } catch (err) { /* try mending */ }
+  try { return JSON.parse(repairJson(candidate)); } catch (err) { return null; }
+}

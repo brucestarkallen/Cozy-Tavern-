@@ -1447,6 +1447,20 @@ function workersPanel(ctx) {
         + (row.ok ? (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.')
                   : ' and stumbled — ' + (row.why || 'stumbled') + '.');
       li.appendChild(words);
+      /* M31: what it actually said, folded — so "could not be used" can be
+       * read instead of guessed at. */
+      if (row.raw) {
+        const fold = document.createElement('details');
+        fold.className = 'worker-said';
+        const sum = document.createElement('summary');
+        sum.className = 'lbl';
+        sum.textContent = 'what it said';
+        const pre = document.createElement('pre');
+        pre.className = 'worker-raw';
+        pre.textContent = row.raw;
+        fold.append(sum, pre);
+        li.appendChild(fold);
+      }
       list.appendChild(li);
     }
   });

@@ -34,7 +34,7 @@
  * The M3 names (noteExtraction / pendingExtraction) remain as aliases —
  * they were the published contract. */
 
-import { balancedCandidates } from './jsonutil.js';
+import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 
@@ -224,17 +224,16 @@ export function parseExtractorAnswer(raw) {
     text = text.replace(/<think>[\s\S]*?(<\/think>|$)/gi, '');
     text = text.replace(/```(?:json|JSON)?/g, '');
     const candidates = balancedCandidates(text, 5);
-    let candidate = null;
+    let parsed = null;
     for (const c of candidates) {
-      try {
-        const p = JSON.parse(c);
-        if (p && Array.isArray(p.mutations)) { candidate = c; break; }
-      } catch { /* try the next balanced thing */ }
+      /* M31: strict, then the repair pass (comments, trailing commas, raw
+       * newlines in strings) — a cheap model's usual slips. */
+      const p = parseLenient(c);
+      if (p && Array.isArray(p.mutations)) { parsed = p; break; }
     }
-    if (!candidate) candidate = candidates[0] || null;
-    if (!candidate) return { mutations: [], note: 'unusable' };
-    const parsed = JSON.parse(candidate);
-    const list = parsed && Array.isArray(parsed.mutations) ? parsed.mutations : [];
+    if (!parsed && candidates[0]) parsed = parseLenient(candidates[0]);
+    if (!parsed) return { mutations: [], note: 'unusable' };
+    const list = Array.isArray(parsed.mutations) ? parsed.mutations : [];
     const mutations = list.filter(
       (m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim()
     );
@@ -258,12 +257,33 @@ export async function extractTurn({ connection, state, userText, assistantText, 
   if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
   const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes });
-  const { text } = await callWorker(connection, {
-    system: prompt.system,
-    user: prompt.user,
-    maxTokens: MAX_TOKENS,
-    effort: 'off',
-    signal,
-  });
-  return parseExtractorAnswer(text);
+  /* M31: an answer we can't use, or a founding that came back empty, earns
+   * ONE second ask with a sharper word — here, not five blind retries in
+   * the queue. The raw answer rides out so the drawer can show it. */
+  let user = prompt.user;
+  let last = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { text, finishReason } = await callWorker(connection, {
+      system: prompt.system,
+      user,
+      maxTokens: MAX_TOKENS,
+      effort: 'off',
+      signal,
+    });
+    const read = parseExtractorAnswer(text);
+    read.raw = text;
+    if (finishReason === 'length') read.note = read.mutations.length ? read.note : 'cut short';
+    last = read;
+    if (read.note === 'ok') return read;
+    if (attempt === 0) {
+      if (read.note === 'unusable' || read.note === 'cut short') {
+        user = prompt.user + '\n\nYour last answer was not a JSON object with a "mutations" list. Answer with the JSON object only — no words before or after it.';
+      } else if (read.note === 'empty' && young) {
+        user = prompt.user + '\n\nThe ledger is empty and the page has a scene, so an empty list is wrong here. Write the founding: place.set for the ground, presence.enter for every person in the scene (the main character included), mc.set if the main character is not yet known. JSON only.';
+      } else {
+        return read;
+      }
+    }
+  }
+  return last;
 }

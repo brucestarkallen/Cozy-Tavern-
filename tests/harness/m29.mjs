@@ -163,7 +163,7 @@ test('M29-8 end to end: the world agent moves the world and leaves a brief, thro
     const house = thinkingHouse({ answer: ANSWER });
     const result = await withHouse(house, () => worldTurn({ connection: h.conn, storyId, userText: 'u', assistantText: 'Liara watched him not eat.', stale: () => false }));
     assert(thinkingOff(house.calls[0].body, house.calls[0].anthropic), h.name + ': thinking off');
-    eq(house.calls[0].body.max_tokens, 2400, h.name + ': the world agent’s budget');
+    eq(house.calls[0].body.max_tokens, 4000, h.name + ': the world agent’s budget (M31: 4000)');
     eq(result.applied.length, 5, h.name + ': five applied — ' + result.rejected.map((x) => x.why).join(' | '));
     eq(result.dropped, 1, h.name + ': the clock move was dropped, not refused');
     const after = await loadState(storyId);

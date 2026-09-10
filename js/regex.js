@@ -53,15 +53,15 @@ export const VOICE_WORDS = {
 export const BUILTIN_RULES = [
   {
     id: 'builtin-preset-header',
-    name: 'The preset’s own header line',
+    name: 'Remove the preset’s header line',
     find: '^\\s*\\[[^\\[\\]\\n]*\\|[^\\[\\]\\n]*\\]\\s*$\\n?',
     flags: 'gm',
     replace: '',
     on: 'storyteller',
     mode: 'page',
-    enabled: true,
+    enabled: false,
     builtin: true,
-    note: 'A bracketed line with a pipe in it — [Place — Day, Date | HH:MM | weather | attire | position], and the [ACW: …|…] / [IST: …|…] tracker lines. The house writes its own masthead from the ledger.',
+    note: 'OFF by default (M31): most writers keep the [Place — Day, Date | HH:MM | weather | attire | position] header and style it with a display rule instead — bring your SillyTavern regex file below. Turn this on only if you want the line gone and the house masthead in its place.',
   },
   {
     id: 'builtin-plot-momentum',
@@ -77,15 +77,15 @@ export const BUILTIN_RULES = [
   },
   {
     id: 'builtin-tracker-blocks',
-    name: 'The tracker blocks',
-    find: '\\n*\\{(PULSE|WATCHLIST|VOICES)\\}[\\s\\S]*?\\{\\/\\1\\}\\s*',
+    name: 'The state blocks',
+    find: '\\n*\\{(PULSE|WATCHLIST)\\}[\\s\\S]*?\\{\\/\\1\\}\\s*',
     flags: 'g',
     replace: '',
     on: 'storyteller',
     mode: 'page',
     enabled: true,
     builtin: true,
-    note: '{PULSE}…{/PULSE}, {WATCHLIST}…{/WATCHLIST}, {VOICES}…{/VOICES}. The ledger renders what they carried.',
+    note: '{PULSE}…{/PULSE} and {WATCHLIST}…{/WATCHLIST} — pure state the ledger keeps now; sent back every turn they are the drift the world agent ends. {VOICES} is left alone: it is content, and a display rule can style it.',
   },
 ];
 
@@ -192,4 +192,64 @@ export function currentRules() {
 export function builtinOriginal(id) {
   const b = BUILTIN_RULES.find((r) => r.id === id);
   return b ? { ...b } : null;
+}
+
+/* ---------- M31: bring your SillyTavern regex ---------- */
+
+/* Does a replacement carry HTML the thread should render? */
+export function replaceHasHtml(replace) {
+  return /<\/?[a-z][^>]*>/i.test(String(replace || ''));
+}
+
+/* Parse SillyTavern's "/pattern/flags" form (or a bare pattern). */
+export function splitFindRegex(findRegex) {
+  const raw = String(findRegex || '');
+  const m = raw.match(/^\/([\s\S]*)\/([gimsuy]*)$/);
+  if (m) return { find: m[1], flags: m[2] || '' };
+  return { find: raw, flags: '' };
+}
+
+/* A SillyTavern regex-script export (one object or an array) → shelf rules.
+ *   placement 1 = the writer's words, 2 = the storyteller's pages (others skipped)
+ *   markdownOnly → display; promptOnly → wire; both → one display + one wire
+ *   rule; neither → page (SillyTavern's default alters the stored message).
+ * Unknown macros in the replacement ({{user}} …) are left as typed. */
+export function importSillyTavernRegex(jsonText) {
+  let data;
+  try { data = typeof jsonText === 'string' ? JSON.parse(jsonText) : jsonText; } catch (err) {
+    throw new Error('That file wouldn’t open — it doesn’t read like JSON. Is it a regex export?');
+  }
+  const list = Array.isArray(data) ? data : [data];
+  const rules = [];
+  const skipped = [];
+  for (const it of list) {
+    if (!it || typeof it !== 'object' || typeof it.findRegex !== 'string' || !it.findRegex) { skipped.push(it && it.scriptName ? it.scriptName : 'an entry'); continue; }
+    const { find, flags } = splitFindRegex(it.findRegex);
+    const placement = Array.isArray(it.placement) ? it.placement.map(Number) : [2];
+    const voices = [];
+    if (placement.includes(2)) voices.push('storyteller');
+    if (placement.includes(1)) voices.push('writer');
+    if (!voices.length) { skipped.push(it.scriptName || 'an entry'); continue; }
+    const on = voices.length === 2 ? 'both' : voices[0];
+    const modes = [];
+    if (it.markdownOnly) modes.push('display');
+    if (it.promptOnly) modes.push('wire');
+    if (!modes.length) modes.push('page');
+    const name = typeof it.scriptName === 'string' && it.scriptName.trim() ? it.scriptName.trim() : 'A rule from SillyTavern';
+    for (const mode of modes) {
+      rules.push({
+        id: 'st-' + (typeof it.id === 'string' && it.id ? it.id : Math.random().toString(36).slice(2)) + (modes.length > 1 ? '-' + mode : ''),
+        name: modes.length > 1 ? name + ' (' + mode + ')' : name,
+        find,
+        flags: flags || 'g',
+        replace: typeof it.replaceString === 'string' ? it.replaceString : '',
+        on,
+        mode,
+        enabled: it.disabled !== true,
+        builtin: false,
+        note: '',
+      });
+    }
+  }
+  return { rules, skipped };
 }

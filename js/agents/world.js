@@ -40,7 +40,7 @@
 
 import { db } from '../store.js';
 import { callWorker } from './call.js';
-import { balancedCandidates } from './jsonutil.js';
+import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
@@ -49,7 +49,7 @@ import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
 import { renderThreads, renderKnowledge, renderFactions, normalizeBrief, STANCES } from '../engine/world.js';
 
-const MAX_TOKENS = 2400;
+const MAX_TOKENS = 4000; /* M31: room for a long founding — thinking is off, so the budget is the answer's */
 export const WORLD_SHOWN_MAX = 6;
 
 /* The only doors the world agent may open. Anything else it proposes is
@@ -229,10 +229,8 @@ export function parseWorldAnswer(raw) {
     const candidates = balancedCandidates(text, 5);
     let parsed = null;
     for (const c of candidates) {
-      try {
-        const p = JSON.parse(c);
-        if (p && typeof p === 'object' && (Array.isArray(p.mutations) || (p.brief && typeof p.brief === 'object'))) { parsed = p; break; }
-      } catch { /* the next balanced thing */ }
+      const p = parseLenient(c);
+      if (p && typeof p === 'object' && (Array.isArray(p.mutations) || (p.brief && typeof p.brief === 'object'))) { parsed = p; break; }
     }
     if (!parsed) return { mutations: [], dropped: 0, brief: null, note: 'unusable' };
     const list = Array.isArray(parsed.mutations) ? parsed.mutations : [];
@@ -259,14 +257,26 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
 
   const state = await loadState(storyId);
   const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes });
-  const { text } = await callWorker(connection, {
-    system: prompt.system,
-    user: prompt.user,
-    maxTokens: MAX_TOKENS,
-    effort,
-    signal,
-  });
-  const read = parseWorldAnswer(text);
+  /* M31: an answer we can't use earns ONE second ask with a sharper word;
+   * the raw answer rides out so the drawer can show it. */
+  let read = null;
+  let raw = '';
+  let user = prompt.user;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { text, finishReason } = await callWorker(connection, {
+      system: prompt.system,
+      user,
+      maxTokens: MAX_TOKENS,
+      effort,
+      signal,
+    });
+    raw = text;
+    read = parseWorldAnswer(text);
+    if (finishReason === 'length' && read.note === 'unusable') read.note = 'cut short';
+    if (read.note !== 'unusable' && read.note !== 'cut short') break;
+    user = prompt.user + '\n\nYour last answer was not a JSON object with "mutations" and "brief". Answer with the JSON object only — no words before or after it, and keep it short.';
+  }
+  if (read.note === 'unusable' || read.note === 'cut short') return { applied: [], rejected: [], dropped: 0, brief: null, note: read.note, raw };
   if (stale && stale()) return null;
 
   /* Re-read at write time — the ledger may have moved (the extractor's
@@ -283,13 +293,14 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   if (stale && stale()) return null;
   await saveState(storyId, out);
   notify(storyId);
-  return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note };
+  return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw };
 }
 
 /* The workers-line words for one run. */
 export function worldRunWords(result) {
   if (!result) return 'nothing to read';
   if (result.note === 'unusable') return 'its answer could not be used';
+  if (result.note === 'cut short') return 'its answer ran out of room';
   const n = result.applied ? result.applied.length : 0;
   const bits = [];
   bits.push(n ? `moved the world in ${n} ${n === 1 ? 'way' : 'ways'}` : 'the world stood still');

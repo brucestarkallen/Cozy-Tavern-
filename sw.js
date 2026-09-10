@@ -55,6 +55,7 @@ const SHELL = [
   'js/ui/receiptview.js',
   'js/ui/housekeeper.js',
   'js/ui/welcome.js',
+  'js/ui/richhtml.js',
   /* M30: the shell audit — every shipped module, kept honest by the harness */
   'js/agents/assign.js',
   'js/agents/director.js',

@@ -66,6 +66,7 @@ import { openReceipt } from './receiptview.js';
  * ladder's rank for the story's own say (A). */
 import { renderRich } from './prose.js';
 import { loadRules, currentRules, applyRules } from '../regex.js'; /* M30: the regex shelf */
+import { renderHtmlProse, looksHtml } from './richhtml.js'; /* M31: display rules may dress the page in HTML */
 import { download } from './download.js';
 import { storyToMarkdown, storyToJsonl, storyExportBasename } from './storyexport.js';
 import { EFFORT_RANK } from '../providers/effort.js';
@@ -962,8 +963,12 @@ export function initChat(ctx) {
       /* M30: display-mode regex rules shape what the eye sees; the page
        * keeps its words. */
       const shown = applyRules(pageText(msg), currentRules(), { on: msg.role, mode: 'display' });
+      /* M31: a display rule may have dressed the page in HTML — then the
+       * whole page renders through the allowlist, and the masthead
+       * decision reads the RAW page (a styled header is still a header). */
+      const dressed = shown !== pageText(msg) && looksHtml(shown);
       if ((opts.mastheadOn !== false) && msg.masthead) {
-        const first = parseScene(shown)[0];
+        const first = parseScene(pageText(msg))[0];
         if (!(first && first.type === 'head')) {
           const mast = document.createElement('div');
           mast.className = 'scene-head lbl masthead';
@@ -971,14 +976,18 @@ export function initChat(ctx) {
           body.appendChild(mast);
         }
       }
-      for (const part of parseScene(shown)) {
-        if (part.type === 'head') {
-          const head = document.createElement('div');
-          head.className = 'scene-head lbl';
-          head.textContent = part.text;
-          body.appendChild(head);
-        } else {
-          body.appendChild(renderRich(part.text));
+      if (dressed) {
+        body.appendChild(renderHtmlProse(shown));
+      } else {
+        for (const part of parseScene(shown)) {
+          if (part.type === 'head') {
+            const head = document.createElement('div');
+            head.className = 'scene-head lbl';
+            head.textContent = part.text;
+            body.appendChild(head);
+          } else {
+            body.appendChild(renderRich(part.text));
+          }
         }
       }
     } else {
@@ -1320,7 +1329,7 @@ export function initChat(ctx) {
         const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
         before = prior.slice(-4).map((m) => ({ role: m.role, text: pageText(m) }));
       }
-      const { mutations, note: extractNote, failed: extractFailed } = await extractTurn({
+      const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw } = await extractTurn({
         connection,
         state: stateBefore,
         userText,
@@ -1362,10 +1371,13 @@ export function initChat(ctx) {
         if (mast) await reink(story.id, msg.id, { masthead: mast });
       } catch { /* a masthead is a courtesy, never a crisis */ }
       const n = applied.length;
+      const refused = rejected.length ? ` (${rejected.length} refused: ${rejected.slice(0, 3).map((r) => r.why).join('; ')})` : '';
       const detail = extractNote === 'unusable'
         ? 'its answer could not be used'
-        : n ? `wrote ${n} ${n === 1 ? 'change' : 'changes'}` : 'nothing to write down';
-      return { silent: false, detail };
+        : extractNote === 'cut short'
+          ? 'its answer ran out of room'
+          : n ? `wrote ${n} ${n === 1 ? 'change' : 'changes'}${refused}` : 'nothing to write down' + refused;
+      return { silent: false, detail, raw: extractRaw };
     });
 
     /* 1b. The world agent (M29): once the page's own truth has landed,
@@ -1396,8 +1408,10 @@ export function initChat(ctx) {
         signal,
         stale,
       });
-      if (result && result.note === 'unusable') throw new Error('its answer could not be used');
-      return { silent: false, detail: worldRunWords(result) };
+      /* M31: a garbled answer is not a transport failure — it is said out
+       * loud, with what the agent actually said kept for the drawer, and
+       * never retried five times over. */
+      return { silent: false, detail: worldRunWords(result), raw: result && result.raw };
     });
 
     /* 2. The scribe (M12): sparse deltas onto the character pages — who

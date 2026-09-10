@@ -44,11 +44,16 @@ function cleanWhy(why) {
 
 /* Record one worker's last run for a story. ok=false wants a why (one plain
  * word of what went wrong, e.g. "no answer", "unreachable"). */
-export async function noteWorkerRun(storyId, name, { ok, why, detail } = {}) {
+export const RAW_CAP = 2000;
+
+export async function noteWorkerRun(storyId, name, { ok, why, detail, raw } = {}) {
   try {
     if (!storyId || !WORKER_NAMES.includes(name)) return;
     const shelf = (await loadWorkerStatus(storyId)) || {};
-    shelf[name] = { at: Date.now(), ok: ok !== false, why: ok === false ? cleanWhy(why) || 'stumbled' : '', detail: typeof detail === 'string' ? detail : '' };
+    /* M31: what the worker actually said, capped — so "its answer could not
+     * be used" can be looked at instead of guessed at. */
+    const said = typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, RAW_CAP) : '';
+    shelf[name] = { at: Date.now(), ok: ok !== false, why: ok === false ? cleanWhy(why) || 'stumbled' : '', detail: typeof detail === 'string' ? detail : '', raw: said };
     await db.settings.set(KEY_PREFIX + storyId, shelf);
   } catch (err) { /* the ledger of workers never makes work of its own */ }
 }
@@ -62,7 +67,15 @@ export async function loadWorkerStatus(storyId) {
     for (const name of WORKER_NAMES) {
       const row = saved[name];
       if (row && typeof row === 'object' && Number.isFinite(row.at)) {
-        out[name] = { at: row.at, ok: row.ok !== false, why: typeof row.why === 'string' ? row.why : '' };
+        /* M31: detail used to be dropped here — the drawer could never say
+         * "wrote 3 changes". It rides now, and so does what the worker said. */
+        out[name] = {
+          at: row.at,
+          ok: row.ok !== false,
+          why: typeof row.why === 'string' ? row.why : '',
+          detail: typeof row.detail === 'string' ? row.detail : '',
+          raw: typeof row.raw === 'string' ? row.raw : '',
+        };
       }
     }
     return out;

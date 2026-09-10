@@ -1086,3 +1086,32 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   WORLD_SHOWN_MAX=6), shown to it each read as "windows already opened" — so "never the same
   beat twice" is a mechanism. Law: two absent people sharing a place and a stake talk, and what
   each learns lands in knowledge.add. 213/213.
+
+---
+
+# M31 — the ledger says what it saw; the regex dresses the page, it doesn't undress it
+- FIELD REPORT 1: "ledger empty again — the world agent stumbled, its answer could not be used".
+  Three roots: (a) status.js loadWorkerStatus DROPPED `detail` on read — the drawer could never say
+  "wrote 3 changes" / "nothing to write down", so nobody could see why the ledger was empty; now
+  detail AND `raw` (what the worker actually said, cap RAW_CAP=2000) ride the shelf, and the drawer
+  folds "what it said" under each worker. (b) a garbled world-agent answer THREW, so the queue
+  retried it five times over ~62s (six model calls) and then said "stumbled"; now a garbled answer
+  earns ONE sharper second ask inside the worker, then is said out loud ("could not be used" /
+  "ran out of room") and never thrown. The extractor does the same, plus a founding nudge when a
+  young ledger's answer comes back empty; its detail names refusals ("nothing to write down (2
+  refused: …)"). (c) jsonutil gains repairJson/parseLenient (comments, trailing commas, raw
+  newlines in strings) — strict first, mended second; extractor and world parsers use it. World
+  agent MAX_TOKENS 2400 → 4000.
+- FIELD REPORT 2: "you're not supposed to make the header gone, make it beautiful" — the writer's
+  SillyTavern 🎨 regex scripts style the header and trackers as HTML on display. So: (a)
+  regex.js importSillyTavernRegex — placement 1/2 → writer/storyteller, markdownOnly → display,
+  promptOnly → wire, both → two rules, neither → page; Settings "Bring your SillyTavern regex".
+  (b) ui/richhtml.js renders a dressed page through an ALLOWLIST (tags; only style/class/open/
+  title; styles that reach out — url(), expression(), @import, javascript: — dropped whole; text
+  nodes still go through the inline renderer). The masthead decision reads the RAW page so a
+  styled header is still a header. (c) builtin "Remove the preset's header line" ships OFF; the
+  state-block rule removes {PULSE}/{WATCHLIST} only ({VOICES} is content); Time and Place is CRAFT
+  again — the storyteller writes the header the writer styles. A shelf that already exists is not
+  re-flipped (the writer's switch stands).
+- Harness: tests/harness/m31.mjs (7 checks, incl. the writer's real regex file at /tmp during
+  development — never committed). 220/220. version.js -> m31-001. sw.js gains ui/richhtml.js.

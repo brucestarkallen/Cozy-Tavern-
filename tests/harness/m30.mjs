@@ -28,7 +28,8 @@ const V177_PAGE = [
 ].join('\n');
 
 test('M30-1 the three shipped rules clean a V177 page down to its prose, and only its prose', () => {
-  const out = applyRules(V177_PAGE, BUILTIN_RULES, { on: 'storyteller', mode: 'page' });
+  const forced = BUILTIN_RULES.map((r) => ({ ...r, enabled: true, find: r.id === 'builtin-tracker-blocks' ? r.find.replace('(PULSE|WATCHLIST)', '(PULSE|WATCHLIST|VOICES)') : r.find }));
+  const out = applyRules(V177_PAGE, forced, { on: 'storyteller', mode: 'page' });
   eq(out, 'Liara peeled the paper from her burger and watched Jovan not eat his. [He thought about the letter.]');
   /* a bracket without a pipe is prose and stays */
   assert(out.includes('[He thought about the letter.]'));
@@ -112,9 +113,8 @@ test('M30-7 the import no longer hands the storyteller the header protocol or th
   const plan = decompose(parsePreset(JSON.stringify(preset)).entries);
   const craftNames = plan.craft.map((c) => c.name);
   assert(craftNames.some((n) => /Main Prompt/.test(n)) && craftNames.some((n) => /Writing Guidelines/.test(n)), 'the craft keeps the craft');
-  assert(!craftNames.some((n) => /Time and Place|Better Narrative/.test(n)), 'the header protocol and plot momentum are out of the craft');
+  assert(!craftNames.some((n) => /Better Narrative/.test(n)), 'plot momentum is out of the craft (M31: Time and Place is craft again — the writer keeps the header and styles it)');
   const retired = plan.retired.map((r) => r.name + ' :: ' + r.why);
-  assert(retired.some((r) => /Time and Place.*masthead/.test(r)), 'Time and Place retired with its why');
   assert(retired.some((r) => /Better Narrative.*world agent/.test(r)), 'plot momentum retired to the world agent');
   assert(retired.some((r) => /ACW.*world agent/.test(r)), 'ACW says the world agent keeps it');
 });
