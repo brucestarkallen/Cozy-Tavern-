@@ -10,6 +10,17 @@ PORT=8080
 # Home of the tavern: where install.sh put it (baked in at install time).
 REPO_DIR="__COZY_HOME__"
 
+# Self-heal (M26 hotfix): if the home was never baked in — an unbaked word
+# reached a phone once — find the tavern in the usual places instead of
+# failing into a wall of text.
+case "$REPO_DIR" in
+  *__COZY_HOME__* | '')
+    for guess in "$HOME/cozytavern" "$HOME/cozy-tavern" "$HOME/Cozy-Tavern-"; do
+      if [ -d "$guess/.git" ]; then REPO_DIR="$guess"; break; fi
+    done
+    ;;
+esac
+
 # Keep the phone awake while the lamps are lit.
 if command -v termux-wake-lock >/dev/null 2>&1; then
   termux-wake-lock

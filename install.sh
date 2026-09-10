@@ -41,6 +41,10 @@ TAVERN_VER="$(grep -o "VERSION = '[^']*'" "$REPO_DIR/js/version.js" 2>/dev/null 
 mkdir -p "$PREFIX/bin"
 sed "s|__COZY_HOME__|$REPO_DIR|g" "$REPO_DIR/cozytavern.sh" > "$PREFIX/bin/cozytavern"
 chmod +x "$PREFIX/bin/cozytavern"
+# The bake must be proven, never assumed — an unbaked word once reached a phone.
+if grep -q '__COZY_HOME__' "$PREFIX/bin/cozytavern"; then
+  echo "(The word came out unbaked — the launcher's self-heal will still find the tavern.)"
+fi
 
 # 4. The launch report (the cozy-chat lesson: say the version, every time).
 if [ -n "$HEAD_BEFORE" ] && [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then

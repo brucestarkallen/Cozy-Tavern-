@@ -140,3 +140,13 @@ test('M25 the visible retry law: Try again is wired and answers busy', () => {
   assert(chat.includes("regenerateFrom(lastAssistant.dataset.id)"), 'it regenerates the latest page');
   assert(!html.includes('save a starter'), 'the loud chip label is gone');
 });
+
+test('M26 the word can never ship unbaked (the __COZY_HOME__ incident)', () => {
+  const launcher = read('cozytavern.sh');
+  assert(launcher.includes('__COZY_HOME__'), 'the repo launcher carries the placeholder');
+  assert(launcher.includes('Self-heal'), 'the launcher heals an unbaked home');
+  assert(launcher.includes('for guess in'), 'it guesses the usual homes');
+  const inst = read('install.sh');
+  assert(inst.includes("grep -q '__COZY_HOME__'"), 'the installer proves the bake after writing');
+  assert(inst.includes('sed "s|__COZY_HOME__|$REPO_DIR|g"'), 'the bake itself stands');
+});
