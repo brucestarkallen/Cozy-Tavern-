@@ -163,6 +163,32 @@ async function run(storeName, mode, build) {
   });
 }
 
+/* M59: read-modify-write, serialized per row. Two updates that overlapped —
+ * a worker's status beside a shelf move, a mend beside a swipe — used to
+ * read in one transaction and write in another, and the later write could
+ * carry the earlier row: a lost update, seen as a flaky shelf. A per-row
+ * lock (a promise chain) makes each update wait for the one before it. */
+const rowLocks = new Map();
+async function modify(storeName, key, change) {
+  const lockKey = storeName + ':' + String(key);
+  const prev = rowLocks.get(lockKey) || Promise.resolve();
+  let release;
+  const mine = new Promise((r) => { release = r; });
+  rowLocks.set(lockKey, prev.then(() => mine));
+  try {
+    await prev;
+    const row = await run(storeName, 'readonly', (s) => s.get(key));
+    if (!row) return undefined;
+    const next = change(row);
+    if (next === undefined) return undefined;
+    await run(storeName, 'readwrite', (s) => s.put(next));
+    return next;
+  } finally {
+    release();
+    if (rowLocks.get(lockKey) === mine) rowLocks.delete(lockKey);
+  }
+}
+
 function uid() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -227,18 +253,17 @@ const connections = {
     return row;
   },
   async update(id, patch) {
-    const row = await run('connections', 'readonly', (s) => s.get(id));
-    if (!row) return undefined;
-    /* M8: a null in the patch lets the dial go entirely — the providers
-     * read absence as "the storyteller's own default". */
-    const clean = {};
-    for (const [key, value] of Object.entries(patch || {})) {
-      if (value === null) delete row[key];
-      else clean[key] = value;
-    }
-    const next = { ...row, ...clean, id: row.id };
-    await run('connections', 'readwrite', (s) => s.put(next));
-    return next;
+    return modify('connections', id, (row) => {
+      /* M8: a null in the patch lets the dial go entirely — the providers
+       * read absence as "the storyteller's own default". */
+      const clean = {};
+      const base = { ...row };
+      for (const [key, value] of Object.entries(patch || {})) {
+        if (value === null) delete base[key];
+        else clean[key] = value;
+      }
+      return { ...base, ...clean, id: row.id };
+    });
   },
   async remove(id) {
     await run('connections', 'readwrite', (s) => s.delete(id));
@@ -269,11 +294,7 @@ const stories = {
   },
   /* Additive helper (see header): rename / per-story frame & note overrides. */
   async update(id, patch) {
-    const row = await run('stories', 'readonly', (s) => s.get(id));
-    if (!row) return undefined;
-    const next = { ...row, ...patch, id: row.id, updatedAt: Date.now() };
-    await run('stories', 'readwrite', (s) => s.put(next));
-    return next;
+    return modify('stories', id, (row) => ({ ...row, ...patch, id: row.id, updatedAt: Date.now() }));
   },
   async remove(id) {
     await run('stories', 'readwrite', (s) => s.delete(id));
@@ -411,12 +432,7 @@ const messages = {
    * a quiet no-op returning undefined — the workers rely on this when the
    * page they were reading has gone (B5). */
   async update(storyId, messageId, patch) {
-    const all = await messages.list(storyId);
-    const found = all.find((m) => m.id === messageId);
-    if (!found) return undefined;
-    const next = { ...found, ...(patch || {}), id: found.id, storyId: found.storyId };
-    await run('messages', 'readwrite', (s) => s.put(next));
-    return next;
+    return modify('messages', messageId, (found) => (found.storyId !== storyId ? undefined : { ...found, ...(patch || {}), id: found.id, storyId: found.storyId }));
   },
   /* M9 additive helper (B17): write many pages of one story in a SINGLE
    * transaction — a chat import either lands whole or not at all. */

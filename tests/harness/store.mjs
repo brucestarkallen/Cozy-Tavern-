@@ -90,3 +90,24 @@ test('M46: append keeps the page’s clock, its masthead and its mend (a branch 
   const back = (await db.messages.list(sid)).find((m) => m.id === saved.id);
   eq(back.thinkingMs, 1234); eq(back.masthead, 'McDonald’s — 14:30'); eq(back.mended.before, 'b'); eq(back.swipes[0].thinkingMs, 1234);
 });
+
+test('M59: an update is read-modify-write in one transaction — two overlapping updates keep both changes', async () => {
+  const { db } = await import('../../js/store.js');
+  const story = await db.stories.create({ title: 'race' });
+  await Promise.all([
+    db.stories.update(story.id, { projectId: 'shelf-a' }),
+    db.stories.update(story.id, { brief: 'the brief' }),
+    db.stories.update(story.id, { castNotes: 'notes' }),
+  ]);
+  const back = await db.stories.get(story.id);
+  eq(back.projectId, 'shelf-a'); eq(back.brief, 'the brief'); eq(back.castNotes, 'notes');
+  const m = await db.messages.append(story.id, { role: 'assistant', text: 'a' });
+  await Promise.all([
+    db.messages.update(story.id, m.id, { findings: [{ words: 'x', severity: 'note' }] }),
+    db.messages.update(story.id, m.id, { extraction: { appliedWords: ['y'] } }),
+    db.messages.update(story.id, m.id, { mended: { before: 'b', why: 'w', at: 1 } }),
+  ]);
+  const mb = (await db.messages.list(story.id)).find((x) => x.id === m.id);
+  assert(mb.findings && mb.extraction && mb.mended, 'all three writes stand');
+  eq(await db.messages.update('other-story', m.id, { text: 'no' }), undefined, 'a page is only updated within its own story');
+});

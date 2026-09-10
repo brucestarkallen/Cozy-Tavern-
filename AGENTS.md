@@ -1665,3 +1665,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   M50 one-shot rebuild and the M52 gradual rebuild.
 - Harness: M58 law in m50.mjs; m52-2 counts batch calls only. 299/299 + 21/21. version.js ->
   m58-001.
+
+---
+
+# M59 — updates are serialized per row (a lost update, seen as a flaky shelf)
+- The walk flaked on the shelf twice in ten runs (DOM-8 "branch is on the same shelf — got
+  undefined", DOM-12b "nothing to click"). ROOT, real in the app: stories.update / messages.update /
+  connections.update read the row in one transaction and wrote it in another, so two overlapping
+  updates (a worker's status beside a shelf move; a mend beside a swipe; a finding beside an
+  extraction) could carry a stale row — the later write erased the earlier change.
+- store.js modify(store, key, change): read-modify-write serialized by a per-row promise lock
+  (rowLocks). A first attempt inside one IndexedDB transaction did not survive the harness/jsdom
+  shims' event ordering; the lock is environment-proof. messages.update also refuses a page
+  from another story (returns undefined).
+- Harness: store.mjs M59 (three overlapping updates on a story and on a page all stand).
+  300/300 + 21/21 ×10. version.js -> m59-001.
+- LAW: `… | tail -1 && git push` does not gate on the walk — tail's exit code is 0. Read the line.
