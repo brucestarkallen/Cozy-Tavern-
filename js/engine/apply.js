@@ -488,6 +488,19 @@ const HANDLERS = {
     return { words, undo: { kind: 'rel.restore', name: key, before } };
   },
 
+  /* M50: a standing let go entirely (a mis-parsed or duplicate entry) —
+   * undoable like a set. */
+  'rel.clear'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name came with it' };
+    const found = findRelationship(state.relationships, name);
+    if (!found) return { why: 'no standing stands for ' + name };
+    const before = cloneMap({ [found.key]: found.rel })[found.key];
+    delete state.relationships[found.key];
+    const why = capText(m.cause, 200);
+    return { words: found.key + '’s standing was let go' + (why ? ' — ' + why.replace(/\.+$/, '') : '') + '.', undo: { kind: 'rel.restore', name: found.key, before } };
+  },
+
   'offscreen.set'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };

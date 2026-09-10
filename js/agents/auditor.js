@@ -29,7 +29,7 @@ import { renderOffscreen } from '../engine/offscreen.js';
 import { renderCanon } from '../engine/canon.js';
 import { renderThreads, renderKnowledge, renderFactions } from '../engine/world.js';
 import { mcName } from '../engine/duels.js';
-import { explicitStandings } from './founder.js'; /* M49: the writer's digits, restored in code */
+import { explicitStandings, samePersonLoose } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { loadMemory, recordFor } from './memory.js';
 import { pageText } from '../assemble/stack.js';
 
@@ -246,17 +246,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     }
     guarded.push(m);
   }
-  /* M49: a standing the writer states in digits that is missing or all
-   * zero in the ledger is restored in code, every audit, no judgment */
-  const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : 'the main character';
-  for (const st of explicitStandings(String(brief || '') + '\n' + String(castNotes || ''))) {
-    const key = Object.keys(fresh.relationships || {}).find((k) => k.trim().toLowerCase() === st.name.toLowerCase());
-    const rel = key ? fresh.relationships[key] : null;
-    const zeroed = !rel || (!(rel.p || 0) && !(rel.r || 0) && !(rel.s || 0));
-    if (zeroed && (st.p || st.r || st.s)) {
-      guarded.push({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + mcKnown + ' — restored' });
-    }
-  }
+  /* M50: the standings, kept clean in code — no judgment anywhere here. */
+  const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
+  guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...keptStandings];
   const report = { at: Date.now(), turn: Number.isFinite(next.turn) ? next.turn : 0, issues: read.issues.map((i) => ({ what: i.what, fix: i.fix, fixable: i.mutations.length > 0 })) };
@@ -265,6 +257,137 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   await saveState(storyId, out);
   notify(storyId);
   return { applied, rejected, issues: read.issues, note: 'ok', raw };
+}
+
+/* M50: what CODE knows about standings, applied every audit:
+ *   1. junk goes — a key that starts with an arrow or a bullet (the M49
+ *      parser's leavings), or a standing for the main character himself;
+ *   2. duplicates merge — "Rias" and "Rias Wells" are one person: the fuller
+ *      name stays, and if it is zero while the shorter carries numbers, the
+ *      numbers move over; the shorter is let go;
+ *   3. the writer's digits — a standing stated in the brief or the cast
+ *      notes toward the main character that is missing or all zero is
+ *      restored; one the pages have moved is left alone. */
+export function standingsHousekeeping(state, brief, castNotes, mc) {
+  const out = [];
+  const rels = state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
+  const keys = Object.keys(rels);
+  const isZero = (r) => !r || (!(r.p || 0) && !(r.r || 0) && !(r.s || 0));
+  const gone = new Set();
+  for (const k of keys) {
+    if (/^[\s\-*•→>]/.test(k) || (mc && samePersonLoose(k, mc))) {
+      out.push({ type: 'rel.clear', name: k, cause: 'not a standing toward ' + (mc || 'the main character') });
+      gone.add(k);
+    }
+  }
+  const live = keys.filter((k) => !gone.has(k));
+  for (let i = 0; i < live.length; i += 1) {
+    for (let j = i + 1; j < live.length; j += 1) {
+      const a = live[i]; const b = live[j];
+      if (gone.has(a) || gone.has(b) || !samePersonLoose(a, b)) continue;
+      const keep = a.length >= b.length ? a : b; const drop = keep === a ? b : a;
+      if (isZero(rels[keep]) && !isZero(rels[drop])) {
+        out.push({ type: 'rel.set', name: keep, p: rels[drop].p || 0, r: rels[drop].r || 0, s: rels[drop].s || 0, cause: 'the same person as ' + drop + ' — one standing' });
+      }
+      out.push({ type: 'rel.clear', name: drop, cause: 'the same person as ' + keep });
+      gone.add(drop);
+    }
+  }
+  /* the digits are judged against the ledger AS IT WILL STAND after the
+   * junk is gone and the duplicates have merged — a merged standing that
+   * carries numbers is not "zero" */
+  const merged = out.length ? applyMutations(state, out).state.relationships : rels;
+  for (const st of explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mc)) {
+    const key = Object.keys(merged).find((k) => samePersonLoose(k, st.name));
+    const rel = key ? merged[key] : null;
+    if (isZero(rel) && (st.p || st.r || st.s)) {
+      out.push({ type: 'rel.set', name: key || st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mc || 'the main character') + ' — restored' });
+    }
+  }
+  return out;
+}
+
+/* M50: rebuild every standing from the brief, the record and the pages — by
+ * the writer's hand only. Every standing is let go (undoable), the
+ * writer's digits are written in code, then ONE model pass writes the
+ * rest toward the main character with a cause; a cause that does not name
+ * the main character is refused. */
+export const REBUILD_SYSTEM = 'You rebuild the standings of a story\'s people toward its main character from what is written. Answer with JSON only.';
+const Q = '"' + '"' + '"';
+export function buildRebuildMessages({ state, brief, castNotes, record, pages, mc }) {
+  const people = Object.keys(state.characters || {}).concat(Object.keys(state.offscreen || {}), (state.present || []).map((p) => p && p.name)).filter(Boolean);
+  const uniq = [...new Set(people.map((n) => String(n).trim()))].filter((n) => !mc || !samePersonLoose(n, mc));
+  const user = [
+    'The main character is ' + (mc || 'the one the writer plays') + '. A standing is how one person stands TOWARD THE MAIN CHARACTER on three',
+    'independent axes, -100..100: p = platonic warmth/trust, r = romantic pull, s = sexual charge. A stranger',
+    'is 0/0/0 and needs no line. Standings exist ONLY toward the main character — feelings between other',
+    'people are not standings and must not appear.',
+    '',
+    'THE BRIEF (the first authority):', Q, String(brief || '').slice(0, 12000) || '(none)', Q,
+    'THE CAST NOTES:', Q, String(castNotes || '').slice(0, 6000) || '(none)', Q,
+    'THE RECORD (what the pages established, oldest to newest):', Q, String(record || '').slice(0, 14000) || '(nothing yet)', Q,
+    'THE LATEST PAGES:', Q, (pages || []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(p.text || '').slice(0, 4000)).join('\n\n'), Q,
+    '',
+    'THE PEOPLE THE LEDGER KNOWS: ' + (uniq.join(', ') || '(none)'),
+    '',
+    'For each of these people who has a bond or history with the main character — from the brief, the record,',
+    'or the pages — write ONE rel.set with p, r, s and a cause that names the main character and quotes what',
+    'earned it. Leave out anyone with no bond. Do not restate a person more than once. Digits the brief states',
+    'are already written; you may still move them by what the pages have since shown.',
+    '',
+    'Answer with JSON ONLY: {"mutations":[{"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"…"}]}',
+  ].join('\n');
+  return { system: withFictionFrame(REBUILD_SYSTEM), user };
+}
+
+export async function rebuildStandings({ connection, storyId, brief = '', castNotes = '', signal, stale } = {}) {
+  if (!connection || !storyId) return null;
+  const state = await loadState(storyId);
+  const mc = mcName(state) !== 'the player' ? mcName(state) : '';
+  /* 1. everything goes (undoable) */
+  const clear = Object.keys(state.relationships || {}).map((k) => ({ type: 'rel.clear', name: k, cause: 'rebuilt by the writer’s hand' }));
+  let { state: s1 } = applyMutations(state, clear);
+  /* 2. the writer's digits */
+  const digits = explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mc)
+    .map((st) => ({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mc || 'the main character') }));
+  ({ state: s1 } = applyMutations(s1, digits));
+  await saveState(storyId, s1);
+  notify(storyId);
+  /* 3. the model, for the rest — toward the main character only */
+  const mem = await loadMemory(storyId);
+  const all = (await db.messages.list(storyId)).filter((m) => !m.hidden);
+  const pages = all.slice(-AUDIT_PAGES).map((m) => ({ role: m.role, text: pageText(m) }));
+  const prompt = buildRebuildMessages({ state: s1, brief, castNotes, record: recordFor(mem), pages, mc });
+  const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, effort: 'off', signal });
+  const read = parseFounderLike(text);
+  if (stale && stale()) return null;
+  const guarded = [];
+  const refused = [];
+  for (const m of read) {
+    if (m.type !== 'rel.set' || typeof m.name !== 'string') { refused.push({ mutation: m, why: 'only rel.set is a rebuild' }); continue; }
+    if (mc && samePersonLoose(m.name, mc)) { refused.push({ mutation: m, why: 'the main character has no standing toward himself' }); continue; }
+    const cause = String(m.cause || '').toLowerCase();
+    if (mc && !cause.includes(mc.toLowerCase()) && !/main character/.test(cause)) { refused.push({ mutation: m, why: 'the cause does not name ' + mc }); continue; }
+    guarded.push(m);
+  }
+  const fresh = await loadState(storyId);
+  const { state: next, applied, rejected } = applyMutations(fresh, guarded);
+  await saveState(storyId, next);
+  notify(storyId);
+  return { applied, rejected: [...rejected, ...refused], cleared: clear.length, digits: digits.length, raw: text };
+}
+
+function parseFounderLike(raw) {
+  try {
+    const text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '');
+    for (const c of balancedCandidates(text, 5)) { const p = parseLenient(c); if (p && Array.isArray(p.mutations)) return p.mutations.filter((m) => m && typeof m === 'object'); }
+  } catch (err) { /* nothing usable */ }
+  return [];
+}
+
+export function rebuildRunWords(result) {
+  if (!result) return 'nothing to rebuild from';
+  return 'rebuilt the standings: let go of ' + result.cleared + ', wrote ' + result.digits + ' from the brief’s digits, ' + result.applied.length + ' from the pages and the record' + (result.rejected.length ? ' (' + result.rejected.length + ' refused)' : '');
 }
 
 export function auditRunWords(result) {

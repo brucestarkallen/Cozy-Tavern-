@@ -761,6 +761,17 @@ function onTheirMindPanel(ctx) {
   const note = quietNote('');
   const list = document.createElement('ul');
   list.className = 'present-list';
+  /* M50: rebuild every standing from the brief, the record and the pages */
+  const rebuild = document.createElement('button');
+  rebuild.type = 'button';
+  rebuild.className = 'text-btn';
+  rebuild.textContent = 'Rebuild from the brief, the pages and the record';
+  rebuild.title = 'Every standing is let go (take-back-able), the brief’s digits are written in code, and one reading of the brief, the record and the latest pages writes the rest — toward the main character only.';
+  rebuild.addEventListener('click', async () => {
+    if (!window.confirm('Rebuild every standing toward the main character from the brief, the record and the pages? Each change is logged and can be taken back.')) return;
+    if (ctx.chat && typeof ctx.chat.rebuildStandingsNow === 'function') await ctx.chat.rebuildStandingsNow();
+  });
+  wrap.appendChild(rebuild);
 
   const form = document.createElement('form');
   form.className = 'present-form ledger-form';

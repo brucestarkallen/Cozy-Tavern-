@@ -1524,3 +1524,30 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   reversal (applyUndo) is shared with undoLast. The drawer offers "Take it back" on every
   standing entry (last 40 shown) and toasts a refusal's reason.
 - Harness: m49.mjs (3 checks). 283/283 + 20/20. version.js -> m49-001.
+
+---
+
+# M50 — the brief's digits read the way the brief is shaped; standings cleaned in code; the rebuild
+- FIELD REPORT: "everyone likes Jovan, doubled, hallucinated — Aurora P60 not following the brief."
+  ROOT: the M49 parser took a line's head as the person and assumed every P/R/S triple was toward
+  the MC. The writer's briefs are shaped as a HEADING (the owner) followed by "→ Target: … (P R S)"
+  lines — the owner's standing toward the target — most of which are NPC↔NPC. The parser wrote a
+  standing for "→ Jovan" (the MC toward himself), NPC-to-NPC numbers as if toward the MC,
+  duplicates ("Rias" / "Rias Wells" / "→ Rias"), and Aurora's P60 from someone else's line about
+  her. A parser built without reading the brief's structure — my fault.
+- founder.js explicitStandings(text, mc): a → line yields a standing ONLY when its target IS the
+  main character, owned by the nearest heading above; a line without a marker owns its own
+  standing toward the MC unless its head is the MC; arrows/bullets stripped; deduped by person
+  (samePersonLoose: same first token + containment), the fuller name kept. Without a known MC
+  only inline standings are read.
+- apply.js rel.clear {name, cause}: a standing let go entirely, undoable (rel.restore).
+- auditor.js standingsHousekeeping(state, brief, castNotes, mc), applied EVERY audit in code: junk
+  keys (arrow/bullet heads, the MC himself) cleared; duplicates merged to the fuller name (numbers
+  move over when the fuller is zero); the brief's digits restore a standing that is missing or
+  zero AS THE LEDGER WILL STAND after the merge; a living standing is left alone.
+- rebuildStandings (Drawer → On their mind → "Rebuild from the brief, the pages and the record",
+  confirm): every standing let go (undoable), the digits written in code, then one model reading
+  of the brief + record + latest pages writes rel.set toward the MC only — a cause that does not
+  name the MC, a standing for the MC, or any other mutation type is refused.
+- Harness: m50.mjs (3 checks on the writer's exact brief shape); m49-1 updated. 286/286 + 20/20.
+  version.js -> m50-001.

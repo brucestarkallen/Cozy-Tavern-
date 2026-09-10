@@ -10,12 +10,12 @@ import { thinkingHouse, withHouse, HOUSES } from './thinkinghouse.mjs';
 
 test('M49-1 explicit standings are parsed from the writer’s lines, in digits', () => {
   const notes = 'Aurora Sterling — childhood best friend, reunion stirring she won’t name (P:65 R:30 S:5)\nRias Wells: devoted older sister (P:85, R:65, S:45)\n- Mira — no numbers here\nCaleb — P: -20 R:0 S:0';
-  const out = explicitStandings(notes);
+  const out = explicitStandings(notes, 'Jovan');
   eq(out.length, 3);
   eq(out[0].name, 'Aurora Sterling'); eq(out[0].p, 65); eq(out[0].r, 30); eq(out[0].s, 5);
   eq(out[1].name, 'Rias Wells'); eq(out[1].p, 85);
   eq(out[2].name, 'Caleb'); eq(out[2].p, -20);
-  eq(explicitStandings('nothing').length, 0);
+  eq(explicitStandings('nothing', 'Jovan').length, 0);
 });
 
 test('M49-2 the founder applies them whether or not the model did; the auditor restores them when missing or zero', async () => {

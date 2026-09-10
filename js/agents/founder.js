@@ -88,22 +88,70 @@ function law({ mc }) {
 
 const FENCE = '"""';
 
-/* M49: standings the writer states in digits — "Aurora … (P:65 R:30 S:5)" —
- * are read in CODE, never left to a model's reading. One per line: the
- * name is the line's head (before " — " or ":"), the numbers the first
- * P/R/S triple on that line. Exported for the auditor and the harness. */
-export function explicitStandings(text) {
-  const out = [];
-  for (const raw of String(text || '').split('\n')) {
-    const m = raw.match(/P\s*:\s*([+-]?\d+)\s*[,\/|]?\s*R\s*:\s*([+-]?\d+)\s*[,\/|]?\s*S\s*:\s*([+-]?\d+)/i);
-    if (!m) continue;
-    const head = raw.split(/\s+[—–-]\s+|:/)[0].replace(/^[\s\-*•]+/, '').trim();
-    if (!head || head.length > 60 || /^P\s*$/i.test(head)) continue;
-    const clamp = (v) => Math.max(-100, Math.min(100, Number(v)));
-    out.push({ name: head, p: clamp(m[1]), r: clamp(m[2]), s: clamp(m[3]) });
-  }
-  return out;
+/* M50: standings the writer states in digits, read the way the writer's
+ * briefs are shaped — the M49 parser took the line's head as the person
+ * and assumed every triple was toward the main character, and wrote
+ * garbage (a standing for the MC toward himself, NPC-to-NPC numbers as if
+ * toward the MC, duplicates). The shape:
+ *
+ *   Aurora Sterling                          ← a heading: the OWNER
+ *   → Jovan: childhood best friend … (P:65 R:30 S:5)   ← toward Jovan
+ *   → Vanessa Reynolds: … (P:70 R:0 S:0)                ← toward Vanessa (NPC↔NPC — NOT a standing)
+ *   Rias Wells — devoted older sister (P:85 R:65 S:45)  ← no heading: owner is the line's head, toward the MC
+ *
+ * A line with a target marker (→, ->, "toward", "to") names its target;
+ * only a target that IS the main character yields a standing, owned by the
+ * nearest heading above (a short line with no digits and no marker). A
+ * line with no target marker owns its own standing toward the MC. Arrows,
+ * bullets and dashes are stripped from names. Exported for the auditor and
+ * the harness. Returns [{name, p, r, s}] toward the MC only. */
+const TRIPLE = /P\s*:\s*([+-]?\d+)\s*[,\/|]?\s*R\s*:\s*([+-]?\d+)\s*[,\/|]?\s*S\s*:\s*([+-]?\d+)/i;
+const ARROW = /^[\s\-*•>]*(?:→|->|=>|toward|towards|to)\s*/i;
+const clean = (x) => String(x || '').replace(/^[\s\-*•→>]+/, '').replace(/[\s:—–-]+$/, '').trim();
+function sameName(a, b) {
+  const A = clean(a).toLowerCase(); const B = clean(b).toLowerCase();
+  if (!A || !B) return false;
+  if (A === B) return true;
+  const at = A.split(/\s+/); const bt = B.split(/\s+/);
+  return at[0] === bt[0] && (at.length === 1 || bt.length === 1 || at.every((t) => bt.includes(t)) || bt.every((t) => at.includes(t)));
 }
+export function explicitStandings(text, mc = '') {
+  const out = [];
+  let owner = '';
+  for (const raw of String(text || '').split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(TRIPLE);
+    const hasArrow = ARROW.test(line) && !/^[\s\-*•]*[A-Za-z]/.test(line.replace(ARROW, '')) === false && /^[\s\-*•]*(?:→|->|=>)/.test(line);
+    if (!m) {
+      /* a heading: short, no digits, no marker, reads like a name */
+      const head = clean(line.split(/\s+[—–-]\s+|:/)[0]);
+      if (!hasArrow && head && head.length <= 40 && /^[A-Z][A-Za-z'’.\- ]*$/.test(head) && head.split(/\s+/).length <= 4) owner = head;
+      continue;
+    }
+    const clampN = (v) => Math.max(-100, Math.min(100, Number(v)));
+    const numbers = { p: clampN(m[1]), r: clampN(m[2]), s: clampN(m[3]) };
+    const head = clean(line.replace(ARROW, '').split(/\s+[—–-]\s+|:/)[0]);
+    if (hasArrow) {
+      /* "→ Target: …": the target must be the main character, the owner the heading above */
+      if (!owner || !mc || !sameName(head, mc)) continue;
+      out.push({ name: owner, ...numbers });
+    } else {
+      /* "Name — … (P R S)": the head owns it, toward the MC — unless the head IS the MC */
+      if (!head || (mc && sameName(head, mc))) continue;
+      out.push({ name: head, ...numbers });
+    }
+  }
+  /* dedupe by person, the fuller name kept */
+  const merged = [];
+  for (const st of out) {
+    const at = merged.findIndex((x) => sameName(x.name, st.name));
+    if (at === -1) merged.push(st);
+    else if (st.name.length > merged[at].name.length) merged[at] = { ...st };
+  }
+  return merged;
+}
+export { sameName as samePersonLoose };
 
 export function founderFingerprint({ brief = '', castNotes = '', cast = [], lore = [] } = {}) {
   const parts = [
@@ -205,7 +253,7 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   }
   /* M49: the writer's digits, applied in code — a rel.set per explicit
    * standing, whether or not the model wrote one */
-  const stated = explicitStandings(String(brief || '') + '\n' + String(castNotes || ''));
+  const stated = explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mcKnown);
   const named = new Set(guarded.filter((m) => m.type === 'rel.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));
   for (const st of stated) {
     if (named.has(st.name.toLowerCase())) continue;

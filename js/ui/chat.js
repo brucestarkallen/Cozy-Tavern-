@@ -57,7 +57,7 @@ import { checkTurn, mendPages } from '../agents/continuity.js';
 import { recordFor } from '../agents/memory.js'; /* M35: the record as the mender's canon */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
-import { auditLedger, auditRunWords, auditOn, auditEvery } from '../agents/auditor.js'; /* M41: the ledger auditor */
+import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
 import { renderWorldBrief } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
@@ -1410,6 +1410,21 @@ export function initChat(ctx) {
     } });
     noteWork(story.id, promise);
     toast('The founder is reading the brief, the cast, the cards and the lore.');
+    return true;
+  }
+
+  /* M50: rebuild every standing by hand — from the brief, the record and the pages. */
+  async function rebuildStandingsNow() {
+    const story = await activeStory();
+    if (!story) return false;
+    const connection = await resolveWorkerConnection(story, 'auditor');
+    if (!connection) { toast('The auditor needs a connection first.'); return false; }
+    const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale }) => {
+      const result = await rebuildStandings({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
+      return { silent: false, detail: rebuildRunWords(result), raw: result && result.raw };
+    } });
+    noteWork(story.id, promise);
+    toast('Rebuilding every standing from the brief, the record and the pages.');
     return true;
   }
 
@@ -3371,6 +3386,7 @@ export function initChat(ctx) {
     rescanLedger,
     auditNow,
     foundNow,
+    rebuildStandingsNow,
     unmend,
     renderPromptChips,
     refreshStories,
