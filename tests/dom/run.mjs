@@ -365,6 +365,41 @@ test('DOM-12b a tale moves to a shelf from its menu, and back to loose', async (
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-11b the housekeeper: fullscreen (Esc leaves it), a draggable top bar, and ↻ Retry asks the last question again', async () => {
+  const before = errors.length;
+  click(q('#btn-housekeeper'));
+  await until(() => !q('#hk-sheet').hidden, 'the housekeeper');
+  const sheet = q('#hk-sheet');
+  click(q('#btn-hk-full'));
+  assert(sheet.classList.contains('fullscreen'), 'fullscreen on');
+  document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert(!sheet.classList.contains('fullscreen') && !sheet.hidden, 'Esc leaves fullscreen first, the sheet stays open');
+  /* a desk drag: pointer events on the head */
+  const head = q('.hk-head');
+  const PE = window.PointerEvent || window.MouseEvent;
+  head.dispatchEvent(new PE('pointerdown', { clientX: 300, clientY: 20, pointerType: 'mouse', bubbles: true }));
+  head.dispatchEvent(new PE('pointermove', { clientX: 200, clientY: 60, pointerType: 'mouse', bubbles: true }));
+  head.dispatchEvent(new PE('pointerup', { clientX: 200, clientY: 60, pointerType: 'mouse', bubbles: true }));
+  assert(sheet.classList.contains('floating') && sheet.style.top === '40px', 'dragged: ' + sheet.style.top + ' ' + sheet.style.left);
+  head.dispatchEvent(new window.MouseEvent('dblclick', { bubbles: true }));
+  assert(!sheet.classList.contains('floating'), 'a double tap docks it again');
+  /* retry: ask, then ask again */
+  const priorAnswer = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'Answer one.' : priorAnswer(body, sys));
+  type(q('#hk-input'), 'is anything wrong?');
+  submit(q('#hk-form'));
+  await until(() => qa('#hk-thread .hk-bubble').length >= 2, 'the first answer', 10000);
+  const sid = await storyId();
+  const sess1 = await db.settings.get('hk:' + sid);
+  eq(sess1.turns.length, 2);
+  house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'Answer two.' : priorAnswer(body, sys));
+  click(q('#hk-retry'));
+  await until(async () => { const s2 = await db.settings.get('hk:' + sid); return s2 && s2.turns.length === 2 && /Answer two/.test(s2.turns[1].text); }, 'the question asked again, the old answer gone', 10000);
+  house.state.workerAnswer = priorAnswer;
+  click(q('#btn-hk-close'));
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-13b reset to the house’s defaults: settings go back, connections and stories stay, my own regex rules stay', async () => {
   const before = errors.length;
   await db.settings.set('memoryWindow', 55);

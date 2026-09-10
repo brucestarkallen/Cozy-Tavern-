@@ -1681,3 +1681,28 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Harness: store.mjs M59 (three overlapping updates on a story and on a page all stand).
   300/300 + 21/21 ×10. version.js -> m59-001.
 - LAW: `… | tail -1 && git push` does not gate on the walk — tail's exit code is 0. Read the line.
+
+---
+
+# M60 — the housekeeper's panel: fullscreen, a draggable top bar, ↻ Retry (Chat Assistant read in full)
+- FIELD REPORT: "the assistant box can't be dragged, has no fullscreen, no retry — have you read
+  Chat Assistant's full code?" I hadn't (6,557 lines; I worked from notes). Cloned and read:
+  makeDraggable (pointer capture on the top bar, clamped, no drag in fullscreen), the
+  cc_fullscreen toggle (inline position cleared so CSS wins; Esc leaves fullscreen BEFORE any
+  close), retryLast (drop the last assistant turn, re-run the last question).
+- index.html/css: #btn-hk-full in the head; .hk-sheet.fullscreen (whole viewport), .floating
+  (a dragged sheet keeps its corners), a grab cursor on a fine pointer only.
+- ui/housekeeper.js: setFullscreen (aria-pressed, inline position cleared); Esc leaves fullscreen
+  first (capture phase); makeDraggable on the head (mouse/pen only — a phone's sheet is full
+  width already; double-click docks it back); retryLast: the last housekeeper turn (and its
+  still-pending cards) is let go and the last question sent again — applied cards stand.
+- DOM-11b drives all three through the real UI; the mock house now knows the housekeeper's
+  voice. 300/300 + 22/22. version.js -> m60-001.
+- What Chat Assistant has that the tavern does NOT (read, not guessed): the deep four-pass
+  audit (#m: structure / continuity window by window / memory-against-itself with a spine /
+  verify) with a call budget and a resume point; #opt memory optimize; #cl memory cleanup;
+  #a fidelity; #o OOC harvest; #i brainstorm; #p psychology read; auto-name chats. The
+  tavern's auditor + verifier + rebuild cover the continuity parts by construction (the record
+  is verified line by line as it is written; the auditor reads the whole ledger every three
+  turns); the writing-room commands (#i, #p, #br) and #opt/#cl are candidates, not gaps in
+  correctness.

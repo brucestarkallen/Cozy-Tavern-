@@ -376,6 +376,25 @@ export function initHousekeeper(ctx) {
 
   /* ---------- the talk ---------- */
 
+  async function retryLast() {
+    if (busy) return;
+    const story = await ensureSession();
+    if (!story) return;
+    const turns = session.turns;
+    let i = turns.length - 1;
+    while (i >= 0 && turns[i].role !== 'housekeeper') i -= 1;
+    if (i < 0) { toast('Nothing to ask again yet.'); return; }
+    let w = i - 1;
+    while (w >= 0 && turns[w].role !== 'writer') w -= 1;
+    const question = w >= 0 ? turns[w].text : '';
+    if (!question) { toast('The last answer had no question to ask again.'); return; }
+    /* the last answer and its still-pending cards are let go; applied ones stand */
+    session.turns = turns.slice(0, w);
+    await saveSession(story.id, session);
+    render();
+    await send(question);
+  }
+
   async function send(writerText) {
     const text = String(writerText || '').trim();
     if (!text || busy) return;
@@ -573,6 +592,45 @@ export function initHousekeeper(ctx) {
   });
   document.getElementById('hk-critique').addEventListener('click', () => { critiqueAction(); });
   document.getElementById('hk-undo').addEventListener('click', () => { undo(); });
+  /* M60: ↻ Retry — Chat Assistant's retryLast: the last answer and its cards
+   * are let go, the last question is asked again. */
+  document.getElementById('hk-retry').addEventListener('click', () => { retryLast(); });
+
+  /* M60: fullscreen (Esc leaves it first, before closing) and a draggable top
+   * bar on a desk — Chat Assistant's panel, in the sheet. */
+  const head = sheet.querySelector('.hk-head');
+  const fullBtn = document.getElementById('btn-hk-full');
+  function setFullscreen(on) {
+    sheet.classList.toggle('fullscreen', on);
+    if (on) { sheet.classList.remove('floating'); sheet.style.left = ''; sheet.style.top = ''; sheet.style.right = ''; sheet.style.bottom = ''; sheet.style.width = ''; }
+    fullBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    fullBtn.title = on ? 'Leave fullscreen (Esc)' : 'Fullscreen (Esc leaves it)';
+  }
+  fullBtn.addEventListener('click', () => setFullscreen(!sheet.classList.contains('fullscreen')));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !sheet.hidden && sheet.classList.contains('fullscreen')) { e.preventDefault(); e.stopPropagation(); setFullscreen(false); }
+  }, true);
+  (function makeDraggable(panel, handle) {
+    let sx = 0; let sy = 0; let ox = 0; let oy = 0; let dragging = false;
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch' || e.target.closest('button')) return;
+      if (panel.classList.contains('fullscreen')) return;
+      dragging = true; sx = e.clientX; sy = e.clientY;
+      const r = panel.getBoundingClientRect(); ox = r.left; oy = r.top;
+      if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const nx = Math.min(Math.max(0, ox + e.clientX - sx), window.innerWidth - 80);
+      const ny = Math.min(Math.max(0, oy + e.clientY - sy), window.innerHeight - 40);
+      panel.classList.add('floating');
+      panel.style.left = nx + 'px'; panel.style.top = ny + 'px'; panel.style.right = 'auto'; panel.style.bottom = 'auto';
+    });
+    const stop = () => { dragging = false; };
+    handle.addEventListener('pointerup', stop);
+    handle.addEventListener('pointercancel', stop);
+    handle.addEventListener('dblclick', () => { panel.classList.remove('floating'); panel.style.left = ''; panel.style.top = ''; panel.style.right = ''; panel.style.bottom = ''; });
+  })(sheet, head);
   seedForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const seed = seedInput.value.trim();

@@ -499,3 +499,9 @@
 
 /* M46 — a worker reading now */
 .worker-live { color: var(--ember); font-style: italic; }
+
+/* M60 — the housekeeper: fullscreen, and a top bar you can drag on a desk */
+.hk-sheet.fullscreen { width: 100vw; left: 0; right: 0; top: 0; bottom: 0; border-radius: 0; max-width: none; transform: none; }
+.hk-sheet.floating { border-radius: var(--r-lg); box-shadow: var(--shadow); }
+@media (pointer: fine) { .hk-head { cursor: grab; user-select: none; } .hk-head:active { cursor: grabbing; } }
+.hk-sheet.fullscreen .hk-head { cursor: default; }

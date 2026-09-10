@@ -39,7 +39,7 @@ export function makeHouse() {
     if (/\/v1\/models$/.test(u)) return jsonRes({ data: [] });
     const body = opts.body ? JSON.parse(opts.body) : {};
     const sys = Array.isArray(body.messages) ? body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : String(body.system || '');
-    const isWorker = /keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record line|auditor of the ledger|found the ledger|reading a story's past|referee|cast sheet|Answer with JSON ONLY|JSON ONLY/i.test(sys) && !/You are telling a story/.test(sys);
+    const isWorker = /keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record line|auditor of the ledger|found the ledger|reading a story's past|housekeeper of a cozy tavern|referee|cast sheet|Answer with JSON ONLY|JSON ONLY/i.test(sys) && !/You are telling a story/.test(sys);
     n += 1;
     state.calls.push({ url: u, body, isWorker, n });
     if (state.fail) return jsonRes({ error: { message: 'busy' } }, state.fail);

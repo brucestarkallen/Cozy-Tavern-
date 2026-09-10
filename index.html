@@ -665,8 +665,11 @@
   <!-- The housekeeper (M10): a full right-side sheet where the writer talks
        to the one intelligence that can see the whole story. -->
   <aside id="hk-sheet" class="drawer hk-sheet" role="dialog" aria-modal="false" aria-label="The housekeeper" hidden>
-    <div class="drawer-head">
+    <div class="drawer-head hk-head">
       <h2>The housekeeper</h2>
+      <button id="btn-hk-full" class="icon-btn" type="button" aria-label="Fullscreen" title="Fullscreen (Esc leaves it)" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
       <button id="btn-hk-close" class="icon-btn" type="button" aria-label="Close the housekeeper">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
@@ -679,6 +682,7 @@
         <button id="hk-next" class="text-btn" type="button">Next</button>
         <button id="hk-seed" class="text-btn" type="button">Seed</button>
         <button id="hk-critique" class="text-btn" type="button">Critique</button>
+        <button id="hk-retry" class="text-btn" type="button" title="Ask the last question again — the last answer and its cards are let go">↻ Retry</button>
         <button id="hk-undo" class="text-btn" type="button">Undo</button>
       </div>
       <form id="hk-seed-form" class="hk-seed-form" hidden>
