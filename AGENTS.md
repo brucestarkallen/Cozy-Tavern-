@@ -899,3 +899,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   keeper / the second reader) now carries one plain line under it saying exactly what it
   does. The user had to ask — that means the poetry failed; plain words first, poetry after.
   version.js -> m23-001.
+
+---
+
+# M24 — the tavern keeps its own books (the wipe lesson)
+- ROOT CAUSE of the user's loss: browser-cleared site data erased IndexedDB. From M24 the
+  little server keeps the truth ON THE DEVICE: serve.py answers GET/POST /api/books, writing
+  ~/.cozytavern/books.json (COZY_DATA_DIR overrides) — atomic tmp+replace, rotating bak1/bak2,
+  JSON-guarded, 64MB cap. The file lives OUTSIDE the app folder: rm -rf ~/cozytavern can't
+  take the tales.
+- js/sync.js: decideBoot law (server file newer -> pull; browser ahead -> push; fresh browser
+  + real books -> pull) + a debounced live mirror wrapping every store write. No server
+  (GitHub Pages) -> browser-only, and settings says so plainly ("Where the tales live").
+- Keeper core (_read_books/_write_books) sits at module scope for testability; HTTP layer
+  stdlib-thin. Harness books.mjs: decideBoot matrix + keeper core in-process (the sandbox's
+  loopback is too flaky for socket-level harness runs; curl QA proved the wire).
+- version.js -> m24-001.

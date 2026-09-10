@@ -656,3 +656,9 @@ checks), plus the full M1–M6 re-run (150 + 73 checks, green).
 78. Starter chips seed the composer; stories archive to "resting tales"; the jump pill
     appears only when scrolled up; a story exports to markdown/jsonl; the lore shelf
     carries "Carry it to SillyTavern".
+
+## M24 additions
+79. Termux run: write a few pages, close the browser, clear its site data, reopen — the
+    tales walk back in from the device's own file (~/.cozytavern/books.json).
+80. Settings → Backup shows "Where the tales live: on this device, in files…" when served;
+    "in this browser" on static hosting.

@@ -100,6 +100,7 @@ export function initSettings(ctx) {
     btnExport: document.getElementById('btn-export'),
     importFile: document.getElementById('import-file'),
     backupNote: document.getElementById('backup-note'),
+    booksLive: document.getElementById('books-live'),
     workerConn: document.getElementById('worker-connection'),
     workerAssignments: document.getElementById('worker-assignments'),
     workerExtraction: document.getElementById('worker-extraction'),
@@ -1740,6 +1741,7 @@ export function initSettings(ctx) {
   /* ---------- shown each time the view opens ---------- */
 
   async function onShow() {
+    if (els.booksLive && ctx.booksStatus) els.booksLive.textContent = 'Where the tales live: ' + ctx.booksStatus.words + '.';
     await renderConnections();
     await loadPromptSlots();
     await renderRulebook();

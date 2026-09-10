@@ -141,6 +141,14 @@ shell. No frameworks, no CDNs, no fonts fetched from elsewhere. See
 evening walkthrough — the by-hand checklist that keeps every milestone
 honest.
 
+## Where your tales live
+
+Served from Termux (or any `serve.py`), the tavern keeps its books **on the device, in a
+real file** — `~/.cozytavern/books.json`, rotated and written atomically after every turn.
+Clear the browser's data, wipe the app folder, replace the phone's browser — the tales walk
+back in. On GitHub Pages there is no little server, so the tales live in the browser alone,
+and the Backup section says so plainly.
+
 ## Starting over clean
 
 The tavern's files are just files — deleting them never touches your stories,
