@@ -765,13 +765,21 @@ function onTheirMindPanel(ctx) {
   const rebuild = document.createElement('button');
   rebuild.type = 'button';
   rebuild.className = 'text-btn';
-  rebuild.textContent = 'Rebuild from the brief, the pages and the record';
-  rebuild.title = 'Every standing is let go (take-back-able), the brief’s digits are written in code, and one reading of the brief, the record and the latest pages writes the rest — toward the main character only.';
+  rebuild.textContent = 'Rebuild the people from the pages';
+  rebuild.title = 'The character pages and every standing are backed up and let go; the brief’s digits become the standings’ origin; then the pages are re-read six at a time from the first, each batch with the record that covers the pages before it — Summaryception’s way, never the whole story at once.';
   rebuild.addEventListener('click', async () => {
-    if (!window.confirm('Rebuild every standing toward the main character from the brief, the record and the pages? Each change is logged and can be taken back.')) return;
-    if (ctx.chat && typeof ctx.chat.rebuildStandingsNow === 'function') await ctx.chat.rebuildStandingsNow();
+    if (!window.confirm('Rebuild the character pages and every standing from the pages, six at a time from the first? The old ones are kept and can be put back.')) return;
+    if (ctx.chat && typeof ctx.chat.rebuildPeopleNow === 'function') await ctx.chat.rebuildPeopleNow();
   });
-  wrap.appendChild(rebuild);
+  const restore = document.createElement('button');
+  restore.type = 'button';
+  restore.className = 'text-btn';
+  restore.textContent = 'Put the old pages and standings back';
+  restore.addEventListener('click', async () => { if (ctx.chat && typeof ctx.chat.restorePeopleNow === 'function') await ctx.chat.restorePeopleNow(); });
+  const rowR = document.createElement('div');
+  rowR.className = 'row';
+  rowR.append(rebuild, restore);
+  wrap.appendChild(rowR);
 
   const form = document.createElement('form');
   form.className = 'present-form ledger-form';
@@ -1548,10 +1556,28 @@ function workersPanel(ctx) {
   found.addEventListener('click', async () => {
     if (ctx.chat && typeof ctx.chat.foundNow === 'function') await ctx.chat.foundNow();
   });
+  /* M52: re-fold the record from the first page, six pages at a time */
+  const refold = document.createElement('button');
+  refold.type = 'button';
+  refold.className = 'text-btn';
+  refold.textContent = 'Rebuild the record from the pages';
+  refold.title = 'The record’s lines are backed up and let go; the keeper folds the pages again from the first, six at a time, holes first. The old record can be put back.';
+  refold.addEventListener('click', async () => {
+    if (!window.confirm('Rebuild the record from the first page, six pages at a time? The old record is kept and can be put back.')) return;
+    if (ctx.chat && typeof ctx.chat.rebuildRecordNow === 'function') await ctx.chat.rebuildRecordNow();
+  });
+  const unfold = document.createElement('button');
+  unfold.type = 'button';
+  unfold.className = 'text-btn';
+  unfold.textContent = 'Put the old record back';
+  unfold.addEventListener('click', async () => { if (ctx.chat && typeof ctx.chat.restoreRecordNow === 'function') await ctx.chat.restoreRecordNow(); });
   const row = document.createElement('div');
   row.className = 'row';
   row.append(found, rescan, audit);
-  wrap.append(note, row, list);
+  const row2 = document.createElement('div');
+  row2.className = 'row';
+  row2.append(refold, unfold);
+  wrap.append(note, row, row2, list);
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);

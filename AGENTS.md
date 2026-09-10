@@ -1551,3 +1551,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   name the MC, a standing for the MC, or any other mutation type is refused.
 - Harness: m50.mjs (3 checks on the writer's exact brief shape); m49-1 updated. 286/286 + 20/20.
   version.js -> m50-001.
+
+---
+
+# M52 — the gradual rebuilder (Summaryception's way)
+- FIELD REPORT: "Summaryception rebuilds snippets and the character ledger gradually — turn 0 to 3,
+  summarize, continue — it never reads the whole 1000-turn chat." The tavern's record was already
+  folded that way as pages left the window, and the pages of the people written per page; what
+  did not exist was a REBUILD of either, and the M50 standings rebuild was a one-shot read.
+- js/agents/rebuild.js:
+  rebuildRecord — the record's lines are backed up (memoryBackup:<storyId>) and let go; the keeper
+  folds the pages again from the first, six at a time, holes-first (maybeSummarize in a loop
+  until nothing below the window is uncovered); progress toasts; the old record can be put back.
+  rebuildPeople — the pages of the people and every standing are backed up (peopleBackup:) and
+  let go; the brief's digits become the standings' origin; then every batch of six pages is read
+  IN ORDER with the record that covers the pages before it, the pages-so-far and the standings-
+  so-far as context; the reader answers {deltas (people.set), shifts (rel.shift toward the MC
+  with a cause)}; names resolve to the person the ledger already knows ("Rias" → "Rias Wells");
+  the MC gets no page (state only) and no standing; applied through the closed vocabulary.
+  Never the whole story in one prompt — ~N/6 worker calls for N pages.
+- Drawer: The workers → "Rebuild the record from the pages" / "Put the old record back";
+  On their mind → "Rebuild the people from the pages" / "Put the old pages and standings back"
+  (replaces the M50 one-shot button; rebuildStandings stays for the harness and the housekeeper).
+- Harness: m52.mjs (3 checks incl. both gradual walks end to end). 291/291 + 20/20.
+  version.js -> m52-001.

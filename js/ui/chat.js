@@ -58,6 +58,7 @@ import { wholeRecord } from '../agents/memory.js'; /* M35/M51: the whole record 
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
+import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
 import { renderWorldBrief } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
@@ -1411,6 +1412,48 @@ export function initChat(ctx) {
     noteWork(story.id, promise);
     toast('The founder is reading the brief, the cast, the cards and the lore.');
     return true;
+  }
+
+  /* M52: the gradual rebuilds — six pages at a time from turn 0, Summaryception's way. */
+  async function rebuildRecordNow() {
+    const story = await activeStory();
+    if (!story) return false;
+    const connection = await resolveWorkerConnection(story, 'keeper');
+    if (!connection) { toast('The keeper needs a connection first.'); return false; }
+    const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale }) => {
+      const result = await rebuildRecord({ connection, storyId: story.id, signal, stale, onProgress: ({ folded, toFold }) => toast(`Re-folding the record — ${folded} of ${toFold} pages…`) });
+      return { silent: false, detail: rebuildRecordWords(result) };
+    } });
+    noteWork(story.id, promise);
+    toast('Re-folding the record from the first page, six pages at a time.');
+    return true;
+  }
+  async function rebuildPeopleNow() {
+    const story = await activeStory();
+    if (!story) return false;
+    const connection = await resolveWorkerConnection(story, 'scribe');
+    if (!connection) { toast('The scribe needs a connection first.'); return false; }
+    const promise = enqueueWork(story.id, { name: 'scribe', run: async ({ signal, stale }) => {
+      const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, onProgress: ({ read, total }) => toast(`Re-reading the people — ${read} of ${total} pages…`) });
+      return { silent: false, detail: rebuildPeopleWords(result) };
+    } });
+    noteWork(story.id, promise);
+    toast('Re-reading the people from the first page, six pages at a time.');
+    return true;
+  }
+  async function restoreRecordNow() {
+    const story = await activeStory();
+    if (!story) return false;
+    const ok = await restoreRecord(story.id);
+    toast(ok ? 'The old record is back.' : 'No older record is kept.');
+    return ok;
+  }
+  async function restorePeopleNow() {
+    const story = await activeStory();
+    if (!story) return false;
+    const ok = await restorePeople(story.id);
+    toast(ok ? 'The old pages and standings are back.' : 'No older pages are kept.');
+    return ok;
   }
 
   /* M50: rebuild every standing by hand — from the brief, the record and the pages. */
@@ -3387,6 +3430,10 @@ export function initChat(ctx) {
     auditNow,
     foundNow,
     rebuildStandingsNow,
+    rebuildRecordNow,
+    rebuildPeopleNow,
+    restoreRecordNow,
+    restorePeopleNow,
     unmend,
     renderPromptChips,
     refreshStories,
