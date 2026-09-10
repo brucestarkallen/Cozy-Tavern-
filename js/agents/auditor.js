@@ -246,6 +246,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     }
     guarded.push(m);
   }
+  /* M57: passers-through retire in code — no bond, no seat, no thread, no
+   * lock, not present, and thirty turns since their page last moved. */
+  guarded.push(...peopleHousekeeping(fresh));
   /* M50: the standings, kept clean in code — no judgment anywhere here. */
   const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
   guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown));
@@ -257,6 +260,37 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   await saveState(storyId, out);
   notify(storyId);
   return { applied, rejected, issues: read.issues, note: 'ok', raw };
+}
+
+/* M57: who has passed through. A person retires when ALL hold: not present;
+ * no nonzero standing; no seat among the absent; no loose end on their page;
+ * nothing locked true of them; not the main character; and their page has
+ * not moved for RETIRE_AFTER turns. Woken by any page or entrance. */
+export const RETIRE_AFTER = 30;
+export function peopleHousekeeping(state) {
+  const out = [];
+  const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const turn = Number.isFinite(state.turn) ? state.turn : 0;
+  const mc = mcName(state) !== 'the player' ? mcName(state) : '';
+  const lower = (x) => String(x || '').trim().toLowerCase();
+  const present = new Set((state.present || []).map((p) => lower(p && p.name)));
+  const seated = new Set(Object.keys(state.offscreen || {}).map(lower));
+  const locked = new Set(Object.keys(state.canon || {}).map(lower));
+  const rels = state.relationships || {};
+  for (const [name, c] of Object.entries(chars)) {
+    if (!c || typeof c !== 'object' || c.retired) continue;
+    const k = lower(name);
+    if (mc && samePersonLoose(name, mc)) continue;
+    if (present.has(k) || seated.has(k) || locked.has(k)) continue;
+    if (Array.isArray(c.threads) && c.threads.length) continue;
+    const relKey = Object.keys(rels).find((r) => samePersonLoose(r, name));
+    const rel = relKey ? rels[relKey] : null;
+    if (rel && ((rel.p || 0) || (rel.r || 0) || (rel.s || 0))) continue;
+    const last = Number.isFinite(c.updatedAtTurn) ? c.updatedAtTurn : 0;
+    if (turn - last < RETIRE_AFTER) continue;
+    out.push({ type: 'people.retire', name, cause: 'no bond, no seat, no thread, and ' + (turn - last) + ' turns since their page last moved' });
+  }
+  return out;
 }
 
 /* M50: what CODE knows about standings, applied every audit:

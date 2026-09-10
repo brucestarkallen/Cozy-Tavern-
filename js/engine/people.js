@@ -347,7 +347,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0 } = {}
   const characters = state.characters && typeof state.characters === 'object' ? state.characters : {};
   const keys = Object.keys(characters).filter((k) => {
     const e = characters[k];
-    return e && typeof e === 'object'
+    return e && typeof e === 'object' && !e.retired /* M57: passed through — no card, no roster line */
       && (String(e.core || '').trim() || String(e.state || '').trim()
         || String(e.arc || '').trim() || (Array.isArray(e.threads) && e.threads.length));
   });

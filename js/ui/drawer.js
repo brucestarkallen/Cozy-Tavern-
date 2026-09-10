@@ -1475,8 +1475,9 @@ function peoplePanel(ctx) {
     if (!story) { note.textContent = 'Open a story and every character’s page will be here.'; return; }
     const state = await loadState(story.id);
     const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
-    const names = Object.keys(chars).filter((n) => chars[n] && typeof chars[n] === 'object');
-    if (!names.length) { note.textContent = 'No character pages yet. The scribe writes one for everyone who acts on a page; the world agent for everyone it seats.'; return; }
+    const names = Object.keys(chars).filter((n) => chars[n] && typeof chars[n] === 'object' && !chars[n].retired);
+    const passed = Object.keys(chars).filter((n) => chars[n] && typeof chars[n] === 'object' && chars[n].retired);
+    if (!names.length && !passed.length) { note.textContent = 'No character pages yet. The scribe writes one for everyone who acts on a page; the world agent for everyone it seats.'; return; }
     note.textContent = names.length + (names.length === 1 ? ' page' : ' pages') + ' — who each person is (core), how they are now (state), how they stand with the main character (arc), and their loose ends.';
     const present = new Set((state.present || []).map((p) => String(p && p.name || '').toLowerCase()));
     names.sort((a, b) => (present.has(b.toLowerCase()) - present.has(a.toLowerCase())) || a.localeCompare(b));
@@ -1502,6 +1503,34 @@ function peoplePanel(ctx) {
         li.appendChild(p);
       }
       list.appendChild(li);
+    }
+    /* M57: the passed-through, folded, each with a way back */
+    if (passed.length) {
+      const fold = document.createElement('details');
+      fold.className = 'resting-shelf';
+      const sum = document.createElement('summary');
+      sum.className = 'lbl';
+      sum.textContent = 'Passed through — ' + passed.length + (passed.length === 1 ? ' person' : ' people') + ' (no bond, no seat, no thread; out of the storyteller’s sight)';
+      fold.appendChild(sum);
+      for (const name of passed.sort((a, b) => a.localeCompare(b))) {
+        const row = document.createElement('div');
+        row.className = 'log-row';
+        const words = document.createElement('span');
+        words.textContent = name + (chars[name].core ? ' — ' + String(chars[name].core).slice(0, 80) : '') + ' ';
+        const wake = document.createElement('button');
+        wake.type = 'button';
+        wake.className = 'text-btn';
+        wake.textContent = 'Bring back';
+        wake.addEventListener('click', async () => {
+          const fresh = await loadState(story.id);
+          const r = applyMutations(fresh, [{ type: 'people.wake', name }]);
+          if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); }
+          render();
+        });
+        row.append(words, wake);
+        fold.appendChild(row);
+      }
+      list.appendChild(fold);
     }
   });
   render();

@@ -270,6 +270,8 @@ const HANDLERS = {
     if (position) entry.position = position;
     if (attire) entry.attire = attire;
     state.present.push(entry);
+    /* M57: someone who walks in is no longer passed through */
+    { const key = findPersonKey(state.characters, name); if (key && state.characters[key] && state.characters[key].retired) { const { retired, retiredAtTurn, ...rest } = state.characters[key]; state.characters[key] = { ...rest, updatedAtTurn: turnOf(state) }; } }
     let words = name + ' came into the scene';
     const detail = [position, attire].filter(Boolean).join(', ');
     if (detail) words += ' — ' + detail;
@@ -639,11 +641,31 @@ const HANDLERS = {
     return { words, undo: { kind: 'faction.restore', name: key, before } };
   },
 
+  /* M57: a passer-through retires — kept, out of the roster and the drawer's
+   * main list — and wakes the moment they are on a page again. */
+  'people.retire'(state, m) {
+    const key = findPersonKey(state.characters, m.name);
+    if (!key) return { why: 'no page stands for ' + String(m.name || '?') };
+    if (state.characters[key].retired) return { why: key + ' has already passed through' };
+    const before = cloneMap({ [key]: state.characters[key] })[key];
+    state.characters[key] = { ...state.characters[key], retired: true, retiredAtTurn: turnOf(state) };
+    return { words: key + ' passed through — ' + (capText(m.cause, 160) || 'no bond, no seat, no thread, and thirty turns gone') + '.', undo: { kind: 'people.restore', name: key, before } };
+  },
+  'people.wake'(state, m) {
+    const key = findPersonKey(state.characters, m.name);
+    if (!key || !state.characters[key].retired) return { why: 'no one by that name is passed through' };
+    const before = cloneMap({ [key]: state.characters[key] })[key];
+    const { retired, retiredAtTurn, ...rest } = state.characters[key];
+    state.characters[key] = { ...rest, updatedAtTurn: turnOf(state) };
+    return { words: key + ' is back in the story.', undo: { kind: 'people.restore', name: key, before } };
+  },
+
   'people.set'(state, m) {
     const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
     const result = setPersonField(state, state.characters, m.name, field, m.text, turnOf(state));
     if (!result.entry) return { why: result.why };
     const before = result.before ? cloneMap({ [result.key]: result.before })[result.key] : null;
+    if (result.entry.retired) { const { retired, retiredAtTurn, ...rest } = result.entry; result.entry = rest; } /* M57: a page written wakes them */
     state.characters[result.key] = result.entry;
     const FIELD_WORDS = {
       core: 'their nature',

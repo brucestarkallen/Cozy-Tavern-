@@ -1633,3 +1633,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the current one omitted; the shelves are re-read at menu open. Moving changes projectId only —
   nothing inside the tale. DOM-12b moves a tale to a shelf and back through the real UI.
 - 294/294 + 21/21. version.js -> m56-001.
+
+---
+
+# M57 — passers-through retire
+- FIELD REPORT: "unimportant characters like my MC's Uber driver keep being tracked." Three fixes:
+  the scribe's law — PASSERS-THROUGH GET NO PAGE (a driver, a clerk, a waiter: texture, not a
+  person to keep, until the story gives them a want, a bond or a second scene); in code, every
+  audit's peopleHousekeeping retires a person with no nonzero standing, no seat, no loose end,
+  nothing locked, not present, not the MC, and RETIRE_AFTER=30 turns since their page last moved
+  (people.retire, undoable; people.wake by hand); a retired page rides to NO ONE (renderPeopleTiers
+  skips it — no card, no roster line) and shows in the drawer's people panel folded under "Passed
+  through" with "Bring back". A presence.enter or a people.set for them wakes them automatically.
+- The bottom count ("~N of ~M tokens in the room") is the last request whole — ledger included;
+  the receipt under a reply is its breakdown. Documented in the reply, no change.
+- Harness: m57.mjs. 296/296 + 21/21. version.js -> m57-001.
