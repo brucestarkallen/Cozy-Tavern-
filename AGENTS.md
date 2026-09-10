@@ -891,3 +891,11 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   (resting tales row); jump-to-latest pill (never drags you down); lore → ST worldbook export
   ("Carry it to SillyTavern"). Reverse id-coverage harness law: every control in index.html
   must be wired in js. version.js -> m22-001.
+
+---
+
+# M23 — labels that explain themselves
+- The workers section: each control (who does the reading / who tells this story / the
+  keeper / the second reader) now carries one plain line under it saying exactly what it
+  does. The user had to ask — that means the poetry failed; plain words first, poetry after.
+  version.js -> m23-001.
