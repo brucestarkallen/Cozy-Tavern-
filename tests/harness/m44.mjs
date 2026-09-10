@@ -83,12 +83,14 @@ test('M44-5 sparse snapshots: the newest stay dense, older ones thin out, a deep
   assert(/if \(!r\.exact\) pendingAudit\.add\(story\.id\);/.test(chat), 'an inexact landing asks the auditor');
 });
 
-test('M44-6 the house wires the laws: retry truncates the record, delete slides it, swipe and edit leave a hole, the last page’s edit rewinds, an older page’s edit audits', () => {
+test('M44-6 the house wires the laws: retry truncates the record, delete slides it and replays, swipe and edit leave a hole, the last page’s edit rewinds, an older page’s edit REPLAYS (M68)', () => {
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/memoryTruncatedAt\(await loadMemory\(story\.id\), k\)/.test(chat), 'retry/regenerate truncates');
-  assert(/memoryAfterDeletion\(await loadMemory\(story\.id\), k\)/.test(chat), 'delete slides');
-  eq((chat.match(/memoryWithoutPage\(await loadMemory\(story\.id\), k\)/g) || []).length, 4, 'swipe-new, swipe-walk (last page and older page), edit leave a hole');
+  assert(/memoryAfterDeletion\(await loadMemory\(story\.id\), kGone\)/.test(chat), 'delete slides');
+  assert(/replayFrom\(story, after\.id, \{ boundaryId: goneBoundary/.test(chat), 'delete replays from the next page, rewound to the deleted turn’s boundary');
+  eq((chat.match(/memoryWithoutPage\(await loadMemory\(story\.id\), k\)/g) || []).length, 3, 'swipe-new, swipe-walk (last page), edit leave a hole');
   const edit = chat.slice(chat.indexOf('const isLast = !history.slice'), chat.indexOf('const isLast = !history.slice') + 700);
-  assert(/if \(isLast\) \{[\s\S]*rewindTo\(story, history, boundary\.id\)/.test(edit) && /else \{[\s\S]*pendingAudit\.add\(story\.id\)/.test(edit));
+  assert(/if \(isLast\) \{[\s\S]*rewindTo\(story, history, boundary\.id\)/.test(edit) && /else \{[\s\S]*replayFrom\(story, updated\.id\)/.test(edit), 'the last page rewinds; an older page replays');
+  assert(/async function replayFrom\(story, fromMessageId/.test(chat) && /if \(!replaying && !isLastAssistantPage\(all, msg\.id\)\) return \{ silent: true \};/.test(chat), 'the replay exists and re-takes checkpoints as it runs');
   assert(/pendingAudit\.delete\(story\.id\);/.test(chat), 'the auditor honors a pending audit');
 });

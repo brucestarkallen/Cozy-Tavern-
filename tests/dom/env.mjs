@@ -133,7 +133,7 @@ export async function boot() {
   if (!window.document.documentElement.dataset.version) throw new Error('the app never finished booting: ' + errors.join(' | '));
 
   const { db } = await import('../../js/store.js');
-  booted = { window, document: window.document, house, errors, db };
+  booted = { window, document: window.document, house, errors, db, get ctx() { return window.__cozy; } };
   return booted;
 }
 

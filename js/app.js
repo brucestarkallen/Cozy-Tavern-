@@ -177,6 +177,8 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   initChat(ctx);
   initHousekeeper(ctx);
   initWelcome(ctx);
+  /* M68: the house's context, reachable by the harness (and a curious writer) */
+  window.__cozy = ctx;
 
   /* B7 (M9): when the shelf of stories changes, every open listener hears
    * it — the drawer re-points its live subscription, the settings view

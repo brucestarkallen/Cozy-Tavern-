@@ -1828,7 +1828,8 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       if (!(await stillThere(story.id, msg.id))) return { silent: true };
       const all = await db.messages.list(story.id);
-      if (!isLastAssistantPage(all, msg.id)) return { silent: true }; /* M67: an older page owns no checkpoint */
+      /* M67: an older page owns no checkpoint — except during a replay, when the ledger at this point IS this page's */
+      if (!replaying && !isLastAssistantPage(all, msg.id)) return { silent: true };
       const fresh = all.find((m) => m.id === msg.id);
       const idx = fresh && Array.isArray(fresh.swipes) && fresh.swipes.length
         ? (Number.isFinite(fresh.swipeIdx) ? Math.min(fresh.swipes.length - 1, Math.max(0, fresh.swipeIdx)) : fresh.swipes.length - 1)
@@ -1912,6 +1913,54 @@ export function initChat(ctx) {
     return true;
   }
   const pendingAudit = new Set();
+
+  /* M68: THE REPLAY. When history changes at an older page — a version walked,
+   * an edit kept, a middle page let go — the ledger is rebuilt from there:
+   * rewind to the checkpoint before that page's turn, let the record go from
+   * that page on, and run the workers over every page from there forward,
+   * re-taking each turn's boundary as they go. Summaryception rewinds its
+   * ledger by replaying a journal; the house replays the pages. The auditor
+   * alone was not enough — a branch at a later page carried the wrong
+   * version's people until the next send. */
+  let replaying = false;
+  async function replayFrom(story, fromMessageId, { boundaryId = null } = {}) {
+    if (replaying) return false;
+    replaying = true;
+    try {
+      const history = await db.messages.list(story.id);
+      const vis = visiblePages(history);
+      const at = vis.findIndex((m) => m.id === fromMessageId);
+      if (at === -1) return false;
+      /* a deleted page's replay rewinds to the boundary of the DELETED turn (passed in), not the next page's */
+      const boundary = boundaryId ? { id: boundaryId } : boundaryFor(history, fromMessageId);
+      if (boundary) await rewindTo(story, history, boundary.id);
+      else { const s0 = await loadState(story.id); const clean = emptyState(); clean.sheet = { ...clean.sheet, playerName: (s0.sheet && s0.sheet.playerName) || '' }; clean.clock = s0.clock ? { ...s0.clock } : null; await saveState(story.id, clean); }
+      await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), at));
+      /* the version checkpoints from this page on are stale — they are re-taken as the replay runs */
+      {
+        const all = await loadVersionStates(story.id);
+        const staleIds = new Set(vis.slice(at).map((m) => m.id));
+        for (const key of Object.keys(all)) if (staleIds.has(key.split(':')[0])) delete all[key];
+        await db.settings.set('versionState:' + story.id, all);
+      }
+      let pages = 0;
+      for (let i = at; i < vis.length; i += 1) {
+        const m = vis[i];
+        if (m.role === 'user') { await snapshotState(story.id, m.id, await loadState(story.id)); continue; }
+        if (m.ooc) continue;
+        const lastUser = [...vis.slice(0, i)].reverse().find((x) => x.role === 'user');
+        startBackgroundWork(story, m, lastUser ? pageText(lastUser) : '');
+        await pendingWork(story.id, 120000);
+        pages += 1;
+      }
+      pendingAudit.delete(story.id);
+      notify(story.id);
+      if (pages) toast(`History changed at page ${at + 1} — the ledger was rebuilt over ${pages} ${pages === 1 ? 'page' : 'pages'}.`);
+      return true;
+    } finally {
+      replaying = false;
+    }
+  }
 
   /* M67: a version checkpoint belongs to the LAST storyteller page only. An
    * older page's versions never own a ledger — the ledger standing now is
@@ -2295,7 +2344,7 @@ export function initChat(ctx) {
           const target = fresh.find((m) => m.id === swipeTarget.id);
           if (!target) {
             pending.replaceWith(noteNode('That page went away while the storyteller was writing — the new words were kept nowhere. Ask again and they’ll come as their own page.'));
-            return;
+            return false;
           }
           const swipes = Array.isArray(target.swipes) && target.swipes.length
             ? target.swipes.slice()
@@ -2330,7 +2379,7 @@ export function initChat(ctx) {
             /* M10: the showrunners read a swiped close all the same. */
             if (!ooc) startShowrunnerWork(story, { episodeEnded });
           }
-          return;
+          return landed; /* M68: the swipe path returned undefined — read as "nothing landed", the caller put the OLD ledger back over the new version */
         }
 
         const saved = await db.messages.append(story.id, {
@@ -2433,7 +2482,9 @@ export function initChat(ctx) {
    * house command first (commands.js) — the chip says what the house
    * understood; the instruction rides the request hidden. */
   async function send(text) {
-    if (busy) return;
+    /* M68: a send while the house is busy keeps the words and says so —
+     * it used to drop them silently, a message that simply vanished. */
+    if (busy) { restoreComposer(text); toast('The storyteller is still busy — one moment.'); return; }
     busy = true;
     try {
       let story = await activeStory();
@@ -2699,12 +2750,11 @@ export function initChat(ctx) {
     });
     await rerenderMessage(story.id, msg.id);
     if (!last) {
-      /* M67: an older page's words changed — its record line goes, the auditor reconciles */
-      { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
-      pendingAudit.add(story.id);
+      /* M68: an older page's shown version changed — history changed; replay from here */
       await refreshPreview(story.id);
       renderStoryList();
       refreshEmber();
+      replayFrom(story, msg.id);
       return;
     }
     /* M40: the version walked to gets ITS ledger back — or, never read, the
@@ -2846,8 +2896,8 @@ export function initChat(ctx) {
             if (boundary) await rewindTo(story, history, boundary.id);
             startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '');
           } else {
-            pendingAudit.add(story.id);
-            startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '', { audit: true });
+            /* M68: history changed at an older page — replay from it */
+            replayFrom(story, updated.id);
           }
         } else if (updated && msg.role === 'user') {
           pendingAudit.add(story.id);
@@ -3165,9 +3215,15 @@ export function initChat(ctx) {
     if (!ok) return;
     /* M44: the record slides with the pages — the line covering this page
      * is let go, the lines above it move down one */
-    { const vis = visiblePages(await db.messages.list(story.id)); const k = vis.findIndex((m) => m.id === id); if (k !== -1) await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), k)); }
+    const allBefore = await db.messages.list(story.id);
+    const visBefore = visiblePages(allBefore);
+    const kGone = visBefore.findIndex((m) => m.id === id);
+    const after = kGone !== -1 ? visBefore.slice(kGone + 1).find((m) => m) : null;
+    const goneBoundary = boundaryFor(allBefore, id); /* the turn the page belonged to */
+    if (kGone !== -1) await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), kGone));
     await db.messages.remove(story.id, id);
-    pendingAudit.add(story.id);
+    /* M68: a page let go in the middle changes history — replay from the next page */
+    if (!after) pendingAudit.add(story.id);
     const node = els.thread.querySelector(`.msg[data-id="${id}"]`);
     if (node) node.remove();
     lastRender.ids = lastRender.ids.filter((x) => x !== id);
@@ -3176,6 +3232,7 @@ export function initChat(ctx) {
     renderStoryList();
     refreshEmber();
     toast('The page is gone.');
+    if (after) replayFrom(story, after.id, { boundaryId: goneBoundary && goneBoundary.id !== id ? goneBoundary.id : null });
   }
 
   els.thread.addEventListener('click', async (e) => {
@@ -3532,6 +3589,7 @@ export function initChat(ctx) {
   loadRules().catch(() => {});
 
   ctx.chat = {
+    isBusy: () => busy,
     rescanLedger,
     auditNow,
     foundNow,

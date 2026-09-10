@@ -417,6 +417,7 @@ test('DOM-8a branch 0→0 keeps the ledger; branch N→0 carries page 0’s ledg
   type(q('#new-story-title'), 'Checkpoints');
   submit(q('#new-story-form'));
   const sid = await until(async () => { const id = await storyId(); const s0 = id && (await db.stories.get(id)); return s0 && s0.title === 'Checkpoints' ? id : null; }, 'the story is open');
+  await until(() => assistantPages().length === 0, 'the new story’s empty thread');
   type(q('#composer-input'), 'I walk in.');
   submit(q('#composer'));
   await until(() => assistantPages().length >= 1, 'page 0', 10000);
@@ -464,6 +465,136 @@ test('DOM-8a branch 0→0 keeps the ledger; branch N→0 carries page 0’s ledg
   const startTitle = (await db.stories.get(startSid)).title;
   const row2 = qa('.story-item').find((li) => li.textContent.includes(startTitle) && !/a branch|Checkpoints/.test(li.textContent));
   click(q('.story-open', row2) || row2);
+  await until(async () => (await storyId()) === startSid, 'back on the first story', 10000);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+/* THE CHECKPOINT INVARIANT (M68). For every storyteller page i, at any moment, a branch
+ * at page i carries exactly the people who had entered by page i — no one later, no one
+ * missing. The reader seats Person<i> on page i (the mock), so the expected set is known.
+ * A random but seeded sequence of everything the writer does — send, swipe the last page,
+ * walk a swipe on an old page, retry, edit an old page, delete a middle page — and after
+ * each action the invariant is checked at every page by branching there. */
+test('DOM-8c the checkpoint invariant holds under a random sequence of sends, swipes (last and old), retries, edits and deletes', async () => {
+  const before = errors.length;
+  const startSid = await storyId();
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const idle = async (sid) => { await until(() => !env.ctx.chat.isBusy() && queuedCount(sid) === 0 && !q('.msg-pending'), 'the house and its workers idle', 20000); await tick(150); };
+  let seed = 20260911;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const priorWorker = house.state.workerAnswer;
+  const priorStory = house.state.storyAnswer;
+  let turnNo = 0;
+  house.state.storyAnswer = () => { turnNo += 1; return 'Person' + turnNo + ' entered the room and sat down.'; };
+  house.state.workerAnswer = (body, sys) => {
+    const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+    if (/keep the ledger/i.test(sys)) {
+      const m = user.match(/(Person\d+) entered/);
+      return m ? '{"mutations":[{"type":"presence.enter","name":"' + m[1] + '"}]}' : '{"mutations":[]}';
+    }
+    return priorWorker(body, sys);
+  };
+  click(q('#btn-new-story'));
+  await until(() => !q('#new-story-form').hidden, 'the new-story form');
+  type(q('#new-story-title'), 'Invariant');
+  submit(q('#new-story-form'));
+  const sid = await until(async () => { const id = await storyId(); const s0 = id && (await db.stories.get(id)); return s0 && s0.title === 'Invariant' ? id : null; }, 'the story is open');
+  await until(() => assistantPages().length === 0, 'the new story’s empty thread');
+  let stepName = 'start';
+  const send = async () => {
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+    const n = assistantPages().length;
+    type(q('#composer-input'), 'go'); submit(q('#composer'));
+    try {
+      await until(() => assistantPages().length > n, 'a page', 15000);
+    } catch (err) {
+      const inDb = (await db.messages.list(sid)).map((m) => m.role + ':' + String(m.text || '').slice(0, 24) + (m.hidden ? '(h)' : ''));
+      const tail = [...q('#thread').children].slice(-3).map((el) => el.className + '::' + el.textContent.slice(0, 60));
+      const note = q('#composer-note') ? q('#composer-note').textContent : '(no note el)';
+      const conns = (await db.connections.list()).length;
+      const active = await db.settings.get('activeConnectionId');
+      const st = await db.stories.get(sid);
+      const notes = qa('#thread .msg-note').map((n) => n.textContent.slice(0, 120));
+      const lastCall = house.state.calls[house.state.calls.length - 1];
+      throw new Error('a page at step ' + stepName + ' — dom pages=' + assistantPages().length + ' db=' + JSON.stringify(inDb) + ' notes=' + JSON.stringify(notes) + ' errors=' + JSON.stringify(errorsSince(before)) + ' toast=' + JSON.stringify(q('#toast') && q('#toast').textContent) + ' lastCall=' + JSON.stringify(lastCall && lastCall.url) + ' conns=' + conns + ' active=' + active);
+    }
+    await idle(sid);
+  };
+  const personsOnPage = (p) => { const m = bodyText(p).match(/(Person\d+) entered/); return m ? m[1] : null; };
+  const expectedAt = (i) => { const pages = assistantPages().slice(0, i + 1); return new Set(pages.map(personsOnPage).filter(Boolean)); };
+  const presentNames = (st) => new Set((st.present || []).map((p) => p.name).filter((n) => /^Person\d+$/.test(n)));
+  const checkAll = async (label) => {
+    const n = assistantPages().length;
+    for (let i = 0; i < n; i += 1) {
+      const want = expectedAt(i);
+      const page = assistantPages()[i];
+      click(q('.msg-act[data-act="branch"]', page));
+      const bid = await until(async () => { const id = await storyId(); return id !== sid ? id : null; }, 'the branch', 15000);
+      await idle(bid);
+      const got = presentNames(await db.settings.get('state:' + bid));
+      eq([...got].sort().join(','), [...want].sort().join(','), label + ' — a branch at page ' + i + ' carries exactly that page’s people');
+      /* back, and let the branch go so the shelf stays small */
+      const row = qa('.story-item').find((li) => /Invariant/.test(li.textContent) && !/a branch/.test(li.textContent));
+      click(q('.story-open', row) || row);
+      await until(async () => (await storyId()) === sid, 'back', 10000);
+      await db.stories.remove(bid);
+    }
+  };
+  try {
+  for (let t = 0; t < 4; t += 1) await send();
+  await checkAll('after four sends');
+  const actions = ['swipe-last', 'send', 'swipe-old', 'retry', 'edit-old', 'send', 'delete-mid', 'send'];
+  for (let step = 0; step < actions.length; step += 1) {
+    const act = actions[step];
+    stepName = act;
+    const pages = assistantPages();
+    try {
+    if (act === 'send') await send();
+    else if (act === 'swipe-last') {
+      const last = pages[pages.length - 1];
+      click(q('.swipe-bar .msg-act[data-act="swipe-next"]', last));
+      await until(() => q('.swipe-count', assistantPages()[assistantPages().length - 1]) && /2/.test(q('.swipe-count', assistantPages()[assistantPages().length - 1]).textContent), 'a new version of the last page', 15000);
+      await idle(sid);
+    } else if (act === 'swipe-old') {
+      /* an old page only WALKS versions it already has (the page that was swiped while it was last) */
+      const old = pages.find((p) => q('.swipe-bar', p) && !p.isSameNode(pages[pages.length - 1]));
+      assert(old, 'an old page with versions to walk');
+      const oldId = old.dataset.id;
+      const live = () => assistantPages().find((p) => p.dataset.id === oldId);
+      const was = q('.swipe-count', old).textContent;
+      click(q('.swipe-bar .msg-act[data-act="swipe-prev"]', old));
+      await until(() => live() && q('.swipe-count', live()) && q('.swipe-count', live()).textContent !== was, 'walked to the other version of an old page', 15000);
+      await idle(sid);
+    } else if (act === 'retry') {
+      const users = qa('.msg-user'); const u = users[users.length - 1];
+      click(q('.msg-act[data-act="try again"]', u));
+      await until(() => q('.msg-pending') || q('.msg.streaming') || true, 'the retry began');
+      await settled(); await idle(sid);
+    } else if (act === 'edit-old') {
+      const old = pages[Math.floor(rnd() * (pages.length - 1))];
+      const oldId = old.dataset.id;
+      const wasText = (await db.messages.list(sid)).find((m) => m.id === oldId).text;
+      click(q('.msg-act[data-act="edit"]', old));
+      const ta = await until(() => q('textarea.edit-box', old), 'the editor');
+      ta.value = wasText.replace(' and sat down', ' and stood'); ta.dispatchEvent(new window.Event('input', { bubbles: true }));
+      click(qa('button', old).find((b) => /keep the new words/i.test(b.textContent)));
+      await until(async () => { const m = (await db.messages.list(sid)).find((x) => x.id === oldId); return m && /and stood/.test(m.text) && !q('textarea.edit-box'); }, 'the edit kept', 15000);
+      await idle(sid);
+    } else if (act === 'delete-mid') {
+      const mid = pages[1];
+      const priorConfirm = window.confirm; window.confirm = () => true;
+      click(q('.msg-act[data-act="delete"]', mid));
+      await until(() => !assistantPages().some((p) => p.dataset.id === mid.dataset.id), 'the page gone');
+      window.confirm = priorConfirm;
+      await idle(sid);
+    }
+    } catch (err) { throw new Error('at step ' + act + ' (pages=' + pages.length + '): ' + (err && err.message)); }
+    await checkAll('after ' + act);
+  }
+  } finally { house.state.workerAnswer = priorWorker; house.state.storyAnswer = priorStory; }
+  const startTitle = (await db.stories.get(startSid)).title;
+  const row = qa('.story-item').find((li) => li.textContent.includes(startTitle) && !/a branch|Invariant|Checkpoints/.test(li.textContent));
+  click(q('.story-open', row) || row);
   await until(async () => (await storyId()) === startSid, 'back on the first story', 10000);
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

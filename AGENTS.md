@@ -1865,3 +1865,33 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - DOM-8a drives both reports: a fresh story, branch 0→0 keeps the ledger; two more turns with
   Kim entering, a swipe walked on page 0, then branch N→0 — page 0's checkpoints never hold
   Kim and the branch does not carry her. 312/312 + 26/26 (×4). version.js -> m67-001.
+
+---
+
+# M68 — THE CHECKPOINT INVARIANT, and the replay
+- FIELD REPORT: "Summaryception solved all of this; why can't you analyze it so no bugs ever
+  again?" Summaryception's laws were already ported (M44); the last bugs were in what it never
+  had to solve — versions and edits on OLDER pages, which SillyTavern forbids. What ends the
+  class is an INVARIANT, not a bug list: for every storyteller page i, at any moment, a branch at
+  page i carries exactly the ledger that stood after page i.
+- DOM-8c: a story whose reader seats Person<i> on page i, then a seeded sequence — four sends,
+  swipe the last page, send, walk a version on an old page, retry, edit an old page, send, delete
+  a middle page, send — and after EVERY action a branch at EVERY page, checked against the set
+  of people that page's prefix seats. Four real bugs it found, all fixed:
+  1. The swipe path `return`ed undefined from inside generate's try, so generate reported
+     "nothing landed" and the caller put the PRE-SWIPE ledger back over the new version (the
+     old and the new person both present). `return landed`.
+  2. A history change at an OLDER page (a version walked, an edit kept, a middle page deleted)
+     left the ledger to "the auditor next turn". Now THE REPLAY (replayFrom): rewind to the
+     checkpoint before that turn (rewindTo, exact or nearest; a first-turn change → a clean
+     ledger), let the record go from that page (memoryTruncatedAt), and run the workers over
+     every page from there forward, re-taking each turn's boundary (snapshotState) as it goes —
+     Summaryception's journal replay, done with the pages. One replay at a time.
+  3. A middle-page delete replayed from the NEXT page's boundary, so the deleted page's person
+     survived; it rewinds to the DELETED turn's boundary (computed before removal, passed in).
+  4. Stale per-version checkpoints survived a replay and branchFrom trusted them first; a replay
+     clears the version states from that page on and the checkpoint job writes fresh ones while
+     `replaying` (otherwise the last page only, M67).
+- Also: a send while the house is busy kept silently dropping the typed words — they stay in the
+  box now, with a toast; window.__cozy exposes ctx (the walk waits on ctx.chat.isBusy()).
+- 312/312 + 27/27 (the invariant walk green ×4). version.js -> m68-001.
