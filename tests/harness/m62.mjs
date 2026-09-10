@@ -76,3 +76,14 @@ test('M62-4 the panel wears the whole toolbar', () => {
   const ui = readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
   assert(/hk-branch-here/.test(ui) && /async function sessionAct/.test(ui) && /async function directorTool/.test(ui) && /async function nameStory/.test(ui));
 });
+
+test('M65 hidden wins: the one !important in the house; a hidden cards box or seed form is never drawn', () => {
+  const base = readFileSync(new URL('../../css/base.css', import.meta.url), 'utf8');
+  assert(/\[hidden\] \{ display: none !important; \}/.test(base), 'the global [hidden] rule');
+  const css = ['base', 'chat', 'drawer'].map((n) => readFileSync(new URL('../../css/' + n + '.css', import.meta.url), 'utf8')).join('\n');
+  const displays = (css.match(/display: none !important/g) || []).length;
+  eq(displays, 1, 'exactly one display-forcing !important in the house — the [hidden] rule');
+  const drawer = readFileSync(new URL('../../css/drawer.css', import.meta.url), 'utf8');
+  assert(!/\.hk-quick \{[^}]*dashed/.test(drawer), 'no dashed separators between the rows');
+  assert(/\.hk-composer \.hk-quick \.text-btn, \.hk-cards-bar \.text-btn \{[^}]*border: 1px solid var\(--border\)/.test(drawer), 'the controls are buttons');
+});

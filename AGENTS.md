@@ -1813,3 +1813,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   only the status line (they used to flip `busy` off mid-turn, which could re-enable the ask
   box while an answer was streaming).
 - 311/311 + 24/24 (ten green walks). version.js -> m64-001.
+
+---
+
+# M65 — hidden wins; the sheet's controls are buttons
+- FIELD REPORT (screenshots, the tavern beside Chat Assistant): an empty cards bar drawn with no
+  cards; the seed form sitting open above the ask box; controls as scattered orange words with
+  dashed lines between rows. ROOT of the first two: `hidden` is only the browser's default
+  `display:none`, and any class rule that sets display (flex/grid/block) beats it — .hk-cards
+  and .hk-seed-form both set display:flex. The walk could not see it: jsdom does not compute
+  CSS. base.css now has `[hidden] { display: none !important; }` — the one display-forcing
+  !important in the house — and M65's law counts it. Controls: Chat Assistant's cc_btn shape
+  (bordered pills on surface-2) for the sessions row, the two composer rows and the cards bar;
+  Ren/Del in words; no dashed separators.
+- LAW: a CSS rule that sets display on an element that can be `hidden` is a bug unless [hidden]
+  wins globally. It does now; never remove it.
+- 312/312 + 24/24. version.js -> m65-001.
