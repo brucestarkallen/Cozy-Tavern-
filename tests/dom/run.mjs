@@ -365,6 +365,24 @@ test('DOM-13b reset to the house’s defaults: settings go back, connections and
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-14a a thinking storyteller: the thought is kept, and how long it took is shown on the finished page', async () => {
+  const before = errors.length;
+  house.state.thinkFirst = true;
+  type(q('#composer-input'), 'Does she say anything?');
+  submit(q('#composer'));
+  await until(() => assistantPages().length >= 1 && q('.msg-assistant:last-of-type details.thinking'), 'a thinking block on the finished page', 10000);
+  await settled();
+  house.state.thinkFirst = false;
+  const sid = await storyId();
+  const last = (await db.messages.list(sid)).filter((m) => !m.hidden && m.role === 'assistant').pop();
+  assert(last.thinking && /weigh the room/.test(last.thinking), 'the thought is kept');
+  assert(Number.isFinite(last.thinkingMs) && last.thinkingMs >= 1, 'how long it took is kept: ' + last.thinkingMs);
+  const node = q(`.msg[data-id="${last.id}"] details.thinking summary`);
+  assert(node && /what the storyteller weighed/.test(node.textContent), 'the block');
+  assert(node.querySelector('.thinking-took'), 'the time is on the finished page: ' + node.textContent);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-14b the second reader mends a drifted page by the smallest edit, and the chip takes it back', async () => {
   const before = errors.length;
   house.state.mend = true;

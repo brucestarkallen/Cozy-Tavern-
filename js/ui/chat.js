@@ -860,7 +860,8 @@ export function initChat(ctx) {
   /* The folded reasoning block (M8.5): "what the storyteller weighed",
    * dashed and quiet, above the prose. */
   function thinkingWords(ms) {
-    if (!Number.isFinite(ms) || ms <= 0) return '';
+    if (!Number.isFinite(ms) || ms < 0) return '';
+    if (ms < 500) return 'under a second';
     const sec = ms / 1000;
     return sec < 60 ? Math.round(sec) + 's' : Math.floor(sec / 60) + 'm ' + Math.round(sec % 60) + 's';
   }
@@ -871,7 +872,7 @@ export function initChat(ctx) {
     const summary = document.createElement('summary');
     /* M40: how long it weighed, like SillyTavern's "thought for 12s" */
     const took = thinkingWords(ms);
-    summary.innerHTML = '<span class="thinking-arrow" aria-hidden="true">▸</span> what the storyteller weighed' + (took ? ' — <span class="thinking-took">' + took + '</span>' : '');
+    summary.innerHTML = '<span class="thinking-arrow" aria-hidden="true">▸</span> what the storyteller weighed' + (took ? ' — thought for <span class="thinking-took">' + took + '</span>' : '');
     const body = document.createElement('div');
     body.className = 'thinking-body';
     body.textContent = text;
@@ -2076,7 +2077,7 @@ export function initChat(ctx) {
       let thinkMs = 0;
       let thinkTimer = 0;
       const stopThinkClock = () => {
-        if (thinkStart && !thinkMs) thinkMs = Date.now() - thinkStart;
+        if (thinkStart && !thinkMs) thinkMs = Math.max(1, Date.now() - thinkStart);
         if (thinkTimer) { clearInterval(thinkTimer); thinkTimer = 0; }
         if (thinkDetails) {
           const took = thinkDetails.querySelector('.thinking-took');
@@ -2201,14 +2202,14 @@ export function initChat(ctx) {
           const swipes = Array.isArray(target.swipes) && target.swipes.length
             ? target.swipes.slice()
             : [{ text: pageText(target), ts: target.ts, thinking: target.thinking, receipt: target.receipt }];
-          swipes.push({ text: full, ts: Date.now(), thinking: thinking || undefined, thinkingMs: thinkMs || undefined, receipt });
+          swipes.push({ text: full, ts: Date.now(), thinking: thinking || undefined, thinkingMs: thinkStart ? Math.max(1, thinkMs) : undefined, receipt });
           const swipeIdx = swipes.length - 1;
           await db.messages.update(story.id, target.id, {
             swipes,
             swipeIdx,
             text: full,
             thinking: thinking || target.thinking,
-            thinkingMs: thinkMs || undefined,
+            thinkingMs: thinkStart ? Math.max(1, thinkMs) : undefined,
             receipt,
             sources: streamSources || undefined,
             cutShort: cutShort || undefined,
@@ -2238,7 +2239,7 @@ export function initChat(ctx) {
           role: 'assistant',
           text: full,
           thinking: thinking || undefined,
-          thinkingMs: thinkMs || undefined,
+          thinkingMs: thinkStart ? Math.max(1, thinkMs) : undefined,
           receipt,
           stopped: stoppedByHand || undefined,
           cutShort: cutShort || undefined,

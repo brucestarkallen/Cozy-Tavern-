@@ -31,7 +31,7 @@ function jsonRes(obj, status = 200) {
 /* The house: answers the storyteller with prose, the workers with JSON, by
  * looking at what each request is for. Scenarios can override `answer`. */
 export function makeHouse() {
-  const state = { calls: [], storyAnswer: null, workerAnswer: null, fail: null };
+  const state = { calls: [], storyAnswer: null, workerAnswer: null, fail: null, thinkFirst: false };
   let n = 0;
   const fetchImpl = async (url, opts = {}) => {
     const u = String(url);
@@ -54,6 +54,16 @@ export function makeHouse() {
         'event: content_block_start\ndata: ' + JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }) + '\n\n',
         'event: content_block_delta\ndata: ' + JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: answer } }) + '\n\n',
         'event: message_delta\ndata: ' + JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' } }) + '\n\n',
+      ]);
+    }
+    /* M46: a thinking storyteller — reasoning_content first, then prose, when asked */
+    if (!isWorker && state.thinkFirst) {
+      return sse([
+        { choices: [{ delta: { reasoning_content: 'Let me weigh the room. ' } }] },
+        { choices: [{ delta: { reasoning_content: 'Liara is guarded. ' } }] },
+        { choices: [{ delta: { content: answer } }] },
+        { choices: [{ delta: {}, finish_reason: 'stop' }] },
+        'data: [DONE]\n\n',
       ]);
     }
     return sse([{ choices: [{ delta: { content: answer } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }, 'data: [DONE]\n\n']);
