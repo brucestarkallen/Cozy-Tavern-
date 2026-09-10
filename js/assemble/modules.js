@@ -27,6 +27,7 @@
  * triggers (see js/import/sillytavern.js).
  */
 
+import { CRAFT_TEXT, looksLikeImportedCraft } from './craft.js'; /* M36: the craft core */
 import { db } from '../store.js';
 
 const STORAGE_KEY = 'modules';
@@ -154,7 +155,7 @@ const BUILTIN_MODULES = [
   {
     id: 'core-craft',
     name: 'The craft',
-    text: CORE_CRAFT_TEXT,
+    text: CRAFT_TEXT, /* M36: the distilled core (assemble/craft.js); the M2 condensation is kept below as CORE_CRAFT_TEXT for the record */
     whenKey: 'always',
     whenWords: 'always on — it is the craft',
   },
@@ -207,8 +208,35 @@ async function writeSaved(rows) {
 
 /* builtin + user, merged: a saved row with a builtin's id shadows it
  * (name/text/pins yours, predicate kept); saved rows with new ids follow. */
+/* M36: a core-craft fork that is the old wholesale import (the whole preset
+ * moved into slot 2) is retired on sight — its words move to a manual rule
+ * "The old imported craft (retired)" so nothing is lost, and the house's
+ * distilled core rides. Runs once; a hand-edited fork is left alone. */
+async function retireImportedCraft(saved) {
+  const at = saved.findIndex((row) => row.id === 'core-craft' && !row.custom && looksLikeImportedCraft(row.text));
+  if (at === -1) return saved;
+  const fork = saved[at];
+  const rest = saved.filter((_, i) => i !== at);
+  const already = rest.some((row) => row.custom && row.retiredCraft === true);
+  if (!already) {
+    rest.push({
+      id: 'mod-' + Date.now().toString(36) + '-retired-craft',
+      name: 'The old imported craft (retired — the house’s craft carries it now)',
+      text: fork.text,
+      pinned: false,
+      custom: true,
+      whenKey: 'manual',
+      note: 'the whole preset as it was imported before M36; the distilled craft replaced it. Pin it only to compare.',
+      retiredCraft: true,
+    });
+  }
+  await writeSaved(rest);
+  return rest;
+}
+
 export async function listModules() {
-  const saved = await readSaved();
+  let saved = await readSaved();
+  saved = await retireImportedCraft(saved);
   const merged = BUILTIN_MODULES.map((builtin) => {
     const fork = saved.find((row) => row.id === builtin.id);
     if (!fork) {
@@ -288,6 +316,14 @@ export async function removeModule(id) {
 export function selectModules(modules, state) {
   const list = Array.isArray(modules) ? modules : [];
   const chosen = [];
+  /* M36: the writer's own rule for a moment (an imported NSFW module on
+   * `intimate`) outranks the house's condensed one for the same moment —
+   * both riding was the same law said twice. Builtins are shadowed only
+   * by an enabled custom rule with the same whenKey; core-craft never. */
+  const shadowed = new Set();
+  for (const mod of list) {
+    if (mod && mod.custom && mod.whenKey && mod.whenKey !== 'always' && mod.whenKey !== 'manual' && mod.enabled !== false) shadowed.add(mod.whenKey);
+  }
   for (const mod of list) {
     let verdict = { load: false, reason: '' };
     if (typeof mod.when === 'function') {
@@ -299,6 +335,8 @@ export function selectModules(modules, state) {
     }
     if (mod.pinned) {
       chosen.push({ mod, reason: 'pinned on by you' });
+    } else if (verdict.load && mod.source === 'builtin' && mod.id !== 'core-craft' && shadowed.has(mod.whenKey)) {
+      /* the writer's own rule for this moment rides instead */
     } else if (verdict.load) {
       chosen.push({ mod, reason: verdict.reason || 'the scene called for it' });
     }

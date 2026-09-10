@@ -1230,3 +1230,36 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   core that binds the storyteller to the ledger, the record and the world's word. That is the
   last structural piece of "no continuity issues": the workers now keep the truth; the
   storyteller's own rules must tell it to obey the truth it is handed.
+
+---
+
+# M36 — the craft core: the writer's law distilled, bound to the house's truth
+- js/assemble/craft.js (new): CRAFT_TEXT — the Simulation Engine V177 craft distilled (~58k
+  chars, ~14.5k tokens, from ~160k of craft + tracker specs): Authorship Frame, The Telling, CORE
+  Contract, Simulation Core, The Turn (Living World's turn-shape laws), Character Integrity, NPC
+  Psychology, Information Quarantine, Continuity, The Prose (Writing Guidelines, Genesis, Banned
+  Words, Private Thoughts), The Pass. Every law kept in the writer's own voice; cut only
+  cross-references, restatements, and what the house now does (tracker emission, ACW, TWB
+  scheduling, Plot Momentum's dashboard, the S/C/W reasoning passes, travel/ETA math).
+  NEW section "The House's Truth": the [story-state] block is canon — the ledger (hour, ground,
+  who's here, knows, elsewhere with arrivals, threads, factions), arrivals on the clock (never
+  early), Who Knows What as the first source of the 3-Part Trace, the record as established canon
+  with [Correction] superseding, the world's word rendered as world never instruction, the
+  referee's ruling replacing outcome assignment, a mended page as canon, the Header Protocol
+  (the storyteller writes the header the writer styles, from the ledger's clock), System Stays
+  Backstage (no blocks, no dashboards: header, prose, stop). "The Pass" keeps only B (beat) and
+  L (last look) — S/C/W are the house's.
+- assemble/modules.js: core-craft's builtin text is CRAFT_TEXT. retireImportedCraft: a core-craft
+  fork that is the old wholesale import (looksLikeImportedCraft: >40k chars with ≥2 of the
+  preset's section marks) is retired on first read — its words move to a manual rule "The old
+  imported craft (retired)" (retiredCraft:true, never duplicated) and the house's craft rides; a
+  hand-edited fork is left alone. selectModules: an enabled custom rule with the same whenKey as
+  a builtin situational module shadows the builtin (the writer's NSFW module rides, not both);
+  core-craft is never shadowed.
+- import/v176map.js: CRAFT_NAMES is empty on purpose; the known craft entries (+ Genesis,
+  Continuity Verification, Private Thoughts, Authorship Frame) are retired-house "distilled into
+  the house's craft". An unknown preset's craft still forks the core by heuristic (the writer's
+  choice).
+- First turn now: frame 139 + craft 14,468 tokens cached (was ~26k+ of imported craft).
+- Harness: m36.mjs (4 checks); m30-7 / m31-7 updated to the distilled law. 245/245 + 17/17.
+  version.js -> m36-001. sw.js gains assemble/craft.js.

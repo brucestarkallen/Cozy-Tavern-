@@ -154,5 +154,6 @@ test('M31-7 the defaults: the header is kept (styled by the writer), state block
     { identifier: 'main', name: '⚡️Main Prompt 🤖', content: 'main', enabled: true },
   ], prompt_order: [{ character_id: 100001, order: [{ identifier: 't', enabled: true }, { identifier: 'main', enabled: true }] }] };
   const plan = decompose(parsePreset(JSON.stringify(preset)).entries);
-  assert(plan.craft.some((c) => /Time and Place/.test(c.name)), 'Time and Place is craft — the storyteller writes the header the writer styles');
+  /* M36: Time and Place is distilled into the core's Header Protocol — the storyteller still writes the header the writer styles */
+  assert(plan.retired.some((r) => /Time and Place/.test(r.name) && /distilled/.test(r.why)), 'Time and Place is distilled into the house’s craft');
 });

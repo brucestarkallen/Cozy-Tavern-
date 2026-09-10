@@ -112,9 +112,10 @@ test('M30-7 the import no longer hands the storyteller the header protocol or th
   ] }] };
   const plan = decompose(parsePreset(JSON.stringify(preset)).entries);
   const craftNames = plan.craft.map((c) => c.name);
-  assert(craftNames.some((n) => /Main Prompt/.test(n)) && craftNames.some((n) => /Writing Guidelines/.test(n)), 'the craft keeps the craft');
-  assert(!craftNames.some((n) => /Better Narrative/.test(n)), 'plot momentum is out of the craft (M31: Time and Place is craft again — the writer keeps the header and styles it)');
+  /* M36: the known craft entries are distilled into the house's craft — none forks slot 2 anymore */
+  eq(craftNames.length, 0, 'nothing of the known preset joins slot 2 wholesale: ' + craftNames.join(', '));
   const retired = plan.retired.map((r) => r.name + ' :: ' + r.why);
+  assert(retired.some((r) => /Main Prompt.*distilled/.test(r)) && retired.some((r) => /Writing Guidelines.*distilled/.test(r)), 'the craft entries are retired into the house’s craft');
   assert(retired.some((r) => /Better Narrative.*world agent/.test(r)), 'plot momentum retired to the world agent');
   assert(retired.some((r) => /ACW.*world agent/.test(r)), 'ACW says the world agent keeps it');
 });

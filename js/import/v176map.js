@@ -59,16 +59,15 @@ const MARKER_NAMES = [
 ];
 
 /* ---------- Bucket A — the craft (stable core, joined in original order) ---------- */
-const CRAFT_NAMES = [
-  'Main Prompt',
-  'Time and Place',
-  'Writing Guidelines (Anti-Slop)',
-  'Banned Words',
-  'Simulation Core',
-  'Character Integrity',
-  'Information Quarantine',
-  'NPC Psychology',
-  'Living World',
+/* M36: the known craft entries are the house's craft now (assemble/craft.js
+ * distilled them); none of them joins slot 2 wholesale anymore. The list
+ * stays empty on purpose — an unknown preset's craft still forks the core
+ * through heuristicSort, by the writer's choice. */
+const CRAFT_NAMES = [];
+const DISTILLED_CRAFT = [
+  'Main Prompt', 'Time and Place', 'Writing Guidelines (Anti-Slop)', 'Banned Words', 'Simulation Core',
+  'Character Integrity', 'Information Quarantine', 'NPC Psychology', 'Living World', 'HQ NPC Genesis',
+  'Continuity Verification', 'NPC Private Thoughts', 'Authorship Frame',
 ];
 
 /* ---------- Bucket B — rulebook modules and their triggers ---------- */
@@ -89,21 +88,16 @@ const MODULE_ROWS = [
     why: 'you choose when this walks in' },
   { name: 'The World Beyond (TWB)', whenKey: 'worldWindow',
     why: 'wakes when the world agent opens a window beyond the page' },
-  { name: 'NPC Private Thoughts', whenKey: 'manual',
-    why: 'you choose when this walks in' },
 ];
 
 /* ---------- Frame seeds — suggested material, copy-only, never applied ---------- */
 const FRAME_SEED_NAMES = [
-  'Authorship Frame',
   'Soft Jailbreak NSFW',
   'Firm Jailbreak',
 ];
 
 /* ---------- Bucket C — retired into the engines ---------- */
 const RETIRED_ENGINE_ROWS = [
-  { name: 'HQ NPC Genesis', why: 'the world agent names who must exist; the registry keeps names unique' },
-  { name: 'Continuity Verification', why: 'the second reader and the canon store verify' },
   { name: 'Scene Pulse (IST)', why: 'the ledger renders it' },
   { name: 'NPC Watchlist (ACW)', why: 'the world agent keeps the absent, with stance and arrival on the clock' },
   { name: 'Factions', why: 'the world agent moves factions on cause; the ledger renders them' },
@@ -113,6 +107,7 @@ const RETIRED_ENGINE_ROWS = [
 
 /* ---------- Bucket D — retired into the house ---------- */
 const RETIRED_HOUSE_ROWS = [
+  ...DISTILLED_CRAFT.map((name) => ({ name, why: 'distilled into the house’s craft (the rulebook’s “The craft”) — every law kept, bound to the ledger, the record and the world’s word' })),
   { name: 'Output Systems', why: 'the house keeps the order of things' },
   { name: 'Commands (#p #pp #q)', why: 'the house hears commands' },
   { name: 'CoT', why: 'the storyteller thinks natively now' },

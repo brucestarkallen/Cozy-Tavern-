@@ -22,6 +22,7 @@ const SHELL = [
   'js/providers/openai.js',
   'js/assemble/stack.js',
   'js/assemble/modules.js',
+  'js/assemble/craft.js',
   'js/assemble/receipt.js',
   'js/engine/state.js',
   'js/engine/clock.js',
