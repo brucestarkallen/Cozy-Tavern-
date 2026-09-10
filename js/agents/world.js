@@ -293,7 +293,7 @@ export function worldRunWords(result) {
   const n = result.applied ? result.applied.length : 0;
   const bits = [];
   bits.push(n ? `moved the world in ${n} ${n === 1 ? 'way' : 'ways'}` : 'the world stood still');
-  if (result.brief && !result.brief.empty) bits.push('left a brief');
+  if (result.brief && !result.brief.empty) bits.push('left the world’s word');
   if (result.rejected && result.rejected.length) bits.push(`${result.rejected.length} refused`);
   if (result.dropped) bits.push(`${result.dropped} it may not touch`);
   return bits.join(', ');
