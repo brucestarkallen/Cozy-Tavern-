@@ -31,17 +31,19 @@ const HISTORY_KEPT = 30;
 
 /* Plain words for a standing on each axis — strongest first. */
 const AXIS_WORDS = {
+  /* M53: symmetric bands — a nudge (|v| < 10) carries the number only, never
+   * a word ("distant" for R-8 was the drawer shouting a whisper). */
   p: [
-    [60, 'devoted'], [25, 'warm'], [5, 'friendly'],
-    [-5, ''], [-25, 'wary'], [-60, 'cold'], [-Infinity, 'bitter'],
+    [60, 'devoted'], [25, 'warm'], [10, 'friendly'],
+    [-10, ''], [-25, 'cooler'], [-60, 'cold'], [-Infinity, 'bitter'],
   ],
   r: [
-    [60, 'smitten'], [25, 'drawn'], [5, 'a spark'],
-    [-5, ''], [-25, 'distant'], [-60, 'guarded'], [-Infinity, 'closed off'],
+    [60, 'smitten'], [25, 'drawn'], [10, 'a spark'],
+    [-10, ''], [-25, 'holding back'], [-60, 'guarded'], [-Infinity, 'closed off'],
   ],
   s: [
-    [60, 'burning'], [25, 'wanting'], [5, 'a charge'],
-    [-5, ''], [-25, 'cool'], [-60, 'put off'], [-Infinity, 'repelled'],
+    [60, 'burning'], [25, 'wanting'], [10, 'a charge'],
+    [-10, ''], [-25, 'cool'], [-60, 'put off'], [-Infinity, 'repelled'],
   ],
 };
 

@@ -1575,3 +1575,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   (replaces the M50 one-shot button; rebuildStandings stays for the harness and the housekeeper).
 - Harness: m52.mjs (3 checks incl. both gradual walks end to end). 291/291 + 20/20.
   version.js -> m52-001.
+
+---
+
+# M53 — the reader knows the writer's law of the standings; a nudge is a number
+- FIELD REPORT (a sex scene, empty brief, turn 7): "Rebecca — distant (R-8), a charge (S+15) …
+  stepped back after 'You can't see me next weekend … don't waste this one' — she names the limit
+  of what he is to her. Not accurate; no P; does the agent even know what P:R:S is?" It did not:
+  the reader's whole law was one line ("p warmth, r romantic pull, s sensual charge"), nothing
+  about WHEN a standing moves. It docked R on a motivated reading of a playful line and never
+  moved P through intimacy because nobody told it trust is warmth.
+- extractor.js STANDINGS_LAW — the writer's NPC Psychology law, whole: the three axes with their
+  negatives (R negative = romantic aversion, NOT "wants less commitment"); zero start; SCORES MOVE
+  ON REVELATION with the examples; DISPOSITION NOT MOOD (care-shaped distress never subtracts);
+  a stated boundary/limit is a FACT about the bond, lowering R only if the page shows she wants
+  LESS than before — said playfully or while wanting him now it moves nothing, or moves S;
+  intimacy moves S with wanting shown, P with trust shown, R with attachment shown; charm is not
+  a cause.
+- relationships.js AXIS_WORDS: symmetric bands, a word only at |v| ≥ 10 ("distant" for R-8 was
+  the drawer shouting a whisper): friendly/cooler, a spark/holding back, a charge/cool.
+- Harness: m53.mjs. 293/293 + 20/20. version.js -> m53-001.

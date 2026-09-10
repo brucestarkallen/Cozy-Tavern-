@@ -117,6 +117,33 @@ const VOCABULARY = [
   'offscreen.clear {"type":"offscreen.clear","name":"Mira"} — when the prose says an elsewhere note no longer holds',
 ].join('\n');
 
+/* M53: the writer's own law of the standings, given to the reader whole — it
+ * had one line ("p warmth, r romantic pull, s sensual charge") and nothing
+ * about WHEN a standing moves, so it docked R for a playful "don't waste
+ * this one" and never moved P through a night of intimacy. */
+const STANDINGS_LAW = [
+  'THE STANDINGS (rel.shift). Each named person carries three INDEPENDENT axes toward the main',
+  'character, -100..+100: P = warmth and trust (friendship, respect, comfort; negative = dislike,',
+  'contempt, distrust); R = romantic pull (attachment, longing, wanting MORE of him, jealousy;',
+  'negative = romantic aversion, not "wants less commitment"); S = sexual desire (physical want,',
+  'tension; negative = repulsion). They move independently: R can climb while P drops, S without R,',
+  'P high with the others at zero. A stranger starts at 0/0/0 and moves only by what the page shows.',
+  'SCORES MOVE ON REVELATION: a standing moves ONLY when the page reveals something NEW about the main',
+  'character or the bond, read through that person\'s own nature — never on the beat\'s pleasantness',
+  'and never on your reading of what she "really" thinks. A public defeat can raise R (he didn\'t defer',
+  'to me); a gift can drop P (he\'s buying me); a cruel truth can raise P (he didn\'t lie). No revelation,',
+  'no movement — flat is the default. Typical ±1–5; a major moment ±10–20.',
+  'DISPOSITION NOT MOOD: the standing is the climate, the scene\'s emotion is the weather. Fear FOR him,',
+  'worry, grief at his pain, embarrassment on his behalf are SYMPTOMS of warmth — they never subtract.',
+  'Only fear OF him, disgust AT him, betrayal BY him lower P. A boundary or a limit she states ("can\'t',
+  'see you next weekend", "this is a weekend thing") is a FACT about the bond, not a minus: it lowers R',
+  'only if the page shows she wants LESS than she did before; said playfully, or while wanting him',
+  'now, it moves nothing — or moves S. Intimacy: S rises with wanting shown; P rises with trust shown',
+  '(letting him in, staying after, being unguarded); R rises with attachment shown (wanting more,',
+  'longing, jealousy) — each only where the page shows it, none mechanically. Charm from the main',
+  'character is not a cause; an NPC who feels handled drops while smiling.',
+].join('\n');
+
 /* The standing law of the ledger. M28: it is built per turn now, because two
  * things it says depend on the ledger's age and what it knows — who the
  * main character is, and whether an empty answer is honest. */
@@ -163,6 +190,8 @@ function systemPrompt({ mc, founding }) {
     '',
     'The only mutations that exist:',
     VOCABULARY,
+    '',
+    STANDINGS_LAW,
     '',
     'THE MOOD IS STATED WHOLE, EVERY PAGE: include one mode.snapshot naming every mood that holds at',
     'the end of this page — a mood you leave out is cleared. A man who has stepped out of the car is',
