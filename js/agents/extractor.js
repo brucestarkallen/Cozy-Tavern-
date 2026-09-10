@@ -32,7 +32,7 @@
  * The M3 names (noteExtraction / pendingExtraction) remain as aliases —
  * they were the published contract. */
 
-import { firstBalancedObject } from './jsonutil.js';
+import { firstBalancedObject, balancedCandidates } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
 import { renderStateFacts } from '../engine/state.js';
@@ -94,6 +94,7 @@ export async function pendingExtraction(storyId, timeoutMs = 5000) {
 
 const VOCABULARY = [
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — only when the prose states or clearly fixes the time',
+  'place.set {"type":"place.set","name":"the chapel"} — the ground the scene stands on, only when first named or it truly moves',
   'clock.advance {"type":"clock.advance","minutes":30,"reason":"the walk to the chapel"} — when time clearly passes; minutes is a number',
   'presence.enter {"type":"presence.enter","name":"Mira","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown',
   'presence.leave {"type":"presence.leave","name":"Samantha"} — when someone clearly leaves the scene',
@@ -162,18 +163,31 @@ export function buildExtractorMessages({ state, userText, assistantText }) {
  * resolves to {mutations:[]}. */
 export function parseExtractorAnswer(raw) {
   try {
+    /* M26: reasoning models think out loud first — and their thinking often
+     * contains braces, which used to steal the first-balanced-object parse
+     * and silently starve the ledger. Thinking spans are stripped, then up
+     * to five balanced candidates are tried until one holds a mutations list. */
     let text = String(raw || '');
+    text = text.replace(/<think>[\s\S]*?(<\/think>|$)/gi, '');
     text = text.replace(/```(?:json|JSON)?/g, '');
-    const candidate = firstBalancedObject(text);
-    if (!candidate) return { mutations: [] };
+    const candidates = balancedCandidates(text, 5);
+    let candidate = null;
+    for (const c of candidates) {
+      try {
+        const p = JSON.parse(c);
+        if (p && Array.isArray(p.mutations)) { candidate = c; break; }
+      } catch { /* try the next balanced thing */ }
+    }
+    if (!candidate) candidate = candidates[0] || null;
+    if (!candidate) return { mutations: [], note: 'unusable' };
     const parsed = JSON.parse(candidate);
     const list = parsed && Array.isArray(parsed.mutations) ? parsed.mutations : [];
     const mutations = list.filter(
       (m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim()
     );
-    return { mutations };
+    return { mutations, note: mutations.length ? 'ok' : 'empty' };
   } catch (err) {
-    return { mutations: [] };
+    return { mutations: [], note: 'unusable' };
   }
 }
 
@@ -252,8 +266,8 @@ async function callOpenAI(connection, prompt, signal) {
  * JSON) lands as {mutations:[]}. */
 export async function extractTurn({ connection, state, userText, assistantText, signal } = {}) {
   try {
-    if (!connection || typeof connection !== 'object') return { mutations: [] };
-    if (!assistantText || !String(assistantText).trim()) return { mutations: [] };
+    if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
+    if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
     const prompt = buildExtractorMessages({ state, userText, assistantText });
     let raw = '';
     if (connection.type === 'anthropic') {
@@ -261,10 +275,10 @@ export async function extractTurn({ connection, state, userText, assistantText, 
     } else if (connection.type === 'openai') {
       raw = await callOpenAI(connection, prompt, signal);
     } else {
-      return { mutations: [] };
+      return { mutations: [], failed: true };
     }
     return parseExtractorAnswer(raw);
   } catch (err) {
-    return { mutations: [] };
+    return { mutations: [], failed: true };
   }
 }

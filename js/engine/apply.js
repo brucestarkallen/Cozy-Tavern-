@@ -155,6 +155,19 @@ function describeDelta(minutes) {
 /* ---------- the individual mutations ---------- */
 
 const HANDLERS = {
+  'place.set'(state, m) {
+    /* M26: where the scene stands — set when the ground moves or is first named. */
+    const name = normalizeName(m.name || m.place || '');
+    if (!name) return { ok: false, why: 'a place needs a name' };
+    const before = state.place ? state.place.name : null;
+    state.place = { name };
+    return {
+      ok: true,
+      words: 'The scene now stands in ' + name + '.',
+      undo: { kind: 'place', before },
+    };
+  },
+
   'clock.set'(state, m) {
     const { year, month, day, hour, minute } = m;
     if (![year, month, day, hour, minute].every(isInt)) {
@@ -643,7 +656,10 @@ export function undoLast(state) {
     const undo = entry.undo;
     let ok = false;
 
-    if (undo.kind === 'clock') {
+    if (undo.kind === 'place') {
+      next.place = undo.before ? { name: undo.before } : null;
+      ok = true;
+    } else if (undo.kind === 'clock') {
       next.clock = undo.before ? { ...undo.before } : null;
       ok = true;
     } else if (undo.kind === 'presence.remove') {

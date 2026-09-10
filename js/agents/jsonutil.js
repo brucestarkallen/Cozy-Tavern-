@@ -8,6 +8,30 @@
  *     text so a brace inside a sentence doesn't count. '' when none
  *     balances.
  */
+/* M26: not just the first — up to maxN balanced top-level objects, in order.
+ * A reasoning model's first braces often live in its notes, not its answer. */
+export function balancedCandidates(text, maxN = 5) {
+  const src = String(text || '');
+  const out = [];
+  let i = 0;
+  while (out.length < maxN) {
+    const start = src.indexOf('{', i);
+    if (start === -1) break;
+    let depth = 0; let inStr = false; let esc = false; let end = -1;
+    for (let j = start; j < src.length; j++) {
+      const ch = src[j];
+      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) { end = j; break; } }
+    }
+    if (end === -1) break;
+    out.push(src.slice(start, end + 1));
+    i = end + 1;
+  }
+  return out;
+}
+
 export function firstBalancedObject(text) {
   const s = String(text || '');
   const start = s.indexOf('{');

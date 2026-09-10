@@ -925,3 +925,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - "save a starter" was loud: now a dashed ghost "＋ starter" in the whisper voice.
 - New harness law (findability.mjs): the retry must exist, be wired, and answer busy.
   version.js -> m25-001.
+
+---
+
+# M26 — the masthead, honest workers, and the hardened extractor (field-reported)
+- The empty-ledger mystery: reasoning models' <think> spans contain braces that stole the
+  first-balanced-object parse -> silent {mutations:[]}. Parser now strips thinking spans and
+  tries up to 5 balanced candidates until one holds a mutations list. A missing import
+  (balancedCandidates) briefly hid behind the never-throws law — the ghost-call harness law
+  widened to catch jsonutil exports used without import.
+- The masthead: the house writes the header line itself from ledger truth (place — date —
+  hour — who's here), pinned on pages that didn't write one; state gains place; apply.js
+  gains place.set (+undo, house convention); extractor vocabulary gains place.set; drawer
+  clock room gains Set the place + the masthead switch; onStoriesChanged now also
+  re-renders the thread.
+- Honest workers line: extractor runs report "wrote N changes" / "nothing to write down" /
+  "its answer could not be used"; transport failures throw into the queue's stumble path
+  instead of looking like "nothing changed".
+- Craft agency law hardened: never give the other writer's character words, choices,
+  reactions, or unwritten stillness; if the next beat needs their answer, stop.
+- version.js -> m26-001.

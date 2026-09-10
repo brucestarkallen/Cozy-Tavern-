@@ -45,7 +45,7 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot , renderMasthead} from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork } from '../agents/extractor.js';
 import { enqueueWork } from '../agents/queue.js';
@@ -926,6 +926,17 @@ export function initChat(ctx) {
        * M22-E5/E6: the prose is rich — fenced code blocks render mono with
        * a copy chip, and the RP-safe inline marks (*emphasis*, **strong**,
        * `code`) carry through. Never innerHTML. */
+      /* M26: the masthead — the house's own header line, pinned on pages that
+       * didn't write one. Off when the reader switches it off. */
+      if ((opts.mastheadOn !== false) && msg.masthead) {
+        const first = parseScene(pageText(msg))[0];
+        if (!(first && first.type === 'head')) {
+          const mast = document.createElement('div');
+          mast.className = 'scene-head lbl masthead';
+          mast.textContent = msg.masthead;
+          body.appendChild(mast);
+        }
+      }
       for (const part of parseScene(pageText(msg))) {
         if (part.type === 'head') {
           const head = document.createElement('div');
@@ -997,6 +1008,7 @@ export function initChat(ctx) {
   async function renderThread({ structural = false } = {}) {
     const story = await activeStory();
     const showThinking = (await db.settings.get('showThinking')) !== false;
+    const mastheadOn = (await db.settings.get('masthead')) !== false;
     const connections = els.noConnection ? await db.connections.list() : [];
     if (!story) {
       els.thread.textContent = '';
@@ -1036,14 +1048,14 @@ export function initChat(ctx) {
       /* M14: a story with no pages yet still gets the hearth, not a void. */
       if (!visible.length) showHearth(false);
       for (const msg of visible) {
-        els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId }));
+        els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn }));
       }
     } else {
       /* Pages arriving onto a hearth-warmed room: the hearth steps aside. */
       if (visible.length && lastRender.ids.length === 0) hideHearth();
       for (let i = lastRender.ids.length; i < visible.length; i += 1) {
         const msg = visible[i];
-        els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId }));
+        els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn }));
       }
       /* A new last assistant page: the "go on" affordance moves with it. */
       if (lastRender.ids.length !== ids.length) {
@@ -1256,7 +1268,7 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'extractor');
       if (!connection) return { silent: true };
       const stateBefore = await loadState(story.id);
-      const { mutations } = await extractTurn({
+      const { mutations, note: extractNote, failed: extractFailed } = await extractTurn({
         connection,
         state: stateBefore,
         userText,
@@ -1272,6 +1284,7 @@ export function initChat(ctx) {
       /* Re-load at apply time — the ledger may have been touched by hand
        * while the worker was reading. */
       const fresh = await loadState(story.id);
+      if (extractFailed) throw new Error('no answer reached us');
       const { state: next, applied, rejected } = applyMutations(fresh, list);
       if (applied.length) {
         if (stale()) return { silent: true };
@@ -1285,7 +1298,18 @@ export function initChat(ctx) {
           rejectedCount: rejected.length,
         },
       });
-      return { silent: false };
+      /* M26: the masthead — the house writes the header line from the
+       * ledger's own truth and pins it on the page just written. */
+      try {
+        const stNow = await loadState(story.id);
+        const mast = renderMasthead(stNow);
+        if (mast) await reink(story.id, msg.id, { masthead: mast });
+      } catch { /* a masthead is a courtesy, never a crisis */ }
+      const n = applied.length;
+      const detail = extractNote === 'unusable'
+        ? 'its answer could not be used'
+        : n ? `wrote ${n} ${n === 1 ? 'change' : 'changes'}` : 'nothing to write down';
+      return { silent: false, detail };
     });
 
     /* 2. The scribe (M12): sparse deltas onto the character pages — who

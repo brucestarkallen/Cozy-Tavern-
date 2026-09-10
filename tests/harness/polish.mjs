@@ -197,3 +197,55 @@ test('M15 the colophon & the ember hook are wired', () => {
   assert(src.includes("classList.add('live')") && src.includes("classList.remove('live')"),
     'the ember bar breathes while streaming');
 });
+
+test('M26 the widened ghost-call law: every jsonutil export used anywhere is imported there', () => {
+  const ju = read('js/agents/jsonutil.js');
+  const exported = [...ju.matchAll(/export function (\w+)/g)].map((m) => m[1]);
+  const agents = fs.readdirSync(path.join(ROOT, 'js/agents')).filter((f) => f.endsWith('.js'));
+  for (const f of agents) {
+    const src = read('js/agents/' + f);
+    for (const name of exported) {
+      const uses = new RegExp('\\b' + name + '\\s*\\(').test(src);
+      if (!uses) continue;
+      const imports = new RegExp("import\\s*\\{[^}]*\\b" + name + "\\b[^}]*\\}\\s*from\\s*['\"]\\./jsonutil\\.js['\"]").test(src) || f === 'jsonutil.js';
+      assert(imports, f + ' uses ' + name + ' without importing it (the never-throws law hides these)');
+    }
+  }
+});
+
+test('M26 the masthead law: the house writes headers from the ledger, never the model', async () => {
+  const { renderMasthead, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations, undoLast } = await import('../../js/engine/apply.js');
+  eq(renderMasthead(emptyState()), null, 'an empty ledger writes no masthead');
+  let r = applyMutations(emptyState(), [
+    { type: 'clock.set', year: 2026, month: 3, day: 15, hour: 14, minute: 30 },
+    { type: 'place.set', name: 'the wayward lantern' },
+    { type: 'presence.enter', name: 'Mira' },
+  ]);
+  const mast = renderMasthead(r.state);
+  assert(mast.includes('the wayward lantern'), 'the place leads');
+  assert(mast.includes('14:30'), 'the hour rides');
+  assert(mast.includes('Mira'), 'who is here is named');
+  const undone = undoLast(undoLast(r.state).state);
+  eq(undone.state.place, null, 'place undo follows the house convention');
+});
+
+test('M26 the extractor answers honestly: thinking stripped, failures flagged', async () => {
+  const { parseExtractorAnswer } = await import('../../js/agents/extractor.js');
+  const thinky = '<think>braces {live} here</think>{"mutations":[{"type":"place.set","name":"the chapel"}]}';
+  const r = parseExtractorAnswer(thinky);
+  eq(r.mutations.length, 1, 'the answer survives its thinking');
+  eq(r.mutations[0].name, 'the chapel');
+  eq(r.note, 'ok');
+  eq(parseExtractorAnswer('{"mutations":[]}').note, 'empty', 'an honest empty list');
+  eq(parseExtractorAnswer('no json at all').note, 'unusable', 'unusable is named, never silent');
+});
+
+test('M26 the workers line carries outcomes', () => {
+  const status = read('js/agents/status.js');
+  assert(status.includes('detail'), 'status keeps a detail field');
+  const drawer = read('js/ui/drawer.js');
+  assert(drawer.includes('row.detail'), 'the line renders it');
+  const chat = read('js/ui/chat.js');
+  assert(chat.includes('nothing to write down') && chat.includes('could not be used'), 'honest words exist');
+});

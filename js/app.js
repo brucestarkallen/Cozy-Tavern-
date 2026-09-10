@@ -183,6 +183,7 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   ctx.onStoriesChanged = () => {
     if (ctx.drawer && typeof ctx.drawer.onStoriesChanged === 'function') ctx.drawer.onStoriesChanged();
     if (ctx.settings && typeof ctx.settings.onStoriesChanged === 'function') ctx.settings.onStoriesChanged();
+    if (ctx.chat && typeof ctx.chat.renderThread === 'function') ctx.chat.renderThread();
   };
 
   if (ctx.chat) await ctx.chat.refreshStories();

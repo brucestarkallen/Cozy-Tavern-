@@ -102,6 +102,44 @@ function clockPanel(ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'clock-editor';
 
+  /* M26: the ground the scene stands on + the masthead switch. */
+  const placeForm = document.createElement('form');
+  placeForm.className = 'present-form';
+  const placeInput = document.createElement('input');
+  placeInput.type = 'text';
+  placeInput.placeholder = 'Where the scene stands…';
+  placeInput.setAttribute('aria-label', 'Where the scene stands');
+  const placeBtn = document.createElement('button');
+  placeBtn.type = 'submit';
+  placeBtn.className = 'text-btn';
+  placeBtn.textContent = 'Set the place';
+  placeForm.append(placeInput, placeBtn);
+  placeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = placeInput.value.trim();
+    if (!name) return;
+    await handMutate(ctx, [{ type: 'place.set', name }]);
+    placeInput.value = '';
+  });
+  const placeRow = document.createElement('div');
+  placeRow.appendChild(placeForm);
+  wrap.appendChild(placeRow);
+
+  const mastRow = document.createElement('label');
+  mastRow.className = 'radio-row';
+  const mastCheck = document.createElement('input');
+  mastCheck.type = 'checkbox';
+  mastCheck.checked = true;
+  const mastText = document.createElement('span');
+  mastText.textContent = 'The masthead — the house writes the header line itself';
+  mastRow.append(mastCheck, mastText);
+  db.settings.get('masthead').then((v) => { mastCheck.checked = v !== false; });
+  mastCheck.addEventListener('change', async () => {
+    await db.settings.set('masthead', mastCheck.checked);
+    if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+  });
+  wrap.appendChild(mastRow);
+
   const label = document.createElement('p');
   label.className = 'clock-label';
 
@@ -1285,7 +1323,8 @@ function workersPanel(ctx) {
       const words = document.createElement('span');
       const when = fmtWhenWords(row.at);
       words.textContent = (WORKER_WORDS[name] || name) + ' ran ' + when
-        + (row.ok ? ' and it went well.' : ' and stumbled — ' + (row.why || 'stumbled') + '.');
+        + (row.ok ? (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.')
+                  : ' and stumbled — ' + (row.why || 'stumbled') + '.');
       li.appendChild(words);
       list.appendChild(li);
     }

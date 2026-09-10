@@ -129,7 +129,7 @@ async function runJob(job) {
       /* The job may ask for silence (a switch was off, nothing to note);
        * every honest run is otherwise written on the workers line. */
       if (!value || value.silent !== true) {
-        await noteWorkerRun(storyId, name, { ok: true });
+        await noteWorkerRun(storyId, name, { ok: true, detail: value && value.detail });
       }
       return { ok: true, value };
     } catch (err) {

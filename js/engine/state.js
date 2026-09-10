@@ -60,6 +60,7 @@ const RELATIONSHIPS_TOP = 6;
 
 export const emptyState = () => ({
   clock: null,              // {calendar, minutes, label, monthNames?, dayNames?} | null
+  place: null,               // {name} — where the scene stands (M26)
   present: [],              // [{name, position?, attire?}]
   mode: { combat: false, intimate: false, travel: false, socialField: false, isolation: false, group: false },
   log: [],                  // [{ts, words, undone, undo?}] — what changed and why (M3)
@@ -492,4 +493,21 @@ export function renderStateFacts(state) {
     kept.splice(worst, 1);
   }
   return join();
+}
+
+/* M26: the masthead — the house writes the header line itself, from the
+ * ledger's own truth, so no model ever forgets it or invents it. */
+export function renderMasthead(state) {
+  if (!state) return null;
+  const bits = [];
+  const place = state.place && state.place.name;
+  const time = state.clock ? renderClock(state.clock) : null;
+  if (!place && !time) return null;
+  let line = '';
+  if (place) line += place;
+  if (time) line += (place ? ' — ' : '') + time;
+  bits.push(line);
+  const here = (state.present || []).map((p) => p.name).filter(Boolean);
+  if (here.length) bits.push('here: ' + here.join(', '));
+  return bits.join('  ·  ');
 }

@@ -44,11 +44,11 @@ function cleanWhy(why) {
 
 /* Record one worker's last run for a story. ok=false wants a why (one plain
  * word of what went wrong, e.g. "no answer", "unreachable"). */
-export async function noteWorkerRun(storyId, name, { ok, why } = {}) {
+export async function noteWorkerRun(storyId, name, { ok, why, detail } = {}) {
   try {
     if (!storyId || !WORKER_NAMES.includes(name)) return;
     const shelf = (await loadWorkerStatus(storyId)) || {};
-    shelf[name] = { at: Date.now(), ok: ok !== false, why: ok === false ? cleanWhy(why) || 'stumbled' : '' };
+    shelf[name] = { at: Date.now(), ok: ok !== false, why: ok === false ? cleanWhy(why) || 'stumbled' : '', detail: typeof detail === 'string' ? detail : '' };
     await db.settings.set(KEY_PREFIX + storyId, shelf);
   } catch (err) { /* the ledger of workers never makes work of its own */ }
 }
