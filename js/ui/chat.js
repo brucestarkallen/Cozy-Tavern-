@@ -45,14 +45,14 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, renderMasthead, loadSnapshots, saveSnapshots } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { enqueueWork } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, loadMemory, renderMemory, saveMemory } from '../agents/memory.js';
+import { maybeSummarize, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { recordFor } from '../agents/memory.js'; /* M35: the record as the mender's canon */
 import { mcName } from '../engine/duels.js';
@@ -1687,11 +1687,13 @@ export function initChat(ctx) {
     enqueue('auditor', async ({ signal, stale }) => {
       if (story.extraction === false) return { silent: true };
       if (!(await auditOn(story))) return { silent: true };
-      if (!audit) {
+      const owed = pendingAudit.has(story.id);
+      if (!audit && !owed) {
         const visible = (await db.messages.list(story.id)).filter((m) => !m.hidden && m.role === 'assistant').length;
         const every = await auditEvery();
         if (visible === 0 || visible % every !== 0) return { silent: true };
       }
+      pendingAudit.delete(story.id);
       const connection = await resolveWorkerConnection(story, 'auditor');
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
@@ -1772,6 +1774,21 @@ export function initChat(ctx) {
   function hideComposerNote() {
     if (els.composerNote) els.composerNote.hidden = true;
   }
+
+  /* M44: rewind the ledger to the boundary before a turn — the exact
+   * checkpoint when it stands, else the nearest earlier one (sparse
+   * retention keeps old ones), and then the auditor is asked to set the
+   * ledger right against the pages, since a nearest checkpoint is close,
+   * not exact. Returns true when something was restored. */
+  async function rewindTo(story, history, userMsgId) {
+    if (!userMsgId) return false;
+    const order = history.filter((m) => m && m.role === 'user').map((m) => m.id);
+    const r = await restoreNearestSnapshot(story.id, order, userMsgId);
+    if (!r) return false;
+    if (!r.exact) pendingAudit.add(story.id);
+    return true;
+  }
+  const pendingAudit = new Set();
 
   /* M40: every VERSION of a page keeps the ledger as it stood after its
    * workers finished — Summaryception's per-swipe checkpoint. Walking back
@@ -1916,7 +1933,9 @@ export function initChat(ctx) {
       const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '' });
       /* M6: slot 7 — what the keeper has folded of the older pages. */
       const mem = await loadMemory(story.id);
-      const memoryText = renderMemory(mem);
+      /* M44: a line and the page it summarizes never ride together */
+      const verbatimStart = Math.max(0, visiblePages(history).length - (mem && Number.isFinite(mem.window) && mem.window > 0 ? mem.window : ((await db.settings.get('memoryWindow')) || 30)));
+      const memoryText = renderMemory(memoryForWindow(mem, verbatimStart));
       /* M9 (A1): the window law. The keeper's own switch decides whether the
        * window is the memory window or a token-budgeted cutoff against the
        * connection's context room. */
@@ -2479,8 +2498,15 @@ export function initChat(ctx) {
        * turn's user page; the newer snapshots drop with it. The undo log
        * stays independent. */
       const boundary = boundaryFor(history, target.id);
-      if (boundary) await restoreSnapshot(story.id, boundary.id);
+      if (boundary) await rewindTo(story, history, boundary.id);
 
+      /* M44: the record lets go of every line that reached the pages now gone */
+      const firstGone = target.role === 'assistant' ? target : history[at + 1];
+      if (firstGone) {
+        const vis = visiblePages(history);
+        const k = vis.findIndex((m) => m.id === firstGone.id);
+        if (k !== -1) await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), k));
+      }
       if (target.role === 'assistant') {
         await db.messages.deleteFrom(story.id, target.id);
       } else {
@@ -2542,7 +2568,8 @@ export function initChat(ctx) {
       notify(story.id);
     } else {
       const boundary = boundaryFor(history, msg.id);
-      if (boundary) await restoreSnapshot(story.id, boundary.id);
+      if (boundary) await rewindTo(story, history, boundary.id);
+      { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
       if (updated && msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
         const before = history.slice(0, history.findIndex((m) => m.id === msg.id));
         const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
@@ -2578,7 +2605,9 @@ export function initChat(ctx) {
       await saveVersionState(story.id, msg.id, leavingIdx, leaving);
       /* M21: TRUE rollback — swipe-creation restores the boundary too. */
       const boundary = boundaryFor(historyNow, msg.id);
-      if (boundary) await restoreSnapshot(story.id, boundary.id);
+      if (boundary) await rewindTo(story, historyNow, boundary.id);
+      /* M44: a swiped page's record line is let go (a hole, refilled) */
+      { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
       const landed = await generate({ swipeTarget: msg });
       if (!landed) {
         await saveState(story.id, leaving);
@@ -2648,12 +2677,26 @@ export function initChat(ctx) {
         toast('The page is re-inked.');
         /* M21: new words on the latest page mean a new preview. */
         await refreshPreview(story.id);
-        /* An edited assistant page goes back to the extractor — the ledger
-         * re-reads the new words. */
+        /* M44: the edited page's record line is let go (a hole, refilled).
+         * The LAST storyteller page is re-read from the boundary before its
+         * turn (the old version's consequences must not stand); an older
+         * page's edit does not rewind everything after it — the auditor
+         * sets the ledger right against the pages instead. */
+        { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
         if (updated && msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
           const before = history.slice(0, history.indexOf(msg));
           const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
-          startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '');
+          const isLast = !history.slice(history.indexOf(msg) + 1).some((m) => m && m.role === 'assistant' && !m.hidden);
+          if (isLast) {
+            const boundary = boundaryFor(history, msg.id);
+            if (boundary) await rewindTo(story, history, boundary.id);
+            startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '');
+          } else {
+            pendingAudit.add(story.id);
+            startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '', { audit: true });
+          }
+        } else if (updated && msg.role === 'user') {
+          pendingAudit.add(story.id);
         }
       }
       await rerenderMessage(story.id, msg.id);
@@ -2917,7 +2960,11 @@ export function initChat(ctx) {
     /* One page lets go — never conflated with rewrite-from-here. */
     const ok = window.confirm('Let this page go? The ones around it stay exactly as written.');
     if (!ok) return;
+    /* M44: the record slides with the pages — the line covering this page
+     * is let go, the lines above it move down one */
+    { const vis = visiblePages(await db.messages.list(story.id)); const k = vis.findIndex((m) => m.id === id); if (k !== -1) await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), k)); }
     await db.messages.remove(story.id, id);
+    pendingAudit.add(story.id);
     const node = els.thread.querySelector(`.msg[data-id="${id}"]`);
     if (node) node.remove();
     lastRender.ids = lastRender.ids.filter((x) => x !== id);

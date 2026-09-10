@@ -126,10 +126,11 @@ test('M21-C: snapshot/restore round-trip', async () => {
 test('M21-C: the snapshot shelf caps at ' + SNAP_CAP, async () => {
   const storyId = 'm21-cap';
   await saveState(storyId, emptyState());
+  /* M44: retention is sparse — dense newest, every fifth older; the newest is always kept, the shelf never exceeds the cap */
   for (let i = 0; i < SNAP_CAP + 5; i += 1) await snapshotState(storyId, 'u' + i);
   const { db } = await import('../../js/store.js');
   const list = await db.settings.get('snapshots:' + storyId);
-  eq(list.length, SNAP_CAP, 'the shelf keeps only the last ' + SNAP_CAP);
+  assert(list.length <= SNAP_CAP && list.length >= 40, 'the shelf keeps the dense newest and a sparse older set within the cap: ' + list.length);
   eq(list[list.length - 1].id, 'u' + (SNAP_CAP + 4), 'newest kept');
 });
 
@@ -188,10 +189,10 @@ test('M21-C: the rewind law is wired in chat.js — snapshot before the chain, r
   const gen = chat.slice(chat.indexOf('async function generate'));
   assert(gen.indexOf('snapshotState') < gen.indexOf('refereeStep'), 'the boundary is taken before the referee commits');
   const regen = chat.slice(chat.indexOf('async function regenerateFrom'), chat.indexOf('/* ---------- swipes'));
-  assert(regen.indexOf('restoreSnapshot') < regen.indexOf('deleteFrom'), 'regenerate restores before deleteFrom');
-  assert(regen.indexOf('pendingWork') < regen.indexOf('restoreSnapshot'), 'workers still settle first (B5)');
+  assert(regen.indexOf('rewindTo') < regen.indexOf('deleteFrom'), 'regenerate rewinds (exact or nearest, M44) before deleteFrom');
+  assert(regen.indexOf('pendingWork') < regen.indexOf('rewindTo'), 'workers still settle first (B5)');
   const swipeRegen = chat.slice(chat.indexOf('async function swipeRegenerate'), chat.indexOf('/* ---------- edit'));
-  assert(/restoreSnapshot/.test(swipeRegen), 'swipe-creation restores the boundary');
+  assert(/rewindTo/.test(swipeRegen), 'swipe-creation rewinds to the boundary (M44: exact or nearest)');
   assert(src('js/store.js').includes("s.delete('snapshots:' + id)"), 'the snapshots go with a let-go story');
 });
 

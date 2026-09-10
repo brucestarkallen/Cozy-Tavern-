@@ -456,15 +456,52 @@ function nodeId() {
   return 'node-' + Date.now().toString(36) + '-' + nodeCounter;
 }
 
-/* One past the last page any node covers (nodes cover a prefix). */
+/* M44: the record's index space is the VISIBLE pages (hidden "go on"
+ * nudges never count) — the same list the window law reads, so a span
+ * and the verbatim window always mean the same page. */
+export function visiblePages(history) {
+  return (Array.isArray(history) ? history : []).filter((m) => m && !m.hidden);
+}
+
+/* One past the last page any node covers. */
 export function coveredEnd(mem) {
   const nodes = mem && Array.isArray(mem.nodes) ? mem.nodes : [];
   return nodes.length ? Math.max(...nodes.map((n) => n.span[1])) + 1 : 0;
 }
 
-/* The next batch to fold: [from, to) or null. Pages beyond the verbatim
- * window that no node covers are due as soon as a whole batch of them has
- * gathered — no hysteresis; the record keeps step with the story. */
+/* Every page index some node covers. */
+export function coveredSet(nodes) {
+  const set = new Set();
+  for (const n of (Array.isArray(nodes) ? nodes : [])) {
+    if (!n || !Array.isArray(n.span)) continue;
+    for (let i = n.span[0]; i <= n.span[1]; i += 1) set.add(i);
+  }
+  return set;
+}
+
+/* M44: the next range due, HOLES FIRST — Summaryception's coverage law. A
+ * page below the verbatim window that no line covers is due, whether it
+ * is the next page after the furthest line or a hole left by a deletion
+ * or an edit. The range never crosses into covered pages or the window.
+ * Returns [from, to) or null. */
+export function dueRange(historyLength, window, nodes, batch) {
+  const w = cleanWindow(window);
+  const b = cleanBatch(batch);
+  const limit = historyLength - w; /* pages at index < limit are past the window */
+  if (!Number.isFinite(limit) || limit <= 0) return null;
+  const covered = coveredSet(nodes);
+  let from = -1;
+  for (let i = 0; i < limit; i += 1) { if (!covered.has(i)) { from = i; break; } }
+  if (from === -1) return null;
+  let to = from;
+  while (to < limit && to - from < b && !covered.has(to)) to += 1;
+  /* a hole smaller than a batch is folded as it is; a fresh tail waits for a whole batch */
+  const holeEndsInCovered = to < limit && covered.has(to);
+  if (to - from < b && !holeEndsInCovered) return null;
+  return [from, to];
+}
+
+/* kept for the published contract (M6/M34) */
 export function nextBatch(historyLength, window, covered, batch) {
   const w = cleanWindow(window);
   const b = cleanBatch(batch);
@@ -472,11 +509,44 @@ export function nextBatch(historyLength, window, covered, batch) {
   if (!Number.isFinite(due) || due < b) return null;
   return [covered, covered + b];
 }
-
-/* kept for the published contract (M6): the end of the next batch or -1 */
 export function overflowEnd(historyLength, window, covered, batch = DEFAULT_BATCH) {
   const nb = nextBatch(historyLength, window, covered, batch);
   return nb ? nb[1] : -1;
+}
+
+/* M44: the record after a visible page at `index` is deleted — lines below
+ * it stand, the line covering it is let go (a hole, refilled holes-first),
+ * lines above it slide down one. Pure. */
+export function memoryAfterDeletion(mem, index) {
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).flatMap((n) => {
+    if (!n || !Array.isArray(n.span)) return [];
+    if (n.span[1] < index) return [n];
+    if (n.span[0] <= index && index <= n.span[1]) return [];
+    return [{ ...n, span: [n.span[0] - 1, n.span[1] - 1] }];
+  });
+  return { ...mem, nodes };
+}
+
+/* M44: the record after the pages from visible `index` on are gone (a
+ * rewrite-from-here, a retry): every line that reaches that far is let go. */
+export function memoryTruncatedAt(mem, index) {
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span) && n.span[1] < index);
+  return { ...mem, nodes };
+}
+
+/* M44: the record without the line covering visible `index` (an edited or
+ * swiped page): a hole, refilled holes-first by the keeper. */
+export function memoryWithoutPage(mem, index) {
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => !(n && Array.isArray(n.span) && n.span[0] <= index && index <= n.span[1]));
+  return { ...mem, nodes };
+}
+
+/* M44: only the lines that speak of pages OUTSIDE the verbatim window ride
+ * — a line and the page it summarizes never ride together (Summaryception's
+ * branch repair, done at send time, which also covers a widened window). */
+export function memoryForWindow(mem, verbatimStart) {
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span) && n.span[1] < verbatimStart);
+  return { ...mem, nodes };
 }
 
 async function audit(connection, storyId, node, sourceText, signal) {
@@ -504,7 +574,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
   const window = cleanWindow(await db.settings.get('memoryWindow'));
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
 
-  const history = await db.messages.list(storyId);
+  const history = visiblePages(await db.messages.list(storyId));
   let mem = await loadMemory(storyId);
   mem.window = window;
   const state = await loadState(storyId);
@@ -515,7 +585,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
 
   /* 1. the lines that are due, at the catch-up pace */
   for (let n = 0; n < BATCHES_PER_RUN; n += 1) {
-    const range = nextBatch(history.length, window, coveredEnd(mem), batch);
+    const range = dueRange(history.length, window, mem.nodes, batch);
     if (!range) break;
     const pages = history.slice(range[0], range[1]);
     const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem) }), signal);

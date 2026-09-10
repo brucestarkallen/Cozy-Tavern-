@@ -349,7 +349,7 @@ export async function saveState(storyId, state) {
  * undo log (state.log / apply.js undoLast) stays independent. */
 
 const SNAP_PREFIX = 'snapshots:';
-export const SNAP_CAP = 50;
+export const SNAP_CAP = 120; /* M44: dense 40 + sparse older */
 
 const deepCopy = (v) => (typeof structuredClone === 'function'
   ? structuredClone(v)
@@ -361,8 +361,51 @@ export async function loadSnapshots(storyId) {
     .filter((e) => e && typeof e === 'object' && typeof e.id === 'string' && e.snap && typeof e.snap === 'object');
 }
 
+/* M44: sparse retention — the newest SNAP_DENSE stay dense, every
+ * SNAP_SPARSE_EVERY-th older one is kept, up to SNAP_CAP in all — so a deep
+ * rewind or a branch far back still finds a checkpoint near its turn
+ * (Summaryception's _pruneCheckpoints). */
+export const SNAP_DENSE = 40;
+export const SNAP_SPARSE_EVERY = 5;
+export function pruneSnapshots(list) {
+  const all = Array.isArray(list) ? list : [];
+  if (all.length <= SNAP_DENSE) return all.slice();
+  const older = all.slice(0, all.length - SNAP_DENSE);
+  const kept = older.filter((_, i) => (older.length - 1 - i) % SNAP_SPARSE_EVERY === 0);
+  return [...kept, ...all.slice(all.length - SNAP_DENSE)].slice(-SNAP_CAP);
+}
 export async function saveSnapshots(storyId, list) {
-  await db.settings.set(SNAP_PREFIX + storyId, list.slice(-SNAP_CAP));
+  await db.settings.set(SNAP_PREFIX + storyId, pruneSnapshots(list));
+}
+
+/* M44: the nearest checkpoint at or before a turn, when the exact one was
+ * pruned. `order` is the story's user-message ids in telling order. Restores
+ * it and drops the newer ones; returns {state, exact:false} — or null when
+ * nothing earlier exists (the ledger stays as it is). */
+export async function restoreNearestSnapshot(storyId, order, turnId) {
+  if (!storyId || !Array.isArray(order)) return null;
+  const list = await loadSnapshots(storyId);
+  const exactAt = list.findIndex((e) => e.id === turnId);
+  if (exactAt !== -1) {
+    const restored = deepCopy(list[exactAt].snap);
+    await saveState(storyId, restored);
+    await saveSnapshots(storyId, list.slice(0, exactAt + 1));
+    notify(storyId);
+    return { state: restored, exact: true };
+  }
+  const target = order.indexOf(turnId);
+  if (target === -1) return null;
+  let best = -1;
+  for (let i = 0; i < list.length; i += 1) {
+    const at = order.indexOf(list[i].id);
+    if (at !== -1 && at <= target && (best === -1 || at > order.indexOf(list[best].id))) best = i;
+  }
+  if (best === -1) return null;
+  const restored = deepCopy(list[best].snap);
+  await saveState(storyId, restored);
+  await saveSnapshots(storyId, list.slice(0, best + 1));
+  notify(storyId);
+  return { state: restored, exact: false };
 }
 
 /* Save a deep snapshot of the state as it stands at a turn boundary.

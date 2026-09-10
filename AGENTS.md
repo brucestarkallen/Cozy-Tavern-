@@ -1393,3 +1393,36 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   crosses over. loadSnapshots/saveSnapshots exported from engine/state.js.
 - Harness: m43.mjs; DOM-8 asserts the branch has a ledger; DOM-14b takes the mend back from the
   drawer. 263/263 + 19/19. version.js -> m43-001.
+
+---
+
+# M44 — Summaryception's checkpoint and coverage laws, held against the tavern
+- Read in full: Summaryception's ghostMessage/ghostMessagesUpTo/healOrphanGhosts (coverage is the
+  licence to hide; holes below the pointer are repaired), repairIfBranched (summary/snippet
+  overruns, verbatimGhosted, ledgerAhead → trim, drop, rewind), onMessageEdited/Deleted/Swiped,
+  _pruneCheckpoints (keepRecent dense + sparseEvery), _pickCheckpoint (nearest ≤ target),
+  _editRewindDecision (rewind only within depth). Five gaps in the tavern, all closed:
+  1. INDEX DRIFT (latent since M6): record spans counted ALL pages, the window law counted
+     VISIBLE ones — off by one after every hidden "go on". The record's index space is the
+     visible pages now (visiblePages), everywhere.
+  2. HOLES NEVER REFILLED: coveredEnd was max(span)+1, so a hole (deleted/edited covered page)
+     stayed unsummarized and the verbatim window widened forever. dueRange is holes-first:
+     the first uncovered page below the window is due; a hole smaller than a batch folds as it is.
+  3. DELETION DIDN'T MOVE THE SPANS: memoryAfterDeletion — the covering line goes, later lines
+     slide down one; deleteMessage applies it and asks the auditor.
+  4. EDIT OF THE LAST PAGE DIDN'T REWIND: the readers re-read the new words against a ledger
+     holding the old version's consequences. Now the last storyteller page's edit rewinds to the
+     boundary before its turn, then re-reads; an OLDER page's edit does not rewind what came
+     after (Summaryception's depth law) — its line is let go and the auditor sets the ledger
+     right. Swipe (new or walk) lets the page's line go too (memoryWithoutPage).
+  5. DEEP REWINDS FAILED SILENTLY: snapshots kept the newest 50 only. pruneSnapshots keeps
+     SNAP_DENSE=40 dense + every SNAP_SPARSE_EVERY=5th older (cap 120); restoreNearestSnapshot
+     lands on the nearest checkpoint at or before the turn when the exact one is gone, and an
+     inexact landing asks the auditor (pendingAudit → the next chain's auditor runs regardless
+     of cadence). rewindTo() is the one door for retry, swipe-new, swipe-walk and last-page edit.
+- Retry/regenerate truncates the record at the first gone page (memoryTruncatedAt).
+- At send, a line never rides beside the page it summarizes: memoryForWindow drops lines that
+  overlap the verbatim window (Summaryception's verbatimGhosted repair, done every turn — which
+  also covers a widened window and a branch).
+- Harness: m44.mjs (6 checks incl. an end-to-end hole refill); m21's cap/rewind laws updated.
+  269/269 + 19/19. version.js -> m44-001.
