@@ -401,6 +401,31 @@ test('DOM-11b the housekeeper: fullscreen (Esc leaves it), a draggable top bar, 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-8b a branch at the start never carries a later ledger: no checkpoint → a clean ledger and a re-reading', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  /* a story with a rich present and NO checkpoints (as one played before the checkpoint law, or pruned) */
+  await db.settings.delete('snapshots:' + sid);
+  await db.settings.delete('versionState:' + sid);
+  const now = await db.settings.get('state:' + sid);
+  assert(now && ((now.present || []).length || now.place || Object.keys(now.offscreen || {}).length), 'the present ledger has content');
+  click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
+  await until(async () => (await storyId()) !== sid, 'the branch is open', 10000);
+  const bid = await storyId();
+  const bst = await db.settings.get('state:' + bid);
+  assert(!bst.place && !(bst.present || []).length && !Object.keys(bst.offscreen || {}).length, 'the branch starts clean, not with the later ledger: ' + JSON.stringify({ place: bst.place, present: bst.present, offscreen: Object.keys(bst.offscreen || {}) }));
+  await settled();
+  /* the re-reading founded the branch's own scene from its carried page */
+  const after = await db.settings.get('state:' + bid);
+  assert(after.place || (after.present || []).length, 'the workers re-read the carried page and founded the scene');
+  /* back to the origin (rows carry no id; find it by title) */
+  const originTitle = (await db.stories.get(sid)).title;
+  const row = qa('.story-item').find((li) => li.textContent.includes(originTitle) && !/a branch/.test(li.textContent));
+  click(q('.story-open', row) || row);
+  await until(async () => (await storyId()) === sid, 'back on the origin', 10000);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work through the real UI', async () => {
   const before = errors.length;
   click(q('#btn-housekeeper'));

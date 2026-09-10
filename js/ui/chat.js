@@ -45,7 +45,7 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { enqueueWork } from '../agents/queue.js';
@@ -2890,7 +2890,27 @@ export function initChat(ctx) {
         if (hit) carried = hit.snap;
       }
     }
-    if (!carried) carried = await loadState(story.id);
+    /* M66: never a LATER state. With no checkpoint after the branch page, the
+     * nearest checkpoint at or BEFORE it (sparse retention keeps old ones);
+     * with none at all, a CLEAN ledger — the founder and a deep re-reading
+     * of the carried pages rebuild it in the branch. The old fallback was
+     * the ledger as it stands now, which for a branch at the start carried
+     * everything that happened afterwards. */
+    let exact = Boolean(carried);
+    if (!carried) {
+      const snaps = await loadSnapshots(story.id);
+      const carriedOrder = pages.filter((m) => m.role === 'user').map((m) => m.id);
+      for (let i = carriedOrder.length - 1; i >= 0 && !carried; i -= 1) {
+        const hit = snaps.find((e) => e.id === carriedOrder[i]);
+        if (hit) carried = hit.snap;
+      }
+    }
+    if (!carried) {
+      const now = await loadState(story.id);
+      carried = emptyState();
+      carried.sheet = { ...carried.sheet, playerName: (now.sheet && now.sheet.playerName) || '' };
+      carried.clock = now.clock ? { ...now.clock } : null; /* the calendar's shape, not its hour */
+    }
     await saveState(branch.id, JSON.parse(JSON.stringify(carried)));
     const carriedIds = new Set(pages.map((m) => m.id));
     const snaps = (await loadSnapshots(story.id)).filter((e) => carriedIds.has(e.id)).map((e) => ({ ...e, id: idMap[e.id] }));
@@ -2914,6 +2934,19 @@ export function initChat(ctx) {
     closePanel();
     toast(`The tale forks here — “${branch.title}” waits on the shelf.`);
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+    /* M66: an inexact carry is caught up at once — the founder (the branch has no
+     * founding print), a deep re-reading of the carried pages, and an audit */
+    if (!exact) {
+      const branchStory = await db.stories.get(branch.id);
+      const bpages = (await db.messages.list(branch.id)).filter((m) => !m.hidden);
+      const last = [...bpages].reverse().find((m) => m.role === 'assistant');
+      if (branchStory && last) {
+        const before = bpages.slice(0, bpages.indexOf(last));
+        const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
+        startBackgroundWork(branchStory, last, lastUser ? pageText(lastUser) : '', { deep: true, audit: true });
+        toast('No exact checkpoint for this page — the workers are re-reading the branch from the brief and its pages.');
+      }
+    }
   }
 
   /* ---------- message menu (long-press / right-click) ---------- */

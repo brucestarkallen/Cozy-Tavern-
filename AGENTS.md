@@ -1829,3 +1829,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - LAW: a CSS rule that sets display on an element that can be `hidden` is a bug unless [hidden]
   wins globally. It does now; never remove it.
 - 312/312 + 24/24. version.js -> m65-001.
+
+---
+
+# M66 — a branch never carries a LATER ledger
+- FIELD REPORT: "I branched to the start of the story and the ledger wasn't cleared." ROOT: M43's
+  fallback. With no checkpoint after the branch page (older than the kept snapshots, or a story
+  from before the checkpoint law), branchFrom carried the ledger AS IT STANDS NOW — everything
+  that happened afterwards. The order is now: the page's version checkpoint → the boundary before
+  the next turn → the nearest checkpoint at or BEFORE the branch point among the carried turns →
+  a CLEAN ledger (the MC's name and the calendar's shape kept, nothing else). An inexact carry
+  is caught up at once: the chain runs on the last carried page with {deep, audit} — the founder
+  (the branch has no founding print), a deep re-reading of the carried pages, the auditor.
+- Harness: m43-2 updated; DOM-8b wipes a story's checkpoints, branches at the first page, and
+  asserts the branch starts clean and is then founded from its own page. 312/312 + 25/25.
+  version.js -> m66-001.
