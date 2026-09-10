@@ -65,6 +65,7 @@ import { openReceipt } from './receiptview.js';
  * download courtesy for the per-story export (E4), and the reasoning
  * ladder's rank for the story's own say (A). */
 import { renderRich } from './prose.js';
+import { loadRules, currentRules, applyRules } from '../regex.js'; /* M30: the regex shelf */
 import { download } from './download.js';
 import { storyToMarkdown, storyToJsonl, storyExportBasename } from './storyexport.js';
 import { EFFORT_RANK } from '../providers/effort.js';
@@ -958,8 +959,11 @@ export function initChat(ctx) {
        * `code`) carry through. Never innerHTML. */
       /* M26: the masthead — the house's own header line, pinned on pages that
        * didn't write one. Off when the reader switches it off. */
+      /* M30: display-mode regex rules shape what the eye sees; the page
+       * keeps its words. */
+      const shown = applyRules(pageText(msg), currentRules(), { on: msg.role, mode: 'display' });
       if ((opts.mastheadOn !== false) && msg.masthead) {
-        const first = parseScene(pageText(msg))[0];
+        const first = parseScene(shown)[0];
         if (!(first && first.type === 'head')) {
           const mast = document.createElement('div');
           mast.className = 'scene-head lbl masthead';
@@ -967,7 +971,7 @@ export function initChat(ctx) {
           body.appendChild(mast);
         }
       }
-      for (const part of parseScene(pageText(msg))) {
+      for (const part of parseScene(shown)) {
         if (part.type === 'head') {
           const head = document.createElement('div');
           head.className = 'scene-head lbl';
@@ -1692,6 +1696,8 @@ export function initChat(ctx) {
         editorEye: renderEditorNote(editorState),
         /* M29: the world agent's word for this turn. */
         worldBrief: renderWorldBrief(state.worldBrief, state.turn),
+        /* M30: wire-mode regex rules shape only what the storyteller is sent. */
+        pageFilter: (text, role) => applyRules(text, currentRules(), { on: role, mode: 'wire' }),
       });
 
       /* M6 consume-and-clear: the ruling rode into this turn's stack as a
@@ -1787,6 +1793,10 @@ export function initChat(ctx) {
           episodeEnded = true;
           full = episodeMark.text;
         }
+        /* M30: the regex shelf's page-mode rules run on the finished page
+         * BEFORE it is saved — what they remove is gone from the story, the
+         * history, and every worker's reading. */
+        full = applyRules(full, currentRules(), { on: 'storyteller', mode: 'page' });
         thinking = result.thinking || thinking;
         finishReason = result.finishReason || null;
         receipt = finalizeReceipt(receiptDraft, {
@@ -1980,12 +1990,15 @@ export function initChat(ctx) {
       if (els.composerChip) els.composerChip.hidden = true;
 
       const parsed = parseCommand(text);
+      /* M30: page-mode rules over the writer's own words (never a house
+       * command's hidden page). */
+      const cleanWords = parsed.hidden ? parsed.clean : applyRules(parsed.clean, currentRules(), { on: 'writer', mode: 'page' });
       let saved;
       try {
         const imageToSend = pendingImage;
         saved = await db.messages.append(story.id, {
           role: 'user',
-          text: parsed.clean,
+          text: cleanWords,
           hidden: parsed.hidden || undefined,
           ooc: parsed.ooc || undefined,
           image: imageToSend || undefined,
@@ -2838,6 +2851,10 @@ export function initChat(ctx) {
     await refreshStories();
     await renderThread({ structural: true });
   })();
+
+  /* M30: the regex shelf is read once here (and again whenever settings
+   * saves it), so render paths can apply it without waiting. */
+  loadRules().catch(() => {});
 
   ctx.chat = {
     refreshStories,

@@ -1044,3 +1044,39 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   thinking off). 204/204. version.js -> m29-001.
 - NEXT (M30): decompose the V177 preset into the craft core + situational modules instead of the
   wholesale 106k-char import; the storyteller keeps only the beat and the last look.
+
+---
+
+# M30 — the regex shelf; the import stops asking the storyteller to run the simulation
+- FIELD REPORT: "my header is ugly and there's Plot Momentum". ROOT: the wholesale preset import
+  (M5) kept Time and Place (the [Place — Day | HH:MM | weather | attire | position] header) and
+  Better Narrative Drive (the Plot Momentum <details> block with its four gates) in the craft,
+  so the storyteller kept emitting them — and they rode back in history every turn. A regex that
+  only hid them would have been a bandage over exactly the stale-block drift the world agent ends.
+- js/regex.js (new): SillyTavern-style rules {id, name, find, flags, replace, on, mode, enabled}.
+  Three moments: page (on the finished page BEFORE save — history and workers see the result),
+  display (the thread only), wire (what the storyteller is sent only). Two voices + both. 'g' is
+  always on; a rule that won't compile is skipped, never a crash; a page-mode removal tidies the
+  hole (3+ newlines → 2). Three builtins ship on: the preset's bracketed-with-pipe header line,
+  the Plot Momentum block, the {PULSE}/{WATCHLIST}/{VOICES} blocks. Store key regexRules (whole
+  list; builtins seeded when missing; a writer's edits to a builtin stand; "Restore the original").
+- Hooks: chat.js — page-mode on the finished page right after stripEpisodeEnd (before save, before
+  the workers), page-mode on the writer's words (never a hidden command page), display-mode in
+  msgNode; stack.js — buildRequest takes `pageFilter(text, role)`, applied in wireable() on the
+  history only. Settings → "The regex shelf": list, form, "Try it on the latest page" (matches +
+  chars), "Clean this story's pages now" (rewrites text + swipes of every page; confirm; no
+  take-back). loadRules() at chat init keeps a live copy for the render paths.
+- import/v176map.js: Time and Place → retired-house (the masthead is the house's; travel/ETAs are
+  the world agent's clock); Better Narrative Drive → retired-engine (Plot Momentum's gates are the
+  world agent's); ACW/Factions/Genesis whys now name the world agent. RE-IMPORT the preset for
+  this to take effect on an existing craft override.
+- agents/world.js law: "a place implies its people" — the neighbor who never moved, the school
+  friend still on the street — may be invented when their motive could cross the main character;
+  at most one new named person per page.
+- sw.js: 16 shipped modules were missing from the offline shell (assign, director, editor,
+  housekeeper, voice, commands, effort, sse, wire, sync, tablock, download, prose, storyexport,
+  version, regex). All listed; NEW LAW (m30.mjs): every js/*.js and css/*.css must be in the shell.
+- Harness: tests/harness/m30.mjs (8 checks). 212/212. version.js -> m30-001.
+- NEXT (M31): the craft core — distill the remaining ~90k-char craft (Main, Simulation Core,
+  Character Integrity, Information Quarantine, NPC Psychology, Living World, Writing Guidelines)
+  into a ~12k-token core that binds the storyteller to the ledger and the world's word.

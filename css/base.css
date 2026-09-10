@@ -596,3 +596,6 @@ label {
 .how-body strong { color: var(--text); }
 .how-list { padding-left: 1.3rem; }
 .how-list li { margin-bottom: 0.5rem; }
+
+/* M30 — the regex shelf */
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85em; word-break: break-all; }

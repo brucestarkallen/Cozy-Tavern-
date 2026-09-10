@@ -407,6 +407,48 @@
           </div>
         </section>
 
+        <section class="settings-section" id="section-regex">
+          <h3>The regex shelf</h3>
+          <p class="quiet">Find-and-replace rules over the words, the way SillyTavern's regex scripts work. A rule runs at one of three moments: on <em>the page itself</em> before it is saved (what it removes is gone from the story, from the history sent back every turn, and from every worker's reading — this is the one that matters); on <em>the thread only</em>; or on <em>what the storyteller is sent</em>, only. Three rules ship with the house for the leftovers of a SillyTavern preset — the bracketed header line, the Plot Momentum block, the tracker blocks.</p>
+          <ul id="regex-list" class="connection-list"></ul>
+          <form id="regex-form" class="stack" hidden>
+            <label class="stack-label" for="regex-name">Its name</label>
+            <input id="regex-name" type="text" maxlength="80" placeholder="The Plot Momentum block">
+            <label class="stack-label" for="regex-find">Find (a regular expression)</label>
+            <textarea id="regex-find" rows="2" spellcheck="false" placeholder="&lt;details&gt;[\s\S]*?&lt;/details&gt;"></textarea>
+            <div class="row">
+              <label class="stack-label" for="regex-flags">Flags</label>
+              <input id="regex-flags" type="text" maxlength="6" value="g" placeholder="gim" aria-label="Regex flags">
+            </div>
+            <label class="stack-label" for="regex-replace">Replace with (may use $1…$9; empty removes)</label>
+            <input id="regex-replace" type="text" maxlength="400" placeholder="">
+            <label class="stack-label" for="regex-on">Whose words</label>
+            <select id="regex-on" aria-label="Whose words the rule runs over">
+              <option value="storyteller">The storyteller's pages</option>
+              <option value="writer">The writer's pages</option>
+              <option value="both">Both</option>
+            </select>
+            <label class="stack-label" for="regex-mode">When it runs</label>
+            <select id="regex-mode" aria-label="When the rule runs">
+              <option value="page">On the page itself, before it is saved</option>
+              <option value="display">On the thread only</option>
+              <option value="wire">On what the storyteller is sent, only</option>
+            </select>
+            <div class="row">
+              <button id="btn-regex-try" class="text-btn" type="button">Try it on the latest page</button>
+              <button id="btn-regex-save" class="btn" type="submit">Keep it</button>
+              <button id="btn-regex-cancel" class="text-btn" type="button">Not now</button>
+            </div>
+            <p id="regex-try-note" class="quiet" hidden></p>
+          </form>
+          <div class="row">
+            <button id="btn-regex-add" class="text-btn" type="button">＋ a rule</button>
+            <button id="btn-regex-clean" class="text-btn" type="button">Clean this story's pages now</button>
+          </div>
+          <p class="quiet">"Clean this story's pages now" runs the page-mode rules over every page already written in the open story — for a tale that began before the rules did. It rewrites the pages; there is no take-back.</p>
+          <p id="regex-clean-note" class="quiet" hidden></p>
+        </section>
+
         <section class="settings-section" id="section-oldchats">
           <h3>Bring your old chats</h3>
           <p class="quiet">A SillyTavern chat export (the .jsonl kind) becomes a new story on your shelf — pages in order, roles as they were, every word as written. Then you can simply keep telling it.</p>

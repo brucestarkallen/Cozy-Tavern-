@@ -167,7 +167,8 @@ export function pageText(msg) {
 /* The pages that may travel on the wire: user/assistant, never hidden — a
  * hidden "Go on." lives in the store for the audit and fires the nudge, but
  * never sits in the story-so-far. Exported for the harness. */
-export function wireable(messages) {
+export function wireable(messages, pageFilter) {
+  const filter = typeof pageFilter === 'function' ? pageFilter : null;
   const list = (messages || [])
     .filter((m) => m && !m.hidden && (m.role === 'user' || m.role === 'assistant'));
   /* M27: a picture rides the wire only on its own page's turn — later turns
@@ -177,7 +178,9 @@ export function wireable(messages) {
     if (list[i].role === 'user') { lastUserId = list[i].id; break; }
   }
   return list.map((m) => {
-    const out = { role: m.role, content: pageText(m), id: m.id };
+    /* M30: wire-mode regex rules shape only what rides the wire. */
+    const content = filter ? filter(pageText(m), m.role) : pageText(m);
+    const out = { role: m.role, content, id: m.id };
     if (m.image && m.image.dataUrl) {
       if (m.id === lastUserId) {
         out.image = m.image;
@@ -306,7 +309,7 @@ function isContinueTurn(history) {
 
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
-  window: windowInfo, directive, directorNote, editorEye, ruling, worldBrief,
+  window: windowInfo, directive, directorNote, editorEye, ruling, worldBrief, pageFilter,
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -557,7 +560,7 @@ export function buildRequest({
    * pages never join; the shown swipe's text is what rides. Keeper ON: the
    * memory window. Keeper OFF: a token-budgeted cutoff against the
    * connection's context room, with the cutoff named on the receipt. --- */
-  const pages = wireable(history);
+  const pages = wireable(history, pageFilter);
   const w = windowInfo && typeof windowInfo === 'object' ? windowInfo : {};
   const win = windowPlan({
     pages,

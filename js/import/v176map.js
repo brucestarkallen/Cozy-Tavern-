@@ -61,8 +61,6 @@ const MARKER_NAMES = [
 /* ---------- Bucket A — the craft (stable core, joined in original order) ---------- */
 const CRAFT_NAMES = [
   'Main Prompt',
-  'Time and Place',
-  'Better Narrative Drive and Tracking',
   'Writing Guidelines (Anti-Slop)',
   'Banned Words',
   'Simulation Core',
@@ -103,16 +101,19 @@ const FRAME_SEED_NAMES = [
 
 /* ---------- Bucket C — retired into the engines ---------- */
 const RETIRED_ENGINE_ROWS = [
-  { name: 'HQ NPC Genesis', why: 'the registry keeps names unique' },
-  { name: 'Continuity Verification', why: 'the canon store verifies' },
+  { name: 'HQ NPC Genesis', why: 'the world agent names who must exist; the registry keeps names unique' },
+  { name: 'Continuity Verification', why: 'the second reader and the canon store verify' },
   { name: 'Scene Pulse (IST)', why: 'the ledger renders it' },
-  { name: 'NPC Watchlist (ACW)', why: 'the off-page ledger tracks it' },
-  { name: 'Factions', why: 'the faction ledger tracks it' },
+  { name: 'NPC Watchlist (ACW)', why: 'the world agent keeps the absent, with stance and arrival on the clock' },
+  { name: 'Factions', why: 'the world agent moves factions on cause; the ledger renders them' },
+  /* M30: the storyteller no longer runs the simulation in its own output. */
+  { name: 'Better Narrative Drive and Tracking', why: 'Plot Momentum’s gates are the world agent’s: it moves the absent with motive and means, keeps the threads, and briefs the storyteller' },
 ];
 
 /* ---------- Bucket D — retired into the house ---------- */
 const RETIRED_HOUSE_ROWS = [
   { name: 'Output Systems', why: 'the house keeps the order of things' },
+  { name: 'Time and Place', why: 'the house writes the masthead from the ledger (place, date, hour, who’s here); travel and ETAs are the world agent’s clock' },
   { name: 'Commands (#p #pp #q)', why: 'the house hears commands' },
   { name: 'CoT', why: 'the storyteller thinks natively now' },
 ];

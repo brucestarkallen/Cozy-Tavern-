@@ -34,6 +34,8 @@ import { cleanWindow } from '../agents/memory.js';
 import { WORKER_ROWS } from '../agents/assign.js';
 /* M16: the house's version word stands in the header line. */
 import { VERSION } from '../version.js';
+import { loadRules, saveRules, tryRule, applyRules, builtinOriginal, MODE_WORDS, VOICE_WORDS } from '../regex.js'; /* M30: the regex shelf */
+import { pageText } from '../assemble/stack.js';
 
 export function initSettings(ctx) {
   const els = {
@@ -110,6 +112,22 @@ export function initSettings(ctx) {
     workerKeeper: document.getElementById('worker-keeper'),
     workerContinuity: document.getElementById('worker-continuity'),
     spendLine: document.getElementById('spend-line'),
+    /* M30: the regex shelf */
+    regexList: document.getElementById('regex-list'),
+    regexForm: document.getElementById('regex-form'),
+    regexName: document.getElementById('regex-name'),
+    regexFind: document.getElementById('regex-find'),
+    regexFlags: document.getElementById('regex-flags'),
+    regexReplace: document.getElementById('regex-replace'),
+    regexOn: document.getElementById('regex-on'),
+    regexMode: document.getElementById('regex-mode'),
+    btnRegexTry: document.getElementById('btn-regex-try'),
+    btnRegexSave: document.getElementById('btn-regex-save'),
+    btnRegexCancel: document.getElementById('btn-regex-cancel'),
+    regexTryNote: document.getElementById('regex-try-note'),
+    btnRegexAdd: document.getElementById('btn-regex-add'),
+    btnRegexClean: document.getElementById('btn-regex-clean'),
+    regexCleanNote: document.getElementById('regex-clean-note'),
     memoryKeeper: document.getElementById('memory-keeper'),
     memoryWindow: document.getElementById('memory-window'),
     memoryWindowValue: document.getElementById('memory-window-value'),
@@ -1549,6 +1567,184 @@ export function initSettings(ctx) {
     return li;
   }
 
+  /* ---------- M30: the regex shelf ---------- */
+
+  let regexEditing = null; /* the id being edited, or null for a new rule */
+
+  function regexRow(rule, rules) {
+    const li = document.createElement('li');
+    li.className = 'connection-card';
+    const top = document.createElement('div');
+    top.className = 'connection-top';
+    const name = document.createElement('span');
+    name.className = 'connection-name';
+    name.textContent = rule.name;
+    const kind = document.createElement('span');
+    kind.className = 'connection-kind';
+    kind.textContent = (VOICE_WORDS[rule.on] || rule.on) + ' · ' + (rule.mode === 'page' ? 'the page itself' : rule.mode === 'display' ? 'the thread only' : 'the wire only');
+    top.append(name, kind);
+    li.appendChild(top);
+    if (rule.note) {
+      const note = document.createElement('p');
+      note.className = 'quiet';
+      note.textContent = rule.note;
+      li.appendChild(note);
+    }
+    const find = document.createElement('p');
+    find.className = 'quiet mono';
+    find.textContent = '/' + rule.find + '/' + rule.flags + (rule.replace ? ' → ' + rule.replace : ' → (removed)');
+    li.appendChild(find);
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    const onLabel = document.createElement('label');
+    onLabel.className = 'radio-row';
+    const on = document.createElement('input');
+    on.type = 'checkbox';
+    on.checked = rule.enabled !== false;
+    on.addEventListener('change', async () => {
+      const next = rules.map((r) => (r.id === rule.id ? { ...r, enabled: on.checked } : r));
+      await saveRules(next);
+      afterRegexChange();
+    });
+    onLabel.append(on, document.createTextNode(' On'));
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'text-btn';
+    edit.textContent = 'Edit';
+    edit.addEventListener('click', () => openRegexForm(rule));
+    row.append(onLabel, edit);
+    if (rule.builtin) {
+      const orig = builtinOriginal(rule.id);
+      if (orig && (orig.find !== rule.find || orig.flags !== rule.flags || orig.replace !== rule.replace || orig.on !== rule.on || orig.mode !== rule.mode)) {
+        const restore = document.createElement('button');
+        restore.type = 'button';
+        restore.className = 'text-btn';
+        restore.textContent = 'Restore the original';
+        restore.addEventListener('click', async () => {
+          await saveRules(rules.map((r) => (r.id === rule.id ? { ...orig, enabled: r.enabled } : r)));
+          afterRegexChange();
+        });
+        row.appendChild(restore);
+      }
+    } else {
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'text-btn';
+      remove.textContent = 'Let it go';
+      remove.addEventListener('click', async () => {
+        await saveRules(rules.filter((r) => r.id !== rule.id));
+        afterRegexChange();
+      });
+      row.appendChild(remove);
+    }
+    li.appendChild(row);
+    return li;
+  }
+
+  async function renderRegex() {
+    const rules = await loadRules();
+    els.regexList.textContent = '';
+    for (const rule of rules) els.regexList.appendChild(regexRow(rule, rules));
+  }
+
+  function openRegexForm(rule) {
+    regexEditing = rule ? rule.id : null;
+    els.regexName.value = rule ? rule.name : '';
+    els.regexFind.value = rule ? rule.find : '';
+    els.regexFlags.value = rule ? rule.flags : 'g';
+    els.regexReplace.value = rule ? rule.replace : '';
+    els.regexOn.value = rule ? rule.on : 'storyteller';
+    els.regexMode.value = rule ? rule.mode : 'page';
+    els.regexTryNote.hidden = true;
+    els.regexForm.hidden = false;
+    els.regexName.focus();
+  }
+
+  function regexFromForm() {
+    return {
+      id: regexEditing || undefined,
+      name: els.regexName.value.trim() || 'A rule',
+      find: els.regexFind.value,
+      flags: els.regexFlags.value.trim() || 'g',
+      replace: els.regexReplace.value,
+      on: els.regexOn.value,
+      mode: els.regexMode.value,
+      enabled: true,
+    };
+  }
+
+  async function afterRegexChange() {
+    await renderRegex();
+    /* display-mode rules change what the eye sees right now */
+    if (ctx.chat && typeof ctx.chat.renderThread === 'function') ctx.chat.renderThread({ structural: true });
+  }
+
+  els.btnRegexAdd.addEventListener('click', () => openRegexForm(null));
+  els.btnRegexCancel.addEventListener('click', () => { els.regexForm.hidden = true; regexEditing = null; });
+
+  els.regexForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const draft = regexFromForm();
+    if (!draft.find) { say(els.regexTryNote, 'A rule needs something to find.'); return; }
+    const probe = tryRule('', draft);
+    if (!probe.ok) { say(els.regexTryNote, probe.why); return; }
+    const rules = await loadRules();
+    let next;
+    if (regexEditing) {
+      next = rules.map((r) => (r.id === regexEditing ? { ...r, ...draft, id: r.id, builtin: r.builtin, note: r.note, enabled: r.enabled } : r));
+    } else {
+      next = [...rules, draft];
+    }
+    await saveRules(next);
+    els.regexForm.hidden = true;
+    regexEditing = null;
+    afterRegexChange();
+  });
+
+  els.btnRegexTry.addEventListener('click', async () => {
+    const draft = regexFromForm();
+    const story = await activeStory();
+    const pages = story ? (await db.messages.list(story.id)).filter((m) => !m.hidden) : [];
+    const want = draft.on === 'writer' ? 'user' : (draft.on === 'both' ? null : 'assistant');
+    const latest = [...pages].reverse().find((m) => !want || m.role === want);
+    if (!latest) { say(els.regexTryNote, 'No page of that voice to try it on yet.'); return; }
+    const r = tryRule(pageText(latest), draft);
+    if (!r.ok) { say(els.regexTryNote, r.why); return; }
+    say(els.regexTryNote, r.matches
+      ? `It matches ${r.matches} ${r.matches === 1 ? 'time' : 'times'} on the latest page — ${r.before - r.after} characters would go.`
+      : 'It matches nothing on the latest page.');
+  });
+
+  /* Run the page-mode rules over every page already written in the open
+   * story. Swipes are rewritten too, so the shown version stays in step. */
+  els.btnRegexClean.addEventListener('click', async () => {
+    const story = await activeStory();
+    if (!story) { say(els.regexCleanNote, 'Open a story first.'); return; }
+    if (!window.confirm(`Rewrite every page of “${story.title}” with the page-mode rules? There is no take-back.`)) return;
+    const rules = await loadRules();
+    const pages = await db.messages.list(story.id);
+    let changed = 0;
+    for (const m of pages) {
+      if (m.hidden || (m.role !== 'assistant' && m.role !== 'user')) continue;
+      const patch = {};
+      const cleanText = applyRules(typeof m.text === 'string' ? m.text : '', rules, { on: m.role, mode: 'page' });
+      if (cleanText !== m.text) patch.text = cleanText;
+      if (Array.isArray(m.swipes) && m.swipes.length) {
+        const swipes = m.swipes.map((sw) => (sw && typeof sw.text === 'string'
+          ? { ...sw, text: applyRules(sw.text, rules, { on: m.role, mode: 'page' }) } : sw));
+        if (swipes.some((sw, i) => sw && m.swipes[i] && sw.text !== m.swipes[i].text)) patch.swipes = swipes;
+      }
+      if (Object.keys(patch).length) {
+        await db.messages.update(story.id, m.id, patch);
+        changed += 1;
+      }
+    }
+    say(els.regexCleanNote, changed ? `${changed} ${changed === 1 ? 'page' : 'pages'} rewritten.` : 'Nothing on these pages matched — they were clean already.');
+    if (ctx.chat && typeof ctx.chat.renderThread === 'function') ctx.chat.renderThread({ structural: true });
+    if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+  });
+
   async function renderLore() {
     const story = await activeStory();
     const entries = story ? await loadLore(story.id) : [];
@@ -1763,6 +1959,7 @@ export function initSettings(ctx) {
     await renderReferee();
     await renderCast();
     await renderLore();
+    await renderRegex();
     await renderThinking();
     await loadTheme();
   }
