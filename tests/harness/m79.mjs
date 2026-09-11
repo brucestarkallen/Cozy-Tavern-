@@ -45,3 +45,22 @@ test('M79-3 the laws are general: read the order, never duplicate, say how you r
   for (const w of ['READ THE ORDER, NOT A GUESS AT IT', 'names the FORM the new words take, not a list of who is affected', 'a rule is written only when the writer', 'NEVER DUPLICATE', 'SAY HOW YOU READ IT']) assert(prompt.includes(w), w);
   assert(!/A FACT FOR A CLASS/.test(prompt) && !/MATCH THE SHAPE\. "like Jovan"/.test(prompt), 'the overfit law is gone');
 });
+
+test('M80-1 the thinking rides the turn end to end through housekeeperTurn (a nudge round between); the fold sits above the reply; the raw fold says whether thinking came', async () => {
+  const { housekeeperTurn, loadSession } = await import('../../js/agents/housekeeper.js');
+  const { db } = await import('../../js/store.js');
+  const st = await db.stories.create({ title: 'Think' });
+  await db.stories.update(st.id, { brief: 'Alexia (20), the eldest.' });
+  let n = 0;
+  const call = async () => { n += 1; return n === 1 ? { text: 'Alexia is 20.', thinking: 'I weigh the order: 20 → 19.' } : { text: '<brief>[{"field":"brief","find":"Alexia (20)","replace":"Alexia (19)","reason":"set"}]</brief>', thinking: '' }; };
+  const t = await housekeeperTurn({ storyId: st.id, writerText: 'change the brief: Alexia is 19', connection: { type: 'openai' }, call });
+  assert(t.ok, t.error); eq(n, 2, 'one nudge');
+  const sess = await loadSession(st.id);
+  const last = sess.turns[sess.turns.length - 1];
+  assert(/I weigh the order/.test(last.thinking || ''), 'the first round’s thinking is on the turn: ' + JSON.stringify(last.thinking));
+  const ui = readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
+  const r = ui.slice(ui.indexOf('session.turns.forEach((turn, i) => {'), ui.indexOf('session.turns.forEach((turn, i) => {') + 300);
+  assert(r.indexOf('thinkingFold(turn.thinking)') < r.indexOf('bubble(turn.role'), 'the fold is drawn above the reply');
+  assert(/liveThinking \+= tok\.text;/.test(ui) && /last\.thinking = liveThinking\.trim\(\);/.test(ui), 'what streamed is written onto the turn when the wire returned none');
+  assert(/no thinking came back on the wire/.test(ui), 'the raw fold says so when none came');
+});

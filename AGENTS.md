@@ -2267,3 +2267,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   thinking, the pot, the staleness law, and the reading of an order. What Chat Assistant still has
   that the tavern does not is listed at M60 (the four-pass audit, #opt, #cl, auto-name) — features,
   not correctness.
+
+---
+
+# M80 — the thinking the writer watched is never lost
+- FIELD REPORT: "I can see 'what it said, whole' but not 'how it weighed it'." Both providers hand
+  the thinking back, every round's is kept (M77), the render draws it, and the walk proves the
+  path — and still, on the writer's DeepSeek, the fold was not there. Rather than a fourth theory:
+  (1) the thinking that STREAMED is accumulated in the UI as it arrives and written onto the turn
+  itself if the wire's returned copy is empty (saved to the session) — what the writer watched
+  cannot be gone afterwards, whatever the cause; (2) the kept fold is drawn ABOVE the reply, where
+  the live fold was; (3) the raw fold's title says "thought N chars first" or "no thinking came
+  back on the wire" — so the next report tells which half failed. m79's M80-1 (housekeeperTurn
+  end to end with a nudge between). 349/349 + 29/29 (×2). version.js -> m80-001.

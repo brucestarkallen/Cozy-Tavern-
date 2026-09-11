@@ -535,14 +535,14 @@ export function initHousekeeper(ctx) {
       thread.append(note);
     }
     session.turns.forEach((turn, i) => {
+      if (turn.thinking) thread.append(thinkingFold(turn.thinking)); /* M80: above the reply, where the live fold was */
       if (turn.text) thread.append(bubble(turn.role, turn.text, i, turn));
-      if (turn.thinking) thread.append(thinkingFold(turn.thinking));
       /* M75-003: what it said, whole — the blocks the talk hides, and the rounds it took */
       if (turn.role === 'housekeeper' && turn.raw) {
         const det = document.createElement('details');
         det.className = 'hk-raw';
         const sum = document.createElement('summary');
-        sum.textContent = 'What it said, whole' + (turn.rounds ? ' (' + turn.rounds + (turn.rounds === 1 ? ' round' : ' rounds') + ' of back-and-forth first)' : '');
+        sum.textContent = 'What it said, whole — ' + turn.raw.length.toLocaleString() + ' chars' + (turn.thinking ? ', thought ' + turn.thinking.length.toLocaleString() + ' chars first' : ', no thinking came back on the wire') + (turn.rounds ? ' (' + turn.rounds + (turn.rounds === 1 ? ' round' : ' rounds') + ' of back-and-forth)' : '');
         const pre = document.createElement('pre');
         pre.className = 'hk-viewer';
         pre.textContent = turn.raw;
@@ -721,6 +721,7 @@ export function initHousekeeper(ctx) {
     const t0 = Date.now();
     let answerChars = 0;
     let thinkChars = 0;
+    let liveThinking = ''; /* M80: what streamed, kept here too — never lost to a round or a wire that returned it empty */
     let thinkFold = null;
     let thinkBody = null;
     const tick = () => { statusLine.textContent = 'The housekeeper is ' + (thinkChars && !answerChars ? 'weighing it' : 'looking') + ' · ' + Math.floor((Date.now() - t0) / 1000) + 's' + (answerChars ? ' · ' + answerChars + ' chars' : '') + (thinkChars ? ' (+' + thinkChars + ' thinking)' : '') + (!answerChars && !thinkChars ? ' · waiting for the first word…' : ''); };
@@ -742,6 +743,7 @@ export function initHousekeeper(ctx) {
         onToken: (tok) => {
           if (tok && tok.channel === 'thinking' && typeof tok.text === 'string') {
             thinkChars += tok.text.length;
+            liveThinking += tok.text;
             if (!thinkFold) {
               thinkFold = document.createElement('details');
               thinkFold.className = 'hk-thinking';
@@ -779,6 +781,16 @@ export function initHousekeeper(ctx) {
         return;
       }
       session = result.session; // staged cards, supersede, and caps already settled
+      /* M80: the thinking the writer watched is on the turn, whatever the wire
+       * handed back afterwards — belt and braces, because "it was there while it
+       * thought and gone after" must never happen again for any reason */
+      {
+        const last = session.turns[session.turns.length - 1];
+        if (last && last.role === 'housekeeper' && liveThinking.trim() && !(last.thinking && last.thinking.trim())) {
+          last.thinking = liveThinking.trim();
+          await saveSession(story.id, session);
+        }
+      }
       render();
       statusLine.textContent = '';
       await refreshStatusLine();
