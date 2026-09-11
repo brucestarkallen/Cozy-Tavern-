@@ -495,10 +495,12 @@ export function initHousekeeper(ctx) {
     if (touched && touched.messages && ctx.chat && typeof ctx.chat.renderThread === 'function') {
       ctx.chat.renderThread({ structural: true });
     }
-    /* M38: a lore change shows in Settings' shelf at once */
-    if (touched && touched.lore && ctx.settings && typeof ctx.settings.onStoriesChanged === 'function') {
+    /* M38: a lore change shows in Settings' shelf at once; M74: so does a
+     * change to the brief or the cast notes (and the story room hears it) */
+    if (touched && (touched.lore || touched.story) && ctx.settings && typeof ctx.settings.onStoriesChanged === 'function') {
       ctx.settings.onStoriesChanged();
     }
+    if (touched && touched.story && typeof ctx.onStoriesChanged === 'function') ctx.onStoriesChanged();
   }
 
   /* ---------- applying and undoing ---------- */

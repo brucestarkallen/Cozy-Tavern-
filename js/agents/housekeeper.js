@@ -72,6 +72,7 @@ const INDEX_CAP = 200;         // index lines served; older pages still fetchabl
  * confident wrong answers about where a page ends. No cap now; every
  * served page carries its exact character count and COMPLETE. */
 export const FULL_PAGE_CAP = 0;
+export const LORE_SHOW_CAP = 4000; /* M74: a lore entry is shown whole up to this; beyond, <fetch>["lore: name"] serves it */
 export const FETCH_PAGE_CAP = 0;
 export function formatPage(msg) {
   const speaker = msg.role === 'assistant' ? 'the storyteller' : 'the writer';
@@ -455,7 +456,8 @@ export function tolerantJson(raw) {
  * strings, or bare #codes (not valid JSON), so refs are read token-wise
  * after a tolerant parse attempt. */
 function parseFetchRefs(body) {
-  const isRef = (t) => /^#?[0-9a-f]{3,12}$/i.test(t) || /^\d{1,5}$/.test(t);
+  /* M74: a page handle, or a rule / lore entry by name ("rule: The Prose", "lore: Aurora") */
+  const isRef = (t) => /^#?[0-9a-f]{3,12}$/i.test(t) || /^\d{1,5}$/.test(t) || /^(rule|lore):\s*\S/i.test(t);
   const parsed = tolerantJson(body);
   if (Array.isArray(parsed)) {
     return parsed.map((r) => String(r).trim()).filter((t) => t && isRef(t));
@@ -479,10 +481,10 @@ function parseLabels(body) {
  * what the panel bubble shows. Never throws. */
 export function parseProtocol(raw) {
   const source = String(raw == null ? '' : raw);
-  const out = { edits: [], ledits: [], redits: [], lore: [], record: [], fetch: [], supersede: [], fetchMalformed: false, text: '' };
+  const out = { edits: [], ledits: [], redits: [], lore: [], record: [], brief: [], fetch: [], supersede: [], fetchMalformed: false, text: '' };
   try {
     const spans = [];
-    for (const tag of ['edits', 'ledits', 'redits', 'lore', 'record', 'fetch', 'supersede']) {
+    for (const tag of ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'fetch', 'supersede']) {
       for (const block of innerBlocks(source, tag)) {
         spans.push(block);
         if (tag === 'fetch') {
@@ -588,14 +590,28 @@ export function buildHousekeeperContext({
 
   const parts = [];
   const brief = story && typeof story.brief === 'string' ? story.brief.trim() : '';
+  const castNotes = story && typeof story.castNotes === 'string' ? story.castNotes.trim() : '';
   parts.push('The story is “' + ((story && story.title) || 'an untitled tale') + '”.');
-  if (brief) parts.push('Its brief, in the writer’s own words:\n' + brief);
+  /* M74: the brief and the cast notes, WHOLE and named — the writer's standing
+   * words (the premise, the plot's essentials, the notes to the storyteller;
+   * Summaryception's notepad by another name), edited with <brief> */
+  parts.push('THE BRIEF (the writer’s own standing words — premise, plot essentials, notes to the storyteller; edit it with <brief>, field "brief"):\n' + (brief || '(empty)'));
+  parts.push('THE CAST NOTES (the writer’s notes on who is in the tale; edit them with <brief>, field "cast"):\n' + (castNotes || '(empty)'));
   parts.push('The pages of the story, one line each:\n' + (indexLines.join('\n') || '(no pages yet)'));
   if (fullPages.length) {
     parts.push('The last ' + fullPages.length + ' pages in full:\n\n' + fullPages.join('\n\n'));
   }
-  parts.push('What the ledger says:\n' + ledger);
-  parts.push('The rulebook holds: ' + (rulebook.join('; ') || 'nothing but the craft itself') + '.');
+  parts.push('THE LEDGER (the scene as the readers keep it; change it with <ledits>):\n' + ledger);
+  /* M74: the pages of the people, WHOLE — the housekeeper was told to sweep
+   * them and could not see them */
+  const people = Object.entries((state && state.characters) || {}).filter(([, c]) => c && typeof c === 'object');
+  if (people.length) {
+    parts.push('THE PAGES OF THE PEOPLE (the character ledger the scribe keeps; change a field with <ledits> people.set, add or close one loose end with people.note):\n'
+      + people.map(([name, c]) => '[' + name + (c.retired ? ' — passed through' : '') + ']\n  CORE: ' + (c.core || '(empty)') + '\n  STATE: ' + (c.state || '(empty)') + '\n  ARC: ' + (c.arc || '(empty)') + '\n  THREADS: ' + ((c.threads || []).length ? (c.threads || []).map((t) => '“' + t + '”').join('; ') : '(none)')).join('\n'));
+  } else {
+    parts.push('THE PAGES OF THE PEOPLE: none written yet.');
+  }
+  parts.push('THE RULEBOOK holds these rules (names only — a rule’s text is long; <fetch>["rule: its name"]</fetch> serves it whole, and <redits> must quote from the served text): ' + (rulebook.join('; ') || 'nothing but the craft itself') + '.');
   /* M61: the record — the memory the housekeeper keeps consistent — whole,
    * each line with its handle (#r…) so a <record> edit can name it */
   const recordLines = (memory && Array.isArray(memory.nodes) ? memory.nodes : [])
@@ -625,11 +641,18 @@ export function buildHousekeeperContext({
   parts.push(pending.length
     ? 'PENDING CARDS (staged earlier, not yet applied by the writer). A card marked STALE must be withdrawn with <supersede> or re-proposed with a fresh anchor in THIS answer; a card the writer no longer needs is withdrawn the same way — prose never removes a card:\n' + pending.join('\n')
     : 'PENDING CARDS: none.');
+  /* M74: the lore shelf WHOLE (it used to show 200 characters of each entry,
+   * so an edit to an entry had nothing true to quote). A very long entry is
+   * cut at LORE_SHOW_CAP with a note, and <fetch>["lore: name"] serves it. */
   const shelf = Array.isArray(lore) ? lore : [];
   if (shelf.length) {
-    parts.push('The lore shelf holds:\n' + shelf.map((e) => '- ' + (e.name || (e.keys || [])[0] || 'an unnamed entry') + ' [' + (e.keys || []).join(', ') + ']' + (e.enabled === false ? ' (off)' : '') + (e.constant ? ' (always rides)' : '') + ': ' + String(e.content || '').slice(0, 200).replace(/\s+/g, ' ')).join('\n'));
+    parts.push('THE LORE SHELF (the entries that wake when their keys are spoken; change them with <lore>):\n' + shelf.map((e) => {
+      const content = String(e.content || '');
+      const shown = content.length > LORE_SHOW_CAP ? content.slice(0, LORE_SHOW_CAP) + '\n  (…' + (content.length - LORE_SHOW_CAP) + ' more characters — <fetch>["lore: ' + (e.name || (e.keys || [])[0] || '') + '"]</fetch> serves it whole)' : content;
+      return '[' + (e.name || (e.keys || [])[0] || 'an unnamed entry') + '] keys: ' + ((e.keys || []).join(', ') || '(none)') + (e.enabled === false ? ' (off)' : '') + (e.constant ? ' (always rides)' : '') + '\n' + (shown || '(empty)');
+    }).join('\n\n'));
   } else {
-    parts.push('The lore shelf is empty.');
+    parts.push('THE LORE SHELF is empty.');
   }
   if (directorText) parts.push('[DIRECTOR]\n' + directorText);
   if (editorText) parts.push('[EDITOR]\n' + editorText);
@@ -640,15 +663,22 @@ export function buildHousekeeperContext({
 
 const SYSTEM_PROMPT = [
   'You are the housekeeper of a cozy tavern where two writers tell a slow, warm',
-  'story together. You can see the whole of it — the pages, the ledger, the',
-  'rulebook — and the writer talks to you when something needs a steady hand:',
-  'a name that drifted, a contradiction to repair, a passage to re-ink, a truth',
-  'to write down or let go.',
+  'story together. You can see the whole of it — THE BRIEF and THE CAST NOTES (the',
+  'writer’s own standing words), the pages, THE LEDGER, THE PAGES OF THE PEOPLE,',
+  'THE RECORD, THE LORE SHELF, the rulebook’s names — and the writer talks to you',
+  'when something needs a steady hand: a name that drifted, a contradiction to',
+  'repair, a passage to re-ink, a truth to write down or let go, the brief to change.',
   '',
   'Answer in plain, warm words. When a change is called for, propose it inside',
   'your reply with these blocks — they are staged as cards the writer must',
   'approve; nothing you write here changes the story on its own:',
   '',
+  '<brief>[ ... ]</brief> — changes to THE BRIEF or THE CAST NOTES:',
+  '  {"field":"brief","find":"the exact words","replace":"the new words","reason":"why"}',
+  '  {"field":"cast","text":"the whole new cast notes","reason":"why"} — replaces all of it',
+  '  {"field":"brief","append":"a new paragraph","reason":"why"} — adds at the end',
+  '  Quote find exactly from THE BRIEF / THE CAST NOTES above. An empty field can',
+  '  only take "text" or "append". The founder re-reads a changed brief on its own.',
   '<edits>[ ... ]</edits> — changes to pages. Each op is one of:',
   '  {"id":"#a1b2c3","find":"the exact passage","replace":"the new words","reason":"why"}',
   '  {"id":"#a1b2c3","hide":true} — or false to bring a hidden page back',
@@ -656,16 +686,24 @@ const SYSTEM_PROMPT = [
   '  Quote the passage exactly as written. If it could land in more than one',
   '  place, quote more of it — an ambiguous find is refused, never guessed at.',
   '  Optional "label":"a-short-name" names the card.',
-  '<ledits>[ ... ]</ledits> — changes to the ledger, in its own closed',
-  '  vocabulary: clock.set {year,month,day,hour,minute}; clock.advance',
-  '  {minutes,reason}; presence.enter/leave/update {name,position?,attire?};',
+  '<ledits>[ ... ]</ledits> — changes to THE LEDGER and THE PAGES OF THE PEOPLE, in',
+  '  the ledger’s own closed vocabulary (every op carries its "type"):',
+  '  mc.set {name} — the main character; place.set {name} — the ground;',
+  '  clock.set {year,month,day,hour,minute}; clock.advance {minutes,reason};',
+  '  presence.enter/leave/update {name,position?,attire?};',
   '  mode.set/mode.clear {flag of combat|intimate|travel|socialField|isolation|group};',
-  '  body.injure {name,what,sev 1-3,treated}; body.strain {name,what}; body.heal',
-  '  {name,what}; rel.shift {name,axis p|r|s,delta,cause}; rel.set {name,p?,r?,s?,cause};',
-  '  offscreen.set {name,location,activity,agenda?}; offscreen.clear {name};',
+  '  body.injure {name,what,sev 1-3,treated}; body.strain {name,what}; body.heal {name,what};',
+  '  rel.shift {name,axis p|r|s,delta,cause}; rel.set {name,p?,r?,s?,cause}; rel.clear {name,cause};',
+  '  offscreen.set {name,location,activity,agenda?,stance?,etaMinutes?}; offscreen.clear {name};',
   '  canon.lock {name,key,value}; canon.unlock {name,key};',
+  '  thread.set {title,owner,heat,next}; thread.close {title};',
+  '  knowledge.add {name,fact} — who knows what; faction.set {name,stance,agenda,move};',
+  '  people.set {name,field:core|state|arc|threads,text} — a whole field of a person’s page',
+  '    (threads: the whole list, separated by semicolons; the main character takes state and',
+  '    threads only); people.note {name,field:thread|unthread,text} — add or close ONE loose end;',
+  '  people.retire {name,cause}; people.wake {name};',
   '  and {"type":"module.pin","module":"the rule’s name","pinned":true|false}.',
-  '  Every op carries its "type". Unknown types are rejected by the ledger itself.',
+  '  Unknown types are rejected by the ledger itself.',
   '<redits>[ ... ]</redits> — changes to a rulebook rule’s text:',
   '  {"module":"the rule’s name","find":"…","replace":"…","reason":"why"}',
   '<record>[ ... ]</record> — changes to the record’s lines (the memory of the pages that',
@@ -679,8 +717,9 @@ const SYSTEM_PROMPT = [
   '  {"entry":"Aurora","remove":true,"reason":"why"}',
   '  "entry" is the entry’s name or its first key. Content is the truth the',
   '  storyteller should carry when the key is spoken — facts, not prose.',
-  '<fetch>["#a1b2c3", "#d4e5f6"]</fetch> — ask to be served full pages you',
-  '  only have one-line previews of. You may ask up to three times in a turn.',
+  '<fetch>["#a1b2c3", "rule: The Prose", "lore: Aurora"]</fetch> — ask to be served',
+  '  whole: pages you only have one-line previews of, a rulebook rule’s text, a lore',
+  '  entry cut short above. You may ask up to three times in a turn.',
   '<supersede>label, label</supersede> — retire still-pending cards from your',
   '  earlier answers when this answer replaces them.',
   '',
@@ -689,14 +728,30 @@ const SYSTEM_PROMPT = [
   'page wholesale when a sentence will do. The find text must always be the',
   'story’s own words, exactly as they stand.',
   '',
+  'NOTHING HAPPENS IN PROSE. You change nothing by saying so — only a block stages',
+  'a change, and the writer applies it. Never write "done", "updated", "fixed",',
+  '"I have changed" or anything like it about a thing that is not in a block in THIS',
+  'answer. If the writer asks for something no block can do, say exactly that and',
+  'what the nearest block can do instead. There is no surface you are told to keep',
+  'that you cannot see above or fetch, and none you cannot write with a block.',
+  'ANSWER FROM EVIDENCE, NOT PREVIEWS. The one-line index tells you what is roughly',
+  'where; the ledger tells you what the readers wrote down; THE BRIEF tells you what',
+  'the writer set. Never invent a page, a name, a fact, a date or a line you were',
+  'not shown — if what you need is not above, fetch it or say you do not have it.',
+  'A guess from a preview is a hallucination, and a hallucination re-inked into a',
+  'page is the worst thing you can do here.',
+  '',
   'ANCHORS ARE COPIES, NOT DESCRIPTIONS. A find is quoted from the full text you hold.',
   'The one-line index shows what is roughly where and can never be quoted; if you do',
   'not hold a page whole, <fetch> it first. Fetching is the block, not the words —',
   'never ask the writer whether to fetch, never announce a fetch: write the block.',
-  'ONE FACT, EVERY SURFACE. A story fact lives in the pages, the record’s lines, the',
-  'pages of the people, the canon and the lore at once; correcting one and leaving the',
-  'rest manufactures a new contradiction. When you correct a fact, sweep the other',
-  'surfaces in the same answer and say what you checked.',
+  'ONE FACT, EVERY SURFACE. A story fact lives in the brief, the pages, the record’s',
+  'lines, the pages of the people, the canon and the lore at once; correcting one and',
+  'leaving the rest manufactures a new contradiction. When you correct a fact, sweep',
+  'the other surfaces in the same answer. REPORT THE SWEEP, do not promise it: say',
+  'what you checked and what you found in each place, with numbers ("pages: 2 places,',
+  'both in cards; the record: 1 line, in a card; Kim’s page: clean; the lore: none").',
+  'A surface you do not mention reads as one you did not check.',
   'WITHDRAW WITH THE BLOCK. When a pending card is stale, moot, or you agree with the',
   'writer it is unneeded, name its label in <supersede> in that same answer; agreeing',
   'in prose removes nothing.',
@@ -715,6 +770,55 @@ function moduleHashOf(mod) {
 
 function stateHashOf(state) {
   try { return hashText(JSON.stringify(state || {})); } catch (err) { return hashText(''); }
+}
+
+/* M74: a ledger card is measured against the THING it changes. The whole-state
+ * hash went stale on every page turn (the readers write the journal, the log
+ * and the turn every time), so a card staged a minute ago was refused as
+ * "the ledger has been written since". The key names one slice: the clock,
+ * the ground, one person's seat, one standing, one page of the people… */
+export function ledgerTargetKey(m) {
+  const t = String((m && m.type) || '');
+  const name = String((m && m.name) || '').trim().toLowerCase();
+  if (t.startsWith('clock.')) return 'clock';
+  if (t === 'place.set') return 'place';
+  if (t === 'mc.set') return 'mc';
+  if (t.startsWith('presence.')) return 'presence:' + name;
+  if (t.startsWith('mode.')) return 'mode';
+  if (t.startsWith('body.')) return 'body:' + name;
+  if (t.startsWith('rel.')) return 'rel:' + name;
+  if (t.startsWith('offscreen.')) return 'offscreen:' + name;
+  if (t.startsWith('canon.')) return 'canon:' + name;
+  if (t.startsWith('thread.')) return 'threads';
+  if (t === 'knowledge.add') return 'knowledge:' + name;
+  if (t === 'faction.set') return 'faction:' + name;
+  if (t.startsWith('people.')) return 'people:' + name;
+  if (t.startsWith('combat.')) return 'combat';
+  return 'state';
+}
+export function ledgerSliceHash(state, key) {
+  const st = state && typeof state === 'object' ? state : {};
+  const at = String(key || '').indexOf(':');
+  const kind = at === -1 ? key : key.slice(0, at);
+  const name = at === -1 ? '' : key.slice(at + 1);
+  const byName = (map) => { const hit = Object.entries(map || {}).find(([k]) => String(k).trim().toLowerCase() === name); return hit ? hit[1] : null; };
+  let slice;
+  if (kind === 'clock') slice = st.clock || null;
+  else if (kind === 'place') slice = st.place || null;
+  else if (kind === 'mc') slice = (st.sheet && st.sheet.playerName) || '';
+  else if (kind === 'presence') slice = (Array.isArray(st.present) ? st.present : []).find((p) => p && String(p.name).trim().toLowerCase() === name) || null;
+  else if (kind === 'mode') slice = st.mode || {};
+  else if (kind === 'body') slice = byName(st.bodies);
+  else if (kind === 'rel') slice = byName(st.relationships);
+  else if (kind === 'offscreen') slice = byName(st.offscreen);
+  else if (kind === 'canon') slice = byName(st.canon);
+  else if (kind === 'threads') slice = st.threads || [];
+  else if (kind === 'knowledge') slice = byName(st.knowledge);
+  else if (kind === 'faction') slice = byName(st.factions);
+  else if (kind === 'people') slice = byName(st.characters);
+  else if (kind === 'combat') slice = { duel: st.duel || null, battle: st.battle || null, combat: Boolean(st.mode && st.mode.combat) };
+  else return stateHashOf(st);
+  try { return hashText(JSON.stringify(slice === undefined ? null : slice)); } catch (err) { return hashText(''); }
 }
 
 /* ---------- the session store ---------- */
@@ -987,7 +1091,7 @@ function parseRange(range, visibleCount) {
 /* Turn a parsed reply into staged proposal cards, each fingerprinted
  * against its targets (the review-hash: if a target drifts after staging,
  * the card reads stale). */
-export function stageProposals(parsed, { messages, state, modules, lore, memory, session } = {}) {
+export function stageProposals(parsed, { messages, state, modules, lore, memory, session, story } = {}) {
   const proposals = [];
   const all = Array.isArray(messages) ? messages : [];
   const visible = all.filter((m) => m && !m.hidden);
@@ -1111,7 +1215,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       op: { mutations },
       status: 'pending',
       words: '',
-      review: [{ target: 'state', hash: stateHashOf(state) }],
+      review: [...new Set(mutations.map(ledgerTargetKey))].map((key) => ({ target: 'ledger:' + key, hash: ledgerSliceHash(state, key) })),
     });
   }
 
@@ -1150,6 +1254,34 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       status: 'pending',
       words: '',
       review: [{ target: 'mod:' + mod.id, hash: moduleHashOf(mod) }],
+    });
+  }
+
+  /* M74: the brief and the cast notes */
+  for (const op of (parsed && Array.isArray(parsed.brief) ? parsed.brief : [])) {
+    const field = String(op.field || '').trim().toLowerCase() === 'cast' || /cast/i.test(String(op.field || '')) ? 'cast' : 'brief';
+    const key = field === 'cast' ? 'castNotes' : 'brief';
+    const current = story && typeof story[key] === 'string' ? story[key] : '';
+    const label = typeof op.label === 'string' && op.label.trim() ? op.label.trim() : (field === 'cast' ? 'the cast notes' : 'the brief');
+    const reason = cleanReason(op.reason);
+    const refuse = (words) => proposals.push({ id: uid(), ts: Date.now(), kind: 'brief', label, reason, op: { field: key }, status: 'refused', words, review: [] });
+    let staged = null;
+    if (typeof op.text === 'string') {
+      if (!op.text.trim()) { refuse('the new text came in empty — to clear it, say so and the writer can do it by hand'); continue; }
+      staged = { field: key, text: op.text };
+    } else if (typeof op.append === 'string') {
+      if (!op.append.trim()) { refuse('nothing to add'); continue; }
+      staged = { field: key, append: op.append.trim() };
+    } else if (typeof op.find === 'string' && typeof op.replace === 'string') {
+      if (!current.trim()) { refuse('it is empty — there is nothing to find; use "text" or "append"'); continue; }
+      const located = locate(current, op.find);
+      if (!located.ok) { refuse(located.reason); continue; }
+      if (applyLocated(current, located, op.replace) === current) { refuse('the new words are the words already there'); continue; }
+      staged = { field: key, find: op.find, replace: op.replace };
+    } else { refuse('it didn’t say what should change — find/replace, text, or append'); continue; }
+    proposals.push({
+      id: uid(), ts: Date.now(), kind: 'brief', label, reason, op: staged,
+      status: 'pending', words: '', review: [{ target: 'story:' + key, hash: hashText(current) }],
     });
   }
 
@@ -1224,7 +1356,7 @@ export function removedWords(find, replace) {
   while (tail > 0 && /\S/.test(f[f.length - tail])) tail -= 1;
   return f.slice(head, f.length - tail).trim();
 }
-export function rippleScan(edits, { messages, memory, state, lore } = {}) {
+export function rippleScan(edits, { messages, memory, state, lore, story } = {}) {
   const out = [];
   const pages = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
   for (const op of (Array.isArray(edits) ? edits : [])) {
@@ -1250,6 +1382,9 @@ export function rippleScan(edits, { messages, memory, state, lore } = {}) {
     for (const e of (Array.isArray(lore) ? lore : [])) {
       if (e && typeof e.content === 'string' && e.content.includes(removed)) where.push('the lore entry “' + (e.name || (e.keys || [])[0] || '?') + '”');
     }
+    /* M74: the writer's standing words are surfaces too */
+    if (story && typeof story.brief === 'string' && story.brief.includes(removed)) where.push('the brief');
+    if (story && typeof story.castNotes === 'string' && story.castNotes.includes(removed)) where.push('the cast notes');
     if (where.length) out.push({ removed: removed.slice(0, 80), where: [...new Set(where)] });
   }
   return out;
@@ -1331,6 +1466,14 @@ async function stalenessCheck(storyId, p) {
       const entry = shelf.find((e) => e && e.id === r.target.slice(5));
       if (!entry) return 'that lore entry has gone from the shelf';
       if (hashText(JSON.stringify(entry)) !== r.hash) return 'that lore entry has been edited since this was staged';
+    } else if (r.target.startsWith('story:')) {
+      const st = await db.stories.get(storyId);
+      const now = st && typeof st[r.target.slice(6)] === 'string' ? st[r.target.slice(6)] : '';
+      if (hashText(now) !== r.hash) return (r.target.slice(6) === 'castNotes' ? 'the cast notes have' : 'the brief has') + ' changed since this was staged';
+    } else if (r.target.startsWith('ledger:')) {
+      /* M74: a ledger card goes stale when the THING it touches moved, not when anything moved */
+      const fresh = await loadState(storyId);
+      if (ledgerSliceHash(fresh, r.target.slice(7)) !== r.hash) return 'what this card changes in the ledger has moved since it was staged';
     } else if (r.target === 'state') {
       const fresh = await loadState(storyId);
       if (stateHashOf(fresh) !== r.hash) return 'the ledger has been written since this was staged';
@@ -1451,6 +1594,8 @@ async function applyLeditOp(storyId, p, batch) {
         kind: 'ledger',
         before: fresh,
         afterHash: stateHashOf(settled),
+        /* M74: the undo measures the slices this change touched, not the whole ledger */
+        afterTargets: [...new Set(ledgerOps.map(ledgerTargetKey))].map((key) => ({ key, hash: ledgerSliceHash(settled, key) })),
         words: applied.map((a) => a.words),
       });
       words.push(...applied.map((a) => a.words));
@@ -1535,6 +1680,27 @@ async function applyRecordOp(storyId, p, batch) {
   return { ok: true, words: 'The record line reads differently now.' };
 }
 
+/* M74: the brief and the cast notes — the writer's standing words. */
+async function applyBriefOp(storyId, p, batch) {
+  const op = p.op;
+  const story = await db.stories.get(storyId);
+  if (!story) return { ok: false, words: 'the story has gone' };
+  const key = op.field === 'castNotes' ? 'castNotes' : 'brief';
+  const current = typeof story[key] === 'string' ? story[key] : '';
+  let next;
+  if (typeof op.text === 'string') next = op.text;
+  else if (typeof op.append === 'string') next = (current.trim() ? current.replace(/\s+$/, '') + '\n\n' : '') + op.append;
+  else {
+    const located = locate(current, op.find);
+    if (!located.ok) return { ok: false, words: located.reason };
+    next = applyLocated(current, located, op.replace);
+  }
+  if (next === current) return { ok: false, words: 'the new words are the words already there' };
+  await db.stories.update(storyId, { [key]: next });
+  batch.items.push({ kind: 'story', field: key, before: current, afterHash: hashText(next) });
+  return { ok: true, words: (key === 'castNotes' ? 'The cast notes read' : 'The brief reads') + ' differently now — the founder will re-read it before the next page.' };
+}
+
 /* M38: the lore shelf. Every op reads the shelf, changes it, writes it
  * back; the batch keeps the whole shelf as it was. */
 async function applyLoreOp(storyId, p, batch) {
@@ -1601,6 +1767,7 @@ export async function applyProposal(session, storyId, proposalId) {
       : p.kind === 'redit' ? applyReditOp
       : p.kind === 'lore' ? applyLoreOp
       : p.kind === 'record' ? applyRecordOp
+      : p.kind === 'brief' ? applyBriefOp
       : applyEditOp;
     const result = await run(storyId, p, batch);
     if (!result.ok) {
@@ -1619,6 +1786,7 @@ export async function applyProposal(session, storyId, proposalId) {
         state: batch.items.some((i) => i.kind === 'ledger'),
         modules: batch.items.some((i) => i.kind === 'module'),
         lore: batch.items.some((i) => i.kind === 'lore'),
+        story: batch.items.some((i) => i.kind === 'story'),
       },
     };
   } catch (err) {
@@ -1694,9 +1862,17 @@ export async function undoLatest(session, storyId) {
       if (hashText(JSON.stringify(now)) !== item.afterHash) {
         return { ok: false, refused: true, words: 'Not taken back — the lore shelf has changed since “' + batch.label + '” landed. The change stands; edit the shelf by hand if it must move.' };
       }
+    } else if (item.kind === 'story') {
+      const st = await db.stories.get(storyId);
+      if (!st || hashText(typeof st[item.field] === 'string' ? st[item.field] : '') !== item.afterHash) {
+        return { ok: false, refused: true, words: 'Not taken back — ' + (item.field === 'castNotes' ? 'the cast notes have' : 'the brief has') + ' been edited since “' + batch.label + '” landed. The change stands; edit it by hand if it must move.' };
+      }
     } else if (item.kind === 'ledger') {
       const fresh = await loadState(storyId);
-      if (stateHashOf(fresh) !== item.afterHash) {
+      if (item.afterTargets && !item.afterTargets.every((t) => ledgerSliceHash(fresh, t.key) === t.hash)) {
+        return { ok: false, refused: true, words: 'Not taken back — what “' + batch.label + '” changed in the ledger has moved since. The change stands; the drawer’s own “Take it back” can walk the log.' };
+      }
+      if (!item.afterTargets && stateHashOf(fresh) !== item.afterHash) {
         return { ok: false, refused: true, words: 'Not taken back — the ledger has been written since “' + batch.label + '” landed (a page turned, or a hand wrote in it). The change stands; the drawer’s own “Take it back” can walk the log.' };
       }
     }
@@ -1714,6 +1890,8 @@ export async function undoLatest(session, storyId) {
       await saveMemory(storyId, { ...mem, nodes });
     } else if (item.kind === 'lore') {
       await saveLore(storyId, item.beforeShelf);
+    } else if (item.kind === 'story') {
+      await db.stories.update(storyId, { [item.field]: item.before });
     } else if (item.kind === 'ledger') {
       const restored = JSON.parse(JSON.stringify(item.before));
       restored.log = Array.isArray(restored.log) ? restored.log : [];
@@ -1758,9 +1936,22 @@ export async function callModel(connection, { system, messages, maxTokens, signa
 }
 
 /* The pages a <fetch> asked for, served whole (capped). */
-function serveFetch(refs, messages) {
+function serveFetch(refs, messages, { modules = [], lore = [] } = {}) {
   const lines = [];
   for (const ref of refs.slice(0, 4)) {
+    /* M74: a rule or a lore entry, served whole by name */
+    const named = /^(rule|lore):\s*(.+)$/i.exec(String(ref).trim());
+    if (named) {
+      const want = named[2].trim().toLowerCase();
+      if (named[1].toLowerCase() === 'rule') {
+        const mod = (Array.isArray(modules) ? modules : []).find((m) => m && typeof m.name === 'string' && m.name.trim().toLowerCase() === want);
+        lines.push(mod ? '[rule: ' + mod.name + '] (' + String(mod.text || '').length + ' chars, COMPLETE)\n' + String(mod.text || '') : 'No rule is called “' + named[2].trim() + '” — the rulebook’s names are listed above.');
+      } else {
+        const e = (Array.isArray(lore) ? lore : []).find((x) => x && ((typeof x.name === 'string' && x.name.trim().toLowerCase() === want) || (Array.isArray(x.keys) && x.keys.some((k) => String(k).trim().toLowerCase() === want))));
+        lines.push(e ? '[lore: ' + (e.name || (e.keys || [])[0]) + '] keys: ' + ((e.keys || []).join(', ') || '(none)') + ' (' + String(e.content || '').length + ' chars, COMPLETE)\n' + String(e.content || '') : 'No lore entry answers to “' + named[2].trim() + '”.');
+      }
+      continue;
+    }
     const msg = resolveMessageRef(messages, ref);
     if (!msg) {
       lines.push(refOf({ id: ref }) + ' — no page answers to “' + ref + '”.');
@@ -1829,7 +2020,7 @@ export async function runConversation({
         wire.push({ role: 'assistant', content: raw });
         wire.push({
           role: 'user',
-          content: 'The pages you asked for:\n\n' + serveFetch(parsed.fetch, messages),
+          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore }),
         });
         continue;
       }
@@ -1874,7 +2065,7 @@ export async function runConversation({
       /* M61 (v2.77): the ripple — the words an edit removes still sit on
        * other surfaces; they are found in code and handed back once */
       if (!sweptRipple) {
-        const leftovers = rippleScan(parsed.edits, { messages, memory, state, lore });
+        const leftovers = rippleScan(parsed.edits, { messages, memory, state, lore, story });
         if (leftovers.length) {
           sweptRipple = true;
           wire.push({ role: 'assistant', content: raw });
@@ -1918,7 +2109,7 @@ export async function housekeeperTurn({
     });
     if (!result.ok) return { ok: false, error: result.error || 'the housekeeper went quiet' };
 
-    const proposals = stageProposals(result.parsed, { messages, state, modules, lore, memory: mem, session });
+    const proposals = stageProposals(result.parsed, { messages, state, modules, lore, memory: mem, session, story });
     let withdrawNote = '';
     if (result.parsed.supersede.length) {
       const sup = applySupersede(session, result.parsed.supersede);

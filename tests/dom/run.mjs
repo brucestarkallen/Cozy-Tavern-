@@ -810,6 +810,22 @@ test('DOM-11c the housekeeper sees the brief, stages a card, Apply changes the p
   await until(() => q('#hk-cards').hidden && qa('#hk-thread .hk-receipt').length >= 1, 'the box folds away, a receipt stays in the talk', 10000);
   click(q('#hk-undo'));
   await until(async () => !/MENDED WORDS/.test((await db.messages.list(sid)).find((m) => m.id === target.id).text), 'undo took it back', 10000);
+  /* M74: the brief is a surface the housekeeper can change — a <brief> card, applied, shows in Settings, and is taken back */
+  house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys)
+    ? 'The brief now says younger.\n<brief>[{"field":"brief","find":"older sister","replace":"younger sister","reason":"the writer asked"}]</brief>'
+    : priorAnswer(body, sys));
+  await until(() => !q('#hk-send').disabled, 'free again', 10000);
+  type(q('#hk-input'), 'change the brief: Rias is his younger sister');
+  submit(q('#hk-form'));
+  const applyBrief = await until(() => qa('#hk-cards button').find((b) => /^Apply$/i.test(b.textContent.trim())), 'the brief card', 10000);
+  assert(/the brief/.test(q('#hk-cards').textContent), 'the card names the brief: ' + q('#hk-cards').textContent.slice(0, 120));
+  click(applyBrief);
+  await until(async () => /younger sister/.test((await db.stories.get(sid)).brief), 'the brief changed', 10000);
+  await openSettings();
+  assert(/younger sister/.test(q('#brief-story').value), 'Settings shows the new brief');
+  await closeSettings();
+  click(q('#hk-undo'));
+  await until(async () => /older sister/.test((await db.stories.get(sid)).brief), 'the brief taken back', 10000);
   house.state.workerAnswer = priorAnswer;
   click(q('#btn-hk-close'));
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));

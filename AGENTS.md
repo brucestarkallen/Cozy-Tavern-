@@ -2059,3 +2059,41 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   had already let `busy` go and swipeRegenerate awaited the shelf before claiming the replay — a
   branch in that gap was refused as "replaying". The replay is claimed the moment generate returns.
   327/327 + 28/28 (×6). version.js -> m73-002.
+
+---
+
+# M74 — the housekeeper sees every surface it is told to keep, and can write every one of them (Chat Assistant's law, ported whole)
+- FIELD REPORT (after fourteen hours): "the master assistant is broken — I can't edit the brief, can't
+  edit anything, it hallucinates, it can't see the brief, can't edit plot essential, it's confused."
+  Chat Assistant's system instructions were read in full and held against the housekeeper's. Its
+  [STORY MEMORY] shows EVERY field whole — the notepad (Plot Essential), each character's CORE /
+  STATE / ARC / THREADS, the worldbook — and every one is editable; its laws are "answer from
+  EVIDENCE, not previews" and "REPORT THE SWEEP, do not promise it". The tavern's housekeeper was
+  told ONE FACT, EVERY SURFACE — "sweep the pages of the people, the canon, the lore" — while it
+  could not SEE the cast notes or the pages of the people at all, saw 200 characters of each lore
+  entry, saw rule names with no text, had no block to change the brief, and knew half the ledger's
+  vocabulary. Told nothing changes without a block, but never told not to CLAIM a change. So it
+  answered "done" about things it could not do — the hallucination the writer met.
+- THE CONTEXT, every surface whole and named for the block that changes it: THE BRIEF (the
+  writer's standing words — premise, plot essentials, notes to the storyteller; the tavern's
+  notepad) and THE CAST NOTES, whole, `<brief>`; THE LEDGER, `<ledits>`; THE PAGES OF THE PEOPLE
+  (CORE / STATE / ARC / THREADS, whole), `<ledits>` people.set / people.note; THE RECORD, `<record>`;
+  THE LORE SHELF whole (LORE_SHOW_CAP 4000 per entry, then `<fetch>["lore: name"]` serves it),
+  `<lore>`; THE RULEBOOK by name with `<fetch>["rule: name"]` serving a rule's text for `<redits>`.
+- `<brief>[{field:"brief"|"cast", find/replace | text | append, reason}]` — staged as cards,
+  anchors checked at arrival, staleness on the field's hash, apply writes the story, undo restores
+  the field; touched.story refreshes Settings and the story room; the founder re-reads a changed
+  brief by its fingerprint on the next page. rippleScan sweeps the brief and the cast notes too.
+- THE FULL LEDGER VOCABULARY in the prompt: mc.set, place.set, thread.set/close, knowledge.add,
+  faction.set, people.set (a whole field; threads as a semicolon list), people.note (one loose end
+  added or closed), people.retire/wake, rel.clear, offscreen stance/eta.
+- LEDGER CARDS GO STALE ONLY WHEN THE THING THEY TOUCH MOVED (ledgerTargetKey / ledgerSliceHash:
+  the clock, the ground, one seat, one standing, one page…). The whole-state hash went stale on
+  EVERY page turn (the readers write the journal, the log and the turn each time), so a card staged
+  a minute ago was refused as "the ledger has been written since" — and so was its undo.
+- THE LAWS, in the prompt: NOTHING HAPPENS IN PROSE (never "done"/"updated"/"fixed" without the
+  block in THIS answer; if no block can do it, say so and name the nearest); ANSWER FROM EVIDENCE,
+  NOT PREVIEWS (never invent a page, a name, a fact, a date or a line not shown — fetch it or say
+  you don't have it); REPORT THE SWEEP with numbers, a surface unmentioned reads as unchecked.
+- Harness: m74.mjs (6 checks); m38-1 updated to the whole shelf; DOM-11c stages a <brief> card,
+  applies it, sees it in Settings, takes it back. 333/333 + 28/28 (×3). version.js -> m74-001.

@@ -11,9 +11,10 @@ test('M38-1 the protocol reads <lore> blocks; the prompt teaches them; the conte
   const p = parseProtocol('Here.\n<lore>[{"add":true,"name":"Aurora","keys":["Aurora","the neighbor"],"content":"Childhood friend, lives next door.","reason":"the writer asked"}]</lore>\nDone.');
   eq(p.lore.length, 1); eq(p.lore[0].name, 'Aurora'); eq(p.text.replace(/\n+/g, '\n'), 'Here.\nDone.');
   const ctx = buildHousekeeperContext({ story: { title: 't' }, messages: [], state: emptyState(), modules: [], lore: [{ id: 'l1', name: 'Kris', keys: ['Kris', 'mother'], content: 'Kendall’s mother.', enabled: true }] });
-  assert(/The lore shelf holds:\n- Kris \[Kris, mother\]: Kendall’s mother\./.test(ctx));
+  /* M74: the shelf is shown WHOLE, entry by entry */
+  assert(/THE LORE SHELF \(the entries that wake[^\n]*\n\[Kris\] keys: Kris, mother\nKendall’s mother\./.test(ctx), ctx.slice(ctx.indexOf('THE LORE'), ctx.indexOf('THE LORE') + 160));
   const empty = buildHousekeeperContext({ story: { title: 't' }, messages: [], state: emptyState(), modules: [], lore: [] });
-  assert(/The lore shelf is empty\./.test(empty));
+  assert(/THE LORE SHELF is empty\./.test(empty));
 });
 
 test('M38-2 add, edit, remove land as cards; apply changes the shelf; undo restores it whole; drift refuses', async () => {
