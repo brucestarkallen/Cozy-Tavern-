@@ -966,6 +966,25 @@ test('DOM-11c the housekeeper sees the brief, stages a card, Apply changes the p
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-13a a rewritten brief is held against the ledger at once — saving it runs the auditor, no button pressed', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await settled();
+  const was = ((await db.settings.get('workers:' + sid)) || {}).auditor;
+  const wasAt = was && was.at ? was.at : 0;
+  await openSettings();
+  type(q('#brief-story'), 'Jovan comes home to Ravenwood. Rias is his older sister; her hair is now silver.');
+  click(q('#btn-save-brief'));
+  await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.auditor && w.auditor.at && w.auditor.at > wasAt; }, 'the auditor ran on the brief change', 15000);
+  /* saving the same words again does not run it */
+  const afterAt = ((await db.settings.get('workers:' + sid)) || {}).auditor.at;
+  click(q('#btn-save-brief'));
+  await tick(600);
+  eq(((await db.settings.get('workers:' + sid)) || {}).auditor.at, afterAt, 'the same brief saved twice is no change');
+  await closeSettings();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-13b reset to the house’s defaults: settings go back, connections and stories stay, my own regex rules stay', async () => {
   const before = errors.length;
   await db.settings.set('memoryWindow', 55);

@@ -2783,3 +2783,11 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   need not walk to the scene to reach it. And the someone an absent person talks to off the page
   — in a window or a voice — exists from then on: named, cored, seated. M98-1. 374/374.
   version.js -> m98-001.
+
+# M99 — a rewritten brief is held against the ledger at once
+- FIELD REPORT: "if I rewrite the brief — a hair colour — what should I do?" Nothing, now: saving
+  a changed brief or cast notes in Settings runs the auditor at once (the brief wins: the canon
+  is relocked to the new colour, the recent pages mended, the record corrected, the storyteller
+  handed the new truth next turn). Unchanged words saved again run nothing. A brief changed by
+  the housekeeper's own card is caught by the every-page audit within one turn. DOM-13a.
+  374/374 + 31/31. version.js -> m99-001.

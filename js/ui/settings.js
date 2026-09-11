@@ -725,17 +725,32 @@ export function initSettings(ctx) {
     await db.stories.update(story.id, { noteOverride: els.noteStory.value });
     flash('note-story-saved');
   });
+  /* M99: a changed brief or cast is held against the ledger at once — the
+   * auditor runs (the brief wins: a changed hair colour relocks the canon,
+   * mends the recent pages, corrects the record), so the writer never has to
+   * remember a button after rewriting the brief. */
+  async function briefChanged(story, before, after) {
+    if (String(before || '').trim() === String(after || '').trim()) return;
+    if (ctx.chat && typeof ctx.chat.auditNow === 'function') {
+      const ran = await ctx.chat.auditNow();
+      if (ran) toast('The brief changed — the auditor is holding the ledger to it.');
+    }
+  }
   document.getElementById('btn-save-brief').addEventListener('click', async () => {
     const story = await activeStory();
     if (!story) return;
+    const before = story.brief || '';
     await db.stories.update(story.id, { brief: els.briefStory.value });
     flash('brief-saved');
+    await briefChanged(story, before, els.briefStory.value);
   });
   document.getElementById('btn-save-cast').addEventListener('click', async () => {
     const story = await activeStory();
     if (!story) return;
+    const before = story.castNotes || '';
     await db.stories.update(story.id, { castNotes: els.castStory.value });
     flash('cast-saved');
+    await briefChanged(story, before, els.castStory.value);
   });
 
   /* M16: moving a tale to another shelf (or letting it stand loose). The
