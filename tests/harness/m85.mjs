@@ -470,3 +470,44 @@ test('M100-1 the ripple: one fact changed by an edit is made true everywhere —
   assert(/the same name/.test(applyMutations(st, [{ type: 'people.rename', from: 'Kim', to: 'kim' }]).rejected[0].why));
   assert(/nothing in the ledger/.test(applyMutations(st, [{ type: 'people.rename', from: 'Nobody', to: 'Someone' }]).rejected[0].why));
 });
+
+test('M103-1 seats have a life in code: a passer-through the world agent kept seated is cleared and retired once nothing carries them; the carried stay; the pool is capped', async () => {
+  const { seatHousekeeping, SEAT_MENTION_PAGES, SEAT_FRESH_TURNS, SEAT_CAP } = await import('../../js/agents/auditor.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  let st = { ...emptyState(), turn: 40 };
+  st = applyMutations(st, [
+    { type: 'mc.set', name: 'Jovan' },
+    { type: 'people.set', name: 'Wendell', field: 'core', text: 'a cab driver' },
+    { type: 'offscreen.set', name: 'Wendell', location: 'the boardwalk', activity: 'parked', agenda: 'one clean fare', stance: 'waiting' },
+    { type: 'people.set', name: 'Rias Wells', field: 'core', text: 'the neighbour' },
+    { type: 'offscreen.set', name: 'Rias Wells', location: 'the kitchen', activity: 'cooking', agenda: 'feed him', stance: 'busy' },
+    { type: 'rel.shift', name: 'Rias Wells', axis: 'p', delta: 12, cause: 'the page' },
+    { type: 'offscreen.set', name: 'Aurora', location: 'the bus', activity: 'riding', agenda: 'reach him', stance: 'toward', etaMinutes: 20 },
+    { type: 'offscreen.set', name: 'Kim', location: 'her flat', activity: 'texting', agenda: 'get an answer', stance: 'waiting' },
+    { type: 'thread.set', title: 'Kim and the letter', owner: 'Kim', heat: 'hot', next: 'text again' },
+    { type: 'offscreen.set', name: 'Sophie Dale', location: 'her house', activity: 'texting Emilia', agenda: 'keep Emilia out of the violin', stance: 'busy' },
+    { type: 'offscreen.set', name: 'Mi-na Song', location: 'her city', activity: 'reviewing files', agenda: 'set the siblings up', stance: 'busy' },
+  ]).state;
+  /* the seats were made long ago */
+  for (const k of Object.keys(st.offscreen)) st.offscreen[k].atTurn = 10;
+  const pages = [{ role: 'assistant', text: 'Sophie texted Emilia again about the party.' }];
+  const sweep = seatHousekeeping(st, { brief: 'Jovan comes home; Mi-na Song is the guardian.', castNotes: '', pages });
+  const cleared = sweep.filter((m) => m.type === 'offscreen.clear').map((m) => m.name).sort();
+  eq(cleared.join(','), 'Wendell', 'only the cab driver goes — the standing, the thread, the clock, the brief, and a recent mention each keep a seat: ' + JSON.stringify(sweep));
+  assert(sweep.some((m) => m.type === 'people.retire' && m.name === 'Wendell'), 'and his page retires at once, not in thirty turns');
+  /* a fresh seat stands even with nothing else */
+  st.offscreen.Wendell.atTurn = st.turn - SEAT_FRESH_TURNS + 1;
+  eq(seatHousekeeping(st, { pages }).filter((m) => m.name === 'Wendell').length, 0, 'seated just now, he stands');
+  st.offscreen.Wendell.atTurn = 10;
+  /* the cap: many carried seats, the least reachable go first, never the brief's people */
+  let big = { ...emptyState(), turn: 40 };
+  const muts = [{ type: 'mc.set', name: 'Jovan' }];
+  for (let i = 0; i < SEAT_CAP + 3; i += 1) muts.push({ type: 'offscreen.set', name: 'Guest' + i, location: 'town', activity: 'waiting', agenda: 'x', stance: i < 2 ? 'toward' : 'waiting', etaMinutes: i < 2 ? 15 : undefined });
+  big = applyMutations(big, muts).state;
+  for (const k of Object.keys(big.offscreen)) big.offscreen[k].atTurn = 39; /* all fresh — all carried */
+  const capped = seatHousekeeping(big, { brief: 'Guest14 is the landlord.', pages: [] });
+  eq(capped.filter((m) => m.type === 'offscreen.clear').length, 3, 'three over the cap go');
+  assert(!capped.some((m) => m.name === 'Guest0' || m.name === 'Guest1'), 'the ones on the clock stay');
+  assert(!capped.some((m) => m.name === 'Guest14'), 'the brief’s person is never capped out');
+  eq(SEAT_MENTION_PAGES, 12);
+});

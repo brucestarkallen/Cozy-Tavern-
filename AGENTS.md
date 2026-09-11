@@ -2829,3 +2829,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   dead, not forgotten: no bond, no seat, no thread, thirty turns quiet — out of the storyteller's
   sight until they appear again)". The by-hand form's "Whose page?" placeholder now says what it
   is: "Write on a page by hand — the person's name". version.js -> m102-001.
+
+# M103 — seats have a life, in code (the writer's ACW law: hot threads, not cast)
+- FIELD REPORT: "that's an assumption, not a smart solution" — right. A world agent that is
+  generous with wants could keep a cab driver seated forever, and the answer had been "the
+  auditor will probably clear it". Now it is law in code, every page (auditor.js
+  seatHousekeeping): a seat stands only while the story CARRIES the person — named in the brief
+  or cast notes; a nonzero standing; owner of an open thread; moving toward or seeking the main
+  character; named on one of the last twelve pages; or seated within the last six turns. Nothing
+  carries them → the seat is cleared and the page retired at once (they wake if they ever appear
+  again). The pool is capped at twelve seats; over it, the least reachable go first (waiting
+  before busy before tense before on-the-way), never the brief's people. The world agent's law
+  says the same: a passer-through is not seated at all.
+- M103-1. 376/376 + 32/32 + 8/8. version.js -> m103-001.

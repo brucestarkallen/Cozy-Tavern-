@@ -268,6 +268,10 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   /* M95: the house's own example names, echoed into a ledger by a worker of an
    * older coat, are swept out unless the brief or the cast notes name them. */
   guarded.push(...exampleLeakHousekeeping(fresh, brief, castNotes));
+  /* M103: seats have a life, in code — a passer-through the world agent kept
+   * seated (a cab driver with "one clean fare") is cleared and retired the
+   * moment the story stops carrying them; the pool is capped. */
+  guarded.push(...seatHousekeeping(fresh, { brief, castNotes, pages: all.map((m) => ({ role: m.role, text: pageText(m) })) }));
   /* M50: the standings, kept clean in code — no judgment anywhere here. */
   const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
   const statedByModel = await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
@@ -330,6 +334,68 @@ export function exampleLeakHousekeeping(state, brief = '', castNotes = '') {
   for (const p of (state.present || [])) if (p && leaked(p.name)) names.add(p.name);
   /* M96: forgotten for good, not tombstoned — a name that was never the story's leaves no trace */
   for (const name of names) out.push({ type: 'people.forget', name, cause: 'an example name from the house\'s own instructions, never the story\'s' });
+  return out;
+}
+
+/* M103: WHO KEEPS A SEAT — the writer's own ACW law ("ACW tracks hot threads,
+ * not cast; cold cast drops to the background pool"), held in code so a
+ * generous world agent cannot grow the pool. A seat stands only while the
+ * story carries the person: named in the brief or the cast notes; a nonzero
+ * standing; owner of an open thread; moving toward or seeking the main
+ * character on the clock; named on one of the last SEAT_MENTION_PAGES pages;
+ * or seated within the last SEAT_FRESH_TURNS turns. Otherwise the seat is
+ * cleared and the page retired at once (they wake if they ever appear
+ * again). Above SEAT_CAP seats, the least reachable go first. */
+export const SEAT_MENTION_PAGES = 12;
+export const SEAT_FRESH_TURNS = 6;
+export const SEAT_CAP = 12;
+export function seatHousekeeping(state, { brief = '', castNotes = '', pages = [] } = {}) {
+  const out = [];
+  const seats = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
+  const names = Object.keys(seats);
+  if (!names.length) return out;
+  const turn = Number.isFinite(state.turn) ? state.turn : 0;
+  const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
+  const recent = (Array.isArray(pages) ? pages : []).slice(-SEAT_MENTION_PAGES).map((p) => String((p && p.text) || '').toLowerCase()).join('\n');
+  const rels = state.relationships || {};
+  const threads = Array.isArray(state.threads) ? state.threads : [];
+  const mentioned = (name) => {
+    const n = String(name || '').trim().toLowerCase();
+    if (!n) return false;
+    const first = n.split(/\s+/)[0];
+    return recent.includes(n) || (first.length >= 3 && new RegExp('(?<![\\p{L}\\p{N}])' + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}\\p{N}])', 'u').test(recent));
+  };
+  const carried = (name) => {
+    const n = String(name).trim().toLowerCase();
+    const seat = seats[name] || {};
+    if (material.includes(n)) return 'the brief names them';
+    const relKey = Object.keys(rels).find((r) => samePersonLoose(r, name));
+    const rel = relKey ? rels[relKey] : null;
+    if (rel && ((rel.p || 0) || (rel.r || 0) || (rel.s || 0))) return 'a standing';
+    if (threads.some((t) => t && typeof t === 'object' && t.owner && samePersonLoose(t.owner, name))) return 'an open thread';
+    if (seat.stance === 'toward' || seat.stance === 'seeking') return 'on the way to the main character';
+    if (mentioned(name)) return 'named on a recent page';
+    if (Number.isFinite(seat.atTurn) && turn - seat.atTurn < SEAT_FRESH_TURNS) return 'seated just now';
+    return '';
+  };
+  const kept = [];
+  for (const name of names) {
+    const why = carried(name);
+    if (why) { kept.push(name); continue; }
+    out.push({ type: 'offscreen.clear', name });
+    const page = state.characters && Object.keys(state.characters).find((k) => samePersonLoose(k, name));
+    if (page && !state.characters[page].retired) out.push({ type: 'people.retire', name: page, cause: 'nothing carries them — no bond, no thread, not on the clock, not named for ' + SEAT_MENTION_PAGES + ' pages' });
+  }
+  /* the cap: the least reachable go first */
+  if (kept.length > SEAT_CAP) {
+    const rank = (name) => { const st = (seats[name] || {}).stance; return st === 'toward' ? 0 : st === 'seeking' ? 1 : st === 'tense' ? 2 : st === 'busy' ? 3 : 4; };
+    const at = (name) => (Number.isFinite((seats[name] || {}).atTurn) ? seats[name].atTurn : -1);
+    const ordered = kept.slice().sort((a, b) => (rank(b) - rank(a)) || (at(a) - at(b)));
+    for (const name of ordered.slice(0, kept.length - SEAT_CAP)) {
+      if (material.includes(String(name).trim().toLowerCase())) continue; /* the brief's people are never capped out */
+      out.push({ type: 'offscreen.clear', name });
+    }
+  }
   return out;
 }
 
