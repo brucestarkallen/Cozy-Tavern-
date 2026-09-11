@@ -263,7 +263,8 @@ test('DOM-10 the drawer: every panel renders, the world beyond the page speaks, 
 test('DOM-11 settings: the rooms render; the regex shelf adds a rule, tries it, and brings a SillyTavern file', async () => {
   const before = errors.length;
   await openSettings();
-  assert(qa('#regex-list > li').length >= 4, 'the house rules and the 🎨 pack are on the shelf');
+  /* the shelf renders from the store after the room opens — wait for it, never read it early */
+  await until(() => qa('#regex-list > li').length >= 4, 'the house rules and the 🎨 pack are on the shelf', 10000);
   click(q('#btn-regex-add'));
   await until(() => !q('#regex-form').hidden, 'the form');
   type(q('#regex-name'), 'Kill the em dash');
@@ -597,8 +598,17 @@ test('DOM-8c the checkpoint invariant holds under a random sequence of sends, sw
         click(q('.swipe-bar .msg-act[data-act="swipe-next"]', live()));
         await idle(sid);
       }
-      click(q('.swipe-bar .msg-act[data-act="swipe-next"]', live()));
-      await until(async () => { const m = (await db.messages.list(sid)).find((x) => x.id === oldId); return m && Array.isArray(m.swipes) && m.swipes.length > had; }, 'a new version of an old page', 15000);
+      /* the press is idempotent at the last version (swipeTo drops it silently while the house is
+       * busy or replaying, and starts exactly one regeneration otherwise), so on a loaded machine
+       * it is pressed again whenever the house is found idle and no new version has come — the
+       * flake this step carried was a press landing in the M72 replay window, never the app */
+      const grown = async () => { const m = (await db.messages.list(sid)).find((x) => x.id === oldId); return Boolean(m && Array.isArray(m.swipes) && m.swipes.length > had); };
+      for (let press = 0; press < 6 && !(await grown()); press += 1) {
+        await until(() => !env.ctx.chat.isBusy() && !env.ctx.chat.isReplaying(), 'the house free before the press', 20000);
+        click(q('.swipe-bar .msg-act[data-act="swipe-next"]', live()));
+        try { await until(grown, 'a new version of an old page', 6000); } catch (err) { if (press === 5) throw err; }
+      }
+      assert(await grown(), 'a new version of an old page');
       await idle(sid);
     } else if (act === 'edit-last') {
       const last = pages[pages.length - 1];

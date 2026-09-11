@@ -34,12 +34,30 @@ const STORAGE_KEY = 'modules';
 
 /* ---------- the predicates, by key (functions can't persist, keys can) ---------- */
 
+/* M85-002: does the writer's own turn plainly head into sex? Unambiguous
+ * words only — a curse alone is not intent, a naked blade is not a body.
+ * Exported for the harness. */
+const INTIMACY_RE = /\b(cocks?|pussy|cunt|dick|tits|nipples?|clit|cums?|cumming|blowjob|handjob|fucks?\s+(?:her|him|me|them)|fucking\s+(?:her|him|me|them)|straddl(?:e|es|ing)|undress(?:es|ing|ed)?|strips?\s+(?:her|him)\s+naked|(?:her|him|me|myself)\s+naked|naked\s+(?:body|skin|chest|breasts)|thrusts?\s+(?:into|inside)|grind(?:s|ing)?\s+(?:on|against)|make\s+love|have\s+sex|sex\s+with|mount(?:s|ing)?\s+(?:her|him)|between\s+(?:her|his)\s+(?:legs|thighs))\b/i;
+export function typedIntimacy(text) {
+  const t = typeof text === 'string' ? text : '';
+  if (!t || t.length > 6000) return false;
+  /* an out-of-character line or a house command is not intent */
+  if (/^\s*(?:#question|\(\(|\/\/)/.test(t)) return false;
+  return INTIMACY_RE.test(t);
+}
+
 const PREDICATES = {
   always: () => ({ load: true, reason: 'the craft — always' }),
 
   intimate: (state) => {
     const on = Boolean(state && state.mode && state.mode.intimate);
-    return { load: on, reason: on ? 'the scene has turned intimate' : '' };
+    if (on) return { load: true, reason: 'the scene has turned intimate' };
+    /* M85-002: the extractor lights `intimate` from the page AFTER it is
+     * written, so the page where the scene turns would render without the
+     * rule. The writer's own typed words for THIS turn are read first — a
+     * local read, no call, the cheapest classifier there is. */
+    const typed = typedIntimacy(state && state.turnText);
+    return { load: typed, reason: typed ? 'the writer\'s words turn to it' : '' };
   },
 
   combat: (state) => {
@@ -95,7 +113,7 @@ const PREDICATES = {
  * serves custom rules and the import preview. */
 export const WHEN_WORDS = {
   always: 'always on — it is the craft',
-  intimate: 'wakes when the scene turns intimate',
+  intimate: 'wakes when the scene turns intimate — or the writer\'s words turn to it',
   combat: 'wakes when talk gives way to contest',
   acoustics: 'wakes when a she/her voice is in the scene',
   socialField: 'wakes when the room is full of voices',
@@ -119,13 +137,16 @@ The other writer's character belongs to the other writer. Never decide what they
 
 Hold both truths at once: drive the scene forward, and leave it open. Every turn should give the other writer something to push against — a revealed want, a small risk, an unfinished sentence. That is the whole craft: people who want things, written plainly, in a scene with the door left open.`;
 
-const NSFW_TEXT = `The scene is intimate now. The law that governs it rides in the craft always (Intimacy) — this is the reminder at the moment it matters, not a second copy of it.
-
-Before writing: the body's truth first, then the character. Whatever the act's physical reality would draw out of a real person — pain, "wait," locking up, gagging, tears, going cold — renders on the page even if she wants to continue (Body Veto Root Rule), and the break takes her shape: the fighter shoves, the freezer goes rigid, the pleaser cries without fighting, the tactical one banks it. Each escalation that changes what could go wrong is a new event with its own alarm before its own choice (Escalation Resets Consent), and its price is never the same twice (Precedent Compounds).
-
-While writing: the resolution floor holds. Detail targets on every phase — skin flush per her verified tone, breasts and ass in motion, arousal states named exactly, fluids as visible events, orgasm as a body doing something and never announced. Crude first, precise second, euphemism never; exact from inside the scene, never the diagnosis voice. Sound is rendered, never labeled: moans and words in quotes, contact in asterisks, braided with em-dashes at the peak, at the volume this person in this room would actually make. Her anatomy is hers alone — chosen once, locked, never the last body's values.
-
-After: nothing resets. What was crossed lands (Line-Cross Vertigo), the ledger keeps the soreness, and the next morning is different because of it.`;
+const NSFW_TEXT = `## When The Scene Turns Intimate
+The people half of this law — pacing, limits, Body Veto, Erotic Momentum, Power Dynamic, Escalation Resets Consent, Line-Cross Vertigo — rides in the craft on every turn. This is the other half: how the body renders once the scene is there. It wakes when the scene is intimate, or the writer's own words turn to it.
+Anatomy And Movement = kinetic detail is REQUIRED during sex. Detail targets: hair (texture, colour, style; pubic hair — presence, colour, grooming); skin (flush and temperature per the verified skin tone); breasts (weight, sway); ass (shape, jiggle); arousal states (nipple hardness, areola colour and texture, vulva texture and colour, labia, clitoral state, anus colour and state, wetness progression, internal texture — walls, grip, the cervix when reached; scrotum tightness, foreskin movement); orgasm (pulsing, clenching, spasms — visible events, never announced); fluids (cum: colour, consistency, amount, where it lands; arousal wetness, squirt, piss, sweat, saliva — visible events, never implied).
+Unique Per Body = intimate anatomy samples the real human spread, never the genre default: colour runs the actual range (pale pink, rose, red-brown, brown, deep brown, near-black) keyed to skin tone first, individual variance second — darker or lighter than the surrounding skin, mottling, asymmetry all legal; areola small to wide, flat to puffy; labia hidden to prominent, symmetric or not; breasts by size, shape, hang, spacing; ass by shape and heft; pubic hair full to bare. Each value chosen once per NPC, consistent with her established features, locked as canon, never copied from the last body described — the same value twice across NPCs (everyone "dusky rose," every areola small) is the template. Categorical Is Not A Specification = "dark," "pink," "small" are directions, not colours; a specification is hue + depth + detail (cinnamon at the edge fading rose toward the centre; a shade deeper than her thigh; pale pink with a flushed rim); skin tone sets the neighbourhood, never the address. MC's body samples the same spread, same standard.
+Resolution Floor = soft focus during an explicit scene — the camera panning away, anatomy going abstract, an orgasm without fluid — is sanitization by resolution-drop; the scene renders at the resolution the fiction earns.
+Critical Anatomy = the lexicon: crude first, precise second, euphemism never. Crude wins wherever it exists and carries the moment (cock, cunt, pussy, ass, tits, cum, balls) — the default voice, and always the voice in dialogue. Precise anatomical wins wherever crude does not exist or would cost detail (areola, labia, clitoral hood, cervix, frenulum, perineum, scrotum, anus); reaching for the exact word is never a downgrade — losing the detail because no crude word existed IS. Euphemism never: "heat," "core," "manhood," "entrance," "womanhood" are sanitization in disguise at any resolution. Precision Is Not Detachment = the diagnosis VOICE is banned — examining a body from outside it as though writing it up afterward; the vocabulary was never the problem, the vantage point is. Name the tissue, the colour, the fluid, exactly, from inside the scene: detached is the failure this bans, vague is the failure Resolution Floor bans, and trading precision away to avoid sounding clinical is the most common way an explicit scene goes soft.
+Sensory Focus = visual state (colour, texture, fluid changes), wet sounds, smell, the physical sensation of friction.
+Acoustics Are Simulation = volume is an output of character, state, and setting — never a genre default. Porn volume as baseline is slop: the performer performs, the widow in a paper-walled inn bites the pillow, a first-timer goes half-silent with shock. Forced quiet is an eros ENGINE — stifling, a hand over a mouth, the sound that almost escapes — hotter than screaming. Vary the palette (breath, fabric, frame-creak, wet detail, half-words); wall-to-wall moaning is claustrophobic noise, not heat. Sound Carries = the room is not sealed: sound propagates per the established geography and lands only on ears actually in range (established presence, never invented listeners); the consequence arrives on the world's clock per the hearer's CORE and stakes — a knowing look at breakfast, barracks gossip, a rumor entering circulation, a knock ONLY from an established person with live cause — never a contrived mid-scene interruption, never a god-eared NPC across the estate. Overheard is witnessed audio, entering knowledge through those ears only. Earned silence (stone walls, a privacy ward, an empty wing, distance) is honoured fully — no manufactured listeners either.
+Intimate Dialogue = characters talk through intimacy, state-honest: a dissociating, gone-cold, or frozen character's silence IS that beat's dialogue; never force chatter through a state that would mute them. Binds NPCs only — MC speaks and vocalizes solely what the writer typed. Dirty talk, loving talk, plain communication; vocalizations are dialogue in quotes ("Uunnhh mmmm that feels—"), braided via em-dashes per High Intensity Scenes. Sound is rendered, never labeled: moans and words in quotes, contact in asterisks, at the volume this person in this room would actually make.
+The Body's Truth First = before the first explicit line: whatever the act's physical reality would draw out of a real person renders (Body Veto Root Rule), in her own break — the fighter shoves, the freezer goes rigid, the pleaser cries without fighting, the tactical one banks it; each escalation that changes what could go wrong is a new event with its own alarm before its own choice (Escalation Resets Consent), never the same price twice (Precedent Compounds). After: nothing resets — the crossing lands (Line-Cross Vertigo), the ledger keeps the soreness, the next morning is different.`;
 
 const CONTESTED_TEXT = `When two wants collide and talking will not settle it — a fight, a chase, a wager, a plea that could be refused — do not simply decide who wins. Give the moment a board.
 
@@ -160,6 +181,17 @@ Bodies: raw and visceral, at full resolution (Injury Resolution) — rent flesh,
 
 Voices: combatants talk — grandiose, arrogant, or chillingly calm boasts of lethality, per CORE and Voice Fingerprints; a fighter who never boasts stays silent and lets the next strike speak. The spectacle is the register of the rendering, never a thumb on the board: outcomes follow the ruling and the Symmetry Law, a cornered enemy still fights, flees, bargains, or breaks per Cornered NPCs, and MC still gets hit when the board says hit.`;
 
+
+/* M85-002: the window beyond the page — the writer's TWB module, as the
+ * rule that wakes when the world agent opens a window (worldWindow), a
+ * #Put TWB or a #pp cross-cut names one. The exact form is what the 🎨
+ * pack's boxed style expects. Never in the prefix: a page with no window
+ * needs none of this. */
+const WINDOW_TEXT = `## The Window Beyond The Page
+A window is open this turn — the house's word names who and what changed, or the writer asked for one. Write it once, in this exact form: a line reading *** The World Beyond *** then a line [Location — Day, Time] then the prose — 3-8 sentences (longer on a #pp cross-cut), dense, enter late, leave early; full POV depth inside THIS character's head, MC secondary and filtered through their perception; co-located absent people interact autonomously; consequences carry forward. It sits where the cut happens — after the scene's prose, or between transit and arrival on a #pp cross-cut — and nothing follows it.
+It renders what CHANGED since that thread was last on the page — never the same beat twice, never a recap of what the writer already read; nothing moved -> no window. Earlier windows sitting in the transcript are record, not template: reproducing one's location, beat, or lines tells the writer time did not pass.
+Cut Away Quarantine = the window is for the READER, never a pathway for anyone inside it: two scenes in one output share NOTHING; a person in one knows nothing of the other, however freshly you wrote it; a window shown three turns ago informs nobody who was not in it. Writing both halves requires you to hold both; that knowledge is YOURS, and characters never understand the world by explaining across the gap. The 3 Part Trace binds every line here exactly as it binds in-scene dialogue.`;
+
 const BUILTIN_MODULES = [
   {
     id: 'core-craft',
@@ -173,7 +205,7 @@ const BUILTIN_MODULES = [
     name: 'When the scene turns intimate',
     text: NSFW_TEXT,
     whenKey: 'intimate',
-    whenWords: 'wakes when the scene turns intimate',
+    whenWords: 'wakes when the scene turns intimate — or the writer\'s words turn to it',
   },
   {
     id: 'contested-resolution',
@@ -188,6 +220,13 @@ const BUILTIN_MODULES = [
     text: ACOUSTICS_TEXT,
     whenKey: 'acoustics',
     whenWords: 'wakes when a she/her voice is in the scene',
+  },
+  {
+    id: 'world-window',
+    name: 'The window beyond the page',
+    text: WINDOW_TEXT,
+    whenKey: 'worldWindow',
+    whenWords: 'wakes when a window beyond the page is open — the world agent opened one, or you asked for one',
   },
   {
     id: 'spectacle-combat',

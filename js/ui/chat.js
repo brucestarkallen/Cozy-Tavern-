@@ -2308,7 +2308,9 @@ export function initChat(ctx) {
       }
 
       const allModules = await listModules();
-      const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '' });
+      /* M85-002: the writer's own words for this turn ride to the predicates
+       * (the intimate rule wakes a beat before the extractor's flag). */
+      const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '', turnText: lastUser && !lastUser.hidden ? pageText(lastUser) : '' });
       /* M6: slot 7 — what the keeper has folded of the older pages. */
       const mem = await loadMemory(story.id);
       /* M44: a line and the page it summarizes never ride together */

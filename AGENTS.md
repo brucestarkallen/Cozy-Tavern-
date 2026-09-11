@@ -2461,3 +2461,36 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   first send ("#story Jovan is eating…") now opens a tale named from the concept — the walk's two
   '#story'-in-the-title lookups follow the new law.
 - m85.mjs (8 checks). 365/365 + 29/29. version.js -> m85-001.
+
+# M85-002 — what is situational left the prefix again (the house's own law, held against M85-001)
+- FIELD REPORT: "so is this better than the previous version? the whole reason for the tavern
+  was to stop feeding a 45k prompt." M85-001 restored three lost things correctly and put two of
+  them in the wrong place: the RENDERING half of the NSFW law (the detail targets, the lexicon,
+  the acoustics — ~1.1k tokens that matter only when sex is on the page) and the COMMAND laws
+  (#q's whole director's law, #pp's, Party Gate — ~1k tokens that matter only on the turn a
+  command is typed) rode in the cached prefix on every SFW turn. That is the Reddit thesis
+  reversed. Corrected:
+  1. `## Intimacy` in the craft keeps the PEOPLE half — pacing, limits, Body Veto, Erotic
+     Momentum, Power Dynamic, Escalation Resets Consent, Line-Cross Vertigo, Post Scene
+     Continuity — because it governs romance, coercion and the turn the scene turns, and because
+     V177's own warning ("a session that learns compliance in bed writes compliance everywhere")
+     is a SFW argument. The rendering half is the `nsfw` builtin's text now (the writer's own
+     wording). Its trigger lag is fixed at the root: the `intimate` predicate reads the writer's
+     typed words for THIS turn (`typedIntimacy`, a local regex of unambiguous words — no call,
+     the cheapest classifier there is; the send path slips `turnText` onto the state) so the page
+     where the scene turns carries the rule a beat before the extractor's flag lights.
+  2. Each command's WHOLE law is its directive (commands.js) — it rides the dynamic tail on the
+     turn it is used and never otherwise; the craft says only that a command's law arrives with
+     its turn.
+  3. The window's exact form and Cut Away Quarantine are the `world-window` builtin (whenKey
+     `worldWindow` — the seam M30 left open, filled): it rides when the world agent opened a
+     window or the writer asked for one; `#Put TWB` and `#pp` carry the form in their directives.
+- The craft is ~70k chars (~17k tokens): the M36 core plus what governs EVERY turn — the people
+  half of intimacy, the page's marks, readable media, the restored pass laws, the FF additions.
+  Per-turn context is what the tavern was built to hold flat: prefix + brief + who's here + the
+  ledger's ~400 tokens of fact + the record + the woken rules + the verbatim window — the same at
+  turn 200 as at turn 20. That, not the prefix's size alone, is the answer to "weird after 90k".
+- The DOM walk's two load-flakes fixed in the walk, not the app: the swipe-new-old step presses
+  again whenever the house is found idle with no new version (a press landing in the M72 replay
+  window was the flake); DOM-11 waits for the regex shelf to render before counting it.
+- m85.mjs updated (8 checks). 365/365 + 29/29 (×2). version.js -> m85-002.

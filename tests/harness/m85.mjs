@@ -5,7 +5,7 @@
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { CRAFT_TEXT, looksLikeImportedCraft } from '../../js/assemble/craft.js';
-import { listModules, selectModules, saveModule, removeModule } from '../../js/assemble/modules.js';
+import { listModules, selectModules, saveModule, removeModule, typedIntimacy } from '../../js/assemble/modules.js';
 import { parseCommand, commandChip } from '../../js/commands.js';
 import { normalizeBrief, normalizeVoices, renderVoicesBlock, renderWorldBrief, VOICES_MAX } from '../../js/engine/world.js';
 import { buildWorldMessages, parseWorldAnswer } from '../../js/agents/world.js';
@@ -20,36 +20,48 @@ const mkUser = (id, text) => ({ id, role: 'user', pages: [{ text }], page: 0 });
 const pageTextOf = (m) => m.pages[m.page].text;
 const checkLLM = async () => JSON.stringify({ check: true, kind: 'task', action: 'try the risky thing', tier: 'moderate', circumstance: 0 });
 
-test('M85-1 the craft carries the whole NSFW law, always on — the turn the scene turns is governed', () => {
+test('M85-1 the people half of the NSFW law rides in the craft always; the rendering half in the intimate rule — never in a SFW prefix', async () => {
   assert(/## Intimacy/.test(CRAFT_TEXT), 'the section exists');
   for (const law of ['Body Veto Root Rule', 'Erotic Momentum Is Not A Filter', 'First Time Realism', 'Power Dynamic', 'Ruin Awareness',
-    'Escalation Resets Consent', 'Precedent Compounds', 'Line-Cross Vertigo', 'Anatomy And Movement', 'Unique Per Body',
-    'Categorical Is Not A Specification', 'Resolution Floor', 'Critical Anatomy', 'Precision Is Not Detachment', 'Acoustics Are Simulation',
-    'Sound Carries', 'Intimate Dialogue', 'Limits Are Real', 'Post Scene Continuity', 'Inexperience']) {
-    assert(CRAFT_TEXT.includes(law), 'the law rides: ' + law);
+    'Escalation Resets Consent', 'Precedent Compounds', 'Line-Cross Vertigo', 'Limits Are Real', 'Post Scene Continuity', 'Inexperience']) {
+    assert(CRAFT_TEXT.includes(law), 'the people half rides always: ' + law);
   }
   /* the break types the old reasoning pass carried */
   assert(/the fighter claws, shoves/.test(CRAFT_TEXT) && /the freezer goes rigid/.test(CRAFT_TEXT) && /the pleaser cries/.test(CRAFT_TEXT), 'character-specific break');
-  /* the lexicon */
-  assert(/crude first, precise second, euphemism never/.test(CRAFT_TEXT));
-  /* the core is still bounded and still not mistaken for the old import */
-  assert(CRAFT_TEXT.length > 70000 && CRAFT_TEXT.length < 90000, 'about 20k tokens: ' + CRAFT_TEXT.length);
+  /* the rendering half is the intimate rule's — situational, out of the cached prefix (M85-002) */
+  for (const law of ['Anatomy And Movement =', 'Unique Per Body =', 'Categorical Is Not A Specification =', 'Resolution Floor =', 'Critical Anatomy =', 'Precision Is Not Detachment =', 'Acoustics Are Simulation =', 'Sound Carries =', 'Intimate Dialogue =', 'Sensory Focus =']) {
+    assert(!CRAFT_TEXT.includes(law), 'not in the prefix: ' + law);
+  }
+  const nsfw = (await listModules()).find((m) => m.id === 'nsfw');
+  for (const law of ['Anatomy And Movement', 'Unique Per Body', 'Categorical Is Not A Specification', 'Resolution Floor', 'Critical Anatomy', 'Precision Is Not Detachment', 'Acoustics Are Simulation', 'Sound Carries', 'Intimate Dialogue', 'crude first, precise second, euphemism never', 'areola', 'labia']) {
+    assert(nsfw.text.includes(law), 'the intimate rule carries: ' + law);
+  }
+  assert(nsfw.text.length > 4000 && nsfw.text.length < 9000, 'about 1-2k tokens: ' + nsfw.text.length);
+  /* the core is bounded — ~17k tokens: what governs EVERY turn — and not mistaken for the old import */
+  assert(CRAFT_TEXT.length > 60000 && CRAFT_TEXT.length < 75000, 'about 17k tokens: ' + CRAFT_TEXT.length);
   assert(!looksLikeImportedCraft(CRAFT_TEXT));
   for (const gone of ['{PULSE}', '{WATCHLIST}', 'Plot Momentum', 'Emit Order', '<details>', 'Rendering Markers']) {
     assert(!CRAFT_TEXT.includes(gone), 'still not asked to emit: ' + gone);
   }
 });
 
-test('M85-2 the command table, the page’s marks, the window’s format, readable media, and the laws the pass alone had carried', () => {
-  assert(/The Commands = /.test(CRAFT_TEXT) && /Q The Next Scene = /.test(CRAFT_TEXT) && /Party Gate = /.test(CRAFT_TEXT), 'the table and the director');
-  for (const cmd of ['#p =', '#pp =', '#continue =', '#q =', '#time skip [X] =', '#story [concept] =', '#Put TWB [name] =', '#question =', '"# no roll"']) {
-    assert(CRAFT_TEXT.includes(cmd), 'the command is taught: ' + cmd);
+test('M85-2 the page’s marks, readable media, the laws the pass alone had carried — and what is situational stays OUT of the prefix', async () => {
+  /* the craft says only that a command's law arrives with its turn */
+  assert(/The Commands = /.test(CRAFT_TEXT) && /arrives with its own law as the house's directive for THAT turn/.test(CRAFT_TEXT), 'the pointer');
+  for (const gone of ['Q The Next Scene = ', 'Party Gate = ', 'RIGHT NOW (MC walks into it)', 'Complexity Ratchet', 'Cut Away Quarantine = ', '[Location — Day, Time]']) {
+    assert(!CRAFT_TEXT.includes(gone), 'situational law is not in the prefix: ' + gone);
   }
-  assert(/RIGHT NOW \(MC walks into it\), LATER TODAY/.test(CRAFT_TEXT) && /Complexity Ratchet/.test(CRAFT_TEXT), 'the horizon and the ratchet');
   assert(/## The Page/.test(CRAFT_TEXT) && /Marks On The Page = /.test(CRAFT_TEXT), 'the page’s marks');
-  assert(/\*\*\* The World Beyond \*\*\*/.test(CRAFT_TEXT) && /\[Location — Day, Time\]/.test(CRAFT_TEXT), 'the window’s exact format, as the 🎨 style expects');
-  assert(/Cut Away Quarantine = /.test(CRAFT_TEXT), 'the window teaches nobody');
+  assert(/The Window Beyond The Page = written only when the house opens one/.test(CRAFT_TEXT), 'the window: only when open, in the form the window rule hands over');
   assert(/Readable Media = /.test(CRAFT_TEXT) && /GFX_START/.test(CRAFT_TEXT) && /GFX_END/.test(CRAFT_TEXT), 'readable media as objects');
+  /* the window rule: a builtin that wakes when a window is open */
+  const mods = await listModules();
+  const win = mods.find((m) => m.id === 'world-window');
+  assert(win && win.whenKey === 'worldWindow' && /\*\*\* The World Beyond \*\*\*/.test(win.text) && /\[Location — Day, Time\]/.test(win.text) && /Cut Away Quarantine/.test(win.text), 'the window rule carries the exact form and the quarantine');
+  const closed = emptyState();
+  assert(!selectModules(mods, closed).some((x) => x.mod.id === 'world-window'), 'no window, no rule');
+  const open = emptyState(); open.worldBrief = { pressure: [], ripe: [], twb: { who: 'Aurora', where: 'the platform', changed: 'she saw the car' }, atTurn: 3 };
+  assert(selectModules(mods, open).some((x) => x.mod.id === 'world-window'), 'a window open, the rule rides');
   /* the laws the old reasoning pass alone had carried */
   for (const law of ['Every MC Action Is An Attempt', 'ASSIST', 'No Hovering', 'Peak Trigger', 'MC Dialogue Is Literal', 'Bodies Feel The Header', 'Anti Melodrama']) {
     assert(CRAFT_TEXT.includes(law), 'restored: ' + law);
@@ -61,11 +73,20 @@ test('M85-2 the command table, the page’s marks, the window’s format, readab
   assert(/B — BEAT: which command's law governs this turn/.test(CRAFT_TEXT) && /the page carries no mark but the header/.test(CRAFT_TEXT));
 });
 
-test('M85-3 the intimate module is the reminder, not a second copy; spectacle combat is optional and never wakes on its own', async () => {
+test('M85-3 the intimate rule wakes a beat early on the writer’s own words; spectacle combat is optional and never wakes on its own', async () => {
   const mods = await listModules();
   const nsfw = mods.find((m) => m.id === 'nsfw');
-  assert(nsfw && nsfw.text.length < 2200 && /Body Veto Root Rule/.test(nsfw.text) && /Escalation Resets Consent/.test(nsfw.text) && /resolution floor/i.test(nsfw.text), 'the reminder names the laws and stays short: ' + nsfw.text.length);
-  assert(!/Some welcome, some tolerate, some refuse/.test(nsfw.text), 'the law itself lives in the craft, not twice');
+  assert(!/Some welcome, some tolerate, some refuse/.test(nsfw.text), 'the people half lives in the craft, not twice');
+  /* the typed-intent read: unambiguous words only */
+  for (const yes of ['I pull her onto the bed and undress her', 'I slide between her thighs', 'We have sex', 'I strip him naked', 'he cums']) assert(typedIntimacy(yes), 'intent: ' + yes);
+  for (const no of ['fuck off, I tell him', 'I draw my naked blade', 'I kiss her softly', '#question is she naked?', '((is she naked?))', 'I look out at the rain']) assert(!typedIntimacy(no), 'not intent: ' + no);
+  const sfw = emptyState();
+  assert(!selectModules(mods, sfw).some((x) => x.mod.id === 'nsfw'), 'a SFW turn carries no rendering law');
+  const early = { ...emptyState(), turnText: 'I pull her onto the bed and undress her' };
+  const sel0 = selectModules(mods, early);
+  assert(sel0.some((x) => x.mod.id === 'nsfw' && /writer/.test(x.reason)), 'the writer’s words wake it before the extractor’s flag');
+  const flagged = emptyState(); flagged.mode.intimate = true;
+  assert(selectModules(mods, flagged).some((x) => x.mod.id === 'nsfw' && /turned intimate/.test(x.reason)), 'the flag wakes it as before');
   const spect = mods.find((m) => m.id === 'spectacle-combat');
   assert(spect && spect.whenKey === 'manual' && /Symmetry Law/.test(spect.text) && /Cornered NPCs/.test(spect.text), 'spectacle sits under the craft’s laws');
   const state = emptyState(); state.mode.combat = true;
@@ -91,7 +112,11 @@ test('M85-4 the command parser hears the writer’s whole table', () => {
   eq(story.kind, 'story'); assert(/No proposals|no proposals/i.test(story.directive)); eq(story.clean, 'A mecha tournament in Tokyo, 2037, and a boy who lost his sister to the last one');
   assert(story.name.length <= 41 && story.name.startsWith('A mecha tournament'), 'the new tale’s title: ' + story.name);
   const win = parseCommand('#Put TWB Aurora');
-  eq(win.kind, 'window'); eq(win.name, 'Aurora'); assert(/\*\*\* The World Beyond \*\*\*/.test(win.directive), 'the window’s format rides');
+  eq(win.kind, 'window'); eq(win.name, 'Aurora'); assert(/\*\*\* The World Beyond \*\*\*/.test(win.directive) && /Cut Away Quarantine/.test(win.directive), 'the window’s format and quarantine ride with the turn');
+  /* each command carries its WHOLE law on its own turn (M85-002) */
+  const q = parseCommand('#q').directive;
+  assert(/RIGHT NOW \(MC walks into it\), LATER TODAY/.test(q) && /Complexity Ratchet/.test(q) && /Party Gate/.test(q) && /hot thread agenda -> cold thread returning/.test(q), 'the director’s whole law rides on #q');
+  assert(/Party Gate/.test(parseCommand('#time skip 3 days').directive), 'the gate rides with a time skip');
   eq(parseCommand('#twb Kim Kardashian').name, 'Kim Kardashian');
   const pp = parseCommand('#pp');
   eq(pp.kind, 'skip'); assert(/Party Gate/.test(pp.directive) && /cross-cut/.test(pp.directive) && /quarantine holds/.test(pp.directive), '#pp carries the arc-transit law');
