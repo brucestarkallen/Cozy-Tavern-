@@ -27,7 +27,9 @@ import { axisWords, historyWords, AXES } from '../engine/relationships.js';
 import { isMc } from '../engine/people.js';
 import { listCast, attachToStory, detachFromStory } from '../import/cards.js';
 import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '../agents/status.js';
-import { renderArrival } from '../engine/world.js'; /* M29: the world beyond the page */
+import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices */
+import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
+import { renderHtmlProse, looksHtml } from './richhtml.js';
 import { db } from '../store.js';
 
 /* ---------- shared helpers ---------- */
@@ -1681,6 +1683,50 @@ function workersPanel(ctx) {
   return wrap;
 }
 
+/* M97: the voices — the world talking to itself, the writer's Voices Block,
+ * kept off the story page (the page is the scene; this is the world beyond
+ * it) and read here, dressed by the 🎨 pack as in SillyTavern. The latest
+ * page's voices, then the two before, folded. */
+function voicesPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'voices-panel';
+  const note = quietNote('');
+  const box = document.createElement('div');
+  wrap.append(note, box);
+  const dress = (voices) => {
+    const text = renderVoicesBlock(voices);
+    const shown = applyRules(text, currentRules(), { on: 'storyteller', mode: 'display' });
+    const holder = document.createElement('div');
+    holder.className = 'msg-voices';
+    if (shown !== text && looksHtml(shown)) holder.appendChild(renderHtmlProse(shown));
+    else for (const v of voices) { const line = document.createElement('div'); line.className = 'voice-line'; line.textContent = (v.icon ? v.icon + ' ' : '') + v.speaker + (v.channel ? ' · ' + v.channel : '') + ' — ' + v.content; holder.appendChild(line); }
+    return holder;
+  };
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    box.textContent = '';
+    if (!story) { note.textContent = 'Open a story and the world’s talk will be here.'; return; }
+    const pages = (await db.messages.list(story.id)).filter((m) => !m.hidden && m.role === 'assistant' && Array.isArray(m.voices) && m.voices.length);
+    if (!pages.length) { note.textContent = 'What people the main character cannot hear are saying — other rooms, streets, channels. The world agent listens after each page; nothing yet.'; return; }
+    note.textContent = 'What people the main character cannot hear are saying right now — other rooms, streets, channels. The storyteller never sees these; they are the world beyond the page, for you.';
+    const latest = pages[pages.length - 1];
+    box.appendChild(dress(latest.voices));
+    const earlier = pages.slice(-3, -1).reverse();
+    if (earlier.length) {
+      const fold = document.createElement('details');
+      fold.className = 'resting-shelf';
+      const sum = document.createElement('summary');
+      sum.className = 'lbl';
+      sum.textContent = 'Earlier — the ' + earlier.length + (earlier.length === 1 ? ' page' : ' pages') + ' before';
+      fold.appendChild(sum);
+      for (const m of earlier) fold.appendChild(dress(m.voices));
+      box.appendChild(fold);
+    }
+  });
+  render();
+  return wrap;
+}
+
 const PANELS = [
   {
     id: 'the-clock',
@@ -1726,6 +1772,11 @@ const PANELS = [
     id: 'the-world-beyond',
     title: 'The world beyond the page',
     render: (ctx) => worldPanel(ctx),
+  },
+  {
+    id: 'voices',
+    title: 'Voices, elsewhere',
+    render: (ctx) => voicesPanel(ctx),
   },
   {
     id: 'the-mood',

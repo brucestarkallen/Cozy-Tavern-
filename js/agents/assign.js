@@ -15,7 +15,7 @@ export const WORKER_ROWS = [
   ['auditor', 'The auditor — every few turns, the whole ledger against the brief, the pages and the record'],
   ['referee', 'The referee — rules on contested moments, fast and cold'],
   ['showrunner', 'The showrunners — the director and the editor'],
-  ['housekeeper', 'The housekeeper — the one you talk to, who tidies everything (rides the storyteller’s connection unless given hands of its own)'],
+  ['housekeeper', 'The housekeeper — the one you talk to, who tidies everything'],
 ];
 
 /* map: settings.workerConnections ({worker: connectionId}); legacy: the M3

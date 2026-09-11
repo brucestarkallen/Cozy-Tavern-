@@ -262,8 +262,12 @@ test('LONG-5 the voices ride under the page, rotate, and never reach the wire; t
   const pages = (await db.messages.list(sid)).filter((m) => m.role === 'assistant' && Array.isArray(m.voices) && m.voices.length);
   const speakers = new Set(pages.slice(-6).map((m) => m.voices[0].speaker));
   assert(speakers.size >= 5, 'the speakers rotate: ' + [...speakers].join(', '));
-  const folds = qa('.msg-voices');
-  assert(folds.length >= 20, 'the voices are drawn under the pages: ' + folds.length);
+  /* M97: the voices are read in the drawer, never drawn on the scene */
+  assert(qa('#thread .msg-voices').length === 0, 'no voices on the story page');
+  click(q('#btn-ledger'));
+  await until(() => !q('#drawer').hidden, 'the drawer opens');
+  await until(() => qa('#drawer-panels .msg-voices').length >= 1 && /Line 8\d/.test(q('#drawer-panels').textContent), 'the latest voices read in the drawer', 10000);
+  click(q('#btn-ledger'));
   assert(!house.state.calls.some((c) => !c.isWorker && /\[VOICE:/.test(JSON.stringify(c.body))), 'no voice ever reached the storyteller');
   eq(script.windows, 5, 'four windows opened by the world (turns 10, 30, 50, 70) plus the #Put TWB one');
   const all = (await db.messages.list(sid)).filter((m) => m.role === 'assistant');

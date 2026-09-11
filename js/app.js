@@ -140,8 +140,11 @@ function showView(name) {
   views.settings.hidden = name !== 'settings';
   if (name === 'settings' && ctx.settings) ctx.settings.onShow();
   const btnSettings = document.getElementById('btn-settings');
-  btnSettings.textContent =
-    name === 'settings' ? 'Back to the story' : 'Settings';
+  /* M97: an icon now — the words live on its label and tooltip, and flip to
+   * say the way back while the settings room is open */
+  const label = name === 'settings' ? 'Back to the story' : 'Settings';
+  btnSettings.setAttribute('aria-label', label);
+  btnSettings.title = name === 'settings' ? 'Back to the story' : 'Settings — connections, the workers, the craft, the frame';
   /* M14: the room you're in keeps the ember. */
   btnSettings.classList.toggle('current', name === 'settings');
 }
@@ -166,6 +169,17 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   const booksStatus = await initSync(ctx);
   ctx.booksStatus = booksStatus;
   await applyStoredTheme();
+
+  /* M97, once: the housekeeper's own thinking dial was set against the old
+   * design (it rode the storyteller's connection); now that it follows the
+   * house choice, the dial starts from the connection's own switch again.
+   * A dial set after this stands. */
+  try {
+    if (!(await db.settings.get('migrated:m97'))) {
+      await db.settings.delete('hkReasoning');
+      await db.settings.set('migrated:m97', true);
+    }
+  } catch (err) { /* a store that will not take the note is left as it is */ }
 
   /* restore the open tale before the chat view wakes, so it renders the
    * right thread on its first pass */

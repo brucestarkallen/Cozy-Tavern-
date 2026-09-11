@@ -72,7 +72,8 @@ test('M75-4 the prompt is decisive and shows the worked brief example; the house
   assert(/A fact the brief already states is REPLACED where it stands/.test(prompt));
   const ui = readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
   const rc = ui.slice(ui.indexOf('async function resolveWorkerConnection('), ui.indexOf('async function resolveWorkerConnection(') + 1400);
-  assert(rc.indexOf('map.housekeeper') < rc.indexOf('story.connectionId') && rc.indexOf('story.connectionId') < rc.indexOf("'activeConnectionId'") && rc.indexOf("'activeConnectionId'") < rc.indexOf("'workerConnectionId'"), 'its own hands, else the story’s teller, else the active teller, else the workers — in that order');
+  /* M97: the housekeeper follows the house choice like every worker — its own hands, else the crew's connection, else the story's teller, else the active teller */
+  assert(rc.indexOf('map.housekeeper') < rc.indexOf("'workerConnectionId'") && rc.indexOf("'workerConnectionId'") < rc.indexOf('story.connectionId') && rc.indexOf('story.connectionId') < rc.indexOf("'activeConnectionId'"), 'its own hands, else the crew, else the story’s teller, else the active teller — in that order (M97)');
 });
 
 test('M75-5 the pot: Chat Assistant’s 8192 as a floor the connection cannot lower; a cut inside a block is re-asked with the blocks first and a bigger pot; thinking that ate the pot is fed back', async () => {

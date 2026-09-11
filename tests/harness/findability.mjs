@@ -20,27 +20,22 @@ import { test, assert, eq } from './lib.mjs';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-test('M18 the pocket header splits into two rows, all three rooms visible', () => {
+test('M18 → M97 the header is ONE slim row at every width, all three rooms visible as icons with their names on them', () => {
   const html = read('index.html');
-  assert(html.includes('class="topbar-main"'), 'the brand row has its own box');
+  assert(html.includes('class="topbar-main"'), 'the brand box stands');
   const main = html.slice(html.indexOf('class="topbar-main"'), html.indexOf('class="topbar-actions"'));
-  assert(main.includes('id="btn-stories"') && main.includes('class="brand"'),
-    'row one holds the ☰ and the brand');
+  assert(main.includes('id="btn-stories"') && main.includes('class="brand"'), 'the ☰ and the brand');
   for (const id of ['btn-settings', 'btn-ledger', 'btn-housekeeper']) {
     assert(html.includes(`id="${id}"`), `the ${id} room still stands`);
+    const btn = html.slice(html.indexOf(`id="${id}"`), html.indexOf('</button>', html.indexOf(`id="${id}"`)));
+    assert(/aria-label="[^"]+"/.test(btn) && /title="[^"]+"/.test(btn) && /<svg/.test(btn) && /room-btn/.test(btn), `${id} is an icon with its name as label and tooltip`);
   }
   const css = read('css/base.css');
   assert(css.includes('.topbar-main'), 'the brand row is styled');
   const pocket = css.slice(css.indexOf('@media (max-width: 720px)'));
-  assert(/\.topbar\s*\{[^}]*flex-wrap:\s*wrap/.test(pocket), 'the topbar wraps at pocket width');
-  assert(/\.topbar-main\s*\{[^}]*flex-basis:\s*100%/.test(pocket), 'row one takes the full width');
-  assert(/\.topbar-actions\s*\{[^}]*flex-basis:\s*100%/.test(pocket), 'row two takes the full width');
-  assert(/\.topbar-actions \.text-btn\s*\{[^}]*flex:\s*1 1 0/.test(pocket), 'the rooms split the row equally');
-  assert(/\.topbar-actions \.text-btn \+ \.text-btn\s*\{[^}]*border-left/.test(pocket),
-    'hairline separators stand between the rooms');
-  assert(pocket.includes('env(safe-area-inset-top)'), 'the safe-area padding is kept');
-  assert(/\.settings-section\s*\{[^}]*scroll-margin-top:\s*6\.5rem/.test(pocket),
-    'jumped-to rooms clear the taller header');
+  assert(!/\.topbar\s*\{[^}]*flex-wrap:\s*wrap/.test(pocket), 'the topbar no longer wraps into two rows at pocket width (M97)');
+  assert(/\.room-btn\.current\s*\{[^}]*var\(--ember\)/.test(css), 'the room you are in keeps the ember');
+  assert(/@media \(max-width: 380px\)\s*\{\s*\.brand\s*\{\s*display:\s*none/.test(css), 'the brand yields on the narrowest screens so the rooms stay in sight');
 });
 
 test('M18 the quick-nav chips are data-driven from the rooms present', () => {

@@ -2752,3 +2752,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   person (renderPeopleTiers skips them) and never included Kris Jenner's page after the sweep.
 - M95-1 extended (forget, its take-back, its refusals); DOM-11c holds both housekeeper paths.
   373/373 + 30/30 + 8/8. version.js -> m96-001.
+
+---
+
+# M97 — the scene is the scene: voices in the ledger, one slim toolbar, a copied connection, the housekeeper on the house choice
+- FIELD REPORTS, four at once: (1) the Voices Block drawn under the story page broke the scene
+  — it now reads in the ledger drawer ("Voices, elsewhere": the latest page's voices in the 🎨
+  dress, the two before folded) and never on the page; msg.voices stays the data, chat.js only
+  notifies the drawer. (2) "Copy" on a connection card: the same provider, key, base URL and
+  dials under "(copy)", opened for its model and name — a key is never typed twice. (3) The
+  header is ONE slim row at every width: ☰, the brand, then the three rooms as icons with their
+  names as labels and tooltips (the settings icon flips to "Back to the story" while that room
+  is open); the brand yields under 380px so the rooms stay in sight. Same ids, same handlers.
+  (4) THE HOUSEKEEPER THOUGHT ON A NO-REASONING CREW: M75 had it ride the STORYTELLER's
+  connection for the brains, so the crew's connection the writer chose never applied to it, and
+  its own thinking dial (set in an earlier session against that design) drove the thinking. It
+  follows the house choice now like every worker — its own hands, else the crew's connection,
+  else the storyteller's — and its thinking starts from that connection's own switch: the old
+  dial is cleared once on boot (migrated:m97), the reset clears it too, and the dial stays in
+  Settings for whoever wants the housekeeper to think against its wire.
+- findability (M18) and m75 updated to the new laws; LONG-5 reads the voices in the drawer.
+  373/373 + 30/30 + 8/8. version.js -> m97-001.

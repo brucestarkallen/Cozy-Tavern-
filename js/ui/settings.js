@@ -291,6 +291,21 @@ export function initSettings(ctx) {
       editBtn.textContent = 'Change';
       editBtn.addEventListener('click', () => openForm(conn));
 
+      /* M97: the same provider and key, a different model — a copy, opened for
+       * its edit, so the writer never types a key or a base URL twice */
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'text-btn';
+      copyBtn.textContent = 'Copy';
+      copyBtn.title = 'A second connection with this one’s provider, key, base URL and dials — change its model and name.';
+      copyBtn.addEventListener('click', async () => {
+        const { id, createdAt, ...rest } = conn;
+        const copy = await db.connections.add({ ...rest, label: conn.label + ' (copy)' });
+        await renderConnections();
+        const fresh = (await db.connections.list()).find((c) => c.id === copy.id) || copy;
+        openForm(fresh);
+      });
+
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'text-btn';
@@ -306,7 +321,7 @@ export function initSettings(ctx) {
         renderConnections();
       });
 
-      row.append(useBtn, testBtn, editBtn, removeBtn);
+      row.append(useBtn, testBtn, editBtn, copyBtn, removeBtn);
       li.append(top, result, row);
       els.connList.appendChild(li);
     }
@@ -1991,7 +2006,7 @@ export function initSettings(ctx) {
   const RESET_KEYS = [
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'continuityCheck', 'mendPages',
-    'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply',
+    'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning',
     'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle',
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',

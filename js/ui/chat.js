@@ -61,7 +61,7 @@ import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/w
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
-import { renderWorldBrief, renderVoicesBlock } from '../engine/world.js'; /* M85: the voices under the page */
+import { renderWorldBrief } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory } from '../import/cards.js';
 import { loadLore, matchLoreDetailed, saveLore } from '../import/lorebook.js';
@@ -1107,12 +1107,10 @@ export function initChat(ctx) {
       body.appendChild(renderRich(pageText(msg)));
     }
     article.appendChild(body);
-    /* M85: the voices the world agent heard elsewhere — the writer's Voices
-     * Block, dressed by the 🎨 pack, under the page it followed. */
-    if (msg.role === 'assistant') {
-      const voices = voicesNode(msg);
-      if (voices) article.appendChild(voices);
-    }
+    /* M85: the voices the world agent heard elsewhere ride the page as data
+     * (msg.voices). M97: they are READ in the ledger drawer ("Voices,
+     * elsewhere"), never drawn on the scene — the page is the scene, and the
+     * writer wants it whole. voicesNode stays for the drawer's dress. */
     /* M22-C: where the storyteller looked things up — a folded sources
      * block under the message. */
     if (msg.role === 'assistant' && Array.isArray(msg.sources) && msg.sources.length) {
@@ -1320,46 +1318,6 @@ export function initChat(ctx) {
 
   /* Refresh the receipt affordance on a message already on the page, so
    * late-arriving worker notes (extraction, drift findings) can speak. */
-  /* M85: the voices fold. The block is written in the preset's own shape
-   * ({VOICES} … [VOICE: …] … {/VOICES}) and dressed by the display rules —
-   * the writer's SillyTavern styles, shipped as the 🎨 pack — so the reader
-   * sees the fold they know; with the styles off it reads as plain lines. */
-  function voicesNode(msg) {
-    if (!msg || !Array.isArray(msg.voices) || !msg.voices.length) return null;
-    const text = renderVoicesBlock(msg.voices);
-    if (!text) return null;
-    const wrap = document.createElement('div');
-    wrap.className = 'msg-voices';
-    const shown = applyRules(text, currentRules(), { on: 'storyteller', mode: 'display' });
-    if (shown !== text && looksHtml(shown)) {
-      wrap.appendChild(renderHtmlProse(shown));
-    } else {
-      const lbl = document.createElement('div');
-      lbl.className = 'lbl';
-      lbl.textContent = 'voices, elsewhere';
-      wrap.appendChild(lbl);
-      for (const v of msg.voices) {
-        const line = document.createElement('div');
-        line.className = 'voice-line';
-        line.textContent = (v.icon ? v.icon + ' ' : '') + v.speaker + (v.channel ? ' · ' + v.channel : '') + ' — ' + v.content;
-        wrap.appendChild(line);
-      }
-    }
-    return wrap;
-  }
-
-  function refreshVoicesNode(msg) {
-    const node = els.thread.querySelector(`.msg[data-id="${msg.id}"]`);
-    if (!node) return;
-    const old = node.querySelector('.msg-voices');
-    if (old) old.remove();
-    const fresh = voicesNode(msg);
-    if (!fresh) return;
-    const body = node.querySelector('.msg-body');
-    if (body && body.parentNode === node) body.insertAdjacentElement('afterend', fresh);
-    else node.appendChild(fresh);
-  }
-
   function refreshReceiptNode(msg) {
     const node = els.thread.querySelector(`.msg[data-id="${msg.id}"]`);
     if (node && msg.receipt) {
@@ -1848,8 +1806,8 @@ export function initChat(ctx) {
        * earlier version of the page. */
       if (result && result.note === 'ok' && !stale() && (await stillThere(story.id, msg.id))) {
         const voices = result.brief && Array.isArray(result.brief.voices) ? result.brief.voices : [];
-        const latest = await reink(story.id, msg.id, { voices });
-        if (latest) refreshVoicesNode(latest);
+        await reink(story.id, msg.id, { voices });
+        notify(story.id); /* M97: the drawer's "Voices, elsewhere" listens */
       }
       /* M31: a garbled answer is not a transport failure — it is said out
        * loud, with what the agent actually said kept for the drawer, and

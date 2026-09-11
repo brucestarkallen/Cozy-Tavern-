@@ -502,42 +502,24 @@ label {
 
 .toast.toast-tap:hover { border-color: var(--ember); }
 
-/* M18: at pocket width the topbar splits into two rows — ☰ + brand up top,
- * then the three rooms as equal-width quiet buttons with hairline
- * separators. All three stay in plain sight (the visible law); nothing
- * crowds off-screen at 390px and the safe-area padding stands. */
+/* M97: one slim row at every width — the rooms are icons (their names as
+ * tooltips and reader labels); at pocket width the brand yields so the three
+ * stay in plain sight. The room you are in keeps the ember. */
+.topbar-actions { gap: 0.15rem; }
+.topbar-actions .room-btn { color: var(--muted); padding: 0.4rem; }
+.topbar-actions .room-btn:hover { color: var(--ember); background: var(--surface-2); }
+.topbar-actions .room-btn.current { color: var(--ember); }
 @media (max-width: 720px) {
   .topbar {
-    flex-wrap: wrap;
-    gap: 0;
-    padding: 0.5rem 0.6rem 0;
-    padding-top: calc(0.5rem + env(safe-area-inset-top));
+    gap: 0.25rem;
+    padding: 0.35rem 0.5rem;
+    padding-top: calc(0.35rem + env(safe-area-inset-top));
   }
-  .topbar-main {
-    flex-basis: 100%;
-    padding-bottom: 0.35rem;
-  }
-  .brand { font-size: 1.02rem; }
-  .topbar-actions {
-    flex-basis: 100%;
-    gap: 0;
-    border-top: 1px solid var(--border-soft);
-  }
-  .topbar-actions .text-btn {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 0.55rem 0.15rem;
-    font-size: 0.85rem;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    border-radius: 0;
-  }
-  .topbar-actions .text-btn:hover { background: none; color: var(--ember); }
-  .topbar-actions .text-btn + .text-btn { border-left: 1px solid var(--border-soft); }
-  /* The taller header means a jumped-to room needs more clearance. */
-  .settings-section { scroll-margin-top: 6.5rem; }
+  .brand { font-size: 0.98rem; }
+  .settings-section { scroll-margin-top: 4.5rem; }
+}
+@media (max-width: 380px) {
+  .brand { display: none; }
 }
 
 /* ---------- the welcome mat (M13) ---------- */
