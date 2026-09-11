@@ -346,6 +346,13 @@ export function initHousekeeper(ctx) {
       card.append(words);
       return;
     }
+    if (p.kind === 'edit' && op.whole) {
+      const words = document.createElement('p');
+      words.className = 'hk-card-words';
+      words.textContent = 'The whole page, re-inked:';
+      card.append(words, diffBlock('del', op.before || ''), diffBlock('add', op.replace || ''));
+      return;
+    }
     if (p.kind === 'edit' || p.kind === 'redit' || p.kind === 'record') {
       card.append(diffBlock('del', op.find || ''));
       card.append(diffBlock('add', op.replace || ''));
@@ -724,7 +731,17 @@ export function initHousekeeper(ctx) {
     let liveThinking = ''; /* M80: what streamed, kept here too — never lost to a round or a wire that returned it empty */
     let thinkFold = null;
     let thinkBody = null;
-    const tick = () => { statusLine.textContent = 'The housekeeper is ' + (thinkChars && !answerChars ? 'weighing it' : 'looking') + ' · ' + Math.floor((Date.now() - t0) / 1000) + 's' + (answerChars ? ' · ' + answerChars + ' chars' : '') + (thinkChars ? ' (+' + thinkChars + ' thinking)' : '') + (!answerChars && !thinkChars ? ' · waiting for the first word…' : ''); };
+    /* M83: Chat Assistant's stall watchdog — a wire that goes silent for
+     * hkStallSec (default 300; 0 = off) is cut with a loud word, never left
+     * holding the housekeeper forever */
+    const stallSec = Number.isFinite(Number(await db.settings.get('hkStallSec'))) ? Number(await db.settings.get('hkStallSec')) : 300;
+    let lastBeat = Date.now();
+    let stalled = false;
+    const tick = () => {
+      const since = Math.floor((Date.now() - lastBeat) / 1000);
+      if (stallSec > 0 && since >= stallSec && workerCtl && !stalled) { stalled = true; try { workerCtl.abort(); } catch (err) { /* the wire is gone either way */ } }
+      statusLine.textContent = 'The housekeeper is ' + (thinkChars && !answerChars ? 'weighing it' : 'looking') + ' · ' + Math.floor((Date.now() - t0) / 1000) + 's' + (answerChars ? ' · ' + answerChars + ' chars' : '') + (thinkChars ? ' (+' + thinkChars + ' thinking)' : '') + (!answerChars && !thinkChars ? ' · waiting for the first word…' : '') + (stallSec > 0 ? ' · gives up after ' + Math.max(0, stallSec - since) + 's of silence' : '');
+    };
     const ticker = setInterval(tick, 1000);
 
     workerCtl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -741,6 +758,7 @@ export function initHousekeeper(ctx) {
         directorText: renderDirectorNote(director),
         editorText: renderEditorNote(editor),
         onToken: (tok) => {
+          lastBeat = Date.now();
           if (tok && tok.channel === 'thinking' && typeof tok.text === 'string') {
             thinkChars += tok.text.length;
             liveThinking += tok.text;
@@ -774,11 +792,22 @@ export function initHousekeeper(ctx) {
       });
       if (!result.ok) {
         pendingBubble.remove();
-        statusLine.textContent = result.error
-          ? 'It went quiet: ' + result.error + '. Your words are still in the box — ask again when you like.'
-          : 'It went quiet — ask again when you like.';
+        statusLine.textContent = stalled
+          ? 'The wire went silent for ' + stallSec + ' seconds, so the ask was cut. Your words are still in the box — ask again when you like.'
+          : result.error
+            ? 'It went quiet: ' + result.error + '. Your words are still in the box — ask again when you like.'
+            : 'It went quiet — ask again when you like.';
+        if (stalled) toast('The housekeeper’s wire went silent — the ask was cut.');
         input.value = text;
         return;
+      }
+      /* M83 (G): the reply belongs to the session and the story that ASKED. If the
+       * writer moved to another story or session while it worked, the store
+       * already holds it there (housekeeperTurn saved it by storyId); this view
+       * must not draw it into the room the writer is in now. */
+      if (sessionStoryId !== story.id || (session && Number.isFinite(session.id) && Number.isFinite(result.session.id) && session.id !== result.session.id)) {
+        toast('The housekeeper answered in the session that asked — open it to read.');
+        return true;
       }
       session = result.session; // staged cards, supersede, and caps already settled
       /* M80: the thinking the writer watched is on the turn, whatever the wire

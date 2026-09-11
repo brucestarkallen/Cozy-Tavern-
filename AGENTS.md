@@ -2326,3 +2326,45 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   walk's until does not read toasts). Next: have the walk wait on the swipe count changing before
   each next click, and read the toast into the failure message. Not the housekeeper's.
   version.js -> m82-001.
+
+---
+
+# M83 — Chat Assistant's whole list, held against the housekeeper at once
+- FIELD REPORT: "Chat Assistant has tackled so many problems the writer meets — why are you not
+  analysing it?" Fair. Its AGENTS.md invariants (17) and README version laws (v2.76–v2.83, "what
+  it can do") were read whole and each held against the tavern, in one pass:
+  ALREADY HELD: served whole with COMPLETE stamps (M61); over-cap ids named back; blind-edit
+  guard; single staging path; chat-scoped state; anchors are copies, checked at arrival, index
+  unquotable, [ANCHOR CHECK] once (M61); dead-card retirement never on anchor equality (M82);
+  ONE FACT EVERY SURFACE + ripple on every request (M61/M74); fetch is the block, malformed
+  fetch said (M61); withdraw with <supersede>, unmatched labels named (M61); the record whole;
+  visible window; shortcuts (M62/63); director/editor; auto-name; reset; typed undo; the ticker
+  (M76); think-consumed recovery (M75); auto-supersede in code (M82).
+  MISSING, now done:
+  1. THE <edits> TEACHING WAS GONE — M79's prompt slice (from "A FACT FOR A CLASS" to "<ledits>")
+     took the whole <edits> section with it; since m79-001 the housekeeper had not been taught
+     page edits (find/replace, hide, bulk). Restored from M78; M83-1 guards every block's
+     teaching so a slice can never do this silently again.
+  2. LEDGER UNDO IS NODE-SCOPED AND REFUSAL-FIRST (invariant: "backups and drift fingerprints
+     are taken at the edited node, never at the root key"). M74 made the drift CHECK per-slice
+     but the RESTORE still put back the whole old state — an undo after a later page wiped that
+     page's writes. Now the batch keeps the journal ids the card wrote; the undo takes back
+     exactly those through engine/apply.js undoEntry (a later change to the same thing refuses
+     the whole undo, nothing touched; the reversals ride the journal so every fold reverses them).
+  3. WHOLE-PAGE REWRITE — an edit with replace and no find re-inks the page whole (card shows
+     old → new; undo restores).
+  4. STALE MARKS IN THE PENDING LIST for every anchor kind (brief, record, rule, page), not
+     pages only (anchorIsDead).
+  5. THE RIPPLE REACHES THE PEOPLE'S THREADS ("any new surface that stores story facts must be
+     added to the scan").
+  6. THE STALL WATCHDOG (v2.8x "Reliability"): a wire silent for hkStallSec (default 300; 0 off)
+     is cut with a loud word — never a housekeeper held forever; the ticker counts down to it.
+  7. THE SESSION THAT ASKED: a reply arriving after the writer moved to another story or session
+     is saved where it belongs (housekeeperTurn always did) and NOT drawn into the room the
+     writer is in now — a toast says where it went.
+  8. Prompt laws: ABSENCE IS A CLAIM YOU MUST EARN (v2.83); a folded-away page is readable by
+     fetch, never brought back unasked (v2.81); DELIBERATE EFFICIENTLY (reasoning models).
+  STILL NOT PORTED (features, listed at M60): the four-pass deep audit with a call budget and a
+  resume cursor; #opt / #cl as full passes (they exist as tools); structure scanning in code
+  (scanMessageStructure); pause switches for director/editor injection; end-season residue audit.
+- m83.mjs (4 checks). 356/356 + 29/29 (×2). version.js -> m83-001.

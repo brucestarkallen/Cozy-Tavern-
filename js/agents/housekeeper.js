@@ -49,7 +49,7 @@
 
 import { db } from '../store.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
-import { applyMutations } from '../engine/apply.js';
+import { applyMutations, undoEntry } from '../engine/apply.js';
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
 import { loadLore, saveLore } from '../import/lorebook.js'; /* M38: the housekeeper keeps the lore shelf too */
 import { loadMemory, saveMemory } from './memory.js'; /* M61: and the record */
@@ -654,11 +654,8 @@ export function buildHousekeeperContext({
     for (const pr of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
       if (!pr || pr.status !== 'pending') continue;
       let stale = '';
-      if (pr.kind === 'edit' && pr.op && pr.op.find && pr.op.messageId) {
-        const m = (Array.isArray(messages) ? messages : []).find((x) => x && x.id === pr.op.messageId);
-        if (!m) stale = ' ⚠ STALE — the page is gone';
-        else if (!locate(pageText(m), pr.op.find).ok) stale = ' ⚠ STALE — its anchor no longer matches (already fixed, or the text changed)';
-      }
+      if (pr.kind === 'edit' && pr.op && pr.op.messageId && !(Array.isArray(messages) ? messages : []).find((x) => x && x.id === pr.op.messageId)) stale = ' ⚠ STALE — the page is gone';
+      else if (anchorIsDead(pr, { messages, memory, lore, modules, story })) stale = ' ⚠ STALE — its anchor no longer matches (already fixed, or the text changed)'; /* M83: every anchor kind, not pages only */
       pending.push('- “' + pr.label + '”' + (pr.op && pr.op.messageId ? ' on ' + refOf({ id: pr.op.messageId }) : '') + stale);
     }
   }
@@ -726,6 +723,14 @@ const SYSTEM_PROMPT = [
   'SAY HOW YOU READ IT. Open the words with your reading of the order — what, where,',
   'who, in what shape — so a misreading costs the writer one glance, not a card.',
   '',
+  '<edits>[ ... ]</edits> — changes to pages. Each op is one of:',
+  '  {"id":"#a1b2c3","find":"the exact passage","replace":"the new words","reason":"why"}',
+  '  {"id":"#a1b2c3","replace":"the whole new page","reason":"why"} — no find: the whole page is re-inked',
+  '  {"id":"#a1b2c3","hide":true} — or false to bring a hidden page back',
+  '  {"bulk_replace":true,"find":"Mira","replace":"Mara","range":"12-30","reason":"why"}',
+  '  Quote the passage exactly as written. If it could land in more than one',
+  '  place, quote more of it — an ambiguous find is refused, never guessed at.',
+  '  Optional "label":"a-short-name" names the card.',
   '<ledits>[ ... ]</ledits> — changes to THE LEDGER and THE PAGES OF THE PEOPLE, in',
   '  the ledger’s own closed vocabulary (every op carries its "type"):',
   '  mc.set {name} — the main character; place.set {name} — the ground;',
@@ -787,6 +792,14 @@ const SYSTEM_PROMPT = [
   'answer. If the writer asks for something no block can do, say exactly that and',
   'what the nearest block can do instead. There is no surface you are told to keep',
   'that you cannot see above or fetch, and none you cannot write with a block.',
+  'ABSENCE IS A CLAIM YOU MUST EARN. "Not in what I was shown" is a finding; "not in',
+  'the story" is a claim — it needs every page that could hold the thing, fetched',
+  'whole, before you say it. A beat told indirectly (a line in the record, an aside,',
+  'a mention) is still the story showing it. A page folded away is READABLE by fetch',
+  'on a real doubt; bringing it back is a change the writer must ask for.',
+  'DELIBERATE EFFICIENTLY. If you reason before answering, settle each law once,',
+  'commit, and spend the room on the cards — the pot is shared between the thinking',
+  'and the answer, and a thought that never ends produces no cards at all.',
   'ANSWER FROM EVIDENCE, NOT PREVIEWS. The one-line index tells you what is roughly',
   'where; the ledger tells you what the readers wrote down; THE BRIEF tells you what',
   'the writer set. Never invent a page, a name, a fact, a date or a line you were',
@@ -823,6 +836,24 @@ function moduleHashOf(mod) {
 
 function stateHashOf(state) {
   try { return hashText(JSON.stringify(state || {})); } catch (err) { return hashText(''); }
+}
+
+/* M83: take back the journal entries a card wrote, newest first, each through
+ * the engine's own refusal-first undo (a later change to the same thing
+ * refuses; the reversal rides the journal so every fold reverses it too).
+ * Pure on a copy; {state} or {refused}. An entry already taken back by the
+ * hand is simply skipped. */
+export function undoJournalEntries(state, jids) {
+  let next = state;
+  for (const jid of [...jids].reverse()) {
+    const at = (next.log || []).findIndex((e) => e && e.jid === jid && !e.undone);
+    if (at === -1) continue;
+    const r = undoEntry(next, at);
+    if (!r) continue;
+    if (r.refused) return { refused: r.refused };
+    next = r.state;
+  }
+  return { state: next };
 }
 
 /* M74: a ledger card is measured against the THING it changes. The whole-state
@@ -1217,6 +1248,19 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       });
       continue;
     }
+    /* M83: Chat Assistant's whole-message rewrite — replace with no find */
+    if ((op.find === undefined || op.find === null || op.find === '') && typeof op.replace === 'string' && op.replace.trim()) {
+      retireDead(msg.id);
+      proposals.push({
+        id: uid(), ts: Date.now(), kind: 'edit',
+        label: typeof op.label === 'string' && op.label.trim() ? op.label.trim() : 'rewrite ' + refOf(msg),
+        reason: cleanReason(op.reason),
+        op: { messageId: msg.id, whole: true, before: pageText(msg), replace: op.replace },
+        status: 'pending', words: '',
+        review: [{ target: 'msg:' + msg.id, hash: messageHashOf(msg) }],
+      });
+      continue;
+    }
     if (typeof op.find === 'string' && op.find && typeof op.replace === 'string') {
       /* M61 (v2.76): the anchor is checked at arrival with Apply's own matcher —
        * a card that cannot land says so now, never as a failed Apply later */
@@ -1567,7 +1611,7 @@ export function rippleScan(edits, { messages, memory, state, lore, story } = {})
       if (nd && typeof nd.text === 'string' && nd.text.includes(removed)) where.push('the record line #r' + String(nd.id).slice(0, 6));
     }
     for (const [name, c] of Object.entries((state && state.characters) || {})) {
-      if (c && ['core', 'state', 'arc'].some((k) => typeof c[k] === 'string' && c[k].includes(removed))) where.push('the page of ' + name);
+      if (c && (['core', 'state', 'arc'].some((k) => typeof c[k] === 'string' && c[k].includes(removed)) || (Array.isArray(c.threads) && c.threads.some((t) => String(t).includes(removed))))) where.push('the page of ' + name);
     }
     for (const [name, facts] of Object.entries((state && state.canon) || {})) {
       if (facts && Object.values(facts).some((v) => typeof v === 'string' && v.includes(removed))) where.push('the canon of ' + name);
@@ -1788,6 +1832,17 @@ async function applyEditOp(storyId, p, batch) {
   }
 
   const text = typeof msg.text === 'string' ? msg.text : '';
+  if (op.whole) {
+    /* M83: the whole page, re-inked */
+    if (op.replace === text) return { ok: false, words: 'the new words are the words already there' };
+    batch.items.push({
+      kind: 'message', messageId: msg.id,
+      before: { text: msg.text, swipes: msg.swipes, swipeIdx: msg.swipeIdx, hidden: msg.hidden === true },
+      afterHash: messageHashOf({ text: op.replace, hidden: msg.hidden === true }),
+    });
+    await db.messages.update(storyId, msg.id, editPatchFor(msg, op.replace));
+    return { ok: true, words: 'The page is re-inked whole.' };
+  }
   const located = locate(text, op.find);
   if (!located.ok) return { ok: false, words: located.reason };
   const newText = applyLocated(text, located, op.replace);
@@ -1823,12 +1878,17 @@ async function applyLeditOp(storyId, p, batch) {
       /* The after-hash is read back through the store so it fingerprints
        * exactly what a later undo will compare against. */
       const settled = await loadState(storyId);
+      /* M83: the journal ids of what this card wrote — the undo takes back exactly
+       * those entries (engine/apply.js undoEntry: refusal-first, journaled), never
+       * the whole ledger (an M74 slip: the check went per-slice but the restore
+       * still put back the entire old state, wiping every later page's writes) */
+      const jids = settled.log.slice(-applied.length).map((e) => e && e.jid).filter(Number.isInteger);
       batch.items.push({
         kind: 'ledger',
         before: fresh,
         afterHash: stateHashOf(settled),
-        /* M74: the undo measures the slices this change touched, not the whole ledger */
         afterTargets: [...new Set(ledgerOps.map(ledgerTargetKey))].map((key) => ({ key, hash: ledgerSliceHash(settled, key) })),
+        jids,
         words: applied.map((a) => a.words),
       });
       words.push(...applied.map((a) => a.words));
@@ -2106,6 +2166,12 @@ export async function undoLatest(session, storyId) {
       }
     } else if (item.kind === 'ledger') {
       const fresh = await loadState(storyId);
+      if (Array.isArray(item.jids) && item.jids.length) {
+        /* M83: a dry run of every entry's own take-back — refused whole when any is */
+        const dry = undoJournalEntries(fresh, item.jids);
+        if (dry.refused) return { ok: false, refused: true, words: 'Not taken back — ' + dry.refused + '. The change stands; the drawer’s own “Take it back” can walk the log.' };
+        continue;
+      }
       if (item.afterTargets && !item.afterTargets.every((t) => ledgerSliceHash(fresh, t.key) === t.hash)) {
         return { ok: false, refused: true, words: 'Not taken back — what “' + batch.label + '” changed in the ledger has moved since. The change stands; the drawer’s own “Take it back” can walk the log.' };
       }
@@ -2129,6 +2195,11 @@ export async function undoLatest(session, storyId) {
       await saveLore(storyId, item.beforeShelf);
     } else if (item.kind === 'story') {
       await db.stories.update(storyId, { [item.field]: item.before });
+    } else if (item.kind === 'ledger' && Array.isArray(item.jids) && item.jids.length) {
+      const fresh = await loadState(storyId);
+      const done = undoJournalEntries(fresh, item.jids);
+      await saveState(storyId, done.state);
+      notify(storyId);
     } else if (item.kind === 'ledger') {
       const restored = JSON.parse(JSON.stringify(item.before));
       restored.log = Array.isArray(restored.log) ? restored.log : [];
