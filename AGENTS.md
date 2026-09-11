@@ -2896,3 +2896,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   nothing teaches it to write them again.
 - DOM-11 waited on a shelf count that the 🎨 pack already satisfied; it waits on the store now.
   376/376 + 33/33 + 8/8. version.js -> m106-001.
+
+---
+
+# M107 — the store held against itself (the final sweep's instrument)
+- FIELD REQUEST: a final, detailed sweep — every book in agreement, no leaks, no errors.
+  tests/dom/consistency.mjs is the instrument: checkStoreConsistency(db, storyId) holds a story's
+  every book against every other — the ledger's page never past the story's pages; nobody both
+  present and seated elsewhere; no placeholder anywhere; no fact twice; a retired page neither
+  present nor seated; the journal never ahead of the page; the record folding only pages that
+  stand; every version checkpoint and boundary snapshot keyed to a page that stands; every mend
+  keeping its earlier words. It runs after the random walk (DOM-8c), the writer's branch store
+  (DOM-8f), the ripple (DOM-13c) and the ninety turns (LONG-1).
+- WHAT IT FOUND: version checkpoints for pages that were gone — a retry truncates the tail and a
+  delete removes a page, and neither dropped the checkpoints keyed to them (a leak, and a stale
+  checkpoint that a branch could never map). forgetCheckpoints(storyId, ids) drops the version
+  states and boundary snapshots of every page that leaves, at all three sites.
+- Every module passes node --check; no stray console.log in js/. 376/376 + 33/33 + 8/8, the
+  consistency invariant included. version.js -> m107-001.

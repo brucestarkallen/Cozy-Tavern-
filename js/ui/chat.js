@@ -2252,6 +2252,23 @@ export function initChat(ctx) {
    * to a version restores its ledger; a version with none yet gets the
    * boundary and a fresh reading. Store: versionState:<storyId> = {
    * '<msgId>:<swipeIdx>': state }, capped at 60. */
+  /* M107: pages that leave the story take their checkpoints with them — the
+   * version states keyed to them and the boundary snapshots keyed to a
+   * writer's page among them. A checkpoint for a page that is gone was a leak
+   * the store's consistency check found after retries and deletes. */
+  async function forgetCheckpoints(storyId, ids) {
+    const gone = new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean));
+    if (!gone.size) return;
+    try {
+      const all = await loadVersionStates(storyId);
+      let touched = false;
+      for (const key of Object.keys(all)) if (gone.has(key.split(':')[0])) { delete all[key]; touched = true; }
+      if (touched) await db.settings.set('versionState:' + storyId, all);
+      const snaps = await loadSnapshots(storyId);
+      if (snaps.some((e) => e && gone.has(e.id))) await saveSnapshots(storyId, snaps.filter((e) => !(e && gone.has(e.id))));
+    } catch (err) { /* best-effort housekeeping */ }
+  }
+
   async function loadVersionStates(storyId) {
     const saved = await db.settings.get('versionState:' + storyId);
     return saved && typeof saved === 'object' ? saved : {};
@@ -2962,7 +2979,7 @@ export function initChat(ctx) {
      * hidden after it (a stale nudge) goes first, so the answer is to
      * THIS page. */
     const trailing = msgs.slice(at + 1);
-    if (trailing.length) await db.messages.deleteFrom(story.id, trailing[0].id);
+    if (trailing.length) { await db.messages.deleteFrom(story.id, trailing[0].id); await forgetCheckpoints(story.id, trailing.map((m) => m.id)); }
     busy = true;
     try {
       await renderThread({ structural: true });
@@ -3006,9 +3023,10 @@ export function initChat(ctx) {
       }
       if (target.role === 'assistant') {
         await db.messages.deleteFrom(story.id, target.id);
+        await forgetCheckpoints(story.id, history.slice(at).map((m) => m.id)); /* M107 */
       } else {
         const next = history[at + 1];
-        if (next) await db.messages.deleteFrom(story.id, next.id);
+        if (next) { await db.messages.deleteFrom(story.id, next.id); await forgetCheckpoints(story.id, history.slice(at + 1).map((m) => m.id)); }
       }
       await refreshPreview(story.id); // M21: the shelf re-reads what's left
       await renderThread({ structural: true });
@@ -3593,6 +3611,7 @@ export function initChat(ctx) {
     const goneBoundary = boundaryFor(allBefore, id); /* the turn the page belonged to */
     if (kGone !== -1) await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), kGone));
     await db.messages.remove(story.id, id);
+    await forgetCheckpoints(story.id, [id]); /* M107 */
     const gone = visBefore[kGone];
     /* M72: the ledger work is claimed right after the store write, before any
      * rendering. A WRITER'S page let go moves no storyteller page — the

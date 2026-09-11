@@ -9,6 +9,7 @@
  * clothes, fails here — that is the field report that founded this file.
  */
 import { boot, until, click, type, submit, q, qa, tick, openSettings, closeSettings } from './env.mjs';
+import { checkStoreConsistency } from './consistency.mjs';
 import { test, assert, eq, runAll } from '../harness/lib.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 
@@ -669,6 +670,7 @@ test('DOM-8c the checkpoint invariant holds under a random sequence of sends, sw
   const row = qa('.story-item').find((li) => li.textContent.includes(startTitle) && !/a branch|Invariant|Checkpoints/.test(li.textContent));
   click(q('.story-open', row) || row);
   await until(async () => (await storyId()) === startSid, 'back on the first story', 10000);
+  { const problems = await checkStoreConsistency(db, await storyId()); eq(problems.length, 0, 'the store agrees with itself: ' + problems.join(' | ')); }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
@@ -814,6 +816,7 @@ test('DOM-8f THE WRITER’S SECOND REPORT: a store whose journal began while the
   const back = qa('.story-item').find((li) => li.textContent.includes(originTitle) && !/a branch/.test(li.textContent));
   click(q('.story-open', back) || back);
   await until(async () => (await storyId()) === sid, 'back on the origin', 10000);
+  { const problems = await checkStoreConsistency(db, await storyId()); eq(problems.length, 0, 'the store agrees with itself: ' + problems.join(' | ')); }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
@@ -1110,6 +1113,7 @@ test('DOM-13c THE RIPPLE: a name changed by hand on one page is changed everywhe
   await until(async () => (await db.settings.get('memory:' + sid)).nodes.some((n) => n.correction && /“black” is now “silver”/.test(n.text)), 'the record carries the correction', 15000);
   house.state.workerAnswer = priorAnswer;
   house.state.storyAnswer = null;
+  { const problems = await checkStoreConsistency(db, await storyId()); eq(problems.length, 0, 'the store agrees with itself: ' + problems.join(' | ')); }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

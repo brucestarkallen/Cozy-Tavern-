@@ -17,6 +17,7 @@
  */
 import { boot, until, click, type, submit, q, qa, tick } from './env.mjs';
 import { test, assert, eq, runAll } from '../harness/lib.mjs';
+import { checkStoreConsistency } from './consistency.mjs';
 
 const env = await boot();
 const { document, db, house, errors } = env;
@@ -199,6 +200,7 @@ test('LONG-1 ninety turns of play: the house holds the world with no hand on it'
     writeFileSync('/tmp/prompt-world.txt', dump(worldCalls[worldCalls.length - 1]));
   } catch (err) { console.log('    (no dump: ' + err.message + ')'); }
   eq(errors.length, 0, errors.slice(0, 5).join(' | '));
+  { const problems = await checkStoreConsistency(db, sid); eq(problems.length, 0, 'after ninety turns the store agrees with itself: ' + problems.join(' | ')); }
 });
 
 test('LONG-2 the clock advanced every page from the hour the storyteller was handed, and jumped three days on #time skip', async () => {
