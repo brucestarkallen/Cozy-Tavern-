@@ -2603,3 +2603,38 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   brief-vs-pages contradiction with no mutations (reported, fixable:false). The report sits on the
   ledger (state.audit), the workers' line reads "found 3 things, set 1 right: …, 1 only noted,
   1 refused", the button is itself again after. 368/368 + 29/29 + 8/8.
+
+---
+
+# M90 — the brief wins, resolved by the house (Summaryception's source-repair law, ported whole); a mend re-folds its record line
+- FIELD REPORT: the writer lives with depression and fights it daily; the house must run a story
+  for a very long time with NO hand on it — nothing "reported for the writer to fix". The one
+  seam left: the ledger auditor's "a contradiction between the brief and the pages is reported
+  with an empty mutations list". Summaryception's latest auditor closed the same seam (its
+  `where:'source'` findings drive an autonomous message fixer — the fewest messages, the smallest
+  change, player turns untouchable, a backup before every overwrite, the snippet re-derived from
+  the corrected passage, then a recheck). The tavern already carried the fixer (M35's mender, with
+  take-back chips); what it lacked:
+  1. THE LAW. The auditor now reports a brief-vs-pages contradiction with `pages:true` and a one-
+     sentence `fix` (the brief's truth, as the page should read), and locks that truth in the
+     ledger (canon.lock / people.set / rel.set "the brief says"). The writer's own Canon
+     Definition: a page that contradicts the brief was an error, not canon. Only a contradiction
+     the brief has with ITSELF is still "only noted".
+  2. THE RESOLUTION (chat.js resolveBriefWins, shared by the every-three-turns run and the
+     drawer's button): the pages within the auditor's reach (the last ten) are mended by the
+     smallest edit through the existing mender; then a [Correction] line joins the record —
+     memory.js addCorrection: a node that covers no page (span [-1,-1]), reads LAST ("a correction
+     supersedes what came before"), is never folded into a layer and never verified against a
+     passage, deduplicated, capped at twelve (the oldest go — the pages have long carried the
+     truth by then). So even where no safe edit exists, every later fold and every later turn
+     carries the brief's truth, and the storyteller recolors forward.
+  3. A MEND RE-FOLDS ITS LINE. applyMend now lets go of the record line covering the mended page
+     (memoryWithoutPage), so the keeper folds it again from the corrected words — Summaryception's
+     step 4; without it the record kept narrating the contradiction the page no longer contained,
+     and the verifier could have "mended" the page back toward it.
+- The run words: "found 4 things, set 2 right: …, 1 the brief wins — 1 page mended, the record
+  corrected, 1 only noted, 1 refused". LONG-8 now presses the button against a page that named
+  the neighbour "Aurora Vance" where the brief says "Aurora Vane": the page is mended by one
+  word (its earlier words kept under the chip), the record carries the correction, the ledger
+  locks the surname, the report calls it fixed — no hand on any of it.
+- M90-1/2 (m85.mjs), LONG-8 extended. 370/370 + 29/29 + 8/8. version.js -> m90-001.

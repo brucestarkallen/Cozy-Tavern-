@@ -85,6 +85,9 @@ export async function loadMemory(storyId) {
       level: Number.isFinite(n.level) && n.level >= 1 ? Math.min(MAX_LAYERS, Math.round(n.level)) : 1,
       at: Number.isFinite(n.at) ? n.at : 0,
       empty: n.empty === true,
+      /* M90: a [Correction] the house wrote (the brief wins over the pages) —
+       * covers no page (span [-1,-1]), never folded, never verified, read last */
+      correction: n.correction === true,
     }));
   return {
     ...saved,
@@ -116,7 +119,29 @@ export function cleanBatch(value) {
 function orderedLines(mem) {
   return (mem && Array.isArray(mem.nodes) ? mem.nodes : [])
     .filter((n) => n && !n.empty && typeof n.text === 'string' && n.text.trim())
-    .sort((a, b) => (a.span[0] - b.span[0]) || (b.level - a.level) || ((a.at || 0) - (b.at || 0)));
+    .sort((a, b) => {
+      /* M90: a correction supersedes what came before it — it reads LAST */
+      if (Boolean(a.correction) !== Boolean(b.correction)) return a.correction ? 1 : -1;
+      if (a.correction && b.correction) return (a.at || 0) - (b.at || 0);
+      return (a.span[0] - b.span[0]) || (b.level - a.level) || ((a.at || 0) - (b.at || 0));
+    });
+}
+
+/* M90: write a [Correction] into the record — the house's own line when the
+ * brief and the pages disagreed and the brief won (Canon Definition). Pure:
+ * a fresh memory out. A correction saying the same thing twice is one line. */
+export const CORRECTIONS_MAX = 12;
+export function addCorrection(mem, text) {
+  const words = String(text || '').trim().replace(/\s+/g, ' ');
+  if (!words) return mem;
+  const line = /^\[Correction\]/i.test(words) ? words : '[Correction] ' + words;
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).map((n) => ({ ...n }));
+  if (nodes.some((n) => n.correction && n.text.trim().toLowerCase() === line.toLowerCase())) return { ...mem, nodes };
+  nodes.push({ id: nodeId(), span: [-1, -1], text: line.slice(0, 600), level: 1, at: Date.now(), correction: true });
+  /* the oldest corrections go when there are too many — the pages have long carried the truth by then */
+  const corrections = nodes.filter((n) => n.correction).sort((a, b) => (a.at || 0) - (b.at || 0));
+  const drop = new Set(corrections.slice(0, Math.max(0, corrections.length - CORRECTIONS_MAX)).map((n) => n.id));
+  return { ...mem, nodes: nodes.filter((n) => !drop.has(n.id)) };
 }
 
 function lineWords(node) {
@@ -639,7 +664,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
 
   /* 2. promotion: a layer past its size merges its oldest two, up */
   for (let level = 1; level < MAX_LAYERS; level += 1) {
-    const layer = mem.nodes.filter((n) => n.level === level && !n.empty)
+    const layer = mem.nodes.filter((n) => n.level === level && !n.empty && !n.correction)
       .sort((a, b) => (a.span[0] - b.span[0]) || ((a.at || 0) - (b.at || 0)));
     if (layer.length <= NOTES_PER_LAYER) continue;
     const toMerge = layer.slice(0, NOTES_PER_PROMOTION);

@@ -52,13 +52,13 @@ import { enqueueWork } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages } from '../agents/memory.js';
+import { maybeSummarize, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { wholeRecord } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
-import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
+import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
 import { renderWorldBrief, renderVoicesBlock } from '../engine/world.js'; /* M85: the voices under the page */
@@ -1546,13 +1546,43 @@ export function initChat(ctx) {
   }
 
   /* M41: audit the ledger, by hand. */
+  /* M90: THE BRIEF WINS, resolved by the house. An audit issue with
+   * pages:true and a fix is a page that contradicted the brief: the pages
+   * within reach are mended by the smallest edit (the mender; take-back
+   * chips), and a [Correction] line joins the record so every later fold and
+   * every later turn carries the brief's truth even where no safe edit was
+   * found (the storyteller recolors forward — Canon Definition, Drift
+   * Recovery). Nothing here waits for a hand. */
+  async function resolveBriefWins(story, connection, result, signal) {
+    if (!result || !Array.isArray(result.issues)) return result;
+    const wins = result.issues.filter((i) => i && i.pages && i.fix);
+    if (!wins.length) return result;
+    let mendedPages = 0;
+    const all = (await db.messages.list(story.id)).filter((m) => !m.hidden && m.role === 'assistant');
+    const last = all[all.length - 1];
+    for (const issue of wins) {
+      if (last) {
+        try {
+          const changed = await mendAround(story, connection, [last.id], issue.what + ' It should read: ' + issue.fix, signal, AUDIT_PAGES);
+          mendedPages += changed.length;
+        } catch (err) { /* a mend that fails leaves the correction to carry the truth */ }
+      }
+      try {
+        const mem = await loadMemory(story.id);
+        await saveMemory(story.id, addCorrection(mem, issue.fix + ' (the brief establishes it; the pages that said otherwise were in error).'));
+      } catch (err) { /* the record is best-effort; the ledger already holds the lock */ }
+    }
+    return { ...result, mendedPages };
+  }
+
   async function auditNow() {
     const story = await activeStory();
     if (!story) return false;
     const connection = await resolveWorkerConnection(story, 'auditor');
     if (!connection) { toast('The auditor needs a connection first.'); return false; }
     const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale }) => {
-      const result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
+      if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     } });
     noteWork(story.id, promise);
@@ -1579,16 +1609,24 @@ export function initChat(ctx) {
       patch.swipes = swipes;
     }
     await db.messages.update(storyId, page.id, patch);
+    /* M90: the record line covering a mended page is let go, so the keeper
+     * folds it again from the corrected words — or the record keeps narrating
+     * the contradiction the page no longer contains (Summaryception's law). */
+    try {
+      const vis = visiblePages(await db.messages.list(storyId));
+      const k = vis.findIndex((m) => m.id === page.id);
+      if (k !== -1) await saveMemory(storyId, memoryWithoutPage(await loadMemory(storyId), k));
+    } catch (err) { /* the keeper's next pass covers the hole anyway */ }
     await rerenderMessage(storyId, page.id);
   }
 
-  async function mendAround(story, connection, pageIds, contradiction, signal) {
+  async function mendAround(story, connection, pageIds, contradiction, signal, reach = 5) {
     if (!(await mendOn(story))) return [];
     const all = await db.messages.list(story.id);
     const wanted = new Set(pageIds);
     const last = Math.max(...all.map((m, i) => (wanted.has(m.id) ? i : -1)));
     if (last === -1) return [];
-    const pages = all.slice(Math.max(0, last - 5), last + 1).filter((m) => !m.hidden);
+    const pages = all.slice(Math.max(0, last - reach), last + 1).filter((m) => !m.hidden);
     const mem = await loadMemory(story.id);
     const state = await loadState(story.id);
     const playerName = mcName(state) !== 'the player' ? mcName(state) : 'the player';
@@ -1922,7 +1960,8 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'auditor');
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
-      const result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
+      if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     });
 

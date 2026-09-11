@@ -67,6 +67,8 @@ house.state.storyAnswer = (body) => {
     lines.push('The door opens without a knock. Aurora steps in, coat still on, rain in her hair. "You came back," she says, and does not sit.');
   } else if (/Aurora[^\n]*arriving in about/.test(stateText)) {
     lines.push('Jovan turns the cup in his hands. Nobody has come up the walk yet; the street outside is quiet. Kim texts twice and he does not answer.');
+  } else if (script.turn === TURNS - 1) {
+    lines.push(`Person${script.turn} entered the room and sat down. "Aurora Vance is at the door again," Person${script.turn} says, and pours without waiting.`);
   } else if (script.turn === 20) {
     /* a slip, on purpose: words in MC's mouth he did not type, and a dead phrase — the house's eye must catch it */
     lines.push(`Person20 entered the room and sat down. "Sure, whatever you say," Jovan says, shrugging. Her breath hitching, she pours.`);
@@ -121,6 +123,11 @@ house.state.workerAnswer = (body, sys) => {
     const pressure = script.auroraSeated && !script.auroraArrived ? ['Aurora is on the bus and could reach the house within the hour'] : [];
     return JSON.stringify({ mutations: muts, brief: { pressure, ripe: [], twb, voices } });
   }
+  if (/mend a story/i.test(sys) || /<contradiction>/.test(user)) {
+    const blocks = [...user.matchAll(/\[(\d+)\] \((STORY|PLAYER)\) ([\s\S]*?)(?=\n\n\[\d+\] \(|\n<\/passage>)/g)];
+    const hit = blocks.find((b) => b[2] === 'STORY' && /Aurora Vance/.test(b[3]));
+    return hit ? JSON.stringify([{ index: Number(hit[1]), text: hit[3].replace('Aurora Vance', 'Aurora Vane') }]) : '[]';
+  }
   if (/narrative-state tracker/i.test(sys)) return 'Fold at turn ' + script.turn + ': Jovan at the kitchen table; visitors came and sat; tea poured; Kim texting; the street quiet.';
   if (/audit one record line/i.test(sys)) return 'NONE';
   if (/character pages/i.test(sys)) return '{"deltas":[]}';
@@ -131,6 +138,8 @@ house.state.workerAnswer = (body, sys) => {
      * (lower a standing earned on the page), one it cannot fix (a contradiction, reported with no mutations) */
     return JSON.stringify({ issues: [
       { what: 'Person7 is marked present; the pages show him leaving long ago', fix: 'Person7 is not here', mutations: [{ type: 'presence.leave', name: 'Person7' }] },
+      /* the brief wins: the pages called the neighbour Aurora Vance; the brief says Aurora Vane */
+      { what: 'the latest page calls the neighbour Aurora Vance; the brief names her Aurora Vane', fix: 'The neighbour is Aurora Vane', pages: true, mutations: [{ type: 'canon.lock', name: 'Aurora', key: 'surname', value: 'Vane' }] },
       { what: 'Aurora warmth seems high', fix: 'lower it', mutations: [{ type: 'rel.set', name: 'Aurora', p: 0, r: 0, s: 0, cause: 'the auditor thinks so' }] },
       { what: 'the brief and the pages disagree about the house number', fix: 'the writer must say', mutations: [] },
     ] });
@@ -304,7 +313,7 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   const btn = qa('#drawer-panels button').find((b) => /Audit the ledger/.test(b.textContent));
   assert(btn, 'the button is on the drawer');
   click(btn);
-  await until(async () => { const s2 = await db.settings.get('state:' + sid); return s2 && s2.audit && s2.audit.issues && s2.audit.issues.length === 3; }, 'the audit report', 30000);
+  await until(async () => { const s2 = await db.settings.get('state:' + sid); return s2 && s2.audit && s2.audit.issues && s2.audit.issues.length === 4; }, 'the audit report', 30000);
   await idle(sid);
   const after = await db.settings.get('state:' + sid);
   assert(!after.present.some((p) => p.name === 'Person7'), 'the fixable issue landed: Person7 left');
@@ -313,7 +322,15 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   assert(report.some((i) => /house number/.test(i.what) && i.fixable === false), 'the unfixable one is reported as such');
   const workers = await db.settings.get('workers:' + sid);
   const detail = (workers && workers.auditor && workers.auditor.detail) || '';
-  assert(/found 3 things/.test(detail) && /set 1 right/.test(detail) && /1 only noted/.test(detail) && /1 refused/.test(detail), 'the workers’ line names the run: ' + detail);
+  assert(/found 4 things/.test(detail) && /set 2 right/.test(detail) && /1 the brief wins — 1 page mended, the record corrected/.test(detail) && /1 only noted/.test(detail) && /1 refused/.test(detail), 'the workers’ line names the run: ' + detail);
+  /* M90: THE BRIEF WINS, with no hand on it — the page mended, the earlier words kept, the record corrected, the truth locked */
+  const pages2 = (await db.messages.list(sid)).filter((m) => m.role === 'assistant');
+  const mendedPage = pages2.find((m) => m.mended && /Aurora Vance/.test(m.mended.before));
+  assert(mendedPage && /Aurora Vane/.test(mendedPage.text) && !/Aurora Vance/.test(mendedPage.text), 'the page was mended by the smallest edit and remembers its earlier words');
+  const mem = await db.settings.get('memory:' + sid);
+  assert(mem.nodes.some((n) => n.correction && /Aurora Vane/.test(n.text)), 'the record carries the correction');
+  assert(after.canon && after.canon.Aurora && after.canon.Aurora.facts.some((f) => f.key === 'surname' && f.value === 'Vane'), 'the truth is locked in the ledger');
+  assert(after.audit.issues.find((i) => /Vance/.test(i.what)).fixable === true, 'the report calls it fixed, not noted');
   assert(/Audit the ledger/.test(btn.textContent), 'the button is itself again');
   script.auditArmed = false;
   click(q('#btn-ledger'));

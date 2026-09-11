@@ -101,12 +101,19 @@ function law({ mc }) {
     '    knowledge line for it (knowledge.add).',
     '',
     'Be exact and be conservative: only what the brief states or the pages show, never what would be',
-    'nice. A disagreement you cannot fix with the vocabulary (a contradiction between the brief and',
-    'the pages themselves) is reported with an empty mutations list. If the ledger is true to the',
-    'story, say so with an empty list — that is a good answer.',
+    'nice. If the ledger is true to the story, say so with an empty list — that is a good answer.',
+    '',
+    'THE BRIEF WINS: when the PAGES themselves contradict the brief — a wrong name, a wrong relation, a',
+    'wrong role, a person somewhere the brief says they cannot be, a fact the brief settles written the',
+    'other way — that page was an error, not canon (the writer\'s own law). Report it with "pages": true',
+    'and a "fix" that states, in one plain sentence, what the page should read instead — the brief\'s',
+    'truth, exactly; and lock that truth in the ledger with the vocabulary (canon.lock, people.set, or',
+    'rel.set with the cause "the brief says …"). The house then mends the pages by the smallest edit and',
+    'writes a correction into the record; you never rewrite a page yourself. Only a contradiction the',
+    'brief has with ITSELF is reported with an empty mutations list and no fix.',
     '',
     'Answer with JSON ONLY, exactly this shape:',
-    '{"issues":[{"what":"the ledger says X; the pages say Y","fix":"what should be true","mutations":[ ... ]}]}',
+    '{"issues":[{"what":"the ledger says X; the pages say Y","fix":"what should be true","pages":false,"mutations":[ ... ]}]}',
     '',
     'The only mutations that exist:',
     VOCABULARY,
@@ -188,6 +195,8 @@ export function parseAuditorAnswer(raw) {
       .map((i) => ({
         what: i.what.trim().slice(0, 300),
         fix: typeof i.fix === 'string' ? i.fix.trim().slice(0, 300) : '',
+        /* M90: the pages are wrong and the brief wins — the house mends them */
+        pages: i.pages === true,
         mutations: Array.isArray(i.mutations) ? i.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string') : [],
       }))
       .slice(0, 20);
@@ -255,7 +264,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...keptStandings];
-  const report = { at: Date.now(), turn: Number.isFinite(next.turn) ? next.turn : 0, issues: read.issues.map((i) => ({ what: i.what, fix: i.fix, fixable: i.mutations.length > 0 })) };
+  const report = { at: Date.now(), turn: Number.isFinite(next.turn) ? next.turn : 0, issues: read.issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)) })) };
   const out = { ...next, audit: report };
   if (stale && stale()) return null;
   await saveState(storyId, out);
@@ -435,7 +444,9 @@ export function auditRunWords(result) {
   const fixed = result.applied.length;
   const bits = [`found ${n} ${n === 1 ? 'thing' : 'things'}`];
   if (fixed) bits.push(`set ${fixed} right: ` + result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (fixed > 4 ? ' · …' : ''));
-  const unfixable = result.issues.filter((i) => !i.mutations.length).length;
+  const briefWins = result.issues.filter((i) => i.pages && i.fix).length;
+  if (briefWins) bits.push(`${briefWins} the brief wins — ${result.mendedPages || 0} ${result.mendedPages === 1 ? 'page' : 'pages'} mended, the record corrected`);
+  const unfixable = result.issues.filter((i) => !i.mutations.length && !(i.pages && i.fix)).length;
   if (unfixable) bits.push(`${unfixable} only noted`);
   if (result.rejected.length) bits.push(`${result.rejected.length} refused`);
   return bits.join(', ');

@@ -288,3 +288,39 @@ test('M88-2 the eye rides the storyteller’s next turn as its own receipt-named
   const without = buildRequest({ ...base, houseEye: '' });
   assert(!without.receipt.slots.some((s) => s.name === 'The house’s eye'), 'a clean last page: no slot at all');
 });
+
+test('M90-1 the record’s corrections: written by the house, read last, never folded, never verified, deduplicated, capped', async () => {
+  const { addCorrection, renderMemory, recordFor, wholeRecord, loadMemory, saveMemory, CORRECTIONS_MAX } = await import('../../js/agents/memory.js');
+  let mem = { window: 30, nodes: [
+    { id: 'a', span: [0, 2], text: 'Jovan came home; Kim texted.', level: 1, at: 1 },
+    { id: 'b', span: [3, 5], text: 'Aurora arrived and called Kim his cousin.', level: 1, at: 2 },
+  ] };
+  mem = addCorrection(mem, 'Kim is Jovan’s sister, not his cousin (the brief establishes it).');
+  mem = addCorrection(mem, 'Kim is Jovan’s sister, not his cousin (the brief establishes it).');
+  eq(mem.nodes.filter((n) => n.correction).length, 1, 'said twice is one line');
+  const c = mem.nodes.find((n) => n.correction);
+  eq(c.span[0], -1, 'covers no page'); assert(/^\[Correction\] Kim is/.test(c.text));
+  const lines = renderMemory(mem).split('\n').filter((l) => /^- /.test(l));
+  assert(/Correction/.test(lines[lines.length - 1]) && /came home/.test(lines[0]), 'the correction reads LAST: ' + lines.join(' | '));
+  assert(/Correction/.test(wholeRecord(mem)), 'the whole record carries it');
+  /* a store round trip keeps the mark */
+  await saveMemory('corr-story', mem);
+  const back = await loadMemory('corr-story');
+  assert(back.nodes.some((n) => n.correction === true && n.span[0] === -1), 'the mark survives the store');
+  /* capped: the oldest go */
+  mem.nodes.find((n) => n.correction).at = 500;
+  for (let i = 0; i < CORRECTIONS_MAX + 3; i += 1) { mem = addCorrection(mem, 'correction number ' + i); mem.nodes.find((n) => n.correction && n.text.endsWith('number ' + i)).at = 1000 + i; }
+  eq(mem.nodes.filter((n) => n.correction).length, CORRECTIONS_MAX, 'never more than the cap');
+  assert(!mem.nodes.some((n) => /Kim is Jovan/.test(n.text)), 'the oldest correction went first');
+});
+
+test('M90-2 the auditor reads "the brief wins": a pages issue with a fix is fixable; a brief-vs-brief contradiction is only noted; the run words say what was mended', async () => {
+  const { parseAuditorAnswer, auditRunWords } = await import('../../js/agents/auditor.js');
+  const read = parseAuditorAnswer(JSON.stringify({ issues: [
+    { what: 'the pages call Kim his cousin; the brief says sister', fix: 'Kim is Jovan’s sister', pages: true, mutations: [{ type: 'canon.lock', name: 'Kim', key: 'relation', value: 'Jovan’s sister' }] },
+    { what: 'the brief says both 19 and 21 for Kim', fix: '', mutations: [] },
+  ] }));
+  eq(read.note, 'ok'); eq(read.issues[0].pages, true); eq(read.issues[1].pages, false);
+  const words = auditRunWords({ note: 'ok', issues: read.issues, applied: [{ words: 'Kim: relation locked' }], rejected: [], mendedPages: 2 });
+  assert(/found 2 things/.test(words) && /1 the brief wins — 2 pages mended, the record corrected/.test(words) && /1 only noted/.test(words), words);
+});
