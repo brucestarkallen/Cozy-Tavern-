@@ -1189,7 +1189,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
         op: { bulk: true, find, replace, ids },
         status: targets.length ? 'pending' : 'refused',
         words: targets.length ? '' : 'the range it named holds no pages',
-        review: [{ target: 'bulk', hash: hashText(targets.map(messageHashOf).join('|')) }],
+        review: [], /* M78: a literal search is recounted at apply; it is never stale */
       });
       continue;
     }
@@ -1215,7 +1215,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
         op: { messageId: msg.id, hide: op.hide },
         status: 'pending',
         words: '',
-        review: [{ target: 'msg:' + msg.id, hash: messageHashOf(msg) }],
+        review: [{ target: 'exists:msg:' + msg.id }],
       });
       continue;
     }
@@ -1232,7 +1232,10 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
         op: { messageId: msg.id, find: op.find, replace: op.replace },
         status: loc.ok ? 'pending' : 'refused',
         words: loc.ok ? '' : 'its anchor does not match the page: ' + loc.reason,
-        review: loc.ok ? [{ target: 'msg:' + msg.id, hash: messageHashOf(msg) }] : [],
+        /* M78: STALENESS IS THE ANCHOR. A whole-page hash went stale the moment an
+         * earlier card re-inked the same page, and "Apply all" lost every card
+         * after the first. Chat Assistant's only law: does the find still match. */
+        review: loc.ok ? [{ target: 'anchor:msg:' + msg.id, find: op.find }] : [],
       });
     }
   }
@@ -1256,7 +1259,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       op: { nodeId: node.id, find: op.find, replace: op.replace },
       status: loc.ok ? 'pending' : 'refused',
       words: loc.ok ? '' : 'its anchor does not match the line: ' + loc.reason,
-      review: loc.ok ? [{ target: 'record:' + node.id, hash: hashText(node.text) }] : [],
+      review: loc.ok ? [{ target: 'anchor:record:' + node.id, find: op.find }] : [],
     });
   }
 
@@ -1314,7 +1317,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       op: { moduleId: mod.id, moduleName: mod.name, find: op.find, replace: op.replace },
       status: 'pending',
       words: '',
-      review: [{ target: 'mod:' + mod.id, hash: moduleHashOf(mod) }],
+      review: [{ target: 'anchor:mod:' + mod.id, find: op.find }],
     });
   }
 
@@ -1350,7 +1353,10 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     if (!staged) { refuse('it didn’t say what should change — find/replace, text, or append'); continue; }
     proposals.push({
       id: uid(), ts: Date.now(), kind: 'brief', label, reason, op: staged,
-      status: 'pending', words: '', review: [{ target: 'story:' + key, hash: hashText(current) }],
+      status: 'pending', words: '',
+      review: typeof staged.find === 'string' ? [{ target: 'anchor:story:' + key, find: staged.find }]
+        : typeof staged.text === 'string' ? [{ target: 'story:' + key, hash: hashText(current) }]
+        : [],
     });
   }
 
@@ -1377,7 +1383,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
         label: typeof op.label === 'string' && op.label.trim() ? op.label.trim() : 'lore: add ' + (name || keys[0]),
         reason,
         op: { add: true, name: name || null, keys: keys.length ? keys : [name], content, constant: op.constant === true },
-        status: 'pending', words: '', review: [{ target: 'lore:shelf', hash: hashText(JSON.stringify(shelf.map((e) => e.id))) }],
+        status: 'pending', words: '', review: [], /* M78: a second add in the same answer is not stale */
       });
       continue;
     }
@@ -1390,7 +1396,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       proposals.push({
         id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: remove ' + (entry.name || entry.keys[0]), reason,
         op: { entryId: entry.id, remove: true, entryName: entry.name || entry.keys[0], beforeContent: String(entry.content || '') },
-        status: 'pending', words: '', review: [{ target: 'lore:' + entry.id, hash: hashText(JSON.stringify(entry)) }],
+        status: 'pending', words: '', review: [{ target: 'exists:lore:' + entry.id }],
       });
       continue;
     }
@@ -1404,7 +1410,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     proposals.push({
       id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: ' + (entry.name || entry.keys[0]), reason,
       op: { entryId: entry.id, patch, before: { content: String(entry.content || ''), keys: (entry.keys || []).slice(), name: entry.name || '' } },
-      status: 'pending', words: '', review: [{ target: 'lore:' + entry.id, hash: hashText(JSON.stringify(entry)) }],
+      status: 'pending', words: '', review: Object.keys(patch).map((f) => ({ target: 'lorefield:' + entry.id + ':' + f, hash: hashText(JSON.stringify(entry[f] === undefined ? null : entry[f])) })),
     });
   }
 
@@ -1510,12 +1516,52 @@ async function stalenessCheck(storyId, p) {
   const review = Array.isArray(p.review) ? p.review : [];
   if (!review.length) return '';
   const all = await db.messages.list(storyId);
+  const gone = (what) => 'not applied — ' + what + ' has gone from the story';
+  const anchorWords = (find, where) => 'not applied — the words it looked for, “' + String(find).slice(0, 80).replace(/\s+/g, ' ') + (String(find).length > 80 ? '…' : '') + '”, are not in ' + where + ' now (an earlier card may have changed them). Re-propose asks the housekeeper to look again';
   for (const r of review) {
     if (!r || typeof r.target !== 'string') continue;
+    /* M78: the anchor is the staleness law for every find/replace card */
+    if (r.target.startsWith('anchor:')) {
+      const rest = r.target.slice(7);
+      if (rest.startsWith('msg:')) {
+        const msg = all.find((m) => m && m.id === rest.slice(4));
+        if (!msg) return gone('the page it would change');
+        if (!locate(pageText(msg), r.find).ok) return anchorWords(r.find, 'page ' + refOf(msg));
+      } else if (rest.startsWith('record:')) {
+        const mem = await loadMemory(storyId);
+        const nd = (mem.nodes || []).find((x) => x && x.id === rest.slice(7));
+        if (!nd) return gone('that record line');
+        if (!locate(nd.text, r.find).ok) return anchorWords(r.find, 'that record line');
+      } else if (rest.startsWith('mod:')) {
+        const mods = await listModules();
+        const mod = mods.find((m) => m && m.id === rest.slice(4));
+        if (!mod) return gone('the rule it would change');
+        if (!locate(String(mod.text || ''), r.find).ok) return anchorWords(r.find, 'the rule');
+      } else if (rest.startsWith('story:')) {
+        const st = await db.stories.get(storyId);
+        const field = rest.slice(6);
+        const now = st && typeof st[field] === 'string' ? st[field] : '';
+        if (!locate(now, r.find).ok) return anchorWords(r.find, field === 'castNotes' ? 'the cast notes' : 'the brief');
+      }
+      continue;
+    }
+    if (r.target.startsWith('exists:')) {
+      const rest = r.target.slice(7);
+      if (rest.startsWith('msg:') && !all.find((m) => m && m.id === rest.slice(4))) return gone('the page');
+      if (rest.startsWith('lore:') && !(await loadLore(storyId)).find((e) => e && e.id === rest.slice(5))) return gone('that lore entry');
+      continue;
+    }
+    if (r.target.startsWith('lorefield:')) {
+      const [, id, field] = r.target.split(':');
+      const entry = (await loadLore(storyId)).find((e) => e && e.id === id);
+      if (!entry) return gone('that lore entry');
+      if (hashText(JSON.stringify(entry[field] === undefined ? null : entry[field])) !== r.hash) return 'not applied — the entry’s ' + field + ' was changed by something else since this was staged; Re-propose asks the housekeeper to look again';
+      continue;
+    }
     if (r.target.startsWith('msg:')) {
       const msg = all.find((m) => m && m.id === r.target.slice(4));
       if (!msg) return 'the page it would change has gone from the story';
-      if (messageHashOf(msg) !== r.hash) return 'the page has been re-inked since this was staged';
+      if (messageHashOf(msg) !== r.hash) return 'not applied — the page was re-inked by something else since this was staged; Re-propose asks the housekeeper to look again';
     } else if (r.target === 'bulk') {
       const ids = Array.isArray(p.op && p.op.ids) ? p.op.ids : [];
       const targets = all.filter((m) => ids.includes(m.id));
@@ -1538,11 +1584,11 @@ async function stalenessCheck(storyId, p) {
     } else if (r.target.startsWith('story:')) {
       const st = await db.stories.get(storyId);
       const now = st && typeof st[r.target.slice(6)] === 'string' ? st[r.target.slice(6)] : '';
-      if (hashText(now) !== r.hash) return (r.target.slice(6) === 'castNotes' ? 'the cast notes have' : 'the brief has') + ' changed since this was staged';
+      if (hashText(now) !== r.hash) return 'not applied — this card would replace the whole ' + (r.target.slice(6) === 'castNotes' ? 'cast notes' : 'brief') + ', but they changed since it was staged; Re-propose asks the housekeeper to look again';
     } else if (r.target.startsWith('ledger:')) {
       /* M74: a ledger card goes stale when the THING it touches moved, not when anything moved */
       const fresh = await loadState(storyId);
-      if (ledgerSliceHash(fresh, r.target.slice(7)) !== r.hash) return 'what this card changes in the ledger has moved since it was staged';
+      if (ledgerSliceHash(fresh, r.target.slice(7)) !== r.hash) return 'not applied — what this card changes in the ledger moved since it was staged; Re-propose asks the housekeeper to look again';
     } else if (r.target === 'state') {
       const fresh = await loadState(storyId);
       if (stateHashOf(fresh) !== r.hash) return 'the ledger has been written since this was staged';
@@ -1779,6 +1825,10 @@ async function applyLoreOp(storyId, p, batch) {
   let next;
   let words;
   if (op.add) {
+    const want = String(op.name || (op.keys || [])[0] || '').trim().toLowerCase();
+    if (want && shelf.some((e) => e && ((typeof e.name === 'string' && e.name.trim().toLowerCase() === want) || (Array.isArray(e.keys) && e.keys.some((k) => String(k).trim().toLowerCase() === want))))) {
+      return { ok: false, words: 'not applied — the shelf already holds “' + (op.name || (op.keys || [])[0]) + '”; ask for a change to it instead' };
+    }
     const id = 'lore-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
     const entry = { id, name: op.name || null, keys: op.keys, content: op.content, enabled: true, constant: op.constant === true, secondaryKeys: [], depth: 2 };
     next = [...shelf, entry];
@@ -1822,7 +1872,7 @@ export async function applyProposal(session, storyId, proposalId) {
     const stale = await stalenessCheck(storyId, p);
     if (stale) {
       p.status = 'stale';
-      p.words = stale + ' — ask, and it can be proposed again.';
+      p.words = stale + '.';
       return { ok: false, stale: true, words: p.words };
     }
     const batch = {

@@ -53,7 +53,9 @@ test('M74-3 <brief> is parsed and staged: find/replace, whole text, append; refu
   assert(/reads close|does not appear|not found|no match|nowhere/i.test(brief[3].words), brief[3].words);
   assert(/it is empty/.test(brief[4].words), 'an empty field cannot be found in');
   assert(/didn’t say what should change/.test(brief[5].words));
-  eq(brief[0].review[0].target, 'story:brief');
+  eq(brief[0].review[0].target, 'anchor:story:brief'); eq(brief[0].review[0].find, 'older sister');
+  eq(brief[1].review[0].target, 'story:castNotes', 'a whole replacement is measured against the whole');
+  eq(brief[2].review.length, 0, 'an append is never stale');
 });
 
 test('M74-4 a brief card applies to the story, goes stale when the brief moved, and is taken back', async () => {
@@ -78,9 +80,9 @@ test('M74-4 a brief card applies to the story, goes stale when the brief moved, 
   /* staleness: the brief edited by hand after staging */
   const props2 = stageProposals(parseProtocol('<brief>[{"field":"brief","find":"older","replace":"elder"}]</brief>'), { messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session, story: await db.stories.get(story.id) });
   session.turns.push({ role: 'housekeeper', text: 'y', ts: 2, proposals: props2 });
-  await db.stories.update(story.id, { brief: 'Rias is his older sister, and more.' });
+  await db.stories.update(story.id, { brief: 'Rias is his elder sister.' });
   const r3 = await applyProposal(session, story.id, props2[0].id);
-  assert(!r3.ok && r3.stale && /brief has changed/.test(r3.words), JSON.stringify(r3));
+  assert(!r3.ok && r3.stale && /the words it looked for, “older”, are not in the brief now/.test(r3.words) && /Re-propose/.test(r3.words), JSON.stringify(r3));
 });
 
 test('M74-5 a ledger card is measured against the slice it touches — a page turn no longer refuses it; the undo the same', async () => {

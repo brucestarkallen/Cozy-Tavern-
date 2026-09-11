@@ -126,7 +126,7 @@ test('M10 staging: cards carry review hashes; a lost page refuses at the door', 
   const cards = stageProposals(p, { messages: all, state, modules });
   eq(cards.length, 2, 'two cards staged');
   eq(cards[0].status, 'pending', 'the sound card waits');
-  assert(cards[0].review.length === 1 && cards[0].review[0].hash, 'a review hash was taken');
+  assert(cards[0].review.length === 1 && cards[0].review[0].target.startsWith('anchor:') && cards[0].review[0].find, 'the anchor is the review (M78)');
   eq(cards[1].status, 'refused', 'the lost page refuses at the door');
 });
 
@@ -192,9 +192,10 @@ test('M10 undo: drift REFUSES loudly and touches nothing', async () => {
 test('M10 apply: staleness — a target changed since staging refuses, offered again', async () => {
   const { story, session } = await storyWithPage('The north road ran wet.');
   const card = await stageEdit(session, story, 'ran wet', 'ran dry');
-  /* the page moves between staging and apply */
+  /* the page moves between staging and apply — and the words the card looked for are gone (M78: a page that
+   * merely GAINED words keeps the anchor, and the card still lands) */
   const all = await db.messages.list(story.id);
-  await db.messages.update(story.id, all[0].id, { text: 'The north road ran wet with snowmelt.' });
+  await db.messages.update(story.id, all[0].id, { text: 'The north road ran dry.' });
   const result = await applyProposal(session, story.id, card.id);
   assert(!result.ok && result.stale, 'stale card refuses');
   eq(card.status, 'stale', 'the card reads stale');
@@ -338,9 +339,11 @@ test('M10 edits: hide folds a page away; bulk re-inks across pages', async () =>
   stageInto(session, hideCards);
   r = await applyProposal(session, story.id, hideCards[0].id);
   assert(r.ok, 'hidden: ' + r.words);
+  /* M78: a hide needs only the page to exist — the bulk re-ink before it changes nothing; the
+   * page is already folded away by the fresh card, so the older hide is refused for THAT reason */
   const staleTry = await applyProposal(session, story.id, cards[0].id);
-  assert(!staleTry.ok && staleTry.stale, 'the pre-bulk hide card goes stale, honestly');
-  eq(cards[0].status, 'stale', 'and reads stale');
+  assert(!staleTry.ok && /already folded away/.test(staleTry.words), 'the second hide says why: ' + staleTry.words);
+  eq(cards[0].status, 'refused', 'and reads refused, not stale');
   const after = await db.messages.list(story.id);
   eq(after[0].hidden, true, 'the first page is folded away');
   assert(after[1].text.includes('Mara sat down.'), 'the name was re-inked on the visible page');

@@ -2210,3 +2210,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
      reasoning_content on its calls) and drives the whole flow: a fresh session, an ask, the fold
      under the reply, the thinking on the turn, the context pop-up opened and closed by Esc.
 - 343/343 + 29/29 (×2). version.js -> m77-001.
+
+---
+
+# M78 — staleness is the anchor (Chat Assistant's only law); "Apply all" lands every card
+- FIELD REPORT (the receipts pasted): "✓ the brief … then five × '– the brief — the brief has
+  changed since this was staged — ask, and it can be proposed again'. Explain." The model had done
+  exactly the right thing — six <brief> cards, one per sixteen-year-old. Apply all applied the
+  first; the brief's text changed; M74's staleness gate compared the WHOLE brief's hash and refused
+  the other five as "changed since staged". The same coarse gate hit two edits to one page (M61's
+  whole-page hash), two edits to one record line, two edits to one lore entry, and a second lore
+  add (the shelf's id list). Five hours of the writer's evening were this bug. Chat Assistant never
+  had it: its one law is "does the find still match".
+- THE LAW NOW: a find/replace card (page, record line, rule, brief, cast notes) is measured by its
+  ANCHOR at apply — locate(find) on the text as it stands; a whole-thing replacement (brief/cast
+  "text") by the thing's hash; a hide by the page's existence; a lore edit by the fields it touches;
+  a lore add never (a taken name is refused at apply, as such); a bulk re-ink never (a literal
+  search recounts itself); a ledger card by its slice (M74).
+- THE WORDS: a card that cannot land says what it looked for and where — "not applied — the words
+  it looked for, “…”, are not in page #… now (an earlier card may have changed them). Re-propose
+  asks the housekeeper to look again" — never "changed since this was staged".
+- Old laws restated: M10 (a page that GAINED words keeps its anchor and the card lands; a second
+  hide of a hidden page is refused for that reason), M74-3/4 (the anchor review; append never
+  stale). New: m78.mjs — the writer's six cards land in one Apply all; two edits per page / per
+  record line, two adds and a content edit beside a switch on one entry, all land; a destroyed
+  anchor says so. DOM-11c applies two brief cards from one answer with Apply all.
+  345/345 + 29/29 (×2). version.js -> m78-001.

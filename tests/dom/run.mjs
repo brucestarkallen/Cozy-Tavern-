@@ -870,6 +870,19 @@ test('DOM-11c the housekeeper sees the brief, stages a card, Apply changes the p
   await closeSettings();
   click(q('#hk-undo'));
   await until(async () => /older sister/.test((await db.stories.get(sid)).brief), 'the brief taken back', 10000);
+  /* M78: TWO brief cards in one answer, Apply all — both land (the second used to go "stale" because the first changed the brief) */
+  house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys)
+    ? 'Two.\n<brief>[{"field":"brief","find":"comes home to Ravenwood","replace":"comes back to Ravenwood","reason":"one"},{"field":"brief","find":"older sister","replace":"younger sister","reason":"two"}]</brief>'
+    : priorAnswer(body, sys));
+  await until(() => !q('#hk-send').disabled, 'free again', 10000);
+  type(q('#hk-input'), 'change the brief: comes back, and younger');
+  submit(q('#hk-form'));
+  await until(() => qa('#hk-cards button').filter((b) => /^Apply$/i.test(b.textContent.trim())).length === 2, 'two brief cards', 10000);
+  click(q('#hk-apply-all'));
+  await until(async () => { const b = (await db.stories.get(sid)).brief; return /comes back to Ravenwood/.test(b) && /younger sister/.test(b); }, 'BOTH landed', 10000);
+  await until(() => qa('#hk-thread .hk-receipt').filter((r) => /^✓ the brief/.test(r.textContent)).length >= 2 && !qa('#hk-thread .hk-receipt').some((r) => /not applied/.test(r.textContent)), 'two ✓ receipts, no “not applied”: ' + qa('#hk-thread .hk-receipt').map((r) => r.textContent.slice(0, 60)).join(' | '), 10000);
+  click(q('#hk-undo')); click(q('#hk-undo'));
+  await until(async () => /older sister/.test((await db.stories.get(sid)).brief), 'taken back', 10000);
   house.state.workerAnswer = priorAnswer;
   click(q('#btn-hk-close'));
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
