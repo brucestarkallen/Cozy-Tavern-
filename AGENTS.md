@@ -2136,3 +2136,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   doubled ([CUT SHORT]); an answer consumed by thinking is recovered once, Chat Assistant's way
   (<previous_reasoning> fed back, pot doubled, [ANSWER NOW]); the law BLOCKS FIRST rides the prompt
   so a cut can only ever cost chatter. m75-5. 338/338 + 28/28 (×2). version.js -> m75-002.
+- M75-003: FIELD REPORT: "my connection's longest reply is already 30000." Then the pot was not the
+  writer's cut either (the old callModel took the connection's number when set) — two wrong
+  diagnoses in a row, and the reason is that the house kept NO EVIDENCE: the talk showed the prose
+  with the blocks stripped, and a block that failed to read vanished. Nothing is lost in silence
+  now: (1) every answer keeps what the model said WHOLE on the turn (turn.raw, RAW_KEEP_CAP 24000)
+  with a fold "What it said, whole" under the answer, and the rounds it took; (2) a block that came
+  with words in it and yielded no op is UNREADABLE — a refused card the writer can see, with how it
+  began — and the model is asked once for the same block as plain JSON ([UNREADABLE BLOCK]); (3) a
+  brief edit written into <edits> (field brief/cast, no page id) lands on the brief; Chat
+  Assistant's own <memedits> / <wiedits> tags are read as the brief and the shelf; (4) an open tag
+  with no close is a block only when JSON follows it — "it would be a <brief> card" in prose used to
+  be stripped from the talk from the tag to the end. m75-6. 339/339 + 28/28 (×2).
+  version.js -> m75-003. NEXT TIME: open "What it said, whole" under the failing answer and read
+  it before diagnosing anything.

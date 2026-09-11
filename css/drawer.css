@@ -532,6 +532,9 @@
 .hk-bubble .hk-acts .hk-act.hk-dim { opacity: 0.35; }
 .hk-bubble .hk-swipe-count { font-variant-numeric: tabular-nums; }
 .hk-receipt { font-size: 0.78rem; color: var(--text-2); align-self: stretch; }
+.hk-raw { align-self: stretch; font-size: 0.78rem; color: var(--text-2); }
+.hk-raw summary { cursor: pointer; }
+.hk-raw .hk-viewer { max-height: 40vh; margin-top: 4px; }
 .hk-receipt.hidden { display: none; }
 
 /* M65 — the sheet's controls are buttons, not scattered words (Chat Assistant's cc_btn) */

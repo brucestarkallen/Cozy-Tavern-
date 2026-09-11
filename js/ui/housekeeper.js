@@ -452,6 +452,18 @@ export function initHousekeeper(ctx) {
     session.turns.forEach((turn, i) => {
       if (turn.text) thread.append(bubble(turn.role, turn.text, i, turn));
       if (turn.thinking) thread.append(thinkingFold(turn.thinking));
+      /* M75-003: what it said, whole — the blocks the talk hides, and the rounds it took */
+      if (turn.role === 'housekeeper' && turn.raw) {
+        const det = document.createElement('details');
+        det.className = 'hk-raw';
+        const sum = document.createElement('summary');
+        sum.textContent = 'What it said, whole' + (turn.rounds ? ' (' + turn.rounds + (turn.rounds === 1 ? ' round' : ' rounds') + ' of back-and-forth first)' : '');
+        const pre = document.createElement('pre');
+        pre.className = 'hk-viewer';
+        pre.textContent = turn.raw;
+        det.append(sum, pre);
+        thread.append(det);
+      }
       /* M64: done cards leave a one-line receipt in the talk; the live ones stand in the cards box */
       for (const p of (turn.proposals || [])) {
         if (p.status === 'pending' || p.status === 'refused') continue;

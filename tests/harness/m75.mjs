@@ -104,3 +104,34 @@ test('M75-5 the pot: Chat Assistant’s 8192 as a floor the connection cannot lo
   eq(pots2[1], 16384);
   assert(/^\[ANSWER NOW\]/.test(sent2[1]) && wire2.some((c) => /<previous_reasoning>/.test(c)), 'the reasoning fed back, the answer demanded');
 });
+
+test('M75-6 nothing is lost in silence: what it said is kept whole; an unreadable block is a refused card and is asked for once as plain JSON; a brief edit in the pages block lands on the brief; a tag spoken in prose is prose', async () => {
+  const { parseProtocol: pp, stageProposals: sp, housekeeperTurn, loadSession, unclosedBlock } = await import('../../js/agents/housekeeper.js');
+  const { db } = await import('../../js/store.js');
+  /* unreadable */
+  const u = pp('Fixed it.\n<brief>\nfield: brief, find: Alexia (20), replace: Alexia (19)\n</brief>');
+  eq(u.brief.length, 0); eq(u.unreadable.length, 1); eq(u.unreadable[0].tag, 'brief');
+  const cards = sp(u, { messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, story });
+  assert(cards.length === 1 && cards[0].kind === 'unreadable' && cards[0].status === 'refused' && /could not be read/.test(cards[0].label) && /field: brief, find/.test(cards[0].words), JSON.stringify(cards[0]));
+  /* the wrong block, the right surface */
+  const w = pp('<edits>[{"field":"brief","find":"Alexia (20)","replace":"Alexia (19)"},{"id":"#abc","find":"a","replace":"b"}]</edits><memedits>[{"field":"cast","append":"Kim — the neighbor."}]</memedits><wiedits>[{"add":true,"name":"X","keys":["x"],"content":"y"}]</wiedits>');
+  eq(w.edits.length, 1, 'the page edit stays a page edit'); eq(w.brief.length, 2, 'the brief edit and the memedit land on the brief'); eq(w.brief[1].field, 'cast'); eq(w.lore.length, 1, 'Chat Assistant’s worldbook tag is the shelf');
+  /* prose that names a tag is prose */
+  const pr = pp('No — the brief says 20. Say the word and it would be a <brief> card.');
+  eq(pr.unreadable.length, 0); assert(/would be a <brief> card\.$/.test(pr.text), pr.text);
+  assert(!unclosedBlock('it would be a <brief> card') || true, 'unclosedBlock is for the cut check only');
+  /* the round */
+  const sent = [];
+  const call = async ({ messages }) => { sent.push(messages[messages.length - 1].content); return { text: sent.length === 1 ? 'Fixed.\n<brief>\nfield: brief, find: Alexia (20)\n</brief>' : 'Fixed.\n<brief>[{"field":"brief","find":"Alexia (20)","replace":"Alexia (19)"}]</brief>' }; };
+  const r = await runConversation({ story, messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, writerText: 'change the brief: Alexia is 19', contextPages: 8, call });
+  assert(r.ok && r.parsed.brief.length === 1 && /^\[UNREADABLE BLOCK\]/.test(sent[1]), sent[1] && sent[1].slice(0, 60));
+  /* what it said, whole, on the turn */
+  const st = await db.stories.create({ title: 'Raw' });
+  await db.stories.update(st.id, { brief: 'Alexia (20), the eldest.' });
+  const t = await housekeeperTurn({ storyId: st.id, writerText: 'change the brief: Alexia is 19', connection: { type: 'openai' }, call: async () => ({ text: 'Here.\n<brief>[{"field":"brief","find":"Alexia (20)","replace":"Alexia (19)"}]</brief>' }) });
+  assert(t.ok, t.error);
+  const sess = await loadSession(st.id);
+  const last = sess.turns[sess.turns.length - 1];
+  assert(/<brief>\[/.test(last.raw), 'the raw answer, blocks and all, is on the turn');
+  eq(last.text, 'Here.', 'the talk shows the words without the block');
+});

@@ -79,6 +79,7 @@ export const LORE_SHOW_CAP = 4000; /* M74: a lore entry is shown whole up to thi
  * statement where a card should have been. The housekeeper's pot is never smaller
  * than this, whatever the connection says. */
 export const HK_MAX_TOKENS = 8192;
+export const RAW_KEEP_CAP = 24000; /* M75-003: chars of the model's whole answer kept on the turn */
 export const FETCH_PAGE_CAP = 0;
 export function formatPage(msg) {
   const speaker = msg.role === 'assistant' ? 'the storyteller' : 'the writer';
@@ -334,6 +335,10 @@ function innerBlocks(text, tag) {
     if (at === -1) break;
     const bodyStart = at + open.length;
     const endAt = lower.indexOf(close, bodyStart);
+    /* M75-003: an open tag with no close is a block only when JSON follows it —
+     * "it would be a <brief> card" is prose, not a cut-off block (it used to be
+     * stripped from the talk from the tag to the end of the answer) */
+    if (endAt === -1 && !/^\s*[\[{]/.test(s.slice(bodyStart))) { from = bodyStart; continue; }
     out.push({
       start: at,
       end: endAt === -1 ? s.length : endAt + close.length,
@@ -487,10 +492,15 @@ function parseLabels(body) {
  * what the panel bubble shows. Never throws. */
 export function parseProtocol(raw) {
   const source = String(raw == null ? '' : raw);
-  const out = { edits: [], ledits: [], redits: [], lore: [], record: [], brief: [], fetch: [], supersede: [], fetchMalformed: false, text: '' };
+  const out = { edits: [], ledits: [], redits: [], lore: [], record: [], brief: [], fetch: [], supersede: [], fetchMalformed: false, unreadable: [], text: '' };
+  /* M75-003: a brief edit written into the pages block (field brief/cast, no page
+   * id) lands where it belongs; Chat Assistant's own tag names are read too. */
+  const isBriefOp = (item) => item && typeof item === 'object' && !item.id && !item.messageId
+    && /^(brief|cast|castnotes|cast notes|notepad|premise)$/i.test(String(item.field || item.path || '').trim());
+  const ALIAS = { memedits: 'brief', wiedits: 'lore', bedits: 'brief' };
   try {
     const spans = [];
-    for (const tag of ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'fetch', 'supersede']) {
+    for (const tag of ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'memedits', 'wiedits', 'bedits', 'fetch', 'supersede']) {
       for (const block of innerBlocks(source, tag)) {
         spans.push(block);
         if (tag === 'fetch') {
@@ -501,11 +511,19 @@ export function parseProtocol(raw) {
         } else if (tag === 'supersede') {
           out.supersede.push(...parseLabels(block.body));
         } else {
+          const key = ALIAS[tag] || tag;
           const parsed = tolerantJson(block.body);
           const list = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+          let landed = 0;
           for (const item of list) {
-            if (item && typeof item === 'object' && !Array.isArray(item)) out[tag].push(item);
+            if (!(item && typeof item === 'object' && !Array.isArray(item))) continue;
+            landed += 1;
+            if (key === 'edits' && isBriefOp(item)) out.brief.push({ ...item, field: /cast/i.test(String(item.field || item.path || '')) ? 'cast' : 'brief' });
+            else out[key].push(item);
           }
+          /* M75-003: a block that came with words in it and yielded nothing is
+           * UNREADABLE — said so, never dropped in silence */
+          if (!landed && String(block.body || '').trim()) out.unreadable.push({ tag, body: String(block.body).trim().slice(0, 300) });
         }
       }
     }
@@ -860,6 +878,8 @@ function cleanTurns(list) {
       ts: Number.isFinite(t.ts) ? t.ts : 0,
       ...(Array.isArray(t.proposals) ? { proposals: t.proposals } : {}),
       ...(typeof t.thinking === 'string' && t.thinking ? { thinking: t.thinking } : {}),
+      ...(typeof t.raw === 'string' && t.raw ? { raw: t.raw } : {}),
+      ...(Number.isFinite(t.rounds) ? { rounds: t.rounds } : {}),
       /* M73: an answer's versions ride with it */
       ...(Array.isArray(t.swipes) && t.swipes.length ? { swipes: t.swipes.filter((v) => v && typeof v.text === 'string'), swipeIdx: Number.isInteger(t.swipeIdx) ? t.swipeIdx : t.swipes.length - 1 } : {}),
     }));
@@ -1019,7 +1039,7 @@ export async function truncateForRetry(storyId, index) {
 export function versionsOf(turn) {
   if (!turn) return [];
   if (Array.isArray(turn.swipes) && turn.swipes.length) return turn.swipes;
-  return [{ text: turn.text, thinking: turn.thinking, proposals: turn.proposals }];
+  return [{ text: turn.text, thinking: turn.thinking, proposals: turn.proposals, raw: turn.raw }];
 }
 export async function keepVersions(storyId, index, previous) {
   const root = await loadSessionRoot(storyId);
@@ -1027,7 +1047,7 @@ export async function keepVersions(storyId, index, previous) {
   const turn = cur && cur.turns[index];
   if (!turn || turn.role !== 'housekeeper') return null;
   const old = previous ? versionsOf(previous) : [];
-  const now = { text: turn.text, thinking: turn.thinking, proposals: turn.proposals };
+  const now = { text: turn.text, thinking: turn.thinking, proposals: turn.proposals, raw: turn.raw };
   turn.swipes = [...old.map((v) => JSON.parse(JSON.stringify(v))), now];
   turn.swipeIdx = turn.swipes.length - 1;
   await saveSessionRoot(storyId, root);
@@ -1042,9 +1062,10 @@ export async function walkVersion(storyId, index, dir) {
   const next = at + dir;
   if (next < 0 || next >= turn.swipes.length) return null;
   const v = turn.swipes[next];
-  turn.text = v.text; turn.thinking = v.thinking; turn.proposals = v.proposals; turn.swipeIdx = next;
+  turn.text = v.text; turn.thinking = v.thinking; turn.proposals = v.proposals; turn.raw = v.raw; turn.swipeIdx = next;
   if (!turn.proposals) delete turn.proposals;
   if (!turn.thinking) delete turn.thinking;
+  if (!turn.raw) delete turn.raw;
   await saveSessionRoot(storyId, root);
   return loadSession(storyId);
 }
@@ -1274,6 +1295,11 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       words: '',
       review: [{ target: 'mod:' + mod.id, hash: moduleHashOf(mod) }],
     });
+  }
+
+  /* M75-003: an unreadable block is a card the writer can see, refused with its reason */
+  for (const u of (parsed && Array.isArray(parsed.unreadable) ? parsed.unreadable : [])) {
+    proposals.push({ id: uid(), ts: Date.now(), kind: 'unreadable', label: 'a <' + u.tag + '> block that could not be read', reason: '', op: { tag: u.tag }, status: 'refused', words: 'it was in the answer but is not JSON the house can read (it began: “' + u.body.slice(0, 160).replace(/\s+/g, ' ') + '”) — the housekeeper was asked once to re-send it', review: [] });
   }
 
   /* M74: the brief and the cast notes */
@@ -2034,6 +2060,7 @@ export async function runConversation({
     let sweptRipple = false;
     let nudgedBrief = false;
     let nudgedNoBlock = false;
+    let nudgedUnreadable = false;
     let pot = HK_MAX_TOKENS;
     let recoveredThinking = false;
     let recoveredCut = false;
@@ -2134,6 +2161,14 @@ export async function runConversation({
         wire.push({ role: 'user', content: '[ANCHOR CHECK] These finds do not match the page as it stands (checked with the same matcher Apply uses):\n' + misses.map((x) => '- ' + x.ref + ': “' + x.find.slice(0, 120) + '” — ' + x.why).join('\n') + '\nRe-send your whole answer with each find copied exactly from the page (quote more of it if it could land in two places); keep the proposals that were fine.' });
         continue;
       }
+      /* M75-003: a block came that could not be read — asked once for the same
+       * block as plain JSON; if it still cannot be read, the card says so */
+      if (!nudgedUnreadable && parsed.unreadable.length) {
+        nudgedUnreadable = true;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: '[UNREADABLE BLOCK] ' + parsed.unreadable.map((u) => 'Your <' + u.tag + '> block could not be read as JSON — it began: “' + u.body.slice(0, 120) + '”.').join(' ') + ' Re-send your whole answer with each block holding a plain JSON array of objects and nothing else inside the tags — no fences, no comments, no trailing words — for example <brief>[{"field":"brief","find":"the exact words","replace":"the new words","reason":"why"}]</brief>. Keep every proposal you stand by.' });
+        continue;
+      }
       /* M75: the writer asked THE BRIEF or THE CAST NOTES to change and no <brief>
        * block came — whatever else came (a canon lock, a lore entry, a "standing
        * rule"), the brief itself was not touched. Once. */
@@ -2214,6 +2249,9 @@ export async function housekeeperTurn({
     };
     if (proposals.length) turn.proposals = proposals;
     if (result.thinking) turn.thinking = result.thinking;
+    /* M75-003: what it said, WHOLE — blocks and all — so a lost card is never a mystery */
+    turn.raw = String(result.raw || '').slice(0, RAW_KEEP_CAP);
+    if (result.fetchRounds) turn.rounds = result.fetchRounds;
     session.turns.push(turn);
     await saveSession(storyId, session);
     return {
