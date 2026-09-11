@@ -430,6 +430,6 @@ test('M98-1 the world can reach the scene by phone, text or note, and the people
   const { buildWorldMessages } = await import('../../js/agents/world.js');
   const m = buildWorldMessages({ state: emptyState(), userText: 'I wait.', assistantText: 'The kettle clicks.' });
   assert(/a CALL, a TEXT or a[\s\S]{1,8}NOTE from an absent person with a live want/.test(m.system), 'a call or a text is a pressure');
-  assert(/A person need not walk to the scene to reach it/.test(m.system));
+  assert(/A person need not[\s\S]{1,8}walk to the scene to reach it/.test(m.system), 'reach without walking');
   assert(/talks to someone off the page[\s\S]*that someone exists from then on/.test(m.system), 'the friend talked to becomes a person');
 });
