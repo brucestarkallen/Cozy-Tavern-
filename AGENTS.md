@@ -2580,3 +2580,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   does; with no brief there is no founder) — without a named main character the eye cannot
   convict a ghost line, by design.
 - M88-1/2 (m85.mjs), LONG-7. 368/368 + 29/29 + 7/7. version.js -> m88-001.
+
+---
+
+# M89 — the reset also puts the rulebook back as shipped (a fork from an older coat shadowed every law since)
+- FIELD REPORT: "is there a reset button for every setting except connections?" There was (M42:
+  Settings → "Reset every setting"); it cleared every settings key and put the regex shelf's
+  builtins back while keeping the writer's own rules — but it left the RULEBOOK alone, so a fork
+  of the craft made under M36 (or a pin on a builtin) would keep shadowing the shipped text
+  through M85-M88. Now the reset lifts every fork of a builtin (the craft, the intimate rule, the
+  window rule ride as shipped again) and clears pins on builtins; a rule of the writer's own
+  stays, pinned as it was — the same law the regex shelf already kept. Connections, worker
+  assignments, stories and every ledger stay untouched. The confirm and the note say so.
+- DOM-13b extended. 368/368 + 29/29 + 7/7. version.js -> m89-001.

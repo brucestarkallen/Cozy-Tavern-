@@ -914,9 +914,20 @@ test('DOM-13b reset to the house’s defaults: settings go back, connections and
   const stories = (await db.stories.list()).length;
   const sid = await storyId();
   const stateBefore = await db.settings.get('state:' + sid);
+  /* M89: a fork of the craft from an older coat, a pinned builtin, and a rule of my own */
+  const { saveModule, listModules } = await import('../../js/assemble/modules.js');
+  await saveModule({ id: 'core-craft', name: 'The craft', text: 'my old fork of the craft', pinned: false });
+  const spect = (await listModules()).find((m) => m.id === 'spectacle-combat');
+  await saveModule({ id: 'spectacle-combat', name: spect.name, text: spect.text, pinned: true, whenKey: 'manual' });
+  const mine = await saveModule({ name: 'My own rule', text: 'mine', whenKey: 'manual', pinned: true });
   await openSettings();
   click(q('#btn-reset-settings'));
   await until(() => !q('#reset-note').hidden, 'the reset note');
+  const modsAfter = await listModules();
+  eq(modsAfter.find((m) => m.id === 'core-craft').source, 'builtin', 'the craft rides as shipped again — the old fork is lifted');
+  eq(modsAfter.find((m) => m.id === 'spectacle-combat').pinned, false, 'a pin on a builtin is cleared');
+  const mineAfter = modsAfter.find((m) => m.id === mine.id);
+  assert(mineAfter && mineAfter.pinned === true && mineAfter.text === 'mine', 'my own rule stays, pinned');
   eq(await db.settings.get('memoryWindow'), undefined, 'the window is back at its default');
   eq(await db.settings.get('auditEvery'), undefined);
   eq(await db.settings.get('colourSpeech'), undefined);

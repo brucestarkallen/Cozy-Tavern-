@@ -2005,6 +2005,16 @@ export function initSettings(ctx) {
     const kept = rules.filter((r) => !r.builtin);
     await saveRules(kept);
     await loadRules(); /* re-seeds every builtin untouched */
+    /* M89: the rulebook, by the same law — a fork of a builtin (the craft, the
+     * intimate rule, the window rule) is lifted so the SHIPPED text rides again
+     * (a fork from an older coat would otherwise shadow every law since); pins
+     * on builtins are cleared; the writer's own rules stay, pins and all. */
+    try {
+      const mods = await listModules();
+      for (const m of mods) {
+        if (!m.custom && (m.overridden || m.pinned)) await removeModule(m.id);
+      }
+    } catch (err) { /* a rulebook that will not read is left as it is */ }
     ctx.setTheme('dark');
     document.body.classList.remove('plain-speech');
     await onShow();
@@ -2013,9 +2023,9 @@ export function initSettings(ctx) {
   }
 
   els.btnResetSettings.addEventListener('click', async () => {
-    if (!window.confirm('Reset every setting to the house’s defaults? Connections, stories and everything in them stay.')) return;
+    if (!window.confirm('Reset every setting to the house’s defaults? Connections, stories and everything in them stay; your own rules stay; the shipped craft and rules come back as shipped.')) return;
     await resetSettings();
-    say(els.resetNote, 'Every setting is back at the house’s recommended default. Connections, worker assignments and stories were not touched.');
+    say(els.resetNote, 'Every setting is back at the house’s recommended default; the shipped craft and rules ride as shipped. Connections, worker assignments, stories and your own rules were not touched.');
   });
 
   /* ---------- backup ---------- */
