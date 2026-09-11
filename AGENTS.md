@@ -2368,3 +2368,33 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   resume cursor; #opt / #cl as full passes (they exist as tools); structure scanning in code
   (scanMessageStructure); pause switches for director/editor injection; end-season residue audit.
 - m83.mjs (4 checks). 356/356 + 29/29 (×2). version.js -> m83-001.
+
+---
+
+# M84 — Chat Assistant's code read end to end; the last of its solved problems ported
+- FIELD REPORT: "have you analysed EVERYTHING about Chat Assistant?" — the documented list, yes
+  (M83); the code line by line, no. Done now: every function of index.js (6,557 lines) walked by
+  its index, the regions not yet read read whole — defaults, the send flow, swipes on its bubbles
+  (the tavern's M73-002 already matched), settings migration, the memedit rules, the chat-edit
+  extras, the message-text rules, the viewers, reconcileHidden, scrubEpisodeMarkers, the ledger
+  purge. What the tavern still lacked, ported:
+  1. EDITABLE VIEWERS (showViewer's onSave): the directive and the editor's standing notes open
+     in the pop-up as text you can change — Save keeps it, saving empty clears it.
+  2. A FETCH ROUND SERVES TWELVE pages whole (was four; Chat Assistant's cap is 30 — with the
+     record riding whole above, twelve keeps the room), the rest named back.
+  3. TWO THINKING RETRIES (thinkRetries 2), the pot doubling each time — was one.
+  4. Prompt laws from MESSAGE_TEXT_RULES / CHAT_EDIT_EXTRAS / MEMEDIT_RULES the tavern's prompt
+     did not state: HOW A PAGE IS SERVED (COMPLETE means complete; structural claims only from a
+     COMPLETE copy; a find/replace removes only what it matched — cut a tail by quoting it or
+     re-ink the page whole); ONLY WHAT YOU CAN SEE (never invent the "wrong" words, never fix an
+     inferred contradiction; a repair that did not hold means re-read the current text, never
+     stack blind snips); LARGE CHANGES are several small edits, one consolidated edit per line;
+     THE TALK CONTINUES (discuss, then propose the improved version; no need to resend what
+     stands); THE WRITER'S OWN PAGES only when asked by name; blocks named without angle brackets
+     in prose; VALID JSON rules.
+  NOT PORTED, and why: reconcileHidden / autoRehide (SillyTavern-only — other extensions unhide
+  messages there; nothing else touches hidden pages here); the SillyTavern worldbook API shapes
+  (the lore shelf is the tavern's own); the deep audit, #opt/#cl passes, structure scanning,
+  injection-pause switches, end-season audit (features, M60/M83). Everything Chat Assistant solved
+  for the writer's correctness is in the tavern now; that sentence can be held to.
+- M84-1. 357/357 + 29/29 (×2). version.js -> m84-001.

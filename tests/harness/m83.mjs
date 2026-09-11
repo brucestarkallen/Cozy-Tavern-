@@ -78,3 +78,19 @@ test('M83-4 the stall watchdog and the session-that-asked law are wired in the U
   assert(/sessionStoryId !== story\.id \|\|/.test(ui) && /answered in the session that asked/.test(ui), 'a reply for another story or session is not drawn here');
   assert(/The whole page, re-inked:/.test(ui), 'the whole-page card');
 });
+
+test('M84-1 the last of Chat Assistant’s list: editable viewers (directive, editor’s notes: Save, empty clears), a fetch round serves twelve, two thinking retries, and the remaining prompt laws', async () => {
+  const src = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  const prompt = src.slice(src.indexOf('const SYSTEM_PROMPT = ['), src.indexOf("].join('\\n');", src.indexOf('const SYSTEM_PROMPT = [')));
+  for (const w of ['HOW A PAGE IS SERVED', 'COMPLETE', 'ONLY WHAT YOU CAN SEE', 'never stack blind snips', 'LARGE CHANGES are several smaller', 'THE TALK CONTINUES', 'THE WRITER’S OWN PAGES', 'without their angle brackets', 'VALID JSON in']) assert(prompt.includes(w), 'the prompt says: ' + w);
+  assert(/export const FETCH_REF_CAP = 12;/.test(src) && /refs\.slice\(0, FETCH_REF_CAP\)/.test(src), 'twelve per round');
+  assert(/export const THINK_RETRIES = 2;/.test(src) && /thinkRetries < THINK_RETRIES/.test(src), 'two thinking retries');
+  /* the second thinking retry rides */
+  const { runConversation } = await import('../../js/agents/housekeeper.js');
+  const pots = [];
+  const call = async ({ maxTokens }) => { pots.push(maxTokens); return pots.length < 3 ? { text: '', thinking: 'still thinking…' } : { text: 'Here.', thinking: '' }; };
+  const r = await runConversation({ story: { title: 'T', brief: '' }, messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, writerText: 'is it done?', contextPages: 8, call });
+  assert(r.ok, r.error); eq(pots.join(','), '8192,16384,32768', 'the pot doubles twice');
+  const ui = readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
+  assert(/function viewer\(title, text, onSave\)/.test(ui) && /hk-pop-save/.test(ui) && /saveDirector\(story\.id, \{ text: String\(t \|\| ''\)\.trim\(\), concluded: false \}\)/.test(ui) && /saveEditor\(story\.id, \{ critique:/.test(ui), 'the directive and the editor’s notes open editable, Save keeps, empty clears');
+});

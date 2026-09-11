@@ -235,7 +235,7 @@ export function initHousekeeper(ctx) {
   /* M77: a viewer is a POP-UP (Chat Assistant's popup), never a fold dumped into
    * the talk — the full context, the raw ledger, the notes, the directive, the
    * shortcuts open over the sheet with Copy and Close; Esc closes it first. */
-  function viewer(title, text) {
+  function viewer(title, text, onSave) {
     let pop = document.getElementById('hk-pop');
     if (!pop) {
       pop = document.createElement('div');
@@ -243,7 +243,7 @@ export function initHousekeeper(ctx) {
       pop.className = 'hk-pop';
       pop.setAttribute('role', 'dialog');
       pop.setAttribute('aria-modal', 'true');
-      pop.innerHTML = '<div class="hk-pop-card"><div class="hk-pop-head"><h3 class="hk-pop-title"></h3><button type="button" class="text-btn hk-pop-copy">⧉ Copy</button><button type="button" class="text-btn hk-pop-close" aria-label="Close">✕</button></div><pre class="hk-viewer hk-pop-body"></pre></div>';
+      pop.innerHTML = '<div class="hk-pop-card"><div class="hk-pop-head"><h3 class="hk-pop-title"></h3><button type="button" class="text-btn hk-pop-save" hidden>Save</button><button type="button" class="text-btn hk-pop-copy">⧉ Copy</button><button type="button" class="text-btn hk-pop-close" aria-label="Close">✕</button></div><pre class="hk-viewer hk-pop-body"></pre><textarea class="hk-viewer hk-pop-edit" rows="14" hidden></textarea></div>';
       pop.addEventListener('click', (e) => { if (e.target === pop) closeViewer(); });
       pop.querySelector('.hk-pop-close').addEventListener('click', closeViewer);
       pop.querySelector('.hk-pop-copy').addEventListener('click', async () => {
@@ -253,9 +253,21 @@ export function initHousekeeper(ctx) {
       document.body.appendChild(pop);
     }
     pop.querySelector('.hk-pop-title').textContent = title;
-    pop.querySelector('.hk-pop-body').textContent = text;
+    /* M84: Chat Assistant's showViewer(title, text, onSave) — the directive and
+     * the editor's notes open editable: Save keeps the words, saving empty
+     * deletes them */
+    const body = pop.querySelector('.hk-pop-body');
+    const edit = pop.querySelector('.hk-pop-edit');
+    const save = pop.querySelector('.hk-pop-save');
+    const editable = typeof onSave === 'function';
+    body.textContent = text;
+    body.hidden = editable;
+    edit.hidden = !editable;
+    save.hidden = !editable;
+    edit.value = editable ? text : '';
+    save.onclick = editable ? async () => { try { await onSave(edit.value); toast(edit.value.trim() ? 'Saved.' : 'Cleared.'); closeViewer(); } catch (err) { toast('It wouldn’t save: ' + ((err && err.message) || 'unknown')); } } : null;
     pop.hidden = false;
-    pop.querySelector('.hk-pop-close').focus();
+    (editable ? edit : pop.querySelector('.hk-pop-close')).focus();
   }
   function closeViewer() {
     const pop = document.getElementById('hk-pop');
@@ -1026,7 +1038,12 @@ export function initHousekeeper(ctx) {
     if (busy) return;
     const story = await ensureSession();
     if (!story) { toast('Open a story first.'); return; }
-    if (which === 'peek') { const d = await loadDirector(story.id); viewer(d.text ? 'The directive for episode ' + d.episode + ' (spoiler)' : 'No episode stands', d.text || '—'); return; }
+    if (which === 'peek') {
+      const d = await loadDirector(story.id);
+      const { saveDirector } = await import('../agents/director.js');
+      viewer(d.text ? 'The directive for episode ' + d.episode + ' (spoiler) — edit and Save; save empty to let it go' : 'No episode stands — write one and Save', d.text || '', async (t) => { await saveDirector(story.id, { text: String(t || '').trim(), concluded: false }); await refreshStatusLine(); });
+      return;
+    }
     if (which === 'off') { const r = await directorOff(story.id); thread.append(bubble('housekeeper', r.words)); refreshStatusLine(); return; }
     const connection = await resolveWorkerConnection(story);
     if (!connection) { toast('No connection yet.'); return; }
@@ -1091,7 +1108,18 @@ export function initHousekeeper(ctx) {
     else if (act === 'dir-peek') await directorTool('peek');
     else if (act === 'dir-ideas') await directorTool('ideas');
     else if (act === 'dir-off') { if (window.confirm('Stand the director down and clear the episode?')) await directorTool('off'); }
-    else if (act === 'crit-peek') { const ed = await loadEditor(story.id); viewer('The editor’s standing notes', renderEditorNote(ed) || '(none yet)'); }
+    else if (act === 'crit-peek') {
+      const ed = await loadEditor(story.id);
+      const { saveEditor } = await import('../agents/editor.js');
+      const notes = ed && ed.critique ? [ed.critique.northStar ? 'NORTH STAR: ' + ed.critique.northStar : '', ...(ed.critique.notes || []).map((n, i) => (i + 1) + '. ' + n)].filter(Boolean).join('\n') : '';
+      viewer('The editor’s standing notes — edit and Save; save empty to clear them', notes, async (t) => {
+        const lines = String(t || '').split('\n').map((l) => l.trim()).filter(Boolean);
+        const star = lines.find((l) => /^NORTH STAR:/i.test(l));
+        const rest = lines.filter((l) => !/^NORTH STAR:/i.test(l)).map((l) => l.replace(/^\d+[.)]\s*/, ''));
+        await saveEditor(story.id, { critique: (star || rest.length) ? { northStar: star ? star.replace(/^NORTH STAR:\s*/i, '') : '', notes: rest, at: Date.now() } : null });
+        await refreshStatusLine();
+      });
+    }
     else if (act === 'name-story') await nameStory(true);
     else if (act === 'rename-story') await nameStory(false);
     else if (act === 'rules') { const r = document.getElementById('hk-rules'); r.hidden = !r.hidden; if (!r.hidden) r.open = true; }

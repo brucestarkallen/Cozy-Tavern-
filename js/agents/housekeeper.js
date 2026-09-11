@@ -61,6 +61,8 @@ const SESSION_PREFIX = 'hk:';
 const SESSION_TURNS_CAP = 60;
 export const UNDO_CAP = 50;
 export const MAX_FETCH_ROUNDS = 3;
+export const FETCH_REF_CAP = 12; /* M84: pages served whole per fetch round (was 4; Chat Assistant's is 30 — with the record whole above, 12 keeps the room) */
+export const THINK_RETRIES = 2; /* M84: Chat Assistant's thinkRetries — a pot eaten by thinking is retried up to twice, larger each time */
 export const DEFAULT_CONTEXT_PAGES = 12;
 const CONTEXT_PAGES_MIN = 4;
 const CONTEXT_PAGES_MAX = 40;
@@ -780,6 +782,29 @@ const SYSTEM_PROMPT = [
   'to what, and why; then what you found while in there; then the sweep with',
   'numbers. If a find-and-replace could have produced your reply, the thinking is',
   'not finished.',
+  'HOW A PAGE IS SERVED. A served page carries its exact character count and COMPLETE —',
+  'you hold it first character to last; if it ends at a closing tag, the page ends',
+  'there. A structural claim ("two blocks", "junk after the tag") is made only from a',
+  'COMPLETE copy, never from the one-line index. A find/replace removes only what it',
+  'matched; to cut a tail, quote the whole tail, or re-ink the page whole (no find).',
+  'ONLY WHAT YOU CAN SEE. Propose a find/replace only for words you can see verbatim',
+  'right now — in what is above, or in a page you fetched. Never invent the "wrong"',
+  'words, and never fix a contradiction you merely inferred; correct what is written.',
+  'If a repair did not hold, re-read the CURRENT complete text before proposing',
+  'again — never stack blind snips.',
+  'LARGE CHANGES are several smaller find/replace edits, section by section, in one',
+  'block — never one huge replace. When several fixes touch the SAME line, prefer one',
+  'consolidated edit: applying one changes the words a later find looks for.',
+  'THE TALK CONTINUES. The writer may discuss a card before applying it; asked to',
+  'reconsider, propose the improved version in a new block — it joins the earlier',
+  'ones (an identical or refined re-proposal retires the old card on its own). You',
+  'need not resend proposals that stand unchanged.',
+  'THE WRITER’S OWN PAGES are re-inked only when the writer asks for them by name.',
+  'IN PROSE, name blocks without their angle brackets ("the brief block", "an edits',
+  'block", "a fetch") — the literal tags wrap JSON only, never words. VALID JSON in',
+  'every block: double quotes on names and strings, every line break inside a value',
+  'written as \\n, a quote inside a value escaped, no comments, no trailing commas, no',
+  'fences — one stray character loses the whole block.',
   'BLOCKS FIRST. Put every block at the top of your answer and the words after it —',
   'if an answer is ever cut short, the cards must survive, not the chatter. Keep the',
   'words short and concrete; the cards carry the work.',
@@ -2262,7 +2287,7 @@ export async function callModel(connection, { system, messages, maxTokens, signa
 /* The pages a <fetch> asked for, served whole (capped). */
 function serveFetch(refs, messages, { modules = [], lore = [] } = {}) {
   const lines = [];
-  for (const ref of refs.slice(0, 4)) {
+  for (const ref of refs.slice(0, FETCH_REF_CAP)) {
     /* M74: a rule or a lore entry, served whole by name */
     const named = /^(rule|lore):\s*(.+)$/i.exec(String(ref).trim());
     if (named) {
@@ -2284,7 +2309,7 @@ function serveFetch(refs, messages, { modules = [], lore = [] } = {}) {
     lines.push(formatPage(msg));
   }
   /* M61 (v2.72): over-cap ids are named back, never dropped */
-  if (refs.length > 4) lines.push('Not served this round (ask again for them): ' + refs.slice(4).join(', '));
+  if (refs.length > FETCH_REF_CAP) lines.push('Not served this round (ask again for them): ' + refs.slice(FETCH_REF_CAP).join(', '));
   return lines.join('\n\n');
 }
 
@@ -2367,7 +2392,7 @@ export async function runConversation({
     let nudgedNoBlock = false;
     let nudgedUnreadable = false;
     let pot = HK_MAX_TOKENS;
-    let recoveredThinking = false;
+    let thinkRetries = 0;
     let recoveredCut = false;
     /* M77: the thinking of EVERY round is kept — the follow-up to a nudge often
      * thinks little or not at all, and returning only the last round's threw
@@ -2407,8 +2432,8 @@ export async function runConversation({
       const cut = answer && /^(length|max_tokens)$/i.test(String(answer.finishReason || ''));
       /* M75-002: Chat Assistant's recovery — thinking ate the whole pot: feed the
        * reasoning back with a bigger pot and demand the answer itself. Once. */
-      if (!raw.trim() && thinking.trim() && !recoveredThinking) {
-        recoveredThinking = true;
+      if (!raw.trim() && thinking.trim() && thinkRetries < THINK_RETRIES) {
+        thinkRetries += 1;
         pot = pot * 2;
         wire.push({ role: 'assistant', content: '<previous_reasoning>\n' + thinking.slice(-12000) + '\n</previous_reasoning>' });
         wire.push({ role: 'user', content: '[ANSWER NOW] Your reasoning above used the whole room and no answer came. Do not reason again — write the answer itself: the blocks first, then a few plain words.' });
