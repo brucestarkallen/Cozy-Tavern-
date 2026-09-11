@@ -433,3 +433,40 @@ test('M98-1 the world can reach the scene by phone, text or note, and the people
   assert(/A person need not[\s\S]{1,8}walk to the scene to reach it/.test(m.system), 'reach without walking');
   assert(/talks to someone off the page[\s\S]*that someone exists from then on/.test(m.system), 'the friend talked to becomes a person');
 });
+
+test('M100-1 the ripple: one fact changed by an edit is made true everywhere — a name in code with word boundaries across the ledger, a value left to the mender', async () => {
+  const { factChange, isNameLike, replaceWord, hasWord, renameInState } = await import('../../js/agents/ripple.js');
+  const { applyMutations, undoLast } = await import('../../js/engine/apply.js');
+  eq(JSON.stringify(factChange('Kim sat by the fire.', 'Kris sat by the fire.')), '{"removed":"Kim","added":"Kris"}', 'a name changed, whole words');
+  eq(JSON.stringify(factChange('Her hair was black and long.', 'Her hair was silver and long.')), '{"removed":"black","added":"silver"}');
+  eq(factChange('same', 'same'), null);
+  eq(factChange('Kim sat by the fire and read.', 'Kris stood at the window and wept, then left the house for good.'), null, 'a rewrite is not a fact');
+  assert(isNameLike('Kris') && isNameLike('Rias Wells') && isNameLike('The House on Elm') && !isNameLike('black') && !isNameLike('19'));
+  eq(replaceWord('Kim, Kimberly and Kim’s coat', 'Kim', 'Kris'), 'Kris, Kimberly and Kris’s coat', 'word boundaries: Kimberly stands, the possessive follows');
+  assert(hasWord('a note for Kim.', 'Kim') && !hasWord('Kimberly', 'Kim'));
+  let st = emptyState();
+  st = applyMutations(st, [
+    { type: 'mc.set', name: 'Jovan' },
+    { type: 'presence.enter', name: 'Kim', position: 'by the door' },
+    { type: 'people.set', name: 'Kim', field: 'core', text: 'Jovan’s sister; Kim keeps the house' },
+    { type: 'rel.shift', name: 'Kim', axis: 'p', delta: 10, cause: 'the page' },
+    { type: 'canon.lock', name: 'Kim', key: 'hair', value: 'black' },
+    { type: 'knowledge.add', name: 'Rias', fact: 'saw Kim leave' },
+    { type: 'thread.set', title: 'Kim and the letter', owner: 'Kim', heat: 'hot', next: 'Kim will ask' },
+    { type: 'offscreen.set', name: 'Rias', location: 'the porch', activity: 'waiting for Kim' },
+  ]).state;
+  const r = applyMutations(st, [{ type: 'people.rename', from: 'Kim', to: 'Kris', cause: 'the writer’s edit' }]);
+  eq(r.rejected.length, 0, JSON.stringify(r.rejected));
+  const after = r.state;
+  assert(after.characters.Kris && !after.characters.Kim && /Kris keeps the house/.test(after.characters.Kris.core), 'the page moved and its words follow');
+  assert(after.relationships.Kris && after.relationships.Kris.p === 10 && !after.relationships.Kim, 'the standing moved');
+  assert(after.canon.Kris && !after.canon.Kim, 'the locks moved');
+  assert(after.present.some((p) => p.name === 'Kris') && !after.present.some((p) => p.name === 'Kim'), 'presence moved');
+  assert(/saw Kris leave/.test(after.knowledge.Rias[0].fact), 'a fact naming her follows');
+  assert(after.threads[0].owner === 'Kris' && after.threads[0].title === 'Kris and the letter' && /Kris will ask/.test(after.threads[0].next), 'the thread follows');
+  assert(/waiting for Kris/.test(after.offscreen.Rias.activity), 'an absent person’s note follows');
+  const back = undoLast(after);
+  assert(back && back.state.characters.Kim && !back.state.characters.Kris && back.state.relationships.Kim.p === 10, 'a rename is taken back whole');
+  assert(/the same name/.test(applyMutations(st, [{ type: 'people.rename', from: 'Kim', to: 'kim' }]).rejected[0].why));
+  assert(/nothing in the ledger/.test(applyMutations(st, [{ type: 'people.rename', from: 'Nobody', to: 'Someone' }]).rejected[0].why));
+});

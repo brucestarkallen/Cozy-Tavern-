@@ -24,7 +24,7 @@ export const WORKER_TIMEOUT_MS = 60000;
  * itself, and the two showrunners. */
 /* M12: the scribe joins the ledger — the quiet writer of the character
  * pages. */
-export const WORKER_NAMES = ['founder', 'eye', 'extractor', 'world', 'scribe', 'keeper', 'referee', 'continuity', 'auditor', 'housekeeper', 'director', 'editor'];
+export const WORKER_NAMES = ['founder', 'eye', 'extractor', 'world', 'scribe', 'keeper', 'referee', 'continuity', 'auditor', 'ripple', 'housekeeper', 'director', 'editor'];
 
 /* M46: what is running right now, and who wants to know. The drawer's
  * workers panel shows "reading now…" the moment a job starts and re-reads

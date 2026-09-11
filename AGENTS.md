@@ -2791,3 +2791,35 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   handed the new truth next turn). Unchanged words saved again run nothing. A brief changed by
   the housekeeper's own card is caught by the every-page audit within one turn. DOM-13a.
   374/374 + 31/31. version.js -> m99-001.
+
+---
+
+# M100 — THE RIPPLE: one fact changed by an edit is made true everywhere
+- FIELD REPORT: "if the housekeeper edits one of five texts that connect — a name, an age — is
+  the rest fixed? I want any edit to be autonomously fixed." It was not: the writer's hand edit
+  rippled nowhere, and the housekeeper's [RIPPLE] sweep was a nudge a model could ignore. Now an
+  edit is a statement of truth and the house makes the story agree with it (agents/ripple.js,
+  chat.js rippleAfterEdit — queued after the page's re-read so it is never rewound away):
+  1. factChange(before, after): what one edit changed as {removed, added} — the same word
+     changed everywhere on the page ("Liara" five times, possessives too) is ONE fact; a rewrite
+     is not a fact and ripples nothing.
+  2. A NAME-LIKE change is applied in code with word boundaries ("Kim" never touches "Kimberly",
+     "Kim’s" follows): the ledger through people.rename (every key and field — presence, page,
+     standing, locks, knowledge, threads, seats, factions; journaled, undoable whole), the
+     record's lines, the brief and the cast notes (the writer's own words follow the writer's
+     newest word), and every other storyteller page — each as a mend with its take-back.
+  3. ANY OTHER FACT (a colour, an age) goes to the mender page by page where the old words
+     stand, with the change spelled out; a [Correction] joins the record; the auditor is owed on
+     the next page and relocks the canon.
+  4. The housekeeper's landed page edits carry their before/after (applyProposal returns
+     `edited`) and ripple the same way, on arrival or on Apply.
+  The workers' line shows "the ripple" and what it changed. DOM-13c proves both paths through
+  the real readers (Liara → Mirela everywhere; black → silver on the other page and in the record).
+- M100-1 (m85.mjs). 375/375 + 32/32 + 8/8.
+
+# M101 — the record, readable and mended by hand (Summaryception's snippet browser)
+- FIELD REPORT: "where can I see the old messages' summaries?" The drawer's "Our story so far —
+  the record": every line, oldest to newest, with the pages it folds, its layer, the detail the
+  auditor kept beneath it, and the house's corrections; Rewrite (by hand) and Fold again (the
+  keeper re-folds those pages from their words) on every line; Let go on a correction.
+  version.js -> m101-001.

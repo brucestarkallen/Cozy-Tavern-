@@ -46,6 +46,7 @@ import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
 import { setPersonField, findPersonKey, mergeDeltas } from './people.js';
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
+import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES } from './world.js'; /* M29: the world beyond the page */
 
 const LOG_CAP = 200;
@@ -663,6 +664,20 @@ const HANDLERS = {
     state.characters[key] = { ...state.characters[key], retired: true, retiredAtTurn: turnOf(state) };
     return { words: key + ' passed through — ' + (capText(m.cause, 160) || 'no bond, no seat, no thread, and thirty turns gone') + '.', undo: { kind: 'people.restore', name: key, before } };
   },
+  /* M100: people.rename — a name changed by the writer's hand is changed
+   * everywhere the ledger holds it (keys and fields). Undoable whole. */
+  'people.rename'(state, m) {
+    const from = normalizeName(m.from); const to = normalizeName(m.to);
+    if (!from || !to) return { why: 'a rename needs the old name and the new' };
+    if (from.toLowerCase() === to.toLowerCase()) return { why: 'the same name' };
+    const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'threads', 'factions', 'sheet'];
+    const before = {};
+    for (const k of keys) before[k] = JSON.parse(JSON.stringify(state[k] === undefined ? null : state[k]));
+    const { state: renamed, count } = renameInState(state, from, to);
+    if (!count) return { why: 'nothing in the ledger is called ' + from };
+    for (const k of keys) if (renamed[k] !== undefined) state[k] = renamed[k];
+    return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 160) + ')' : '') + '.', undo: { kind: 'people.renamed', before } };
+  },
   /* M96: people.forget — a person who was never the story's (a leaked example,
    * a mistaken name) is erased for good: page, seat, standing, knowledge, locks,
    * presence. Undoable — the whole of it comes back on a take-back. */
@@ -1064,6 +1079,10 @@ function applyUndo(next, undo) {
       const b = undo.before || {};
       next.worldBrief = b.brief ? JSON.parse(JSON.stringify(b.brief)) : null;
       next.worldShown = Array.isArray(b.shown) ? b.shown.map((w) => ({ ...w })) : [];
+      ok = true;
+    } else if (undo.kind === 'people.renamed') {
+      const b = undo.before || {};
+      for (const [k, v] of Object.entries(b)) if (v !== null) next[k] = JSON.parse(JSON.stringify(v));
       ok = true;
     } else if (undo.kind === 'people.forgotten') {
       const b = undo.before || {};

@@ -29,7 +29,7 @@ const WORLD = JSON.stringify({ mutations: [
 
 /* the workers answer by what they were asked */
 house.state.mend = false;
-house.state.workerAnswer = (body, sys) => {
+const walkDefaultWorker = (body, sys) => {
   const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
   if (/mend a story/i.test(sys) || /<contradiction>/.test(user)) {
     /* the mender: change the one word, keep the page */
@@ -46,6 +46,7 @@ house.state.workerAnswer = (body, sys) => {
   if (/reading a story's past/i.test(sys)) return '{"deltas":[],"shifts":[]}';
   return '{"mutations":[],"deltas":[],"findings":[]}';
 };
+house.state.workerAnswer = walkDefaultWorker;
 
 const errorsSince = (n) => errors.slice(n);
 const assistantPages = () => qa('.msg-assistant');
@@ -985,6 +986,88 @@ test('DOM-13a a rewritten brief is held against the ledger at once — saving it
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-13c THE RIPPLE: a name changed by hand on one page is changed everywhere — the other pages, the ledger, the record, the brief — with no hand on it; a value goes to the mender and the record', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await settled();
+  /* the story's own readers put Liara in the ledger (journaled, as in play): a page is sent
+   * with a reader that seats her, writes her page, locks her hair and a fact about her */
+  await db.stories.update(sid, { brief: 'Jovan comes home. Liara is the neighbour; her hair is black.' });
+  const priorAnswer = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => {
+    const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+    if (/keep the ledger/i.test(sys)) {
+      return JSON.stringify({ mutations: [
+        { type: 'presence.enter', name: 'Liara', position: 'by the door' },
+        { type: 'people.set', name: 'Liara', field: 'core', text: 'the neighbour; Liara keeps the spare key' },
+        { type: 'canon.lock', name: 'Liara', key: 'hair', value: 'black' },
+        { type: 'knowledge.add', name: 'Jovan', fact: 'Liara has the spare key' },
+        { type: 'mode.snapshot', flags: [] },
+      ] });
+    }
+    if (/mend a story/i.test(sys) || /<contradiction>/.test(user)) {
+      const blocks = [...user.matchAll(/\[(\d+)\] \((STORY|PLAYER)\) ([\s\S]*?)(?=\n\n\[\d+\] \(|\n<\/passage>)/g)];
+      const hit = blocks.find((b) => b[2] === 'STORY' && /black hair/.test(b[3]));
+      return hit ? JSON.stringify([{ index: Number(hit[1]), text: hit[3].replace('black hair', 'silver hair') }]) : '[]';
+    }
+    return priorAnswer(body, sys);
+  };
+  house.state.storyAnswer = () => '[Lakeside Park — Friday, March 14, 2025 | 15:00 | 🌤 partly cloudy | gray hoodie | seated on bench]\n\nLiara sat down across from him. "Liara’s late again," she said of herself, and laughed. Her black hair caught the light.';
+  const n0 = assistantPages().length;
+  type(q('#composer-input'), 'I look up.'); submit(q('#composer'));
+  await until(() => assistantPages().length > n0, 'the page with Liara', 15000);
+  await settled();
+  const mem = await db.settings.get('memory:' + sid);
+  await db.settings.set('memory:' + sid, { ...(mem || { window: 30 }), nodes: [...((mem && mem.nodes) || []), { id: 'rl1', span: [0, 0], text: 'Liara watched him not eat.', level: 1, at: 1 }] });
+  const st0 = await db.settings.get('state:' + sid);
+  assert(st0.characters && st0.characters.Liara && st0.canon && st0.canon.Liara, 'Liara stands in the ledger through the readers');
+  const target = assistantPages()[assistantPages().length - 1];
+  const others = (await db.messages.list(sid)).filter((m) => !m.hidden && m.role === 'assistant' && m.id !== target.dataset.id && /\bLiara\b/.test(m.text));
+  assert(others.length >= 1, 'Liara stands on other pages too: ' + others.length);
+  /* the writer renames her on ONE page, by hand */
+  click(q('.msg-act[data-act="edit"]', target));
+  const box = await until(() => q('.edit-box', target), 'the edit box');
+  const current = (await db.messages.list(sid)).find((m) => m.id === target.dataset.id).text;
+  type(box, current.replace(/Liara/g, 'Mirela'));
+  click(q('.edit-row button:not(.text-btn)', target));
+  await until(async () => (await db.messages.list(sid)).find((m) => m.id === target.dataset.id).text.includes('Mirela'), 'the edit kept');
+  await settled();
+  /* everywhere follows */
+  await until(async () => { const s2 = await db.settings.get('state:' + sid); return s2 && s2.characters && s2.characters.Mirela && !s2.characters.Liara; }, 'the character page renamed', 20000);
+  const after = await db.settings.get('state:' + sid);
+  assert(after.canon.Mirela && !after.canon.Liara, 'the locks follow');
+  assert(after.present.some((p) => p.name === 'Mirela') && !after.present.some((p) => p.name === 'Liara'), 'presence follows');
+  assert(/Mirela has the spare key/.test(after.knowledge.Jovan.map((k) => k.fact).join(' ')), 'a fact naming her follows');
+  await until(async () => { const b = (await db.stories.get(sid)).brief; return /Mirela is the neighbour/.test(b) && !/Liara/.test(b); }, 'the brief follows', 15000);
+  await until(async () => { const m2 = await db.settings.get('memory:' + sid); return m2.nodes.some((n) => /Mirela watched him/.test(n.text)) && !m2.nodes.some((n) => /Liara watched/.test(n.text)); }, 'the record follows', 15000);
+  await until(async () => (await db.messages.list(sid)).filter((m) => !m.hidden && m.role === 'assistant').every((m) => !/\bLiara\b/.test(m.text)), 'every other page follows', 15000);
+  const mendedOther = (await db.messages.list(sid)).find((m) => m.mended && /Liara/.test(m.mended.before) && /Mirela/.test(m.text) && m.id !== target.dataset.id);
+  assert(mendedOther && /the writer changed/.test(mendedOther.mended.why), 'each other page is a mend with its take-back: ' + (mendedOther && mendedOther.mended.why));
+  /* a VALUE changed by hand — the hair — goes to the mender and the record */
+  const all2 = (await db.messages.list(sid)).filter((m) => !m.hidden && m.role === 'assistant');
+  const p1 = all2[0];
+  /* appended the way an edit lands: the shown swipe kept in step (pageText reads the swipe) */
+  { const t = p1.text + ' Her black hair was tied back.'; const patch = { text: t }; if (Array.isArray(p1.swipes) && p1.swipes.length) { const idx = Number.isFinite(p1.swipeIdx) ? Math.min(p1.swipes.length - 1, Math.max(0, p1.swipeIdx)) : p1.swipes.length - 1; const sw = p1.swipes.slice(); sw[idx] = { ...sw[idx], text: t }; patch.swipes = sw; } await db.messages.update(sid, p1.id, patch); }
+  await env.ctx.chat.renderThread({ structural: true });
+  await tick(200);
+  const last = assistantPages()[assistantPages().length - 1];
+  click(q('.msg-act[data-act="edit"]', last));
+  const box2 = await until(() => q('.edit-box', last), 'the edit box again');
+  const cur2 = (await db.messages.list(sid)).find((m) => m.id === last.dataset.id).text;
+  assert(/black hair caught/.test(cur2), 'the last page names the colour');
+  type(box2, cur2.replace('black hair caught', 'silver hair caught'));
+  click(q('.edit-row button:not(.text-btn)', last));
+  await until(async () => /silver hair caught/.test((await db.messages.list(sid)).find((m) => m.id === last.dataset.id).text), 'the value edit kept');
+  await settled();
+  const rip = await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.ripple && /black/.test(w.ripple.detail || w.ripple.why || '') ? w.ripple : null; }, 'the ripple ran on the value', 20000);
+  const { pageText: pt } = await import('../../js/assemble/stack.js');
+  await until(async () => /silver hair was tied/.test(pt((await db.messages.list(sid)).find((m) => m.id === p1.id))), 'the mender made the other page agree: ' + JSON.stringify(rip), 20000);
+  await until(async () => (await db.settings.get('memory:' + sid)).nodes.some((n) => n.correction && /“black” is now “silver”/.test(n.text)), 'the record carries the correction', 15000);
+  house.state.workerAnswer = priorAnswer;
+  house.state.storyAnswer = null;
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-13b reset to the house’s defaults: settings go back, connections and stories stay, my own regex rules stay', async () => {
   const before = errors.length;
   await db.settings.set('memoryWindow', 55);
@@ -1043,6 +1126,7 @@ test('DOM-14a a thinking storyteller: the thought is kept, and how long it took 
 
 test('DOM-14b the second reader mends a drifted page by the smallest edit, and the chip takes it back', async () => {
   const before = errors.length;
+  house.state.workerAnswer = walkDefaultWorker; /* a failed earlier scenario must not leave its mocks behind */
   house.state.mend = true;
   house.state.storyAnswer = () => 'Liara looked at Kim, who was not her mother.\n\nThe booth was quiet.';
   type(q('#composer-input'), 'What will your mother think?');

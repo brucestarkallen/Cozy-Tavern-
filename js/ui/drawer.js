@@ -30,6 +30,7 @@ import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '
 import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices */
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
+import { loadMemory, saveMemory, orderedLines, visiblePages } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
 import { db } from '../store.js';
 
 /* ---------- shared helpers ---------- */
@@ -1564,6 +1565,7 @@ const WORKER_WORDS = {
   referee: 'the referee',
   continuity: 'the second reader',
   auditor: 'the auditor',
+  ripple: 'the ripple',
   housekeeper: 'the housekeeper',
   director: 'the director',
   editor: 'the editor',
@@ -1727,6 +1729,77 @@ function voicesPanel(ctx) {
   return wrap;
 }
 
+/* M101: the record — "our story so far", line by line: which pages each line
+ * folds, its layer, the detail the auditor kept beneath it, the corrections
+ * the house wrote. Read here the way Summaryception's snippet browser read
+ * them; a line can be rewritten by hand or let go (the keeper folds the hole
+ * again from the pages). */
+function recordPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'record-panel';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list record-list';
+  wrap.append(note, list);
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) { note.textContent = 'Open a story and its record will be here.'; return; }
+    const mem = await loadMemory(story.id);
+    const lines = orderedLines(mem);
+    const pages = visiblePages(await db.messages.list(story.id));
+    if (!lines.length) { note.textContent = 'Nothing folded yet — the keeper writes a line for every few pages that fall below the verbatim window (' + (mem.window || 30) + ' pages).'; return; }
+    const folded = lines.filter((n) => !n.correction).length;
+    const corr = lines.length - folded;
+    note.textContent = folded + (folded === 1 ? ' line' : ' lines') + ' of the record' + (corr ? ', ' + corr + (corr === 1 ? ' correction' : ' corrections') : '') + ' — oldest to newest, each folding the pages it names. The storyteller reads these in place of the pages that rest.';
+    for (const n of lines) {
+      const li = document.createElement('li');
+      li.className = 'present-row mind-row record-row';
+      const head = document.createElement('strong');
+      head.textContent = n.correction ? 'Correction' : (n.span[0] === n.span[1] ? 'Page ' + (n.span[0] + 1) : 'Pages ' + (n.span[0] + 1) + '–' + (n.span[1] + 1)) + (n.level > 1 ? ' · folded ' + n.level + ' deep' : '');
+      const body = document.createElement('div');
+      body.className = 'quiet';
+      body.textContent = n.text;
+      li.append(head, body);
+      if (typeof n.detail === 'string' && n.detail.trim()) {
+        const d = document.createElement('div');
+        d.className = 'quiet';
+        d.textContent = 'Detail worth keeping: ' + n.detail.trim();
+        li.appendChild(d);
+      }
+      const row = document.createElement('div');
+      row.className = 'row';
+      const edit = document.createElement('button');
+      edit.type = 'button'; edit.className = 'text-btn'; edit.textContent = 'Rewrite';
+      edit.addEventListener('click', async () => {
+        const words = window.prompt('The line, as it should read:', n.text);
+        if (words === null || !String(words).trim() || String(words).trim() === n.text) return;
+        const fresh = await loadMemory(story.id);
+        const nodes = fresh.nodes.map((x) => (x.id === n.id ? { ...x, text: String(words).trim(), at: Date.now() } : x));
+        await saveMemory(story.id, { ...fresh, nodes });
+        notify(story.id);
+        render();
+      });
+      const drop = document.createElement('button');
+      drop.type = 'button'; drop.className = 'text-btn';
+      drop.textContent = n.correction ? 'Let go' : 'Fold again';
+      drop.title = n.correction ? 'Remove this correction from the record.' : 'Let this line go; the keeper folds these pages again from their words.';
+      drop.addEventListener('click', async () => {
+        const fresh = await loadMemory(story.id);
+        await saveMemory(story.id, { ...fresh, nodes: fresh.nodes.filter((x) => x.id !== n.id) });
+        notify(story.id);
+        render();
+      });
+      row.append(edit, drop);
+      li.appendChild(row);
+      if (!n.correction && n.span[1] >= pages.length) { const w = document.createElement('div'); w.className = 'quiet'; w.textContent = '(these pages are gone; the line will be let go on the next fold)'; li.appendChild(w); }
+      list.appendChild(li);
+    }
+  });
+  render();
+  return wrap;
+}
+
 const PANELS = [
   {
     id: 'the-clock',
@@ -1782,6 +1855,11 @@ const PANELS = [
     id: 'the-mood',
     title: 'The mood of the scene',
     render: (ctx) => moodPanel(ctx),
+  },
+  {
+    id: 'the-record',
+    title: 'Our story so far — the record',
+    render: (ctx) => recordPanel(ctx),
   },
   {
     id: 'what-changed',

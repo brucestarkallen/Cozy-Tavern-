@@ -47,6 +47,7 @@ const SHELL = [
   'js/agents/memory.js',
   'js/agents/continuity.js',
   'js/agents/lint.js',
+  'js/agents/ripple.js',
   'js/agents/status.js',
   'js/agents/jsonutil.js',
   'js/import/sillytavern.js',

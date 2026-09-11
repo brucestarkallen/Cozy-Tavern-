@@ -648,6 +648,7 @@ export function initHousekeeper(ctx) {
       await persistSession();
       if (result.words) toast(result.words);
       refreshStoryFloor(result.touched);
+      rippleEdits(story, result.edited);
       render();
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t hold — nothing was changed.');
@@ -655,6 +656,14 @@ export function initHousekeeper(ctx) {
       statusLine.textContent = '';
     }
     } finally { applying = false; }
+  }
+
+  /* M100: every landed page edit ripples — the rest of the story is made to
+   * agree with it in code and through the mender (chat.js rippleAfterEdit). */
+  function rippleEdits(story, edited) {
+    if (!story || !Array.isArray(edited) || !edited.length) return;
+    if (!(ctx.chat && typeof ctx.chat.rippleAfterEdit === 'function')) return;
+    for (const e of edited) ctx.chat.rippleAfterEdit(story, e.messageId, e.before, e.after, { who: 'the housekeeper' });
   }
 
   async function applyAll() {
@@ -669,6 +678,7 @@ export function initHousekeeper(ctx) {
       await persistSession();
       if (result.words) toast(result.words);
       refreshStoryFloor(result.touched);
+      rippleEdits(story, result.edited);
       render();
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t hold — nothing was changed.');
@@ -836,6 +846,7 @@ export function initHousekeeper(ctx) {
             await persistSession();
             if (landed.words) toast(landed.words);
             refreshStoryFloor(landed.touched);
+            rippleEdits(story, landed.edited);
           }
         } catch (err) { /* a card that will not land stays a card, with its refusal shown */ }
       }

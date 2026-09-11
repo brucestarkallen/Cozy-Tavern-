@@ -254,6 +254,14 @@ test('LONG-4 the context handed to the storyteller stays flat: turns 60-89 cost 
   assert(mem && Array.isArray(mem.nodes) && mem.nodes.length >= 3, 'the record folded the older pages: ' + (mem && mem.nodes && mem.nodes.length));
   const remains = receipts[receipts.length - 1].slots.find((s) => s.name === 'What remains');
   assert(remains && remains.tokens > 0, 'the record rides to the storyteller');
+  /* M101: the record is READABLE — line by line, in the drawer */
+  click(q('#btn-ledger'));
+  await until(() => !q('#drawer').hidden, 'the drawer opens');
+  await until(() => qa('#drawer-panels .record-row').length >= 3 && /Pages \d+–\d+/.test(q('#drawer-panels').textContent), 'the record’s lines, with the pages each folds', 10000);
+  const rows = qa('#drawer-panels .record-row');
+  assert(rows.some((r) => /Fold at turn/.test(r.textContent)), 'the lines are the keeper’s own words');
+  assert(rows.every((r) => qa('button', r).some((b) => /Rewrite/.test(b.textContent))), 'every line can be rewritten by hand');
+  click(q('#btn-ledger'));
 });
 
 test('LONG-5 the voices ride under the page, rotate, and never reach the wire; the window is written when the world opens one and on #Put TWB', async () => {

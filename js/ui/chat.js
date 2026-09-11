@@ -55,6 +55,7 @@ import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
+import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
@@ -1531,6 +1532,70 @@ export function initChat(ctx) {
       } catch (err) { /* the record is best-effort; the ledger already holds the lock */ }
     }
     return { ...result, mendedPages };
+  }
+
+  /* M100: THE RIPPLE — an edit that changed one fact is made true everywhere.
+   * A name-like change (a person, a place) is applied in code with word
+   * boundaries: the ledger (people.rename, journaled, undoable), the record's
+   * lines, the brief and the cast notes, and every other storyteller page in
+   * the story — each page as a mend with its take-back. Any other fact goes to
+   * the mender page by page where the old words stand, with a [Correction] in
+   * the record; the auditor relocks the canon on the next page. Off the send
+   * path, in the workers' queue, never on the writer's hand. */
+  async function rippleAfterEdit(story, pageId, before, after, { who = 'the writer' } = {}) {
+    const change = factChange(before, after);
+    if (!change) return;
+    const { removed, added } = change;
+    const promise = enqueueWork(story.id, { name: 'ripple', run: async ({ signal, stale }) => {
+      if (stale()) return { silent: true };
+      const all = await db.messages.list(story.id);
+      const others = all.filter((m) => m && !m.hidden && m.role === 'assistant' && m.id !== pageId && hasWord(pageText(m), removed));
+      let words = [];
+      if (isNameLike(removed) && isNameLike(added)) {
+        /* the ledger */
+        const st = await loadState(story.id);
+        const r = applyMutations(st, [{ type: 'people.rename', from: removed, to: added, cause: who + '’s edit' }]);
+        if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); words.push(r.applied[0].words.replace(/\.$/, '')); }
+        /* the record */
+        const mem = await loadMemory(story.id);
+        let touched = 0;
+        const nodes = mem.nodes.map((n) => (typeof n.text === 'string' && hasWord(n.text, removed) ? (touched += 1, { ...n, text: replaceWord(n.text, removed, added) }) : n));
+        if (touched) { await saveMemory(story.id, { ...mem, nodes }); words.push(touched + ' record ' + (touched === 1 ? 'line' : 'lines')); }
+        /* the brief and the cast notes — the writer's own words follow the writer's newest word */
+        const fresh = await db.stories.get(story.id);
+        const patch = {};
+        if (fresh && typeof fresh.brief === 'string' && hasWord(fresh.brief, removed)) patch.brief = replaceWord(fresh.brief, removed, added);
+        if (fresh && typeof fresh.castNotes === 'string' && hasWord(fresh.castNotes, removed)) patch.castNotes = replaceWord(fresh.castNotes, removed, added);
+        if (Object.keys(patch).length) { await db.stories.update(story.id, patch); words.push('the brief'); }
+        /* every other page, as a mend with its take-back */
+        let pages = 0;
+        for (const m of others) {
+          if (stale()) break;
+          const text = pageText(m);
+          const next = replaceWord(text, removed, added);
+          if (next !== text) { await applyMend(story.id, m, next, who + ' changed “' + removed + '” to “' + added + '”'); pages += 1; }
+        }
+        if (pages) words.push(pages + ' other ' + (pages === 1 ? 'page' : 'pages'));
+        return { silent: false, detail: '“' + removed + '” is “' + added + '” everywhere now' + (words.length ? ' — ' + words.join(', ') : '') };
+      }
+      /* a fact that is not a name: the mender, page by page, and a correction in the record */
+      const connection = await resolveWorkerConnection(story, 'continuity');
+      let mended = 0;
+      if (connection && others.length) {
+        const contradiction = who + ' changed “' + removed + '” to “' + added + '” on a page; everywhere else the story still says “' + removed + '”. It should read “' + added + '”.';
+        try {
+          const changed = await mendAround(story, connection, [others[others.length - 1].id], contradiction, signal, Math.min(20, all.length));
+          mended = changed.length;
+        } catch (err) { /* the correction below carries the truth forward */ }
+      }
+      try {
+        const mem = await loadMemory(story.id);
+        await saveMemory(story.id, addCorrection(mem, '“' + removed + '” is now “' + added + '” (' + who + '’s edit); what said otherwise before is in error.'));
+      } catch (err) { /* best-effort */ }
+      pendingAudit.add(story.id); /* the auditor relocks the canon on the next page */
+      return { silent: false, detail: '“' + removed + '” → “' + added + '”' + (mended ? ' — ' + mended + ' other ' + (mended === 1 ? 'page' : 'pages') + ' mended' : others.length ? ' — the other pages will be held to it' : '') + ', the record corrected' };
+    } });
+    noteWork(story.id, promise);
   }
 
   async function auditNow() {
@@ -3146,6 +3211,10 @@ export function initChat(ctx) {
         } else if (updated && msg.role === 'user') {
           pendingAudit.add(story.id);
         }
+        /* M100: the ripple — one fact changed here is made true everywhere.
+         * Queued AFTER the re-reading above, so the rename lands on the ledger
+         * the re-read produced and is never rewound away. */
+        if (updated && msg.role === 'assistant' && !msg.ooc) rippleAfterEdit(story, msg.id, pageText(msg), text);
         toast('The page is re-inked.');
         /* M21: new words on the latest page mean a new preview. */
         await refreshPreview(story.id);
@@ -3914,6 +3983,7 @@ export function initChat(ctx) {
     repairTimeline,
     rescanLedger,
     auditNow,
+    rippleAfterEdit,
     foundNow,
     rebuildStandingsNow,
     rebuildRecordNow,

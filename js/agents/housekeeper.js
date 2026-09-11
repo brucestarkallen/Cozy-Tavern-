@@ -2100,9 +2100,18 @@ export async function applyProposal(session, storyId, proposalId) {
     if (batch.items.length) pushBatch(session, batch);
     p.status = 'applied';
     p.words = result.words;
+    /* M100: a page edit that landed carries what it changed, so the house can
+     * ripple it — before text from the batch, after text from the store */
+    const edited = [];
+    for (const it of batch.items) {
+      if (it.kind !== 'message' || !it.messageId || !it.before || typeof it.before.text !== 'string') continue;
+      const now = (await db.messages.list(storyId)).find((m) => m && m.id === it.messageId);
+      if (now && typeof now.text === 'string' && now.text !== it.before.text) edited.push({ messageId: it.messageId, before: it.before.text, after: now.text });
+    }
     return {
       ok: true,
       words: result.words,
+      edited,
       touched: {
         messages: batch.items.some((i) => i.kind === 'message'),
         state: batch.items.some((i) => i.kind === 'ledger'),
@@ -2130,10 +2139,12 @@ export async function applyAllPending(session, storyId) {
   const words = [];
   const touched = { messages: false, state: false, modules: false };
   let any = false;
+  const edited = [];
   for (const p of pending) {
     const result = await applyProposal(session, storyId, p.id);
     if (result.ok) {
       any = true;
+      if (Array.isArray(result.edited)) edited.push(...result.edited);
       if (result.touched) {
         touched.messages = touched.messages || result.touched.messages;
         touched.state = touched.state || result.touched.state;
@@ -2142,7 +2153,7 @@ export async function applyAllPending(session, storyId) {
     }
     if (result.words) words.push(result.words);
   }
-  return { ok: any, words: words.join(' '), touched, count: pending.length };
+  return { ok: any, words: words.join(' '), touched, count: pending.length, edited };
 }
 
 /* ---------- drift-guarded undo ---------- */

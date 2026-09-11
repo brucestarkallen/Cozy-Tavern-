@@ -116,7 +116,7 @@ export function cleanBatch(value) {
 
 /* ---------- slot 7: "What remains" — the record, oldest to newest ---------- */
 
-function orderedLines(mem) {
+export function orderedLines(mem) {
   return (mem && Array.isArray(mem.nodes) ? mem.nodes : [])
     .filter((n) => n && !n.empty && typeof n.text === 'string' && n.text.trim())
     .sort((a, b) => {
