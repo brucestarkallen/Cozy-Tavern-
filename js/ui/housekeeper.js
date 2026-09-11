@@ -308,7 +308,86 @@ export function initHousekeeper(ctx) {
   function cardKindWords(p) {
     return p.kind === 'ledit' ? 'A ledger change'
       : p.kind === 'redit' ? 'A rulebook change'
+      : p.kind === 'brief' ? (p.op && p.op.field === 'castNotes' ? 'A change to the cast notes' : 'A change to the brief')
+      : p.kind === 'record' ? 'A record change'
+      : p.kind === 'lore' ? 'A lore change'
+      : p.kind === 'unreadable' ? 'A block that could not be read'
       : 'A page change';
+  }
+  /* M76: the card's diff — Chat Assistant's before (red) and after (green) halves,
+   * on EVERY kind (it used to draw them for page and rule cards only, so a card
+   * for the brief, the record or the lore showed a label and nothing else) */
+  function appendDiff(card, p) {
+    const op = p.op || {};
+    if (p.kind === 'edit' && !op.bulk && op.hide !== undefined) {
+      const words = document.createElement('p');
+      words.className = 'hk-card-words';
+      words.textContent = op.hide ? 'Fold this page away from the story.' : 'Bring this page back to the story.';
+      card.append(words);
+      return;
+    }
+    if (p.kind === 'edit' || p.kind === 'redit' || p.kind === 'record') {
+      card.append(diffBlock('del', op.find || ''));
+      card.append(diffBlock('add', op.replace || ''));
+      if (op.bulk) {
+        const where = document.createElement('p');
+        where.className = 'hk-card-words';
+        where.textContent = 'Across ' + ((op.ids || []).length) + ' named pages.';
+        card.append(where);
+      }
+      return;
+    }
+    if (p.kind === 'brief') {
+      if (typeof op.text === 'string') {
+        card.append(diffBlock('del', op.before || '(empty)'));
+        card.append(diffBlock('add', op.text));
+      } else if (typeof op.append === 'string') {
+        const words = document.createElement('p');
+        words.className = 'hk-card-words';
+        words.textContent = 'Added at the end' + (op.before ? ', after “…' + op.before.slice(-80).replace(/\s+/g, ' ') + '”' : '') + ':';
+        card.append(words);
+        card.append(diffBlock('add', op.append));
+      } else {
+        card.append(diffBlock('del', op.find || ''));
+        card.append(diffBlock('add', op.replace || ''));
+      }
+      return;
+    }
+    if (p.kind === 'lore') {
+      if (op.add) {
+        const words = document.createElement('p');
+        words.className = 'hk-card-words';
+        words.textContent = 'A new entry' + (op.name ? ' “' + op.name + '”' : '') + ' with keys ' + ((op.keys || []).join(', ') || '(none)') + (op.constant ? ', always riding' : '') + ':';
+        card.append(words, diffBlock('add', op.content || ''));
+      } else if (op.remove) {
+        const words = document.createElement('p');
+        words.className = 'hk-card-words';
+        words.textContent = 'The entry leaves the shelf' + (op.entryName ? ' — “' + op.entryName + '”' : '') + '.';
+        card.append(words);
+        if (op.beforeContent) card.append(diffBlock('del', op.beforeContent));
+      } else {
+        const pch = op.patch || {};
+        const before = op.before || {};
+        if (typeof pch.content === 'string') { card.append(diffBlock('del', before.content || '')); card.append(diffBlock('add', pch.content)); }
+        const other = [];
+        if (Array.isArray(pch.keys)) other.push('keys: ' + (before.keys || []).join(', ') + ' → ' + pch.keys.join(', '));
+        if (typeof pch.name === 'string') other.push('name: ' + (before.name || '') + ' → ' + pch.name);
+        if (typeof pch.enabled === 'boolean') other.push(pch.enabled ? 'switched on' : 'switched off');
+        if (typeof pch.constant === 'boolean') other.push(pch.constant ? 'always rides now' : 'rides on its keys now');
+        if (other.length) { const words = document.createElement('p'); words.className = 'hk-card-words'; words.textContent = other.join(' · '); card.append(words); }
+      }
+      return;
+    }
+    if (p.kind === 'ledit') {
+      const list = document.createElement('p');
+      list.className = 'hk-card-words';
+      const pv = op.preview;
+      list.textContent = pv && pv.words && pv.words.length
+        ? 'The ledger will say:\n' + pv.words.map((w) => '• ' + w).join('\n') + (pv.refused && pv.refused.length ? '\nRefused by the ledger: ' + pv.refused.join('; ') : '')
+        : (op.mutations || []).map(mutationLine).join('\n');
+      list.style.whiteSpace = 'pre-wrap';
+      card.append(list);
+    }
   }
 
   function cardStatusWords(p) {
@@ -338,35 +417,16 @@ export function initHousekeeper(ctx) {
     head.append(label, kind);
     card.append(head);
 
-    if (p.reason) {
+    /* M76: the reason at the top, always — its absence is shown, not hidden */
+    if (p.kind !== 'unreadable') {
       const reason = document.createElement('p');
-      reason.className = 'hk-card-reason';
-      reason.textContent = p.reason;
+      reason.className = 'hk-card-reason' + (p.reason ? '' : ' hk-card-noreason');
+      reason.textContent = p.reason || '(no reason given)';
       card.append(reason);
     }
 
     const op = p.op || {};
-    if (p.kind === 'edit' && !op.bulk && op.hide !== undefined) {
-      const words = document.createElement('p');
-      words.className = 'hk-card-words';
-      words.textContent = op.hide ? 'Fold this page away from the story.' : 'Bring this page back to the story.';
-      card.append(words);
-    } else if (p.kind === 'edit' || p.kind === 'redit') {
-      card.append(diffBlock('del', op.find || ''));
-      card.append(diffBlock('add', op.replace || ''));
-      if (op.bulk) {
-        const where = document.createElement('p');
-        where.className = 'hk-card-words';
-        where.textContent = 'Across ' + ((op.ids || []).length) + ' named pages.';
-        card.append(where);
-      }
-    } else if (p.kind === 'ledit') {
-      const list = document.createElement('p');
-      list.className = 'hk-card-words';
-      list.textContent = (op.mutations || []).map(mutationLine).join('\n');
-      list.style.whiteSpace = 'pre-wrap';
-      card.append(list);
-    }
+    appendDiff(card, p);
 
     const wordsText = cardStatusWords(p);
     if (wordsText) {
@@ -386,9 +446,14 @@ export function initHousekeeper(ctx) {
       applyBtn.addEventListener('click', () => { applyOne(p.id); });
       actions.append(applyBtn);
 
-      /* Edit by hand: the replace text becomes editable; keeping it
-       * applies the hand-tuned words. (For page and rulebook cards.) */
-      if ((p.kind === 'edit' && !op.bulk && op.hide === undefined) || p.kind === 'redit') {
+      /* Edit by hand: the new words become editable; keeping them applies
+       * the hand-tuned words. M76: on every card that carries words — page,
+       * rule, record, brief (replace / text / append), lore (content). */
+      const handField = (p.kind === 'edit' && !op.bulk && op.hide === undefined) || p.kind === 'redit' || p.kind === 'record' ? 'replace'
+        : p.kind === 'brief' ? (typeof op.text === 'string' ? 'text' : typeof op.append === 'string' ? 'append' : 'replace')
+        : p.kind === 'lore' && !op.remove ? (op.add ? 'content' : 'patch.content')
+        : null;
+      if (handField) {
         const editBtn = document.createElement('button');
         editBtn.type = 'button';
         editBtn.className = 'text-btn';
@@ -396,13 +461,13 @@ export function initHousekeeper(ctx) {
         editBtn.addEventListener('click', () => {
           const area = document.createElement('textarea');
           area.rows = 4;
-          area.value = op.replace || '';
+          area.value = handField === 'patch.content' ? ((op.patch && op.patch.content) || '') : (op[handField] || '');
           const keep = document.createElement('button');
           keep.type = 'button';
           keep.className = 'text-btn';
           keep.textContent = 'Keep & apply';
           keep.addEventListener('click', () => {
-            p.op = { ...p.op, replace: area.value };
+            p.op = handField === 'patch.content' ? { ...p.op, patch: { ...(p.op.patch || {}), content: area.value } } : { ...p.op, [handField]: area.value };
             applyOne(p.id);
           });
           actions.replaceWith(area, keep);
@@ -629,6 +694,17 @@ export function initHousekeeper(ctx) {
     pendingBubble.classList.add('hk-pending');
     thread.append(pendingBubble);
     thread.scrollTop = thread.scrollHeight;
+    /* M76: the thinking, live — Chat Assistant's ticker (elapsed, answer chars,
+     * thinking chars) on the status line, and the reasoning itself in a fold
+     * that opens while it thinks and folds when the first word of the answer
+     * lands; kept on the turn as "How it weighed it" */
+    const t0 = Date.now();
+    let answerChars = 0;
+    let thinkChars = 0;
+    let thinkFold = null;
+    let thinkBody = null;
+    const tick = () => { statusLine.textContent = 'The housekeeper is ' + (thinkChars && !answerChars ? 'weighing it' : 'looking') + ' · ' + Math.floor((Date.now() - t0) / 1000) + 's' + (answerChars ? ' · ' + answerChars + ' chars' : '') + (thinkChars ? ' (+' + thinkChars + ' thinking)' : '') + (!answerChars && !thinkChars ? ' · waiting for the first word…' : ''); };
+    const ticker = setInterval(tick, 1000);
 
     workerCtl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     try {
@@ -644,9 +720,28 @@ export function initHousekeeper(ctx) {
         directorText: renderDirectorNote(director),
         editorText: renderEditorNote(editor),
         onToken: (tok) => {
-          if (tok && tok.channel === 'prose' && typeof tok.text === 'string') {
+          if (tok && tok.channel === 'thinking' && typeof tok.text === 'string') {
+            thinkChars += tok.text.length;
+            if (!thinkFold) {
+              thinkFold = document.createElement('details');
+              thinkFold.className = 'hk-thinking';
+              thinkFold.open = true;
+              const sum = document.createElement('summary');
+              sum.textContent = 'How it’s weighing it…';
+              thinkBody = document.createElement('div');
+              thinkBody.className = 'hk-thinking-body';
+              thinkFold.append(sum, thinkBody);
+              pendingBubble.before(thinkFold);
+            }
+            thinkBody.textContent += tok.text;
+            tick();
+            thread.scrollTop = thread.scrollHeight;
+          } else if (tok && tok.channel === 'prose' && typeof tok.text === 'string') {
+            if (!answerChars && thinkFold) { thinkFold.open = false; thinkFold.querySelector('summary').textContent = 'How it weighed it'; }
+            answerChars += tok.text.length;
             pendingBubble.textContent += tok.text;
             pendingBubble.textContent = pendingBubble.textContent.replace(/^…/, '');
+            tick();
             thread.scrollTop = thread.scrollHeight;
           }
         },
@@ -673,6 +768,8 @@ export function initHousekeeper(ctx) {
       input.value = text;
       statusLine.textContent = 'It stumbled: ' + ((err && err.message) || 'unknown') + '. Nothing was changed.';
     } finally {
+      clearInterval(ticker);
+      if (thinkFold && thinkFold.isConnected) thinkFold.remove(); /* render() draws the kept thinking from the turn */
       workerCtl = null;
       setBusy(false);
     }

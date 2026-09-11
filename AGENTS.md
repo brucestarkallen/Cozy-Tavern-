@@ -2150,3 +2150,35 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   be stripped from the talk from the tag to the end. m75-6. 339/339 + 28/28 (×2).
   version.js -> m75-003. NEXT TIME: open "What it said, whole" under the failing answer and read
   it before diagnosing anything.
+
+---
+
+# M76 — the housekeeper thinks; every card shows its evidence (Chat Assistant's card and reply, whole)
+- FIELD REPORT: "why is there no thinking block? why does the card say only 'change Alexia 15 to
+  16' with no original words and no new words as evidence? why no description at the top of each
+  change of what it did? can you read Chat Assistant or not?" Read again, whole, and held against
+  the tavern's own code:
+  1. THE THINKING. The tavern's provider sends DeepSeek thinking:{type:'disabled'} whenever a
+     connection's reasoning is unset or off, and the housekeeper inherited the connection's — so it
+     ran the NON-THINKING model as an editor, while Chat Assistant in SillyTavern runs the same
+     DeepSeek with reasoning on (the writer sees its block). That was the "smart there, stupid
+     here". The housekeeper's effort is its own now: hkReasoning (Settings, under its hands),
+     default 'high' — DeepSeek is asked with thinking enabled and reasoning_effort high whatever
+     the connection says; 'off' is a choice. The thinking streams live into a fold ("How it's
+     weighing it…", open while it thinks, folded at the first word of the answer) with Chat
+     Assistant's ticker on the status line (elapsed · answer chars · +thinking chars); the kept
+     thinking shows under the reply as before. The pot floor of 8192 stands under the larger of
+     the connection's number.
+  2. THE CARD'S EVIDENCE. The before (red) / after (green) halves were drawn for page and rule
+     cards ONLY — a card for the brief, the record or the lore showed a label and nothing else.
+     Every kind draws its evidence now: brief (find → replace; the whole old text → the new; "added
+     at the end, after …"), record (find → replace), lore (add: keys + content; edit: old content →
+     new, keys/name/switches; remove: what leaves), ledger (a DRY RUN at staging says what the
+     ledger WILL write, and what it refuses). Edit-by-hand on every card that carries words.
+  3. THE REASON. Shown at the top of every card; a missing one shows "(no reason given)" so its
+     absence is seen. The prompt: EVERY OP CARRIES A REASON; SAY WHAT YOU DID, PER CHANGE (where,
+     from what, to what, why; what you found; the sweep with numbers — Chat Assistant's M-EYE).
+  4. A PURITY LEAK, older than today: copyState copied every ledger but the journal, so every
+     applyMutations since M69 also pushed its entries into the CALLER's journal array. The dry
+     run exposed it (a staged card's hash held the preview's entries). Copied now; worldShown too.
+- Harness: m76.mjs (2 checks) + m75's M76-1; 342/342 + 28/28 (×2). version.js -> m76-001.

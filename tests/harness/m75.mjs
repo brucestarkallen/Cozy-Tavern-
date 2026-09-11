@@ -7,6 +7,7 @@ import { test, assert, eq } from './lib.mjs';
 import { readFileSync } from 'node:fs';
 import { emptyState } from '../../js/engine/state.js';
 import { runConversation, asksForChange, asksAboutBrief, claimsChange, hasAnyBlock, parseProtocol } from '../../js/agents/housekeeper.js';
+import { applyMutations } from '../../js/engine/apply.js';
 
 const story = { title: 'Ravenwood', brief: 'Alexia (20), the eldest of the house.\nFirst-years board at the academy.', castNotes: '' };
 const house = (writerText, answers) => {
@@ -134,4 +135,13 @@ test('M75-6 nothing is lost in silence: what it said is kept whole; an unreadabl
   const last = sess.turns[sess.turns.length - 1];
   assert(/<brief>\[/.test(last.raw), 'the raw answer, blocks and all, is on the turn');
   eq(last.text, 'Here.', 'the talk shows the words without the block');
+});
+
+test('M76-1 applyMutations is pure for the journal too: a dry run on a state leaves the state’s journal untouched', () => {
+  const st = applyMutationsPure(emptyState(), [{ type: 'presence.enter', name: 'Ann' }]).state;
+  const before = st.journal.length;
+  applyMutationsPure(st, [{ type: 'presence.enter', name: 'Bob' }]);
+  eq(st.journal.length, before, 'the caller’s journal did not grow');
+  eq(st.present.length, 1);
+  function applyMutationsPure(a, b) { return applyMutations(a, b); }
 });

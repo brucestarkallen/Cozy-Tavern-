@@ -95,6 +95,13 @@ function copyState(state) {
     duel: safe.duel && typeof safe.duel === 'object' ? cloneMap({ d: safe.duel }).d : (safe.duel ?? null),
     battle: safe.battle && typeof safe.battle === 'object' ? cloneMap({ b: safe.battle }).b : (safe.battle ?? null),
     refHistory: Array.isArray(safe.refHistory) ? cloneMap({ r: safe.refHistory }).r : [],
+    /* M76: the journal was the one ledger not copied — every apply pushed its
+     * entries into the CALLER's journal array as well (a dry run on a copy of
+     * the state grew the live state's journal). Entries are never mutated
+     * after they are written, so a fresh array is the copy. The windows the
+     * world opened ride the same way. */
+    journal: Array.isArray(safe.journal) ? safe.journal.slice() : [],
+    worldShown: Array.isArray(safe.worldShown) ? safe.worldShown.map((w) => ({ ...w })) : [],
   };
 }
 

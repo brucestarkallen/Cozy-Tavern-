@@ -759,6 +759,13 @@ const SYSTEM_PROMPT = [
   'page wholesale when a sentence will do. The find text must always be the',
   'story’s own words, exactly as they stand.',
   '',
+  'EVERY OP CARRIES A REASON. The card shows it at its top; an op without one is',
+  'shown as \"(no reason given)\" and the writer will not know why.',
+  'SAY WHAT YOU DID, PER CHANGE. In the words after the blocks: one line per card —',
+  'where (the brief / page #… / the record line / whose page / the lore), from what,',
+  'to what, and why; then what you found while in there; then the sweep with',
+  'numbers. If a find-and-replace could have produced your reply, the thinking is',
+  'not finished.',
   'BLOCKS FIRST. Put every block at the top of your answer and the words after it —',
   'if an answer is ever cut short, the cards must survive, not the chatter. Keep the',
   'words short and concrete; the cards carry the work.',
@@ -1246,13 +1253,16 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   const mutations = ledits.filter((m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim());
   if (mutations.length) {
     const reasonOp = ledits.find((m) => m && typeof m.reason === 'string' && m.reason.trim());
+    /* M76: the card shows what the ledger WILL say — a dry run on a copy */
+    let preview = null;
+    try { const dry = applyMutations(state, mutations.filter((m) => m.type !== 'module.pin')); preview = { words: dry.applied.map((a) => a.words), refused: dry.rejected.map((r) => r.why) }; } catch (err) { preview = null; }
     proposals.push({
       id: uid(),
       ts: Date.now(),
       kind: 'ledit',
       label: nextLabel('ledger changes'),
       reason: cleanReason(reasonOp ? reasonOp.reason : ''),
-      op: { mutations },
+      op: { mutations, preview },
       status: 'pending',
       words: '',
       review: [...new Set(mutations.map(ledgerTargetKey))].map((key) => ({ target: 'ledger:' + key, hash: ledgerSliceHash(state, key) })),
@@ -1323,7 +1333,10 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       if (!located.ok) { refuse(located.reason); continue; }
       if (applyLocated(current, located, op.replace) === current) { refuse('the new words are the words already there'); continue; }
       staged = { field: key, find: op.find, replace: op.replace };
-    } else { refuse('it didn’t say what should change — find/replace, text, or append'); continue; }
+    }
+    if (staged && typeof op.text === 'string') staged.before = current; /* M76: the card shows the words it replaces */
+    if (staged && typeof op.append === 'string') staged.before = current.slice(-200);
+    if (!staged) { refuse('it didn’t say what should change — find/replace, text, or append'); continue; }
     proposals.push({
       id: uid(), ts: Date.now(), kind: 'brief', label, reason, op: staged,
       status: 'pending', words: '', review: [{ target: 'story:' + key, hash: hashText(current) }],
@@ -1365,7 +1378,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     if (op.remove === true) {
       proposals.push({
         id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: remove ' + (entry.name || entry.keys[0]), reason,
-        op: { entryId: entry.id, remove: true },
+        op: { entryId: entry.id, remove: true, entryName: entry.name || entry.keys[0], beforeContent: String(entry.content || '') },
         status: 'pending', words: '', review: [{ target: 'lore:' + entry.id, hash: hashText(JSON.stringify(entry)) }],
       });
       continue;
@@ -1379,7 +1392,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     if (!Object.keys(patch).length) { proposals.push({ id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: ' + (entry.name || entry.keys[0]), reason, op, status: 'refused', words: 'it didn’t say what should change', review: [] }); continue; }
     proposals.push({
       id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: ' + (entry.name || entry.keys[0]), reason,
-      op: { entryId: entry.id, patch },
+      op: { entryId: entry.id, patch, before: { content: String(entry.content || ''), keys: (entry.keys || []).slice(), name: entry.name || '' } },
       status: 'pending', words: '', review: [{ target: 'lore:' + entry.id, hash: hashText(JSON.stringify(entry)) }],
     });
   }
@@ -1960,10 +1973,25 @@ export async function undoLatest(session, storyId) {
  * Rides the provider registry (system string accepted, thinking channel
  * honored). Never throws into a caller that didn't ask for it — errors
  * come back as {error}. */
-export async function callModel(connection, { system, messages, maxTokens, signal, onToken } = {}) {
+/* M76: THE HOUSEKEEPER THINKS. Chat Assistant in SillyTavern runs DeepSeek with
+ * its reasoning ON (the writer sees the thinking block); the tavern's provider
+ * sends DeepSeek thinking:{type:'disabled'} whenever a connection's reasoning is
+ * unset or off — and the housekeeper inherited the connection's, so it ran the
+ * non-thinking model as an editor. Its effort is its own now (hkReasoning,
+ * default 'high'); 'off' is a choice, never an accident. */
+export const HK_DEFAULT_EFFORT = 'high';
+export async function housekeeperEffort() {
+  try {
+    const v = await db.settings.get('hkReasoning');
+    return typeof v === 'string' && v ? v : HK_DEFAULT_EFFORT;
+  } catch (err) { return HK_DEFAULT_EFFORT; }
+}
+export async function callModel(connection, { system, messages, maxTokens, signal, onToken, effort } = {}) {
   try {
     if (!connection || typeof connection !== 'object') return { error: 'no connection' };
     const conn = { ...connection };
+    const want = typeof effort === 'string' && effort ? effort : await housekeeperEffort();
+    conn.reasoning = { ...((connection && connection.reasoning) || {}), effort: want };
     /* M75-002: the asked-for pot is a floor, never a ceiling the connection lowers */
     conn.maxTokens = Math.max(maxTokens || 1600, typeof conn.maxTokens === 'number' && conn.maxTokens > 0 ? conn.maxTokens : 0);
     const provider = createProvider(conn);

@@ -948,6 +948,23 @@ export function initSettings(ctx) {
       row.appendChild(labelText);
       row.appendChild(sel);
       els.workerAssignments.appendChild(row);
+      /* M76: the housekeeper thinks — its own effort, never the connection's "off" */
+      if (key === 'housekeeper') {
+        const think = document.createElement('label');
+        think.className = 'stack-label worker-assign-row';
+        const tsel = document.createElement('select');
+        tsel.id = 'hk-reasoning';
+        for (const [v, w] of [['off', 'no thinking (the plain model)'], ['low', 'a little thinking'], ['medium', 'some thinking'], ['high', 'thinks it through (the house’s choice)'], ['max', 'thinks as long as it likes']]) {
+          const opt = document.createElement('option'); opt.value = v; opt.textContent = w; tsel.appendChild(opt);
+        }
+        tsel.value = (await db.settings.get('hkReasoning')) || 'high';
+        tsel.addEventListener('change', async () => { await db.settings.set('hkReasoning', tsel.value); toast(tsel.value === 'off' ? 'The housekeeper answers without thinking first.' : 'The housekeeper thinks before it answers.'); });
+        const tw = document.createElement('span');
+        tw.textContent = 'How much the housekeeper thinks before it answers (its reasoning shows under each reply)';
+        think.appendChild(tw);
+        think.appendChild(tsel);
+        els.workerAssignments.appendChild(think);
+      }
     }
 
     const story = await activeStory();
