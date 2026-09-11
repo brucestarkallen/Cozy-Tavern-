@@ -679,6 +679,13 @@ const SYSTEM_PROMPT = [
   '  {"field":"brief","append":"a new paragraph","reason":"why"} — adds at the end',
   '  Quote find exactly from THE BRIEF / THE CAST NOTES above. An empty field can',
   '  only take "text" or "append". The founder re-reads a changed brief on its own.',
+  '  A fact the brief already states is REPLACED where it stands (an age, a name, a',
+  '  rule) — never restated beside the old words, never turned into a note elsewhere.',
+  '  A fact the brief does not yet hold goes where it belongs: find the line it sits',
+  '  beside and replace that line with itself plus the new line; append only when no',
+  '  line fits. Example — the writer says "in the brief, Alexia is 19, not 20" and THE',
+  '  BRIEF holds "Alexia (20), the eldest":',
+  '  <brief>[{"field":"brief","find":"Alexia (20), the eldest","replace":"Alexia (19), the eldest","reason":"the writer set her age"}]</brief>',
   '<edits>[ ... ]</edits> — changes to pages. Each op is one of:',
   '  {"id":"#a1b2c3","find":"the exact passage","replace":"the new words","reason":"why"}',
   '  {"id":"#a1b2c3","hide":true} — or false to bring a hidden page back',
@@ -728,6 +735,9 @@ const SYSTEM_PROMPT = [
   'page wholesale when a sentence will do. The find text must always be the',
   'story’s own words, exactly as they stand.',
   '',
+  'BE DECISIVE. When the writer asks for a change, the block that makes it is in',
+  'the SAME answer — never a description of the change, never a question whether to',
+  'make it, never "I can do that". Cards are free: the writer applies or skips them.',
   'NOTHING HAPPENS IN PROSE. You change nothing by saying so — only a block stages',
   'a change, and the writer applies it. Never write "done", "updated", "fixed",',
   '"I have changed" or anything like it about a thing that is not in a block in THIS',
@@ -1964,6 +1974,28 @@ function serveFetch(refs, messages, { modules = [], lore = [] } = {}) {
   return lines.join('\n\n');
 }
 
+/* M75: what the writer asked for, read in code — so an answer that holds no
+ * block for an asked-for change is sent back once, never accepted. Chat
+ * Assistant's law is "be decisive: the block is in the SAME reply"; the
+ * tavern enforces it the way it enforces anchors (a round). */
+const CHANGE_WORDS = /\b(change|changes|edit|fix|replace|set|rename|update|add|remove|delete|correct|make|put|rewrite|re-ink|turn|adjust|insert|append|move|swap|write|note|lock|clear|mark|should be|is not|isn't|instead of)\b|\bnot\s+\d/i;
+const BRIEF_WORDS = /\b(brief|cast notes?|premise|plot essentials?|notepad|standing words|the notes?)\b/i;
+const CLAIM_WORDS = /\b(done|changed|updated|fixed|set|corrected|re-inked|adjusted|edited|applied|now reads|now says|i(?:'ve| have) (?:changed|updated|fixed|set|made|added|removed|noted))\b/i;
+/* a plain statement of how things are ("all first-years are 16", "Alexia is 19"),
+ * not a question, is an instruction to make it so */
+const DECLARES = /\b(is|are|was|were|has|have|should|must)\b/i;
+const QUESTION = /\?\s*$/;
+export function asksForChange(text) {
+  const t = String(text || '').trim();
+  if (CHANGE_WORDS.test(t)) return true;
+  return DECLARES.test(t) && !QUESTION.test(t);
+}
+export function asksAboutBrief(text) { return BRIEF_WORDS.test(String(text || '')); }
+export function claimsChange(prose) { return CLAIM_WORDS.test(String(prose || '')); }
+export function hasAnyBlock(parsed) {
+  return Boolean(parsed) && ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'supersede'].some((k) => Array.isArray(parsed[k]) && parsed[k].length);
+}
+
 /* One conversation turn with the housekeeper, fetch-rounds included.
  * `call` is injectable for the harness; the default rides callModel.
  * Never throws. Returns {ok, raw, parsed, fetchRounds, thinking, error?}. */
@@ -1984,6 +2016,8 @@ export async function runConversation({
     const served = new Set(visibleAll.slice(-cleanContextPages(contextPages)).map((m) => m.id));
     let correctedAnchors = false;
     let sweptRipple = false;
+    let nudgedBrief = false;
+    let nudgedNoBlock = false;
     let fetchedBlind = false;
     let toldMalformed = false;
     /* Session history rides after the served context — newest first is NOT
@@ -2060,6 +2094,23 @@ export async function runConversation({
         correctedAnchors = true;
         wire.push({ role: 'assistant', content: raw });
         wire.push({ role: 'user', content: '[ANCHOR CHECK] These finds do not match the page as it stands (checked with the same matcher Apply uses):\n' + misses.map((x) => '- ' + x.ref + ': “' + x.find.slice(0, 120) + '” — ' + x.why).join('\n') + '\nRe-send your whole answer with each find copied exactly from the page (quote more of it if it could land in two places); keep the proposals that were fine.' });
+        continue;
+      }
+      /* M75: the writer asked THE BRIEF or THE CAST NOTES to change and no <brief>
+       * block came — whatever else came (a canon lock, a lore entry, a "standing
+       * rule"), the brief itself was not touched. Once. */
+      if (!nudgedBrief && asksAboutBrief(writerText) && asksForChange(writerText) && !parsed.brief.length) {
+        nudgedBrief = true;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: '[THE BRIEF] The writer asked for a change to THE BRIEF or THE CAST NOTES, and your answer holds no <brief> block — so the brief stands exactly as it was, whatever else you proposed. Its words are above under THE BRIEF / THE CAST NOTES. Re-send your whole answer with the <brief> block: quote the exact words to change in find and give replace; a fact it already states is replaced where it stands; a new fact goes beside the line it belongs to (find that line, replace with the line plus the new one), or append when no line fits. Keep any other proposal you still stand by.' });
+        continue;
+      }
+      /* M75: a change was asked for, or claimed, and no block at all came — nothing
+       * happened, and the writer must not be told otherwise. Once. */
+      if (!nudgedNoBlock && !hasAnyBlock(parsed) && (asksForChange(writerText) || claimsChange(parsed.text))) {
+        nudgedNoBlock = true;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: '[NOTHING HAPPENED] ' + (claimsChange(parsed.text) ? 'Your answer says a change was made, but it holds no block — so nothing changed. ' : 'The writer asked for a change and your answer holds no block — so nothing changed. ') + 'Re-send your whole answer with the block that makes it: <brief> for THE BRIEF or THE CAST NOTES, <edits> for a page, <ledits> for the ledger or a page of the people, <record> for a record line, <lore> for the shelf — quoting the exact words you change. If no block can do what was asked, say so plainly, without claiming it was done, and name what can be done instead.' });
         continue;
       }
       /* M61 (v2.77): the ripple — the words an edit removes still sit on

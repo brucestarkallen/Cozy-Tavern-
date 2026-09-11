@@ -71,12 +71,14 @@ export function initHousekeeper(ctx) {
 
   /* The worker connection, exactly as chat.js resolves it. */
   async function resolveWorkerConnection(story) {
-    /* M17: the housekeeper may have hands of its own. */
+    /* M17: the housekeeper may have hands of its own. M75: with none set, it
+     * rides the STORYTELLER's connection — the one you talk to needs the
+     * brains, and Chat Assistant ran on the main model. It used to fall to
+     * the workers' connection (the cheap reader) and answered like one. */
     const map = (await db.settings.get('workerConnections')) || {};
-    const wanted = map.housekeeper || await db.settings.get('workerConnectionId');
     const all = await db.connections.list();
-    if (wanted) {
-      const found = all.find((c) => c.id === wanted);
+    if (map.housekeeper) {
+      const found = all.find((c) => c.id === map.housekeeper);
       if (found) return found;
     }
     if (story && typeof story.connectionId === 'string' && story.connectionId) {
@@ -84,7 +86,16 @@ export function initHousekeeper(ctx) {
       if (own) return own;
     }
     const active = await db.settings.get('activeConnectionId');
-    return all.find((c) => c.id === active) || all[0] || null;
+    if (active) {
+      const teller = all.find((c) => c.id === active);
+      if (teller) return teller;
+    }
+    const workers = await db.settings.get('workerConnectionId');
+    if (workers) {
+      const found = all.find((c) => c.id === workers);
+      if (found) return found;
+    }
+    return all[0] || null;
   }
 
   async function activeStory() {

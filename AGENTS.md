@@ -2097,3 +2097,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   you don't have it); REPORT THE SWEEP with numbers, a surface unmentioned reads as unchecked.
 - Harness: m74.mjs (6 checks); m38-1 updated to the whole shelf; DOM-11c stages a <brief> card,
   applies it, sees it in Settings, takes it back. 333/333 + 28/28 (×3). version.js -> m74-001.
+
+---
+
+# M75 — the housekeeper is decisive, on the storyteller's brains
+- FIELD REPORT: "change the brief, Alexia 20 → 19" got a statement ("Alexia is 20, not 19"); "all
+  first-years are 16" got "a standing rule" somewhere else; "why is it smart in SillyTavern and
+  stupid here?" Two roots, both ours:
+  1. THE MODEL. With no hands of its own set, the housekeeper fell to the WORKERS' connection —
+     the cheap reader — while Chat Assistant in SillyTavern ran on the main model. Now: its own
+     hands → the story's teller → the active storyteller → the workers, in that order. The
+     Settings words say so.
+  2. NOTHING ENFORCED THE BLOCK. The rounds caught blind edits, bad anchors and ripples; an
+     asked-for change answered in prose, with zero blocks, simply returned — and the writer read
+     "done". Chat Assistant's law ("be decisive: PROPOSE the fix as a block in the SAME reply,
+     never 'want me to adjust?'") is in the prompt now AND enforced in code: [THE BRIEF] — the ask
+     names the brief / cast notes and is a change (a change verb, "not 19", or a plain statement
+     of how things are that is not a question) and no <brief> block came → sent back once, with
+     the placement law (replace a fact that stands; a new fact beside the line it belongs to;
+     append only when no line fits); [NOTHING HAPPENED] — a change asked for or CLAIMED
+     ("done", "updated", "I have set") and no block at all → sent back once, told to say plainly
+     when no block can do it. A worked <brief> example rides the prompt (Alexia (20) → (19)).
+- Harness: m75.mjs (4 checks, the writer's own asks scripted through runConversation).
+  337/337 + 28/28 (×2). version.js -> m75-001.
+- To the writer: reload once so the new coat lands (the version in the corner reads m75-001), and
+  give the housekeeper hands of its own in Settings only if the storyteller's model is not the one
+  you want it thinking with.
