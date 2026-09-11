@@ -307,6 +307,9 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   st = applyMutations(st, [{ type: 'rel.shift', name: 'Aurora', axis: 'p', delta: 12, cause: 'she came back for him (the page)' }]).state;
   await saveState(sid, st);
   assert(st.present.some((p) => p.name === 'Person7'), 'Person7 is (wrongly) still here');
+  /* the last page's own chain (its every-third-page audit among it) must have landed before the
+   * armed manual run, or an unarmed scheduled run lands last and speaks last on the workers' line */
+  await idle(sid);
   script.auditArmed = true;
   click(q('#btn-ledger'));
   await until(() => !q('#drawer').hidden, 'the drawer opens');
@@ -321,7 +324,7 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   const report = after.audit.issues;
   assert(report.some((i) => /house number/.test(i.what) && i.fixable === false), 'the unfixable one is reported as such');
   const workers = await db.settings.get('workers:' + sid);
-  const detail = (workers && workers.auditor && workers.auditor.detail) || '';
+  const detail = await until(async () => { const w = await db.settings.get('workers:' + sid); const d = w && w.auditor && w.auditor.detail; return d && /found 4 things/.test(d) ? d : null; }, 'the armed run on the workers’ line', 30000);
   assert(/found 4 things/.test(detail) && /set 2 right/.test(detail) && /1 the brief wins — 1 page mended, the record corrected/.test(detail) && /1 only noted/.test(detail) && /1 refused/.test(detail), 'the workers’ line names the run: ' + detail);
   /* M90: THE BRIEF WINS, with no hand on it — the page mended, the earlier words kept, the record corrected, the truth locked */
   const pages2 = (await db.messages.list(sid)).filter((m) => m.role === 'assistant');

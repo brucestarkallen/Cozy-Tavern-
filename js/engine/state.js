@@ -644,6 +644,20 @@ export function renderMasthead(state) {
 export function journalKey(e) {
   try { return e.p + '|' + JSON.stringify(e.m); } catch (err) { return e.p + '|?'; }
 }
+/* M91: does the journal REACH a page — can a fold up to it be exact? Yes when
+ * a snapshot from the journaled era (one that knows its page) sits at or
+ * before the target, or when the journal began at the beginning (an entry
+ * at page 0 or the founding's -1). A store from before the journal, played
+ * on after it, has a journal that starts mid-story: folding such a journal
+ * from nothing yields a ledger missing everything written before it — the
+ * failure the writer met branching from his newest page. */
+export function journalReaches(current, snapshots, targetPage) {
+  const journal = Array.isArray(current && current.journal) ? current.journal : [];
+  if (!journal.length) return false;
+  if (journal.some((e) => e && Number.isInteger(e.p) && e.p <= 0)) return true;
+  return (Array.isArray(snapshots) ? snapshots : []).some((e) => e && e.snap && Number.isInteger(e.snap.page) && e.snap.page <= targetPage);
+}
+
 export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
   const journal = Array.isArray(current.journal) ? current.journal : [];
   let base = null;

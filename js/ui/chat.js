@@ -45,7 +45,7 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, timelineAhead } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { enqueueWork } from '../agents/queue.js';
@@ -3256,13 +3256,21 @@ export function initChat(ctx) {
      * for a store from before the journal. */
     await pendingWork(story.id, 8000);
     const nowState = await loadState(story.id);
-    if ((nowState.journal || []).length) {
-      const k = pages.filter((m) => m.role === 'assistant').length - 1;
-      carried = foldJournal(nowState, await loadSnapshots(story.id), k, applyMutations);
-    }
-    /* M67: a branch from the LAST page carries the ledger as it stands */
-    if (!carried && (isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden))) {
+    const kBranch = pages.filter((m) => m.role === 'assistant').length - 1;
+    const fromTheTail = isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden);
+    /* M91: THE NEWEST PAGE CARRIES THE LEDGER AS IT STANDS — exact by
+     * definition once the readers have landed, and never a re-derivation.
+     * M70's fold came first here and, on a store from before the journal
+     * (a journal that begins mid-story, snapshots that know no page), folded
+     * from NOTHING: the writer branched from his newest page and the whole
+     * ledger was gone. The fold is for OLDER pages, and only where the
+     * journal reaches them. */
+    if (fromTheTail) {
       carried = nowState;
+      exact = true;
+    } else if ((nowState.journal || []).length && journalReaches(nowState, await loadSnapshots(story.id), kBranch)) {
+      carried = foldJournal(nowState, await loadSnapshots(story.id), kBranch, applyMutations);
+      exact = true;
     }
     /* M71: a WRITER'S page, no journal (a story from before it): the checkpoint
      * keyed to that very message — the ledger before its turn — never the one
@@ -3302,11 +3310,20 @@ export function initChat(ctx) {
       }
     }
     if (!carried) {
-      /* M69: the FOLD — the ledger at the end of the branch page, from the journal, no model */
+      /* M69: the FOLD — the ledger at the end of the branch page, from the journal, no model.
+       * M91: near the tail of a store the journal does not reach, the ledger as it stands
+       * is nearer the truth than a fold from nothing; either way an inexact carry is
+       * caught up below (the founder, a deep re-reading, an audit). */
       const now = await loadState(story.id);
+      const snaps = await loadSnapshots(story.id);
       const k = pages.filter((m) => m.role === 'assistant').findIndex((m) => m.id === target.id);
-      carried = foldJournal(now, await loadSnapshots(story.id), k === -1 ? -1 : k, applyMutations);
-      exact = (now.journal || []).length > 0; /* a journal makes the fold exact; an old store without one is caught up below */
+      const reaches = journalReaches(now, snaps, k === -1 ? -1 : k);
+      /* near the tail = the last three storyteller pages, and past the story's midpoint — a
+       * four-page tale's first page is its start, never its tail */
+      const laterPages = history.slice(at + 1).filter((m) => m && !m.hidden && m.role === 'assistant').length;
+      const nearTail = laterPages <= 3 && at >= history.length / 2;
+      carried = (!reaches && nearTail) ? now : foldJournal(now, snaps, k === -1 ? -1 : k, applyMutations);
+      exact = reaches;
     }
     /* M72: the referee's committed-fate timeline speaks in message ids — the
      * branch's pages have new ones. Entries for carried messages are

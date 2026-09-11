@@ -2638,3 +2638,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   word (its earlier words kept under the chip), the record carries the correction, the ledger
   locks the surname, the report calls it fixed — no hand on any of it.
 - M90-1/2 (m85.mjs), LONG-8 extended. 370/370 + 29/29 + 8/8. version.js -> m90-001.
+
+---
+
+# M91 — a branch at the NEWEST page carries the ledger as it stands (the writer's report: "I branched the newest chat and the whole ledger is gone")
+- ROOT CAUSE: M70 put the journal fold FIRST for every page — "with a journal, one rule". On a
+  store from before the journal (M69/M72) that was played on afterwards, the journal begins
+  mid-story and the older snapshots know no `page`; foldJournal found no base, started from
+  emptyState, and replayed only the late entries. The M67 rule ("a branch from the last page
+  carries the ledger as it stands") sat AFTER the fold and never fired. Branching from the newest
+  page of the writer's long-running story therefore produced an almost empty ledger — silently,
+  with `exact` reading true (a non-empty journal was taken for a complete one).
+- THE LAW NOW (branchFrom): (1) the newest page carries the ledger AS IT STANDS — exact by
+  definition once pendingWork has let the readers land, never a re-derivation; (2) an older page
+  folds the journal ONLY where the journal reaches it (state.js journalReaches: a snapshot that
+  knows its page at or before the target, or a journal that began at page 0 / the founding);
+  (3) otherwise the M66 chain as before — the version checkpoint, the next turn's boundary
+  snapshot, the nearest earlier snapshot; (4) the last resort folds where the journal reaches,
+  and near the tail of a store it does not reach (within the last three storyteller pages and
+  past the midpoint) takes the ledger as it stands; an inexact carry is caught up at once (the
+  founder, a deep re-reading, an audit) as M66 laid down.
+- DOM-8e reproduces the report exactly: a rich ledger, a journal that begins late, snapshots
+  stripped of their page — branch at the newest page → every present person, the absent and
+  the locked truths come along; branch at page 0 of the same store → the later people do not.
+  M43-2 updated to the law. 370/370 + 30/30 + 8/8. version.js -> m91-001.

@@ -723,6 +723,54 @@ test('DOM-8b a branch at the start never carries a later ledger: no checkpoint �
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-8e THE WRITER’S REPORT: a store from before the journal, played on, branched at its NEWEST page — the whole ledger comes along; an older page falls back to a checkpoint, never to a fold from nothing', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await settled();
+  /* the store as one from before M69/M72: a rich ledger, a journal that begins mid-story (the
+   * pre-journal entries gone), snapshots that know no page */
+  const now = await db.settings.get('state:' + sid);
+  const rich = JSON.parse(JSON.stringify(now));
+  rich.present = [...(rich.present || []), { name: 'OldFriend' }, { name: 'OldRival' }];
+  rich.offscreen = { ...(rich.offscreen || {}), Grandmother: { location: 'the old house', activity: 'waiting', agenda: 'see him once more', atTurn: 1 } };
+  rich.canon = { ...(rich.canon || {}), OldFriend: { facts: [{ key: 'eyes', value: 'grey', atMinutes: 0 }] } };
+  const keepFrom = Math.max(0, (rich.journal || []).length - 2);
+  rich.journal = (rich.journal || []).slice(keepFrom); /* the journal began late */
+  await db.settings.set('state:' + sid, rich);
+  const snaps = (await db.settings.get('snapshots:' + sid)) || [];
+  await db.settings.set('snapshots:' + sid, snaps.map((e) => ({ ...e, snap: (() => { const c = { ...e.snap }; delete c.page; delete c.journalSeq; c.journal = []; return c; })() })));
+  await db.settings.delete('versionState:' + sid);
+  await env.ctx.chat.renderThread({ structural: true });
+  await tick(200);
+  /* branch at the NEWEST page */
+  const pages = assistantPages();
+  click(q('.msg-act[data-act="branch"]', pages[pages.length - 1]));
+  await until(async () => (await storyId()) !== sid, 'the branch is open', 10000);
+  const bid = await storyId();
+  await settled();
+  const bst = await db.settings.get('state:' + bid);
+  const names = (st) => (st.present || []).map((p) => p.name).sort().join(',');
+  eq(names(bst), names(rich), 'the newest page’s branch carries the ledger AS IT STANDS — every person present');
+  assert(bst.offscreen && bst.offscreen.Grandmother, 'the absent came along');
+  assert(bst.canon && bst.canon.OldFriend, 'the locked truths came along');
+  /* back, then branch at page 0 of the same store: never the later ledger, and the house re-reads */
+  const originTitle = (await db.stories.get(sid)).title;
+  let row = qa('.story-item').find((li) => li.textContent.includes(originTitle) && !/a branch/.test(li.textContent));
+  click(q('.story-open', row) || row);
+  await until(async () => (await storyId()) === sid, 'back on the origin', 10000);
+  await settled();
+  click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
+  await until(async () => (await storyId()) !== sid && (await storyId()) !== bid, 'the second branch', 10000);
+  const bid2 = await storyId();
+  await settled();
+  const bst2 = await db.settings.get('state:' + bid2);
+  assert(!(bst2.present || []).some((p) => p.name === 'OldRival'), 'a branch at the start does not carry the later people');
+  row = qa('.story-item').find((li) => li.textContent.includes(originTitle) && !/a branch/.test(li.textContent));
+  click(q('.story-open', row) || row);
+  await until(async () => (await storyId()) === sid, 'back on the origin again', 10000);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work through the real UI', async () => {
   const before = errors.length;
   click(q('#btn-housekeeper'));
