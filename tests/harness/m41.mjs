@@ -64,7 +64,7 @@ test('M41-3 the house knows the auditor: last in the chain every few turns, by h
   assert(/Audit the ledger/.test(drawer) && /The auditor’s last reading/.test(drawer));
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
   assert(html.includes('id="audit-on"') && html.includes('id="audit-every"'));
-  eq(DEFAULT_AUDIT_EVERY, 3);
+  eq(DEFAULT_AUDIT_EVERY, 1); /* M94: every page */
   const sw = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');
   assert(sw.includes("'js/agents/auditor.js'"));
 });

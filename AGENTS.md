@@ -2693,3 +2693,12 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   law says outright that nothing is reported as unfixable. The drawer's line for a finding with
   no change reads "Seen, left as the story has it"; the workers' line, "seen, nothing to change".
 - 372/372 + 30/30 + 8/8. version.js -> m93-001.
+
+# M94 — the auditor reads every page (Summaryception's cadence)
+- FIELD REPORT: "why not every turn, like Summaryception?" Summaryception's continuity auditor
+  runs on every record line it writes — every page, in effect. The tavern's every-third-page
+  default was a cost choice from M41, made before the auditor became the house's repair: now
+  that it mends pages, corrects the record and locks the brief's truth, a slip should never
+  wait two turns. Default cadence is 1 (Settings → the auditor → "Every how many turns"; raise
+  it only to spend less). The chain grows by one cheap read per page, still off the send path.
+- 372/372 + 30/30 + 8/8 (the long play runs the auditor on all ninety pages). version.js -> m94-001.

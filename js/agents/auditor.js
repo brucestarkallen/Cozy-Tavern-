@@ -10,7 +10,7 @@
  * closed vocabulary as every other change — validated, logged, take-back-
  * able — and what it cannot fix, it says.
  *
- * Runs every few turns (Settings: auditEvery, in turns; auditOn) and by
+ * Runs after every page by default (Settings: auditEvery, in turns; auditOn) and by
  * hand from the drawer ("Audit the ledger"). Off the send path, in the
  * workers' queue, last in the chain. Throws on transport; a garbled answer
  * is said out loud.
@@ -34,7 +34,7 @@ import { loadMemory, wholeRecord } from './memory.js'; /* M51: the whole record,
 import { pageText } from '../assemble/stack.js';
 
 const MAX_TOKENS = 6000;
-export const DEFAULT_AUDIT_EVERY = 3; /* turns */
+export const DEFAULT_AUDIT_EVERY = 1; /* turns — M94: every page, as Summaryception's continuity auditor runs on every line */
 export const AUDIT_PAGES = 10;        /* the latest pages the auditor reads in full */
 
 const VOCABULARY = [

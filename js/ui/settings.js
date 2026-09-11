@@ -1076,7 +1076,7 @@ export function initSettings(ctx) {
     /* M41: the auditor */
     els.auditOn.checked = (await db.settings.get('auditOn')) !== false;
     const ae = Math.round(Number(await db.settings.get('auditEvery')));
-    const everyV = Number.isFinite(ae) && ae >= 1 ? Math.min(20, ae) : 3;
+    const everyV = Number.isFinite(ae) && ae >= 1 ? Math.min(20, ae) : 1;
     els.auditEvery.value = String(everyV);
     els.auditEveryValue.textContent = String(everyV);
     const eff = await db.settings.get('worldEffort');
@@ -1088,7 +1088,7 @@ export function initSettings(ctx) {
   });
   els.auditEvery.addEventListener('input', () => { els.auditEveryValue.textContent = els.auditEvery.value; });
   els.auditEvery.addEventListener('change', async () => {
-    await db.settings.set('auditEvery', Math.round(Number(els.auditEvery.value)) || 3);
+    await db.settings.set('auditEvery', Math.round(Number(els.auditEvery.value)) || 1);
   });
 
   els.worldAgent.addEventListener('change', async () => {
