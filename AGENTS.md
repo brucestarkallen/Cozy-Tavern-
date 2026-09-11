@@ -2552,3 +2552,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   It now says only what the storyteller IS and that the brief and the cast set the register; a
   writer's own frame still outranks it.
 - 366/366 + 29/29 + 6/6. version.js -> m87-001.
+
+---
+
+# M88 — the house's eye: the page against the craft's mechanical laws, in code, every turn
+- FIELD REPORT: "is the audit ledger already the best to audit everything?" The chain, read whole:
+  the extractor writes the page's truth; the world agent moves the world; the scribe keeps the
+  people; the keeper folds the record and Summaryception's auditor verifies each line; the second
+  reader holds the page against canon and mends it; the ledger auditor (every three turns) holds
+  the whole ledger against the brief, the pages and the record, with code housekeeping. Every
+  reader minded FACTS. Nothing minded the PAGE against the writer's own hard laws — the ones a
+  machine can hold exactly and a model slips on most. agents/lint.js is that reader, no call, no
+  judgment: Ghost Dialogue (a quoted line tagged to the main character that the writer did not
+  type — attribution by speech tag, "typed" by content-word overlap), No Echo (the typed line
+  rendered twice), Banned Words (the list; lone modifiers as notes), Marks On The Page (markdown
+  headers, bold, backticks, a <think> or tracker block on the page, an action wrapped in
+  asterisks, an unbalanced private thought), Header Protocol (no header line), Dialogue Ratio far
+  outside the band (note only). High precision over recall: a clean page yields nothing.
+- The loop is the preset's own Callout Response, run by the house: findings land on the page
+  (msg.findings, kind 'craft', beside the second reader's, both kept); the WARNS of the last page
+  ride the storyteller's next turn as "The house's eye" — its own receipt-named slot in the
+  dynamic tail, one turn only, recolor forward silently, never lampshade — and the turn after
+  carries nothing. Notes never nag. OOC answers are not pages.
+- Proven in the long play: a slipped page (words in Jovan's mouth, "breath hitching") carries
+  both findings; the next turn's request holds the slip and the law; the turn after does not.
+  The long play's mock extractor names the main character from the first page (the real one
+  does; with no brief there is no founder) — without a named main character the eye cannot
+  convict a ghost line, by design.
+- M88-1/2 (m85.mjs), LONG-7. 368/368 + 29/29 + 7/7. version.js -> m88-001.

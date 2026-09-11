@@ -315,7 +315,7 @@ function isContinueTurn(history) {
 
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
-  window: windowInfo, directive, directorNote, editorEye, ruling, worldBrief, pageFilter,
+  window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter,
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -497,6 +497,9 @@ export function buildRequest({
    * lore shelf, still before history. */
   const directorText = typeof directorNote === 'string' ? directorNote.trim() : '';
   const editorText = typeof editorEye === 'string' ? editorEye.trim() : '';
+  /* M88: the house's eye — the last page's slips against the craft's
+   * mechanical laws (agents/lint.js), for this one turn's recolor. */
+  const eyeText = typeof houseEye === 'string' ? houseEye.trim() : '';
   /* M11: the referee's ruling rides last in the dynamic tail — the freshest,
    * most binding word, sitting closest to the history it governs. */
   const rulingText = typeof ruling === 'string' ? ruling.trim() : '';
@@ -512,6 +515,7 @@ export function buildRequest({
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name */
   if (directorText) stateParts.push('The director’s note:\n' + directorText);
   if (editorText) stateParts.push('The editor’s eye:\n' + editorText);
+  if (eyeText) stateParts.push(eyeText); /* the eye speaks its own name */
   if (rulingText) stateParts.push(rulingText); /* the directive already speaks its name */
   const stateInjection = stateParts.length
     ? { role: 'user', content: STATE_MARKER + '\n' + stateParts.join('\n\n') }
@@ -542,6 +546,9 @@ export function buildRequest({
   }
   if (editorText) {
     pushSlot('The editor’s eye', editorText, 'the standing craft critique');
+  }
+  if (eyeText) {
+    pushSlot('The house’s eye', eyeText, 'the last page’s slips against the craft, checked in code — recolored this turn');
   }
   if (rulingText) {
     pushSlot('The house has ruled', rulingText, 'the referee’s binding word for this turn');

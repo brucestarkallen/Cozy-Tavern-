@@ -54,6 +54,7 @@ import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
 import { maybeSummarize, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
+import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { wholeRecord } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
@@ -1675,6 +1676,24 @@ export function initChat(ctx) {
       return { silent: false, detail: founderRunWords(result), raw: result && result.raw };
     });
 
+    /* 0b. M88: the house's eye — the page against the craft's mechanical
+     * laws, in code, no call: ghost dialogue, echo, the dead phrases, marks
+     * on the page, the header. Its findings land on the page (kind 'craft')
+     * and its warns ride the storyteller's NEXT turn as the recolor. */
+    enqueue('eye', async ({ stale }) => {
+      if (stale() || msg.ooc) return { silent: true };
+      const st = await loadState(story.id);
+      const known = mcName(st);
+      const { findings } = lintPage({ mc: known && known !== 'the player' ? known : '', userText, assistantText: pageText(msg), ooc: Boolean(msg.ooc) });
+      if (stale() || !(await stillThere(story.id, msg.id))) return { silent: true };
+      const current = (await db.messages.list(story.id)).find((m) => m.id === msg.id);
+      const others = Array.isArray(current && current.findings) ? current.findings.filter((f) => f && f.kind !== 'craft') : [];
+      await reink(story.id, msg.id, { findings: [...findings, ...others] });
+      if (findings.length) notify(story.id);
+      const warns = findings.filter((f) => f.severity === 'warn').length;
+      return { silent: !findings.length, detail: findings.length ? `${findings.length} ${findings.length === 1 ? 'slip' : 'slips'} against the craft` + (warns ? ` (${warns} to recolor next turn)` : '') : '' };
+    });
+
     /* 1. The extractor (M3): read the page, propose mutations, apply and
      * save them, and write the outcome back onto the same message. */
     enqueue('extractor', async ({ signal, stale }) => {
@@ -1871,7 +1890,10 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       if (!list.length) return { silent: false };
       if (!(await stillThere(story.id, msg.id))) return { silent: true };
-      await reink(story.id, msg.id, { findings: list });
+      /* M88: the house's eye wrote its craft findings first — keep them */
+      const current = (await db.messages.list(story.id)).find((m) => m.id === msg.id);
+      const craft = Array.isArray(current && current.findings) ? current.findings.filter((f) => f && f.kind === 'craft') : [];
+      await reink(story.id, msg.id, { findings: [...craft, ...list] });
       notify(story.id); // the drawer's "Something drifted" listens
       /* M35: a warn that carries a fix mends the page by the smallest edit */
       const fixes = list.filter((f) => f.severity === 'warn' && f.fix);
@@ -2369,6 +2391,9 @@ export function initChat(ctx) {
          * slots in the dynamic tail, before history; empty = omitted. */
         directorNote: renderDirectorNote(directorState),
         editorEye: renderEditorNote(editorState),
+        /* M88: the house's eye — the LAST page's slips against the craft,
+         * for this one turn's silent recolor (never a standing nag). */
+        houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
         /* M29: the world agent's word for this turn. */
         worldBrief: renderWorldBrief(state.worldBrief, state.turn),
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */

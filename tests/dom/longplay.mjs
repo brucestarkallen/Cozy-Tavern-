@@ -67,6 +67,9 @@ house.state.storyAnswer = (body) => {
     lines.push('The door opens without a knock. Aurora steps in, coat still on, rain in her hair. "You came back," she says, and does not sit.');
   } else if (/Aurora[^\n]*arriving in about/.test(stateText)) {
     lines.push('Jovan turns the cup in his hands. Nobody has come up the walk yet; the street outside is quiet. Kim texts twice and he does not answer.');
+  } else if (script.turn === 20) {
+    /* a slip, on purpose: words in MC's mouth he did not type, and a dead phrase — the house's eye must catch it */
+    lines.push(`Person20 entered the room and sat down. "Sure, whatever you say," Jovan says, shrugging. Her breath hitching, she pours.`);
   } else {
     lines.push(`Person${script.turn} entered the room and sat down. ~t~*He looks tired.*~/t~ The kettle clicks off. *tk-tk* "Tea?" Person${script.turn} asks, and pours without waiting.`);
   }
@@ -91,6 +94,8 @@ house.state.workerAnswer = (body, sys) => {
     /* the extractor reads the page's header for the hour, and seats whoever the page shows arriving */
     const h = user.match(/\[The house on Elm — [A-Za-z]+, ([A-Za-z]+) (\d+), (\d+) \| (\d+):(\d+) \|/);
     const muts = [];
+    /* the first page names the main character (the extractor's mc.set, as the real one does with no brief to found from) */
+    if (/Jovan comes home/.test(user)) muts.push({ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The house on Elm' }, { type: 'presence.enter', name: 'Jovan', position: 'at the kitchen table' });
     if (h) muts.push({ type: 'clock.set', year: Number(h[3]), month: MONTHS.indexOf(h[1]) + 1, day: Number(h[2]), hour: Number(h[4]), minute: Number(h[5]) });
     if (/Aurora steps in/.test(user)) muts.push({ type: 'presence.enter', name: 'Aurora', position: 'just inside the door', attire: 'a wet coat' });
     const p = user.match(/(Person\d+) entered the room/);
@@ -256,6 +261,24 @@ test('LONG-5 the voices ride under the page, rotate, and never reach the wire; t
   assert(q15 && q15.tokens > 100, '#q’s whole law rode the tail on its turn only: ' + (q15 && q15.tokens));
   const q16 = receipts.find((r) => r.turn === 16).slots.find((s) => s.name === 'The house heard');
   assert(!q16 || q16.tokens === 0, 'and not the turn after');
+});
+
+test('LONG-7 the house’s eye: the slipped page carries its findings, the next turn was handed the recolor, and the turn after was not', async () => {
+  const pages = (await db.messages.list(sid)).filter((m) => m.role === 'assistant');
+  const slipped = pages.find((m) => /Sure, whatever you say/.test(m.text));
+  assert(slipped && Array.isArray(slipped.findings), 'the slipped page has findings');
+  const laws = slipped.findings.map((f) => f.law);
+  const st = await db.settings.get('state:' + sid);
+  assert(laws.includes('Ghost Dialogue') && laws.includes('Banned Words'), 'both slips caught: ' + laws.join(', ') + ' | mc=' + JSON.stringify(st.sheet && st.sheet.playerName) + ' | findings=' + JSON.stringify(slipped.findings));
+  const clean = pages.find((m) => /Person21 entered/.test(m.text));
+  assert(!(clean.findings || []).some((f) => f.kind === 'craft'), 'a clean page carries no craft finding');
+  const eyeTurn = receipts.find((r) => r.turn === 21);
+  const eye = eyeTurn.slots.find((s) => s.name === 'The house’s eye');
+  assert(eye && eye.tokens > 0, 'the recolor rode the next turn: ' + JSON.stringify(eyeTurn.slots.map((s) => s.name)));
+  const after = receipts.find((r) => r.turn === 22).slots.find((s) => s.name === 'The house’s eye');
+  assert(!after, 'and not the turn after');
+  const call = house.state.calls.filter((c) => !c.isWorker)[21];
+  assert(/Sure, whatever you say/.test(JSON.stringify(call.body)) && /recolor forward THIS turn/.test(JSON.stringify(call.body)), 'the storyteller read the slip and the law');
 });
 
 test('LONG-6 the intimate rule wakes on the writer’s own words a beat before the flag, and stands down after', async () => {

@@ -1540,6 +1540,7 @@ function peoplePanel(ctx) {
 /* ---------- the workers' line (M12) ---------- */
 const WORKER_WORDS = {
   founder: 'the founder',
+  eye: 'the house’s eye',
   extractor: 'the extractor',
   world: 'the world agent',
   scribe: 'the scribe',

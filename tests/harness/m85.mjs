@@ -248,3 +248,43 @@ test('M86-1 the absent are ranked by who can reach the scene (the writer’s ACW
   assert(/Runner/.test(tight), 'the arrival outlives the knife: ' + tight.slice(0, 200));
   assert(!/Factions:/.test(tight), 'the factions went first');
 });
+
+test('M88-1 the house’s eye: the craft’s mechanical laws checked in code — ghost dialogue, echo, the dead phrases, the marks, the header; clean pages pass', async () => {
+  const { lintPage, houseEyeWords } = await import('../../js/agents/lint.js');
+  const hdr = '[The house on Elm — Friday, March 14, 2025 | 14:20 | 🌤 clear | hoodie | at the table]\n\n';
+  const ghost = lintPage({ mc: 'Jovan', userText: 'I shrug.', assistantText: hdr + '"You came back," she says. "Yeah, I guess I did," Jovan says, and shrugs.' });
+  assert(ghost.findings.some((f) => f.law === 'Ghost Dialogue' && /Yeah, I guess I did/.test(f.words)), 'a line put in MC’s mouth is caught');
+  const typed = lintPage({ mc: 'Jovan', userText: '"I am not leaving," I tell her.', assistantText: hdr + '"I am not leaving," Jovan says. She stares. "Then sit," she says.' });
+  assert(!typed.findings.some((f) => f.law === 'Ghost Dialogue'), 'the writer’s own line is not a ghost');
+  assert(!typed.findings.some((f) => f.law === 'Header Protocol'), 'the header is seen');
+  const echo = lintPage({ mc: 'Jovan', userText: '"I am not leaving."', assistantText: hdr + '"I am not leaving," Jovan says. She hears it: "I am not leaving," and the words hang.' });
+  assert(echo.findings.some((f) => f.law === 'No Echo'), 'the typed line rendered twice is caught');
+  const marks = lintPage({ mc: 'Jovan', userText: 'I wait.', assistantText: '## The Kitchen\n\n**He waits.** *he steps closer to her* Her breath hitching. ~t~*never*' });
+  const laws = marks.findings.map((f) => f.law);
+  for (const law of ['Header Protocol', 'Marks On The Page', 'Sound As Onomatopoeia', 'Banned Words', 'NPC Private Thoughts']) assert(laws.includes(law), 'caught: ' + law);
+  assert(!marks.findings.some((f) => /SLAP/.test(f.words)), 'a sound in asterisks is never an action');
+  const sound = lintPage({ mc: 'Jovan', userText: 'I wait.', assistantText: hdr + 'She hits him. *SLAP!* Then *thud thud thud* on the stairs. ~t~*He will not stay.*~/t~ She turns.' });
+  eq(sound.findings.length, 0, 'a clean page passes: ' + JSON.stringify(sound.findings));
+  const ooc = lintPage({ mc: 'Jovan', userText: '#question why?', assistantText: 'Because she saw him leave.', ooc: true });
+  eq(ooc.findings.length, 0, 'an OOC answer is not a page');
+  const eye = houseEyeWords(ghost.findings);
+  assert(/recolor forward THIS turn/.test(eye) && /Ghost Dialogue/.test(eye) && /Never lampshade/.test(eye), 'the eye’s words carry the preset’s callout law');
+  eq(houseEyeWords(sound.findings), '', 'a clean page says nothing');
+  eq(houseEyeWords([{ words: 'x', severity: 'note', kind: 'craft' }]), '', 'a note never nags');
+});
+
+test('M88-2 the eye rides the storyteller’s next turn as its own receipt-named slot, and only then', async () => {
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  const { listModules, selectModules } = await import('../../js/assemble/modules.js');
+  const state = emptyState();
+  const mods = selectModules(await listModules(), state);
+  const base = { story: { id: 's', title: 't' }, messages: [{ role: 'user', text: 'I wait.' }, { role: 'assistant', text: 'A page.' }], settings: {}, state, modules: mods, memory: '', cast: [], lore: '', window: { keeperOn: true, window: 30 } };
+  const withEye = buildRequest({ ...base, houseEye: 'The house\'s eye on the last page — slips: ghost dialogue.' });
+  const slot = withEye.receipt.slots.find((s) => s.name === 'The house’s eye');
+  assert(slot && slot.tokens > 0, 'the slot rides');
+  const injected = withEye.messages.find((m) => m.role === 'user' && /\[story-state\]/.test(m.content));
+  assert(injected && /The house's eye on the last page/.test(injected.content), 'it rides the dynamic tail, never the cached prefix');
+  assert(!withEye.systemBlocks.some((b) => /house's eye on the last page/.test(b.text)), 'not in the system blocks');
+  const without = buildRequest({ ...base, houseEye: '' });
+  assert(!without.receipt.slots.some((s) => s.name === 'The house’s eye'), 'a clean last page: no slot at all');
+});
