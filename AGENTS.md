@@ -2297,3 +2297,32 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   APPLIED — why / withdrawn / still pending) and says plainly: what was not applied did not
   happen. The thinking never rides. m79's M81-1. 350/350 + 29/29 (one flaky DOM-8c run, green
   twice after). version.js -> m81-001.
+
+---
+
+# M82 — Chat Assistant's auto-supersede, whole: a second wave retires what it replaces
+- FIELD REPORT: "if a proposal fails, is there a button to make the AI say what happened? and if a
+  second wave fixes the first wave's wrong cards, are the old ones skipped automatically?"
+  (1) Yes: "Re-propose failed" in the cards bar sends every refused/stale card with its reason and
+  asks for corrected anchors or a withdrawal; since M81 the [STATE] note tells the model each
+  card's fate too. (2) Chat Assistant does it IN CODE (its comment: "no reliance on the model
+  remembering to emit a <supersede> block"); the tavern had only the dead-anchor rule, for page
+  edits only. Ported whole (stageProposals → mergeDuplicates + autoSupersede): an old PENDING card
+  is set aside by a new card that is identical (same signature) or a REFINEMENT (same target,
+  same anchor — or both whole replacements — new words); an old FAILED (refused/stale) card, or a
+  pending one whose ANCHOR IS DEAD, is set aside by ANY new card on the same concrete target (a
+  page, the brief, a record line, a rule, a lore entry, the ledger); an independent fix on the same
+  page stands; twins within one answer merge; the reply says "(N older cards set aside — replaced
+  by this answer's; Apply all applies only the newest version of each fix.)". Two ledger cards
+  are two changes; a hide is never refined by an edit; an add has no one target.
+- Also: a swipe pressed while the storyteller is busy says so (M62-002's law) instead of dropping.
+- m82.mjs (2 checks). 352/352 + 29/29 (×2 green after one flake).
+- OPEN, said plainly: DOM-8c is flaky under load at ONE step — "swipe-new-old: waited too long for
+  a new version of an old page" (a swipe past the end on an older page after walking its
+  versions), roughly one run in three on a loaded sandbox, green on rerun. Claiming the replay
+  before swipeTo's store work was tried and did NOT cure it (and broke M44-6's shape law), so the
+  gap is elsewhere — most likely the walk's idle() passing between the walking loop's clicks while
+  swipeTo is mid-flight, so the final press meets `busy` in swipeRegenerate (now a toast; the
+  walk's until does not read toasts). Next: have the walk wait on the swipe count changing before
+  each next click, and read the toast into the failure message. Not the housekeeper's.
+  version.js -> m82-001.

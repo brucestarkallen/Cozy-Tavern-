@@ -1417,7 +1417,100 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     });
   }
 
-  return proposals;
+  /* M82: Chat Assistant's auto-supersede, whole — never a reliance on the model
+   * remembering a <supersede> block */
+  const merged = mergeDuplicates(proposals);
+  const setAside = autoSupersede(session, merged.list, { messages, memory, lore, modules, story });
+  merged.list.setAside = setAside;
+  merged.list.intraDups = merged.dropped;
+  return merged.list;
+}
+
+/* M82: the concrete target a card changes — one page, the brief, one record
+ * line, one rule, one lore entry, the ledger; null for a bulk re-ink or a
+ * lore add (neither has one target). */
+export function cardTarget(p) {
+  const op = (p && p.op) || {};
+  switch (p && p.kind) {
+    case 'edit': return op.bulk ? null : (op.messageId ? 'msg:' + op.messageId : null);
+    case 'brief': return 'story:' + (op.field || 'brief');
+    case 'record': return op.nodeId ? 'record:' + op.nodeId : null;
+    case 'redit': return op.moduleId ? 'mod:' + op.moduleId : null;
+    case 'lore': return op.add ? null : (op.entryId ? 'lore:' + op.entryId : null);
+    case 'ledit': return 'ledger';
+    default: return null;
+  }
+}
+/* the exact signature — an identical re-proposal in a later answer, or a twin inside one */
+export function cardSignature(p) {
+  const op = (p && p.op) || {};
+  const S = (v) => (v === undefined ? null : (v !== null && typeof v === 'object' ? JSON.stringify(v) : v));
+  return JSON.stringify([p.kind, cardTarget(p), S(op.find), S(op.replace), S(op.text), S(op.append), S(op.hide), S(op.patch), S(op.remove), S(op.mutations), S(op.ids), S(op.name), S(op.content)]);
+}
+/* Does a NEW card make an OLD pending one obsolete? Identical, or a REFINEMENT:
+ * the same target with the same anchor (or both whole replacements) and new
+ * words — applying both would fail the second, its anchor consumed by the first. */
+export function supersededByNew(oldP, newP) {
+  if (!oldP || !newP || oldP.kind !== newP.kind) return false;
+  if (cardSignature(oldP) === cardSignature(newP)) return true;
+  const t = cardTarget(oldP);
+  if (!t || t !== cardTarget(newP)) return false;
+  const o = oldP.op || {}; const n = newP.op || {};
+  if (oldP.kind === 'edit' && (o.hide !== undefined || n.hide !== undefined)) return false;
+  if (typeof o.find === 'string' && typeof n.find === 'string') return o.find === n.find;
+  if (oldP.kind === 'brief') return typeof o.text === 'string' && typeof n.text === 'string';
+  if (oldP.kind === 'lore') return Boolean(o.patch && n.patch && typeof o.patch.content === 'string' && typeof n.patch.content === 'string');
+  if (oldP.kind === 'ledit') return false; /* two ledger cards are two changes */
+  return false;
+}
+/* Is an OLD pending card dead — its anchor gone from the text as it stands? */
+export function anchorIsDead(p, { messages, memory, lore, modules, story } = {}) {
+  const op = (p && p.op) || {};
+  if (typeof op.find !== 'string' || !op.find) return false;
+  try {
+    if (p.kind === 'edit') { const m = (messages || []).find((x) => x && x.id === op.messageId); return !m || !locate(pageText(m), op.find).ok; }
+    if (p.kind === 'record') { const nd = ((memory && memory.nodes) || []).find((x) => x && x.id === op.nodeId); return !nd || !locate(nd.text, op.find).ok; }
+    if (p.kind === 'redit') { const mod = (modules || []).find((x) => x && x.id === op.moduleId); return !mod || !locate(String(mod.text || ''), op.find).ok; }
+    if (p.kind === 'brief') { const cur = story && typeof story[op.field] === 'string' ? story[op.field] : ''; return !locate(cur, op.find).ok; }
+  } catch (err) { return false; }
+  return false;
+}
+export function mergeDuplicates(list) {
+  const seen = new Set();
+  const out = [];
+  let dropped = 0;
+  for (const p of list) {
+    if (p.status !== 'pending') { out.push(p); continue; }
+    const sig = cardSignature(p);
+    if (seen.has(sig)) { dropped += 1; continue; }
+    seen.add(sig);
+    out.push(p);
+  }
+  return { list: out, dropped };
+}
+/* Retire the older cards this answer replaces. Returns how many were set aside. */
+export function autoSupersede(session, newCards, world) {
+  const fresh = (Array.isArray(newCards) ? newCards : []).filter((p) => p && p.status === 'pending');
+  if (!fresh.length) return 0;
+  let n = 0;
+  for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
+    for (const old of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
+      if (!old || fresh.includes(old)) continue;
+      const failed = old.status === 'refused' || old.status === 'stale';
+      if (old.status !== 'pending' && !failed) continue;
+      if (old.kind === 'unreadable') continue;
+      const dead = !failed && anchorIsDead(old, world);
+      const t = cardTarget(old);
+      const hit = fresh.some((nw) => ((failed || dead) ? (t !== null && t === cardTarget(nw)) : supersededByNew(old, nw)));
+      if (!hit) continue;
+      old.status = 'superseded';
+      old.words = failed ? 'Set aside — replaced after it could not land.'
+        : dead ? 'Set aside — its anchor no longer matches; replaced by the newer card.'
+        : 'Set aside — superseded by the newest answer (Apply all applies only the newest version of each fix).';
+      n += 1;
+    }
+  }
+  return n;
 }
 
 /* M61 (v2.77): what an edit actually removes — find minus the head and tail
@@ -2383,6 +2476,9 @@ export async function housekeeperTurn({
 
     const proposals = stageProposals(result.parsed, { messages, state, modules, lore, memory: mem, session, story });
     let withdrawNote = '';
+    /* M82: what was set aside by this answer's cards, said in the talk */
+    if (proposals.setAside) withdrawNote += '\n\n(' + proposals.setAside + (proposals.setAside === 1 ? ' older card' : ' older cards') + ' set aside — replaced by this answer’s; Apply all applies only the newest version of each fix.)';
+    if (proposals.intraDups) withdrawNote += '\n\n(' + proposals.intraDups + (proposals.intraDups === 1 ? ' duplicate card' : ' duplicate cards') + ' within the answer merged.)';
     if (result.parsed.supersede.length) {
       const sup = applySupersede(session, result.parsed.supersede);
       if (sup.unmatched.length) withdrawNote = '\n\n(No pending card answers to: ' + sup.unmatched.map((l) => '“' + l + '”').join(', ') + ' — nothing was withdrawn for those.)';

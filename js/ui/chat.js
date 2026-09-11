@@ -2931,7 +2931,7 @@ export function initChat(ctx) {
    * the ledger rewinds to the boundary before this turn first, so no
    * consequence of a version that no longer stands survives. */
   async function swipeRegenerate(msg) {
-    if (busy) return;
+    if (busy) { toast('The storyteller is still busy — one moment, then swipe.'); return; } /* M82: a dropped press says so (M62-002's law) */
     if (replaying) { toast('The ledger is still being rebuilt — one moment, then swipe.'); return; }
     busy = true;
     try {
