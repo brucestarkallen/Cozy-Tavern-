@@ -120,8 +120,30 @@ export function renderOffscreen(offscreen, present, clockMinutes, top = RENDER_T
   for (const [name, entry] of Object.entries(safe)) {
     if (!entry || typeof entry !== 'object') continue;
     if (here.has(name.trim().toLowerCase())) continue; // they're in the scene
-    rows.push({ line: seatWords(name, entry, clockMinutes), recency: recencyKey(entry) });
+    rows.push({ line: seatWords(name, entry, clockMinutes), recency: recencyKey(entry), rank: stanceRank(entry, clockMinutes) });
   }
-  rows.sort((a, b) => b.recency - a.recency);
+  /* M86: the writer's ACW rotation, not recency alone — whoever is moving
+   * toward the main character (nearest arrival first) outranks whoever is
+   * searching, who outranks unresolved tension, then the busy, then the
+   * waiting; recency breaks ties. The storyteller's six lines are the six
+   * that can reach the scene, never the six most recently written. */
+  rows.sort((a, b) => (a.rank - b.rank) || (b.recency - a.recency));
   return rows.slice(0, top).map((r) => r.line).join('\n');
+}
+
+/* Lower is nearer the scene. `toward` and `seeking` carry their arrival: due
+ * or overdue first, then by how soon; a stance with no clock sits behind
+ * one with a clock. */
+function stanceRank(entry, clockMinutes) {
+  const st = typeof entry.stance === 'string' ? entry.stance : '';
+  const base = st === 'toward' ? 0 : st === 'seeking' ? 100 : st === 'tense' ? 200 : st === 'busy' ? 300 : st === 'waiting' ? 400 : 500;
+  if (st === 'toward' || st === 'seeking') {
+    if (Number.isFinite(entry.arrivesAtMinutes) && Number.isFinite(clockMinutes)) {
+      const left = entry.arrivesAtMinutes - clockMinutes;
+      /* due or overdue = 0; then every five minutes a step, capped */
+      return base + Math.min(99, Math.max(0, Math.ceil(left / 5)));
+    }
+    return base + 99;
+  }
+  return base;
 }

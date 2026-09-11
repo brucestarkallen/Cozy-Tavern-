@@ -2494,3 +2494,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   again whenever the house is found idle with no new version (a press landing in the M72 replay
   window was the flake); DOM-11 waits for the regex shelf to render before counting it.
 - m85.mjs updated (8 checks). 365/365 + 29/29 (×2). version.js -> m85-002.
+
+---
+
+# M86 — the living world, held against the writer's Living World / ACW laws end to end
+- FIELD REPORT: "has the living world been properly, smartly adjusted?" Walked whole: the page
+  half (Living Scene, Ambient Frame, Crowd In Action, Simultaneity, Event Phases Advance, Scene
+  Relocation, The World Reaches In, NPC Creation Authority, Unspent Material, Night Empties The
+  World, Hold Is Forbidden When, A Turn Moves The World — all in the craft) and the off-page half
+  (the world agent: the absent by the clock with stance and ETA, threads with a next move,
+  ripening, who-knows-what, factions on cause, new people, the brief, now the voices). Two places
+  where the code did not keep the writer's law, fixed:
+  1. THE ABSENT WERE RANKED BY RECENCY. renderOffscreen showed the six most recently WRITTEN
+     seats, so a person moving toward the scene could fall off the storyteller's page behind six
+     idle ones. The writer's ACW rotation is the law now: toward (due/overdue first, then by
+     minutes left) > seeking > tense > busy > waiting; recency breaks ties. The six lines are
+     the six who can reach the scene.
+  2. THE BUDGET'S KNIFE FELL ON THE LIVING WORLD FIRST. renderStateFacts shed whole sections by
+     priority, and Elsewhere (5) / Threads (5) / Factions (6) went before every present guest's
+     eye colour (canon 2) and what each guest knows (knowledge 2) — both of which grow with the
+     crowd. Now the crowd-scaling sections are TRIMMED to their first eight lines ("and N more
+     present, not written here") before anything is shed, and the shed order is factions 5,
+     standings/threads 4, elsewhere/bodies 3, canon/knowledge 2. A sixteen-guest ball keeps the
+     runner on the stairs and the open threads on the page.
+- M86-1 (in m85.mjs). 366/366 + 29/29. version.js -> m86-001.

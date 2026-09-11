@@ -204,3 +204,47 @@ test('M85-8 a page keeps the voices it was given; readable media unwraps for the
   const page2 = applyRules(text, BUILTIN_RULES, { on: 'storyteller', mode: 'page' });
   assert(/GFX_START/.test(page2), 'the page itself keeps its words — the media is canon');
 });
+
+test('M86-1 the absent are ranked by who can reach the scene (the writer’s ACW rotation), never by recency alone; the living world is not the first thing the budget drops', async () => {
+  const { seat, renderOffscreen } = await import('../../js/engine/offscreen.js');
+  const { renderStateFacts, STATE_BUDGET } = await import('../../js/engine/state.js');
+  let o = {};
+  o = seat(o, 'Old Neighbor', { location: 'his porch', activity: 'smoking', agenda: 'complain', stance: 'waiting' }, 600, 9);
+  o = seat(o, 'Kim', { location: 'the highway', activity: 'driving', agenda: 'find him', stance: 'seeking', etaMinutes: 40 }, 600, 8);
+  o = seat(o, 'Aurora', { location: 'the platform', activity: 'walking', agenda: 'reach him', stance: 'toward', etaMinutes: 12 }, 600, 3);
+  o = seat(o, 'Renna', { location: 'the hall', activity: 'arguing', agenda: 'win', stance: 'busy' }, 600, 10);
+  o = seat(o, 'Volkov', { location: 'his office', activity: 'on the phone', agenda: 'confront him', stance: 'tense' }, 600, 7);
+  const lines = renderOffscreen(o, [], 605).split('\n');
+  assert(/^Aurora/.test(lines[0]) && /^Kim/.test(lines[1]) && /^Volkov/.test(lines[2]) && /^Renna/.test(lines[3]) && /^Old Neighbor/.test(lines[4]), lines.join(' | '));
+  /* seven seated, six shown: the one left out is the least able to reach the scene, not the oldest */
+  o = seat(o, 'Far Cousin', { location: 'another city', activity: 'sleeping', agenda: 'nothing yet', stance: 'waiting' }, 600, 1);
+  o = seat(o, 'Runner', { location: 'the stairs', activity: 'running', agenda: 'warn him', stance: 'toward', etaMinutes: 2 }, 600, 0);
+  const six = renderOffscreen(o, [], 605).split('\n');
+  eq(six.length, 6); assert(/^Runner/.test(six[0]) && !six.some((l) => /^Far Cousin/.test(l)), six.join(' | '));
+  /* the budget's knife: with the ledger overfull, the arrivals outlive the standings and the factions */
+  const st = emptyState();
+  st.clock = { calendar: 'gregorian', minutes: 605, label: '' };
+  st.offscreen = o;
+  st.factions = { 'the studio': { stance: 'furious', agenda: 'bury it', move: 'sent a lawyer', atTurn: 1 } };
+  for (let i = 0; i < 6; i += 1) st.relationships['Person' + i] = { p: 40 - i, r: 0, s: 0 };
+  st.threads = [{ title: 'the letter', owner: 'Kim', heat: 'hot', next: 'corner him before Liara leaves the party tonight', atTurn: 2 }, { title: 'the money', owner: 'Volkov', heat: 'hot', next: 'call the studio and name a number he cannot refuse', atTurn: 2 }];
+  for (let i = 0; i < 16; i += 1) st.present.push({ name: 'Guest' + i, position: 'standing at the long table by the far window', attire: 'a dark coat' });
+  for (let i = 0; i < 16; i += 1) {
+    st.canon['Guest' + i] = { facts: [{ key: 'eyes', value: 'grey, one clouded from a childhood fever', atMinutes: 0 }, { key: 'home', value: 'the tenements past the east gate', atMinutes: 0 }] };
+    st.knowledge['Guest' + i] = [{ fact: 'saw the captain leave with the ledger under his coat', atTurn: 3 }];
+  }
+  const facts = renderStateFacts(st);
+  assert(facts.length <= STATE_BUDGET, 'the budget holds: ' + facts.length);
+  /* the crowd-scaling sections were trimmed, not the living world shed */
+  assert(/more present, not written here/.test(facts), 'the crowd was trimmed: ' + facts.length);
+  assert(/Elsewhere:/.test(facts) && /Runner/.test(facts) && /Aurora/.test(facts), 'the arrivals survive');
+  assert(/Threads still open:/.test(facts) && /Factions:/.test(facts), 'the threads and the factions survive');
+  assert(/Guest0 — eyes/.test(facts) && !/Guest15 — eyes/.test(facts), 'the first present keep their facts; the sixteenth is counted, not written');
+  /* still overfull after trimming: the factions go before the arrivals */
+  for (let i = 0; i < 12; i += 1) st.offscreen = seat(st.offscreen, 'Traveler' + i, { location: 'the long road past the mill and the drowned fields', activity: 'walking with the mule and the cart', agenda: 'sell the winter grain at the market before the frost', stance: 'busy' }, 600, 20 + i);
+  for (let i = 0; i < 6; i += 1) st.threads.push({ title: 'thread ' + i, owner: 'Traveler' + i, heat: 'hot', next: 'do the long thing they were going to do before the frost comes to the fields', atTurn: 2 });
+  const tight = renderStateFacts(st);
+  assert(tight.length <= STATE_BUDGET, 'the budget still holds: ' + tight.length);
+  assert(/Runner/.test(tight), 'the arrival outlives the knife: ' + tight.slice(0, 200));
+  assert(!/Factions:/.test(tight), 'the factions went first');
+});

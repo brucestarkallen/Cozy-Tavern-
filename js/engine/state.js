@@ -517,7 +517,7 @@ export function renderStateFacts(state) {
   /* M6: what's true of them — locked facts for whoever is in the scene.
    * Counts toward the budget and sheds after the body ledger. */
   const canonLines = renderCanon(state.canon, present.map((p) => p && p.name));
-  if (canonLines) sections.push({ shed: 2, text: 'True of them: ' + canonLines.split('\n').join('\n') });
+  if (canonLines) sections.push({ shed: 2, text: 'True of them: ' + canonLines.split('\n').join('\n'), trimTo: 8, head: 'True of them: ' });
 
   const bodyLines = renderBodies(state.bodies, clockMinutes, turnCount)
     .split('\n').filter(Boolean).slice(0, BODIES_TOP);
@@ -542,13 +542,16 @@ export function renderStateFacts(state) {
   /* M29: who knows what — the present only, so the storyteller never has
    * to search the transcript for whether Liara was in the room. */
   const knowledgeLines = renderKnowledge(state.knowledge, present);
-  if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n') });
+  if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: 8, head: 'Who knows what: ' });
 
+  /* M86: the living world is not the first thing the budget drops — who is
+   * moving toward the scene stands with the body ledger (shed 3); the
+   * standings and the threads follow (4); the factions last (5). */
   const elsewhere = renderOffscreen(state.offscreen, present, clockMinutes);
-  if (elsewhere) sections.push({ shed: 5, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
+  if (elsewhere) sections.push({ shed: 3, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
 
   const factionLines = renderFactions(state.factions);
-  if (factionLines) sections.push({ shed: 6, text: 'Factions: ' + factionLines.split('\n').join('\n') });
+  if (factionLines) sections.push({ shed: 5, text: 'Factions: ' + factionLines.split('\n').join('\n') });
 
   const mode = state.mode || {};
   const moods = [];
@@ -567,12 +570,25 @@ export function renderStateFacts(state) {
     ? state.threads.map((t) => (typeof t === 'string' ? t : t && !t.title && (t.label || t.name))).filter(Boolean)
     : [];
   const threadText = [renderThreads(structured), legacy.join('; ')].filter(Boolean).join('\n');
-  if (threadText) sections.push({ shed: 5, text: 'Threads still open: ' + threadText.split('\n').join('\n') });
+  if (threadText) sections.push({ shed: 4, text: 'Threads still open: ' + threadText.split('\n').join('\n') });
 
   /* The budget: shed the least vital until the block fits. The ruling, the
    * hour, and who's here (shed 0) always stay. */
   const kept = sections.slice();
   const join = () => kept.map((s) => s.text).join('\n');
+  /* M86: a crowded room is not a reason to lose the living world. The
+   * sections that grow with the crowd (what is true of each present person,
+   * what each knows) are TRIMMED to their first lines before any section
+   * is shed whole — sixteen guests' eye colours never push an arrival or a
+   * thread off the page. */
+  if (join().length > STATE_BUDGET) {
+    for (const sec of kept) {
+      if (!Number.isFinite(sec.trimTo)) continue;
+      const lines = sec.text.slice(sec.head.length).split('\n');
+      if (lines.length <= sec.trimTo) continue;
+      sec.text = sec.head + lines.slice(0, sec.trimTo).join('\n') + '\n(and ' + (lines.length - sec.trimTo) + ' more present, not written here)';
+    }
+  }
   while (join().length > STATE_BUDGET && kept.some((s) => s.shed > 0)) {
     let worst = 0;
     for (let i = 1; i < kept.length; i += 1) {
