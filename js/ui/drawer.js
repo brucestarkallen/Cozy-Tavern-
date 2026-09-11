@@ -858,7 +858,7 @@ function onTheirMindPanel(ctx) {
   const personInput = document.createElement('input');
   personInput.type = 'text';
   personInput.maxLength = 60;
-  personInput.placeholder = 'Whose page?';
+  personInput.placeholder = 'Write on a page by hand — the person’s name';
   personInput.setAttribute('aria-label', 'Whose character page');
   const fieldSelect = document.createElement('select');
   fieldSelect.setAttribute('aria-label', 'Which page of their ledger');
@@ -1515,7 +1515,7 @@ function peoplePanel(ctx) {
       fold.className = 'resting-shelf';
       const sum = document.createElement('summary');
       sum.className = 'lbl';
-      sum.textContent = 'Passed through — ' + passed.length + (passed.length === 1 ? ' person' : ' people') + ' (no bond, no seat, no thread; out of the storyteller’s sight)';
+      sum.textContent = 'Passers-through — ' + passed.length + (passed.length === 1 ? ' person' : ' people') + ' (not dead, not forgotten: no bond, no seat, no thread, thirty turns quiet — out of the storyteller’s sight until they appear again)';
       fold.appendChild(sum);
       for (const name of passed.sort((a, b) => a.localeCompare(b))) {
         const row = document.createElement('div');

@@ -37,5 +37,5 @@ test('M57-2 the scribe pages no passer-through; the drawer folds the passed-thro
   const sc = buildScribeMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
   assert(/PASSERS-THROUGH GET NO PAGE/.test(sc.system));
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
-  assert(/Passed through — /.test(drawer) && /people\.wake/.test(drawer));
+  assert(/Passers-through — /.test(drawer) && /people\.wake/.test(drawer));
 });

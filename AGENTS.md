@@ -2823,3 +2823,9 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   auditor kept beneath it, and the house's corrections; Rewrite (by hand) and Fold again (the
   keeper re-folds those pages from their words) on every line; Let go on a correction.
   version.js -> m101-001.
+
+# M102 — plainer words on two surfaces
+- "Passed through" read as "passed away" to the writer. The fold is "Passers-through — N (not
+  dead, not forgotten: no bond, no seat, no thread, thirty turns quiet — out of the storyteller's
+  sight until they appear again)". The by-hand form's "Whose page?" placeholder now says what it
+  is: "Write on a page by hand — the person's name". version.js -> m102-001.
