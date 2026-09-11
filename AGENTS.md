@@ -2182,3 +2182,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
      applyMutations since M69 also pushed its entries into the CALLER's journal array. The dry
      run exposed it (a staged card's hash held the preview's entries). Copied now; worldShown too.
 - Harness: m76.mjs (2 checks) + m75's M76-1; 342/342 + 28/28 (×2). version.js -> m76-001.
+
+---
+
+# M77 — the thinking stays; the viewers are pop-ups; the connection's switch governs; a class edits each member
+- FIELD REPORT (five): (1) "I turned reasoning off on my connection — why does the housekeeper
+  reason?" (2) "with thinking on, the block shows while it thinks and is GONE after the answer."
+  (3) "who puts 'see context' INTO the chat? it should pop up." (4) "asked: every 16-year-old is a
+  first-year like Claire, on each one's profile — it changed Alexia's age and then added one
+  redundant line 'Alexia and Claire are 16'." (5) "you can simulate this yourself."
+  1. hkReasoning '' = as the connection says (the house's choice); a value set here overrides the
+     connection either way. M76's default of 'high' surprised the writer; a connection switched
+     off must stay off unless he says otherwise.
+  2. ROOT, found by simulating it (DOM-11e): runConversation returned only the LAST round's
+     thinking; the follow-up to a nudge ([THE BRIEF], [NOTHING HAPPENED], [RIPPLE]…) thinks little
+     or not at all, so the real reasoning was thrown away and no fold rendered. Every round's
+     thinking is kept now, joined with "— asked again —", and the fold under the reply holds it.
+  3. viewer() opens a POP-UP (#hk-pop: title, Copy, Close; Esc closes it before fullscreen) —
+     Chat Assistant's popup — never a fold dumped into the talk. The full context, the raw ledger,
+     the notes, the directive, the shortcuts all ride it.
+  4. Two laws with the writer's own case as the example: A FACT FOR A CLASS is written on EACH
+     member's line (find every line that fits; one summary line is the wrong answer; so is naming
+     only the ones mentioned); MATCH THE SHAPE ("like Jovan", "same as Claire" = the same words in
+     the same place). The example: Claire (16) and Alexia (16) each get "first year at Ravenwood
+     High" in Jovan's shape.
+  5. The walk now simulates the housekeeper thinking (env.mjs state.hkThink serves
+     reasoning_content on its calls) and drives the whole flow: a fresh session, an ask, the fold
+     under the reply, the thinking on the turn, the context pop-up opened and closed by Esc.
+- 343/343 + 29/29 (×2). version.js -> m77-001.

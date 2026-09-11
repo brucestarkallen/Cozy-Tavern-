@@ -232,18 +232,38 @@ export function initHousekeeper(ctx) {
   }
 
   /* M62: a viewer for the full context, the raw ledger, the notes */
+  /* M77: a viewer is a POP-UP (Chat Assistant's popup), never a fold dumped into
+   * the talk — the full context, the raw ledger, the notes, the directive, the
+   * shortcuts open over the sheet with Copy and Close; Esc closes it first. */
   function viewer(title, text) {
-    const det = document.createElement('details');
-    det.className = 'hk-viewer-fold';
-    det.open = true;
-    const sum = document.createElement('summary');
-    sum.textContent = title;
-    const pre = document.createElement('pre');
-    pre.className = 'hk-viewer';
-    pre.textContent = text;
-    det.append(sum, pre);
-    thread.append(det);
-    thread.scrollTop = thread.scrollHeight;
+    let pop = document.getElementById('hk-pop');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'hk-pop';
+      pop.className = 'hk-pop';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-modal', 'true');
+      pop.innerHTML = '<div class="hk-pop-card"><div class="hk-pop-head"><h3 class="hk-pop-title"></h3><button type="button" class="text-btn hk-pop-copy">⧉ Copy</button><button type="button" class="text-btn hk-pop-close" aria-label="Close">✕</button></div><pre class="hk-viewer hk-pop-body"></pre></div>';
+      pop.addEventListener('click', (e) => { if (e.target === pop) closeViewer(); });
+      pop.querySelector('.hk-pop-close').addEventListener('click', closeViewer);
+      pop.querySelector('.hk-pop-copy').addEventListener('click', async () => {
+        const body = pop.querySelector('.hk-pop-body').textContent;
+        try { await navigator.clipboard.writeText(body); toast('Copied.'); } catch (err) { window.prompt('Copy it by hand, then:', body.slice(0, 2000)); }
+      });
+      document.body.appendChild(pop);
+    }
+    pop.querySelector('.hk-pop-title').textContent = title;
+    pop.querySelector('.hk-pop-body').textContent = text;
+    pop.hidden = false;
+    pop.querySelector('.hk-pop-close').focus();
+  }
+  function closeViewer() {
+    const pop = document.getElementById('hk-pop');
+    if (pop) pop.hidden = true;
+  }
+  function viewerOpen() {
+    const pop = document.getElementById('hk-pop');
+    return Boolean(pop && !pop.hidden);
   }
 
   /* M62: the session shelf */
@@ -927,6 +947,7 @@ export function initHousekeeper(ctx) {
   }
   fullBtn.addEventListener('click', () => setFullscreen(!sheet.classList.contains('fullscreen')));
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && viewerOpen()) { e.preventDefault(); e.stopPropagation(); closeViewer(); return; } /* M77: the pop-up closes first */
     if (e.key === 'Escape' && !sheet.hidden && sheet.classList.contains('fullscreen')) { e.preventDefault(); e.stopPropagation(); setFullscreen(false); }
   }, true);
   (function makeDraggable(panel, handle) {

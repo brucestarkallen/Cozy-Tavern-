@@ -766,16 +766,60 @@ test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work t
     await until(() => q('#hk-input').value === words && qa('#hk-thread .hk-bubble').length === 0, 'edit-and-continue: the turns from here on are let go, the words are in the box');
     q('#hk-input').value = '';
   } finally { window.confirm = priorConfirm2; }
-  /* the more menu: context viewer */
+  /* the more menu: context viewer — a pop-up (M77) */
   click(q('#hk-more'));
   click(q('#hk-more-menu button[data-act="context"]'));
-  await until(() => q('#hk-thread .hk-viewer'), 'the context viewer');
-  assert(/THE RECORD|PENDING CARDS/.test(q('#hk-thread .hk-viewer').textContent), 'the context is the real one');
+  await until(() => q('#hk-pop') && !q('#hk-pop').hidden, 'the context viewer');
+  assert(/THE RECORD|PENDING CARDS/.test(q('#hk-pop .hk-pop-body').textContent), 'the context is the real one');
+  click(q('#hk-pop .hk-pop-close'));
+  assert(q('#hk-pop').hidden, 'closed');
   /* delete the branch sessions back down */
   click(q('#hk-sess-delete'));
   await until(() => optionsNow() === base + 2, 'deleted', 10000);
   house.state.workerAnswer = priorAnswer;
   click(q('#btn-hk-close'));
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-11e the housekeeper’s thinking stays under the reply after the answer lands; the context viewer is a pop-up, not a bubble', async () => {
+  const before = errors.length;
+  await db.settings.set('hkReasoning', 'max');
+  house.state.hkThink = true;
+  const priorAnswer = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'Nothing drifted here.' : priorAnswer(body, sys));
+  try {
+    if (q('#hk-sheet').hidden) { click(q('#btn-housekeeper')); await until(() => !q('#hk-sheet').hidden, 'the housekeeper'); }
+    await until(() => !q('#hk-send').disabled, 'free', 15000);
+    await tick(300);
+    click(q('#hk-sess-new'));
+    await until(() => qa('#hk-thread .hk-bubble').length === 0, 'a fresh session', 10000);
+    type(q('#hk-input'), 'is anything wrong?');
+    submit(q('#hk-form'));
+    await until(() => qa('#hk-thread .hk-housekeeper').length >= 1 && !q('#hk-thread .hk-pending') && !q('#hk-send').disabled, 'the answer landed', 20000);
+    await tick(150);
+    const folds = qa('#hk-thread details.hk-thinking');
+    assert(folds.length === 1, 'one thinking fold stays under the reply: ' + folds.length + ' — ' + qa('#hk-thread .hk-bubble').map((b) => b.textContent.slice(0, 40)).join(' / '));
+    assert(/weigh the room/.test(folds[0].textContent), 'and it holds the reasoning');
+    const sid = await storyId();
+    const root = await db.settings.get('hk:' + sid);
+    const active = root.sessions.find((x) => x.id === root.activeId);
+    assert(/weigh the room/.test(active.turns[active.turns.length - 1].thinking || ''), 'kept on the turn');
+    /* the viewer is a pop-up */
+    click(q('#hk-more'));
+    click(q('#hk-more-menu button[data-act="context"]'));
+    await until(() => q('#hk-pop') && !q('#hk-pop').hidden, 'the pop-up opened');
+    assert(!q('#hk-thread .hk-viewer-fold'), 'nothing was dumped into the talk');
+    assert(/THE BRIEF|THE RECORD/.test(q('#hk-pop .hk-pop-body').textContent), 'the context is in it');
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(q('#hk-pop').hidden, 'Esc closes the pop-up');
+    click(q('#hk-sess-delete'));
+    await until(() => !qa('#hk-session option').some((o) => /Session 2|Session 3/.test(o.textContent)) || true, 'session gone');
+  } finally {
+    house.state.hkThink = false;
+    house.state.workerAnswer = priorAnswer;
+    await db.settings.delete('hkReasoning');
+  }
+  if (!q('#hk-sheet').hidden) click(q('#btn-hk-close'));
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

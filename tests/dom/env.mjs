@@ -56,8 +56,9 @@ export function makeHouse() {
         'event: message_delta\ndata: ' + JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' } }) + '\n\n',
       ]);
     }
-    /* M46: a thinking storyteller — reasoning_content first, then prose, when asked */
-    if (!isWorker && state.thinkFirst) {
+    /* M46: a thinking storyteller — reasoning_content first, then prose, when asked.
+     * M77: the housekeeper too, when the walk asks (state.hkThink). */
+    if ((!isWorker && state.thinkFirst) || (state.hkThink && /housekeeper of a cozy tavern/i.test(sys))) {
       return sse([
         { choices: [{ delta: { reasoning_content: 'Let me weigh the room. ' } }] },
         { choices: [{ delta: { reasoning_content: 'Liara is guarded. ' } }] },

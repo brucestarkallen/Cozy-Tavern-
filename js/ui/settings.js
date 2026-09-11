@@ -954,13 +954,13 @@ export function initSettings(ctx) {
         think.className = 'stack-label worker-assign-row';
         const tsel = document.createElement('select');
         tsel.id = 'hk-reasoning';
-        for (const [v, w] of [['off', 'no thinking (the plain model)'], ['low', 'a little thinking'], ['medium', 'some thinking'], ['high', 'thinks it through (the house’s choice)'], ['max', 'thinks as long as it likes']]) {
+        for (const [v, w] of [['', 'as the connection says (the house’s choice)'], ['off', 'no thinking, whatever the connection says'], ['low', 'a little thinking'], ['medium', 'some thinking'], ['high', 'thinks it through'], ['max', 'thinks as long as it likes']]) {
           const opt = document.createElement('option'); opt.value = v; opt.textContent = w; tsel.appendChild(opt);
         }
-        tsel.value = (await db.settings.get('hkReasoning')) || 'high';
-        tsel.addEventListener('change', async () => { await db.settings.set('hkReasoning', tsel.value); toast(tsel.value === 'off' ? 'The housekeeper answers without thinking first.' : 'The housekeeper thinks before it answers.'); });
+        tsel.value = (await db.settings.get('hkReasoning')) || '';
+        tsel.addEventListener('change', async () => { await db.settings.set('hkReasoning', tsel.value); toast(tsel.value === '' ? 'The housekeeper thinks as its connection says.' : tsel.value === 'off' ? 'The housekeeper answers without thinking first.' : 'The housekeeper thinks before it answers, whatever its connection says.'); });
         const tw = document.createElement('span');
-        tw.textContent = 'How much the housekeeper thinks before it answers (its reasoning shows under each reply)';
+        tw.textContent = 'How much the housekeeper thinks before it answers — its connection’s own switch unless you set it here; the reasoning shows under each reply';
         think.appendChild(tw);
         think.appendChild(tsel);
         els.workerAssignments.appendChild(think);

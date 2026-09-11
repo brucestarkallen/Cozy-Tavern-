@@ -705,6 +705,17 @@ const SYSTEM_PROMPT = [
   '  only take "text" or "append". The founder re-reads a changed brief on its own.',
   '  A fact the brief already states is REPLACED where it stands (an age, a name, a',
   '  rule) — never restated beside the old words, never turned into a note elsewhere.',
+  '  A FACT FOR A CLASS ("all the sixteen-year-olds", "every first-year") is written on',
+  '  EACH member’s own line — find every line in THE BRIEF that fits the class and',
+  '  change each one; one summary line for the class ("Alexia and Claire are 16") is',
+  '  the wrong answer, and so is naming only the ones the writer happened to mention.',
+  '  MATCH THE SHAPE. "like Jovan", "same as Claire" means: find how Jovan’s or',
+  '  Claire’s line says it and write the new line in that exact shape — the same',
+  '  words in the same place — never a paraphrase, never a new format.',
+  '  Example — the writer says "all the 16-year-olds are first-years, like Jovan" and',
+  '  THE BRIEF holds "Jovan (16) — first year at Ravenwood High" and "Claire (16) —',
+  '  the neighbor" and "Alexia (16), the eldest":',
+  '  <brief>[{"field":"brief","find":"Claire (16) — the neighbor","replace":"Claire (16) — first year at Ravenwood High, the neighbor","reason":"every 16-year-old is a first-year, in Jovan’s shape"},{"field":"brief","find":"Alexia (16), the eldest","replace":"Alexia (16) — first year at Ravenwood High, the eldest","reason":"same"}]</brief>',
   '  A fact the brief does not yet hold goes where it belongs: find the line it sits',
   '  beside and replace that line with itself plus the new line; append only when no',
   '  line fits. Example — the writer says "in the brief, Alexia is 19, not 20" and THE',
@@ -1979,11 +1990,13 @@ export async function undoLatest(session, storyId) {
  * unset or off — and the housekeeper inherited the connection's, so it ran the
  * non-thinking model as an editor. Its effort is its own now (hkReasoning,
  * default 'high'); 'off' is a choice, never an accident. */
-export const HK_DEFAULT_EFFORT = 'high';
+/* M77: '' means "as the connection says" — the writer's own switch on the
+ * connection governs unless the housekeeper is given a setting of its own. */
+export const HK_DEFAULT_EFFORT = '';
 export async function housekeeperEffort() {
   try {
     const v = await db.settings.get('hkReasoning');
-    return typeof v === 'string' && v ? v : HK_DEFAULT_EFFORT;
+    return typeof v === 'string' ? v : HK_DEFAULT_EFFORT;
   } catch (err) { return HK_DEFAULT_EFFORT; }
 }
 export async function callModel(connection, { system, messages, maxTokens, signal, onToken, effort } = {}) {
@@ -1991,7 +2004,7 @@ export async function callModel(connection, { system, messages, maxTokens, signa
     if (!connection || typeof connection !== 'object') return { error: 'no connection' };
     const conn = { ...connection };
     const want = typeof effort === 'string' && effort ? effort : await housekeeperEffort();
-    conn.reasoning = { ...((connection && connection.reasoning) || {}), effort: want };
+    if (want) conn.reasoning = { ...((connection && connection.reasoning) || {}), effort: want };
     /* M75-002: the asked-for pot is a floor, never a ceiling the connection lowers */
     conn.maxTokens = Math.max(maxTokens || 1600, typeof conn.maxTokens === 'number' && conn.maxTokens > 0 ? conn.maxTokens : 0);
     const provider = createProvider(conn);
@@ -2092,6 +2105,10 @@ export async function runConversation({
     let pot = HK_MAX_TOKENS;
     let recoveredThinking = false;
     let recoveredCut = false;
+    /* M77: the thinking of EVERY round is kept — the follow-up to a nudge often
+     * thinks little or not at all, and returning only the last round's threw
+     * the real reasoning away (the block "vanished" after the answer) */
+    const thoughts = [];
     let fetchedBlind = false;
     let toldMalformed = false;
     /* Session history rides after the served context — newest first is NOT
@@ -2120,6 +2137,8 @@ export async function runConversation({
       if (answer && answer.error) return { ok: false, error: answer.error };
       const raw = answer && typeof answer.text === 'string' ? answer.text : '';
       const thinking = answer && typeof answer.thinking === 'string' ? answer.thinking : '';
+      if (thinking.trim()) thoughts.push(thinking.trim());
+      const thinkingAll = thoughts.join('\n\n— asked again —\n\n');
       const cut = answer && /^(length|max_tokens)$/i.test(String(answer.finishReason || ''));
       /* M75-002: Chat Assistant's recovery — thinking ate the whole pot: feed the
        * reasoning back with a bigger pot and demand the answer itself. Once. */
@@ -2225,7 +2244,7 @@ export async function runConversation({
           continue;
         }
       }
-      return { ok: true, raw, parsed, fetchRounds: round, thinking };
+      return { ok: true, raw, parsed, fetchRounds: round, thinking: thinkingAll };
     }
   } catch (err) {
     return { ok: false, error: (err && err.message) || 'the housekeeper stumbled' };
