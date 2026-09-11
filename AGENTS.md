@@ -2123,3 +2123,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - To the writer: reload once so the new coat lands (the version in the corner reads m75-001), and
   give the housekeeper hands of its own in Settings only if the storyteller's model is not the one
   you want it thinking with.
+- M75-002: FIELD REPORT: "I deliberately use DeepSeek, and Chat Assistant in SillyTavern is smart on
+  the same DeepSeek." Correct — the model was never the difference, and M75's first root was wrong
+  as a diagnosis (the default-connection change stands as a sane default, nothing more). The
+  measured delta: Chat Assistant asks for max_tokens 8192 (up to 32768) and, when thinking eats the
+  pot, feeds the reasoning back with a bigger pot and demands the answer. The tavern asked for
+  2000 — or inherited a worker connection's few hundred — so a repair answer with a sweep and two
+  blocks was cut mid-block; the closing tag never came; innerBlocks runs an unclosed block to the
+  end of the text and its JSON never balances; the card was lost and the writer saw the statement
+  that preceded it. Now: HK_MAX_TOKENS 8192 as a FLOOR the connection cannot lower; the provider's
+  finishReason is read; a cut inside a block is re-asked once with the blocks first and the pot
+  doubled ([CUT SHORT]); an answer consumed by thinking is recovered once, Chat Assistant's way
+  (<previous_reasoning> fed back, pot doubled, [ANSWER NOW]); the law BLOCKS FIRST rides the prompt
+  so a cut can only ever cost chatter. m75-5. 338/338 + 28/28 (×2). version.js -> m75-002.

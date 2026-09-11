@@ -73,3 +73,34 @@ test('M75-4 the prompt is decisive and shows the worked brief example; the house
   const rc = ui.slice(ui.indexOf('async function resolveWorkerConnection('), ui.indexOf('async function resolveWorkerConnection(') + 1400);
   assert(rc.indexOf('map.housekeeper') < rc.indexOf('story.connectionId') && rc.indexOf('story.connectionId') < rc.indexOf("'activeConnectionId'") && rc.indexOf("'activeConnectionId'") < rc.indexOf("'workerConnectionId'"), 'its own hands, else the story’s teller, else the active teller, else the workers — in that order');
 });
+
+test('M75-5 the pot: Chat Assistant’s 8192 as a floor the connection cannot lower; a cut inside a block is re-asked with the blocks first and a bigger pot; thinking that ate the pot is fed back', async () => {
+  const src = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/export const HK_MAX_TOKENS = 8192;/.test(src));
+  assert(/conn\.maxTokens = Math\.max\(maxTokens \|\| 1600, typeof conn\.maxTokens === 'number' && conn\.maxTokens > 0 \? conn\.maxTokens : 0\);/.test(src), 'the asked pot is a floor');
+  assert(!/maxTokens: 2000,/.test(src), 'the 2000 is gone');
+  assert(/BLOCKS FIRST\. Put every block at the top of your answer/.test(src), 'the law');
+  /* cut inside a block */
+  const pots = []; const sent = [];
+  const call = async ({ messages, maxTokens }) => {
+    pots.push(maxTokens); sent.push(messages[messages.length - 1].content);
+    if (sent.length === 1) return { text: 'Alexia is 19.\n<brief>[{"field":"brief","find":"Alexia (20)","repl', finishReason: 'length' };
+    return { text: '<brief>[{"field":"brief","find":"Alexia (20)","replace":"Alexia (19)"}]</brief>\nDone in a card.', finishReason: 'stop' };
+  };
+  const r = await runConversation({ story, messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, writerText: 'change the brief: Alexia is 19', contextPages: 8, call });
+  assert(r.ok && r.parsed.brief.length === 1, JSON.stringify(r.parsed && r.parsed.brief));
+  eq(pots[0], 8192); eq(pots[1], 16384, 'a bigger pot on the re-ask');
+  assert(/^\[CUT SHORT\]/.test(sent[1]), sent[1].slice(0, 40));
+  /* thinking ate the pot */
+  const sent2 = []; const pots2 = [];
+  let wire2 = [];
+  const call2 = async ({ messages, maxTokens }) => {
+    pots2.push(maxTokens); sent2.push(messages[messages.length - 1].content); wire2 = messages.map((m) => m.content);
+    if (sent2.length === 1) return { text: '', thinking: 'Let me think about Alexia for a very long time…', finishReason: 'length' };
+    return { text: '<brief>[{"field":"brief","find":"Alexia (20)","replace":"Alexia (19)"}]</brief>', finishReason: 'stop' };
+  };
+  const r2 = await runConversation({ story, messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, writerText: 'change the brief: Alexia is 19', contextPages: 8, call: call2 });
+  assert(r2.ok && r2.parsed.brief.length === 1, 'recovered: ' + JSON.stringify(r2));
+  eq(pots2[1], 16384);
+  assert(/^\[ANSWER NOW\]/.test(sent2[1]) && wire2.some((c) => /<previous_reasoning>/.test(c)), 'the reasoning fed back, the answer demanded');
+});

@@ -73,6 +73,12 @@ const INDEX_CAP = 200;         // index lines served; older pages still fetchabl
  * served page carries its exact character count and COMPLETE. */
 export const FULL_PAGE_CAP = 0;
 export const LORE_SHOW_CAP = 4000; /* M74: a lore entry is shown whole up to this; beyond, <fetch>["lore: name"] serves it */
+/* M75-002: THE POT. Chat Assistant asks for 8192 (up to 32768); the tavern asked
+ * for 2000 — or inherited a worker connection's few hundred — and DeepSeek was cut
+ * mid-block: the closing tag never came, the block was lost, and the writer saw a
+ * statement where a card should have been. The housekeeper's pot is never smaller
+ * than this, whatever the connection says. */
+export const HK_MAX_TOKENS = 8192;
 export const FETCH_PAGE_CAP = 0;
 export function formatPage(msg) {
   const speaker = msg.role === 'assistant' ? 'the storyteller' : 'the writer';
@@ -735,6 +741,9 @@ const SYSTEM_PROMPT = [
   'page wholesale when a sentence will do. The find text must always be the',
   'story’s own words, exactly as they stand.',
   '',
+  'BLOCKS FIRST. Put every block at the top of your answer and the words after it —',
+  'if an answer is ever cut short, the cards must survive, not the chatter. Keep the',
+  'words short and concrete; the cards carry the work.',
   'BE DECISIVE. When the writer asks for a change, the block that makes it is in',
   'the SAME answer — never a description of the change, never a question whether to',
   'make it, never "I can do that". Cards are free: the writer applies or skips them.',
@@ -1929,9 +1938,8 @@ export async function callModel(connection, { system, messages, maxTokens, signa
   try {
     if (!connection || typeof connection !== 'object') return { error: 'no connection' };
     const conn = { ...connection };
-    if (typeof conn.maxTokens !== 'number' || conn.maxTokens <= 0) {
-      conn.maxTokens = maxTokens || 1600;
-    }
+    /* M75-002: the asked-for pot is a floor, never a ceiling the connection lowers */
+    conn.maxTokens = Math.max(maxTokens || 1600, typeof conn.maxTokens === 'number' && conn.maxTokens > 0 ? conn.maxTokens : 0);
     const provider = createProvider(conn);
     const result = await provider.streamChat({
       system: String(system || ''),
@@ -1939,7 +1947,7 @@ export async function callModel(connection, { system, messages, maxTokens, signa
       signal,
       onToken: typeof onToken === 'function' ? onToken : undefined,
     });
-    return { text: typeof result.text === 'string' ? result.text : '', thinking: result.thinking || '' };
+    return { text: typeof result.text === 'string' ? result.text : '', thinking: result.thinking || '', finishReason: result.finishReason || null };
   } catch (err) {
     return { error: (err && err.message) || 'the call went quiet' };
   }
@@ -1992,6 +2000,14 @@ export function asksForChange(text) {
 }
 export function asksAboutBrief(text) { return BRIEF_WORDS.test(String(text || '')); }
 export function claimsChange(prose) { return CLAIM_WORDS.test(String(prose || '')); }
+/* an open tag with no close — the tail of an answer cut mid-block */
+export function unclosedBlock(raw) {
+  const s = String(raw || '').toLowerCase();
+  return ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'fetch', 'supersede'].some((tag) => {
+    const at = s.lastIndexOf('<' + tag + '>');
+    return at !== -1 && s.indexOf('</' + tag + '>', at) === -1;
+  });
+}
 export function hasAnyBlock(parsed) {
   return Boolean(parsed) && ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'supersede'].some((k) => Array.isArray(parsed[k]) && parsed[k].length);
 }
@@ -2018,6 +2034,9 @@ export async function runConversation({
     let sweptRipple = false;
     let nudgedBrief = false;
     let nudgedNoBlock = false;
+    let pot = HK_MAX_TOKENS;
+    let recoveredThinking = false;
+    let recoveredCut = false;
     let fetchedBlind = false;
     let toldMalformed = false;
     /* Session history rides after the served context — newest first is NOT
@@ -2039,15 +2058,34 @@ export async function runConversation({
       const answer = await caller({
         system: withFictionFrame(SYSTEM_PROMPT),
         messages: wire,
-        maxTokens: 2000,
+        maxTokens: pot,
         signal,
         onToken: round === 0 ? onToken : undefined,
       });
       if (answer && answer.error) return { ok: false, error: answer.error };
       const raw = answer && typeof answer.text === 'string' ? answer.text : '';
       const thinking = answer && typeof answer.thinking === 'string' ? answer.thinking : '';
+      const cut = answer && /^(length|max_tokens)$/i.test(String(answer.finishReason || ''));
+      /* M75-002: Chat Assistant's recovery — thinking ate the whole pot: feed the
+       * reasoning back with a bigger pot and demand the answer itself. Once. */
+      if (!raw.trim() && thinking.trim() && !recoveredThinking) {
+        recoveredThinking = true;
+        pot = pot * 2;
+        wire.push({ role: 'assistant', content: '<previous_reasoning>\n' + thinking.slice(-12000) + '\n</previous_reasoning>' });
+        wire.push({ role: 'user', content: '[ANSWER NOW] Your reasoning above used the whole room and no answer came. Do not reason again — write the answer itself: the blocks first, then a few plain words.' });
+        continue;
+      }
       if (!raw.trim()) return { ok: false, error: 'the housekeeper went quiet — nothing came back' };
       const parsed = parseProtocol(raw);
+      /* M75-002: cut short inside a block — the block is lost, the words survive;
+       * ask once for the blocks first, with a bigger pot */
+      if (cut && !recoveredCut && unclosedBlock(raw)) {
+        recoveredCut = true;
+        pot = pot * 2;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: '[CUT SHORT] Your answer ran out of room inside a block, so that block was lost. Re-send the whole answer with every block FIRST and fewer words after; the cards are the work.' });
+        continue;
+      }
       if (parsed.fetch.length && round < MAX_FETCH_ROUNDS) {
         round += 1;
         for (const ref of parsed.fetch.slice(0, 4)) { const m = resolveMessageRef(messages, ref); if (m) served.add(m.id); }
