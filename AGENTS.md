@@ -2662,3 +2662,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   stripped of their page — branch at the newest page → every present person, the absent and
   the locked truths come along; branch at page 0 of the same store → the later people do not.
   M43-2 updated to the law. 370/370 + 30/30 + 8/8. version.js -> m91-001.
+
+---
+
+# M92 — the writer's first real audit report, read as two bugs (the mood board owed on every page; a fact is one fact)
+- FIELD REPORT (turn 37 of real play): the auditor set right "the mood flags are stale" and
+  noted, as not fixable, "the ledger's knowledge for Rias Wells holds the same fact twice".
+  Neither is the ledger lagging — the extractor writes the page's truth seconds after it lands
+  and the next turn is handed it. They are two gaps:
+  1. THE MOOD BOARD. mode.snapshot clears every mood not named, on every page — but only when
+     the extractor writes one. A page whose answer forgot it left an older page's flags standing
+     ("combat" in a quiet bedroom wakes the wrong rules). Now an answer with no mode.snapshot
+     earns ONE sharper ask — the whole board, every other mutation kept — before it is applied
+     (the M31 pattern, extended); the board is no longer a suggestion.
+  2. A FACT IS ONE FACT. addKnowledge deduplicated only an exact match minus its full stop, so
+     "Vanessa’s" and "Vanessa's" were two facts, and the auditor had no knowledge.remove to
+     fix it with. sameFact now folds quotes and apostrophes, drops punctuation, and treats a
+     fact wholly inside a longer one (24+ characters) as the same fact — the longer stays;
+     dedupeKnowledge runs on every load, so a store that gathered duplicates before this law
+     is clean the next time it is read, with no mutation and nothing left for an auditor to
+     note.
+- M92-1/2 (m85.mjs). 372/372 + 30/30 + 8/8. version.js -> m92-001.

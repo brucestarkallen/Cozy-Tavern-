@@ -151,12 +151,45 @@ export function addKnowledge(knowledge, name, fact, atTurn) {
   if (!who || !what) return next;
   const key = findKnowledgeKey(next, who) || who;
   const list = next[key] || [];
-  /* the same fact with a different full stop is the same fact */
-  const factKey = (f) => keyOf(f).replace(/[.!…]+$/, '');
-  if (list.some((k) => factKey(k.fact) === factKey(what))) { next[key] = list; return next; }
+  /* M92: the same fact in different clothes is the same fact — quotes and
+   * apostrophes normalized, punctuation gone, one fact wholly inside another
+   * (the shorter a prefix or a clipping of the longer) — the longer stays */
+  const dup = list.findIndex((k) => sameFact(k.fact, what));
+  if (dup !== -1) {
+    if (what.length > list[dup].fact.length) list[dup] = { ...list[dup], fact: what };
+    next[key] = list;
+    return next;
+  }
   list.push({ fact: what, atTurn: Number.isFinite(atTurn) ? atTurn : null });
   next[key] = list.slice(-KNOWLEDGE_PER_NAME);
   return next;
+}
+
+export function factKey(f) {
+  return String(f || '').toLowerCase().replace(/[‘’´`]/g, "'").replace(/[“”]/g, '"').replace(/[^\p{L}\p{N}\s']/gu, ' ').replace(/\s+/g, ' ').trim();
+}
+export function sameFact(a, b) {
+  const x = factKey(a); const y = factKey(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  return short.length >= 24 && long.includes(short);
+}
+/* M92: an existing book of knowledge with its duplicates folded — run on load,
+ * so a store that gathered them before this law is clean the next time it is
+ * read; no mutation, nothing for an auditor to note. */
+export function dedupeKnowledge(knowledge) {
+  const safe = copyKnowledge(knowledge);
+  for (const [name, list] of Object.entries(safe)) {
+    const kept = [];
+    for (const k of list) {
+      const at = kept.findIndex((x) => sameFact(x.fact, k.fact));
+      if (at === -1) kept.push({ ...k });
+      else if (k.fact.length > kept[at].fact.length) kept[at] = { ...kept[at], fact: k.fact };
+    }
+    safe[name] = kept;
+  }
+  return safe;
 }
 
 /* What the present know — newest facts first, a few each. `present` is

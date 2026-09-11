@@ -324,3 +324,54 @@ test('M90-2 the auditor reads "the brief wins": a pages issue with a fix is fixa
   const words = auditRunWords({ note: 'ok', issues: read.issues, applied: [{ words: 'Kim: relation locked' }], rejected: [], mendedPages: 2 });
   assert(/found 2 things/.test(words) && /1 the brief wins — 2 pages mended, the record corrected/.test(words) && /1 only noted/.test(words), words);
 });
+
+test('M92-1 knowledge never holds the same fact twice — quotes, full stops and clippings are one fact; a store that gathered duplicates is clean on load', async () => {
+  const { addKnowledge, sameFact, dedupeKnowledge } = await import('../../js/engine/world.js');
+  const { loadState, saveState } = await import('../../js/engine/state.js');
+  let k = {};
+  k = addKnowledge(k, 'Rias Wells', 'Jovan agreed to come to Vanessa’s party with her on Saturday.', 3);
+  k = addKnowledge(k, 'Rias Wells', "Jovan agreed to come to Vanessa's party with her on Saturday", 4);
+  k = addKnowledge(k, 'Rias Wells', 'Jovan agreed to come to Vanessa’s party', 5);
+  k = addKnowledge(k, 'Rias Wells', 'saw the captain leave', 6);
+  eq(k['Rias Wells'].length, 2, 'the party fact once, the captain once: ' + JSON.stringify(k));
+  assert(!sameFact('saw him leave', 'saw him leave the hall at dusk'), 'a short fact is not a clipping of a long one');
+  assert(sameFact('Jovan agreed to come to Vanessa’s party with her', 'Jovan agreed to come to Vanessa’s party with her on Saturday'), 'a clipping is the same fact');
+  const st = { ...(await loadState('dupe-story')), knowledge: { Rias: [{ fact: 'Jovan agreed to come to Vanessa’s party with her on Saturday', atTurn: 1 }, { fact: 'Jovan agreed to come to Vanessa’s party with her on Saturday', atTurn: 2 }, { fact: 'other', atTurn: 3 }] } };
+  await saveState('dupe-story', st);
+  const back = await loadState('dupe-story');
+  eq(back.knowledge.Rias.length, 2, 'the duplicate folded on load');
+  eq(JSON.stringify(dedupeKnowledge({})), '{}');
+});
+
+test('M92-2 the extractor is asked again, once, when its answer forgot the mood board; the answer with the board stands', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  let calls = 0; let secondAsk = '';
+  const house = { fetch: async (url, opts) => {
+    calls += 1;
+    const body = JSON.parse(opts.body);
+    const lastMsg = body.messages[body.messages.length - 1].content;
+    if (calls === 2) secondAsk = lastMsg;
+    const answer = calls === 1
+      ? '{"mutations":[{"type":"presence.enter","name":"Rias"}]}'
+      : '{"mutations":[{"type":"presence.enter","name":"Rias"},{"type":"mode.snapshot","flags":[]}]}';
+    const text = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\ndata: [DONE]\n\n';
+    const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(text)); c.close(); } });
+    return { ok: true, status: 200, headers: new Headers(), body: stream, clone() { return this; }, async json() { return {}; }, async text() { return text; } };
+  } };
+  const read = await withHouse(house, () => extractTurn({ connection: HOUSES[0].conn, state: emptyState(), userText: 'I wait.', assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\nRias walks in and sits.' }));
+  eq(calls, 2, 'asked twice: the second time for the board');
+  assert(/named no mode\.snapshot/.test(secondAsk), 'the second ask names the miss');
+  assert(read.mutations.some((m) => m.type === 'mode.snapshot'), 'the answer with the board stands');
+  /* an answer that carries the board goes through on the first ask */
+  calls = 0;
+  const once = { fetch: async (url, opts) => {
+    calls += 1;
+    const answer = '{"mutations":[{"type":"presence.enter","name":"Rias"},{"type":"mode.snapshot","flags":["group"]}]}';
+    const text = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\ndata: [DONE]\n\n';
+    const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(text)); c.close(); } });
+    return { ok: true, status: 200, headers: new Headers(), body: stream, clone() { return this; }, async json() { return {}; }, async text() { return text; } };
+  } };
+  await withHouse(once, () => extractTurn({ connection: HOUSES[0].conn, state: emptyState(), userText: 'I wait.', assistantText: 'Rias sits.' }));
+  eq(calls, 1, 'one ask when the board came');
+});

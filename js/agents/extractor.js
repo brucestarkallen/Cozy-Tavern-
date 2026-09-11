@@ -314,6 +314,14 @@ export async function extractTurn({ connection, state, userText, assistantText, 
     read.raw = text;
     if (finishReason === 'length') read.note = read.mutations.length ? read.note : 'cut short';
     last = read;
+    /* M92: the mood board is owed on EVERY page (mode.snapshot — anything not
+     * named is cleared). A page whose answer forgot it leaves yesterday's
+     * flags standing — "combat" in a quiet bedroom wakes the wrong rules; the
+     * writer saw exactly this on his auditor's report. One sharper ask. */
+    if (read.note === 'ok' && attempt === 0 && !read.mutations.some((m) => m && m.type === 'mode.snapshot')) {
+      user = prompt.user + '\n\nYour answer named no mode.snapshot. The whole board is owed on every page: add ONE mode.snapshot listing every mood that holds at the END of this page (combat, intimate, travel, socialField, isolation, group — an empty list if none), and keep every other mutation you wrote. JSON only.';
+      continue;
+    }
     if (read.note === 'ok') return read;
     if (attempt === 0) {
       if (read.note === 'unusable' || read.note === 'cut short') {

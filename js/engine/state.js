@@ -44,7 +44,7 @@ import { renderClock } from './clock.js';
 import { renderBodies } from './bodies.js';
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen } from './offscreen.js';
-import { renderThreads, renderKnowledge, renderFactions } from './world.js'; /* M29: the world beyond the page */
+import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge } from './world.js'; /* M29: the world beyond the page */
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters } from './people.js';
@@ -319,7 +319,7 @@ function normalize(saved) {
   next.factions = saved.factions && typeof saved.factions === 'object' ? saved.factions : {};
   /* M29 (v7): knowledge and the world brief — no-loss; legacy string
    * threads keep rendering (renderStateFacts tolerates both shapes). */
-  next.knowledge = saved.knowledge && typeof saved.knowledge === 'object' ? saved.knowledge : {};
+  next.knowledge = dedupeKnowledge(saved.knowledge && typeof saved.knowledge === 'object' ? saved.knowledge : {}); /* M92: duplicates folded on load */
   next.worldBrief = saved.worldBrief && typeof saved.worldBrief === 'object' ? saved.worldBrief : null;
   next.worldShown = Array.isArray(saved.worldShown) ? saved.worldShown.filter((w) => w && typeof w === 'object') : [];
   next.audit = saved.audit && typeof saved.audit === 'object' ? saved.audit : null; /* M41 */
