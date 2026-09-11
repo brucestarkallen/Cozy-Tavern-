@@ -2872,3 +2872,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   mood), The people (pages, what's true, holding up, on their mind), The world (elsewhere, the
   world beyond, voices), The books (the record, what changed, something drifted, the workers).
 - findability's M18 checks follow the rooms law. 376/376 + 32/32 + 8/8. version.js -> m105-001.
+
+---
+
+# M106 — the second empty-ledger branch, and the storyteller's own Voices block
+- FIELD REPORT (the writer, 28 hours in): "turn 14 with a ledger, on to 16, branch at 15/14 —
+  the ledger from 14 is gone." REPRODUCED in DOM-8f and fixed. ROOT CAUSE: M91's shortcut in
+  journalReaches — "an entry at page 0 or -1 means the journal began at the beginning". A
+  store from before the journal, touched by an audit or a hand before its next send, journals
+  those writes at p:-1 (its page was still -1); the shortcut then took the journal for complete
+  and folded a sixteen-page story from NOTHING plus that one line. THE LAW NOW: a fold is exact
+  only from a snapshot that knows its page, at or before the branch page; a branch at the
+  writer's first message (k = -1) is the founding and nothing else (M71), always right; every
+  other case falls to the checkpoint chain (the version checkpoint, the next turn's boundary
+  snapshot — the whole ledger of that page — the nearest earlier one), then the last resort.
+  DOM-8f mirrors the writer's store (journal begun at p:-1, older snapshots that know no page,
+  two turns played on, a branch two pages back) and holds the WHOLE ledger — people, ground,
+  clock — not one journaled line.
+- THE VOICES BOX ON THE PAGE was not the drawer's: the storyteller wrote a {VOICES} block into
+  its prose, taught by old pages that still carried them, and the 🎨 rule dressed it. The
+  page rule strips {VOICES} at the door with PULSE/WATCHLIST, and a new wire rule
+  (builtin-tracker-blocks-wire) strips all three from every page the storyteller is SENT, so
+  nothing teaches it to write them again.
+- DOM-11 waited on a shelf count that the 🎨 pack already satisfied; it waits on the store now.
+  376/376 + 33/33 + 8/8. version.js -> m106-001.

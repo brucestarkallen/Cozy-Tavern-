@@ -79,14 +79,26 @@ const HOUSE_RULES = [
   {
     id: 'builtin-tracker-blocks',
     name: 'The state blocks',
-    find: '\\n*\\{(PULSE|WATCHLIST)\\}[\\s\\S]*?\\{\\/\\1\\}\\s*',
+    find: '\\n*\\{(PULSE|WATCHLIST|VOICES)\\}[\\s\\S]*?\\{\\/\\1\\}\\s*',
     flags: 'g',
     replace: '',
     on: 'storyteller',
     mode: 'page',
     enabled: true,
     builtin: true,
-    note: '{PULSE}…{/PULSE} and {WATCHLIST}…{/WATCHLIST} — pure state the ledger keeps now; sent back every turn they are the drift the world agent ends. {VOICES} is left alone: it is content, and a display rule can style it.',
+    note: '{PULSE}…{/PULSE}, {WATCHLIST}…{/WATCHLIST} and {VOICES}…{/VOICES} — state the ledger keeps and voices the world agent writes (M97: read in the drawer, never on the page). A storyteller that writes them is copying old pages; they are taken off at the door.',
+  },
+  {
+    id: 'builtin-tracker-blocks-wire',
+    name: 'The state blocks, off the wire',
+    find: '\\n*\\{(PULSE|WATCHLIST|VOICES)\\}[\\s\\S]*?\\{\\/\\1\\}\\s*',
+    flags: 'g',
+    replace: '',
+    on: 'storyteller',
+    mode: 'wire',
+    enabled: true,
+    builtin: true,
+    note: 'M106: the same blocks stripped from the pages the storyteller is SENT — old pages that still carry them (from before the house) taught the model to write them again.',
   },
 ];
 

@@ -654,7 +654,16 @@ export function journalKey(e) {
 export function journalReaches(current, snapshots, targetPage) {
   const journal = Array.isArray(current && current.journal) ? current.journal : [];
   if (!journal.length) return false;
-  if (journal.some((e) => e && Number.isInteger(e.p) && e.p <= 0)) return true;
+  /* M106: ONLY a snapshot from the journaled era at or before the target
+   * makes a fold exact. The M91 shortcut — "an entry at page 0 or -1 means
+   * the journal began at the beginning" — was wrong: a store from before the
+   * journal, touched by an audit or a hand before its next send, journals
+   * those writes at p:-1 (its page was still -1), and the shortcut then
+   * folded a sixteen-page story from NOTHING plus that one line. The writer
+   * branched two pages back and got an empty ledger, again. */
+  /* a branch at the writer's FIRST message (k = -1) holds no storyteller page:
+   * the fold to -1 is the founding and nothing else, always right (M71) */
+  if (Number.isInteger(targetPage) && targetPage < 0) return true;
   return (Array.isArray(snapshots) ? snapshots : []).some((e) => e && e.snap && Number.isInteger(e.snap.page) && e.snap.page <= targetPage);
 }
 

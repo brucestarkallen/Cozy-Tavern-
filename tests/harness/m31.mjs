@@ -138,13 +138,16 @@ test('M31-6 the thread’s HTML allowlist: styles that reach out are dropped; sc
   assert(/parseScene\(pageText\(msg\)\)\[0\]/.test(chat), 'the masthead decision reads the raw page');
 });
 
-test('M31-7 the defaults: the header is kept (styled by the writer), state blocks go, Voices stays; Time and Place is craft again', async () => {
+test('M31-7 → M106 the defaults: the header is kept (styled by the writer); state blocks AND a storyteller-written Voices block go, at the door and off the wire; Time and Place is craft again', async () => {
   const header = BUILTIN_RULES.find((r) => r.id === 'builtin-preset-header');
   eq(header.enabled, false, 'header removal ships OFF');
   const state = BUILTIN_RULES.find((r) => r.id === 'builtin-tracker-blocks');
   const page = 'prose\n{PULSE}\n[IST: x]\n{/PULSE}\n{VOICES}\n[VOICE: a | b | c]\n{/VOICES}\n{WATCHLIST}\n[ACW: y]\n{/WATCHLIST}\nmore';
   const out = applyRules(page, [state], { on: 'storyteller', mode: 'page' });
-  assert(!/PULSE|WATCHLIST/.test(out) && /VOICES/.test(out) && /VOICE: a/.test(out), out);
+  assert(!/PULSE|WATCHLIST|VOICES|VOICE: a/.test(out) && /^prose\s*more$/.test(out), out);
+  const wire = BUILTIN_RULES.find((r) => r.id === 'builtin-tracker-blocks-wire');
+  assert(wire && wire.mode === 'wire' && wire.enabled, 'the wire rule ships on');
+  assert(!/VOICES|PULSE/.test(applyRules(page, [wire], { on: 'storyteller', mode: 'wire' })), 'old pages carry no blocks to the storyteller');
   /* an existing shelf where the header rule was on (m30) is left as the writer had it — only a missing builtin is seeded */
   await db.settings.set(REGEX_KEY, [{ id: 'builtin-preset-header', name: 'x', find: 'y', flags: 'g', replace: '', on: 'storyteller', mode: 'page', enabled: true, builtin: true, touched: true }]);
   const rules = await loadRules();

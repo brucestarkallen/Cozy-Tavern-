@@ -275,9 +275,10 @@ test('DOM-11 settings: the rooms render; the regex shelf adds a rule, tries it, 
   click(q('#btn-regex-try'));
   await until(() => !q('#regex-try-note').hidden && /match/i.test(q('#regex-try-note').textContent), 'a try note: ' + (q('#regex-try-note') && q('#regex-try-note').textContent));
   submit(q('#regex-form'));
-  await until(() => qa('#regex-list > li').length >= 5, 'the rule joined the shelf');
-  const stored = await db.settings.get('regexRules');
+  /* the shelf already holds the pack, so a count proves nothing — wait on the store itself */
+  const stored = await until(async () => { const r = await db.settings.get('regexRules'); return r && r.some((x) => x.name === 'Kill the em dash' && x.mode === 'display') ? r : null; }, 'the writer’s rule joined the shelf', 10000);
   assert(stored.some((r) => r.name === 'Kill the em dash' && r.mode === 'display'));
+  await until(() => qa('#regex-list > li').some((li) => /Kill the em dash/.test(li.textContent)), 'and the shelf shows it', 10000);
   /* bring a SillyTavern regex file */
   const st = [{ id: 'abc', scriptName: '🎨 Header', findRegex: '/^\\[([^\\]]+)\\]$/gm', replaceString: '<div class="hdr">$1</div>', placement: [2], markdownOnly: true }];
   const file = new File([JSON.stringify(st)], 'regex.json', { type: 'application/json' });
@@ -285,7 +286,7 @@ test('DOM-11 settings: the rooms render; the regex shelf adds a rule, tries it, 
   Object.defineProperty(input, 'files', { value: [file], configurable: true });
   input.dispatchEvent(new window.Event('change', { bubbles: true }));
   await until(() => !q('#regex-import-note').hidden && /brought home/.test(q('#regex-import-note').textContent), 'the import note', 10000);
-  assert((await db.settings.get('regexRules')).some((r) => r.id === 'st-abc' && r.mode === 'display'));
+  assert((await db.settings.get('regexRules')).some((r) => r.id === 'st-abc' && r.mode === 'display'), 'the imported rule is stored: ' + JSON.stringify((await db.settings.get('regexRules')).map((r) => r.id)));
   /* the workers room and the world switch */
   assert(q('#world-agent').checked, 'the world agent is on by default');
   assert(q('#colour-speech').checked, 'speech colour is on by default');
@@ -769,6 +770,50 @@ test('DOM-8e THE WRITER’S REPORT: a store from before the journal, played on, 
   row = qa('.story-item').find((li) => li.textContent.includes(originTitle) && !/a branch/.test(li.textContent));
   click(q('.story-open', row) || row);
   await until(async () => (await storyId()) === sid, 'back on the origin again', 10000);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-8f THE WRITER’S SECOND REPORT: a store whose journal began while the ledger’s page was still -1 (a pre-journal story touched before its first send), played on, then branched TWO PAGES BACK — that page’s ledger comes along, never an empty one', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await settled();
+  const now = await db.settings.get('state:' + sid);
+  const pages0 = (await db.messages.list(sid)).filter((m) => !m.hidden && m.role === 'assistant');
+  assert(pages0.length >= 2, 'a story with pages to branch back into');
+  /* the writer's store: entries journaled at p:-1 (an audit or a hand edit before any send after
+   * M69 landed), older snapshots that know no page, the journal beginning mid-story */
+  const rich = JSON.parse(JSON.stringify(now));
+  rich.present = [...(rich.present || []), { name: 'Old Aunt' }];
+  rich.journal = [{ id: 1, p: -1, m: { type: 'presence.enter', name: 'Old Aunt' } }, ...(rich.journal || []).slice(-2)];
+  await db.settings.set('state:' + sid, rich);
+  const snaps = (await db.settings.get('snapshots:' + sid)) || [];
+  await db.settings.set('snapshots:' + sid, snaps.map((e) => ({ ...e, snap: (() => { const c = { ...e.snap, present: [...(e.snap.present || []), { name: 'Old Aunt' }] }; delete c.page; delete c.journalSeq; c.journal = []; return c; })() })));
+  /* play two more turns on the real path */
+  for (let i = 0; i < 2; i += 1) {
+    const n = assistantPages().length;
+    type(q('#composer-input'), 'I wait a while.'); submit(q('#composer'));
+    await until(() => assistantPages().length > n, 'a page', 15000);
+    await settled();
+  }
+  const all = (await db.messages.list(sid)).filter((m) => !m.hidden);
+  const assistants = all.filter((m) => m.role === 'assistant');
+  const twoBack = assistants[assistants.length - 3];
+  const expectedNames = (() => { const s2 = (snaps.length ? null : null); return null; })();
+  /* branch at the page two back */
+  const row = assistantPages().find((a) => a.dataset.id === twoBack.id);
+  click(q('.msg-act[data-act="branch"]', row));
+  await until(async () => (await storyId()) !== sid, 'the branch is open', 10000);
+  const bid = await storyId();
+  await settled();
+  const bst = await db.settings.get('state:' + bid);
+  const names = (bst.present || []).map((p) => p.name);
+  assert(names.includes('Old Aunt'), 'the aunt who was present then: ' + JSON.stringify(names));
+  /* THE WHOLE ledger of that page, not one journaled line: the founding's people, the ground, the clock */
+  assert(names.length >= 3 && (bst.place || bst.clock), 'the WHOLE ledger of that page came along — people, the ground, the clock — not a fold from nothing: ' + JSON.stringify({ names, place: bst.place, clock: !!bst.clock }));
+  const originTitle = (await db.stories.get(sid)).title;
+  const back = qa('.story-item').find((li) => li.textContent.includes(originTitle) && !/a branch/.test(li.textContent));
+  click(q('.story-open', back) || back);
+  await until(async () => (await storyId()) === sid, 'back on the origin', 10000);
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
