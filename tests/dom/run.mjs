@@ -732,9 +732,38 @@ test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work t
   click(q('#hk-sess-branch'));
   await until(() => optionsNow() === base + 2, 'a branch', 10000);
   assert(/branch/.test(q('#hk-session').selectedOptions[0].textContent));
-  /* branch here on a writer bubble */
-  click(q('#hk-thread .hk-branch-here'));
-  await until(() => optionsNow() === base + 3, 'branched at a turn', 10000);
+  /* branch here — on the writer's bubble AND on the answer (M73: the row is on both) */
+  assert(qa('#hk-thread .hk-writer .hk-branch-here').length >= 1 && qa('#hk-thread .hk-housekeeper .hk-branch-here').length >= 1, 'branch on both voices');
+  click(q('#hk-thread .hk-housekeeper .hk-branch-here'));
+  await until(() => optionsNow() === base + 3, 'branched at an answer', 10000);
+  /* M73: the rest of the row — retry as a version of the last answer, the versions walked, edit-and-continue, delete one turn */
+  const answers = () => qa('#hk-thread .hk-housekeeper');
+  const priorConfirm2 = window.confirm; window.confirm = () => true;
+  try {
+    const nAnswers = answers().length;
+    const countNow = () => { const c = q('#hk-thread .hk-swipe-count'); return c ? c.textContent : '1/1'; };
+    const had = Number(countNow().split('/')[1]); /* the answer may already have versions (the toolbar's ↻ above made two) */
+    click(q('.hk-retry-here', answers()[answers().length - 1]));
+    await until(() => q('#hk-send').disabled, 'the retry began');
+    await until(() => !q('#hk-send').disabled && countNow() === (had + 1) + '/' + (had + 1), 'a new version of the last answer beside the old: ' + countNow(), 15000);
+    eq(answers().length, nAnswers, 'the retry replaced the last answer, no more answers');
+    await tick(60);
+    click(q('#hk-thread .hk-swipe-prev'));
+    await until(() => countNow() === had + '/' + (had + 1), 'walked to the version before');
+    await tick(60);
+    click(q('#hk-thread .hk-swipe-next'));
+    await until(() => countNow() === (had + 1) + '/' + (had + 1), 'and back');
+    await tick(60);
+    const bubblesBefore = qa('#hk-thread .hk-bubble').length;
+    click(q('.hk-delete-here', answers()[answers().length - 1]));
+    await until(() => qa('#hk-thread .hk-bubble').length === bubblesBefore - 1, 'one turn let go');
+    const writers = () => qa('#hk-thread .hk-writer');
+    const firstWriter = writers()[0];
+    const words = q('.hk-bubble-text', firstWriter).textContent;
+    click(q('.hk-edit-here', firstWriter));
+    await until(() => q('#hk-input').value === words && qa('#hk-thread .hk-bubble').length === 0, 'edit-and-continue: the turns from here on are let go, the words are in the box');
+    q('#hk-input').value = '';
+  } finally { window.confirm = priorConfirm2; }
   /* the more menu: context viewer */
   click(q('#hk-more'));
   click(q('#hk-more-menu button[data-act="context"]'));

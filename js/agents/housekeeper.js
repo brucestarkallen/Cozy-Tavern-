@@ -737,6 +737,8 @@ function cleanTurns(list) {
       ts: Number.isFinite(t.ts) ? t.ts : 0,
       ...(Array.isArray(t.proposals) ? { proposals: t.proposals } : {}),
       ...(typeof t.thinking === 'string' && t.thinking ? { thinking: t.thinking } : {}),
+      /* M73: an answer's versions ride with it */
+      ...(Array.isArray(t.swipes) && t.swipes.length ? { swipes: t.swipes.filter((v) => v && typeof v.text === 'string'), swipeIdx: Number.isInteger(t.swipeIdx) ? t.swipeIdx : t.swipes.length - 1 } : {}),
     }));
 }
 export async function loadSessionRoot(storyId) {
@@ -842,6 +844,88 @@ export async function clearSession(storyId) {
   await saveSessionRoot(storyId, root);
   return loadSession(storyId);
 }
+/* M73: Chat Assistant's per-bubble operations, ported whole (its
+ * attachMsgIcons row: ✎ edit-and-continue on the writer's bubble, 🌿 branch
+ * and ✕ delete on both, plus ↻ retry-from-here on an answer, which the
+ * tavern adds). All against the ACTIVE session's turn index. */
+/* startEditUserMessage: everything from this writer's turn on is let go; the
+ * words come back to the caller for the ask box. Returns {session, text}. */
+export async function editTurnAt(storyId, index) {
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === root.activeId);
+  const turn = cur && cur.turns[index];
+  if (!turn || turn.role !== 'writer') return null;
+  const text = String(turn.text || '');
+  cur.turns = cur.turns.slice(0, index);
+  await saveSessionRoot(storyId, root);
+  return { session: await loadSession(storyId), text };
+}
+/* deleteMessageAt: this one turn goes; the ones around it stay. */
+export async function deleteTurnAt(storyId, index) {
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === root.activeId);
+  if (!cur || !cur.turns[index]) return null;
+  cur.turns.splice(index, 1);
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+/* retry-from-here: the answer at `index` and everything after it are let go;
+ * the question that led to it comes back so the caller can ask again.
+ * The answer let go is returned too, so the caller may keep it as a version. */
+export async function truncateForRetry(storyId, index) {
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === root.activeId);
+  const turn = cur && cur.turns[index];
+  if (!turn || turn.role !== 'housekeeper') return null;
+  let w = index - 1;
+  while (w >= 0 && cur.turns[w].role !== 'writer') w -= 1;
+  if (w < 0) return null;
+  const question = String(cur.turns[w].text || '');
+  const dropped = JSON.parse(JSON.stringify(turn));
+  cur.turns = cur.turns.slice(0, w);
+  await saveSessionRoot(storyId, root);
+  return { session: await loadSession(storyId), question, dropped };
+}
+/* M73: versions of an answer (the story's swipes, on the housekeeper's last
+ * answer). versionsOf reads a turn's versions — an answer with none is its
+ * own only version. keepVersions writes `previous`'s versions plus the
+ * answer that now stands onto the turn at `index`; walkVersion shows
+ * another version (its words, its thinking, its cards). Cards ride with
+ * their version: only the shown version's cards are live; applied ones
+ * stand as receipts whichever version shows. */
+export function versionsOf(turn) {
+  if (!turn) return [];
+  if (Array.isArray(turn.swipes) && turn.swipes.length) return turn.swipes;
+  return [{ text: turn.text, thinking: turn.thinking, proposals: turn.proposals }];
+}
+export async function keepVersions(storyId, index, previous) {
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === root.activeId);
+  const turn = cur && cur.turns[index];
+  if (!turn || turn.role !== 'housekeeper') return null;
+  const old = previous ? versionsOf(previous) : [];
+  const now = { text: turn.text, thinking: turn.thinking, proposals: turn.proposals };
+  turn.swipes = [...old.map((v) => JSON.parse(JSON.stringify(v))), now];
+  turn.swipeIdx = turn.swipes.length - 1;
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+export async function walkVersion(storyId, index, dir) {
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === root.activeId);
+  const turn = cur && cur.turns[index];
+  if (!turn || turn.role !== 'housekeeper' || !Array.isArray(turn.swipes) || turn.swipes.length < 2) return null;
+  const at = Number.isInteger(turn.swipeIdx) ? turn.swipeIdx : turn.swipes.length - 1;
+  const next = at + dir;
+  if (next < 0 || next >= turn.swipes.length) return null;
+  const v = turn.swipes[next];
+  turn.text = v.text; turn.thinking = v.thinking; turn.proposals = v.proposals; turn.swipeIdx = next;
+  if (!turn.proposals) delete turn.proposals;
+  if (!turn.thinking) delete turn.thinking;
+  await saveSessionRoot(storyId, root);
+  return loadSession(storyId);
+}
+
 export async function deleteLastExchange(storyId) {
   const root = await loadSessionRoot(storyId);
   const cur = root.sessions.find((x) => x.id === root.activeId);

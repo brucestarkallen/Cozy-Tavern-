@@ -2020,3 +2020,34 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   direct writes — a swipe on the last page is exact (the commit's `after`), an older-page replay
   through an active fight is not; the housekeeper's page edits do not re-read the page (Chat
   Assistant's law: the housekeeper sweeps every surface itself, and the ripple asks it to).
+
+---
+
+# M73 — the housekeeper's bubble row, whole (Chat Assistant's attachMsgIcons)
+- FIELD REPORT: "why is there a Branch at the top that is basically New? why branch only on my
+  messages and not the answers? why no swipe, delete, edit, branch, nothing under the bubbles?"
+  All fair. M62 ported one "branch here" onto the writer's bubble and nothing else. Chat Assistant's
+  row (attachMsgIcons, read in full): writer → ✎ edit-and-continue · 📋 copy · 🌿 branch · ✕ delete;
+  answer → 📋 copy · 🌿 branch · ✕ delete. Its top "Branch" is a COPY of the whole talk, independent
+  of the original (branchSession) — which is why it looked like New.
+- Now, every bubble carries the row (.hk-acts): writer → ✎ Edit (Chat Assistant's
+  startEditUserMessage: everything from that turn on is let go, the words come back to the ask box,
+  a confirm only when turns follow) · ⧉ Copy · ⑂ Branch · ✕ Delete (one turn; the ones around it
+  stay). Answer → ◂ n/N ▸ (its versions, on the LAST answer) · ↻ Retry · ⧉ Copy · ⑂ Branch ·
+  ✕ Delete. ↻ on the last answer writes a NEW VERSION beside the old (the story's swipes:
+  turn.swipes/swipeIdx; each version carries its own cards — only the shown version's cards are
+  live, applied ones stand as receipts whichever shows); ↻ on an older answer asks its question
+  again from there and the answers after it are let go (edit-and-continue's law). The toolbar's
+  ↻ is the bubble's ↻ on the last answer. The top button is "⧉ Copy" with a title saying what it
+  copies. Store ops in agents/housekeeper.js (editTurnAt, deleteTurnAt, truncateForRetry,
+  keepVersions, walkVersion, versionsOf); cleanTurns keeps versions on reload.
+- LAW: the version arrows are never `disabled` — jsdom (and a phone's tap) drops a click on a
+  disabled button; past-the-end is a no-op with a dimmed arrow (.hk-dim).
+- Harness: m73.mjs (3 checks); DOM-11d drives the whole row — branch on the answer, retry as a
+  version (counting from the versions that already stand), the versions walked, a turn let go,
+  edit-and-continue. 327/327 + 28/28 (×3). version.js -> m73-001.
+- On the writer's other question (the magic of RP, the positivity of aligned models): answered in
+  words, not code — reverse the split (an RP-tuned prose model as the storyteller, the smart model
+  as the backstage crew; per-role connections already allow it), then an INTENT worker (present
+  NPCs' next moves decided off the send path by an unbiased model, riding beside the world's word)
+  if the beats still soften. A 30B local model was tried and judged not good enough for the prose.

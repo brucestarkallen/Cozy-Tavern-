@@ -20,6 +20,7 @@ import {
   applyProposal, applyAllPending, undoLatest,
   cleanContextPages, DEFAULT_CONTEXT_PAGES,
   listSessions, switchSession, newSession, branchSession, renameSession, deleteSession, clearSession, deleteLastExchange,
+  editTurnAt, deleteTurnAt, truncateForRetry, keepVersions, walkVersion, versionsOf, /* M73: the bubble row */
   expandCommand, COMMANDS, buildHousekeeperContext, callModel,
 } from '../agents/housekeeper.js';
 import { loadState, renderStateFacts } from '../engine/state.js';
@@ -104,21 +105,109 @@ export function initHousekeeper(ctx) {
 
   /* ---------- rendering ---------- */
 
-  function bubble(role, text, turnIndex) {
+  function bubble(role, text, turnIndex, turn) {
     const div = document.createElement('div');
     div.className = 'hk-bubble ' + (role === 'writer' ? 'hk-writer' : 'hk-housekeeper');
-    div.textContent = text;
-    /* M62: branch the session at this turn (Chat Assistant's branchAt) */
+    const body = document.createElement('div');
+    body.className = 'hk-bubble-text';
+    body.textContent = text;
+    div.append(body);
+    /* M73: Chat Assistant's bubble row (attachMsgIcons), whole, on BOTH
+     * voices — M62 had put a lone "branch here" on the writer's bubble only.
+     * Writer: ✎ Edit and continue from here · ⧉ Copy · ⑂ Branch · ✕ Delete.
+     * Answer: ◂ n/N ▸ (its versions, on the last answer) · ↻ Ask again from
+     * here · ⧉ Copy · ⑂ Branch · ✕ Delete. */
     if (Number.isInteger(turnIndex)) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'text-btn hk-branch-here';
-      b.textContent = '⑂ branch here';
-      b.title = 'Start a new session with the talk up to here';
-      b.addEventListener('click', async (e) => { e.stopPropagation(); await sessionAct('branch-at', turnIndex); });
-      div.prepend(b);
+      const row = document.createElement('div');
+      row.className = 'hk-acts';
+      const mk = (label, title, act, cls = '') => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'text-btn hk-act' + (cls ? ' ' + cls : '');
+        b.dataset.act = act;
+        b.dataset.turn = String(turnIndex);
+        b.textContent = label;
+        b.title = title;
+        b.addEventListener('click', async (e) => { e.stopPropagation(); await turnAct(act, turnIndex); });
+        row.append(b);
+        return b;
+      };
+      if (role === 'writer') mk('✎ Edit', 'Edit these words and continue from here — everything after this turn is let go', 'edit-at', 'hk-edit-here');
+      else {
+        const versions = versionsOf(turn);
+        const isLast = session && session.turns && turnIndex === lastAnswerIndex(session.turns);
+        if (isLast && versions.length > 1) {
+          const at = Number.isInteger(turn.swipeIdx) ? turn.swipeIdx : versions.length - 1;
+          mk('◂', 'The version before', 'swipe-prev', 'hk-swipe-prev' + (at <= 0 ? ' hk-dim' : ''));
+          const n = document.createElement('span');
+          n.className = 'hk-swipe-count';
+          n.textContent = (at + 1) + '/' + versions.length;
+          row.append(n);
+          mk('▸', 'The version after', 'swipe-next', 'hk-swipe-next' + (at >= versions.length - 1 ? ' hk-dim' : ''));
+        }
+        mk('↻ Retry', isLast ? 'Ask the same question again — a new version of this answer; the old one stays' : 'Ask this question again from here — the answers after it are let go', 'retry-at', 'hk-retry-here');
+      }
+      mk('⧉ Copy', 'Copy these words', 'copy-at', 'hk-copy-here');
+      mk('⑂ Branch', 'A new session with the talk up to here; this one stands', 'branch-at', 'hk-branch-here');
+      mk('✕ Delete', 'Let this one turn go — the ones around it stay', 'delete-at', 'hk-delete-here');
+      div.append(row);
     }
     return div;
+  }
+  function lastAnswerIndex(turns) {
+    for (let i = (turns || []).length - 1; i >= 0; i -= 1) if (turns[i].role === 'housekeeper') return i;
+    return -1;
+  }
+
+  /* M73: the bubble row's acts */
+  async function turnAct(act, index) {
+    if (busy) { toast('Wait for the housekeeper to finish.'); return; }
+    const story = await ensureSession();
+    if (!story) return;
+    const turn = session.turns[index];
+    if (!turn) return;
+    if (act === 'copy-at') {
+      try { await navigator.clipboard.writeText(String(turn.text || '')); toast('Copied.'); } catch (err) { window.prompt('Copy it by hand, then:', String(turn.text || '')); }
+      return;
+    }
+    if (act === 'branch-at') { await sessionAct('branch-at', index); return; }
+    if (act === 'delete-at') {
+      if (!window.confirm('Let this turn go? The ones around it stay.')) return;
+      const next = await deleteTurnAt(story.id, index);
+      if (next) { session = next; render(); }
+      return;
+    }
+    if (act === 'edit-at') {
+      if (index < session.turns.length - 1 && !window.confirm('Edit these words? Everything after this turn in the session is let go.')) return;
+      const r = await editTurnAt(story.id, index);
+      if (!r) return;
+      session = r.session;
+      render();
+      input.value = r.text;
+      input.focus();
+      statusLine.textContent = 'Editing — send to continue from here.';
+      return;
+    }
+    if (act === 'swipe-prev' || act === 'swipe-next') {
+      const next = await walkVersion(story.id, index, act === 'swipe-prev' ? -1 : 1);
+      if (next) { session = next; render(); }
+      return;
+    }
+    if (act === 'retry-at') {
+      const wasLast = index === lastAnswerIndex(session.turns);
+      const r = await truncateForRetry(story.id, index);
+      if (!r) { toast('That answer had no question to ask again.'); return; }
+      session = r.session;
+      render();
+      const landed = await send(r.question);
+      /* the last answer keeps its old versions beside the new one (a swipe);
+       * an older answer's retry lets the answers after it go, as Chat
+       * Assistant's edit-and-continue does */
+      if (landed && wasLast) {
+        const at = lastAnswerIndex(session.turns);
+        if (at !== -1) { const kept = await keepVersions(story.id, at, r.dropped); if (kept) { session = kept; render(); } }
+      }
+    }
   }
 
   /* M62: a viewer for the full context, the raw ledger, the notes */
@@ -164,7 +253,8 @@ export function initHousekeeper(ctx) {
     else if (act === 'del-last') session = await deleteLastExchange(story.id);
     await renderSessions();
     render();
-    if (act === 'branch' || act === 'branch-at') toast('Branched — this session is its own; the original stands.');
+    if (act === 'branch') toast('Copied — the new session is its own; the original stands.');
+    if (act === 'branch-at') toast('Branched — the new session is its own; the original stands.');
   }
 
   function thinkingFold(text) {
@@ -339,7 +429,7 @@ export function initHousekeeper(ctx) {
       thread.append(note);
     }
     session.turns.forEach((turn, i) => {
-      if (turn.text) thread.append(bubble(turn.role, turn.text, turn.role === 'writer' ? i : undefined));
+      if (turn.text) thread.append(bubble(turn.role, turn.text, i, turn));
       if (turn.thinking) thread.append(thinkingFold(turn.thinking));
       /* M64: done cards leave a one-line receipt in the talk; the live ones stand in the cards box */
       for (const p of (turn.proposals || [])) {
@@ -472,19 +562,11 @@ export function initHousekeeper(ctx) {
     if (busy) return;
     const story = await ensureSession();
     if (!story) return;
-    const turns = session.turns;
-    let i = turns.length - 1;
-    while (i >= 0 && turns[i].role !== 'housekeeper') i -= 1;
+    const i = lastAnswerIndex(session.turns);
     if (i < 0) { toast('Nothing to ask again yet.'); return; }
-    let w = i - 1;
-    while (w >= 0 && turns[w].role !== 'writer') w -= 1;
-    const question = w >= 0 ? turns[w].text : '';
-    if (!question) { toast('The last answer had no question to ask again.'); return; }
-    /* the last answer and its still-pending cards are let go; applied ones stand */
-    session.turns = turns.slice(0, w);
-    await saveSession(story.id, session);
-    render();
-    await send(question);
+    /* M73: the toolbar's ↻ is the bubble's ↻ on the last answer — a new
+     * version; the old one stays a swipe away (its pending cards with it) */
+    await turnAct('retry-at', i);
   }
 
   async function send(writerText) {
@@ -550,6 +632,7 @@ export function initHousekeeper(ctx) {
       render();
       statusLine.textContent = '';
       await refreshStatusLine();
+      return true;
     } catch (err) {
       pendingBubble.remove();
       input.value = text;

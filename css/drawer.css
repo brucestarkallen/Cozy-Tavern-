@@ -524,7 +524,13 @@
 .hk-form { border: none; padding: 0; margin-top: 2px; }
 .hk-form textarea { min-height: 2.4rem; }
 .hk-viewer { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.8rem; max-height: 50vh; overflow: auto; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
-.hk-bubble .hk-branch-here { float: right; font-size: 0.72rem; opacity: 0.55; margin-left: 6px; }
+/* M73: the bubble row — Chat Assistant's icon row on every bubble (edit /
+ * versions / retry / copy / branch / delete), quiet until the eye lands. */
+.hk-bubble .hk-acts { display: flex; gap: 10px; justify-content: flex-end; align-items: center; flex-wrap: wrap; margin-top: 6px; font-size: 0.72rem; opacity: 0.55; white-space: normal; }
+.hk-bubble:hover .hk-acts, .hk-bubble:focus-within .hk-acts { opacity: 0.9; }
+.hk-bubble .hk-acts .hk-act { font-size: inherit; padding: 0 2px; }
+.hk-bubble .hk-acts .hk-act.hk-dim { opacity: 0.35; }
+.hk-bubble .hk-swipe-count { font-variant-numeric: tabular-nums; }
 .hk-receipt { font-size: 0.78rem; color: var(--text-2); align-self: stretch; }
 .hk-receipt.hidden { display: none; }
 
