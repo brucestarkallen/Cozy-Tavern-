@@ -35,6 +35,9 @@ export const BANNED_PHRASES = [
   'his musk', 'a beat passed', 'a beat of silence', 'nobody has ever', 'nobody just', 'ruin you', "don't you dare", 'the first time anyone',
 ];
 export const BANNED_WORDS = ['husky', 'throaty', 'unadulterated'];
+/* M108: accord tells — the positivity bias in its plainest clothes. Notes,
+ * never warns: one is a line; a page full of them is the eye's business. */
+export const ACCORD_TELLS = ["you're right", 'you’re right', "you're absolutely right", 'you’re absolutely right', "couldn't agree more", 'couldn’t agree more', 'as always', "that's a great idea", 'that’s a great idea', 'everyone nodded', 'everyone laughed', 'they all nodded', 'they all laughed', 'the room nodded'];
 
 const SPEECH_VERBS = 'said|says|asked|asks|whispered|whispers|muttered|mutters|told|tells|replied|replies|answered|answers|called|calls|shouted|shouts|added|adds|murmured|murmurs|breathed|breathes|managed|manages|offered|offers|snapped|snaps|hissed|hisses|laughed|laughs|sighed|sighs|admitted|admits|repeated|repeats';
 
@@ -100,6 +103,11 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
   for (const phrase of BANNED_PHRASES) {
     const re = new RegExp('\\b' + escapeRe(phrase).replace(/\\ /g, '\\s+') + '\\b', 'i');
     if (re.test(page)) push('warn', 'Banned Words', `The dead phrase "${phrase}" is on the page.`);
+  }
+  {
+    const lower = page.toLowerCase();
+    const hits = ACCORD_TELLS.filter((t) => lower.includes(t));
+    if (hits.length) push(hits.length >= 2 ? 'warn' : 'note', 'The World Does Not Bend', 'Accord tells: ' + hits.map((h) => '“' + h + '”').join(', ') + ' — agreement and praise are earned by a CORE and a beat, never given.');
   }
   for (const word of BANNED_WORDS) {
     if (new RegExp('\\b' + word + '\\b', 'i').test(page)) push('note', 'Banned Words', `The dead modifier "${word}" is on the page.`);

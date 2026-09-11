@@ -2914,3 +2914,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   states and boundary snapshots of every page that leaves, at all three sites.
 - Every module passes node --check; no stray console.log in js/. 376/376 + 33/33 + 8/8, the
   consistency invariant included. version.js -> m107-001.
+
+# M108 — the world does not bend (positivity bias, named as a law and watched by the eye)
+- FIELD QUESTION: "does the preset fight positivity bias fully?" The craft already carried its
+  structural half — earned standings (refusal-first, capped, caused), earned aggression at full
+  intensity, Hold Is Forbidden, Static Scene Override, Limits Are Real, NPC goals that persist —
+  but never named the bias itself. Now it does: "The World Does Not Bend" (craft.js, beside
+  Tone Calibration) — interests diverge by default, a person whose CORE wants otherwise says no,
+  a plan the odds are against fails on the page, a mistake costs, an offence is not forgiven
+  inside the scene, nobody praises or agrees without a CORE and a beat, and the accord tells
+  ("you're right", "I couldn't agree more", the room nodding as one) are banned outright. The
+  house's eye lists them (ACCORD_TELLS): one is a note, two warn, and a warn rides the next turn
+  as a silent recolor like any other. Standings remain the measure — a standing that never moves
+  against the main character is a standing not being written.
+- M108-1. 377/377 + 33/33 + 8/8. version.js -> m108-001.

@@ -536,3 +536,15 @@ test('M104-1 carriedBy says in words why a person is carried — in the scene, t
   st.offscreen.Wendell.atTurn = st.turn;
   eq(carriedBy(st, 'Wendell', opts), 'seated just now');
 });
+
+test('M108-1 the world does not bend: the law is in the craft; the eye notes an accord tell and warns at two', async () => {
+  const { readFileSync } = await import('node:fs');
+  const craft = readFileSync(new URL('../../js/assemble/craft.js', import.meta.url), 'utf8');
+  assert(/The World Does Not Bend = the main character is not the world\x27s favourite/.test(craft) && /Accord tells are banned/.test(craft), 'the law rides in the craft');
+  const { lintPage } = await import('../../js/agents/lint.js');
+  const one = lintPage({ assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\n"You\'re right," she said, and left.', userText: 'I speak.' });
+  const hit = one.findings.find((f) => /Accord tells/.test(f.words));
+  assert(hit && hit.severity === 'note', 'one tell is a note: ' + JSON.stringify(one.findings));
+  const two = lintPage({ assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\n"You\'re absolutely right," she said. Everyone nodded.', userText: 'I speak.' });
+  assert(two.findings.some((f) => /Accord tells/.test(f.words) && f.severity === 'warn'), 'two tells warn');
+});
