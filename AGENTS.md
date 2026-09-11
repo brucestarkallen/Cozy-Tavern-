@@ -2518,3 +2518,37 @@ No user payload is ever committed, shipped, or quoted into shipped files.
      standings/threads 4, elsewhere/bodies 3, canon/knowledge 2. A sixteen-guest ball keeps the
      runner on the stairs and the open threads on the page.
 - M86-1 (in m85.mjs). 366/366 + 29/29. version.js -> m86-001.
+
+---
+
+# M87 — the long play: ninety turns of the real app, measured (the house's promise, proven in numbers)
+- FIELD REPORT: "I don't want testing — you're the one who tests." tests/dom/longplay.mjs boots the
+  real app in jsdom and plays it for ninety turns against a scripted storyteller and scripted
+  workers that behave the way good models behave (the storyteller reads the ledger's hour and
+  lets time pass from THERE; the extractor reads the header; the world agent seats an arrival on
+  the clock once; the keeper folds). Six checks, all green, zero errors across the play:
+  1. CONTEXT IS FLAT: tokens per turn — turns 25-45 mean 19,286; turns 60-89 mean 19,913;
+     max 20,260. Three percent, not the preset's climb to 130k. The verbatim window is the
+     keeper's (the last 30 of 179 pages), the record rides, the older pages rest.
+  2. THE CLOCK: every page carries the header; the ledger's hour is the last header's (the
+     round trip storyteller → extractor → ledger → storyteller holds every turn); #time skip
+     jumped three days; the clock kept every minute across ninety pages.
+  3. THE ARRIVAL, WITH NO HAND ON IT: the world agent seated Aurora "toward" with an ETA at
+     turn 3; the storyteller was handed "arriving in about…" and did not write her early; she
+     came due on the clock, walked in on page 6-8, the extractor seated her present, her
+     elsewhere seat cleared itself.
+  4. THE VOICES ride under nearly every page, rotate, and never reach the storyteller's wire.
+  5. THE WINDOW: opened by the world at turns 10/30/50/70 and by #Put TWB — five windows on the
+     pages in the exact form; the window rule woke on the turn a window was open and stood
+     down after; #q's whole law rode the tail on its turn only (and not the turn after).
+  6. THE INTIMATE RULE wakes on the writer's own words ("…and undress her") a beat before the
+     extractor's flag, and stands down on the next quiet turn.
+  Ninety turns run in ~50 seconds; run it with the walk before any commit:
+  `node tests/dom/longplay.mjs`. The assembled prompts of the #q turn, the last turn and the
+  world agent's last read are dumped to /tmp for a human read (never shipped).
+- Read as the storyteller reads it, the assembled request was sane end to end; one thing changed:
+  THE STARTER FRAME laid a house register over every tale ("slowly and by lamplight", "plain warm
+  sentences") ahead of a craft that says "unbiased cinematographer, grounded, concrete, literal".
+  It now says only what the storyteller IS and that the brief and the cast set the register; a
+  writer's own frame still outranks it.
+- 366/366 + 29/29 + 6/6. version.js -> m87-001.

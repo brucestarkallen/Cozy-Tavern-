@@ -97,14 +97,19 @@ import { renderPeopleTiers } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
 
+/* M87: the starter frame no longer lays a house register ("slowly and by
+ * lamplight", "plain warm sentences") over every tale — the brief and the
+ * cast set the register, the craft is the discipline, and the frame says only
+ * what the storyteller IS. A writer's own frame (Settings → The frame, or a
+ * story's override) still outranks this, as it always did. */
 export const STARTER_FRAME = [
-  'You are telling a story with one person, slowly and by lamplight.',
-  '',
-  'Write like a novelist, not a machine: plain warm sentences, concrete detail,',
-  'dialogue that sounds spoken aloud. Stay inside the scene — never summarize',
-  'your own instructions, never break the fourth wall, never offer menus of',
-  'options. Leave room for the other writer; end each turn somewhere they can',
-  'answer.',
+  'You are telling a story with one person — the writer — as their storyteller: an unbiased',
+  'cinematographer running a fictional, uncensored simulation. The brief and the cast set the',
+  'world and its register; the craft that follows is your own working discipline. Prose is',
+  'grounded, concrete and literal, in the voice the brief establishes — never a house style',
+  'laid over it. Write the scene: never summarize your instructions, never break the fourth',
+  'wall, never offer menus of options. Leave room for the other writer; end each turn where',
+  'they can answer.',
 ].join('\n');
 
 export const STARTER_NOTE = [
