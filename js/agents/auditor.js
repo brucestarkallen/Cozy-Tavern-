@@ -349,35 +349,42 @@ export function exampleLeakHousekeeping(state, brief = '', castNotes = '') {
 export const SEAT_MENTION_PAGES = 12;
 export const SEAT_FRESH_TURNS = 6;
 export const SEAT_CAP = 12;
-export function seatHousekeeping(state, { brief = '', castNotes = '', pages = [] } = {}) {
-  const out = [];
+/* What carries a person, in words — '' when nothing does. The drawer reads
+ * this beside every character page (M104) so the writer can see the pool
+ * the way the house does. */
+export function carriedBy(state, name, { brief = '', castNotes = '', pages = [] } = {}) {
   const seats = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
-  const names = Object.keys(seats);
-  if (!names.length) return out;
   const turn = Number.isFinite(state.turn) ? state.turn : 0;
   const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
   const recent = (Array.isArray(pages) ? pages : []).slice(-SEAT_MENTION_PAGES).map((p) => String((p && p.text) || '').toLowerCase()).join('\n');
   const rels = state.relationships || {};
   const threads = Array.isArray(state.threads) ? state.threads : [];
-  const mentioned = (name) => {
-    const n = String(name || '').trim().toLowerCase();
-    if (!n) return false;
-    const first = n.split(/\s+/)[0];
-    return recent.includes(n) || (first.length >= 3 && new RegExp('(?<![\\p{L}\\p{N}])' + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}\\p{N}])', 'u').test(recent));
-  };
-  const carried = (name) => {
-    const n = String(name).trim().toLowerCase();
-    const seat = seats[name] || {};
-    if (material.includes(n)) return 'the brief names them';
-    const relKey = Object.keys(rels).find((r) => samePersonLoose(r, name));
-    const rel = relKey ? rels[relKey] : null;
-    if (rel && ((rel.p || 0) || (rel.r || 0) || (rel.s || 0))) return 'a standing';
-    if (threads.some((t) => t && typeof t === 'object' && t.owner && samePersonLoose(t.owner, name))) return 'an open thread';
-    if (seat.stance === 'toward' || seat.stance === 'seeking') return 'on the way to the main character';
-    if (mentioned(name)) return 'named on a recent page';
-    if (Number.isFinite(seat.atTurn) && turn - seat.atTurn < SEAT_FRESH_TURNS) return 'seated just now';
-    return '';
-  };
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return '';
+  const present = (state.present || []).some((p) => p && String(p.name || '').trim().toLowerCase() === n);
+  if (present) return 'in the scene';
+  if (material.includes(n)) return 'the brief names them';
+  const relKey = Object.keys(rels).find((r) => samePersonLoose(r, name));
+  const rel = relKey ? rels[relKey] : null;
+  if (rel && ((rel.p || 0) || (rel.r || 0) || (rel.s || 0))) return 'a standing toward the main character';
+  if (threads.some((t) => t && typeof t === 'object' && t.owner && samePersonLoose(t.owner, name))) return 'an open thread';
+  const seatKey = Object.keys(seats).find((k) => samePersonLoose(k, name));
+  const seat = seatKey ? seats[seatKey] : null;
+  if (seat && (seat.stance === 'toward' || seat.stance === 'seeking')) return 'on the way to the main character';
+  const first = n.split(/\s+/)[0];
+  const mentioned = recent.includes(n) || (first.length >= 3 && new RegExp('(?<![\\p{L}\\p{N}])' + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}\\p{N}])', 'u').test(recent));
+  if (mentioned) return 'named on a recent page';
+  if (seat && Number.isFinite(seat.atTurn) && turn - seat.atTurn < SEAT_FRESH_TURNS) return 'seated just now';
+  return '';
+}
+
+export function seatHousekeeping(state, { brief = '', castNotes = '', pages = [] } = {}) {
+  const out = [];
+  const seats = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
+  const names = Object.keys(seats);
+  if (!names.length) return out;
+  const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
+  const carried = (name) => carriedBy(state, name, { brief, castNotes, pages });
   const kept = [];
   for (const name of names) {
     const why = carried(name);

@@ -31,6 +31,8 @@ import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: t
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
 import { loadMemory, saveMemory, orderedLines, visiblePages } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
+import { carriedBy, SEAT_MENTION_PAGES } from '../agents/auditor.js'; /* M104: why each person is carried */
+import { pageText } from '../assemble/stack.js';
 import { db } from '../store.js';
 
 /* ---------- shared helpers ---------- */
@@ -1486,6 +1488,9 @@ function peoplePanel(ctx) {
     note.textContent = names.length + (names.length === 1 ? ' page' : ' pages') + ' — who each person is (core), how they are now (state), how they stand with the main character (arc), and their loose ends.';
     const present = new Set((state.present || []).map((p) => String(p && p.name || '').toLowerCase()));
     names.sort((a, b) => (present.has(b.toLowerCase()) - present.has(a.toLowerCase())) || a.localeCompare(b));
+    /* M104: why each person is carried, in the house's own words — information
+     * for the writer, never a decision for a model */
+    const recent = (await db.messages.list(story.id)).filter((m) => !m.hidden).map((m) => ({ role: m.role, text: pageText(m) }));
     for (const name of names) {
       const c = chars[name];
       const li = document.createElement('li');
@@ -1493,6 +1498,11 @@ function peoplePanel(ctx) {
       const head = document.createElement('strong');
       head.textContent = name + (present.has(name.toLowerCase()) ? ' — here' : (state.offscreen && Object.keys(state.offscreen).some((k) => k.toLowerCase() === name.toLowerCase()) ? ' — elsewhere' : ''));
       li.appendChild(head);
+      const why = carriedBy(state, name, { brief: story.brief || '', castNotes: story.castNotes || '', pages: recent });
+      const carry = document.createElement('div');
+      carry.className = 'quiet carry-line';
+      carry.textContent = why ? 'Carried by: ' + why + '.' : 'Nothing carries them yet — no bond, no thread, not on the way, not named in the last ' + SEAT_MENTION_PAGES + ' pages; a passer-through unless the story returns to them.';
+      li.appendChild(carry);
       for (const [label, key] of [['Core', 'core'], ['Now', 'state'], ['Arc', 'arc']]) {
         if (typeof c[key] === 'string' && c[key].trim()) {
           const p = document.createElement('div');

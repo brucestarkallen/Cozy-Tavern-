@@ -511,3 +511,28 @@ test('M103-1 seats have a life in code: a passer-through the world agent kept se
   assert(!capped.some((m) => m.name === 'Guest14'), 'the brief’s person is never capped out');
   eq(SEAT_MENTION_PAGES, 12);
 });
+
+test('M104-1 carriedBy says in words why a person is carried — in the scene, the brief, a standing, a thread, on the way, a recent page, seated just now — or nothing', async () => {
+  const { carriedBy } = await import('../../js/agents/auditor.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  let st = { ...emptyState(), turn: 40 };
+  st = applyMutations(st, [
+    { type: 'mc.set', name: 'Jovan' },
+    { type: 'presence.enter', name: 'Rias Wells' },
+    { type: 'rel.shift', name: 'Miranda', axis: 'r', delta: 15, cause: 'the page' },
+    { type: 'thread.set', title: 'Kim and the letter', owner: 'Kim', heat: 'hot', next: 'text' },
+    { type: 'offscreen.set', name: 'Aurora', location: 'the bus', activity: 'riding', agenda: 'reach him', stance: 'toward', etaMinutes: 20 },
+    { type: 'offscreen.set', name: 'Wendell', location: 'the boardwalk', activity: 'parked', agenda: 'a fare', stance: 'waiting' },
+  ]).state;
+  st.offscreen.Wendell.atTurn = 1;
+  const opts = { brief: 'Mi-na Song is the guardian.', castNotes: '', pages: [{ role: 'assistant', text: 'Sophie texted again.' }] };
+  eq(carriedBy(st, 'Rias Wells', opts), 'in the scene');
+  eq(carriedBy(st, 'Mi-na Song', opts), 'the brief names them');
+  eq(carriedBy(st, 'Miranda', opts), 'a standing toward the main character');
+  eq(carriedBy(st, 'Kim', opts), 'an open thread');
+  eq(carriedBy(st, 'Aurora', opts), 'on the way to the main character');
+  eq(carriedBy(st, 'Sophie', opts), 'named on a recent page');
+  eq(carriedBy(st, 'Wendell', opts), '', 'nothing carries the cab driver');
+  st.offscreen.Wendell.atTurn = st.turn;
+  eq(carriedBy(st, 'Wendell', opts), 'seated just now');
+});

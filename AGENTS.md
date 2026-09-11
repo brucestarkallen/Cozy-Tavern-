@@ -2842,3 +2842,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   before busy before tense before on-the-way), never the brief's people. The world agent's law
   says the same: a passer-through is not seated at all.
 - M103-1. 376/376 + 32/32 + 8/8. version.js -> m103-001.
+
+# M104 — every character row says why the house carries them
+- The tiering the writer asked about already existed in code (M12: full cards for the present,
+  recall cards for the recently named, a rotating roster of the absent, all budgeted; M103:
+  who keeps a seat). What was missing was the writer's view of it. carriedBy(state, name) —
+  the seat law's own judgment, lifted out — now reads beside every character page in the
+  drawer: "Carried by: in the scene / the brief names them / a standing toward the main
+  character / an open thread / on the way to the main character / named on a recent page /
+  seated just now", or "Nothing carries them yet …". Information only; no model decides a tier.
+- M104-1. 377/377 + 32/32 + 8/8. version.js -> m104-001.
