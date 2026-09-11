@@ -577,9 +577,10 @@ async function audit(connection, storyId, node, sourceText, signal) {
 
 /* Write the lines that are due, then promote any layer that has grown past
  * its size. Returns the memory when something changed, else null. */
-export async function maybeSummarize({ connection, storyId, signal, onSourceIssue } = {}) {
+export async function maybeSummarize({ connection, storyId, signal, onSourceIssue, stale } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
+  const gone = () => Boolean(stale && stale());
   const keeperOn = await db.settings.get('memoryKeeper');
   if (keeperOn === false) return null;
   const window = cleanWindow(await db.settings.get('memoryWindow'));
@@ -605,6 +606,24 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const node = text === '(no new state)'
       ? { id: nodeId(), span: [range[0], range[1] - 1], text: '', level: 1, at: Date.now(), empty: true }
       : { id: nodeId(), span: [range[0], range[1] - 1], text, level: 1, at: Date.now() };
+    /* M72: THE RECORD IS RE-READ BEFORE IT IS WRITTEN. The call above is slow;
+     * while it ran, a hand or a rewind may have moved the record (a hole
+     * punched for an edited page, lines let go after a retry, the
+     * housekeeper's own edit). Saving the copy loaded before the call put all
+     * of that back — a line describing the OLD words returned into a hole
+     * that was cut for it. Now the line lands only if the pages it covers
+     * are still there and still uncovered; otherwise it is let go and the
+     * pages are read again next time. A ledger rewound under the keeper
+     * (stale) writes nothing at all. */
+    if (gone()) return changed ? mem : null;
+    const now = await loadMemory(storyId);
+    const nowHistory = visiblePages(await db.messages.list(storyId));
+    const stillDue = nowHistory.length >= range[1]
+      && pages.every((pg, i) => nowHistory[range[0] + i] && nowHistory[range[0] + i].id === pg.id && String(nowHistory[range[0] + i].text || '') === String(pg.text || ''))
+      && !now.nodes.some((n) => n && Array.isArray(n.span) && n.span[0] <= range[1] - 1 && range[0] <= n.span[1]);
+    if (!stillDue) break;
+    mem = now;
+    mem.window = window;
     mem.nodes.push(node);
     changed = true;
     await saveMemory(storyId, mem);
@@ -644,6 +663,12 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       level: level + 1,
       at: Date.now(),
     };
+    /* M72: the sources must still stand, unmoved, when the merge lands */
+    if (gone()) return changed ? mem : null;
+    const now = await loadMemory(storyId);
+    if (!toMerge.every((node) => nodeUnmoved(now.nodes, node.id, nodeSignature(node)))) break;
+    mem = now;
+    mem.window = window;
     /* COPY, don't cut: the sources leave only once the merged line stands */
     mem.nodes = mem.nodes.filter((node) => !ids.has(node.id));
     mem.nodes.push(merged);
@@ -654,6 +679,8 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     mem.window = window;
   }
 
-  if (changed) await saveMemory(storyId, mem);
+  /* M72: the final write is the freshly read record with its window — never
+   * a copy from before the calls */
+  if (changed) { const now = await loadMemory(storyId); now.window = window; mem = now; await saveMemory(storyId, mem); }
   return changed ? mem : null;
 }

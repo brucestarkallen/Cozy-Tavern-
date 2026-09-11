@@ -21,7 +21,8 @@
 
 import { firstBalancedObject } from './jsonutil.js';
 import { loadState, saveState, notify } from '../engine/state.js';
-import { mergeDeltas, renderPeopleTiers } from '../engine/people.js';
+import { renderPeopleTiers } from '../engine/people.js';
+import { applyMutations } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 import { retryAfterMs } from '../providers/wire.js'; /* M28: moved to the wire; re-exported for the harness contract */
@@ -145,6 +146,13 @@ export function parseScribeAnswer(raw) {
  * a garbled answer is just {deltas:[]} and merges into nothing. `stale`
  * (from the queue) is checked before anything is written: a turn whose
  * story was left behind teaches the ledger nothing. */
+/* The page the applier wrote lands as "<key> — … was noted"; the key is the
+ * ledger's own spelling of the name (the persona redirect, a typo mended). */
+function nameFromWords(words, fallback) {
+  const at = String(words || '').indexOf(' — ');
+  return at > 0 ? words.slice(0, at) : String(fallback || '').trim();
+}
+
 export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
@@ -170,10 +178,15 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   /* Re-read at write time — the ledger may have been touched by hand while
    * the scribe was reading. */
   const fresh = await loadState(storyId);
-  const { characters, changes, dropped } = mergeDeltas(fresh, fresh.characters, deltas, (fresh.turn || 0) + 1);
+  /* M72: every delta is a journaled write (people.note) — the fold used to
+   * lose the scribe's pages because they were merged past the journal. The
+   * merge laws are the applier's now (engine/apply.js → mergeDeltas). */
+  const { state: next, applied, rejected } = applyMutations(fresh, deltas.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
+  const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
+  const dropped = rejected.map((r) => ({ delta: r.mutation, why: r.why }));
   if (!changes.length) return { changes, dropped };
   if (stale && stale()) return null;
-  await saveState(storyId, { ...fresh, characters });
+  await saveState(storyId, next);
   notify(storyId);
   return { changes, dropped };
 }

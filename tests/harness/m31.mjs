@@ -97,7 +97,8 @@ test('M31-4 the workers’ shelf keeps detail AND what the worker said, capped',
 });
 
 test('M31-5 the writer’s SillyTavern regex file lands on the shelf as display rules that dress the page', () => {
-  const file = readFileSync('/tmp/st-regex.json', 'utf8');
+  /* M72: the file is a fixture in the repo (the old read from /tmp was the previous sandbox's — red on any fresh clone) */
+  const file = readFileSync(new URL('../fixtures/st-regex.json', import.meta.url), 'utf8');
   const { rules, skipped } = importSillyTavernRegex(file);
   eq(skipped.length, 0);
   assert(rules.length >= 20, rules.length + ' rules');

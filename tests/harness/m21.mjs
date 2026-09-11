@@ -187,7 +187,9 @@ test('M21-C: branch isolation — one telling’s rollback never touches another
 test('M21-C: the rewind law is wired in chat.js — snapshot before the chain, restore before the rewrite', () => {
   const chat = src('js/ui/chat.js');
   const gen = chat.slice(chat.indexOf('async function generate'));
-  assert(gen.indexOf('snapshotState') < gen.indexOf('refereeStep'), 'the boundary is taken before the referee commits');
+  /* M72: the boundary is taken AFTER the referee commits — it carries the committed fate, so a swipe replays instead of rolling again */
+  assert(gen.indexOf('refereeStep') < gen.indexOf('await snapshotState'), 'the boundary is taken after the referee commits (M72)');
+  assert(gen.indexOf('state.page = history.filter') < gen.indexOf('refereeStep'), 'the coming page stamps everything the turn writes before it lands (M72)');
   const regen = chat.slice(chat.indexOf('async function regenerateFrom'), chat.indexOf('/* ---------- swipes'));
   assert(regen.indexOf('rewindTo') < regen.indexOf('deleteFrom'), 'regenerate rewinds (exact or nearest, M44) before deleteFrom');
   assert(regen.indexOf('pendingWork') < regen.indexOf('rewindTo'), 'workers still settle first (B5)');

@@ -1587,9 +1587,25 @@ export function initChat(ctx) {
    * channel; each job also checks stale() before committing anything, so a
    * left-behind story is never written into. noteWork still tracks each
    * link, so the send path's courtesy wait (pendingWork, 5s a link) holds. */
+  /* M72: THE CHAIN GENERATION. The queue's stale() answers only a story
+   * switch (never wired, M33), so a reader still working on the OLD words of
+   * a page kept writing after an edit, a swipe or a rewind had moved the
+   * ledger out from under it — and its checkpoint job saved the rewound
+   * ledger under the NEW version's key. Every rewind and fold now turns this
+   * counter; a job captures it when queued and treats a turned counter as
+   * stale: its reading is let go, never written. A new page's chain does
+   * NOT turn it — the previous page's readers must still land. */
+  const chainGen = new Map();
+  function bumpChain(storyId) {
+    const n = (chainGen.get(storyId) || 0) + 1;
+    chainGen.set(storyId, n);
+    return n;
+  }
+
   function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false } = {}) {
+    const gen = chainGen.get(story.id) || 0;
     const enqueue = (name, run) => {
-      const promise = enqueueWork(story.id, { name, run });
+      const promise = enqueueWork(story.id, { name, run: ({ signal, stale }) => run({ signal, stale: () => stale() || (chainGen.get(story.id) || 0) !== gen }) });
       noteWork(story.id, promise);
       return promise;
     };
@@ -1657,8 +1673,8 @@ export function initChat(ctx) {
 
       /* Re-load at apply time — the ledger may have been touched by hand
        * while the worker was reading. */
-      const fresh = await loadState(story.id);
       if (extractFailed) throw new Error('no answer reached us');
+      const fresh = await loadState(story.id);
       /* M69: every write from this chain is stamped with this page's index */
       { const k = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id); fresh.page = k === -1 ? fresh.page : k; }
       const { state: next, applied, rejected } = applyMutations(fresh, list);
@@ -1698,7 +1714,7 @@ export function initChat(ctx) {
      * storyteller a brief for the next turn. Off the send path; the next
      * send reads whatever brief stands (pendingWork's courtesy wait). */
     enqueue('world', async ({ signal, stale }) => {
-      if (story.extraction === false) return { silent: true };
+      if (story.extraction === false || stale()) return { silent: true };
       if (!(await worldAgentOn(story))) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'world');
       if (!connection) return { silent: true };
@@ -1730,7 +1746,7 @@ export function initChat(ctx) {
      * they are, where they are, how things stand, loose ends. It answers
      * to the ledger's own switch, like the extractor. */
     enqueue('scribe', async ({ signal, stale }) => {
-      if (story.extraction === false) return { silent: true };
+      if (story.extraction === false || stale()) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'scribe');
       if (!connection) return { silent: true };
       await scribeTurn({
@@ -1759,6 +1775,7 @@ export function initChat(ctx) {
         connection,
         storyId: story.id,
         signal,
+        stale, /* M72: a keeper whose ledger was rewound under it writes nothing */
         /* M35: a line's passage contradicts the record → mend those pages */
         onSourceIssue: async ({ issue, fix, span }) => {
           const all = await db.messages.list(story.id);
@@ -1784,6 +1801,7 @@ export function initChat(ctx) {
       if (!on) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'continuity');
       if (!connection) return { silent: true };
+      if (stale()) return { silent: true };
       const fresh = await loadState(story.id);
       const { findings } = await checkTurn({
         connection,
@@ -1792,8 +1810,8 @@ export function initChat(ctx) {
         signal,
       });
       const list = Array.isArray(findings) ? findings : [];
-      if (!list.length) return { silent: false };
       if (stale()) return { silent: true };
+      if (!list.length) return { silent: false };
       if (!(await stillThere(story.id, msg.id))) return { silent: true };
       await reink(story.id, msg.id, { findings: list });
       notify(story.id); // the drawer's "Something drifted" listens
@@ -1812,7 +1830,7 @@ export function initChat(ctx) {
      * against the brief, the pages and the record; what is wrong is set
      * right through the closed vocabulary, what cannot be is noted. */
     enqueue('auditor', async ({ signal, stale }) => {
-      if (story.extraction === false) return { silent: true };
+      if (story.extraction === false || stale()) return { silent: true };
       if (!(await auditOn(story))) return { silent: true };
       const owed = pendingAudit.has(story.id);
       if (!audit && !owed) {
@@ -1848,8 +1866,9 @@ export function initChat(ctx) {
      * go, the actor sheet fills itself in the background. It never blocks a
      * turn, and it keeps its own quiet ways (failures stay off the workers
      * line, as M11 shipped them). */
-    enqueue('seeder', async ({ signal }) => {
+    enqueue('seeder', async ({ signal, stale }) => {
       try {
+        if (stale()) return { silent: true };
         const connection = await resolveWorkerConnection(story, 'seeder');
         if (!connection) return { silent: true };
         await maybeSeedSheet({ connection, storyId: story.id, signal });
@@ -1910,35 +1929,74 @@ export function initChat(ctx) {
    * retention keeps old ones), and then the auditor is asked to set the
    * ledger right against the pages, since a nearest checkpoint is close,
    * not exact. Returns true when something was restored. */
+  const pendingAudit = new Set();
+
+  /* M72: THE FOLD IS THE ONLY REWIND. The ledger at the end of storyteller
+   * page `targetPage`, rebuilt from the journal (foldJournal: the nearest
+   * snapshot as base, every later entry re-applied in page order, no model
+   * call), saved; the boundary snapshots that belong to the pages beyond it
+   * are let go; the chain generation turns so any reader still working on
+   * the pages beyond writes nothing. Returns the folded ledger. */
+  async function foldTo(story, targetPage) {
+    const current = await loadState(story.id);
+    const snaps = await loadSnapshots(story.id);
+    const folded = foldJournal(current, snaps, targetPage, applyMutations);
+    bumpChain(story.id);
+    await saveState(story.id, folded);
+    await saveSnapshots(story.id, snaps.filter((e) => !(e.snap && Number.isInteger(e.snap.page) && e.snap.page > targetPage)));
+    notify(story.id);
+    return folded;
+  }
+
+  /* The ledger as it stood BEFORE the turn that answers `userMsgId`: with a
+   * journal, the fold to the storyteller page before it (exact under a
+   * mid-chain snapshot, M72); for a store from before the journal, the
+   * boundary snapshot itself (M21/M44), with an audit owed when only a
+   * nearer one survived. */
   async function rewindTo(story, history, userMsgId) {
     if (!userMsgId) return false;
-    const order = history.filter((m) => m && m.role === 'user').map((m) => m.id);
+    const list = Array.isArray(history) ? history : [];
+    const at = list.findIndex((m) => m && m.id === userMsgId);
+    const current = await loadState(story.id);
+    if (at !== -1 && (current.journal || []).length) {
+      const target = list.slice(0, at).filter((m) => m && m.role === 'assistant' && !m.hidden).length - 1;
+      await foldTo(story, target);
+      return true;
+    }
+    const order = list.filter((m) => m && m.role === 'user').map((m) => m.id);
+    bumpChain(story.id);
     const r = await restoreNearestSnapshot(story.id, order, userMsgId);
     if (!r) return false;
     if (!r.exact) pendingAudit.add(story.id);
     return true;
   }
-  const pendingAudit = new Set();
 
-  /* M68: THE REPLAY. When history changes at an older page — a version walked,
-   * an edit kept, a middle page let go — the ledger is rebuilt from there:
-   * rewind to the checkpoint before that page's turn, let the record go from
-   * that page on, and run the workers over every page from there forward,
-   * re-taking each turn's boundary as they go. Summaryception rewinds its
-   * ledger by replaying a journal; the house replays the pages. The auditor
-   * alone was not enough — a branch at a later page carried the wrong
-   * version's people until the next send. */
+  /* M68: THE REPLAY. When history changes at an older page — a version walked
+   * or written, an edit kept, a middle page let go — the ledger is rebuilt
+   * from there: fold to the page before the change, read the changed page
+   * once, re-apply the later pages' writes exactly from the journal, re-take
+   * every boundary after. Summaryception rewinds its ledger by replaying a
+   * journal; the house replays the pages.
+   *
+   * M72: THE REPLAY IS SEQUENCED. It used to await the whole queue after
+   * queuing one chain, on the UI thread, while a send could slip in and a
+   * second history change was silently refused. Now: the fold is immediate
+   * (after the readers in flight have landed — their entries must be in the
+   * journal before it is folded), the one reading is a chain like any other,
+   * and the tail — the later pages' writes, the boundaries, the last page's
+   * checkpoint — is a job queued BEHIND that chain, so it always runs after
+   * it and before any newer page's readers. A send during the replay behaves
+   * as under the latency law (one turn with the ledger as far as it got);
+   * a second history change waits for `replaying` to clear. */
   let replaying = false;
-  /* M69: the replay is a FOLD (Summaryception's rewindLedgerFromNotes) — the
-   * ledger at the end of the page BEFORE the change, rebuilt from the journal
-   * with no model call; then ONE chain for the page whose words changed
-   * (`changedPageIndex`, if any); then the journal entries of the pages after
-   * it re-applied, shifted when a page was let go. Exact for every page whose
-   * words did not change; one reading for the one that did. */
+  function isReplaying() { return replaying; }
   async function replayFrom(story, fromMessageId, { changed = true, shiftAfter = null, kOverride = null, atOverride = null } = {}) {
     if (replaying) return false;
     replaying = true;
+    let tailQueued = false;
     try {
+      /* the readers in flight land first — their writes belong to the timeline being folded */
+      await pendingWork(story.id, 120000);
       const history = await db.messages.list(story.id);
       const vis = visiblePages(history);
       const at = atOverride !== null ? atOverride : vis.findIndex((m) => m.id === fromMessageId);
@@ -1947,11 +2005,10 @@ export function initChat(ctx) {
       const k = kOverride !== null ? kOverride : assistantIndex(fromMessageId); /* storyteller-page index of the change */
       const current = await loadState(story.id);
       /* the writes that come after the change: after page k when its words changed (k is re-read); from page k on when page k was let go (they shift down) */
-      const later = (current.journal || []).filter((e) => (changed ? e.p > k : e.p > k));
+      const later = (current.journal || []).filter((e) => e.p > k);
       /* 1. fold to the page before the change */
-      const snaps = await loadSnapshots(story.id);
-      const folded = foldJournal(current, snaps, k - 1, applyMutations);
-      await saveState(story.id, folded);
+      await foldTo(story, k - 1);
+      const gen = chainGen.get(story.id) || 0;
       await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), at));
       { const all = await loadVersionStates(story.id); const staleIds = new Set(vis.slice(at).map((m) => m.id)); for (const key of Object.keys(all)) if (staleIds.has(key.split(':')[0])) delete all[key]; await db.settings.set('versionState:' + story.id, all); }
       /* 2. one reading for the page whose words changed */
@@ -1959,48 +2016,68 @@ export function initChat(ctx) {
       if (changed && vis[at] && vis[at].role === 'assistant' && !vis[at].ooc) {
         const lastUser = [...vis.slice(0, at)].reverse().find((x) => x.role === 'user');
         startBackgroundWork(story, vis[at], lastUser ? pageText(lastUser) : '');
-        await pendingWork(story.id, 120000);
         pages = 1;
       }
-      /* 3. the later pages' writes, re-applied exactly (shifted down when a page went) */
-      let st = await loadState(story.id);
-      const groups = new Map();
-      for (const e of later) { const p = shiftAfter !== null && e.p > shiftAfter ? e.p - 1 : e.p; if (!groups.has(p)) groups.set(p, []); groups.get(p).push(e.m); }
-      for (const p of [...groups.keys()].sort((a, b) => a - b)) { st.page = p; st = applyMutations(st, groups.get(p)).state; }
-      st.page = Math.max(st.page, vis.filter((m) => m.role === 'assistant').length - 1);
-      await saveState(story.id, st);
-      /* the boundaries after the change are re-taken from the folded timeline */
-      for (let i = at; i < vis.length; i += 1) {
-        if (vis[i].role !== 'user') continue;
-        const nextA = vis.slice(i).find((m) => m.role === 'assistant');
-        const upto = nextA ? assistantIndex(nextA.id) - 1 : st.page;
-        await snapshotState(story.id, vis[i].id, foldJournal(st, [], upto, applyMutations));
-      }
-      pendingAudit.delete(story.id);
-      notify(story.id);
-      toast(`History changed at page ${at + 1} — the ledger was folded back and rebuilt${pages ? ' with one reading' : ''}.`);
+      /* 3. the tail, queued behind that chain */
+      tailQueued = true;
+      const tail = enqueueWork(story.id, { name: 'checkpoint', run: async () => {
+        try {
+          if ((chainGen.get(story.id) || 0) !== gen) return { silent: true }; /* a rewind cut in — the fold that did it is the truth now */
+          let st = await loadState(story.id);
+          const groups = new Map();
+          for (const e of later) { const p = shiftAfter !== null && e.p > shiftAfter ? e.p - 1 : e.p; if (!groups.has(p)) groups.set(p, []); groups.get(p).push(e); }
+          for (const p of [...groups.keys()].sort((a, b) => a - b)) { st.page = p; st = applyMutations(st, groups.get(p).sort((a, b) => a.id - b.id).map((e) => e.m)).state; }
+          const lastIndex = vis.filter((m) => m.role === 'assistant').length - 1;
+          st.page = Math.max(st.page, lastIndex);
+          await saveState(story.id, st);
+          /* the boundaries after the change are re-taken from the folded timeline — the
+           * snapshots before it are the bases (never an empty ledger, M72) */
+          const bases = (await loadSnapshots(story.id)).filter((e) => e.snap && Number.isInteger(e.snap.page) && e.snap.page < k);
+          for (let i = at; i < vis.length; i += 1) {
+            if (vis[i].role !== 'user') continue;
+            const nextA = vis.slice(i).find((m) => m.role === 'assistant');
+            const upto = nextA ? assistantIndex(nextA.id) - 1 : lastIndex;
+            await snapshotState(story.id, vis[i].id, foldJournal(st, bases, upto, applyMutations));
+          }
+          /* M67: the last page's shown version owns the present */
+          const lastA = [...vis].reverse().find((m) => m.role === 'assistant');
+          if (lastA) {
+            const fresh = (await db.messages.list(story.id)).find((m) => m.id === lastA.id);
+            const idx = fresh && Array.isArray(fresh.swipes) && fresh.swipes.length
+              ? (Number.isFinite(fresh.swipeIdx) ? Math.min(fresh.swipes.length - 1, Math.max(0, fresh.swipeIdx)) : fresh.swipes.length - 1)
+              : 0;
+            if (fresh) await saveVersionState(story.id, lastA.id, idx, st);
+          }
+          pendingAudit.delete(story.id);
+          notify(story.id);
+          toast(`History changed at page ${at + 1} — the ledger was folded back and rebuilt${pages ? ' with one reading' : ''}.`);
+          return { silent: true };
+        } finally {
+          replaying = false;
+        }
+      } });
+      noteWork(story.id, tail);
       return true;
     } finally {
-      replaying = false;
+      if (!tailQueued) replaying = false;
     }
   }
 
   /* M69: judge the ledger by its own stamps when a story opens (Summaryception's
    * repairIfBranched) — a page stamp past the end means another timeline's
-   * ledger; fold it back to the last page that exists. */
+   * ledger; fold it back to the last page that exists. M72: never while the
+   * house is writing (a page's stamp is ahead of the store by design until
+   * the page lands) and never during a replay. */
   async function repairTimeline(story) {
-    if (!story) return false;
+    if (!story || busy || replaying) return false;
     const history = await db.messages.list(story.id);
     const vis = visiblePages(history);
     const pages = vis.filter((m) => m.role === 'assistant').length;
     const state = await loadState(story.id);
     const why = timelineAhead(state, pages);
     if (!why.length) return false;
-    const snaps = await loadSnapshots(story.id);
-    const folded = foldJournal(state, snaps, pages - 1, applyMutations);
-    await saveState(story.id, folded);
+    await foldTo(story, pages - 1);
     await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), vis.length));
-    notify(story.id);
     toast('The ledger belonged to a longer telling (' + why[0] + ') — folded back to this one.');
     return true;
   }
@@ -2058,7 +2135,7 @@ export function initChat(ctx) {
    * opts.continueId — the hidden "Go on." user page this turn answers
    *                    (the nudge fires from it; it never renders) */
   async function generate(opts = {}) {
-    const { directive = '', ooc = false, swipeTarget = null } = opts;
+    const { directive = '', ooc = false, swipeTarget = null, replayAfter = false } = opts;
     let receipt = null;
     let landed = false; /* M40: true once a page (or a version) was written */
     /* M10: set when the prose carried [EPISODE_END] (M15 audit: this was
@@ -2116,8 +2193,14 @@ export function initChat(ctx) {
        * (regenerate-from-here, swipe-creation, deleteFrom) can hand the
        * ledger back to exactly here. OOC turns do no state work and take
        * no snapshot. */
+      /* M72: the coming page's index is the stamp for everything this turn
+       * writes before the page lands — the referee's opening call above all.
+       * Stamped with the previous page, a branch at that page carried a fight
+       * begun by a message the branch does not contain. (The stamp runs ahead
+       * of the store until the page lands; repairTimeline stays out of a
+       * busy house, and a page that never lands is folded back on open.) */
       if (!ooc && lastUser) {
-        await snapshotState(story.id, lastUser.id, state);
+        state.page = history.filter((m) => m && m.role === 'assistant' && !m.hidden).length;
       }
       if (!ooc && lastUser) {
         const { signal, done } = workerSignal(12000); /* the referee's 12s budget */
@@ -2156,6 +2239,14 @@ export function initChat(ctx) {
         } finally {
           done();
         }
+      }
+      /* M21: TRUE rollback — the boundary snapshot, keyed by this turn's user
+       * page. M72: taken AFTER the referee, so it carries the committed fate
+       * (the rewound ledger used to have no commit, and a swipe rolled the
+       * die again) and this turn's page stamp; a fold never re-arms the
+       * ruling it holds. OOC turns do no state work and take no snapshot. */
+      if (!ooc && lastUser) {
+        await snapshotState(story.id, lastUser.id, state);
       }
 
       const allModules = await listModules();
@@ -2416,12 +2507,15 @@ export function initChat(ctx) {
           stories = await db.stories.list();
           renderStoryList();
           refreshEmber();
-          if (story.extraction !== false && !stoppedByHand && !ooc) {
+          /* M72: a new version of an OLDER page is read by the replay (the
+           * caller folds first) — read here, on top of the latest ledger, its
+           * people sat down at page N. */
+          if (story.extraction !== false && !ooc && !replayAfter) {
             const updated = (await db.messages.list(story.id)).find((m) => m.id === target.id);
             if (updated) startBackgroundWork(story, updated, userText);
-            /* M10: the showrunners read a swiped close all the same. */
-            if (!ooc) startShowrunnerWork(story, { episodeEnded });
           }
+          /* M10: the showrunners read a swiped close all the same. */
+          if (!ooc) startShowrunnerWork(story, { episodeEnded });
           return landed; /* M68: the swipe path returned undefined — read as "nothing landed", the caller put the OLD ledger back over the new version */
         }
 
@@ -2455,8 +2549,10 @@ export function initChat(ctx) {
 
         /* M3/M6: the page is finished — hand it to the workers. M9: three
          * separate per-story switches (B12), and an OOC turn teaches no
-         * state work at all. */
-        if (!ooc && !stoppedByHand) {
+         * state work at all. M72: a page stopped by hand is read too — its
+         * words stand in the story and the storyteller sees them; a page cut
+         * short by the provider always was. A retry folds the reading away. */
+        if (!ooc) {
           startBackgroundWork(story, saved, userText);
           /* M10: the showrunners run after, off the story path — episode
            * rituals when the mark was struck, auto-director and the
@@ -2679,6 +2775,7 @@ export function initChat(ctx) {
 
   async function retryUserMessage(messageId) {
     if (busy) return;
+    if (replaying) { toast('The ledger is still being rebuilt — one moment, then try again.'); return; }
     const story = await activeStory();
     if (!story) return;
     const msgs = await db.messages.list(story.id);
@@ -2711,6 +2808,7 @@ export function initChat(ctx) {
 
   async function regenerateFrom(messageId) {
     if (busy) return;
+    if (replaying) { toast('The ledger is still being rebuilt — one moment, then try again.'); return; }
     busy = true;
     try {
       const story = await activeStory();
@@ -2758,6 +2856,7 @@ export function initChat(ctx) {
 
   async function swipeTo(messageId, dir) {
     if (busy) return;
+    if (replaying) { toast('The ledger is still being rebuilt — one moment.'); return; }
     const story = await activeStory();
     if (!story) return;
     const history = await db.messages.list(story.id);
@@ -2791,19 +2890,23 @@ export function initChat(ctx) {
       thinkingMs: shown.thinkingMs,
       receipt: shown.receipt || msg.receipt,
     });
+    /* M68: an older page's shown version changed — history changed; replay
+     * from here. M72: claimed the moment the store holds the new version —
+     * before any rendering — so nothing can slip in between and find the
+     * house idle. */
+    if (!last) replayFrom(story, msg.id, { changed: true });
     await rerenderMessage(story.id, msg.id);
     if (!last) {
-      /* M68: an older page's shown version changed — history changed; replay from here */
       await refreshPreview(story.id);
       renderStoryList();
       refreshEmber();
-      replayFrom(story, msg.id, { changed: true });
       return;
     }
     /* M40: the version walked to gets ITS ledger back — or, never read, the
      * boundary before the turn and a fresh reading by the workers. */
     const known = await versionStateFor(story.id, msg.id, next);
     if (known) {
+      bumpChain(story.id); /* M72: the version being left may still have readers in flight */
       await saveState(story.id, known);
       notify(story.id);
     } else {
@@ -2829,6 +2932,7 @@ export function initChat(ctx) {
    * consequence of a version that no longer stands survives. */
   async function swipeRegenerate(msg) {
     if (busy) return;
+    if (replaying) { toast('The ledger is still being rebuilt — one moment, then swipe.'); return; }
     busy = true;
     try {
       const story = await activeStory();
@@ -2850,18 +2954,20 @@ export function initChat(ctx) {
       if (lastPage) {
         const boundary = boundaryFor(historyNow, msg.id);
         if (boundary) await rewindTo(story, historyNow, boundary.id);
-      } else {
-        pendingAudit.add(story.id);
       }
       /* M44: a swiped page's record line is let go (a hole, refilled) */
       { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
-      const landed = await generate({ swipeTarget: msg });
+      const landed = await generate({ swipeTarget: msg, replayAfter: !lastPage });
       if (!landed && lastPage) {
         await saveState(story.id, leaving);
         notify(story.id);
       }
       stories = await db.stories.list();
       renderStoryList();
+      /* M72: a new version on an OLDER page is history changed at that page —
+       * fold back, read the new words once, re-apply the rest (it used to be
+       * read on top of the latest ledger and left to the auditor) */
+      if (landed && !lastPage) replayFrom(story, msg.id, { changed: true });
     } finally {
       busy = false;
     }
@@ -2871,6 +2977,7 @@ export function initChat(ctx) {
 
   async function beginEdit(messageId) {
     if (busy) return;
+    if (replaying) { toast('The ledger is still being rebuilt — one moment, then edit.'); return; }
     const story = await activeStory();
     if (!story) return;
     const history = await db.messages.list(story.id);
@@ -2921,14 +3028,12 @@ export function initChat(ctx) {
           patch.swipes = swipes;
         }
         const updated = await db.messages.update(story.id, msg.id, patch);
-        toast('The page is re-inked.');
-        /* M21: new words on the latest page mean a new preview. */
-        await refreshPreview(story.id);
         /* M44: the edited page's record line is let go (a hole, refilled).
          * The LAST storyteller page is re-read from the boundary before its
          * turn (the old version's consequences must not stand); an older
-         * page's edit does not rewind everything after it — the auditor
-         * sets the ledger right against the pages instead. */
+         * page's edit is replayed from there (M68/M69). M72: the ledger work
+         * is claimed before any rendering, so nothing finds the house idle
+         * in between. */
         { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
         if (updated && msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
           const before = history.slice(0, history.indexOf(msg));
@@ -2939,12 +3044,14 @@ export function initChat(ctx) {
             if (boundary) await rewindTo(story, history, boundary.id);
             startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '');
           } else {
-            /* M68/M69: history changed at an older page — fold back, read this page again, re-apply the rest */
             replayFrom(story, updated.id, { changed: true });
           }
         } else if (updated && msg.role === 'user') {
           pendingAudit.add(story.id);
         }
+        toast('The page is re-inked.');
+        /* M21: new words on the latest page mean a new preview. */
+        await refreshPreview(story.id);
       }
       await rerenderMessage(story.id, msg.id);
     };
@@ -3062,7 +3169,16 @@ export function initChat(ctx) {
       carried = foldJournal(now, await loadSnapshots(story.id), k === -1 ? -1 : k, applyMutations);
       exact = (now.journal || []).length > 0; /* a journal makes the fold exact; an old store without one is caught up below */
     }
-    await saveState(branch.id, JSON.parse(JSON.stringify(carried)));
+    /* M72: the referee's committed-fate timeline speaks in message ids — the
+     * branch's pages have new ones. Entries for carried messages are
+     * remapped; the rest (later turns) are let go. Unmapped, every entry
+     * was foreign to the branch and the referee pruned its whole timeline on
+     * the next turn, rewinding the fight state up to twelve turns. */
+    const carriedNow = JSON.parse(JSON.stringify(carried));
+    carriedNow.refHistory = (Array.isArray(carriedNow.refHistory) ? carriedNow.refHistory : [])
+      .filter((e) => e && (!e.msgId || idMap[e.msgId]))
+      .map((e) => (e.msgId ? { ...e, msgId: idMap[e.msgId] } : e));
+    await saveState(branch.id, carriedNow);
     const carriedIds = new Set(pages.map((m) => m.id));
     const snaps = (await loadSnapshots(story.id)).filter((e) => carriedIds.has(e.id)).map((e) => ({ ...e, id: idMap[e.id] }));
     if (snaps.length) await saveSnapshots(branch.id, snaps);
@@ -3272,6 +3388,7 @@ export function initChat(ctx) {
   async function deleteMessage(id) {
     const story = await activeStory();
     if (!story || busy) return;
+    if (replaying) { toast('The ledger is still being rebuilt — one moment, then let it go.'); return; }
     /* One page lets go — never conflated with rewrite-from-here. */
     const ok = window.confirm('Let this page go? The ones around it stay exactly as written.');
     if (!ok) return;
@@ -3284,8 +3401,35 @@ export function initChat(ctx) {
     const goneBoundary = boundaryFor(allBefore, id); /* the turn the page belonged to */
     if (kGone !== -1) await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), kGone));
     await db.messages.remove(story.id, id);
-    /* M68: a page let go in the middle changes history — replay from the next page */
-    if (!after) pendingAudit.add(story.id);
+    const gone = visBefore[kGone];
+    /* M72: the ledger work is claimed right after the store write, before any
+     * rendering. A WRITER'S page let go moves no storyteller page — the
+     * ledger's stamps stand (the record slid above; the referee prunes its
+     * own timeline by message id); replaying from k = -1 used to shift every
+     * stamp down by one. A storyteller page in the middle replays from the
+     * next page (M68; later stamps shift down by one). The LAST storyteller
+     * page let go folds the ledger back to the page before it, exactly, now
+     * (it used to keep the gone page's people and hour until the story was
+     * next opened). */
+    let ledgerWork = null;
+    if (gone && gone.role === 'assistant') {
+      const goneK = visBefore.filter((m) => m.role === 'assistant').findIndex((m) => m.id === id);
+      if (after) {
+        ledgerWork = replayFrom(story, after.id, { changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone });
+      } else {
+        replaying = true;
+        ledgerWork = (async () => {
+          try {
+            await pendingWork(story.id, 120000);
+            await foldTo(story, goneK - 1);
+            const all = await loadVersionStates(story.id);
+            for (const key of Object.keys(all)) if (key.split(':')[0] === id) delete all[key];
+            await db.settings.set('versionState:' + story.id, all);
+            pendingAudit.delete(story.id);
+          } finally { replaying = false; }
+        })();
+      }
+    }
     const node = els.thread.querySelector(`.msg[data-id="${id}"]`);
     if (node) node.remove();
     lastRender.ids = lastRender.ids.filter((x) => x !== id);
@@ -3294,11 +3438,7 @@ export function initChat(ctx) {
     renderStoryList();
     refreshEmber();
     toast('The page is gone.');
-    if (after) {
-      /* the deleted page's index among storyteller pages: later stamps shift down by one */
-      const goneK = visBefore.filter((m) => m.role === 'assistant').findIndex((m) => m.id === id);
-      replayFrom(story, after.id, { changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone });
-    }
+    if (ledgerWork) await ledgerWork.catch(() => {});
   }
 
   els.thread.addEventListener('click', async (e) => {
@@ -3656,6 +3796,7 @@ export function initChat(ctx) {
 
   ctx.chat = {
     isBusy: () => busy,
+    isReplaying,
     repairTimeline,
     rescanLedger,
     auditNow,

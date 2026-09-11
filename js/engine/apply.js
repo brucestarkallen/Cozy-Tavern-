@@ -27,6 +27,10 @@
  * M12 (v4) adds the character ledger: people.set {name, field, text} —
  * field is core, state, arc or threads; the main character's page takes
  * state and threads only (record-only, enforced in engine/people.js).
+ * M72 adds the two writes that used to bypass the journal (and so were lost
+ * by every fold): people.note {name, field, text} — the scribe's sparse
+ * delta (field core/state/arc/thread/unthread, mergeDeltas' own laws) —
+ * and world.word {brief} — the world agent's word for the next turn.
  *
  * Reversal rides on the log entry as `undo` — a small payload saying what
  * was true before. The spec's documented log shape {ts, words, undone} is
@@ -40,7 +44,8 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
-import { setPersonField, findPersonKey } from './people.js';
+import { setPersonField, findPersonKey, mergeDeltas } from './people.js';
+import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES } from './world.js'; /* M29: the world beyond the page */
 
 const LOG_CAP = 200;
@@ -681,6 +686,61 @@ const HANDLERS = {
     return { words, undo: { kind: 'people.restore', name: result.key, before } };
   },
 
+  /* M72: the scribe's delta, journaled. Same laws as the merge it replaced
+   * (engine/people.js mergeDeltas): the persona redirect, the MC
+   * record-only law, the contamination guard, thread/unthread. One delta
+   * per mutation so every write has its own line and its own take-back. */
+  'people.note'(state, m) {
+    const { characters, changes, dropped } = mergeDeltas(state, state.characters, [{ name: m.name, field: m.field, text: m.text }], turnOf(state));
+    if (!changes.length) return { why: (dropped[0] && dropped[0].why) || 'the note said nothing new' };
+    const key = changes[0].name;
+    const before = state.characters && state.characters[key] ? cloneMap({ [key]: state.characters[key] })[key] : null;
+    state.characters = characters;
+    const field = changes[0].field;
+    const FIELD_WORDS = { core: 'their nature', state: 'where they are', arc: 'how things stand with them', thread: 'a loose end', unthread: 'a loose end closed' };
+    const shown = field === 'thread' || field === 'unthread'
+      ? capText(m.text, 120)
+      : capText(state.characters[key][field], 160);
+    return {
+      words: key + ' — ' + (FIELD_WORDS[field] || 'their page') + ' was noted' + (shown ? ': ' + shown.replace(/\.+$/, '') : '') + '.',
+      undo: { kind: 'people.restore', name: key, before },
+    };
+  },
+
+  /* M72: the world agent's word for the next turn, journaled — so a swipe or
+   * a branch gets the same world's word the page it stands on was told, and a
+   * fold never hands the storyteller a brief from three pages back. The
+   * brief is stamped with this batch's turn; a window opened is remembered
+   * (worldShown, the last six) so "never the same beat twice" holds. */
+  'world.word'(state, m) {
+    const brief = normalizeBrief(m.brief, turnOf(state));
+    const before = {
+      brief: state.worldBrief ? JSON.parse(JSON.stringify(state.worldBrief)) : null,
+      shown: Array.isArray(state.worldShown) ? state.worldShown.map((w) => ({ ...w })) : [],
+    };
+    state.worldBrief = brief;
+    const shown = Array.isArray(state.worldShown) ? state.worldShown.slice() : [];
+    if (brief && brief.twb) shown.push({ ...brief.twb, atTurn: brief.atTurn });
+    state.worldShown = shown.slice(-6);
+    const words = !brief || brief.empty
+      ? 'The world had no word to leave this turn.'
+      : 'The world left its word for the next turn'
+        + (brief.twb ? ' — a window opens' + (brief.twb.who ? ' on ' + brief.twb.who : '') : '')
+        + '.';
+    return { words, undo: { kind: 'world.restore', before } };
+  },
+
+  /* M72: a take-back, journaled. undoEntry/undoLast used to drop the
+   * original entry from the journal — a fold from a base taken BEFORE the
+   * take-back then put the effect straight back (the base held it; nothing
+   * said it was gone). The reversal is an entry of its own now, carrying the
+   * original's undo payload, so every fold reverses what the hand reversed. */
+  'undo.apply'(state, m) {
+    if (!m || !m.undo || typeof m.undo !== 'object') return { why: 'nothing to take back' };
+    if (!applyUndo(state, m.undo)) return { why: 'the world moved on; that change cannot be walked back' };
+    return { words: 'Taken back — ' + capText(m.of, 200), undo: null };
+  },
+
   /* ---------- M11: the combat ledger bridge ---------- */
 
   'combat.begin'(state, m) {
@@ -816,13 +876,29 @@ export function undoTarget(undo) {
   if (k === 'clock') return 'clock';
   if (k === 'threads.restore') return 'threads';
   if (k === 'combat.restore') return 'combat';
+  if (k === 'world.restore') return 'world';
   const name = String(undo.name || (undo.before && undo.before.name) || '').trim().toLowerCase();
-  return k.replace(/\.restore$/, '') + ':' + name;
+  /* M72: the undo of an entrance (presence.remove) and the undo of a later
+   * change to the same person (presence.restore) are the same target — they
+   * used to read as two, so an entrance could be taken back under a
+   * standing later change, and taking that back then seated a ghost. */
+  return k.replace(/\.(restore|remove)$/, '') + ':' + name;
 }
 
 /* M49: take back ONE entry, anywhere in the log — refused when a later
  * standing entry touched the same thing (take those back first). Returns
  * {state, words} | {refused: why} | null. */
+/* M72: the reversal rides the journal (undo.apply) — stamped with the
+ * ledger's current page, so a fold to any later page reverses it too. */
+function journalUndo(next, entry) {
+  if (!Array.isArray(next.journal)) next.journal = [];
+  next.journalSeq = (Number.isInteger(next.journalSeq) ? next.journalSeq : 0) + 1;
+  next.journal.push({ id: next.journalSeq, p: Number.isInteger(next.page) ? next.page : -1, m: { type: 'undo.apply', undo: JSON.parse(JSON.stringify(entry.undo)), of: entry.words } });
+  if (next.journal.length > JOURNAL_CAP) next.journal = next.journal.slice(next.journal.length - JOURNAL_CAP);
+  const logEntry = appendLog(next, 'Taken back — ' + entry.words, null);
+  logEntry.jid = next.journalSeq;
+}
+
 export function undoEntry(state, index) {
   const next = copyState(state);
   const entry = next.log[index];
@@ -835,9 +911,8 @@ export function undoEntry(state, index) {
   }
   const applied = applyUndo(next, entry.undo);
   if (!applied) return { refused: 'the world moved on; that change cannot be walked back' };
-  if (Number.isInteger(entry.jid) && Array.isArray(next.journal)) next.journal = next.journal.filter((e) => e.id !== entry.jid); /* M69 */
   next.log[index] = { ...entry, undone: true };
-  appendLog(next, 'Taken back — ' + entry.words, null);
+  journalUndo(next, entry);
   return { state: next, words: 'Taken back — ' + entry.words };
 }
 
@@ -919,6 +994,11 @@ function applyUndo(next, undo) {
       if (undo.before) next.factions[key] = { ...undo.before };
       else delete next.factions[key];
       ok = true;
+    } else if (undo.kind === 'world.restore') {
+      const b = undo.before || {};
+      next.worldBrief = b.brief ? JSON.parse(JSON.stringify(b.brief)) : null;
+      next.worldShown = Array.isArray(b.shown) ? b.shown.map((w) => ({ ...w })) : [];
+      ok = true;
     } else if (undo.kind === 'people.restore') {
       const key = findPersonKey(next.characters, undo.name) || undo.name;
       if (undo.before) next.characters[key] = cloneMap({ [key]: undo.before })[key];
@@ -935,9 +1015,8 @@ export function undoLast(state) {
     const entry = next.log[i];
     if (!entry || entry.undone || !entry.undo) continue;
     if (!applyUndo(next, entry.undo)) continue; // the world moved on; look further back
-    if (Number.isInteger(entry.jid) && Array.isArray(next.journal)) next.journal = next.journal.filter((e) => e.id !== entry.jid); /* M69 */
     next.log[i] = { ...entry, undone: true };
-    appendLog(next, 'Taken back — ' + entry.words, null);
+    journalUndo(next, entry);
     return { state: next, words: 'Taken back — ' + entry.words };
   }
   return null;

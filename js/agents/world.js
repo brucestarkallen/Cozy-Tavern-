@@ -47,7 +47,7 @@ import { applyMutations } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
-import { renderThreads, renderKnowledge, renderFactions, normalizeBrief, STANCES } from '../engine/world.js';
+import { renderThreads, renderKnowledge, renderFactions, STANCES } from '../engine/world.js';
 
 const MAX_TOKENS = 6000; /* M37: room for a long founding even if a house thinks a little anyway */
 export const WORLD_SHOWN_MAX = 6;
@@ -327,16 +327,16 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
     }
     withPages.push(m);
   }
-  const { state: next, applied, rejected } = applyMutations(fresh, withPages);
-  const turnNow = Number.isFinite(next.turn) ? next.turn : 0;
-  const normalized = read.brief ? normalizeBrief(read.brief, turnNow) : null;
-  /* M30: a window opened is a window remembered — the agent is shown the
-   * last six so "never the same beat twice" is a mechanism, not a wish. */
-  const shown = Array.isArray(next.worldShown) ? next.worldShown.slice() : [];
-  if (normalized && normalized.twb) shown.push({ ...normalized.twb, atTurn: turnNow });
-  const out = { ...next, worldBrief: normalized, worldShown: shown.slice(-WORLD_SHOWN_MAX) };
+  /* M72: the brief is a journaled write too (world.word) — the fold used to
+   * revert it to whatever an older snapshot held, so a swipe got a stale
+   * world's word. M30's "a window opened is a window remembered" (the last
+   * six) lives in the applier now. */
+  if (read.brief) withPages.push({ type: 'world.word', brief: read.brief });
+  const { state: next, applied: appliedAll, rejected } = applyMutations(fresh, withPages);
+  const applied = appliedAll.filter((a) => a.mutation.type !== 'world.word');
+  const normalized = read.brief ? next.worldBrief : null;
   if (stale && stale()) return null;
-  await saveState(storyId, out);
+  await saveState(storyId, next);
   notify(storyId);
   return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw };
 }

@@ -638,6 +638,32 @@ function restoreSnapshot(state, snap) {
   if (typeof snap.turn === 'number') state.turn = snap.turn;
 }
 
+/* M72: what the ruling left behind — the fight state AFTER this turn's
+ * adjudication, kept on the commit so a replay can put it back. TRUE
+ * rollback (M21) rewinds the ledger to the boundary before a turn on every
+ * swipe and regenerate; the committed verdict rode again, but the duel it
+ * opened, the composure it cost and the condition it recorded did not —
+ * the words said "a duel" while the ledger held none. The commit's `snap`
+ * is the world BEFORE the turn (for an edit's rewind); `after` is the world
+ * the same words must leave every time. The combat mode flag and the
+ * actor sheet ride too (combat.begin sets one, a condition change the
+ * other); nothing the chain writes later is in here, and the chain's own
+ * writes are the fold's to re-apply. */
+function takeAfter(state) {
+  return {
+    ...takeSnapshot(state),
+    combat: Boolean(state.mode && state.mode.combat),
+    sheet: clonePlain(state.sheet),
+  };
+}
+
+function restoreAfter(state, after) {
+  if (!after || typeof after !== 'object') return;
+  restoreSnapshot(state, after);
+  if (typeof after.combat === 'boolean') state.mode = { ...(state.mode || {}), combat: after.combat };
+  if (after.sheet && typeof after.sheet === 'object') state.sheet = clonePlain(after.sheet);
+}
+
 /* Rewind the world to just before the earliest timeline entry whose message
  * is gone (deleted or branched away), then drop that entry and everything
  * after it. */
@@ -705,6 +731,9 @@ export async function refereeStep({ connection, userText, userId, history, state
     /* Committed fate: swipes and regenerates replay the SAME verdict. */
     const committed = state.refHistory.filter((e) => e && e.key === key && (!e.msgId || e.msgId === userId)).pop();
     if (committed) {
+      /* M72: the same words leave the same world — the fight state the
+       * ruling left is put back (a rewound ledger holds the world before) */
+      restoreAfter(state, committed.after);
       return { state, ruling: committed.verdict || null, status: 'replayed', why: 'committed fate replayed' };
     }
 
@@ -718,7 +747,7 @@ export async function refereeStep({ connection, userText, userId, history, state
 
     const fightOn = duelActive(state) || battleActive(state);
     const snap = takeSnapshot(state);
-    const commit = (verdict) => commitRef(state, { key, msgId: userId || null, verdict: verdict || null, snap, at: Date.now() });
+    const commit = (verdict) => commitRef(state, { key, msgId: userId || null, verdict: verdict || null, snap, after: takeAfter(state), at: Date.now() });
 
     /* #roll / #skip — demoted to optional overrides on the gate. */
     const forceRoll = /(?:^|\s)#roll\b/i.test(text);

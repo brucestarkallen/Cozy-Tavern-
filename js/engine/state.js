@@ -402,6 +402,7 @@ export async function restoreNearestSnapshot(storyId, order, turnId) {
   const exactAt = list.findIndex((e) => e.id === turnId);
   if (exactAt !== -1) {
     const restored = deepCopy(list[exactAt].snap);
+    restored.pendingVerdict = null; /* M72: a ruling rides one turn; a rewind never re-arms it */
     await saveState(storyId, restored);
     await saveSnapshots(storyId, list.slice(0, exactAt + 1));
     notify(storyId);
@@ -416,6 +417,7 @@ export async function restoreNearestSnapshot(storyId, order, turnId) {
   }
   if (best === -1) return null;
   const restored = deepCopy(list[best].snap);
+  restored.pendingVerdict = null; /* M72 */
   await saveState(storyId, restored);
   await saveSnapshots(storyId, list.slice(0, best + 1));
   notify(storyId);
@@ -446,6 +448,7 @@ export async function restoreSnapshot(storyId, turnId) {
   const at = list.findIndex((e) => e.id === turnId);
   if (at === -1) return null;
   const restored = deepCopy(list[at].snap);
+  restored.pendingVerdict = null; /* M72 */
   await saveState(storyId, restored);
   await saveSnapshots(storyId, list.slice(0, at + 1));
   notify(storyId); // the ledger drawer re-reads what stands now
@@ -600,17 +603,39 @@ export function renderMasthead(state) {
 /* ---------- M69: the fold ----------
  * The ledger at the end of page P, rebuilt from the journal with no model
  * call: start from the nearest snapshot whose own `page` is at or before P
- * (or from an empty ledger, keeping the main character's name and the
- * calendar's shape), then re-apply every journal entry with page in
- * (base.page, P], in order. The journal is the CURRENT state's — the log of
- * everything ever applied on this timeline. Pure; returns the folded state. */
+ * (or from an empty ledger, keeping the main character's name), then
+ * re-apply every journal entry the snapshot does not already hold, up to
+ * page P, in the order the story tells it. The journal is the CURRENT
+ * state's — the log of everything ever applied on this timeline. Pure;
+ * returns the folded state.
+ *
+ * M72: what a snapshot already holds is read off the snapshot's OWN journal
+ * (every snapshot is a whole state, journal included), never off its page.
+ * The send path waits at most five seconds for the previous page's readers
+ * (the latency law), so a boundary snapshot is often taken MID-CHAIN — its
+ * page already says k while entries stamped k are still landing behind it.
+ * "re-apply p > base.page" skipped those late entries. Now an entry is
+ * re-applied when the base's journal does not hold it (page and mutation
+ * alike; a held twin counts once per copy). Ids are not the measure: folds
+ * renumber them. Entries are re-applied in (page, id) order — a page
+ * re-read by the replay writes its entries after later pages' (larger ids,
+ * smaller page), and the fold must still tell the story in page order.
+ * A fold never re-arms a consumed ruling (pendingVerdict is cleared: a
+ * boundary snapshot is taken after the referee, so it carries the ruling
+ * that rode that turn), and the referee's own timeline (refHistory) rides
+ * with the current ledger — it prunes itself by message id, and a swipe
+ * must still find its committed fate. */
+export function journalKey(e) {
+  try { return e.p + '|' + JSON.stringify(e.m); } catch (err) { return e.p + '|?'; }
+}
 export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
   const journal = Array.isArray(current.journal) ? current.journal : [];
   let base = null;
   for (const e of (Array.isArray(snapshots) ? snapshots : [])) {
     const snap = e && e.snap;
     if (!snap || !Number.isInteger(snap.page) || snap.page > targetPage) continue;
-    if (!base || snap.page > base.page) base = snap;
+    const seqOf = (s) => (Number.isInteger(s.journalSeq) ? s.journalSeq : 0);
+    if (!base || snap.page > base.page || (snap.page === base.page && seqOf(snap) > seqOf(base))) base = snap;
   }
   let state;
   if (base) state = deepCopy(base);
@@ -621,12 +646,19 @@ export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
     state = emptyState();
     state.sheet = { ...state.sheet, playerName: (current.sheet && current.sheet.playerName) || '' };
   }
-  /* with no base, everything from the founding (stamped -1) forward is re-applied */
-  const from = base ? base.page : -2;
-  state.journal = base ? journal.filter((e) => e.p <= from) : [];
+  const held = new Map();
+  for (const e of (base && Array.isArray(base.journal) ? base.journal : [])) {
+    const k = journalKey(e);
+    held.set(k, (held.get(k) || 0) + 1);
+  }
+  state.journal = Array.isArray(state.journal) ? state.journal : [];
+  state.journalSeq = Math.max(Number.isInteger(state.journalSeq) ? state.journalSeq : 0, ...state.journal.map((e) => (Number.isInteger(e.id) ? e.id : 0)));
   const groups = new Map();
-  for (const e of journal) {
-    if (e.p <= from || e.p > targetPage) continue;
+  for (const e of [...journal].sort((x, y) => (x.p - y.p) || (x.id - y.id))) {
+    if (e.p > targetPage) continue;
+    const k = journalKey(e);
+    const n = held.get(k) || 0;
+    if (n > 0) { held.set(k, n - 1); continue; } /* the base already holds this one */
     if (!groups.has(e.p)) groups.set(e.p, []);
     groups.get(e.p).push(e.m);
   }
@@ -635,6 +667,8 @@ export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
     state = applyMutationsFn(state, groups.get(p)).state;
   }
   state.page = targetPage;
+  state.pendingVerdict = null;
+  state.refHistory = Array.isArray(current.refHistory) ? deepCopy(current.refHistory) : [];
   return state;
 }
 
@@ -646,7 +680,5 @@ export function timelineAhead(state, pages) {
   const why = [];
   if (Number.isInteger(state.page) && state.page >= pages) why.push('the ledger stands at page ' + (state.page + 1) + ' of ' + pages);
   if (Array.isArray(state.journal) && state.journal.some((e) => e.p >= pages)) why.push('the journal holds pages beyond the end');
-  const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
-  if (Object.values(chars).some((c) => c && Number.isInteger(c.updatedAtPage) && c.updatedAtPage >= pages)) why.push('a character page was written past the end');
   return why;
 }

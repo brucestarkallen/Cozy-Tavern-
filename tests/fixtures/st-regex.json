@@ -1,0 +1,393 @@
+[
+  {
+    "id": "header-6-pipe",
+    "scriptName": "Header (6-pipe)",
+    "findRegex": "/^([^\\[\\]|\\n]{5,}?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)$/gm",
+    "replaceString": "<div style=\"background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 40%,#1a1f25 100%);border-left:3px solid #d45246;padding:10px 14px;margin:4px 0 8px 0;border-radius:0 6px 6px 0;\"><div style=\"color:#e8e8f4;font-size:0.92em;font-variant:small-caps;letter-spacing:0.5px;font-family:Georgia,serif;font-weight:700;\">📍 $1</div><div style=\"display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;\"><span style=\"color:#c9a24e;font-size:0.78em;\">$2</span><span style=\"background:#1a1a20;padding:1px 6px;border-radius:3px;font-family:monospace;font-size:0.72em;color:#d4842a;\">$3</span></div><div style=\"display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(201,168,76,0.1);gap:8px;flex-wrap:wrap;\"><span style=\"color:#6b9ec4;font-size:0.72em;font-style:italic;\">$4</span><span style=\"color:#c78a96;font-size:0.72em;font-style:italic;\">👕 $5</span><span style=\"color:#8a7ab4;font-size:0.72em;font-style:italic;width:100%;text-align:right;\">🧭 $6</span></div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "header-5-dash",
+    "scriptName": "Header (5-dash)",
+    "findRegex": "/\\[(?!IST:|ACW:|VOICE:|CROWD:)([^\\[\\]|\\n]+?)\\s*[—–-]{1,3}\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\]/g",
+    "replaceString": "<div style=\"background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 40%,#1a1f25 100%);border-left:3px solid #d45246;padding:10px 14px;margin:4px 0 8px 0;border-radius:0 6px 6px 0;\"><div style=\"color:#e8e8f4;font-size:0.92em;font-variant:small-caps;letter-spacing:0.5px;font-family:Georgia,serif;font-weight:700;\">📍 $1</div><div style=\"color:#c9a24e;font-size:0.78em;margin-top:3px;\">$2</div><div style=\"display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(201,168,76,0.1);gap:8px;flex-wrap:wrap;\"><span style=\"color:#6b9ec4;font-size:0.72em;font-style:italic;\">$3</span><span style=\"color:#c78a96;font-size:0.72em;font-style:italic;\">👕 $4</span><span style=\"color:#8a7ab4;font-size:0.72em;font-style:italic;width:100%;text-align:right;\">🧭 $5</span></div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "header-5-pipes-location-date-time-weather-attire-position",
+    "scriptName": "Header (5 pipes: Location — Date | Time | Weather | Attire | Position)",
+    "findRegex": "/^\\[(?!IST:|ACW:|VOICE:|CROWD:)([^\\[\\]|\\n]+?)\\s*[—–-]{1,3}\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\]$/gm",
+    "replaceString": "<div style=\"background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 40%,#1a1f25 100%);border-left:3px solid #d45246;padding:10px 14px;margin:4px 0 8px 0;border-radius:0 6px 6px 0;\"><div style=\"color:#e8e8f4;font-size:0.92em;font-variant:small-caps;letter-spacing:0.5px;font-family:Georgia,serif;font-weight:700;\">📍 $1</div><div style=\"display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;\"><span style=\"color:#c9a24e;font-size:0.78em;\">$2</span><span style=\"background:#1a1a20;padding:1px 6px;border-radius:3px;font-family:monospace;font-size:0.72em;color:#d4842a;\">$3</span></div><div style=\"display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(201,168,76,0.1);gap:8px;flex-wrap:wrap;\"><span style=\"color:#6b9ec4;font-size:0.72em;font-style:italic;\">$4</span><span style=\"color:#c78a96;font-size:0.72em;font-style:italic;\">👕 $5</span><span style=\"color:#8a7ab4;font-size:0.72em;font-style:italic;width:100%;text-align:right;\">🧭 $6</span></div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "scene-header-6-pipe-bracketed",
+    "scriptName": "Scene Header (6-pipe, bracketed)",
+    "findRegex": "/^\\[(?!IST:|ACW:|VOICE:|CROWD:)([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\]$/gm",
+    "replaceString": "<div style=\"background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 40%,#1a1f25 100%);border-left:3px solid #d45246;padding:10px 14px;margin:4px 0 8px 0;border-radius:0 6px 6px 0;\"><div style=\"color:#e8e8f4;font-size:0.92em;font-variant:small-caps;letter-spacing:0.5px;font-family:Georgia,serif;font-weight:700;\">📍 $1</div><div style=\"display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;\"><span style=\"color:#c9a24e;font-size:0.78em;\">$2</span><span style=\"background:#1a1a20;padding:1px 6px;border-radius:3px;font-family:monospace;font-size:0.72em;color:#d4842a;\">$3</span></div><div style=\"display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(201,168,76,0.1);gap:8px;flex-wrap:wrap;\"><span style=\"color:#6b9ec4;font-size:0.72em;font-style:italic;\">$4</span><span style=\"color:#c78a96;font-size:0.72em;font-style:italic;\">👕 $5</span><span style=\"color:#8a7ab4;font-size:0.72em;font-style:italic;width:100%;text-align:right;\">🧭 $6</span></div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "scene-header-5-field-with-dash",
+    "scriptName": "Scene Header (5-field with dash)",
+    "findRegex": "/^\\[(?!IST:|ACW:|VOICE:|CROWD:)([^\\[\\]|\\n]+?)\\s*[—–-]{1,3}\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\]$/gm",
+    "replaceString": "<div style=\"background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 40%,#1a1f25 100%);border-left:3px solid #d45246;padding:10px 14px;margin:4px 0 8px 0;border-radius:0 6px 6px 0;\"><div style=\"color:#e8e8f4;font-size:0.92em;font-variant:small-caps;letter-spacing:0.5px;font-family:Georgia,serif;font-weight:700;\">📍 $1</div><div style=\"display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;\"><span style=\"color:#c9a24e;font-size:0.78em;\">$2</span><span style=\"background:#1a1a20;padding:1px 6px;border-radius:3px;font-family:monospace;font-size:0.72em;color:#d4842a;\">$3</span></div><div style=\"display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(201,168,76,0.1);gap:8px;flex-wrap:wrap;\"><span style=\"color:#6b9ec4;font-size:0.72em;font-style:italic;\">$4</span><span style=\"color:#c78a96;font-size:0.72em;font-style:italic;\">👕 $5</span><span style=\"color:#8a7ab4;font-size:0.72em;font-style:italic;width:100%;text-align:right;\">🧭 $6</span></div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "header-5-field-location-date-time-weather-attire-position",
+    "scriptName": "Header (5-field: Location — Date | Time | Weather | Attire | Position)",
+    "findRegex": "/^\\[(?!IST:|ACW:|VOICE:|CROWD:)([^|\\]\\n]+?)\\s*—\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\]/gm",
+    "replaceString": "<div style=\"background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 40%,#1a1f25 100%);border-left:3px solid #d45246;padding:10px 14px;margin:4px 0 8px 0;border-radius:0 6px 6px 0;\"><div style=\"color:#e8e8f4;font-size:0.92em;font-variant:small-caps;letter-spacing:0.5px;font-family:Georgia,serif;font-weight:700;\">📍 $1</div><div style=\"display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;\"><span style=\"color:#c9a24e;font-size:0.78em;\">$2</span><span style=\"background:#1a1a20;padding:1px 6px;border-radius:3px;font-family:monospace;font-size:0.72em;color:#d4842a;\">$3</span></div><div style=\"display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(201,168,76,0.1);gap:8px;flex-wrap:wrap;\"><span style=\"color:#6b9ec4;font-size:0.72em;font-style:italic;\">$4</span><span style=\"color:#c78a96;font-size:0.72em;font-style:italic;\">👕 $5</span><span style=\"color:#8a7ab4;font-size:0.72em;font-style:italic;width:100%;text-align:right;\">🧭 $6</span></div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "header-6-pipes-location-date-time-weather-attire-position",
+    "scriptName": "Header (6 pipes: Location | Date | Time | Weather | Attire | Position)",
+    "findRegex": "/^\\[(?!IST:|ACW:|VOICE:|CROWD:)([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\]$/gm",
+    "replaceString": "<div style=\"background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 40%,#1a1f25 100%);border-left:3px solid #d45246;padding:10px 14px;margin:4px 0 8px 0;border-radius:0 6px 6px 0;\"><div style=\"color:#e8e8f4;font-size:0.92em;font-variant:small-caps;letter-spacing:0.5px;font-family:Georgia,serif;font-weight:700;\">📍 $1</div><div style=\"display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;\"><span style=\"color:#c9a24e;font-size:0.78em;\">$2</span><span style=\"background:#1a1a20;padding:1px 6px;border-radius:3px;font-family:monospace;font-size:0.72em;color:#d4842a;\">$3</span></div><div style=\"display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(201,168,76,0.1);gap:8px;flex-wrap:wrap;\"><span style=\"color:#6b9ec4;font-size:0.72em;font-style:italic;\">$4</span><span style=\"color:#c78a96;font-size:0.72em;font-style:italic;\">👕 $5</span><span style=\"color:#8a7ab4;font-size:0.72em;font-style:italic;width:100%;text-align:right;\">🧭 $6</span></div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "npc-thoughts",
+    "scriptName": "NPC Thoughts",
+    "findRegex": "/(?:\\*?~?\\*?t\\*?~\\*?(.*?)\\*?~\\*?[\\/\\\\]?t\\*?~?\\*?|\\*~t~(.*?)~[\\/\\\\]?t~\\*)/g",
+    "replaceString": "<span style=\"padding:1px 4px;border-left:2px solid rgba(138,122,180,0.4);border-radius:0 2px 2px 0;background:rgba(138,122,180,0.06);\"><em style=\"color:#9a8abc;\">$1$2</em></span>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "pulse-open-closed-default",
+    "scriptName": "PULSE Open (closed default)",
+    "findRegex": "/\\{PULSE\\}/g",
+    "replaceString": "<details style=\"margin:10px 0;background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 100%);border:1px solid rgba(212,82,70,0.3);border-radius:4px;overflow:hidden;\"><summary style=\"padding:8px 14px;color:#d45246;font-family:Georgia,serif;font-variant:small-caps;font-weight:700;font-size:0.9em;letter-spacing:1.5px;text-align:center;cursor:pointer;border-bottom:1px solid rgba(212,82,70,0.2);list-style:none;\">⚡ Scene Pulse</summary>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "pulse-close",
+    "scriptName": "PULSE Close",
+    "findRegex": "/\\{\\/\\s*PULSE\\s*\\}/g",
+    "replaceString": "</details>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "crowd-full",
+    "scriptName": "CROWD Full",
+    "findRegex": "/\\[CROWD:\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^\\]\\n]+?)\\s*\\]/g",
+    "replaceString": "<div style=\"background:rgba(212,82,70,0.05);border:1px solid rgba(212,82,70,0.12);border-radius:3px;padding:6px 10px;margin:5px 8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;\"><div style=\"color:#d45246;font-size:0.75em;font-weight:700;font-variant:small-caps;\">👥 $1</div><div style=\"color:#e0d8cc;font-size:0.8em;font-style:italic;\">$2 · $3</div><div style=\"color:#c0b8a8;font-size:0.78em;font-style:italic;width:100%;margin-top:2px;\">$4</div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "crowd-nopipe",
+    "scriptName": "CROWD NoPipe",
+    "findRegex": "/\\[CROWD:\\s*([^\\]\\n]+?)\\s*\\]/g",
+    "replaceString": "<div style=\"background:rgba(212,82,70,0.05);border:1px solid rgba(212,82,70,0.12);border-radius:3px;padding:6px 10px;margin:5px 8px;display:flex;align-items:center;gap:4px;\"><div style=\"color:#d45246;font-size:0.75em;font-weight:700;font-variant:small-caps;\">👥 $1</div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "ist-full",
+    "scriptName": "IST Full",
+    "findRegex": "/\\[IST:\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*P:([\\d\\-]+)\\s+R:([\\d\\-]+)\\s+S:([\\d\\-]+)\\s*\\]/g",
+    "replaceString": "<div style=\"background:rgba(255,255,255,0.03);border:1px solid rgba(212,82,70,0.15);border-radius:3px;padding:8px 10px;margin:5px 8px;\"><div style=\"color:#e8e0d8;font-family:Georgia,serif;font-weight:700;font-size:1em;padding-bottom:4px;margin-bottom:6px;border-bottom:1px solid rgba(212,82,70,0.12);\">$1</div><div style=\"display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;\"><div style=\"flex:1;min-width:70px;background:rgba(0,0,0,0.25);border:1px solid rgba(212,82,70,0.1);border-radius:2px;padding:3px 6px;\"><div style=\"color:#d47060;font-size:0.6em;font-variant:small-caps;letter-spacing:1px;font-weight:600;\">Mood</div><div style=\"color:#e0d8cc;font-size:0.85em;font-style:italic;\">$2</div></div><div style=\"flex:1;min-width:70px;background:rgba(0,0,0,0.25);border:1px solid rgba(212,82,70,0.1);border-radius:2px;padding:3px 6px;\"><div style=\"color:#d47060;font-size:0.6em;font-variant:small-caps;letter-spacing:1px;font-weight:600;\">Toward MC</div><div style=\"color:#e0d8cc;font-size:0.85em;font-style:italic;\">$3</div></div><div style=\"flex:1;min-width:70px;background:rgba(0,0,0,0.25);border:1px solid rgba(212,82,70,0.1);border-radius:2px;padding:3px 6px;\"><div style=\"color:#d47060;font-size:0.6em;font-variant:small-caps;letter-spacing:1px;font-weight:600;\">Agenda</div><div style=\"color:#e0d8cc;font-size:0.85em;font-style:italic;\">$4</div></div></div><div style=\"display:flex;align-items:center;gap:5px;margin:2px 0;\"><div style=\"color:#c9a24e;font-size:0.7em;font-weight:700;font-variant:small-caps;min-width:10px;\">P</div><div style=\"flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;\"><div style=\"width:$5%;height:100%;border-radius:3px;background:linear-gradient(90deg,#8a7a4a,#c9a84c);\"></div></div><div style=\"color:#c0b8a0;font-size:0.7em;min-width:18px;text-align:right;\">$5</div></div><div style=\"display:flex;align-items:center;gap:5px;margin:2px 0;\"><div style=\"color:#c9a24e;font-size:0.7em;font-weight:700;font-variant:small-caps;min-width:10px;\">R</div><div style=\"flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;\"><div style=\"width:$6%;height:100%;border-radius:3px;background:linear-gradient(90deg,#8a3a3a,#d45246);\"></div></div><div style=\"color:#c0b8a0;font-size:0.7em;min-width:18px;text-align:right;\">$6</div></div><div style=\"display:flex;align-items:center;gap:5px;margin:2px 0;\"><div style=\"color:#c9a24e;font-size:0.7em;font-weight:700;font-variant:small-caps;min-width:10px;\">S</div><div style=\"flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;\"><div style=\"width:$7%;height:100%;border-radius:3px;background:linear-gradient(90deg,#5a3a8a,#8a7ab4);\"></div></div><div style=\"color:#c0b8a0;font-size:0.7em;min-width:18px;text-align:right;\">$7</div></div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "ist-no-towardmc",
+    "scriptName": "IST No TowardMC",
+    "findRegex": "/\\[IST:\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*P:([\\d\\-]+)\\s+R:([\\d\\-]+)\\s+S:([\\d\\-]+)\\s*\\]/g",
+    "replaceString": "<div style=\"background:rgba(255,255,255,0.03);border:1px solid rgba(212,82,70,0.15);border-radius:3px;padding:8px 10px;margin:5px 8px;\"><div style=\"color:#e8e0d8;font-family:Georgia,serif;font-weight:700;font-size:1em;padding-bottom:4px;margin-bottom:6px;border-bottom:1px solid rgba(212,82,70,0.12);\">$1</div><div style=\"display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;\"><div style=\"flex:1;min-width:70px;background:rgba(0,0,0,0.25);border:1px solid rgba(212,82,70,0.1);border-radius:2px;padding:3px 6px;\"><div style=\"color:#d47060;font-size:0.6em;font-variant:small-caps;letter-spacing:1px;font-weight:600;\">Mood</div><div style=\"color:#e0d8cc;font-size:0.85em;font-style:italic;\">$2</div></div><div style=\"flex:1;min-width:70px;background:rgba(0,0,0,0.25);border:1px solid rgba(212,82,70,0.1);border-radius:2px;padding:3px 6px;\"><div style=\"color:#d47060;font-size:0.6em;font-variant:small-caps;letter-spacing:1px;font-weight:600;\">Agenda</div><div style=\"color:#e0d8cc;font-size:0.85em;font-style:italic;\">$3</div></div></div><div style=\"display:flex;align-items:center;gap:5px;margin:2px 0;\"><div style=\"color:#c9a24e;font-size:0.7em;font-weight:700;font-variant:small-caps;min-width:10px;\">P</div><div style=\"flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;\"><div style=\"width:$4%;height:100%;border-radius:3px;background:linear-gradient(90deg,#8a7a4a,#c9a84c);\"></div></div><div style=\"color:#c0b8a0;font-size:0.7em;min-width:18px;text-align:right;\">$4</div></div><div style=\"display:flex;align-items:center;gap:5px;margin:2px 0;\"><div style=\"color:#c9a24e;font-size:0.7em;font-weight:700;font-variant:small-caps;min-width:10px;\">R</div><div style=\"flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;\"><div style=\"width:$5%;height:100%;border-radius:3px;background:linear-gradient(90deg,#8a3a3a,#d45246);\"></div></div><div style=\"color:#c0b8a0;font-size:0.7em;min-width:18px;text-align:right;\">$5</div></div><div style=\"display:flex;align-items:center;gap:5px;margin:2px 0;\"><div style=\"color:#c9a24e;font-size:0.7em;font-weight:700;font-variant:small-caps;min-width:10px;\">S</div><div style=\"flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;\"><div style=\"width:$6%;height:100%;border-radius:3px;background:linear-gradient(90deg,#5a3a8a,#8a7ab4);\"></div></div><div style=\"color:#c0b8a0;font-size:0.7em;min-width:18px;text-align:right;\">$6</div></div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "ist-empty",
+    "scriptName": "IST Empty",
+    "findRegex": "/\\[IST:\\s*([^\\]\\n]+?)\\s*\\]/g",
+    "replaceString": "<div style=\"background:rgba(255,255,255,0.03);border:1px solid rgba(212,82,70,0.1);border-radius:3px;padding:6px 10px;margin:5px 8px;color:#8a8078;font-family:Georgia,serif;font-style:italic;font-size:0.8em;text-align:center;\">$1</div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "acw-open",
+    "scriptName": "ACW Open",
+    "findRegex": "/\\{WATCHLIST\\}/g",
+    "replaceString": "<details style=\"margin:10px 0;background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 100%);border:1px solid rgba(74,156,140,0.3);border-radius:4px;overflow:hidden;\"><summary style=\"padding:8px 14px;color:#4a9c8c;font-family:Georgia,serif;font-variant:small-caps;font-weight:700;font-size:0.9em;letter-spacing:1.5px;text-align:center;cursor:pointer;border-bottom:1px solid rgba(74,156,140,0.2);list-style:none;\">👁 Active Watchlist</summary>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "acw-close",
+    "scriptName": "ACW Close",
+    "findRegex": "/\\{\\/\\s*WATCHLIST\\s*\\}/g",
+    "replaceString": "</details>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "acw-full",
+    "scriptName": "ACW Full",
+    "findRegex": "/\\[ACW:\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*\\[?r:([^|\\]\\n]+?)\\]?\\s*\\|\\s*([^\\]\\n]+?)\\s*\\]/g",
+    "replaceString": "<div style=\"background:rgba(255,255,255,0.03);border:1px solid rgba(74,156,140,0.12);border-left:2px solid rgba(74,156,140,0.35);border-radius:2px;padding:7px 11px;margin:4px 8px;\"><div style=\"display:flex;align-items:baseline;gap:8px;margin-bottom:3px;\"><span style=\"font-size:0.85em;\">$5</span><span style=\"color:#e0dcd4;font-family:Georgia,serif;font-weight:700;font-size:0.92em;letter-spacing:0.3px;\">$1</span><span style=\"color:#4a9c8c;font-size:0.7em;font-style:italic;\">— $3</span><span style=\"flex:1;\"></span><span style=\"color:#4a9c8c;font-size:0.6em;font-variant:small-caps;letter-spacing:1px;opacity:0.7;\">$6</span></div><div style=\"color:#c0b8a8;font-size:0.78em;font-style:italic;line-height:1.35;margin-bottom:2px;\">$2</div><div style=\"color:#a09888;font-size:0.72em;font-style:italic;\">↳ $4</div><div style=\"color:#706858;font-size:0.63em;font-style:italic;margin-top:3px;opacity:0.75;\">$7</div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "acw-no-agenda",
+    "scriptName": "ACW No Agenda",
+    "findRegex": "/\\[ACW:\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*\\[?r:([^|\\]\\n]+?)\\]?\\s*\\|\\s*([^\\]\\n]+?)\\s*\\]/g",
+    "replaceString": "<div style=\"background:rgba(255,255,255,0.03);border:1px solid rgba(74,156,140,0.12);border-left:2px solid rgba(74,156,140,0.35);border-radius:2px;padding:7px 11px;margin:4px 8px;\"><div style=\"display:flex;align-items:baseline;gap:8px;margin-bottom:3px;\"><span style=\"font-size:0.85em;\">$4</span><span style=\"color:#e0dcd4;font-family:Georgia,serif;font-weight:700;font-size:0.92em;letter-spacing:0.3px;\">$1</span><span style=\"color:#4a9c8c;font-size:0.7em;font-style:italic;\">— $3</span><span style=\"flex:1;\"></span><span style=\"color:#4a9c8c;font-size:0.6em;font-variant:small-caps;letter-spacing:1px;opacity:0.7;\">$5</span></div><div style=\"color:#c0b8a8;font-size:0.78em;font-style:italic;line-height:1.35;margin-bottom:2px;\">$2</div><div style=\"color:#706858;font-size:0.63em;font-style:italic;margin-top:3px;opacity:0.75;\">$6</div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "voices-open",
+    "scriptName": "VOICES Open",
+    "findRegex": "/\\{VOICES\\}/g",
+    "replaceString": "<details style=\"margin:10px 0;background:linear-gradient(135deg,#1a1a25 0%,#1f1a28 100%);border:1px solid rgba(138,122,180,0.3);border-radius:4px;overflow:hidden;\"><summary style=\"padding:8px 14px;color:#8a7ab4;font-family:Georgia,serif;font-variant:small-caps;font-weight:700;font-size:0.9em;letter-spacing:1.5px;text-align:center;cursor:pointer;border-bottom:1px solid rgba(138,122,180,0.2);list-style:none;\">💬 Voices</summary>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "voices-close",
+    "scriptName": "VOICES Close",
+    "findRegex": "/\\{\\/\\s*VOICES\\s*\\}/g",
+    "replaceString": "</details>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "voice-4-field",
+    "scriptName": "VOICE 4-field",
+    "findRegex": "/\\[VOICE:\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^\\]\\n]+?)\\s*\\]/g",
+    "replaceString": "<div style=\"border-left:2px solid rgba(138,122,180,0.25);padding:4px 10px;margin:4px 8px;\"><div style=\"display:flex;justify-content:space-between;align-items:center;\"><div style=\"color:#e0dcd4;font-weight:700;font-size:0.85em;\">$1 $2</div><div style=\"color:#5a5a6a;font-size:0.6em;font-style:italic;\">$3</div></div><div style=\"color:#c8c0b8;font-size:0.82em;margin-top:2px;\">$4</div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  },
+  {
+    "id": "voice-3-field",
+    "scriptName": "VOICE 3-field",
+    "findRegex": "/\\[VOICE:\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^|\\]\\n]+?)\\s*\\|\\s*([^\\]\\n]+?)\\s*\\]/g",
+    "replaceString": "<div style=\"border-left:2px solid rgba(138,122,180,0.25);padding:4px 10px;margin:4px 8px;\"><div style=\"display:flex;justify-content:space-between;align-items:center;\"><div style=\"color:#e0dcd4;font-weight:700;font-size:0.85em;\">$1 $2</div></div><div style=\"color:#c8c0b8;font-size:0.82em;margin-top:2px;\">$3</div></div>",
+    "trimStrings": [],
+    "placement": [
+      2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+  }
+]

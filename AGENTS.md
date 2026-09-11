@@ -1949,3 +1949,74 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   page that answered it. A writer's page now uses the checkpoint keyed to that very message: the
   ledger before its turn. DOM-8d asserts no clock and no seats as well.
 - 312/312 + 28/28 (×8). version.js -> m71-001.
+
+---
+
+# M72 — the ledger foolproof: every write a note, the fold by what a snapshot holds, the replay sequenced
+- FIELD REPORT: "sweep everything; make sure the ledger and the master assistant are foolproof." The
+  sweep traced every write into the ledger against Summaryception's one principle (every write is a
+  note stamped with its page; the ledger is a fold of the notes) and found the places it was still
+  bent. Nine roots, each with a proof (m72.mjs, 12 checks; DOM-8c grown):
+  1. THE SCRIBE'S WRITES WERE NEVER JOURNALED (mergeDeltas → saveState). Every fold — a branch, a
+     replay, a rewind — lost the character pages written after its base; replayFrom re-took its
+     boundaries from an EMPTY base, so after any older-page edit the next swipe on the last page
+     wiped the people. Now `people.note {name, field, text}` (one delta per entry, the merge's own
+     laws in the applier) and the scribe writes through applyMutations. The world agent's word too:
+     `world.word {brief}` (a swipe gets the brief its page had; M30's "last six windows" lives in
+     the applier). A take-back is a note as well: `undo.apply {undo, of}` — undoEntry/undoLast used
+     to DELETE the original from the journal, so a fold from a base taken before the undo put the
+     effect straight back.
+  2. THE FOLD RE-APPLIED BY PAGE (`p > base.page`). The send path waits five seconds for the
+     previous page's readers, so a boundary snapshot is routinely taken MID-CHAIN — page already k,
+     entries stamped k still landing — and those late entries were skipped. What a snapshot holds
+     is now read off the snapshot's OWN journal (page + mutation, once per copy), never its page and
+     never its ids (folds renumber ids; a sequence number is not a stable pointer). Entries re-apply
+     in (page, id) order. A fold clears pendingVerdict (a ruling rides one turn) and carries
+     refHistory (the referee prunes its own timeline by message id).
+  3. A NEW VERSION WRITTEN ON AN OLDER PAGE never replayed: it was read on top of the latest ledger
+     and left to the auditor — its people sat down at page N, and both versions' entries stood at
+     page k. generate({swipeTarget, replayAfter:true}) skips the chain; swipeRegenerate replays.
+  4. A WRITER'S PAGE DELETED MID-STORY replayed from k = -1 (the index was taken among storyteller
+     pages), folding to an empty ledger and shifting every stamp down by one. It moves no
+     storyteller page: the record slides, nothing else.
+  5. THE LAST STORYTELLER PAGE DELETED kept its people and its hour until the story was next opened.
+     It folds back to the page before, now (foldTo), and lets its version checkpoints go.
+  6. COMMITTED FATE WAS BROKEN BY TRUE ROLLBACK: the boundary was taken BEFORE the referee, so a
+     swipe rewound to a ledger with no commit and rolled the die again (the harness proved fate at
+     the referee's level only). Now the coming page's index stamps the turn before the referee
+     (`state.page = history.filter(assistant).length` — a branch at page k used to carry a fight
+     begun by message k+1), the boundary is taken AFTER the referee (it carries the commit), each
+     commit keeps `after` (duel/battle/composure/combat mode/sheet) and a replay restores it.
+     branchFrom re-keys refHistory through idMap (unmapped, every entry was foreign and the referee
+     pruned its whole timeline on the branch's next turn).
+  7. stale() WAS A NO-OP (the queue's epoch turns only in switchWorkerStory, unwired since M33). A
+     reader still working on the OLD words kept writing after a rewind, and its checkpoint job saved
+     the rewound ledger under the NEW version's key. THE CHAIN GENERATION (chainGen): every fold and
+     rewind turns it; every job captures it when queued and writes nothing when it has turned; the
+     keeper is told (maybeSummarize({stale})). A send never turns it — the previous page's readers
+     must land. LAW: a job that writes checks stale() first.
+  8. THE KEEPER'S LOST UPDATE: maybeSummarize saved the copy it loaded BEFORE its slow call, putting
+     back a hole punched (or a line let go, or the housekeeper's edit) while it was out. It re-reads
+     the record before every write; a line lands only if its pages are still there, unchanged, and
+     uncovered; a merge only if its sources still stand (nodeUnmoved).
+  9. THE REPLAY IS SEQUENCED: readers in flight land first (their writes belong to the timeline being
+     folded), the fold is immediate, the one reading is a chain, and the tail (later writes, the
+     boundaries from the snapshots BEFORE the change, the last page's checkpoint) is a job queued
+     BEHIND it. A send during a replay behaves as under the latency law; a second history change
+     waits (`replaying`, with a toast). The replay is CLAIMED right after the store write, before
+     any rendering — the walk found the gap where the house looked idle and the next action was
+     refused. Also: repairTimeline never runs in a busy house; a page stopped by hand is read by the
+     chain (its words stand in the story; a retry folds the reading away); M49's refusal law read an
+     entrance (presence.remove) and a later change to the same person (presence.restore) as two
+     targets — one now.
+- M31-5 read the writer's regex file from /tmp — the previous sandbox's; red on any fresh clone. The
+  file is tests/fixtures/st-regex.json (the 🎨 pack in SillyTavern's shape).
+- Laws restated in the harness: M21-C (the boundary follows the referee), M40-1 (replayAfter),
+  M43-2 (the branch re-keys the referee's timeline; the window is 8000).
+- DOM-8c now also writes a NEW version on an old page, edits the last page, deletes a writer's page
+  mid-story and the tail page, and asserts the STANDING ledger (not only every branch) after every
+  action; settled() waits on the replay. 324/324 + 28/28 (×5). version.js -> m72-001.
+- NOT done, said plainly: the referee's beat-by-beat writes (duel rounds, composure) are still
+  direct writes — a swipe on the last page is exact (the commit's `after`), an older-page replay
+  through an active fight is not; the housekeeper's page edits do not re-read the page (Chat
+  Assistant's law: the housekeeper sweeps every surface itself, and the ripple asks it to).
