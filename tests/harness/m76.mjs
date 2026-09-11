@@ -85,5 +85,6 @@ test('M77-1 the thinking of every round is kept — a nudge’s follow-up no lon
   assert(/id = 'hk-pop'/.test(ui) && /hk-pop-copy/.test(ui) && /if \(e\.key === 'Escape' && viewerOpen\(\)\)/.test(ui), 'the viewers open in a pop-up with Copy and Close; Esc closes it first');
   assert(!/thread\.append\(det\);\n    thread\.scrollTop = thread\.scrollHeight;\n  \}\n\n  \/\* M62: the session shelf/.test(ui), 'no viewer is dumped into the talk');
   const prompt = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
-  assert(/A FACT FOR A CLASS/.test(prompt) && /MATCH THE SHAPE/.test(prompt) && /Claire \(16\) — first year at Ravenwood High, the neighbor/.test(prompt), 'the class and shape laws, with the writer’s own case as the example');
+  assert(/READ THE ORDER, NOT A GUESS AT IT/.test(prompt) && /NEVER DUPLICATE/.test(prompt) && /SAY HOW YOU READ IT/.test(prompt), 'the general laws (M79)');
+  assert(!/A FACT FOR A CLASS/.test(prompt) && !/first year at Ravenwood High, the neighbor/.test(prompt), 'the overfit class law and its hard-coded example are gone');
 });

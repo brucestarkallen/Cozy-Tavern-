@@ -705,29 +705,27 @@ const SYSTEM_PROMPT = [
   '  only take "text" or "append". The founder re-reads a changed brief on its own.',
   '  A fact the brief already states is REPLACED where it stands (an age, a name, a',
   '  rule) — never restated beside the old words, never turned into a note elsewhere.',
-  '  A FACT FOR A CLASS ("all the sixteen-year-olds", "every first-year") is written on',
-  '  EACH member’s own line — find every line in THE BRIEF that fits the class and',
-  '  change each one; one summary line for the class ("Alexia and Claire are 16") is',
-  '  the wrong answer, and so is naming only the ones the writer happened to mention.',
-  '  MATCH THE SHAPE. "like Jovan", "same as Claire" means: find how Jovan’s or',
-  '  Claire’s line says it and write the new line in that exact shape — the same',
-  '  words in the same place — never a paraphrase, never a new format.',
-  '  Example — the writer says "all the 16-year-olds are first-years, like Jovan" and',
-  '  THE BRIEF holds "Jovan (16) — first year at Ravenwood High" and "Claire (16) —',
-  '  the neighbor" and "Alexia (16), the eldest":',
-  '  <brief>[{"field":"brief","find":"Claire (16) — the neighbor","replace":"Claire (16) — first year at Ravenwood High, the neighbor","reason":"every 16-year-old is a first-year, in Jovan’s shape"},{"field":"brief","find":"Alexia (16), the eldest","replace":"Alexia (16) — first year at Ravenwood High, the eldest","reason":"same"}]</brief>',
   '  A fact the brief does not yet hold goes where it belongs: find the line it sits',
   '  beside and replace that line with itself plus the new line; append only when no',
   '  line fits. Example — the writer says "in the brief, Alexia is 19, not 20" and THE',
   '  BRIEF holds "Alexia (20), the eldest":',
   '  <brief>[{"field":"brief","find":"Alexia (20), the eldest","replace":"Alexia (19), the eldest","reason":"the writer set her age"}]</brief>',
-  '<edits>[ ... ]</edits> — changes to pages. Each op is one of:',
-  '  {"id":"#a1b2c3","find":"the exact passage","replace":"the new words","reason":"why"}',
-  '  {"id":"#a1b2c3","hide":true} — or false to bring a hidden page back',
-  '  {"bulk_replace":true,"find":"Mira","replace":"Mara","range":"12-30","reason":"why"}',
-  '  Quote the passage exactly as written. If it could land in more than one',
-  '  place, quote more of it — an ambiguous find is refused, never guessed at.',
-  '  Optional "label":"a-short-name" names the card.',
+  '',
+  'READ THE ORDER, NOT A GUESS AT IT. Before any block, settle in one line each: WHAT',
+  'changes; WHERE it goes (which surface, which lines); WHO is affected; and what the',
+  'writer named as the SHAPE. Then do exactly that — nothing extra. "Same as Claire" /',
+  '"like Jovan" names the FORM the new words take, not a list of who is affected. An',
+  'order to change dossiers changes dossiers; a rule is written only when the writer',
+  'asks for a rule ("add a rule", "as a rule", "a standing rule") — and then it is a',
+  'rule, not a change to the dossiers. Never both unless both were asked.',
+  'NEVER DUPLICATE. Before adding a fact to a line, read the line: if it already says',
+  'it, it needs nothing — leave it and say so in the words. An order that covers',
+  'lines which already have the fact is done on those lines, not repeated on them,',
+  'and never restated as a summary line elsewhere ("Alexia and Claire are 16" beside',
+  'dossiers that already say so is a second copy of the same fact — refused as such).',
+  'SAY HOW YOU READ IT. Open the words with your reading of the order — what, where,',
+  'who, in what shape — so a misreading costs the writer one glance, not a card.',
+  '',
   '<ledits>[ ... ]</ledits> — changes to THE LEDGER and THE PAGES OF THE PEOPLE, in',
   '  the ledger’s own closed vocabulary (every op carries its "type"):',
   '  mc.set {name} — the main character; place.set {name} — the ground;',
@@ -1340,12 +1338,17 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       staged = { field: key, text: op.text };
     } else if (typeof op.append === 'string') {
       if (!op.append.trim()) { refuse('nothing to add'); continue; }
+      /* M79: a fact the field already states, appended again, is a second copy */
+      if (normalizeWords(current).includes(normalizeWords(op.append))) { refuse('it already says that — nothing to add'); continue; }
       staged = { field: key, append: op.append.trim() };
     } else if (typeof op.find === 'string' && typeof op.replace === 'string') {
       if (!current.trim()) { refuse('it is empty — there is nothing to find; use "text" or "append"'); continue; }
       const located = locate(current, op.find);
       if (!located.ok) { refuse(located.reason); continue; }
       if (applyLocated(current, located, op.replace) === current) { refuse('the new words are the words already there'); continue; }
+      /* M79: an edit that only ADDS words the same line already holds is a second copy — refused */
+      const dup = duplicateOnLine(current, located, op.find, op.replace);
+      if (dup) { refuse('that line already says “' + dup + '” — nothing to add'); continue; }
       staged = { field: key, find: op.find, replace: op.replace };
     }
     if (staged && typeof op.text === 'string') staged.before = current; /* M76: the card shows the words it replaces */
@@ -1430,6 +1433,28 @@ export function removedWords(find, replace) {
   while (head > 0 && /\S/.test(f[head - 1])) head -= 1;
   while (tail > 0 && /\S/.test(f[f.length - tail])) tail -= 1;
   return f.slice(head, f.length - tail).trim();
+}
+/* M79: the words an edit ADDS (replace minus the shared head and tail of find) —
+ * if the line the find sits on already holds them, the edit is a second copy. */
+export function normalizeWords(text) { return String(text || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim(); }
+export function addedWords(find, replace) {
+  const f = String(find || ''); const r = String(replace || '');
+  let head = 0;
+  while (head < f.length && head < r.length && f[head] === r[head]) head += 1;
+  let tail = 0;
+  while (tail < f.length - head && tail < r.length - head && f[f.length - 1 - tail] === r[r.length - 1 - tail]) tail += 1;
+  return r.slice(head, r.length - tail).trim();
+}
+export function duplicateOnLine(text, located, find, replace) {
+  const added = normalizeWords(addedWords(find, replace));
+  if (added.length < 4) return '';
+  const at = Number.isFinite(located && located.start) ? located.start : String(text).indexOf(String(find));
+  if (at < 0) return '';
+  const lineStart = String(text).lastIndexOf('\n', at) + 1;
+  const lineEndAt = String(text).indexOf('\n', at + String(find).length);
+  const line = normalizeWords(String(text).slice(lineStart, lineEndAt === -1 ? undefined : lineEndAt));
+  /* the whole line, the find included — the fact being added may sit inside the find itself */
+  return line.includes(added) ? addedWords(find, replace).replace(/^[\s,;:—–\-.]+|[\s,;:—–\-.]+$/g, '') : '';
 }
 export function rippleScan(edits, { messages, memory, state, lore, story } = {}) {
   const out = [];

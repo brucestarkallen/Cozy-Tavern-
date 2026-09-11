@@ -2236,3 +2236,34 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   record line, two adds and a content edit beside a switch on one entry, all land; a destroyed
   anchor says so. DOM-11c applies two brief cards from one answer with Apply all.
   345/345 + 29/29 (×2). version.js -> m78-001.
+
+---
+
+# M79 — read the order; never duplicate (the overfit class law is gone)
+- FIELD REPORT: M77's "a fact for a class is written on each member's line — a summary line is the
+  wrong answer" was a flex tape: it would block the writer the day he WANTS a rule, and its
+  hard-coded example was one guess at one order. The order in question had three parts (Alexia
+  15→16; every 16 is a first-year, with Claire as the FORM; add "first year" to each 16-year-old's
+  dossier that lacks it); the model invented a fourth (a rule under world rules) and duplicated
+  what Claire's and Alexia's dossiers already said.
+- THE GENERAL LAWS, in the prompt: READ THE ORDER, NOT A GUESS AT IT (settle what / where / who /
+  the shape, then do exactly that; "same as Claire" names the FORM, not who is affected; a rule
+  only when the writer asks for a rule, and then a rule, not dossier changes; never both unless
+  both were asked); NEVER DUPLICATE (read the line before adding to it; a line that already says it
+  is done; never restated as a summary elsewhere); SAY HOW YOU READ IT (the words open with the
+  reading of the order, so a misreading costs one glance, not a card). M74's placement text and
+  its Alexia example stand.
+- IN CODE (staging): a brief edit that only ADDS words the same line already holds is refused —
+  "that line already says “first year” — nothing to add" (addedWords / duplicateOnLine, the whole
+  line read, the find included); an append the field already states is refused. Cross-line
+  judgment (a summary of facts other lines hold) is the prompt's; code catches the exact copies.
+- m79.mjs (3 checks: the writer's order staged — Alexia and Mina land, Claire's and Alexia's
+  second "first year" refused as copies, an already-stated append refused; the helpers; the laws).
+  348/348 + 29/29 (×2). version.js -> m79-001.
+- To the writer's first question — why it keeps happening with Chat Assistant right there: the
+  housekeeper was ported in pieces, across sessions, from notes and then from the failure in front
+  of each session, instead of being held whole against Chat Assistant's code and prompt at once.
+  M74–M79 have now been that holding: the surfaces, the blocks, the rounds, the cards, the
+  thinking, the pot, the staleness law, and the reading of an order. What Chat Assistant still has
+  that the tavern does not is listed at M60 (the four-pass audit, #opt, #cl, auto-name) — features,
+  not correctness.
