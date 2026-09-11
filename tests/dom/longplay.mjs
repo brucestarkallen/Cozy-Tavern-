@@ -15,7 +15,7 @@
  *   - zero errors across the whole play
  * Run it: node tests/dom/longplay.mjs   (after: cd tests/dom && npm install)
  */
-import { boot, until, type, submit, q, qa, tick } from './env.mjs';
+import { boot, until, click, type, submit, q, qa, tick } from './env.mjs';
 import { test, assert, eq, runAll } from '../harness/lib.mjs';
 
 const env = await boot();
@@ -125,7 +125,16 @@ house.state.workerAnswer = (body, sys) => {
   if (/audit one record line/i.test(sys)) return 'NONE';
   if (/character pages/i.test(sys)) return '{"deltas":[]}';
   if (/continuity reader/i.test(sys)) return '{"findings":[]}';
-  if (/auditor of the ledger/i.test(sys)) return '{"issues":[]}';
+  if (/auditor of the ledger/i.test(sys)) {
+    if (!script.auditArmed) return '{"issues":[]}';
+    /* the manual audit: one fixable issue (a guest still marked here who left pages ago), one it may not do
+     * (lower a standing earned on the page), one it cannot fix (a contradiction, reported with no mutations) */
+    return JSON.stringify({ issues: [
+      { what: 'Person7 is marked present; the pages show him leaving long ago', fix: 'Person7 is not here', mutations: [{ type: 'presence.leave', name: 'Person7' }] },
+      { what: 'Aurora warmth seems high', fix: 'lower it', mutations: [{ type: 'rel.set', name: 'Aurora', p: 0, r: 0, s: 0, cause: 'the auditor thinks so' }] },
+      { what: 'the brief and the pages disagree about the house number', fix: 'the writer must say', mutations: [] },
+    ] });
+  }
   if (/reading a story's past/i.test(sys)) return '{"deltas":[],"shifts":[]}';
   return '{"mutations":[],"deltas":[],"findings":[],"check":false}';
 };
@@ -279,6 +288,36 @@ test('LONG-7 the house’s eye: the slipped page carries its findings, the next 
   assert(!after, 'and not the turn after');
   const call = house.state.calls.filter((c) => !c.isWorker)[21];
   assert(/Sure, whatever you say/.test(JSON.stringify(call.body)) && /recolor forward THIS turn/.test(JSON.stringify(call.body)), 'the storyteller read the slip and the law');
+});
+
+test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same reader — a fixable issue lands, a standing earned on the page is refused, the unfixable is reported, the workers’ line says so', async () => {
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { loadState, saveState } = await import('../../js/engine/state.js');
+  /* a standing Aurora earned on the page, so the auditor may not take it away */
+  let st = await loadState(sid);
+  st = applyMutations(st, [{ type: 'rel.shift', name: 'Aurora', axis: 'p', delta: 12, cause: 'she came back for him (the page)' }]).state;
+  await saveState(sid, st);
+  assert(st.present.some((p) => p.name === 'Person7'), 'Person7 is (wrongly) still here');
+  script.auditArmed = true;
+  click(q('#btn-ledger'));
+  await until(() => !q('#drawer').hidden, 'the drawer opens');
+  const btn = qa('#drawer-panels button').find((b) => /Audit the ledger/.test(b.textContent));
+  assert(btn, 'the button is on the drawer');
+  click(btn);
+  await until(async () => { const s2 = await db.settings.get('state:' + sid); return s2 && s2.audit && s2.audit.issues && s2.audit.issues.length === 3; }, 'the audit report', 30000);
+  await idle(sid);
+  const after = await db.settings.get('state:' + sid);
+  assert(!after.present.some((p) => p.name === 'Person7'), 'the fixable issue landed: Person7 left');
+  eq(after.relationships.Aurora.p, st.relationships.Aurora.p, 'the earned standing was not lowered');
+  const report = after.audit.issues;
+  assert(report.some((i) => /house number/.test(i.what) && i.fixable === false), 'the unfixable one is reported as such');
+  const workers = await db.settings.get('workers:' + sid);
+  const detail = (workers && workers.auditor && workers.auditor.detail) || '';
+  assert(/found 3 things/.test(detail) && /set 1 right/.test(detail) && /1 only noted/.test(detail) && /1 refused/.test(detail), 'the workers’ line names the run: ' + detail);
+  assert(/Audit the ledger/.test(btn.textContent), 'the button is itself again');
+  script.auditArmed = false;
+  click(q('#btn-ledger'));
+  eq(errors.length, 0, errors.slice(0, 5).join(' | '));
 });
 
 test('LONG-6 the intimate rule wakes on the writer’s own words a beat before the flag, and stands down after', async () => {

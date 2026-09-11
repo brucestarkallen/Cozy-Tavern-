@@ -2593,3 +2593,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   stays, pinned as it was — the same law the regex shelf already kept. Connections, worker
   assignments, stories and every ledger stay untouched. The confirm and the note say so.
 - DOM-13b extended. 368/368 + 29/29 + 7/7. version.js -> m89-001.
+
+# M89-002 — the ledger auditor by hand, proven in the long play
+- FIELD REPORT: "the auditor I press manually — checked and good?" The drawer's "Audit the
+  ledger" runs the same reader as the every-three-turns pass (chat.js auditNow → auditLedger).
+  LONG-8 now presses it in the real app against a scripted auditor answer with three issues: a
+  guest still marked present who left pages ago (presence.leave — lands), a standing Aurora earned
+  on the page that the auditor wants zeroed (refused by M48's guard — she keeps it), and a
+  brief-vs-pages contradiction with no mutations (reported, fixable:false). The report sits on the
+  ledger (state.audit), the workers' line reads "found 3 things, set 1 right: …, 1 only noted,
+  1 refused", the button is itself again after. 368/368 + 29/29 + 8/8.
