@@ -318,5 +318,18 @@ export const STYLE_PACK = [
     "builtin": true,
     "pack": "styles",
     "note": ""
+  },
+  {
+    "id": "style-readable-media",
+    "name": "🎨 Readable media (the pop-in: phones, letters, signs, screens)",
+    "find": "<!--\\s*GFX_START\\s*-->([\\s\\S]*?)<!--\\s*GFX_END\\s*-->",
+    "flags": "g",
+    "replace": "<div style=\"margin:10px 0;\">$1</div>",
+    "on": "storyteller",
+    "mode": "display",
+    "enabled": true,
+    "builtin": true,
+    "pack": "styles",
+    "note": "M85: the craft asks the storyteller to render readable media (a phone screen, a letter, a sign, a terminal) as an object between GFX marks; this rule unwraps the marks so the thread draws it through the allowlist (no scripts, no links, no images — ever). Off, and the raw markup shows as text."
   }
 ];

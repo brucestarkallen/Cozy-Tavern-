@@ -749,12 +749,14 @@ export async function refereeStep({ connection, userText, userId, history, state
     const snap = takeSnapshot(state);
     const commit = (verdict) => commitRef(state, { key, msgId: userId || null, verdict: verdict || null, snap, after: takeAfter(state), at: Date.now() });
 
-    /* #roll / #skip — demoted to optional overrides on the gate. */
-    const forceRoll = /(?:^|\s)#roll\b/i.test(text);
-    const forceSkip = /(?:^|\s)#skip\b/i.test(text);
+    /* #roll / #skip — demoted to optional overrides on the gate. M85: the
+     * writer's own inline forms ride too — "# no roll" / "#noroll" stand
+     * the referee down, "# roll this" calls it (the preset's LO Override). */
+    const forceRoll = /(?:^|\s)#\s*roll(?:\s+this)?\b/i.test(text) && !/(?:^|\s)#\s*no\s+roll\b/i.test(text);
+    const forceSkip = /(?:^|\s)#\s*(?:skip|noroll|no\s+roll)\b/i.test(text) && !/(?:^|\s)#\s*skip\s+to\b/i.test(text);
     if (forceSkip && !fightOn) {
       commit(null);
-      return { state, ruling: null, status: 'skipped', why: '#skip' };
+      return { state, ruling: null, status: 'skipped', why: 'no roll — the writer said so' };
     }
 
     const gate = gatePasses(text, (settings && settings.sensitivity) || 'normal', { inFight: fightOn });

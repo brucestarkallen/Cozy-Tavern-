@@ -20,7 +20,11 @@
  * other change), and it leaves a short BRIEF for the storyteller — what
  * could reach this scene next turn and when, what ripened, and at most one
  * window into the world beyond. The storyteller gets a specific world and
- * keeps only the beat and the last look for itself.
+ * keeps only the beat and the last look for itself. M85: the brief also
+ * carries the VOICES — the writer's Voices Block, the world talking to
+ * itself in 2-4 lines the main character cannot hear — for the reader,
+ * shown under the page by chat.js in the 🎨 pack's dress; the storyteller
+ * never sees them.
  *
  *   worldTurn({connection, storyId, userText, assistantText, brief,
  *              castNotes, signal, stale})
@@ -154,6 +158,35 @@ function law({ mc, clockWords }) {
     '    discovery, a confrontation, a plan). Two absent people who share a place and a stake talk to',
     '    each other — that is a window worth opening, and what each learns goes into knowledge.add.',
     '    {"who","where","changed"}. null is the common answer.',
+    '  voices — THE WORLD TALKING TO ITSELF (the writer\'s Voices Block, shown to the reader under the page):',
+    '    2-4 lines, people the main character cannot currently hear — other rooms, streets, channels,',
+    '    comms nets. The prior is NEAR-ALWAYS: fire whenever a live social field is in reach (a market, a',
+    '    court, barracks, a sect, a street, a group chat); skip ONLY for true isolation, for the small',
+    '    hours in a quiet place, or when a line would fabricate listeners or knowledge. "Nothing important',
+    '    to say" is not a reason: mundane chatter IS immersion — prices argued, a wedding rumored, a',
+    '    sergeant cursing the drill. Voices follow world logic, not the main character\'s: the default is',
+    '    the world talking about itself; one voice may reference the main character only if he did',
+    '    something public AND witnessed; nothing public -> zero voices about him. Every voice runs the',
+    '    trace — the speaker witnessed it, was told it by a named person, or deduced it in one step from',
+    '    what they personally saw; walls block words (a thin wall passes a murmur, never a sentence); a',
+    '    private moment needs physical presence; nobody voices another person\'s interior or a longitudinal',
+    '    read of him ("he\'s gotten strange"). Then the WORTH REPEATING test: an item carries only if',
+    '    repeating it pays the speaker — it entertains, threatens, profits, or costs them to sit on;',
+    '    servants hear everything and repeat almost none of it. Register: every voice is a person standing',
+    '    somewhere with something to lose by being heard — the closer to something dangerous, shameful, or',
+    '    not theirs to know, the smaller the voice (hushed, clipped, half-finished); distance and safety',
+    '    buy volume and jokes; no memespeak unless THIS speaker and THIS moment support it; speakers',
+    '    differ inside one block. Conversations, not broadcasts: a reply is a line whose speaker is',
+    '    "-> Name" (co-present only where a reply threads them; otherwise two lines are two places, and',
+    '    neither speaker knows what the other said). Digital channels render as posts, others as quoted',
+    '    speech; content is the actual words, no decorative frames. Rotate speakers, channels and topics',
+    '    against the voices already spoken (below) — the same vendor every turn is a template. Bystanders',
+    '    Act: a voice that overhears something valuable does not merely comment — whoever holds it acts',
+    '    per their core, and that action is a thread.set or an offscreen.set in this same answer. Icons:',
+    '    📸 social | 💬 DM | 👥 group chat | 📋 notice | 👤 whisper | 🍺 tavern | 🏪 street/market |',
+    '    🔥 campfire/barracks | 📜 dispatch | ⚠️ official. Each: {"icon","speaker","channel","content"}',
+    '    where channel is the place or medium plus timing only ("the east market · midday"), no speech',
+    '    descriptors; a reply carries no channel. An empty list only when the world is genuinely silent.',
     '',
     'SYMMETRY. The world bends for no one — no gifts on a timer, no ambushes on a timer. Outcome follows',
     'cause. Be conservative about the page (only what it shows), generous about the world (invent what',
@@ -161,7 +194,7 @@ function law({ mc, clockWords }) {
     'page\'s to move, and any such mutation you write is dropped.',
     '',
     'Answer with JSON ONLY, exactly this shape:',
-    '{"mutations":[ ... ], "brief":{"pressure":[ ... ],"ripe":[ ... ],"twb":null}}',
+    '{"mutations":[ ... ], "brief":{"pressure":[ ... ],"ripe":[ ... ],"twb":null,"voices":[ ... ]}}',
     '',
     'The only mutations that exist:',
     VOCABULARY,
@@ -195,7 +228,15 @@ function characterCores(state) {
 }
 
 /* Exported for the harness: the two messages the worker receives. */
-export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '' }) {
+/* M85: the voices already spoken, for rotation — the last few blocks the
+ * pages carried (chat.js gathers them from the pages' own voices). */
+function spokenVoices(voicesBefore) {
+  const blocks = Array.isArray(voicesBefore) ? voicesBefore.filter((b) => Array.isArray(b) && b.length).slice(-3) : [];
+  if (!blocks.length) return '';
+  return blocks.map((b, i) => '  turn -' + (blocks.length - i) + ': ' + b.map((v) => (v.speaker || '?') + ' (' + (v.channel || 'reply') + '): ' + (v.content || '')).join(' · ')).join('\n');
+}
+
+export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [] }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
   const known = mcName(state);
@@ -225,6 +266,9 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     '',
     'WINDOWS BEYOND THE PAGE ALREADY OPENED (never the same beat twice — a thread with nothing new is not eligible):',
     shownWindows(state) || 'None yet.',
+    '',
+    'VOICES ALREADY SPOKEN (rotate speakers, channels and topics; the same vendor every turn is a template):',
+    spokenVoices(voicesBefore) || 'None yet.',
     '',
     ...(cores ? ['THE PEOPLE, AS THE LEDGER KNOWS THEM:', cores, ''] : []),
     ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 2000), FENCE, ''] : []),
@@ -277,13 +321,13 @@ export function parseWorldAnswer(raw) {
 
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
-export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', effort = 'off', signal, stale } = {}) {
+export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], effort = 'off', signal, stale } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
 
   const state = await loadState(storyId);
-  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes });
+  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore });
   /* M31: an answer we can't use earns ONE second ask with a sharper word;
    * the raw answer rides out so the drawer can show it. */
   let read = null;
@@ -352,6 +396,7 @@ export function worldRunWords(result) {
   /* M37: say what moved, not only how much */
   if (n) bits.push(result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 4 ? ' · …' : ''));
   if (result.brief && !result.brief.empty) bits.push('left the world’s word');
+  if (result.brief && Array.isArray(result.brief.voices) && result.brief.voices.length) bits.push(`${result.brief.voices.length} ${result.brief.voices.length === 1 ? 'voice' : 'voices'} heard`);
   if (result.rejected && result.rejected.length) bits.push(`${result.rejected.length} refused`);
   if (result.dropped) bits.push(`${result.dropped} it may not touch`);
   return bits.join(', ');

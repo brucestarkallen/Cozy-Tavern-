@@ -8,7 +8,7 @@ import { emptyState } from '../../js/engine/state.js';
 import { db } from '../../js/store.js';
 
 test('M36-1 the core is bounded, keeps the laws, and emits nothing the house now keeps', () => {
-  assert(CRAFT_TEXT.length > 40000 && CRAFT_TEXT.length < 70000, 'about 14k tokens: ' + CRAFT_TEXT.length);
+  assert(CRAFT_TEXT.length > 40000 && CRAFT_TEXT.length < 90000, 'about 20k tokens (M85 restored the NSFW law, the commands, the page): ' + CRAFT_TEXT.length);
   for (const law of ['Symmetry Law', 'No Moral Parachutes', 'Ghost Dialogue', 'Stop At The Slot', 'The 3 Part Trace', 'Secret Identity Quarantine',
     'Ledger Law', 'Tone Is Output Never Input', 'Invention Is The Default', 'Intervention Windows', 'One Significant Beat', 'Sound As Onomatopoeia',
     'Voice Fingerprints', 'Banned Words', 'Header Protocol', 'NPC Private Thoughts', 'Real People, Real Record', 'A Turn Moves The World']) {

@@ -384,6 +384,20 @@
   color: var(--danger);
 }
 
+/* M85: the voices the world heard elsewhere, under the page. Dressed by the
+ * 🎨 pack when it is on; otherwise a quiet stack of lines. */
+.msg-voices {
+  margin-top: 8px;
+  font-family: var(--font-prose);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.msg-voices .voice-line {
+  padding: 4px 0 4px 10px;
+  border-left: 2px solid var(--line, rgba(128, 128, 128, 0.35));
+  color: var(--muted, inherit);
+}
+
 /* M15: the streaming caret is a small ember bar at the prose's tail —
  * 7px wide, blinking in two hard steps, a heartbeat while the storyteller
  * writes. Reduced motion stills it (the house-wide rule). */

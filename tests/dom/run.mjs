@@ -83,6 +83,10 @@ test('DOM-2 a turn: send → the storyteller answers → the ledger is founded �
   await settled();
   const sid = await storyId();
   assert(sid, 'a story was begun from the first words');
+  /* M85: #story opens the tale named from the concept, and the page carries the concept, not the command */
+  const begun = await db.stories.get(sid);
+  assert(begun && begun.title.startsWith('Jovan is eating'), 'named from the concept: ' + (begun && begun.title));
+  assert(userPages().length === 1 && !/#story/.test(bodyText(userPages()[0])), 'the command word never reaches the page');
   await until(async () => (await db.settings.get('state:' + sid) || {}).place, 'the ledger to be founded', 10000);
   const st = await db.settings.get('state:' + sid);
   eq(st.place.name, 'McDonald’s');
@@ -215,9 +219,11 @@ test('DOM-9 "go on" asks for more without a page of the writer’s', async () =>
   const before = errors.length;
   /* back to the first tale */
   const stories = await db.stories.list();
-  const first = stories.find((s) => s.title.startsWith('#story') && !/— a branch$/.test(s.title));
-  assert(first, 'the first tale is named from its first words (no empty "Hello?" tale was begotten): ' + stories.map((s) => s.title).join(' / '));
-  const row = qa('.story-item').find((el) => el.textContent.includes('#story') && !el.textContent.includes('a branch'));
+  /* M85: "#story concept" is the writer's own command — the tale is named
+   * from the concept, the command word itself never reaches the title */
+  const first = stories.find((s) => s.title.startsWith('Jovan is eating') && !/— a branch$/.test(s.title));
+  assert(first, 'the first tale is named from the concept (no empty "Hello?" tale was begotten, no "#story" in the name): ' + stories.map((s) => s.title).join(' / '));
+  const row = qa('.story-item').find((el) => el.textContent.includes('Jovan is eating') && !el.textContent.includes('a branch'));
   assert(row, 'the first tale is on the shelf');
   click(q('.story-open', row) || row);
   await until(async () => (await storyId()) === first.id, 'the first tale is open');

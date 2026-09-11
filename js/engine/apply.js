@@ -729,10 +729,12 @@ const HANDLERS = {
     const shown = Array.isArray(state.worldShown) ? state.worldShown.slice() : [];
     if (brief && brief.twb) shown.push({ ...brief.twb, atTurn: brief.atTurn });
     state.worldShown = shown.slice(-6);
+    const nVoices = brief && Array.isArray(brief.voices) ? brief.voices.length : 0;
     const words = !brief || brief.empty
       ? 'The world had no word to leave this turn.'
       : 'The world left its word for the next turn'
         + (brief.twb ? ' — a window opens' + (brief.twb.who ? ' on ' + brief.twb.who : '') : '')
+        + (nVoices ? ' — ' + nVoices + (nVoices === 1 ? ' voice' : ' voices') + ' heard elsewhere' : '')
         + '.';
     return { words, undo: { kind: 'world.restore', before } };
   },

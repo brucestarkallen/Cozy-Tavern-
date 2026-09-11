@@ -374,6 +374,15 @@ const messages = {
     /* M26/M35: the house's masthead and a mend ride an append too (a branch
      * copies pages through append; a re-ink through update). */
     if (typeof msg.masthead === 'string' && msg.masthead) row.masthead = msg.masthead;
+    /* M85: the voices the world agent heard elsewhere after this page —
+     * [{icon, speaker, channel, content}] — shown under the page. */
+    if (Array.isArray(msg.voices)) {
+      const voices = msg.voices
+        .filter((v) => v && typeof v === 'object' && typeof v.content === 'string' && v.content && typeof v.speaker === 'string' && v.speaker)
+        .slice(0, 4)
+        .map((v) => ({ icon: typeof v.icon === 'string' ? v.icon.slice(0, 8) : '💬', speaker: v.speaker.slice(0, 60), channel: typeof v.channel === 'string' ? v.channel.slice(0, 90) : '', content: v.content.slice(0, 280) }));
+      if (voices.length) row.voices = voices;
+    }
     if (msg.mended && typeof msg.mended === 'object' && typeof msg.mended.before === 'string') row.mended = msg.mended;
     /* M27: a page may carry a picture ({image: {dataUrl, mediaType}}). Kept
      * on the page, shown as a keepsake, and ridden on the wire only on its

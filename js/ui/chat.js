@@ -31,7 +31,7 @@
  *    are named and offered a next step), B12 (the three workers answer to
  *    three separate per-story switches), B18 (the thread re-renders
  *    incrementally — append-only when pages have only been added).
- *  - Commands: #question/#p/#pp/#continue/#time and ((…)) / // asides are
+ *  - Commands: #question/#p/#pp/#continue/#q/#time/#time skip/#story/#Put TWB and ((…)) / // asides are
  *    parsed in the composer (commands.js), shown as a chip, and ride the
  *    request as a hidden directive. OOC turns do no state work.
  *  - Committed fate (M11): the referee fires pre-generation when its local
@@ -60,7 +60,7 @@ import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/w
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
-import { renderWorldBrief } from '../engine/world.js';
+import { renderWorldBrief, renderVoicesBlock } from '../engine/world.js'; /* M85: the voices under the page */
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory } from '../import/cards.js';
 import { loadLore, matchLoreDetailed, saveLore } from '../import/lorebook.js';
@@ -1106,6 +1106,12 @@ export function initChat(ctx) {
       body.appendChild(renderRich(pageText(msg)));
     }
     article.appendChild(body);
+    /* M85: the voices the world agent heard elsewhere — the writer's Voices
+     * Block, dressed by the 🎨 pack, under the page it followed. */
+    if (msg.role === 'assistant') {
+      const voices = voicesNode(msg);
+      if (voices) article.appendChild(voices);
+    }
     /* M22-C: where the storyteller looked things up — a folded sources
      * block under the message. */
     if (msg.role === 'assistant' && Array.isArray(msg.sources) && msg.sources.length) {
@@ -1313,6 +1319,46 @@ export function initChat(ctx) {
 
   /* Refresh the receipt affordance on a message already on the page, so
    * late-arriving worker notes (extraction, drift findings) can speak. */
+  /* M85: the voices fold. The block is written in the preset's own shape
+   * ({VOICES} … [VOICE: …] … {/VOICES}) and dressed by the display rules —
+   * the writer's SillyTavern styles, shipped as the 🎨 pack — so the reader
+   * sees the fold they know; with the styles off it reads as plain lines. */
+  function voicesNode(msg) {
+    if (!msg || !Array.isArray(msg.voices) || !msg.voices.length) return null;
+    const text = renderVoicesBlock(msg.voices);
+    if (!text) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-voices';
+    const shown = applyRules(text, currentRules(), { on: 'storyteller', mode: 'display' });
+    if (shown !== text && looksHtml(shown)) {
+      wrap.appendChild(renderHtmlProse(shown));
+    } else {
+      const lbl = document.createElement('div');
+      lbl.className = 'lbl';
+      lbl.textContent = 'voices, elsewhere';
+      wrap.appendChild(lbl);
+      for (const v of msg.voices) {
+        const line = document.createElement('div');
+        line.className = 'voice-line';
+        line.textContent = (v.icon ? v.icon + ' ' : '') + v.speaker + (v.channel ? ' · ' + v.channel : '') + ' — ' + v.content;
+        wrap.appendChild(line);
+      }
+    }
+    return wrap;
+  }
+
+  function refreshVoicesNode(msg) {
+    const node = els.thread.querySelector(`.msg[data-id="${msg.id}"]`);
+    if (!node) return;
+    const old = node.querySelector('.msg-voices');
+    if (old) old.remove();
+    const fresh = voicesNode(msg);
+    if (!fresh) return;
+    const body = node.querySelector('.msg-body');
+    if (body && body.parentNode === node) body.insertAdjacentElement('afterend', fresh);
+    else node.appendChild(fresh);
+  }
+
   function refreshReceiptNode(msg) {
     const node = els.thread.querySelector(`.msg[data-id="${msg.id}"]`);
     if (node && msg.receipt) {
@@ -1724,6 +1770,9 @@ export function initChat(ctx) {
       const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
       /* the page before the pair, for the thread of things */
       const before = prior.slice(-3, -1).map((m) => ({ role: m.role, text: pageText(m) }));
+      /* M85: the voices the last pages carried, so the world rotates its
+       * speakers and topics instead of repeating them */
+      const voicesBefore = prior.filter((m) => m.role === 'assistant' && Array.isArray(m.voices) && m.voices.length).slice(-3).map((m) => m.voices);
       const result = await worldTurn({
         connection,
         storyId: story.id,
@@ -1732,10 +1781,19 @@ export function initChat(ctx) {
         before,
         brief: story.brief || '',
         castNotes: story.castNotes || '',
+        voicesBefore,
         effort: await worldEffort(),
         signal,
         stale,
       });
+      /* M85: the voices land under the page they followed (a re-ink, like
+       * the masthead); a read that heard none clears a stale block from an
+       * earlier version of the page. */
+      if (result && result.note === 'ok' && !stale() && (await stillThere(story.id, msg.id))) {
+        const voices = result.brief && Array.isArray(result.brief.voices) ? result.brief.voices : [];
+        const latest = await reink(story.id, msg.id, { voices });
+        if (latest) refreshVoicesNode(latest);
+      }
       /* M31: a garbled answer is not a transport failure — it is said out
        * loud, with what the agent actually said kept for the drawer, and
        * never retried five times over. */
@@ -2635,6 +2693,18 @@ export function initChat(ctx) {
         showComposerNote('The tavern needs a storyteller first — add a connection, and these words will still be waiting.');
         restoreComposer(text);
         return;
+      }
+      /* M85: #story — the writer's own command for a new tale: a fresh
+       * story, named from the concept, opened before the words are sent;
+       * the storyteller writes the first scene at once (the craft's
+       * No Proposals). The old tale keeps its ledger untouched. */
+      const early = parseCommand(text);
+      if (early.kind === 'story') {
+        story = await db.stories.create({ title: early.name || 'A new tale' });
+        ctx.setActiveStoryId(story.id);
+        await refreshStories(true);
+        toast(`“${story.title}” is begun.`);
+        if (ctx.onStoriesChanged) ctx.onStoriesChanged();
       }
       if (!story) {
         const oneLine = text.replace(/\s+/g, ' ').trim();

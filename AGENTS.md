@@ -2398,3 +2398,66 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   injection-pause switches, end-season audit (features, M60/M83). Everything Chat Assistant solved
   for the writer's correctness is in the tavern now; that sentence can be held to.
 - M84-1. 357/357 + 29/29 (×2). version.js -> m84-001.
+
+---
+
+# M85 — the writer's preset held against the tavern whole (V177 and Freaky Frankenstein 5.4 read end to end)
+- FIELD REPORT: "analyze whether the frontend has captured all my preset functions" — both presets
+  read block by block (V177: 50 entries, 40k tokens on; FF 5.4: 56 entries) against the craft, the
+  assembler, the rulebook, the world agent, the referee, the parser, the renderer. What the M36
+  distillation had actually dropped, and what FF adds that is worth having, all landed at once:
+  1. THE NSFW LAW WAS NOT SHIPPED. The craft delegated it to the intimate module, whose text was
+     still the M2 filler; nothing in the codebase carried Body Veto, Escalation Resets Consent,
+     Line-Cross Vertigo, the detail targets, the crude-first lexicon or the resolution floor. Root
+     cause was double: the words were never replaced, and `mode.intimate` is set by the extractor
+     AFTER a page shows intimacy, so the turn the scene turns (and the first explicit phase) ran
+     with no law at all. Fix as V177 has it: the whole NSFW law rides in the craft, always on and
+     cached (`## Intimacy`, the old reasoning pass's character-specific break types folded in);
+     the `nsfw` builtin is a short reminder at the moment it matters, not a second copy.
+  2. THE COMMAND TABLE: `#q` (the director's next scene — preview on the page, bridge, scene, the
+     horizon, the Complexity Ratchet), `#time skip X` (also `#timeskip`, `#skip to`), `#story
+     concept` (chat.js opens a FRESH tale named from the concept before sending — the old tale's
+     ledger untouched), `#Put TWB name` / `#twb name` (one window), `#pp` with Party Gate, the
+     proportional delta, the cross-cut and quarantine across the skip, `#continue` with the
+     writer's own law (play it forward, no time skip) — all parsed (commands.js), each directive
+     naming its law, the laws themselves in the craft (`The Commands`, `Q The Next Scene`, `Party
+     Gate`). `#roll`/`#skip`/`# no roll`/`# roll this` are recognized (never "not a house
+     command"); the referee honours `# no roll` and `#noroll` as stand-down and `# roll this` as a
+     call. "text # note" is chipped as an inline direction.
+  3. THE VOICES BLOCK had no home — PULSE/ACW moved into the ledger drawer, Voices was retired with
+     them and nothing produced it, while the 🎨 pack still shipped its styles. The world agent
+     writes it now (it holds who-knows-what for everyone, the storyteller sees only the present):
+     `brief.voices` — 2-4 lines, the preset's own rules (near-always with a social field in reach,
+     the trace, the Worth Repeating test, register by proximity, replies as "-> Name", Bystanders
+     Act into thread.set); rotation against the last three blocks the pages carried
+     (`voicesBefore`). chat.js re-inks the page with `msg.voices` (store passthrough, like the
+     masthead) and draws it under the prose in the preset's own text shape ({VOICES} … [VOICE: …])
+     dressed by the 🎨 VOICES rules — the fold the writer knows; plain lines with the styles off.
+     Never on the wire: renderWorldBrief says nothing for a voices-only brief.
+  4. THE PAGE'S MARKS AND THE WINDOW'S FORMAT were absent: no "plain text, no markdown/HTML" law,
+     and the craft said WHEN to write a window but never its shape, so the boxed 🎨 style never
+     matched. `## The Page`: Marks On The Page; The Window Beyond The Page in the exact form
+     (`*** The World Beyond ***`, `[Location — Day, Time]`, 3-8 sentences), Cut Away Quarantine,
+     advances-or-does-not-fire; Readable Media (from FF's Pop-in Graphics): phones, letters,
+     signs, terminals as objects between GFX marks, where the reading happens; the
+     `style-readable-media` display rule unwraps the marks so the thread draws the object through
+     richhtml's allowlist (no scripts, links, images — ever); the page keeps the words as canon.
+  5. LAWS THE OLD REASONING PASS ALONE HAD CARRIED, restored to the craft: Every MC Action Is An
+     Attempt (intercept AND assist; "I'm leaving" completes only if nobody present would stop
+     it); No Hovering (they REACH); Peak Trigger; MC Dialogue Is Literal; the dialogue pre-check
+     (never another's private observation as one's own); begging and grief at full truth.
+  6. FROM FREAKY FRANKENSTEIN, the parts worth taking under V177's laws: Anti Melodrama and the
+     therapy-speak ban (Banned Constructs / Dialogue Ratio), the dead phrases (a beat passed,
+     nobody has ever, ruin you, don't you dare, jaw working, ozone…), Bodies Feel The Header
+     (weather, temperature, hour), and Spectacle Combat as an OPTIONAL manual rule
+     (`spectacle-combat`, never wakes unpinned — its "enemies never flee" is rewritten to sit
+     under Cornered NPCs and the Symmetry Law). NOT taken, and why: Freaky Mode's always-on
+     lewdness (Erotic Momentum Is Not A Filter), BOND/Sparks/Grudge with physical gates (P:R:S on
+     revelation is the writer's law), d20 world-event tables and Chekhov roll-firing (no timers —
+     The World Advances; Unspent Material is derived from the page on purpose), Hybrid POV (off
+     in the writer's own preset; importable as a manual rule), VAD instincts (Dominance Shapes
+     Anger + Character Gravity already cover the axis).
+- The craft is ~79k chars now (~20k tokens, cached); M36-1's bound moved to 90k. The DOM walk's
+  first send ("#story Jovan is eating…") now opens a tale named from the concept — the walk's two
+  '#story'-in-the-title lookups follow the new law.
+- m85.mjs (8 checks). 365/365 + 29/29. version.js -> m85-001.

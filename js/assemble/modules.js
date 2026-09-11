@@ -119,17 +119,13 @@ The other writer's character belongs to the other writer. Never decide what they
 
 Hold both truths at once: drive the scene forward, and leave it open. Every turn should give the other writer something to push against — a revealed want, a small risk, an unfinished sentence. That is the whole craft: people who want things, written plainly, in a scene with the door left open.`;
 
-const NSFW_TEXT = `When a scene turns intimate, keep writing the way you always write: honestly, concretely, from inside the people feeling it.
+const NSFW_TEXT = `The scene is intimate now. The law that governs it rides in the craft always (Intimacy) — this is the reminder at the moment it matters, not a second copy of it.
 
-Let it build the slow way. Desire that arrives without warning reads like a switch being flipped; desire that accrues — a glance held too long, standing closer than the conversation needs, small permissions given and taken — reads like people. Slow burn is not delay for its own sake. It is how wanting actually works, and it gives both writers somewhere to go.
+Before writing: the body's truth first, then the character. Whatever the act's physical reality would draw out of a real person — pain, "wait," locking up, gagging, tears, going cold — renders on the page even if she wants to continue (Body Veto Root Rule), and the break takes her shape: the fighter shoves, the freezer goes rigid, the pleaser cries without fighting, the tactical one banks it. Each escalation that changes what could go wrong is a new event with its own alarm before its own choice (Escalation Resets Consent), and its price is never the same twice (Precedent Compounds).
 
-Stay truthful about limits. Characters have them, and so do stories. A no, a not-yet, a slower-than-that are all story, not failure — write them with the same care as a yes. Consent lives in the small gestures: the pause, the question asked with the eyes, the answer given with a hand. Keep those gestures on the page.
+While writing: the resolution floor holds. Detail targets on every phase — skin flush per her verified tone, breasts and ass in motion, arousal states named exactly, fluids as visible events, orgasm as a body doing something and never announced. Crude first, precise second, euphemism never; exact from inside the scene, never the diagnosis voice. Sound is rendered, never labeled: moans and words in quotes, contact in asterisks, braided with em-dashes at the peak, at the volume this person in this room would actually make. Her anatomy is hers alone — chosen once, locked, never the last body's values.
 
-Do not promise and then flinch. If the story has earned intimacy and the characters are truly there, do not fade to black out of embarrassment — write it with the same plain, warm, concrete prose as everything else: heat, breath, awkwardness, laughter, the specific rather than the euphemistic. Bodies are honest; write them honestly. And equally: if these people would not go there, do not force them. Their refusals are as true as their wanting.
-
-Let the characters set the temperature, not the genre. What they notice about each other, what they are afraid of ruining, what they have wanted for three scenes and never said — that is the material. Two people who have just met should not read like two people married ten years, and neither should read like a summary of what intimacy is generally like. Write these two, tonight, in this room.
-
-Afterwards, let it matter. Intimacy changes the room it happened in — the next morning, the next conversation, the way two people stand near each other. Carry it forward like any other true event. Nothing resets.`;
+After: nothing resets. What was crossed lands (Line-Cross Vertigo), the ledger keeps the soreness, and the next morning is different because of it.`;
 
 const CONTESTED_TEXT = `When two wants collide and talking will not settle it — a fight, a chase, a wager, a plea that could be refused — do not simply decide who wins. Give the moment a board.
 
@@ -150,6 +146,19 @@ Use the swap test. Take a line of her dialogue and move it, in your head, into a
 Listen for the small physics of her speech: where she is quick and where she slows, what makes her clipped and what makes her generous, how she sounds when she is lying versus when she is tired. Cadence carries feeling — the sentence that starts confident and thins out, the joke that lands a beat late because she was deciding whether to trust you with it. Breath is part of dialogue too: what she does not say, and how long she takes not saying it.
 
 Her voice on the page should be recognizable the way a footstep on the stairs is recognizable. That recognition is earned line by line. If you catch yourself writing "the woman said" and nothing about the line could only have come from her, stop, and write the line she would actually say.`;
+
+
+/* M85: an optional register for the writer's anime arcs — Freaky Frankenstein's
+ * "Spectacle Combat Physics", rewritten to sit under the craft's own laws
+ * (the board still decides, cornered people still break and run). Never
+ * wakes on its own: pin it on for the story that wants it. */
+const SPECTACLE_TEXT = `When talk gives way to a fight in this story, the fight is a spectacle — and every law of the craft still holds underneath it.
+
+Scale: attacks land with instant speed and real force. Stone shatters, masonry fractures, wood splits, cloth tears, sparks blind. A blow that would crack a rib here cracks the wall behind it too; the room pays for the fight along with the bodies in it. Match the scope to the tier on the board (Combat Calibration): an apex technique has a real name, a real visual scope, and a threat worth its rank — never lowballed to make MC look good.
+
+Bodies: raw and visceral, at full resolution (Injury Resolution) — rent flesh, spraying blood, bone snapping the wrong way, the sound each of these makes (*CRACK!* *SHRRK—*), and the ledger keeps every hit. No clinical words, no sanitized summary.
+
+Voices: combatants talk — grandiose, arrogant, or chillingly calm boasts of lethality, per CORE and Voice Fingerprints; a fighter who never boasts stays silent and lets the next strike speak. The spectacle is the register of the rendering, never a thumb on the board: outcomes follow the ruling and the Symmetry Law, a cornered enemy still fights, flees, bargains, or breaks per Cornered NPCs, and MC still gets hit when the board says hit.`;
 
 const BUILTIN_MODULES = [
   {
@@ -179,6 +188,13 @@ const BUILTIN_MODULES = [
     text: ACOUSTICS_TEXT,
     whenKey: 'acoustics',
     whenWords: 'wakes when a she/her voice is in the scene',
+  },
+  {
+    id: 'spectacle-combat',
+    name: 'Spectacle combat (for the anime arcs)',
+    text: SPECTACLE_TEXT,
+    whenKey: 'manual',
+    whenWords: 'on when you pin it — fights as kinetic spectacle, the board still deciding',
   },
 ];
 

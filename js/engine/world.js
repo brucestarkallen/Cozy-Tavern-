@@ -15,12 +15,16 @@
  *               they were not, and the storyteller sees who knows what.
  *   factions  — { [name]: {stance, agenda, move, atTurn} }
  *               a faction moves only on cause; its stance and next move.
- *   the brief — {pressure:[], ripe:[], twb:{who, where, changed}|null, atTurn}
+ *   the brief — {pressure:[], ripe:[], twb:{who, where, changed}|null,
+ *               voices:[{icon, speaker, channel, content}], atTurn}
  *               the world agent's word for the next turn: what could reach
  *               this scene and when, what ripened and whom it reached, and
  *               at most one window into the world beyond. Not a ledger
  *               entry — it is judgment, replaced whole each time the agent
- *               reads, never undone.
+ *               reads, never undone. M85: `voices` is the world talking to
+ *               itself — the writer's Voices Block, 2-4 lines of people the
+ *               main character cannot hear — for the READER, shown under the
+ *               page, never sent to the storyteller.
  *
  * Arrivals ride the offscreen ledger (engine/offscreen.js): a seat may carry
  * `stance` and `arrivesAtMinutes` on the story clock; renderArrival speaks
@@ -270,8 +274,48 @@ export function normalizeBrief(raw, atTurn) {
   if (t && typeof t === 'object' && (cleanText(t.who) || cleanText(t.changed))) {
     twb = { who: cleanText(t.who, 60), where: cleanText(t.where, 120), changed: cleanText(t.changed, 300) };
   }
-  if (!pressure.length && !ripe.length && !twb) return { pressure, ripe, twb, atTurn: Number.isFinite(atTurn) ? atTurn : null, empty: true };
-  return { pressure, ripe, twb, atTurn: Number.isFinite(atTurn) ? atTurn : null };
+  const voices = normalizeVoices(raw.voices);
+  const at = Number.isFinite(atTurn) ? atTurn : null;
+  if (!pressure.length && !ripe.length && !twb && !voices.length) return { pressure, ripe, twb, voices, atTurn: at, empty: true };
+  return { pressure, ripe, twb, voices, atTurn: at };
+}
+
+/* M85: the voices — the world's trending conversation, people the main
+ * character cannot hear. Four fields, the preset's shape: icon | speaker |
+ * channel · timing | content. A reply thread is a speaker written "-> Name".
+ * 2-4 lines; a fifth is noise. */
+export const VOICES_MAX = 4;
+export const VOICE_ICONS = ['📸', '💬', '👥', '📋', '👤', '🍺', '🏪', '🔥', '📜', '⚠️'];
+export function normalizeVoices(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const v of raw) {
+    if (!v || typeof v !== 'object') continue;
+    const content = cleanText(v.content || v.text || v.line, 280);
+    const speaker = cleanText(v.speaker || v.who, 60);
+    if (!content || !speaker) continue;
+    const iconRaw = cleanText(v.icon, 8);
+    const icon = iconRaw || '💬';
+    const channel = cleanText(v.channel || v.where, 90);
+    out.push({ icon, speaker, channel, content });
+    if (out.length >= VOICES_MAX) break;
+  }
+  return out;
+}
+
+/* The block as the writer's SillyTavern styles expect it: {VOICES} … {/VOICES}
+ * with one [VOICE: icon | Speaker | Channel · timing | content] per line. The
+ * thread dresses this text with the 🎨 pack (display rules) so the reader
+ * sees the same fold they saw in SillyTavern. */
+export function renderVoicesBlock(voices) {
+  const list = normalizeVoices(voices);
+  if (!list.length) return '';
+  /* a reply thread ("-> Name") stands on three fields — the preset's own
+   * reply form; a standalone voice carries its channel as the third */
+  const lines = list.map((v) => (v.channel && !/^->/.test(v.speaker)
+    ? '[VOICE: ' + v.icon + ' | ' + v.speaker + ' | ' + v.channel + ' | ' + v.content + ']'
+    : '[VOICE: ' + v.icon + ' | ' + v.speaker + ' | ' + v.content + ']'));
+  return '{VOICES}\n' + lines.join('\n') + '\n{/VOICES}';
 }
 
 /* The storyteller's word from the world agent. `turnNow` (state.turn) lets
@@ -284,6 +328,9 @@ export const BRIEF_STALE_TURNS = 4;
 export function renderWorldBrief(brief, turnNow) {
   if (!brief || typeof brief !== 'object') return '';
   if (brief.empty) return '';
+  /* M85: the voices are the reader's, never the storyteller's — a brief
+   * that holds only voices says nothing to the wire. */
+  if (!(brief.pressure && brief.pressure.length) && !(brief.ripe && brief.ripe.length) && !brief.twb) return '';
   const age = Number.isFinite(turnNow) && Number.isFinite(brief.atTurn) ? Math.max(0, turnNow - brief.atTurn) : 0;
   if (age > BRIEF_STALE_TURNS) return '';
   const out = [];
