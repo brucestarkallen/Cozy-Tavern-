@@ -171,6 +171,7 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
   assert(sw.indexOf('if (!last) replayFrom(story, msg.id, { changed: true });') < sw.indexOf('await rerenderMessage(story.id, msg.id);'), 'a walked version on an older page claims its replay before rendering');
   const sr = c.slice(c.indexOf('async function swipeRegenerate('), c.indexOf('async function swipeRegenerate(') + 3000);
   assert(/if \(landed && !lastPage\) replayFrom\(story, msg\.id, \{ changed: true \}\);/.test(sr), 'a new version on an older page replays');
+  assert(sr.indexOf('replayFrom(story, msg.id, { changed: true })') < sr.indexOf('stories = await db.stories.list();'), 'claimed before any await after generate (M73-002)');
   assert(!/pendingAudit\.add\(story\.id\);\n\s*\}\n\s*\/\* M44: a swiped/.test(sr), 'no audit owed in its place');
   for (const fn of ['swipeTo', 'regenerateFrom', 'retryUserMessage', 'beginEdit', 'deleteMessage', 'swipeRegenerate']) {
     const body = c.slice(c.indexOf('async function ' + fn + '('), c.indexOf('async function ' + fn + '(') + 700);

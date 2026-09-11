@@ -743,8 +743,10 @@ test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work t
     const nAnswers = answers().length;
     const countNow = () => { const c = q('#hk-thread .hk-swipe-count'); return c ? c.textContent : '1/1'; };
     const had = Number(countNow().split('/')[1]); /* the answer may already have versions (the toolbar's ↻ above made two) */
-    click(q('.hk-retry-here', answers()[answers().length - 1]));
-    await until(() => q('#hk-send').disabled, 'the retry began');
+    /* M73-002: ▸ on the last answer, past its versions, asks for another answer */
+    assert(!q('.hk-retry-here', answers()[answers().length - 1]) && q('.hk-swipe-next', answers()[answers().length - 1]), 'the last answer wears the swipe bar, not ↻');
+    click(q('.hk-swipe-next', answers()[answers().length - 1]));
+    await until(() => q('#hk-send').disabled, 'another answer was asked for');
     await until(() => !q('#hk-send').disabled && countNow() === (had + 1) + '/' + (had + 1), 'a new version of the last answer beside the old: ' + countNow(), 15000);
     eq(answers().length, nAnswers, 'the retry replaced the last answer, no more answers');
     await tick(60);

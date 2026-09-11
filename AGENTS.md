@@ -2051,3 +2051,11 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   as the backstage crew; per-role connections already allow it), then an INTENT worker (present
   NPCs' next moves decided off the send path by an unbiased model, riding beside the world's word)
   if the beats still soften. A 30B local model was tried and judged not good enough for the prose.
+- M73-002: FIELD REPORT "where's the answer swipe button for an alternative answer?" — the ↻ was
+  doing it, but ↻ reads as try-again and the arrows showed only after one. Now the LAST answer
+  always wears the story's bar, ◂ n/N ▸: ▸ past the last version writes another answer (the old
+  one stays); ◂ walks back. ↻ Retry stays on OLDER answers only (ask again from here). And a flake
+  the walk exposed (1 in ~6): after a new version on an OLDER story page, generate()'s own finally
+  had already let `busy` go and swipeRegenerate awaited the shelf before claiming the replay — a
+  branch in that gap was refused as "replaying". The replay is claimed the moment generate returns.
+  327/327 + 28/28 (×6). version.js -> m73-002.

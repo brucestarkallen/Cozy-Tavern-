@@ -2958,16 +2958,19 @@ export function initChat(ctx) {
       /* M44: a swiped page's record line is let go (a hole, refilled) */
       { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
       const landed = await generate({ swipeTarget: msg, replayAfter: !lastPage });
+      /* M72: a new version on an OLDER page is history changed at that page —
+       * fold back, read the new words once, re-apply the rest (it used to be
+       * read on top of the latest ledger and left to the auditor). M73-002:
+       * claimed the moment generate returns — its own finally has already let
+       * busy go, and any await before the claim is a gap where the house
+       * looks idle and a branch slips in. */
+      if (landed && !lastPage) replayFrom(story, msg.id, { changed: true });
       if (!landed && lastPage) {
         await saveState(story.id, leaving);
         notify(story.id);
       }
       stories = await db.stories.list();
       renderStoryList();
-      /* M72: a new version on an OLDER page is history changed at that page —
-       * fold back, read the new words once, re-apply the rest (it used to be
-       * read on top of the latest ledger and left to the auditor) */
-      if (landed && !lastPage) replayFrom(story, msg.id, { changed: true });
     } finally {
       busy = false;
     }

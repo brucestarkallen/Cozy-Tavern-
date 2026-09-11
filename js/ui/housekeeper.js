@@ -136,16 +136,20 @@ export function initHousekeeper(ctx) {
       else {
         const versions = versionsOf(turn);
         const isLast = session && session.turns && turnIndex === lastAnswerIndex(session.turns);
-        if (isLast && versions.length > 1) {
+        /* M73-002: the LAST answer always wears the story's swipe bar — ◂ n/N ▸ —
+         * and ▸ past the last version writes another answer (the old one
+         * stays); an older answer keeps ↻ (ask again from here). */
+        if (isLast) {
           const at = Number.isInteger(turn.swipeIdx) ? turn.swipeIdx : versions.length - 1;
           mk('◂', 'The version before', 'swipe-prev', 'hk-swipe-prev' + (at <= 0 ? ' hk-dim' : ''));
           const n = document.createElement('span');
           n.className = 'hk-swipe-count';
           n.textContent = (at + 1) + '/' + versions.length;
           row.append(n);
-          mk('▸', 'The version after', 'swipe-next', 'hk-swipe-next' + (at >= versions.length - 1 ? ' hk-dim' : ''));
+          mk('▸', at >= versions.length - 1 ? 'Another answer — a new version; this one stays' : 'The version after', 'swipe-next', 'hk-swipe-next');
+        } else {
+          mk('↻ Retry', 'Ask this question again from here — the answers after it are let go', 'retry-at', 'hk-retry-here');
         }
-        mk('↻ Retry', isLast ? 'Ask the same question again — a new version of this answer; the old one stays' : 'Ask this question again from here — the answers after it are let go', 'retry-at', 'hk-retry-here');
       }
       mk('⧉ Copy', 'Copy these words', 'copy-at', 'hk-copy-here');
       mk('⑂ Branch', 'A new session with the talk up to here; this one stands', 'branch-at', 'hk-branch-here');
@@ -189,6 +193,12 @@ export function initHousekeeper(ctx) {
       return;
     }
     if (act === 'swipe-prev' || act === 'swipe-next') {
+      /* ▸ past the last version asks for another answer */
+      if (act === 'swipe-next') {
+        const versions = versionsOf(turn);
+        const at = Number.isInteger(turn.swipeIdx) ? turn.swipeIdx : versions.length - 1;
+        if (at >= versions.length - 1) { await turnAct('retry-at', index); return; }
+      }
       const next = await walkVersion(story.id, index, act === 'swipe-prev' ? -1 : 1);
       if (next) { session = next; render(); }
       return;
