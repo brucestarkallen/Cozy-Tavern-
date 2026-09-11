@@ -906,7 +906,16 @@ export function initChat(ctx) {
     const body = document.createElement('div');
     body.className = 'thinking-body';
     body.textContent = text;
-    details.append(summary, body);
+    /* M105: the thought can be taken away in one tap */
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'text-btn thinking-copy';
+    copy.textContent = 'Copy the thinking';
+    copy.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try { await navigator.clipboard.writeText(String(text || '')); copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy the thinking'; }, 1500); } catch (err) { copy.textContent = 'Couldn’t copy'; }
+    });
+    details.append(summary, body, copy);
     return details;
   }
 
@@ -3665,6 +3674,55 @@ export function initChat(ctx) {
     return window.matchMedia('(max-width: 899px)').matches;
   }
 
+  /* M105: the shelf can be dragged wider — a handle on its right edge, the
+   * width remembered (storyPanelWidth). On a phone the slide-over grows up
+   * to nine tenths of the screen; on a desk up to half. */
+  (function panelResize() {
+    if (!els.panel) return;
+    const handle = document.createElement('div');
+    handle.className = 'panel-resize';
+    handle.setAttribute('aria-hidden', 'true');
+    els.panel.appendChild(handle);
+    const limits = () => ({ min: 220, max: Math.floor(window.innerWidth * (isNarrow() ? 0.9 : 0.5)) });
+    const applyWidth = (w) => {
+      const { min, max } = limits();
+      const width = Math.min(max, Math.max(min, Math.round(w)));
+      els.panel.style.width = width + 'px';
+      return width;
+    };
+    db.settings.get('storyPanelWidth').then((w) => { if (Number.isFinite(w) && w > 0) applyWidth(w); }).catch(() => {});
+    let dragging = false;
+    let startX = 0;
+    let startW = 0;
+    const move = (e) => {
+      if (!dragging) return;
+      const x = e.touches ? e.touches[0].clientX : e.clientX;
+      applyWidth(startW + (x - startX));
+      e.preventDefault();
+    };
+    const end = async () => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.classList.remove('panel-resizing');
+      window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', end);
+      window.removeEventListener('touchmove', move); window.removeEventListener('touchend', end);
+      const w = parseInt(els.panel.style.width, 10);
+      if (Number.isFinite(w)) await db.settings.set('storyPanelWidth', w).catch(() => {});
+    };
+    const start = (e) => {
+      dragging = true;
+      startX = e.touches ? e.touches[0].clientX : e.clientX;
+      startW = els.panel.getBoundingClientRect().width;
+      document.body.classList.add('panel-resizing');
+      window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+      window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end);
+      e.preventDefault();
+    };
+    handle.addEventListener('mousedown', start);
+    handle.addEventListener('touchstart', start, { passive: false });
+    handle.addEventListener('dblclick', async () => { els.panel.style.width = ''; await db.settings.delete('storyPanelWidth').catch(() => {}); });
+  })();
+
   function openPanel() {
     els.panel.classList.add('open');
     els.scrim.hidden = !isNarrow();
@@ -3727,6 +3785,8 @@ export function initChat(ctx) {
     btn.addEventListener('click', () => {
       location.hash = '#/settings';
       const target = document.getElementById(btn.dataset.goto);
+      const nav = document.getElementById('settings-quicknav');
+      if (nav && typeof nav.openRoomFor === 'function') nav.openRoomFor(btn.dataset.goto); /* M105: the right room opens */
       if (target) setTimeout(() => target.scrollIntoView({ block: 'start' }), 80);
     });
   });
@@ -3736,6 +3796,8 @@ export function initChat(ctx) {
     els.btnAddFirstConnection.addEventListener('click', () => {
       location.hash = '#/settings';
       const target = document.getElementById('section-connections');
+      const nav = document.getElementById('settings-quicknav');
+      if (nav && typeof nav.openRoomFor === 'function') nav.openRoomFor('section-connections');
       if (target) setTimeout(() => target.scrollIntoView({ block: 'start' }), 80);
     });
   }

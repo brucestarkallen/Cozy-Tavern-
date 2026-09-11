@@ -1810,6 +1810,22 @@ function recordPanel(ctx) {
   return wrap;
 }
 
+/* M105: the drawer's rooms. A panel not listed lands in the books. */
+const DRAWER_ROOMS = [
+  ['scene', 'The scene'],
+  ['people', 'The people'],
+  ['world', 'The world'],
+  ['books', 'The books'],
+];
+const ROOM_OF = {
+  'the-clock': 'scene', 'the-ruling': 'scene', 'how-they-measure': 'scene', 'whos-here': 'scene', 'the-mood': 'scene',
+  'the-people': 'people', 'whats-true': 'people', 'holding-up': 'people', 'on-their-mind': 'people',
+  'elsewhere': 'world', 'the-world-beyond': 'world', 'voices': 'world',
+  'the-record': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
+};
+function roomOfPanel(id) { return ROOM_OF[id] || 'books'; }
+let drawerRoomNow = 'scene';
+
 const PANELS = [
   {
     id: 'the-clock',
@@ -1901,6 +1917,12 @@ export function initDrawer(ctx) {
 
   let unsubscribe = null;
 
+  db.settings.get('drawerRoom').then((r) => { if (DRAWER_ROOMS.some(([room]) => room === r)) drawerRoomNow = r; }).catch(() => {});
+  panelsEl.addEventListener('click', (e) => {
+    const chip = e.target && e.target.closest && e.target.closest('.drawer-rooms .nav-chip');
+    if (chip && chip.dataset.room) drawerRoomNow = chip.dataset.room;
+  });
+
   function render() {
     /* Re-point the live subscription at whichever story is active now. */
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }
@@ -1912,10 +1934,36 @@ export function initDrawer(ctx) {
     }
 
     panelsEl.textContent = '';
-    for (const panel of PANELS) {
+    /* M105: the ledger in four rooms, one open at a time — the scene, the
+     * people, the world, the books — instead of sixteen panels in one scroll.
+     * Every panel keeps its id and its place; a room not open is hidden, not
+     * moved. The open room is remembered. */
+    const strip = document.createElement('nav');
+    strip.className = 'drawer-rooms';
+    strip.setAttribute('aria-label', 'The ledger’s rooms');
+    for (const [room, words] of DRAWER_ROOMS) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'nav-chip';
+      chip.dataset.room = room;
+      chip.textContent = words;
+      chip.addEventListener('click', async () => {
+        for (const sec of panelsEl.querySelectorAll('.ledger-panel')) sec.hidden = roomOfPanel(sec.dataset.panel) !== room;
+        for (const c of strip.querySelectorAll('.nav-chip')) c.classList.toggle('current', c.dataset.room === room);
+        await db.settings.set('drawerRoom', room).catch(() => {});
+        panelsEl.scrollTo({ top: 0 });
+      });
+      strip.appendChild(chip);
+    }
+    panelsEl.appendChild(strip);
+    const openRoom = drawerRoomNow;
+    for (const c of strip.querySelectorAll('.nav-chip')) c.classList.toggle('current', c.dataset.room === openRoom);
+    const ordered = PANELS.map((p, i) => ({ p, i })).sort((a, b) => (DRAWER_ROOMS.findIndex(([r]) => r === roomOfPanel(a.p.id)) - DRAWER_ROOMS.findIndex(([r]) => r === roomOfPanel(b.p.id))) || (a.i - b.i)).map((x) => x.p);
+    for (const panel of ordered) {
       const section = document.createElement('section');
       section.className = 'ledger-panel';
       section.dataset.panel = panel.id;
+      section.hidden = roomOfPanel(panel.id) !== openRoom;
 
       const h = document.createElement('h3');
       h.textContent = panel.title;

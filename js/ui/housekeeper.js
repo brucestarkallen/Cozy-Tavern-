@@ -321,7 +321,16 @@ export function initHousekeeper(ctx) {
     sum.textContent = 'How it weighed it';
     const body = document.createElement('div');
     body.textContent = text;
-    det.append(sum, body);
+    /* M105: the thought can be taken away in one tap */
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'text-btn thinking-copy';
+    copy.textContent = 'Copy the thinking';
+    copy.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try { await navigator.clipboard.writeText(String(text || '')); copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy the thinking'; }, 1500); } catch (err) { copy.textContent = 'Couldn’t copy'; }
+    });
+    det.append(sum, body, copy);
     return det;
   }
 
@@ -803,7 +812,15 @@ export function initHousekeeper(ctx) {
             tick();
             thread.scrollTop = thread.scrollHeight;
           } else if (tok && tok.channel === 'prose' && typeof tok.text === 'string') {
-            if (!answerChars && thinkFold) { thinkFold.open = false; thinkFold.querySelector('summary').textContent = 'How it weighed it'; }
+            if (!answerChars && thinkFold) {
+              thinkFold.open = false; thinkFold.querySelector('summary').textContent = 'How it weighed it';
+              if (!thinkFold.querySelector('.thinking-copy')) {
+                const copy = document.createElement('button');
+                copy.type = 'button'; copy.className = 'text-btn thinking-copy'; copy.textContent = 'Copy the thinking';
+                copy.addEventListener('click', async (e) => { e.preventDefault(); try { await navigator.clipboard.writeText(liveThinking); copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy the thinking'; }, 1500); } catch (err) { copy.textContent = 'Couldn’t copy'; } });
+                thinkFold.appendChild(copy);
+              }
+            }
             answerChars += tok.text.length;
             pendingBubble.textContent += tok.text;
             pendingBubble.textContent = pendingBubble.textContent.replace(/^…/, '');

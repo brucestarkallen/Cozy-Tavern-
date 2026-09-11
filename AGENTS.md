@@ -2852,3 +2852,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   character / an open thread / on the way to the main character / named on a recent page /
   seated just now", or "Nothing carries them yet …". Information only; no model decides a tier.
 - M104-1. 377/377 + 32/32 + 8/8. version.js -> m104-001.
+
+---
+
+# M105 — the rooms: settings and the ledger as tabs, a wider shelf, the thinking copied
+- FIELD REPORTS, five at once: (1) the story shelf can be dragged wider — a handle on its right
+  edge (drag; double-tap puts it back), the width remembered (storyPanelWidth), up to half the
+  screen on a desk and nine tenths on a phone; titles and previews ellipsize instead of
+  wrapping. (2) "Copy the thinking" under every thinking fold — the storyteller's on the page,
+  the housekeeper's in the talk (the live fold too, once the answer lands). (3) Backup already
+  held everything (M7: the whole store — stories, pages, ledgers, records, sessions, cast, lore,
+  shelves, connections, settings); the words on the button now say so. (4) Settings is six
+  ROOMS, one open at a time, a tab strip instead of one long scroll: Storyteller (connections,
+  the workers, thinking), This story (brief, cast, frame, note, shelf), The craft (rulebook,
+  engine, regex), People & lore (people, lore, old chats), The readers (memory, referee), The
+  house (appearance, welcome, backup). Sections keep their ids; a room not open is hidden, not
+  moved; the open room is remembered; the composer's deep links open the right room. (5) The
+  ledger drawer is four rooms the same way: The scene (clock, ruling, measure, who's here,
+  mood), The people (pages, what's true, holding up, on their mind), The world (elsewhere, the
+  world beyond, voices), The books (the record, what changed, something drifted, the workers).
+- findability's M18 checks follow the rooms law. 376/376 + 32/32 + 8/8. version.js -> m105-001.

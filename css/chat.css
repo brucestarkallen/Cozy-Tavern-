@@ -198,6 +198,29 @@
 /* "A new shelf" rests beside "Start a new story", quiet as a footnote. */
 .shelf-new { align-self: flex-start; }
 
+/* M105: the shelf's resize handle — a hairline on its right edge that warms
+ * on hover; drag to widen, double-tap to put the width back. */
+.story-panel { position: relative; }
+.panel-resize {
+  position: absolute;
+  top: 0; right: -4px; bottom: 0;
+  width: 9px;
+  cursor: col-resize;
+  z-index: 2;
+}
+.panel-resize::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 4px;
+  width: 1px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.panel-resize:hover::after, body.panel-resizing .panel-resize::after { background: var(--ember); }
+body.panel-resizing { cursor: col-resize; user-select: none; }
+.story-item { min-width: 0; }
+.story-item .story-preview, .story-item .story-title { overflow: hidden; text-overflow: ellipsis; }
+
 /* On narrower screens the sidebar becomes a fixed drawer over a scrim. */
 @media (max-width: 900px) {
   .story-panel {

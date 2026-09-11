@@ -378,6 +378,19 @@ button:active { transform: scale(0.96); transition-duration: 0.12s; }
   color: var(--ember);
   border-color: var(--ember-dim);
 }
+/* M105: the open room keeps the ember; the strips stick to the top of their scroll */
+.nav-chip.current { color: var(--ember); border-color: var(--ember); background: var(--surface-2); }
+.settings-quicknav, .drawer-rooms {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  position: sticky; top: 0; z-index: 3;
+  padding: 0.5rem 0 0.6rem;
+  background: var(--bg-2);
+}
+.drawer-rooms { margin: -0.25rem 0 0.5rem; }
+.ledger-panel { padding: 0.6rem 0 0.9rem; border-bottom: 1px solid var(--border-soft); }
+.ledger-panel:last-child { border-bottom: none; }
+.ledger-panel h3 { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.45rem; }
+.thinking-copy { display: inline-block; margin-top: 0.35rem; font-size: 0.8rem; }
 
 /* M18: where a chip lands, the room's left edge glows ember for a breath
  * so the eye follows. An inset shadow, not a real border — nothing shifts.

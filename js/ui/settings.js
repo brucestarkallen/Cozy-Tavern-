@@ -2115,24 +2115,36 @@ export function initSettings(ctx) {
     const nav = els.quicknav;
     if (!nav) return;
     nav.textContent = '';
-    document.querySelectorAll('#view-settings .settings-section').forEach((section) => {
-      const head = section.querySelector('h3');
-      if (!section.id || !head) return;
+    /* M105: the rooms of settings, one at a time — a tab strip instead of one
+     * long scroll. Every section keeps its id; a room that is not open is
+     * hidden, not moved. The open room is remembered. */
+    const ROOMS = [
+      ['storyteller', 'Storyteller', ['section-connections', 'section-workers', 'section-thinking']],
+      ['story', 'This story', ['section-brief', 'section-cast', 'section-frame', 'section-note', 'section-shelf']],
+      ['craft', 'The craft', ['section-rulebook', 'section-engine', 'section-regex']],
+      ['world', 'People & lore', ['section-people', 'section-lore', 'section-oldchats']],
+      ['readers', 'The readers', ['section-memory', 'section-referee']],
+      ['house', 'The house', ['section-appearance', 'section-welcome', 'section-backup']],
+    ];
+    const sections = [...document.querySelectorAll('#view-settings .settings-section')];
+    const roomOf = (id) => (ROOMS.find(([, , ids]) => ids.includes(id)) || ROOMS[ROOMS.length - 1])[0];
+    const show = async (room, remember = true) => {
+      for (const section of sections) section.hidden = roomOf(section.id) !== room;
+      for (const chip of nav.querySelectorAll('.nav-chip')) chip.classList.toggle('current', chip.dataset.room === room);
+      if (remember) await db.settings.set('settingsRoom', room).catch(() => {});
+    };
+    for (const [room, words] of ROOMS) {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'nav-chip';
-      chip.textContent = head.textContent;
-      chip.addEventListener('click', () => {
-        const still = window.matchMedia
-          && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        section.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
-        /* Re-add on the next frame so a repeat tap flashes the room again. */
-        section.classList.remove('ember-flash');
-        requestAnimationFrame(() => section.classList.add('ember-flash'));
-        setTimeout(() => section.classList.remove('ember-flash'), 1800);
-      });
+      chip.dataset.room = room;
+      chip.textContent = words;
+      chip.addEventListener('click', () => { show(room); document.querySelector('#view-settings').scrollTo({ top: 0 }); });
       nav.appendChild(chip);
-    });
+    }
+    db.settings.get('settingsRoom').then((room) => show(ROOMS.some(([r]) => r === room) ? room : 'storyteller', false)).catch(() => show('storyteller', false));
+    /* a jump by id (the drawer's "Settings → …" links) opens the right room */
+    nav.openRoomFor = (sectionId) => show(roomOf(sectionId));
   }
 
   buildQuickNav();

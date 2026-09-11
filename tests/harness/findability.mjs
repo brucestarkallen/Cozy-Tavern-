@@ -38,45 +38,26 @@ test('M18 → M97 the header is ONE slim row at every width, all three rooms vis
   assert(/@media \(max-width: 380px\)\s*\{\s*\.brand\s*\{\s*display:\s*none/.test(css), 'the brand yields on the narrowest screens so the rooms stay in sight');
 });
 
-test('M18 the quick-nav chips are data-driven from the rooms present', () => {
+test('M18 → M105 settings is rooms, one open at a time: a tab strip of six, every section assigned, the open room remembered', () => {
   const html = read('index.html');
-  assert(html.includes('id="settings-quicknav"'), 'the chip row has a home');
-  assert(html.indexOf('id="settings-quicknav"') < html.indexOf('class="settings-section"'),
-    'the chips stand above the first room');
-  /* The rooms that actually stand, in order. */
-  const rooms = [...html.matchAll(/<section class="settings-section" id="(section-[a-z]+)">[\s\S]*?<h3>([^<]+)<\/h3>/g)]
-    .map((m) => ({ id: m[1], name: m[2].trim() }));
-  assert(rooms.length >= 10, 'the settings floor holds at least ten rooms');
-  /* The rooms the field could not find must be among them. */
-  for (const id of ['section-connections', 'section-frame', 'section-note', 'section-rulebook',
-    'section-workers', 'section-shelf', 'section-engine', 'section-memory',
-    'section-appearance', 'section-backup']) {
-    assert(rooms.some((r) => r.id === id), `the room ${id} stands (and so its chip)`);
-  }
+  const rooms = [...html.matchAll(/<section class="settings-section" id="([^"]+)"/g)].map((m) => m[1]);
+  assert(rooms.length >= 8, 'the rooms stand');
   const src = read('js/ui/settings.js');
-  assert(src.includes("document.getElementById('settings-quicknav')"), 'settings finds the chip row');
-  assert(src.includes("querySelectorAll('#view-settings .settings-section')"),
-    'the chips are built from the rooms that actually stand — count matches by construction');
-  assert(src.includes("section.querySelector('h3')"), 'each chip is named by the room’s own heading');
+  assert(src.includes("document.getElementById('settings-quicknav')"), 'settings finds the strip');
+  const builder = src.slice(src.indexOf('const ROOMS = ['), src.indexOf('nav.openRoomFor'));
+  /* every section in index.html belongs to a room; a section the strip does not name falls to the house */
+  const named = [...builder.matchAll(/'(section-[a-z-]+)'/g)].map((m) => m[1]);
+  for (const id of rooms) assert(named.includes(id) || /roomOf = \(id\) => \(ROOMS\.find/.test(builder), 'assigned or defaulted: ' + id);
+  assert(/section\.hidden = roomOf\(section\.id\) !== room/.test(builder), 'a room not open is hidden, not moved');
+  assert(/db\.settings\.set\('settingsRoom', room\)/.test(builder), 'the open room is remembered');
   assert(src.includes("chip.className = 'nav-chip'"), 'chips wear the quiet chip style');
-  /* No second hardcoded list of rooms to forget. */
-  const builder = src.slice(src.indexOf('function buildQuickNav'), src.indexOf('buildQuickNav();'));
-  assert(!/section-(workers|memory|rulebook|backup)/.test(builder),
-    'the builder names no room by hand — add a room, the chip appears');
   const css = read('css/base.css');
-  assert(css.includes('.settings-quicknav') && css.includes('.nav-chip'), 'the chip row is styled');
-});
-
-test('M18 a chip tap scrolls gently and the room flashes ember', () => {
-  const src = read('js/ui/settings.js');
-  assert(src.includes('scrollIntoView'), 'a tap carries you to the room');
-  assert(src.includes("prefers-reduced-motion: reduce"), 'the scroll respects the stillness law');
-  assert(/behavior:\s*still\s*\?\s*'auto'\s*:\s*'smooth'/.test(src), 'smooth unless the device asks otherwise');
-  assert(src.includes('ember-flash'), 'the landing room flashes its ember edge');
-  const css = read('css/base.css');
-  assert(css.includes('@keyframes ember-edge'), 'the ember edge has its keyframes');
-  assert(css.includes('.settings-section.ember-flash'), 'the flash clasps the room');
-  assert(/inset 3px 0 0 var\(--ember\)/.test(css), 'the flash is an ember left edge that shifts nothing');
+  assert(css.includes('.settings-quicknav') && css.includes('.nav-chip.current'), 'the strip is styled and the open room keeps the ember');
+  /* the ledger drawer has its four rooms the same way */
+  const drawer = read('js/ui/drawer.js');
+  assert(/const DRAWER_ROOMS = \[/.test(drawer) && /\['scene', 'The scene'\]/.test(drawer) && /\['books', 'The books'\]/.test(drawer), 'the drawer’s rooms');
+  for (const id of ['the-clock', 'the-people', 'elsewhere', 'the-record', 'the-workers', 'voices']) assert(new RegExp("'" + id + "': '(scene|people|world|books)'").test(drawer), 'every panel has a room: ' + id);
+  assert(/sec\.hidden = roomOfPanel\(sec\.dataset\.panel\) !== room/.test(drawer) && /db\.settings\.set\('drawerRoom', room\)/.test(drawer), 'hidden not moved; remembered');
 });
 
 test('M18 the reload-once bridge stands in install.sh and the shipped launcher', () => {
