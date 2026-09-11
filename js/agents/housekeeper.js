@@ -748,7 +748,7 @@ const SYSTEM_PROMPT = [
   '  people.set {name,field:core|state|arc|threads,text} — a whole field of a person’s page',
   '    (threads: the whole list, separated by semicolons; the main character takes state and',
   '    threads only); people.note {name,field:thread|unthread,text} — add or close ONE loose end;',
-  '  people.retire {name,cause}; people.wake {name};',
+  '  people.retire {name,cause}; people.wake {name}; people.forget {name,cause} — erases a person who was never the story\'s (page, seat, standing, knowledge, locks) for good; retire is for a real passer-through;',
   '  and {"type":"module.pin","module":"the rule’s name","pinned":true|false}.',
   '  Unknown types are rejected by the ledger itself.',
   '<redits>[ ... ]</redits> — changes to a rulebook rule’s text:',

@@ -2725,3 +2725,30 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - M95-1 (m85.mjs) holds every worker prompt to it; m32/m35/m41/m74 updated to the placeholder
   wording; DOM-14b waits for the drift panel to render. 373/373 + 30/30 + 8/8.
   version.js -> m95-001.
+
+---
+
+# M96 — forgotten for good; the passed-through say so; the housekeeper's cards land as they arrive
+- FIELD REPORT (in play, the Kris Jenner leak): the housekeeper was asked to remove her; the
+  ledger had already retired her (M95's sweep), so the card was declined — correctly — and the
+  housekeeper explained the tombstone. But the drawer's passed-through fold showed her row as
+  "Kris Jenner — Kendall Jenner's mother; …" with no word saying she had passed through, so the
+  writer read a tombstone as a living page. Three things were wrong with that, all fixed:
+  1. THE LEDGER HAD NO WAY TO ERASE A PERSON. Retiring is for a real passer-through; a name that
+     was never the story's should leave no trace. people.forget (apply.js): the page, the seat,
+     the standing, the knowledge, the locks, the presence and any thread they owned are erased
+     for good — journaled, undoable whole (people.forgotten). M95's leak sweep forgets now,
+     never tombstones; the auditor's and the housekeeper's vocabularies teach forget, with the
+     rule that it is only for a name no page, brief or cast note ever held.
+  2. THE ROW SAYS WHAT IT IS: "NAME — passed through (was: …)", with "Bring back" and a new
+     "Forget for good" beside it.
+  3. NOTHING WAITS ON THE WRITER'S HAND: the housekeeper's cards land as they arrive (its sheet:
+     "Its cards land as they arrive", on by default, in the reset's keys) — every card keeps its
+     Undo and its receipt in the talk; off, they wait for Apply / Apply all as before. ("Apply
+     all" appears only with two or more cards waiting — with one card there was nothing to apply
+     all of.) A card the ledger refuses stays a card with its refusal shown, as before.
+- Not a hallucination: the housekeeper's account was accurate to the ledger it could see; the
+  drawer was the surface that misled. What the storyteller is handed never included a retired
+  person (renderPeopleTiers skips them) and never included Kris Jenner's page after the sweep.
+- M95-1 extended (forget, its take-back, its refusals); DOM-11c holds both housekeeper paths.
+  373/373 + 30/30 + 8/8. version.js -> m96-001.

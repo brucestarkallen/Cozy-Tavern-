@@ -1991,7 +1991,7 @@ export function initSettings(ctx) {
   const RESET_KEYS = [
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'continuityCheck', 'mendPages',
-    'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages',
+    'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply',
     'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle',
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',

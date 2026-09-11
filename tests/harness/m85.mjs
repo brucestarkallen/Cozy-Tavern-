@@ -411,9 +411,17 @@ test('M95-1 no worker prompt names a real person or a story-like example; a plac
   ]).state;
   const sweep = exampleLeakHousekeeping(leaked, 'Jovan and Rias Wells, Elm Street.', '');
   const kinds = sweep.map((m) => m.type + ':' + m.name).sort();
-  assert(kinds.includes('offscreen.clear:Kris Jenner') && kinds.includes('rel.clear:Kris Jenner') && kinds.includes('people.retire:Kris Jenner'), 'swept: ' + kinds.join(', '));
+  eq(kinds.join(','), 'people.forget:Kris Jenner', 'forgotten for good, once — never a tombstone (M96): ' + kinds.join(', '));
   assert(!sweep.some((m) => /Rias/.test(m.name)), 'the story’s own people stand');
   eq(exampleLeakHousekeeping(leaked, 'Jovan dates Kendall Jenner; her mother Kris Jenner disapproves.', '').length, 0, 'named in the brief, she is the story’s');
-  const after = applyMutations(leaked, sweep).state;
-  assert(!after.offscreen['Kris Jenner'] && !((after.relationships['Kris Jenner'] || {}).p), 'the sweep lands through the ledger');
+  const { state: after, applied: gone } = applyMutations(leaked, sweep);
+  assert(!after.characters['Kris Jenner'] && !after.offscreen['Kris Jenner'] && !after.relationships['Kris Jenner'], 'page, seat and standing are gone — no trace');
+  assert(after.characters['Rias Wells'], 'the neighbour stands');
+  /* and the whole of it comes back on a take-back */
+  const { undoLast } = await import('../../js/engine/apply.js');
+  const back = undoLast(after);
+  assert(back && back.state.characters['Kris Jenner'] && back.state.offscreen['Kris Jenner'] && back.state.relationships['Kris Jenner'].p === 10, 'forget is take-back-able whole');
+  /* forget refuses a placeholder and a stranger */
+  eq(applyMutations(after, [{ type: 'people.forget', name: 'NAME' }]).rejected.length, 1);
+  assert(/nothing is written of/.test(applyMutations(after, [{ type: 'people.forget', name: 'Nobody Here' }]).rejected[0].why));
 });

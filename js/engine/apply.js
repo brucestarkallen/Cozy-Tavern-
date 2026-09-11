@@ -663,6 +663,41 @@ const HANDLERS = {
     state.characters[key] = { ...state.characters[key], retired: true, retiredAtTurn: turnOf(state) };
     return { words: key + ' passed through — ' + (capText(m.cause, 160) || 'no bond, no seat, no thread, and thirty turns gone') + '.', undo: { kind: 'people.restore', name: key, before } };
   },
+  /* M96: people.forget — a person who was never the story's (a leaked example,
+   * a mistaken name) is erased for good: page, seat, standing, knowledge, locks,
+   * presence. Undoable — the whole of it comes back on a take-back. */
+  'people.forget'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name) return { why: 'no name to forget' };
+    const lower = name.toLowerCase();
+    const same = (k) => String(k || '').trim().toLowerCase() === lower;
+    const pageKey = findPersonKey(state.characters, name);
+    const seatKey = Object.keys(state.offscreen || {}).find(same);
+    const relKey = Object.keys(state.relationships || {}).find(same);
+    const knowKey = Object.keys(state.knowledge || {}).find(same);
+    const canonKey = Object.keys(state.canon || {}).find(same);
+    const bodyKey = Object.keys(state.bodies || {}).find(same);
+    const presentAt = (state.present || []).findIndex((p) => p && same(p.name));
+    if (!pageKey && !seatKey && !relKey && !knowKey && !canonKey && presentAt === -1) return { why: 'nothing is written of ' + name };
+    const before = {
+      page: pageKey ? { key: pageKey, value: cloneMap({ [pageKey]: state.characters[pageKey] })[pageKey] } : null,
+      seat: seatKey ? { key: seatKey, value: JSON.parse(JSON.stringify(state.offscreen[seatKey])) } : null,
+      rel: relKey ? { key: relKey, value: JSON.parse(JSON.stringify(state.relationships[relKey])) } : null,
+      know: knowKey ? { key: knowKey, value: JSON.parse(JSON.stringify(state.knowledge[knowKey])) } : null,
+      canon: canonKey ? { key: canonKey, value: JSON.parse(JSON.stringify(state.canon[canonKey])) } : null,
+      body: bodyKey ? { key: bodyKey, value: JSON.parse(JSON.stringify(state.bodies[bodyKey])) } : null,
+      present: presentAt !== -1 ? { at: presentAt, value: { ...state.present[presentAt] } } : null,
+    };
+    if (pageKey) delete state.characters[pageKey];
+    if (seatKey) delete state.offscreen[seatKey];
+    if (relKey) delete state.relationships[relKey];
+    if (knowKey) delete state.knowledge[knowKey];
+    if (canonKey) delete state.canon[canonKey];
+    if (bodyKey) delete state.bodies[bodyKey];
+    if (presentAt !== -1) state.present.splice(presentAt, 1);
+    if (Array.isArray(state.threads)) state.threads = state.threads.filter((t) => !(t && typeof t === 'object' && same(t.owner)));
+    return { words: name + ' was never the story\'s — forgotten for good' + (m.cause ? ' (' + capText(m.cause, 160) + ')' : '') + '.', undo: { kind: 'people.forgotten', name, before } };
+  },
   'people.wake'(state, m) {
     const key = findPersonKey(state.characters, m.name);
     if (!key || !state.characters[key].retired) return { why: 'no one by that name is passed through' };
@@ -1029,6 +1064,16 @@ function applyUndo(next, undo) {
       const b = undo.before || {};
       next.worldBrief = b.brief ? JSON.parse(JSON.stringify(b.brief)) : null;
       next.worldShown = Array.isArray(b.shown) ? b.shown.map((w) => ({ ...w })) : [];
+      ok = true;
+    } else if (undo.kind === 'people.forgotten') {
+      const b = undo.before || {};
+      if (b.page) next.characters[b.page.key] = cloneMap({ [b.page.key]: b.page.value })[b.page.key];
+      if (b.seat) next.offscreen[b.seat.key] = JSON.parse(JSON.stringify(b.seat.value));
+      if (b.rel) next.relationships[b.rel.key] = JSON.parse(JSON.stringify(b.rel.value));
+      if (b.know) next.knowledge[b.know.key] = JSON.parse(JSON.stringify(b.know.value));
+      if (b.canon) next.canon[b.canon.key] = JSON.parse(JSON.stringify(b.canon.value));
+      if (b.body) next.bodies[b.body.key] = JSON.parse(JSON.stringify(b.body.value));
+      if (b.present) next.present.splice(Math.min(b.present.at, next.present.length), 0, { ...b.present.value });
       ok = true;
     } else if (undo.kind === 'people.restore') {
       const key = findPersonKey(next.characters, undo.name) || undo.name;

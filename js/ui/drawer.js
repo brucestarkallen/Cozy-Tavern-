@@ -1518,7 +1518,8 @@ function peoplePanel(ctx) {
         const row = document.createElement('div');
         row.className = 'log-row';
         const words = document.createElement('span');
-        words.textContent = name + (chars[name].core ? ' — ' + String(chars[name].core).slice(0, 80) : '') + ' ';
+        /* M96: the row says what it is — a tombstone read as a living page was the writer's confusion */
+        words.textContent = name + ' — passed through' + (chars[name].core ? ' (was: ' + String(chars[name].core).slice(0, 80) + ')' : '') + ' ';
         const wake = document.createElement('button');
         wake.type = 'button';
         wake.className = 'text-btn';
@@ -1529,7 +1530,18 @@ function peoplePanel(ctx) {
           if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); }
           render();
         });
-        row.append(words, wake);
+        const forget = document.createElement('button');
+        forget.type = 'button';
+        forget.className = 'text-btn';
+        forget.textContent = 'Forget for good';
+        forget.title = 'Erase this person entirely — page, seat, standing, knowledge, locks. For a name that was never the story’s. Take-back-able from “What changed and why”.';
+        forget.addEventListener('click', async () => {
+          const fresh = await loadState(story.id);
+          const r = applyMutations(fresh, [{ type: 'people.forget', name, cause: 'the writer’s hand' }]);
+          if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); }
+          render();
+        });
+        row.append(words, wake, forget);
         fold.appendChild(row);
       }
       list.appendChild(fold);

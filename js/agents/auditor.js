@@ -51,6 +51,7 @@ const VOCABULARY = [
   'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"…"}',
   'faction.set {"type":"faction.set","name":"…","stance":"…","agenda":"…","move":"…"}',
   'people.set {"type":"people.set","name":"NAME","field":"core|state|arc","text":"…"} — the main character\'s core and arc are never written',
+  'people.forget {"type":"people.forget","name":"NAME","cause":"…"} — ONLY for a person who was never the story\'s (a name no page, no brief and no cast note ever held); erases their page, seat, standing, knowledge and locks for good',
 ].join('\n');
 
 function law({ mc }) {
@@ -321,13 +322,14 @@ export function exampleLeakHousekeeping(state, brief = '', castNotes = '') {
   const out = [];
   const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
   const leaked = (name) => RETIRED_EXAMPLE_NAMES.includes(String(name || '').trim().toLowerCase()) && !material.includes(String(name || '').trim().toLowerCase());
-  const why = 'an example name from the house\'s own instructions, never the story\'s';
-  for (const name of Object.keys(state.offscreen || {})) if (leaked(name)) out.push({ type: 'offscreen.clear', name });
-  for (const name of Object.keys(state.relationships || {})) if (leaked(name)) out.push({ type: 'rel.clear', name, cause: why });
-  for (const name of Object.keys(state.canon || {})) if (leaked(name)) for (const f of ((state.canon[name] || {}).facts || [])) out.push({ type: 'canon.unlock', name, key: f.key });
-  for (const p of (state.present || [])) if (p && leaked(p.name)) out.push({ type: 'presence.leave', name: p.name });
-  for (const [name, c] of Object.entries(state.characters || {})) if (c && !c.retired && leaked(name)) out.push({ type: 'people.retire', name, cause: why });
-  for (const t of (state.threads || [])) if (t && typeof t === 'object' && leaked(t.owner)) out.push({ type: 'thread.close', title: t.title });
+  const names = new Set();
+  for (const name of Object.keys(state.characters || {})) if (leaked(name)) names.add(name);
+  for (const name of Object.keys(state.offscreen || {})) if (leaked(name)) names.add(name);
+  for (const name of Object.keys(state.relationships || {})) if (leaked(name)) names.add(name);
+  for (const name of Object.keys(state.canon || {})) if (leaked(name)) names.add(name);
+  for (const p of (state.present || [])) if (p && leaked(p.name)) names.add(p.name);
+  /* M96: forgotten for good, not tombstoned — a name that was never the story's leaves no trace */
+  for (const name of names) out.push({ type: 'people.forget', name, cause: 'an example name from the house\'s own instructions, never the story\'s' });
   return out;
 }
 

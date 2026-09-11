@@ -55,6 +55,7 @@ export function initHousekeeper(ctx) {
   const seedForm = document.getElementById('hk-seed-form');
   const seedInput = document.getElementById('hk-seed-input');
   const pagesInput = document.getElementById('hk-pages');
+  const autoApplyBox = document.getElementById('hk-auto-apply'); /* M96 */
   const autoBox = document.getElementById('hk-director-auto');
   const editorBox = document.getElementById('hk-editor-on');
   const editorN = document.getElementById('hk-editor-n');
@@ -822,6 +823,19 @@ export function initHousekeeper(ctx) {
         return true;
       }
       session = result.session; // staged cards, supersede, and caps already settled
+      /* M96: the cards land on arrival (Settings → the housekeeper → "Apply its
+       * cards as they arrive", on by default) — the writer asked for nothing to
+       * wait on his hand; every card keeps its Undo. Off, the cards wait as before. */
+      if ((await db.settings.get('hkAutoApply')) !== false) {
+        try {
+          const landed = await applyAllPending(session, story.id);
+          if (landed.count) {
+            await persistSession();
+            if (landed.words) toast(landed.words);
+            refreshStoryFloor(landed.touched);
+          }
+        } catch (err) { /* a card that will not land stays a card, with its refusal shown */ }
+      }
       /* M80: the thinking the writer watched is on the turn, whatever the wire
        * handed back afterwards — belt and braces, because "it was there while it
        * thought and gone after" must never happen again for any reason */
@@ -938,6 +952,7 @@ export function initHousekeeper(ctx) {
     const story = await activeStory();
     const pages = await db.settings.get('hkContextPages');
     pagesInput.value = String(cleanContextPages(pages == null ? DEFAULT_CONTEXT_PAGES : pages));
+    if (autoApplyBox) autoApplyBox.checked = (await db.settings.get('hkAutoApply')) !== false;
     if (!story) { autoBox.checked = false; editorBox.checked = false; editorN.value = '8'; return; }
     const [director, editor] = await Promise.all([loadDirector(story.id), loadEditor(story.id)]);
     autoBox.checked = director.auto === true;
@@ -945,6 +960,10 @@ export function initHousekeeper(ctx) {
     editorN.value = String(editor.everyN);
   }
 
+  if (autoApplyBox) autoApplyBox.addEventListener('change', async () => {
+    await db.settings.set('hkAutoApply', autoApplyBox.checked);
+    toast(autoApplyBox.checked ? 'The housekeeper’s cards will land as they arrive.' : 'The housekeeper’s cards will wait for Apply.');
+  });
   pagesInput.addEventListener('change', async () => {
     await db.settings.set('hkContextPages', cleanContextPages(pagesInput.value));
     pagesInput.value = String(cleanContextPages(pagesInput.value));

@@ -890,6 +890,8 @@ test('DOM-11e the housekeeper’s thinking stays under the reply after the answe
 test('DOM-11c the housekeeper sees the brief, stages a card, Apply changes the page, Undo takes it back', async () => {
   const before = errors.length;
   const sid = await storyId();
+  /* M96: the cards land on arrival by default; this scenario holds the by-hand path, so it turns that off first */
+  await db.settings.set('hkAutoApply', false);
   await db.stories.update(sid, { brief: 'Jovan comes home to Ravenwood. Rias is his older sister.' });
   const pages = (await db.messages.list(sid)).filter((m) => !m.hidden && m.role === 'assistant');
   const target = pages[pages.length - 1];
@@ -947,6 +949,18 @@ test('DOM-11c the housekeeper sees the brief, stages a card, Apply changes the p
   await until(() => qa('#hk-thread .hk-receipt').filter((r) => /^✓ the brief/.test(r.textContent)).length >= 2 && !qa('#hk-thread .hk-receipt').some((r) => /not applied/.test(r.textContent)), 'two ✓ receipts, no “not applied”: ' + qa('#hk-thread .hk-receipt').map((r) => r.textContent.slice(0, 60)).join(' | '), 10000);
   click(q('#hk-undo')); click(q('#hk-undo'));
   await until(async () => /older sister/.test((await db.stories.get(sid)).brief), 'taken back', 10000);
+  /* M96: cards land as they arrive (the default) — no Apply pressed, the brief changes, Undo still takes it back */
+  await db.settings.delete('hkAutoApply');
+  house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys)
+    ? 'Landing.\n<brief>[{"field":"brief","find":"older sister","replace":"younger sister","reason":"the writer asked"}]</brief>'
+    : priorAnswer(body, sys));
+  await until(() => !q('#hk-send').disabled, 'free again', 10000);
+  type(q('#hk-input'), 'younger, please');
+  submit(q('#hk-form'));
+  await until(async () => /younger sister/.test((await db.stories.get(sid)).brief), 'the card landed on arrival, no hand on it', 10000);
+  assert(!qa('#hk-cards button').some((b) => /^Apply$/i.test(b.textContent.trim())), 'nothing left waiting for Apply');
+  click(q('#hk-undo'));
+  await until(async () => /older sister/.test((await db.stories.get(sid)).brief), 'and Undo still takes it back', 10000);
   house.state.workerAnswer = priorAnswer;
   click(q('#btn-hk-close'));
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
