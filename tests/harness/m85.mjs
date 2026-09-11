@@ -429,7 +429,7 @@ test('M95-1 no worker prompt names a real person or a story-like example; a plac
 test('M98-1 the world can reach the scene by phone, text or note, and the people an absent person talks to exist from then on', async () => {
   const { buildWorldMessages } = await import('../../js/agents/world.js');
   const m = buildWorldMessages({ state: emptyState(), userText: 'I wait.', assistantText: 'The kettle clicks.' });
-  assert(/a CALL, a TEXT or a NOTE from an absent person with a live want/.test(m.system), 'a call or a text is a pressure');
+  assert(/a CALL, a TEXT or a\s+NOTE from an absent person with a live want/.test(m.system), 'a call or a text is a pressure');
   assert(/A person need not walk to the scene to reach it/.test(m.system));
   assert(/talks to someone off the page[\s\S]*that someone exists from then on/.test(m.system), 'the friend talked to becomes a person');
 });
