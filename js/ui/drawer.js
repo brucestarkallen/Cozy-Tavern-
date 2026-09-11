@@ -1297,7 +1297,9 @@ function driftPanel(ctx) {
       for (const i of audit.issues) {
         const li = document.createElement('li');
         li.className = 'log-row' + (i.fixable ? '' : ' drift-warn');
-        li.textContent = (i.fixable ? 'Set right: ' : 'Noted, not fixable by the ledger: ') + i.what + (i.fix ? ' → ' + i.fix : '');
+        /* M93: nothing the auditor sees is left for the writer — a line without a
+         * change is a thing seen and let stand, never a chore */
+        li.textContent = (i.fixable ? 'Set right: ' : 'Seen, left as the story has it: ') + i.what + (i.fix ? ' → ' + i.fix : '');
         list.appendChild(li);
       }
     }

@@ -47,7 +47,7 @@ test('M41-2 end to end: what is wrong is set right through the ledger; what cann
   eq(st.characters.Kim.core, 'Kendall’s sister');
   assert(st.characters['Kris Jenner'] && /mother/.test(st.characters['Kris Jenner'].core));
   eq(st.audit.issues.length, 4); eq(st.audit.issues[3].fixable, false);
-  assert(/found 4 things, set 4 right:[\s\S]*1 only noted/.test(auditRunWords(r)), auditRunWords(r));
+  assert(/found 4 things, set 4 right:[\s\S]*1 seen, nothing to change/.test(auditRunWords(r)), auditRunWords(r));
   assert(st.log.some((l) => /Kenji/.test(l.words)), 'the change is logged (and so take-back-able)');
   const clean = thinkingHouse({ answer: '{"issues":[]}' });
   const r2 = await withHouse(clean, () => auditLedger({ connection: HOUSES[0].conn, storyId, stale: () => false }));

@@ -2683,3 +2683,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
      is clean the next time it is read, with no mutation and nothing left for an auditor to
      note.
 - M92-1/2 (m85.mjs). 372/372 + 30/30 + 8/8. version.js -> m92-001.
+
+# M93 — nothing the auditor sees is left for the writer
+- FIELD REPORT: "what is 'Noted, not fixable by the ledger'? I don't want to think about anything."
+  The class was already down to one case (a brief that contradicts itself) after M90/M92; now
+  that case is settled by the house too: the version the PAGES have established is the story's
+  and is locked (cause "the brief says both; the pages settled it"); untouched by the pages, it
+  is not an issue at all — the storyteller settles it the first time it comes up. The auditor's
+  law says outright that nothing is reported as unfixable. The drawer's line for a finding with
+  no change reads "Seen, left as the story has it"; the workers' line, "seen, nothing to change".
+- 372/372 + 30/30 + 8/8. version.js -> m93-001.

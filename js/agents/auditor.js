@@ -109,8 +109,13 @@ function law({ mc }) {
     'and a "fix" that states, in one plain sentence, what the page should read instead — the brief\'s',
     'truth, exactly; and lock that truth in the ledger with the vocabulary (canon.lock, people.set, or',
     'rel.set with the cause "the brief says …"). The house then mends the pages by the smallest edit and',
-    'writes a correction into the record; you never rewrite a page yourself. Only a contradiction the',
-    'brief has with ITSELF is reported with an empty mutations list and no fix.',
+    'writes a correction into the record; you never rewrite a page yourself.',
+    'THE PAGES SETTLE A BRIEF AT ODDS WITH ITSELF: when the brief says two things about one fact,',
+    'the version the pages have already established is the story\'s — lock it (canon.lock, or people.set,',
+    'with the cause "the brief says both; the pages settled it") and say so in "what"; if the pages have',
+    'not touched that fact yet there is nothing to report — the storyteller will settle it the first time',
+    'it comes up, and the ledger will hold what the page wrote. Nothing is reported as unfixable: every',
+    'issue you list carries either mutations or a pages fix.',
     '',
     'Answer with JSON ONLY, exactly this shape:',
     '{"issues":[{"what":"the ledger says X; the pages say Y","fix":"what should be true","pages":false,"mutations":[ ... ]}]}',
@@ -446,8 +451,8 @@ export function auditRunWords(result) {
   if (fixed) bits.push(`set ${fixed} right: ` + result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (fixed > 4 ? ' · …' : ''));
   const briefWins = result.issues.filter((i) => i.pages && i.fix).length;
   if (briefWins) bits.push(`${briefWins} the brief wins — ${result.mendedPages || 0} ${result.mendedPages === 1 ? 'page' : 'pages'} mended, the record corrected`);
-  const unfixable = result.issues.filter((i) => !i.mutations.length && !(i.pages && i.fix)).length;
-  if (unfixable) bits.push(`${unfixable} only noted`);
+  const seen = result.issues.filter((i) => !i.mutations.length && !(i.pages && i.fix)).length;
+  if (seen) bits.push(`${seen} seen, nothing to change`);
   if (result.rejected.length) bits.push(`${result.rejected.length} refused`);
   return bits.join(', ');
 }

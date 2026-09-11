@@ -325,7 +325,7 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   assert(report.some((i) => /house number/.test(i.what) && i.fixable === false), 'the unfixable one is reported as such');
   const workers = await db.settings.get('workers:' + sid);
   const detail = await until(async () => { const w = await db.settings.get('workers:' + sid); const d = w && w.auditor && w.auditor.detail; return d && /found 4 things/.test(d) ? d : null; }, 'the armed run on the workers’ line', 30000);
-  assert(/found 4 things/.test(detail) && /set 2 right/.test(detail) && /1 the brief wins — 1 page mended, the record corrected/.test(detail) && /1 only noted/.test(detail) && /1 refused/.test(detail), 'the workers’ line names the run: ' + detail);
+  assert(/found 4 things/.test(detail) && /set 2 right/.test(detail) && /1 the brief wins — 1 page mended, the record corrected/.test(detail) && /1 seen, nothing to change/.test(detail) && /1 refused/.test(detail), 'the workers’ line names the run: ' + detail);
   /* M90: THE BRIEF WINS, with no hand on it — the page mended, the earlier words kept, the record corrected, the truth locked */
   const pages2 = (await db.messages.list(sid)).filter((m) => m.role === 'assistant');
   const mendedPage = pages2.find((m) => m.mended && /Aurora Vance/.test(m.mended.before));

@@ -322,7 +322,7 @@ test('M90-2 the auditor reads "the brief wins": a pages issue with a fix is fixa
   ] }));
   eq(read.note, 'ok'); eq(read.issues[0].pages, true); eq(read.issues[1].pages, false);
   const words = auditRunWords({ note: 'ok', issues: read.issues, applied: [{ words: 'Kim: relation locked' }], rejected: [], mendedPages: 2 });
-  assert(/found 2 things/.test(words) && /1 the brief wins — 2 pages mended, the record corrected/.test(words) && /1 only noted/.test(words), words);
+  assert(/found 2 things/.test(words) && /1 the brief wins — 2 pages mended, the record corrected/.test(words) && /1 seen, nothing to change/.test(words), words);
 });
 
 test('M92-1 knowledge never holds the same fact twice — quotes, full stops and clippings are one fact; a store that gathered duplicates is clean on load', async () => {
