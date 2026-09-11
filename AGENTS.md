@@ -2280,3 +2280,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the live fold was; (3) the raw fold's title says "thought N chars first" or "no thinking came
   back on the wire" — so the next report tells which half failed. m79's M80-1 (housekeeperTurn
   end to end with a nudge between). 349/349 + 29/29 (×2). version.js -> m80-001.
+
+---
+
+# M81 — the model sees its own past answers whole, and what became of every card (Chat Assistant's history)
+- FIELD REPORT: "can the MODEL see 'what it said, whole'? and 'how it weighed it'?" Read in Chat
+  Assistant: the assistant history entry is the RAW reply (blocks included) and rides back as
+  history; the thinking is stored and never sent (historyForLLM sends {role, content} only —
+  DeepSeek refuses reasoning in history); every apply / undo / skip / stop pushes a 'note' the
+  model reads next turn as "[STATE] …". The tavern sent t.text (blocks STRIPPED) and no word of
+  the cards' fate — so the model could not see what it had proposed nor whether the writer
+  applied it; it re-proposed, or assumed a change had landed.
+- sessionWireOf: a housekeeper turn rides WHOLE (turn.raw, WIRE_RAW_CAP 16000, else its text);
+  after it, when it staged cards, a user "[STATE] What became of the cards in your last answer"
+  lists each card's fate (APPLIED / applied then TAKEN BACK / SKIPPED / REFUSED — why / NOT
+  APPLIED — why / withdrawn / still pending) and says plainly: what was not applied did not
+  happen. The thinking never rides. m79's M81-1. 350/350 + 29/29 (one flaky DOM-8c run, green
+  twice after). version.js -> m81-001.

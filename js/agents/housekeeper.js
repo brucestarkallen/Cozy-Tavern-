@@ -2154,6 +2154,31 @@ export function hasAnyBlock(parsed) {
   return Boolean(parsed) && ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'supersede'].some((k) => Array.isArray(parsed[k]) && parsed[k].length);
 }
 
+export const WIRE_RAW_CAP = 16000; /* chars of a past answer (blocks included) sent back as history */
+export function cardFate(p, session) {
+  const takenBack = (session && Array.isArray(session.batches) ? session.batches : []).some((b) => b && b.undone && b.label === p.label);
+  if (p.status === 'applied') return takenBack ? 'applied, then TAKEN BACK by the writer' : 'APPLIED';
+  if (p.status === 'skipped') return 'SKIPPED by the writer';
+  if (p.status === 'refused') return 'REFUSED — ' + (p.words || 'it could not land');
+  if (p.status === 'stale') return 'NOT APPLIED — ' + (p.words || 'it went stale');
+  if (p.status === 'superseded') return 'withdrawn by a later answer';
+  return 'still pending (not yet applied)';
+}
+export function sessionWireOf(session) {
+  const out = [];
+  for (const t of (session && Array.isArray(session.turns) ? session.turns : []).slice(-20)) {
+    if (!t) continue;
+    if (t.role !== 'housekeeper') { out.push({ role: 'user', content: String(t.text || '') }); continue; }
+    const whole = typeof t.raw === 'string' && t.raw.trim() ? t.raw : String(t.text || '');
+    out.push({ role: 'assistant', content: whole.length > WIRE_RAW_CAP ? whole.slice(0, WIRE_RAW_CAP) + '\n…(cut for room)' : whole });
+    const cards = Array.isArray(t.proposals) ? t.proposals.filter((p) => p && p.kind !== 'unreadable') : [];
+    if (cards.length) {
+      out.push({ role: 'user', content: '[STATE] What became of the cards in your last answer:\n' + cards.map((p) => '- “' + p.label + '”: ' + cardFate(p, session)).join('\n') + '\nWhat was applied now stands in THE BRIEF, the pages, the ledger, the record or the lore above; what was not applied did not happen — never assume it did.' });
+    }
+  }
+  return out;
+}
+
 /* One conversation turn with the housekeeper, fetch-rounds included.
  * `call` is injectable for the harness; the default rides callModel.
  * Never throws. Returns {ok, raw, parsed, fetchRounds, thinking, error?}. */
@@ -2188,12 +2213,13 @@ export async function runConversation({
     let toldMalformed = false;
     /* Session history rides after the served context — newest first is NOT
      * wanted here; the talk reads in order, capped. */
-    const sessionWire = (session && Array.isArray(session.turns) ? session.turns : [])
-      .slice(-20)
-      .map((t) => ({
-        role: t.role === 'housekeeper' ? 'assistant' : 'user',
-        content: t.text,
-      }));
+    /* M81: THE MODEL SEES ITS OWN TURNS AS THEY WERE (Chat Assistant's history):
+     * a housekeeper turn rides WHOLE — the blocks it staged, not the prose with
+     * them stripped — so it knows what it proposed; and what became of every
+     * card follows as a [STATE] note, so it knows what the writer applied,
+     * skipped, refused or took back. The thinking never rides: Chat Assistant
+     * keeps it and does not send it, and DeepSeek refuses reasoning in history. */
+    const sessionWire = sessionWireOf(session);
     const wire = [
       { role: 'user', content: 'Here is the whole house as it stands:\n\n' + contextDoc },
       ...sessionWire,
