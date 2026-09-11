@@ -2702,3 +2702,26 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   wait two turns. Default cadence is 1 (Settings → the auditor → "Every how many turns"; raise
   it only to spend less). The chain grows by one cheap read per page, still off the send path.
 - 372/372 + 30/30 + 8/8 (the long play runs the auditor on all ninety pages). version.js -> m94-001.
+
+---
+
+# M95 — the house's own examples are never people (the writer found Kris Jenner in a story with no Kardashian in it)
+- ROOT CAUSE: the workers' prompts taught with concrete names — "Kendall Jenner's mother is Kris
+  Jenner; her sisters are Kim, Khloé, Kourtney and Kylie" as the real-record example, and JSON
+  vocabularies full of Mira, Mara, Samantha, Liara, Aurora, Dmitri Volkov, Rias, Jovan. A cheap
+  non-reasoning model echoes what it is shown; one of them wrote people.set "Kris Jenner" into a
+  ledger she had no business in. The writer's own preset law says it plainly: example content is
+  NOT canon; names in instruction examples are not characters. The house broke its own law.
+- THE FIX, THREE LAYERS: (1) every example name in every worker prompt (extractor, world agent,
+  auditor, scribe, founder, rebuilder, housekeeper, second reader) is a placeholder now — NAME,
+  OTHER NAME, NEW NAME, NAME SURNAME, MAIN CHARACTER — and the real-record law is taught with no
+  real family ("a public figure's mother is her real mother, by her real name"); each vocabulary
+  ends with the PLACEHOLDERS law (never write them). (2) The applier refuses any mutation naming
+  a placeholder (apply.js placeholderIn) — the lock on the door whatever a model does. (3) The
+  auditor's housekeeping sweeps the example family an older coat's prompts could have leaked
+  (Kris Jenner, Kendall Jenner, Dmitri Volkov, Aurora Sterling): their seat, standing, locks,
+  presence, page and threads are let go — unless the writer's brief or cast notes name them, in
+  which case they are the story's and stand. The writer's ledger cleans itself on the next audit.
+- M95-1 (m85.mjs) holds every worker prompt to it; m32/m35/m41/m74 updated to the placeholder
+  wording; DOM-14b waits for the drift panel to render. 373/373 + 30/30 + 8/8.
+  version.js -> m95-001.

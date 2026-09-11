@@ -24,7 +24,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
-import { applyMutations } from '../engine/apply.js';
+import { applyMutations, RETIRED_EXAMPLE_NAMES } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
 import { renderCanon } from '../engine/canon.js';
 import { renderThreads, renderKnowledge, renderFactions } from '../engine/world.js';
@@ -40,17 +40,17 @@ export const AUDIT_PAGES = 10;        /* the latest pages the auditor reads in f
 const VOCABULARY = [
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30}',
   'place.set {"type":"place.set","name":"the chapel"}',
-  'presence.enter {"type":"presence.enter","name":"Mira","position":"by the fire"} / presence.leave {"type":"presence.leave","name":"Mira"} / presence.update {"type":"presence.update","name":"Mira","position":"at the window"}',
-  'mc.set {"type":"mc.set","name":"Jovan"} — only when the ledger has no main character',
+  'presence.enter {"type":"presence.enter","name":"NAME","position":"by the fire"} / presence.leave {"type":"presence.leave","name":"NAME"} / presence.update {"type":"presence.update","name":"NAME","position":"at the window"}',
+  'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — only when the ledger has no main character',
   'mode.snapshot {"type":"mode.snapshot","flags":["socialField"]} — the moods that hold at the end of the latest page, all of them; anything not named is cleared',
-  'body.injure {"type":"body.injure","name":"Mara","what":"…","sev":1-3} / body.heal {"type":"body.heal","name":"Mara","what":"…"}',
-  'rel.shift {"type":"rel.shift","name":"Samantha","axis":"p|r|s","delta":-20..20,"cause":"the on-page beat"} / rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"}',
-  'offscreen.set {"type":"offscreen.set","name":"Aurora","location":"…","activity":"…","agenda":"…","stance":"toward|seeking|tense|busy|waiting","etaMinutes":25} / offscreen.clear {"type":"offscreen.clear","name":"Aurora"}',
-  'canon.lock {"type":"canon.lock","name":"Mira","key":"hair","value":"black"} / canon.unlock {"type":"canon.unlock","name":"Mira","key":"hair"}',
+  'body.injure {"type":"body.injure","name":"NAME","what":"…","sev":1-3} / body.heal {"type":"body.heal","name":"NAME","what":"…"}',
+  'rel.shift {"type":"rel.shift","name":"OTHER NAME","axis":"p|r|s","delta":-20..20,"cause":"the on-page beat"} / rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"}',
+  'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"toward|seeking|tense|busy|waiting","etaMinutes":25} / offscreen.clear {"type":"offscreen.clear","name":"NAME"}',
+  'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black"} / canon.unlock {"type":"canon.unlock","name":"NAME","key":"hair"}',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} / thread.close {"type":"thread.close","title":"…"}',
-  'knowledge.add {"type":"knowledge.add","name":"Liara","fact":"…"}',
+  'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"…"}',
   'faction.set {"type":"faction.set","name":"…","stance":"…","agenda":"…","move":"…"}',
-  'people.set {"type":"people.set","name":"Kris Jenner","field":"core|state|arc","text":"…"} — the main character\'s core and arc are never written',
+  'people.set {"type":"people.set","name":"NAME","field":"core|state|arc","text":"…"} — the main character\'s core and arc are never written',
 ].join('\n');
 
 function law({ mc }) {
@@ -79,7 +79,7 @@ function law({ mc }) {
     '    or the brief establish who has no seat and no page is missing (people.set, offscreen.set).',
     '  - THE PEOPLE: does each character page agree with the brief and with the pages? A wrong name,',
     '    a wrong relation, a wrong role is an error. A real person or a character from an established',
-    '    canon is written from the real record (Kendall Jenner\'s mother is Kris Jenner). Fix the page',
+    '    canon is written from the real record (a public figure\'s mother is her real mother, by name). Fix the page',
     '    (people.set with the corrected field), never invent past what the brief and the pages say.',
     '  - THE CANON: does anything locked contradict the brief? Unlock and relock it right.',
     '  - THE BODIES AND THE STANDINGS: a wound the pages show healed still open; a standing that',
@@ -124,6 +124,7 @@ function law({ mc }) {
     VOCABULARY,
     '',
     'Names keep the spelling the ledger and the pages use. No commentary, no fences: the JSON only.',
+    'PLACEHOLDERS: NAME, OTHER NAME, NEW NAME, NAME SURNAME and MAIN CHARACTER in the examples above are placeholders, never people — never write them; write only the names the ledger, the brief and the pages use.',
   ].join('\n');
 }
 
@@ -263,6 +264,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   /* M57: passers-through retire in code — no bond, no seat, no thread, no
    * lock, not present, and thirty turns since their page last moved. */
   guarded.push(...peopleHousekeeping(fresh));
+  /* M95: the house's own example names, echoed into a ledger by a worker of an
+   * older coat, are swept out unless the brief or the cast notes name them. */
+  guarded.push(...exampleLeakHousekeeping(fresh, brief, castNotes));
   /* M50: the standings, kept clean in code — no judgment anywhere here. */
   const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
   const statedByModel = await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
@@ -305,6 +309,25 @@ export function peopleHousekeeping(state) {
     if (turn - last < RETIRE_AFTER) continue;
     out.push({ type: 'people.retire', name, cause: 'no bond, no seat, no thread, and ' + (turn - last) + ' turns since their page last moved' });
   }
+  return out;
+}
+
+/* M95: a name that exists only because a worker echoed the house's example
+ * (an older coat's prompts named a real family as the "real record" example)
+ * is not a person of the story: their seat, standing, knowledge, lock and page
+ * are let go — unless the writer's brief or cast notes name them, in which
+ * case they are the story's and stand. */
+export function exampleLeakHousekeeping(state, brief = '', castNotes = '') {
+  const out = [];
+  const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
+  const leaked = (name) => RETIRED_EXAMPLE_NAMES.includes(String(name || '').trim().toLowerCase()) && !material.includes(String(name || '').trim().toLowerCase());
+  const why = 'an example name from the house\'s own instructions, never the story\'s';
+  for (const name of Object.keys(state.offscreen || {})) if (leaked(name)) out.push({ type: 'offscreen.clear', name });
+  for (const name of Object.keys(state.relationships || {})) if (leaked(name)) out.push({ type: 'rel.clear', name, cause: why });
+  for (const name of Object.keys(state.canon || {})) if (leaked(name)) for (const f of ((state.canon[name] || {}).facts || [])) out.push({ type: 'canon.unlock', name, key: f.key });
+  for (const p of (state.present || [])) if (p && leaked(p.name)) out.push({ type: 'presence.leave', name: p.name });
+  for (const [name, c] of Object.entries(state.characters || {})) if (c && !c.retired && leaked(name)) out.push({ type: 'people.retire', name, cause: why });
+  for (const t of (state.threads || [])) if (t && typeof t === 'object' && leaked(t.owner)) out.push({ type: 'thread.close', title: t.title });
   return out;
 }
 

@@ -51,7 +51,7 @@ test('M32-3 the header line is the clock’s truth for the extractor; a person n
   const s2 = buildExtractorMessages({ state: settled, userText: 'u', assistantText: 'a' });
   assert(/bracketed header line/.test(s2.system) && /clock\.set when the date or hour differs/.test(s2.system));
   const w = buildWorldMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
-  assert(/my sister Kim would laugh/.test(w.system) && /from that line on, Kim exists/.test(w.system));
+  assert(/my sister NAME would laugh/.test(w.system) && /from that line on, that sister exists/.test(w.system)); /* M95: placeholders, never a name */
 });
 
 test('M32-4 the colour switch exists, is wired, and the theme carries both colours', () => {

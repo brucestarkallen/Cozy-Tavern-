@@ -36,7 +36,7 @@ test('M74-2 the prompt teaches <brief>, the whole ledger vocabulary, fetch by na
   const src = hk();
   const prompt = src.slice(src.indexOf('const SYSTEM_PROMPT = ['), src.indexOf('].join(\'\\n\');', src.indexOf('const SYSTEM_PROMPT = [')));
   const says = (w) => prompt.includes(w) || prompt.includes(w.replace(/"/g, '\\"'));
-  for (const want of ['<brief>[ ... ]</brief>', '"field":"brief","find"', '"field":"cast","text"', 'append', 'mc.set {name}', 'place.set {name}', 'thread.set', 'knowledge.add', 'faction.set', 'people.set {name,field:core|state|arc|threads,text}', 'people.note {name,field:thread|unthread,text}', 'people.retire', 'rule: The Prose', 'lore: Aurora', 'NOTHING HAPPENS IN PROSE', 'ANSWER FROM EVIDENCE, NOT PREVIEWS', 'REPORT THE SWEEP, do not promise it', 'A guess from a preview is a hallucination']) assert(says(want), 'the prompt says: ' + want);
+  for (const want of ['<brief>[ ... ]</brief>', '"field":"brief","find"', '"field":"cast","text"', 'append', 'mc.set {name}', 'place.set {name}', 'thread.set', 'knowledge.add', 'faction.set', 'people.set {name,field:core|state|arc|threads,text}', 'people.note {name,field:thread|unthread,text}', 'people.retire', 'rule: The Prose', 'lore: NAME', 'NOTHING HAPPENS IN PROSE', 'ANSWER FROM EVIDENCE, NOT PREVIEWS', 'REPORT THE SWEEP, do not promise it', 'A guess from a preview is a hallucination']) assert(says(want), 'the prompt says: ' + want);
   assert(/Never write \\?"done\\?", \\?"updated\\?", \\?"fixed\\?"/.test(prompt), 'the claim law');
   assert(/There is no surface you are told to keep\s*',\s*'that you cannot see above or fetch/.test(prompt), 'every surface it must keep is visible or fetchable');
 });

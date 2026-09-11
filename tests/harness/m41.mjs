@@ -15,7 +15,8 @@ test('M41-1 the auditor sees all of it, in the order of authority, and reads ans
   s.characters = { Kim: { core: 'the mother' } };
   s.offscreen = { Kris: { location: 'the office', activity: 'on a call' } };
   const p = buildAuditorMessages({ state: s, brief: 'Jovan dates Kendall Jenner.', castNotes: 'Liara — oldest friend', record: '[Day 1] Jovan sat', pages: [{ role: 'user', text: 'u' }, { role: 'assistant', text: 'STORY page' }] });
-  for (const k of ['1. THE BRIEF', '2. THE PAGES', '3. THE RECORD', 'THE HOUR AND THE GROUND', 'WHO IS HERE', 'THE ABSENT', 'THE PEOPLE', 'THE CANON', 'THE THREADS', 'WHO KNOWS WHAT', 'Kris Jenner']) assert(p.system.includes(k), 'law: ' + k);
+  for (const k of ['1. THE BRIEF', '2. THE PAGES', '3. THE RECORD', 'THE HOUR AND THE GROUND', 'WHO IS HERE', 'THE ABSENT', 'THE PEOPLE', 'THE CANON', 'THE THREADS', 'WHO KNOWS WHAT', 'PLACEHOLDERS: NAME']) assert(p.system.includes(k), 'law: ' + k);
+  assert(!/Kris Jenner|Kendall/.test(p.system), 'no real family as an example in the law (M95)');
   assert(/The main character is Jovan\./.test(p.system));
   assert(p.user.includes('Jovan dates Kendall Jenner.') && p.user.includes('Kim — core: the mother') && p.user.includes('Kris — the office') && p.user.includes('[Day 1] Jovan sat') && p.user.includes('STORY: STORY page'));
   const r = parseAuditorAnswer('```json\n{"issues":[{"what":"Kim is written as the mother; the brief says Kris","fix":"Kris Jenner is the mother","mutations":[{"type":"people.set","name":"Kim","field":"core","text":"Kendall’s sister"},]},{"what":"the pages contradict the brief about the date","fix":"","mutations":[]}]}\n```');

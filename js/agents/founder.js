@@ -33,14 +33,14 @@ import { mcName } from '../engine/duels.js';
 const MAX_TOKENS = 6000;
 
 const VOCABULARY = [
-  'mc.set {"type":"mc.set","name":"Jovan"} — the main character, when the brief makes it plain and the ledger does not know',
-  'people.set {"type":"people.set","name":"Aurora","field":"core","text":"Jovan\'s childhood friend; lives next door; ex-idol; reads rooms performatively"} — one core per named person the brief, the cast notes, the cards or the lore establish (never the main character\'s core or arc); field "arc" for how they stand with the main character when stated; field "state" for where they are in their life now when stated',
-  'rel.set {"type":"rel.set","name":"Aurora","p":40,"r":25,"s":10,"cause":"the brief says Aurora has loved Jovan since school"} — a standing is how a person stands TOWARD THE MAIN CHARACTER and nothing else (AXIS LOCK): only when the brief states a bond or history between that person and the main character, and the cause names the main character. A person who has never met the main character has no standing (zero, no line). Feelings toward ANYONE ELSE (a crush on Rias, a grudge against Kris) are NOT standings — they go in that person\'s page (core or arc) as words',
-  'canon.lock {"type":"canon.lock","name":"Aurora","key":"hair","value":"black, waist-length"} — the five canonical features (hair, eyes, build, height, skin tone) and scars when stated; one lock per fact',
+  'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — the main character, when the brief makes it plain and the ledger does not know',
+  'people.set {"type":"people.set","name":"NAME","field":"core","text":"the main character\'s childhood friend; lives next door; ex-idol; reads rooms performatively"} — one core per named person the brief, the cast notes, the cards or the lore establish (never the main character\'s core or arc); field "arc" for how they stand with the main character when stated; field "state" for where they are in their life now when stated',
+  'rel.set {"type":"rel.set","name":"NAME","p":40,"r":25,"s":10,"cause":"the brief says NAME has loved MAIN CHARACTER since school"} — a standing is how a person stands TOWARD THE MAIN CHARACTER and nothing else (AXIS LOCK): only when the brief states a bond or history between that person and the main character, and the cause names the main character. A person who has never met the main character has no standing (zero, no line). Feelings toward ANYONE ELSE (a crush on NAME, a grudge against NAME) are NOT standings — they go in that person\'s page (core or arc) as words',
+  'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black, waist-length"} — the five canonical features (hair, eyes, build, height, skin tone) and scars when stated; one lock per fact',
   'faction.set {"type":"faction.set","name":"the studio","stance":"…","agenda":"…"} — every group the brief gives a stance or an agenda',
-  'offscreen.set {"type":"offscreen.set","name":"Kris","location":"…","activity":"…","agenda":"…","stance":"waiting|toward|seeking|tense|busy"} — where the brief places a named person who is NOT in the opening scene',
+  'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"waiting|toward|seeking|tense|busy"} — where the brief places a named person who is NOT in the opening scene',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} — the premise\'s live agendas: who wants what, pushing toward the main character',
-  'knowledge.add {"type":"knowledge.add","name":"Aurora","fact":"…"} — what the brief says a person KNOWS (a secret they hold, a thing they witnessed) — and nothing the brief seals from them',
+  'knowledge.add {"type":"knowledge.add","name":"NAME","fact":"…"} — what the brief says a person KNOWS (a secret they hold, a thing they witnessed) — and nothing the brief seals from them',
 ].join('\n');
 
 /* M46: the scene is the extractor's. The founder founds the WORLD — never the
@@ -83,6 +83,7 @@ function law({ mc }) {
     VOCABULARY,
     '',
     'Names keep the spelling the material uses. No commentary, no fences: the JSON only.',
+    'PLACEHOLDERS: NAME, OTHER NAME, NEW NAME, NAME SURNAME and MAIN CHARACTER in the examples above are placeholders, never people — never write them; write only the names the ledger, the brief and the pages use.',
   ].join('\n');
 }
 
@@ -194,15 +195,15 @@ export function buildStatedStandingsMessages({ brief = '', castNotes = '', mc = 
     'Below is the writer\'s brief and cast notes. Find every place the writer STATES a standing in digits',
     '— shapes like "(P:65 R:30 S:5)" or "P:65, R:30, S:5" — and say WHOSE stance it is and TOWARD WHOM.',
     'Read the structure the way a person would: a block usually opens with a person\'s name, then lines',
-    'about them; a line like "→ Jovan: … (P:65 R:30 S:5)" inside Aurora\'s block is AURORA\'s stance toward',
-    'Jovan; a line like "→ Claire: … (P:60 R:0 S:0)" in the same block is Aurora\'s stance toward Claire —',
+    'about them; a line like "→ MAIN CHARACTER: … (P:65 R:30 S:5)" inside NAME\'s block is NAME\'s stance toward',
+    'MAIN CHARACTER; a line like "→ Claire: … (P:60 R:0 S:0)" in the same block is NAME\'s stance toward Claire —',
     'NOT toward the main character, so leave it out. "CORE:", "ARC:", "NOTES:" are section labels, never',
     'people. A family, a school, a faction is not a person. Output ONLY stances toward the main character.',
     '',
     'THE BRIEF:', String(brief || '').slice(0, 14000) || '(none)',
     '', 'THE CAST NOTES:', String(castNotes || '').slice(0, 8000) || '(none)',
     '',
-    'Answer with JSON ONLY: {"standings":[{"name":"Aurora Sterling","p":65,"r":30,"s":5}]} — the person\'s full',
+    'Answer with JSON ONLY: {"standings":[{"name":"NAME SURNAME","p":65,"r":30,"s":5}]} — the person\'s full',
     'name as the brief writes it; an empty list if the writer states none.',
   ].join('\n');
   return { system: STATED_SYSTEM, user };

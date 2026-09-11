@@ -1022,9 +1022,9 @@ test('DOM-14b the second reader mends a drifted page by the smallest edit, and t
   eq(page.mended.before, 'Liara looked at Kim, who was not her mother.\n\nThe booth was quiet.');
   /* M43: no chip on the page; the earlier words are a tap away in the drawer */
   assert(!q(`.msg[data-id="${page.id}"] .msg-act.mended`), 'no chip on the page');
-  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await tick(400);
-  const back = qa('#drawer-panels button').find((b) => /Put the earlier words back/.test(b.textContent));
-  assert(back, 'the take-back lives in Something drifted');
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer');
+  /* the panel re-renders on the ledger's notify; on a loaded machine that lands after a fixed tick */
+  const back = await until(() => qa('#drawer-panels button').find((b) => /Put the earlier words back/.test(b.textContent)), 'the take-back lives in Something drifted', 10000);
   click(back);
   await until(async () => { const m = (await db.messages.list(sid)).find((x) => x.id === page.id); return m && !m.mended && /Kim/.test(m.text); }, 'the earlier words back');
   click(q('#btn-ledger'));

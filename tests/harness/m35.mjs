@@ -91,8 +91,9 @@ test('M35-4 the second reader’s findings carry a fix on a warn; the house mend
 
 test('M35-5 a person by relation exists; a real person’s relations and core come from the real record', () => {
   const w = buildWorldMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
-  assert(/referred to only by[\s\S]*RELATION[\s\S]*"your mother" said to Kendall/.test(w.system), 'relation references');
-  assert(/THE REAL RECORD/.test(w.system) && /Kris Jenner/.test(w.system) && /Never rename a real person/.test(w.system), 'the real record');
+  assert(/referred to only by[\s\S]*RELATION[\s\S]*"your mother" said to a known person/.test(w.system), 'relation references');
+  assert(/THE REAL RECORD/.test(w.system) && /her real mother, by her real name/.test(w.system) && /Never rename a real person/.test(w.system), 'the real record — taught without a real family as the example (M95)');
+  assert(!/Kris Jenner|Kendall|Kardashian/.test(w.system), 'no real family in the law');
   const sc = buildScribeMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
   assert(/REAL RECORD/.test(sc.system), 'the scribe writes real people from the record');
 });

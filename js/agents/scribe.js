@@ -40,7 +40,7 @@ const SYSTEM_PROMPT = [
   'Answer with JSON ONLY, in exactly this shape:',
   '{"deltas":[ ... ]}',
   '',
-  'Each delta is {"name":"Mira","field":"state","text":"…"} where field is one of:',
+  'Each delta is {"name":"NAME","field":"state","text":"…"} where field is one of:',
   '  core   — their stable nature: voice, tells, what never really changes.',
   '           Write it rarely, only when the prose truly shows it.',
   '  state  — where they are and how they are doing, RIGHT NOW. Lead with',
@@ -87,6 +87,7 @@ const SYSTEM_PROMPT = [
   '    prose uses.',
   '',
   'No commentary, no markdown fences: the JSON object only.',
+  'PLACEHOLDERS: NAME, OTHER NAME, NEW NAME, NAME SURNAME and MAIN CHARACTER in the examples above are placeholders, never people — never write them; write only the names the ledger, the brief and the pages use.',
 ].join('\n');
 
 /* Exported for the harness: the two messages any provider flavor receives. */

@@ -100,21 +100,21 @@ export async function pendingExtraction(storyId, timeoutMs = 5000) {
 /* ---------- the prompt (human-voiced, kept in the code) ---------- */
 
 const VOCABULARY = [
-  'mc.set {"type":"mc.set","name":"Jovan"} — ONLY when the ledger does not yet know the main character: the one person the writer plays or narrates as their own',
+  'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — ONLY when the ledger does not yet know the main character: the one person the writer plays or narrates as their own',
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — only when the prose states or clearly fixes the time',
   'place.set {"type":"place.set","name":"the chapel"} — the ground the scene stands on, only when first named or it truly moves',
   'clock.advance {"type":"clock.advance","minutes":30,"reason":"the walk to the chapel"} — when time clearly passes; minutes is a number',
-  'presence.enter {"type":"presence.enter","name":"Mira","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown',
-  'presence.leave {"type":"presence.leave","name":"Samantha"} — when someone clearly leaves the scene',
-  'presence.update {"type":"presence.update","name":"Mira","position":"at the window"} — when someone present moves or changes dress',
+  'presence.enter {"type":"presence.enter","name":"NAME","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown',
+  'presence.leave {"type":"presence.leave","name":"OTHER NAME"} — when someone clearly leaves the scene',
+  'presence.update {"type":"presence.update","name":"NAME","position":"at the window"} — when someone present moves or changes dress',
   'mode.snapshot {"type":"mode.snapshot","flags":["travel"]} — THE WHOLE BOARD, EVERY PAGE: every mood that holds at the END of this page, from: combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit — a car, a train, a road; NOT once they have arrived and stepped out), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several). Anything you do not name is cleared. An empty list clears them all.',
-  'body.injure {"type":"body.injure","name":"Mara","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
-  'body.strain {"type":"body.strain","name":"Mara","what":"the long climb"} — weariness short of injury, when the prose shows it',
-  'body.heal {"type":"body.heal","name":"Mara","what":"forearm"} — only when the prose says a known hurt has healed',
-  'rel.shift {"type":"rel.shift","name":"Samantha","axis":"p","delta":8,"cause":"she bandaged his hand without being asked"} — feelings toward the main character only; axis is p (warmth), r (romantic pull), or s (sensual charge); delta a small number, -20 to +20; cause REQUIRED, quoting the on-page beat that earned it',
-  'rel.set {"type":"rel.set","name":"Samantha","p":40,"cause":"the brief says they grew up together"} — rarely: only when the prose itself states where a standing starts, never as a guess',
-  'offscreen.set {"type":"offscreen.set","name":"Mira","location":"the chapel","activity":"lighting candles for the dead","agenda":"meaning to warn the abbot"} — only for a named character the prose shows leaving or shows elsewhere; never invent off-screen doings for someone the prose doesn’t mention',
-  'offscreen.clear {"type":"offscreen.clear","name":"Mira"} — when the prose says an elsewhere note no longer holds',
+  'body.injure {"type":"body.injure","name":"NAME","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
+  'body.strain {"type":"body.strain","name":"NAME","what":"the long climb"} — weariness short of injury, when the prose shows it',
+  'body.heal {"type":"body.heal","name":"NAME","what":"forearm"} — only when the prose says a known hurt has healed',
+  'rel.shift {"type":"rel.shift","name":"OTHER NAME","axis":"p","delta":8,"cause":"she bandaged his hand without being asked"} — feelings toward the main character only; axis is p (warmth), r (romantic pull), or s (sensual charge); delta a small number, -20 to +20; cause REQUIRED, quoting the on-page beat that earned it',
+  'rel.set {"type":"rel.set","name":"OTHER NAME","p":40,"cause":"the brief says they grew up together"} — rarely: only when the prose itself states where a standing starts, never as a guess',
+  'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the chapel","activity":"lighting candles for the dead","agenda":"meaning to warn the abbot"} — only for a named character the prose shows leaving or shows elsewhere; never invent off-screen doings for someone the prose doesn’t mention',
+  'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — when the prose says an elsewhere note no longer holds',
 ].join('\n');
 
 /* M53: the writer's own law of the standings, given to the reader whole — it
@@ -200,6 +200,7 @@ function systemPrompt({ mc, founding }) {
     law,
     'Names keep the exact spelling the prose uses. No commentary, no markdown fences,',
     'no trailing words: the JSON object only.',
+    'PLACEHOLDERS: NAME, OTHER NAME, NEW NAME, NAME SURNAME and MAIN CHARACTER in the examples above are placeholders, never people — never write them; write only the names the ledger, the brief and the pages use.',
   ].join('\n');
 }
 

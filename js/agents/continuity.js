@@ -41,7 +41,7 @@ const SYSTEM_PROMPT = [
   'scene — and note where the page disagrees with them.',
   '',
   'Answer with JSON ONLY, in exactly this shape:',
-  '{"findings":[{"words":"Mara’s hair is written blonde here, but it is locked black.","severity":"warn","fix":"Mara’s hair is black"}]}',
+  '{"findings":[{"words":"NAME’s hair is written blonde here, but it is locked black.","severity":"warn","fix":"NAME’s hair is black"}]}',
   '',
   'severity is "warn" when the page plainly contradicts something written down,',
   'and "note" when it merely sits awkwardly beside it. The words are one plain',

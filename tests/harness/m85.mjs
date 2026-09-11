@@ -375,3 +375,45 @@ test('M92-2 the extractor is asked again, once, when its answer forgot the mood 
   await withHouse(once, () => extractTurn({ connection: HOUSES[0].conn, state: emptyState(), userText: 'I wait.', assistantText: 'Rias sits.' }));
   eq(calls, 1, 'one ask when the board came');
 });
+
+test('M95-1 no worker prompt names a real person or a story-like example; a placeholder never becomes a person; the leaked example family is swept unless the brief names them', async () => {
+  const { readFileSync } = await import('node:fs');
+  const files = ['extractor', 'world', 'auditor', 'scribe', 'founder', 'rebuild', 'housekeeper', 'continuity'];
+  for (const f of files) {
+    const src = readFileSync(new URL('../../js/agents/' + f + '.js', import.meta.url), 'utf8');
+    const prompt = src.split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');
+    assert(!/Kris Jenner|Kendall|Kardashian|Khlo|Kourtney|Kylie|Dmitri Volkov|Aurora Sterling/.test(prompt), f + ': no real family, no old example names in the prompt text');
+    assert(!/"name":"(Mira|Mara|Samantha|Liara|Aurora|Rias|Jovan)"/.test(prompt), f + ': no story-like names in the JSON examples');
+  }
+  for (const f of ['extractor', 'world', 'auditor', 'founder', 'scribe']) {
+    const src = readFileSync(new URL('../../js/agents/' + f + '.js', import.meta.url), 'utf8');
+    assert(/PLACEHOLDERS: NAME, OTHER NAME/.test(src), f + ': the placeholder law is taught');
+  }
+  const { applyMutations, placeholderIn } = await import('../../js/engine/apply.js');
+  const { exampleLeakHousekeeping } = await import('../../js/agents/auditor.js');
+  const st = emptyState();
+  const { applied, rejected } = applyMutations(st, [
+    { type: 'people.set', name: 'NAME', field: 'core', text: 'x' },
+    { type: 'offscreen.set', name: 'Other Name', location: 'x', activity: 'y' },
+    { type: 'thread.set', title: 'NAME and the letter', owner: 'NAME', next: 'z' },
+    { type: 'presence.enter', name: 'Rias Wells' },
+  ]);
+  eq(rejected.length, 3, 'three placeholders refused: ' + rejected.map((r) => r.why).join(' | '));
+  eq(applied.length, 1, 'the real name lands');
+  eq(placeholderIn({ type: 'x', name: 'main character' }), 'main character');
+  /* the family that leaked from an older coat is swept — unless the brief names them */
+  let leaked = emptyState();
+  leaked = applyMutations(leaked, [
+    { type: 'people.set', name: 'Kris Jenner', field: 'core', text: 'the mother' },
+    { type: 'offscreen.set', name: 'Kris Jenner', location: 'Calabasas', activity: 'calling' },
+    { type: 'rel.set', name: 'Kris Jenner', p: 10, r: 0, s: 0, cause: 'x' },
+    { type: 'people.set', name: 'Rias Wells', field: 'core', text: 'the neighbour' },
+  ]).state;
+  const sweep = exampleLeakHousekeeping(leaked, 'Jovan and Rias Wells, Elm Street.', '');
+  const kinds = sweep.map((m) => m.type + ':' + m.name).sort();
+  assert(kinds.includes('offscreen.clear:Kris Jenner') && kinds.includes('rel.clear:Kris Jenner') && kinds.includes('people.retire:Kris Jenner'), 'swept: ' + kinds.join(', '));
+  assert(!sweep.some((m) => /Rias/.test(m.name)), 'the story’s own people stand');
+  eq(exampleLeakHousekeeping(leaked, 'Jovan dates Kendall Jenner; her mother Kris Jenner disapproves.', '').length, 0, 'named in the brief, she is the story’s');
+  const after = applyMutations(leaked, sweep).state;
+  assert(!after.offscreen['Kris Jenner'] && !((after.relationships['Kris Jenner'] || {}).p), 'the sweep lands through the ledger');
+});

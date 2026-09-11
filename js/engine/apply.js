@@ -831,6 +831,19 @@ const HANDLERS = {
 /* ---------- the contract ---------- */
 
 export const JOURNAL_CAP = 6000; /* M69: ~1000 turns of a busy ledger; beyond it the sparse snapshots carry the base */
+/* M95: the placeholders the workers' prompts use in their examples, and the
+ * example names of older coats that a model could still have learned to echo. */
+export const PLACEHOLDER_NAMES = ['name', 'other name', 'new name', 'name surname', 'main character', 'a public figure', 'old words', 'new words'];
+export const RETIRED_EXAMPLE_NAMES = ['kris jenner', 'kendall jenner', 'dmitri volkov', 'aurora sterling'];
+export function placeholderIn(mutation) {
+  const fields = ['name', 'owner', 'title'];
+  for (const f of fields) {
+    const v = mutation && typeof mutation[f] === 'string' ? mutation[f].trim().toLowerCase() : '';
+    if (v && PLACEHOLDER_NAMES.includes(v)) return mutation[f].trim();
+  }
+  return '';
+}
+
 export function applyMutations(state, mutations) {
   const next = copyState(state);
   const applied = [];
@@ -848,6 +861,15 @@ export function applyMutations(state, mutations) {
     const handler = HANDLERS[mutation.type];
     if (!handler) {
       rejected.push({ mutation, why: '“' + mutation.type + '” isn’t something the ledger knows how to write' });
+      continue;
+    }
+    /* M95: a placeholder from the workers' own examples is never a person.
+     * A cheap model echoes what it was shown; the writer found the house's
+     * example family in his ledger. The names in the prompts are placeholders
+     * now, and this is the lock on the door. */
+    const echoed = placeholderIn(mutation);
+    if (echoed) {
+      rejected.push({ mutation, why: '“' + echoed + '” is a placeholder from the house’s own examples, never a person' });
       continue;
     }
     const result = handler(next, mutation);

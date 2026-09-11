@@ -64,13 +64,13 @@ export const WORLD_TYPES = new Set([
 ]);
 
 const VOCABULARY = [
-  'offscreen.set {"type":"offscreen.set","name":"Aurora","location":"the 6:10 train, two stops out","activity":"reading his letter again","agenda":"confront him about it tonight","stance":"toward","etaMinutes":25} — where an ABSENT named person is RIGHT NOW at the hour on the clock, what they are doing, what they want next; stance is one of ' + STANCES.join(', ') + ' (toward = moving toward the main character, seeking = searching for them, tense = unresolved tension with them, busy = taken up with someone else, waiting = holding, want still nameable); etaMinutes = minutes until they reach the main character, ONLY when stance is toward or seeking',
-  'offscreen.clear {"type":"offscreen.clear","name":"Aurora"} — when an elsewhere note no longer holds (she has arrived and the page shows it, or the thread is closed)',
-  'thread.set {"type":"thread.set","title":"Aurora and the letter","owner":"Aurora","heat":"hot","next":"corner him before Liara leaves"} — a live agenda pushing toward the main character; heat hot|cold; next = what the owner will DO',
-  'thread.close {"type":"thread.close","title":"Aurora and the letter"} — when it is resolved for good',
-  'knowledge.add {"type":"knowledge.add","name":"Liara","fact":"saw Jovan leave the letter unread"} — one thing one person witnessed or was told, from THIS page; never what they might guess',
+  'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the 6:10 train, two stops out","activity":"reading his letter again","agenda":"confront him about it tonight","stance":"toward","etaMinutes":25} — where an ABSENT named person is RIGHT NOW at the hour on the clock, what they are doing, what they want next; stance is one of ' + STANCES.join(', ') + ' (toward = moving toward the main character, seeking = searching for them, tense = unresolved tension with them, busy = taken up with someone else, waiting = holding, want still nameable); etaMinutes = minutes until they reach the main character, ONLY when stance is toward or seeking',
+  'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — when an elsewhere note no longer holds (she has arrived and the page shows it, or the thread is closed)',
+  'thread.set {"type":"thread.set","title":"NAME and the letter","owner":"NAME","heat":"hot","next":"corner him before OTHER NAME leaves"} — a live agenda pushing toward the main character; heat hot|cold; next = what the owner will DO',
+  'thread.close {"type":"thread.close","title":"NAME and the letter"} — when it is resolved for good',
+  'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"saw MAIN CHARACTER leave the letter unread"} — one thing one person witnessed or was told, from THIS page; never what they might guess',
   'faction.set {"type":"faction.set","name":"the studio","stance":"quietly furious","agenda":"bury the story before Monday","move":"sent a lawyer to the hotel"} — a faction moves only on cause; move = what it just did',
-  'people.set {"type":"people.set","name":"Dmitri Volkov","field":"core","text":"Jovan\'s manager; forty, sleepless, keeps three phones; loyal to the money first"} — ONLY for a NEW named person the world needs (a role that must be filled), their one-line core; then seat them with offscreen.set',
+  'people.set {"type":"people.set","name":"NEW NAME","field":"core","text":"the main character\'s manager; forty, sleepless, keeps three phones; loyal to the money first"} — ONLY for a NEW named person the world needs (a role that must be filled), their one-line core; then seat them with offscreen.set',
 ].join('\n');
 
 function law({ mc, clockWords }) {
@@ -108,13 +108,13 @@ function law({ mc, clockWords }) {
     'that the main character must pay, and never that he must not.',
     '',
     'THE ABSENT. Every named person not in the scene has a life — including one the page only names in',
-    'passing ("my sister Kim would laugh if she saw us"): from that line on, Kim exists; give her a',
+    'passing ("my sister NAME would laugh if she saw us"): from that line on, that sister exists; give her a',
     'one-line core with people.set and seat her somewhere with a want. A person referred to only by',
-    'RELATION to someone known — "your mother" said to Kendall, "his manager", "her ex" — exists from',
+    'RELATION to someone known — "your mother" said to a known person, "his manager", "her ex" — exists from',
     'that line on exactly the same way: name them and seat them. THE REAL RECORD: when the anchor is a',
     'real person or a character from an established canon (a public figure, a franchise), the relation',
-    'is filled from the real record, not invented — Kendall Jenner\'s mother is Kris Jenner; her sisters',
-    'are Kim, Khloé, Kourtney and Kylie — and a real person\'s core is drawn from their public record',
+    'is filled from the real record, not invented — a public figure\'s mother is her real mother, by her real name; her siblings',
+    'are her real siblings — and a real person\'s core is drawn from their public record',
     '(role, family, known history and traits). Never rename a real person, never give them a made-up',
     'relative where the record has one; invent only where the record is silent. For each absent person the ledger',
     'or the pages know: where are they RIGHT NOW at this hour, what are they doing, what do they WANT next. An agenda',
@@ -200,6 +200,7 @@ function law({ mc, clockWords }) {
     VOCABULARY,
     '',
     'Names keep the spelling the ledger uses. No commentary, no fences: the JSON object only.',
+    'PLACEHOLDERS: NAME, OTHER NAME, NEW NAME, NAME SURNAME and MAIN CHARACTER in the examples above are placeholders, never people — never write them; write only the names the ledger, the brief and the pages use.',
   ].join('\n');
 }
 
