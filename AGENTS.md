@@ -2773,3 +2773,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   Settings for whoever wants the housekeeper to think against its wire.
 - findability (M18) and m75 updated to the new laws; LONG-5 reads the voices in the drawer.
   373/373 + 30/30 + 8/8. version.js -> m97-001.
+
+# M98 — the world reaches the scene by phone too; the friend an absent person talks to exists
+- FIELD REPORT: "can a character on the ledger move to my MC or call his phone? can it introduce
+  new NPCs when ledger NPCs talk to friends?" Moving toward the scene was already the world
+  agent's (stance toward, an ETA on the clock; proven in the long play). A CALL, a TEXT or a NOTE
+  from an absent person with a live want is now named among the pressures (who, by what channel,
+  what they want; the storyteller renders the screen or the voice — readable media); a person
+  need not walk to the scene to reach it. And the someone an absent person talks to off the page
+  — in a window or a voice — exists from then on: named, cored, seated. M98-1. 374/374.
+  version.js -> m98-001.
