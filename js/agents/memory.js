@@ -585,12 +585,74 @@ export function memoryForWindow(mem, verbatimStart) {
   return { ...mem, nodes };
 }
 
-async function audit(connection, storyId, node, sourceText, signal) {
+/* M111: THE HARD TOKENS — what a summary loses most disastrously and what code
+ * can check without a model: the NAMES on the pages (people the ledger knows,
+ * and any capitalized word that recurs) and the NUMBERS (counts, times, money,
+ * distances). A line and its detail that hold none of a name or a number
+ * the pages held have lost it; the auditor is asked once more with the list
+ * in hand, and whatever it still leaves out is written beneath the line in
+ * code. A battle plan keeps its forty men and its three o'clock; a court its
+ * titles and its names. */
+export function hardTokens(passage, knownNames = []) {
+  const text = String(passage || '');
+  const names = new Set();
+  const known = (Array.isArray(knownNames) ? knownNames : []).map((n) => String(n || '').trim()).filter((n) => n.length >= 2);
+  for (const n of known) if (new RegExp('(?<![\\p{L}])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'u').test(text)) names.add(n);
+  const counts = new Map();
+  for (const m of text.matchAll(/(?<![.!?]\s|^|"|\n)\b(\p{Lu}[\p{Ll}'’-]{2,})\b/gmu)) counts.set(m[1], (counts.get(m[1]) || 0) + 1);
+  const STOP = new Set(['The', 'She', 'He', 'They', 'And', 'But', 'Then', 'When', 'His', 'Her', 'Their', 'You', 'Your', 'Not', 'For', 'With', 'That', 'This', 'There', 'What', 'Where', 'Who', 'How', 'Why', 'Yes', 'No', 'Now', 'Still', 'Just', 'Even', 'Only', 'Story', 'Player', 'Detail', 'Fine', 'Okay', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
+  for (const [w, c] of counts) if (c >= 2 && !STOP.has(w)) names.add(w);
+  const numbers = new Set();
+  for (const m of text.matchAll(/\b(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+)(\s*(?:%|am|pm|a\.m\.|p\.m\.|o\'clock|men|soldiers|riders|ships|guards|gold|coins|dollars|euros|yen|minutes|hours|days|weeks|months|years|km|miles|metres|meters|feet|rounds|shots))?\b/gi)) {
+    const whole = (m[1] + (m[2] || '')).replace(/\s+/g, ' ').trim();
+    if (/^(19|20)\d\d$/.test(m[1]) && !m[2]) continue; /* a year in a header is not a count */
+    if (!m[2] && Number(String(m[1]).replace(/[.,]/g, '')) < 10) continue; /* a bare single digit is noise — a line number, a page */
+    numbers.add(whole);
+  }
+  return { names: [...names], numbers: [...numbers] };
+}
+export function lossCheck(passage, lineText, detailText, knownNames = []) {
+  const { names, numbers } = hardTokens(passage, knownNames);
+  const kept = (String(lineText || '') + '\n' + String(detailText || '')).toLowerCase();
+  const missingNames = names.filter((n) => !kept.includes(n.toLowerCase()) && !kept.includes(n.toLowerCase().split(' ')[0]));
+  const missingNumbers = numbers.filter((n) => !kept.includes(n.toLowerCase().split(' ')[0]));
+  return { missingNames, missingNumbers };
+}
+
+/* the people the ledger knows — the names the loss check must never let go */
+async function knownNamesOf(storyId) {
+  try {
+    const st = await db.settings.get('state:' + storyId);
+    if (!st) return [];
+    return [...new Set([
+      ...(st.present || []).map((p) => p && p.name), ...Object.keys(st.characters || {}), ...Object.keys(st.offscreen || {}),
+      ...Object.keys(st.relationships || {}), ...Object.keys(st.canon || {}), st.sheet && st.sheet.playerName,
+    ].filter(Boolean))];
+  } catch (err) { return []; }
+}
+
+async function audit(connection, storyId, node, sourceText, signal, knownNames = []) {
   try {
     const signature = nodeSignature(node);
     const auditRaw = await callKeeper(connection, buildAuditMessages(sourceText, node.text), signal);
-    const detail = parseAuditAnswer(auditRaw);
+    let detail = parseAuditAnswer(auditRaw);
+    /* M111: the hard tokens, checked in code; one sharper ask; the rest written beneath */
+    let loss = lossCheck(sourceText, node.text, detail, knownNames);
+    if (loss.missingNames.length || loss.missingNumbers.length) {
+      const second = buildAuditMessages(sourceText, node.text + (detail ? '\n• Detail worth keeping: ' + detail : ''));
+      second.user += '\n\nThese from the pages appear in neither the line nor its detail: ' + [...loss.missingNames.map((n) => 'the name ' + n), ...loss.missingNumbers.map((n) => 'the figure ' + n)].join('; ') + '. Return DETAIL with every one that a storyteller would need, and what each was (who, what count, when).';
+      try {
+        const again = parseAuditAnswer(await callKeeper(connection, second, signal));
+        if (again && !(detail && detail.toLowerCase().includes(again.toLowerCase()))) detail = detail ? detail + '; ' + again : again;
+      } catch (err) { /* the code writes the rest */ }
+      loss = lossCheck(sourceText, node.text, detail, knownNames);
+      const rest = [];
+      if (loss.missingNames.length) rest.push('also named: ' + loss.missingNames.slice(0, 8).join(', '));
+      if (loss.missingNumbers.length) rest.push('figures: ' + loss.missingNumbers.slice(0, 8).join(', '));
+      if (rest.length) detail = (detail ? detail + '; ' : '') + rest.join('; ');
+    }
     if (!detail) return;
+    if (detail.length > 480) detail = detail.slice(0, 479).trimEnd() + '…';
     const current = await loadMemory(storyId);
     if (nodeUnmoved(current.nodes, node.id, signature)) {
       const standing = current.nodes.find((n) => n && n.id === node.id);
@@ -656,7 +718,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       const passage = passageOf(pages, playerName);
       const recordBefore = recordFor({ nodes: mem.nodes.filter((n) => n.id !== node.id) });
       await verify(connection, storyId, node, passage, recordBefore, playerName, signal, onSourceIssue);
-      await audit(connection, storyId, node, passage, signal);
+      await audit(connection, storyId, node, passage, signal, await knownNamesOf(storyId));
     }
     mem = await loadMemory(storyId);
     mem.window = window;
@@ -699,7 +761,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     mem.nodes.push(merged);
     changed = true;
     await saveMemory(storyId, mem);
-    await audit(connection, storyId, merged, toMerge.map((node) => node.text).join('\n\n'), signal);
+    await audit(connection, storyId, merged, toMerge.map((node) => node.text).join('\n\n'), signal, await knownNamesOf(storyId));
     mem = await loadMemory(storyId);
     mem.window = window;
   }

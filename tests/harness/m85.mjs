@@ -558,3 +558,18 @@ test('M110-1 the auditor reads answered turns only — a trailing writer\'s page
   const m = buildAuditorMessages({ state: emptyState(), brief: '', castNotes: '', record: '', pages: [{ role: 'assistant', text: 'b' }] });
   assert(/A PLAYER page states what the main character ATTEMPTS/.test(m.system) && /Never write a fact from a PLAYER page alone/.test(m.system), 'the attempt law');
 });
+
+test('M111-1 the hard tokens: a record line that lost a name or a figure the pages held is caught in code, whatever the model said', async () => {
+  const { hardTokens, lossCheck } = await import('../../js/agents/memory.js');
+  const passage = 'PLAYER (Jovan): I lay out the plan.\n\nSTORY: Captain Reyes counted forty men and set the strike for 3am at the north gate; Reyes would take the wall himself, and Mira the gate. Duke Aldric promised 200 gold if the gate fell by dawn. Reyes nodded.';
+  const t = hardTokens(passage, ['Jovan', 'Mira']);
+  assert(t.names.includes('Reyes') && t.names.includes('Mira') && t.names.includes('Jovan'), 'the names: ' + t.names.join(','));
+  assert(t.numbers.some((n) => /^3\s*am$/i.test(n)) && t.numbers.some((n) => /^200 gold$/i.test(n)), 'the figures: ' + t.numbers.join(','));
+  const gist = 'Jovan laid out a plan with Reyes to strike the north gate before dawn; the duke offered a reward.';
+  const loss = lossCheck(passage, gist, '', ['Jovan', 'Mira']);
+  assert(loss.missingNames.includes('Mira'), 'Mira lost: ' + JSON.stringify(loss));
+  assert(loss.missingNumbers.some((n) => /3\s*am/i.test(n)) && loss.missingNumbers.some((n) => /200/.test(n)), 'the hour and the gold lost: ' + JSON.stringify(loss));
+  const full = lossCheck(passage, gist, 'Mira takes the gate; strike at 3am; 40 men; 200 gold if the gate falls by dawn', ['Jovan', 'Mira']);
+  eq(full.missingNames.length + full.missingNumbers.length, 0, 'with the detail beneath, nothing is lost: ' + JSON.stringify(full));
+  assert(!t.numbers.includes('2025'), 'a year is not a figure');
+});

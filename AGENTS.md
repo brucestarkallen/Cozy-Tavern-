@@ -2947,3 +2947,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   extractor and the world agent already run per answered turn; the keeper folds only pages
   below the window (always answered).
 - M110-1. 378/378. version.js -> m110-001.
+
+# M111 — the hard tokens: a record line that lost a name or a figure is caught in code
+- FIELD QUESTION: "does the summary have a solution for a page with a detailed battle strategy
+  or political business — Summaryception has a second reader for lost detail." It does, ported
+  whole (M12: the detail auditor — NONE or one DETAIL line beneath each record line, verified
+  line-by-line against its passage). Now it has a floor no model can drop below: after the
+  auditor answers, code lists the passage's HARD TOKENS — every name the ledger knows that the
+  pages hold, every capitalized word that recurs, every figure with a unit (forty men, 3am,
+  200 gold, 40 minutes; years and bare single digits excluded) — and checks the line and its
+  detail for each. Anything missing earns one sharper ask with the list in hand; whatever the
+  auditor still leaves out is written beneath the line in code ("also named: …; figures: …").
+  The detail's cap rose to 480 characters. Runs on every new line and every merge.
+- M111-1. 379/379 + 33/33 + 8/8. version.js -> m111-001.
