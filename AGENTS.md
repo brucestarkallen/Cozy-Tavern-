@@ -3049,3 +3049,12 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   page as it is, fetch it whole, re-propose with the exact find, or say plainly why the page is
   already right. The writer never checks twice.
 - M119-1. 384/384 + 34/34 + 8/8. version.js -> m119-001.
+
+# M120 — the page written inside the thinking
+- FIELD REPORT: sometimes the model writes the whole story turn inside its thinking block and
+  answers with nothing. That is the model on that provider — but the house defends: a page whose
+  body is under 160 characters while the thinking runs past 400 is asked again ONCE, with one
+  plain line on the last message (the page is the answer, outside the thinking); if it does it
+  again, the house salvages the page-shaped tail of the thinking (from its last header line)
+  so the story goes on, and a toast names the cause and the remedy (another model or endpoint).
+- M120-1. 385/385 + 34/34 + 8/8. version.js -> m120-001.

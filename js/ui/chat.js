@@ -2595,9 +2595,17 @@ export function initChat(ctx) {
       let finishReason = null;
       let streamSources = null; // M22-C: the search's findings
       try {
+        /* M120: a model that wrote its page inside the thinking and left the
+         * answer empty is asked once more with one plain line on the last
+         * message — the page is the answer, the thinking is not the page. */
+        const wireMessages = generateArgs.thoughtRetried && messages.length
+          ? messages.map((m, i) => (i === messages.length - 1 && m.role === 'user'
+            ? { ...m, content: (typeof m.content === 'string' ? m.content : String(m.content || '')) + '\n\n[The house: your last attempt put the whole page inside your thinking and answered with nothing. Think briefly if you must, then WRITE THE PAGE AS YOUR ANSWER — the header line and the prose — outside the thinking.]' }
+            : m))
+          : messages;
         const result = await provider.streamChat({
           systemBlocks,
-          messages,
+          messages: wireMessages,
           signal: abort.signal,
           onToken({ channel, text }) {
             /* M22-C: the note channel — a provider's live word ("Searching
@@ -2703,6 +2711,26 @@ export function initChat(ctx) {
         return generate({ ...generateArgs, leakRetried: true });
       }
       if (leakedControl) toast('The provider leaked control tokens into the page; the words before them were kept.');
+
+      /* M120: the page came back inside the thinking. Once: ask again with
+       * the plain line. Twice: salvage the page-shaped tail of the thinking
+       * (from its last header line) so the story goes on, and say so. */
+      const bodyLen = full.replace(/^\[[^\]\n]*\]\s*/, '').trim().length;
+      if (!stoppedByHand && !cutShort && bodyLen < 160 && thinking && thinking.trim().length > 400) {
+        if (!generateArgs.thoughtRetried) {
+          pending.replaceWith(noteNode('The storyteller wrote the page inside its thinking and answered with nothing — asking again.'));
+          return generate({ ...generateArgs, thoughtRetried: true });
+        }
+        const lines = thinking.split('\n');
+        let at = -1;
+        for (let i = lines.length - 1; i >= 0; i -= 1) if (/^\s*\[[^\]\n]{6,}\]\s*$/.test(lines[i])) { at = i; break; }
+        const salvaged = at !== -1 ? lines.slice(at).join('\n').trim() : '';
+        if (salvaged.replace(/^\[[^\]\n]*\]\s*/, '').trim().length >= 160) {
+          full = salvaged;
+          thinking = '';
+          toast('The storyteller kept writing inside its thinking; the house took the page from there. This model on this provider does that — worth another model or endpoint.');
+        }
+      }
 
       if (full.trim()) {
         landed = true;

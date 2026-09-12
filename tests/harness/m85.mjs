@@ -622,3 +622,10 @@ test('M119-1 the eye names a glitch character from another script; a loose ancho
   const ui = (await import('node:fs')).readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
   assert(/landed on a loose anchor and the words it meant to change are still on the page/.test(ui), 'the house re-asks once');
 });
+
+test('M120-1 a page written inside the thinking is asked again once with the plain line, then salvaged from the thinking’s last header', async () => {
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/thoughtRetried: true/.test(src) && /WRITE THE PAGE AS YOUR ANSWER/.test(src), 'the re-ask and its line');
+  assert(/const salvaged = at !== -1 \? lines\.slice\(at\)\.join/.test(src), 'the salvage from the last header line');
+  assert(src.indexOf('const wireMessages = generateArgs.thoughtRetried') < src.indexOf('messages: wireMessages'), 'the nudged messages ride the wire');
+});
