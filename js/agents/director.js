@@ -49,6 +49,19 @@ const PAGE_CAP = 3000;
 /* Strip the episode-end mark from finished prose. Returns {text, ended} —
  * the mark never reaches the saved page, and ended tells chat.js to run
  * the closing rituals. */
+/* M117: CONTROL TOKENS ON THE WIRE. Some providers let the model's own
+ * control tokens (<|open|>, <|sep|>, <|close|>, <|im_end|>, <|eot_id|>) and a
+ * tool-call shape (antmlThinking) leak into the content as text. The story is
+ * whatever came before the first one; the rest is never a page. Returns the
+ * cleaned text and whether anything leaked. */
+export const CONTROL_TOKEN = /<\|[a-zA-Z_][a-zA-Z0-9_]{0,31}\|>/;
+export function stripControlLeak(text) {
+  const str = String(text || '');
+  const m = str.match(CONTROL_TOKEN);
+  if (!m) return { text: str, leaked: false };
+  return { text: str.slice(0, m.index).replace(/\s+$/, ''), leaked: true };
+}
+
 export function stripEpisodeEnd(text) {
   const s = String(text == null ? '' : text);
   if (!/\[EPISODE_END\]/i.test(s)) return { text: s, ended: false };

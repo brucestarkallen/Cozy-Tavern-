@@ -587,3 +587,14 @@ test('M116-1 a rule\'s heading never rides the page; the window is written once;
   const src = (await import('node:fs')).readFileSync(new URL('../../js/assemble/modules.js', import.meta.url), 'utf8');
   assert(/never write "The Window Beyond the Page" or any title/.test(src) && /Write it ONCE and only once/.test(src), 'the rule says once, and never its own heading');
 });
+
+test('M117-1 control tokens leaked into the content end the page at the first one', async () => {
+  const { stripControlLeak } = await import('../../js/agents/director.js');
+  const leaked = '[X — Friday | 14:20]\n\nShe sat down. "Fine," she said.<|open|>tools<|sep|><|open|>call tool="antmlThinking" index="1"<|sep|>Delivering the story turn now.<|close|>message<|sep|>';
+  const r = stripControlLeak(leaked);
+  assert(r.leaked && /she said\.$/.test(r.text) && !/<\|/.test(r.text), JSON.stringify(r));
+  const clean = stripControlLeak('She sat down. "a < b | c > d," she said.');
+  assert(!clean.leaked, 'angle brackets and pipes in prose are not control tokens');
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/leakedControl = true;/.test(src) && /leakRetried: true/.test(src), 'the page ends at the leak and an emptied page is asked again once');
+});

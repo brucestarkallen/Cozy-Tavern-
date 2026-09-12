@@ -84,8 +84,7 @@ import { EFFORT_RANK } from '../providers/effort.js';
  * ever asked. The imports ARE the fix; the M15 no-ghost-calls harness law
  * keeps the class from returning. */
 import {
-  stripEpisodeEnd, loadDirector, maybeAutoDirector, afterEpisodeEnd, renderDirectorNote,
-} from '../agents/director.js';
+  stripEpisodeEnd, loadDirector, maybeAutoDirector, afterEpisodeEnd, renderDirectorNote, stripControlLeak } from '../agents/director.js';
 import { loadEditor, maybeRunEditor, renderEditorNote } from '../agents/editor.js';
 import { VERSION } from '../version.js';
 
@@ -2330,6 +2329,7 @@ export function initChat(ctx) {
    * opts.continueId — the hidden "Go on." user page this turn answers
    *                    (the nudge fires from it; it never renders) */
   async function generate(opts = {}) {
+    const generateArgs = opts; /* M117: carried for the one re-ask a leak earns */
     const { directive = '', ooc = false, swipeTarget = null, replayAfter = false } = opts;
     let receipt = null;
     let landed = false; /* M40: true once a page (or a version) was written */
@@ -2337,6 +2337,7 @@ export function initChat(ctx) {
      * assigned below but never declared — a second ReferenceError waiting
      * behind the missing imports). */
     let episodeEnded = false;
+    let leakedControl = false; /* M117: the provider let control tokens through */
     try {
       const story = await activeStory();
       if (!story) return;
@@ -2632,6 +2633,15 @@ export function initChat(ctx) {
         /* M10: [EPISODE_END] marks a natural close; the mark is stripped
          * from the prose BEFORE the page is saved, and the closing rituals
          * run in the background after. */
+        /* M117: a provider that leaks the model's control tokens into the
+         * content ends the page at the first one; the leak is named on the
+         * page's receipt, and a page left with nothing is answered again
+         * once, by the house, not the writer's hand. */
+        const leak = stripControlLeak(full);
+        if (leak.leaked) {
+          full = leak.text;
+          leakedControl = true;
+        }
         const episodeMark = stripEpisodeEnd(full);
         if (episodeMark.ended) {
           episodeEnded = true;
@@ -2668,6 +2678,15 @@ export function initChat(ctx) {
       const cutShort = !stoppedByHand
         && typeof finishReason === 'string'
         && /max_tokens|length/i.test(finishReason);
+
+      /* M117: a page the leak left near-empty is answered again once, by the
+       * house — the same prompt, a fresh stream — before anything is saved.
+       * A second leak lands what came before it, with a note on the page. */
+      if (leakedControl && full.replace(/^\[[^\]\n]*\]\s*/, '').trim().length < 160 && !stoppedByHand && !generateArgs.leakRetried) {
+        pending.replaceWith(noteNode('The provider let control tokens through and the page came back empty — asking again.'));
+        return generate({ ...generateArgs, leakRetried: true });
+      }
+      if (leakedControl) toast('The provider leaked control tokens into the page; the words before them were kept.');
 
       if (full.trim()) {
         landed = true;

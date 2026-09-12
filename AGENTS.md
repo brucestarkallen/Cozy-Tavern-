@@ -3012,3 +3012,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the door; the eye warns when a page holds two windows or the rule's title, and the next turn
   recolors. The M30/M31 shelf counts follow the new builtin.
 - M116-1. 381/381 + 34/34 + 8/8. version.js -> m116-001.
+
+# M117 — control tokens leaked into the page
+- FIELD REPORT: the model's own control tokens and a tool-call shape (<|open|>tools<|sep|>…
+  antmlThinking …<|close|>message) arrived in the content as text after the thinking. That is
+  the provider's chat template leaking, not the house — but the house defends: the page ends at
+  the first control token (director.js stripControlLeak, CONTROL_TOKEN = <|name|>); a page the
+  leak left near-empty is asked again once by the house before anything is saved; a page with
+  words before the leak keeps them and a toast names the leak. Prose with < | > in it is not a
+  control token.
+- M117-1. 382/382 + 34/34 + 8/8. version.js -> m117-001.
