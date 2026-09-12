@@ -3184,3 +3184,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   seat>" in place of the older line, and a recall card on the wire carries the seat, never the
   scribe's stale state.
 - M130-1. 392/392 + 35/35 + 8/8. version.js -> m130-001.
+
+# M131 — the ownership audit: every fact one writer, every second writer a named guard
+- FIELD DEMAND: "check the whole ledger for any stupidity." The last day's bugs were all one
+  kind — two writers with a claim on the same fact. The ledger was walked fact by fact:
+  the moment (presence position, wardrobe, mood) — the extractor only; the auditor cannot land
+  it (M128). The now of an absent person — the world agent's seat; the scribe writes state for
+  the present only (M130). The ground and the hour — the header line, in code, and the
+  extractor's own place/clock never override it (M131). A window's people — elsewhere (M129).
+  Standings — earned on the page; the auditor restores, never lowers (M48). Seats — a life in
+  code (M103). The record — the keeper writes; the verifier, the detail auditor, the hard-token
+  check, the housekeeper and the ripple edit it in place. Loose ends on a character page that
+  repeat a world thread the person owns are shown once, as the thread. An unanswered writer's
+  page is an attempt (M110). M131-1 holds all of it as a standing check.
+- 393/393 + 35/35 + 8/8. version.js -> m131-001.

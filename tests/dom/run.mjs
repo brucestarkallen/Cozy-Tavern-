@@ -91,7 +91,7 @@ test('DOM-2 a turn: send → the storyteller answers → the ledger is founded �
   assert(userPages().length === 1 && !/#story/.test(bodyText(userPages()[0])), 'the command word never reaches the page');
   await until(async () => (await db.settings.get('state:' + sid) || {}).place, 'the ledger to be founded', 10000);
   const st = await db.settings.get('state:' + sid);
-  eq(st.place.name, 'McDonald’s');
+  eq(st.place.name, 'Lakeside Park'); /* M131: the header line is the truth for the ground, over the extractor’s own place.set */
   eq(st.sheet.playerName, 'Jovan');
   eq(st.present.length, 2);
   await until(async () => (await db.settings.get('state:' + sid) || {}).worldBrief, 'the world’s word', 10000);

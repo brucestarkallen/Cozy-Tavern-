@@ -946,7 +946,10 @@ function onTheirMindPanel(ctx) {
       line('Now: ', entry.state);
       line('Between you: ', entry.arc);
       if (Array.isArray(entry.threads) && entry.threads.length) {
-        line('Loose ends: ', entry.threads.join('; '));
+        /* M131: a loose end that repeats a world thread this person owns is shown once — as the thread */
+        const owned = (state.threads || []).filter((t) => t && t.owner && String(t.owner).toLowerCase() === name.toLowerCase()).map((t) => String((t.title || '') + ' ' + (t.next || '')).toLowerCase());
+        const ends = entry.threads.filter((le) => !owned.some((o) => { const a = String(le).toLowerCase().split(/\W+/).filter((w) => w.length > 3); const hit = a.filter((w) => o.includes(w)).length; return a.length >= 4 && hit / a.length >= 0.6; }));
+        if (ends.length) line('Loose ends: ', ends.join('; '));
       }
       ledgerList.appendChild(li);
     }

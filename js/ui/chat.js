@@ -1864,7 +1864,10 @@ export function initChat(ctx) {
         const first = n.split(/\s+/)[0];
         return !scenePart.includes(n) && !(first.length >= 3 && new RegExp('(?<![\\p{L}])' + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'u').test(scenePart));
       };
-      const list = [...fromHeader, ...(Array.isArray(mutations) ? mutations : [])].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
+      /* M131: the header is the truth for the ground and the hour — the extractor's own
+       * place.set / clock.set never override what the header line said */
+      const headerHas = new Set(fromHeader.map((m) => m.type));
+      const list = [...fromHeader, ...(Array.isArray(mutations) ? mutations : []).filter((m) => !(m && headerHas.has(m.type)))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
 
       /* Re-load at apply time — the ledger may have been touched by hand
        * while the worker was reading. */

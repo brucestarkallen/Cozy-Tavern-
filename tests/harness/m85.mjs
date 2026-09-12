@@ -734,3 +734,28 @@ test('M130-1 one now per person: the scribe never writes state for a seated abse
   const text = typeof out === 'string' ? out : JSON.stringify(out);
   assert(/the sedan, Mariner’s Lane/.test(text) && !/leaning on the hedge/.test(text), 'the seat is her now on the wire: ' + text.slice(0, 300));
 });
+
+test('M131-1 OWNERSHIP OF THE LEDGER: every fact has one writer; every second writer is a named guard, never a rival', async () => {
+  const fs = await import('node:fs');
+  const read = (f) => fs.readFileSync(new URL('../../js/agents/' + f + '.js', import.meta.url), 'utf8');
+  const chat = fs.readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  const ex = read('extractor'); const world = read('world'); const scribe = read('scribe'); const aud = read('auditor');
+  /* the moment (presence position, wardrobe, mood) — the extractor only */
+  assert(/mode\.snapshot/.test(ex) && !/mode\.snapshot/.test(world) && !/mode\.snapshot/.test(scribe), 'the mood board is the extractor’s');
+  assert(/MOMENT_TYPES = new Set\(\['mode\.snapshot', 'presence\.set', 'people\.note'\]\)/.test(aud), 'the auditor never lands the moment');
+  /* the now of an absent person — the world agent’s seat; the scribe writes state for the present only */
+  assert(/seated\.has\(String\(d\.name/.test(scribe), 'the scribe drops state for the seated absent');
+  /* the ground and the hour — the header, in code, over the extractor’s own guess */
+  assert(/headerHas\.has\(m\.type\)/.test(chat), 'the header wins over the extractor’s place/clock');
+  /* people in a window — never present */
+  assert(/onlyInWindow\(m\.name\)/.test(chat), 'a window’s people are elsewhere');
+  /* standings — earned on the page; the auditor may restore, never lower on judgment */
+  assert(/Lowering is what you may not do/.test(aud), 'the standings guard');
+  /* who keeps a seat — code (M103); the world agent is told the same */
+  assert(/export function seatHousekeeping/.test(aud) && /A SEAT IS FOR SOMEONE THE SCENE COULD STILL MEET/.test(world), 'seats have a life in code and in law');
+  /* the record — the keeper writes; verifier, detail auditor, hard tokens, housekeeper, ripple edit in place */
+  const mem = read('memory');
+  assert(/export function hardTokens/.test(mem) && /export function addCorrection/.test(mem), 'the record’s guards');
+  /* the auditor reads answered turns only */
+  assert(/export function answeredOnly/.test(aud), 'an unanswered writer’s page is an attempt');
+});
