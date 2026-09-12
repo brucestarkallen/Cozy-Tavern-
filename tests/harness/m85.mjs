@@ -573,3 +573,17 @@ test('M111-1 the hard tokens: a record line that lost a name or a figure the pag
   eq(full.missingNames.length + full.missingNumbers.length, 0, 'with the detail beneath, nothing is lost: ' + JSON.stringify(full));
   assert(!t.numbers.includes('2025'), 'a year is not a figure');
 });
+
+test('M116-1 a rule\'s heading never rides the page; the window is written once; the eye warns on a doubled window', async () => {
+  const { applyRules, BUILTIN_RULES } = await import('../../js/regex.js');
+  const rule = BUILTIN_RULES.find((r) => r.id === 'builtin-rule-headings');
+  const page = 'prose\n\n*** The World Beyond ***\n[The house — Thursday, 11:26]\nShe read it.\n\nThe Window Beyond the Page\n\n[The house — Thursday, 11:26]\nShe read it again.';
+  const out = applyRules(page, [rule], { on: 'storyteller', mode: 'page' });
+  assert(!/Window Beyond/.test(out) && /World Beyond/.test(out), 'the heading goes, the window stays: ' + out);
+  const { lintPage } = await import('../../js/agents/lint.js');
+  const r = lintPage({ assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\n' + page, userText: 'x' });
+  assert(r.findings.some((f) => /written twice/.test(f.words) && f.severity === 'warn'), JSON.stringify(r.findings));
+  const { buildModulesText } = await import('../../js/assemble/modules.js').catch(() => ({}));
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/assemble/modules.js', import.meta.url), 'utf8');
+  assert(/never write "The Window Beyond the Page" or any title/.test(src) && /Write it ONCE and only once/.test(src), 'the rule says once, and never its own heading');
+});

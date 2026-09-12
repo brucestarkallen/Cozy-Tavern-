@@ -109,6 +109,13 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
     const hits = ACCORD_TELLS.filter((t) => lower.includes(t));
     if (hits.length) push(hits.length >= 2 ? 'warn' : 'note', 'The World Does Not Bend', 'Accord tells: ' + hits.map((h) => '“' + h + '”').join(', ') + ' — agreement and praise are earned by a CORE and a beat, never given.');
   }
+  /* M116: the same window twice on one page */
+  {
+    const windows = (page.match(/\*\*\* The World Beyond \*\*\*/g) || []).length;
+    const plainHeaders = (page.match(/^\s*\[[^\]\n]+ — [^\]\n]+\]\s*$/gm) || []).length;
+    if (windows >= 2 || /The Window Beyond [Tt]he Page/.test(page)) push('warn', 'The Window Beyond The Page', 'The window was written twice (or titled after the rule) — one window, in the exact form, and nothing follows it.');
+    else if (windows === 1 && plainHeaders >= 3) push('note', 'The Window Beyond The Page', 'More than one [Location — Day, Time] line beyond the header — a window is one cut, not two.');
+  }
   for (const word of BANNED_WORDS) {
     if (new RegExp('\\b' + word + '\\b', 'i').test(page)) push('note', 'Banned Words', `The dead modifier "${word}" is on the page.`);
   }

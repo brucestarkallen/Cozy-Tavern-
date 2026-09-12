@@ -3002,3 +3002,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   cards; "What it said, whole" below it is the same reply raw, blocks included, for the eye —
   a fold on the page, never a second copy on the wire; the model is handed each past answer
   once, whole, per M81.) version.js -> m115-001.
+
+# M116 — the window written twice, once under the rule's own heading
+- FIELD REPORT: two windows on one page — the dressed *** The World Beyond *** one, then a plain
+  copy titled "The Window Beyond the Page" with slightly different lines. The storyteller took
+  the window rule's heading (## The Window Beyond The Page) for a page format and wrote the
+  window a second time under it. Three fixes: the rule says ONCE and only once and names its own
+  heading as never-on-the-page; a page rule (builtin-rule-headings) strips a rule's heading at
+  the door; the eye warns when a page holds two windows or the rule's title, and the next turn
+  recolors. The M30/M31 shelf counts follow the new builtin.
+- M116-1. 381/381 + 34/34 + 8/8. version.js -> m116-001.

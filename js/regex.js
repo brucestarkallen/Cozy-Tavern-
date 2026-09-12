@@ -89,6 +89,18 @@ const HOUSE_RULES = [
     note: '{PULSE}…{/PULSE}, {WATCHLIST}…{/WATCHLIST} and {VOICES}…{/VOICES} — state the ledger keeps and voices the world agent writes (M97: read in the drawer, never on the page). A storyteller that writes them is copying old pages; they are taken off at the door.',
   },
   {
+    id: 'builtin-rule-headings',
+    name: 'A rule’s heading on the page',
+    find: '^[ \\t]*#{0,6}[ \\t]*(?:The Window Beyond [Tt]he Page|The craft|When the scene turns intimate|When words won’t carry it)[ \\t]*\\n?',
+    flags: 'gm',
+    replace: '',
+    on: 'storyteller',
+    mode: 'page',
+    enabled: true,
+    builtin: true,
+    note: 'M116: a storyteller that copies a rule’s own heading onto the page (a second window titled "The Window Beyond the Page") loses the heading at the door; the eye warns on the duplicate and the next turn recolors.',
+  },
+  {
     id: 'builtin-tracker-blocks-wire',
     name: 'The state blocks, off the wire',
     find: '\\n*\\{(PULSE|WATCHLIST|VOICES)\\}[\\s\\S]*?\\{\\/\\1\\}\\s*',
