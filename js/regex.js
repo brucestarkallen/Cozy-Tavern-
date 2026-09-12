@@ -89,6 +89,18 @@ const HOUSE_RULES = [
     note: '{PULSE}…{/PULSE}, {WATCHLIST}…{/WATCHLIST} and {VOICES}…{/VOICES} — state the ledger keeps and voices the world agent writes (M97: read in the drawer, never on the page). A storyteller that writes them is copying old pages; they are taken off at the door.',
   },
   {
+    id: 'builtin-bold-marks',
+    name: 'Bold marks off the page',
+    find: '(?<!\\*)\\*\\*(?!\\*)([^*\\n]{1,200}?)(?<!\\*)\\*\\*(?!\\*)',
+    flags: 'g',
+    replace: '$1',
+    on: 'storyteller',
+    mode: 'page',
+    enabled: true,
+    builtin: true,
+    note: 'M129: **bold** in the prose is a mark on the page (the craft forbids it); the words stay, the marks go, at the door.',
+  },
+  {
     id: 'builtin-rule-headings',
     name: 'A rule’s heading on the page',
     find: '^[ \\t]*#{0,6}[ \\t]*(?:The Window Beyond [Tt]he Page|The craft|When the scene turns intimate|When words won’t carry it)[ \\t]*\\n?',

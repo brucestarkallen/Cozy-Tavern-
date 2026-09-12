@@ -54,7 +54,11 @@ const SYSTEM_PROMPT = [
   'and minds; those are story, not drift. THE SCENE LEDGER IS THE MOMENT BEFORE',
   'THIS PAGE: posture, position, what a hand holds, what is on or off a foot,',
   'where someone stands — a page that changes those is the story moving, and',
-  'you never report it. Drift is against what LASTS: the locked truths (hair,',
+  'you never report it. ABSENCE IS NEVER DRIFT: a fact the ledgers do not hold —',
+  'a kinship, a nickname, a history no lock names — is not contradicted by',
+  'anything; "the ledger never establishes it" is not a finding. Drift needs a',
+  'WRITTEN fact (a lock, the brief, a standing seat) that DISAGREES with the page.',
+  'Drift is against what LASTS: the locked truths (hair,',
   'eyes, age, name, kin, origin, a scar), a person present who the ledger says',
   'is elsewhere with no arrival on the page, a wound the ledger holds open',
   'written as if it never was.',
@@ -84,7 +88,7 @@ const SYSTEM_PROMPT = [
 /* Exported for the harness: the two messages any provider flavor receives.
  * The check reads ALL canon (not only who's present — a locked truth about
  * someone off-page still binds the page that speaks of them). */
-export function buildContinuityMessages({ state, assistantText }) {
+export function buildContinuityMessages({ state, assistantText, brief = '' }) {
   const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
   const canon = state && state.canon && typeof state.canon === 'object'
     ? renderCanon(state.canon, Object.keys(state.canon))
@@ -93,6 +97,7 @@ export function buildContinuityMessages({ state, assistantText }) {
     'What is locked true of them:',
     canon || 'Nothing is locked yet.',
     '',
+    ...(String(brief || '').trim() ? ['The writer\'s brief — what the writer set down; it COUNTS AS WRITTEN (a kinship, a home, an age here needs no lock):', String(brief).trim().slice(0, 4000), ''] : []),
     'What the ledgers said of the scene BEFORE this page (the moment as it stood; a body this',
     'page moves, a posture it changes, a thing it takes off or picks up, is the story moving —',
     'never drift):',
@@ -152,10 +157,10 @@ export function parseContinuityAnswer(raw) {
 /* Read one finished page against canon and the ledgers. M28: a transport
  * failure THROWS so the queue retries with backoff; a garbled answer is
  * {findings:[]}. A missing connection or an empty page: {findings:[]}. */
-export async function checkTurn({ connection, state, assistantText, signal } = {}) {
+export async function checkTurn({ connection, state, assistantText, signal, brief = '' } = {}) {
   if (!connection || typeof connection !== 'object') return { findings: [] };
   if (!assistantText || !String(assistantText).trim()) return { findings: [] };
-  const prompt = buildContinuityMessages({ state, assistantText });
+  const prompt = buildContinuityMessages({ state, assistantText, brief });
   const { text } = await callWorker(connection, {
     system: prompt.system,
     user: prompt.user,

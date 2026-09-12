@@ -703,3 +703,17 @@ test('M128-1 the header’s ground and hour land in code; the auditor’s scope 
   eq(kept.map((i) => i.what).join(','), 'a real one,new seat', JSON.stringify(kept));
   eq(kept[0].mutations.length, 1, 'the moment stripped out of a real issue');
 });
+
+test('M129-1 a person who appears only inside the window is never seated present; the second reader holds the brief as written and never calls absence drift; bold marks leave at the door', async () => {
+  const { buildContinuityMessages } = await import('../../js/agents/continuity.js');
+  const m = buildContinuityMessages({ state: emptyState(), assistantText: 'x', brief: 'Rias Wells is Jovan’s older sister.' });
+  assert(/COUNTS AS WRITTEN/.test(m.user) && /older sister/.test(m.user), 'the brief rides');
+  assert(/ABSENCE IS NEVER DRIFT/.test(m.system), 'absence law');
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/onlyInWindow\(m\.name\)/.test(src) && /indexOf\('\*\*\* The World Beyond \*\*\*'\)/.test(src), 'a presence.enter for a window-only name is refused in code');
+  const ex = (await import('node:fs')).readFileSync(new URL('../../js/agents/extractor.js', import.meta.url), 'utf8');
+  assert(/A WINDOW IS ELSEWHERE/.test(ex), 'and the extractor is told');
+  const { applyRules, BUILTIN_RULES } = await import('../../js/regex.js');
+  const r = BUILTIN_RULES.find((x) => x.id === 'builtin-bold-marks');
+  eq(applyRules('**Bold** and *** The World Beyond *** and *tok*', [r], { on: 'storyteller', mode: 'page' }), 'Bold and *** The World Beyond *** and *tok*');
+});

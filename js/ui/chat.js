@@ -1850,7 +1850,21 @@ export function initChat(ctx) {
        * extractor's own writes — the same stamp, the same journal, the same
        * take-back — whatever the model remembered to write */
       const fromHeader = (msg.role === 'assistant' && !msg.ooc) ? headerMutations(pageText(msg)) : [];
-      const list = [...fromHeader, ...(Array.isArray(mutations) ? mutations : [])];
+      /* M129: a person who appears ONLY inside the page's window (*** The World
+       * Beyond ***) is elsewhere by definition — a presence.enter for them is
+       * refused here, whatever the model wrote (the window about Chloe's
+       * kitchen had seated Chloe in the scene) */
+      const pageWhole = pageText(msg);
+      const cutAt = pageWhole.indexOf('*** The World Beyond ***');
+      const scenePart = (cutAt === -1 ? pageWhole : pageWhole.slice(0, cutAt)).toLowerCase();
+      const onlyInWindow = (name) => {
+        if (cutAt === -1) return false;
+        const n = String(name || '').trim().toLowerCase();
+        if (!n) return false;
+        const first = n.split(/\s+/)[0];
+        return !scenePart.includes(n) && !(first.length >= 3 && new RegExp('(?<![\\p{L}])' + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'u').test(scenePart));
+      };
+      const list = [...fromHeader, ...(Array.isArray(mutations) ? mutations : [])].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
 
       /* Re-load at apply time — the ledger may have been touched by hand
        * while the worker was reading. */
@@ -2001,6 +2015,7 @@ export function initChat(ctx) {
         state: fresh,
         assistantText: pageText(msg),
         signal,
+        brief: String((story && story.brief) || '') + (story && story.castNotes ? '\n\n' + story.castNotes : ''), /* M129: the brief counts as written */
       });
       const list = Array.isArray(findings) ? findings : [];
       if (stale()) return { silent: true };

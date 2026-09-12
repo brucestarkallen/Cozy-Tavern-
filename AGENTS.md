@@ -3158,3 +3158,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   has no page by design; (3) "Copy all of this" on Something drifted, so the writer can carry
   the panel's words out whole.
 - M128-1. 390/390 + 35/35 + 8/8. version.js -> m128-001.
+
+# M129 — a window's people are elsewhere; absence is never drift; bold marks leave at the door
+- FIELD REPORTS from the storyteller's own thinking and the drift panel: (1) "Here right now"
+  listed Chloe Maxwell while the story-state had her "at the Maxwell kitchen" — the extractor
+  had seated a person who appeared only inside the page's *** The World Beyond *** window. The
+  extractor's law now says a window is elsewhere; and in code, a presence.enter for a name that
+  occurs only after the window marker is refused. (2) The second reader mended "my little
+  brother" out of a page because "the locked truths never establish that Jovan is her brother"
+  — the brief did, and the reader never saw it. It is handed the brief and the cast notes (they
+  COUNT AS WRITTEN), and its law says ABSENCE IS NEVER DRIFT: drift needs a written fact that
+  disagrees, never a fact the ledger lacks. (3) **bold** in prose is stripped at the door (the
+  words stay); the window's triple asterisks are untouched.
+- M129-1. 391/391 + 35/35 + 8/8. version.js -> m129-001.

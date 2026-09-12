@@ -200,6 +200,9 @@ function systemPrompt({ mc, founding }) {
     law,
     'Names keep the exact spelling the prose uses. No commentary, no markdown fences,',
     'no trailing words: the JSON object only.',
+    'A WINDOW IS ELSEWHERE: everything after a line reading *** The World Beyond *** is a cut to',
+    'another place — the people in it are NOT in the scene. Never presence.enter them; the world',
+    'agent seats them. Only the prose BEFORE the window is the scene.',
     'PLACEHOLDERS: NAME, OTHER NAME, NEW NAME, NAME SURNAME and MAIN CHARACTER in the examples above are placeholders, never people — never write them; write only the names the ledger, the brief and the pages use.',
   ].join('\n');
 }
