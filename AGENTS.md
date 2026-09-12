@@ -2981,3 +2981,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   Off the send path; the workers' line shows what landed. DOM-6c holds both cases and the
   store's consistency after them.
 - 380/380 + 34/34 + 8/8. version.js -> m113-001.
+
+# M114 — words the reader can select; a long story opens at its tail at once
+- FIELD REPORTS: (1) nothing could be highlighted or copied by long press — on the pages, the
+  house's long-press menu raced the native selection and won (a 550ms timer and a contextmenu
+  preventDefault), and M105's resize left `user-select: none` on the BODY while a drag ran,
+  which a missed touchend could leave stuck over everything, the composer included. Now a long
+  press on a page is the reader's (the action row holds copy/edit/branch/read again/delete; the
+  menu stays for a mouse's right click), and the resize's no-select covers only the shelf and
+  the handle. (2) A 4–6 second start on a long story: every page was dressed (29 rules, a
+  sanitizer) before the room showed. Now a story of more than seventy pages draws its last forty
+  at once and lands the earlier ones above in chunks of thirty on idle ticks, the reader's place
+  held; a newer render cancels the chunks. Small stories and the walk are unchanged.
+- 380/380 + 34/34 + 8/8. version.js -> m114-001.

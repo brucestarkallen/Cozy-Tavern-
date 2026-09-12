@@ -1183,6 +1183,7 @@ export function initChat(ctx) {
    * ADDED to what is already on screen, the new ones simply append. A
    * structural change (another story, an edit, a swipe, a delete, a
    * thinking-voice toggle) rebuilds. */
+  let structuralRenderToken = 0;
   async function renderThread({ structural = false } = {}) {
     const story = await activeStory();
     const showThinking = (await db.settings.get('showThinking')) !== false;
@@ -1225,8 +1226,33 @@ export function initChat(ctx) {
       els.thread.textContent = '';
       /* M14: a story with no pages yet still gets the hearth, not a void. */
       if (!visible.length) showHearth(false);
-      for (const msg of visible) {
+      /* M114: a long story opens at its tail at once — the last TAIL_FIRST
+       * pages are drawn now, the earlier ones in quiet chunks above them
+       * (each page's dress is 29 rules and a sanitizer; 200 pages at once
+       * held the door for five seconds). A newer render cancels the chunks. */
+      const TAIL_FIRST = 40;
+      const CHUNK = 30;
+      const token = ++structuralRenderToken;
+      const first = visible.length > TAIL_FIRST + CHUNK ? visible.length - TAIL_FIRST : 0;
+      for (let i = first; i < visible.length; i += 1) {
+        const msg = visible[i];
         els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn }));
+      }
+      if (first > 0) {
+        let end = first;
+        const step = () => {
+          if (token !== structuralRenderToken || !els.thread.isConnected) return;
+          const start = Math.max(0, end - CHUNK);
+          const frag = document.createDocumentFragment();
+          for (let i = start; i < end; i += 1) frag.appendChild(msgNode(visible[i], showThinking, { isLastAssistant: false, mastheadOn }));
+          const scroller = els.thread;
+          const beforeH = scroller.scrollHeight;
+          els.thread.insertBefore(frag, els.thread.firstChild);
+          scroller.scrollTop += scroller.scrollHeight - beforeH; /* the reader's place holds while pages land above */
+          end = start;
+          if (end > 0) setTimeout(step, 0);
+        };
+        setTimeout(step, 0);
       }
     } else {
       /* Pages arriving onto a hearth-warmed room: the hearth steps aside. */
@@ -3483,6 +3509,11 @@ export function initChat(ctx) {
   els.thread.addEventListener('contextmenu', (e) => {
     const msg = e.target.closest('.msg');
     if (!msg || !msg.dataset.id) return;
+    /* M114: on a touch screen a long press IS the reader's way to select and
+     * copy words; the house never takes it (the action row under every page
+     * already holds copy, edit, branch, read again, delete). The menu stays
+     * for a mouse's right click. */
+    if (isTouch()) return;
     e.preventDefault();
     showMenu(e.clientX, e.clientY, msg.dataset.id);
   });
@@ -3499,19 +3530,9 @@ export function initChat(ctx) {
     }
   });
 
-  els.thread.addEventListener('touchstart', (e) => {
-    const msg = e.target.closest('.msg');
-    if (!msg || !msg.dataset.id) return;
-    const touch = e.touches[0];
-    const id = msg.dataset.id;
-    pressTimer = setTimeout(() => showMenu(touch.clientX, touch.clientY, id), 550);
-  }, { passive: true });
-
-  for (const evt of ['touchmove', 'touchend', 'touchcancel']) {
-    els.thread.addEventListener(evt, () => {
-      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
-    }, { passive: true });
-  }
+  /* M114: no long-press timer on the pages — it raced the native selection
+   * and won, so nothing on a page could be highlighted or copied. */
+  void pressTimer;
 
   document.addEventListener('click', (e) => {
     if (!els.menu.hidden && !els.menu.contains(e.target)) hideMenu();

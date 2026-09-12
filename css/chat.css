@@ -215,7 +215,8 @@
 }
 .panel-resize:hover::before, body.panel-resizing .panel-resize::before { background: var(--ember); height: 64px; }
 @media (pointer: coarse) { .panel-resize { width: 26px; } .panel-resize::before { width: 4px; height: 56px; background: var(--muted); } }
-body.panel-resizing { cursor: col-resize; user-select: none; }
+body.panel-resizing { cursor: col-resize; }
+body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-select: none; } /* M114: never the whole body — a stuck class froze every selection */
 .story-item { min-width: 0; }
 .story-item .story-preview, .story-item .story-title { overflow: hidden; text-overflow: ellipsis; }
 
