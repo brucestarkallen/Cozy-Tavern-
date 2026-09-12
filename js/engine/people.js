@@ -397,7 +397,15 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0 } = {}
   const offScene = keys.filter((k) => !presentKeys.includes(k) && !isMc(state, k));
   const recalled = offScene.filter((k) => namedIn(recentPages, k)).slice(0, RECALL_MAX);
   if (recalled.length) {
-    const cards = recalled.map((k) => cardText(k, characters[k], turn, RECALL_CARD_CAP));
+    /* M130: a recalled person who has a seat is where the seat says — the
+     * scribe's older 'state' never rides beside the world agent's word */
+    const seatOf = (k) => { const key = Object.keys(state.offscreen || {}).find((o) => o.toLowerCase() === k.toLowerCase()); return key ? state.offscreen[key] : null; };
+    const cards = recalled.map((k) => {
+      const seat = seatOf(k);
+      if (!seat) return cardText(k, characters[k], turn, RECALL_CARD_CAP);
+      const entry = { ...characters[k], state: [seat.location, seat.activity].filter(Boolean).join(', ') || characters[k].state, updatedAtTurn: turn };
+      return cardText(k, entry, turn, RECALL_CARD_CAP);
+    });
     sections.push({
       shed: 2,
       text: 'Named, though not in the scene right now:\n' + cards.join('\n\n'),

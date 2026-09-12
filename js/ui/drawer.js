@@ -1513,7 +1513,19 @@ function peoplePanel(ctx) {
       carry.className = 'quiet carry-line';
       carry.textContent = why ? 'Carried by: ' + why + '.' : 'Nothing carries them yet — no bond, no thread, not on the way, not named in the last ' + SEAT_MENTION_PAGES + ' pages; a passer-through unless the story returns to them.';
       li.appendChild(carry);
+      /* M130: one now per person — a seated absent person's "Now" is the seat
+       * (the world agent's word); the scribe's older state line is not shown
+       * beside it */
+      const seatKey = state.offscreen && Object.keys(state.offscreen).find((k) => k.toLowerCase() === name.toLowerCase());
+      const seatNow = seatKey && !present.has(name.toLowerCase()) ? (() => { const sn = state.offscreen[seatKey] || {}; return [sn.location, sn.activity].filter(Boolean).join(', ') + (sn.agenda ? ' (meaning to ' + sn.agenda + ')' : ''); })() : '';
       for (const [label, key] of [['Core', 'core'], ['Now', 'state'], ['Arc', 'arc']]) {
+        if (key === 'state' && seatNow) {
+          const p = document.createElement('div');
+          p.className = 'quiet';
+          p.textContent = 'Now (elsewhere): ' + seatNow;
+          li.appendChild(p);
+          continue;
+        }
         if (typeof c[key] === 'string' && c[key].trim()) {
           const p = document.createElement('div');
           p.className = 'quiet';

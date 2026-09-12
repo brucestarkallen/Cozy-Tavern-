@@ -45,6 +45,10 @@ const SYSTEM_PROMPT = [
   '           Write it rarely, only when the prose truly shows it.',
   '  state  — where they are and how they are doing, RIGHT NOW. Lead with',
   '           the place. Rewrite it when they move or their condition turns.',
+  '           ONLY for people IN THE SCENE. A person who is elsewhere has a',
+  '           seat the world agent keeps — that seat is their now; never',
+  '           write state for the absent (two writers, two nows, and the',
+  '           writer read a contradiction).',
   '  arc    — how they stand with the main character, and WHY it moved.',
   '  A real person or a character from an established canon is written from the REAL RECORD —',
   '  their true name, family, role and known history — never a made-up version; invent only',
@@ -182,7 +186,12 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   /* M72: every delta is a journaled write (people.note) — the fold used to
    * lose the scribe's pages because they were merged past the journal. The
    * merge laws are the applier's now (engine/apply.js → mergeDeltas). */
-  const { state: next, applied, rejected } = applyMutations(fresh, deltas.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
+  /* M130: one writer per now — a 'state' line for a person who is elsewhere
+   * (seated by the world agent, not present) is dropped; the seat is their now */
+  const present = new Set((fresh.present || []).map((p) => String((p && p.name) || '').trim().toLowerCase()));
+  const seated = new Set(Object.keys(fresh.offscreen || {}).map((k) => k.trim().toLowerCase()));
+  const kept = deltas.filter((d) => !(d && d.field === 'state' && !present.has(String(d.name || '').trim().toLowerCase()) && seated.has(String(d.name || '').trim().toLowerCase())));
+  const { state: next, applied, rejected } = applyMutations(fresh, kept.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
   const dropped = rejected.map((r) => ({ delta: r.mutation, why: r.why }));
   if (!changes.length) return { changes, dropped };

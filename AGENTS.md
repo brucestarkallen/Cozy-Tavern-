@@ -3171,3 +3171,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   disagrees, never a fact the ledger lacks. (3) **bold** in prose is stripped at the door (the
   words stay); the window's triple asterisks are untouched.
 - M129-1. 391/391 + 35/35 + 8/8. version.js -> m129-001.
+
+# M130 — one now per person (the scribe's page vs the world agent's seat)
+- FIELD REPORT: the character page said Rias was "on the sedan's hood, one hand raised in a
+  lazy farewell" and Vanessa "leaning on the hedge, phone in hand"; the elsewhere panel said
+  Rias "on the hood … watching the lake path through the hedge" and Vanessa "at the sedan, arms
+  crossed on the roof". Two writers owned the same fact — the scribe's "Now" line and the
+  world agent's seat — written from different pages at different times, and the writer read a
+  contradiction. THE LAW: one now per person. The scribe writes "state" only for people IN the
+  scene; for a seated absent person the seat is their now — the scribe's law says so, the code
+  drops a state delta for a seated absent person, the drawer shows "Now (elsewhere): <the
+  seat>" in place of the older line, and a recall card on the wire carries the seat, never the
+  scribe's stale state.
+- M130-1. 392/392 + 35/35 + 8/8. version.js -> m130-001.

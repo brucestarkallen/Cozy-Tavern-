@@ -717,3 +717,20 @@ test('M129-1 a person who appears only inside the window is never seated present
   const r = BUILTIN_RULES.find((x) => x.id === 'builtin-bold-marks');
   eq(applyRules('**Bold** and *** The World Beyond *** and *tok*', [r], { on: 'storyteller', mode: 'page' }), 'Bold and *** The World Beyond *** and *tok*');
 });
+
+test('M130-1 one now per person: the scribe never writes state for a seated absent person; a recall card carries the seat', async () => {
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/scribe.js', import.meta.url), 'utf8');
+  assert(/ONLY for people IN THE SCENE/.test(src) && /seated\.has\(String\(d\.name/.test(src), 'the law and the code');
+  const { renderPeopleTiers } = await import('../../js/engine/people.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  let st = emptyState();
+  st = applyMutations(st, [
+    { type: 'mc.set', name: 'Jovan' },
+    { type: 'people.set', name: 'Vanessa', field: 'core', text: 'the loud friend' },
+    { type: 'people.set', name: 'Vanessa', field: 'state', text: 'leaning on the hedge, phone in hand' },
+    { type: 'offscreen.set', name: 'Vanessa', location: 'the sedan, Mariner’s Lane', activity: 'arms crossed on the roof', agenda: 'watch the reunion' },
+  ]).state;
+  const out = renderPeopleTiers(st, { recentPages: ['Vanessa laughed from the lane.'] });
+  const text = typeof out === 'string' ? out : JSON.stringify(out);
+  assert(/the sedan, Mariner’s Lane/.test(text) && !/leaning on the hedge/.test(text), 'the seat is her now on the wire: ' + text.slice(0, 300));
+});
