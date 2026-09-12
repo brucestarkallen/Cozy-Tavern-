@@ -2330,18 +2330,32 @@ function serveFetch(refs, messages, { modules = [], lore = [] } = {}) {
  * tavern enforces it the way it enforces anchors (a round). */
 const CHANGE_WORDS = /\b(change|changes|edit|fix|replace|set|rename|update|add|remove|delete|correct|make|put|rewrite|re-ink|turn|adjust|insert|append|move|swap|write|note|lock|clear|mark|should be|is not|isn't|instead of)\b|\bnot\s+\d/i;
 const BRIEF_WORDS = /\b(brief|cast notes?|premise|plot essentials?|notepad|standing words|the notes?)\b/i;
-const CLAIM_WORDS = /\b(done|changed|updated|fixed|set|corrected|re-inked|adjusted|edited|applied|now reads|now says|i(?:'ve| have) (?:changed|updated|fixed|set|made|added|removed|noted))\b/i;
+/* M118: a CLAIM is the housekeeper saying IT did something — first person, or
+ * "now reads/says", or "the change is done/applied". Bare "set", "fixed",
+ * "done" matched the pages it quoted ("half-done seating chart", "set the
+ * strike") and the house then told it "your answer says a change was made" —
+ * and it answered the house instead of the writer, in the third person. */
+const CLAIM_WORDS = /(?:^|\n)\s*done\b|\b(?:i(?:'ve|’ve| have)?\s+(?:changed|updated|fixed|set|corrected|re-inked|adjusted|edited|applied|made|added|removed|noted|rewrote|renamed)\b|(?:now reads|now says)\b|(?:the )?(?:change|edit|fix|correction) (?:is |has been |was )?(?:done|applied|made|landed)\b|(?:done|applied|landed)\s*[.!]\s*$)/i;
 /* a plain statement of how things are ("all first-years are 16", "Alexia is 19"),
  * not a question, is an instruction to make it so */
 const DECLARES = /\b(is|are|was|were|has|have|should|must)\b/i;
 const QUESTION = /\?\s*$/;
+/* M118: a message that ENDS in a question mark asks for a check unless a
+ * clause of it is an imperative ("why is she there? fix it") — "previous
+ * turn", "the note", "a set" are nouns, not asks */
+const IMPERATIVE = /(?:^|[.!?;:—-]\s*|\bplease\s+|\bjust\s+|\bthen\s+|\band\s+)(?:fix|change|edit|replace|rename|remove|delete|correct|rewrite|add|update|set|put|make|move|adjust|insert|append|swap|write|lock|clear|mark|turn)\b/i;
 export function asksForChange(text) {
   const t = String(text || '').trim();
+  if (QUESTION.test(t)) return IMPERATIVE.test(t);
   if (CHANGE_WORDS.test(t)) return true;
-  return DECLARES.test(t) && !QUESTION.test(t);
+  return DECLARES.test(t);
 }
 export function asksAboutBrief(text) { return BRIEF_WORDS.test(String(text || '')); }
-export function claimsChange(prose) { return CLAIM_WORDS.test(String(prose || '')); }
+export function claimsChange(prose) {
+  /* quoted words are the story's, never a claim */
+  const unquoted = String(prose || '').replace(/"[^"\n]{0,400}"|“[^”\n]{0,400}”|'[^'\n]{0,200}'/g, ' ');
+  return CLAIM_WORDS.test(unquoted);
+}
 /* an open tag with no close — the tail of an answer cut mid-block */
 export function unclosedBlock(raw) {
   const s = String(raw || '').toLowerCase();

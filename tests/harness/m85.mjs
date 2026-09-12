@@ -598,3 +598,13 @@ test('M117-1 control tokens leaked into the content end the page at the first on
   const src = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/leakedControl = true;/.test(src) && /leakRetried: true/.test(src), 'the page ends at the leak and an emptied page is asked again once');
 });
+
+test('M118-1 a claim of change is first person or "now reads" — quoted prose and bare "set/done/fixed" never trip the house\'s nudge', async () => {
+  const { claimsChange, asksForChange } = await import('../../js/agents/housekeeper.js');
+  assert(!claimsChange('The TWB shows Vanessa at the pool deck, the "half-done seating chart curled under a bottle of sunscreen"; nothing is set in the ledger about it.'), 'quoted prose and a bare set are not a claim');
+  assert(!claimsChange('Checking the TWB I can see. That is her looking forward.'), 'an assessment is not a claim');
+  assert(claimsChange('I changed the brief line to say she is nineteen.'), 'first person is a claim');
+  assert(claimsChange('The page now reads "Kris" everywhere.'), 'now reads is a claim');
+  assert(claimsChange('The correction is applied.'), 'the change is applied is a claim');
+  assert(!asksForChange('And the twb from previous turn also will not contradict this?'), 'a question asks for a check, not a change');
+});

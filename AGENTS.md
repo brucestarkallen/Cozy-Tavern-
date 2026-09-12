@@ -3022,3 +3022,15 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   words before the leak keeps them and a toast names the leak. Prose with < | > in it is not a
   control token.
 - M117-1. 382/382 + 34/34 + 8/8. version.js -> m117-001.
+
+# M118 — the housekeeper answered the house, not the writer
+- FIELD REPORT: the housekeeper's final reply read "You're right — the writer asked whether a
+  line would contradict anything, and my answer was only an assessment, no change requested
+  and no change made" — nonsense to the writer. It was answering M75's [NOTHING HAPPENED]
+  nudge, which fires when an answer CLAIMS a change and holds no block; CLAIM_WORDS matched bare
+  "set", "done", "fixed" — in the story prose the answer quoted ("half-done seating chart"). And
+  asksForChange took "previous turn" for the verb "turn", so a question was read as an ask.
+  Now a claim is first person ("I changed…"), "now reads/says", "the change is applied", or a
+  line beginning "Done"; quoted spans are stripped first. A message ending in "?" asks for a
+  check unless a clause of it is an imperative ("why is she there? fix it").
+- M118-1 (M75-1 kept). 383/383 + 34/34. version.js -> m118-001.
