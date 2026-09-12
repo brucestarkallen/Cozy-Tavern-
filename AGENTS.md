@@ -3074,3 +3074,11 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   run (5–60 characters in a Latin page) for the reader; one to four is still M119's glitch,
   mended in code-guided fashion at once. The switch's words say all of this.
 - M121-1. 386/386 + 34/34 + 8/8. version.js -> m121-001.
+
+# M122 — the house's re-asks say nothing on the page
+- FIELD REPORT: "A word from the house: the provider let control tokens through…" stood as a
+  red banner on the story page and broke the frame. The automatic re-asks (M117 leak, M120
+  page-in-thinking) now leave no node on the page: the pending page is removed and a toast
+  ("Asking again.") goes in a breath; the salvage and the kept-words cases are one-line toasts
+  too. The behaviour is unchanged; the story page shows only the story.
+- 386/386. version.js -> m122-001.

@@ -2707,10 +2707,12 @@ export function initChat(ctx) {
        * house — the same prompt, a fresh stream — before anything is saved.
        * A second leak lands what came before it, with a note on the page. */
       if (leakedControl && full.replace(/^\[[^\]\n]*\]\s*/, '').trim().length < 160 && !stoppedByHand && !generateArgs.leakRetried) {
-        pending.replaceWith(noteNode('The provider let control tokens through and the page came back empty — asking again.'));
+        /* M122: quietly — no word of the house on the story page; a toast, gone in a breath */
+        pending.remove();
+        toast('Asking again.');
         return generate({ ...generateArgs, leakRetried: true });
       }
-      if (leakedControl) toast('The provider leaked control tokens into the page; the words before them were kept.');
+      if (leakedControl) toast('The words before the provider’s leak were kept.');
 
       /* M120: the page came back inside the thinking. Once: ask again with
        * the plain line. Twice: salvage the page-shaped tail of the thinking
@@ -2718,7 +2720,8 @@ export function initChat(ctx) {
       const bodyLen = full.replace(/^\[[^\]\n]*\]\s*/, '').trim().length;
       if (!stoppedByHand && !cutShort && bodyLen < 160 && thinking && thinking.trim().length > 400) {
         if (!generateArgs.thoughtRetried) {
-          pending.replaceWith(noteNode('The storyteller wrote the page inside its thinking and answered with nothing — asking again.'));
+          pending.remove();
+          toast('Asking again.');
           return generate({ ...generateArgs, thoughtRetried: true });
         }
         const lines = thinking.split('\n');
@@ -2728,7 +2731,7 @@ export function initChat(ctx) {
         if (salvaged.replace(/^\[[^\]\n]*\]\s*/, '').trim().length >= 160) {
           full = salvaged;
           thinking = '';
-          toast('The storyteller kept writing inside its thinking; the house took the page from there. This model on this provider does that — worth another model or endpoint.');
+          toast('The page was taken from the thinking.');
         }
       }
 
