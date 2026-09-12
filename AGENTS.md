@@ -2938,3 +2938,12 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   finger with a visible grip, touch-action none; drag to widen up to 92% of a phone screen or
   half a desk, double-tap to put it back; the width is remembered and any max-width lifted.
 - 377/377 + 33/33 + 8/8. version.js -> m109-001.
+
+# M110 — a writer's page is an attempt until the story renders it
+- FIELD REPORT: turn 50 ended on the writer's "I go downstairs", not yet answered; the auditor
+  read it as a fact and seated the main character downstairs. The auditor now reads answered
+  turns only (answeredOnly: the pages up to the last STORY page) and its law says why: a PLAYER
+  page states what the main character attempts; only the STORY page after it makes it so. The
+  extractor and the world agent already run per answered turn; the keeper folds only pages
+  below the window (always answered).
+- M110-1. 378/378. version.js -> m110-001.

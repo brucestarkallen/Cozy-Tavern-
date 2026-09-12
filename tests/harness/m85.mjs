@@ -548,3 +548,13 @@ test('M108-1 the world does not bend: the law is in the craft; the eye notes an 
   const two = lintPage({ assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\n"You\'re absolutely right," she said. Everyone nodded.', userText: 'I speak.' });
   assert(two.findings.some((f) => /Accord tells/.test(f.words) && f.severity === 'warn'), 'two tells warn');
 });
+
+test('M110-1 the auditor reads answered turns only — a trailing writer\'s page is an attempt, never a fact; the law is taught', async () => {
+  const { answeredOnly, buildAuditorMessages } = await import('../../js/agents/auditor.js');
+  const list = [{ role: 'user', text: 'a' }, { role: 'assistant', text: 'b' }, { role: 'user', text: 'I go downstairs.' }];
+  eq(answeredOnly(list).length, 2, 'the unanswered tail is cut');
+  eq(answeredOnly([{ role: 'user', text: 'x' }]).length, 0);
+  eq(answeredOnly(list.slice(0, 2)).length, 2, 'a story ending on a STORY page is whole');
+  const m = buildAuditorMessages({ state: emptyState(), brief: '', castNotes: '', record: '', pages: [{ role: 'assistant', text: 'b' }] });
+  assert(/A PLAYER page states what the main character ATTEMPTS/.test(m.system) && /Never write a fact from a PLAYER page alone/.test(m.system), 'the attempt law');
+});

@@ -124,6 +124,9 @@ function law({ mc }) {
     'The only mutations that exist:',
     VOCABULARY,
     '',
+    'A PLAYER page states what the main character ATTEMPTS; only the STORY page after it makes it so.',
+    'Never write a fact from a PLAYER page alone — where the main character went, what they did — unless a',
+    'STORY page rendered it. The pages you are given end on a STORY page for that reason.',
     'Names keep the spelling the ledger and the pages use. No commentary, no fences: the JSON only.',
     'PLACEHOLDERS: NAME, OTHER NAME, NEW NAME, NAME SURNAME and MAIN CHARACTER in the examples above are placeholders, never people — never write them; write only the names the ledger, the brief and the pages use.',
   ].join('\n');
@@ -214,11 +217,25 @@ export function parseAuditorAnswer(raw) {
 }
 
 /* The contract. */
+/* M110: the pages up to the last STORY page — a trailing writer's page is an attempt, not a fact */
+export function answeredOnly(list) {
+  const arr = Array.isArray(list) ? list : [];
+  let cut = arr.length;
+  while (cut > 0 && arr[cut - 1] && arr[cut - 1].role === 'user') cut -= 1;
+  return arr.slice(0, cut);
+}
+
 export async function auditLedger({ connection, storyId, brief = '', castNotes = '', signal, stale } = {}) {
   if (!connection || typeof connection !== 'object' || !storyId) return null;
   const state = await loadState(storyId);
   const mem = await loadMemory(storyId);
-  const all = (await db.messages.list(storyId)).filter((m) => !m.hidden);
+  const allRaw = (await db.messages.list(storyId)).filter((m) => !m.hidden);
+  /* M110: a writer's page with no storyteller page after it is an ATTEMPT,
+   * not yet true — "I go downstairs" moves nobody until the page renders
+   * it. The auditor read the trailing unanswered message as a fact and
+   * seated the main character downstairs; the story had not. Answered
+   * turns only. */
+  const all = answeredOnly(allRaw);
   const pages = all.slice(-AUDIT_PAGES).map((m) => ({ role: m.role, text: pageText(m) }));
   if (!pages.length) return null;
   const prompt = buildAuditorMessages({ state, brief, castNotes, record: wholeRecord(mem), pages });
