@@ -74,8 +74,6 @@ const DISTILLED_CRAFT = [
 const MODULE_ROWS = [
   { name: 'NSFW Mode', whenKey: 'intimate',
     why: 'wakes when the scene turns intimate' },
-  { name: 'Contested Resolution', whenKey: 'combat',
-    why: 'wakes when talk gives way to contest' },
   { name: 'Species Vocalization', whenKey: 'manual',
     why: 'you choose when this walks in' },
   { name: 'Group Chat only', whenKey: 'manual',
@@ -84,8 +82,6 @@ const MODULE_ROWS = [
     why: 'you choose when this walks in' },
   { name: 'Twitter X Feed', whenKey: 'manual',
     why: 'you choose when this walks in' },
-  { name: 'The World Beyond (TWB)', whenKey: 'worldWindow',
-    why: 'wakes when the world agent opens a window beyond the page' },
 ];
 
 /* ---------- Frame seeds — suggested material, copy-only, never applied ---------- */
@@ -98,6 +94,8 @@ const FRAME_SEED_NAMES = [
 const RETIRED_ENGINE_ROWS = [
   { name: 'Scene Pulse (IST)', why: 'the ledger renders it' },
   { name: 'Voices Block', why: 'the world agent hears the voices and the drawer shows them (M97); the storyteller never writes the block' },
+  { name: 'Contested Resolution', why: 'the referee rolls and rules in the house (M46); the storyteller renders the ruling it is handed, never its own dice' },
+  { name: 'The World Beyond (TWB)', why: 'the house opens a window on the world agent\'s word or a command and hands the storyteller the exact form and the quarantine (the world-window rule)' },
   { name: 'NPC Watchlist (ACW)', why: 'the world agent keeps the absent, with stance and arrival on the clock' },
   { name: 'Factions', why: 'the world agent moves factions on cause; the ledger renders them' },
   /* M30: the storyteller no longer runs the simulation in its own output. */

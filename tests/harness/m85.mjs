@@ -771,4 +771,14 @@ test('M132-1 a rule that teaches a house block never rides the wire; the import 
   assert(!picked.some((c) => c && c.mod && c.mod.id === 'v'), 'the voices rule never loads: ' + JSON.stringify(picked.map((c) => [c.mod && c.mod.id, c.reason])));
   const v = classify({ name: 'Voices Block', content: 'x' });
   eq(v.bucket, 'retired', JSON.stringify(v));
+  /* M133: the preset's window and contest laws retire too; the house's carry the referee and the once-only window */
+  eq(classify({ name: '🌐 The World Beyond (TWB) 🌐', content: 'x' }).bucket, 'retired');
+  eq(classify({ name: '🎲 Contested Resolution — auto, leave on 🎲', content: 'x' }).bucket, 'retired');
+  assert(housesBlock({ name: '🌐 The World Beyond (TWB) 🌐', custom: true, text: 'x' }) && housesBlock({ name: 'Contested Resolution', custom: true, text: 'x' }), 'an already-imported one never rides');
+  assert(!housesBlock({ name: 'The World Beyond', custom: false, text: 'x' }), 'the house’s own is not a custom');
+  /* every switched-on block of V177 has an explicit home — none falls to a guess */
+  for (const name of ['Authorship Frame', 'Main Prompt', 'Time and Place', 'Simulation Core', 'Character Integrity', 'Information Quarantine', 'NPC Psychology', 'HQ NPC Genesis', 'Continuity Verification', 'Output Systems', 'Scene Pulse (IST)', 'NPC Watchlist (ACW)', 'Factions (any scale)', 'NPC Private Thoughts', 'Commands (#p #pp #q)', 'Living World', 'Better Narrative Drive and Tracking', 'Writing Guidelines (Anti-Slop)', 'NSFW Mode', 'Banned Words (Slop List)', 'CoT · 5-Pass']) {
+    const c = classify({ name, content: 'some words' });
+    assert(!c.guessed, name + ' has a home: ' + JSON.stringify(c));
+  }
 });

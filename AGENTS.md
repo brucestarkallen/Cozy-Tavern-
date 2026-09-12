@@ -3211,3 +3211,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   says never (housesBlock). An already-imported rulebook is covered by the assembler's guard
   without re-importing.
 - M132-1. 394/394 + 35/35 + 8/8. version.js -> m132-001.
+
+# M133 — the whole preset, block by block: two more of V177's laws were riding against the house
+- FIELD DEMAND: "analyze whether the whole preset is the best for the tavern — you made a mistake
+  on voices." V177's twenty-four switched-on blocks were held against the import map one by
+  one; every one has an explicit home now (none falls to a guess; M132-1 holds it). Two more
+  were wrong the way Voices was: "Contested Resolution" rode as a live combat rule — the
+  storyteller told to roll its own dice while the referee rolls and rules in the house; and
+  "The World Beyond (TWB)" rode as a live worldWindow rule shadowing the house's window rule
+  (M36's law: a writer's own rule outranks the builtin) — so the storyteller carried the OLD
+  window law without the house's once-only fix, which is the doubled window of M116. Both retire
+  into the engines on import; an already-imported copy never rides (housesBlock by name) and
+  shadows nothing (the house's rule wakes in its place). What still rides from the preset as the
+  writer's own: NSFW Mode (the intimate law, word for word what the house distilled), the manual
+  modules (Species Vocalization, Group Chat only, Hybrid POV, Twitter X Feed — off until pinned);
+  everything else is the house's craft, the engines, or the readers.
+- M132-1 extended; M30-9 updated. 394/394 + 35/35 + 8/8. version.js -> m133-001.

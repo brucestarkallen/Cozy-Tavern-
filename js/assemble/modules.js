@@ -372,7 +372,13 @@ export async function removeModule(id) {
 export function housesBlock(mod) {
   const text = String((mod && mod.text) || '');
   const name = String((mod && mod.name) || '');
-  if (/^voices block$/i.test(name.trim())) return true;
+  const n = name.trim().toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim();
+  if (/^voices block$/.test(n)) return true;
+  /* M133: an imported preset's own window and contest laws shadow the house's
+   * (M36) — but the house's carry the referee's ruling and the once-only
+   * window; the old ones taught the storyteller to roll its own dice and
+   * write windows on its own initiative. They never ride. */
+  if (mod && mod.custom && (/the world beyond/.test(n) || /contested resolution/.test(n))) return true;
   return /\{VOICES\}|\{PULSE\}|\{WATCHLIST\}|\[VOICE:/.test(text) && !/never write|do not write|never on the page/i.test(text);
 }
 
@@ -385,7 +391,8 @@ export function selectModules(modules, state) {
    * by an enabled custom rule with the same whenKey; core-craft never. */
   const shadowed = new Set();
   for (const mod of list) {
-    if (mod && mod.custom && mod.whenKey && mod.whenKey !== 'always' && mod.whenKey !== 'manual' && mod.enabled !== false) shadowed.add(mod.whenKey);
+    /* M133: a custom rule the house never sends shadows nothing */
+    if (mod && mod.custom && mod.whenKey && mod.whenKey !== 'always' && mod.whenKey !== 'manual' && mod.enabled !== false && !housesBlock(mod)) shadowed.add(mod.whenKey);
   }
   for (const mod of list) {
     let verdict = { load: false, reason: '' };

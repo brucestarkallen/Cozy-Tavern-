@@ -142,14 +142,15 @@ test('M30-9 a window beyond the page wakes the cut-away’s craft, and the agent
   const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
   /* the real path: a saved rule gets its predicate attached by listModules */
   await saveModule({ id: 'm30-twb', name: 'The World Beyond (TWB)', text: 'cut-away craft', whenKey: 'worldWindow' });
-  const mods = (await listModules()).filter((m) => m.id === 'm30-twb');
-  eq(mods.length, 1, 'the rule is on the shelf');
+  const mods = (await listModules()).filter((m) => m.id === 'm30-twb' || m.id === 'world-window');
+  eq(mods.length, 2, 'the imported rule and the house’s are on the shelf');
   const closed = emptyState();
   eq(selectModules(mods, closed).length, 0, 'no window, no craft');
   const open = emptyState();
   open.worldBrief = normalizeBrief({ pressure: [], ripe: [], twb: { who: 'Aurora', where: 'the train', changed: 'she decided' } }, 1);
   const sel = selectModules(mods, open);
-  assert(sel.length === 1 && /window beyond/.test(sel[0].reason), 'the window wakes the craft');
+  /* M133: the preset's own TWB rule never rides (the house's window rule carries the form and the once-only law); the house's wakes instead */
+  assert(sel.length === 1 && sel[0].mod.id === 'world-window' && /window beyond/.test(sel[0].reason), 'the window wakes the house’s craft, never the imported copy: ' + JSON.stringify(sel.map((x) => [x.mod.id, x.reason])));
   await removeModule('m30-twb');
   assert(/window beyond the page/.test(WHEN_WORDS.worldWindow));
   /* memory of windows */
