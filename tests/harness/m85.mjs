@@ -666,3 +666,14 @@ test('M124-1 record handles are unique per line — the id\'s tail, never its co
   const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
   assert(/a record line by its #r… mark/.test(src) && /No record line answers to/.test(src), 'a record line can be fetched whole by its handle');
 });
+
+test('M126-1 a question anywhere is a question; a declaration asks for a change only when it contradicts; the nudge tells the model to answer the writer, never the note', async () => {
+  const { asksForChange } = await import('../../js/agents/housekeeper.js');
+  assert(!asksForChange('Jovan tells Vanessa she can get his number from Rias while he goes with Aurora. Is that fine narratively? does it contradict anything'), 'a question inside the message is a question');
+  assert(!asksForChange('Jovan is warm with Vanessa and Rias is possessive.'), 'a thought aloud is not an order');
+  assert(asksForChange('all first year students are 16, not 15'), 'a contradiction is an ask');
+  assert(asksForChange('Rias isn’t his sister, she is his neighbour'), 'isn’t is an ask');
+  assert(asksForChange('why is she on the porch? fix it'), 'an imperative after a question is an ask');
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/never mention this note, never say "you\\'re right"/.test(src), 'the nudge forbids answering the house');
+});

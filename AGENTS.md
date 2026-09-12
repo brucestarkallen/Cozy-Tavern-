@@ -3119,3 +3119,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   pages it folds; when a line looks wrong, thin or unsupported, fetch those pages whole and the
   line itself (#r…) before judging; propose a page edit, a ledger change, or a record line
   rewritten from the pages. version.js -> m125-001.
+
+# M126 — the housekeeper re-read a question as an order
+- FIELD REPORT: asked whether a line would be fine, the housekeeper answered "You're right — I
+  read the question as 'is this okay?' … Re-reading it as an order …" and reasoned itself into
+  nothing. ROOT CAUSE: asksForChange took any declarative sentence not ENDING in "?" as an ask
+  (the M75 DECLARES rule), so a message with a question in its middle fired the [NOTHING
+  HAPPENED] nudge, which told the model "the writer asked for a change"; the model obeyed the
+  house. Now: a question mark anywhere makes the message a question (unless a clause is an
+  imperative); a bare declaration is an ask only when it names the brief or contradicts
+  something (not / isn't / no longer / instead / actually / should); and the nudge itself says:
+  if, reading the writer again, no change was asked, answer the writer as if this note did not
+  exist — never mention it, never "you're right", never re-read the writer's words as an order.
+- M126-1; M75-3 kept. 389/389 + 34/34. version.js -> m126-001.

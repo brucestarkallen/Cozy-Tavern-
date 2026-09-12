@@ -2382,9 +2382,14 @@ const QUESTION = /\?\s*$/;
 const IMPERATIVE = /(?:^|[.!?;:—-]\s*|\bplease\s+|\bjust\s+|\bthen\s+|\band\s+)(?:fix|change|edit|replace|rename|remove|delete|correct|rewrite|add|update|set|put|make|move|adjust|insert|append|swap|write|lock|clear|mark|turn)\b/i;
 export function asksForChange(text) {
   const t = String(text || '').trim();
-  if (QUESTION.test(t)) return IMPERATIVE.test(t);
+  /* M126: a question anywhere in the message is a question — "is that fine?",
+   * "does this contradict?" — unless a clause is an imperative */
+  if (/\?/.test(t)) return IMPERATIVE.test(t);
   if (CHANGE_WORDS.test(t)) return true;
-  return DECLARES.test(t);
+  /* a bare declaration ("all first-years are 16, not 15") asks for a change
+   * only when it CONTRADICTS something with a not/isn't/instead — otherwise it
+   * is the writer thinking aloud, and the house never turns that into an order */
+  return DECLARES.test(t) && (BRIEF_WORDS.test(t) || /\b(not|isn't|isn’t|aren't|aren’t|wasn't|wasn’t|no longer|instead|actually|should)\b/i.test(t));
 }
 export function asksAboutBrief(text) { return BRIEF_WORDS.test(String(text || '')); }
 export function claimsChange(prose) {
@@ -2581,7 +2586,7 @@ export async function runConversation({
       if (!nudgedNoBlock && !hasAnyBlock(parsed) && (asksForChange(writerText) || claimsChange(parsed.text))) {
         nudgedNoBlock = true;
         wire.push({ role: 'assistant', content: raw });
-        wire.push({ role: 'user', content: '[NOTHING HAPPENED] ' + (claimsChange(parsed.text) ? 'Your answer says a change was made, but it holds no block — so nothing changed. ' : 'The writer asked for a change and your answer holds no block — so nothing changed. ') + 'Re-send your whole answer with the block that makes it: <brief> for THE BRIEF or THE CAST NOTES, <edits> for a page, <ledits> for the ledger or a page of the people, <record> for a record line, <lore> for the shelf — quoting the exact words you change. If no block can do what was asked, say so plainly, without claiming it was done, and name what can be done instead.' });
+        wire.push({ role: 'user', content: '[NOTHING HAPPENED] ' + (claimsChange(parsed.text) ? 'Your answer says a change was made, but it holds no block — so nothing changed. ' : 'The writer\'s message reads as an ask for a change and your answer holds no block — so nothing changed. ') + 'Re-send your whole answer with the block that makes it: <brief> for THE BRIEF or THE CAST NOTES, <edits> for a page, <ledits> for the ledger or a page of the people, <record> for a record line, <lore> for the shelf — quoting the exact words you change. If, reading the writer again, no change was asked — it was a question, a check, a thought aloud — simply answer THAT, to the writer, as if this note did not exist: never mention this note, never say "you\'re right", never re-read the writer\'s words as an order they did not give. If a change was asked and no block can do it, say so plainly, without claiming it was done, and name what can be done instead.' });
         continue;
       }
       /* M61 (v2.77): the ripple — the words an edit removes still sit on
