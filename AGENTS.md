@@ -2960,3 +2960,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   auditor still leaves out is written beneath the line in code ("also named: …; figures: …").
   The detail's cap rose to 480 characters. Runs on every new line and every merge.
 - M111-1. 379/379 + 33/33 + 8/8. version.js -> m111-001.
+
+# M112 — a branch taken while the readers are still on the newest page
+- FIELD QUESTION: "if I branch while the workers are still working, is it safe to go back to the
+  original?" Yes — the queues are per story: the origin's chain finishes in the origin and
+  writes the origin's ledger; the branch got a copy at branch time. The gap was the branch's
+  side: pendingWork waits eight seconds and then proceeds, and a branch at the newest page took
+  the copied ledger as exact even when the chain had not landed — so that page's reads were
+  missing in the branch and nothing re-read them. Now pendingWork's false (still running) marks
+  the branch inexact and the branch re-reads its last page itself, a light read (the extractor,
+  the world, the scribe, the keeper, an audit), never the deep one; a toast says so.
+- M112-1, M43-2 updated. 380/380 + 33/33 + 8/8. version.js -> m112-001.

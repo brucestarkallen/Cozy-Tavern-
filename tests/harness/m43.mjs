@@ -20,7 +20,7 @@ test('M43-2 a branch carries its checkpoint: the ledger after the branch page, t
   assert(!/if \(!carried\) carried = await loadState\(story\.id\);/.test(b), 'the old fallback to the ledger as it stands is gone');
   /* M91: the fold rides where the journal reaches; near the tail of a store it does not reach, the ledger as it stands */
   assert(/carriedOrder\[i\]/.test(b) && /foldJournal\(now, snaps, k === -1 \? -1 : k, applyMutations\)/.test(b) && /journalReaches\(now, snaps/.test(b), 'nearest earlier checkpoint, else the FOLD of the journal (M69), gated by reach (M91)');
-  assert(/if \(fromTheTail\) \{\s*carried = nowState;\s*exact = true;/.test(b), 'the newest page carries the ledger as it stands, first and exact (M91)');
+  assert(/if \(fromTheTail\) \{\s*carried = nowState;\s*exact = !chainStillRunning;/.test(b), 'the newest page carries the ledger as it stands, first, exact once the readers landed (M91, M112)');
   assert(/startBackgroundWork\(branchStory, last, lastUser \? pageText\(lastUser\) : '', \{ deep: true, audit: true \}\)/.test(b), 'an inexact carry is re-read at once');
   assert(/const carriedNow = JSON\.parse\(JSON\.stringify\(carried\)\);[\s\S]*msgId: idMap\[e\.msgId\][\s\S]*await saveState\(branch\.id, carriedNow\);/.test(b), 'written to the branch, the referee’s timeline re-keyed (M72)');
   assert(/saveSnapshots\(branch\.id, snaps\)/.test(b) && /idMap\[e\.id\]/.test(b), 'snapshots carried, re-keyed');
@@ -28,4 +28,12 @@ test('M43-2 a branch carries its checkpoint: the ledger after the branch page, t
   assert(/mem\.nodes\.filter\(\(n\) => n\.span\[1\] < visibleCount\)/.test(b), 'only the record lines that cover carried pages');
   assert(/saveLore\(branch\.id/.test(b), 'the lore shelf carried');
   assert(!/The ledger starts clean for the new telling/.test(b), 'the old law is gone');
+});
+
+test('M112-1 a branch taken while the readers are still on the newest page re-reads that page itself; an origin\'s chain is never touched', () => {
+  const c = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  const b = c.slice(c.indexOf('async function branchFrom('), c.indexOf('async function branchFrom(') + 12000);
+  assert(/const chainStillRunning = \(await pendingWork\(story\.id, 8000\)\) === false;/.test(b), 'the wait says whether the chain settled');
+  assert(/if \(fromTheTail\) \{\s*carried = nowState;\s*exact = !chainStillRunning;/.test(b), 'the newest page is exact only once the readers landed');
+  assert(/if \(fromTheTail && chainStillRunning\) \{\s*startBackgroundWork\(branchStory, last, lastUser \? pageText\(lastUser\) : '', \{ deep: false, audit: true \}\)/.test(b), 'a light re-read of the last page, not the deep one');
 });

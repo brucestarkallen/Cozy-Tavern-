@@ -3308,7 +3308,12 @@ export function initChat(ctx) {
      * a writer's first message that is none (k = -1): empty but for what the
      * founder wrote from the brief. The checkpoint reckoning below stands only
      * for a store from before the journal. */
-    await pendingWork(story.id, 8000);
+    /* M112: the readers may still be on the newest page when the writer
+     * branches. pendingWork waits eight seconds; false means the chain is
+     * still running — the ledger copied now would lack that page's reads,
+     * so the branch re-reads its last page itself (a light read, not the
+     * deep one). The origin's own chain finishes in the origin, untouched. */
+    const chainStillRunning = (await pendingWork(story.id, 8000)) === false;
     const nowState = await loadState(story.id);
     const kBranch = pages.filter((m) => m.role === 'assistant').length - 1;
     const fromTheTail = isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden);
@@ -3321,7 +3326,7 @@ export function initChat(ctx) {
      * journal reaches them. */
     if (fromTheTail) {
       carried = nowState;
-      exact = true;
+      exact = !chainStillRunning;
     } else if ((nowState.journal || []).length && journalReaches(nowState, await loadSnapshots(story.id), kBranch)) {
       carried = foldJournal(nowState, await loadSnapshots(story.id), kBranch, applyMutations);
       exact = true;
@@ -3420,8 +3425,13 @@ export function initChat(ctx) {
       if (branchStory && last) {
         const before = bpages.slice(0, bpages.indexOf(last));
         const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
-        startBackgroundWork(branchStory, last, lastUser ? pageText(lastUser) : '', { deep: true, audit: true });
-        toast('No exact checkpoint for this page — the workers are re-reading the branch from the brief and its pages.');
+        if (fromTheTail && chainStillRunning) {
+          startBackgroundWork(branchStory, last, lastUser ? pageText(lastUser) : '', { deep: false, audit: true });
+          toast('The readers were still on the newest page — the branch is reading it now.');
+        } else {
+          startBackgroundWork(branchStory, last, lastUser ? pageText(lastUser) : '', { deep: true, audit: true });
+          toast('No exact checkpoint for this page — the workers are re-reading the branch from the brief and its pages.');
+        }
       }
     }
   }
