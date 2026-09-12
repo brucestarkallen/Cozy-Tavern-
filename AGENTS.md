@@ -3082,3 +3082,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   ("Asking again.") goes in a breath; the salvage and the kept-words cases are one-line toasts
   too. The behaviour is unchanged; the story page shows only the story.
 - 386/386. version.js -> m122-001.
+
+# M123 — the moment is the extractor's; the auditor and the second reader keep to what lasts
+- FIELD REPORT (turn 135): the auditor "set right" seventeen things — posture, a knee on the
+  vinyl, a sip of milkshake, an absent person's activity this hour, a thread's next small step,
+  the "now" line of every page — and the second reader MENDED THE PAGE to match the ledger's
+  stale posture ("Rias's arms are uncrossed", "flip-flops kicked off"): the ledger described
+  the moment BEFORE the page, and the page, being newer, was right. Both readers now carry the
+  law: the scene ledger is the moment before this page; a body the page moves is the story
+  moving, never drift and never a finding. The auditor's job is what LASTS and what is WRONG
+  (name, age, kin, origin, role; presence long stale; a wound healed still open; a standing
+  wrongly zero; a thread closed still hot; a witnessed fact with no line; the clock or ground
+  unset; a duplicate) — "a reading with fifteen findings is a reading of the moment, and wrong".
+  The second reader's drift is against the locked truths and long-standing facts only.
+- The two wrong mends on the writer's pages carry their take-back chips ("Put the earlier words
+  back" in Something drifted).
+- M123-1. 387/387 + 34/34 + 8/8. version.js -> m123-001.

@@ -640,3 +640,12 @@ test('M121-1 the second reader knows a lie from a slip and a language from a gli
   const r = lintPage({ assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\n' + english + '"你到底在说什么呢，我不明白"', userText: 'x' });
   assert(r.findings.some((f) => /A run of another script/.test(f.words) && f.severity === 'note'), JSON.stringify(r.findings));
 });
+
+test('M123-1 the moment is not the auditor\'s nor the second reader\'s: posture, position and the scene\'s hour-to-hour state are the extractor\'s; drift is against what lasts', async () => {
+  const { buildAuditorMessages } = await import('../../js/agents/auditor.js');
+  const a = buildAuditorMessages({ state: emptyState(), brief: '', castNotes: '', record: '', pages: [{ role: 'assistant', text: 'b' }] });
+  assert(/NOT YOUR JOB — THE MOMENT: posture, position/.test(a.system) && /a reading with fifteen is a reading of the/.test(a.system), 'the auditor keeps to what lasts');
+  const { buildContinuityMessages } = await import('../../js/agents/continuity.js');
+  const c = buildContinuityMessages({ state: emptyState(), assistantText: 'x' });
+  assert(/THE SCENE LEDGER IS THE MOMENT BEFORE/.test(c.system) && /BEFORE this page \(the moment as it stood/.test(c.user), 'the second reader reads the scene as the moment before the page');
+});
