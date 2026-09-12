@@ -3693,23 +3693,40 @@ export function initChat(ctx) {
     return window.matchMedia('(max-width: 899px)').matches;
   }
 
-  /* M105: the shelf can be dragged wider — a handle on its right edge, the
-   * width remembered (storyPanelWidth). On a phone the slide-over grows up
-   * to nine tenths of the screen; on a desk up to half. */
+  let panelPlaceHandle = null;
+  /* M105/M109: the shelf can be dragged wider — a handle on its right edge, the
+   * width remembered (storyPanelWidth). */
   (function panelResize() {
     if (!els.panel) return;
+    /* M109: the handle lives OUTSIDE the shelf. Inside it (M105) the shelf's
+     * own overflow clipped and scrolled it, and a finger could not find it —
+     * the writer asked twice. Now it is fixed to the shelf's right edge,
+     * placed from the shelf's rectangle whenever that can change, with
+     * touch-action none so the browser never takes the drag for a scroll. */
     const handle = document.createElement('div');
     handle.className = 'panel-resize';
     handle.setAttribute('aria-hidden', 'true');
-    els.panel.appendChild(handle);
-    const limits = () => ({ min: 220, max: Math.floor(window.innerWidth * (isNarrow() ? 0.9 : 0.5)) });
+    handle.title = 'Drag to widen the shelf; double-tap to put it back';
+    document.body.appendChild(handle);
+    const limits = () => ({ min: 220, max: Math.floor(window.innerWidth * (isNarrow() ? 0.92 : 0.5)) });
+    const place = () => {
+      const r = els.panel.getBoundingClientRect();
+      const shown = r.width > 0 && r.right > 8 && (!isNarrow() || els.panel.classList.contains('open'));
+      handle.hidden = !shown;
+      if (!shown) return;
+      handle.style.left = Math.round(r.right - handle.offsetWidth / 2) + 'px';
+      handle.style.top = Math.round(r.top) + 'px';
+      handle.style.height = Math.round(r.height) + 'px';
+    };
     const applyWidth = (w) => {
       const { min, max } = limits();
       const width = Math.min(max, Math.max(min, Math.round(w)));
       els.panel.style.width = width + 'px';
+      els.panel.style.maxWidth = 'none';
+      place();
       return width;
     };
-    db.settings.get('storyPanelWidth').then((w) => { if (Number.isFinite(w) && w > 0) applyWidth(w); }).catch(() => {});
+    db.settings.get('storyPanelWidth').then((w) => { if (Number.isFinite(w) && w > 0) applyWidth(w); place(); }).catch(place);
     let dragging = false;
     let startX = 0;
     let startW = 0;
@@ -3724,7 +3741,7 @@ export function initChat(ctx) {
       dragging = false;
       document.body.classList.remove('panel-resizing');
       window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', end);
-      window.removeEventListener('touchmove', move); window.removeEventListener('touchend', end);
+      window.removeEventListener('touchmove', move); window.removeEventListener('touchend', end); window.removeEventListener('touchcancel', end);
       const w = parseInt(els.panel.style.width, 10);
       if (Number.isFinite(w)) await db.settings.set('storyPanelWidth', w).catch(() => {});
     };
@@ -3734,12 +3751,18 @@ export function initChat(ctx) {
       startW = els.panel.getBoundingClientRect().width;
       document.body.classList.add('panel-resizing');
       window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
-      window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end);
+      window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end); window.addEventListener('touchcancel', end);
       e.preventDefault();
     };
     handle.addEventListener('mousedown', start);
     handle.addEventListener('touchstart', start, { passive: false });
-    handle.addEventListener('dblclick', async () => { els.panel.style.width = ''; await db.settings.delete('storyPanelWidth').catch(() => {}); });
+    handle.addEventListener('dblclick', async () => { els.panel.style.width = ''; els.panel.style.maxWidth = ''; await db.settings.delete('storyPanelWidth').catch(() => {}); place(); });
+    window.addEventListener('resize', place);
+    /* the shelf slides open and shut on a phone; the handle follows */
+    if (typeof MutationObserver === 'function') new MutationObserver(() => setTimeout(place, 260)).observe(els.panel, { attributes: true, attributeFilter: ['class', 'style'] });
+    else els.panel.addEventListener('transitionend', place);
+    setTimeout(place, 0);
+    panelPlaceHandle = place;
   })();
 
   function openPanel() {

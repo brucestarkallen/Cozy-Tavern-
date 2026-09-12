@@ -2928,3 +2928,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   as a silent recolor like any other. Standings remain the measure — a standing that never moves
   against the main character is a standing not being written.
 - M108-1. 377/377 + 33/33 + 8/8. version.js -> m108-001.
+
+# M109 — the shelf's handle, where a finger can find it
+- FIELD REPORT: "I already asked for the stories shelf to be draggable wider — why isn't it
+  done?" It shipped in M105 but could not be used: the handle sat INSIDE the shelf, whose own
+  overflow clipped it and scrolled it with the list, and on a phone the browser took the touch
+  for a scroll. Now the handle is a fixed strip OUTSIDE the shelf, placed from the shelf's
+  rectangle whenever that can change (open/close, resize, a new width), 26px wide under a
+  finger with a visible grip, touch-action none; drag to widen up to 92% of a phone screen or
+  half a desk, double-tap to put it back; the width is remembered and any max-width lifted.
+- 377/377 + 33/33 + 8/8. version.js -> m109-001.
