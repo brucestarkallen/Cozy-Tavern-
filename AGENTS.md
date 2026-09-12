@@ -3058,3 +3058,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   again, the house salvages the page-shaped tail of the thinking (from its last header line)
   so the story goes on, and a toast names the cause and the remedy (another model or endpoint).
 - M120-1. 385/385 + 34/34 + 8/8. version.js -> m120-001.
+
+# M121 — the page's own proofreader: a slip is mended, a joke is left, a language is a person's
+- FIELD REQUEST: an on/off "super autonomous checker and fixer" for the current page — a
+  sudden run of Chinese in an English scene mended (a Korean-speaking character left alone), a
+  friend's age 17 written 19 and a London sister's "Denmark" mended, but a joke or a deliberate
+  lie understood and kept. This IS the second reader (M31), with its switch already in Settings
+  → The readers ("Let the second reader mend the page by the smallest edit"), on by default;
+  what it lacked was the judgment. Its law now says what is NOT drift — a lie, a joke, a tease,
+  sarcasm, a memory gone wrong, an outsider's error, anything the page itself shows as wrong —
+  and what is: the narration's facts, and a character stating their own age, home, name or kin
+  plainly and wrongly with nothing in the scene to explain it. Words in another language are
+  drift only when nobody in the scene would speak them; a babble from a character with no
+  reason is a warn with the fix (the words meant, or "remove"). The eye notes a short foreign
+  run (5–60 characters in a Latin page) for the reader; one to four is still M119's glitch,
+  mended in code-guided fashion at once. The switch's words say all of this.
+- M121-1. 386/386 + 34/34 + 8/8. version.js -> m121-001.

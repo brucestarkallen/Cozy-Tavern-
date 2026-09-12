@@ -629,3 +629,14 @@ test('M120-1 a page written inside the thinking is asked again once with the pla
   assert(/const salvaged = at !== -1 \? lines\.slice\(at\)\.join/.test(src), 'the salvage from the last header line');
   assert(src.indexOf('const wireMessages = generateArgs.thoughtRetried') < src.indexOf('messages: wireMessages'), 'the nudged messages ride the wire');
 });
+
+test('M121-1 the second reader knows a lie from a slip and a language from a glitch; the eye notes a short foreign run for it', async () => {
+  const { buildContinuityMessages } = await import('../../js/agents/continuity.js');
+  const m = buildContinuityMessages({ state: emptyState(), assistantText: 'x' });
+  assert(/a lie, a joke, a tease, an exaggeration, sarcasm/.test(m.system) && /the NARRATION saying she is nineteen when the ledger locks/.test(m.system), 'the joke law');
+  assert(/WORDS IN ANOTHER LANGUAGE are drift only when nobody in the scene would speak them/.test(m.system), 'the language law');
+  const { lintPage } = await import('../../js/agents/lint.js');
+  const english = 'She caught herself, deleted something structural. '.repeat(8);
+  const r = lintPage({ assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\n' + english + '"你到底在说什么呢，我不明白"', userText: 'x' });
+  assert(r.findings.some((f) => /A run of another script/.test(f.words) && f.severity === 'note'), JSON.stringify(r.findings));
+});

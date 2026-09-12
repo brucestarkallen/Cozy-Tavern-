@@ -118,8 +118,13 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
     const letters = page.match(/\p{L}/gu) || [];
     const strays = page.match(/[\p{Script=Hangul}\p{Script=Han}\p{Script=Cyrillic}\p{Script=Arabic}\p{Script=Thai}\p{Script=Hebrew}\p{Script=Hiragana}\p{Script=Katakana}]/gu) || [];
     if (strays.length >= 1 && strays.length <= 4 && letters.length >= 200 && strays.length / letters.length < 0.01) {
+      /* one to four characters: a glitch token, mended by the house (M119) */
       push('warn', 'Marks On The Page', 'A stray character from another script — ' + [...new Set(strays)].map((c) => '“' + c + '”').join(', ') + ' — a glitch on the wire, not a word; the house mends it.');
       findings[findings.length - 1].stray = [...new Set(strays)];
+    } else if (strays.length > 4 && strays.length <= 60 && letters.length >= 200 && strays.length / letters.length < 0.08) {
+      /* M121: a short run of another script — a phrase or a sentence — is the second
+       * reader's to judge: a character who speaks it keeps it; a babble is mended */
+      push('note', 'Marks On The Page', 'A run of another script (' + strays.length + ' characters) — kept if a character here speaks it, mended if it is noise.');
     }
   }
   /* M116: the same window twice on one page */
