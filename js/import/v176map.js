@@ -76,8 +76,6 @@ const MODULE_ROWS = [
     why: 'wakes when the scene turns intimate' },
   { name: 'Contested Resolution', whenKey: 'combat',
     why: 'wakes when talk gives way to contest' },
-  { name: 'Voices Block', whenKey: 'socialField',
-    why: 'wakes when the room is full of voices' },
   { name: 'Species Vocalization', whenKey: 'manual',
     why: 'you choose when this walks in' },
   { name: 'Group Chat only', whenKey: 'manual',
@@ -99,6 +97,7 @@ const FRAME_SEED_NAMES = [
 /* ---------- Bucket C — retired into the engines ---------- */
 const RETIRED_ENGINE_ROWS = [
   { name: 'Scene Pulse (IST)', why: 'the ledger renders it' },
+  { name: 'Voices Block', why: 'the world agent hears the voices and the drawer shows them (M97); the storyteller never writes the block' },
   { name: 'NPC Watchlist (ACW)', why: 'the world agent keeps the absent, with stance and arrival on the clock' },
   { name: 'Factions', why: 'the world agent moves factions on cause; the ledger renders them' },
   /* M30: the storyteller no longer runs the simulation in its own output. */

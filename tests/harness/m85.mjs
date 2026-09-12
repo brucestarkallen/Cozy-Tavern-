@@ -759,3 +759,16 @@ test('M131-1 OWNERSHIP OF THE LEDGER: every fact has one writer; every second wr
   /* the auditor reads answered turns only */
   assert(/export function answeredOnly/.test(aud), 'an unanswered writer’s page is an attempt');
 });
+
+test('M132-1 a rule that teaches a house block never rides the wire; the import engine retires the preset’s Voices Block', async () => {
+  const { selectModules, housesBlock } = await import('../../js/assemble/modules.js');
+  const { classify } = await import('../../js/import/v176map.js');
+  assert(housesBlock({ name: 'Voices Block', text: 'Write {VOICES} … {/VOICES} after the prose when the social field is in reach.' }));
+  assert(housesBlock({ name: 'My rule', text: 'End every social scene with a {VOICES} block of 2-4 lines.' }));
+  assert(!housesBlock({ name: 'The world window', text: 'Never write {VOICES}; the house hears the voices.' }), 'a rule that says never is not teaching the block');
+  assert(!housesBlock({ name: 'The Prose', text: 'Short sentences. No bold.' }));
+  const picked = selectModules([{ id: 'v', name: 'Voices Block', custom: true, enabled: true, whenKey: 'socialField', text: 'Write {VOICES} lines.', when: () => ({ load: true, reason: 'x' }) }], emptyState());
+  assert(!picked.some((c) => c && c.mod && c.mod.id === 'v'), 'the voices rule never loads: ' + JSON.stringify(picked.map((c) => [c.mod && c.mod.id, c.reason])));
+  const v = classify({ name: 'Voices Block', content: 'x' });
+  eq(v.bucket, 'retired', JSON.stringify(v));
+});

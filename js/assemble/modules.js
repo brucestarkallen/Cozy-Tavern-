@@ -369,6 +369,13 @@ export async function removeModule(id) {
 
 /* Who joins the stack this turn: predicate says load, or you pinned it on.
  * The reason records which, so the receipt can say it out loud. */
+export function housesBlock(mod) {
+  const text = String((mod && mod.text) || '');
+  const name = String((mod && mod.name) || '');
+  if (/^voices block$/i.test(name.trim())) return true;
+  return /\{VOICES\}|\{PULSE\}|\{WATCHLIST\}|\[VOICE:/.test(text) && !/never write|do not write|never on the page/i.test(text);
+}
+
 export function selectModules(modules, state) {
   const list = Array.isArray(modules) ? modules : [];
   const chosen = [];
@@ -382,6 +389,12 @@ export function selectModules(modules, state) {
   }
   for (const mod of list) {
     let verdict = { load: false, reason: '' };
+    /* M132: a rule that teaches the storyteller to write a house block —
+     * {VOICES}, {PULSE}, {WATCHLIST} — never rides the wire: the world agent
+     * hears the voices and the ledger keeps the state. An imported preset's
+     * "Voices Block" module was still waking on every social scene and the
+     * storyteller kept planning a block the house strips at the door. */
+    if (housesBlock(mod)) continue;
     if (typeof mod.when === 'function') {
       try {
         verdict = mod.when(state) || verdict;

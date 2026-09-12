@@ -3198,3 +3198,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   repeat a world thread the person owns are shown once, as the thread. An unanswered writer's
   page is an attempt (M110). M131-1 holds all of it as a standing check.
 - 393/393 + 35/35 + 8/8. version.js -> m131-001.
+
+# M132 — the imported preset's Voices Block was still riding
+- FIELD REPORT: the storyteller's thinking kept planning a {VOICES} block ("near-ALWAYS when
+  the social field is in reach … the trace … Worth Repeating") though the craft no longer
+  teaches it. The import engine (v176map) still filed the preset's "Voices Block" as a live rule
+  waking on socialField, so the writer's imported rulebook handed the storyteller the old ST law
+  every social scene, and the house stripped the block at the door each time. Now: the import
+  retires "Voices Block" into the engines (the world agent hears the voices, the drawer shows
+  them); and the assembler never sends ANY rule that teaches a house block — a module named
+  "Voices Block", or one whose text asks for {VOICES}/{PULSE}/{WATCHLIST}/[VOICE: — unless it
+  says never (housesBlock). An already-imported rulebook is covered by the assembler's guard
+  without re-importing.
+- M132-1. 394/394 + 35/35 + 8/8. version.js -> m132-001.
