@@ -1879,10 +1879,16 @@ async function applyEditOp(storyId, p, batch) {
     afterHash: messageHashOf({ text: newText, hidden: msg.hidden === true }),
   });
   await db.messages.update(storyId, msg.id, editPatchFor(msg, newText));
+  /* M119: a loose anchor is VERIFIED — the words the card meant to remove
+   * must be gone and the words it meant to write must stand; a miss is
+   * reported on the card (loose:true, missed:true) so the house re-asks. */
+  const missed = located.via === 'fuzzy' && ((op.find && newText.includes(op.find)) || (op.replace && !newText.includes(op.replace)));
   return {
     ok: true,
+    loose: located.via === 'fuzzy',
+    missed,
     words: 'The page is re-inked'
-      + (located.via === 'fuzzy' ? ' (the anchor was loose, but sure)' : '') + '.',
+      + (located.via === 'fuzzy' ? (missed ? ' — but the anchor was loose and the words it meant to change are not where it thought; the house is asking it to look at the page as it is' : ' (the anchor was loose, but sure)') : '') + '.',
   };
 }
 
@@ -2100,6 +2106,7 @@ export async function applyProposal(session, storyId, proposalId) {
     if (batch.items.length) pushBatch(session, batch);
     p.status = 'applied';
     p.words = result.words;
+    if (result.missed) p.missed = true; /* M119: a loose anchor that missed — the house re-asks */
     /* M100: a page edit that landed carries what it changed, so the house can
      * ripple it — before text from the batch, after text from the store */
     const edited = [];
@@ -2140,10 +2147,12 @@ export async function applyAllPending(session, storyId) {
   const touched = { messages: false, state: false, modules: false };
   let any = false;
   const edited = [];
+  const missed = [];
   for (const p of pending) {
     const result = await applyProposal(session, storyId, p.id);
     if (result.ok) {
       any = true;
+      if (p.missed) missed.push(p);
       if (Array.isArray(result.edited)) edited.push(...result.edited);
       if (result.touched) {
         touched.messages = touched.messages || result.touched.messages;
@@ -2153,7 +2162,7 @@ export async function applyAllPending(session, storyId) {
     }
     if (result.words) words.push(result.words);
   }
-  return { ok: any, words: words.join(' '), touched, count: pending.length, edited };
+  return { ok: any, words: words.join(' '), touched, count: pending.length, edited, missed };
 }
 
 /* ---------- drift-guarded undo ---------- */

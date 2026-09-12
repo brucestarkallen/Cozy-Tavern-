@@ -3034,3 +3034,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   line beginning "Done"; quoted spans are stripped first. A message ending in "?" asks for a
   check unless a clause of it is an imperative ("why is she there? fix it").
 - M118-1 (M75-1 kept). 383/383 + 34/34. version.js -> m118-001.
+
+# M119 — a glitch character is the house's to mend; a loose anchor is verified and re-asked
+- FIELD REPORT: a stray Hangul syllable (틀) and a garbled repeat around it sat in an English
+  page; the housekeeper's edit landed "on a loose anchor, but sure" — on the wrong words — and
+  the corruption survived; the writer had to ask again. Two fixes: (1) the house's eye names a
+  stray character from another script (a page nearly all Latin holding one to four Hangul /
+  Han / Cyrillic / Arabic / Thai / Hebrew / kana characters) and the chain sends the mender to
+  that page at once — remove the stray, mend the phrase, keep a garbled repeat once, change
+  nothing else — with the take-back chip; the workers' line says whether anything still stands.
+  A page written in another script is not a glitch. (2) A loosely-anchored housekeeper edit is
+  VERIFIED after landing: the words it meant to remove must be gone and the words it meant to
+  write must stand; a miss marks the card and the house re-asks the housekeeper ONCE — read the
+  page as it is, fetch it whole, re-propose with the exact find, or say plainly why the page is
+  already right. The writer never checks twice.
+- M119-1. 384/384 + 34/34 + 8/8. version.js -> m119-001.

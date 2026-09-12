@@ -1787,6 +1787,22 @@ export function initChat(ctx) {
       await reink(story.id, msg.id, { findings: [...findings, ...others] });
       if (findings.length) notify(story.id);
       const warns = findings.filter((f) => f.severity === 'warn').length;
+      /* M119: a glitch character is mended now, by the house — the stray and
+       * the garbled phrase around it (a corrupted repeat often sits beside
+       * it); the fewest words, with the take-back chip like any mend */
+      const stray = findings.find((f) => Array.isArray(f.stray) && f.stray.length);
+      if (stray) {
+        const connection = await resolveWorkerConnection(story, 'continuity');
+        if (connection && !stale()) {
+          try {
+            const contradiction = 'The page holds a stray character from another script — ' + stray.stray.map((c) => '“' + c + '”').join(', ') + ' — a glitch of the wire, not a word. Remove it and mend the phrase around it; if a garbled repeat of a sentence sits beside it, keep that sentence once. Change nothing else.';
+            const changed = await mendAround(story, connection, [msg.id], contradiction, undefined, 0);
+            const after = (await db.messages.list(story.id)).find((m) => m.id === msg.id);
+            const still = after ? (pageText(after).match(/[\p{Script=Hangul}\p{Script=Han}\p{Script=Cyrillic}\p{Script=Arabic}\p{Script=Thai}\p{Script=Hebrew}\p{Script=Hiragana}\p{Script=Katakana}]/gu) || []).length : 0;
+            return { silent: false, detail: (changed.length ? 'a glitch character mended' : 'a glitch character seen, the mender left it') + (still ? ' — ' + still + ' still on the page (edit it or try again)' : '') + `; ${findings.length} ${findings.length === 1 ? 'slip' : 'slips'} against the craft` };
+          } catch (err) { /* the finding stands; the warn rides next turn */ }
+        }
+      }
       return { silent: !findings.length, detail: findings.length ? `${findings.length} ${findings.length === 1 ? 'slip' : 'slips'} against the craft` + (warns ? ` (${warns} to recolor next turn)` : '') : '' };
     });
 

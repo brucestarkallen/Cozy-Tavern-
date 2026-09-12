@@ -63,7 +63,9 @@ export function initHousekeeper(ctx) {
 
   let open = false;
   let busy = false;
-  let applying = false; /* M64: applying and undoing never wait on the model's lock */
+  let applying = false;
+  let reaskedMiss = false; /* M119: one re-ask per landing */
+  /* M64: applying and undoing never wait on the model's lock */
   let workerCtl = null;
   let session = { turns: [], batches: [] };
   let sessionStoryId = null;
@@ -876,6 +878,13 @@ export function initHousekeeper(ctx) {
             if (landed.words) toast(landed.words);
             refreshStoryFloor(landed.touched);
             rippleEdits(story, landed.edited);
+            /* M119: a loosely-anchored edit that missed its words is re-asked
+             * ONCE by the house — the writer never checks twice */
+            if (Array.isArray(landed.missed) && landed.missed.length && !reaskedMiss) {
+              reaskedMiss = true;
+              const names = landed.missed.map((p) => '“' + p.label + '”' + (p.op && p.op.messageId ? ' on ' + String(p.op.messageId).slice(0, 6) : '')).join(', ');
+              setTimeout(() => send('[THE HOUSE] Your edit ' + names + ' landed on a loose anchor and the words it meant to change are still on the page (or the words it meant to write are not). Read that page again as it stands — fetch it whole — and either re-propose the edit with the exact find copied from the page, or say plainly that the page is already right and why.'), 50);
+            } else if (!(Array.isArray(landed.missed) && landed.missed.length)) reaskedMiss = false;
           }
         } catch (err) { /* a card that will not land stays a card, with its refusal shown */ }
       }

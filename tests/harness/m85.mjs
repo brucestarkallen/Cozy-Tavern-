@@ -608,3 +608,17 @@ test('M118-1 a claim of change is first person or "now reads" — quoted prose a
   assert(claimsChange('The correction is applied.'), 'the change is applied is a claim');
   assert(!asksForChange('And the twb from previous turn also will not contradict this?'), 'a question asks for a check, not a change');
 });
+
+test('M119-1 the eye names a glitch character from another script; a loose anchor that missed its words is reported for the house to re-ask', async () => {
+  const { lintPage } = await import('../../js/agents/lint.js');
+  const english = 'She caught herself, deleted something structural. '.repeat(8);
+  const r = lintPage({ assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\n' + english + '"oh, Chloe\'s going to sh틀—" She caught herself.', userText: 'x' });
+  const f = r.findings.find((x) => Array.isArray(x.stray));
+  assert(f && f.severity === 'warn' && f.stray[0] === '틀', JSON.stringify(r.findings));
+  const ko = lintPage({ assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\n' + '그녀는 조용히 앉아 있었다. '.repeat(30), userText: 'x' });
+  assert(!ko.findings.some((x) => Array.isArray(x.stray)), 'a page written in Hangul is not a glitch');
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/const missed = located\.via === 'fuzzy' && \(\(op\.find && newText\.includes\(op\.find\)\) \|\| \(op\.replace && !newText\.includes\(op\.replace\)\)\);/.test(src), 'a loose anchor is verified after landing');
+  const ui = (await import('node:fs')).readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
+  assert(/landed on a loose anchor and the words it meant to change are still on the page/.test(ui), 'the house re-asks once');
+});
