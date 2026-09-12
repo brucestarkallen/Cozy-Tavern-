@@ -820,6 +820,30 @@ test('DOM-8f THE WRITER’S SECOND REPORT: a store whose journal began while the
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-6c READ AGAIN by hand: the last page rewinds to its boundary and the chain runs; an older page is read fresh and the journal replays above it; the record line refolds', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await settled();
+  const pages = assistantPages();
+  assert(pages.length >= 2, 'two pages to read');
+  const last = pages[pages.length - 1];
+  const w0 = ((await db.settings.get('workers:' + sid)) || {}).extractor;
+  const at0 = w0 && w0.at ? w0.at : 0;
+  assert(q('.msg-act[data-act="read again"]', last), 'the action stands on a storyteller page');
+  click(q('.msg-act[data-act="read again"]', last));
+  await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.extractor && w.extractor.at > at0; }, 'the extractor read the last page again', 15000);
+  await settled();
+  const old = pages[0];
+  const at1 = ((await db.settings.get('workers:' + sid)) || {}).extractor.at;
+  click(q('.msg-act[data-act="read again"]', old));
+  await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.extractor && w.extractor.at > at1; }, 'the extractor read the old page again', 15000);
+  await settled();
+  const st = await db.settings.get('state:' + sid);
+  assert(st && Array.isArray(st.present) && st.present.length >= 1, 'the ledger stands after the replay');
+  { const problems = await checkStoreConsistency(db, sid); eq(problems.length, 0, 'the store agrees with itself: ' + problems.join(' | ')); }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work through the real UI', async () => {
   const before = errors.length;
   click(q('#btn-housekeeper'));

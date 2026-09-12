@@ -2971,3 +2971,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the branch inexact and the branch re-reads its last page itself, a light read (the extractor,
   the world, the scribe, the keeper, an audit), never the deep one; a toast says so.
 - M112-1, M43-2 updated. 380/380 + 33/33 + 8/8. version.js -> m112-001.
+
+# M113 — "read again": the readers by hand, for one page
+- FIELD QUESTION: "is there a manual button to re-read / restart the workers for this page?"
+  There was only the whole-story deep read. Now every storyteller page carries "read again":
+  the last page rewinds the ledger to its boundary and runs the chain (what an edit does); an
+  older page folds the journal to the page before it, reads the page fresh, and replays every
+  later page's writes above it (M72's replay); the page's record line is let go and refolded.
+  Off the send path; the workers' line shows what landed. DOM-6c holds both cases and the
+  store's consistency after them.
+- 380/380 + 34/34 + 8/8. version.js -> m113-001.

@@ -996,6 +996,7 @@ export function initChat(ctx) {
      * (the M8 row promised it; this wave makes it real). */
     acts.push('branch');
     if (isLastAssistant) acts.push('go on');
+    if (msg.role === 'assistant' && !msg.ooc) acts.push('read again'); /* M113: the readers, by hand, for this page */
     acts.push('delete');
     for (const act of acts) {
       const btn = document.createElement('button');
@@ -3536,6 +3537,8 @@ export function initChat(ctx) {
       deleteMessage(id);
     } else if (btn.dataset.act === 'go on') {
       continueTurn();
+    } else if (btn.dataset.act === 'read again') {
+      rereadPage(id);
     }
   });
 
@@ -3692,8 +3695,38 @@ export function initChat(ctx) {
       retryUserMessage(id);
     } else if (act === 'go on') {
       continueTurn();
+    } else if (act === 'read again') {
+      rereadPage(id);
     }
   });
+
+  /* M113: READ AGAIN — the readers run over this page by hand. The last page:
+   * the ledger rewinds to its boundary and the chain runs (what an edit does).
+   * An older page: the journal folds to the page before it, the page is read
+   * fresh, and every later page's writes replay above it (M72's replay). Its
+   * record line is let go and refolded from the page's words. Off the send
+   * path; the workers' line says what landed. */
+  async function rereadPage(id) {
+    const story = await activeStory();
+    if (!story || busy) return;
+    const history = await db.messages.list(story.id);
+    const msg = history.find((m) => m && m.id === id);
+    if (!msg || msg.role !== 'assistant' || msg.ooc) return;
+    const vis = visiblePages(history);
+    const k = vis.findIndex((m) => m.id === id);
+    if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k));
+    const isLast = !history.slice(history.indexOf(msg) + 1).some((m) => m && m.role === 'assistant' && !m.hidden);
+    if (isLast) {
+      const before = history.slice(0, history.indexOf(msg));
+      const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
+      const boundary = boundaryFor(history, msg.id);
+      if (boundary) await rewindTo(story, history, boundary.id);
+      startBackgroundWork(story, msg, lastUser ? pageText(lastUser) : '');
+    } else {
+      replayFrom(story, msg.id, { changed: true });
+    }
+    toast('The readers are on this page again.');
+  }
 
   /* ---------- story panel (mobile slide-over) ---------- */
 
