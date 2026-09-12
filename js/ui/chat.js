@@ -48,7 +48,7 @@ import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
-import { enqueueWork } from '../agents/queue.js';
+import { enqueueWork, queuedCount } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
@@ -868,7 +868,7 @@ export function initChat(ctx) {
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
     /* M69: a ledger from a longer telling is caught by its own stamps on open */
     const story = await db.stories.get(id);
-    if (story) repairTimeline(story).catch(() => {});
+    if (story) repairTimeline(story).then(() => resumeUnfinishedChain(story)).catch(() => {});
   }
 
   /* ---------- thread ---------- */
@@ -2275,6 +2275,31 @@ export function initChat(ctx) {
     return true;
   }
 
+  /* M127: THE READERS FINISH WHAT THEY STARTED. The chain's last link writes
+   * the page's version checkpoint; a story closed mid-chain has a last page
+   * with no checkpoint. On open, that page is read again from its boundary
+   * (what "read again" does) — each link's writes are whole or absent, so
+   * nothing is applied twice. A story from before checkpoints earns one
+   * read on its first open, and that is right. */
+  async function resumeUnfinishedChain(story) {
+    if (!story || busy || replaying) return false;
+    /* a story made in the last minute — a fresh branch, a new tale — settles
+     * its own ledger (branchFrom decides exact or re-read); nothing to resume */
+    if (Number.isFinite(story.createdAt) && Date.now() - story.createdAt < 60000) return false;
+    const history = await db.messages.list(story.id);
+    const vis = visiblePages(history);
+    const last = [...vis].reverse().find((m) => m.role === 'assistant');
+    if (!last || last.ooc) return false;
+    if (last.stopped || (typeof last.text === 'string' && !last.text.trim())) return false;
+    const idx = Number.isFinite(last.swipeIdx) ? last.swipeIdx : 0;
+    if (await versionStateFor(story.id, last.id, idx)) return false;
+    /* a chain still running in THIS session is not unfinished */
+    if (queuedCount(story.id) > 0) return false;
+    await rereadPage(last.id, { quiet: true });
+    toast('The readers had not finished the last page — reading it now.');
+    return true;
+  }
+
   /* M67: a version checkpoint belongs to the LAST storyteller page only. An
    * older page's versions never own a ledger — the ledger standing now is
    * the later turns', not theirs — so walking or re-writing an older page
@@ -3496,6 +3521,18 @@ export function initChat(ctx) {
       const [oldId, idx] = key.split(':');
       if (idMap[oldId]) branchVersions[idMap[oldId] + ':' + idx] = st;
     }
+    /* M127: the branch's last page owns the carried ledger as its checkpoint
+     * (exact carries only) — so the readers' resume on open finds the page
+     * finished and leaves it alone; an inexact carry re-reads and writes its
+     * own checkpoint at the end of the chain */
+    if (exact && carried) {
+      const lastCarried = [...pages].reverse().find((m) => m && m.role === 'assistant' && !m.hidden);
+      if (lastCarried) {
+        const bid = idMap[lastCarried.id] || lastCarried.id;
+        const idx = Number.isFinite(lastCarried.swipeIdx) ? lastCarried.swipeIdx : 0;
+        branchVersions[bid + ':' + idx] = JSON.parse(JSON.stringify(carried));
+      }
+    }
     if (Object.keys(branchVersions).length) await db.settings.set('versionState:' + branch.id, branchVersions);
     const mem = await loadMemory(story.id);
     const visibleCount = pages.length;
@@ -3793,7 +3830,7 @@ export function initChat(ctx) {
    * fresh, and every later page's writes replay above it (M72's replay). Its
    * record line is let go and refolded from the page's words. Off the send
    * path; the workers' line says what landed. */
-  async function rereadPage(id) {
+  async function rereadPage(id, { quiet = false } = {}) {
     const story = await activeStory();
     if (!story || busy) return;
     const history = await db.messages.list(story.id);
@@ -3812,7 +3849,7 @@ export function initChat(ctx) {
     } else {
       replayFrom(story, msg.id, { changed: true });
     }
-    toast('The readers are on this page again.');
+    if (!quiet) toast('The readers are on this page again.');
   }
 
   /* ---------- story panel (mobile slide-over) ---------- */
@@ -4218,6 +4255,7 @@ export function initChat(ctx) {
     rescanLedger,
     auditNow,
     rippleAfterEdit,
+    resumeUnfinishedChain,
     foundNow,
     rebuildStandingsNow,
     rebuildRecordNow,

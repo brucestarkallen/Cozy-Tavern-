@@ -3132,3 +3132,15 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   if, reading the writer again, no change was asked, answer the writer as if this note did not
   exist — never mention it, never "you're right", never re-read the writer's words as an order.
 - M126-1; M75-3 kept. 389/389 + 34/34. version.js -> m126-001.
+
+# M127 — the readers finish what they started (the app closed mid-chain)
+- FIELD QUESTION: "if I accidentally close the tavern while the workers are working, is it
+  safe?" Each link's writes are whole or absent (IndexedDB per link), so nothing is half-written
+  — but the links after the interrupted one never ran, and nothing resumed them. Now the chain's
+  last link (the page's version checkpoint) is the mark of a finished page: on open (boot and
+  every openStory), a last storyteller page with no checkpoint is read again from its boundary
+  (what "read again" does) — nothing applied twice, a quiet toast. A story made in the last
+  minute (a fresh branch, a new tale) settles its own ledger and is never resumed; an exact
+  branch's last page owns the carried ledger as its checkpoint. A story from before checkpoints
+  earns one read on its first open.
+- DOM-6d; M43-2's window widened. 389/389 + 35/35 + 8/8. version.js -> m127-001.

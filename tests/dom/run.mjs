@@ -844,6 +844,32 @@ test('DOM-6c READ AGAIN by hand: the last page rewinds to its boundary and the c
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-6d THE READERS FINISH WHAT THEY STARTED: a last page whose chain never landed (its checkpoint missing) is read again on open; a finished page is left alone', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await settled();
+  const pages = assistantPages();
+  const last = pages[pages.length - 1];
+  const idx = Number((await db.messages.list(sid)).find((m) => m.id === last.dataset.id).swipeIdx || 0);
+  /* an older story (a fresh one settles its own ledger and is never resumed) */
+  await db.stories.update(sid, { createdAt: Date.now() - 5 * 60 * 1000 });
+  /* a finished page: nothing happens */
+  const at0 = (((await db.settings.get('workers:' + sid)) || {}).extractor || {}).at || 0;
+  const ran0 = await env.ctx.chat.resumeUnfinishedChain(await db.stories.get(sid));
+  eq(ran0, false, 'a page with its checkpoint is not re-read');
+  /* the app closed mid-chain: the last page has no checkpoint */
+  const vs = (await db.settings.get('versionState:' + sid)) || {};
+  delete vs[last.dataset.id + ':' + idx];
+  await db.settings.set('versionState:' + sid, vs);
+  const ran1 = await env.ctx.chat.resumeUnfinishedChain(await db.stories.get(sid));
+  eq(ran1, true, 'an unfinished last page is read again');
+  await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.extractor && w.extractor.at > at0; }, 'the extractor read it', 15000);
+  await settled();
+  assert(await db.settings.get('versionState:' + sid) && ((await db.settings.get('versionState:' + sid))[last.dataset.id + ':' + idx]), 'and the checkpoint stands again');
+  { const problems = await checkStoreConsistency(db, sid); eq(problems.length, 0, 'the store agrees with itself: ' + problems.join(' | ')); }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work through the real UI', async () => {
   const before = errors.length;
   click(q('#btn-housekeeper'));

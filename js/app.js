@@ -205,6 +205,10 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
 
   if (ctx.chat) await ctx.chat.refreshStories();
   if (ctx.chat) await ctx.chat.renderThread();
+  /* M127: a story closed mid-chain finishes its last page on open */
+  if (ctx.chat && typeof ctx.chat.resumeUnfinishedChain === 'function') {
+    try { const s = activeStoryId ? await db.stories.get(activeStoryId) : null; if (s) await ctx.chat.resumeUnfinishedChain(s); } catch (err) { /* best-effort */ }
+  }
 
   showView(currentRoute());
 
