@@ -1264,7 +1264,17 @@ function driftPanel(ctx) {
   const note = quietNote('');
   const list = document.createElement('ul');
   list.className = 'log-list';
-  wrap.append(note, list);
+  /* M128: everything on this panel, copied as text — for the writer to carry
+   * to whoever fixes the house */
+  const copyAll = document.createElement('button');
+  copyAll.type = 'button';
+  copyAll.className = 'text-btn';
+  copyAll.textContent = 'Copy all of this';
+  copyAll.addEventListener('click', async () => {
+    const text = [...wrap.querySelectorAll('li, p.quiet, h4, summary')].map((el) => el.textContent.trim()).filter(Boolean).join('\n');
+    try { await navigator.clipboard.writeText(text); copyAll.textContent = 'Copied'; setTimeout(() => { copyAll.textContent = 'Copy all of this'; }, 1500); } catch (err) { copyAll.textContent = 'Couldn’t copy'; }
+  });
+  wrap.append(copyAll, note, list);
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);

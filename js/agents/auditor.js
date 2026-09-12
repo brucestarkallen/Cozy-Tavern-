@@ -104,6 +104,8 @@ function law({ mc }) {
     'Be exact and be conservative: only what the brief states or the pages show, never what would be',
     'nice. If the ledger is true to the story, say so with an empty list — that is a good answer.',
     '',
+    'THE MAIN CHARACTER HAS NO CHARACTER PAGE, by design — the writer plays them. Never report it',
+    'missing, never write one.',
     'NOT YOUR JOB — THE MOMENT: posture, position, what a hand is doing, a sip taken, a knee on the',
     'vinyl, clothing of the moment, an absent person\'s activity this hour, a thread\'s next small',
     'step, a character page\'s "now" line. The extractor, the world agent and the scribe rewrite',
@@ -265,6 +267,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   if (read.note !== 'ok') return { applied: [], rejected: [], issues: [], note: read.note, raw };
   if (stale && stale()) return null;
   const fresh = await loadState(storyId);
+  read.issues = auditorScope(read.issues, fresh); /* M128: the moment never lands from an audit */
   /* M48: the auditor may not take a standing away on judgment. A rel.set
    * that lowers a standing is refused when that standing has ANY on-page
    * history (a cause the extractor wrote from a page) or when the person is
@@ -364,6 +367,41 @@ export function exampleLeakHousekeeping(state, brief = '', castNotes = '') {
   /* M96: forgotten for good, not tombstoned — a name that was never the story's leaves no trace */
   for (const name of names) out.push({ type: 'people.forget', name, cause: 'an example name from the house\'s own instructions, never the story\'s' });
   return out;
+}
+
+/* M128: THE AUDITOR'S SCOPE, IN CODE. A cheap model reports the moment
+ * whatever the law says. Issues whose mutations are only the moment's — the
+ * mood board, a posture or a wardrobe, an absent person's activity on a seat
+ * that stands, a character page's "now"/arc/loose-end lines, a thread that
+ * exists nudged along — are dropped before anything lands. A character page
+ * for the main character is never written (the writer plays them). What
+ * stays: presence, standings, locks, wounds, seats made or cleared, threads
+ * opened or closed, knowledge, the clock and the ground, forgetting. */
+const MOMENT_TYPES = new Set(['mode.snapshot', 'presence.set', 'people.note']);
+export function auditorScope(issues, state) {
+  const mc = String((state && state.sheet && state.sheet.playerName) || '').trim().toLowerCase();
+  const seats = state && state.offscreen ? Object.keys(state.offscreen).map((k) => k.toLowerCase()) : [];
+  const threads = Array.isArray(state && state.threads) ? state.threads.map((t) => String((t && t.title) || '').toLowerCase()) : [];
+  const moment = (m) => {
+    if (!m || typeof m !== 'object') return true;
+    if (MOMENT_TYPES.has(m.type)) return true;
+    if (m.type === 'people.set') {
+      if (mc && String(m.name || '').trim().toLowerCase() === mc) return true;
+      return m.field === 'state' || m.field === 'arc' || m.field === 'threads';
+    }
+    if (m.type === 'offscreen.set' && seats.includes(String(m.name || '').trim().toLowerCase())) return true;
+    if (m.type === 'thread.set' && threads.includes(String(m.title || '').trim().toLowerCase())) return true;
+    return false;
+  };
+  const kept = [];
+  for (const issue of issues || []) {
+    if (!issue || typeof issue !== 'object') continue;
+    const muts = Array.isArray(issue.mutations) ? issue.mutations.filter((m) => !moment(m)) : [];
+    if (issue.pages && issue.fix) { kept.push({ ...issue, mutations: muts }); continue; }
+    if (Array.isArray(issue.mutations) && issue.mutations.length && !muts.length) continue; /* the moment only — dropped whole */
+    kept.push({ ...issue, mutations: muts });
+  }
+  return kept;
 }
 
 /* M103: WHO KEEPS A SEAT — the writer's own ACW law ("ACW tracks hot threads,

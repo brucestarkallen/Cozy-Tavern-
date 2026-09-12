@@ -644,6 +644,33 @@ export function renderMasthead(state) {
 export function journalKey(e) {
   try { return e.p + '|' + JSON.stringify(e.m); } catch (err) { return e.p + '|?'; }
 }
+/* M128: THE HEADER IS THE TRUTH FOR THE GROUND AND THE HOUR, IN CODE. The
+ * page's first line — [Location — Weekday, Month D, YYYY | HH:MM | …] — was
+ * left to the extractor to turn into place.set and clock.set, and a cheap
+ * model skipped the place more often than not ("the place is not set" on
+ * audit after audit). The house reads the line itself. Returns the
+ * mutations the header warrants; nothing when the line is not a header. */
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+export function headerMutations(pageText) {
+  const first = String(pageText || '').split('\n').map((l) => l.trim()).find((l) => l.length);
+  if (!first || !/^\[.+\]$/.test(first)) return [];
+  const inner = first.slice(1, -1);
+  const parts = inner.split('|').map((x) => x.trim());
+  const out = [];
+  const head = parts[0] || '';
+  const dash = head.split(/\s+[—–-]\s+/);
+  const place = (dash[0] || '').trim();
+  if (place && place.length <= 80 && !/^\d/.test(place)) out.push({ type: 'place.set', name: place });
+  const dateWords = (dash.slice(1).join(' ') || '') + ' ' + parts.slice(1).join(' ');
+  const dm = dateWords.match(new RegExp('(' + MONTHS.join('|') + ')\\s+(\\d{1,2}),?\\s+(\\d{4})', 'i'));
+  const tm = (parts.slice(1).join(' ') + ' ' + head).match(/\b(\d{1,2}):(\d{2})\b/);
+  if (dm && tm) {
+    const month = MONTHS.indexOf(dm[1].toLowerCase()) + 1;
+    out.push({ type: 'clock.set', year: Number(dm[3]), month, day: Number(dm[2]), hour: Number(tm[1]), minute: Number(tm[2]) });
+  }
+  return out;
+}
+
 /* M91: does the journal REACH a page — can a fold up to it be exact? Yes when
  * a snapshot from the journaled era (one that knows its page) sits at or
  * before the target, or when the journal began at the beginning (an entry

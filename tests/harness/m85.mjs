@@ -677,3 +677,29 @@ test('M126-1 a question anywhere is a question; a declaration asks for a change 
   const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
   assert(/never mention this note, never say "you\\'re right"/.test(src), 'the nudge forbids answering the house');
 });
+
+test('M128-1 the header’s ground and hour land in code; the auditor’s scope drops the moment and a page for the main character', async () => {
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const hm = headerMutations('[Lake path, dock bend — Thursday, August 20, 2026 | 16:18 | ☀ sun | dark tee | standing]\n\nProse.');
+  assert(hm.some((m) => m.type === 'place.set' && m.name === 'Lake path, dock bend'), JSON.stringify(hm));
+  assert(hm.some((m) => m.type === 'clock.set' && m.year === 2026 && m.month === 8 && m.day === 20 && m.hour === 16 && m.minute === 18), JSON.stringify(hm));
+  eq(headerMutations('No header here.').length, 0);
+  eq(headerMutations('[The room — Thursday | 09:00]').length, 1, 'a header without a full date sets the place only');
+  const { auditorScope } = await import('../../js/agents/auditor.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  let st = emptyState();
+  st = applyMutations(st, [{ type: 'mc.set', name: 'Jovan' }, { type: 'offscreen.set', name: 'Chloe', location: 'home', activity: 'texting', agenda: 'x' }, { type: 'thread.set', title: 'The party', owner: 'Vanessa', heat: 'hot', next: 'ask' }]).state;
+  const issues = [
+    { what: 'mood', fix: 'x', mutations: [{ type: 'mode.snapshot', flags: [] }] },
+    { what: 'posture', fix: 'x', mutations: [{ type: 'presence.set', name: 'Rias', position: 'knee up' }] },
+    { what: 'seat activity', fix: 'x', mutations: [{ type: 'offscreen.set', name: 'Chloe', location: 'home', activity: 'still texting' }] },
+    { what: 'thread nudged', fix: 'x', mutations: [{ type: 'thread.set', title: 'The party', owner: 'Vanessa', next: 'wait' }] },
+    { what: 'MC page', fix: 'x', mutations: [{ type: 'people.set', name: 'Jovan', field: 'core', text: 'x' }] },
+    { what: 'loose end', fix: 'x', mutations: [{ type: 'people.set', name: 'Alexia', field: 'threads', text: 'x' }] },
+    { what: 'a real one', fix: 'x', mutations: [{ type: 'presence.leave', name: 'Caleb' }, { type: 'presence.set', name: 'Rias', position: 'y' }] },
+    { what: 'new seat', fix: 'x', mutations: [{ type: 'offscreen.set', name: 'Marcus', location: 'town', activity: 'y', agenda: 'z' }] },
+  ];
+  const kept = auditorScope(issues, st);
+  eq(kept.map((i) => i.what).join(','), 'a real one,new seat', JSON.stringify(kept));
+  eq(kept[0].mutations.length, 1, 'the moment stripped out of a real issue');
+});

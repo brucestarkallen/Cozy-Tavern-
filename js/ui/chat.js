@@ -45,7 +45,7 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { enqueueWork, queuedCount } from '../agents/queue.js';
@@ -1846,7 +1846,11 @@ export function initChat(ctx) {
        * a page of a story the writer has left. */
       if (stale()) return { silent: true };
       if (!(await stillThere(story.id, msg.id))) return { silent: true };
-      const list = Array.isArray(mutations) ? mutations : [];
+      /* M128: the header's ground and hour land in code, at the head of the
+       * extractor's own writes — the same stamp, the same journal, the same
+       * take-back — whatever the model remembered to write */
+      const fromHeader = (msg.role === 'assistant' && !msg.ooc) ? headerMutations(pageText(msg)) : [];
+      const list = [...fromHeader, ...(Array.isArray(mutations) ? mutations : [])];
 
       /* Re-load at apply time — the ledger may have been touched by hand
        * while the worker was reading. */

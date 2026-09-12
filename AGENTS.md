@@ -3144,3 +3144,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   branch's last page owns the carried ledger as its checkpoint. A story from before checkpoints
   earns one read on its first open.
 - DOM-6d; M43-2's window widened. 389/389 + 35/35 + 8/8. version.js -> m127-001.
+
+# M128 — the header's ground and hour in code; the auditor's scope in code; a copy button on the drift
+- FIELD REPORT (turn 183): the auditor still "set right" the moment (the mood, loose ends, arcs,
+  a knowledge line about the latest page), still said "the place is not set", and proposed a
+  character page for the main character. Three fixes: (1) the page's header line is read by
+  the house — place.set and clock.set ride at the head of the extractor's own writes (same
+  stamp, same journal, same take-back), whatever the model remembered; (2) the auditor's scope
+  is enforced in code (auditorScope): issues whose mutations are only the moment's — the mood
+  board, a posture or wardrobe, a standing seat's activity, a page's state/arc/threads lines, a
+  standing thread nudged along, ANY page for the main character — are dropped before anything
+  lands, and the moment is stripped out of a real issue; the law also says the main character
+  has no page by design; (3) "Copy all of this" on Something drifted, so the writer can carry
+  the panel's words out whole.
+- M128-1. 390/390 + 35/35 + 8/8. version.js -> m128-001.
