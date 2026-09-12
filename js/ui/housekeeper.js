@@ -37,10 +37,15 @@ import {
 } from '../agents/editor.js';
 
 const AUDIT_ASK = [
-  'Read the whole house — the pages, the ledger, the rulebook — and audit:',
-  'what has drifted, what contradicts itself, what the ledger says that the',
-  'pages no longer do (or the other way round). Where a fix is clear,',
-  'propose it. Where it isn’t, say so plainly.',
+  'Read the whole house — the pages, the ledger, the record (every line of',
+  'Our story so far), the character pages, the rulebook — and audit: what has',
+  'drifted, what contradicts itself, what the ledger or the record says that',
+  'the pages no longer do (or the other way round). Hold each record line',
+  'against the pages it folds: when a line looks wrong, thin, or holds a fact',
+  'no page supports, FETCH those pages whole (their #handles) and the line',
+  'itself (its #r… mark) before you judge; never guess from an index entry.',
+  'Where a fix is clear, propose it — a page edit, a ledger change, a record',
+  'line rewritten from the pages. Where it isn’t, say so plainly.',
 ].join(' ');
 
 export function initHousekeeper(ctx) {

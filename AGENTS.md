@@ -3112,3 +3112,10 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   said fetch took only page handles; now it takes a record line too.
 - The housekeeper's fetch of a PAGE is uncapped and whole (FETCH_PAGE_CAP 0); twelve per round.
 - M124-1; M74-6 updated. 388/388 + 34/34 + 8/8. version.js -> m124-001.
+
+# M125 — the housekeeper's Audit reads the record against its pages
+- The 🔍 Audit button's ask now names the record (every line of Our story so far) and the
+  character pages, and orders Summaryception's verification: hold each record line against the
+  pages it folds; when a line looks wrong, thin or unsupported, fetch those pages whole and the
+  line itself (#r…) before judging; propose a page edit, a ledger change, or a record line
+  rewritten from the pages. version.js -> m125-001.
