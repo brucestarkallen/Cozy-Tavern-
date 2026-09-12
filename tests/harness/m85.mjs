@@ -649,3 +649,20 @@ test('M123-1 the moment is not the auditor\'s nor the second reader\'s: posture,
   const c = buildContinuityMessages({ state: emptyState(), assistantText: 'x' });
   assert(/THE SCENE LEDGER IS THE MOMENT BEFORE/.test(c.system) && /BEFORE this page \(the moment as it stood/.test(c.user), 'the second reader reads the scene as the moment before the page');
 });
+
+test('M124-1 record handles are unique per line — the id\'s tail, never its constant head; a card lands on the line its anchor is in', async () => {
+  const { recordHandle, recordNodeByHandle } = await import('../../js/agents/housekeeper.js');
+  const nodes = [
+    { id: 'node-mf3k1a2b-1', span: [0, 5], text: 'Jovan opened the door.' },
+    { id: 'node-mf3k1a9z-2', span: [6, 11], text: 'Vanessa Reynolds said Jovan is seventeen and looks like a K-drama summoned him.' },
+    { id: 'node-mf3k2c0d-3', span: [12, 17], text: 'Rias tasted the milkshake.' },
+  ];
+  const hs = nodes.map(recordHandle);
+  eq(new Set(hs).size, 3, 'three lines, three handles: ' + hs.join(','));
+  assert(hs.every((h) => /^#r[a-z0-9]{6}$/.test(h) && !/^#rnode/.test(h)), 'the tail, not "node-m": ' + hs.join(','));
+  eq(recordNodeByHandle(nodes, hs[1]).id, nodes[1].id, 'a handle resolves to its own line');
+  eq(recordNodeByHandle(nodes, hs[1].slice(1)).id, nodes[1].id, 'with or without the #');
+  eq(recordNodeByHandle(nodes, '#rnode-m'), null, 'the old ambiguous handle answers to nothing — the anchor decides');
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/a record line by its #r… mark/.test(src) && /No record line answers to/.test(src), 'a record line can be fetched whole by its handle');
+});

@@ -3098,3 +3098,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The two wrong mends on the writer's pages carry their take-back chips ("Put the earlier words
   back" in Something drifted).
 - M123-1. 387/387 + 34/34 + 8/8. version.js -> m123-001.
+
+# M124 — the record's handles were all the same handle
+- FIELD REPORT: the housekeeper's record edits kept refusing — "its anchor does not match the
+  line" — though the anchor was copied from the line. ROOT CAUSE: record node ids are
+  "node-<time36>-<n>", and the handle was the id's FIRST six characters — "node-m" for every
+  line. Every record line rendered as "#rnode-m", every card resolved to the first line, and
+  the anchor "did not match". Now the handle is the id's tail (six characters, unique per line:
+  recordHandle / recordNodeByHandle), rendered the same way everywhere the record appears to
+  the housekeeper (the context, the card's label, the ripple's sweep); when a handle is wrong or
+  missing, the line that HOLDS the anchor wins. And a record line can be fetched whole by its
+  handle (<fetch>["#r7k2p9x"]</fetch>) with its detail beneath — the housekeeper's own words
+  said fetch took only page handles; now it takes a record line too.
+- The housekeeper's fetch of a PAGE is uncapped and whole (FETCH_PAGE_CAP 0); twelve per round.
+- M124-1; M74-6 updated. 388/388 + 34/34 + 8/8. version.js -> m124-001.

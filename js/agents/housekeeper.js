@@ -645,7 +645,7 @@ export function buildHousekeeperContext({
     .sort((a, b) => a.span[0] - b.span[0]);
   if (recordLines.length) {
     parts.push('THE RECORD (the memory of the pages that left the window; oldest to newest; each line covers pages ' + '"span"' + ' — quote a line exactly to edit it with <record>):\n'
-      + recordLines.map((nd) => '[#r' + String(nd.id).slice(0, 6) + ' pages ' + (nd.span[0] + 1) + '–' + (nd.span[1] + 1) + '] ' + nd.text.trim()).join('\n'));
+      + recordLines.map((nd) => '[' + recordHandle(nd) + ' pages ' + (nd.span[0] + 1) + '–' + (nd.span[1] + 1) + '] ' + nd.text.trim()).join('\n'));
   } else {
     parts.push('THE RECORD: nothing folded yet — every page is still in the window.');
   }
@@ -764,7 +764,7 @@ const SYSTEM_PROMPT = [
   '  {"entry":"NAME","remove":true,"reason":"why"}',
   '  "entry" is the entry’s name or its first key. Content is the truth the',
   '  storyteller should carry when the key is spoken — facts, not prose.',
-  '<fetch>["#a1b2c3", "rule: The Prose", "lore: NAME"]</fetch> — ask to be served',
+  '<fetch>["#a1b2c3", "#r7k2p9x", "rule: The Prose", "lore: NAME"]</fetch> — ask to be served (a page by its #handle, a record line by its #r… mark, a rule or a lore entry by name)',
   '  whole: pages you only have one-line previews of, a rulebook rule’s text, a lore',
   '  entry cut short above. You may ask up to three times in a turn.',
   '<supersede>label, label</supersede> — retire still-pending cards from your',
@@ -1203,6 +1203,22 @@ function parseRange(range, visibleCount) {
 /* Turn a parsed reply into staged proposal cards, each fingerprinted
  * against its targets (the review-hash: if a target drifts after staging,
  * the card reads stale). */
+/* M124: THE RECORD HANDLE. Node ids are "node-<time36>-<n>"; the first six
+ * characters of every one are "node-m…" — so every record line rendered as
+ * "#rnode-m", every card's handle resolved to the FIRST line, and its anchor
+ * "did not match the line". The handle is now the id's own tail: the last
+ * six characters of "<time36>-<n>", unique per line. */
+export function recordHandle(node) {
+  const id = String((node && node.id) || '');
+  const tail = id.replace(/^node-/, '').replace(/[^a-z0-9]/gi, '');
+  return '#r' + tail.slice(-6).toLowerCase();
+}
+export function recordNodeByHandle(nodes, handle) {
+  const h = String(handle || '').trim().toLowerCase().replace(/^#?r/, '');
+  if (!h) return null;
+  return (nodes || []).find((nd) => nd && recordHandle(nd).slice(2) === h.slice(-6)) || null;
+}
+
 export function stageProposals(parsed, { messages, state, modules, lore, memory, session, story } = {}) {
   const proposals = [];
   const all = Array.isArray(messages) ? messages : [];
@@ -1311,9 +1327,13 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   const nodes = memory && Array.isArray(memory.nodes) ? memory.nodes : [];
   for (const op of (parsed && Array.isArray(parsed.record) ? parsed.record : [])) {
     if (!op || typeof op !== 'object' || typeof op.find !== 'string' || !op.find || typeof op.replace !== 'string') continue;
-    const handle = String(op.line || '').replace(/^#?r/i, '').trim().toLowerCase();
-    let node = handle ? nodes.find((nd) => nd && String(nd.id).slice(0, 6).toLowerCase() === handle.slice(0, 6)) : null;
-    if (!node) node = nodes.find((nd) => nd && typeof nd.text === 'string' && locate(nd.text, op.find).ok) || null;
+    let node = recordNodeByHandle(nodes, op.line);
+    /* the anchor itself decides when the handle is wrong or missing — and when
+     * the handle's line does not hold the anchor, the line that does wins */
+    if (!node || !locate(node.text, op.find).ok) {
+      const byAnchor = nodes.find((nd) => nd && typeof nd.text === 'string' && locate(nd.text, op.find).ok) || null;
+      if (byAnchor) node = byAnchor;
+    }
     if (!node) {
       proposals.push({ id: uid(), ts: Date.now(), kind: 'record', label: 'record: ' + (op.line || '?'), reason: cleanReason(op.reason), op, status: 'refused', words: 'no record line answers to “' + (op.line || op.find.slice(0, 40)) + '”', review: [] });
       continue;
@@ -1321,7 +1341,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     const loc = locate(node.text, op.find);
     proposals.push({
       id: uid(), ts: Date.now(), kind: 'record',
-      label: typeof op.label === 'string' && op.label.trim() ? op.label.trim() : 'record line #r' + String(node.id).slice(0, 6),
+      label: typeof op.label === 'string' && op.label.trim() ? op.label.trim() : 'record line ' + recordHandle(node),
       reason: cleanReason(op.reason),
       op: { nodeId: node.id, find: op.find, replace: op.replace },
       status: loc.ok ? 'pending' : 'refused',
@@ -1633,7 +1653,7 @@ export function rippleScan(edits, { messages, memory, state, lore, story } = {})
       if (where.length >= 8) break;
     }
     for (const nd of (memory && Array.isArray(memory.nodes) ? memory.nodes : [])) {
-      if (nd && typeof nd.text === 'string' && nd.text.includes(removed)) where.push('the record line #r' + String(nd.id).slice(0, 6));
+      if (nd && typeof nd.text === 'string' && nd.text.includes(removed)) where.push('the record line ' + recordHandle(nd));
     }
     for (const [name, c] of Object.entries((state && state.characters) || {})) {
       if (c && (['core', 'state', 'arc'].some((k) => typeof c[k] === 'string' && c[k].includes(removed)) || (Array.isArray(c.threads) && c.threads.some((t) => String(t).includes(removed))))) where.push('the page of ' + name);
@@ -2305,9 +2325,16 @@ export async function callModel(connection, { system, messages, maxTokens, signa
 }
 
 /* The pages a <fetch> asked for, served whole (capped). */
-function serveFetch(refs, messages, { modules = [], lore = [] } = {}) {
+function serveFetch(refs, messages, { modules = [], lore = [], memory = null } = {}) {
   const lines = [];
   for (const ref of refs.slice(0, FETCH_REF_CAP)) {
+    /* M124: a record line, served whole by its handle (#r…) or "record: #r…" */
+    const rec = /^(?:record:\s*)?(#?r[a-z0-9]{4,8})$/i.exec(String(ref).trim());
+    if (rec && memory) {
+      const nd = recordNodeByHandle(memory.nodes || [], rec[1]);
+      lines.push(nd ? '[' + recordHandle(nd) + ' pages ' + (nd.span[0] + 1) + '–' + (nd.span[1] + 1) + '] (' + String(nd.text || '').length + ' chars, COMPLETE)\n' + String(nd.text || '') + (nd.detail ? '\n• Detail worth keeping: ' + nd.detail : '') : 'No record line answers to “' + rec[1] + '” — the handles are the [#r…] marks on the record above.');
+      continue;
+    }
     /* M74: a rule or a lore entry, served whole by name */
     const named = /^(rule|lore):\s*(.+)$/i.exec(String(ref).trim());
     if (named) {
@@ -2490,7 +2517,7 @@ export async function runConversation({
         wire.push({ role: 'assistant', content: raw });
         wire.push({
           role: 'user',
-          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore }),
+          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory }),
         });
         continue;
       }
