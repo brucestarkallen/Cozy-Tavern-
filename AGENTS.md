@@ -2994,3 +2994,11 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   at once and lands the earlier ones above in chunks of thirty on idle ticks, the reader's place
   held; a newer render cancels the chunks. Small stories and the walk are unchanged.
 - 380/380 + 34/34 + 8/8. version.js -> m114-001.
+
+# M115 — the housekeeper's bold and emphasis render
+- Its model writes **bold** and *emphasis* and the asterisks stood raw in the bubble. Text
+  nodes only: strong and em, nothing else interpreted; the writer's own bubbles untouched.
+  (Field question answered alongside: the bubble is the answer with its blocks lifted into
+  cards; "What it said, whole" below it is the same reply raw, blocks included, for the eye —
+  a fold on the page, never a second copy on the wire; the model is handed each past answer
+  once, whole, per M81.) version.js -> m115-001.

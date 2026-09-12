@@ -125,7 +125,19 @@ export function initHousekeeper(ctx) {
     div.className = 'hk-bubble ' + (role === 'writer' ? 'hk-writer' : 'hk-housekeeper');
     const body = document.createElement('div');
     body.className = 'hk-bubble-text';
-    body.textContent = text;
+    /* M115: the housekeeper's **bold** and *emphasis* render as such (its
+     * model writes them; the asterisks stood raw on the page). Text nodes
+     * only — nothing else is interpreted. */
+    if (role === 'writer') body.textContent = text;
+    else {
+      const parts = String(text || '').split(/(\*\*[^*\n]+\*\*|(?<!\*)\*[^*\n]+\*(?!\*))/g);
+      for (const part of parts) {
+        if (!part) continue;
+        if (/^\*\*[^*\n]+\*\*$/.test(part)) { const b = document.createElement('strong'); b.textContent = part.slice(2, -2); body.appendChild(b); }
+        else if (/^\*[^*\n]+\*$/.test(part)) { const i = document.createElement('em'); i.textContent = part.slice(1, -1); body.appendChild(i); }
+        else body.appendChild(document.createTextNode(part));
+      }
+    }
     div.append(body);
     /* M73: Chat Assistant's bubble row (attachMsgIcons), whole, on BOTH
      * voices — M62 had put a lone "branch here" on the writer's bubble only.
