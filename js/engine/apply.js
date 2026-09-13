@@ -109,9 +109,21 @@ function copyState(state) {
 /* Name normalization: trim, collapse inner whitespace. Matching is
  * case-insensitive ("mira" and "Mira" are the same person); the casing
  * already written in the ledger wins. */
+/* M166: THE MAGIC KEYS ARE NOT NAMES. Every ledger stores its people under
+ * their name as an object key, and `next['__proto__'] = entry` on a plain
+ * object invokes the prototype setter instead of storing anything — so a
+ * glitch token from a cheap model landed as a page the applier REPORTED as
+ * written (words in the log, an undo entry, a line in the journal) while
+ * the ledger held nothing at all: the log and the world disagreed, and the
+ * take-back reached for a key that was never there. duels.js hardened its
+ * own key writes against exactly this (safeKey) and the ledgers did not.
+ * A name that is one of these is refused, plainly, like any other bad
+ * mutation. */
+const UNSAFE_NAMES = new Set(['__proto__', 'constructor', 'prototype']);
 function normalizeName(name) {
   if (typeof name !== 'string') return '';
-  return name.trim().replace(/\s+/g, ' ');
+  const clean = name.trim().replace(/\s+/g, ' ');
+  return UNSAFE_NAMES.has(clean.toLowerCase()) ? '' : clean;
 }
 
 function findPresent(state, name) {
@@ -951,7 +963,13 @@ export function applyMutations(state, mutations) {
       if (next.journal.length > JOURNAL_CAP) next.journal = next.journal.slice(next.journal.length - JOURNAL_CAP);
       const logEntry = appendLog(next, result.words, result.undo || null);
       logEntry.jid = jid;
-      applied.push({ mutation, words: result.words });
+      /* M166: the journal id rides OUT with the applied entry. The
+       * housekeeper used to find its own ids by re-reading the ledger and
+       * taking the last N log entries — and a worker of the background
+       * chain that saved in that window put ITS entries at the tail, so the
+       * card's take-back would have reversed the extractor's or the world
+       * agent's writes instead of its own. */
+      applied.push({ mutation, words: result.words, jid });
     } else {
       rejected.push({ mutation, why: (result && result.why) || 'it didn’t hold' });
     }

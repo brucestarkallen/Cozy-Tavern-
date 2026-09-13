@@ -171,3 +171,96 @@ test('M165: lore keys compile once, and match exactly as before', async () => {
   assert(/const KEY_RES = new Map\(\);/.test(src) && /KEY_RES_CAP/.test(src), 'the cache exists and is capped');
   assert(/held\.lastIndex = 0;/.test(src), 'and a held pattern never carries a stale position');
 });
+
+/* M166: the housekeeper found the journal ids of its own writes by re-reading
+ * the ledger and taking the LAST N log entries. A worker of the background
+ * chain that saved in that window put its entries at that tail — so the
+ * card's take-back would have reversed the extractor's or the world agent's
+ * work instead of its own. */
+test('M166: an applied mutation carries its own journal id', async () => {
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  const r = applyMutations(emptyState(), [
+    { type: 'presence.enter', name: 'Mara' },
+    { type: 'nonsense.type', name: 'x' },
+    { type: 'place.set', name: 'the chapel' },
+  ]);
+  eq(r.applied.length, 2, 'two held, one refused');
+  assert(r.applied.every((a) => Number.isInteger(a.jid)), 'each applied entry names its journal id');
+  eq(r.applied.map((a) => a.jid).join(','), r.state.log.slice(-2).map((e) => e.jid).join(','), 'and they are the ids the log wrote');
+
+  /* the tail of a re-read log is NOT a safe substitute — a later write moves it */
+  const after = applyMutations(r.state, [{ type: 'presence.enter', name: 'Tomas' }]);
+  const tail = after.state.log.slice(-2).map((e) => e.jid);
+  assert(tail.join(',') !== r.applied.map((a) => a.jid).join(','), 'a later write moves the tail out from under the old ids');
+
+  const src = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/const jids = applied\.map\(\(a\) => a\.jid\)\.filter\(Number\.isInteger\);/.test(src), 'the housekeeper reads its ids off what it applied');
+  assert(!/settled\.log\.slice\(-applied\.length\)/.test(src), 'never off the tail of a re-read log');
+});
+
+/* M166: every ledger stores its people under their name as an object key,
+ * and next['__proto__'] = entry invokes the prototype setter instead of
+ * storing anything. A glitch token from a cheap model landed as a page the
+ * applier REPORTED as written — words in the log, an undo entry, a line in
+ * the journal — while the ledger held nothing: the log and the world
+ * disagreed, and the take-back reached for a key that was never there.
+ * duels.js hardened its own key writes (safeKey); the ledgers had not. */
+test('M166: the magic keys are refused as names, never silently swallowed', async () => {
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  for (const bad of ['__proto__', 'constructor', 'prototype', '  __PROTO__  ']) {
+    const r = applyMutations(emptyState(), [
+      { type: 'people.set', name: bad, field: 'core', text: 'a glitch token' },
+      { type: 'canon.lock', name: bad, key: 'eyes', value: 'grey' },
+      { type: 'presence.enter', name: bad },
+    ]);
+    eq(r.applied.length, 0, JSON.stringify(bad) + ' is never applied');
+    eq(r.rejected.length, 3, JSON.stringify(bad) + ' is refused, plainly, three times');
+    eq(r.state.log.length, 0, 'and nothing is written in the log about it');
+  }
+  /* the scribe's own door too */
+  const { mergeDeltas } = await import('../../js/engine/people.js');
+  const merged = mergeDeltas({}, {}, [{ name: '__proto__', field: 'core', text: 'x' }], 1);
+  eq(merged.changes.length, 0, 'the scribe’s delta is dropped');
+  eq(Object.keys(merged.characters).length, 0, 'and the ledger stays empty');
+  assert(({}).core === undefined, 'Object.prototype is untouched');
+
+  /* and a real name is unharmed */
+  const ok = applyMutations(emptyState(), [{ type: 'people.set', name: 'Mara', field: 'core', text: 'the innkeeper' }]);
+  eq(ok.applied.length, 1, 'a real name still lands');
+  eq(ok.state.characters.Mara.core, 'the innkeeper', 'whole');
+});
+
+/* M166: startBattle and startWar prepend the main character's unit, but a
+ * fight read back from an older save — or restored from one of the
+ * referee's own snapshots — may carry allies that never wore isPlayer, and
+ * every reader dereferenced the result. `mc.rating` threw out of the whole
+ * referee step: the turn failed and the page was never written. */
+test('M166: a fight whose allies lost the player mark never throws the turn away', async () => {
+  const { resolveBattleRound, resolveWarRound, engineSettings } = await import('../../js/engine/duels.js');
+  const eng = engineSettings({});
+  const enemy = () => [{ name: 'a raider', rating: 4, poise: 5, injuries: 0, momentum: 0, standing: true }];
+  const field = (allies, kind) => ({
+    battle: { active: true, over: false, round: 2, domain: 'melee', kind, cmdA: 5, cmdE: 5, allies, enemies: enemy() },
+    sheet: {}, mode: { combat: true },
+  });
+
+  const noMark = field([{ name: 'Tomas', rating: 5, poise: 5, injuries: 0, momentum: 0, standing: true }]);
+  const r = resolveBattleRound(noMark, { kind: 'strike', circumstance: 0, target: 'a raider' }, eng);
+  assert(r && r.mcRes, 'the first ally stands in and the round resolves');
+  assert(noMark.battle.allies[0].isPlayer === true, 'and is marked, so the next round is steady');
+
+  const empty = field([]);
+  const r2 = resolveBattleRound(empty, { kind: 'strike', circumstance: 0 }, eng);
+  eq(r2.mcRes, null, 'a field with no allies is not a battle');
+  eq(empty.battle.over, true, 'and it closes cleanly instead of throwing');
+
+  const war = field([{ name: 'the left wing', rating: 5, poise: 5, injuries: 0, momentum: 0, standing: true, strength: 10 }], 'war');
+  let threw = '';
+  try { resolveWarRound(war, { kind: 'command', circumstance: 0 }, eng); } catch (err) { threw = err.message; }
+  eq(threw, '', 'and the war round is guarded the same way');
+
+  const src = readFileSync(new URL('../../js/engine/duels.js', import.meta.url), 'utf8');
+  assert(!/b\.allies\.find\(\(u\) => u\.isPlayer\)/.test(src), 'no reader looks the player up unguarded');
+});

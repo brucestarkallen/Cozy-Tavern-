@@ -1932,8 +1932,13 @@ async function applyLeditOp(storyId, p, batch) {
       /* M83: the journal ids of what this card wrote — the undo takes back exactly
        * those entries (engine/apply.js undoEntry: refusal-first, journaled), never
        * the whole ledger (an M74 slip: the check went per-slice but the restore
-       * still put back the entire old state, wiping every later page's writes) */
-      const jids = settled.log.slice(-applied.length).map((e) => e && e.jid).filter(Number.isInteger);
+       * still put back the entire old state, wiping every later page's writes)
+       * M166: read off the APPLIED entries themselves, not off the tail of a
+       * re-read log. A worker of the background chain that saved between the
+       * write and the re-read put its own entries at that tail, and the
+       * card's take-back would have reversed the extractor's or the world
+       * agent's work instead of its own. */
+      const jids = applied.map((a) => a.jid).filter(Number.isInteger);
       batch.items.push({
         kind: 'ledger',
         before: fresh,

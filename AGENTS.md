@@ -3705,3 +3705,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   added. The listeners sit at init scope; the scan's function attribution was wrong. Recorded so
   the next reader does not chase it.
 - 420/420 harness (+2 laws) + 36/36 walk + 8/8 play + the two-browser proof. version.js -> m165-001.
+
+# M166 — the magic keys, the housekeeper's own ids, and a fight with no writer on the field
+- THE MAGIC KEYS ARE NOT NAMES. Every ledger stores its people under their name as an object key,
+  and `next['__proto__'] = entry` on a plain object invokes the prototype setter instead of storing
+  anything. A glitch token from a cheap model therefore landed as a page the applier REPORTED as
+  written — words in the log, an undo entry, a line in the journal — while the ledger held nothing:
+  the log and the world disagreed, and a take-back reached for a key that was never there. Proven
+  for __proto__ (silently swallowed) and stored as real keys for constructor and prototype.
+  duels.js had hardened its own key writes against exactly this (safeKey) and the ledgers had not.
+  Refused now, plainly, at both name doors — engine/apply.js and the scribe's own in engine/people.js.
+- THE HOUSEKEEPER'S TAKE-BACK COULD HAVE REVERSED ANOTHER WORKER'S WORK. It found the journal ids
+  of its own writes by re-reading the ledger and taking the LAST N log entries — and a worker of
+  the background chain that saved in that window put ITS entries at that tail. An applied mutation
+  carries its own jid now (engine/apply.js), and the card reads its ids off what it applied.
+- A FIGHT WHOSE ALLIES LOST THE PLAYER MARK THREW THE WHOLE TURN AWAY. startBattle and startWar
+  prepend the main character's unit, but a fight read back from an older save — or restored from
+  one of the referee's own snapshots — may carry allies that never wore isPlayer, and all five
+  readers dereferenced the result: `mc.rating` threw out of the referee step, the turn failed and
+  the page was never written. One guard (playerUnit) at every site: the first ally stands in and is
+  marked; a field with no allies is not a fight and closes cleanly.
+- 423/423 harness (+3 laws) + 36/36 walk + 8/8 play + the two-browser proof. version.js -> m166-001.

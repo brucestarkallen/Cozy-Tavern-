@@ -52,9 +52,14 @@ export function emptyPerson() {
 
 /* ---------- names ---------- */
 
+/* M166: the magic keys are not names — see engine/apply.js. The scribe's
+ * own door needs the same guard: a delta for "__proto__" would have been
+ * counted as a change while the ledger kept nothing. */
+const UNSAFE_NAMES = new Set(['__proto__', 'constructor', 'prototype']);
 function normalizeName(name) {
   if (typeof name !== 'string') return '';
-  return name.trim().replace(/\s+/g, ' ');
+  const clean = name.trim().replace(/\s+/g, ' ');
+  return UNSAFE_NAMES.has(clean.toLowerCase()) ? '' : clean;
 }
 
 /* Bounded Levenshtein: the edit distance between two lowercase names, given

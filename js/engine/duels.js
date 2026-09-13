@@ -249,7 +249,7 @@ function applyMoraleShock(state, b, allyBreaks, enemyBreaks, eng) {
   if (!eng.composure) return;
   const allyUnits = b.allies.filter((u) => !u.isPlayer);
   const enemyUnits = b.enemies;
-  const mc = b.allies.find((u) => u.isPlayer);
+  const mc = playerUnit(b);
   const aStand = standing(allyUnits).length;
   const eStand = standing(enemyUnits).length;
   const nerve = (units, breaks, edge) => {
@@ -672,10 +672,31 @@ function resolvePairing(a, e, extraDelta, eng) {
 }
 
 /* Resolve one battle round for the player's scored move. */
+/* M166: THE FIELD ALWAYS HAS THE WRITER ON IT. startBattle and startWar
+ * prepend the main character's unit, but a fight read back from an older
+ * save — or restored from one of the referee's own snapshots — may carry
+ * allies that never wore isPlayer, and every reader here dereferenced the
+ * result: `mc.rating` threw out of the whole referee step, the turn failed,
+ * and the page was never written. The first ally stands in and is marked;
+ * a field with no allies at all is not a fight. */
+function playerUnit(b) {
+  const allies = b && Array.isArray(b.allies) ? b.allies : [];
+  let mc = allies.find((u) => u && u.isPlayer);
+  if (!mc && allies.length) { mc = allies[0]; mc.isPlayer = true; }
+  return mc || null;
+}
+
 export function resolveBattleRound(state, mv, eng) {
   const b = state.battle;
   const mAll = clamp(Math.round((moraleOf(b.allies) - moraleOf(b.enemies)) * 2) / 2, -1, 1);
-  const mc = b.allies.find((u) => u.isPlayer);
+  /* M166: THE FIELD ALWAYS HAS THE WRITER ON IT. startBattle prepends the
+   * main character's unit, but a battle read back from an older save — or
+   * from a snapshot the referee restores — may carry allies that never
+   * wore isPlayer, and `mc.rating` then threw out of the whole referee
+   * step: the turn failed and the page was never written. The first ally
+   * stands in, and a field with no allies at all is simply not a battle. */
+  const mc = playerUnit(b);
+  if (!mc) { b.active = false; b.over = true; return { mcRes: null, reports: [], outcome: true }; }
   const aStand0 = standing(b.allies.filter((u) => !u.isPlayer)).length;
   const eStand0 = standing(b.enemies).length;
   const reports = [];
@@ -871,7 +892,8 @@ export function resolveWarRound(state, mv, eng) {
   const F = conditionsField(b);
   const mAll = clamp(Math.round((moraleOf(nonPlayer(b.allies)) - moraleOf(b.enemies)) * 2) / 2, -1, 1);
   const cmdEdge = clamp(Math.round(((b.cmdA - b.cmdE) / 2) * 2) / 2, -2, 2);
-  const mc = b.allies.find((u) => u.isPlayer);
+  const mc = playerUnit(b);
+  if (!mc) { b.active = false; b.over = true; return { focalRes: null, reports: [], outcome: true }; }
   const aStand0 = standing(nonPlayer(b.allies)).length;
   const eStand0 = standing(b.enemies).length;
   const reports = [];
@@ -1168,7 +1190,7 @@ export function buildArmedDirective(state, adj) {
 
 export function buildBattleDirective(state, adj, out) {
   const b = state.battle;
-  const mc = b.allies.find((u) => u.isPlayer);
+  const mc = playerUnit(b);
   const lines = [
     RULED_HEAD + ' — battle, round ' + b.round + ': ' + standing(b.allies).length + '/' + b.allies.length + ' vs ' + standing(b.enemies).length + '/' + b.enemies.length,
   ];
@@ -1203,7 +1225,7 @@ export function buildBattleDirective(state, adj, out) {
 
 export function buildWarDirective(state, adj, out) {
   const b = state.battle;
-  const mc = b.allies.find((u) => u.isPlayer);
+  const mc = playerUnit(b);
   const aliveA = standing(nonPlayer(b.allies)).length;
   const aliveE = standing(b.enemies).length;
   const lines = [
