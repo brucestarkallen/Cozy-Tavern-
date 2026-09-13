@@ -30,6 +30,18 @@ const WORLD = JSON.stringify({ mutations: [
 
 /* the workers answer by what they were asked */
 house.state.mend = false;
+/* M136: only the latest turns are drawn — a scenario that reaches for the first page shows them all first */
+async function showAllPages() {
+  await until(() => assistantPages().length >= 1 || q('#thread .msg'), 'pages drawn', 10000).catch(() => {});
+  for (let i = 0; i < 40; i += 1) {
+    const more = q('#show-earlier');
+    if (!more) return;
+    click(more);
+    await until(() => !more.isConnected, 'the earlier turns drawn', 5000);
+    await tick(50);
+  }
+}
+
 const walkDefaultWorker = (body, sys) => {
   const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
   if (/mend a story/i.test(sys) || /<contradiction>/.test(user)) {
@@ -676,6 +688,7 @@ test('DOM-8c the checkpoint invariant holds under a random sequence of sends, sw
 
 test('DOM-8d a branch at the FIRST WRITER’S message carries no storyteller page and no ledger of one', async () => {
   const before = errors.length;
+  await showAllPages();
   const sid = await storyId();
   const now = await db.settings.get('state:' + sid);
   assert((now.present || []).length || now.place, 'the story has a ledger to leave behind');
@@ -702,6 +715,7 @@ test('DOM-8d a branch at the FIRST WRITER’S message carries no storyteller pag
 
 test('DOM-8b a branch at the start never carries a later ledger: no checkpoint → a clean ledger and a re-reading', async () => {
   const before = errors.length;
+  await showAllPages();
   const sid = await storyId();
   /* a story with a rich present and NO checkpoints (as one played before the checkpoint law, or pruned) */
   await db.settings.delete('snapshots:' + sid);
@@ -711,6 +725,8 @@ test('DOM-8b a branch at the start never carries a later ledger: no checkpoint �
   const { foldJournal } = await import('../../js/engine/state.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
   const expected = foldJournal(now, [], 0, applyMutations); /* M69: page 0's exact ledger, from the journal */
+  await until(() => assistantPages().length >= 1, 'the origin’s pages are drawn', 10000);
+  await showAllPages();
   click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
   await until(async () => (await storyId()) !== sid, 'the branch is open', 10000);
   const bid = await storyId();

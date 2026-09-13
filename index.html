@@ -588,6 +588,12 @@
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="show-thinking"> Show what the storyteller weighed</label>
           </div>
+          <div class="row">
+            <label class="hk-rule">Turns on screen at once
+              <input id="turns-shown" type="number" min="5" max="500" step="5" autocomplete="off">
+            </label>
+            <p class="quiet">Only the latest turns are drawn (a turn is your message and the storyteller’s page). A button above them shows thirty more. Everything stays in the story; this is only what the screen carries — a long story stops lagging.</p>
+          </div>
         </section>
 
         <section class="settings-section" id="section-appearance">
@@ -633,6 +639,121 @@
             <button id="btn-reset-settings" class="btn btn-quiet" type="button">Reset settings to the house's defaults</button>
           </div>
           <p id="reset-note" class="quiet" hidden></p>
+        </section>
+
+        <section class="settings-section glossary" id="section-help">
+          <h2>The glossary — every room, button and word, explained plainly</h2>
+          <p class="quiet">Read this once. Nothing here is required to play; it exists so nothing on the screen is a mystery.</p>
+
+          <h3>The big picture</h3>
+          <p>You write a message; the <b>storyteller</b> (your main model) writes a page. After every page, a chain of small <b>readers</b> (the backstage crew, on the cheap connection) reads it and keeps the <b>ledger</b> — the house’s memory of the scene and the world — so the storyteller is handed the truth every turn instead of a 100k-token transcript. Nothing in the chain waits on you; everything it writes can be undone.</p>
+
+          <h3>The top bar</h3>
+          <ul>
+            <li><b>☰ (the shelf)</b> — your stories. Drag the grip on its right edge to widen it; double-tap the grip to put it back. Long-press or right-click a story for rename, duplicate, delete.</li>
+            <li><b>The ledger (book icon)</b> — the drawer: four rooms (below).</li>
+            <li><b>The housekeeper (star icon)</b> — the assistant you talk to about the story: ask it anything, tell it to fix anything.</li>
+            <li><b>Settings (sun icon)</b> — six rooms (below). While Settings is open the same icon means “back to the story”.</li>
+          </ul>
+
+          <h3>The story page</h3>
+          <ul>
+            <li><b>The header</b> on every page — <code>[Place — Day, Date | Time | weather | outfit | position]</code> — is the storyteller’s clock. The house reads it in code: the ground and the hour come from here.</li>
+            <li><b>Under a storyteller page:</b> <b>copy</b> · <b>edit</b> (change the words; the house then ripples any changed fact everywhere) · <b>branch</b> (a new story that ends here, with this page’s ledger) · <b>go on</b> (the storyteller continues without you speaking) · <b>read again</b> (the readers re-read this one page and fix the ledger’s history from it) · <b>delete</b>.</li>
+            <li><b>Under your message:</b> copy · edit · <b>try again</b> (the storyteller answers this message afresh) · branch · delete.</li>
+            <li><b>◂ 1/3 ▸</b> — swipes: alternative pages for the same turn. The ledger follows whichever you are on.</li>
+            <li><b>What the storyteller saw</b> — the receipt: every slot sent on the wire and its token count.</li>
+            <li><b>What the storyteller weighed</b> — its thinking, if the model sends any. <b>Copy the thinking</b> copies it.</li>
+            <li><b>✦ The World Beyond ✦</b> box — a window into somewhere your character is not: the world moving on its own. Written only when the house opens one (the world agent’s word, or <code>#Put TWB</code>). Your character learns nothing from it.</li>
+            <li><b>The footer meter</b> — the size of the last request actually sent, everything included.</li>
+            <li><b>Try again · The frame · The note · Rulebook</b> (footer links) — retry the last page; edit the frame (the standing system prompt), the note (the last words before the storyteller writes), the rulebook (below).</li>
+          </ul>
+
+          <h3>Commands you can type</h3>
+          <ul>
+            <li><code>#q</code> — the director’s next scene: the storyteller cuts to the next meaningful scene on its own judgment.</li>
+            <li><code>#time skip &lt;when&gt;</code> — jump the clock; the world moves in proportion and everyone is re-seated for the new hour.</li>
+            <li><code>#continue</code> — play the current moment forward without a new beat from you.</li>
+            <li><code>#story &lt;concept&gt;</code> — open a fresh tale.</li>
+            <li><code>#Put TWB</code> / <code>#twb</code> — open a window on the world beyond.</li>
+            <li><code>#pp &lt;who&gt;</code> — a cross-cut to another person’s point of view (with the party gate: your character learns nothing).</li>
+            <li><code># no roll</code> / <code># roll this</code> — tell the referee to skip or force a contest roll this turn.</li>
+            <li><code>your action # a note</code> — anything after <code>#</code> is a direction to the storyteller, not words in the scene.</li>
+          </ul>
+
+          <h3>The ledger drawer — four rooms</h3>
+          <p><b>The scene:</b></p>
+          <ul>
+            <li><b>The clock</b> — the story’s date and hour. Set by the page header every turn.</li>
+            <li><b>The ruling</b> — the referee’s last contest: who attempted what, the roll, the outcome the storyteller had to render.</li>
+            <li><b>How they measure</b> — each person’s standing toward your character: warmth, pull, charge. Moves only with a cause on the page; the house may never lower one on judgment.</li>
+            <li><b>Who’s here</b> — everyone in the scene, where they stand, what they wear. Rewritten from every page.</li>
+            <li><b>The mood</b> — the scene’s flags (in company, intimate, contested…) that wake the matching rules.</li>
+          </ul>
+          <p><b>The people:</b></p>
+          <ul>
+            <li><b>The character pages</b> — each person’s profile: <i>core</i> (who they are), <i>now</i> (where; for someone elsewhere this shows their seat), <i>arc</i> (how it stands with your character and why), <i>loose ends</i>. “Carried by” says why the house keeps them. The by-hand form writes a line yourself. <b>Passers-through</b> are people out of the storyteller’s sight (not dead); Bring back / Forget for good.</li>
+            <li><b>What’s true</b> — the locked truths (hair, eyes, age, kin…). The brief wins over any page.</li>
+            <li><b>Holding up</b> — injuries and strain, healing on the clock.</li>
+            <li><b>On their mind</b> — what each person knows (knowledge), so nobody knows what they never witnessed.</li>
+          </ul>
+          <p><b>The world:</b></p>
+          <ul>
+            <li><b>What’s happening elsewhere</b> — the absent: where they are, what they want, and if they’re coming, when (the ETA on the clock). A seat nobody carries is cleared. <b>Let it go</b> clears one by hand.</li>
+            <li><b>The world beyond the page</b> — the world agent’s brief: the threads (agendas pushing toward your character), factions, and pressure (what could reach the scene next turn — an arrival, a call, a text).</li>
+            <li><b>Voices, elsewhere</b> — what people your character can’t hear are saying, in your 🎨 dress. Never sent to the storyteller; for you.</li>
+          </ul>
+          <p><b>The books:</b></p>
+          <ul>
+            <li><b>Our story so far — the record</b> — the folded summary of pages that left the window: each line names the pages it folds; <b>Rewrite</b> by hand, <b>Fold again</b> (the keeper refolds it from the pages), <b>Let go</b> a correction.</li>
+            <li><b>What changed and why</b> — every write to the ledger with its cause; <b>take it back</b> on any line.</li>
+            <li><b>Something drifted</b> — the second reader’s findings and the auditor’s last reading; a mended page shows <b>Put the earlier words back</b>. <b>Copy all of this</b> copies the panel.</li>
+            <li><b>The workers</b> — each reader’s last run, and the by-hand buttons: <b>Found the world from the brief</b> (re-found the ledger from the brief), <b>Read the pages again</b> (rewrite every character page from the whole story), <b>Audit the ledger</b> (run the auditor now), <b>Rebuild the record from the pages</b> / <b>Put the old record back</b>.</li>
+          </ul>
+
+          <h3>The readers (the chain after every page, in order)</h3>
+          <ul>
+            <li><b>The house’s eye</b> — code, no model: catches marks on the page, words in your character’s mouth, dead phrases, a glitch character; a warn recolors the next turn silently.</li>
+            <li><b>The extractor</b> — writes the moment into the ledger: who came and went, standings with cause, wounds, locks, the mood board.</li>
+            <li><b>The world agent</b> — moves the absent on the clock, seats wants and arrivals, opens windows, hears the voices.</li>
+            <li><b>The scribe</b> — the character pages.</li>
+            <li><b>The keeper</b> — folds old pages into the record, verifies each line against its pages, keeps the detail beneath; code checks every name and figure.</li>
+            <li><b>The second reader</b> — the page against what lasts (the locked truths, the brief); mends a slip by the smallest edit. A lie or a joke in character is left alone.</li>
+            <li><b>The auditor</b> — the whole ledger against the brief and the last pages: what lasts and what is wrong; never the moment.</li>
+            <li><b>The referee</b> — rolls and rules a contest before the storyteller writes it.</li>
+            <li><b>The founder</b> — writes the world into the ledger from the brief at the start (and on the button).</li>
+            <li><b>The ripple</b> — when you (or the housekeeper) change a fact on a page, makes the rest of the story agree with it.</li>
+          </ul>
+
+          <h3>The housekeeper</h3>
+          <ul>
+            <li>Talk to it in plain words. It reads the pages, the ledger, the record, the rulebook. A question gets an answer; an order gets a <b>card</b> — a page edit, a ledger change, a record line, a brief line, a lore entry.</li>
+            <li><b>Its cards land as they arrive</b> (the house rules fold under its input, on by default): every card lands with an <b>Undo</b>. Off, cards wait for <b>Apply</b> / <b>Apply all</b>.</li>
+            <li><b>Audit</b> — read everything and propose fixes. <b>New / Next / Seed / ?</b> — the director: write an episode (an orders sheet the storyteller follows until it writes <code>[EPISODE_END]</code>), the next one, seed one from your idea, ask about the current one. <b>Critique</b> — the editor’s notes on recent pages. <b>Retry · Del last · Undo · Clear · More</b>.</li>
+            <li><b>Sessions</b> — separate conversations with it. <b>What it said, whole</b> — the raw reply for your eye.</li>
+          </ul>
+
+          <h3>Settings — six rooms</h3>
+          <ul>
+            <li><b>Storyteller</b> — connections (provider, key, model; <b>Copy</b> duplicates one for another model; <b>Use</b> makes it the storyteller’s), the workers (the backstage crew’s connection — the cheap one every reader rides on “The house choice”; give any worker hands of its own), thinking.</li>
+            <li><b>This story</b> — the brief (the premise; the brief wins over pages), cast notes, the frame, the note, the shelf.</li>
+            <li><b>The craft</b> — the rulebook (the craft, always on; situational rules that wake on the mood: intimate, contested, the window; pin any on), the engine dials, the regex shelf (your 🎨 display rules).</li>
+            <li><b>People &amp; lore</b> — character cards to invite, the lore shelf (keyed entries served when their words appear), old SillyTavern chats.</li>
+            <li><b>The readers</b> — the record (window size, batch), the second reader’s mending, the auditor’s cadence, the referee.</li>
+            <li><b>The house</b> — appearance, turns on screen, the welcome mat, <b>Backup</b> (take a copy of everything; bring one back), <b>Reset every setting</b>.</li>
+          </ul>
+
+          <h3>Words the house uses</h3>
+          <ul>
+            <li><b>Page</b> — one message, yours or the storyteller’s. <b>Turn</b> — your message plus the page that answers it.</li>
+            <li><b>The window</b> (of the record) — the last N turns sent verbatim; older ones ride as record lines.</li>
+            <li><b>Checkpoint</b> — the ledger as it stood after a page, so a branch or a swipe carries it exactly.</li>
+            <li><b>Seat</b> — an absent person’s entry: where, doing what, wanting what, arriving when.</li>
+            <li><b>Standing</b> — how someone measures your character (warmth / pull / charge), earned on the page.</li>
+            <li><b>Lock</b> — a truth that may not drift (from the brief or the page).</li>
+            <li><b>Mend</b> — the smallest edit to a page to agree with what lasts; always with a take-back.</li>
+            <li><b>Passer-through</b> — a person the story stopped carrying; out of sight, never deleted unless you forget them.</li>
+          </ul>
         </section>
       </div>
     </section>

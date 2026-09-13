@@ -1183,9 +1183,12 @@ export function initChat(ctx) {
    * structural change (another story, an edit, a swipe, a delete, a
    * thinking-voice toggle) rebuilds. */
   let structuralRenderToken = 0;
+  const shownExtra = new Map(); /* M136: per story, how many more turns the writer asked to see */
+  const shownFrom = new Map(); /* M136: per story, the index of the first drawn page */
   async function renderThread({ structural = false } = {}) {
     const story = await activeStory();
     const showThinking = (await db.settings.get('showThinking')) !== false;
+    const turnsShownSetting = Number(await db.settings.get('turnsShown')); /* M136 */
     const mastheadOn = (await db.settings.get('masthead')) !== false;
     const connections = els.noConnection ? await db.connections.list() : [];
     if (!story) {
@@ -1225,33 +1228,29 @@ export function initChat(ctx) {
       els.thread.textContent = '';
       /* M14: a story with no pages yet still gets the hearth, not a void. */
       if (!visible.length) showHearth(false);
-      /* M114: a long story opens at its tail at once — the last TAIL_FIRST
-       * pages are drawn now, the earlier ones in quiet chunks above them
-       * (each page's dress is 29 rules and a sanitizer; 200 pages at once
-       * held the door for five seconds). A newer render cancels the chunks. */
-      const TAIL_FIRST = 40;
-      const CHUNK = 30;
-      const token = ++structuralRenderToken;
-      const first = visible.length > TAIL_FIRST + CHUNK ? visible.length - TAIL_FIRST : 0;
+      /* M136: TURNS ON SCREEN. Like SillyTavern's message count: only the
+       * latest N turns are drawn (Settings → The house → "Turns on screen",
+       * 30 by default); a quiet button above them shows thirty more each
+       * press. Everything else stays in the store untouched; appends still
+       * land at the tail. Replaces M114's chunked full render. */
+      const turnsShown = Number.isFinite(turnsShownSetting) && turnsShownSetting > 0 ? turnsShownSetting : 30;
+      const extra = shownExtra.get(story.id) || 0;
+      const limit = (turnsShown + extra) * 2;
+      const first = visible.length > limit ? visible.length - limit : 0;
+      shownFrom.set(story.id, first);
+      if (first > 0) {
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.id = 'show-earlier';
+        more.className = 'text-btn show-earlier';
+        const hidden = Math.ceil(first / 2);
+        more.textContent = 'Show ' + Math.min(30, hidden) + ' earlier ' + (Math.min(30, hidden) === 1 ? 'turn' : 'turns') + ' (' + hidden + ' above)';
+        more.addEventListener('click', () => { shownExtra.set(story.id, (shownExtra.get(story.id) || 0) + 30); renderThread({ structural: true }); });
+        els.thread.appendChild(more);
+      }
       for (let i = first; i < visible.length; i += 1) {
         const msg = visible[i];
         els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn }));
-      }
-      if (first > 0) {
-        let end = first;
-        const step = () => {
-          if (token !== structuralRenderToken || !els.thread.isConnected) return;
-          const start = Math.max(0, end - CHUNK);
-          const frag = document.createDocumentFragment();
-          for (let i = start; i < end; i += 1) frag.appendChild(msgNode(visible[i], showThinking, { isLastAssistant: false, mastheadOn }));
-          const scroller = els.thread;
-          const beforeH = scroller.scrollHeight;
-          els.thread.insertBefore(frag, els.thread.firstChild);
-          scroller.scrollTop += scroller.scrollHeight - beforeH; /* the reader's place holds while pages land above */
-          end = start;
-          if (end > 0) setTimeout(step, 0);
-        };
-        setTimeout(step, 0);
       }
     } else {
       /* Pages arriving onto a hearth-warmed room: the hearth steps aside. */
@@ -1295,7 +1294,13 @@ export function initChat(ctx) {
       isLastAssistant: lastAssistant ? lastAssistant.id === messageId : false,
     });
     if (node) node.replaceWith(fresh);
-    else els.thread.appendChild(fresh);
+    else {
+      /* M136: a page above the drawn window stays off screen — never appended at the tail */
+      const vis = history.filter((m) => m && !m.hidden);
+      const at = vis.findIndex((m) => m.id === messageId);
+      const from = shownFrom.get(storyId) || 0;
+      if (at !== -1 && at >= from) els.thread.appendChild(fresh);
+    }
   }
 
   /* ---------- the ember bar & composer meta (M8) ---------- */

@@ -185,6 +185,7 @@ export function initSettings(ctx) {
     thinkingStory: document.getElementById('thinking-story'),
     thinkingStoryName: document.getElementById('thinking-story-name'),
     showThinking: document.getElementById('show-thinking'),
+    turnsShown: document.getElementById('turns-shown'), /* M136 */
     /* M16: the version line, and the shelf a story sits on. */
     versionLine: document.getElementById('settings-version'),
     /* M18: the chip row that carries you straight to any room. */
@@ -1967,6 +1968,7 @@ export function initSettings(ctx) {
       : '';
     els.thinkingStory.disabled = !story;
     els.showThinking.checked = (await db.settings.get('showThinking')) !== false;
+    if (els.turnsShown) { const ts = Number(await db.settings.get('turnsShown')); els.turnsShown.value = String(Number.isFinite(ts) && ts > 0 ? ts : 30); }
   }
 
   els.thinkingStory.addEventListener('change', async () => {
@@ -1978,6 +1980,12 @@ export function initSettings(ctx) {
   els.showThinking.addEventListener('change', async () => {
     await db.settings.set('showThinking', els.showThinking.checked);
     if (ctx.chat) await ctx.chat.renderThread();
+  });
+  if (els.turnsShown) els.turnsShown.addEventListener('change', async () => {
+    const v = Math.max(5, Math.min(500, Math.round(Number(els.turnsShown.value)) || 30));
+    els.turnsShown.value = String(v);
+    await db.settings.set('turnsShown', v);
+    if (ctx.chat) await ctx.chat.renderThread({ structural: true });
   });
 
   /* ---------- appearance ---------- */
@@ -2021,7 +2029,7 @@ export function initSettings(ctx) {
   const RESET_KEYS = [
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'continuityCheck', 'mendPages',
-    'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning',
+    'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
     'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle',
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
@@ -2125,6 +2133,7 @@ export function initSettings(ctx) {
       ['world', 'People & lore', ['section-people', 'section-lore', 'section-oldchats']],
       ['readers', 'The readers', ['section-memory', 'section-referee']],
       ['house', 'The house', ['section-appearance', 'section-welcome', 'section-backup']],
+      ['help', 'The glossary', ['section-help']],
     ];
     const sections = [...document.querySelectorAll('#view-settings .settings-section')];
     const roomOf = (id) => (ROOMS.find(([, , ids]) => ids.includes(id)) || ROOMS[ROOMS.length - 1])[0];

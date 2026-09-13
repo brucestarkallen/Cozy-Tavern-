@@ -3250,3 +3250,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   snapshot and the last page's checkpoint, so a retry, a swipe or a branch at the newest page
   starts from the rebuilt pages. Older boundaries keep their history by design.
 - 395/395 + 35/35 + 8/8. version.js -> m135-001.
+
+# M136 — turns on screen (SillyTavern's message count) and the glossary
+- FIELD REQUESTS: (1) a long story lags — draw only the latest turns, like SillyTavern. Settings
+  → The house → "Turns on screen at once" (30 by default; a turn is the writer's message and
+  its page); a quiet button above the drawn pages shows thirty more per press; appends still
+  land at the tail; a page above the window is never refreshed into the tail; the setting is
+  in the reset. Replaces M114's chunked full render. (2) A glossary for a newcomer: Settings →
+  The glossary — the big picture, the top bar, every button under a page, every command, the
+  four rooms of the drawer panel by panel, every reader in order, the housekeeper's bar, the six
+  settings rooms, and the house's words (page, turn, window, checkpoint, seat, standing, lock,
+  mend, passer-through).
+- The walk's scenarios that reach for the first page show all pages first and wait for the
+  thread to draw. 395/395 + 35/35 + 8/8. version.js -> m136-001.

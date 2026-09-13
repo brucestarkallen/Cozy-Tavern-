@@ -610,3 +610,10 @@ label {
 .thought::before { content: '\2009'; }
 body.plain-speech .spoken, body.plain-speech .thought { color: inherit; }
 body.plain-speech .thought { font-style: italic; }
+
+/* M136: the glossary reads like a book */
+.glossary h3 { margin: 1.2rem 0 0.4rem; font-size: 1rem; color: var(--ember); }
+.glossary ul { padding-left: 1.1rem; margin: 0.3rem 0 0.8rem; }
+.glossary li { margin: 0.3rem 0; line-height: 1.5; }
+.glossary code { font-family: var(--mono); font-size: 0.85em; background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 4px; }
+.show-earlier { display: block; margin: 0.4rem auto 1rem; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; }
