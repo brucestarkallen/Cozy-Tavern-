@@ -3963,3 +3963,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
      fold from an empty base — the writer's own M91 report), and every page it DOES claim to reach
      folds true.
 - 442/442 harness (+3 property tests). version.js -> m180-001.
+
+# M181 — the twenty-second window is closed
+- PROSE GOES TO THE DEVICE AT ONCE. Every write shared one twenty-second debounce, so a page the
+  writer had just read sat only in the browser for twenty seconds. A browser cleared in that
+  window — or a phone that reaps the tab before visibilitychange fires — took those words with it.
+  A ledger can be rebuilt from the pages; the pages cannot be rebuilt from anything. A MESSAGE
+  write now pushes at once; settings and ledger churn (three to five writes a turn from the
+  workers) keep the debounce, because pushing on each would rewrite the whole book five times a
+  turn for something the readers can make again.
+- AND A PUSH ASKED FOR WHILE ONE RUNS IS NOT A PUSH REFUSED. Making prose eager exposed an older
+  bug at once: pushNow returned immediately when a push was in flight, so anything marked during
+  it fell to a FRESH twenty-second timer — and "push everything now" (Settings' button, and the
+  page-hide hook) landing mid-flight silently pushed NOTHING. Measured the moment prose went
+  eager: two tales written, a push asked for, and one tale, the connection and the house settings
+  were left on the floor. Pushes serialize and DRAIN now — the runner keeps going while anything
+  is dirty, so a mark made during a push rides the same drain, and every caller awaits a promise
+  that is only done when the shelf is clean. This bug was there before M181; the eager push is
+  what made it fire.
+- tests/wipe.py now writes a page and clears the browser IN THE SAME BREATH — no pushAll, no
+  waiting out a debounce, no switching away. 13 of 13 pages came back.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof.
+  version.js -> m181-001.

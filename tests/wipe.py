@@ -17,6 +17,12 @@ srv = subprocess.Popen([sys.executable, os.path.join(REPO, 'serve.py')], env=env
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1.5)
 
+LAST_PAGE = '''async () => {
+  const db = window.__cozy.db;
+  const st = (await db.stories.list()).find(s => s.title === 'Ravenwood');
+  await db.messages.append(st.id, { role: 'assistant', text: 'the very last page, written a heartbeat before the wipe' });
+}'''
+
 fails = []
 
 
@@ -71,8 +77,17 @@ try:
         }""")
         page.evaluate("async () => { await window.__cozy.booksStatus.pushAll(); }")
         page.wait_for_timeout(1200)
+
+        # M181: a page written and then WIPED AT ONCE — no pushAll, no waiting
+        # out the debounce, no switching away. The window that used to be
+        # twenty seconds wide.
+        page.evaluate(LAST_PAGE)
+        page.wait_for_timeout(700)   # only as long as the immediate push needs
         before = shelf(page)
         check('a shelf was written', sorted(before) == ['Ravenwood', 'The Wayward Lantern'], str(sorted(before)))
+        check('a page written a heartbeat before the wipe is in the browser',
+              before['Ravenwood']['pages'][-1].startswith('the very last page'),
+              before['Ravenwood']['pages'][-1][:44])
         check('and pushed to the device', len([f for f in os.listdir(os.path.join(DATA, 'books')) if f.endswith('.json')]) >= 3,
               str(sorted(os.listdir(os.path.join(DATA, 'books')))))
 

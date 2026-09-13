@@ -54,19 +54,55 @@ export async function initSync(ctx) {
 
   const dirty = new Set();
   let timer = null;
-  let inFlight = false;
+  let running = null;
   const ask = (msg) => new Promise((resolve) => {
     const onmsg = (e) => { if (e.data && (e.data.kind === msg.expect || e.data.kind === 'error')) { worker.removeEventListener('message', onmsg); resolve(e.data); } };
     worker.addEventListener('message', onmsg);
     worker.postMessage(msg);
   });
-  const pushNow = async () => {
-    if (inFlight || !dirty.size) return;
-    const ids = [...dirty]; dirty.clear(); inFlight = true;
-    try { await ask({ kind: 'push', ids, expect: 'pushed' }); } finally { inFlight = false; if (dirty.size) schedule(); }
+  /* M181: A PUSH ASKED FOR WHILE ONE RUNS IS NOT A PUSH REFUSED. The old
+   * guard returned at once when a push was in flight, so anything marked
+   * during it fell to a fresh twenty-second timer — and "push everything
+   * now" (Settings, and the page-hide hook) could land mid-flight and
+   * silently push NOTHING. Measured: writing two tales and asking for a push
+   * saved one of them and left the other, the connection and the house
+   * settings on the floor. Pushes are serialized and drained instead: the
+   * runner keeps going while anything is dirty, so a mark made during a push
+   * rides the same drain, and every caller awaits a promise that is only
+   * done when the shelf is clean. */
+  const pushNow = () => {
+    if (running) return running;
+    if (!dirty.size) return Promise.resolve();
+    running = (async () => {
+      try {
+        while (dirty.size) {
+          const ids = [...dirty];
+          dirty.clear();
+          await ask({ kind: 'push', ids, expect: 'pushed' });
+        }
+      } finally { running = null; }
+    })();
+    return running;
   };
   const schedule = () => { clearTimeout(timer); timer = setTimeout(pushNow, 20000); };
   const mark = (id) => { if (id) { dirty.add(id); schedule(); } };
+  /* M181: PROSE GOES TO THE DEVICE AT ONCE. Every write waited on the same
+   * twenty-second debounce, so a page the writer had just read sat only in
+   * the browser for twenty seconds — and a browser whose data is cleared in
+   * that window, or a phone that reaps the tab before visibilitychange
+   * fires, takes those words with it. A ledger can be rebuilt from the
+   * pages; the pages cannot be rebuilt from anything. So a MESSAGE write
+   * pushes now, not in twenty seconds. Settings and ledger churn (three to
+   * five writes a turn from the workers) keep the debounce — pushing on each
+   * would rewrite the whole book five times a turn for something the
+   * readers can make again. The push runs in the sync worker, off the
+   * thread the writer is reading on. */
+  const markNow = (id) => {
+    if (!id) return;
+    dirty.add(id);
+    clearTimeout(timer);
+    Promise.resolve().then(pushNow);
+  };
   const storyOfKey = (key) => { const at = String(key).lastIndexOf(':'); return at > 0 ? String(key).slice(at + 1) : ''; };
 
   /* boot: with a three-second grace; a longer pull finishes behind a toast and reloads once */
@@ -101,10 +137,10 @@ export async function initSync(ctx) {
   wrap(ctx.db.stories, 'create', (args, out) => { Promise.resolve(out).then((st) => { if (st && st.id) { knownIds.add(st.id); mark(st.id); mark('_house'); } }); });
   wrap(ctx.db.stories, 'update', ([id]) => { mark(id); mark('_house'); });
   wrap(ctx.db.stories, 'remove', ([id]) => { knownIds.delete(id); mark('_house'); try { ctx.db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } try { fetch('api/books/drop/' + encodeURIComponent(id), { method: 'POST' }).catch(() => {}); } catch (err) { /* fine */ } });
-  wrap(ctx.db.messages, 'append', ([id]) => mark(id));
-  wrap(ctx.db.messages, 'update', ([id]) => mark(id));
-  wrap(ctx.db.messages, 'remove', ([id]) => mark(id));
-  wrap(ctx.db.messages, 'deleteFrom', ([id]) => mark(id));
+  wrap(ctx.db.messages, 'append', ([id]) => markNow(id)); /* M181: prose, at once */
+  wrap(ctx.db.messages, 'update', ([id]) => markNow(id)); /* M181: prose, at once */
+  wrap(ctx.db.messages, 'remove', ([id]) => markNow(id)); /* M181: prose, at once */
+  wrap(ctx.db.messages, 'deleteFrom', ([id]) => markNow(id)); /* M181: prose, at once */
   wrap(ctx.db.connections, 'add', () => mark('_house'));
   wrap(ctx.db.connections, 'update', () => mark('_house'));
   wrap(ctx.db.connections, 'remove', () => mark('_house'));
@@ -119,6 +155,15 @@ export async function initSync(ctx) {
     return r;
   };
   /* on demand: push every tale now (a first save of a browser's whole shelf) */
-  status.pushAll = async () => { for (const id of knownIds) dirty.add(id); dirty.add('_house'); clearTimeout(timer); await pushNow(); };
+  status.pushAll = async () => {
+    for (const id of knownIds) dirty.add(id);
+    dirty.add('_house');
+    clearTimeout(timer);
+    /* M181: await the drain, then once more — a drain already running took
+     * its ids before these were added, and its own loop may have finished
+     * before they landed. Two awaits leave the shelf clean either way. */
+    await pushNow();
+    if (dirty.size) await pushNow();
+  };
   return status;
 }
