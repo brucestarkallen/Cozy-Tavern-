@@ -171,9 +171,31 @@ export async function initSync(ctx) {
    * browser made is skipped by name: pulling back your own write would put
    * your newer pages under what you had just sent. */
   let live = null;
+  /* M186: NEVER OVER A PAGE BEING WRITTEN. A live pull re-renders the thread,
+   * and a structural render rebuilds it from the store — which would take the
+   * streaming page, a node that exists only in the DOM until it lands, out
+   * from under the writer mid-sentence. The pull itself is safe and happens
+   * at once (the words reach the device either way); only the redraw waits
+   * for the turn to finish. */
+  let refreshOwed = null;
+  const busyNow = () => Boolean(ctx.chat && typeof ctx.chat.isBusy === 'function' && ctx.chat.isBusy());
   const liveRefresh = async (bookId) => {
     const answer = await ask({ kind: 'pullOne', id: bookId, expect: 'pulledOne' });
     if (!answer || !answer.pulled) return;
+    if (busyNow()) {
+      refreshOwed = bookId;
+      const wait = setInterval(() => {
+        if (busyNow() || !refreshOwed) return;
+        clearInterval(wait);
+        const owed = refreshOwed;
+        refreshOwed = null;
+        paint(owed);
+      }, 600);
+      return;
+    }
+    await paint(bookId);
+  };
+  const paint = async (bookId) => {
     dropCaches();
     try {
       if (ctx.chat && typeof ctx.chat.refreshStories === 'function') await ctx.chat.refreshStories(true);

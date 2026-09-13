@@ -4059,3 +4059,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   another browser's page still survives the push that let it go.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
   + the append test. version.js -> m185-001.
+
+# M186 — the final audit of the new system: three holes, closed
+- A LIVE PULL COULD TAKE A PAGE OUT FROM UNDER THE WRITER MID-SENTENCE. liveRefresh re-renders the
+  thread, and a structural render rebuilds it FROM THE STORE — but the streaming page is a DOM
+  node that exists nowhere else until it lands. Another browser writing a page while this one was
+  generating would have wiped the page being written. The pull still happens at once (the words
+  reach the device either way); only the redraw waits for the turn to finish.
+- TWO BROWSERS APPENDING IN THE SAME INSTANT COULD RUIN BOTH LINES. A page line is several
+  kilobytes — far past the size a single write() is atomic for — so interleaved appends corrupt
+  each other and lose both pages. One lock, and it is `with` and not acquire/release, because an
+  os error anywhere in the whole-book stretch would otherwise leave it held and DEADLOCK every
+  later write. Held by a law: forty pages from two browsers at once, all forty whole.
+- AND THE LOG WAS NOT ALLOWED TO GROW FOREVER. It is cleared by the twenty-second whole-book push
+  — but a push that never lands (the browser closed, a stumble) leaves it growing, and every read
+  of that book parses all of it. Past 2 MB it is folded into the snapshot on the spot, which is
+  exactly what the push would have done. Held by a law, with every page surviving the fold.
+- The fold, the write and the clear of a whole-book push are one held stretch, so no append can
+  land between reading the log and removing it — a page that landed in that gap would have been
+  in neither the snapshot nor the log.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
+  + the append test (now eleven laws). version.js -> m186-001.

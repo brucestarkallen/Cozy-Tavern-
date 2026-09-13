@@ -130,6 +130,44 @@ try:
     post('api/books/one/t4', small3(['m0', 'm1', 'A'], 't4'), 'opera')
     after_race = [m['id'] for m in json.loads(get('api/books/one/t4'))['messages']]
     check('while another browser’s page still survives it', 'B' in after_race, str(after_race))
+
+    # M186: two browsers appending in the same instant. A page line is
+    # several kilobytes, far past the size a single write is atomic for —
+    # interleaved, both lines are ruined and both pages lost.
+    import threading
+    shutil.rmtree(os.path.join(DATA, 'books'), ignore_errors=True)
+    big = 'x' * 6000
+    post('api/books/one/t5', json.dumps({'namespace': 'cozytavern.v1', 'kind': 'story',
+         'exportedAt': '2026-01-01T00:00:00.000Z', 'story': {'id': 't5', 'title': 'T'},
+         'settings': [], 'messages': []}).encode(), 'opera')
+
+    def burst(who, n):
+        for i in range(n):
+            post('api/books/page/t5', json.dumps({'at': 'x', 'm': {'id': who + str(i), 'text': big}}).encode(), who)
+
+    ts = [threading.Thread(target=burst, args=(w, 20)) for w in ('opera', 'chrome')]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    got = json.loads(get('api/books/one/t5'))['messages']
+    check('forty pages appended by two browsers at once all arrive', len(got) == 40, '%d read back' % len(got))
+    check('and every one of them is whole', all(len(m.get('text', '')) == 6000 for m in got))
+
+    # M186: a log that grows past its cap is folded into the snapshot on the spot
+    shutil.rmtree(os.path.join(DATA, 'books'), ignore_errors=True)
+    post('api/books/one/t6', json.dumps({'namespace': 'cozytavern.v1', 'kind': 'story',
+         'exportedAt': '2026-01-01T00:00:00.000Z', 'story': {'id': 't6', 'title': 'T'},
+         'settings': [], 'messages': []}).encode(), 'opera')
+    huge = 'y' * 120000
+    for i in range(24):                       # ~2.9 MB of pages, past the 2 MB cap
+        post('api/books/page/t6', json.dumps({'at': 'x', 'm': {'id': 'p%d' % i, 'text': huge}}).encode(), 'opera')
+    lp = os.path.join(DATA, 'books', 't6.log')
+    logsize = os.path.getsize(lp) if os.path.exists(lp) else 0
+    check('a log past its cap is folded into the snapshot, not left to grow',
+          logsize < 2 * 1024 * 1024, '%d bytes left in the log' % logsize)
+    kept = json.loads(get('api/books/one/t6'))['messages']
+    check('and every page survives the folding', len(kept) == 24, '%d pages' % len(kept))
 finally:
     srv.terminate()
 

@@ -47,6 +47,19 @@ def _ver():
 _listeners = []
 _listeners_lock = threading.Lock()
 
+# M186: ONE HAND ON THE LOG AT A TIME. Two browsers can append in the same
+# instant, and a page line is several kilobytes — far past the size a single
+# write() is atomic for. Interleaved, both lines are ruined and both pages
+# lost. Threads share this process, so one lock is all it takes.
+_log_lock = threading.Lock()
+
+# M186: and the log is not allowed to grow forever. It is cleared by the
+# twenty-second whole-book push — but if that push never lands (the browser
+# closed, the tale is huge, a stumble) the log keeps growing and EVERY read
+# of that book parses all of it. Past this it is folded into the snapshot on
+# the spot, which is exactly what the whole-book push would have done.
+LOG_FOLD_BYTES = 2 * 1024 * 1024
+
 
 def _announce(book_id, by_client):
     line = ('data: ' + json.dumps({'id': book_id, 'by': by_client or '', 'at': time.time()}) + '\n\n').encode('utf-8')
@@ -429,35 +442,41 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             # second push lands first, and Chrome's page is simply gone.
             # Anything in the log the incoming book does not already hold is
             # folded into it first; only then is the log cleared.
-            body = _fold_missing(body, _log_path(bp), self.headers.get('X-Cozy-Client', ''))
-            os.makedirs(os.path.dirname(bp), exist_ok=True)
-            tmp = bp + '.tmp'
-            with open(tmp, 'wb') as f:
-                f.write(body)
-                f.flush()
-                os.fsync(f.fileno())
-            # M160: the old copy is COPIED aside, then the new one lands in a
-            # single atomic replace. The old order (move the book to .bak1,
-            # then move .tmp into place) left a gap in which the book did not
-            # exist at all — the other browser's GET met a 404 and skipped
-            # that tale for the whole boot.
-            if os.path.exists(bp):
+            # M186: the fold, the write and the clear are ONE held stretch —
+            # no append may land between reading the log and removing it, or
+            # that page is in neither the snapshot nor the log. `with` and not
+            # acquire/release: an os error anywhere in here would otherwise
+            # leave the lock held and deadlock every later write.
+            with _log_lock:
+                body = _fold_missing(body, _log_path(bp), self.headers.get('X-Cozy-Client', ''))
+                os.makedirs(os.path.dirname(bp), exist_ok=True)
+                tmp = bp + '.tmp'
+                with open(tmp, 'wb') as f:
+                    f.write(body)
+                    f.flush()
+                    os.fsync(f.fileno())
+                # M160: the old copy is COPIED aside, then the new one lands in
+                # a single atomic replace. The old order (move the book to
+                # .bak1, then move .tmp into place) left a gap in which the
+                # book did not exist at all — the other browser's GET met a 404
+                # and skipped that tale for the whole boot.
+                if os.path.exists(bp):
+                    try:
+                        shutil.copy2(bp, bp + '.bak1')
+                    except OSError:
+                        pass
+                os.replace(tmp, bp)
+                # M160: a tale pushed again is a tale that stands — clear any
+                # tombstone from an earlier delete, or it would never come back.
                 try:
-                    shutil.copy2(bp, bp + '.bak1')
+                    os.remove(bp + '.gone')
                 except OSError:
                     pass
-            os.replace(tmp, bp)
-            # M160: a tale pushed again is a tale that stands — clear any
-            # tombstone from an earlier delete, or it would never come back.
-            try:
-                os.remove(bp + '.gone')
-            except OSError:
-                pass
-            # M183: the snapshot now holds everything the log did
-            try:
-                os.remove(_log_path(bp))
-            except OSError:
-                pass
+                # M183: the snapshot now holds everything the log did
+                try:
+                    os.remove(_log_path(bp))
+                except OSError:
+                    pass
             # M182: tell every other browser at once
             _announce(os.path.basename(bp)[:-len('.json')], self.headers.get('X-Cozy-Client', ''))
             self._send_bytes(b'{"ok":true}')
@@ -492,10 +511,29 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 os.makedirs(os.path.dirname(bp), exist_ok=True)
                 # M185: the line records WHO appended it (see _fold_missing)
                 row['by'] = self.headers.get('X-Cozy-Client', '')
-                with open(_log_path(bp), 'a', encoding='utf-8') as f:
-                    f.write(json.dumps(row, ensure_ascii=False) + '\n')
-                    f.flush()
-                    os.fsync(f.fileno())
+                lp = _log_path(bp)
+                with _log_lock:
+                    with open(lp, 'a', encoding='utf-8') as f:
+                        f.write(json.dumps(row, ensure_ascii=False) + '\n')
+                        f.flush()
+                        os.fsync(f.fileno())
+                    # M186: past the cap, fold the log into the snapshot here
+                    # and now — the same thing the whole-book push does, so a
+                    # push that never comes cannot make every read slower.
+                    try:
+                        if os.path.getsize(lp) > LOG_FOLD_BYTES:
+                            with open(bp, 'rb') as f:
+                                snap = f.read()
+                            merged = _merge_log(snap, lp)
+                            tmp = bp + '.tmp'
+                            with open(tmp, 'wb') as f:
+                                f.write(merged)
+                                f.flush()
+                                os.fsync(f.fileno())
+                            os.replace(tmp, bp)
+                            os.remove(lp)
+                    except OSError:
+                        pass
             except OSError:
                 self.send_response(500); self.end_headers(); return
             _announce(os.path.basename(bp)[:-len('.json')], self.headers.get('X-Cozy-Client', ''))
