@@ -109,6 +109,15 @@ function copyState(state) {
 /* Name normalization: trim, collapse inner whitespace. Matching is
  * case-insensitive ("mira" and "Mira" are the same person); the casing
  * already written in the ledger wins. */
+/* Plain tidying for free text that is NOT a name — the words of a hurt, a
+ * reason, a cause. M166's name guard must never touch these: a wound is not
+ * an object key, and refusing to heal one called "constructor" would be a
+ * law applied where it does not live. */
+function tidyWords(text) {
+  if (typeof text !== 'string') return '';
+  return text.trim().replace(/\s+/g, ' ');
+}
+
 /* M166: THE MAGIC KEYS ARE NOT NAMES. Every ledger stores its people under
  * their name as an object key, and `next['__proto__'] = entry` on a plain
  * object invokes the prototype setter instead of storing anything — so a
@@ -446,11 +455,12 @@ const HANDLERS = {
     }
     /* A weariness lifts the same way a hurt heals — matched by its words,
      * and simply let go of (strain keeps no healed flag). */
-    const wanted = normalizeName(typeof m.what === 'string' ? m.what : '').toLowerCase();
+    /* M170: the WORDS of a hurt, not a name — tidied, never name-guarded. */
+    const wanted = tidyWords(m.what).toLowerCase();
     const strain = body && Array.isArray(body.strain) ? body.strain : [];
     const at = wanted
       ? strain.findIndex((s) => {
-          const have = normalizeName(s && s.what).toLowerCase();
+          const have = tidyWords(s && s.what).toLowerCase();
           return have === wanted || have.includes(wanted) || wanted.includes(have);
         })
       : -1;
@@ -669,7 +679,12 @@ const HANDLERS = {
   },
 
   'faction.set'(state, m) {
-    const name = capText(m.name, 80);
+    /* M170: a faction is stored under its name as an object key, the same as
+     * a person — and this door took capText, which does not carry M166's
+     * guard. So a faction called "__proto__" was REPORTED as moved ("burned
+     * the bridge") while the ledger stored nothing at all. Names go through
+     * the name door, whoever they belong to. */
+    const name = capText(normalizeName(m.name), 80);
     if (!name) return { why: 'a faction needs a name' };
     const stance = capText(m.stance, 140);
     const agenda = capText(m.agenda, 140);

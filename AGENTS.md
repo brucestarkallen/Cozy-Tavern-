@@ -3775,3 +3775,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   pop-up viewer, its turn actions and its drag handler, and index.html's whole structure.
 - 426/426 harness (+1 law) + 36/36 walk + 8/8 play + the two-browser proof + the coat proof + the
   contrast audit. version.js -> m169-001.
+
+# M170 — the last door, and a guard that reached too far
+- A FACTION IS STORED UNDER ITS NAME TOO, AND ITS DOOR HAD NO GUARD. M166 closed the name doors
+  for people — presence, bodies, standings, seats, locks, knowledge, pages — but faction.set took
+  capText, which carries no guard. So a faction called "__proto__" was REPORTED as moved ("burned
+  the bridge", words in the log, an undo entry, a journal line) while state.factions stored nothing
+  at all. Proven. Every door that stores under a name goes through the one name guard now.
+- AND THE GUARD WAS REACHING INTO FREE TEXT. body.heal matches a weariness by its WORDS, and it
+  matched them through normalizeName — so after M166 a hurt whose words held "constructor" or
+  "prototype" could never be healed: a law applied where it does not live. Free text has a tidier
+  of its own (tidyWords); names are guarded, words are only tidied.
+- Read this pass, in full: engine/apply.js's whole handler table (every mutation the ledger knows,
+  its validation, its words and its undo payload), ui/receiptview.js, ui/storyexport.js,
+  ui/download.js, agents/status.js, agents/assign.js, agents/voice.js — the last files that had
+  never been opened. All sound but the two above.
+- 427/427 harness (+1 law, one widened) + 36/36 walk + 8/8 play + the two-browser proof + the coat
+  proof + the contrast audit. version.js -> m170-001.

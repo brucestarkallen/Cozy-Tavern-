@@ -226,6 +226,21 @@ test('M166: the magic keys are refused as names, never silently swallowed', asyn
   eq(Object.keys(merged.characters).length, 0, 'and the ledger stays empty');
   assert(({}).core === undefined, 'Object.prototype is untouched');
 
+  /* M170: a faction is stored under its name as a key too, and that door
+   * took capText, which does not carry the guard — so a faction called
+   * "__proto__" was REPORTED as moved while the ledger stored nothing. */
+  for (const bad of ['__proto__', 'constructor', 'prototype']) {
+    const f = applyMutations(emptyState(), [{ type: 'faction.set', name: bad, stance: 'hostile', move: 'burned the bridge' }]);
+    eq(f.applied.length, 0, 'a faction named ' + bad + ' is refused');
+    eq(Object.keys(f.state.factions).length, 0, 'and nothing is stored under it');
+  }
+  const realFaction = applyMutations(emptyState(), [{ type: 'faction.set', name: 'The Ferrymen', stance: 'watchful' }]);
+  eq(realFaction.applied.length, 1, 'a real faction still lands');
+
+  /* every door that stores under a NAME goes through the one guard */
+  const src = readFileSync(new URL('../../js/engine/apply.js', import.meta.url), 'utf8');
+  assert(/const name = capText\(normalizeName\(m\.name\), 80\);/.test(src), 'the faction door uses the name guard');
+
   /* and a real name is unharmed */
   const ok = applyMutations(emptyState(), [{ type: 'people.set', name: 'Mara', field: 'core', text: 'the innkeeper' }]);
   eq(ok.applied.length, 1, 'a real name still lands');
@@ -319,4 +334,24 @@ test('M168: the ink on the ember turns with the ember, and every coat defines it
   const meta = chat.slice(chat.indexOf('.meta-links {'), chat.indexOf('.meta-links {') + 320);
   assert(!/color: var\(--border\);/.test(meta), 'the dots are not painted --border (1.3:1 — absent, not quiet)');
   assert(/color-mix\(in oklab, var\(--muted\)/.test(meta), 'they are a muted mix — there, and quiet');
+});
+
+/* M170: M166's name guard was reaching into free text. body.heal matched a
+ * weariness by its WORDS through normalizeName — so a hurt whose words held
+ * "constructor" or "prototype" could never be healed: a law applied where it
+ * does not live. Names are guarded; words are only tidied. */
+test('M170: the magic-key guard judges names, never the words of a hurt', async () => {
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  const words = 'the constructor scaffolding gave way under her';
+  let st = applyMutations(emptyState(), [{ type: 'body.strain', name: 'Mara', what: words }]).state;
+  const healed = applyMutations(st, [{ type: 'body.heal', name: 'Mara', what: words }]);
+  eq(healed.applied.length, 1, 'a hurt whose words hold a magic key still heals');
+  eq(healed.state.bodies.Mara.strain.length, 0, 'and it is really gone');
+  /* while a PERSON so named is still refused */
+  const bad = applyMutations(emptyState(), [{ type: 'body.strain', name: '__proto__', what: 'x' }]);
+  eq(bad.applied.length, 0, 'a person named a magic key is still refused');
+  const src = readFileSync(new URL('../../js/engine/apply.js', import.meta.url), 'utf8');
+  assert(/function tidyWords\(text\)/.test(src), 'free text has a tidier of its own');
+  assert(!/const wanted = normalizeName\(typeof m\.what/.test(src), 'and the name guard is off it');
 });
