@@ -3948,3 +3948,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - 439/439 harness (+1 law) + 36/36 walk + 8/8 play, each run alone + the anchor differential
   (484/484 identical) + the two-browser proof + the coat proof + the contrast audit.
   version.js -> m179-001.
+
+# M180 — the three invariants the ledger rests on, fuzzed
+- Nothing had ever tested the equality the WHOLE branch/swipe/take-back system rests on. Three
+  property tests now do, on random mutation sequences (tests/harness/fold-fuzz.mjs):
+  1. A JOURNAL FOLD REPRODUCES THE WORLD THE WRITES MADE. 300 trials, 3-11 pages each, 1-4 batches
+     per page, 14 kinds of mutation — every page folded back and held against the world the writes
+     actually produced, field by field (present, place, clock, mode, bodies, standings, seats,
+     canon, the people, knowledge, threads, factions). ~1,200 folds, zero divergence.
+  2. A TAKE-BACK LEAVES THE WORLD EXACTLY AS IT STOOD. 400 trials: build a world, apply one more
+     change, take it back, and the world must be byte-identical to before. Zero wrong.
+  3. A STORY LONG ENOUGH TO ROLL THE JOURNAL NEVER FOLDS FROM NOTHING. 600 pages at four writes
+     each, well past JOURNAL_CAP: journalReaches refuses the pages past its reach (never a silent
+     fold from an empty base — the writer's own M91 report), and every page it DOES claim to reach
+     folds true.
+- 442/442 harness (+3 property tests). version.js -> m180-001.
