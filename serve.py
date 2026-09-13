@@ -120,6 +120,10 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split('?')[0]
+        if path == '/api/version':
+            # M157: the version this PROCESS started with — the launcher compares it to the folder
+            self._send_bytes(('{"version":"%s"}' % BOOT_VER).encode('utf-8'))
+            return
         if path == '/api/books/list':
             self._send_bytes(self._manifest())
             return
@@ -240,7 +244,32 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
 
+BOOT_VER = _ver()
+
+
+def _watch_self():
+    # M157: the server relights itself when its own file changes (a pull) —
+    # the same port, the new code, no hand. Checked every five seconds.
+    import threading, time, sys
+    me = os.path.abspath(__file__)
+    try:
+        born = os.path.getmtime(me)
+    except OSError:
+        return
+    def loop():
+        while True:
+            time.sleep(5)
+            try:
+                if os.path.getmtime(me) != born:
+                    time.sleep(2)  # let the pull finish writing
+                    os.execv(sys.executable, [sys.executable, me] + sys.argv[1:])
+            except OSError:
+                pass
+    threading.Thread(target=loop, daemon=True).start()
+
+
 if __name__ == '__main__':
+    _watch_self()
     # Bind AND print 127.0.0.1 (M13): on some Android setups "localhost"
     # resolves to ::1 while the server sits on IPv4 — the printed URL must
     # be the deterministic one.

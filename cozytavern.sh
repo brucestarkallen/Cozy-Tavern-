@@ -53,10 +53,28 @@ else
   echo "Already on $TAVERN_VER — the tavern is current."
 fi
 
+# M157: A NEW COAT RELIGHTS THE LAMPS. The server that already holds the port
+# is the OLD code — it never noticed the pull (the writer's second browser
+# kept asking an old server for books that only the new one keeps). When the
+# coat changed, or the lit server answers an older version than the folder,
+# the old lamp is doused and a new one lit. Only the tavern's own lamp is
+# touched (matched by this folder's serve.py), never Cozy Chat's.
+SERVER_VER="$(curl -s -m 2 http://127.0.0.1:$PORT/api/version 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4)"
+if (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null; then
+  if [ "$HEAD_BEFORE" != "$HEAD_AFTER" ] || [ "$SERVER_VER" != "$TAVERN_VER" ]; then
+    echo "Relighting the lamps with the new coat…"
+    pkill -f "$REPO_DIR/serve.py" 2>/dev/null || pkill -f "python3 serve.py" 2>/dev/null || true
+    for try in 1 2 3 4 5 6 7 8 9 10; do
+      if ! (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null; then break; fi
+      sleep 0.3
+    done
+  fi
+fi
+
 # Light the lamps — unless they're already lit. If something answers the port
 # but it isn't the tavern (a ghost lamp from a deleted folder), say how to douse it.
 if ! (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null; then
-  (python3 serve.py >/dev/null 2>&1 &)
+  (python3 "$REPO_DIR/serve.py" >/dev/null 2>&1 &)
   for try in 1 2 3 4 5 6 7 8 9 10; do
     if (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null; then break; fi
     sleep 0.5

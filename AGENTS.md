@@ -3499,3 +3499,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   held the story, its 41 pages, its ledger, the connection and the active story, thread drawn.
 - The old whole-store endpoints (api/books, api/books/stamp) remain for the manual backup.
 - 395/395 + 35/35 + 8/8. version.js -> m155-001. serve.py changed: restart it.
+
+# M157 — the launcher relights the lamps; the server relights itself
+- FIELD REPORT, with the launcher's own output: `cozytavern` pulled the new coat and printed
+  "Fresh coat on" — and left the OLD server holding the port. The launcher only lit a lamp when
+  none was lit; a lit one, whatever its age, was left alone, so the writer's second browser kept
+  asking an old serve.py for books it could not keep, through three updates, and closing
+  Termux did not end the process. Now: serve.py bakes its version at start (BOOT_VER, served at
+  /api/version); the launcher compares it to the folder's and, when the coat changed or the
+  versions differ, douses the tavern's own lamp and lights a new one; and serve.py watches its
+  own file and re-execs itself when it changes, so the NEXT update needs no hand at all.
+- 395/395. version.js -> m157-001.
