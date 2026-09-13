@@ -3510,3 +3510,12 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   versions differ, douses the tavern's own lamp and lights a new one; and serve.py watches its
   own file and re-execs itself when it changes, so the NEXT update needs no hand at all.
 - 395/395. version.js -> m157-001.
+
+# M158 — the lamps are always relit (the launcher that pulled was the old launcher)
+- The writer ran `cozytavern` after M157 and no "Relighting…" line printed: the launcher that
+  ran the pull was the OLD copy in $PREFIX/bin — the relight code arrived in the pull it was
+  performing and was not in the process that ran. The old server held the port a fourth time.
+  Now every run douses this folder's serve.py and lights a fresh one, unconditionally, the way
+  Marinara's launcher starts its server fresh on every run. One manual douse is needed this
+  once (`pkill -f serve.py`) because the running launcher is still the old one.
+- version.js -> m158-001.
