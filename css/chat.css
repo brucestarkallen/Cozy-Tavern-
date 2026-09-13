@@ -761,7 +761,10 @@ body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-selec
 
 .meta-links {
   white-space: nowrap;
-  color: var(--border);
+  /* M168: the dots between the links were painted --border — 1.3:1, which is
+   * not "quiet", it is absent, and a separator nobody can see separates
+   * nothing. Quiet, and there. */
+  color: color-mix(in oklab, var(--muted) 60%, transparent);
 }
 
 .meta-links button {

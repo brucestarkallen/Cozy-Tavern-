@@ -294,3 +294,29 @@ test('M167: the 🎨 pack paints in tokens, so it follows the coat', async () =>
     assert(light.includes(token + ':'), token + ' has a daylight value');
   }
 });
+
+/* M168: B19 darkened the light coat's --ember to #8a5205 so it would read as
+ * TEXT on parchment — but --on-ember, the ink painted ON that ember, stayed
+ * near-black in BOTH coats. So in daylight every primary button — Keep it,
+ * Save, and the send button the writer presses every single turn — was dark
+ * brown on dark orange, 2.9:1, under AA. Measured in tests/contrast.py. */
+test('M168: the ink on the ember turns with the ember, and every coat defines it once', () => {
+  const css = readFileSync(new URL('../../css/base.css', import.meta.url), 'utf8');
+  const light = css.slice(css.indexOf("html[data-theme='light']"));
+  const root = css.slice(0, css.indexOf("html[data-theme='light']"));
+  const inkOf = (block) => (block.match(/--on-ember:\s*([^;]+);/g) || []).map((s) => s.split(':')[1].trim().replace(';', ''));
+  const dark = inkOf(root);
+  const day = inkOf(light);
+  eq(dark.length, 1, 'lamplight names the ink once (' + dark.join(', ') + ')');
+  eq(day.length, 1, 'daylight names it once too — a second would shadow the first (' + day.join(', ') + ')');
+  assert(dark[0] !== day[0], 'and the two coats do not share one ink over two very different embers');
+
+  /* a native <option> takes the UA's ink unless the page says otherwise */
+  assert(/^option \{ color: var\(--text\); background: var\(--surface\); \}$/m.test(css), 'an option is painted by the house, not the browser');
+
+  /* the separator dots are quiet, not absent */
+  const chat = readFileSync(new URL('../../css/chat.css', import.meta.url), 'utf8');
+  const meta = chat.slice(chat.indexOf('.meta-links {'), chat.indexOf('.meta-links {') + 320);
+  assert(!/color: var\(--border\);/.test(meta), 'the dots are not painted --border (1.3:1 — absent, not quiet)');
+  assert(/color-mix\(in oklab, var\(--muted\)/.test(meta), 'they are a muted mix — there, and quiet');
+});

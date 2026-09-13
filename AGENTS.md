@@ -3740,3 +3740,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the pack is ever painted bare again, and that every token it names is defined in BOTH coats.
 - 424/424 harness (+1 law) + 36/36 walk + 8/8 play + the two-browser proof + the coat proof.
   version.js -> m167-001.
+
+# M168 — the daylight coat, measured
+- THE INK ON THE EMBER DID NOT TURN WITH THE EMBER. B19 darkened the light coat's --ember to
+  #8a5205 so it would read as TEXT on parchment, and --on-ember — the ink painted ON that ember —
+  stayed near-black in both coats. So in daylight every primary button was dark brown on dark
+  orange: "Keep it", "Save", and THE SEND BUTTON THE WRITER PRESSES EVERY SINGLE TURN. Measured
+  2.9:1, under AA. And the light coat named --on-ember TWICE, the second shadowing the first, which
+  is why the first mend did nothing — a law now holds that each coat names it exactly once.
+- A native <option> takes the browser's own ink unless the page says otherwise: black type on the
+  lamplight coat's dark field, 4.2:1. Painted by the house now.
+- The dots between the meta links were painted --border: 1.3:1, which is not quiet, it is absent —
+  a separator nobody can see separates nothing. A muted mix: there, and quiet.
+- tests/contrast.py walks every visible text surface in the story room, all five rooms of Settings
+  and the ledger, in BOTH coats, and measures each against its own background at AA (4.5:1, or 3:1
+  for large text). Before: 2 surfaces under AA on lamplight, 3 on daylight. After: none, in either.
+- 425/425 harness (+1 law) + 36/36 walk + 8/8 play + the two-browser proof + the coat proof + the
+  contrast audit. version.js -> m168-001.
