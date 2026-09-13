@@ -2101,7 +2101,6 @@ export function initDrawer(ctx) {
       drawer.hidden = false;
       scrim.hidden = false;
       requestAnimationFrame(() => { drawer.classList.add('open'); document.body.classList.add('drawer-open'); });
-      scheduleIdlePass();
     };
     if (typeof MutationObserver === 'function') {
       let quiet = null; let shown = false;
@@ -2158,7 +2157,7 @@ export function initDrawer(ctx) {
    * scroll, which is the stutter the writer felt "under three or four
    * seconds", in the scene room only. A room draws when its chip is tapped,
    * and only then. */
-  const scheduleIdlePass = () => {};
+
   function renderAllRooms() { drawPendingIn(panelsEl, ctx); }
   ctx.drawer = { open, close, toggle, renderAllRooms };
 }

@@ -3449,3 +3449,10 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   The by-hand clock is folded under "Set the clock by hand"; the clock words and +15m/+1h stay.
   The header sets the clock every page; the hand is for the rare correction.
 - 395/395 + 35/35 + 8/8. version.js -> m151-001.
+
+# M152 — the final sweep of the session, and the handoff
+- Every module passes syntax; every module ships in the offline shell; no debug output; the
+  dead idle-pass stub removed. 395/395 + 35/35 + 8/8 (ninety turns in 48s); real-browser frame
+  timing at 6× throttle: drawer first scroll 17ms longest frame, close 83ms, settings close
+  33ms. HANDOFF.md written for the next session: how to test, the laws that matter, the limits.
+- version.js -> m152-001.
