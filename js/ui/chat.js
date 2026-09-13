@@ -4316,6 +4316,7 @@ export function initChat(ctx) {
     auditNow,
     rippleAfterEdit,
     resumeUnfinishedChain,
+    isBusy: () => Boolean(busy),
     foundNow,
     rebuildStandingsNow,
     rebuildRecordNow,

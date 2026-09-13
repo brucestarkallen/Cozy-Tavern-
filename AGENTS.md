@@ -3318,3 +3318,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   exports/imports everything by hand.
 - DOM-11b waited on a race the faster house exposed. 395/395 + 35/35 + 8/8.
   version.js -> m140-001.
+
+# M141 — the tavern updates itself; the thread is not painted behind the ledger
+- FIELD DEMANDS (the writer's last session): (1) "like SillyTavern — the same in Opera and
+  Chrome, and no refreshing to update." The device's books (M24/M140) are the shared shelf:
+  with serve.py running, a fresh browser pulls the device file at first open and every browser
+  pushes its changes; boot pulls whenever the file is newer. Updates: the tavern now looks for
+  a new coat on every open, whenever the page comes back into view, and every ten minutes; the
+  new worker takes over on its own and the page reloads itself once — never while the
+  storyteller is writing (chat.isBusy). (2) The ledger's first scroll: the thread behind the
+  drawer is no longer painted while the drawer is open (visibility, not display — no relayout
+  on close).
+- The whole session's changes swept: every module passes syntax, every module ships in the
+  offline shell (the worker included), no debug leftovers, serve.py parses. 395/395 + 35/35 +
+  8/8. version.js -> m141-001.

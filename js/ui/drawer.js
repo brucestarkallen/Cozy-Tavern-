@@ -2015,7 +2015,7 @@ export function initDrawer(ctx) {
     drawer.hidden = false;
     scrim.hidden = false;
     /* let the browser notice we're visible before sliding in */
-    requestAnimationFrame(() => drawer.classList.add('open'));
+    requestAnimationFrame(() => { drawer.classList.add('open'); document.body.classList.add('drawer-open'); /* M141 */ });
     /* M14: the header keeps the ember on the room that's open. */
     const btn = document.getElementById('btn-ledger');
     if (btn) btn.classList.add('current');
@@ -2028,6 +2028,7 @@ export function initDrawer(ctx) {
 
   function close() {
     const generation = ++closeGeneration;
+    document.body.classList.remove('drawer-open'); /* M141 */
     drawer.classList.remove('open');
     scrim.hidden = true;
     const btn = document.getElementById('btn-ledger');

@@ -91,8 +91,8 @@ test('M16 the update nudge is wired (updatefound + controllerchange)', () => {
   assert(src.includes("worker.state === 'installed' && navigator.serviceWorker.controller"),
     'the nudge only speaks when an old controller holds the room');
   assert(src.includes('A new coat is on the tavern — tap to refresh.'), 'the warm words');
-  assert(/let reloading = false;[\s\S]{0,300}reloading = true;\s*location\.reload\(\)/.test(src),
-    'the reload-once guard stands');
+  assert(/let reloading = false;[\s\S]{0,600}reloading = true;[\s\S]{0,400}location\.reload\(\)/.test(src) && /registration\.update\(\)/.test(src),
+    'the reload-once guard stands, and the tavern looks for a new coat on its own (M141)');
   assert(src.includes('hadController'), 'a first visit settles in without a reload');
 });
 

@@ -257,9 +257,19 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!hadController || reloading) return;
         reloading = true;
-        location.reload();
+        /* never mid-sentence: a reload waits for the storyteller to finish */
+        const go = () => { if (ctx.chat && typeof ctx.chat.isBusy === 'function' && ctx.chat.isBusy()) { setTimeout(go, 2000); return; } location.reload(); };
+        go();
       });
       const registration = await navigator.serviceWorker.register('sw.js', { type: 'module' });
+      /* M141: the tavern looks for a new coat on every open, whenever the page
+       * comes back into view, and every ten minutes — and the new worker takes
+       * over on its own (skipWaiting + claim), so the page reloads itself
+       * once; nobody has to remember to refresh. */
+      const lookForUpdate = () => { try { registration.update().catch(() => {}); } catch (err) { /* fine */ } };
+      lookForUpdate();
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') lookForUpdate(); });
+      setInterval(lookForUpdate, 10 * 60 * 1000);
       registration.addEventListener('updatefound', () => {
         const worker = registration.installing;
         if (!worker) return;
