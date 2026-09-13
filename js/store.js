@@ -174,7 +174,14 @@ async function modify(storeName, key, change) {
   const prev = rowLocks.get(lockKey) || Promise.resolve();
   let release;
   const mine = new Promise((r) => { release = r; });
-  rowLocks.set(lockKey, prev.then(() => mine));
+  /* M160: the map held `prev.then(() => mine)`, never `mine` itself, so the
+   * cleanup test below could never be true and every row ever modified left
+   * an entry behind — a Map that grew for the life of the page (one key per
+   * page edited, per swipe, per worker write-back, on a six-hundred-page
+   * shelf). The chain is kept under its own token, and the token is what the
+   * cleanup compares. */
+  const chained = prev.then(() => mine);
+  rowLocks.set(lockKey, chained);
   try {
     await prev;
     const row = await run(storeName, 'readonly', (s) => s.get(key));
@@ -185,7 +192,7 @@ async function modify(storeName, key, change) {
     return next;
   } finally {
     release();
-    if (rowLocks.get(lockKey) === mine) rowLocks.delete(lockKey);
+    if (rowLocks.get(lockKey) === chained) rowLocks.delete(lockKey);
   }
 }
 
@@ -328,18 +335,43 @@ const stories = {
       t.oncomplete = () => { messagesCache.delete(id); resolve(); };
       t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
     });
-    await run('settings', 'readwrite', (s) => s.delete('state:' + id)); settingsCache.delete('state:' + id);
-    /* M6: the keeper's folded pages go with the story too. */
-    await run('settings', 'readwrite', (s) => s.delete('memory:' + id)); settingsCache.delete('memory:' + id);
-    /* M7: and its lore shelf as well. The cast library stays — it's
-     * app-wide, and other stories may still be carrying those cards. */
-    await run('settings', 'readwrite', (s) => s.delete('lore:' + id)); settingsCache.delete('lore:' + id);
-    /* M9: and the workers' ledger line goes with the story too. */
-    await run('settings', 'readwrite', (s) => s.delete('workers:' + id)); settingsCache.delete('workers:' + id);
-    /* M21: and the rollback snapshots as well. */
-    await run('settings', 'readwrite', (s) => s.delete('snapshots:' + id)); settingsCache.delete('snapshots:' + id);
+    /* M160: EVERYTHING OF A TALE GOES WITH THE TALE. Five prefixes were
+     * named here by hand (state:, memory:, lore:, workers:, snapshots:) and
+     * seven were not — versionState: above all, which holds up to sixty
+     * whole ledgers, plus hk:, director:, editor:, memoryBackup:,
+     * peopleBackup: and the tale's own bookStamp:. Those rows outlived every
+     * tale the writer ever let go, and because exportHouse keeps any row
+     * whose suffix is not a LIVING tale's id, each one was written into
+     * _house.json on every push — the house book grew for the rest of the
+     * shelf's life. The rule is the suffix, not a list: any key ending in
+     * ':<this tale's id>' is this tale's. */
+    const keys = await storyKeys(id);
+    if (keys.length) {
+      const d2 = await openDB();
+      await new Promise((resolve, reject) => {
+        const t = d2.transaction('settings', 'readwrite');
+        const s = t.objectStore('settings');
+        for (const key of keys) s.delete(key);
+        t.oncomplete = () => resolve();
+        t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
+        t.onabort = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
+      });
+      for (const key of keys) settingsCache.delete(key);
+    }
   },
 };
+
+/* M160: the settings keys that belong to one tale, read from the KEY LIST
+ * alone. getAllKeys deserializes nothing; the old exportStory read every
+ * settings row of every tale (each one's sixty version ledgers and hundred
+ * and twenty snapshots) to find the handful it wanted — once per dirty book,
+ * every push, on a store the room is reading from at the same time. */
+async function storyKeys(storyId) {
+  if (!storyId) return [];
+  const all = await run('settings', 'readonly', (s) => s.getAllKeys());
+  const tail = ':' + storyId;
+  return (all || []).filter((k) => typeof k === 'string' && k.endsWith(tail));
+}
 
 const messages = {
   async list(storyId) {
@@ -611,16 +643,61 @@ const STORY_ROW = (key, ids) => { const at = key.lastIndexOf(':'); return at > 0
 async function exportStory(storyId) {
   const story = await stories.get(storyId);
   if (!story) return null;
-  const rows = await run('settings', 'readonly', (s) => s.getAll());
-  const mine = rows.filter((r) => r && typeof r.key === 'string' && STORY_ROW(r.key, new Set([storyId])));
+  /* M160: by key, not by reading the shelf. This runs in the sync worker
+   * every twenty seconds for each changed tale, and IndexedDB serializes
+   * transactions per database across threads — a full settings.getAll() here
+   * held the store the room itself reads the ledger from. */
+  const keys = await storyKeys(storyId);
+  const mine = [];
+  for (const key of keys) {
+    const row = await run('settings', 'readonly', (s) => s.get(key));
+    if (row) mine.push(row);
+  }
   const msgs = await run('messages', 'readonly', (s) => s.index('byStory').getAll(storyId));
   return JSON.stringify({ namespace: NAMESPACE, kind: 'story', exportedAt: new Date().toISOString(), story, settings: mine, messages: msgs });
 }
+/* M160: the prefixes a settings row wears when it belongs to one tale. Used
+ * twice: the house book refuses them for a tale that no longer stands, and
+ * the boot sweep lets those orphans go for good. `cast:` is NOT here — the
+ * cast library is app-wide and its suffix is a card's id, not a tale's. */
+const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'versionState', 'hk', 'director', 'editor', 'memoryBackup', 'peopleBackup', 'bookStamp'];
+const STORY_PREFIXED = new RegExp('^(?:' + STORY_PREFIXES.join('|') + '):.+$');
+
+/* M160: every tale-shaped row whose tale is gone, let go for good. Stores
+ * that lost tales before M160 carry them still — a deleted tale's sixty
+ * version ledgers and hundred and twenty snapshots, kept forever and written
+ * into _house.json on every push. Run once at boot; returns how many went. */
+async function sweepOrphans() {
+  const all = await run('stories', 'readonly', (s) => s.getAll());
+  const living = new Set((all || []).map((x) => x && x.id).filter(Boolean));
+  const keys = await run('settings', 'readonly', (s) => s.getAllKeys());
+  const doomed = (keys || []).filter((k) => {
+    if (typeof k !== 'string' || !STORY_PREFIXED.test(k)) return false;
+    const at = k.indexOf(':');
+    const id = k.slice(at + 1);
+    return Boolean(id) && !living.has(id);
+  });
+  if (!doomed.length) return 0;
+  const d = await openDB();
+  await new Promise((resolve, reject) => {
+    const t = d.transaction('settings', 'readwrite');
+    const s = t.objectStore('settings');
+    for (const key of doomed) s.delete(key);
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error);
+  });
+  for (const key of doomed) settingsCache.delete(key);
+  return doomed.length;
+}
+
 async function exportHouse() {
   const all = await run('stories', 'readonly', (s) => s.getAll());
   const ids = new Set(all.map((x) => x.id));
   const rows = await run('settings', 'readonly', (s) => s.getAll());
-  const house = rows.filter((r) => r && typeof r.key === 'string' && !STORY_ROW(r.key, ids) && !/^bookStamp:/.test(r.key) && r.key !== 'booksStamp');
+  /* M160: a tale-shaped row whose tale is gone is nobody's — never the
+   * house's. Before this, every orphan rode _house.json on every push. */
+  const house = rows.filter((r) => r && typeof r.key === 'string' && !STORY_ROW(r.key, ids) && !STORY_PREFIXED.test(r.key) && r.key !== 'booksStamp');
   return JSON.stringify({ namespace: NAMESPACE, kind: 'house', exportedAt: new Date().toISOString(), settings: house, connections: await run('connections', 'readonly', (s) => s.getAll()), stories: all.map((x) => ({ id: x.id, title: x.title, createdAt: x.createdAt, updatedAt: x.updatedAt, projectId: x.projectId })) });
 }
 async function importStory(json) {
@@ -721,5 +798,6 @@ export const db = {
   exportHouse,
   importStory,
   importHouse,
+  sweepOrphans,
   onStorageWarning,
 };

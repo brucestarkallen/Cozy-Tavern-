@@ -174,6 +174,13 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   try { if (navigator.storage && typeof navigator.storage.persist === 'function') navigator.storage.persist().catch(() => {}); } catch (err) { /* fine */ }
   const booksStatus = await initSync(ctx);
   ctx.booksStatus = booksStatus;
+  /* M160: rows left behind by tales already let go — a deleted tale's sixty
+   * version ledgers, its snapshots, its housekeeper session — are swept once
+   * at boot. They cost real room on the device and rode _house.json on every
+   * push. Runs after the books have settled so a tale still arriving is
+   * never mistaken for one that is gone; quiet, and never a reason to fail
+   * the open. */
+  try { if (typeof db.sweepOrphans === 'function') await db.sweepOrphans(); } catch (err) { /* the shelf is no worse for it */ }
   await applyStoredTheme();
 
   /* M97, once: the housekeeper's own thinking dial was set against the old

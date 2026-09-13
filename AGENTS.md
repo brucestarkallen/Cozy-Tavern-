@@ -3525,3 +3525,62 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   module passes syntax and ships in the shell; serve.py parses; 395/395 + 35/35 + 8/8; the
   two-browser proof against the real serve.py at m158: browser B holds everything browser A
   wrote. HANDOFF.md carries the launcher and worker laws. version.js -> m159-001.
+
+# M160 — the deep audit: the books were never the shell; a tale takes its rows with it
+- THE SERVICE WORKER WAS KEEPING THE DEVICE'S BOOKS. sw.js cache-firsted EVERY same-origin GET,
+  and api/books/list, api/books/one/<tale> and api/version are same-origin GETs. The first read
+  of the manifest was written into the shell cache and answered every later read for the whole
+  life of a version: the other browser's newer pages carried stamps this browser never saw, so
+  the pull was skipped; and a book served from that cache, handed to importStory, replaces a
+  tale's messages wholesale — an older telling over newer pages. M155 fixed the /js/ resolution
+  and this was sitting behind it, which is why the second browser still misbehaved and why it
+  looked intermittent (a cache write is fire-and-forget; whether a given boot met the kept copy
+  was timing). PROVEN in real Chromium against the real serve.py: a page read the manifest,
+  the file on disk changed, the second read still reported the first stamp; the cache listing
+  held api/books/list and api/books/one/<tale>. Now api/ never reaches the cache branch, and
+  activate sweeps any api answers an older coat kept, so a browser heals itself on any version.
+- A TALE LET GO CAME BACK FROM THE DEAD. Boot pushed every local story missing from the
+  manifest, so a tale deleted in Opera was resurrected by Chrome on its next open — and
+  re-uploaded. A drop now leaves a tombstone (<id>.json.gone) that the manifest names; the
+  worker lets that tale go here too and never pushes it. A tale pushed again clears its own
+  tombstone. Reproduced against m159 every run; green at m160.
+- EVERYTHING OF A TALE GOES WITH THE TALE. stories.remove named five prefixes by hand (state,
+  memory, lore, workers, snapshots) and missed seven: versionState (up to SIXTY whole ledgers),
+  hk, director, editor, memoryBackup, peopleBackup, bookStamp. Those rows outlived every tale
+  the writer ever let go — and because exportHouse keeps any row whose suffix is not a LIVING
+  tale's id, each orphan was written into _house.json on every push, for the life of the shelf.
+  The law is the suffix, not a list (storyKeys). exportHouse refuses tale-shaped rows whose tale
+  is gone, and db.sweepOrphans() at boot lets the ones already there go for good.
+- THE PUSH WAS READING THE WHOLE SETTINGS STORE. exportStory did settings.getAll() to find the
+  handful of rows belonging to one tale — once per changed tale, every twenty seconds, in the
+  worker, on a database the room reads the ledger from (IndexedDB serializes transactions per
+  database ACROSS THREADS, so this held the room). By key list now. Measured, twelve tales with
+  120 snapshots and 60 version ledgers each: 1957.3ms -> 83.8ms per pushed tale, 23.4x.
+- NOTHING ASKS THE READER TO TRY AGAIN. A rebuild held `replaying` from the history change until
+  the tail job landed — through the readers in flight, a whole reading chain and its retries:
+  minutes on a slow wire. Every swipe, edit, retry, branch and delete in that window was refused
+  with "one moment, then try again". They wait on a gate (waitForRebuild/afterReplay) and run
+  themselves. Against the writer's standing law that nothing may hand him a task.
+- A PAGE THE WIRE BROKE IS NEVER SHOWN AS WHOLE. An error frame arriving mid-stream was thrown
+  only when nothing had landed yet; with prose already on the page the refusal was dropped, the
+  finish reason stayed empty, and a page that stopped mid-sentence was saved, read by every
+  worker and folded into the record as the storyteller's finished work. Both providers: the
+  words are kept, the page is marked cut short, the break is said out loud.
+- THE PEN IS BID FOR, NEVER SEIZED. When the holder released (or went silent), EVERY waiting tab
+  promoted itself on the spot — two writers on one store, the exact tear the lock exists to
+  prevent. A free pen is bid for; the lowest id takes it; a holder answers a bid at once.
+- The thinking clock is stopped on EVERY path out of the stream. It was stopped only on a stop
+  by hand, so a provider that fell over — a dropped mobile connection, a 500, a refused key —
+  left its one-second interval ticking against a gone node for the rest of the session.
+- The masthead switch holds. rerenderMessage and the just-landed page built msgNode without
+  mastheadOn, and msgNode defaults to on, so the extractor's masthead write put the header line
+  back on every turn: switching it off lasted until the next page landed.
+- The row lock is released. modify() stored `prev.then(() => mine)` and compared the map against
+  `mine`, so the cleanup could never be true and every row ever modified left an entry behind.
+- A book is never absent mid-write. The old order moved the book to .bak1 and then moved .tmp
+  into place; in that gap the other browser's GET met a 404 and skipped the tale for the boot.
+  The old copy is copied aside; the new one lands in one atomic replace.
+- ctx.chat had `isBusy` twice (the only lint error in the house).
+- 401/401 harness (+6 new laws) + 35/35 walk + 8/8 play, and an eight-check two-browser proof in
+  real Chromium against the real serve.py: /tmp/twobrowsers.py. version.js -> m160-001.
+  serve.py changed — it re-execs itself (M157), so no hand is needed.

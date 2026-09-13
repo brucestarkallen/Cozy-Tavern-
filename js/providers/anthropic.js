@@ -308,6 +308,18 @@ export function createAnthropicProvider(connection) {
         refusal = data.error.message || 'Claude stumbled mid-sentence.';
       }
     });
+    /* M160: A PAGE THE WIRE BROKE IS NEVER SHOWN AS WHOLE. An error frame
+     * arriving mid-stream was thrown only when nothing had landed yet; with
+     * prose already on the page the refusal was dropped on the floor, the
+     * finish reason stayed empty, and a page that stopped in the middle of a
+     * sentence was saved, read by every worker and folded into the record as
+     * if the storyteller had finished it. The words before the break are
+     * still kept — they are the story — but the page is marked cut short and
+     * the break is said out loud. */
+    if (refusal && full) {
+      finishReason = finishReason || 'length';
+      notes.push('The wire broke mid-page — the words before the break were kept. Say “go on” to carry the page forward.');
+    }
     if (refusal && !full) throw new Error(refusal);
     const durationMs = Date.now() - startedAt;
     return {

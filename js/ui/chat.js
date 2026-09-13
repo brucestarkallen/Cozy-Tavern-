@@ -1291,9 +1291,16 @@ export function initChat(ctx) {
       return;
     }
     const showThinking = (await db.settings.get('showThinking')) !== false;
+    /* M160: the masthead switch is read here too. Without it, msgNode's
+     * default ("on unless told otherwise") put the header line back on every
+     * page a worker re-inked — the extractor's masthead write does exactly
+     * that on every turn — so switching the masthead off lasted until the
+     * next page landed. */
+    const mastheadOn = (await db.settings.get('masthead')) !== false;
     const lastAssistant = [...history].reverse().find((m) => m && !m.hidden && m.role === 'assistant');
     const fresh = msgNode(msg, showThinking, {
       isLastAssistant: lastAssistant ? lastAssistant.id === messageId : false,
+      mastheadOn,
     });
     if (node) node.replaceWith(fresh);
     else {
@@ -2243,9 +2250,45 @@ export function initChat(ctx) {
    * a second history change waits for `replaying` to clear. */
   let replaying = false;
   function isReplaying() { return replaying; }
+  /* M160: NOTHING ASKS THE READER TO TRY AGAIN. A rebuild holds `replaying`
+   * from the moment history changes until the tail job lands — through the
+   * readers in flight, a whole reading chain and its retries: minutes on a
+   * slow wire. Every swipe, edit, retry, branch and delete in that window
+   * used to be refused with "one moment, then try again", so the writer had
+   * to watch the house and press the same button a second time. They wait
+   * for the gate instead and then run themselves. */
+  let replayWaiters = [];
+  function setReplaying(v) {
+    replaying = Boolean(v);
+    if (!replaying && replayWaiters.length) {
+      const waiting = replayWaiters;
+      replayWaiters = [];
+      for (const done of waiting) { try { done(); } catch (err) { /* a waiter's trouble is its own */ } }
+    }
+  }
+  /* Resolves true once no rebuild stands (at once when none does), false if
+   * one somehow outlasts the ceiling — the caller then says so plainly. */
+  function afterReplay(ceilingMs = 300000) {
+    if (!replaying) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+      replayWaiters.push(() => finish(true));
+      setTimeout(() => finish(false), ceilingMs);
+    });
+  }
+  /* The one gate every history-changing action passes. Returns false only
+   * when the rebuild never finished — the single case worth a word. */
+  async function waitForRebuild() {
+    if (!replaying) return true;
+    toast('The ledger is finishing its rebuild — this runs the moment it’s done.');
+    if (await afterReplay()) return true;
+    toast('The rebuild is taking unusually long — try once more in a moment.');
+    return false;
+  }
   async function replayFrom(story, fromMessageId, { changed = true, shiftAfter = null, kOverride = null, atOverride = null } = {}) {
     if (replaying) return false;
-    replaying = true;
+    setReplaying(true);
     let tailQueued = false;
     try {
       /* the readers in flight land first — their writes belong to the timeline being folded */
@@ -2306,13 +2349,13 @@ export function initChat(ctx) {
           toast(`History changed at page ${at + 1} — the ledger was folded back and rebuilt${pages ? ' with one reading' : ''}.`);
           return { silent: true };
         } finally {
-          replaying = false;
+          setReplaying(false);
         }
       } });
       noteWork(story.id, tail);
       return true;
     } finally {
-      if (!tailQueued) replaying = false;
+      if (!tailQueued) setReplaying(false);
     }
   }
 
@@ -2771,9 +2814,15 @@ export function initChat(ctx) {
           effort: reasoning.effort === 'off' ? '' : reasoning.effort,
         });
       } catch (err) {
+        /* M160: the thinking clock used to be stopped only when the writer
+         * stopped the page by hand. A provider that fell over — a dropped
+         * mobile connection, a 500, a refused key — left its one-second
+         * interval ticking against a node that had already gone, for the
+         * rest of the session. An hour of flaky signal left a dozen of them
+         * running. Every path out stops the clock. */
+        stopThinkClock();
         if (err && err.name === 'AbortError') {
           stoppedByHand = true;
-          stopThinkClock();
         } else {
           pending.replaceWith(noteNode(err.message || 'The storyteller went quiet. Try again in a moment.'));
           full = '';
@@ -2882,7 +2931,7 @@ export function initChat(ctx) {
           /* M22-C: where it looked things up, folded under the page. */
           sources: streamSources || undefined,
         });
-        pending.replaceWith(msgNode(saved, showThinking, { isLastAssistant: true }));
+        pending.replaceWith(msgNode(saved, showThinking, { isLastAssistant: true, mastheadOn: (await db.settings.get('masthead')) !== false }));
         /* The pending node was never in the walker's ids; the saved page
          * takes its place at the tail. Record the id — do NOT clear the
          * list: an empty walker passes the append check and the next
@@ -3138,7 +3187,8 @@ export function initChat(ctx) {
 
   async function retryUserMessage(messageId) {
     if (busy) return;
-    if (replaying) { toast('The ledger is still being rebuilt — one moment, then try again.'); return; }
+    if (!(await waitForRebuild())) return;
+    if (busy) return;
     const story = await activeStory();
     if (!story) return;
     const msgs = await db.messages.list(story.id);
@@ -3171,7 +3221,8 @@ export function initChat(ctx) {
 
   async function regenerateFrom(messageId) {
     if (busy) return;
-    if (replaying) { toast('The ledger is still being rebuilt — one moment, then try again.'); return; }
+    if (!(await waitForRebuild())) return;
+    if (busy) return;
     busy = true;
     try {
       const story = await activeStory();
@@ -3220,7 +3271,8 @@ export function initChat(ctx) {
 
   async function swipeTo(messageId, dir) {
     if (busy) return;
-    if (replaying) { toast('The ledger is still being rebuilt — one moment.'); return; }
+    if (!(await waitForRebuild())) return;
+    if (busy) return;
     const story = await activeStory();
     if (!story) return;
     const history = await db.messages.list(story.id);
@@ -3296,7 +3348,8 @@ export function initChat(ctx) {
    * consequence of a version that no longer stands survives. */
   async function swipeRegenerate(msg) {
     if (busy) { toast('The storyteller is still busy — one moment, then swipe.'); return; } /* M82: a dropped press says so (M62-002's law) */
-    if (replaying) { toast('The ledger is still being rebuilt — one moment, then swipe.'); return; }
+    if (!(await waitForRebuild())) return;
+    if (busy) { toast('The storyteller is still busy — one moment, then swipe.'); return; }
     busy = true;
     try {
       const story = await activeStory();
@@ -3344,7 +3397,8 @@ export function initChat(ctx) {
 
   async function beginEdit(messageId) {
     if (busy) return;
-    if (replaying) { toast('The ledger is still being rebuilt — one moment, then edit.'); return; }
+    if (!(await waitForRebuild())) return;
+    if (busy) return;
     const story = await activeStory();
     if (!story) return;
     const history = await db.messages.list(story.id);
@@ -3448,7 +3502,8 @@ export function initChat(ctx) {
   ];
 
   async function branchFrom(messageId) {
-    if (busy || replaying) { toast('The house is still writing — one moment, then branch.'); return; }
+    if (!(await waitForRebuild())) return;
+    if (busy) { toast('The house is still writing — one moment, then branch.'); return; }
     const story = await activeStory();
     if (!story) return;
     const history = await db.messages.list(story.id);
@@ -3795,7 +3850,8 @@ export function initChat(ctx) {
   async function deleteMessage(id) {
     const story = await activeStory();
     if (!story || busy) return;
-    if (replaying) { toast('The ledger is still being rebuilt — one moment, then let it go.'); return; }
+    if (!(await waitForRebuild())) return;
+    if (busy) return;
     /* One page lets go — never conflated with rewrite-from-here. */
     const ok = window.confirm('Let this page go? The ones around it stay exactly as written.');
     if (!ok) return;
@@ -3825,7 +3881,7 @@ export function initChat(ctx) {
       if (after) {
         ledgerWork = replayFrom(story, after.id, { changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone });
       } else {
-        replaying = true;
+        setReplaying(true);
         ledgerWork = (async () => {
           try {
             await pendingWork(story.id, 120000);
@@ -3834,7 +3890,7 @@ export function initChat(ctx) {
             for (const key of Object.keys(all)) if (key.split(':')[0] === id) delete all[key];
             await db.settings.set('versionState:' + story.id, all);
             pendingAudit.delete(story.id);
-          } finally { replaying = false; }
+          } finally { setReplaying(false); }
         })();
       }
     }
@@ -4309,14 +4365,13 @@ export function initChat(ctx) {
   loadRules().catch(() => {});
 
   ctx.chat = {
-    isBusy: () => busy,
+    isBusy: () => Boolean(busy),
     isReplaying,
     repairTimeline,
     rescanLedger,
     auditNow,
     rippleAfterEdit,
     resumeUnfinishedChain,
-    isBusy: () => Boolean(busy),
     foundNow,
     rebuildStandingsNow,
     rebuildRecordNow,

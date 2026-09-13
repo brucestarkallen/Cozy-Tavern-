@@ -6,6 +6,7 @@ right MIME types so ES modules and the web manifest load cleanly.
 """
 import http.server
 import os
+import shutil
 import socketserver
 
 PORT = int(os.environ.get('PORT', 8080))
@@ -94,8 +95,16 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         import json
         folder = os.path.join(DATA_DIR, 'books')
         out = []
+        gone = []
         try:
             for name in sorted(os.listdir(folder)):
+                # M160: a tale let go leaves a tombstone (<id>.json.gone). The
+                # manifest names it, so the OTHER browser lets the tale go too
+                # instead of pushing its own copy back up — a tale deleted in
+                # one browser used to be resurrected by the next one to open.
+                if name.endswith('.json.gone'):
+                    gone.append(name[:-len('.json.gone')])
+                    continue
                 if not name.endswith('.json'):
                     continue
                 path = os.path.join(folder, name)
@@ -109,7 +118,7 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                     pass
         except OSError:
             pass
-        return json.dumps({'books': out}).encode('utf-8')
+        return json.dumps({'books': out, 'gone': gone}).encode('utf-8')
 
     def _send_bytes(self, body, status=200):
         self.send_response(status)
@@ -200,19 +209,40 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             tmp = bp + '.tmp'
             with open(tmp, 'wb') as f:
                 f.write(body)
+                f.flush()
+                os.fsync(f.fileno())
+            # M160: the old copy is COPIED aside, then the new one lands in a
+            # single atomic replace. The old order (move the book to .bak1,
+            # then move .tmp into place) left a gap in which the book did not
+            # exist at all — the other browser's GET met a 404 and skipped
+            # that tale for the whole boot.
             if os.path.exists(bp):
                 try:
-                    os.replace(bp, bp + '.bak1')
+                    shutil.copy2(bp, bp + '.bak1')
                 except OSError:
                     pass
             os.replace(tmp, bp)
+            # M160: a tale pushed again is a tale that stands — clear any
+            # tombstone from an earlier delete, or it would never come back.
+            try:
+                os.remove(bp + '.gone')
+            except OSError:
+                pass
             self._send_bytes(b'{"ok":true}')
             return
         if path.startswith('/api/books/drop/'):
             bp = self._book_path(path[len('/api/books/drop/'):])
             if bp is not None:
+                # M160: the tombstone is written whether or not this device
+                # held the book, so a tale let go in one browser is let go
+                # everywhere — not pushed back up by the next one to open.
                 try:
-                    os.replace(bp, bp + '.gone')
+                    os.makedirs(os.path.dirname(bp), exist_ok=True)
+                    if os.path.exists(bp):
+                        os.replace(bp, bp + '.gone')
+                    else:
+                        with open(bp + '.gone', 'wb') as f:
+                            f.write(b'')
                 except OSError:
                     pass
             self._send_bytes(b'{"ok":true}')

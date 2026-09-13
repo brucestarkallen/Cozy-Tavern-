@@ -195,7 +195,11 @@ test('M21-C: the rewind law is wired in chat.js — snapshot before the chain, r
   assert(regen.indexOf('pendingWork') < regen.indexOf('rewindTo'), 'workers still settle first (B5)');
   const swipeRegen = chat.slice(chat.indexOf('async function swipeRegenerate'), chat.indexOf('/* ---------- edit'));
   assert(/rewindTo/.test(swipeRegen), 'swipe-creation rewinds to the boundary (M44: exact or nearest)');
-  assert(src('js/store.js').includes("s.delete('snapshots:' + id)"), 'the snapshots go with a let-go story');
+  /* M160: by suffix, not by a hand-written list of five prefixes — the law
+   * is held behaviourally in tests/harness/store.mjs (a tale let go takes
+   * EVERY row that wore its id). Here we only insist the sweep exists. */
+  assert(/const keys = await storyKeys\(id\);/.test(src('js/store.js')), 'a let-go story takes every row that wore its id');
+  assert(/snapshots/.test(src('js/store.js')) && /STORY_PREFIXES = \[/.test(src('js/store.js')), 'the snapshots are among the prefixes a tale wears');
 });
 
 /* ---------- D. the workers never break the fiction ---------- */

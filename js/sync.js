@@ -100,7 +100,7 @@ export async function initSync(ctx) {
   wrap(ctx.db.settings, 'delete', ([key]) => { const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
   wrap(ctx.db.stories, 'create', (args, out) => { Promise.resolve(out).then((st) => { if (st && st.id) { knownIds.add(st.id); mark(st.id); mark('_house'); } }); });
   wrap(ctx.db.stories, 'update', ([id]) => { mark(id); mark('_house'); });
-  wrap(ctx.db.stories, 'remove', ([id]) => { knownIds.delete(id); mark('_house'); try { fetch('api/books/drop/' + encodeURIComponent(id), { method: 'POST' }).catch(() => {}); } catch (err) { /* fine */ } });
+  wrap(ctx.db.stories, 'remove', ([id]) => { knownIds.delete(id); mark('_house'); try { ctx.db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } try { fetch('api/books/drop/' + encodeURIComponent(id), { method: 'POST' }).catch(() => {}); } catch (err) { /* fine */ } });
   wrap(ctx.db.messages, 'append', ([id]) => mark(id));
   wrap(ctx.db.messages, 'update', ([id]) => mark(id));
   wrap(ctx.db.messages, 'remove', ([id]) => mark(id));

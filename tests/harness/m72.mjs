@@ -162,7 +162,17 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
   assert(/enqueueWork\(story\.id, \{ name: 'checkpoint', run: async \(\) => \{/.test(rp), 'the tail is a job behind the one reading');
   assert(rp.indexOf('startBackgroundWork(story, vis[at]') < rp.indexOf("enqueueWork(story.id, { name: 'checkpoint'"), 'queued after the chain');
   assert(/const bases = \(await loadSnapshots\(story\.id\)\)\.filter\(\(e\) => e\.snap && Number\.isInteger\(e\.snap\.page\) && e\.snap\.page < k\);/.test(rp), 'the re-taken boundaries fold from the snapshots before the change, never from nothing');
-  assert(/replaying = false;/.test(rp.slice(rp.indexOf('finally'))), 'the tail clears the flag');
+  assert(/setReplaying\(false\);/.test(rp.slice(rp.indexOf('finally'))), 'the tail clears the flag');
+  /* M160: NOTHING ASKS THE READER TO TRY AGAIN. A rebuild used to refuse
+   * every swipe, edit, retry, branch and delete with "one moment, then try
+   * again" — for as long as the chain and its retries ran. They wait on the
+   * gate and then run themselves. */
+  assert(!/still being rebuilt — one moment/.test(c), 'no history action refuses with a try-again');
+  assert(/async function waitForRebuild\(\)/.test(c) && /function afterReplay\(/.test(c), 'the gate a history action waits on exists');
+  for (const fn of ['retryUserMessage', 'regenerateFrom', 'swipeTo', 'swipeRegenerate', 'beginEdit', 'branchFrom', 'deleteMessage']) {
+    const body = c.slice(c.indexOf('async function ' + fn + '('), c.indexOf('async function ' + fn + '(') + 700);
+    assert(/await waitForRebuild\(\)/.test(body), fn + ' waits for a rebuild instead of refusing');
+  }
   const del = c.slice(c.indexOf('async function deleteMessage('), c.indexOf('async function deleteMessage(') + 3600);
   assert(/if \(gone && gone\.role === 'assistant'\) \{/.test(del), 'a writer’s page let go shifts no storyteller page');
   assert(/await foldTo\(story, goneK - 1\);/.test(del), 'the tail page let go folds the ledger back now');
@@ -173,10 +183,7 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
   assert(/if \(landed && !lastPage\) replayFrom\(story, msg\.id, \{ changed: true \}\);/.test(sr), 'a new version on an older page replays');
   assert(sr.indexOf('replayFrom(story, msg.id, { changed: true })') < sr.indexOf('stories = await db.stories.list();'), 'claimed before any await after generate (M73-002)');
   assert(!/pendingAudit\.add\(story\.id\);\n\s*\}\n\s*\/\* M44: a swiped/.test(sr), 'no audit owed in its place');
-  for (const fn of ['swipeTo', 'regenerateFrom', 'retryUserMessage', 'beginEdit', 'deleteMessage', 'swipeRegenerate']) {
-    const body = c.slice(c.indexOf('async function ' + fn + '('), c.indexOf('async function ' + fn + '(') + 700);
-    assert(/if \(replaying\) \{ toast\(/.test(body), fn + ' waits for a replay, and says so');
-  }
+  /* M160: it waits on the gate now — the older law asked for a refusal toast. */
   assert(/isReplaying,/.test(c), 'the walk can wait on the replay');
   const walk = readFileSync(new URL('../dom/run.mjs', import.meta.url), 'utf8');
   assert(/'swipe-new-old', 'edit-last', 'delete-user-mid', 'send', 'delete-tail', 'send'/.test(walk), 'the invariant walk drives the new cases');

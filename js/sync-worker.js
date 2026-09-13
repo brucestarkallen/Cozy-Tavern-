@@ -21,14 +21,16 @@ const LEASH = 120000;
 const api = (path) => new URL('../' + path, self.location.href).toString();
 
 let lastManifestStatus = 0;
+let lastGone = [];
 async function manifest() {
   try {
     const res = await fetch(api('api/books/list'), { signal: AbortSignal.timeout(4000) });
     lastManifestStatus = res.status;
     if (!res.ok) return null;
     const j = await res.json();
+    lastGone = Array.isArray(j && j.gone) ? j.gone : [];
     return Array.isArray(j && j.books) ? j.books : [];
-  } catch (err) { lastManifestStatus = 0; return null; }
+  } catch (err) { lastManifestStatus = 0; lastGone = []; return null; }
 }
 async function getBook(id) {
   const res = await fetch(api('api/books/one/' + encodeURIComponent(id)), { signal: AbortSignal.timeout(LEASH) });
@@ -95,13 +97,27 @@ self.onmessage = async (e) => {
       const books = await manifest();
       if (!books) { self.postMessage({ kind: 'boot', reachable: false, status: lastManifestStatus }); return; }
       const pulled = await pullBooks(books);
+      /* M160: a tale the device has buried is let go here too — before this,
+       * boot saw the book missing from the manifest and PUSHED the local copy
+       * back up, so a tale deleted in one browser was resurrected by the next
+       * one to open, and re-uploaded for good measure. */
+      const buried = new Set(lastGone);
+      let dropped = 0;
+      if (buried.size) {
+        for (const st of await db.stories.list()) {
+          if (!buried.has(st.id)) continue;
+          await db.stories.remove(st.id);
+          await db.settings.delete('bookStamp:' + st.id);
+          dropped += 1;
+        }
+      }
       /* push what the device lacks: every local story with no book, and the house when absent */
       const have = new Set(books.map((b) => b.id));
       const local = await db.stories.list();
-      const toPush = local.filter((st) => !have.has(st.id)).map((st) => st.id);
+      const toPush = local.filter((st) => !have.has(st.id) && !buried.has(st.id)).map((st) => st.id);
       if (!have.has(HOUSE) && (local.length || (await db.connections.list()).length)) toPush.push(HOUSE);
       const pushed = toPush.length ? await pushIds(toPush) : [];
-      self.postMessage({ kind: 'boot', reachable: true, pulled, pushed: pushed.length });
+      self.postMessage({ kind: 'boot', reachable: true, pulled: pulled + dropped, pushed: pushed.length });
       return;
     }
   } catch (err) {

@@ -68,3 +68,33 @@ test('B9 + A4: anthropic surfaces stop_reason and caches only through slot 2', a
   eq(cached.length, 1, 'exactly one cache breakpoint');
   eq(cached[0].text, 'craft', 'the breakpoint ends slot 2 (The craft)');
 });
+
+/* M160: an error frame that arrives after prose has landed used to be
+ * dropped — the page was saved as if whole, and the record folded a
+ * half-sentence in as the storyteller's finished work. */
+test('M160: a wire that breaks mid-page keeps the words, marks the page cut short, and says so', async () => {
+  for (const type of ['openai', 'anthropic']) {
+    const frames = type === 'openai'
+      ? 'data: {"choices":[{"delta":{"content":"The lantern swung, and then"}}]}\n\ndata: {"error":{"message":"upstream closed"}}\n\n'
+      : 'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"The lantern swung, and then"}}\n\ndata: {"type":"error","error":{"message":"upstream closed"}}\n\n';
+    const f = withFetch(async () => sseResponse(frames));
+    try {
+      const provider = createProvider({ type, baseUrl: 'https://example.test', apiKey: 'k', model: 'm' });
+      const out = await provider.streamChat({ system: '', messages: [{ role: 'user', content: 'go' }], onToken() {} });
+      assert(/lantern swung/.test(out.text), type + ': the words before the break are kept');
+      assert(/max_tokens|length/i.test(String(out.finishReason || '')), type + ': the page is marked cut short (was ' + out.finishReason + ')');
+      assert(out.notes.some((n) => /wire broke mid-page/.test(n)), type + ': the break is said out loud');
+    } finally { f.restore(); }
+  }
+});
+
+test('M160: an error frame with NO prose still throws, as it always did', async () => {
+  const f = withFetch(async () => sseResponse('data: {"error":{"message":"upstream closed"}}\n\n'));
+  try {
+    const provider = createProvider({ type: 'openai', baseUrl: 'https://example.test', apiKey: 'k', model: 'm' });
+    let threw = '';
+    try { await provider.streamChat({ system: '', messages: [{ role: 'user', content: 'go' }], onToken() {} }); }
+    catch (err) { threw = err.message; }
+    assert(/upstream closed/.test(threw), 'a break before the first word is still a failure (' + threw + ')');
+  } finally { f.restore(); }
+});

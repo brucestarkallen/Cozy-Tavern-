@@ -111,3 +111,66 @@ test('M59: an update is read-modify-write in one transaction — two overlapping
   assert(mb.findings && mb.extraction && mb.mended, 'all three writes stand');
   eq(await db.messages.update('other-story', m.id, { text: 'no' }), undefined, 'a page is only updated within its own story');
 });
+
+/* M160: EVERYTHING OF A TALE GOES WITH THE TALE. Twelve prefixes wear a
+ * tale's id; stories.remove named five of them by hand. versionState: alone
+ * holds up to sixty whole ledgers, and every orphan rode _house.json on
+ * every push, for the life of the shelf. The law is the suffix, not a list. */
+test('M160: a tale let go takes EVERY row that wore its id — and none of another tale’s', async () => {
+  const mine = await db.stories.create({ title: 'the doomed tale' });
+  const other = await db.stories.create({ title: 'the tale that stays' });
+  const prefixes = ['state', 'memory', 'lore', 'workers', 'snapshots', 'versionState', 'hk', 'director', 'editor', 'memoryBackup', 'peopleBackup', 'bookStamp'];
+  for (const p of prefixes) {
+    await db.settings.set(p + ':' + mine.id, { kept: p });
+    await db.settings.set(p + ':' + other.id, { kept: p });
+  }
+  await db.settings.set('cast:a-card-id', { name: 'app-wide, not a tale’s' });
+  await db.settings.set('memoryWindow', 30);
+
+  await db.stories.remove(mine.id);
+
+  const keys = await db.settings.keys();
+  const left = prefixes.filter((p) => keys.includes(p + ':' + mine.id));
+  eq(left.length, 0, 'not one of the doomed tale’s rows is left: ' + left.join(', '));
+  const kept = prefixes.filter((p) => keys.includes(p + ':' + other.id));
+  eq(kept.length, prefixes.length, 'the other tale keeps every row');
+  assert(keys.includes('cast:a-card-id'), 'the app-wide cast library is untouched');
+  assert(keys.includes('memoryWindow'), 'a house setting is untouched');
+});
+
+test('M160: the boot sweep lets go of rows whose tale is already gone, and the house book refuses them', async () => {
+  const living = await db.stories.create({ title: 'still telling' });
+  /* a tale let go by an older coat: its rows outlived it */
+  await db.settings.set('versionState:ghost-tale-1', { sixty: 'whole ledgers' });
+  await db.settings.set('snapshots:ghost-tale-1', [1, 2, 3]);
+  await db.settings.set('hk:ghost-tale-2', { session: true });
+  await db.settings.set('state:' + living.id, { clock: null });
+  await db.settings.set('cast:another-card', { name: 'stays' });
+
+  const house = JSON.parse(await db.exportHouse());
+  const houseKeys = house.settings.map((r) => r.key);
+  assert(!houseKeys.includes('versionState:ghost-tale-1'), 'a dead tale’s ledgers never ride the house book');
+  assert(!houseKeys.includes('hk:ghost-tale-2'), 'nor a dead tale’s housekeeper session');
+  assert(!houseKeys.includes('state:' + living.id), 'nor a living tale’s own rows');
+  assert(houseKeys.includes('cast:another-card'), 'the cast library is the house’s');
+
+  const swept = await db.sweepOrphans();
+  assert(swept >= 3, 'the sweep let the orphans go (' + swept + ')');
+  const keys = await db.settings.keys();
+  assert(!keys.includes('versionState:ghost-tale-1') && !keys.includes('snapshots:ghost-tale-1') && !keys.includes('hk:ghost-tale-2'), 'the orphans are gone from the shelf');
+  assert(keys.includes('state:' + living.id), 'the living tale’s ledger stands');
+  assert(keys.includes('cast:another-card'), 'the cast library stands');
+});
+
+/* M160: the row lock's cleanup test compared the map against a promise the
+ * map never held, so every row ever modified left an entry behind. */
+test('M160: a row lock is released — the lock map does not grow with every edit', async () => {
+  const s = await db.stories.create({ title: 'lock tale' });
+  const m = await db.messages.append(s.id, { role: 'assistant', text: 'words' });
+  for (let i = 0; i < 25; i += 1) await db.messages.update(s.id, m.id, { extraction: { appliedWords: ['n' + i] } });
+  const src = (await import('node:fs')).readFileSync(new URL('../../js/store.js', import.meta.url), 'utf8');
+  assert(/rowLocks\.set\(lockKey, chained\)/.test(src), 'the map holds the very promise the cleanup compares');
+  assert(/rowLocks\.get\(lockKey\) === chained/.test(src), 'the cleanup can actually be true');
+  const got = (await db.messages.list(s.id))[0];
+  eq(got.extraction.appliedWords[0], 'n24', 'the last write stands after twenty-five serialized edits');
+});

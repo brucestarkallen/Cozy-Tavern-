@@ -101,6 +101,12 @@ self.addEventListener('activate', (event) => {
       .then((keys) => Promise.all(
         keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))
       ))
+      /* M160: and sweep any api/ answers an older coat had already kept, so a
+       * browser heals itself even if it lands on the same version again. */
+      .then(() => caches.open(CACHE))
+      .then((cache) => cache.keys().then((reqs) => Promise.all(
+        reqs.filter((r) => /(^|\/)api\//.test(new URL(r.url).pathname)).map((r) => cache.delete(r))
+      )))
       .then(() => self.clients.claim())
   );
 });
@@ -112,6 +118,17 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  /* M160: THE DEVICE'S BOOKS ARE NEVER THE SHELL. Every same-origin GET fell
+   * into the cache-first branch below — including api/books/list,
+   * api/books/one/<tale> and api/version. The first read of the manifest was
+   * kept, and from then on this browser answered its own boot from that
+   * frozen copy for the whole life of a version: the other browser's newer
+   * pages were never seen (their stamps looked old), and a book pulled from
+   * the cache could overwrite newer pages with an older telling. The API is
+   * the device speaking; it goes to the wire, always, and nothing about it
+   * is ever written to a cache. */
+  if (/(^|\/)api\//.test(url.pathname)) return;
 
   // Cache-first app shell, with a network fallback that refills the cache.
   event.respondWith(
