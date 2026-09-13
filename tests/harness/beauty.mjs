@@ -159,3 +159,25 @@ test('M175: every destructive tap in the house asks first', () => {
     assert(/window\.confirm\(/.test(src.slice(Math.max(0, i - 200), i + 40)), needle + ' asks first');
   }
 });
+
+/* M179: the welcome's close carried no generation, so a close followed
+ * inside 200ms by a reopen — Settings' own "walk me through it again" does
+ * exactly that — let the old timer hide the overlay out from under the fresh
+ * one, and the tour vanished the moment it was asked for. The drawer and the
+ * receipt sheet both learned this at B8; the welcome had not. */
+test('M179: every overlay that closes on a timer carries a generation', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  for (const [file, name] of [['../../js/ui/welcome.js', 'function close('], ['../../js/ui/drawer.js', 'function close('], ['../../js/ui/receiptview.js', 'function closeReceipt(']]) {
+    const src = fs.readFileSync(path.join(here, file), 'utf8');
+    const at = src.indexOf(name);
+    assert(at !== -1, file + ' has a close');
+    const body = src.slice(at, at + 700);
+    assert(/setTimeout\(/.test(body), file + ': it closes on a timer');
+    assert(/generation/.test(body), file + ': and the timer carries a generation');
+    assert(/if \(generation !== closeGeneration\) return;/.test(body), file + ': a reopen in between wins');
+  }
+  /* and the welcome's open stales any close still in flight */
+  const w = fs.readFileSync(path.join(here, '../../js/ui/welcome.js'), 'utf8');
+  const open = w.slice(w.indexOf('function open('), w.indexOf('function open(') + 260);
+  assert(/closeGeneration \+= 1;/.test(open), 'opening stales a close already in flight');
+});

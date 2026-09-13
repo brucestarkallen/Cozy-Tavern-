@@ -113,15 +113,26 @@ export function initWelcome(ctx) {
   }
 
   function open() {
+    closeGeneration += 1; /* M179: any close still in flight is stale now */
     renderStep();
     overlay.hidden = false;
     requestAnimationFrame(() => overlay.classList.add('open'));
     btnNext.focus();
   }
 
+  /* M179: the close carries a generation, like the drawer's and the
+   * receipt's (B8). Without it, a close followed inside 200ms by a reopen —
+   * Settings' own "walk me through it again" does exactly that — let the
+   * old timer hide the overlay out from under the fresh one, and the tour
+   * vanished the moment it was asked for. */
+  let closeGeneration = 0;
   function close() {
+    const generation = ++closeGeneration;
     overlay.classList.remove('open');
-    setTimeout(() => { overlay.hidden = true; }, 200);
+    setTimeout(() => {
+      if (generation !== closeGeneration) return; /* reopened in between */
+      overlay.hidden = true;
+    }, 200);
   }
 
   async function dismiss() {

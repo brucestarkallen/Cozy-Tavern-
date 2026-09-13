@@ -3930,3 +3930,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   db.stories.update and db.connections.update are patch-merges, so the partial updates are safe.
 - 438/438 harness (+1 law) + 36/36 walk + 8/8 play, each run alone + the anchor differential +
   the two-browser proof + the coat proof + the contrast audit. version.js -> m178-001.
+
+# M179 — the last file, and the last overlay
+- THE WELCOME COULD BE HIDDEN OUT FROM UNDER ITSELF. Its close ran a 200ms timer with no
+  generation, so a close followed inside that window by a reopen — Settings' own "walk me through
+  it again" does exactly that — let the stale timer hide the overlay the moment it was asked for.
+  The drawer and the receipt sheet both learned this at B8; the welcome never did. It carries a
+  generation now, and opening stales any close still in flight. A law holds all three to it.
+- ui/welcome.js was the last file in the repo never opened. Read whole this pass: welcome.js (the
+  tour's pure state machine, the once-law, the DOM), the rest of ui/prose.js (inlineMarks' three
+  carving passes — code, strong, emphasis — the token renderer, the code block, renderRich; the
+  shared `g` regexes are safe because every exec loop runs to null and resets lastIndex).
+- EVERY FILE IN THE REPO HAS NOW BEEN READ. What is left unread is prose, not logic: the builtin
+  rule TEXTS in assemble/modules.js and assemble/craft.js, and the worker prompt strings in
+  agents/director.js, editor.js, founder.js and auditor.js — the words the house says to a model,
+  every one of which is exercised by the harness, the walk and the ninety-turn play.
+- 439/439 harness (+1 law) + 36/36 walk + 8/8 play, each run alone + the anchor differential
+  (484/484 identical) + the two-browser proof + the coat proof + the contrast audit.
+  version.js -> m179-001.
