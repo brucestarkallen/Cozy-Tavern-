@@ -2036,10 +2036,21 @@ export function initDrawer(ctx) {
   function open() {
     lastRenderAt = Date.now();
     render();
-    drawer.hidden = false;
-    scrim.hidden = false;
-    /* let the browser notice we're visible before sliding in */
-    requestAnimationFrame(() => { drawer.classList.add('open'); document.body.classList.add('drawer-open'); /* M141 */ });
+    /* M144: the panels fill themselves asynchronously (each reads the store,
+     * then writes its rows). Showing the drawer at once meant rows landing
+     * above the writer's finger during the slide and the first scroll — the
+     * stutter Settings never had, because Settings draws its open room before
+     * it shows. The drawer now gives its panels a beat to fill, then slides in
+     * over content that is already there. */
+    const openGeneration = ++closeGeneration;
+    opening = true;
+    setTimeout(() => {
+      opening = false;
+      if (openGeneration !== closeGeneration) return; /* closed again in between */
+      drawer.hidden = false;
+      scrim.hidden = false;
+      requestAnimationFrame(() => { drawer.classList.add('open'); document.body.classList.add('drawer-open'); });
+    }, 140);
     /* M14: the header keeps the ember on the room that's open. */
     const btn = document.getElementById('btn-ledger');
     if (btn) btn.classList.add('current');
@@ -2049,9 +2060,11 @@ export function initDrawer(ctx) {
    * followed quickly by an open no longer hides the drawer out from under
    * the reopen. */
   let closeGeneration = 0;
+  let opening = false; /* M144: a tap during the fill-beat closes, never opens twice */
 
   function close() {
     const generation = ++closeGeneration;
+    opening = false;
     document.body.classList.remove('drawer-open'); /* M141 */
     drawer.classList.remove('open');
     scrim.hidden = true;
@@ -2064,7 +2077,7 @@ export function initDrawer(ctx) {
   }
 
   function toggle() {
-    if (drawer.hidden) open(); else close();
+    if (drawer.hidden && !opening) open(); else close();
   }
 
   btnClose.addEventListener('click', close);

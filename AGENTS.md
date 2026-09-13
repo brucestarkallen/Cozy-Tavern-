@@ -3357,3 +3357,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   surface is invisible and untouchable (visibility + pointer-events), which costs no layout.
   The hidden attribute keeps its meaning for the code and the walk.
 - 395/395 + 35/35 + 8/8. version.js -> m143-001.
+
+# M144 — the drawer fills before it shows (why Settings' first scroll was smooth and the ledger's not)
+- FIELD REPORT, exact: Settings scrolls smoothly at once; the ledger's first scroll stutters;
+  a double tap on either closes slowly; the housekeeper is smooth. The difference: Settings
+  draws its open room BEFORE it shows (onShow awaits the room's renders); the drawer showed at
+  once while its sixteen panels were still filling asynchronously — rows landing above the
+  finger during the slide and the first scroll. Now open() gives the panels a 140ms beat to
+  fill, then shows and slides over content already there; a tap during that beat closes (never
+  opens twice). With M143 (nothing unmounted) the close costs no layout; the housekeeper was
+  always a small dialog that stays mounted, which is why it never lagged.
+- 395/395 + 35/35 + 8/8. version.js -> m144-001.
