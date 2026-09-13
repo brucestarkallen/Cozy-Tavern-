@@ -258,7 +258,7 @@ test('LONG-4 the context handed to the storyteller stays flat: turns 60-89 cost 
   assert(remains && remains.tokens > 0, 'the record rides to the storyteller');
   /* M101: the record is READABLE — line by line, in the drawer */
   click(q('#btn-ledger'));
-  await until(() => !q('#drawer').hidden, 'the drawer opens');
+  await until(() => !q('#drawer').hidden, 'the drawer opens'); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
   await until(() => qa('#drawer-panels .record-row').length >= 3 && /Pages \d+–\d+/.test(q('#drawer-panels').textContent), 'the record’s lines, with the pages each folds', 10000);
   const rows = qa('#drawer-panels .record-row');
   assert(rows.some((r) => /Fold at turn/.test(r.textContent)), 'the lines are the keeper’s own words');
@@ -275,7 +275,7 @@ test('LONG-5 the voices ride under the page, rotate, and never reach the wire; t
   /* M97: the voices are read in the drawer, never drawn on the scene */
   assert(qa('#thread .msg-voices').length === 0, 'no voices on the story page');
   click(q('#btn-ledger'));
-  await until(() => !q('#drawer').hidden, 'the drawer opens');
+  await until(() => !q('#drawer').hidden, 'the drawer opens'); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
   await until(() => qa('#drawer-panels .msg-voices').length >= 1 && /Line 8\d/.test(q('#drawer-panels').textContent), 'the latest voices read in the drawer', 10000);
   click(q('#btn-ledger'));
   assert(!house.state.calls.some((c) => !c.isWorker && /\[VOICE:/.test(JSON.stringify(c.body))), 'no voice ever reached the storyteller');
@@ -326,7 +326,7 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   await idle(sid);
   script.auditArmed = true;
   click(q('#btn-ledger'));
-  await until(() => !q('#drawer').hidden, 'the drawer opens');
+  await until(() => !q('#drawer').hidden, 'the drawer opens'); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
   const btn = qa('#drawer-panels button').find((b) => /Audit the ledger/.test(b.textContent));
   assert(btn, 'the button is on the drawer');
   click(btn);

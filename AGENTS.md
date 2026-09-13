@@ -3409,3 +3409,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   refreshed the shelf — the writer opened a second browser and "the data is not there"; now a
   late pull says so with a toast and reloads the page once when the books are in.
 - 395/395 + 35/35 + 8/8. version.js -> m147-001.
+
+# M148 — the drawer draws only the open room
+- FIELD REPORT: still stuttering with a full ledger. The last data-proportional cost in the
+  drawer: all sixteen panels drew at every open and every re-render — with thirty characters,
+  their knowledge, locks, seats and findings, a thousand nodes at once. Now only the open
+  room's panels draw; a room not open is pending and draws when its chip is tapped, or on a
+  quiet idle pass (one panel per tick, after the drawer has sat still 1.5s and not scrolled for
+  0.8s). ctx.drawer.renderAllRooms() draws everything at once for the walk, which reads hidden
+  rooms' text. Drawer open under a 6× throttle: 117→33ms longest frame.
+- The journal cap (M147) changes NOTHING the storyteller is handed: the journal is the replay
+  log behind branches and take-backs, never a slot on the wire; the ledger, the record and the
+  pages are untouched.
+- 395/395 + 35/35 + 8/8. version.js -> m148-001.

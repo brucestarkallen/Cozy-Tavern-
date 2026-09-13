@@ -1852,6 +1852,15 @@ function recordPanel(ctx) {
   return wrap;
 }
 
+/* M148: draw a pending panel now */
+function drawPendingIn(panelsEl, ctx) {
+  for (const sec of panelsEl.querySelectorAll('.ledger-panel[data-pending]')) {
+    delete sec.dataset.pending;
+    const panel = PANELS.find((p) => p.id === sec.dataset.panel);
+    if (panel && typeof panel.render === 'function') { const node = panel.render(ctx); if (node) sec.appendChild(node); }
+  }
+}
+
 /* M105: the drawer's rooms. A panel not listed lands in the books. */
 const DRAWER_ROOMS = [
   ['scene', 'The scene'],
@@ -1990,7 +1999,10 @@ export function initDrawer(ctx) {
       chip.dataset.room = room;
       chip.textContent = words;
       chip.addEventListener('click', async () => {
-        for (const sec of panelsEl.querySelectorAll('.ledger-panel')) sec.hidden = roomOfPanel(sec.dataset.panel) !== room;
+        for (const sec of panelsEl.querySelectorAll('.ledger-panel')) {
+          sec.hidden = roomOfPanel(sec.dataset.panel) !== room;
+          if (!sec.hidden && sec.dataset.pending) drawPending(sec);
+        }
         for (const c of strip.querySelectorAll('.nav-chip')) c.classList.toggle('current', c.dataset.room === room);
         await db.settings.set('drawerRoom', room).catch(() => {});
         panelsEl.scrollTo({ top: 0 });
@@ -2012,8 +2024,12 @@ export function initDrawer(ctx) {
       section.appendChild(h);
 
       if (typeof panel.render === 'function') {
-        const node = panel.render(ctx);
-        if (node) section.appendChild(node);
+        /* M148: only the OPEN room draws now. A room not open is pending —
+         * drawn when its chip is tapped, or on a quiet idle pass once the
+         * drawer has sat still. With a full ledger, sixteen panels at once
+         * were the open, the first scroll and the close. */
+        if (section.hidden) section.dataset.pending = '1';
+        else { const node = panel.render(ctx); if (node) section.appendChild(node); }
       } else {
         const p = document.createElement('p');
         p.textContent = panel.body;
@@ -2067,6 +2083,7 @@ export function initDrawer(ctx) {
       drawer.hidden = false;
       scrim.hidden = false;
       requestAnimationFrame(() => { drawer.classList.add('open'); document.body.classList.add('drawer-open'); });
+      scheduleIdlePass(); /* M148 */
     }, 140);
     /* M14: the header keeps the ember on the room that's open. */
     const btn = document.getElementById('btn-ledger');
@@ -2103,5 +2120,22 @@ export function initDrawer(ctx) {
     if (e.key === 'Escape' && !drawer.hidden) close();
   });
 
-  ctx.drawer = { open, close, toggle };
+  function drawPending(sec) {
+    delete sec.dataset.pending;
+    const panel = PANELS.find((p) => p.id === sec.dataset.panel);
+    if (panel && typeof panel.render === 'function') { const node = panel.render(ctx); if (node) sec.appendChild(node); }
+  }
+  /* the quiet idle pass: once the drawer has sat still for a while, pending rooms draw one per tick */
+  let idleTimer = null;
+  const idlePass = () => {
+    if (drawer.hidden) return;
+    if (Date.now() - lastScrollAt < 800) { idleTimer = setTimeout(idlePass, 800); return; }
+    const sec = panelsEl.querySelector('.ledger-panel[data-pending]');
+    if (!sec) return;
+    drawPending(sec);
+    idleTimer = setTimeout(idlePass, 120);
+  };
+  const scheduleIdlePass = () => { clearTimeout(idleTimer); idleTimer = setTimeout(idlePass, 1500); };
+  function renderAllRooms() { drawPendingIn(panelsEl, ctx); }
+  ctx.drawer = { open, close, toggle, renderAllRooms };
 }

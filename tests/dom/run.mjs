@@ -259,7 +259,7 @@ test('DOM-10 the drawer: every panel renders, the world beyond the page speaks, 
   const sid = await storyId();
   await until(async () => { const st = await db.settings.get('state:' + sid); return st && st.offscreen && st.offscreen.Kim; }, 'Kim to be seated by the world agent', 15000);
   click(q('#btn-ledger'));
-  await until(() => !q('#drawer').hidden, 'the drawer opens');
+  await until(() => !q('#drawer').hidden, 'the drawer opens'); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
   await until(() => /Kim/.test(q('#drawer-panels').textContent), 'the drawer to speak of Kim: ' + q('#drawer-panels').textContent.slice(0, 200));
   const titles = qa('#drawer-panels .ledger-panel h3, #drawer-panels .ledger-panel summary, #drawer-panels .ledger-panel .panel-title').map((h) => h.textContent.trim());
   for (const want of ['The clock', 'Who’s here', 'What’s happening elsewhere', 'The world beyond the page', 'What changed and why', 'The workers']) {
@@ -363,7 +363,7 @@ test('DOM-7b a version keeps its own ledger: walking back restores it; the peopl
   await tick(300);
   const st = await db.settings.get('state:' + sid);
   assert(st && (st.place || (st.present || []).length), 'the ledger stands after walking versions');
-  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await tick(400);
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await tick(400); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
   assert(/The people/.test(q('#drawer-panels').textContent), 'the people panel is there');
   assert(/Kim/.test(q('#drawer-panels').textContent), 'Kim, seated by the world agent, has a page');
   const rescan = qa('#drawer-panels button').find((b) => /Read the pages again/.test(b.textContent));
@@ -1255,7 +1255,7 @@ test('DOM-14b the second reader mends a drifted page by the smallest edit, and t
   eq(page.mended.before, 'Liara looked at Kim, who was not her mother.\n\nThe booth was quiet.');
   /* M43: no chip on the page; the earlier words are a tap away in the drawer */
   assert(!q(`.msg[data-id="${page.id}"] .msg-act.mended`), 'no chip on the page');
-  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer');
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
   /* the panel re-renders on the ledger's notify; on a loaded machine that lands after a fixed tick */
   const back = await until(() => qa('#drawer-panels button').find((b) => /Put the earlier words back/.test(b.textContent)), 'the take-back lives in Something drifted', 10000);
   click(back);
@@ -1307,7 +1307,7 @@ test('DOM-15 the sweep: every button in the story room, the drawer, the settings
   }
   eq(menuAll.length, 0, 'menu: ' + menuAll.join(' || '));
   /* the drawer, every panel's hand controls (empty forms just return) */
-  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer');
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
   await tick(400); /* the panels render async (latestWins) — let every form unhide */
   for (const d of qa('#drawer-panels details')) d.open = true;
   const drawerHits = await sweep('#drawer-panels', { skip: /take it back|let it go|let it rest|un-invite|×/i });
