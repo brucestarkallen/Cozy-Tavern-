@@ -24,12 +24,20 @@ def check(name, ok, extra=''):
         fails.append(name)
 
 
-def post(p, b):
-    return urllib.request.urlopen(urllib.request.Request(BASE + p, data=b, method='POST')).read()
+def post(p, b, who=''):
+    h = {'X-Cozy-Client': who} if who else {}
+    return urllib.request.urlopen(urllib.request.Request(BASE + p, data=b, method='POST', headers=h)).read()
 
 
 def get(p):
     return urllib.request.urlopen(BASE + p).read()
+
+
+
+def small3(ids, book_id='t3'):
+    return json.dumps({'namespace': 'cozytavern.v1', 'kind': 'story', 'exportedAt': '2026-01-01T00:00:00.000Z',
+                       'story': {'id': book_id, 'title': 'T'}, 'settings': [],
+                       'messages': [{'id': i, 'text': 'page ' + i} for i in ids]}).encode()
 
 
 page = 'The rain kept on against the shutters and nobody said the thing they meant. ' * 80
@@ -104,6 +112,24 @@ try:
     after = [m['id'] for m in json.loads(get('api/books/one/t2'))['messages']]
     check('a whole book never sweeps away another browser’s page', 'B-new' in after, str(after))
     check('and does not double the ones it already held', after.count('A-new') == 1, str(after))
+
+    # M185: a page the writer let go must not come back out of the log
+    shutil.rmtree(os.path.join(DATA, 'books'), ignore_errors=True)
+    post('api/books/one/t3', small3(['m0', 'm1']), 'opera')
+    post('api/books/page/t3', json.dumps({'at': 'x', 'm': {'id': 'm2', 'text': 'a page then deleted'}}).encode(), 'opera')
+    landed = [m['id'] for m in json.loads(get('api/books/one/t3'))['messages']]
+    check('the page lands', landed == ['m0', 'm1', 'm2'], str(landed))
+    post('api/books/one/t3', small3(['m0', 'm1']), 'opera')       # the writer lets it go
+    after_del = [m['id'] for m in json.loads(get('api/books/one/t3'))['messages']]
+    check('a page the writer let go stays gone', 'm2' not in after_del, str(after_del))
+
+    # and the same push must still save a page ANOTHER browser appended
+    post('api/books/one/t4', small3(['m0', 'm1'], 't4'), 'opera')
+    post('api/books/page/t4', json.dumps({'at': 'x', 'm': {'id': 'A', 'text': "Opera's"}}).encode(), 'opera')
+    post('api/books/page/t4', json.dumps({'at': 'x', 'm': {'id': 'B', 'text': "Chrome's"}}).encode(), 'chrome')
+    post('api/books/one/t4', small3(['m0', 'm1', 'A'], 't4'), 'opera')
+    after_race = [m['id'] for m in json.loads(get('api/books/one/t4'))['messages']]
+    check('while another browser’s page still survives it', 'B' in after_race, str(after_race))
 finally:
     srv.terminate()
 

@@ -140,10 +140,22 @@ def _merge_log(book_bytes, log_path):
 
 
 
-def _fold_missing(book_bytes, log_path):
-    """The incoming book, plus any appended page it does not already hold.
-    See M184: without this, a whole-book push from one browser erased a page
-    another browser had appended but not yet handed over."""
+def _fold_missing(book_bytes, log_path, by_client=''):
+    """The incoming book, plus any appended page it does not already hold —
+    except the ones THIS browser appended itself.
+
+    M184 folded back everything the book lacked, which saved another
+    browser's page. M185: it also resurrected pages the writer had DELETED.
+    "Let this page go" put the page straight back, proven the first time it
+    was tried. A timestamp cannot tell the two apart — a browser can export a
+    book after a page it has not yet received — but the LOG LINE can, because
+    it records which browser appended it:
+
+      a line this browser wrote, missing from this browser's own book
+        -> it deleted the page. It stays deleted.
+      a line ANOTHER browser wrote, missing from this browser's book
+        -> it never had it. It is folded in, and nothing is lost.
+    """
     try:
         if not os.path.exists(log_path):
             return book_bytes
@@ -157,6 +169,7 @@ def _fold_missing(book_bytes, log_path):
     for m in msgs:
         if isinstance(m, dict) and m.get('id') is not None:
             have.add(m['id'])
+    mine = str(by_client or '')
     added = 0
     try:
         with open(log_path, 'r', encoding='utf-8') as f:
@@ -171,6 +184,8 @@ def _fold_missing(book_bytes, log_path):
                 m = row.get('m') if isinstance(row, dict) else None
                 if not isinstance(m, dict) or m.get('id') is None or m['id'] in have:
                     continue
+                if mine and row.get('by') == mine:
+                    continue  # this browser appended it and its own book omits it: let go
                 msgs.append(m)
                 have.add(m['id'])
                 added += 1
@@ -414,7 +429,7 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             # second push lands first, and Chrome's page is simply gone.
             # Anything in the log the incoming book does not already hold is
             # folded into it first; only then is the log cleared.
-            body = _fold_missing(body, _log_path(bp))
+            body = _fold_missing(body, _log_path(bp), self.headers.get('X-Cozy-Client', ''))
             os.makedirs(os.path.dirname(bp), exist_ok=True)
             tmp = bp + '.tmp'
             with open(tmp, 'wb') as f:
@@ -475,6 +490,8 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 return
             try:
                 os.makedirs(os.path.dirname(bp), exist_ok=True)
+                # M185: the line records WHO appended it (see _fold_missing)
+                row['by'] = self.headers.get('X-Cozy-Client', '')
                 with open(_log_path(bp), 'a', encoding='utf-8') as f:
                     f.write(json.dumps(row, ensure_ascii=False) + '\n')
                     f.flush()

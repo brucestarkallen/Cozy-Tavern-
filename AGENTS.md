@@ -4042,3 +4042,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   disposable: it is the only copy of anything that has not reached a snapshot yet.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
   + the append test. version.js -> m184-001.
+
+# M185 — a page the writer let go must stay gone
+- M184's fold saved another browser's page — AND RESURRECTED EVERY PAGE THE WRITER DELETED.
+  "Let this page go", then the twenty-second whole-book push, and the page came straight back out
+  of the log. Proven the first time it was looked for. This is the exact cost of the append design
+  and it was shipped in M183/M184 without being looked for; it was found only by auditing the new
+  code deliberately.
+- A TIMESTAMP CANNOT TELL THE TWO APART. A browser can export a book AFTER a page it has not yet
+  received, so "the line is newer than the book" marks a deletion and a race alike. The LOG LINE
+  can tell them apart, because it records which browser appended it:
+    a line THIS browser wrote, absent from THIS browser's own book -> it deleted the page; it stays deleted
+    a line ANOTHER browser wrote, absent from this book            -> it never had it; fold it in
+  The page endpoint stamps every line with its client; the whole-book push passes its own.
+- Both laws are held together in tests/append.py: a page let go stays gone, and in the same breath
+  another browser's page still survives the push that let it go.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
+  + the append test. version.js -> m185-001.
