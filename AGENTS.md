@@ -3682,3 +3682,26 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   straight over the smith's real core. Proven: a page reading "the smith — slow to anger, quicker
   than he looks" became eight words of housekeeping. The guard asks the applier's own question now.
 - 418/418 harness (+2 laws) + 36/36 walk + 8/8 play + the two-browser proof. version.js -> m164-001.
+
+# M165 — the way back, and the keys
+- THE PEOPLE-REBUILD'S WAY BACK IS NEVER OVERWRITTEN BY A SECOND ATTEMPT. The backup was taken
+  unconditionally, so a writer who ran the rebuild, disliked what it made, and ran it again saved
+  THE REBUILD'S OWN OUTPUT over the hand-written world — and "put the people back" then put back
+  the very thing they were trying to undo. Proven: forty pages of a written core became "an
+  innkeeper", unreachable. A state a rebuild produced carries peopleRebuiltAt and never overwrites
+  the standing backup; putting the people back clears the mark, so the next rebuild may save again.
+  The mark rides through the ledger's normalizer (held by a law).
+- Lore keys compile ONCE. Every scan of every entry rebuilt its key patterns from scratch, every
+  turn — a 300-entry shelf with five keys each rebuilt fifteen hundred regexes in the send path,
+  where the writer is waiting: 5.6ms -> 4.8ms per turn on a desktop, some six times that on the
+  phone. Capped cache; the word-boundary law is unchanged and held by a test.
+- Checked and found sound this pass (no change needed): the referee's committed-fate timeline and
+  its rewinds, the founder's axis lock, the PNG card chunk walker and its CRC, the chat-export
+  reader, the lore matcher's depth and selective-AND rules, prose.js's block and inline tokenizers,
+  commands.js's whole table, jsonutil's balanced-object and repair passes, the provider registry
+  and the effort ladder, referee-math's mirror symmetry and band rails at P=0 and P=1.
+- A LEAK THAT WAS NOT ONE: a static scan flagged Settings' render functions for adding listeners to
+  persistent nodes on every open. Measured in the real DOM — four onShow passes, zero listeners
+  added. The listeners sit at init scope; the scan's function attribution was wrong. Recorded so
+  the next reader does not chase it.
+- 420/420 harness (+2 laws) + 36/36 walk + 8/8 play + the two-browser proof. version.js -> m165-001.

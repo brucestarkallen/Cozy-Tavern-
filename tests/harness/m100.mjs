@@ -134,3 +134,40 @@ test('M164: the live paint keeps a floor of four times what the last one cost', 
   assert(work / clock < 0.25, 'paint work stays under a quarter of the stream’s wall time (' + Math.round(work) + 'ms of ' + clock + 'ms)');
   assert(paints >= 8, 'and the page still visibly grows while it streams (' + paints + ' paints)');
 });
+
+/* M165: the people-rebuild's backup was taken unconditionally, so a writer
+ * who ran it, disliked what it made, and ran it again saved the REBUILD'S
+ * OWN OUTPUT over the hand-written world — and "put the people back" then
+ * put back the very thing they were undoing. */
+test('M165: a second rebuild never overwrites the way back to the hand-written world', async () => {
+  const src = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
+  assert(/const hadBackup = await db\.settings\.get\('peopleBackup:' \+ storyId\);/.test(src), 'the standing backup is read first');
+  assert(/if \(!\(hadBackup && state\.peopleRebuiltAt\)\) \{/.test(src), 'and a rebuilt world never overwrites it');
+  assert(/s = \{ \.\.\.s, peopleRebuiltAt: Date\.now\(\) \};/.test(src), 'a rebuild marks what it made');
+  assert(/const \{ peopleRebuiltAt, \.\.\.rest \} = state;/.test(src), 'and putting the people back clears the mark, so the next rebuild may save again');
+
+  /* the mark must survive a save and a load, or the guard is blind */
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  await saveState('rebuild-mark', { ...emptyState(), peopleRebuiltAt: 1234 });
+  const back = await loadState('rebuild-mark');
+  eq(back.peopleRebuiltAt, 1234, 'the mark rides through the ledger’s normalizer');
+});
+
+/* M165: a lore key's pattern was compiled from scratch on every scan of
+ * every entry, every turn — a 300-entry shelf with five keys each rebuilt
+ * fifteen hundred regexes in the send path, where the writer is waiting. */
+test('M165: lore keys compile once, and match exactly as before', async () => {
+  const { matchLoreDetailed } = await import('../../js/import/lorebook.js');
+  const hit = matchLoreDetailed([{ id: 'x', keys: ['Ravenwood'], content: 'The Ravenwood shelf.' }], ['they rode to Ravenwood at dusk'], 3000);
+  eq(hit.fired.length, 1, 'a key still fires');
+  assert(/Ravenwood shelf/.test(hit.text), 'and brings its content');
+  const miss = matchLoreDetailed([{ id: 'x', keys: ['wood'], content: 'nope' }], ['they rode to Ravenwood at dusk'], 3000);
+  eq(miss.fired.length, 0, 'the word boundary still holds — "wood" is not inside "Ravenwood"');
+  /* the same key twice must give the same answer, cache or no cache */
+  const again = matchLoreDetailed([{ id: 'x', keys: ['Ravenwood'], content: 'The Ravenwood shelf.' }], ['they rode to Ravenwood at dusk'], 3000);
+  eq(again.fired.length, 1, 'the second scan of the same key answers the same');
+  const src = readFileSync(new URL('../../js/import/lorebook.js', import.meta.url), 'utf8');
+  assert(/const KEY_RES = new Map\(\);/.test(src) && /KEY_RES_CAP/.test(src), 'the cache exists and is capped');
+  assert(/held\.lastIndex = 0;/.test(src), 'and a held pattern never carries a stale position');
+});

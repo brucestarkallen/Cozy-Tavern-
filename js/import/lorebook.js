@@ -163,9 +163,23 @@ export async function moveLoreEntry(storyId, entryId, dir) {
  * "Ashford". Letters and numbers count as word; everything else (spaces,
  * punctuation, the edges of the text) is a boundary. Keys may themselves
  * carry spaces or apostrophes ("the old mill", "Mara's ring"). */
+/* M165: a key's pattern is built ONCE. It was compiled from scratch on
+ * every scan of every entry, every turn — a three-hundred-entry lorebook
+ * with five keys each rebuilt fifteen hundred regexes before each request
+ * went out (5.6ms on a desktop, some six times that on the phone, in the
+ * send path where the writer is waiting). The keys of a lorebook do not
+ * change between turns; the cache is capped so an unusual shelf can't grow
+ * it without bound. */
+const KEY_RES = new Map();
+const KEY_RES_CAP = 4000;
 function keyRegex(key) {
+  const held = KEY_RES.get(key);
+  if (held) { held.lastIndex = 0; return held; }
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp('(?:^|[^\\p{L}\\p{N}])' + escaped + '(?=$|[^\\p{L}\\p{N}])', 'iu');
+  const re = new RegExp('(?:^|[^\\p{L}\\p{N}])' + escaped + '(?=$|[^\\p{L}\\p{N}])', 'iu');
+  if (KEY_RES.size >= KEY_RES_CAP) KEY_RES.clear();
+  KEY_RES.set(key, re);
+  return re;
 }
 
 /* M9: the detailed answer — which entries woke and what they said.

@@ -142,7 +142,17 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
   if (!connection || !storyId) return null;
   const state = await loadState(storyId);
   const mc = mcName(state) !== 'the player' ? mcName(state) : '';
-  await db.settings.set('peopleBackup:' + storyId, { at: Date.now(), characters: state.characters, relationships: state.relationships });
+  /* M165: THE WAY BACK IS NEVER OVERWRITTEN BY A SECOND ATTEMPT. The backup
+   * was taken unconditionally, so a writer who ran the rebuild, disliked
+   * what it made, and ran it again saved the REBUILD'S OWN OUTPUT over the
+   * hand-written world — and "put the people back" then put back the thing
+   * they were trying to undo. Proven: forty pages of a written core became
+   * "an innkeeper", unreachable. A state that a rebuild produced keeps the
+   * backup that stands; only a hand-written world is ever backed up. */
+  const hadBackup = await db.settings.get('peopleBackup:' + storyId);
+  if (!(hadBackup && state.peopleRebuiltAt)) {
+    await db.settings.set('peopleBackup:' + storyId, { at: Date.now(), characters: state.characters, relationships: state.relationships });
+  }
   /* let go, in the log, as one sweep */
   const clear = [
     ...Object.keys(state.relationships || {}).map((k) => ({ type: 'rel.clear', name: k, cause: 'rebuilt from the pages by the writer’s hand' })),
@@ -153,6 +163,9 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
   const digits = (await readStatedStandings({ connection, brief, castNotes, mc, signal }))
     .map((st) => ({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mc || 'the main character') }));
   ({ state: s } = applyMutations(s, digits));
+  /* M165: the mark that says this world came from a rebuild, so the next
+   * attempt keeps the way back to the hand-written one. */
+  s = { ...s, peopleRebuiltAt: Date.now() };
   await saveState(storyId, s);
   notify(storyId);
 
@@ -200,7 +213,9 @@ export async function restorePeople(storyId) {
   const backup = await db.settings.get('peopleBackup:' + storyId);
   if (!backup) return false;
   const state = await loadState(storyId);
-  await saveState(storyId, { ...state, characters: backup.characters || {}, relationships: backup.relationships || {} });
+  /* M165: the world is hand-written again — the next rebuild may back it up. */
+  const { peopleRebuiltAt, ...rest } = state;
+  await saveState(storyId, { ...rest, characters: backup.characters || {}, relationships: backup.relationships || {} });
   notify(storyId);
   return true;
 }
