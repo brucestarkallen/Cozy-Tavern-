@@ -423,6 +423,7 @@ test('DOM-11b the housekeeper: fullscreen (Esc leaves it), a draggable top bar, 
   const sess1 = active(await db.settings.get('hk:' + sid));
   eq(sess1.turns.length, 2);
   house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'Answer two.' : priorAnswer(body, sys));
+  await until(() => !q('#hk-send').disabled, 'the housekeeper is free', 10000); /* M140: the bubble lands before the lock lifts now */
   click(q('#hk-retry'));
   await until(async () => { const s2 = active(await db.settings.get('hk:' + sid)); return s2 && s2.turns.length === 2 && /Answer two/.test(s2.turns[1].text); }, 'the question asked again, the old answer gone', 10000);
   house.state.workerAnswer = priorAnswer;

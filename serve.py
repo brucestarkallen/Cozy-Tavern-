@@ -84,6 +84,29 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
     # --- M24: the books endpoints (the keeper's core lives at module scope) ---
 
     def do_GET(self):
+        if self.path.split('?')[0] == '/api/books/stamp':
+            # M140: the file's exportedAt alone — boot compares a stamp, never the whole book
+            data = _read_books()
+            stamp = ''
+            if data is not None:
+                try:
+                    import json
+                    head = data[:4096].decode('utf-8', 'ignore')
+                    import re as _re
+                    m = _re.search(r'"exportedAt"\s*:\s*"([^"]+)"', head)
+                    if m:
+                        stamp = m.group(1)
+                    else:
+                        stamp = json.loads(data).get('exportedAt', '') or ''
+                except Exception:
+                    stamp = ''
+            body = ('{"exportedAt":"%s","bytes":%d}' % (stamp, len(data) if data is not None else 0)).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path.split('?')[0] == '/api/books':
             data = _read_books()
             if data is None:

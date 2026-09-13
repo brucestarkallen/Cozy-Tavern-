@@ -166,6 +166,8 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
 /* ---------- wake the tavern ---------- */
 
 (async function start() {
+  /* M140: ask the browser to keep the store through cache clears (persistent storage) */
+  try { if (navigator.storage && typeof navigator.storage.persist === 'function') navigator.storage.persist().catch(() => {}); } catch (err) { /* fine */ }
   const booksStatus = await initSync(ctx);
   ctx.booksStatus = booksStatus;
   await applyStoredTheme();

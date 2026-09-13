@@ -75,6 +75,7 @@ const SHELL = [
   'js/regex.js',
   'js/regex-styles.js',
   'js/sync.js',
+  'js/sync-worker.js',
   'js/tablock.js',
   'js/ui/download.js',
   'js/ui/prose.js',

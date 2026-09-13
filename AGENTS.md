@@ -3299,3 +3299,22 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   room), not Appearance; it is in Appearance (The house) now. (3) A misreading, owned: the
   shelf's "114 pages" is the story's total, not what the screen carries.
 - 395/395 + 35/35 + 8/8. version.js -> m139-001.
+
+# M140 — THE BOOKS OFF THE MAIN THREAD (the twenty-second open, the lag on every press)
+- FIELD REPORT: a twenty-second first open; lag closing settings and the drawer; "SillyTavern
+  opens in four". ROOT CAUSE, found: M24's device sync exported the WHOLE store to JSON on the
+  main thread — at boot, to compare with the server's file (which it also read whole), and again
+  1.5 s after EVERY write (settings.set, append, remove…), which during play means every couple
+  of seconds while the readers write. Serializing tens of megabytes on the UI thread, over and
+  over: that was the lag everywhere, and it grew with every story. Now: js/sync-worker.js owns
+  export and POST in a Worker (store.js is worker-safe); boot compares STAMPS — the server's
+  new api/books/stamp (serve.py; an older server falls back to one read) against the browser's
+  last push stamp (booksStamp) — never whole files; a boot decision later than three seconds
+  finishes in the background and refreshes the shelf; pushes are debounced to a quiet minute
+  and forced when the page hides. The app also asks for persistent storage
+  (navigator.storage.persist) so a cache clear does not take the store.
+- ANSWERS FILED: clearing site data or another browser does NOT keep the browser copy — the
+  device file (~/.cozytavern/books.json, via serve.py) does, and Settings → The house → Backup
+  exports/imports everything by hand.
+- DOM-11b waited on a race the faster house exposed. 395/395 + 35/35 + 8/8.
+  version.js -> m140-001.
