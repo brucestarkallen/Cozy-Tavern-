@@ -3439,3 +3439,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   there and nowhere else. The drawer now shows when its panels have made no DOM change for
   90ms (a MutationObserver), capped at 700ms; the walk's runtime falls back to the beat.
 - 395/395 + 35/35 + 8/8. version.js -> m150-001.
+
+# M151 — the scene room's native controls, folded (the writer's comparison found it)
+- FIELD REPORT, decisive: open the drawer on The people (remembered) — smooth; open it on The
+  scene — the first scroll stutters; the people room holds more information. What the scene
+  room held that the others did not: a dozen native form controls at the top of the drawer —
+  the minutes field, five date fields, the calendar select, two more inputs — and native
+  controls are what Android rasterizes slowest on a first scroll (the people room holds three).
+  The by-hand clock is folded under "Set the clock by hand"; the clock words and +15m/+1h stay.
+  The header sets the clock every page; the hand is for the rare correction.
+- 395/395 + 35/35 + 8/8. version.js -> m151-001.

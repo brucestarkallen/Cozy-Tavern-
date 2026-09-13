@@ -243,7 +243,19 @@ function clockPanel(ctx) {
   calSave.textContent = 'Keep the names';
   calWrap.append(calRow, monthsInput, daysInput, calSave);
 
-  wrap.append(label, advanceRow, customForm, setForm, calWrap);
+  /* M151: the by-hand clock — the minutes field, the five date fields, the
+   * calendar — folded. Native form controls are what Android rasterizes
+   * slowest on a first scroll, and the scene room held a dozen of them at
+   * the top of the drawer (the people room holds three, and scrolled
+   * smoothly — the writer's own comparison). The header sets the clock
+   * every page; the hand is for the rare correction. */
+  const byHand = document.createElement('details');
+  byHand.className = 'resting-shelf';
+  const byHandSum = document.createElement('summary');
+  byHandSum.className = 'lbl';
+  byHandSum.textContent = 'Set the clock by hand';
+  byHand.append(byHandSum, customForm, setForm, calWrap);
+  wrap.append(label, advanceRow, byHand);
 
   function readFields() {
     const out = {};
