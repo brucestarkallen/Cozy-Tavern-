@@ -2077,14 +2077,30 @@ export function initDrawer(ctx) {
      * over content that is already there. */
     const openGeneration = ++closeGeneration;
     opening = true;
-    setTimeout(() => {
+    /* M150: the scene room's panels fill asynchronously (the clock's fields,
+     * the standings, who's here); a fixed 140ms beat was not always the end
+     * of it, and a first scroll that began while rows were still landing
+     * stuttered — in the scene room only, because it is the one drawn at
+     * open. Now the drawer shows when its panels have been QUIET for 90ms
+     * (no DOM change), with a 700ms cap. */
+    const show = () => {
       opening = false;
       if (openGeneration !== closeGeneration) return; /* closed again in between */
       drawer.hidden = false;
       scrim.hidden = false;
       requestAnimationFrame(() => { drawer.classList.add('open'); document.body.classList.add('drawer-open'); });
-      scheduleIdlePass(); /* M148 */
-    }, 140);
+      scheduleIdlePass();
+    };
+    if (typeof MutationObserver === 'function') {
+      let quiet = null; let shown = false;
+      const done = () => { if (shown) return; shown = true; try { mo.disconnect(); } catch (err) { /* fine */ } clearTimeout(cap); show(); };
+      const mo = new MutationObserver(() => { clearTimeout(quiet); quiet = setTimeout(done, 90); });
+      mo.observe(panelsEl, { childList: true, subtree: true, characterData: true });
+      quiet = setTimeout(done, 90);
+      const cap = setTimeout(done, 700);
+    } else {
+      setTimeout(show, 140);
+    }
     /* M14: the header keeps the ember on the room that's open. */
     const btn = document.getElementById('btn-ledger');
     if (btn) btn.classList.add('current');

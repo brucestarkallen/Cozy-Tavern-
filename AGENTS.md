@@ -3431,3 +3431,11 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   two flicks of the writer's first scroll. The idle pass is gone: a room draws when its chip is
   tapped, and only then (a room is four panels; the tap costs one frame).
 - 395/395 + 35/35 + 8/8. version.js -> m149-001.
+
+# M150 — the drawer shows when the scene room has gone quiet
+- The scene room (the clock, the ruling, the standings, who's here, the mood) is the room drawn
+  at open; its panels fill asynchronously, and a fixed 140ms beat (M144) was not always the end
+  of the fill on a full ledger — a first scroll begun while rows were still landing stuttered,
+  there and nowhere else. The drawer now shows when its panels have made no DOM change for
+  90ms (a MutationObserver), capped at 700ms; the walk's runtime falls back to the beat.
+- 395/395 + 35/35 + 8/8. version.js -> m150-001.
