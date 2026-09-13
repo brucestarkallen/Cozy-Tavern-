@@ -380,3 +380,34 @@ test('M171: the anchor is fast, and answers exactly as it always did', async () 
   assert(near.ok && near.via === 'fuzzy', 'a near passage still anchors: ' + (near.reason || near.via));
   assert(!locate(page, 'the elephants marched over the bridge at noon carrying lanterns').ok, 'and words that are not there are still refused');
 });
+
+/* M172: innerBlocks paired the FIRST open tag with the next close and then
+ * searched on from just inside it. So a reply that named a block in its own
+ * words before writing it — which the system prompt teaches by example, so
+ * models do it constantly — was read as TWO blocks: the same op landed as
+ * two identical cards (the second either refused or changed the words
+ * somewhere else), and the prose open swallowed everything to the real
+ * close, so the writer saw "I can do that. I will write an" and nothing
+ * more of the housekeeper's explanation. */
+test('M172: a close belongs to the nearest open, and the words survive', async () => {
+  const { parseProtocol } = await import('../../js/agents/housekeeper.js');
+
+  const named = parseProtocol('I can do that. I will write an <edits> block for the name. Here it is:\n\n<edits>[{"id":"#a1b2c3","find":"Liara","replace":"Mirela","reason":"renamed"}]</edits>\n\nThat should settle it.');
+  eq(named.edits.length, 1, 'the op lands ONCE, not twice');
+  assert(/That should settle it\./.test(named.text), 'and every word after the block survives');
+  assert(/an edits block for the name/.test(named.text), 'the named tag reads as the word it is');
+  assert(!/[<>]/.test(named.text), 'no machinery is shown to the writer');
+
+  const two = parseProtocol('<edits>[{"id":"#a","find":"x","replace":"y"}]</edits> and also <edits>[{"id":"#b","find":"p","replace":"q"}]</edits>');
+  eq(two.edits.length, 2, 'two real blocks are still two');
+  eq(two.edits[1].id, '#b', 'in order');
+
+  /* M75-003 stands: a block the answer was cut off inside is still read */
+  const cut = parseProtocol('Here you go:\n<edits>[{"id":"#a1b2c3","find":"Liara","replace":"Mirela"}]');
+  eq(cut.edits.length, 1, 'a cut-off block is still read');
+
+  /* and a tag named with no JSON behind it is prose, as it always was */
+  const prose = parseProtocol('It would be an <edits> card, but nothing needs changing.');
+  eq(prose.edits.length, 0, 'a tag named in passing proposes nothing');
+  assert(/It would be an edits card, but nothing needs changing\./.test(prose.text), 'and the sentence reads whole');
+});

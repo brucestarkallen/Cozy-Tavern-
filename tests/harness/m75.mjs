@@ -120,7 +120,11 @@ test('M75-6 nothing is lost in silence: what it said is kept whole; an unreadabl
   eq(w.edits.length, 1, 'the page edit stays a page edit'); eq(w.brief.length, 2, 'the brief edit and the memedit land on the brief'); eq(w.brief[1].field, 'cast'); eq(w.lore.length, 1, 'Chat Assistant’s worldbook tag is the shelf');
   /* prose that names a tag is prose */
   const pr = pp('No — the brief says 20. Say the word and it would be a <brief> card.');
-  eq(pr.unreadable.length, 0); assert(/would be a <brief> card\.$/.test(pr.text), pr.text);
+  /* M172: still prose, and the writer no longer sees the machinery — the
+   * named tag reads as the word it is ("a brief card"), and the sentence
+   * survives whole (before M172 a prose open swallowed the rest of a reply). */
+  eq(pr.unreadable.length, 0); eq(pr.brief.length, 0, 'a tag named in passing proposes nothing');
+  assert(/^No — the brief says 20\. Say the word and it would be a brief card\.$/.test(pr.text), pr.text);
   assert(!unclosedBlock('it would be a <brief> card') || true, 'unclosedBlock is for the cut check only');
   /* the round */
   const sent = [];

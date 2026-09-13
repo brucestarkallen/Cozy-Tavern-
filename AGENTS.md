@@ -3813,3 +3813,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   so the runner-up is always the one the old sweep would have found. 484 of 484 identical.
 - 428/428 harness (+1 law) + 36/36 walk + 8/8 play + the anchor differential + the two-browser
   proof + the coat proof + the contrast audit. version.js -> m171-001.
+
+# M172 — a close belongs to the nearest open
+- A REPLY THAT NAMED A BLOCK BEFORE WRITING IT WAS READ TWICE, AND ITS WORDS WERE EATEN.
+  innerBlocks paired the FIRST open tag with the next close, then searched on from just inside
+  that open. So "I will write an <edits> block for the name. Here it is: <edits>[…]</edits>" was
+  read as TWO blocks: the same op landed as two identical cards — applying the second either
+  refused or found those words somewhere else on the page and changed them — and the prose open
+  swallowed everything through to the real close, so the writer saw "I can do that. I will write
+  an" and nothing more of the housekeeper's explanation. The system prompt teaches these tag names
+  BY EXAMPLE, so a model echoing one in prose is the common case, not the odd one.
+  A stack pairs each close with the nearest unmatched open before it; only the outermost leftover
+  open can carry a truncated block (M75-003's law stands); and a bare tag left in the words reads
+  as the word it is ("an edits block"), never as machinery.
+- 429/429 harness (+1 law) + 36/36 walk + 8/8 play + the anchor differential (484/484 identical)
+  + the two-browser proof + the coat proof + the contrast audit. version.js -> m172-001.

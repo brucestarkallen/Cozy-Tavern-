@@ -369,24 +369,52 @@ function innerBlocks(text, tag) {
   const lower = s.toLowerCase();
   const open = '<' + tag + '>';
   const close = '</' + tag + '>';
+
+  /* M172: A CLOSE BELONGS TO THE NEAREST OPEN BEFORE IT. This paired the
+   * FIRST open with the next close and then searched on from just inside
+   * that open — so a reply that named a block in its own words before
+   * writing it ("I'll write an <edits> block for the name. Here it is:
+   * <edits>[…]</edits>") was read as TWO blocks: the same op landed as two
+   * identical cards, and applying the second either refused or found the
+   * words somewhere else. Worse, the prose open swallowed everything to the
+   * real close, so the writer saw "I can do that. I will write an" and
+   * nothing else — the housekeeper's whole explanation gone. The system
+   * prompt teaches these tag names by example, so a model echoing one in
+   * prose is the common case, not the odd one. A stack pairs each close with
+   * the nearest unmatched open before it; what is left over is prose. */
+  const opens = [];
   const out = [];
-  let from = 0;
-  for (;;) {
-    const at = lower.indexOf(open, from);
-    if (at === -1) break;
-    const bodyStart = at + open.length;
-    const endAt = lower.indexOf(close, bodyStart);
-    /* M75-003: an open tag with no close is a block only when JSON follows it —
-     * "it would be a <brief> card" is prose, not a cut-off block (it used to be
-     * stripped from the talk from the tag to the end of the answer) */
-    if (endAt === -1 && !/^\s*[\[{]/.test(s.slice(bodyStart))) { from = bodyStart; continue; }
-    out.push({
-      start: at,
-      end: endAt === -1 ? s.length : endAt + close.length,
-      body: s.slice(bodyStart, endAt === -1 ? s.length : endAt),
-    });
-    from = bodyStart;
+  let i = 0;
+  while (i < lower.length) {
+    const nextOpen = lower.indexOf(open, i);
+    const nextClose = lower.indexOf(close, i);
+    if (nextOpen === -1 && nextClose === -1) break;
+    if (nextClose === -1 || (nextOpen !== -1 && nextOpen < nextClose)) {
+      opens.push(nextOpen);
+      i = nextOpen + open.length;
+      continue;
+    }
+    if (opens.length) {
+      const at = opens.pop();
+      const bodyStart = at + open.length;
+      out.push({ start: at, end: nextClose + close.length, body: s.slice(bodyStart, nextClose) });
+    }
+    i = nextClose + close.length;
   }
+
+  /* M75-003: an open with no close is a block only when JSON follows it —
+   * "it would be a <brief> card" is prose, not a cut-off block. Only the
+   * OUTERMOST leftover open can carry a truncated block; an inner one is
+   * the model naming the tag inside its own words. */
+  if (opens.length) {
+    const at = opens[0];
+    const bodyStart = at + open.length;
+    if (/^\s*[[{]/.test(s.slice(bodyStart)) && !out.some((b) => b.start <= at && at < b.end)) {
+      out.push({ start: at, end: s.length, body: s.slice(bodyStart) });
+    }
+  }
+
+  out.sort((a, b) => a.start - b.start);
   return out;
 }
 
@@ -571,7 +599,10 @@ export function parseProtocol(raw) {
     spans.sort((a, b) => b.start - a.start);
     let display = source;
     for (const s of spans) display = display.slice(0, s.start) + display.slice(s.end);
-    out.text = display.replace(/\n{3,}/g, '\n\n').trim();
+    /* M172: a bare protocol tag left in the words is the model naming one of
+     * its own blocks — the writer never needs to read the machinery. */
+    display = display.replace(/<(\/?)((?:edits|ledits|redits|lore|record|brief|memedits|wiedits|bedits|fetch|supersede))>/gi, (all, slash, name) => (slash ? '' : name));
+    out.text = display.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   } catch (err) {
     out.text = source.trim();
   }
