@@ -20,13 +20,15 @@ const LEASH = 120000;
  * location, one level up. */
 const api = (path) => new URL('../' + path, self.location.href).toString();
 
+let lastManifestStatus = 0;
 async function manifest() {
   try {
     const res = await fetch(api('api/books/list'), { signal: AbortSignal.timeout(4000) });
+    lastManifestStatus = res.status;
     if (!res.ok) return null;
     const j = await res.json();
     return Array.isArray(j && j.books) ? j.books : [];
-  } catch (err) { return null; }
+  } catch (err) { lastManifestStatus = 0; return null; }
 }
 async function getBook(id) {
   const res = await fetch(api('api/books/one/' + encodeURIComponent(id)), { signal: AbortSignal.timeout(LEASH) });
@@ -91,7 +93,7 @@ self.onmessage = async (e) => {
     }
     if (msg.kind === 'boot') {
       const books = await manifest();
-      if (!books) { self.postMessage({ kind: 'boot', reachable: false }); return; }
+      if (!books) { self.postMessage({ kind: 'boot', reachable: false, status: lastManifestStatus }); return; }
       const pulled = await pullBooks(books);
       /* push what the device lacks: every local story with no book, and the house when absent */
       const have = new Set(books.map((b) => b.id));

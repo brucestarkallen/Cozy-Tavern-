@@ -77,7 +77,10 @@ export async function initSync(ctx) {
       status.backed = true; status.words = 'on this device, in files — one book per tale';
       if (b.pulled > 0) { dropCaches(); location.reload(); return true; }
     } else if (b && b.kind === 'boot' && !b.reachable && !localHasStories && ctx.toast) {
-      ctx.toast('No books reached this browser — is the tavern’s server (serve.py) running? Start it and refresh.');
+      /* M156: say which of the two it is — an old server answers 404 to the books' list */
+      ctx.toast(b.status === 404
+        ? 'The tavern’s server is an older version — in Termux, stop it (Ctrl-C) and start it again, then refresh this page.'
+        : 'No books reached this browser — is the tavern’s server (serve.py) running? Start it and refresh.');
     }
     return false;
   };
