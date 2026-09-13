@@ -174,3 +174,23 @@ test('M160: a row lock is released — the lock map does not grow with every edi
   const got = (await db.messages.list(s.id))[0];
   eq(got.extraction.appliedWords[0], 'n24', 'the last write stands after twenty-five serialized edits');
 });
+
+/* M161: the house is a book too. The M160 sweep read `_house` as a tale that
+ * no longer stands and ate bookStamp:_house on every boot — so the house book
+ * was pulled again on every open, laying the device's copy over settings this
+ * browser had changed but not yet pushed. */
+test('M161: the sweep keeps the house’s own stamp, and still lets a dead tale’s go', async () => {
+  const living = await db.stories.create({ title: 'still telling' });
+  await db.settings.set('bookStamp:' + living.id, '2026-01-01T00:00:00.000Z');
+  await db.settings.set('bookStamp:_house', '2026-01-01T00:00:00.000Z');
+  await db.settings.set('bookStamp:a-tale-long-gone', '2025-01-01T00:00:00.000Z');
+  await db.settings.set('versionState:a-tale-long-gone', { sixty: 'ledgers' });
+
+  await db.sweepOrphans();
+
+  const keys = await db.settings.keys();
+  assert(keys.includes('bookStamp:_house'), 'the house keeps its stamp — it is a book, not a tale');
+  assert(keys.includes('bookStamp:' + living.id), 'a living tale keeps its stamp');
+  assert(!keys.includes('bookStamp:a-tale-long-gone'), 'a dead tale’s stamp goes');
+  assert(!keys.includes('versionState:a-tale-long-gone'), 'and its ledgers with it');
+});

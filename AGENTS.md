@@ -3584,3 +3584,15 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - 401/401 harness (+6 new laws) + 35/35 walk + 8/8 play, and an eight-check two-browser proof in
   real Chromium against the real serve.py: /tmp/twobrowsers.py. version.js -> m160-001.
   serve.py changed — it re-execs itself (M157), so no hand is needed.
+
+# M161 — the house is a book too (a regression M160 would have shipped)
+- Auditing M160's own sweep: `_house` is a book like a tale's and its bookStamp wears the same
+  shape, but it is nobody's TALE — so the living set did not hold it and sweepOrphans ate
+  bookStamp:_house on every boot. With no stamp the house book was pulled again on every open,
+  and importHouse lays the device's copy over settings this browser had changed but not yet
+  pushed (the push waits twenty seconds after the last write). Caught before it shipped to a
+  phone; the law is in tests/harness/store.mjs.
+- Frame timing re-measured in real Chromium at 6x CPU throttle, a 240-page tale, 60 drawn:
+  drawer opens median 18.9ms (worst 35.8), closes 23.8ms (34.2); Settings opens 23.8ms (47.4),
+  closes 22.1ms (28.2); first scroll of the thread 9.1ms. 60fps is 16.7ms.
+- 402/402 + 35/35 + 8/8 + the eight-check two-browser proof. version.js -> m161-001.

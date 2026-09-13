@@ -670,6 +670,13 @@ const STORY_PREFIXED = new RegExp('^(?:' + STORY_PREFIXES.join('|') + '):.+$');
 async function sweepOrphans() {
   const all = await run('stories', 'readonly', (s) => s.getAll());
   const living = new Set((all || []).map((x) => x && x.id).filter(Boolean));
+  /* M161: THE HOUSE IS NOT AN ORPHAN. `_house` is a book like a tale's, and
+   * its bookStamp wears the same shape — but it is nobody's tale, so the
+   * living set did not hold it and the M160 sweep ate its stamp on every
+   * boot. With no stamp the house book was pulled again on every open, and
+   * importHouse would lay the device's copy over settings this browser had
+   * changed but not yet pushed (the push waits twenty seconds). */
+  living.add('_house');
   const keys = await run('settings', 'readonly', (s) => s.getAllKeys());
   const doomed = (keys || []).filter((k) => {
     if (typeof k !== 'string' || !STORY_PREFIXED.test(k)) return false;
