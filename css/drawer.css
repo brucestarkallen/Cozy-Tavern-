@@ -28,7 +28,10 @@
   overflow-y: auto;
 }
 
-.drawer[hidden] { display: none; }
+/* M143: the drawer is never unmounted either — hidden is invisible and
+ * untouchable, its layout kept, so opening costs no layout and closing
+ * costs no relayout of anything. */
+.drawer[hidden] { display: flex; visibility: hidden; pointer-events: none; }
 
 .drawer.open {
   opacity: 1;
@@ -559,7 +562,5 @@
 .hk-pop-body { margin: 0; flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; border: 0; border-radius: 0; padding: 12px 14px; }
 .hk-pop-edit { margin: 0; flex: 1 1 auto; min-height: 40vh; max-height: none; border: 0; border-radius: 0; padding: 12px 14px; resize: none; font-family: inherit; font-size: 0.92rem; }
 
-/* M141: while the ledger is open the thread behind it is not painted — the
- * drawer scrolls over nothing instead of over sixty painted pages. Layout is
- * kept (visibility, not display), so closing costs no relayout. */
-body.drawer-open #thread { visibility: hidden; }
+/* M143: the thread stays painted behind the drawer (M141's visibility:hidden
+ * forced a full repaint of the thread on every close — the close lag). */

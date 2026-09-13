@@ -314,7 +314,23 @@ button:active { transform: scale(0.96); transition-duration: 0.12s; }
   min-height: 0;
 }
 
-.view[hidden] { display: none; }
+/* M143: NO VIEW IS EVER UNMOUNTED. Settings and the story used to swap with
+ * display:none — every open and every close threw away one layout and
+ * rebuilt the other (sixty pages re-laid out on each close of Settings). Now
+ * both views stay laid out: the story in flow, Settings as a full overlay
+ * beneath the topbar; the hidden one is invisible and untouchable (visibility
+ * + pointer-events), which costs no layout at all. The hidden attribute keeps
+ * its meaning for the code and the walk. */
+.view[hidden] { display: flex; visibility: hidden; pointer-events: none; }
+.main { position: relative; }
+.view-settings {
+  position: absolute; inset: 0;
+  z-index: 15;
+  background: var(--bg);
+  display: block;
+}
+.view-settings[hidden] { display: block; }
+.view-chat[hidden] { visibility: hidden; }
 /* M65: `hidden` always wins. A class rule that sets display (flex, grid,
  * block) used to beat the browser's [hidden] default, so a hidden cards
  * box and a hidden seed form were drawn anyway. The one display-forcing

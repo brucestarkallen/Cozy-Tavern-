@@ -3343,3 +3343,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   under the writer's scrolling finger. A re-render while the drawer is open is throttled to one
   per 1.5s, deferred until the drawer has not scrolled for 600ms, and keeps the scroll position.
 - M46-2 follows. 395/395 + 35/35 + 8/8. version.js -> m142-001.
+
+# M143 — nothing is ever unmounted (the open/close stutter, at last)
+- FIELD REPORT, exact and right: Settings scrolls smoothly on its first second, but a double
+  tap closes it slowly; the ledger's first scroll and its close stutter; "it's just opening a
+  menu". THE CAUSE: opening and closing swapped views with display:none — every close of
+  Settings threw away its layout and re-laid out the story view (sixty dressed pages); every
+  open of the drawer laid out sixteen panels from nothing and every close threw them away;
+  and M141's visibility:hidden on the thread behind the drawer forced a full repaint of the
+  thread on every close. SillyTavern keeps its panels mounted and only shows/hides them — so
+  does the tavern now: the story view stays laid out in flow, Settings is a full overlay under
+  the topbar (absolute, its own scroll), the drawer keeps its layout when hidden; a hidden
+  surface is invisible and untouchable (visibility + pointer-events), which costs no layout.
+  The hidden attribute keeps its meaning for the code and the walk.
+- 395/395 + 35/35 + 8/8. version.js -> m143-001.
