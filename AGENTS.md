@@ -3757,3 +3757,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   for large text). Before: 2 surfaces under AA on lamplight, 3 on daylight. After: none, in either.
 - 425/425 harness (+1 law) + 36/36 walk + 8/8 play + the two-browser proof + the coat proof + the
   contrast audit. version.js -> m168-001.
+
+# M169 — the last of the reading: every control in the house is named
+- NINE CONTROLS CARRIED NO NAME. The new-tale name, the new-shelf name, the picture attach, the
+  four per-story texts (frame, note, brief, cast), the housekeeper's seed and the welcome's next
+  button had neither a <label for> nor an aria-label — a screen reader announced them blank, and
+  a voice control had nothing to call them by. Named, all nine. A law now walks every input,
+  select, textarea and button in index.html and insists each one is named — by a label that points
+  at it, by a label that wraps it, by its own words, or by an aria-label — and that no id in the
+  house is used twice.
+- Read and found sound this pass (no change needed): assemble/craft.js (the whole craft text, all
+  its laws), import/v176map.js (the V176 map, the emoji-tolerant name matching, the five buckets),
+  import/sillytavern.js (the preset parser, the prompt_order marriage, decompose, applyPlan's craft
+  fork and its numbered-suffix dedupe), ui/drawer.js's clock and who's-here panels, its four-room
+  machinery, the pending-panel draw, the quiet-render throttle, and the open/close generation
+  guard (a close during the fill beat cannot hide a reopen), ui/housekeeper.js's wiring, its
+  pop-up viewer, its turn actions and its drag handler, and index.html's whole structure.
+- 426/426 harness (+1 law) + 36/36 walk + 8/8 play + the two-browser proof + the coat proof + the
+  contrast audit. version.js -> m169-001.

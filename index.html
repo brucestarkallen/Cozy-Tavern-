@@ -49,7 +49,7 @@
           <button id="btn-new-story" class="text-btn" type="button">Start a new story</button>
         </div>
         <form id="new-story-form" class="new-story-form" hidden>
-          <input id="new-story-title" type="text" maxlength="80" placeholder="Name the tale…" autocomplete="off">
+          <input id="new-story-title" type="text" maxlength="80" placeholder="Name the tale…" autocomplete="off" aria-label="A name for the new tale">
           <!-- M16: a new tale may begin already resting on a shelf. -->
           <label class="stack-label" for="new-story-shelf">The shelf it starts on</label>
           <select id="new-story-shelf"></select>
@@ -61,7 +61,7 @@
         <!-- M16: a shelf gathers tales that belong together. -->
         <button id="btn-new-shelf" class="text-btn shelf-new" type="button">A new shelf</button>
         <form id="new-shelf-form" class="new-story-form" hidden>
-          <input id="new-shelf-name" type="text" maxlength="60" placeholder="Name the shelf…" autocomplete="off">
+          <input id="new-shelf-name" type="text" maxlength="60" placeholder="Name the shelf…" autocomplete="off" aria-label="A name for the new shelf">
           <div class="row">
             <button type="submit" class="btn">Keep it</button>
             <button type="button" id="btn-cancel-shelf" class="text-btn">Not now</button>
@@ -93,7 +93,7 @@
             <label for="composer-input" class="visually-hidden">What's next?</label>
             <textarea id="composer-input" rows="1" placeholder="What's next?"></textarea>
             <button id="btn-attach" class="attach-btn" type="button" aria-label="Add a picture" title="Add a picture">✦</button>
-            <input id="attach-file" type="file" accept="image/*" hidden>
+            <input id="attach-file" type="file" accept="image/*" hidden aria-label="A picture to share on this page">
             <button id="btn-send" class="send-btn" type="submit" aria-label="Send">
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
@@ -247,7 +247,7 @@
 
           <div class="override-block">
             <span class="lbl">Just for <span id="frame-story-name">this story</span></span>
-            <textarea id="frame-story" rows="6" spellcheck="false" placeholder="Leave empty and the story borrows the one above."></textarea>
+            <textarea id="frame-story" rows="6" spellcheck="false" aria-label="The frame, just for this story" placeholder="Leave empty and the story borrows the one above."></textarea>
             <div class="row"><button id="btn-save-frame-story" class="btn" type="button">Keep it</button><span id="frame-story-saved" class="quiet" hidden>Kept.</span></div>
           </div>
         </section>
@@ -261,7 +261,7 @@
 
           <div class="override-block">
             <span class="lbl">Just for <span id="note-story-name">this story</span></span>
-            <textarea id="note-story" rows="4" spellcheck="false" placeholder="Leave empty and the story borrows the one above."></textarea>
+            <textarea id="note-story" rows="4" spellcheck="false" aria-label="The note at the end, just for this story" placeholder="Leave empty and the story borrows the one above."></textarea>
             <div class="row"><button id="btn-save-note-story" class="btn" type="button">Keep it</button><span id="note-story-saved" class="quiet" hidden>Kept.</span></div>
           </div>
         </section>
@@ -271,7 +271,7 @@
           <p class="quiet">What this one story is about, in a few lines of your own. It reaches the storyteller right after the frame.</p>
           <div class="override-block">
             <span class="lbl">Just for <span id="brief-story-name">this story</span></span>
-            <textarea id="brief-story" rows="5" spellcheck="false" placeholder="A quiet tale about…"></textarea>
+            <textarea id="brief-story" rows="5" spellcheck="false" aria-label="What this story is about" placeholder="A quiet tale about…"></textarea>
             <div class="row"><button id="btn-save-brief" class="btn" type="button">Keep it</button><span id="brief-saved" class="quiet" hidden>Kept.</span></div>
           </div>
         </section>
@@ -292,7 +292,7 @@
           <p class="quiet">The cast of this story, in your own words — who's who, and how they'd sign their names. A name marked she/her helps one of the house rules wake at the right moment.</p>
           <div class="override-block">
             <span class="lbl">Just for <span id="cast-story-name">this story</span></span>
-            <textarea id="cast-story" rows="5" spellcheck="false" placeholder="Mira — she/her — a cartographer paying off an old debt…"></textarea>
+            <textarea id="cast-story" rows="5" spellcheck="false" aria-label="Who is in this story" placeholder="Mira — she/her — a cartographer paying off an old debt…"></textarea>
             <div class="row"><button id="btn-save-cast" class="btn" type="button">Keep it</button><span id="cast-saved" class="quiet" hidden>Kept.</span></div>
           </div>
         </section>
@@ -876,7 +876,7 @@
         <button id="hk-stop" class="text-btn" type="button" title="Stop what the housekeeper is doing" hidden>⏹ Stop</button>
       </div>
       <form id="hk-seed-form" class="hk-seed-form" hidden>
-        <input id="hk-seed-input" type="text" maxlength="200" placeholder="A seed of a scene, a person, a want…" autocomplete="off">
+        <input id="hk-seed-input" type="text" maxlength="200" placeholder="A seed of a scene, a person, a want…" aria-label="A seed for the housekeeper to work from" autocomplete="off">
         <button class="btn" type="submit">Plant it</button>
       </form>
       <form id="hk-form" class="hk-form">
@@ -909,7 +909,7 @@
       <p id="welcome-body" class="welcome-body"></p>
       <div class="welcome-actions">
         <button id="btn-welcome-back" class="text-btn" type="button" hidden>Back</button>
-        <button id="btn-welcome-next" class="btn" type="button"></button>
+        <button id="btn-welcome-next" class="btn" type="button" aria-label="Go on to the next step"></button>
       </div>
       <div class="welcome-foot">
         <button id="btn-welcome-more" class="text-btn" type="button" hidden>How the tavern works — learn more</button>

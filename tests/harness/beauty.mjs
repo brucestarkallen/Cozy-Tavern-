@@ -102,3 +102,33 @@ test('M162: the HTML walk has a floor, and msgNode catches what it cannot dress'
   assert(/try \{\s*$/m.test(chat.slice(at - 220, at)), 'inside a try — one unrenderable page never blanks the room');
   assert(/\} catch \(err\) \{[\s\S]{0,400}renderRich\(part\.text\)/.test(chat.slice(at, at + 900)), 'and falls back to the plain prose');
 });
+
+/* M169: nine controls in the house — the new-tale name, the new-shelf name,
+ * the picture attach, the four per-story texts, the housekeeper's seed and
+ * the welcome's next — carried neither a <label for> nor an aria-label, so a
+ * screen reader announced them blank. */
+test('M169: every control in the house is named, and no id is used twice', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const html = fs.readFileSync(path.join(here, '../../index.html'), 'utf8');
+
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+  const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
+  eq(dupes.length, 0, 'no id is used twice: ' + [...new Set(dupes)].join(', '));
+
+  const unnamed = [];
+  for (const m of html.matchAll(/<(input|select|textarea|button)\b[^>]*>/g)) {
+    const tag = m[0];
+    if (/aria-label=|aria-labelledby=|type="hidden"/.test(tag)) continue;
+    const id = (tag.match(/id="([^"]+)"/) || [])[1];
+    if (id && html.includes('for="' + id + '"')) continue;
+    if (tag.startsWith('<button')) {
+      const close = html.indexOf('</button>', m.index);
+      const inner = html.slice(m.index + tag.length, close).replace(/<[^>]*>/g, '').trim();
+      if (inner) continue;
+    }
+    const before = html.slice(Math.max(0, m.index - 260), m.index);
+    if (/<label[^>]*>[^<]*$/.test(before) || /<label[^>]*>(\s|<span[^>]*>[^<]*<\/span>)*$/.test(before)) continue;
+    unnamed.push(tag.slice(0, 70));
+  }
+  eq(unnamed.length, 0, 'every control is named: ' + unnamed.join(' | '));
+});
