@@ -440,15 +440,10 @@ body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-selec
 /* M15: a new page rises into the room — 12px up, a quarter-second ease-out.
  * (Applies to every page entering the thread; the reduced-motion rule in
  * base.css stills it for those who ask.) */
-/* M138: MOBILE PERFORMANCE. Only a page that just arrived animates — a
- * structural draw of sixty pages ran sixty animations at once. Pages off
- * screen skip layout and paint (content-visibility), so a keyboard, a
- * scroll or a drawer never re-lays out the whole thread; the shelf's slide
- * is promoted to its own layer. */
+/* M138/M139: only a page that just arrived animates; the shelf's slide rides its own layer. */
 .msg.fresh { animation: msg-rise 0.25s ease-out; }
-.msg { content-visibility: auto; contain-intrinsic-size: auto 320px; }
 .story-panel { will-change: transform; }
-#drawer, #view-settings { contain: layout paint; }
+
 
 @keyframes msg-rise {
   from { opacity: 0; transform: translateY(12px); }

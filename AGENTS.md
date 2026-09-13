@@ -3288,3 +3288,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   slide is promoted to its own layer, and the drawer and settings are contained for layout and
   paint.
 - polish's M15 check follows. 395/395 + 35/35 + 8/8. version.js -> m138-001.
+
+# M139 — M138 broke scrolling; the setting was in the wrong room
+- FIELD REPORT: after M138 the screen could not scroll (stuck mid-way); "Turns on screen" was
+  not where the glossary said. (1) content-visibility on the pages and contain:paint on the
+  drawer and settings clipped their own overflow on Android and broke the thread's scroll math
+  — reverted; the fresh-only animation and the shelf's layer stay; the drawer's slide is layered
+  too (its shadow repainted each frame of the close). (2) The "Turns on screen" control had been
+  inserted after the show-thinking checkbox, which lives in the thinking section (Storyteller
+  room), not Appearance; it is in Appearance (The house) now. (3) A misreading, owned: the
+  shelf's "114 pages" is the story's total, not what the screen carries.
+- 395/395 + 35/35 + 8/8. version.js -> m139-001.
