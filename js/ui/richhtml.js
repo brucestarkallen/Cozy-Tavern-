@@ -55,7 +55,16 @@ function appendText(host, text) {
   });
 }
 
-function walk(src, host) {
+/* M162: a floor under the walk. It recursed with no limit, and a page
+ * dressed by a display rule into deeply nested markup would overflow the
+ * stack inside renderHtmlProse — thrown out of msgNode, which renderThread
+ * calls in a bare loop, so ONE bad page blanked the whole room. Past this
+ * depth the rest of the branch renders as its text, which is always
+ * readable. */
+const MAX_DEPTH = 64;
+
+function walk(src, host, depth = 0) {
+  if (depth > MAX_DEPTH) { appendText(host, src.textContent || ''); return; }
   for (const node of Array.from(src.childNodes)) {
     if (node.nodeType === 3) { appendText(host, node.nodeValue); continue; }
     if (node.nodeType !== 1) continue;
@@ -69,7 +78,7 @@ function walk(src, host) {
       if (name === 'open') { el.setAttribute('open', ''); continue; }
       el.setAttribute(name, String(attr.value).slice(0, 200));
     }
-    if (tag !== 'br' && tag !== 'hr') walk(node, el);
+    if (tag !== 'br' && tag !== 'hr') walk(node, el, depth + 1);
     host.appendChild(el);
   }
 }

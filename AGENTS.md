@@ -3596,3 +3596,44 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   drawer opens median 18.9ms (worst 35.8), closes 23.8ms (34.2); Settings opens 23.8ms (47.4),
   closes 22.1ms (28.2); first scroll of the thread 9.1ms. 60fps is 16.7ms.
 - 402/402 + 35/35 + 8/8 + the eight-check two-browser proof. version.js -> m161-001.
+
+# M162 — the second sweep: the wire, the ages, and the laws that were never running
+- THE COVERAGE LAW HAD NEVER ONCE RUN IN THE ROOM. M12 said slot 8 may never let a page fall
+  that no record line holds — and windowPlan applies that law only when it is handed the
+  record's nodes. The window the send path built never carried them. So after a stumbled
+  keeper, a quiet stretch, or a hole punched by an edit, a page rolled past the verbatim window
+  before any line covered it and was GONE from the storyteller's sight: not in the pages, not
+  in the record. The nodes ride now, and the record's own cut is taken from the plan that will
+  actually be sent, so a widened window still never sends a line and the page it summarizes
+  together (M44). Both lists are visiblePages, provably the same list, held by a law.
+- AND THE LAW NEEDED A CEILING. Switched on as M12 wrote it, a keeper whose worker connection
+  is down would put EVERY unfolded page on the wire — on a six-hundred-page tale, the whole
+  story, every turn. It reaches back as far as the connection's room allows and no further;
+  what will not fit is named on the receipt as pages no line covers, and the keeper refills
+  those holes first. The ninety-turn play measures it: 35 of 179 pages, 5 past the window.
+- THE WINDOW COULD BE EMPTY. Keeper off, a small context on the connection, and the prefix
+  alone ate the whole room: the storyteller was sent the state block and NOT ONE LINE OF THE
+  STORY. The last exchange always rides; the receipt names the squeeze.
+- THE WORLD AGENT'S BRIEF WAS DROPPED ON EVERY AUDIT TURN. state.turn counts mutation BATCHES —
+  the extractor's, the world's, the scribe's, five more when the auditor runs — and the brief
+  goes stale after four "turns". Measured: written, survives the scribe, and after ONE audit
+  the living world went silent. The brief is stamped with the page it was written for and aged
+  in pages; a brief from before the stamp still ages the old way.
+- EVERY AGE IN THE HOUSE WAS TOLD IN THE WRONG UNIT, AND PAST THE LOG'S CAP IN NO UNIT AT ALL.
+  Same root. Measured over twelve pages: a wound taken on page one was handed to the
+  storyteller as "24 turns on" (it is eleven). Worse, the body ledger read its ages off
+  state.log.length — a THIRD counter, capped at 200 — so past the cap every age went negative,
+  clamped to zero, and a months-old wound read "just now" for the rest of the tale. storyTurn()
+  is pages told; every age is stamped and read in it. state.turn keeps its own B14 meaning.
+  Now: "11 turns on" at page twelve, "89 turns on" at page ninety.
+- The body ledger's name law was broken for strain: addInjury looked the name up
+  case-insensitively and addStrain did not, so a ledger holding "Mara" and handed "mara" grew a
+  SECOND body — the same person twice, one of them invisible to findBodyKey, findInjury and
+  body.heal. apply.js resolved the key first, so the room was spared; the function was lying.
+- A bent canon entry threw the whole state block (findCanonKey reads only the keys).
+- A PAGE DRESSED TOO DEEP BLANKED THE ROOM. renderHtmlProse's walk recursed with no limit and
+  msgNode called it bare — and renderThread calls msgNode in a plain loop, so one page a
+  display rule dressed into deep markup threw and the whole thread came up empty. The walk has
+  a floor (past it the branch renders as its text) and msgNode falls back to the plain prose.
+- 413/413 harness (+11 laws) + 36/36 walk + 8/8 play + the eight-check two-browser proof.
+  version.js -> m162-001.

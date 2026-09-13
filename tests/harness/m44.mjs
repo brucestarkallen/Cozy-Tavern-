@@ -5,6 +5,7 @@ import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { readFileSync } from 'node:fs';
 import { dueRange, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, coveredSet, maybeSummarize, loadMemory, saveMemory } from '../../js/agents/memory.js';
+import { wireable } from '../../js/assemble/stack.js';
 import { pruneSnapshots, snapshotState, loadSnapshots, restoreNearestSnapshot, loadState, saveState, emptyState, SNAP_DENSE, SNAP_SPARSE_EVERY, SNAP_CAP } from '../../js/engine/state.js';
 import { db } from '../../js/store.js';
 import { thinkingHouse, withHouse, HOUSES } from './thinkinghouse.mjs';
@@ -15,7 +16,14 @@ test('M44-1 the record counts only visible pages; the window law reads the same 
   const history = [{ id: 'a' }, { id: 'h', hidden: true }, { id: 'b' }];
   eq(visiblePages(history).map((m) => m.id).join(','), 'a,b');
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/visiblePages\(history\)\.length - \(mem/.test(chat), 'the verbatim start is computed over visible pages');
+  /* M162: the start comes from the plan that will actually be sent (the
+   * coverage law can widen the window) — still over the SAME visible list. */
+  assert(/windowPlan\(\{ pages: visiblePages\(history\), memory: \{ window: memWindow, nodes: windowInfo\.nodes \} \}\)\.resting/.test(chat), 'the verbatim start is computed over visible pages');
+  assert(/Math\.max\(0, visiblePages\(history\)\.length - memWindow\)/.test(chat), 'and over the same list when the keeper is off');
+  /* the record's list and the wire's list must BE the same list, or the
+   * start the record is cut at would not be the start the wire uses */
+  const mixed = [{ id: 'a', role: 'user', text: 'x' }, { id: 'h', role: 'user', text: 'go on', hidden: true }, { id: 'b', role: 'assistant', text: 'y' }];
+  eq(visiblePages(mixed).map((m) => m.id).join(','), wireable(mixed).map((m) => m.id).join(','), 'the record counts exactly what the wire carries');
   const mem = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
   assert(/const history = visiblePages\(await db\.messages\.list\(storyId\)\);/.test(mem), 'the keeper folds visible pages');
 });

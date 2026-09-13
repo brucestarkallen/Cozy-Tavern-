@@ -42,7 +42,7 @@
 
 import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
-import { buildRequest, pageText } from '../assemble/stack.js';
+import { buildRequest, pageText, windowPlan } from '../assemble/stack.js';
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
@@ -1100,7 +1100,23 @@ export function initChat(ctx) {
         }
       }
       if (dressed) {
-        body.appendChild(renderHtmlProse(shown));
+        /* M162: a page whose dressing will not render is still a page. This
+         * was bare, and renderThread calls msgNode in a plain loop — one
+         * unrenderable page threw and the whole room came up empty. */
+        try {
+          body.appendChild(renderHtmlProse(shown));
+        } catch (err) {
+          for (const part of parseScene(pageText(msg))) {
+            if (part.type === 'head') {
+              const head = document.createElement('div');
+              head.className = 'scene-head lbl';
+              head.textContent = part.text;
+              body.appendChild(head);
+            } else {
+              body.appendChild(renderRich(part.text));
+            }
+          }
+        }
       } else {
         for (const part of parseScene(shown)) {
           if (part.type === 'head') {
@@ -2595,27 +2611,42 @@ export function initChat(ctx) {
       const selected = selectModules(allModules, { ...state, castNotes: story.castNotes || '', turnText: lastUser && !lastUser.hidden ? pageText(lastUser) : '' });
       /* M6: slot 7 — what the keeper has folded of the older pages. */
       const mem = await loadMemory(story.id);
-      /* M44: a line and the page it summarizes never ride together */
-      const verbatimStart = Math.max(0, visiblePages(history).length - (mem && Number.isFinite(mem.window) && mem.window > 0 ? mem.window : ((await db.settings.get('memoryWindow')) || 30)));
-      const memoryText = renderMemory(memoryForWindow(mem, verbatimStart));
       /* M9 (A1): the window law. The keeper's own switch decides whether the
        * window is the memory window or a token-budgeted cutoff against the
        * connection's context room. */
       const keeperOn = story.keeper === true
         ? true
         : story.keeper === false ? false : (await db.settings.get('memoryKeeper')) !== false;
+      const memWindow = mem && Number.isFinite(mem.window) && mem.window > 0
+        ? mem.window
+        : ((await db.settings.get('memoryWindow')) || 30);
+      /* M162: THE COVERAGE LAW WAS DEAD ON THE WIRE. M12 said slot 8 may never
+       * let a page fall that no record line holds — and windowPlan only
+       * applies it when it is handed the nodes. The window built here never
+       * carried them, so the law never once ran in the room: after a stumbled
+       * keeper, a quiet stretch or a hole punched by an edit, a page rolled
+       * out of the verbatim window before any line covered it and was simply
+       * GONE from the storyteller's sight — not in the pages, not in the
+       * record. The nodes ride now, and the record's own cut is taken from
+       * the plan that results, so a widened window still never sends a line
+       * and the page it summarizes together (M44). */
       const windowInfo = {
         keeperOn,
         /* The story's memory keeps its own window once it has one; before
          * that, the house slider (Settings → How much the story remembers)
          * speaks — the help text under it is now true (M9, §1). */
-        window: mem && Number.isFinite(mem.window) && mem.window > 0
-          ? mem.window
-          : (await db.settings.get('memoryWindow')),
+        window: memWindow,
+        nodes: mem && Array.isArray(mem.nodes) ? mem.nodes : undefined,
         budgetTokens: connection && typeof connection.contextSize === 'number' && connection.contextSize > 0
           ? connection.contextSize
           : 200000,
       };
+      /* M44: a line and the page it summarizes never ride together — measured
+       * against the window that will ACTUALLY be sent, coverage law included. */
+      const verbatimStart = keeperOn
+        ? windowPlan({ pages: visiblePages(history), memory: { window: memWindow, nodes: windowInfo.nodes } }).resting
+        : Math.max(0, visiblePages(history).length - memWindow);
+      const memoryText = renderMemory(memoryForWindow(mem, verbatimStart));
       /* M7: slot 4 — the story's invited cast. Slot 7 — the lore shelf's
        * answer for the latest pages, each entry scanning its own depth;
        * the receipt names which entries woke. */
@@ -2655,7 +2686,7 @@ export function initChat(ctx) {
          * for this one turn's silent recolor (never a standing nag). */
         houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
         /* M29: the world agent's word for this turn. */
-        worldBrief: renderWorldBrief(state.worldBrief, state.turn),
+        worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => applyRules(text, currentRules(), { on: role, mode: 'wire' }),
       });

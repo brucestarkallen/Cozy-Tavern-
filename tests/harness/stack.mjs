@@ -1,5 +1,6 @@
 /* A1 window law, A4 cache breakpoint, hidden pages, directives, lore names. */
 import { test, assert, eq } from './lib.mjs';
+import { readFileSync } from 'node:fs';
 import { buildRequest, windowPlan, wireable, pageText, DEFAULT_WINDOW } from '../../js/assemble/stack.js';
 
 function pages(n) {
@@ -80,4 +81,73 @@ test('windowPlan pure: keeper vs budget', () => {
   eq(w.window.length, 30); eq(w.resting, 20);
   const b = windowPlan({ pages: pages(50), memory: null, budgetTokens: 60, prefixTokens: 0 });
   assert(b.window.length < 50 && b.resting === 50 - b.window.length, 'budget cutoff');
+});
+
+/* M162: THE COVERAGE LAW WAS DEAD ON THE WIRE. windowPlan applies it only
+ * when handed the nodes, and the window chat.js built never carried them —
+ * so a page that rolled past the verbatim window before any record line
+ * covered it was gone from the storyteller's sight entirely: not in the
+ * pages, not in the record. */
+test('M162: the send path hands the record’s nodes to the window, and cuts the record by the plan', () => {
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  const build = chat.slice(chat.indexOf('const windowInfo = {'), chat.indexOf('const invitedCast'));
+  assert(/nodes: mem && Array\.isArray\(mem\.nodes\) \? mem\.nodes : undefined,/.test(build), 'the record’s nodes ride into the window plan');
+  assert(/windowPlan\(\{ pages: visiblePages\(history\), memory: \{ window: memWindow, nodes: windowInfo\.nodes \} \}\)\.resting/.test(build), 'the record’s cut is taken from the plan that will actually be sent');
+  assert(chat.indexOf('const verbatimStart') > chat.indexOf('const windowInfo = {'), 'the cut is measured after the plan, never before it');
+});
+
+test('M162: a page no line covers never falls out of the window', () => {
+  const pages = [];
+  for (let i = 0; i < 40; i += 1) pages.push({ role: i % 2 ? 'assistant' : 'user', content: 'page ' + i });
+  /* the keeper folded pages 0..9 and then stumbled: 10..29 are uncovered */
+  const nodes = [{ id: 'n1', span: [0, 9], text: 'the early pages', level: 1 }];
+  const plan = windowPlan({ pages, memory: { window: 10, nodes } });
+  eq(plan.resting, 10, 'the window reaches back to the first uncovered page');
+  eq(plan.carried, 30, 'every uncovered page rides word for word');
+  assert(plan.extended === 20, 'and the receipt knows how far past the usual window it went');
+  /* with the nodes withheld — the old behaviour — twenty pages simply vanish */
+  const blind = windowPlan({ pages, memory: { window: 10 } });
+  eq(blind.resting, 30, 'without the nodes the plan drops them (the bug M162 fixes)');
+});
+
+/* M162: with the keeper off and a small context, the prefix could eat the
+ * whole room and the storyteller was sent no story at all. */
+test('M162: the budget window is never empty — the last exchange always rides', () => {
+  const pages = [];
+  for (let i = 0; i < 12; i += 1) pages.push({ role: i % 2 ? 'assistant' : 'user', content: 'a long page of prose. '.repeat(80) });
+  const plan = windowPlan({ pages, memory: null, budgetTokens: 4000, prefixTokens: 9000 });
+  assert(plan.carried >= 2, 'the last exchange rides even when the arithmetic says nothing fits (carried ' + plan.carried + ')');
+  eq(plan.squeezed, true, 'and the squeeze is marked, so the receipt can say so');
+  const roomy = windowPlan({ pages, memory: null, budgetTokens: 200000, prefixTokens: 1000 });
+  eq(roomy.carried, 12, 'a roomy connection still carries everything');
+  assert(!roomy.squeezed, 'and is never marked squeezed');
+});
+
+/* M162: the coverage law had no ceiling. Switched on as M12 wrote it, a
+ * keeper whose worker connection is down would put EVERY unfolded page on
+ * the wire — on a six-hundred-page tale, the whole story, every turn. */
+test('M162: the coverage law reaches back only as far as the room allows', () => {
+  const pages = [];
+  for (let i = 0; i < 300; i += 1) pages.push({ role: i % 2 ? 'assistant' : 'user', content: 'a page of prose. '.repeat(60) });
+  /* the keeper folded the first ten and then went silent for the rest */
+  const nodes = [{ id: 'n1', span: [0, 9], text: 'the early pages', level: 1 }];
+
+  const roomy = windowPlan({ pages, memory: { window: 30, nodes }, budgetTokens: 2000000, prefixTokens: 0 });
+  eq(roomy.resting, 10, 'with room to spare the law holds whole — nothing uncovered falls');
+  eq(roomy.uncovered, 0, 'and nothing is left without a line');
+
+  const tight = windowPlan({ pages, memory: { window: 30, nodes }, budgetTokens: 20000, prefixTokens: 4000 });
+  assert(tight.carried >= 30, 'the keeper’s own window always rides (' + tight.carried + ')');
+  assert(tight.carried < 290, 'but a stalled keeper never puts the whole tale on the wire (' + tight.carried + ')');
+  assert(tight.uncovered > 0, 'and the pages still without a line are counted, not hidden');
+  eq(tight.resting, 10 + tight.uncovered, 'the arithmetic closes');
+
+  /* the receipt says so in plain words */
+  const r = buildRequest({
+    story: {}, messages: pages.map((p, i) => ({ id: 'm' + i, role: p.role, text: p.content })),
+    settings: {}, state: {}, modules: [], memory: 'the record',
+    window: { keeperOn: true, window: 30, nodes, budgetTokens: 20000 },
+  });
+  const slot8 = r.receipt.slots.find((s) => s.name === 'The story so far');
+  assert(/no line yet and would not fit the room/.test(slot8.source), 'the receipt names them: ' + slot8.source);
 });

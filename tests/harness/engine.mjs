@@ -1,10 +1,12 @@
 /* B14: the monotonic turn counter; lore retrieval rules; commands. */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
-import { emptyState, saveState, loadState } from '../../js/engine/state.js';
-import { applyMutations } from '../../js/engine/apply.js';
+import { emptyState, saveState, loadState, renderStateFacts } from '../../js/engine/state.js';
+import { applyMutations, storyTurn } from '../../js/engine/apply.js';
 import { matchLoreDetailed, parseLorebook, saveLore, loadLore, updateLoreEntry, removeLoreEntry, moveLoreEntry } from '../../js/import/lorebook.js';
 import { parseCommand } from '../../js/commands.js';
+import { addInjury, addStrain, findBodyKey, renderBodies } from '../../js/engine/bodies.js';
+import { renderCanon } from '../../js/engine/canon.js';
 
 test('B14: state.turn is monotonic and independent of the capped log', () => {
   let s = emptyState();
@@ -96,4 +98,64 @@ test('commands: the five words, asides, and honest passthrough', () => {
   assert(/isn’t a house command/.test(unknown.chip), 'unknown passes through with a hint');
   eq(unknown.clean, '#frobnicate the sword', 'words kept whole');
   eq(parseCommand('plain words').chip, '', 'plain words get no chip');
+});
+
+/* M162: addInjury looked the name up case-insensitively and addStrain did
+ * not — a ledger holding "Mara" and handed "mara" grew a SECOND body, and
+ * the same person stood twice, one of them invisible to every finder. */
+test('M162: strain obeys the body ledger’s name law — one body per person', () => {
+  let bodies = addInjury({}, 'Mara', { what: 'left forearm fractured', sev: 2 }, 100, 1);
+  bodies = addStrain(bodies, 'mara', { what: 'the long climb' }, 120, 2);
+  eq(Object.keys(bodies).length, 1, 'one body, not two');
+  eq(Object.keys(bodies)[0], 'Mara', 'the casing already written wins');
+  eq(bodies.Mara.injuries.length, 1, 'the wound stands');
+  eq(bodies.Mara.strain.length, 1, 'and the strain landed on the same person');
+  /* and a strain-first ledger still answers to the finders */
+  let other = addStrain({}, 'Tomas Vane', { what: 'a sleepless night' }, 10, 1);
+  other = addInjury(other, 'tomas vane', { what: 'a split lip', sev: 1 }, 20, 2);
+  eq(Object.keys(other).length, 1, 'strain first, then a wound — still one body');
+  eq(findBodyKey(other, 'TOMAS VANE'), 'Tomas Vane', 'the finder reaches it');
+  const line = renderBodies(other, 30, 3);
+  eq(line.split('\n').length, 1, 'and the state of things names them once');
+});
+
+test('M162: a bent canon entry never throws the state block', () => {
+  const canon = { Mara: null, Tomas: 'not an object', Iris: { facts: [{ key: 'eyes', value: 'grey' }] } };
+  const out = renderCanon(canon, ['Mara', 'Tomas', 'Iris']);
+  eq(out, 'Iris — eyes: grey.', 'the sound entry renders, the bent ones are stepped over');
+});
+
+/* M162: THE STORY TURN AND THE WRITE COUNTER ARE TWO DIFFERENT THINGS.
+ * state.turn counts mutation BATCHES — the extractor's, the world agent's,
+ * the scribe's, five more on an audit turn — and every AGE in the house was
+ * stamped and read in that unit. And the body ledger read its ages off
+ * state.log.length, a THIRD counter, capped at 200. */
+test('M162: ages are told in pages, and stay honest past the log’s cap', () => {
+  let st = emptyState();
+  const page = (n, extra = []) => {
+    st.page = n;
+    st = applyMutations(st, [{ type: 'presence.enter', name: 'Mara' }, ...extra]).state;
+    st = applyMutations(st, [{ type: 'world.word', brief: { pressure: ['a rider'], ripe: [], twb: null } }]).state;
+    st = applyMutations(st, [{ type: 'people.note', name: 'Mara', field: 'state', text: 'watchful by the door' }]).state;
+  };
+  page(0, [{ type: 'body.injure', name: 'Mara', what: 'a split lip', sev: 2 }]);
+  for (let p = 1; p < 12; p += 1) page(p);
+
+  eq(storyTurn(st), 12, 'twelve pages told');
+  assert(st.turn > 30, 'while the write counter has run far ahead (' + st.turn + ')');
+  const line = renderStateFacts(st).split('\n').find((l) => /split lip/.test(l));
+  assert(/11 turns on/.test(line), 'the wound is eleven pages old, and says so: ' + line);
+  assert(!/24 turns on/.test(line), 'never the write count');
+
+  /* past the log's 200 cap the old reader went negative and clamped to zero,
+   * so every wound read "just now" for the rest of the tale */
+  for (let p = 12; p < 90; p += 1) st = applyMutations({ ...st, page: p }, [{ type: 'presence.update', name: 'Mara', position: 'by the fire' }]).state;
+  const later = renderStateFacts(st).split('\n').find((l) => /split lip/.test(l));
+  assert(/89 turns on/.test(later), 'and still honest at page ninety: ' + later);
+  assert(!/just now/.test(later), 'never "just now"');
+});
+
+test('M162: a ledger with no page stamp still ages the old way', () => {
+  const st = { ...emptyState(), page: -1, turn: 7 };
+  eq(storyTurn(st), 7, 'before any page, the write counter stands in');
 });

@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m161-001)
+# Cozy Tavern — handoff for the next session (state at m162-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M161). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M162). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 402 checks on the engines, assembler, workers, laws.
-- `cd tests/dom && node run.mjs` — the walk: 35 scenarios of the real app in jsdom (every button,
+- `node tests/harness/run.mjs` — 413 checks on the engines, assembler, workers, laws.
+- `cd tests/dom && node run.mjs` — the walk: 36 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -41,6 +41,10 @@ Full history of every law and fix: AGENTS.md (M1 … M161). SPEC.md holds the fo
   pages with an older telling. A tale let go leaves a tombstone the manifest names, so no browser
   resurrects or re-uploads it. A tale's settings rows go by SUFFIX, never a hand-written list of
   prefixes (storyKeys); db.sweepOrphans() at boot clears rows whose tale is already gone.
+- Ages are told in PAGES (M162): storyTurn(state) is the unit every age is stamped and read in.
+  state.turn counts mutation BATCHES and is not an age. Never read an age off state.log.length.
+- The coverage law (M12) only runs when the window is handed the record's nodes, and it reaches
+  back only as far as the connection's room allows (M162) — both held by laws in stack.mjs.
 - Nothing hands the reader a task (M160): a history change during a rebuild waits on
   waitForRebuild() and then runs itself — it is never refused with "try again".
 - Data: serve.py keeps ONE FILE PER TALE in ~/.cozytavern/books/ (plus _house.json) — M155,

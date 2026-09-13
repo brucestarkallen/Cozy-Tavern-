@@ -144,6 +144,22 @@ function turnOf(state) {
   return Number.isFinite(state.turn) ? state.turn : 0;
 }
 
+/* M162: THE STORY TURN, AND THE WRITE COUNTER, ARE TWO DIFFERENT THINGS.
+ * state.turn counts mutation BATCHES — the extractor's, the world agent's,
+ * the scribe's, five more on any turn the auditor runs — and every age in
+ * the house was stamped and read in that unit. Measured: after twelve pages
+ * a wound taken on page one was handed to the storyteller as "24 turns on",
+ * and a character noted the same page read "last seen 24 turns ago". Worse,
+ * the body ledger READ its ages off state.log.length, which is capped at
+ * 200 — so past that the same wound flipped to "just now" and stayed there
+ * forever. Every AGE is stamped and read in pages told, which is what a
+ * reader means by a turn. state.turn keeps its own meaning (B14's monotonic
+ * write counter) and its own tests. */
+export function storyTurn(state) {
+  if (!state || typeof state !== 'object') return 0;
+  return Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : turnOf(state);
+}
+
 /* Free text the ledgers accept: cleaned, and capped so no single note can
  * blow the state-of-things render budget. Over-long text is trimmed, not
  * rejected — the meaning usually survives the trim. */
@@ -284,7 +300,7 @@ const HANDLERS = {
     if (attire) entry.attire = attire;
     state.present.push(entry);
     /* M57: someone who walks in is no longer passed through */
-    { const key = findPersonKey(state.characters, name); if (key && state.characters[key] && state.characters[key].retired) { const { retired, retiredAtTurn, ...rest } = state.characters[key]; state.characters[key] = { ...rest, updatedAtTurn: turnOf(state) }; } }
+    { const key = findPersonKey(state.characters, name); if (key && state.characters[key] && state.characters[key].retired) { const { retired, retiredAtTurn, ...rest } = state.characters[key]; state.characters[key] = { ...rest, updatedAtTurn: storyTurn(state) }; } }
     let words = name + ' came into the scene';
     const detail = [position, attire].filter(Boolean).join(', ');
     if (detail) words += ' — ' + detail;
@@ -380,7 +396,7 @@ const HANDLERS = {
     state.bodies = addInjury(
       state.bodies, key,
       { what, sev: m.sev, treated: m.treated },
-      clockMinutesOf(state), turnOf(state)
+      clockMinutesOf(state), storyTurn(state)
     );
     const sev = state.bodies[key].injuries[state.bodies[key].injuries.length - 1].sev;
     const words = key + ' was hurt — ' + what + ' (' + (SEV_WORDS[sev] || SEV_WORDS[1])
@@ -395,7 +411,7 @@ const HANDLERS = {
     if (!what) return { why: 'it didn’t say what wore them down' };
     const key = findBodyKey(state.bodies, name) || name;
     const before = state.bodies[key] ? cloneMap({ [key]: state.bodies[key] })[key] : null;
-    state.bodies = addStrain(state.bodies, key, { what }, clockMinutesOf(state), turnOf(state));
+    state.bodies = addStrain(state.bodies, key, { what }, clockMinutesOf(state), storyTurn(state));
     return {
       words: key + ' is worn — ' + what + '.',
       undo: { kind: 'body.restore', name: key, before },
@@ -537,7 +553,7 @@ const HANDLERS = {
     state.offscreen = seat(
       state.offscreen, key,
       { location, activity, agenda: capText(m.agenda, 140), stance, etaMinutes },
-      clockMinutesOf(state), turnOf(state)
+      clockMinutesOf(state), storyTurn(state)
     );
     let words = 'Elsewhere: ' + key + ' — ' + [location, activity].filter(Boolean).join(', ');
     if (stance === 'toward' || stance === 'seeking') words += ' — ' + (stance === 'toward' ? 'heading this way' : 'looking for ' + mcName(state));
@@ -610,7 +626,7 @@ const HANDLERS = {
     const at = findThread(before, title);
     state.threads = setThread(state.threads, {
       title, owner: capText(m.owner, 60), heat: heat === 'cold' ? 'cold' : (heat === 'hot' ? 'hot' : undefined), next: capText(m.next, 200),
-    }, turnOf(state));
+    }, storyTurn(state));
     const words = (at === -1 ? 'A thread opened: ' : 'A thread moved: ') + title
       + (capText(m.next, 200) ? ' — next, ' + capText(m.next, 200).replace(/\.+$/, '') : '')
       + (heat === 'cold' ? ' (gone cold)' : '') + '.';
@@ -633,7 +649,7 @@ const HANDLERS = {
     if (!fact) return { why: 'it didn’t say what ' + name + ' learned' };
     const key = findKnowledgeKey(state.knowledge, name) || name;
     const before = state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key].map((k) => ({ ...k })) : null;
-    const next = addKnowledge(state.knowledge, key, fact, turnOf(state));
+    const next = addKnowledge(state.knowledge, key, fact, storyTurn(state));
     const after = next[key] || [];
     if (before && after.length === before.length) return { why: key + ' already knows that' };
     state.knowledge = next;
@@ -649,7 +665,7 @@ const HANDLERS = {
     if (!stance && !agenda && !move) return { why: 'it didn’t say what ' + name + ' wants or did' };
     const key = findFactionKey(state.factions, name) || name;
     const before = state.factions && state.factions[key] ? { ...state.factions[key] } : null;
-    state.factions = setFaction(state.factions, key, { stance, agenda, move }, turnOf(state));
+    state.factions = setFaction(state.factions, key, { stance, agenda, move }, storyTurn(state));
     const words = key + (move ? ' moved: ' + move.replace(/\.+$/, '') : (stance ? ' stands ' + stance.replace(/\.+$/, '') : ' wants ' + agenda.replace(/\.+$/, ''))) + '.';
     return { words, undo: { kind: 'faction.restore', name: key, before } };
   },
@@ -661,7 +677,7 @@ const HANDLERS = {
     if (!key) return { why: 'no page stands for ' + String(m.name || '?') };
     if (state.characters[key].retired) return { why: key + ' has already passed through' };
     const before = cloneMap({ [key]: state.characters[key] })[key];
-    state.characters[key] = { ...state.characters[key], retired: true, retiredAtTurn: turnOf(state) };
+    state.characters[key] = { ...state.characters[key], retired: true, retiredAtTurn: storyTurn(state) };
     return { words: key + ' passed through — ' + (capText(m.cause, 160) || 'no bond, no seat, no thread, and thirty turns gone') + '.', undo: { kind: 'people.restore', name: key, before } };
   },
   /* M100: people.rename — a name changed by the writer's hand is changed
@@ -718,13 +734,13 @@ const HANDLERS = {
     if (!key || !state.characters[key].retired) return { why: 'no one by that name is passed through' };
     const before = cloneMap({ [key]: state.characters[key] })[key];
     const { retired, retiredAtTurn, ...rest } = state.characters[key];
-    state.characters[key] = { ...rest, updatedAtTurn: turnOf(state) };
+    state.characters[key] = { ...rest, updatedAtTurn: storyTurn(state) };
     return { words: key + ' is back in the story.', undo: { kind: 'people.restore', name: key, before } };
   },
 
   'people.set'(state, m) {
     const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
-    const result = setPersonField(state, state.characters, m.name, field, m.text, turnOf(state));
+    const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state));
     if (!result.entry) return { why: result.why };
     const before = result.before ? cloneMap({ [result.key]: result.before })[result.key] : null;
     if (result.entry.retired) { const { retired, retiredAtTurn, ...rest } = result.entry; result.entry = rest; } /* M57: a page written wakes them */
@@ -748,7 +764,7 @@ const HANDLERS = {
    * record-only law, the contamination guard, thread/unthread. One delta
    * per mutation so every write has its own line and its own take-back. */
   'people.note'(state, m) {
-    const { characters, changes, dropped } = mergeDeltas(state, state.characters, [{ name: m.name, field: m.field, text: m.text }], turnOf(state));
+    const { characters, changes, dropped } = mergeDeltas(state, state.characters, [{ name: m.name, field: m.field, text: m.text }], storyTurn(state));
     if (!changes.length) return { why: (dropped[0] && dropped[0].why) || 'the note said nothing new' };
     const key = changes[0].name;
     const before = state.characters && state.characters[key] ? cloneMap({ [key]: state.characters[key] })[key] : null;
@@ -770,7 +786,9 @@ const HANDLERS = {
    * brief is stamped with this batch's turn; a window opened is remembered
    * (worldShown, the last six) so "never the same beat twice" holds. */
   'world.word'(state, m) {
-    const brief = normalizeBrief(m.brief, turnOf(state));
+    /* M162: stamped with the PAGE it was written for as well as the batch
+     * count — the batch count is bumped by every writer in the chain. */
+    const brief = normalizeBrief(m.brief, storyTurn(state), Number.isInteger(state.page) ? state.page : null);
     const before = {
       brief: state.worldBrief ? JSON.parse(JSON.stringify(state.worldBrief)) : null,
       shown: Array.isArray(state.worldShown) ? state.worldShown.map((w) => ({ ...w })) : [],
@@ -870,7 +888,7 @@ const HANDLERS = {
       const what = capText('wounds taken in the fight with ' + (h.foe || 'their foe'), 140);
       state.bodies = addInjury(state.bodies, key,
         { what, sev: h.injuries >= 2 ? 3 : 2, treated: false },
-        clockMinutesOf(state), turnOf(state));
+        clockMinutesOf(state), storyTurn(state));
       bits.push(key + ' carries the fight’s marks (' + (SEV_WORDS[h.injuries >= 2 ? 3 : 2] || 'hurt') + ', untreated).');
     }
     const words = 'The fight has ebbed.' + (bits.length ? ' ' + bits.join(' ') : '');

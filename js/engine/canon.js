@@ -110,7 +110,11 @@ export function renderCanon(canon, presentNames) {
     if (!who) continue;
     const canonKey = findCanonKey(canon, who);
     if (!canonKey) continue;
-    const facts = Array.isArray(canon[canonKey].facts) ? canon[canonKey].facts : [];
+    /* M162: findCanonKey only reads the KEYS — a bent entry (null, a string)
+     * under a real name reached `.facts` and threw the whole state block. */
+    const entry = canon[canonKey];
+    if (!entry || typeof entry !== 'object') continue;
+    const facts = Array.isArray(entry.facts) ? entry.facts : [];
     const shown = facts
       .filter((f) => f && typeof f.key === 'string' && typeof f.value === 'string' && f.key.trim() && f.value.trim())
       .slice(0, FACTS_SHOWN)

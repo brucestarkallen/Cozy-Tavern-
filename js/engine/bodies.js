@@ -121,14 +121,22 @@ export function addStrain(bodies, name, { what } = {}, clockMinutes, atTurn) {
   const next = copyBodies(bodies);
   const who = cleanText(name);
   if (!who) return next;
-  if (!next[who]) next[who] = { injuries: [], strain: [] };
-  next[who].strain.push({
+  /* M162: THE CASING ALREADY WRITTEN WINS — for strain too. addInjury looked
+   * the key up case-insensitively and addStrain did not, so a ledger holding
+   * "Mara" from a wound and handed "mara" for a strain grew a SECOND body,
+   * and the same person stood twice in the drawer and in the state of things
+   * — one of them invisible to findBodyKey, findInjury and body.heal. Today
+   * apply.js resolves the key before it calls in, so the room was spared;
+   * the function was still lying about its own law. */
+  const key = findBodyKey(next, who) || who;
+  if (!next[key]) next[key] = { injuries: [], strain: [] };
+  next[key].strain.push({
     what: cleanText(what),
     atMinutes: minutesOrNull(clockMinutes),
     atTurn: Number.isFinite(atTurn) ? atTurn : null,
   });
-  if (next[who].strain.length > MAX_STRAIN_KEPT) {
-    next[who].strain = next[who].strain.slice(next[who].strain.length - MAX_STRAIN_KEPT);
+  if (next[key].strain.length > MAX_STRAIN_KEPT) {
+    next[key].strain = next[key].strain.slice(next[key].strain.length - MAX_STRAIN_KEPT);
   }
   return next;
 }

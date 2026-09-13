@@ -30,6 +30,7 @@
  */
 
 import { isMcAlias, mcName } from './duels.js';
+import { storyTurn } from './apply.js';
 
 /* Field caps — the ledger holds brushstrokes, not chapters. */
 export const CORE_CAP = 300;
@@ -369,7 +370,9 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0 } = {}
   });
   if (!keys.length) return null;
 
-  const turn = Number.isFinite(state.turn) ? state.turn : 0;
+  /* M162: pages told, the unit the stamps use — state.turn counts writes,
+   * so "last noted 24 turns ago" was really eleven pages. */
+  const turn = storyTurn(state);
   const present = (Array.isArray(state.present) ? state.present : [])
     .map((p) => p && p.name).filter(Boolean)
     .filter((name) => !isMc(state, name));

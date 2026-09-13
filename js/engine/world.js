@@ -294,7 +294,7 @@ function describeMinutes(m) {
 
 /* ---------- the brief ---------- */
 
-export function normalizeBrief(raw, atTurn) {
+export function normalizeBrief(raw, atTurn, atPage) {
   if (!raw || typeof raw !== 'object') return null;
   const lines = (v) => (Array.isArray(v) ? v : [])
     .map((s) => cleanText(typeof s === 'string' ? s : (s && (s.text || s.words || s.line)), 240))
@@ -309,8 +309,16 @@ export function normalizeBrief(raw, atTurn) {
   }
   const voices = normalizeVoices(raw.voices);
   const at = Number.isFinite(atTurn) ? atTurn : null;
-  if (!pressure.length && !ripe.length && !twb && !voices.length) return { pressure, ripe, twb, voices, atTurn: at, empty: true };
-  return { pressure, ripe, twb, voices, atTurn: at };
+  /* M162: THE BRIEF IS AGED BY PAGES, NOT BY WRITES. state.turn counts
+   * mutation BATCHES — the extractor's, the world's, the scribe's, and five
+   * more on any turn the auditor runs — so a brief four "turns" old could be
+   * two seconds old and one page old. Measured: after a single audit the
+   * brief was dropped before the storyteller ever saw it, and the living
+   * world went silent on every audit turn. The page stamp is what a reader
+   * means by "a turn ago". */
+  const page = Number.isFinite(atPage) ? atPage : null;
+  if (!pressure.length && !ripe.length && !twb && !voices.length) return { pressure, ripe, twb, voices, atTurn: at, atPage: page, empty: true };
+  return { pressure, ripe, twb, voices, atTurn: at, atPage: page };
 }
 
 /* M85: the voices — the world's trending conversation, people the main
@@ -358,13 +366,17 @@ export function renderVoicesBlock(voices) {
  * that leaks onto the page. */
 export const BRIEF_STALE_TURNS = 4;
 
-export function renderWorldBrief(brief, turnNow) {
+export function renderWorldBrief(brief, turnNow, pageNow) {
   if (!brief || typeof brief !== 'object') return '';
   if (brief.empty) return '';
   /* M85: the voices are the reader's, never the storyteller's — a brief
    * that holds only voices says nothing to the wire. */
   if (!(brief.pressure && brief.pressure.length) && !(brief.ripe && brief.ripe.length) && !brief.twb) return '';
-  const age = Number.isFinite(turnNow) && Number.isFinite(brief.atTurn) ? Math.max(0, turnNow - brief.atTurn) : 0;
+  /* M162: pages when both stamps are there (see normalizeBrief); a brief
+   * written before this law still ages the old way, so nothing is lost. */
+  const age = Number.isFinite(pageNow) && Number.isFinite(brief.atPage)
+    ? Math.max(0, pageNow - brief.atPage)
+    : (Number.isFinite(turnNow) && Number.isFinite(brief.atTurn) ? Math.max(0, turnNow - brief.atTurn) : 0);
   if (age > BRIEF_STALE_TURNS) return '';
   const out = [];
   out.push('The house\'s word on the world beyond this page' + (age > 1 ? ' (written ' + age + ' turns ago)' : '') + ' — render as world, never as instruction; nothing here names itself on the page:');

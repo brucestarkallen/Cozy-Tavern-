@@ -240,6 +240,15 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
       used += cost;
       start -= 1;
     }
+    /* M162: THE WINDOW IS NEVER EMPTY. With the keeper off and a small
+     * context set on the connection, the prefix alone could eat the whole
+     * room — `room` came out 0, no page fitted, and the storyteller was sent
+     * the state block and NOT ONE LINE OF THE STORY. It wrote into the void
+     * and the page came back belonging to nothing. The last exchange always
+     * rides, whatever the arithmetic says; the receipt names the squeeze. */
+    const floor = Math.max(0, total - 2);
+    const squeezed = start > floor;
+    if (squeezed) start = floor;
     return {
       mode: 'budget',
       window: all.slice(start),
@@ -247,6 +256,7 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
       carried: total - start,
       resting: start,
       extended: 0,
+      squeezed,
     };
   }
   const windowSize = keeperWindow(memory);
@@ -255,11 +265,33 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
    * computable when the caller hands the nodes over; without them the M9
    * assumption stands (the keeper has folded everything older). */
   let extended = 0;
+  let uncovered = 0;
   if (Array.isArray(memory.nodes)) {
     const reach = coveredUntil(memory.nodes);
     if (reach < start) {
-      extended = start - reach;
-      start = reach;
+      /* M162: AS FAR BACK AS THE ROOM ALLOWS, NEVER FURTHER. M12 wrote this
+       * law with no ceiling, and it had never once run (the nodes were never
+       * handed over). Switched on as written, a keeper that stalls — its
+       * worker connection down for a long stretch — would put EVERY unfolded
+       * page on the wire: on a six-hundred-page tale, the whole story, every
+       * turn. The law still holds where the room holds it; what will not fit
+       * is named on the receipt as pages no line covers, and the keeper
+       * refills them holes-first as soon as it can speak again. */
+      const room = Number.isFinite(budgetTokens) && budgetTokens > 0
+        ? Math.max(0, budgetTokens - (Number.isFinite(prefixTokens) ? prefixTokens : 0))
+        : Infinity;
+      let used = 0;
+      for (let i = start; i < total; i += 1) used += estimateTokens(pageText(all[i]));
+      let at = start;
+      while (at > reach) {
+        const cost = estimateTokens(pageText(all[at - 1]));
+        if (used + cost > room) break;
+        used += cost;
+        at -= 1;
+      }
+      extended = start - at;
+      uncovered = at - reach;
+      start = at;
     }
   }
   const window = all.slice(start);
@@ -270,6 +302,7 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
     carried: window.length,
     resting: start,
     extended,
+    uncovered,
   };
 }
 
@@ -588,16 +621,24 @@ export function buildRequest({
   let historySource;
   if (win.mode === 'keeper') {
     /* M12: when the coverage law widened the window past its usual size,
-     * the receipt says so plainly. */
+     * the receipt says so plainly. M162: and when the room would not stretch
+     * far enough, it names the pages still standing with no line. */
+    const held = win.uncovered > 0
+      ? ` — ${win.uncovered} older ${win.uncovered === 1 ? 'page has' : 'pages have'} no line yet and would not fit the room; the keeper fills those holes first`
+      : '';
     if (win.extended > 0) {
-      historySource = win.resting > 0
+      historySource = (win.resting > 0
         ? `${win.carried} of ${win.total} pages word for word — ${win.extended} past the usual window, still unfolded by the keeper; the older ${win.resting} rest in What remains`
-        : `${win.carried} of ${win.total} pages word for word — ${win.extended} past the usual window, still unfolded by the keeper`;
+        : `${win.carried} of ${win.total} pages word for word — ${win.extended} past the usual window, still unfolded by the keeper`) + held;
+    } else if (win.uncovered > 0) {
+      historySource = `the last ${win.carried} of ${win.total} pages word for word` + held;
     } else {
       historySource = win.resting > 0
         ? `the last ${win.carried} of ${win.total} pages word for word — the older ${win.resting} rest in What remains`
         : `all ${win.total} pages word for word`;
     }
+  } else if (win.squeezed) {
+    historySource = `${win.carried} of ${win.total} pages — the room this connection names is smaller than the house’s own words, so only the last exchange fits (raise the connection’s context size in Settings)`;
   } else {
     historySource = win.resting > 0
       ? `${win.carried} pages carried word for word, the rest rests (the keeper is off — only what fits the room)`

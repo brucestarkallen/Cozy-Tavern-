@@ -1335,6 +1335,19 @@ test('DOM-16 nothing leaked: zero errors across the whole walk', () => {
   eq(errors.length, 0, errors.join(' | '));
 });
 
+/* M162: a page dressed by a display rule into deep markup used to overflow
+ * renderHtmlProse's walk; msgNode called it bare and renderThread calls
+ * msgNode in a plain loop, so ONE such page blanked the whole room. */
+test('DOM-17 a page dressed too deep still renders, and the room stays whole', async () => {
+  const { renderHtmlProse } = await import('../../js/ui/richhtml.js');
+  const deep = '<div>'.repeat(400) + 'the lantern swung' + '</div>'.repeat(400);
+  let frag = null;
+  let threw = '';
+  try { frag = renderHtmlProse(deep); } catch (err) { threw = String(err && err.message || err); }
+  eq(threw, '', 'the walk does not overflow');
+  assert(frag && /the lantern swung/.test(frag.textContent), 'and the words still reach the reader');
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

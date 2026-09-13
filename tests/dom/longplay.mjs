@@ -250,8 +250,21 @@ test('LONG-4 the context handed to the storyteller stays flat: turns 60-89 cost 
   assert(mb <= ma * 1.15, 'flat: late turns cost no more than ' + Math.round(ma * 1.15) + ', got ' + Math.round(mb));
   assert(maxB <= ma * 1.25, 'no late turn balloons: ' + maxB);
   const win = receipts[receipts.length - 1].slots.find((s) => s.name === 'The story so far');
-  const n = win && win.source ? Number((win.source.match(/the last (\d+) of/) || win.source.match(/(\d+) pages?/) || [])[1]) : NaN;
-  assert(Number.isFinite(n) && n <= 30, 'the verbatim window is the keeper’s (≤30): ' + (win && win.source));
+  const src = String(win && win.source || '');
+  /* the carried count is the FIRST number, in every form the receipt takes:
+   * "N of T pages", "the last N of T pages", "all T pages word for word" */
+  const n = /^all /.test(src)
+    ? Number((src.match(/all (\d+) pages/) || [])[1])
+    : Number((src.match(/(?:^|the last )(\d+) of \d+ pages/) || [])[1]);
+  /* M162: the keeper's window, PLUS whatever the keeper has not folded yet —
+   * the coverage law (M12) never lets a page fall that no line covers. That
+   * law had never once run (the send path never handed the window the record's
+   * nodes), so this used to read a flat ≤30. The extension is bounded by the
+   * room and named on the receipt; a stall can only widen it so far. */
+  const past = Number((src.match(/(\d+) past the usual window/) || [])[1]) || 0;
+  assert(Number.isFinite(n), 'the receipt names how many pages rode: ' + src);
+  assert(n - past <= 30, 'the verbatim window is the keeper’s (≤30) plus only what it has not folded: ' + src);
+  assert(past <= 30, 'and the unfolded tail never runs away: ' + past + ' past the window');
   const mem = await db.settings.get('memory:' + sid);
   assert(mem && Array.isArray(mem.nodes) && mem.nodes.length >= 3, 'the record folded the older pages: ' + (mem && mem.nodes && mem.nodes.length));
   const remains = receipts[receipts.length - 1].slots.find((s) => s.name === 'What remains');

@@ -48,6 +48,7 @@ import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge } from 
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters } from './people.js';
+import { storyTurn } from './apply.js';
 
 const KEY_PREFIX = 'state:';
 
@@ -474,7 +475,11 @@ export function renderStateFacts(state) {
   if (!state || typeof state !== 'object') return '';
 
   const clockMinutes = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
-  const turnCount = Array.isArray(state.log) ? state.log.length : 0;
+  /* M162: the ages are read in PAGES TOLD, the same unit they are stamped in.
+   * This was state.log.length — a different counter from the one the stamps
+   * used, and capped at 200, so past that cap every age went negative, was
+   * clamped to zero, and a months-old wound read "just now" forever. */
+  const turnCount = storyTurn(state);
   const present = Array.isArray(state.present) ? state.present : [];
 
   /* Sections, most vital first. `shed` ranks what goes first when the

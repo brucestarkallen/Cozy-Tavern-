@@ -208,7 +208,7 @@ test('M29-10 the house knows the world agent: chain order, roster, workers ledge
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   const a = chat.indexOf("enqueue('extractor'"); const w = chat.indexOf("enqueue('world'"); const sc = chat.indexOf("enqueue('scribe'");
   assert(a > -1 && w > a && sc > w, 'the world agent runs after the extractor and before the scribe');
-  assert(/worldBrief: renderWorldBrief\(state\.worldBrief, state\.turn\)/.test(chat), 'the brief reaches buildRequest');
+  assert(/worldBrief: renderWorldBrief\(state\.worldBrief, state\.turn, state\.page\)/.test(chat), 'the brief reaches buildRequest');
   assert(WORKER_ROWS.some(([k]) => k === 'world'), 'hands of its own');
   assert(WORKER_NAMES.includes('world'), 'the workers ledger knows it');
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');

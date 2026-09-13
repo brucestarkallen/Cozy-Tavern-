@@ -84,3 +84,21 @@ test('M14 frame seeding: empty is not wiped (?? not ||)', () => {
   eq(undefined ?? 'starter', 'starter');
   eq('' ?? 'starter', '');
 });
+
+/* M162: renderHtmlProse recursed with no limit, and renderThread calls
+ * msgNode in a bare loop — one page dressed into deep markup would throw and
+ * blank the whole room. (The rendering itself is walked in the DOM suite,
+ * where there is a document; here the guards are held to account.) */
+test('M162: the HTML walk has a floor, and msgNode catches what it cannot dress', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const rich = fs.readFileSync(path.join(here, '../../js/ui/richhtml.js'), 'utf8');
+  assert(/const MAX_DEPTH = \d+;/.test(rich), 'the walk knows a maximum depth');
+  assert(/function walk\(src, host, depth = 0\)/.test(rich), 'and carries it down');
+  assert(/if \(depth > MAX_DEPTH\) \{ appendText\(host, src\.textContent \|\| ''\); return; \}/.test(rich), 'past it the branch renders as its text, which is always readable');
+  assert(/walk\(node, el, depth \+ 1\)/.test(rich), 'every step counts');
+  const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
+  const at = chat.indexOf('body.appendChild(renderHtmlProse(shown));');
+  assert(at !== -1, 'msgNode still dresses a styled page');
+  assert(/try \{\s*$/m.test(chat.slice(at - 220, at)), 'inside a try — one unrenderable page never blanks the room');
+  assert(/\} catch \(err\) \{[\s\S]{0,400}renderRich\(part\.text\)/.test(chat.slice(at, at + 900)), 'and falls back to the plain prose');
+});

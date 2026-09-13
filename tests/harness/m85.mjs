@@ -7,7 +7,7 @@ import { test, assert, eq } from './lib.mjs';
 import { CRAFT_TEXT, looksLikeImportedCraft } from '../../js/assemble/craft.js';
 import { listModules, selectModules, saveModule, removeModule, typedIntimacy } from '../../js/assemble/modules.js';
 import { parseCommand, commandChip } from '../../js/commands.js';
-import { normalizeBrief, normalizeVoices, renderVoicesBlock, renderWorldBrief, VOICES_MAX } from '../../js/engine/world.js';
+import { normalizeBrief, normalizeVoices, renderVoicesBlock, renderWorldBrief, VOICES_MAX, BRIEF_STALE_TURNS } from '../../js/engine/world.js';
 import { buildWorldMessages, parseWorldAnswer } from '../../js/agents/world.js';
 import { applyMutations } from '../../js/engine/apply.js';
 import { emptyState } from '../../js/engine/state.js';
@@ -801,4 +801,34 @@ test('M134-1 loose ends close on sense and the list evicts the oldest; the hour�
   eq(hourLaw({ minutes: 14 * 60 }), '');
   const m = buildWorldMessages({ state: { ...emptyState(), clock: { minutes: 23 * 60 } }, userText: 'x', assistantText: 'y', jumpedMinutes: 6 * 60 });
   assert(/THE SMALL HOURS/.test(m.system) && /THE CLOCK JUMPED 6 hours/.test(m.system) && /re-seat EVERY absent person/.test(m.system), 'the jump and the hour ride');
+});
+
+/* M162: THE BRIEF IS AGED BY PAGES, NOT BY WRITES. state.turn counts
+ * mutation BATCHES — the extractor's, the world's, the scribe's, and five
+ * more on any turn the auditor runs. Measured before the fix: one audit and
+ * the world agent's brief was dropped before the storyteller ever saw it,
+ * so the living world went silent on every audit turn. */
+test('M162: the world’s word survives the chain, the scribe and a whole audit', () => {
+  let st = emptyState();
+  st.page = 5;
+  st = applyMutations(st, [{ type: 'world.word', brief: { pressure: ['A rider is an hour out on the north road.'], ripe: [], twb: null } }]).state;
+  eq(st.worldBrief.atPage, 5, 'the brief knows the page it was written for');
+  const reaches = () => Boolean(renderWorldBrief(st.worldBrief, st.turn, st.page));
+  assert(reaches(), 'it reaches the storyteller as written');
+  st = applyMutations(st, [{ type: 'people.note', name: 'Mara', field: 'state', text: 'watchful' }]).state;
+  assert(reaches(), 'after the scribe');
+  for (let i = 0; i < 5; i += 1) st = applyMutations(st, [{ type: 'presence.update', name: 'Mara', position: 'by the door' }]).state;
+  assert(reaches(), 'and after a whole audit’s five batches — the world does not go silent');
+  /* the page the brief was written for, then the next: still fresh */
+  st.page = 6;
+  assert(reaches(), 'on the very next page');
+  /* but a brief genuinely left behind still goes quiet */
+  st.page = 5 + BRIEF_STALE_TURNS + 1;
+  assert(!reaches(), 'a brief truly left behind is not spoken');
+});
+
+test('M162: a brief from before the page stamp still ages the old way', () => {
+  const old = { pressure: ['something'], ripe: [], twb: null, atTurn: 3 };
+  assert(renderWorldBrief(old, 4, 99), 'an old brief within its turns still speaks');
+  assert(!renderWorldBrief(old, 40, 99), 'and an old brief long past still goes quiet');
 });
