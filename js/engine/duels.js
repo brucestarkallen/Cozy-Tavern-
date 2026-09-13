@@ -629,7 +629,12 @@ export function startBattle(state, { allies, enemies, domain, scaleMismatch, opp
     injuries: 0, momentum: 0, opening: false, standing: true, isPlayer: true,
   };
   const allyUnits = buildUnits(state, (allies || []).filter((n) => !isMcAlias(state, n)), d, false, null, eng);
-  const enemyUnits = buildUnits(state, enemies || [], d, true, oppEstimate, eng);
+  /* M177: THE WRITER IS NEVER ON THE ENEMY LINE — at the ENGINE, not only in
+   * the referee's normalizer. combat.begin is a mutation like any other, and
+   * the housekeeper can write one by hand through <ledits>; only the ally
+   * roster was ever filtered here, so a hand-written fight could still build
+   * an enemy unit out of the main character and set them against themselves. */
+  const enemyUnits = buildUnits(state, (enemies || []).filter((n) => !isMcAlias(state, n)), d, true, oppEstimate, eng);
   if (!enemyUnits.length) return null;
   persistFightEstimates(state); // mode exclusivity must not lose an estimated foe's baseline
   state.duel = null;
@@ -853,7 +858,8 @@ export function startWar(state, { allies, enemies, enemyCommander, scaleMismatch
     return units;
   };
   const allyUnits = mkUnits((allies || []).filter((n) => !isMcAlias(state, n)), false);
-  const enemyUnits = mkUnits(enemies || [], true);
+  /* M177: the same law on the war's line (see startBattle). */
+  const enemyUnits = mkUnits((enemies || []).filter((n) => !isMcAlias(state, n)), true);
   /* A war needs BOTH lines — an empty allied line is not a rout, it's a
    * refusal: the turn falls through to an honest check or duel instead of
    * a fabricated defeat. */

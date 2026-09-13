@@ -596,3 +596,28 @@ test('M176: the writer is never on the other side, and the odds reach the field'
   const begin = src.slice(src.indexOf("'combat.begin'(state, m)"), src.indexOf("'combat.begin'(state, m)") + 2600);
   eq((begin.match(/scaleMismatch: m\.scaleMismatch/g) || []).length, 3, 'all three fights read it from the mutation');
 });
+
+/* M177: combat.begin is a mutation like any other and the housekeeper can
+ * write one by hand through <ledits>. Only the ALLY roster was filtered in
+ * the engines, so a hand-written fight could still build an enemy unit out
+ * of the main character. The referee's normalizer guards the model's path;
+ * this guards every path. */
+test('M177: the engine keeps the writer off the enemy line, however the fight was written', async () => {
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  const base = { ...emptyState(), sheet: { actors: {}, playerName: 'Jovan' } };
+
+  const battle = applyMutations({ ...base, duel: null, battle: null },
+    [{ type: 'combat.begin', kind: 'battle', allies: ['Mira'], enemies: ['a raider', 'Jovan'], engine: {} }]).state.battle;
+  eq(battle.enemies.map((u) => u.name).join(','), 'a raider', 'a hand-written battle keeps him off the enemy line');
+  assert(battle.allies.some((u) => u.isPlayer), 'and he is where he belongs');
+
+  const war = applyMutations({ ...base, duel: null, battle: null },
+    [{ type: 'combat.begin', kind: 'war', allies: ['the left wing'], enemies: ['the black company', 'Jovan'], engine: {} }]).state.battle;
+  eq(war.enemies.map((u) => u.name).join(','), 'the black company', 'and a hand-written war too');
+
+  /* a fight whose ONLY enemy was the writer is no fight at all */
+  const none = applyMutations({ ...base, duel: null, battle: null },
+    [{ type: 'combat.begin', kind: 'battle', allies: ['Mira'], enemies: ['Jovan'], engine: {} }]);
+  eq(none.applied.length, 0, 'and one with no enemy left never opens');
+});

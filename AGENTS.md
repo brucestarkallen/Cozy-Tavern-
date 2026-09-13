@@ -3897,3 +3897,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   for all three, and a law checks that all three read it from the mutation.
 - 436/436 harness (+1 law) + 36/36 walk + 8/8 play, each run alone + the anchor differential +
   the two-browser proof + the coat proof + the contrast audit. version.js -> m176-001.
+
+# M177 — the engine keeps the writer off the enemy line, however the fight was written
+- combat.begin is a MUTATION like any other, and the housekeeper can write one by hand through
+  <ledits>. M176 closed the referee's normalizer; the engines themselves filtered only the ALLY
+  roster, so a hand-written battle or war could still build an enemy unit out of the main
+  character and set the writer against himself. Both startBattle and startWar filter the enemy
+  line now, and a fight whose only enemy was the writer never opens at all.
+- Read in full this pass: engine/duels.js's morale and composure shock, the sheet's conditions
+  (applyConditionChange, refreshLiveRating, persistFightEstimates), startDuel, startWar's
+  formation building, resolveWarRound whole (its outcome-only path, its stratagem effects, the
+  auto-pairing of the rest of the line, and the collapse-and-rout arithmetic — war formations do
+  carry maxPoise, so the rout check is sound), agents/referee.js's normalizers and prompts,
+  agents/housekeeper.js's apply engine and undo batching, and chat.js's branch carry.
+- 437/437 harness (+1 law) + 36/36 walk + 8/8 play, each run alone + the anchor differential
+  (484/484 identical) + the two-browser proof + the coat proof + the contrast audit.
+  version.js -> m177-001.
