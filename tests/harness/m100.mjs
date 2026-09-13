@@ -1,6 +1,7 @@
 /* M163 — the ripple's rename: a name the ledger already holds. */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
+import { readFileSync } from 'node:fs';
 
 /* M163: A RENAME ONTO A NAME THE LEDGER ALREADY HOLDS MERGES THE TWO.
  * rekey wrote out[to] = v flat, so fixing a name the extractor misheard —
@@ -76,4 +77,60 @@ test('M163: the retirement law counts pages, so nobody is let go early', async (
   const past = after(RETIRE_AFTER + 1);
   eq(past.out.length, 1, 'past the law she retires');
   eq(past.out[0].name, 'Mara', 'and it is her');
+});
+
+/* M164: the world agent's "everyone I seat has a page" guard compared the
+ * seat's name against the ledger's keys EXACTLY, while people.set resolves
+ * near-names. A seat for "Toma" when the ledger holds "Tomas" looked
+ * unknown, earned a minimal core, and the applier wrote that stub straight
+ * over the smith's real core. */
+test('M164: a seat under a near-name never stubs out the page it belongs to', async () => {
+  const { findPersonKey } = await import('../../js/engine/people.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  let st = emptyState();
+  st = applyMutations(st, [{ type: 'people.set', name: 'Tomas', field: 'core', text: 'the smith — slow to anger, quicker than he looks' }]).state;
+
+  /* the shape of the guard, as the world agent now asks it */
+  const known = new Set(Object.keys(st.characters).map((k) => k.trim().toLowerCase()));
+  eq(known.has('toma'), false, 'an exact-key guard calls the near-name unknown');
+  eq(findPersonKey(st.characters, 'Toma'), 'Tomas', 'while the applier resolves it to the smith');
+
+  const src = readFileSync(new URL('../../js/agents/world.js', import.meta.url), 'utf8');
+  assert(/const hasPage = \(name\) => Boolean\(findPersonKey\(fresh\.characters \|\| \{\}, name\)\);/.test(src), 'the guard asks the applier’s own question');
+  assert(!/known\.has\(key\)/.test(src), 'and the exact-key guard is gone');
+
+  /* and the damage it used to do, held as a law */
+  const stubbed = applyMutations(st, [{ type: 'people.set', name: 'Toma', field: 'core', text: 'seated by the world agent' }]).state;
+  eq(stubbed.characters.Tomas.core, 'seated by the world agent', 'the applier really would write the stub over him — which is why the guard must resolve');
+});
+
+/* M164: the live paint re-dressed the WHOLE page every animation frame —
+ * every display rule over the whole text, the scene re-parsed, the subtree
+ * rebuilt — while the cost of one paint grew with the page. Measured at 6x
+ * CPU throttle: 1.6ms at a thousand characters, 16.4ms at twelve thousand,
+ * and the writer's storyteller is set to thirty thousand tokens. Over a
+ * 91,000-character page: 90 paints and 4,319ms of main thread before,
+ * 27 paints and 777ms after — 5.6x less, 3.5 seconds given back. */
+test('M164: the live paint keeps a floor of four times what the last one cost', () => {
+  const src = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  const at = src.indexOf('const paintLive = () => {');
+  assert(at !== -1, 'the live paint still exists');
+  const body = src.slice(at, at + 400);
+  assert(/paintedAt \+ paintCostMs \* 4/.test(body), 'the floor is four times the last paint’s cost');
+  assert(/if \(paintRaf \|\| paintTimer\) return;/.test(body), 'and only one paint is ever in flight');
+  assert(/const stopPainting = \(\) => \{[\s\S]{0,220}cancelAnimationFrame\(paintRaf\)/.test(src), 'a stream that falls over stops painting');
+  assert(/stopPainting\(\); \/\* M164/.test(src), 'and the error path calls it');
+
+  /* the arithmetic the floor guarantees: paint work can never exceed a
+   * fifth of the thread, whatever the page grows to */
+  let clock = 0; let cost = 0; let at2 = -1e9; let paints = 0; let work = 0;
+  for (let chunk = 0; chunk < 90; chunk += 1) {
+    clock += 40;
+    if (clock < at2 + cost * 4) continue;
+    cost = 0.6 + chunk * 0.55;   /* a paint's cost grows with the page, as measured */
+    at2 = clock; paints += 1; work += cost;
+  }
+  assert(work / clock < 0.25, 'paint work stays under a quarter of the stream’s wall time (' + Math.round(work) + 'ms of ' + clock + 'ms)');
+  assert(paints >= 8, 'and the page still visibly grows while it streams (' + paints + ' paints)');
 });

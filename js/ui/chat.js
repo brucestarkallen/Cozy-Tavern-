@@ -2741,14 +2741,43 @@ export function initChat(ctx) {
           if (took) took.textContent = thinkingWords(thinkMs);
         }
       };
-      /* M39: the live paint — dressed, at most once per frame */
+      /* M39: the live paint — dressed, at most once per frame.
+       * M164: AND NEVER MORE OFTEN THAN IT CAN AFFORD. Every frame re-dressed
+       * the WHOLE page — every display rule over the whole text, the scene
+       * re-parsed, the whole subtree rebuilt — so the cost of one paint grew
+       * with the page while the paints kept coming sixty times a second.
+       * Measured at 6x CPU throttle: 1.6ms at a thousand characters, 16.4ms
+       * at twelve thousand — one whole frame — and the writer's storyteller
+       * is set to thirty thousand tokens, some hundred and twenty thousand
+       * characters. The tail of a long page was painting at a few frames a
+       * second and the whole main thread was going into re-drawing words
+       * that had not changed. The paint now keeps a floor of four times what
+       * the last one cost, so it can never take more than a fifth of the
+       * thread: a short page still paints every frame, a long one a few
+       * times a second, which is far faster than anyone reads. The finished
+       * page is drawn whole from the store when the stream lands. */
       let paintRaf = 0;
-      const paintLive = () => {
-        if (paintRaf) return;
+      let paintTimer = 0;
+      let paintCostMs = 0;
+      let paintedAt = 0;
+      const paintNow = () => {
         paintRaf = requestAnimationFrame(() => {
           paintRaf = 0;
+          const t0 = performance.now();
           try { dressInto(body, full, 'assistant'); } catch (err) { body.textContent = full; }
+          paintCostMs = performance.now() - t0;
+          paintedAt = performance.now();
         });
+      };
+      const paintLive = () => {
+        if (paintRaf || paintTimer) return;
+        const owed = (paintedAt + paintCostMs * 4) - performance.now();
+        if (owed > 0) { paintTimer = setTimeout(() => { paintTimer = 0; paintNow(); }, owed); return; }
+        paintNow();
+      };
+      const stopPainting = () => {
+        if (paintTimer) { clearTimeout(paintTimer); paintTimer = 0; }
+        if (paintRaf) { cancelAnimationFrame(paintRaf); paintRaf = 0; }
       };
       let stoppedByHand = false;
       let finishReason = null;
@@ -2845,6 +2874,7 @@ export function initChat(ctx) {
           effort: reasoning.effort === 'off' ? '' : reasoning.effort,
         });
       } catch (err) {
+        stopPainting(); /* M164: no frame lands into a page that is gone */
         /* M160: the thinking clock used to be stopped only when the writer
          * stopped the page by hand. A provider that fell over — a dropped
          * mobile connection, a 500, a refused key — left its one-second

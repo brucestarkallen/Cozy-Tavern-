@@ -72,6 +72,9 @@ test('M39 the stream is dressed as it arrives: the live paint rides the same dre
   assert(/function dressInto\(host, text, role\)/.test(chat), 'one dresser');
   const stream = chat.slice(chat.indexOf("} else if (channel === 'prose') {"), chat.indexOf("} else if (channel === 'prose') {") + 300);
   assert(/paintLive\(\);/.test(stream) && !/body\.textContent = full;\n\s*\}\n\s*followTail/.test(stream), 'the stream paints dressed');
-  const live = chat.slice(chat.indexOf('const paintLive = () => {'), chat.indexOf('const paintLive = () => {') + 400);
+  /* M164: still through the one dresser, still on an animation frame — but
+   * never more often than the last paint's cost affords (paintNow holds the
+   * frame and the dresser; paintLive holds the floor). */
+  const live = chat.slice(chat.indexOf('const paintNow = () => {'), chat.indexOf('const paintNow = () => {') + 400);
   assert(/requestAnimationFrame/.test(live) && /dressInto\(body, full, 'assistant'\)/.test(live), 'per frame, through the dresser');
 });

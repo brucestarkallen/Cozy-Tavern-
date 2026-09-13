@@ -3661,3 +3661,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   nothing for that page. The best of the two stands; with nothing in hand it still throws, so
   the queue retries the page as it always did.
 - 416/416 harness (+3 laws) + 36/36 walk + 8/8 play + the two-browser proof. version.js -> m163-001.
+
+# M164 — the live paint, and a seat that overwrote a page
+- THE LIVE PAINT NEVER COSTS MORE THAN IT CAN AFFORD. Every animation frame re-dressed the WHOLE
+  page — every display rule over the whole text, the scene re-parsed, the whole subtree rebuilt —
+  while the cost of one paint grew with the page and the paints kept coming sixty times a second.
+  Measured in real Chromium at 6x CPU throttle: 1.6ms at a thousand characters, 16.4ms at twelve
+  thousand (one whole frame), and the writer's storyteller is set to a thirty-thousand-token
+  longest reply — some hundred and twenty thousand characters, where the tail was painting at a
+  few frames a second and the main thread was going into re-drawing words that had not changed.
+  The paint keeps a floor of four times what the last one cost, so it can never take more than a
+  fifth of the thread. Over a 91,000-character page: 90 paints and 4319ms before, 27 paints and
+  777ms after — 5.6x less work, three and a half seconds given back to the stream. A short page
+  still paints every frame; the finished page is drawn whole from the store when the stream lands.
+  tests/paint.py holds the measurement.
+- A SEAT UNDER A NEAR-NAME OVERWROTE THE PAGE IT BELONGED TO. The world agent's "everyone I seat
+  has a page" guard compared the seat's name against the ledger's keys EXACTLY, while people.set
+  resolves near-names (findPersonKey). So a seat for "Toma" when the ledger holds "Tomas" looked
+  unknown, earned a minimal core — "seated by the world agent" — and the applier wrote that stub
+  straight over the smith's real core. Proven: a page reading "the smith — slow to anger, quicker
+  than he looks" became eight words of housekeeping. The guard asks the applier's own question now.
+- 418/418 harness (+2 laws) + 36/36 walk + 8/8 play + the two-browser proof. version.js -> m164-001.

@@ -47,6 +47,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
+import { findPersonKey } from '../engine/people.js';
 import { applyMutations } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
 import { renderClock } from '../engine/clock.js';
@@ -386,13 +387,20 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * in the same answer gets a minimal core from the seat itself, so the
    * character ledger never shows two people while "elsewhere" shows three;
    * the scribe enriches it later. */
-  const known = new Set(Object.keys(fresh.characters || {}).map((k) => k.trim().toLowerCase()));
+  /* M164: THE GUARD ASKS THE SAME QUESTION THE APPLIER WILL. It compared
+   * the seat's name against the ledger's keys EXACTLY, while people.set
+   * resolves near-names (findPersonKey). So a seat for "Toma" when the
+   * ledger holds "Tomas" looked unknown, earned a minimal core — "seated by
+   * the world agent" — and the applier then wrote that stub straight over
+   * the smith's real core. Proven: a page that read "the smith — slow to
+   * anger, quicker than he looks" became eight words of housekeeping. */
+  const hasPage = (name) => Boolean(findPersonKey(fresh.characters || {}, name));
   const pagesInAnswer = new Set(read.mutations.filter((m) => m.type === 'people.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));
   const withPages = [];
   for (const m of read.mutations) {
     if (m.type === 'offscreen.set' && typeof m.name === 'string' && m.name.trim()) {
       const key = m.name.trim().toLowerCase();
-      if (!known.has(key) && !pagesInAnswer.has(key)) {
+      if (!hasPage(m.name) && !pagesInAnswer.has(key)) {
         const bits = [m.activity, m.agenda ? 'wants ' + m.agenda : '', m.location ? 'at ' + m.location : ''].filter(Boolean);
         withPages.push({ type: 'people.set', name: m.name.trim(), field: 'core', text: (bits.join('; ') || 'seated by the world agent').slice(0, 280) });
         pagesInAnswer.add(key);
