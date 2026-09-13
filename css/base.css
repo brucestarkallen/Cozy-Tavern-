@@ -122,12 +122,18 @@ textarea {
   line-height: 1.5;
 }
 
-/* The ember ring — one clear focus voice for the whole house. */
-input:focus-visible, select:focus-visible, textarea:focus-visible,
-button:focus-visible, a:focus-visible, summary:focus-visible,
-[tabindex]:focus-visible {
+/* The ember ring — one clear focus voice for the whole house, for the
+ * KEYBOARD. M153: a finger never gets a ring (Android drew its blue tap box
+ * and a focus ring on every press); a tap is answered by the button's own
+ * press, nothing else. */
+* { -webkit-tap-highlight-color: transparent; }
+input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid var(--ember);
   outline-offset: 2px;
+}
+button:focus, a:focus, summary:focus, [tabindex]:focus { outline: none; }
+@media (hover: hover) and (pointer: fine) {
+  button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
 }
 
 /* All chrome transitions share one quick breath. M15: transform joins, so

@@ -146,7 +146,7 @@ function clockPanel(ctx) {
   });
   const placeRow = document.createElement('div');
   placeRow.appendChild(placeForm);
-  wrap.appendChild(placeRow);
+
 
   const mastRow = document.createElement('label');
   mastRow.className = 'radio-row';
@@ -254,7 +254,7 @@ function clockPanel(ctx) {
   const byHandSum = document.createElement('summary');
   byHandSum.className = 'lbl';
   byHandSum.textContent = 'Set the clock by hand';
-  byHand.append(byHandSum, customForm, setForm, calWrap);
+  byHand.append(byHandSum, placeRow, customForm, setForm, calWrap);
   wrap.append(label, advanceRow, byHand);
 
   function readFields() {
@@ -396,7 +396,15 @@ function whosHerePanel(ctx) {
   inviteBtn.className = 'text-btn';
   inviteBtn.textContent = 'Invite them in';
   inviteForm.append(inviteSelect, inviteBtn);
-  wrap.append(list, note, form, castHead, castList, inviteForm);
+  /* M153: the by-hand forms (a name walked in, a card invited) folded — native controls
+   * off the scene room's first paint */
+  const byHand = document.createElement('details');
+  byHand.className = 'resting-shelf';
+  const sum = document.createElement('summary');
+  sum.className = 'lbl';
+  sum.textContent = 'By hand — write someone in, invite a card';
+  byHand.append(sum, form, castHead, castList, inviteForm);
+  wrap.append(list, note, byHand);
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);

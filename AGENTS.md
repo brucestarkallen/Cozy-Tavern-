@@ -3456,3 +3456,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   timing at 6× throttle: drawer first scroll 17ms longest frame, close 83ms, settings close
   33ms. HANDOFF.md written for the next session: how to test, the laws that matter, the limits.
 - version.js -> m152-001.
+
+# M153 — the blue tap box, and the scene room's last native controls
+- FIELD REPORT: a blue box on every press, gone after a second. Android's tap highlight plus the
+  house's focus ring, which fired on a tap as well as on a keyboard. Now: tap highlight
+  transparent everywhere; buttons, links and summaries never show a ring on a tap (the ring
+  stays for keyboard focus on a desk, and on fields); a press is answered by the button's own
+  press only. The scene room's remaining by-hand forms (a name walked in, a card invited, the
+  place field) fold with the clock's — the room's first paint is text and buttons.
+- Final numbers at 6× throttle: drawer first scroll 17ms, fast open+close 33ms, settings close
+  33ms. 395/395 + 35/35 + 8/8. version.js -> m153-001.
