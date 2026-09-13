@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""M183: a page appended, against a whole book rewritten — and the fold read
+back true. Run against the real serve.py."""
+import json, os, shutil, subprocess, sys, time, urllib.request
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA = os.environ.get('COZY_TEST_DATA', '/tmp/cozydata-append')
+PORT = os.environ.get('COZY_TEST_PORT', '8087')
+BASE = 'http://127.0.0.1:%s/' % PORT
+
+shutil.rmtree(DATA, ignore_errors=True)
+os.makedirs(DATA, exist_ok=True)
+srv = subprocess.Popen([sys.executable, os.path.join(REPO, 'serve.py')],
+                       env=dict(os.environ, PORT=PORT, COZY_DATA_DIR=DATA),
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1.5)
+
+fails = []
+
+
+def check(name, ok, extra=''):
+    print(('  ok   — ' if ok else '  FAIL — ') + name + ((' :: ' + extra) if extra else ''))
+    if not ok:
+        fails.append(name)
+
+
+def post(p, b):
+    return urllib.request.urlopen(urllib.request.Request(BASE + p, data=b, method='POST')).read()
+
+
+def get(p):
+    return urllib.request.urlopen(BASE + p).read()
+
+
+page = 'The rain kept on against the shutters and nobody said the thing they meant. ' * 80
+
+
+def book(n):
+    return json.dumps({
+        'namespace': 'cozytavern.v1', 'kind': 'story', 'exportedAt': '2026-01-01T00:00:00.000Z',
+        'story': {'id': 't1', 'title': 'A long telling', 'createdAt': 1, 'updatedAt': 2},
+        'settings': [{'key': 'state:t1', 'value': {'journal': [0] * 4000}}],
+        'messages': [{'id': 'm%d' % i, 'storyId': 't1', 'role': 'assistant', 'text': page} for i in range(n)],
+    }).encode()
+
+
+try:
+    post('api/books/one/t1', book(400))
+    whole = book(400)
+    t0 = time.perf_counter()
+    for _ in range(10):
+        post('api/books/one/t1', whole)
+    w = (time.perf_counter() - t0) / 10 * 1000
+    t0 = time.perf_counter()
+    for i in range(10):
+        post('api/books/page/t1', json.dumps({'at': 'x', 'm': {'id': 'new%d' % i, 'storyId': 't1', 'role': 'assistant', 'text': page}}).encode())
+    a = (time.perf_counter() - t0) / 10 * 1000
+    print('  a 400-page tale, one new page lands:')
+    print('     whole-book rewrite : %6.2f ms' % w)
+    print('     one page appended  : %6.2f ms   (%.0fx cheaper)' % (a, w / a))
+    check('appending is far cheaper than rewriting', a * 4 < w, '%.2f vs %.2f ms' % (a, w))
+
+    merged = json.loads(get('api/books/one/t1'))
+    check('the read folds the log in', len(merged['messages']) == 410, '%d messages' % len(merged['messages']))
+    check('the appended pages are whole', merged['messages'][-1]['text'] == page)
+    check('and the older ones untouched', merged['messages'][0]['id'] == 'm0')
+    man = json.loads(get('api/books/list'))
+    stamp = [b['exportedAt'] for b in man['books'] if b['id'] == 't1'][0]
+    check('the manifest reports the log’s stamp, not the snapshot’s',
+          stamp == merged['exportedAt'] and stamp > '2026-01-01', '%s' % stamp)
+
+    # a torn last line — a phone killed mid-append — must not cost the rest
+    with open(os.path.join(DATA, 'books', 't1.log'), 'a') as f:
+        f.write('{"at":"x","m":{"id":"torn","tex')
+    merged2 = json.loads(get('api/books/one/t1'))
+    check('a torn last line is skipped, the rest still read', len(merged2['messages']) == 410, '%d messages' % len(merged2['messages']))
+
+    # a full push folds the log in and clears it
+    post('api/books/one/t1', book(410))
+    check('a whole-book push clears the log it now contains',
+          not os.path.exists(os.path.join(DATA, 'books', 't1.log')))
+
+    # a page for a tale the device has never seen is refused, not orphaned
+    ans = json.loads(post('api/books/page/never-seen', json.dumps({'at': 'x', 'm': {'id': 'a'}}).encode()))
+    check('a page with no book under it is refused, so the browser sends the whole tale',
+          ans.get('ok') is False and ans.get('whole') is True, str(ans))
+finally:
+    srv.terminate()
+
+print()
+print('the append log: sound' if not fails else 'FAILED: ' + ', '.join(fails))
+sys.exit(1 if fails else 0)

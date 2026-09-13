@@ -4006,3 +4006,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof,
   which now also holds the live law: a page written in A reaches B with no reload, B loses nothing
   doing it, and A keeps its own page. version.js -> m182-001.
+
+# M183 — a page is appended, not a book rewritten
+- M181 sent prose to the device the moment it landed, and "a page landed" meant serializing the
+  WHOLE tale and writing it again: 14.6ms at four hundred pages on a desktop, growing with every
+  page the writer adds, on every single turn. The page itself is a few kilobytes; the ledger, the
+  snapshots and the sixty version states are what make a book heavy — and those can wait for the
+  twenty-second whole-book push, because the readers can rebuild them and the prose cannot be
+  rebuilt from anything. A page goes to <id>.log on its own now: one line, fsynced.
+  MEASURED: 14.55ms -> 1.09ms, 13x cheaper, and CONSTANT whatever the tale's length.
+  A read folds the log into the snapshot (pages merge by id, last wins, so an appended edit
+  replaces the page it edits); a whole-book push folds it in and clears the log; a dropped tale
+  takes its log with it; a torn last line — a phone killed mid-append — is skipped and the rest
+  still read; and a page for a tale the device has no snapshot of is REFUSED with {whole:true}, so
+  the browser sends the whole book rather than orphan a page in a log with nothing under it.
+- AND THE MANIFEST HAD TO LEARN ABOUT IT. The first try read the log's last 4096 bytes and regexed
+  for its "at" field — with six-kilobyte pages that lands in the middle of a line and finds
+  nothing, so the manifest kept reporting the SNAPSHOT's old stamp and no other browser would ever
+  have learned the tale had changed. Measured exactly that. Both the manifest and the merged book
+  take the stamp from the log's MTIME now, so they cannot disagree.
+- tests/append.py holds all of it, timings included.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
+  (live law included) + the append test. version.js -> m183-001.

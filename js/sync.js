@@ -141,8 +141,23 @@ export async function initSync(ctx) {
   wrap(ctx.db.stories, 'create', (args, out) => { Promise.resolve(out).then((st) => { if (st && st.id) { knownIds.add(st.id); mark(st.id); mark('_house'); } }); });
   wrap(ctx.db.stories, 'update', ([id]) => { mark(id); mark('_house'); });
   wrap(ctx.db.stories, 'remove', ([id]) => { knownIds.delete(id); mark('_house'); try { ctx.db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } try { fetch('api/books/drop/' + encodeURIComponent(id), { method: 'POST' }).catch(() => {}); } catch (err) { /* fine */ } });
-  wrap(ctx.db.messages, 'append', ([id]) => markNow(id)); /* M181: prose, at once */
-  wrap(ctx.db.messages, 'update', ([id]) => markNow(id)); /* M181: prose, at once */
+  /* M183: A PAGE IS APPENDED, NOT A BOOK REWRITTEN. M181 sent prose to the
+   * device the moment it landed — and "a page landed" meant serializing the
+   * WHOLE tale and writing it again: fifteen milliseconds at four hundred
+   * pages, growing with every page the writer adds. The page itself is a few
+   * kilobytes. It goes on its own now (measured 13x cheaper, and CONSTANT
+   * whatever the tale's length); the ledger, the snapshots and the version
+   * states still ride the twenty-second whole-book push, because the readers
+   * can rebuild those and the prose cannot be rebuilt from anything.
+   * A page the device will not take falls back to the whole book at once. */
+  const pageNow = (id, row) => {
+    if (!id || !row || !row.id) { markNow(id); return; }
+    dirty.add(id);              /* the whole book still owes a push for its ledger */
+    schedule();
+    ask({ kind: 'page', id, row, expect: 'paged' });
+  };
+  wrap(ctx.db.messages, 'append', ([id], out) => { Promise.resolve(out).then((row) => pageNow(id, row)).catch(() => markNow(id)); });
+  wrap(ctx.db.messages, 'update', ([id], out) => { Promise.resolve(out).then((row) => pageNow(id, row)).catch(() => markNow(id)); });
   wrap(ctx.db.messages, 'remove', ([id]) => markNow(id)); /* M181: prose, at once */
   wrap(ctx.db.messages, 'deleteFrom', ([id]) => markNow(id)); /* M181: prose, at once */
   wrap(ctx.db.connections, 'add', () => mark('_house'));

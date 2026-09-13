@@ -57,6 +57,24 @@ async function localStamps() {
 let CLIENT_ID = '';
 export function clientId() { return CLIENT_ID; }
 
+/* M183: one page, appended. Returns false when the device wants the whole
+ * book instead (it has no snapshot for this tale yet), so the caller falls
+ * back to the push it always did — a page must never end up in a log with
+ * nothing under it. */
+async function putPage(id, row) {
+  try {
+    const res = await fetch(api('api/books/page/' + encodeURIComponent(id)), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-cozy-client': CLIENT_ID },
+      body: JSON.stringify(row),
+      signal: AbortSignal.timeout(LEASH),
+    });
+    if (!res.ok) return false;
+    const answer = await res.json().catch(() => ({}));
+    return answer && answer.ok === true;
+  } catch (err) { return false; }
+}
+
 async function pushIds(ids) {
   const done = [];
   for (const id of ids) {
@@ -103,6 +121,18 @@ self.onmessage = async (e) => {
     /* M182: one book, because the device said it changed. The stamp still
      * decides — a book no newer than ours is left alone, so an echo or a
      * repeat costs nothing. */
+    /* M183: a page landed. One line to the device — and if it will not take
+     * it, the whole book, exactly as before. */
+    if (msg.kind === 'page') {
+      const ok = await putPage(msg.id, { at: new Date().toISOString(), m: msg.row });
+      if (!ok) {
+        const json = await db.exportStory(msg.id);
+        if (json && await putBook(msg.id, json)) await db.settings.set('bookStamp:' + msg.id, stampOf(json));
+      }
+      self.postMessage({ kind: 'paged', ok });
+      return;
+    }
+
     if (msg.kind === 'pullOne') {
       const books = await manifest();
       if (!books) { self.postMessage({ kind: 'pulledOne', pulled: 0 }); return; }

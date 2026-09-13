@@ -63,6 +63,99 @@ def _announce(book_id, by_client):
             except ValueError:
                 pass
 
+
+# M183: A PAGE IS APPENDED, NOT A BOOK REWRITTEN. Prose goes to the device
+# the moment it lands (M181) — and until now "a page landed" meant serializing
+# the WHOLE tale and writing it again: 15ms at four hundred pages on a
+# desktop, and it grows with every page the writer adds. A page is a few
+# kilobytes; the ledger, the snapshots and the sixty version states are what
+# make a book heavy, and they can wait for the twenty-second push because the
+# readers can rebuild them. So a page is APPENDED to <id>.log — one line,
+# fsynced, constant cost whatever the tale's length — and the whole-book push
+# folds the log into the snapshot and clears it.
+def _log_path(book_path):
+    return book_path[:-len('.json')] + '.log'
+
+
+def _log_stamp(log_path):
+    """When the log last moved, as an ISO stamp. M183: the FILE'S MTIME, not
+    a field parsed out of it. The first try read the last 4096 bytes and
+    regexed for "at" — with six-kilobyte pages that lands in the middle of a
+    line and finds nothing, so the manifest reported the snapshot's old stamp
+    and no other browser ever learned the tale had changed. Measured exactly
+    that. The merged book and the manifest both take the stamp from here, so
+    they cannot disagree."""
+    try:
+        t = os.path.getmtime(log_path)
+    except OSError:
+        return ''
+    return time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(t)) + ('.%03dZ' % int((t % 1) * 1000))
+
+
+def _merge_log(book_bytes, log_path):
+    """The snapshot with its appended pages folded in. Pages merge by id,
+    last one wins, so an appended edit replaces the page it edits."""
+    try:
+        if not os.path.exists(log_path):
+            return book_bytes
+        book = json.loads(book_bytes)
+    except (ValueError, OSError):
+        return book_bytes
+    msgs = book.get('messages')
+    if not isinstance(msgs, list):
+        return book_bytes
+    by_id = {}
+    order = []
+    for m in msgs:
+        mid = m.get('id') if isinstance(m, dict) else None
+        if mid is None:
+            continue
+        if mid not in by_id:
+            order.append(mid)
+        by_id[mid] = m
+    newest = _log_stamp(log_path)
+    try:
+        with open(log_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue  # a torn last line from a kill mid-write: skip it, keep the rest
+                m = row.get('m') if isinstance(row, dict) else None
+                if not isinstance(m, dict) or m.get('id') is None:
+                    continue
+                mid = m['id']
+                if mid not in by_id:
+                    order.append(mid)
+                by_id[mid] = m
+    except OSError:
+        return book_bytes
+    book['messages'] = [by_id[i] for i in order]
+    if newest:
+        book['exportedAt'] = newest
+    return json.dumps(book).encode('utf-8')
+
+
+def _book_stamp(book_path):
+    """What the manifest reports: the snapshot's own stamp, or the newest
+    appended page's, whichever is later — so another browser knows a tale
+    changed even when only its log moved."""
+    stamp = ''
+    try:
+        with open(book_path, 'rb') as f:
+            head = f.read(4096).decode('utf-8', 'ignore')
+        import re as _re
+        m = _re.search(r'"exportedAt"\s*:\s*"([^"]+)"', head)
+        if m:
+            stamp = m.group(1)
+    except OSError:
+        pass
+    moved = _log_stamp(_log_path(book_path))
+    return moved if moved > stamp else stamp
+
 class TavernServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     """Many hands, no waiting: browsers hold connections open, and a
     single-threaded server would make the whole tavern queue behind one."""
@@ -142,11 +235,10 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                     continue
                 path = os.path.join(folder, name)
                 try:
-                    with open(path, 'rb') as f:
-                        head = f.read(4096).decode('utf-8', 'ignore')
-                    import re as _re
-                    m = _re.search(r'"exportedAt"\s*:\s*"([^"]+)"', head)
-                    out.append({'id': name[:-5], 'exportedAt': m.group(1) if m else '', 'bytes': os.path.getsize(path)})
+                    # M183: the later of the snapshot's own stamp and its
+                    # newest appended page — a tale whose log alone moved has
+                    # still changed, and the other browser must be told.
+                    out.append({'id': name[:-5], 'exportedAt': _book_stamp(path), 'bytes': os.path.getsize(path)})
                 except OSError:
                     pass
         except OSError:
@@ -210,7 +302,8 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 with open(bp, 'rb') as f:
                     data = f.read()
-                self._send_bytes(data)
+                # M183: the snapshot with its appended pages folded in
+                self._send_bytes(_merge_log(data, _log_path(bp)))
             except OSError:
                 self.send_response(404); self.end_headers()
             return
@@ -293,7 +386,49 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 os.remove(bp + '.gone')
             except OSError:
                 pass
+            # M183: the snapshot now holds everything the log did
+            try:
+                os.remove(_log_path(bp))
+            except OSError:
+                pass
             # M182: tell every other browser at once
+            _announce(os.path.basename(bp)[:-len('.json')], self.headers.get('X-Cozy-Client', ''))
+            self._send_bytes(b'{"ok":true}')
+            return
+        if path.startswith('/api/books/page/'):
+            # M183: ONE PAGE, APPENDED. A few hundred bytes and an fsync,
+            # whatever the tale's length — instead of serializing and
+            # rewriting the whole book because one page landed.
+            bp = self._book_path(path[len('/api/books/page/'):])
+            if bp is None:
+                self.send_response(400); self.end_headers(); return
+            try:
+                n = int(self.headers.get('content-length', 0))
+            except ValueError:
+                n = 0
+            if n <= 0 or n > MAX_BOOK_BYTES:
+                self.send_response(413); self.end_headers(); return
+            body = self.rfile.read(n)
+            try:
+                row = json.loads(body)
+            except ValueError:
+                self.send_response(400); self.end_headers(); return
+            if not isinstance(row, dict) or not isinstance(row.get('m'), dict) or row['m'].get('id') is None:
+                self.send_response(400); self.end_headers(); return
+            # a page appended to a tale the device has never seen would sit in
+            # a log with no snapshot under it; the browser is told to send the
+            # whole book instead.
+            if not os.path.exists(bp):
+                self._send_bytes(b'{"ok":false,"whole":true}')
+                return
+            try:
+                os.makedirs(os.path.dirname(bp), exist_ok=True)
+                with open(_log_path(bp), 'a', encoding='utf-8') as f:
+                    f.write(json.dumps(row, ensure_ascii=False) + '\n')
+                    f.flush()
+                    os.fsync(f.fileno())
+            except OSError:
+                self.send_response(500); self.end_headers(); return
             _announce(os.path.basename(bp)[:-len('.json')], self.headers.get('X-Cozy-Client', ''))
             self._send_bytes(b'{"ok":true}')
             return
@@ -305,6 +440,10 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 # everywhere — not pushed back up by the next one to open.
                 try:
                     os.makedirs(os.path.dirname(bp), exist_ok=True)
+                    try:
+                        os.remove(_log_path(bp))
+                    except OSError:
+                        pass
                     if os.path.exists(bp):
                         os.replace(bp, bp + '.gone')
                     else:
