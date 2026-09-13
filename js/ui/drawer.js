@@ -2125,17 +2125,12 @@ export function initDrawer(ctx) {
     const panel = PANELS.find((p) => p.id === sec.dataset.panel);
     if (panel && typeof panel.render === 'function') { const node = panel.render(ctx); if (node) sec.appendChild(node); }
   }
-  /* the quiet idle pass: once the drawer has sat still for a while, pending rooms draw one per tick */
-  let idleTimer = null;
-  const idlePass = () => {
-    if (drawer.hidden) return;
-    if (Date.now() - lastScrollAt < 800) { idleTimer = setTimeout(idlePass, 800); return; }
-    const sec = panelsEl.querySelector('.ledger-panel[data-pending]');
-    if (!sec) return;
-    drawPending(sec);
-    idleTimer = setTimeout(idlePass, 120);
-  };
-  const scheduleIdlePass = () => { clearTimeout(idleTimer); idleTimer = setTimeout(idlePass, 1500); };
+  /* M149: NO IDLE PASS. It drew the hidden rooms a beat after the open — the
+   * people room's thirty characters landing between two flicks of the first
+   * scroll, which is the stutter the writer felt "under three or four
+   * seconds", in the scene room only. A room draws when its chip is tapped,
+   * and only then. */
+  const scheduleIdlePass = () => {};
   function renderAllRooms() { drawPendingIn(panelsEl, ctx); }
   ctx.drawer = { open, close, toggle, renderAllRooms };
 }

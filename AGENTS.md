@@ -3422,3 +3422,12 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   log behind branches and take-backs, never a slot on the wire; the ledger, the record and the
   pages are untouched.
 - 395/395 + 35/35 + 8/8. version.js -> m148-001.
+
+# M149 — the stutter in the scene room only, under four seconds
+- FIELD REPORT, precise: the ledger's first scroll stutters only in The scene, only in the
+  first three or four seconds; the other rooms are smooth. Diagnosis from the timing: M148's
+  idle pass began 1.5s after the open and drew the hidden rooms one panel per tick whenever
+  the drawer had not scrolled for 0.8s — the people room's thirty characters landing between
+  two flicks of the writer's first scroll. The idle pass is gone: a room draws when its chip is
+  tapped, and only then (a room is four panels; the tap costs one frame).
+- 395/395 + 35/35 + 8/8. version.js -> m149-001.
