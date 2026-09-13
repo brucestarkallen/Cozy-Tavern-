@@ -5,9 +5,13 @@ No dependencies beyond the standard library. Serves the app shell with the
 right MIME types so ES modules and the web manifest load cleanly.
 """
 import http.server
+import json
 import os
+import queue
 import shutil
 import socketserver
+import threading
+import time
 
 PORT = int(os.environ.get('PORT', 8080))
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +32,36 @@ def _ver():
     except Exception:
         return 'the current coat'
 
+
+
+# M182: THE BOOKS ANNOUNCE THEMSELVES. Until now a browser learned of another
+# browser's pages only when it next opened — the "in turn" the writer asked
+# about. serve.py holds the one copy every browser shares, so it is the only
+# thing that can say "this book just changed". A listener holds one long GET
+# on /api/events and is handed a line per change; ThreadingMixIn gives each
+# its own thread, and there are only ever a handful of browsers.
+#
+# Every change carries the client that made it, so a browser never pulls back
+# its own write — that would replace its newer pages with what it had just
+# sent, which is a data loss, not a refresh.
+_listeners = []
+_listeners_lock = threading.Lock()
+
+
+def _announce(book_id, by_client):
+    line = ('data: ' + json.dumps({'id': book_id, 'by': by_client or '', 'at': time.time()}) + '\n\n').encode('utf-8')
+    with _listeners_lock:
+        dead = []
+        for q in _listeners:
+            try:
+                q.put_nowait(line)
+            except Exception:
+                dead.append(q)
+        for q in dead:
+            try:
+                _listeners.remove(q)
+            except ValueError:
+                pass
 
 class TavernServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     """Many hands, no waiting: browsers hold connections open, and a
@@ -92,7 +126,6 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         return os.path.join(DATA_DIR, 'books', book_id + '.json')
 
     def _manifest(self):
-        import json
         folder = os.path.join(DATA_DIR, 'books')
         out = []
         gone = []
@@ -127,8 +160,42 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _events(self):
+        """One long-lived GET. A line per book change, a comment every twenty
+        seconds so a sleeping phone's proxy doesn't reap the connection."""
+        q = queue.Queue(maxsize=64)
+        with _listeners_lock:
+            _listeners.append(q)
+        try:
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Connection', 'keep-alive')
+            self.send_header('X-Accel-Buffering', 'no')
+            self.end_headers()
+            self.wfile.write(b': the tavern is listening\n\n')
+            self.wfile.flush()
+            while True:
+                try:
+                    line = q.get(timeout=20)
+                except queue.Empty:
+                    line = b': still here\n\n'
+                self.wfile.write(line)
+                self.wfile.flush()
+        except Exception:
+            pass  # the browser went away; that is how a stream ends
+        finally:
+            with _listeners_lock:
+                try:
+                    _listeners.remove(q)
+                except ValueError:
+                    pass
+
     def do_GET(self):
         path = self.path.split('?')[0]
+        if path == '/api/events':
+            self._events()
+            return
         if path == '/api/version':
             # M157: the version this PROCESS started with — the launcher compares it to the folder
             self._send_bytes(('{"version":"%s"}' % BOOT_VER).encode('utf-8'))
@@ -153,7 +220,6 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             stamp = ''
             if data is not None:
                 try:
-                    import json
                     head = data[:4096].decode('utf-8', 'ignore')
                     import re as _re
                     m = _re.search(r'"exportedAt"\s*:\s*"([^"]+)"', head)
@@ -201,7 +267,6 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(413); self.end_headers(); return
             body = self.rfile.read(n)
             try:
-                import json
                 json.loads(body)
             except ValueError:
                 self.send_response(400); self.end_headers(); return
@@ -228,6 +293,8 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 os.remove(bp + '.gone')
             except OSError:
                 pass
+            # M182: tell every other browser at once
+            _announce(os.path.basename(bp)[:-len('.json')], self.headers.get('X-Cozy-Client', ''))
             self._send_bytes(b'{"ok":true}')
             return
         if path.startswith('/api/books/drop/'):
@@ -245,6 +312,7 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                             f.write(b'')
                 except OSError:
                     pass
+                _announce(os.path.basename(bp)[:-len('.json')], self.headers.get('X-Cozy-Client', ''))
             self._send_bytes(b'{"ok":true}')
             return
         if self.path.split('?')[0] == '/api/books':
@@ -258,7 +326,6 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 return
             body = self.rfile.read(n)
             try:
-                import json
                 json.loads(body)  # the books must be true JSON, never a smudge
             except ValueError:
                 self.send_response(400)

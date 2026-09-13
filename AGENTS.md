@@ -3985,3 +3985,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   waiting out a debounce, no switching away. 13 of 13 pages came back.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof.
   version.js -> m181-001.
+
+# M182 — the books announce themselves: live, across every browser
+- THE "IN TURN" IS GONE. A browser used to learn of another browser's pages only when it next
+  opened. serve.py holds the one copy every browser shares, so it is the only thing that can say
+  "this book just changed" — it does, over Server-Sent Events on /api/events. A listener holds one
+  long GET; ThreadingMixIn gives each its own thread and there are only ever a handful of
+  browsers. A change names the client that made it; a browser skips its own, because pulling back
+  your own write would put your newer pages under what you had just sent — a loss, not a refresh.
+  On someone else's change the browser pulls THAT book alone (the stamp still decides, so an echo
+  or a repeat costs nothing) and refreshes in place: the shelf, and the thread when it is the open
+  tale. No polling, no reload, no waiting for the next open. A dropped tale is announced too, so
+  it goes in the other browser live. A browser with no EventSource, or a stream that will not
+  open, falls back to exactly the boot-time pull it had before.
+- AND A BUG THE CHANGE UNCOVERED IN THE SAME BREATH: serve.py had `import json` INSIDE do_POST as
+  well as at the top. Removing one of them made `json` a local name for that whole function, so
+  the line above it raised UnboundLocalError and every book POST died before a byte was written —
+  the two-browser proof went from all-green to "no books directory at all" in one run. All three
+  function-local imports are gone; json is imported once, at the top.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof,
+  which now also holds the live law: a page written in A reaches B with no reload, B loses nothing
+  doing it, and A keeps its own page. version.js -> m182-001.

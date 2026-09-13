@@ -1,4 +1,5 @@
 import { dropCaches } from './store.js';
+import { notify as notifyState } from './engine/state.js'; /* M182: the ledger's panels wake on a live pull */
 /* M24 — the tavern keeps its own books.
  * When the little server answers (Termux / any `serve.py` run), every tale is
  * mirrored to a real file on the device (~/.cozytavern/books.json, rotated).
@@ -105,8 +106,11 @@ export async function initSync(ctx) {
   };
   const storyOfKey = (key) => { const at = String(key).lastIndexOf(':'); return at > 0 ? String(key).slice(at + 1) : ''; };
 
+  /* M182: this browser's own name, for the life of the tab. */
+  const clientId = 'tab-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+
   /* boot: with a three-second grace; a longer pull finishes behind a toast and reloads once */
-  const boot = ask({ kind: 'boot', expect: 'boot' });
+  const boot = ask({ kind: 'boot', clientId, expect: 'boot' });
   const first = await Promise.race([boot, new Promise((r) => setTimeout(() => r({ late: true }), 3000))]);
   const settle = async (b) => {
     if (b && b.kind === 'boot' && b.reachable) {
@@ -145,6 +149,43 @@ export async function initSync(ctx) {
   wrap(ctx.db.connections, 'update', () => mark('_house'));
   wrap(ctx.db.connections, 'remove', () => mark('_house'));
   wrap(ctx.db, 'importAll', () => { for (const id of knownIds) mark(id); mark('_house'); });
+  /* M182: THE BOOKS ANNOUNCE THEMSELVES, AND THE ROOM LISTENS. serve.py holds
+   * the one copy every browser shares and streams a line when a book changes;
+   * this pulls just that book and refreshes in place. No polling, no reload,
+   * and no waiting for the next open — the "in turn" is gone. A change this
+   * browser made is skipped by name: pulling back your own write would put
+   * your newer pages under what you had just sent. */
+  let live = null;
+  const liveRefresh = async (bookId) => {
+    const answer = await ask({ kind: 'pullOne', id: bookId, expect: 'pulledOne' });
+    if (!answer || !answer.pulled) return;
+    dropCaches();
+    try {
+      if (ctx.chat && typeof ctx.chat.refreshStories === 'function') await ctx.chat.refreshStories(true);
+      if (bookId === ctx.getActiveStoryId()) {
+        notifyState(bookId);
+        if (ctx.chat && typeof ctx.chat.renderThread === 'function') await ctx.chat.renderThread({ structural: true });
+      }
+      if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+    } catch (err) { /* a refresh that stumbles is not worth a broken room */ }
+  };
+  const listen = () => {
+    if (typeof EventSource !== 'function' || live) return;
+    try { live = new EventSource('api/events'); } catch (err) { live = null; return; }
+    live.onmessage = (e) => {
+      let msg = null;
+      try { msg = JSON.parse(e.data); } catch (err) { return; }
+      if (!msg || typeof msg.id !== 'string' || !msg.id) return;
+      if (msg.by === clientId) return;            /* our own write, come home */
+      liveRefresh(msg.id);
+    };
+    /* the browser reconnects an EventSource on its own; a stream that will
+     * not open at all simply leaves the house on its boot-time pull */
+    live.onerror = () => {};
+  };
+  listen();
+  window.addEventListener('pagehide', () => { if (live) { try { live.close(); } catch (err) { /* fine */ } live = null; } });
+
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && dirty.size) { clearTimeout(timer); pushNow(); } });
   window.addEventListener('pagehide', () => { if (dirty.size) { clearTimeout(timer); pushNow(); } });
 

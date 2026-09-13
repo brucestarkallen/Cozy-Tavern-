@@ -126,6 +126,28 @@ try:
         a.wait_for_timeout(2500)
         check('nor pushed it back up to A', titles(a) == ['Ravenwood'], str(titles(a)))
 
+
+        # --- M182: LIVE. A page written in A must reach B with no reload ----
+        b_pages_before = pages_of(b, 'Ravenwood') or []
+        a.evaluate("""async () => {
+          const st = (await window.__cozy.db.stories.list()).find(s => s.title === 'Ravenwood');
+          await window.__cozy.db.messages.append(st.id, { role: 'assistant', text: 'a page that should appear live' });
+        }""")
+        landed = False
+        for _ in range(40):                       # up to 8 seconds
+            b.wait_for_timeout(200)
+            got = pages_of(b, 'Ravenwood') or []
+            if 'a page that should appear live' in got:
+                landed = True
+                break
+        check('a page written in A reaches B with no reload',
+              landed, '%d pages before, %d after' % (len(b_pages_before), len(pages_of(b, 'Ravenwood') or [])))
+        check('and B did not lose anything doing it',
+              all(p in (pages_of(b, 'Ravenwood') or []) for p in b_pages_before), 'earlier pages still there')
+        # and the writer's own browser never pulls its own write back
+        a_pages = pages_of(a, 'Ravenwood') or []
+        check('A still holds its own page', 'a page that should appear live' in a_pages, str(len(a_pages)) + ' pages')
+
         # --- the service worker holds no api answers ------------------
         cached = b.evaluate("""async () => {
           const out = [];

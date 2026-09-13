@@ -38,7 +38,7 @@ async function getBook(id) {
   return res.text();
 }
 async function putBook(id, json) {
-  const res = await fetch(api('api/books/one/' + encodeURIComponent(id)), { method: 'POST', headers: { 'content-type': 'application/json' }, body: json, signal: AbortSignal.timeout(LEASH) });
+  const res = await fetch(api('api/books/one/' + encodeURIComponent(id)), { method: 'POST', headers: { 'content-type': 'application/json', 'x-cozy-client': CLIENT_ID }, body: json, signal: AbortSignal.timeout(LEASH) });
   return res.ok;
 }
 const stampOf = (json) => (/"exportedAt"\s*:\s*"([^"]+)"/.exec(String(json).slice(0, 4096)) || [])[1] || '';
@@ -49,6 +49,13 @@ async function localStamps() {
   for (const k of keys) if (k.startsWith('bookStamp:')) out[k.slice(10)] = await db.settings.get(k);
   return out;
 }
+
+/* M182: THIS BROWSER'S OWN NAME. Every push carries it, the server echoes it
+ * on the change it announces, and a browser skips its own — pulling back a
+ * write you just made would replace your newer pages with what you had just
+ * sent, which is a loss, not a refresh. */
+let CLIENT_ID = '';
+export function clientId() { return CLIENT_ID; }
 
 async function pushIds(ids) {
   const done = [];
@@ -93,7 +100,25 @@ self.onmessage = async (e) => {
       self.postMessage({ kind: 'pulled', ok: true, count });
       return;
     }
+    /* M182: one book, because the device said it changed. The stamp still
+     * decides — a book no newer than ours is left alone, so an echo or a
+     * repeat costs nothing. */
+    if (msg.kind === 'pullOne') {
+      const books = await manifest();
+      if (!books) { self.postMessage({ kind: 'pulledOne', pulled: 0 }); return; }
+      const want = books.filter((b) => b && b.id === msg.id);
+      const buried = new Set(lastGone);
+      if (buried.has(msg.id)) {
+        const st = (await db.stories.list()).find((x) => x && x.id === msg.id);
+        if (st) { await db.stories.remove(msg.id); await db.settings.delete('bookStamp:' + msg.id); self.postMessage({ kind: 'pulledOne', pulled: 1, gone: true }); return; }
+      }
+      const pulled = want.length ? await pullBooks(want) : 0;
+      self.postMessage({ kind: 'pulledOne', pulled });
+      return;
+    }
+
     if (msg.kind === 'boot') {
+      if (typeof msg.clientId === 'string' && msg.clientId) CLIENT_ID = msg.clientId;
       const books = await manifest();
       if (!books) { self.postMessage({ kind: 'boot', reachable: false, status: lastManifestStatus }); return; }
       const pulled = await pullBooks(books);
