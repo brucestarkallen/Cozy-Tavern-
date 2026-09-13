@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m154-001)
+# Cozy Tavern — handoff for the next session (state at m155-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
 Full history of every law and fix: AGENTS.md (M1 … M152). SPEC.md holds the founding design.
@@ -35,8 +35,10 @@ Full history of every law and fix: AGENTS.md (M1 … M152). SPEC.md holds the fo
 - Performance: the store's read cache (M137); the books off the main thread with stamps (M140);
   nothing unmounted (M143/M145); the drawer fades, scrolls in its inner box, draws only the open
   room, shows when quiet, by-hand clock folded (M146–M151); turns on screen (M136).
-- Data: serve.py keeps ~/.cozytavern/books.json; a fresh browser pulls it at open (reloads once
-  if the pull was slow); Settings → The house → Backup exports/imports everything.
+- Data: serve.py keeps ONE FILE PER TALE in ~/.cozytavern/books/ (plus _house.json) — M155,
+  SillyTavern's shape; a fresh browser pulls every book at open (reloads once if slow) and only
+  a changed tale is pushed; Settings → The house → Backup exports/imports everything by hand.
+  Restart serve.py after any server change. The worker's fetches must use api(path).
 
 ## Known limits (not bugs)
 - The prose of the model the writer points at it. The house hands it the truth and catches

@@ -83,7 +83,57 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
 
     # --- M24: the books endpoints (the keeper's core lives at module scope) ---
 
+    # --- M155: books per story (SillyTavern's shape — one file per tale) ---
+    def _book_path(self, book_id):
+        import re as _re
+        if not _re.fullmatch(r'[A-Za-z0-9_\-]{1,80}', book_id or ''):
+            return None
+        return os.path.join(DATA_DIR, 'books', book_id + '.json')
+
+    def _manifest(self):
+        import json
+        folder = os.path.join(DATA_DIR, 'books')
+        out = []
+        try:
+            for name in sorted(os.listdir(folder)):
+                if not name.endswith('.json'):
+                    continue
+                path = os.path.join(folder, name)
+                try:
+                    with open(path, 'rb') as f:
+                        head = f.read(4096).decode('utf-8', 'ignore')
+                    import re as _re
+                    m = _re.search(r'"exportedAt"\s*:\s*"([^"]+)"', head)
+                    out.append({'id': name[:-5], 'exportedAt': m.group(1) if m else '', 'bytes': os.path.getsize(path)})
+                except OSError:
+                    pass
+        except OSError:
+            pass
+        return json.dumps({'books': out}).encode('utf-8')
+
+    def _send_bytes(self, body, status=200):
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
+        path = self.path.split('?')[0]
+        if path == '/api/books/list':
+            self._send_bytes(self._manifest())
+            return
+        if path.startswith('/api/books/one/'):
+            bp = self._book_path(path[len('/api/books/one/'):])
+            if bp is None:
+                self.send_response(400); self.end_headers(); return
+            try:
+                with open(bp, 'rb') as f:
+                    data = f.read()
+                self._send_bytes(data)
+            except OSError:
+                self.send_response(404); self.end_headers()
+            return
         if self.path.split('?')[0] == '/api/books/stamp':
             # M140: the file's exportedAt alone — boot compares a stamp, never the whole book
             data = _read_books()
@@ -125,6 +175,44 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        path = self.path.split('?')[0]
+        if path.startswith('/api/books/one/'):
+            bp = self._book_path(path[len('/api/books/one/'):])
+            if bp is None:
+                self.send_response(400); self.end_headers(); return
+            try:
+                n = int(self.headers.get('content-length', 0))
+            except ValueError:
+                n = 0
+            if n <= 0 or n > MAX_BOOK_BYTES:
+                self.send_response(413); self.end_headers(); return
+            body = self.rfile.read(n)
+            try:
+                import json
+                json.loads(body)
+            except ValueError:
+                self.send_response(400); self.end_headers(); return
+            os.makedirs(os.path.dirname(bp), exist_ok=True)
+            tmp = bp + '.tmp'
+            with open(tmp, 'wb') as f:
+                f.write(body)
+            if os.path.exists(bp):
+                try:
+                    os.replace(bp, bp + '.bak1')
+                except OSError:
+                    pass
+            os.replace(tmp, bp)
+            self._send_bytes(b'{"ok":true}')
+            return
+        if path.startswith('/api/books/drop/'):
+            bp = self._book_path(path[len('/api/books/drop/'):])
+            if bp is not None:
+                try:
+                    os.replace(bp, bp + '.gone')
+                except OSError:
+                    pass
+            self._send_bytes(b'{"ok":true}')
+            return
         if self.path.split('?')[0] == '/api/books':
             try:
                 n = int(self.headers.get('content-length', 0))

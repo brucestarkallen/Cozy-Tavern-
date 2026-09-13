@@ -3477,3 +3477,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   house → Backup has "Bring the books from the device" — the whole file read on demand, the
   page reloaded when it is in.
 - 395/395 + 35/35 + 8/8. version.js -> m154-001.
+
+# M155 — BOOKS PER STORY, like SillyTavern (and the bug that had made the device deaf)
+- FIELD REPORT: a second browser at the same address is empty; "SillyTavern and Marinara
+  store on Termux and open the same in any browser." TWO ROOT CAUSES. (1) Since M140 every
+  books request from the sync worker had been a 404: a relative fetch inside a worker
+  resolves against the WORKER's URL (/js/), so the worker asked /js/api/books — the device
+  never received a push and never answered a pull; the "no books reached this browser" toast
+  was true and its advice wrong. Endpoints are built from the worker's location now
+  (api(path)). (2) The single whole-store blob was the wrong shape: it had to be exported
+  entire on every change and could outgrow the server's cap. Now the device keeps ONE FILE
+  PER TALE (api/books/one/<storyId>) and one for the house (_house: connections, the stories
+  list, the house settings), with a manifest (api/books/list). Boot pulls every book the
+  browser lacks or that is newer than its stamp and pushes the tales the device lacks; after
+  that only a tale that changed is pushed (twenty seconds after its last write, at once on
+  page hide). A pull that took longer than three seconds finishes behind a toast and reloads
+  once. store.js: exportStory / exportHouse / importStory / importHouse. "Bring the books from
+  the device" pulls every book whole on demand.
+- PROVEN in a real Chromium against the real serve.py: browser A wrote a tale and a
+  connection; the device held _house and the tale; browser B opened fresh and, with no press,
+  held the story, its 41 pages, its ledger, the connection and the active story, thread drawn.
+- The old whole-store endpoints (api/books, api/books/stamp) remain for the manual backup.
+- 395/395 + 35/35 + 8/8. version.js -> m155-001. serve.py changed: restart it.

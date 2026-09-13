@@ -601,6 +601,62 @@ async function exportAll() {
   return JSON.stringify(envelope, null, 2);
 }
 
+/* M155: BOOKS PER STORY. exportStory(id) is one tale whole — its row, its
+ * pages, and every settings row that belongs to it (state:, memory:,
+ * snapshots:, versionState:, workers:, hk:, lore:, and any other key that
+ * ends in ':' + id); exportHouse() is everything that is nobody's tale —
+ * connections, the stories list, and the settings rows with no story
+ * suffix. Import replaces within that scope only. */
+const STORY_ROW = (key, ids) => { const at = key.lastIndexOf(':'); return at > 0 && ids.has(key.slice(at + 1)); };
+async function exportStory(storyId) {
+  const story = await stories.get(storyId);
+  if (!story) return null;
+  const rows = await run('settings', 'readonly', (s) => s.getAll());
+  const mine = rows.filter((r) => r && typeof r.key === 'string' && STORY_ROW(r.key, new Set([storyId])));
+  const msgs = await run('messages', 'readonly', (s) => s.index('byStory').getAll(storyId));
+  return JSON.stringify({ namespace: NAMESPACE, kind: 'story', exportedAt: new Date().toISOString(), story, settings: mine, messages: msgs });
+}
+async function exportHouse() {
+  const all = await run('stories', 'readonly', (s) => s.getAll());
+  const ids = new Set(all.map((x) => x.id));
+  const rows = await run('settings', 'readonly', (s) => s.getAll());
+  const house = rows.filter((r) => r && typeof r.key === 'string' && !STORY_ROW(r.key, ids) && !/^bookStamp:/.test(r.key) && r.key !== 'booksStamp');
+  return JSON.stringify({ namespace: NAMESPACE, kind: 'house', exportedAt: new Date().toISOString(), settings: house, connections: await run('connections', 'readonly', (s) => s.getAll()), stories: all.map((x) => ({ id: x.id, title: x.title, createdAt: x.createdAt, updatedAt: x.updatedAt, projectId: x.projectId })) });
+}
+async function importStory(json) {
+  const data = typeof json === 'string' ? JSON.parse(json) : json;
+  if (!data || data.kind !== 'story' || !data.story || !data.story.id) throw new Error('not a story book');
+  const id = data.story.id;
+  const d = await openDB();
+  await new Promise((resolve, reject) => {
+    const t = d.transaction(['stories', 'messages', 'settings'], 'readwrite');
+    t.objectStore('stories').put(data.story);
+    const ms = t.objectStore('messages');
+    const idx = ms.index('byStory');
+    const req = idx.getAllKeys(id);
+    req.onsuccess = () => { for (const k of req.result || []) ms.delete(k); for (const m of (data.messages || [])) ms.put(m); };
+    const ss = t.objectStore('settings');
+    for (const r of (data.settings || [])) if (r && typeof r.key === 'string') ss.put(r);
+    t.oncomplete = () => resolve(); t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
+  });
+  dropCaches();
+  return id;
+}
+async function importHouse(json) {
+  const data = typeof json === 'string' ? JSON.parse(json) : json;
+  if (!data || data.kind !== 'house') throw new Error('not the house book');
+  const d = await openDB();
+  await new Promise((resolve, reject) => {
+    const t = d.transaction(['connections', 'settings', 'stories'], 'readwrite');
+    const cs = t.objectStore('connections');
+    for (const c of (data.connections || [])) cs.put(c);
+    const ss = t.objectStore('settings');
+    for (const r of (data.settings || [])) if (r && typeof r.key === 'string') ss.put(r);
+    t.oncomplete = () => resolve(); t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
+  });
+  dropCaches();
+}
+
 async function importAll(json) {
   dropCaches(); /* M137: a restore replaces every row */
   let envelope;
@@ -661,5 +717,9 @@ export const db = {
   projects,
   exportAll,
   importAll,
+  exportStory,
+  exportHouse,
+  importStory,
+  importHouse,
   onStorageWarning,
 };

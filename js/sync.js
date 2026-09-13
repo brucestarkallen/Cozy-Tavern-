@@ -33,21 +33,17 @@ export function decideBoot(localJson, serverJson) {
 
 export async function initSync(ctx) {
   const status = { backed: false, words: 'in this browser only' };
-  /* M140: THE BOOKS OFF THE MAIN THREAD. The old boot exported the whole
-   * store to JSON to compare with the server's file, and every write
-   * re-exported it 1.5s later — during play, every couple of seconds, on the
-   * main thread: the twenty-second open and the lag on every press. Now a
-   * worker owns export and POST; boot compares STAMPS (the server's
-   * api/books/stamp, the browser's last push stamp); pushes are debounced to
-   * a quiet minute and forced when the page hides. Without a Worker (a test
-   * runtime), the old path runs once at boot and never mirrors live. */
+  /* M155: BOOKS PER STORY, like SillyTavern. A worker keeps one file per
+   * tale on the device (and one for the house). Boot pulls every book the
+   * browser lacks or that is newer, and pushes the tales the device lacks;
+   * after that, a change to a tale marks that tale dirty and only that book
+   * is pushed, twenty seconds after the last write and at once when the page
+   * hides. No whole-store export ever runs on the main thread again. */
   const canWorker = typeof Worker === 'function' && typeof document !== 'undefined';
   if (!canWorker) {
     try {
-      const res = await fetch('api/books', { signal: AbortSignal.timeout(2500) });
-      if (!res.ok && res.status !== 204) throw new Error('no shelf');
-      status.backed = true;
-      status.words = 'on this device, in files — the tavern keeps its own books';
+      const res = await fetch('api/books/list', { signal: AbortSignal.timeout(2500) });
+      if (res.ok) { status.backed = true; status.words = 'on this device, in files — one book per tale'; }
     } catch { /* no server here */ }
     return status;
   }
@@ -55,70 +51,71 @@ export async function initSync(ctx) {
   try { worker = new Worker(new URL('./sync-worker.js', import.meta.url), { type: 'module' }); } catch (err) { worker = null; }
   if (!worker) return status;
   const localHasStories = (await ctx.db.stories.list()).length > 0;
-  const localStamp = (await ctx.db.settings.get('booksStamp')) || '';
-  const bootAnswer = await new Promise((resolve) => {
-    const timer = setTimeout(() => resolve({ kind: 'boot', move: 'none', reachable: false, late: true }), 3000);
-    worker.onmessage = (e) => { if (e.data && e.data.kind === 'boot') { clearTimeout(timer); resolve(e.data); } else if (e.data && e.data.kind === 'error') { clearTimeout(timer); resolve({ kind: 'boot', move: 'none', reachable: false }); } };
-    worker.postMessage({ kind: 'boot', localStamp, localHasStories });
-  });
-  if (bootAnswer.reachable) {
-    status.backed = true;
-    status.words = 'on this device, in files — the tavern keeps its own books';
-    if (bootAnswer.serverStamp) await ctx.db.settings.set('booksStamp', bootAnswer.serverStamp);
-    if (bootAnswer.pulled) dropCaches();
-  } else if (bootAnswer.late) {
-    /* the worker is still deciding (a big pull) — let it finish in the background and refresh the shelf when it does */
-    status.words = 'in this browser; the device’s books are being read…';
-    if (ctx.toast) ctx.toast('Reading the device’s books — the tavern will open again when they are in.');
-    worker.onmessage = async (e) => {
-      if (e.data && e.data.kind === 'boot' && e.data.reachable) {
-        status.backed = true; status.words = 'on this device, in files — the tavern keeps its own books';
-        if (e.data.serverStamp) await ctx.db.settings.set('booksStamp', e.data.serverStamp);
-        /* M147: a late pull brought a whole store — the active story, the settings, the
-         * shelves; the page reloads once so all of it takes, instead of a refreshed shelf
-         * beside a room that booted empty (the writer saw "the data is not there") */
-        if (e.data.pulled) { dropCaches(); location.reload(); }
-      } else if (e.data && e.data.kind === 'boot' && !e.data.reachable) {
-        /* M154: say so — an empty browser with no server is the one case the writer met */
-        if (!localHasStories && ctx.toast) ctx.toast('The device’s books could not be read — is the tavern’s server (serve.py) running? Start it and refresh, or Settings → The house → Bring the books from the device.');
-      }
-    };
-  }
-  if (!status.backed && !bootAnswer.late && !localHasStories && ctx.toast) ctx.toast('No books reached this browser — is the tavern’s server (serve.py) running? Start it and refresh.');
-  /* M154: the books on demand — Settings → The house → "Bring the books from the device" */
-  status.pullNow = () => new Promise((resolve) => {
-    worker.onmessage = async (e) => {
-      if (e.data && e.data.kind === 'pulled') {
-        if (e.data.ok) { if (e.data.stamp) await ctx.db.settings.set('booksStamp', e.data.stamp); dropCaches(); location.reload(); }
-        resolve(e.data);
-      } else if (e.data && e.data.kind === 'error') resolve({ ok: false, why: e.data.words });
-    };
-    worker.postMessage({ kind: 'pull' });
-  });
-  if (!status.backed && !bootAnswer.late) return status;
 
-  /* Live mirror, quietly: a push at most once a quiet minute, and at once when the page hides */
+  const dirty = new Set();
   let timer = null;
-  let pending = false;
-  const pushNow = () => {
-    pending = false;
-    worker.onmessage = async (e) => { if (e.data && e.data.kind === 'pushed' && e.data.ok && e.data.stamp) { try { await ctx.db.settings.set('booksStamp', e.data.stamp); } catch (err) { /* fine */ } } };
-    worker.postMessage({ kind: 'push' });
+  let inFlight = false;
+  const ask = (msg) => new Promise((resolve) => {
+    const onmsg = (e) => { if (e.data && (e.data.kind === msg.expect || e.data.kind === 'error')) { worker.removeEventListener('message', onmsg); resolve(e.data); } };
+    worker.addEventListener('message', onmsg);
+    worker.postMessage(msg);
+  });
+  const pushNow = async () => {
+    if (inFlight || !dirty.size) return;
+    const ids = [...dirty]; dirty.clear(); inFlight = true;
+    try { await ask({ kind: 'push', ids, expect: 'pushed' }); } finally { inFlight = false; if (dirty.size) schedule(); }
   };
-  const schedule = () => { pending = true; clearTimeout(timer); timer = setTimeout(pushNow, 60000); };
-  const wrap = (obj, names) => {
-    for (const name of names) {
-      if (!obj || typeof obj[name] !== 'function') continue;
-      const orig = obj[name].bind(obj);
-      obj[name] = (...args) => { const out = orig(...args); if (!(name === 'set' && args[0] === 'booksStamp')) schedule(); return out; };
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(pushNow, 20000); };
+  const mark = (id) => { if (id) { dirty.add(id); schedule(); } };
+  const storyOfKey = (key) => { const at = String(key).lastIndexOf(':'); return at > 0 ? String(key).slice(at + 1) : ''; };
+
+  /* boot: with a three-second grace; a longer pull finishes behind a toast and reloads once */
+  const boot = ask({ kind: 'boot', expect: 'boot' });
+  const first = await Promise.race([boot, new Promise((r) => setTimeout(() => r({ late: true }), 3000))]);
+  const settle = async (b) => {
+    if (b && b.kind === 'boot' && b.reachable) {
+      status.backed = true; status.words = 'on this device, in files — one book per tale';
+      if (b.pulled > 0) { dropCaches(); location.reload(); return true; }
+    } else if (b && b.kind === 'boot' && !b.reachable && !localHasStories && ctx.toast) {
+      ctx.toast('No books reached this browser — is the tavern’s server (serve.py) running? Start it and refresh.');
     }
+    return false;
   };
-  wrap(ctx.db.settings, ['set']);
-  wrap(ctx.db.stories, ['create', 'update', 'remove']);
-  wrap(ctx.db.messages, ['append', 'remove', 'deleteFrom']);
-  wrap(ctx.db.connections, ['add', 'update', 'remove']);
-  wrap(ctx.db, ['importAll']);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && pending) { clearTimeout(timer); pushNow(); } });
-  window.addEventListener('pagehide', () => { if (pending) { clearTimeout(timer); pushNow(); } });
+  if (first.late) {
+    if (!localHasStories && ctx.toast) ctx.toast('Reading the device’s books — the tavern will open again when they are in.');
+    boot.then(settle);
+  } else if (await settle(first)) return status;
+
+  /* the live mirror: what changed, and only that */
+  const knownIds = new Set((await ctx.db.stories.list()).map((s) => s.id));
+  const wrap = (obj, name, pick) => {
+    if (!obj || typeof obj[name] !== 'function') return;
+    const orig = obj[name].bind(obj);
+    obj[name] = (...args) => { const out = orig(...args); try { pick(args, out); } catch (err) { /* fine */ } return out; };
+  };
+  wrap(ctx.db.settings, 'set', ([key]) => { if (/^bookStamp:/.test(key) || key === 'booksStamp') return; const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
+  wrap(ctx.db.settings, 'delete', ([key]) => { const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
+  wrap(ctx.db.stories, 'create', (args, out) => { Promise.resolve(out).then((st) => { if (st && st.id) { knownIds.add(st.id); mark(st.id); mark('_house'); } }); });
+  wrap(ctx.db.stories, 'update', ([id]) => { mark(id); mark('_house'); });
+  wrap(ctx.db.stories, 'remove', ([id]) => { knownIds.delete(id); mark('_house'); try { fetch('api/books/drop/' + encodeURIComponent(id), { method: 'POST' }).catch(() => {}); } catch (err) { /* fine */ } });
+  wrap(ctx.db.messages, 'append', ([id]) => mark(id));
+  wrap(ctx.db.messages, 'update', ([id]) => mark(id));
+  wrap(ctx.db.messages, 'remove', ([id]) => mark(id));
+  wrap(ctx.db.messages, 'deleteFrom', ([id]) => mark(id));
+  wrap(ctx.db.connections, 'add', () => mark('_house'));
+  wrap(ctx.db.connections, 'update', () => mark('_house'));
+  wrap(ctx.db.connections, 'remove', () => mark('_house'));
+  wrap(ctx.db, 'importAll', () => { for (const id of knownIds) mark(id); mark('_house'); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && dirty.size) { clearTimeout(timer); pushNow(); } });
+  window.addEventListener('pagehide', () => { if (dirty.size) { clearTimeout(timer); pushNow(); } });
+
+  /* on demand: Settings → The house → "Bring the books from the device" */
+  status.pullNow = async () => {
+    const r = await ask({ kind: 'pull', expect: 'pulled' });
+    if (r && r.ok) { dropCaches(); location.reload(); }
+    return r;
+  };
+  /* on demand: push every tale now (a first save of a browser's whole shelf) */
+  status.pushAll = async () => { for (const id of knownIds) dirty.add(id); dirty.add('_house'); clearTimeout(timer); await pushNow(); };
   return status;
 }
