@@ -306,18 +306,43 @@ export async function extractTurn({ connection, state, userText, assistantText, 
    * the queue. The raw answer rides out so the drawer can show it. */
   let user = prompt.user;
   let last = null;
+  /* M163: THE BEST READING IS KEPT. The sharper second ask (a missing
+   * mode.snapshot, an empty founding, an unusable answer) replaced whatever
+   * came first — so a page the extractor had read WELL, and was only asked
+   * to add one mood line to, lost its whole reading when that second call
+   * stumbled on the wire or came back as prose. The ledger got nothing for
+   * that page. Whatever we already understood stands unless the re-ask
+   * improves on it. */
+  let best = null;
+  const better = (a, b) => {
+    if (!b) return a;
+    if (!a) return b;
+    const rank = (r) => (r.note === 'ok' ? 2 : r.note === 'empty' ? 1 : 0);
+    if (rank(b) !== rank(a)) return rank(b) > rank(a) ? b : a;
+    return b.mutations.length >= a.mutations.length ? b : a;
+  };
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { text, finishReason } = await callWorker(connection, {
-      system: prompt.system,
-      user,
-      maxTokens: MAX_TOKENS,
-      effort: 'off',
-      signal,
-    });
-    const read = parseExtractorAnswer(text);
-    read.raw = text;
-    if (finishReason === 'length') read.note = read.mutations.length ? read.note : 'cut short';
+    let read;
+    try {
+      const { text, finishReason } = await callWorker(connection, {
+        system: prompt.system,
+        user,
+        maxTokens: MAX_TOKENS,
+        effort: 'off',
+        signal,
+      });
+      read = parseExtractorAnswer(text);
+      read.raw = text;
+      if (finishReason === 'length') read.note = read.mutations.length ? read.note : 'cut short';
+    } catch (err) {
+      /* M163: a wire that fails on the SECOND ask does not erase the first
+       * reading; with nothing yet in hand it still throws, and the queue
+       * retries the whole page as it always did. */
+      if (best) return best;
+      throw err;
+    }
     last = read;
+    best = better(best, read);
     /* M92: the mood board is owed on EVERY page (mode.snapshot — anything not
      * named is cleared). A page whose answer forgot it leaves yesterday's
      * flags standing — "combat" in a quiet bedroom wakes the wrong rules; the
@@ -337,5 +362,6 @@ export async function extractTurn({ connection, state, userText, assistantText, 
       }
     }
   }
-  return last;
+  /* M163: the best of the two, never merely the last. */
+  return best || last;
 }

@@ -13,6 +13,20 @@ import { emptyState, saveState, loadState } from '../../js/engine/state.js';
 import { thinkingHouse, withHouse, HOUSES } from './thinkinghouse.mjs';
 import { db } from '../../js/store.js';
 
+/* M163: a scripted wire for the extractor's two asks — the SSE shape the
+ * providers actually speak. */
+function jsonResponse(content) {
+  const text = 'data: ' + JSON.stringify({ choices: [{ delta: { content } }] }) + '\n\n'
+    + 'data: ' + JSON.stringify({ choices: [{ finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+  const body = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(text)); c.close(); } });
+  return { ok: true, status: 200, headers: new Headers(), body, async json() { return {}; }, async text() { return text; }, clone() { return this; } };
+}
+function withFetch(fn) {
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => fn(url, opts);
+  return { restore() { globalThis.fetch = real; } };
+}
+
 test('M31-1 the repair pass mends what cheap models break: comments, trailing commas, raw newlines in strings', () => {
   const broken = '{ // the ledger\n "mutations": [ {"type":"place.set","name":"a booth\nat McDonald’s",}, ], /* done */ }';
   assert(parseLenient(broken), 'lenient parse succeeds');
@@ -160,4 +174,56 @@ test('M31-7 → M106 the defaults: the header is kept (styled by the writer); st
   const plan = decompose(parsePreset(JSON.stringify(preset)).entries);
   /* M36: Time and Place is distilled into the core's Header Protocol — the storyteller still writes the header the writer styles */
   assert(plan.retired.some((r) => /Time and Place/.test(r.name) && /distilled/.test(r.why)), 'Time and Place is distilled into the house’s craft');
+});
+
+/* M163: the sharper second ask replaced whatever came first, so a page the
+ * extractor had read WELL — and was only asked to add one mood line to —
+ * lost its whole reading when that second call stumbled. The ledger got
+ * nothing for that page. */
+test('M163: a re-ask that stumbles never erases the reading it was improving', async () => {
+  const conn = { id: 'c1', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' };
+  const good = JSON.stringify({ mutations: [
+    { type: 'presence.enter', name: 'Mara' },
+    { type: 'place.set', name: 'the chapel' },
+  ] }); /* good, but no mode.snapshot — earns the second ask */
+
+  /* the second ask comes back as prose */
+  let calls = 0;
+  let f = withFetch(async () => { calls += 1; return jsonResponse(calls === 1 ? good : 'Sure! Here are the changes I noticed:'); });
+  try {
+    const read = await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'a', founding: false });
+    eq(calls, 2, 'the sharper ask was made');
+    eq(read.note, 'ok', 'and the first, good reading stands');
+    eq(read.mutations.length, 2, 'with every mutation it had');
+  } finally { f.restore(); }
+
+  /* and when the second ask FAILS on the wire, the reading still stands */
+  calls = 0;
+  f = withFetch(async () => { calls += 1; if (calls === 1) return jsonResponse(good); throw new Error('the wire fell over'); });
+  try {
+    const read = await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'a', founding: false });
+    eq(read.mutations.length, 2, 'a broken wire on the second ask does not cost the page its reading');
+  } finally { f.restore(); }
+
+  /* but a first ask that fails still throws, so the queue retries the page */
+  f = withFetch(async () => { throw new Error('the wire fell over'); });
+  try {
+    let threw = '';
+    try { await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'a', founding: false }); }
+    catch (err) { threw = err.message; }
+    assert(threw, 'with nothing in hand it still throws, so the queue retries the page (' + threw + ')');
+  } finally { f.restore(); }
+
+  /* and a re-ask that IMPROVES the reading wins */
+  const withMood = JSON.stringify({ mutations: [
+    { type: 'presence.enter', name: 'Mara' },
+    { type: 'place.set', name: 'the chapel' },
+    { type: 'mode.snapshot', modes: [] },
+  ] });
+  calls = 0;
+  f = withFetch(async () => { calls += 1; return jsonResponse(calls === 1 ? good : withMood); });
+  try {
+    const read = await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'a', founding: false });
+    eq(read.mutations.length, 3, 'the better answer is the one that stands');
+  } finally { f.restore(); }
 });

@@ -2,6 +2,7 @@
  * Run it: node tests/harness/run.mjs */
 import './stack.mjs';
 import './store.mjs';
+import './m100.mjs';
 import './engine.mjs';
 import './agents.mjs';
 import './referee.mjs';

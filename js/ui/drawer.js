@@ -1441,13 +1441,19 @@ function worldPanel(ctx) {
     }
     const state = await loadState(story.id);
     const brief = state.worldBrief;
+    /* M163: the panel ages the brief the way the wire does — by pages. */
     const turnNow = Number.isFinite(state.turn) ? state.turn : 0;
+    const pageNow = Number.isInteger(state.page) ? state.page : null;
     if (!brief || brief.empty) {
       note.textContent = brief
         ? 'The world agent read the last page and found nothing pressing on this scene — a quiet turn, honestly kept.'
         : 'The world agent has not spoken yet. After a page is finished it moves the absent by the clock and leaves the world’s word here.';
     } else {
-      const age = Number.isFinite(brief.atTurn) ? Math.max(0, turnNow - brief.atTurn) : 0;
+      /* M163: pages when the brief carries a page stamp (M162), so the panel
+       * and the wire agree on how old the world's word is. */
+      const age = Number.isFinite(pageNow) && Number.isFinite(brief.atPage)
+        ? Math.max(0, pageNow - brief.atPage)
+        : (Number.isFinite(brief.atTurn) ? Math.max(0, turnNow - brief.atTurn) : 0);
       note.textContent = 'The world’s word — what the storyteller will be told about the world beyond this page' + (age > 1 ? ' (written ' + age + ' turns ago)' : '') + ':';
       if (brief.pressure.length) {
         briefBox.appendChild(line('Could reach this scene:', 'quiet'));

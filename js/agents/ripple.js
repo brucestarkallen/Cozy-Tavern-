@@ -22,6 +22,8 @@
  *     the canon on the next page.
  */
 
+import { sameFact } from '../engine/world.js'; /* M163: the same fact in different clothes */
+
 export function factChange(before, after) {
   const a = String(before || ''); const b = String(after || '');
   if (a === b) return null;
@@ -70,26 +72,105 @@ export function replaceWord(text, from, to) { return String(text || '').replace(
 
 /* The ledger renamed, pure: keys and text fields alike. Returns the new state
  * and a count of what moved. */
+/* M163: A RENAME ONTO A NAME THE LEDGER ALREADY HOLDS MERGES THE TWO.
+ * rekey wrote `out[to] = v` flat, so renaming Mirela to Mira — the commonest
+ * ripple there is, a writer fixing a name the extractor misheard — silently
+ * threw away the REAL Mira: her page, her standing, her open wound and
+ * everything she knew, replaced by the typo's thin entry. Measured before
+ * this fix: core, arc, a p+40 standing, a split lip and one known fact, all
+ * gone in one edit, with only the take-back to notice it by. Nothing is lost
+ * now — where the two disagree the standing entry keeps its word, and where
+ * it is silent the other speaks. */
+function mergeEntry(kind, held, coming) {
+  if (!held || typeof held !== 'object') return coming;
+  if (!coming || typeof coming !== 'object') return held;
+  const firstOf = (a, b) => (String(a || '').trim() ? a : b);
+  if (kind === 'characters') {
+    const threads = [];
+    for (const t of [...(held.threads || []), ...(coming.threads || [])]) {
+      if (typeof t === 'string' && t.trim() && !threads.some((x) => x.trim().toLowerCase() === t.trim().toLowerCase())) threads.push(t);
+    }
+    return {
+      ...coming, ...held,
+      core: firstOf(held.core, coming.core),
+      state: firstOf(held.state, coming.state),
+      arc: firstOf(held.arc, coming.arc),
+      threads: threads.slice(0, 8),
+      updatedAtTurn: Math.max(Number(held.updatedAtTurn) || 0, Number(coming.updatedAtTurn) || 0),
+    };
+  }
+  if (kind === 'relationships') {
+    const pick = (a, b) => (Math.abs(Number(a) || 0) >= Math.abs(Number(b) || 0) ? (Number(a) || 0) : (Number(b) || 0));
+    const history = [...(held.history || []), ...(coming.history || [])]
+      .filter((h) => h && typeof h === 'object')
+      .sort((x, y) => (Number(x.atMinutes) || 0) - (Number(y.atMinutes) || 0));
+    return { ...coming, ...held, p: pick(held.p, coming.p), r: pick(held.r, coming.r), s: pick(held.s, coming.s), history: history.slice(-30) };
+  }
+  if (kind === 'bodies') {
+    return {
+      ...coming, ...held,
+      injuries: [...(held.injuries || []), ...(coming.injuries || [])],
+      strain: [...(held.strain || []), ...(coming.strain || [])].slice(-12),
+    };
+  }
+  if (kind === 'canon') {
+    const facts = [...(held.facts || [])];
+    for (const f of (coming.facts || [])) {
+      if (!f || typeof f.key !== 'string') continue;
+      if (!facts.some((x) => x && String(x.key).trim().toLowerCase() === f.key.trim().toLowerCase())) facts.push(f);
+    }
+    return { ...coming, ...held, facts };
+  }
+  if (kind === 'offscreen') return String(held.location || held.activity || '').trim() ? held : coming;
+  if (kind === 'knowledge') {
+    const out = Array.isArray(held) ? held.slice() : [];
+    for (const k of (Array.isArray(coming) ? coming : [])) {
+      if (!k || typeof k.fact !== 'string') continue;
+      if (!out.some((x) => x && sameFact(x.fact, k.fact))) out.push(k);
+    }
+    return out.slice(-12);
+  }
+  return { ...coming, ...held };
+}
+
 export function renameInState(state, from, to) {
   const next = JSON.parse(JSON.stringify(state));
   let n = 0;
   const same = (k) => String(k || '').trim().toLowerCase() === String(from).trim().toLowerCase();
-  const rekey = (map) => {
+  const isTo = (k) => String(k || '').trim().toLowerCase() === String(to).trim().toLowerCase();
+  const rekey = (map, kind) => {
     if (!map || typeof map !== 'object') return map;
     const out = {};
+    let moved;
+    let found = false;
     for (const [k, v] of Object.entries(map)) {
-      if (same(k)) { out[to] = v; n += 1; } else out[k] = v;
+      if (same(k)) { moved = v; found = true; n += 1; continue; }
+      out[k] = v;
     }
+    if (!found) return out;
+    const at = Object.keys(out).find(isTo);
+    out[at || to] = at ? mergeEntry(kind, out[at], moved) : moved;
     return out;
   };
-  next.characters = rekey(next.characters);
-  next.offscreen = rekey(next.offscreen);
-  next.relationships = rekey(next.relationships);
-  next.knowledge = rekey(next.knowledge);
-  next.canon = rekey(next.canon);
-  next.bodies = rekey(next.bodies);
+  next.characters = rekey(next.characters, 'characters');
+  next.offscreen = rekey(next.offscreen, 'offscreen');
+  next.relationships = rekey(next.relationships, 'relationships');
+  next.knowledge = rekey(next.knowledge, 'knowledge');
+  next.canon = rekey(next.canon, 'canon');
+  next.bodies = rekey(next.bodies, 'bodies');
   if (next.sheet && same(next.sheet.playerName)) { next.sheet.playerName = to; n += 1; }
   for (const p of (next.present || [])) if (p && same(p.name)) { p.name = to; n += 1; }
+  /* M163: and the scene never seats the same person twice after a merge. */
+  if (Array.isArray(next.present)) {
+    const seen = new Set();
+    next.present = next.present.filter((p) => {
+      const key = String((p && p.name) || '').trim().toLowerCase();
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
   for (const t of (next.threads || [])) {
     if (!t || typeof t !== 'object') continue;
     if (same(t.owner)) { t.owner = to; n += 1; }

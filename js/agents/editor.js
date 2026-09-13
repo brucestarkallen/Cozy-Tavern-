@@ -20,6 +20,7 @@
  */
 
 import { db } from '../store.js';
+import { storyTurn } from '../engine/apply.js';
 import { loadState, renderStateFacts } from '../engine/state.js';
 import { pageText } from '../assemble/stack.js';
 import { callModel } from './housekeeper.js';
@@ -197,7 +198,9 @@ export async function runEditor({ connection, story, storyId, call, signal } = {
       northStar: parsed.northStar,
       notes: parsed.notes,
       at: Date.now(),
-      turn: Number.isFinite(state.turn) ? state.turn : 0,
+      /* M163: pages told — the "every N turns" the writer sets means pages,
+       * not the house's write counter (which runs several times faster). */
+      turn: storyTurn(state),
     };
     const diff = diffCritique(standing.critique, critique);
     await saveEditor(storyId, {
@@ -222,7 +225,7 @@ export async function maybeRunEditor({ connection, story, storyId, reason, call,
     if (reason !== 'manual' && e.enabled !== true) return null;
     if (reason === 'cadence') {
       const state = await loadState(storyId);
-      const turn = Number.isFinite(state.turn) ? state.turn : 0;
+      const turn = storyTurn(state);
       if (turn - e.lastTurn < e.everyN) return null;
     }
     return runEditor({ connection, story, storyId, call, signal });

@@ -3637,3 +3637,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   a floor (past it the branch renders as its text) and msgNode falls back to the plain prose.
 - 413/413 harness (+11 laws) + 36/36 walk + 8/8 play + the eight-check two-browser proof.
   version.js -> m162-001.
+
+# M163 — the third sweep: every reader of an age, and two silent losses
+- EVERY READER OF AN AGE READS PAGES NOW. M162 moved the age STAMPS to pages told and four
+  readers were still on state.turn, the write counter, which runs three to five times faster.
+  The worst RETIRED PEOPLE: peopleHousekeeping measured thirty against a stamp in pages, so a
+  person last written TEN pages ago read as thirty and the auditor let them go — card gone,
+  roster line gone. Measured exactly that; now she stands at 10, at 25, at 29, and retires at
+  31, which is the law as written. Also carriedBy (the seat pool), the audit report's own turn
+  label, the editor's "every N turns" cadence, and the drawer's world panel, which now ages the
+  brief by pages exactly as the wire does.
+- A RENAME ONTO A NAME THE LEDGER ALREADY HOLDS MERGES THE TWO. rekey wrote `out[to] = v` flat,
+  so fixing a name the extractor misheard — the commonest ripple there is — silently threw away
+  the REAL person: her page, her standing, her open wound and everything she knew, replaced by
+  the typo's thin entry, with only the take-back to notice it by. Measured: core, arc, a p+40
+  standing, a split lip and one known fact, all gone in one edit. Merged now, per ledger — the
+  standing entry keeps its word, the other speaks where it is silent, loose ends and knowledge
+  and locks are unioned, both histories are kept in order, and the scene seats her once.
+- A RE-ASK NEVER ERASES THE READING IT WAS IMPROVING. The extractor's sharper second ask (a
+  missing mode.snapshot, an empty founding, an unusable answer) replaced whatever came first —
+  so a page it had read WELL, and was only asked to add one mood line to, lost its whole
+  reading when that second call stumbled on the wire or came back as prose: the ledger got
+  nothing for that page. The best of the two stands; with nothing in hand it still throws, so
+  the queue retries the page as it always did.
+- 416/416 harness (+3 laws) + 36/36 walk + 8/8 play + the two-browser proof. version.js -> m163-001.

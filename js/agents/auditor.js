@@ -24,7 +24,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
-import { applyMutations, RETIRED_EXAMPLE_NAMES } from '../engine/apply.js';
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
 import { renderCanon } from '../engine/canon.js';
 import { renderThreads, renderKnowledge, renderFactions } from '../engine/world.js';
@@ -310,7 +310,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...keptStandings];
-  const report = { at: Date.now(), turn: Number.isFinite(next.turn) ? next.turn : 0, issues: read.issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)) })) };
+  const report = { at: Date.now(), turn: storyTurn(next), issues: read.issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)) })) };
   const out = { ...next, audit: report };
   if (stale && stale()) return null;
   await saveState(storyId, out);
@@ -326,7 +326,13 @@ export const RETIRE_AFTER = 30;
 export function peopleHousekeeping(state) {
   const out = [];
   const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
-  const turn = Number.isFinite(state.turn) ? state.turn : 0;
+  /* M163: PAGES, like the stamp it is compared against. updatedAtTurn is
+   * written in pages told (M162); this read state.turn, the write counter,
+   * which runs three to five times faster — so a person last written ten
+   * pages ago measured thirty and the auditor RETIRED them: card gone,
+   * roster line gone, for a law that says thirty pages. Measured exactly
+   * that before this fix. */
+  const turn = storyTurn(state);
   const mc = mcName(state) !== 'the player' ? mcName(state) : '';
   const lower = (x) => String(x || '').trim().toLowerCase();
   const present = new Set((state.present || []).map((p) => lower(p && p.name)));
@@ -421,7 +427,8 @@ export const SEAT_CAP = 12;
  * the way the house does. */
 export function carriedBy(state, name, { brief = '', castNotes = '', pages = [] } = {}) {
   const seats = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
-  const turn = Number.isFinite(state.turn) ? state.turn : 0;
+  /* M163: pages, like the seat's own atTurn stamp. */
+  const turn = storyTurn(state);
   const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
   const recent = (Array.isArray(pages) ? pages : []).slice(-SEAT_MENTION_PAGES).map((p) => String((p && p.text) || '').toLowerCase()).join('\n');
   const rels = state.relationships || {};
