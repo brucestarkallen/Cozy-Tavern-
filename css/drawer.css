@@ -21,12 +21,19 @@
   padding-bottom: calc(1rem + var(--safe-b));
   padding-right: calc(1rem + env(safe-area-inset-right));
   opacity: 0;
-  transform: translateY(14px) scale(0.985);
   pointer-events: none;
-  transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1), opacity 0.18s;
-  will-change: transform, opacity; /* M139: the drawer's slide on its own layer — its shadow no longer repaints each frame */
-  overflow-y: auto;
+  /* M146: NO TRANSFORM, NO will-change, AND THE OUTER IS NOT THE SCROLLER.
+   * The drawer was its own scroll container while also being a scaling,
+   * shadowed, rounded layer promoted with will-change — every scroll inside
+   * it during and after the slide re-rastered the whole animating layer,
+   * and the promoted layer rasterized the full panel height on open. That
+   * was the first two seconds. Now it fades (opacity only), the outer
+   * clips, and the inner panels box scrolls on its own — plain, composited
+   * scrolling, like the housekeeper. */
+  transition: opacity 0.14s ease;
+  overflow: hidden;
 }
+.drawer-panels { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 
 /* M143: the drawer is never unmounted either — hidden is invisible and
  * untouchable, its layout kept, so opening costs no layout and closing
@@ -35,7 +42,6 @@
 
 .drawer.open {
   opacity: 1;
-  transform: none;
   pointer-events: auto;
 }
 

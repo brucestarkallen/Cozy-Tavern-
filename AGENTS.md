@@ -3384,3 +3384,15 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - An uncloned state row was tried and reverted: normalize shallow-copies, and the applier
   mutates in place — the cache would have been corrupted by an aborted chain.
 - 395/395 + 35/35 + 8/8. version.js -> m145-001.
+
+# M146 — the drawer scrolls like the housekeeper (no transform, no will-change, the inner box scrolls)
+- FIELD REPORT, the writer's own words: open the ledger and scroll within two seconds — jagged;
+  open and close within two seconds — not smooth; the housekeeper is smooth. A headless
+  Chromium cannot feel touch scrolling, so this one was read from the CSS: the drawer was ITS
+  OWN scroll container while also being a scaling, shadowed, rounded layer promoted with
+  will-change — on Android every scroll inside a transforming layer re-rasters the layer, and
+  a promoted layer rasterizes the full panel height on open. The housekeeper never
+  transformed. Now the drawer fades (opacity only, 140ms), has no will-change, the outer box
+  clips, and the inner panels box is the scroller (overflow-y auto, overscroll contained) —
+  plain composited scrolling. The drawer's scroll-keeping code already targeted the inner box.
+- 395/395 + 35/35 + 8/8. version.js -> m146-001.
