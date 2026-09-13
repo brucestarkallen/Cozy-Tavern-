@@ -84,6 +84,26 @@ try:
     ans = json.loads(post('api/books/page/never-seen', json.dumps({'at': 'x', 'm': {'id': 'a'}}).encode()))
     check('a page with no book under it is refused, so the browser sends the whole tale',
           ans.get('ok') is False and ans.get('whole') is True, str(ans))
+
+    # M184: two browsers, each appending, and one pushing its whole book
+    shutil.rmtree(os.path.join(DATA, 'books'), ignore_errors=True)
+
+    def small(ids):
+        return json.dumps({'namespace': 'cozytavern.v1', 'kind': 'story', 'exportedAt': '2026-01-01T00:00:00.000Z',
+                           'story': {'id': 't2', 'title': 'T'}, 'settings': [],
+                           'messages': [{'id': i, 'text': 'page ' + i} for i in ids]}).encode()
+
+    post('api/books/one/t2', small(['m0', 'm1']))
+    post('api/books/page/t2', json.dumps({'at': 'x', 'm': {'id': 'A-new', 'text': "Opera's page"}}).encode())
+    post('api/books/page/t2', json.dumps({'at': 'x', 'm': {'id': 'B-new', 'text': "Chrome's page"}}).encode())
+    both = [m['id'] for m in json.loads(get('api/books/one/t2'))['messages']]
+    check('both browsers’ appended pages are on the device', both == ['m0', 'm1', 'A-new', 'B-new'], str(both))
+    # Opera's twenty-second whole-book push lands, and its copy has not yet
+    # caught Chrome's page
+    post('api/books/one/t2', small(['m0', 'm1', 'A-new']))
+    after = [m['id'] for m in json.loads(get('api/books/one/t2'))['messages']]
+    check('a whole book never sweeps away another browser’s page', 'B-new' in after, str(after))
+    check('and does not double the ones it already held', after.count('A-new') == 1, str(after))
 finally:
     srv.terminate()
 

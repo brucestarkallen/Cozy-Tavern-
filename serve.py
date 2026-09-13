@@ -139,6 +139,48 @@ def _merge_log(book_bytes, log_path):
     return json.dumps(book).encode('utf-8')
 
 
+
+def _fold_missing(book_bytes, log_path):
+    """The incoming book, plus any appended page it does not already hold.
+    See M184: without this, a whole-book push from one browser erased a page
+    another browser had appended but not yet handed over."""
+    try:
+        if not os.path.exists(log_path):
+            return book_bytes
+        book = json.loads(book_bytes)
+    except (ValueError, OSError):
+        return book_bytes
+    msgs = book.get('messages')
+    if not isinstance(msgs, list):
+        return book_bytes
+    have = set()
+    for m in msgs:
+        if isinstance(m, dict) and m.get('id') is not None:
+            have.add(m['id'])
+    added = 0
+    try:
+        with open(log_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                m = row.get('m') if isinstance(row, dict) else None
+                if not isinstance(m, dict) or m.get('id') is None or m['id'] in have:
+                    continue
+                msgs.append(m)
+                have.add(m['id'])
+                added += 1
+    except OSError:
+        return book_bytes
+    if not added:
+        return book_bytes
+    book['messages'] = msgs
+    return json.dumps(book).encode('utf-8')
+
 def _book_stamp(book_path):
     """What the manifest reports: the snapshot's own stamp, or the newest
     appended page's, whichever is later — so another browser knows a tale
@@ -363,6 +405,16 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 json.loads(body)
             except ValueError:
                 self.send_response(400); self.end_headers(); return
+            # M184: A WHOLE BOOK NEVER SWEEPS AWAY ANOTHER BROWSER'S PAGE.
+            # The whole-book push clears the log, because the snapshot is
+            # meant to contain it. But the pushing browser's copy only holds
+            # what IT knew — and a page another browser appended seconds ago,
+            # which had not yet reached it, was in that log and nowhere else.
+            # Proven: Opera and Chrome each append a page, Opera's twenty-
+            # second push lands first, and Chrome's page is simply gone.
+            # Anything in the log the incoming book does not already hold is
+            # folded into it first; only then is the log cleared.
+            body = _fold_missing(body, _log_path(bp))
             os.makedirs(os.path.dirname(bp), exist_ok=True)
             tmp = bp + '.tmp'
             with open(tmp, 'wb') as f:

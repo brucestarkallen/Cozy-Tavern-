@@ -4028,3 +4028,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - tests/append.py holds all of it, timings included.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
   (live law included) + the append test. version.js -> m183-001.
+
+# M184 — a whole book never sweeps away another browser's page
+- THE APPEND LOG MADE A RACE, AND IT LOST A PAGE. A whole-book push clears the log, because the
+  snapshot is meant to contain it — but the pushing browser's copy holds only what IT knew, and a
+  page another browser appended seconds earlier, which had not yet reached it, lived in that log
+  and nowhere else. Proven the moment it was looked for: Opera and Chrome each append a page, the
+  device holds both, Opera's twenty-second whole-book push lands, and Chrome's page is simply
+  gone. Anything in the log the incoming book does not already hold is folded into it BEFORE the
+  write; only then is the log cleared. Held by a law in tests/append.py, including that a page the
+  book already held is never doubled.
+- This is the risk the whole append design carries, and it is why the log must never be treated as
+  disposable: it is the only copy of anything that has not reached a snapshot yet.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
+  + the append test. version.js -> m184-001.
