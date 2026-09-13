@@ -1503,6 +1503,28 @@ export function initChat(ctx) {
     if (!connection) { toast('The scribe needs a connection first.'); return false; }
     const promise = enqueueWork(story.id, { name: 'scribe', run: async ({ signal, stale }) => {
       const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, onProgress: ({ read, total }) => toast(`Re-reading the people — ${read} of ${total} pages…`) });
+      /* M135: the rebuilt pages also land in the LAST turn's boundary snapshot and
+       * the last page's checkpoint — so a retry, a swipe or a branch at the newest
+       * page starts from the rebuilt pages, not the frozen ones. Older boundaries
+       * keep their history (a branch far back should carry the pages as they were). */
+      try {
+        const rebuilt = await loadState(story.id);
+        const history = await db.messages.list(story.id);
+        const vis = history.filter((m) => m && !m.hidden);
+        const last = [...vis].reverse().find((m) => m.role === 'assistant');
+        const lastUser = last ? [...vis.slice(0, vis.indexOf(last))].reverse().find((m) => m.role === 'user') : null;
+        const snaps = await loadSnapshots(story.id);
+        let touched = false;
+        for (const e of snaps) {
+          if (e && lastUser && e.id === lastUser.id && e.snap) { e.snap.characters = JSON.parse(JSON.stringify(rebuilt.characters || {})); touched = true; }
+        }
+        if (touched) await saveSnapshots(story.id, snaps);
+        if (last) {
+          const idx = Number.isFinite(last.swipeIdx) ? last.swipeIdx : 0;
+          const all = await loadVersionStates(story.id);
+          if (all[last.id + ':' + idx]) { all[last.id + ':' + idx].characters = JSON.parse(JSON.stringify(rebuilt.characters || {})); await db.settings.set('versionState:' + story.id, all); }
+        }
+      } catch (err) { /* the ledger itself is rebuilt; the checkpoints follow when they can */ }
       return { silent: false, detail: rebuildPeopleWords(result) };
     } });
     noteWork(story.id, promise);

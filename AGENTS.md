@@ -3242,3 +3242,11 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   across a page (a #time skip, a night) tells the world agent THE CLOCK JUMPED: re-seat every
   absent person for the new hour, close what the gap resolved, nothing stands unexamined.
 - M134-1. 395/395 + 35/35 + 8/8. version.js -> m134-001.
+
+# M135 — the rebuilt pages survive a retry
+- FIELD QUESTION: "if I rebuild and then go back one turn, do the old pages come back?" They
+  did: a retry rewinds to the last turn's boundary snapshot, which held the frozen pages. Now
+  "Read the pages again" also writes the rebuilt character pages into the LAST turn's boundary
+  snapshot and the last page's checkpoint, so a retry, a swipe or a branch at the newest page
+  starts from the rebuilt pages. Older boundaries keep their history by design.
+- 395/395 + 35/35 + 8/8. version.js -> m135-001.
