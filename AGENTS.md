@@ -3396,3 +3396,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   clips, and the inner panels box is the scroller (overflow-y auto, overscroll contained) —
   plain composited scrolling. The drawer's scroll-keeping code already targeted the inner box.
 - 395/395 + 35/35 + 8/8. version.js -> m146-001.
+
+# M147 — the cost that grew with the writer's data
+- FIELD REPORT: a fresh tavern is smooth in everything; the writer's own — many stories, a
+  full ledger, hundreds of pages — is not. Three data-proportional costs: (1) the journal
+  cap was 6000 entries — a row of a megabyte or two cloned on EVERY read of the ledger; now
+  1500 (~250 turns), and journalReaches requires the journal to cover from the base snapshot
+  (else the checkpoint chain); (2) the drawer's sixteen panels each loaded the ledger — sixteen
+  clones per open and per re-render; now one shared read per render (a 400ms window), and
+  every writer in the drawer (the clock, a seat let go, a page by hand) reads fresh; (3) a boot
+  pull of the device's books that took more than three seconds ran in the background and only
+  refreshed the shelf — the writer opened a second browser and "the data is not there"; now a
+  late pull says so with a toast and reloads the page once when the books are in.
+- 395/395 + 35/35 + 8/8. version.js -> m147-001.

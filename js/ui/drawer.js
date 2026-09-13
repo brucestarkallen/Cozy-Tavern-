@@ -19,7 +19,24 @@
  * the drawer is open.
  */
 
-import { loadState, saveState, subscribe, notify } from '../engine/state.js';
+import { loadState as loadStateFresh, saveState, subscribe, notify } from '../engine/state.js';
+
+/* M147: ONE READ PER RENDER. Sixteen panels each loaded the ledger — sixteen
+ * clones of a row that grows with the story (its journal) — every time the
+ * drawer opened or re-rendered: the cost that scaled with the writer's data.
+ * During a render the panels share one read (a 400ms window keyed by story);
+ * a panel's BUTTON handlers run later and read fresh, as they must before a
+ * write. */
+const sharedRead = { id: null, at: 0, promise: null };
+function loadState(storyId) {
+  const now = Date.now();
+  if (sharedRead.id === storyId && sharedRead.promise && now - sharedRead.at < 400) return sharedRead.promise;
+  sharedRead.id = storyId; sharedRead.at = now; sharedRead.promise = loadStateFresh(storyId);
+  return sharedRead.promise;
+}
+/* the writers in this file (a hand on the clock, a seat let go, a page written by hand)
+ * read fresh through this, never the shared object */
+async function loadStateForWrite(storyId) { sharedRead.promise = null; return loadStateFresh(storyId); }
 import { applyMutations, undoLast, undoEntry, MODE_WORDS } from '../engine/apply.js';
 import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
@@ -63,7 +80,7 @@ async function currentStory(ctx) {
 async function handMutate(ctx, mutations) {
   const story = await currentStory(ctx);
   if (!story) return [];
-  const state = await loadState(story.id);
+  const state = await loadStateForWrite(story.id);
   const { state: next, applied } = applyMutations(state, mutations);
   if (applied.length) {
     await saveState(story.id, next);
@@ -258,7 +275,7 @@ function clockPanel(ctx) {
   calSelect.addEventListener('change', async () => {
     const story = await currentStory(ctx);
     if (!story) return;
-    const state = await loadState(story.id);
+    const state = await loadStateForWrite(story.id);
     if (!state.clock) return;
     state.clock.calendar = calSelect.value === 'custom' ? 'custom' : 'real';
     state.clock.label = renderClock(state.clock);
@@ -270,7 +287,7 @@ function clockPanel(ctx) {
   calSave.addEventListener('click', async () => {
     const story = await currentStory(ctx);
     if (!story) return;
-    const state = await loadState(story.id);
+    const state = await loadStateForWrite(story.id);
     if (!state.clock) return;
     const months = monthsInput.value.split(',').map((s) => s.trim()).filter(Boolean);
     const days = daysInput.value.split(',').map((s) => s.trim()).filter(Boolean);
@@ -594,7 +611,7 @@ function logPanel(ctx) {
         undoBtn.className = 'text-btn';
         undoBtn.textContent = 'Take it back';
         undoBtn.addEventListener('click', async () => {
-          const fresh = await loadState(story.id);
+          const fresh = await loadStateForWrite(story.id);
           const at = fresh.log.findIndex((e) => e && e.ts === entry.ts && e.words === entry.words && !e.undone);
           const result = at === -1 ? null : undoEntry(fresh, at);
           if (result && result.state) {
@@ -1563,7 +1580,7 @@ function peoplePanel(ctx) {
         wake.className = 'text-btn';
         wake.textContent = 'Bring back';
         wake.addEventListener('click', async () => {
-          const fresh = await loadState(story.id);
+          const fresh = await loadStateForWrite(story.id);
           const r = applyMutations(fresh, [{ type: 'people.wake', name }]);
           if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); }
           render();
@@ -1574,7 +1591,7 @@ function peoplePanel(ctx) {
         forget.textContent = 'Forget for good';
         forget.title = 'Erase this person entirely — page, seat, standing, knowledge, locks. For a name that was never the story’s. Take-back-able from “What changed and why”.';
         forget.addEventListener('click', async () => {
-          const fresh = await loadState(story.id);
+          const fresh = await loadStateForWrite(story.id);
           const r = applyMutations(fresh, [{ type: 'people.forget', name, cause: 'the writer’s hand' }]);
           if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); }
           render();

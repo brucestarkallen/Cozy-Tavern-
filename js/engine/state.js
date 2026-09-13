@@ -691,7 +691,11 @@ export function journalReaches(current, snapshots, targetPage) {
   /* a branch at the writer's FIRST message (k = -1) holds no storyteller page:
    * the fold to -1 is the founding and nothing else, always right (M71) */
   if (Number.isInteger(targetPage) && targetPage < 0) return true;
-  return (Array.isArray(snapshots) ? snapshots : []).some((e) => e && e.snap && Number.isInteger(e.snap.page) && e.snap.page <= targetPage);
+  /* M147: with the journal capped, a base snapshot alone is not enough — the
+   * journal must still hold every write after that snapshot (its first entry
+   * at or before the snapshot's sequence); otherwise the checkpoint chain */
+  const firstId = Number.isInteger(journal[0] && journal[0].id) ? journal[0].id : Infinity;
+  return (Array.isArray(snapshots) ? snapshots : []).some((e) => e && e.snap && Number.isInteger(e.snap.page) && e.snap.page <= targetPage && (!Number.isInteger(e.snap.journalSeq) || e.snap.journalSeq + 1 >= firstId));
 }
 
 export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {

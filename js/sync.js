@@ -69,11 +69,15 @@ export async function initSync(ctx) {
   } else if (bootAnswer.late) {
     /* the worker is still deciding (a big pull) — let it finish in the background and refresh the shelf when it does */
     status.words = 'in this browser; the device’s books are being read…';
+    if (ctx.toast) ctx.toast('Reading the device’s books — the tavern will open again when they are in.');
     worker.onmessage = async (e) => {
       if (e.data && e.data.kind === 'boot' && e.data.reachable) {
         status.backed = true; status.words = 'on this device, in files — the tavern keeps its own books';
         if (e.data.serverStamp) await ctx.db.settings.set('booksStamp', e.data.serverStamp);
-        if (e.data.pulled) { dropCaches(); if (ctx.chat) { await ctx.chat.refreshStories(); await ctx.chat.renderThread({ structural: true }); } }
+        /* M147: a late pull brought a whole store — the active story, the settings, the
+         * shelves; the page reloads once so all of it takes, instead of a refreshed shelf
+         * beside a room that booted empty (the writer saw "the data is not there") */
+        if (e.data.pulled) { dropCaches(); location.reload(); }
       }
     };
   }

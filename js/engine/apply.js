@@ -880,7 +880,7 @@ const HANDLERS = {
 
 /* ---------- the contract ---------- */
 
-export const JOURNAL_CAP = 6000; /* M69: ~1000 turns of a busy ledger; beyond it the sparse snapshots carry the base */
+export const JOURNAL_CAP = 1500; /* M147: ~250 turns of a busy ledger (was 6000 — a 2MB row cloned on every read, the data-proportional lag); beyond it the checkpoints and snapshots carry the base */
 /* M95: the placeholders the workers' prompts use in their examples, and the
  * example names of older coats that a model could still have learned to echo. */
 export const PLACEHOLDER_NAMES = ['name', 'other name', 'new name', 'name surname', 'main character', 'a public figure', 'old words', 'new words'];
