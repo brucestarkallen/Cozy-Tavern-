@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m153-001)
+# Cozy Tavern — handoff for the next session (state at m154-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
 Full history of every law and fix: AGENTS.md (M1 … M152). SPEC.md holds the founding design.

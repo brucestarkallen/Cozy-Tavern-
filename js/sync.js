@@ -78,9 +78,23 @@ export async function initSync(ctx) {
          * shelves; the page reloads once so all of it takes, instead of a refreshed shelf
          * beside a room that booted empty (the writer saw "the data is not there") */
         if (e.data.pulled) { dropCaches(); location.reload(); }
+      } else if (e.data && e.data.kind === 'boot' && !e.data.reachable) {
+        /* M154: say so — an empty browser with no server is the one case the writer met */
+        if (!localHasStories && ctx.toast) ctx.toast('The device’s books could not be read — is the tavern’s server (serve.py) running? Start it and refresh, or Settings → The house → Bring the books from the device.');
       }
     };
   }
+  if (!status.backed && !bootAnswer.late && !localHasStories && ctx.toast) ctx.toast('No books reached this browser — is the tavern’s server (serve.py) running? Start it and refresh.');
+  /* M154: the books on demand — Settings → The house → "Bring the books from the device" */
+  status.pullNow = () => new Promise((resolve) => {
+    worker.onmessage = async (e) => {
+      if (e.data && e.data.kind === 'pulled') {
+        if (e.data.ok) { if (e.data.stamp) await ctx.db.settings.set('booksStamp', e.data.stamp); dropCaches(); location.reload(); }
+        resolve(e.data);
+      } else if (e.data && e.data.kind === 'error') resolve({ ok: false, why: e.data.words });
+    };
+    worker.postMessage({ kind: 'pull' });
+  });
   if (!status.backed && !bootAnswer.late) return status;
 
   /* Live mirror, quietly: a push at most once a quiet minute, and at once when the page hides */

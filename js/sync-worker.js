@@ -13,8 +13,9 @@ async function serverStamp() {
     const res = await fetch('api/books/stamp', { signal: AbortSignal.timeout(2500) });
     if (res.ok) { const j = await res.json(); return { reachable: true, stamp: (j && j.exportedAt) || '', bytes: (j && j.bytes) || 0 }; }
     if (res.status === 404) {
-      /* an older serve.py: fall back to reading the file, once */
-      const full = await fetch('api/books', { signal: AbortSignal.timeout(4000) });
+      /* an older serve.py (not restarted since M140): fall back to reading the
+       * file, once — with a long leash; a big book takes seconds to arrive */
+      const full = await fetch('api/books', { signal: AbortSignal.timeout(120000) });
       if (full.status === 204) return { reachable: true, stamp: '', bytes: 0 };
       if (!full.ok) return { reachable: false };
       const text = await full.text();
@@ -38,6 +39,17 @@ self.onmessage = async (e) => {
     if (msg.kind === 'push') {
       const r = await push();
       self.postMessage({ kind: 'pushed', ok: r.ok, stamp: r.stamp });
+      return;
+    }
+    if (msg.kind === 'pull') {
+      /* M154: the device's books, on demand — the whole file, whatever the stamps say */
+      const full = await fetch('api/books', { signal: AbortSignal.timeout(120000) });
+      if (full.status === 204) { self.postMessage({ kind: 'pulled', ok: false, why: 'the device holds no books yet' }); return; }
+      if (!full.ok) { self.postMessage({ kind: 'pulled', ok: false, why: 'the server did not answer' }); return; }
+      const text = await full.text();
+      await db.importAll(text);
+      const m = /"exportedAt"\s*:\s*"([^"]+)"/.exec(text.slice(0, 4096));
+      self.postMessage({ kind: 'pulled', ok: true, stamp: m ? m[1] : '' });
       return;
     }
     if (msg.kind === 'boot') {

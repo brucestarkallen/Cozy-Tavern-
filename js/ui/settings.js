@@ -100,6 +100,7 @@ export function initSettings(ctx) {
     modWhenLabel: document.getElementById('mod-when-label'),
     btnModCancel: document.getElementById('btn-mod-cancel'),
     btnExport: document.getElementById('btn-export'),
+    btnPullBooks: document.getElementById('btn-pull-books'), /* M154 */
     btnResetSettings: document.getElementById('btn-reset-settings'),
     resetNote: document.getElementById('reset-note'),
     importFile: document.getElementById('import-file'),
@@ -2068,6 +2069,13 @@ export function initSettings(ctx) {
 
   /* ---------- backup ---------- */
 
+  if (els.btnPullBooks) els.btnPullBooks.addEventListener('click', async () => {
+    const st = ctx.booksStatus;
+    if (!st || typeof st.pullNow !== 'function') { toast('No server here — the books cannot be read on this device. Start serve.py and refresh.'); return; }
+    toast('Reading the device’s books…');
+    const r = await st.pullNow();
+    if (!(r && r.ok)) toast('The books could not be read: ' + ((r && r.why) || 'the server did not answer') + '.');
+  });
   els.btnExport.addEventListener('click', async () => {
     const json = await db.exportAll();
     const blob = new Blob([json], { type: 'application/json' });

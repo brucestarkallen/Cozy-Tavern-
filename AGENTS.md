@@ -3466,3 +3466,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   place field) fold with the clock's — the room's first paint is text and buttons.
 - Final numbers at 6× throttle: drawer first scroll 17ms, fast open+close 33ms, settings close
   33ms. 395/395 + 35/35 + 8/8. version.js -> m153-001.
+
+# M154 — a second browser came up empty (and said nothing)
+- FIELD REPORT: Chrome opened beside Opera at the same address: no stories, no word why.
+  Two causes: (1) with serve.py not restarted since M140 the stamp endpoint is 404, and the
+  fallback read of the whole file had a four-second leash — a big book did not arrive in four
+  seconds, the read aborted, boot decided "no server", and an empty browser stayed empty in
+  silence; the leash is two minutes now. (2) Nothing told the writer. Now: an empty browser
+  that reached no books says so in a toast (start serve.py and refresh), and Settings → The
+  house → Backup has "Bring the books from the device" — the whole file read on demand, the
+  page reloaded when it is in.
+- 395/395 + 35/35 + 8/8. version.js -> m154-001.
