@@ -3519,3 +3519,9 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   Marinara's launcher starts its server fresh on every run. One manual douse is needed this
   once (`pkill -f serve.py`) because the running launcher is still the old one.
 - version.js -> m158-001.
+
+# M159 — the closing sweep
+- The launcher touches only this folder's serve.py (Cozy Chat's lamp is never doused). Every
+  module passes syntax and ships in the shell; serve.py parses; 395/395 + 35/35 + 8/8; the
+  two-browser proof against the real serve.py at m158: browser B holds everything browser A
+  wrote. HANDOFF.md carries the launcher and worker laws. version.js -> m159-001.

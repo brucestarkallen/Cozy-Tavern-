@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m155-001)
+# Cozy Tavern — handoff for the next session (state at m159-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
 Full history of every law and fix: AGENTS.md (M1 … M152). SPEC.md holds the founding design.
@@ -38,7 +38,11 @@ Full history of every law and fix: AGENTS.md (M1 … M152). SPEC.md holds the fo
 - Data: serve.py keeps ONE FILE PER TALE in ~/.cozytavern/books/ (plus _house.json) — M155,
   SillyTavern's shape; a fresh browser pulls every book at open (reloads once if slow) and only
   a changed tale is pushed; Settings → The house → Backup exports/imports everything by hand.
-  Restart serve.py after any server change. The worker's fetches must use api(path).
+  The launcher (cozytavern.sh) douses and relights this folder's serve.py on EVERY run (M158),
+  and serve.py re-execs itself when its file changes (M157) — no manual restart, ever. The
+  worker's fetches must use api(path) (a relative fetch in a worker resolves against /js/).
+- Two-browser proof: tests in the session's /tmp/twobrowsers.py (Playwright, two contexts, the
+  real serve.py): write in A, open B fresh → B holds the story, pages, ledger, connection.
 
 ## Known limits (not bugs)
 - The prose of the model the writer points at it. The house hands it the truth and catches

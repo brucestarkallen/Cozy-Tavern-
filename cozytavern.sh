@@ -58,8 +58,8 @@ fi
 # so the relight code was not in it yet, and the old server kept the port
 # once more. Like Marinara's launcher, every run starts a fresh server:
 # whatever holds the port for this folder's serve.py is doused first.
+# Only this folder's lamp — never Cozy Chat's (its serve.py answers another port).
 pkill -f "$REPO_DIR/serve.py" 2>/dev/null || true
-pkill -f "python3 serve.py" 2>/dev/null || true
 for try in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
   if ! (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null; then break; fi
   sleep 0.25
