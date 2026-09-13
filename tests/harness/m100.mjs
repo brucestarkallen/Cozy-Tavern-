@@ -264,3 +264,33 @@ test('M166: a fight whose allies lost the player mark never throws the turn away
   const src = readFileSync(new URL('../../js/engine/duels.js', import.meta.url), 'utf8');
   assert(!/b\.allies\.find\(\(u\) => u\.isPlayer\)/.test(src), 'no reader looks the player up unguarded');
 });
+
+/* M167: every colour in the writer's 🎨 display pack was a hard hex — a
+ * near-black header card with near-white type — so on Daylight (and on
+ * "follow the sky" through an afternoon) the scene header sat in the
+ * parchment room as a black box. Measured in real Chromium, tests/coat.py:
+ * card-vs-room luminance gap 0.86 before, 0.02 after; the Lamplight coat is
+ * unchanged to the pixel (card rgb(26,26,37) both ways). */
+test('M167: the 🎨 pack paints in tokens, so it follows the coat', async () => {
+  const src = readFileSync(new URL('../../js/regex-styles.js', import.meta.url), 'utf8');
+  /* every hex must sit inside a var() fallback — never bare */
+  const bare = [];
+  const re = /(.{0,28})#[0-9a-fA-F]{6}/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    if (!/var\(--pk-[a-z0-9-]+,$/.test(m[1])) bare.push(m[0].slice(-7));
+  }
+  eq(bare.length, 0, 'no colour is painted bare: ' + [...new Set(bare)].join(', '));
+  assert(src.includes('var(--pk-'), 'the pack paints in house tokens');
+
+  /* and every token it names must be defined in BOTH coats */
+  const css = readFileSync(new URL('../../css/base.css', import.meta.url), 'utf8');
+  const used = [...new Set([...src.matchAll(/var\((--pk-[a-z0-9-]+),/g)].map((x) => x[1]))];
+  assert(used.length >= 20, 'the pack names a full palette (' + used.length + ')');
+  const light = css.slice(css.indexOf("html[data-theme='light']"));
+  const root = css.slice(0, css.indexOf("html[data-theme='light']"));
+  for (const token of used) {
+    assert(root.includes(token + ':'), token + ' has a lamplight value');
+    assert(light.includes(token + ':'), token + ' has a daylight value');
+  }
+});

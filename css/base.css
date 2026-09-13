@@ -34,6 +34,49 @@
   --scrim: rgba(0, 0, 0, .55);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --vvh: 100vh; /* set from visualViewport.height by app.js */
+
+  /* M167: THE 🎨 PACK FOLLOWS THE COAT. Every colour in the writer's display
+   * styles was a hard hex — a near-black header card with near-white type —
+   * so on Daylight (and on "follow the sky" through an afternoon) the scene
+   * header sat in the parchment room as a black box: a card-vs-room
+   * luminance gap of 0.86, measured in tests/coat.py. Each colour is a token
+   * now. Its LAMPLIGHT value is the pack's own hex, so the dark coat is
+   * unchanged to the pixel; its DAYLIGHT value is that colour's parchment
+   * equal. A rule the writer edits by hand may still name any colour it
+   * likes — the fallback inside each var() is the original. */
+  --pk-card-1: #1a1a25;
+  --pk-card-2: #1f1a28;
+  --pk-card-3: #1a1f25;
+  --pk-chip-bg: #1a1a20;
+  --pk-box-bg: #15101a;
+  --pk-box-edge: #353545;
+  --pk-rule: #252530;
+  --pk-place: #e8e8f4;
+  --pk-body: #e0d8cc;
+  --pk-body-2: #e0dcd4;
+  --pk-body-3: #e8e0d8;
+  --pk-body-4: #d8d0c4;
+  --pk-quiet: #c8c0b8;
+  --pk-quiet-2: #c0b8a0;
+  --pk-quiet-3: #c0b8a8;
+  --pk-quiet-4: #a09888;
+  --pk-quiet-5: #8a8078;
+  --pk-quiet-6: #7a7a8a;
+  --pk-quiet-7: #5a5a6a;
+  --pk-quiet-8: #706858;
+  --pk-gold: #c9a24e;
+  --pk-gold-2: #c9a84c;
+  --pk-gold-dim: #8a7a4a;
+  --pk-red: #d45246;
+  --pk-red-2: #d47060;
+  --pk-red-dim: #8a3a3a;
+  --pk-amber: #d4842a;
+  --pk-sky: #6b9ec4;
+  --pk-rose: #c78a96;
+  --pk-violet: #8a7ab4;
+  --pk-violet-2: #9a8abc;
+  --pk-violet-3: #5a3a8a;
+  --pk-teal: #4a9c8c;
 }
 
 html[data-theme='light'] {
@@ -60,6 +103,41 @@ html[data-theme='light'] {
   --ok: #4a6b3a;
   --shadow: 0 8px 28px rgba(60, 40, 20, .14);
   --on-ember: #191106;
+
+  /* M167: the pack, in parchment. */
+  --pk-card-1: #f4ecdc;
+  --pk-card-2: #efe6d4;
+  --pk-card-3: #f2ecdf;
+  --pk-chip-bg: #e7dcc6;
+  --pk-box-bg: #f6efe2;
+  --pk-box-edge: #d8c9ae;
+  --pk-rule: #e0d3ba;
+  --pk-place: #2a2018;
+  --pk-body: #33291f;
+  --pk-body-2: #33291f;
+  --pk-body-3: #2f261d;
+  --pk-body-4: #3a2f24;
+  --pk-quiet: #5c4e42;
+  --pk-quiet-2: #5f5040;
+  --pk-quiet-3: #5f5040;
+  --pk-quiet-4: #6b5c4c;
+  --pk-quiet-5: #6b5c4c;
+  --pk-quiet-6: #6b5c4c;
+  --pk-quiet-7: #7a6a58;
+  --pk-quiet-8: #7a6a58;
+  --pk-gold: #8a5205;
+  --pk-gold-2: #8a5205;
+  --pk-gold-dim: #9a7434;
+  --pk-red: #b23a2a;
+  --pk-red-2: #b8452f;
+  --pk-red-dim: #8f3626;
+  --pk-amber: #9a5a10;
+  --pk-sky: #2f5f7e;
+  --pk-rose: #8e4658;
+  --pk-violet: #5f4288;
+  --pk-violet-2: #6f4d8f;
+  --pk-violet-3: #5a3a8a;
+  --pk-teal: #1f6a5c;
 }
 
 * { box-sizing: border-box; }

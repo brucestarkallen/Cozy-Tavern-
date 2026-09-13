@@ -3726,3 +3726,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the page was never written. One guard (playerUnit) at every site: the first ally stands in and is
   marked; a field with no allies is not a fight and closes cleanly.
 - 423/423 harness (+3 laws) + 36/36 walk + 8/8 play + the two-browser proof. version.js -> m166-001.
+
+# M167 — the 🎨 pack follows the coat
+- EVERY COLOUR IN THE WRITER'S DISPLAY STYLES WAS A HARD HEX. The scene header renders as a card
+  painted #1a1a25 with #e8e8f4 type — near-black with near-white — and the house ships a Daylight
+  coat (parchment, #f5efe4) plus "follow the sky", which turns light through an afternoon. So on
+  the light coat the header sat in the room as a black box. Measured in real Chromium against both
+  coats (tests/coat.py): card-vs-room luminance gap 0.86 before, 0.02 after. All 33 colours of the
+  pack are tokens now (--pk-*), 154 sites; each token's LAMPLIGHT value is the pack's own hex, so
+  the dark coat is unchanged TO THE PIXEL (card rgb(26,26,37) before and after), and its DAYLIGHT
+  value is that colour's parchment equal. The fallback inside every var() is the original hex, so a
+  rule the writer edits by hand still paints exactly what it says. A law holds that no colour in
+  the pack is ever painted bare again, and that every token it names is defined in BOTH coats.
+- 424/424 harness (+1 law) + 36/36 walk + 8/8 play + the two-browser proof + the coat proof.
+  version.js -> m167-001.
