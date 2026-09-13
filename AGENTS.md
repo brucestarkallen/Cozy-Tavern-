@@ -3332,3 +3332,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The whole session's changes swept: every module passes syntax, every module ships in the
   offline shell (the worker included), no debug leftovers, serve.py parses. 395/395 + 35/35 +
   8/8. version.js -> m141-001.
+
+# M142 — the open room first; the drawer never rebuilt under a finger
+- FIELD REPORT: the ledger's first scroll janked while everything else was smooth; a fast
+  double tap on Settings or the ledger waited. (1) Settings rendered every section on every
+  open before the view could answer a tap — the rulebook's long textareas, the regex shelf, the
+  cast, the lore. Now the sections of the OPEN room render at once and the rest follow on idle
+  ticks, one per tick; a reset or a restore still re-reads everything at once (onShow all).
+  (2) While the readers write, every ledger change re-rendered all sixteen drawer panels —
+  under the writer's scrolling finger. A re-render while the drawer is open is throttled to one
+  per 1.5s, deferred until the drawer has not scrolled for 600ms, and keeps the scroll position.
+- M46-2 follows. 395/395 + 35/35 + 8/8. version.js -> m142-001.

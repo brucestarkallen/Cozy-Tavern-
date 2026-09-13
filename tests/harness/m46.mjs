@@ -24,7 +24,7 @@ test('M46-1 a job is marked running from start to settle, and listeners hear bot
 test('M46-2 the drawer shows "reading now…", disables the button that is reading, and re-renders on change', () => {
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
   assert(/is reading now…/.test(drawer) && /audit\.textContent = 'Auditing…'/.test(drawer) && /found\.textContent = 'Founding…'/.test(drawer));
-  assert(/onWorkerChange\(\(\) => \{ if \(!drawer\.hidden\) render\(\); \}\);/.test(drawer), 'one subscription for the drawer');
+  assert(/onWorkerChange\(\(\) => \{ if \(!drawer\.hidden\) quietRender\(\); \}\);/.test(drawer) && /const quietRender = \(\) => \{/.test(drawer), 'one subscription for the drawer, through the quiet render (M142: never under a finger)');
   assert(!/DOMNodeRemoved/.test(drawer));
 });
 

@@ -2055,7 +2055,7 @@ export function initSettings(ctx) {
     } catch (err) { /* a rulebook that will not read is left as it is */ }
     ctx.setTheme('dark');
     document.body.classList.remove('plain-speech');
-    await onShow();
+    await onShow({ all: true });
     if (ctx.chat && typeof ctx.chat.renderPromptChips === 'function') ctx.chat.renderPromptChips();
     if (ctx.chat && typeof ctx.chat.renderThread === 'function') ctx.chat.renderThread({ structural: true });
   }
@@ -2098,7 +2098,7 @@ export function initSettings(ctx) {
       await db.importAll(text);
       els.backupNote.hidden = false;
       els.backupNote.textContent = 'Everything is back where it belongs. Welcome home.';
-      await onShow();
+      await onShow({ all: true });
       if (ctx.chat) {
         await ctx.chat.refreshStories();
         await ctx.chat.renderThread();
@@ -2160,19 +2160,42 @@ export function initSettings(ctx) {
 
   /* ---------- shown each time the view opens ---------- */
 
-  async function onShow() {
+  /* M142: THE OPEN ROOM FIRST. Settings rendered every section on every
+   * open — the rulebook's long textareas, the regex shelf, the cast, the
+   * lore, the old chats — before the view could answer a tap; a second tap
+   * waited on the first. Now the sections of the OPEN room render at once and
+   * the rest follow on idle ticks, one section per tick, so the view is
+   * interactive the moment it appears. A room the writer switches to renders
+   * whatever is still pending for it first. */
+  const ROOM_RENDERS = {
+    storyteller: () => [renderConnections, renderWorkers, renderThinking],
+    story: () => [loadPromptSlots],
+    craft: () => [renderRulebook, renderRegex],
+    world: () => [renderCast, renderLore],
+    readers: () => [renderMemory, renderReferee],
+    house: () => [loadTheme],
+    help: () => [],
+  };
+  let showToken = 0;
+  async function onShow({ all = false } = {}) {
+    const token = ++showToken;
+    if (all) {
+      for (const r of Object.keys(ROOM_RENDERS)) for (const fn of ROOM_RENDERS[r]()) { try { await fn(); } catch (err) { /* left */ } }
+      return;
+    }
     if (els.booksLive && ctx.booksStatus) els.booksLive.textContent = 'Where the tales live: ' + ctx.booksStatus.words + '.';
-    await renderConnections();
-    await loadPromptSlots();
-    await renderRulebook();
-    await renderWorkers();
-    await renderMemory();
-    await renderReferee();
-    await renderCast();
-    await renderLore();
-    await renderRegex();
-    await renderThinking();
-    await loadTheme();
+    const room = (await db.settings.get('settingsRoom')) || 'storyteller';
+    const first = (ROOM_RENDERS[room] || ROOM_RENDERS.storyteller)();
+    for (const fn of first) { try { await fn(); } catch (err) { /* a section that will not draw is left */ } }
+    const rest = Object.keys(ROOM_RENDERS).filter((r) => r !== room).flatMap((r) => ROOM_RENDERS[r]());
+    let i = 0;
+    const step = async () => {
+      if (token !== showToken || i >= rest.length) return;
+      try { await rest[i](); } catch (err) { /* left */ }
+      i += 1;
+      setTimeout(step, 0);
+    };
+    setTimeout(step, 0);
   }
 
   /* B7 (M9): when the shelf of stories changes while Settings stands open,

@@ -1954,7 +1954,7 @@ export function initDrawer(ctx) {
     const storyId = ctx.getActiveStoryId();
     if (storyId) {
       unsubscribe = subscribe(storyId, () => {
-        if (!drawer.hidden) render();
+        if (!drawer.hidden) quietRender();
       });
     }
 
@@ -2008,9 +2008,33 @@ export function initDrawer(ctx) {
 
   /* M46: the drawer follows the workers as they start and settle — one
    * subscription for the whole drawer, never one per panel render. */
-  onWorkerChange(() => { if (!drawer.hidden) render(); });
+  onWorkerChange(() => { if (!drawer.hidden) quietRender(); });
 
+  /* M142: THE DRAWER UNDER A FINGER. While the readers write, every ledger
+   * change re-rendered all sixteen panels — while the writer was scrolling
+   * them: the jank on the first scroll. Now a re-render while the drawer is
+   * open is throttled to one per 1.5s, deferred until the drawer has not
+   * scrolled for 600ms, and the scroll position is kept across it. */
+  let renderTimer = null;
+  let lastRenderAt = 0;
+  let lastScrollAt = 0;
+  panelsEl.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { passive: true });
+  const quietRender = () => {
+    if (drawer.hidden) return;
+    const since = Date.now() - lastRenderAt;
+    const scrolling = Date.now() - lastScrollAt < 600;
+    if (since >= 1500 && !scrolling) {
+      lastRenderAt = Date.now();
+      const top = panelsEl.scrollTop;
+      render();
+      requestAnimationFrame(() => { panelsEl.scrollTop = top; });
+      return;
+    }
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(quietRender, Math.max(200, scrolling ? 650 : 1500 - since));
+  };
   function open() {
+    lastRenderAt = Date.now();
     render();
     drawer.hidden = false;
     scrim.hidden = false;
