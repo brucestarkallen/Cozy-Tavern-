@@ -3882,3 +3882,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - 435/435 harness (+6 laws across M173-M175) + 36/36 walk + 8/8 play, each run alone + the anchor
   differential (484/484 identical) + the two-browser proof + the coat proof + the contrast audit.
   version.js -> m175-001.
+
+# M176 — the war let the writer fight himself, and two fights in three lost their odds
+- THE WRITER IS NEVER ON THE OTHER SIDE — except in a war. duel_start refuses an MC opponent and
+  battle_start filters the main character out of BOTH rosters; war_start filtered only its allies.
+  A model that listed the writer's own character among the enemy formations (or as the enemy
+  commander) had startWar build a unit out of him, and the writer fought himself. The hardening
+  this file calls "ported wholesale" had a hole in exactly one of the three.
+- THE ODDS THE REFEREE READ WERE THROWN AWAY IN TWO FIGHTS OF THREE. engine/apply.js's
+  combat.begin reads `m.scaleMismatch`. The duel path mapped it by hand; the battle and the war
+  were SPREAD straight in from the normalizer, which emitted only `scale` — so every party fight
+  and every war opened with scaleMismatch undefined, clamped to 0, and was scored on an EVEN FIELD
+  however badly outmatched (or overwhelming) the referee had judged the sides. One spelling now,
+  for all three, and a law checks that all three read it from the mutation.
+- 436/436 harness (+1 law) + 36/36 walk + 8/8 play, each run alone + the anchor differential +
+  the two-browser proof + the coat proof + the contrast audit. version.js -> m176-001.

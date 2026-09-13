@@ -565,3 +565,34 @@ test('M175: a field a caller does not supply is a field kept', async () => {
   const src = readFileSync(new URL('../../js/ui/settings.js', import.meta.url), 'utf8');
   assert(/pinned: pin\.checked, whenKey: mod\.whenKey, note: mod\.note/.test(src), 'the pin toggle carries the whole rule too');
 });
+
+/* M176: the referee's identity hardening had a hole in exactly one of three,
+ * and the odds it read were thrown away in two of three. */
+test('M176: the writer is never on the other side, and the odds reach the field', async () => {
+  const { normalizeAdj } = await import('../../js/agents/referee.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  const st = emptyState();
+  st.sheet = { actors: {}, playerName: 'Jovan' };
+
+  /* the war filtered only its allies — the writer could be an enemy formation,
+   * and even the enemy commander, and would have fought himself */
+  const war = normalizeAdj({ check: true, action: 'orders the left wing forward', war_start: {
+    allies: ['the left wing', 'Jovan'], enemies: ['the black company', 'Jovan'], enemy_commander: 'Jovan', scale: -3,
+  } }, st);
+  eq(war.war_start.enemies.join(','), 'the black company', 'the writer is not an enemy formation');
+  eq(war.war_start.allies.join(','), 'the left wing', 'nor listed twice among his own');
+  eq(war.war_start.enemyCommander, null, 'nor the enemy commander');
+
+  /* combat.begin reads scaleMismatch; the battle and the war were SPREAD in
+   * carrying only `scale`, so every party fight and war was scored even */
+  eq(war.war_start.scaleMismatch, -3, 'the war carries the odds the referee read');
+  const battle = normalizeAdj({ check: true, action: 'swings', battle_start: { allies: ['Mira'], enemies: ['a raider x3'], domain: 'melee', scale: 2 } }, st);
+  eq(battle.battle_start.scaleMismatch, 2, 'and so does the battle');
+  const duel = normalizeAdj({ check: true, action: 'swings', duel_start: { opponent: 'the smith', domain: 'melee', scale: -1 } }, st);
+  eq(duel.duel_start.scaleMismatch, -1, 'and the duel, in the one spelling the applier reads');
+
+  /* and combat.begin really does read that spelling */
+  const src = readFileSync(new URL('../../js/engine/apply.js', import.meta.url), 'utf8');
+  const begin = src.slice(src.indexOf("'combat.begin'(state, m)"), src.indexOf("'combat.begin'(state, m)") + 2600);
+  eq((begin.match(/scaleMismatch: m\.scaleMismatch/g) || []).length, 3, 'all three fights read it from the mutation');
+});

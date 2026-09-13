@@ -478,6 +478,7 @@ export function normalizeAdj(obj, state) {
       domain: combatDomain(ds.domain),
       rating: Number.isFinite(Number(ds.rating)) ? clamp(Number(ds.rating), 0, 10) : null,
       scale: clampInt(ds.scale, -4, 4, 0),
+      scaleMismatch: clampInt(ds.scale, -4, 4, 0), /* M176: one spelling, every fight */
     };
   }
   const bs = obj.battle_start;
@@ -489,19 +490,33 @@ export function normalizeAdj(obj, state) {
         enemies,
         domain: combatDomain(bs.domain),
         scale: clampInt(bs.scale, -4, 4, 0),
+        /* M176: THE ODDS THE REFEREE READ WERE THROWN AWAY. combat.begin reads
+         * `scaleMismatch`; the duel path mapped it by hand but the battle and
+         * the war were SPREAD straight in, carrying only `scale` — so every
+         * party fight and every war was scored on an even field, however
+         * badly outmatched (or overwhelming) the referee had judged the two
+         * sides to be. */
+        scaleMismatch: clampInt(bs.scale, -4, 4, 0),
       };
     }
   }
   const ws = obj.war_start;
   if (ws && typeof ws === 'object') {
-    const enemies = normalizeRoster(ws.enemies);
+    /* M176: THE WRITER IS NEVER ON THE OTHER SIDE. The duel refuses an MC
+     * opponent and the battle filters the main character out of BOTH
+     * rosters; the war filtered only its allies, so a model that listed the
+     * writer's own character among the enemy formations had them build a
+     * unit out of him and the writer fought himself. The hardening this file
+     * calls "ported wholesale" had a hole in exactly one of the three. */
+    const enemies = normalizeRoster(ws.enemies).filter((n) => !isMcAlias(state, n));
     const allies = normalizeRoster(ws.allies).filter((n) => !isMcAlias(state, n));
     if (enemies.length && allies.length) {
       out.war_start = {
         allies,
         enemies,
-        enemyCommander: cleanName(ws.enemy_commander, 60),
+        enemyCommander: (() => { const c = cleanName(ws.enemy_commander, 60); return c && !isMcAlias(state, c) ? c : null; })(),
         scale: clampInt(ws.scale, -4, 4, 0),
+        scaleMismatch: clampInt(ws.scale, -4, 4, 0),
       };
     }
   }
