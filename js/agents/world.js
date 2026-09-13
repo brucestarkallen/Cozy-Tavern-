@@ -73,7 +73,18 @@ const VOCABULARY = [
   'people.set {"type":"people.set","name":"NEW NAME","field":"core","text":"the main character\'s manager; forty, sleepless, keeps three phones; loyal to the money first"} — ONLY for a NEW named person the world needs (a role that must be filled), their one-line core; then seat them with offscreen.set',
 ].join('\n');
 
-function law({ mc, clockWords }) {
+/* M134: what the hour means, said plainly from the clock — a cheap model
+ * read "the clock governs availability" and kept everyone awake at 23:00 */
+export function hourLaw(clock) {
+  if (!clock || !Number.isFinite(clock.minutes)) return '';
+  const h = Math.floor((clock.minutes % 1440) / 60);
+  if (h >= 23 || h < 6) return 'THE SMALL HOURS (' + String(h).padStart(2, '0') + ':00). Everyone without a NAMED reason on the ledger is asleep, at home, in their own bed — seat them there and say so ("asleep"), and give them no activity, no agenda, no text, no walk until morning. Only a person the ledger shows awake for a reason (a night shift, a fight, a drive, insomnia the pages gave them) is up, and the seat names that reason. Nobody arrives, calls or schemes at this hour without one.';
+  if (h >= 6 && h < 8) return 'EARLY MORNING (' + String(h).padStart(2, '0') + ':00). People are waking, washing, eating, leaving for school or work; a seat at this hour is a morning routine unless the ledger names otherwise.';
+  if (h >= 22) return 'LATE EVENING (' + String(h).padStart(2, '0') + ':00). People are winding down, at home, in bed or near it; students and workers are not out unless the ledger says why.';
+  return '';
+}
+
+function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
   const who = mc
     ? `The main character is ${mc}.`
     : 'The main character\'s name is not yet known; the writer plays the one whose actions they type.';
@@ -86,6 +97,8 @@ function law({ mc, clockWords }) {
     '',
     who,
     clockWords ? `The hour on the clock is ${clockWords}.` : 'The clock is not set; reckon time in turns and plain words.',
+    ...(hourWords ? [hourWords] : []),
+    ...(jumpWords ? [jumpWords] : []),
     '',
     'Read the ledger, then the page just finished, then ADVANCE THE WORLD BY THE CLOCK:',
     '',
@@ -248,7 +261,7 @@ function spokenVoices(voicesBefore) {
   return blocks.map((b, i) => '  turn -' + (blocks.length - i) + ': ' + b.map((v) => (v.speaker || '?') + ' (' + (v.channel || 'reply') + '): ' + (v.content || '')).join(' · ')).join('\n');
 }
 
-export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [] }) {
+export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], jumpedMinutes = 0 }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
   const known = mcName(state);
@@ -298,7 +311,11 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     '',
     'Advance the world by the clock and write the brief. JSON only.',
   ].join('\n');
-  return { system: withFictionFrame(law({ mc, clockWords })), user };
+  const hourWords = hourLaw(state && state.clock);
+  const jumpWords = Number.isFinite(jumpedMinutes) && jumpedMinutes >= 180
+    ? 'THE CLOCK JUMPED ' + (jumpedMinutes >= 1440 ? Math.round(jumpedMinutes / 1440) + ' day(s)' : Math.round(jumpedMinutes / 60) + ' hours') + ' since the last page. Every seat is stale: re-seat EVERY absent person for the new hour — where they are now, asleep or awake as the hour decides, what changed for them in the gap; close any arrival, want or thread the gap resolved; nothing seated before the jump stands unexamined.'
+    : '';
+  return { system: withFictionFrame(law({ mc, clockWords, hourWords, jumpWords })), user };
 }
 
 /* Exported for the harness. Thinking spans stripped, fences stripped, up to
@@ -333,13 +350,13 @@ export function parseWorldAnswer(raw) {
 
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
-export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], effort = 'off', signal, stale } = {}) {
+export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0 } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
 
   const state = await loadState(storyId);
-  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore });
+  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore, jumpedMinutes });
   /* M31: an answer we can't use earns ONE second ask with a sharper word;
    * the raw answer rides out so the drawer can show it. */
   let read = null;

@@ -3227,3 +3227,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   modules (Species Vocalization, Group Chat only, Hybrid POV, Twitter X Feed — off until pinned);
   everything else is the house's craft, the engines, or the readers.
 - M132-1 extended; M30-9 updated. 394/394 + 35/35 + 8/8. version.js -> m133-001.
+
+# M134 — pages twenty turns behind; a world that never sleeps
+- FIELD REPORT: "the character pages are still from 20 turns ago; it is 23:00 and nobody sleeps,
+  worst after #time skip." Two root causes. (1) THE LOOSE ENDS NEVER CLOSED: an `unthread` had
+  to match the written loose end EXACTLY, a cheap model never repeats a line verbatim, so no
+  loose end ever closed; the list filled (eight), and from then on every NEW loose end was
+  dropped as "their loose ends are full" — the pages froze. Now a loose end closes on the sense
+  of the words (sameLooseEnd: most content words shared), and a full list evicts the OLDEST,
+  never the newest. (2) THE HOUR HAD NO TEETH: "the clock governs availability" was one clause
+  in the world agent's law. Now the hour's law is spoken from the clock in code (hourLaw): the
+  small hours — everyone without a named reason is asleep at home, seated so, no activity, no
+  text, no arrival; early morning and late evening likewise. And a jump of three hours or more
+  across a page (a #time skip, a night) tells the world agent THE CLOCK JUMPED: re-seat every
+  absent person for the new hour, close what the gap resolved, nothing stands unexamined.
+- M134-1. 395/395 + 35/35 + 8/8. version.js -> m134-001.

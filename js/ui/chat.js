@@ -1747,6 +1747,8 @@ export function initChat(ctx) {
 
   function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false } = {}) {
     const gen = chainGen.get(story.id) || 0;
+    /* M134: the clock as the chain begins — the world link measures how far this page moved it */
+    const chainClock = { before: null };
     const enqueue = (name, run) => {
       const promise = enqueueWork(story.id, { name, run: ({ signal, stale }) => run({ signal, stale: () => stale() || (chainGen.get(story.id) || 0) !== gen }) });
       noteWork(story.id, promise);
@@ -1813,6 +1815,7 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'extractor');
       if (!connection) return { silent: true };
       const stateBefore = await loadState(story.id);
+      chainClock.before = stateBefore && stateBefore.clock ? { ...stateBefore.clock } : null; /* M134 */
       /* M27: the founding read. A young ledger (no ground named yet, nobody
        * here yet) reads the pages just before too — the writer often sets
        * the scene in the first posts, and a one-pair read would starve it.
@@ -1925,6 +1928,11 @@ export function initChat(ctx) {
       /* M85: the voices the last pages carried, so the world rotates its
        * speakers and topics instead of repeating them */
       const voicesBefore = prior.filter((m) => m.role === 'assistant' && Array.isArray(m.voices) && m.voices.length).slice(-3).map((m) => m.voices);
+      /* M134: how far the clock moved across this page (a #time skip, a night) — the
+       * world agent re-seats everyone when it jumped */
+      const clockNow = (await loadState(story.id)).clock;
+      const clockWas = chainClock.before;
+      const jumpedMinutes = clockNow && clockWas && Number.isFinite(clockNow.minutes) && Number.isFinite(clockWas.minutes) ? Math.max(0, clockNow.minutes - clockWas.minutes) : 0;
       const result = await worldTurn({
         connection,
         storyId: story.id,
@@ -1937,6 +1945,7 @@ export function initChat(ctx) {
         effort: await worldEffort(),
         signal,
         stale,
+        jumpedMinutes,
       });
       /* M85: the voices land under the page they followed (a re-ink, like
        * the masthead); a read that heard none clears a stale block from an

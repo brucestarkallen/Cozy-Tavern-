@@ -782,3 +782,23 @@ test('M132-1 a rule that teaches a house block never rides the wire; the import 
     assert(!c.guessed, name + ' has a home: ' + JSON.stringify(c));
   }
 });
+
+test('M134-1 loose ends close on sense and the list evicts the oldest; the hour’s law is spoken from the clock; a jump makes the world agent re-seat everyone', async () => {
+  const { mergeDeltas, sameLooseEnd, THREADS_MAX } = await import('../../js/engine/people.js');
+  assert(sameLooseEnd('She is waiting for Jovan’s self-introduction, which she will grade', 'waiting for Jovan’s self-introduction to grade it against the rumors'), 'the same loose end in other words');
+  assert(!sameLooseEnd('She has not said what Bluebird means to her', 'Vanessa wants a photo of the brother'), 'different loose ends');
+  let chars = {};
+  let r = mergeDeltas({ turn: 1 }, chars, [{ name: 'Alexia', field: 'thread', text: 'She is waiting for Jovan’s self-introduction, which she will grade' }], 1);
+  r = mergeDeltas({ turn: 2 }, r.characters, [{ name: 'Alexia', field: 'unthread', text: 'waiting for Jovan’s introduction to grade against the rumors' }], 2);
+  eq(r.characters.Alexia.threads.length, 0, 'closed on sense: ' + JSON.stringify(r.dropped));
+  let full = {};
+  const ends = ['owes Rias an apology for the party', 'must return the borrowed violin by Sunday', 'wants the coach to notice her footwork', 'has hidden the letter from her mother', 'promised Chloe a photo before Saturday', 'never told Aurora about the scholarship', 'keeps the dock key on a ribbon nobody knows', 'is saving for the train to Lisbon in June', 'suspects Caleb of reading her messages', 'has to choose between debate and cheer'];
+  for (let i = 0; i < THREADS_MAX + 2; i += 1) full = mergeDeltas({ turn: i }, full, [{ name: 'Kim', field: 'thread', text: ends[i] }], i).characters;
+  eq(full.Kim.threads.length, THREADS_MAX, 'the list holds its cap');
+  assert(/debate and cheer/.test(full.Kim.threads[full.Kim.threads.length - 1]) && !/apology for the party/.test(full.Kim.threads.join('|')), 'the newest stays, the oldest went');
+  const { hourLaw, buildWorldMessages } = await import('../../js/agents/world.js');
+  assert(/THE SMALL HOURS \(23:00\)/.test(hourLaw({ minutes: 23 * 60 + 10 })), hourLaw({ minutes: 23 * 60 + 10 }));
+  eq(hourLaw({ minutes: 14 * 60 }), '');
+  const m = buildWorldMessages({ state: { ...emptyState(), clock: { minutes: 23 * 60 } }, userText: 'x', assistantText: 'y', jumpedMinutes: 6 * 60 });
+  assert(/THE SMALL HOURS/.test(m.system) && /THE CLOCK JUMPED 6 hours/.test(m.system) && /re-seat EVERY absent person/.test(m.system), 'the jump and the hour ride');
+});

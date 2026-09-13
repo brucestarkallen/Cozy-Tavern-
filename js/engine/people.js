@@ -160,6 +160,18 @@ const FIELD_CAPS = { core: CORE_CAP, state: STATE_CAP, arc: ARC_CAP, thread: THR
  *     -> { characters, changes:[{name, field}], dropped:[{delta, why}] }
  * `characters` is copied, never mutated in place. Every drop is recorded
  * with its plain-words why. */
+/* M134: two loose ends are the same when they share most of their content words */
+export function sameLooseEnd(a, b) {
+  const words = (t) => new Set(String(t || '').toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, ' ').split(/\s+/).filter((w) => w.length > 3));
+  const x = words(a); const y = words(b);
+  if (!x.size || !y.size) return false;
+  if (String(a).trim().toLowerCase() === String(b).trim().toLowerCase()) return true;
+  let hit = 0;
+  for (const w of x) if (y.has(w)) hit += 1;
+  const small = Math.min(x.size, y.size);
+  return small >= 3 && hit / small >= 0.6;
+}
+
 export function mergeDeltas(state, characters, deltas, turn) {
   const next = {};
   const src = characters && typeof characters === 'object' ? characters : {};
@@ -205,11 +217,15 @@ export function mergeDeltas(state, characters, deltas, turn) {
     if (!next[key]) next[key] = emptyPerson();
 
     if (field === 'thread' || field === 'unthread') {
-      const wanted = text.toLowerCase();
-      const at = next[key].threads.findIndex((t) => String(t).toLowerCase() === wanted);
+      /* M134: a loose end closes on the SENSE of the words, not their exact
+       * spelling — a cheap model never repeats a line verbatim, so nothing
+       * ever closed, the list filled, and every new loose end was dropped:
+       * pages stuck twenty turns behind. When the list is full the oldest
+       * goes, never the newest. */
+      const at = next[key].threads.findIndex((t) => sameLooseEnd(String(t), text));
       if (field === 'thread') {
         if (at !== -1) { why('that loose end is already written down'); continue; }
-        if (next[key].threads.length >= THREADS_MAX) { why('their loose ends are full — something must close first'); continue; }
+        if (next[key].threads.length >= THREADS_MAX) next[key].threads.shift();
         next[key].threads.push(text);
       } else {
         if (at === -1) { why('no such loose end is written for them'); continue; }
