@@ -1257,7 +1257,9 @@ export function initChat(ctx) {
       if (visible.length && lastRender.ids.length === 0) hideHearth();
       for (let i = lastRender.ids.length; i < visible.length; i += 1) {
         const msg = visible[i];
-        els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn }));
+        const node = msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn });
+        node.classList.add('fresh'); /* M138: only a page that just arrived rises */
+        els.thread.appendChild(node);
       }
       /* A new last assistant page: the "go on" affordance moves with it. */
       if (lastRender.ids.length !== ids.length) {

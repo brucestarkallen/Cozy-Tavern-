@@ -3278,3 +3278,13 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the difference is the lag itself. DOM-11d waited on a busy flag the faster house cleared
   between two polls; it waits on the result now.
 - 395/395 + 35/35 + 8/8. version.js -> m137-001.
+
+# M138 — the screen itself (after the store's cache, the paint)
+- FIELD REPORT: still not smooth — closing the shelf, the drawer, settings. Beyond the store's
+  reads (M137), the paint: every structural draw ran sixty rise animations at once, and every
+  page on the thread took part in every layout (a keyboard, a scroll, a drawer opening re-laid
+  out the whole thread). Now only a page that just arrived animates (.msg.fresh), pages off
+  screen skip layout and paint (content-visibility: auto with an intrinsic size), the shelf's
+  slide is promoted to its own layer, and the drawer and settings are contained for layout and
+  paint.
+- polish's M15 check follows. 395/395 + 35/35 + 8/8. version.js -> m138-001.

@@ -153,7 +153,7 @@ test('M15 guided tour: restart goes through the machine', () => {
 
 test('M15 motion & depth: the surface laws hold', () => {
   const chat = read('css/chat.css');
-  assert(/\.msg\s*\{\s*animation:\s*msg-rise 0\.25s ease-out/.test(chat), 'messages rise 12px .25s ease-out');
+  assert(/\.msg\.fresh\s*\{\s*animation:\s*msg-rise 0\.25s ease-out/.test(chat) && /\.msg\s*\{\s*content-visibility:\s*auto/.test(chat), 'only a fresh page rises 12px .25s ease-out; pages off screen skip layout (M138)');
   assert(/@keyframes msg-rise/.test(chat) && /translateY\(12px\)/.test(chat), 'msg-rise keyframes');
   assert(/width:\s*7px/.test(chat) && /steps\(2\)/.test(chat) && /1\.1s steps\(2\)/.test(chat),
     'streaming caret: 7px ember bar, steps(2) 1.1s');
