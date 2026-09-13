@@ -1254,20 +1254,32 @@ function cleanReason(value) {
   return s.length > 200 ? s.slice(0, 199).trimEnd() + '…' : s;
 }
 
-/* Parse a range the model offered: "3-9", [3,9], "all", or nothing. */
+/* Parse a range the model offered: "3-9", [3,9], "all", or nothing.
+ *
+ * M173: A RANGE IT COULD NOT READ IS NOT "EVERY PAGE". Anything that failed
+ * to parse fell through to the whole visible story — so "chapters 12 to 30"
+ * or a range cut short at "12–" turned a bulk replace meant for nineteen
+ * pages into one across all four hundred, and the card said only
+ * 'everywhere "Liara"', which reads the same either way. Absent, empty or
+ * "all" still means every page — that is a thing the model can mean. Words
+ * it wrote that name no range are refused, and the card says so. */
 function parseRange(range, visibleCount) {
   if (Array.isArray(range) && range.length === 2) {
     const a = Math.max(1, Math.round(Number(range[0]) || 1));
     const b = Math.min(visibleCount, Math.round(Number(range[1]) || visibleCount));
     return a <= b ? [a, b] : null;
   }
-  const m = /^\s*(\d+)\s*[-–—]\s*(\d+)\s*$/.exec(String(range == null ? '' : range));
+  const raw = String(range == null ? '' : range).trim();
+  if (!raw || /^(all|every|everything|whole|the whole story)$/i.test(raw)) {
+    return [1, Math.max(1, visibleCount)];
+  }
+  const m = /^(\d+)\s*[-–—]\s*(\d+)$/.exec(raw);
   if (m) {
     const a = Math.max(1, Number(m[1]));
     const b = Math.min(visibleCount, Number(m[2]));
     return a <= b ? [a, b] : null;
   }
-  return [1, Math.max(1, visibleCount)]; // no range named = every visible page
+  return null; /* it named something, and it was not a range */
 }
 
 /* Turn a parsed reply into staged proposal cards, each fingerprinted
@@ -1324,11 +1336,14 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
         ts: Date.now(),
         kind: 'edit',
         label: typeof op.label === 'string' && op.label.trim()
-          ? op.label.trim() : nextLabel('everywhere “' + find.slice(0, 24) + '”'),
+          ? op.label.trim() : nextLabel(targets.length
+            ? '“' + find.slice(0, 24) + '” across ' + targets.length + ' ' + (targets.length === 1 ? 'page' : 'pages')
+            : '“' + find.slice(0, 24) + '” everywhere'),
         reason: cleanReason(op.reason),
         op: { bulk: true, find, replace, ids },
         status: targets.length ? 'pending' : 'refused',
-        words: targets.length ? '' : 'the range it named holds no pages',
+        /* M173: how far it reaches is on the card, not only in the prose */
+        words: targets.length ? '' : (range ? 'the range it named holds no pages' : 'it did not name a range the house could read — say it as “12-30”, or “all”'),
         review: [], /* M78: a literal search is recounted at apply; it is never stale */
       });
       continue;
@@ -1447,9 +1462,20 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     const named = wanted
       ? mods.filter((m) => m && typeof m.name === 'string' && m.name.trim().toLowerCase() === wanted)
       : [];
+    /* M173: A RULE UNNAMED IS NOT THE FIRST RULE. The prefix fallback ran
+     * even when the op named NO rule — and every string starts with '' — so
+     * a <redits> op missing its module silently targeted whatever stood
+     * first in the rulebook, which is THE CRAFT: the one rule the whole
+     * house writes by. It staged as a pending card reading "rule: The
+     * craft", and if the anchor happened to match, the craft was re-inked.
+     * An ambiguous prefix took the first match the same way, so "NSFW" chose
+     * between "NSFW Mode" and "NSFW Mode (2)" without saying it had. Both
+     * refusals below were unreachable; they are reachable now. */
+    const prefixed = wanted
+      ? mods.filter((m) => m && typeof m.name === 'string' && m.name.trim().toLowerCase().startsWith(wanted))
+      : [];
     const mod = named.length === 1 ? named[0]
-      : mods.find((m) => m && typeof m.name === 'string'
-          && m.name.trim().toLowerCase().startsWith(wanted)) || null;
+      : (named.length === 0 && prefixed.length === 1 ? prefixed[0] : null);
     if (!mod) {
       proposals.push({
         id: uid(), ts: Date.now(), kind: 'redit',
@@ -1458,8 +1484,8 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
         op: { moduleName: String(op.module || ''), find: op.find, replace: op.replace },
         status: 'refused',
         words: wanted
-          ? (named.length > 1
-            ? 'more than one rule answers to “' + op.module + '”'
+          ? (named.length > 1 || prefixed.length > 1
+            ? 'more than one rule answers to “' + op.module + '” — name it exactly'
             : 'the rulebook holds no rule called “' + op.module + '”')
           : 'it didn’t say which rule',
         review: [],

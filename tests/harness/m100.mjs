@@ -411,3 +411,63 @@ test('M172: a close belongs to the nearest open, and the words survive', async (
   eq(prose.edits.length, 0, 'a tag named in passing proposes nothing');
   assert(/It would be an edits card, but nothing needs changing\./.test(prose.text), 'and the sentence reads whole');
 });
+
+/* M173: a bulk range the house could not read fell through to the WHOLE
+ * visible story. "chapters 12 to 30", or a range cut short at "12–", turned
+ * a replace meant for nineteen pages into one across all four hundred — and
+ * the card read only 'everywhere "Liara"', which looks the same either way,
+ * so approving it told the writer nothing about how far it reached. */
+test('M173: an unreadable bulk range is refused, and the card says how far it reaches', async () => {
+  const { stageProposals } = await import('../../js/agents/housekeeper.js');
+  const msgs = [];
+  for (let i = 0; i < 40; i += 1) msgs.push({ id: 'm' + i, role: i % 2 ? 'assistant' : 'user', text: 'Liara walked in. page ' + i });
+  const card = (range) => stageProposals({ edits: [{ bulk_replace: true, find: 'Liara', replace: 'Mirela', range }] }, { messages: msgs })[0];
+
+  eq(card('12-30').op.ids.length, 19, 'a real range is exactly its pages');
+  eq(card(['12', 30]).op.ids.length, 19, 'and so is the array form');
+  eq(card('12-30').status, 'pending', 'and it stages');
+  assert(/across 19 pages/.test(card('12-30').label), 'the card says how far it reaches: ' + card('12-30').label);
+
+  for (const bad of ['chapters 12 to 30', '12–', 'the second half', '30-12']) {
+    const c = card(bad);
+    eq(c.status, 'refused', JSON.stringify(bad) + ' is refused, never widened to everything');
+    eq(c.op.ids.length, 0, 'and touches nothing');
+  }
+
+  /* absent, empty and "all" still mean every page — the model can mean that */
+  for (const wide of [undefined, '', 'all', 'every']) {
+    const c = card(wide);
+    eq(c.op.ids.length, 40, JSON.stringify(wide) + ' still means every page');
+    eq(c.status, 'pending', 'and stages');
+  }
+});
+
+/* M173: the <redits> prefix fallback ran even when the op named NO rule —
+ * and every string starts with '' — so an op missing its module silently
+ * targeted whatever stood first in the rulebook, which is THE CRAFT: the one
+ * rule the whole house writes by. It staged as a pending card reading "rule:
+ * The craft", and if the anchor happened to match, the craft was re-inked.
+ * An ambiguous prefix took the first match the same way. Both refusals in
+ * the code below were unreachable. */
+test('M173: a rule unnamed is not the first rule, and an ambiguous one is refused', async () => {
+  const { stageProposals } = await import('../../js/agents/housekeeper.js');
+  const mods = [
+    { id: 'core-craft', name: 'The craft', text: 'Write people who want things. Plain, warm sentences.' },
+    { id: 'm2', name: 'NSFW Mode', text: 'When the scene turns intimate.' },
+    { id: 'm3', name: 'NSFW Mode (2)', text: 'A second copy.' },
+  ];
+  const card = (op) => stageProposals({ redits: [op] }, { messages: [], modules: mods })[0];
+
+  const unnamed = card({ find: 'Plain, warm sentences', replace: 'Plain sentences' });
+  eq(unnamed.status, 'refused', 'an op that names no rule is refused');
+  assert(!unnamed.op.moduleId, 'and targets nothing — never the craft by default');
+  assert(/didn’t say which rule/.test(unnamed.words), unnamed.words);
+
+  const ambiguous = card({ module: 'NSFW', find: 'A second copy', replace: 'x' });
+  eq(ambiguous.status, 'refused', 'a prefix that fits two rules is refused');
+  assert(/more than one rule/.test(ambiguous.words), ambiguous.words);
+
+  eq(card({ module: 'The cra', find: 'Plain, warm sentences', replace: 'x' }).op.moduleId, 'core-craft', 'a prefix that fits exactly one still lands');
+  eq(card({ module: 'NSFW Mode', find: 'When the scene turns intimate', replace: 'x' }).op.moduleId, 'm2', 'an exact name lands on it, not on its numbered twin');
+  eq(card({ module: 'Nowhere', find: 'x', replace: 'y' }).status, 'refused', 'a rule that is not there is refused');
+});

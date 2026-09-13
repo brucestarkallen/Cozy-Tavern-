@@ -3828,3 +3828,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   as the word it is ("an edits block"), never as machinery.
 - 429/429 harness (+1 law) + 36/36 walk + 8/8 play + the anchor differential (484/484 identical)
   + the two-browser proof + the coat proof + the contrast audit. version.js -> m172-001.
+
+# M173 — two doors the housekeeper could walk through by accident
+- A BULK RANGE THE HOUSE COULD NOT READ BECAME THE WHOLE STORY. Anything that failed to parse fell
+  through to every visible page — so "chapters 12 to 30", or a range cut short at "12–", turned a
+  replace meant for nineteen pages into one across all four hundred. And the card read only
+  'everywhere "Liara"', which looks identical either way, so approving it told the writer nothing
+  about how far it reached. Absent, empty and "all" still mean every page (the model can mean
+  that); words that name no range are refused; and the card now says the reach — "“Liara” across
+  19 pages".
+- A RULE UNNAMED WAS THE FIRST RULE — WHICH IS THE CRAFT. The <redits> prefix fallback ran even
+  when the op named NO rule, and every string starts with '', so an op missing its module silently
+  targeted whatever stood first in the rulebook: the craft, the one rule the whole house writes by.
+  It staged as a pending card reading "rule: The craft", and if the anchor matched, the craft was
+  re-inked. An ambiguous prefix took the first match the same way ("NSFW" choosing between "NSFW
+  Mode" and "NSFW Mode (2)" without saying it had). BOTH refusals already written in that branch
+  were unreachable; they are reachable now.
+- A NOTE FOR THE NEXT SESSION: do not run tests/dom/run.mjs and tests/dom/longplay.mjs at the same
+  time. Run concurrently they interfere and the walk reports up to 14 false failures ("nothing to
+  click", "waited too long", "the world agent is on by default"); each run alone is green. Every
+  suite in this pass was re-run alone to confirm.
+- 431/431 harness (+2 laws) + 36/36 walk + 8/8 play (each run alone) + the anchor differential +
+  the two-browser proof + the coat proof + the contrast audit. version.js -> m173-001.
