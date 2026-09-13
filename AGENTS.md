@@ -3368,3 +3368,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   opens twice). With M143 (nothing unmounted) the close costs no layout; the housekeeper was
   always a small dialog that stays mounted, which is why it never lagged.
 - 395/395 + 35/35 + 8/8. version.js -> m144-001.
+
+# M145 — measured in a real browser, at last
+- The writer asked for it to be sandboxed and tried; it was: a headless Chromium (Playwright)
+  on a 120-turn story with 25 characters and a 40-line record, at a phone's viewport and a 6×
+  CPU throttle, frame times sampled through every action (tests/perf: /tmp/perf.py in the
+  session; open the drawer, first scroll, close, fast open+close, and the same for Settings).
+  Findings: at M144 the drawer's first scroll was already 60fps (0 long frames); the one real
+  offender was CLOSING SETTINGS — a 250ms frame of pure browser paint (811ms of "(program)"
+  in the CPU profile), because the story view was flipped visibility:hidden and back, which
+  repainted sixty pages. The story view is never hidden now; Settings simply overlays it
+  (aria-hidden marks it for readers). After: close Settings 250→33ms, fast open+close
+  267→50ms, drawer open 83→100ms (the panels' store clones — cloneValue 55ms — which is the
+  price of correctness and is ~17ms un-throttled), first scroll 17ms, all at 6× throttle.
+- An uncloned state row was tried and reverted: normalize shallow-copies, and the applier
+  mutates in place — the cache would have been corrupted by an aborted chain.
+- 395/395 + 35/35 + 8/8. version.js -> m145-001.

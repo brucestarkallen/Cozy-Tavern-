@@ -136,7 +136,11 @@ function currentRoute() {
 }
 
 function showView(name) {
-  views.chat.hidden = name !== 'chat';
+  /* M145: the story view is never hidden — Settings overlays it (M143), and
+   * flipping the thread invisible/visible repainted sixty pages on every
+   * close (811ms of browser paint in the profile). The overlay covers it. */
+  views.chat.hidden = false;
+  views.chat.setAttribute('aria-hidden', name !== 'chat' ? 'true' : 'false');
   views.settings.hidden = name !== 'settings';
   if (name === 'settings' && ctx.settings) ctx.settings.onShow();
   const btnSettings = document.getElementById('btn-settings');
