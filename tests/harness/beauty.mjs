@@ -132,3 +132,30 @@ test('M169: every control in the house is named, and no id is used twice', () =>
   }
   eq(unnamed.length, 0, 'every control is named: ' + unnamed.join(' | '));
 });
+
+/* M175: "Forget for good" erases a person WHOLE — page, seat, standing,
+ * knowledge, locks, presence — and it sat one thumb's width from "Bring
+ * back" with no question asked, while rebuilding the record (which keeps a
+ * backup) asks one. */
+test('M175: every destructive tap in the house asks first', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const drawer = fs.readFileSync(path.join(here, '../../js/ui/drawer.js'), 'utf8');
+  const at = drawer.indexOf("forget.addEventListener('click'");
+  assert(at !== -1, 'the forget button still exists');
+  const body = drawer.slice(at, at + 1100);
+  assert(/window\.confirm\(/.test(body), 'forgetting a person asks first');
+  assert(/people\.forget/.test(body), 'and it is the erasure it guards');
+  assert(body.indexOf('window.confirm(') < body.indexOf('people.forget'), 'the question comes before the erasure');
+
+  /* the whole house: an erasure or a rewrite with no take-back asks */
+  for (const [file, needle] of [
+    ['../../js/ui/settings.js', 'Rewrite every page'],
+    ['../../js/ui/settings.js', 'Take the lore shelf down'],
+    ['../../js/ui/drawer.js', 'Rebuild the record from the first page'],
+  ]) {
+    const src = fs.readFileSync(path.join(here, file), 'utf8');
+    const i = src.indexOf(needle);
+    assert(i !== -1, needle + ' is still there');
+    assert(/window\.confirm\(/.test(src.slice(Math.max(0, i - 200), i + 40)), needle + ' asks first');
+  }
+});

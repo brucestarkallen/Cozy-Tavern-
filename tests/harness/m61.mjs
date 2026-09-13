@@ -61,7 +61,10 @@ test('M61-4 (v2.80) a blind edit — a page only seen as an index line — is fe
 
 test('M61-5 (v2.77) the ripple: the words an edit removes are found on every surface and handed back once', async () => {
   const messages = [{ id: 'm1aaaa', role: 'assistant', text: 'Kim is the mother. She waits.', ts: 1 }, { id: 'm2bbbb', role: 'assistant', text: 'They all knew Kim is the mother.', ts: 2 }];
-  const state = emptyState(); state.characters = { Kendall: { core: 'Kim is the mother of her' } }; state.canon = { Kendall: { mother: 'Kim is the mother' } };
+  const state = emptyState(); state.characters = { Kendall: { core: 'Kim is the mother of her' } }; /* M174: the REAL canon shape — {facts:[{key,value}]}. This fixture used a
+   * flat map, and the old scan only worked on flat maps, which is exactly how
+   * the bug hid: the shelf the house actually writes was never scanned. */
+  state.canon = { Kendall: { facts: [{ key: 'mother', value: 'Kim is the mother', atMinutes: null }] } };
   const memory = { nodes: [{ id: 'rr1234', span: [0, 5], text: 'Kim is the mother, established', level: 1, at: 0 }] };
   const lore = [{ id: 'l1', name: 'Family', keys: ['family'], content: 'Kim is the mother.', enabled: true }];
   eq(removedWords('Kim is the mother', 'Kris is the mother'), 'Kim', 'only the changed word');

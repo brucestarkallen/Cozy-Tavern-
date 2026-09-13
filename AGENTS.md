@@ -3850,3 +3850,35 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   suite in this pass was re-run alone to confirm.
 - 431/431 harness (+2 laws) + 36/36 walk + 8/8 play (each run alone) + the anchor differential +
   the two-browser proof + the coat proof + the contrast audit. version.js -> m173-001.
+
+# M174 — the referee was ruling blind, and the ripple never saw the locked truths
+- THE REFEREE HAS BEEN RULING BLIND, ON EVERY CONTESTED MOMENT EVER PLAYED. Its private pageText
+  read `msg.pages[msg.page]` — a message shape from another house entirely. A page here carries
+  `text` and, when it has versions, swipes; there is no `pages` array and no `page` index, so it
+  returned '' for EVERY message and <recent> reached the referee as literally
+  "Player: \nStory: \nPlayer: " — three empty labels. It was asked to judge what is genuinely
+  being risked this beat with no sight of the beat before it. It uses the house's one reader of a
+  page now (assemble/stack.js pageText), so it sees the shown swipe and never a hidden page.
+- THE RIPPLE NEVER LOOKED AT THE LOCKED TRUTHS. A canon entry is {facts:[{key,value}]}, so
+  Object.values(entry) yielded the facts ARRAY and the string test was false every time — the one
+  shelf that holds what is CERTAIN of a person was silently skipped, and a name changed on the
+  pages left "origin: born in Ravenwood" standing in the canon with nothing said. The law that
+  should have caught this (M61-5) used a FLAT canon fixture, which is exactly how the bug hid: the
+  test only exercised a shape the house never writes. The fixture is the real shape now, and the
+  scan tolerates both.
+
+# M175 — a pin that killed a rule, and an erasure that never asked
+- PINNING A RULE DESTROYED ITS TRIGGER. saveModule wrote the row WHOLE, so any caller passing only
+  what it was changing silently cleared the rest — and the rulebook's own pin toggle passes
+  {id, name, text, pinned}. Measured: "NSFW Mode" imported with whenKey "intimate" — pin it, and
+  whenKey is null and the note is gone; it still rides while pinned, so nothing looks wrong; unpin
+  it and AN INTIMATE SCENE NEVER WAKES IT AGAIN, silently, for the rest of the shelf's life. A
+  field a caller does not supply is a field KEPT now (undefined means leave it; an explicit value,
+  including an empty string, still sets it), and the pin toggle carries the whole rule besides.
+- "FORGET FOR GOOD" NEVER ASKED. It erases a person whole — page, seat, standing, knowledge, locks,
+  presence — and sat one thumb's width from "Bring back" on a phone, while rebuilding the record
+  (which keeps a backup) asks a question. It asks now, and a law holds that every erasure and every
+  rewrite-without-a-take-back in the house asks first.
+- 435/435 harness (+6 laws across M173-M175) + 36/36 walk + 8/8 play, each run alone + the anchor
+  differential (484/484 identical) + the two-browser proof + the coat proof + the contrast audit.
+  version.js -> m175-001.

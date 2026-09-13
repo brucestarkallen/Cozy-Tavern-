@@ -471,3 +471,97 @@ test('M173: a rule unnamed is not the first rule, and an ambiguous one is refuse
   eq(card({ module: 'NSFW Mode', find: 'When the scene turns intimate', replace: 'x' }).op.moduleId, 'm2', 'an exact name lands on it, not on its numbered twin');
   eq(card({ module: 'Nowhere', find: 'x', replace: 'y' }).status, 'refused', 'a rule that is not there is refused');
 });
+
+/* M174: the referee read msg.pages[msg.page] — a message shape from another
+ * house. A page here carries `text` and, when it has versions, swipes; there
+ * is no `pages` array, so this returned '' for EVERY message and <recent>
+ * reached the referee as three empty labels. It has been judging what is
+ * genuinely being risked with no sight of the beat before it, on every
+ * contested moment the writer has ever played. */
+test('M174: the referee sees the story it is ruling on', async () => {
+  const { buildRefereeUser } = await import('../../js/agents/referee.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  const history = [
+    { id: '1', role: 'user', text: 'I swing at the bandit with the broken chair leg.' },
+    { id: '2', role: 'assistant', text: 'The bandit ducks and the leg splinters on the doorframe.' },
+    { id: '3', role: 'user', text: 'ignored', swipes: [{ text: 'ignored' }, { text: 'I go for his knife hand.' }], swipeIdx: 1 },
+    { id: '4', role: 'user', text: 'a hidden nudge', hidden: true },
+  ];
+  const user = buildRefereeUser({ state: emptyState(), userText: 'I go for his knife hand.', history, fightLine: '' });
+  const recent = user.split('<recent>')[1].split('</recent>')[0];
+  assert(/broken chair leg/.test(recent), 'the writer’s beat is there');
+  assert(/splinters on the doorframe/.test(recent), 'and the storyteller’s answer');
+  assert(/knife hand/.test(recent), 'and the SHOWN version of a page with swipes, not the buried one');
+  assert(!/a hidden nudge/.test(recent), 'a hidden page still never rides');
+  assert(!/^\s*(Player|Story):\s*$/m.test(recent), 'no empty labels: ' + JSON.stringify(recent));
+  const src = readFileSync(new URL('../../js/agents/referee.js', import.meta.url), 'utf8');
+  assert(/const pageText = wirePageText;/.test(src), 'the referee uses the house’s one reader of a page');
+  assert(!/msg\.pages && msg\.pages\[msg\.page\]/.test(src), 'and never a page shape from another house');
+});
+
+/* M174: a canon entry is {facts:[{key,value}]}, so Object.values(entry)
+ * yielded the facts ARRAY and the string test was false every time — the one
+ * shelf holding what is CERTAIN of a person was skipped by the ripple. */
+test('M174: the ripple looks at the locked truths too', async () => {
+  const { rippleScan } = await import('../../js/agents/housekeeper.js');
+  const state = {
+    canon: { Mira: { facts: [{ key: 'origin', value: 'born in Ravenwood' }] }, Bent: null },
+    characters: { Tomas: { core: 'knew Ravenwood well', threads: [] } },
+  };
+  const msgs = [
+    { id: 'aaaaaa11', role: 'assistant', text: 'She said she was born in Ravenwood, long ago.' },
+    { id: 'bbbbbb22', role: 'assistant', text: 'Ravenwood is far behind them.' },
+  ];
+  const out = rippleScan([{ id: '#aaaaaa', find: 'born in Ravenwood', replace: 'born in Coldharbour' }], {
+    messages: msgs, state,
+    memory: { nodes: [{ id: 'node-x-1', span: [0, 1], text: 'They left Ravenwood.' }] },
+    lore: [{ name: 'Ravenwood', content: 'A shelf of Ravenwood lore.' }],
+    story: { brief: 'Set near Ravenwood.' },
+  });
+  eq(out.length, 1, 'the ripple found the changed word');
+  const where = out[0].where;
+  assert(where.includes('the canon of Mira'), 'the locked truths are named: ' + where.join(' | '));
+  assert(where.includes('the page of Tomas'), 'and the character pages');
+  assert(where.includes('the brief'), 'and the brief');
+  assert(where.some((w) => /lore entry/.test(w)), 'and the lore shelf');
+  assert(where.some((w) => /record line/.test(w)), 'and the record');
+  assert(!where.includes('#aaaaaa'), 'never the page being changed itself');
+});
+
+/* M175: saveModule wrote the row WHOLE, so any caller that passed only what
+ * it was changing silently cleared the rest — and the rulebook's own pin
+ * toggle passes {id, name, text, pinned}. Pinning an imported rule wiped its
+ * whenKey and its note; it still rode while pinned, and the moment it was
+ * unpinned it NEVER WOKE AGAIN, with nothing said. */
+test('M175: a field a caller does not supply is a field kept', async () => {
+  const { saveModule, listModules, selectModules, removeModule } = await import('../../js/assemble/modules.js');
+  const wakes = (m) => selectModules([{ ...m }], { mode: { intimate: true } }).length > 0;
+  const get = async (name) => (await listModules()).find((m) => m.name === name);
+
+  await saveModule({ name: 'A rule with ears', text: 'When the scene turns intimate…', pinned: false, whenKey: 'intimate', note: 'wakes when the scene turns intimate' });
+  let mod = await get('A rule with ears');
+  eq(mod.whenKey, 'intimate', 'imported with its trigger');
+  eq(wakes(mod), true, 'and it wakes');
+
+  /* the pin toggle's exact shape — the four fields it happens to know */
+  await saveModule({ id: mod.id, name: mod.name, text: mod.text, pinned: true });
+  mod = await get('A rule with ears');
+  eq(mod.whenKey, 'intimate', 'pinning keeps the trigger');
+  eq(mod.note, 'wakes when the scene turns intimate', 'and the note');
+
+  await saveModule({ id: mod.id, name: mod.name, text: mod.text, pinned: false });
+  mod = await get('A rule with ears');
+  eq(mod.whenKey, 'intimate', 'and unpinning keeps it');
+  eq(wakes(mod), true, 'so the rule still wakes on its own — the bug M175 fixes');
+
+  /* an explicit value still sets the field, including an empty string */
+  await saveModule({ id: mod.id, whenKey: 'manual', note: '' });
+  mod = await get('A rule with ears');
+  eq(mod.whenKey, 'manual', 'an explicit trigger lands');
+  eq(mod.note, '', 'an explicit clear clears');
+  assert(/When the scene turns intimate/.test(mod.text), 'and the words it never mentioned are untouched');
+  await removeModule(mod.id);
+
+  const src = readFileSync(new URL('../../js/ui/settings.js', import.meta.url), 'utf8');
+  assert(/pinned: pin\.checked, whenKey: mod\.whenKey, note: mod\.note/.test(src), 'the pin toggle carries the whole rule too');
+});

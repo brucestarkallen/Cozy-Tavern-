@@ -1617,6 +1617,13 @@ function peoplePanel(ctx) {
         forget.textContent = 'Forget for good';
         forget.title = 'Erase this person entirely — page, seat, standing, knowledge, locks. For a name that was never the story’s. Take-back-able from “What changed and why”.';
         forget.addEventListener('click', async () => {
+          /* M175: it erases a person WHOLE — page, seat, standing, knowledge,
+           * locks, presence — and it sat one thumb's width from "Bring back"
+           * with no question asked, while rebuilding the record (which keeps
+           * a backup) asks one. A mis-tap on a phone should not cost a
+           * character. */
+          if (typeof window !== 'undefined' && typeof window.confirm === 'function'
+            && !window.confirm('Forget ' + name + ' for good? Their page, seat, standing, knowledge and locks all go. It can be taken back from “What changed and why”.')) return;
           const fresh = await loadStateForWrite(story.id);
           const r = applyMutations(fresh, [{ type: 'people.forget', name, cause: 'the writer’s hand' }]);
           if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); }

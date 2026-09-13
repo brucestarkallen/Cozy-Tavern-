@@ -877,7 +877,9 @@ export function initSettings(ctx) {
       pin.type = 'checkbox';
       pin.checked = mod.pinned;
       pin.addEventListener('change', async () => {
-        await saveModule({ id: mod.id, name: mod.name, text: mod.text, pinned: pin.checked });
+        /* M175: the whole rule, not the four fields the toggle happens to
+         * know — a pin must never be able to change what a rule IS. */
+        await saveModule({ id: mod.id, name: mod.name, text: mod.text, pinned: pin.checked, whenKey: mod.whenKey, note: mod.note });
         toast(pin.checked
           ? `“${mod.name}” is pinned on — it rides every turn.`
           : `“${mod.name}” rests until its moment comes.`);

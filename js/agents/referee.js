@@ -31,6 +31,7 @@
  */
 
 import { parseFirstObject } from './jsonutil.js';
+import { pageText as wirePageText } from '../assemble/stack.js'; /* M174: the one reader of a page's words */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 import { applyMutations } from '../engine/apply.js';
@@ -352,10 +353,15 @@ function clip(text, max) {
   return t.length > max ? t.slice(t.length - max) : t;
 }
 
-function pageText(msg) {
-  const page = msg && msg.pages && msg.pages[msg.page];
-  return (page && page.text) || '';
-}
+/* M174: THE REFEREE HAS BEEN RULING BLIND. This read msg.pages[msg.page] — a
+ * message shape from another house entirely. A page here carries `text` and,
+ * when it has versions, `swipes`/`swipeIdx`; there is no `pages` array and no
+ * `page` index, so this returned '' for EVERY message and <recent> reached
+ * the referee as "Player: \nStory: \nPlayer: " — three empty labels. It was
+ * asked to judge what is genuinely being risked this beat with no sight of
+ * the beat before it, on every contested moment the writer has ever played.
+ * The house has one reader for a page's words; it is used here now. */
+const pageText = wirePageText;
 
 function sheetBlock(state) {
   const actors = (state.sheet && state.sheet.actors) || {};
@@ -385,7 +391,7 @@ function recentBlock(history, max) {
   }).join('\n') || '(none yet)';
 }
 
-function buildRefereeUser({ state, userText, history, fightLine }) {
+export function buildRefereeUser({ state, userText, history, fightLine }) {
   return [
     '<player>' + mcName(state) + '</player>',
     '<sheet>\n' + sheetBlock(state) + '\n</sheet>',

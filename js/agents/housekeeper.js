@@ -1754,8 +1754,20 @@ export function rippleScan(edits, { messages, memory, state, lore, story } = {})
     for (const [name, c] of Object.entries((state && state.characters) || {})) {
       if (c && (['core', 'state', 'arc'].some((k) => typeof c[k] === 'string' && c[k].includes(removed)) || (Array.isArray(c.threads) && c.threads.some((t) => String(t).includes(removed))))) where.push('the page of ' + name);
     }
-    for (const [name, facts] of Object.entries((state && state.canon) || {})) {
-      if (facts && Object.values(facts).some((v) => typeof v === 'string' && v.includes(removed))) where.push('the canon of ' + name);
+    /* M174: THE RIPPLE NEVER LOOKED AT THE LOCKED TRUTHS. A canon entry is
+     * {facts:[{key, value, atMinutes}]}, so Object.values(entry) yielded the
+     * facts ARRAY and the string test was false every time — the one shelf
+     * that holds what is CERTAIN of a person was silently skipped, and a
+     * name changed on the pages left "origin: born in Ravenwood" standing in
+     * the canon with nothing said about it. */
+    for (const [name, entry] of Object.entries((state && state.canon) || {})) {
+      if (!entry || typeof entry !== 'object') continue;
+      const facts = Array.isArray(entry.facts) ? entry.facts : [];
+      const inFacts = facts.some((f) => f && ((typeof f.value === 'string' && f.value.includes(removed)) || (typeof f.key === 'string' && f.key.includes(removed))));
+      /* a flat {key: value} shelf is tolerated too — nothing writes one, but
+       * a hand-built or older ledger should not go unscanned */
+      const inFlat = !facts.length && Object.values(entry).some((v) => typeof v === 'string' && v.includes(removed));
+      if (inFacts || inFlat) where.push('the canon of ' + name);
     }
     for (const e of (Array.isArray(lore) ? lore : [])) {
       if (e && typeof e.content === 'string' && e.content.includes(removed)) where.push('the lore entry “' + (e.name || (e.keys || [])[0] || '?') + '”');

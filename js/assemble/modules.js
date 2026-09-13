@@ -338,18 +338,30 @@ export async function listModules() {
 export async function saveModule(mod) {
   const rows = await readSaved();
   const isBuiltin = BUILTIN_MODULES.some((b) => b.id === mod.id);
+  /* M175: A FIELD NOT SUPPLIED IS A FIELD KEPT. This wrote the row whole, so
+   * any caller that passed only what it was changing silently cleared the
+   * rest — and the rulebook's own pin toggle passes {id, name, text, pinned}.
+   * Pinning an imported rule therefore wiped its whenKey and its note; the
+   * rule still rode while pinned, and the moment it was unpinned it NEVER
+   * WOKE AGAIN. Measured: "NSFW Mode" imported with whenKey "intimate" —
+   * pin, unpin, and an intimate scene no longer wakes it, with nothing said.
+   * An explicit value (a string, including an empty one) still sets the
+   * field; only `undefined` means "leave it as it stands". */
+  const held = rows.find((r) => r && r.id === mod.id) || null;
+  const pick = (given, kept, fallback) => (given !== undefined ? given : (kept !== undefined ? kept : fallback));
+  const wantedKey = pick(mod.whenKey, held && held.whenKey, undefined);
   /* Custom rules may carry a predicate key (imported rules do); only known
    * keys are kept — anything stranger simply means "on when you pin it". */
-  const customKey = typeof mod.whenKey === 'string' && PREDICATES[mod.whenKey]
-    ? mod.whenKey
+  const customKey = typeof wantedKey === 'string' && PREDICATES[wantedKey]
+    ? wantedKey
     : null;
   const row = {
     id: mod.id || uid(),
-    name: (mod.name || '').trim() || 'A rule of your own',
-    text: typeof mod.text === 'string' ? mod.text : '',
-    pinned: Boolean(mod.pinned),
-    whenKey: isBuiltin ? mod.whenKey || null : customKey,
-    note: typeof mod.note === 'string' ? mod.note : '',
+    name: (pick(mod.name, held && held.name, '') || '').trim() || 'A rule of your own',
+    text: typeof mod.text === 'string' ? mod.text : (held && typeof held.text === 'string' ? held.text : ''),
+    pinned: mod.pinned !== undefined ? Boolean(mod.pinned) : Boolean(held && held.pinned),
+    whenKey: isBuiltin ? (wantedKey || null) : customKey,
+    note: typeof mod.note === 'string' ? mod.note : (held && typeof held.note === 'string' ? held.note : ''),
     custom: !isBuiltin,
   };
   const at = rows.findIndex((r) => r.id === row.id);
