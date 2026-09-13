@@ -355,3 +355,28 @@ test('M170: the magic-key guard judges names, never the words of a hurt', async 
   assert(/function tidyWords\(text\)/.test(src), 'free text has a tidier of its own');
   assert(!/const wanted = normalizeName\(typeof m\.what/.test(src), 'and the name guard is off it');
 });
+
+/* M171: locate()'s fuzzy anchor walked every window of every length across
+ * the page, rebuilt the window's word array each time, counted the overlap
+ * in a second inner loop, ran a FULL word-Levenshtein on each survivor —
+ * then did the whole thing again for the runner-up. Measured on a desktop:
+ * 148ms on a 438-word page, 974ms on a 6,280-word one. Six seconds of a
+ * frozen phone for ONE housekeeper card, and a turn can carry several. */
+test('M171: the anchor is fast, and answers exactly as it always did', async () => {
+  const { locate } = await import('../../js/agents/housekeeper.js');
+  const src = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/function wordDistanceBounded\(a, b, bound, from = 0, len = -1\)/.test(src), 'the distance abandons as soon as it cannot matter');
+  assert(/if \(rowMin > bound\) return bound \+ 1;/.test(src), 'and gives up by the row');
+  assert(/const hCmp = hWords\.map\(\(w\) => w\.cmp\);/.test(src), 'the page’s words are built once, not per window');
+  assert(/overlap \+= inNeedle\[i \+ L - 1\] - inNeedle\[i - 1\];/.test(src), 'the overlap rolls instead of recounting');
+  assert(/\(b\.sim - a\.sim\) \|\| \(a\.i - b\.i\) \|\| \(a\.L - b\.L\)/.test(src), 'ties break exactly as the old scan broke them — lowest i, then lowest L');
+  assert(!/for \(let i = 0; i \+ minLen <= hWords\.length; i \+= 1\) \{\s*for \(let L = minLen[\s\S]{0,400}second/.test(src), 'and the runner-up is found in the same pass, not a second sweep');
+
+  /* the refusals and the anchors it must still give */
+  const page = 'She set the cup down on the ledge and said nothing about the ferryman. He waited by the gate in the grey morning until the bell rang twice.';
+  eq(locate(page, 'She  set the cup   down on the ledge').via, 'normalized', 'a whitespace-loose match still lands before the fuzzy scan');
+  eq(locate(page, 'the bell rang twice').via, 'exact', 'and an exact one before that');
+  const near = locate(page, 'He waited by the gate in the grey morning until the bell rang three times');
+  assert(near.ok && near.via === 'fuzzy', 'a near passage still anchors: ' + (near.reason || near.via));
+  assert(!locate(page, 'the elephants marched over the bridge at noon carrying lanterns').ok, 'and words that are not there are still refused');
+});

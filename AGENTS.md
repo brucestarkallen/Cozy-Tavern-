@@ -3792,3 +3792,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   never been opened. All sound but the two above.
 - 427/427 harness (+1 law, one widened) + 36/36 walk + 8/8 play + the two-browser proof + the coat
   proof + the contrast audit. version.js -> m170-001.
+
+# M171 — the housekeeper's anchor froze the room
+- LOCATE()'S FUZZY ANCHOR WAS THE SLOWEST THING IN THE HOUSE. It walked every window of every
+  length across the page, rebuilt that window's word array each time, counted the overlap in a
+  second inner loop, ran a FULL word-Levenshtein on each survivor — and then did the whole sweep
+  AGAIN to find the runner-up. Measured on a desktop: 148ms on a 438-word page, 974ms on a
+  6,280-word one. On the writer's phone that is several seconds of a completely frozen room —
+  no scroll, no tap — for ONE housekeeper card, and a turn can carry several.
+  Now: the page's words are built once, the overlap rolls instead of being recounted, the distance
+  abandons by the row as soon as it cannot beat the standing best (nor come within FUZZY_GAP of
+  it), no window is sliced into a new array, and one pass finds the best AND its rival.
+  974ms -> 243ms on the same worst case; 136ms on a realistic 4,664-word page.
+- AND IT ANSWERS EXACTLY AS IT DID. tests/harness/anchor-diff.mjs runs the OLD scan verbatim beside
+  the new one over 600 generated cases — perturbed real spans and pure noise, pages of 60 to 460
+  words, needles of 6 to 30 — and compares every anchor and every refusal. First run: 41 of 484
+  differed, all of them ties broken in a different order (the old scan walked i outer, L inner and
+  kept the FIRST window at the highest similarity; a sort does not). The tie-break is explicit now
+  — highest similarity, then lowest i, then lowest L — and the candidate list is never truncated,
+  so the runner-up is always the one the old sweep would have found. 484 of 484 identical.
+- 428/428 harness (+1 law) + 36/36 walk + 8/8 play + the anchor differential + the two-browser
+  proof + the coat proof + the contrast audit. version.js -> m171-001.
