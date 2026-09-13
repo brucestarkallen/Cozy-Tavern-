@@ -618,7 +618,6 @@ function logPanel(ctx) {
     note.textContent = 'Newest first. Any change that still stands can be taken back — unless a later change touched the same thing.';
     const shown = log.slice(-40).reverse();
     for (const entry of shown) {
-      const idx = log.indexOf(entry);
       const li = document.createElement('li');
       li.className = 'log-row' + (entry.undone ? ' undone' : '');
       const words = document.createElement('span');
@@ -632,7 +631,17 @@ function logPanel(ctx) {
         undoBtn.textContent = 'Take it back';
         undoBtn.addEventListener('click', async () => {
           const fresh = await loadStateForWrite(story.id);
-          const at = fresh.log.findIndex((e) => e && e.ts === entry.ts && e.words === entry.words && !e.undone);
+          /* M178: BY ITS OWN ID, NOT BY ITS WORDS. The row was found by
+           * timestamp AND words — and a batch writes several entries in the
+           * same millisecond, so two identical changes ("Mara — now by the
+           * door", twice in one turn) matched the FIRST and the writer's tap
+           * took back a different entry than the one under their finger.
+           * Every applied entry carries its journal id (M166); that is what
+           * a row is. Older rows, written before the id, still match the
+           * old way. */
+          const at = Number.isInteger(entry.jid)
+            ? fresh.log.findIndex((e) => e && e.jid === entry.jid && !e.undone)
+            : fresh.log.findIndex((e) => e && e.ts === entry.ts && e.words === entry.words && !e.undone);
           const result = at === -1 ? null : undoEntry(fresh, at);
           if (result && result.state) {
             await saveState(story.id, result.state);

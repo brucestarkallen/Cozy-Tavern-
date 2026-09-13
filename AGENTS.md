@@ -3913,3 +3913,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - 437/437 harness (+1 law) + 36/36 walk + 8/8 play, each run alone + the anchor differential
   (484/484 identical) + the two-browser proof + the coat proof + the contrast audit.
   version.js -> m177-001.
+
+# M178 — a take-back that reversed the wrong row
+- "WHAT CHANGED AND WHY" FOUND ITS ROW BY TIMESTAMP AND WORDS. A batch writes several entries in
+  the SAME millisecond, so two identical changes in one turn — "Mara — now by the door", twice —
+  matched the FIRST, and the writer's tap on the second reversed the first instead. Proven: three
+  rows, same ts, two with identical words; findIndex returned 2 when the writer had tapped 3.
+  Every applied entry carries its own journal id (M166), and that is what a row IS; rows written
+  before the id still match the old way. A dead `const idx = log.indexOf(entry)` went with it.
+- Read in full this pass: ui/drawer.js's who's-here (the invited cast, the greeting offer), the
+  mood panel, the log panel, the body ledger's hand form; ui/settings.js's element table, the
+  per-story blocks, the rulebook, the regex shelf (its rows, its form, the import, the try, and
+  the whole-story clean) — and a mechanical scan of the rest for the five defect classes that
+  actually produced bugs this session (empty-needle prefix matches, partial saves that drop
+  fields, unit-mismatched counters, unguarded object-key writes, silent first-match fallbacks).
+  db.stories.update and db.connections.update are patch-merges, so the partial updates are safe.
+- 438/438 harness (+1 law) + 36/36 walk + 8/8 play, each run alone + the anchor differential +
+  the two-browser proof + the coat proof + the contrast audit. version.js -> m178-001.

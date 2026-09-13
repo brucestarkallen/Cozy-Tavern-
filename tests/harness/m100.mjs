@@ -621,3 +621,37 @@ test('M177: the engine keeps the writer off the enemy line, however the fight wa
     [{ type: 'combat.begin', kind: 'battle', allies: ['Mira'], enemies: ['Jovan'], engine: {} }]);
   eq(none.applied.length, 0, 'and one with no enemy left never opens');
 });
+
+/* M178: "What changed and why" found the row to take back by timestamp AND
+ * words. A batch writes several entries in the same millisecond, so two
+ * identical changes in one turn — "Mara — now by the door", twice — matched
+ * the FIRST, and the writer's tap reversed a different entry than the one
+ * under their finger. Every applied entry carries its journal id (M166). */
+test('M178: a take-back reverses the row the writer tapped, not one that reads the same', async () => {
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  const st = applyMutations(emptyState(), [
+    { type: 'presence.enter', name: 'Mara' },
+    { type: 'presence.update', name: 'Mara', position: 'by the door' },
+    { type: 'presence.update', name: 'Mara', position: 'by the fire' },
+    { type: 'presence.update', name: 'Mara', position: 'by the fire' },
+  ]).state;
+  const log = st.log;
+  eq(log.length, 4, 'four rows');
+  eq(log[2].words, log[3].words, 'two of them read exactly alike');
+  eq(log[2].ts, log[3].ts, 'in the same millisecond');
+
+  /* the old way picks the wrong one */
+  const byWords = log.findIndex((e) => e && e.ts === log[3].ts && e.words === log[3].words && !e.undone);
+  eq(byWords, 2, 'by words and time, tapping the fourth row finds the third — the bug');
+
+  /* by its own id it is exact */
+  for (const want of [2, 3]) {
+    const at = log.findIndex((e) => e && e.jid === log[want].jid && !e.undone);
+    eq(at, want, 'by journal id, row ' + want + ' is row ' + want);
+  }
+
+  const src = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
+  assert(/Number\.isInteger\(entry\.jid\)\s*\n\s*\? fresh\.log\.findIndex\(\(e\) => e && e\.jid === entry\.jid && !e\.undone\)/.test(src), 'the panel takes back by journal id');
+  assert(/e\.ts === entry\.ts && e\.words === entry\.words/.test(src), 'and older rows, written before the id, still match the old way');
+});
