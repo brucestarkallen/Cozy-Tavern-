@@ -925,7 +925,7 @@ test('DOM-11d the housekeeper’s sessions, commands, tools and cards bar work t
     /* M73-002: ▸ on the last answer, past its versions, asks for another answer */
     assert(!q('.hk-retry-here', answers()[answers().length - 1]) && q('.hk-swipe-next', answers()[answers().length - 1]), 'the last answer wears the swipe bar, not ↻');
     click(q('.hk-swipe-next', answers()[answers().length - 1]));
-    await until(() => q('#hk-send').disabled, 'another answer was asked for');
+    /* M137: with the read cache the ask can complete between two polls — wait on the result, not the busy flag */
     await until(() => !q('#hk-send').disabled && countNow() === (had + 1) + '/' + (had + 1), 'a new version of the last answer beside the old: ' + countNow(), 15000);
     eq(answers().length, nAnswers, 'the retry replaced the last answer, no more answers');
     await tick(60);

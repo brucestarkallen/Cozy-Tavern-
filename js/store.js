@@ -194,13 +194,32 @@ function uid() {
   return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
 
+/* M137: THE READ CACHE. Every action in the room read the same rows from
+ * IndexedDB again and again — a story's whole page list dozens of times per
+ * turn, the ledger's state a dozen more — and on a phone each read of a
+ * long story is a hundred milliseconds of deserializing. Reads come from
+ * memory now; every write to a key or a story's pages invalidates it. A
+ * settings read hands out a clone (a caller may mutate what it gets, as it
+ * always could); a page list hands out shallow copies of its rows. */
+const settingsCache = new Map();
+const messagesCache = new Map();
+const cloneValue = (v) => {
+  if (v === undefined || v === null || typeof v !== 'object') return v;
+  try { return typeof structuredClone === 'function' ? structuredClone(v) : JSON.parse(JSON.stringify(v)); } catch (err) { return JSON.parse(JSON.stringify(v)); }
+};
+export function dropCaches() { settingsCache.clear(); messagesCache.clear(); }
+
 const settings = {
   async get(key) {
+    if (settingsCache.has(key)) return cloneValue(settingsCache.get(key));
     const row = await run('settings', 'readonly', (s) => s.get(key));
-    return row ? row.value : undefined;
+    const value = row ? row.value : undefined;
+    settingsCache.set(key, cloneValue(value));
+    return value;
   },
   async set(key, val) {
     await run('settings', 'readwrite', (s) => s.put({ key, value: val }));
+    settingsCache.set(key, cloneValue(val));
     return val;
   },
   /* Additive helpers (M7, see header): list every key (the cast library
@@ -211,6 +230,7 @@ const settings = {
   },
   async delete(key) {
     await run('settings', 'readwrite', (s) => s.delete(key));
+    settingsCache.delete(key);
   },
 };
 
@@ -305,24 +325,25 @@ const stories = {
       const t = d.transaction('messages', 'readwrite');
       const s = t.objectStore('messages');
       for (const m of pages) s.delete(m.id);
-      t.oncomplete = () => resolve();
+      t.oncomplete = () => { messagesCache.delete(id); resolve(); };
       t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
     });
-    await run('settings', 'readwrite', (s) => s.delete('state:' + id));
+    await run('settings', 'readwrite', (s) => s.delete('state:' + id)); settingsCache.delete('state:' + id);
     /* M6: the keeper's folded pages go with the story too. */
-    await run('settings', 'readwrite', (s) => s.delete('memory:' + id));
+    await run('settings', 'readwrite', (s) => s.delete('memory:' + id)); settingsCache.delete('memory:' + id);
     /* M7: and its lore shelf as well. The cast library stays — it's
      * app-wide, and other stories may still be carrying those cards. */
-    await run('settings', 'readwrite', (s) => s.delete('lore:' + id));
+    await run('settings', 'readwrite', (s) => s.delete('lore:' + id)); settingsCache.delete('lore:' + id);
     /* M9: and the workers' ledger line goes with the story too. */
-    await run('settings', 'readwrite', (s) => s.delete('workers:' + id));
+    await run('settings', 'readwrite', (s) => s.delete('workers:' + id)); settingsCache.delete('workers:' + id);
     /* M21: and the rollback snapshots as well. */
-    await run('settings', 'readwrite', (s) => s.delete('snapshots:' + id));
+    await run('settings', 'readwrite', (s) => s.delete('snapshots:' + id)); settingsCache.delete('snapshots:' + id);
   },
 };
 
 const messages = {
   async list(storyId) {
+    if (messagesCache.has(storyId)) return messagesCache.get(storyId).map((r) => ({ ...r }));
     const d = await openDB();
     const rows = await new Promise((resolve, reject) => {
       const t = d.transaction('messages', 'readonly');
@@ -331,7 +352,9 @@ const messages = {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-    return rows.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    const sorted = rows.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    messagesCache.set(storyId, sorted);
+    return sorted.map((r) => ({ ...r }));
   },
   /* M14: how many pages a tale holds, without reading them — the story
    * shelf shows the count beside each title. */
@@ -431,6 +454,7 @@ const messages = {
       if (!row.sources.length) delete row.sources;
     }
     await run('messages', 'readwrite', (s) => s.put(row));
+    messagesCache.delete(storyId);
     // Touch the story so last-active sorting stays honest.
     const story = await stories.get(storyId);
     if (story) await stories.update(storyId, {});
@@ -441,7 +465,10 @@ const messages = {
    * a quiet no-op returning undefined — the workers rely on this when the
    * page they were reading has gone (B5). */
   async update(storyId, messageId, patch) {
-    return modify('messages', messageId, (found) => (found.storyId !== storyId ? undefined : { ...found, ...(patch || {}), id: found.id, storyId: found.storyId }));
+    messagesCache.delete(storyId);
+    const out = await modify('messages', messageId, (found) => (found.storyId !== storyId ? undefined : { ...found, ...(patch || {}), id: found.id, storyId: found.storyId }));
+    messagesCache.delete(storyId);
+    return out;
   },
   /* M9 additive helper (B17): write many pages of one story in a SINGLE
    * transaction — a chat import either lands whole or not at all. */
@@ -460,7 +487,7 @@ const messages = {
       const t = d.transaction('messages', 'readwrite');
       const s = t.objectStore('messages');
       for (const row of rows) s.put(row);
-      t.oncomplete = () => { checkStorage(); resolve(); };
+      t.oncomplete = () => { checkStorage(); messagesCache.clear(); resolve(); };
       t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
       t.onabort = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
     });
@@ -475,12 +502,13 @@ const messages = {
     const at = all.findIndex((m) => m.id === messageId);
     if (at === -1) return 0;
     const doomed = all.slice(at);
+    messagesCache.delete(storyId);
     const d = await openDB();
     await new Promise((resolve, reject) => {
       const t = d.transaction('messages', 'readwrite');
       const s = t.objectStore('messages');
       for (const m of doomed) s.delete(m.id);
-      t.oncomplete = () => resolve();
+      t.oncomplete = () => { messagesCache.delete(storyId); resolve(); };
       t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
     });
     return doomed.length;
@@ -492,6 +520,7 @@ const messages = {
     const found = all.find((m) => m.id === messageId);
     if (!found) return false;
     await run('messages', 'readwrite', (s) => s.delete(messageId));
+    messagesCache.delete(storyId);
     return true;
   },
 };
@@ -573,6 +602,7 @@ async function exportAll() {
 }
 
 async function importAll(json) {
+  dropCaches(); /* M137: a restore replaces every row */
   let envelope;
   try {
     envelope = typeof json === 'string' ? JSON.parse(json) : json;
@@ -614,6 +644,7 @@ async function importAll(json) {
     for (const name of STORES) {
       const s = t.objectStore(name);
       s.clear();
+      dropCaches();
       for (const row of checked[name]) s.put(row);
     }
     t.oncomplete = () => resolve();

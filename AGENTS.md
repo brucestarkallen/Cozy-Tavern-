@@ -3263,3 +3263,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   mend, passer-through).
 - The walk's scenarios that reach for the first page show all pages first and wait for the
   thread to draw. 395/395 + 35/35 + 8/8. version.js -> m136-001.
+
+# M137 — the read cache (the lag)
+- FIELD REPORT: "everything has latency — Settings, a new story, all of it; many versions ago
+  it was fast." ROOT CAUSE: every action read the same rows from IndexedDB again and again —
+  a story's whole page list dozens of times per turn (forty call sites in chat.js alone), the
+  ledger's state a dozen more, the record, the workers' lines — and on a phone each read of a
+  long story is a hundred milliseconds of deserializing. The house grew readers and panels
+  this week and each brought its own reads. Now store.js keeps a read cache: settings rows
+  (handed out as clones, so callers may mutate what they get as they always could) and each
+  story's page list (shallow row copies); every write to a key or to a story's pages
+  invalidates it (append, update, remove, truncation, a chat import, a story's removal, a
+  backup restore). The ninety-turn play runs in 52s where it ran in 64s in Node; on a phone
+  the difference is the lag itself. DOM-11d waited on a busy flag the faster house cleared
+  between two polls; it waits on the result now.
+- 395/395 + 35/35 + 8/8. version.js -> m137-001.
