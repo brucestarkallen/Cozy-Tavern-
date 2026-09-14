@@ -303,3 +303,36 @@ test('M203: every manual action has a banner, and always finishes it', () => {
   const sw = fs.readFileSync(path.join(here, '../../sw.js'), 'utf8');
   assert(sw.includes("'js/ui/workbanner.js'"), 'the shell carries the banner');
 });
+
+/* M204: THE BANNER IS FOR THE WRITER'S OWN HAND ONLY. The automatic chain
+ * runs after every single page — extractor, world agent, scribe, keeper,
+ * second reader, auditor. A banner flashing through all of that while the
+ * writer is reading would break the scene every turn, which is the opposite
+ * of what it is for. It belongs to the eight buttons and to nothing else. */
+test('M204: the automatic chain never raises the banner', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
+  const html = fs.readFileSync(path.join(here, '../../index.html'), 'utf8');
+
+  /* it is raised in exactly the eight places the writer presses */
+  const raised = (chat.match(/const banner = beginWork\('/g) || []).length;
+  eq(raised, 8, 'raised in eight places, one per manual action (found ' + raised + ')');
+
+  /* and none of them is the per-turn chain */
+  const chainAt = chat.indexOf('function startBackgroundWork(');
+  assert(chainAt !== -1, 'the chain is still there');
+  const chainEnd = chat.indexOf('\n  async function ', chainAt + 40);
+  const chain = chat.slice(chainAt, chainEnd > chainAt ? chainEnd : chainAt + 14000);
+  assert(!/beginWork\(/.test(chain), 'the per-turn chain never begins a banner');
+  assert(!/banner\./.test(chain), 'nor touches one');
+
+  /* nor the send path */
+  const genAt = chat.indexOf('async function generate(');
+  const gen = chat.slice(genAt, genAt + 16000);
+  assert(!/beginWork\(/.test(gen), 'and neither does the send path');
+
+  /* it lives inside the drawer, so a closed ledger cannot show it at all */
+  const drawer = html.slice(html.indexOf('<aside id="drawer"'), html.indexOf('</aside>', html.indexOf('<aside id="drawer"')));
+  assert(drawer.includes('id="work-banner"'), 'the banner sits inside the ledger drawer');
+  assert(html.indexOf('id="work-banner"') > html.indexOf('<aside id="drawer"'), 'never out over the story');
+});

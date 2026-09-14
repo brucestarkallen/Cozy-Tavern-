@@ -3844,10 +3844,12 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   re-inked. An ambiguous prefix took the first match the same way ("NSFW" choosing between "NSFW
   Mode" and "NSFW Mode (2)" without saying it had). BOTH refusals already written in that branch
   were unreachable; they are reachable now.
-- A NOTE FOR THE NEXT SESSION: do not run tests/dom/run.mjs and tests/dom/longplay.mjs at the same
-  time. Run concurrently they interfere and the walk reports up to 14 false failures ("nothing to
-  click", "waited too long", "the world agent is on by default"); each run alone is green. Every
-  suite in this pass was re-run alone to confirm.
+- A NOTE FOR THE NEXT SESSION: run the jsdom suites ALONE. tests/dom/run.mjs and
+  tests/dom/longplay.mjs interfere with each other AND with any other heavy process beside them —
+  M203 saw the walk report 13 false failures purely because eslint was chewing through seventy
+  files on the same core; run alone, the same commit is 37/37. The walk waits on real timeouts, so
+  anything stealing CPU reads as "nothing to click" or "waited too long". Never judge a red walk
+  until it has been run on its own.
 - 431/431 harness (+2 laws) + 36/36 walk + 8/8 play (each run alone) + the anchor differential +
   the two-browser proof + the coat proof + the contrast audit. version.js -> m173-001.
 
@@ -4389,3 +4391,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   moment the file was added — the exact trap M200 described, found by a law rather than by a
   writer whose browser had quietly stopped updating.
 - 452/452 harness + 37/37 walk + 8/8 play + wipe + contrast. version.js -> m203-001.
+
+# M204 — the banner is for the writer's own hand only
+- The writer asked before it could bite: does the AUTOMATIC chain raise the banner too? It does
+  not, and now it never can. The chain runs after every single page — extractor, world agent,
+  scribe, keeper, second reader, auditor — and a banner flashing through all of that while the
+  writer is reading would break the scene every turn, which is the opposite of what it is for.
+- Held by a law: beginWork is called in exactly EIGHT places, one per manual action; neither
+  startBackgroundWork nor generate() may touch it; and the banner element lives INSIDE the ledger
+  drawer, so a closed ledger cannot show it at all. The automatic readers keep reporting where
+  they always have — the workers' line in the ledger, and the receipt under the page.
+- 453/453 harness + 37/37 walk + 8/8 play. version.js -> m204-001.
