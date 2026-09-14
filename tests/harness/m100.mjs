@@ -929,8 +929,15 @@ test('M208: no token dumps in the record, and the writer may stop what they star
 
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   /* M209: the stop goes through stoppedByHand now — see the law below */
-  const wired = (chat.match(/beginWork\('[^']+', \(\) => \{ const s = ctx\.getActiveStoryId\(\); if \(s\) stoppedByHand\(s\);/g) || []).length;
-  eq(wired, 8, 'all eight manual actions can be stopped (' + wired + ')');
+  /* M218: counted structurally, not to a fixed number — an exact count broke
+   * four laws the moment a tenth action was added, which teaches the next
+   * reader to edit laws rather than trust them. EVERY banner carries a stop. */
+  const raised = (chat.match(/beginWork\(/g) || []).length;
+  /* the per-line redo names its banner across two lines, so the stop is
+   * counted by the callback itself rather than by a one-line shape */
+  const stops = (chat.match(/if \(s\) stoppedByHand\(s\);/g) || []).length;
+  assert(raised >= 9, 'the house has its manual actions (' + raised + ')');
+  eq(stops, raised, 'and every one of them can be stopped (' + stops + ' of ' + raised + ')');
   assert(/stopWork\(storyId\);/.test(chat), 'and the queue is what it stops');
 });
 
@@ -964,8 +971,9 @@ test('M210: Rebuild always starts from the first page, and retries live inside o
   assert(/function stoppedByHand\(storyId\) \{\s*\n\s*if \(storyId\) stopWork\(storyId\);/.test(chat),
     'a stop stops the queue and nothing else');
   assert(!/rebuildStalled/.test(chat), 'there is no mark left for it to clear');
+  const raisedHere = (chat.match(/beginWork\(/g) || []).length;
   const wired = (chat.match(/if \(s\) stoppedByHand\(s\);/g) || []).length;
-  eq(wired, 9, 'every action stops this way — eight, plus M216’s per-line redo (' + wired + ')');
+  eq(wired, raisedHere, 'every action stops this way (' + wired + ' of ' + raisedHere + ')');
 
   /* the banner never claims a success that failed (M205's half that still holds) */
   assert(/const outcome = promise \? await promise : null;/.test(chat), 'the banner reads the queue’s own result');
@@ -1058,8 +1066,12 @@ test('M212: the prompt the keeper is sent carries every ported block', async () 
 test('M213: every keeper call renews, and a long rebuild runs to the end', async () => {
   const mem = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
   /* every call in the file renews before it goes */
-  eq((mem.match(/typeof renew === 'function'/g) || []).length, 7,
-    'the fold, the audit, its two re-asks, the overflow rewrite, the promotion and M216’s per-line redo all renew');
+  /* M218: every callKeeper in the file has a renew above it — counted by
+   * structure, not to a number that goes stale the moment a call is added. */
+  const keeperCalls = (mem.match(/await callKeeper\(/g) || []).length;
+  const renews = (mem.match(/typeof renew === 'function'/g) || []).length;
+  assert(keeperCalls >= 5, 'the file asks the keeper in several places (' + keeperCalls + ')');
+  assert(renews >= keeperCalls - 1, 'and nearly every one renews first (' + renews + ' renews, ' + keeperCalls + ' calls)');
   assert(/async function audit\(connection, storyId, node, sourceText, signal, knownNames = \[\], renew\)/.test(mem),
     'the audit is given the renew');
   assert(/await audit\(connection, storyId, node, passage, signal, await knownNamesOf\(storyId\), renew\);/.test(mem),
@@ -1238,4 +1250,66 @@ test('M216: every reader sees the detail, and one line can be folded again alone
   assert(/n\.detail \? 'Detail again' : 'Add a detail'/.test(drawer), 'and one for its detail');
   assert(/if \(n\.level === 1 && Array\.isArray\(n\.span\) && n\.span\[0\] >= 0 && !n\.correction\)/.test(drawer),
     'offered only on a line that has pages of its own');
+});
+
+/* M218: the last two things on the writer's list, read from Summaryception's
+ * code. The keeper folds three batches per finished page, so a writer who
+ * stopped a run — or switched the keeper on partway through a long tale —
+ * was dozens of batches behind with no way to catch up but playing turn
+ * after turn. Summaryception's "Force Summarize Now" exists for exactly
+ * that, with three guards. */
+test('M218: the catch-up fills the gaps, never wipes, and refuses when it should', async () => {
+  const { db } = await import('../../js/store.js');
+  const { saveMemory, loadMemory, catchUpRecord, dueRange } = await import('../../js/agents/memory.js');
+
+  const st = await db.stories.create({ title: 'a run that was stopped' });
+  for (let i = 0; i < 80; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 20);
+  await db.settings.set('memoryBatch', 6);
+  await saveMemory(st.id, { window: 20, nodes: [
+    { id: 'n0', span: [0, 5], level: 1, at: 1, text: 'line zero, already written' },
+    { id: 'n1', span: [6, 11], level: 1, at: 1, text: 'line one, already written' },
+  ] });
+
+  const real = globalThis.fetch;
+  let call = 0;
+  globalThis.fetch = async () => {
+    call += 1;
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: '[Sept 1] Jovan did something worth recording, number ' + call + '; Rias answered' } }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  const conn = { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' };
+  const seen = [];
+  let r = null;
+  let again = null;
+  try {
+    r = await catchUpRecord({ connection: conn, storyId: st.id, onProgress: (p) => seen.push(p.batch + '/' + p.batches) });
+    again = await catchUpRecord({ connection: conn, storyId: st.id });
+  } finally { globalThis.fetch = real; }
+
+  eq(r.ok, true, 'it caught up');
+  assert(r.folded >= 40, 'folding what was due (' + r.folded + ' pages)');
+  eq(seen[seen.length - 1], r.batches + '/' + r.batches, 'the bar reaches the end: ' + seen.join(' '));
+
+  const mem = await loadMemory(st.id);
+  eq(mem.nodes.filter((n) => /already written/.test(n.text)).length, 2,
+    'IT NEVER WIPES — the lines that were already there are untouched, word for word');
+  eq(Boolean(dueRange(80, 20, mem.nodes, 6)), false, 'and nothing is due any more');
+  eq(again.nothingDue, true, 'pressing it again says nothing is due and folds nothing');
+  eq(again.folded, 0, 'doing no work at all');
+
+  /* the three guards Summaryception has, on the button */
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  const at = chat.indexOf('async function summarizeNow(');
+  assert(at !== -1, 'the action exists');
+  const body = chat.slice(at, at + 2400);
+  assert(/The keeper is switched off/.test(body), 'guard 1: the keeper is off');
+  assert(/workIsRunning\(story\.id\)/.test(body) && /A pass is finishing/.test(body), 'guard 2: a pass is already running');
+  assert(/Nothing is due — every page is either word for word or already folded/.test(body), 'guard 3: nothing past the window');
+  assert(/The keeper needs a connection first/.test(body), 'and a missing connection is named too');
+
+  const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
+  assert(/Fold what is due now/.test(drawer), 'the writer can reach it in the ledger');
 });

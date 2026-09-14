@@ -1057,3 +1057,67 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
   const done = (after.nodes || []).find((n) => n && n.id === nodeId);
   return { ok: true, text: done ? done.text : '', detail: done ? done.detail || '' : '', pages: pages.length };
 }
+
+/* M218: FOLD EVERYTHING THAT IS DUE, NOW — Summaryception's "Force Summarize
+ * Now", which this house never had. The keeper folds at most BATCHES_PER_RUN
+ * (three) per finished page, so a writer who stopped a run, or turned the
+ * keeper on partway through a long tale, was left dozens of batches behind
+ * with no way to catch up but playing turn after turn. This folds until
+ * nothing is due, reporting every batch, with the same retry ladder a
+ * rebuild has — and it NEVER wipes: it only fills the gaps. */
+export async function catchUpRecord({ connection, storyId, onProgress, onRetry, signal, stale, renew } = {}) {
+  if (!connection || !storyId) return null;
+  const mem = await loadMemory(storyId);
+  const history = visiblePages(await db.messages.list(storyId));
+  const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
+  const batch = cleanBatch(await db.settings.get('memoryBatch'));
+  if (!dueRange(history.length, window, mem.nodes, batch)) {
+    return { ok: true, nothingDue: true, folded: 0, batches: 0 };
+  }
+  const covered = coveredSet(mem.nodes).size;
+  const toFold = Math.max(0, (history.length - window) - covered);
+  const batches = Math.max(1, Math.floor(toFold / batch));
+  let doneBatches = 0;
+  let folded = 0;
+  for (let rounds = 0; rounds < 400; rounds += 1) {
+    if (stale && stale()) return { ok: false, why: 'left behind' };
+    if (typeof renew === 'function' && !renew()) {
+      return { ok: false, stalled: true, folded, batches: doneBatches, why: 'the run was cut short — press it again to carry on' };
+    }
+    const before = (await loadMemory(storyId)).nodes.length;
+    try {
+      await maybeSummarize({
+        connection, storyId, signal, renew,
+        onBatch: ({ pages }) => {
+          doneBatches += 1;
+          folded += pages;
+          if (typeof onProgress === 'function') onProgress({ batch: doneBatches, batches, folded, toFold });
+        },
+      });
+    } catch (err) { /* the ladder below */ }
+    let after = (await loadMemory(storyId)).nodes;
+    const stillDue = Boolean(dueRange(history.length, window, after, batch));
+    if (!stillDue) return { ok: true, folded, batches: doneBatches, lines: after.length };
+    if (after.length === before) {
+      let recovered = false;
+      const pauses = [1500, 4000, 9000, 20000, 45000, 90000];
+      for (let a = 0; a < pauses.length; a += 1) {
+        if (stale && stale()) return { ok: false, why: 'left behind' };
+        if (typeof onRetry === 'function') await onRetry({ ms: pauses[a], attempt: a + 1, of: pauses.length });
+        else await new Promise((r) => setTimeout(r, pauses[a]));
+        if (typeof renew === 'function' && !renew()) break;
+        try {
+          await maybeSummarize({ connection, storyId, signal, renew,
+            onBatch: ({ pages }) => { doneBatches += 1; folded += pages; if (typeof onProgress === 'function') onProgress({ batch: doneBatches, batches, folded, toFold }); } });
+        } catch (err) { /* the next rung */ }
+        after = (await loadMemory(storyId)).nodes;
+        if (after.length !== before) { recovered = true; break; }
+      }
+      if (!recovered) {
+        return { ok: false, stalled: true, folded, batches: doneBatches,
+          why: 'the keeper could not be reached — press it again to carry on' };
+      }
+    }
+  }
+  return { ok: true, folded, batches: doneBatches, lines: (await loadMemory(storyId)).nodes.length };
+}

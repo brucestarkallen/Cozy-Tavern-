@@ -315,8 +315,10 @@ test('M204: the automatic chain never raises the banner', () => {
   const html = fs.readFileSync(path.join(here, '../../index.html'), 'utf8');
 
   /* it is raised in exactly the eight places the writer presses */
+  /* M218: what matters is not HOW MANY raise it but that the per-turn chain
+   * never does — an exact count only breaks when an action is added. */
   const raised = (chat.match(/const banner = beginWork\('/g) || []).length;
-  eq(raised, 8, 'raised in eight places, one per manual action (found ' + raised + ')');
+  assert(raised >= 9, 'the manual actions raise it (' + raised + ')');
 
   /* and none of them is the per-turn chain */
   const chainAt = chat.indexOf('function startBackgroundWork(');

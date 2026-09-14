@@ -49,11 +49,11 @@ import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
-import { enqueueWork, stopWork, queuedCount } from '../agents/queue.js';
+import { enqueueWork, stopWork, workIsRunning, queuedCount } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, redoLine, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
@@ -1623,6 +1623,49 @@ export function initChat(ctx) {
       banner.done(detailOnly ? 'The detail was written again' : 'That line was folded again');
       if (ctx.drawer && typeof ctx.drawer.onStoriesChanged === 'function') ctx.drawer.onStoriesChanged();
       return { silent: false, detail: detailOnly ? 'read one line’s detail again' : 'folded one line again' };
+    } });
+    noteWork(story.id, promise);
+    return true;
+  }
+
+  /* M218: FOLD EVERYTHING THAT IS DUE, NOW — Summaryception's "Force
+   * Summarize Now", with the three guards it has. The keeper folds three
+   * batches per finished page, so a writer who stopped a run, or switched the
+   * keeper on partway through a long tale, was dozens of batches behind with
+   * no way to catch up but playing turn after turn. This never wipes: it
+   * fills the gaps and stops. */
+  async function summarizeNow() {
+    const banner = beginWork('Folding what is due', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — press it again to carry on'); });
+    const story = await activeStory();
+    if (!story) { banner.failed('Open a story first'); return false; }
+    if ((await db.settings.get('memoryKeeper')) === false) {
+      banner.failed('The keeper is switched off — turn it on in Settings first');
+      return false;
+    }
+    if (workIsRunning(story.id)) {
+      banner.failed('A pass is finishing — try again in a moment');
+      return false;
+    }
+    const mem = await loadMemory(story.id);
+    const pages = (await db.messages.list(story.id)).filter((m) => m && !m.hidden);
+    const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
+    const batch = cleanBatch(await db.settings.get('memoryBatch'));
+    if (!dueRange(pages.length, window, mem.nodes, batch)) {
+      banner.done('Nothing is due — every page is either word for word or already folded');
+      return false;
+    }
+    const connection = await resolveWorkerConnection(story, 'keeper');
+    if (!connection) { banner.failed('The keeper needs a connection first'); return false; }
+    const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale, renew }) => {
+      const r = await catchUpRecord({
+        connection, storyId: story.id, signal, stale, renew,
+        onProgress: ({ batch: b, batches, folded, toFold }) => banner.step(b, batches, 'batch', folded + ' of ' + toFold + ' pages'),
+        onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
+      });
+      if (!r || r.ok === false) banner.failed(r && r.why ? r.why : 'it stumbled');
+      else if (r.nothingDue) banner.done('Nothing was due');
+      else banner.done('Folded ' + r.folded + ' pages into ' + r.batches + ' ' + (r.batches === 1 ? 'line' : 'lines'));
+      return { silent: false, detail: r && r.ok ? 'folded ' + (r.folded || 0) + ' pages that were due' : 'the catch-up stumbled' };
     } });
     noteWork(story.id, promise);
     return true;
@@ -4596,6 +4639,7 @@ export function initChat(ctx) {
     foundNow,
     rebuildStandingsNow,
     redoRecordLine,
+    summarizeNow,
     rebuildRecordNow,
     rebuildPeopleNow,
     restoreRecordNow,

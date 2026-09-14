@@ -4622,3 +4622,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   a second button meaning almost the same would have broken M210's law (one button, one meaning).
   Only "Detail again" is new on a line.
 - 461/461 harness + 37/37 walk + 8/8 play. version.js -> m217-001.
+
+# M218 — the last two on the writer's list, and laws that no longer break on being added to
+- FOLD WHAT IS DUE NOW — Summaryception's "Force Summarize Now", which this house never had. The
+  keeper folds three batches per finished page, so a writer who STOPPED a run, or switched the
+  keeper on partway through a long tale, was dozens of batches behind with no way to catch up but
+  playing turn after turn. catchUpRecord folds until nothing is due, counting batches, with the
+  same six-rung retry ladder a rebuild has — and it NEVER WIPES: it fills the gaps and leaves every
+  line already written untouched, word for word. Proven: a stopped run with 48 pages unfolded and
+  two lines already written — caught up in 8 batches, both old lines intact, nothing due after.
+  This is also the automatic catch-up after a stop the writer asked for: the per-turn chain keeps
+  folding three batches a page as it always did, and this is the way to clear a large backlog at
+  once instead of waiting seventeen turns for it.
+- THE THREE GUARDS, as Summaryception has them: the keeper is switched off; a pass is already
+  finishing; nothing is past the word-for-word window. Plus a missing connection, named.
+- AND FOUR LAWS BROKE PURELY BECAUSE A TENTH ACTION WAS ADDED. They counted to a fixed number —
+  "eight actions", "six renews" — so every new action made four laws fail for no reason, which
+  teaches the next reader to edit laws instead of trusting them. They count STRUCTURALLY now:
+  every banner raised has a stop; nearly every callKeeper has a renew above it; the chain still
+  never raises a banner.
+- 462/462 harness + 37/37 walk + 8/8 play + contrast. version.js -> m218-001.

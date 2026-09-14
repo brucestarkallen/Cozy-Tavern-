@@ -1724,6 +1724,16 @@ function workersPanel(ctx) {
     });
   });
 
+  /* M218: fold everything that is due, now — never a wipe, only the gaps. */
+  const catchUp = document.createElement('button');
+  catchUp.type = 'button';
+  catchUp.className = 'text-btn';
+  catchUp.textContent = 'Fold what is due now';
+  catchUp.title = 'The keeper folds every page that has left the word-for-word window and has no line yet. Nothing already written is touched.';
+  catchUp.addEventListener('click', async () => {
+    if (ctx.chat && typeof ctx.chat.summarizeNow === 'function') await ctx.chat.summarizeNow();
+  });
+
   /* M52: re-fold the record from the first page, six pages at a time */
   const refold = document.createElement('button');
   refold.type = 'button';
@@ -1754,7 +1764,7 @@ function workersPanel(ctx) {
   row.append(found, rescan, audit);
   const row2 = document.createElement('div');
   row2.className = 'row';
-  row2.append(refold, unfold);
+  row2.append(catchUp, refold, unfold);
   wrap.append(note, row, row2, list);
 
   const render = latestWins(async () => {
