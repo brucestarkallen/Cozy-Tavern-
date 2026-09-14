@@ -2057,8 +2057,46 @@ export function initDrawer(ctx) {
      * background refresh (quietRender) had kept the position since M105;
      * every OTHER caller did not. It is kept here, so every caller has it. */
     const keptTop = panelsEl.scrollTop;
-    const restore = () => { if (panelsEl.scrollTop !== keptTop) panelsEl.scrollTop = keptTop; };
-    requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
+    /* M201: AND IT HAS TO WAIT FOR THE CONTENT. M199 put the position back
+     * two frames later — but a panel's content is filled ASYNCHRONOUSLY
+     * (every panel's render is latestWins(async …)), so two frames later the
+     * panel is still empty, there is nothing to scroll, and the position is
+     * lost the moment the content arrives. A rebuild saves a line at a time,
+     * and every save notifies, and every notify re-renders — so the writer
+     * was thrown to the top over and over while they watched it work.
+     * The position is put back on every change to the panel until it sticks,
+     * or until a second and a half has passed, or until the writer's own
+     * hand moves the panel — whichever comes first. */
+    if (keptTop > 0) {
+      let settled = false;
+      const restore = () => {
+        if (settled) return;
+        if (panelsEl.scrollHeight - panelsEl.clientHeight < keptTop) return; /* not tall enough yet */
+        if (panelsEl.scrollTop !== keptTop) panelsEl.scrollTop = keptTop;
+        settled = panelsEl.scrollTop === keptTop;
+      };
+      /* M201: an observer where there is one, a short poll where there is
+       * not — and never a throw, because this runs inside render() and a
+       * throw here takes the whole drawer with it. */
+      const Watcher = (typeof MutationObserver === 'function' ? MutationObserver
+        : (typeof window !== 'undefined' && typeof window.MutationObserver === 'function' ? window.MutationObserver : null));
+      let watch = null;
+      let poll = 0;
+      try {
+        if (Watcher) { watch = new Watcher(restore); watch.observe(panelsEl, { childList: true, subtree: true }); }
+        else poll = setInterval(restore, 60);
+      } catch (err) { poll = setInterval(restore, 60); }
+      const byHand = () => { settled = true; };
+      panelsEl.addEventListener('pointerdown', byHand, { once: true, passive: true });
+      panelsEl.addEventListener('wheel', byHand, { once: true, passive: true });
+      requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
+      setTimeout(() => {
+        if (watch) { try { watch.disconnect(); } catch (err) { /* fine */ } }
+        if (poll) clearInterval(poll);
+        panelsEl.removeEventListener('pointerdown', byHand);
+        panelsEl.removeEventListener('wheel', byHand);
+      }, 1500);
+    }
 
     /* Re-point the live subscription at whichever story is active now. */
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }

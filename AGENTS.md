@@ -4321,3 +4321,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   to, and the room asks again at 2s, 6s, 15s and 30s after opening — because the launcher RESTARTS
   serve.py, so the first look can land while the port is still dead.
 - 450/450 harness + 36/36 walk + 8/8 play + the wipe test. version.js -> m200-001.
+
+# M201 — the ledger, during a rebuild, over and over
+- M199 KEPT THE POSITION TWO FRAMES LATER, WHICH IS TOO EARLY. Every panel's content is filled
+  ASYNCHRONOUSLY (each is latestWins(async …)), so two frames after render() the panel is still
+  EMPTY: there is nothing to scroll, the restore does nothing, and the position is lost the moment
+  the content arrives. And a rebuild saves one line at a time — every save notifies, every notify
+  re-renders — so the writer was thrown to the top again and again while they watched it work,
+  and had to scroll back down each time just to see whether it had finished.
+- The position is put back on every change to the panel until it sticks: an observer where there
+  is one, a short poll where there is not, never a throw (this runs inside render(), and a throw
+  here takes the whole drawer with it). It stops when it sticks, at a second and a half, or the
+  moment the writer's own hand touches the panel — whichever comes first, so it can never fight
+  the reader.
+- PROVEN, not assumed: tests/dom/run.mjs DOM-18 scrolls the panel to 1200, fires eight rebuild
+  refreshes, and finds it still at 1200.
+- 450/450 harness + 37/37 walk + 8/8 play. version.js -> m201-001.

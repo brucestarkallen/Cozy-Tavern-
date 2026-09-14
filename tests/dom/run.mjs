@@ -1348,6 +1348,38 @@ test('DOM-17 a page dressed too deep still renders, and the room stays whole', a
   assert(frag && /the lantern swung/.test(frag.textContent), 'and the words still reach the reader');
 });
 
+
+/* M201: during a rebuild the ledger saves a line at a time, every save
+ * notifies, and every notify re-renders the drawer — and each render threw
+ * the writer to the top, over and over, while they watched it work. M199
+ * restored the position two frames later, which is before a panel's content
+ * (every panel renders asynchronously) has arrived: nothing to scroll, and
+ * the position lost the moment it does arrive. */
+test('DOM-18 the ledger keeps the writer’s place through a rebuild’s refreshes', async () => {
+  const { db } = await import('../../js/store.js');
+  const { notify } = await import('../../js/engine/state.js');
+  const st = await db.stories.create({ title: 'A long ledger' });
+  for (let i = 0; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('state:' + st.id, { present: [], journal: [], log: Array.from({ length: 120 }, (_, i) => ({ ts: Date.now(), words: 'a change, number ' + i, jid: i })) });
+  env.window.__cozy.setActiveStoryId(st.id);
+  click(q('#btn-ledger'));
+  await tick(900);
+
+  const panels = q('#drawer-panels');
+  Object.defineProperty(panels, 'scrollHeight', { value: 4000, configurable: true });
+  Object.defineProperty(panels, 'clientHeight', { value: 600, configurable: true });
+  let top = 0;
+  Object.defineProperty(panels, 'scrollTop', { get: () => top, set: (v) => { top = v; }, configurable: true });
+
+  panels.scrollTop = 1200;
+  for (let i = 0; i < 8; i += 1) { notify(st.id); await tick(220); }
+  await tick(1200);
+  eq(panels.scrollTop, 1200, 'the panel stayed where the writer left it');
+
+  click(q('#btn-ledger'));
+  await tick(300);
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

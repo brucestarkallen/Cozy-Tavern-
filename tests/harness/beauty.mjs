@@ -193,9 +193,14 @@ test('M199: the ledger panel keeps its place, and every action says what it is d
   /* the place is kept in render itself, so every caller has it */
   const at = src.indexOf('function render() {');
   assert(at !== -1, 'the drawer still has a render');
-  const body = src.slice(at, at + 1600);
+  const body = src.slice(at, at + 4200);
   assert(/const keptTop = panelsEl\.scrollTop;/.test(body), 'render remembers where the panel stood');
-  assert(/panelsEl\.scrollTop = keptTop;/.test(body), 'and puts it back');
+  /* M201: put back once the CONTENT has arrived — a panel's content is
+   * filled asynchronously, so two frames later there is nothing to scroll. */
+  assert(/if \(panelsEl\.scrollTop !== keptTop\) panelsEl\.scrollTop = keptTop;/.test(body), 'and puts it back');
+  assert(/panelsEl\.scrollHeight - panelsEl\.clientHeight < keptTop\) return;/.test(body), 'not before the panel is tall enough to hold it');
+  assert(/new Watcher\(restore\)|setInterval\(restore/.test(body), 'and keeps putting it back as the content lands');
+  assert(/const byHand = \(\) => \{ settled = true; \};/.test(body), 'unless the writer’s own hand moves it');
   assert(body.indexOf('const keptTop') < body.indexOf("panelsEl.textContent = ''"), 'remembered BEFORE the panel is emptied');
 
   /* and every action that hands work to the chain reports itself */
