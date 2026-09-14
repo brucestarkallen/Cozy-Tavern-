@@ -4679,3 +4679,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - FOR THE RECORD: the AUDITOR has no notion of fetch at all — the word appears nowhere in
   auditor.js. An "audit" that comes back as <fetch> is a housekeeper turn, not an audit.
 - 464/464 harness + 37/37 walk + 8/8 play. version.js -> m221-001.
+
+# M222 — the Audit button's one instruction could never be obeyed
+- The housekeeper's Audit ask tells the model, in as many words, to "FETCH those pages whole
+  (their #handles) and the line itself (its #r… mark) before you judge". parseFetchRefs accepted
+  HEX ONLY. Page ids are hex; a RECORD line's mark is "#r" + the node's own id, which carries
+  letters past f — "#rbrq3w1", "#r86y302". So EVERY record-line fetch was thrown out as malformed,
+  the one thing that button asks for could never be fetched, and the writer's audit came back as a
+  bare <fetch>["#rbrq3w1", "#r86y302", "#r87g7v3"] with nothing done at all. Record handles are
+  handles now; a handle the record hands out is one the fetch accepts, held by a law.
+- This is what M221 was a plaster over: that fix (never end a turn on a bare fetch) is right and
+  stays, but the reason the turn ended on one was this.
+- Verified end to end: the audit turn now uses its three rounds, is SERVED the line and its
+  detail, is told once there is no more fetching, and never returns a bare fetch.
+- 465/465 harness + 37/37 walk + 8/8 play. version.js -> m222-001.

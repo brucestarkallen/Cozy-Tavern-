@@ -1399,3 +1399,36 @@ test('M221: a turn is never spent entirely on fetching, and a fetched record lin
   const aud = readFileSync(new URL('../../js/agents/auditor.js', import.meta.url), 'utf8');
   assert(!/fetch/.test(aud), 'the auditor neither asks for nor answers a fetch');
 });
+
+/* M222: THE AUDIT BUTTON'S ONE INSTRUCTION COULD NEVER BE OBEYED. The
+ * housekeeper's Audit ask tells the model, in as many words, to "FETCH those
+ * pages whole (their #handles) and the line itself (its #r… mark) before you
+ * judge". But parseFetchRefs accepted HEX ONLY — page ids are hex, while a
+ * record line's mark is "#r" + the node's own id, which carries letters past
+ * f ("#rbrq3w1", "#r86y302"). So every record-line fetch was thrown out as
+ * malformed, and the writer's audit came back as a bare
+ * <fetch>["#rbrq3w1", "#r86y302", "#r87g7v3"] with nothing done at all. */
+test('M222: a record handle is a handle, and an audit can fetch the lines it judges', async () => {
+  const { parseProtocol, recordHandle } = await import('../../js/agents/housekeeper.js');
+
+  /* the writer's own three handles */
+  const his = parseProtocol('<fetch>["#rbrq3w1", "#r86y302", "#r87g7v3"]</fetch>');
+  eq(his.fetch.length, 3, 'all three record handles read: ' + JSON.stringify(his.fetch));
+  eq(his.fetchMalformed, false, 'and none of them called malformed');
+
+  /* every shape the ask can produce */
+  eq(parseProtocol('<fetch>["#a1b2c3"]</fetch>').fetch.length, 1, 'a page handle still reads');
+  eq(parseProtocol('<fetch>["rule: The craft"]</fetch>').fetch.length, 1, 'a rule by name still reads');
+  eq(parseProtocol('<fetch>["just words"]</fetch>').fetchMalformed, true, 'and words are still malformed');
+
+  /* a handle the house itself makes must be one the house can read back */
+  const h = recordHandle({ id: 'node-aaa-1', span: [0, 5], level: 1, at: 1, text: 'a line' });
+  eq(parseProtocol('<fetch>["' + h + '"]</fetch>').fetch[0], h,
+    'a handle the record hands out (' + h + ') is one the fetch accepts');
+
+  const hk = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/\/\^#r\[0-9a-z\]\{2,16\}\$\/i\.test\(t\)/.test(hk), 'record handles are named in the validator');
+  /* and the Audit ask really does demand it — so this path is its main one */
+  const ui = readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
+  assert(/FETCH those pages whole \(their #handles\) and the line/.test(ui), 'the Audit ask asks for exactly this');
+});

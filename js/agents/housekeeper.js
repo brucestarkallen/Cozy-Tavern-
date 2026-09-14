@@ -537,7 +537,17 @@ export function tolerantJson(raw) {
  * after a tolerant parse attempt. */
 function parseFetchRefs(body) {
   /* M74: a page handle, or a rule / lore entry by name ("rule: The Prose", "lore: Aurora") */
-  const isRef = (t) => /^#?[0-9a-f]{3,12}$/i.test(t) || /^\d{1,5}$/.test(t) || /^(rule|lore):\s*\S/i.test(t);
+  /* M222: A RECORD HANDLE IS A HANDLE TOO. This took hex only — page ids are
+   * hex, but a RECORD line's mark is "#r" + the node's own id, which carries
+   * letters past f ("#rbrq3w1", "#r86y302"). So every fetch of a record line
+   * was thrown out as malformed — and the housekeeper's own Audit ask tells
+   * the model, in as many words, to "FETCH ... the line itself (its #r… mark)
+   * before you judge". The one thing that button asks for could never be
+   * fetched, and the turn came back as a bare <fetch> with nothing done. */
+  const isRef = (t) => /^#?[0-9a-f]{3,12}$/i.test(t)
+    || /^#r[0-9a-z]{2,16}$/i.test(t)
+    || /^\d{1,5}$/.test(t)
+    || /^(rule|lore):\s*\S/i.test(t);
   const parsed = tolerantJson(body);
   if (Array.isArray(parsed)) {
     return parsed.map((r) => String(r).trim()).filter((t) => t && isRef(t));
