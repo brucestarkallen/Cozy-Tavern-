@@ -320,5 +320,10 @@ export function rebuildRecordWords(r) {
 }
 export function rebuildPeopleWords(r) {
   if (!r) return 'nothing to rebuild';
+  /* M214: a run cut short says so. rebuildRecordWords learned this at M202
+   * and this one was left behind — so a people rebuild the leash cut off at
+   * page 24 of 118 still read "rebuilt the people: read 24 of 118 pages",
+   * which is a sentence that sounds like success. */
+  if (r.stalled) return `the rebuild stopped at ${r.read} of ${r.total} pages — ${r.why}`;
   return `rebuilt the people: read ${r.read} of ${r.total} pages six at a time — ${r.digits} standings from the brief’s digits, ${r.applied} changes from the pages` + (r.refused ? ` (${r.refused} refused)` : '');
 }

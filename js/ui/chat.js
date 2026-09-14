@@ -1609,11 +1609,11 @@ export function initChat(ctx) {
 
   /* M52: the gradual rebuilds — six pages at a time from turn 0, Summaryception's way. */
   async function rebuildRecordNow() {
+    const banner = beginWork('Rebuilding the record', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
-    if (!story) return false;
+    if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'keeper');
     if (!connection) { banner.failed('The keeper needs a connection first'); return false; }
-    const banner = beginWork('Rebuilding the record', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale, renew }) => {
       const result = await rebuildRecord({
         connection, storyId: story.id, signal, stale, renew,
@@ -1628,11 +1628,16 @@ export function initChat(ctx) {
     return true;
   }
   async function rebuildPeopleNow() {
+    /* M214: the banner is opened BEFORE anything can close it. A bulk edit
+     * left `banner.failed(...)` on the line ABOVE `const banner = …`, so the
+     * one path that used it — "the scribe needs a connection" — threw a
+     * ReferenceError out of the click instead of saying so. Lint does not
+     * catch a temporal-dead-zone use inside a function body. */
+    const banner = beginWork('Rebuilding the people', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
-    if (!story) return false;
+    if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'scribe');
     if (!connection) { banner.failed('The scribe needs a connection first'); return false; }
-    const banner = beginWork('Rebuilding the people', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const promise = enqueueWork(story.id, { name: 'scribe', run: async ({ signal, stale, renew }) => {
       const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew, onProgress: ({ read, total }) => banner.step(read, total, 'page') });
       /* M135: the rebuilt pages also land in the LAST turn's boundary snapshot and
@@ -1657,10 +1662,17 @@ export function initChat(ctx) {
           if (all[last.id + ':' + idx]) { all[last.id + ':' + idx].characters = JSON.parse(JSON.stringify(rebuilt.characters || {})); await db.settings.set('versionState:' + story.id, all); }
         }
       } catch (err) { /* the ledger itself is rebuilt; the checkpoints follow when they can */ }
+      /* M214: a stalled run is not a rebuilt one — the record rebuild has
+       * checked this since M203 and the people rebuild had not, so its
+       * banner closed with "The people were rebuilt" over a run the leash
+       * had cut off. */
+      if (result && result.stalled) banner.failed('Stopped at ' + result.read + ' of ' + result.total + ' pages — ' + (result.why || 'the run was cut short'));
+      else banner.done(rebuildPeopleWords(result));
       return { silent: false, detail: rebuildPeopleWords(result) };
     } });
     noteWork(story.id, promise);
-    bannerFollows(banner, story, 'The people were rebuilt', promise);
+    /* M214: the job closes its own banner (it knows whether the run stalled);
+     * bannerFollows would paint "done" over that. */
     return true;
   }
   async function restoreRecordNow() {

@@ -336,3 +336,38 @@ test('M204: the automatic chain never raises the banner', () => {
   assert(drawer.includes('id="work-banner"'), 'the banner sits inside the ledger drawer');
   assert(html.indexOf('id="work-banner"') > html.indexOf('<aside id="drawer"'), 'never out over the story');
 });
+
+/* M214: three faults in the banner work, all from bulk edits, none caught by
+ * lint or by any suite:
+ *  - `banner.failed(…)` sat on the line ABOVE `const banner = …` in BOTH
+ *    rebuilds, so pressing either with no connection threw a ReferenceError
+ *    out of the click instead of saying what was missing. Lint does not flag
+ *    a temporal-dead-zone use inside a function body.
+ *  - a people rebuild the leash cut off still read "rebuilt the people: read
+ *    24 of 118 pages" — a sentence that sounds like success — and its banner
+ *    closed with "The people were rebuilt".
+ */
+test('M214: every action’s banner exists before it is touched, and never claims a stalled run', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const raw = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
+  const chat = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const actions = ['rescanLedger', 'foundNow', 'auditNow', 'rebuildRecordNow',
+    'rebuildPeopleNow', 'rebuildStandingsNow', 'restoreRecordNow', 'restorePeopleNow'];
+  for (const fn of actions) {
+    const at = chat.indexOf('async function ' + fn + '(');
+    assert(at !== -1, fn + ' exists');
+    const body = chat.slice(at, at + 2400);
+    const decl = body.indexOf('const banner = beginWork');
+    assert(decl !== -1, fn + ' opens a banner');
+    assert(!/banner\.(failed|done|step|say)\(/.test(body.slice(0, decl)),
+      fn + ' never touches the banner before it exists (a dead-zone use lint does not catch)');
+  }
+
+  /* both rebuilds check for a run that was cut short */
+  const rb = fs.readFileSync(path.join(here, '../../js/agents/rebuild.js'), 'utf8');
+  assert(/if \(r\.stalled\) \{[\s\S]{0,160}\$\{r\.folded\} of \$\{r\.toFold\} pages/.test(rb), 'the record’s words say when it stopped');
+  assert(/if \(r\.stalled\) return `the rebuild stopped at \$\{r\.read\}/.test(rb), 'and the people’s');
+  assert(/if \(result && result\.stalled\) banner\.failed\('Stopped at ' \+ result\.folded/.test(chat), 'the record’s banner too');
+  assert(/if \(result && result\.stalled\) banner\.failed\('Stopped at ' \+ result\.read/.test(chat), 'and the people’s');
+});

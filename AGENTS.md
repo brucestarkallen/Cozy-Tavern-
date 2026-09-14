@@ -4552,3 +4552,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   pages = 3 turns) — the aria-label said pages, the visible label said turns, and the writer read
   the number as turns. It says "Pages per record line" now, with the turn arithmetic beside it.
 - 458/458 harness + 37/37 walk + 8/8 play. version.js -> m213-001.
+
+# M214 — the closing audit: three faults in the banner work, none caught by lint or any suite
+- `banner.failed(…)` SAT ON THE LINE ABOVE `const banner = …` IN BOTH REBUILDS. A bulk edit put
+  the connection guard above the declaration, so pressing Rebuild the record — or Rebuild the
+  people — with no connection for that worker threw a ReferenceError out of the click instead of
+  saying what was missing. ESLint does not flag a temporal-dead-zone use inside a function body,
+  and no suite presses a button with a worker connection missing. Both open their banner first
+  now, and a law walks all eight actions and insists the banner exists before anything touches it
+  (reading the file with comments STRIPPED — the first version of that check matched the word
+  "banner.failed" inside its own explanatory comment and reported two false positives).
+- A PEOPLE REBUILD CUT SHORT REPORTED AS A SUCCESS. rebuildRecordWords learned at M202 to say when
+  a run stopped; rebuildPeopleWords was left behind, so a run the leash cut off at page 24 of 118
+  still read "rebuilt the people: read 24 of 118 pages" — a sentence that sounds like it worked —
+  and its banner closed with "The people were rebuilt". Both now say they stopped, and where.
+- And bannerFollows no longer paints "done" over a banner the job has already closed itself.
+- 459/459 harness + 37/37 walk + 8/8 play + wipe + two-browser + append + guard + contrast + coat
+  + the anchor differential (484/484 identical) + no lint errors. version.js -> m214-001.
