@@ -1493,3 +1493,29 @@ test('M224: a card whose anchor has gone retires itself, with no replacement nee
   assert(/if \(!hit && dead\) \{/.test(hk), 'retired without waiting for a replacement');
   assert(hk.indexOf('if (!hit && dead)') < hk.indexOf('if (!hit) continue;'), 'checked before the old skip, or it could never run');
 });
+
+/* M225: M224 made autoSupersede run on EVERY turn instead of only when new
+ * cards arrived — and every branch of anchorIsDead reads DEAD when the thing
+ * it looks into is absent. One caller handing over a half-built world would
+ * have retired every pending card the writer had, all at once, as "can never
+ * be applied". A fix that quietly destroys work is worse than the nagging it
+ * replaced. */
+test('M225: "cannot tell" is never "dead" — a half-built world retires nothing', async () => {
+  const { anchorIsDead } = await import('../../js/agents/housekeeper.js');
+  const card = { kind: 'edit', op: { messageId: 'm1', find: 'some words', replace: 'x' } };
+
+  eq(anchorIsDead(card, { messages: [{ id: 'm1', role: 'assistant', text: 'some words here' }], memory: { nodes: [] }, lore: [], modules: [], story: {} }),
+    false, 'the page is there and the anchor is in it');
+  eq(anchorIsDead(card, { messages: [{ id: 'm1', role: 'assistant', text: 'quite different now' }], memory: { nodes: [] }, lore: [], modules: [], story: {} }),
+    true, 'the page is there and the anchor is NOT — that is the only dead case');
+  for (const [what, world] of [['no messages', { messages: [], memory: { nodes: [] } }], ['an empty world', {}], ['no world at all', undefined]]) {
+    eq(anchorIsDead(card, world), false, what + ' cannot tell, so the card lives');
+  }
+  /* and the same for every other anchor kind */
+  eq(anchorIsDead({ kind: 'record', op: { nodeId: 'n1', find: 'x' } }, { memory: { nodes: [] } }), false, 'no record to look in');
+  eq(anchorIsDead({ kind: 'redit', op: { moduleId: 'm', find: 'x' } }, { modules: [] }), false, 'no rulebook to look in');
+  eq(anchorIsDead({ kind: 'lore', op: { entry: 'e', find: 'x' } }, { lore: [] }), false, 'no lore shelf to look in');
+
+  const hk = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/"CANNOT TELL" IS NOT "DEAD"/.test(hk), 'the law is written where it acts');
+});

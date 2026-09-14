@@ -1669,9 +1669,23 @@ export function supersededByNew(oldP, newP) {
   return false;
 }
 /* Is an OLD pending card dead — its anchor gone from the text as it stands? */
-export function anchorIsDead(p, { messages, memory, lore, modules, story } = {}) {
+export function anchorIsDead(p, world = {}) {
+  const { messages, memory, lore, modules, story } = world || {};
   const op = (p && p.op) || {};
   if (typeof op.find !== 'string' || !op.find) return false;
+  /* M225: "CANNOT TELL" IS NOT "DEAD". Every branch below reads dead when the
+   * thing it looks into is absent — no messages, no record, no rulebook — and
+   * M224 made this run on EVERY turn instead of only when new cards arrived.
+   * So one caller handing over a half-built world would have retired every
+   * pending card the writer had, all at once, as "can never be applied". A
+   * card is only dead when the house can actually SEE the text it points into
+   * and the anchor is not in it. */
+  const canSee = Array.isArray(messages) && messages.length > 0;
+  if (p && (p.kind === 'edit' || p.kind === 'mend') && !canSee) return false;
+  if (p && p.kind === 'record' && !(memory && Array.isArray(memory.nodes) && memory.nodes.length)) return false;
+  if (p && p.kind === 'redit' && !(Array.isArray(modules) && modules.length)) return false;
+  if (p && p.kind === 'lore' && !(Array.isArray(lore) && lore.length)) return false;
+  if (p && p.kind === 'brief' && !(story && typeof story === 'object')) return false;
   try {
     if (p.kind === 'edit') { const m = (messages || []).find((x) => x && x.id === op.messageId); return !m || !locate(pageText(m), op.find).ok; }
     if (p.kind === 'record') { const nd = ((memory && memory.nodes) || []).find((x) => x && x.id === op.nodeId); return !nd || !locateInNode(nd, op.find).loc.ok; }

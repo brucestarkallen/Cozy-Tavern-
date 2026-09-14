@@ -4727,3 +4727,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   A card whose anchor no longer matches is retired on its own now, with its own plain reason. It
   is not the writer's job to sort out cards that cannot land.
 - 467/467 harness + 37/37 walk + 8/8 play. version.js -> m224-001.
+
+# M225 — the safety hole M224 opened, and what the extractor cannot see
+- M224 MADE autoSupersede RUN ON EVERY TURN. Every branch of anchorIsDead reads DEAD when the
+  thing it looks into is ABSENT — no messages, no record, no rulebook. Under M224 that meant one
+  caller handing over a half-built world would have retired EVERY pending card the writer had, all
+  at once, as "can never be applied". A fix that quietly destroys work is worse than the nagging it
+  replaced. A card is dead only when the house can SEE the text it points into and the anchor is
+  not in it; "cannot tell" is not "dead", for every anchor kind.
+- WHAT THE EXTRACTOR CANNOT SEE (the writer's question, verified and NOT yet changed): the word
+  "record" appears nowhere in agents/extractor.js. The worker that writes the ledger is given the
+  newest page and the four before it — eight with "Read the pages again" (deep) — and NEVER the
+  folded record. So everything older than eight pages is invisible to it. For scene state (who is
+  here, the clock, a wound) the recent pages are the right material; for a repair sweep over a long
+  tale they are not, and the writer is right that the folded record should ride there. NOT DONE —
+  written here rather than rushed at the end of a session.
+- 468/468 harness + 37/37 walk + 8/8 play. version.js -> m225-001.
