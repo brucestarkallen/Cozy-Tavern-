@@ -1313,3 +1313,61 @@ test('M218: the catch-up fills the gaps, never wipes, and refuses when it should
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
   assert(/Fold what is due now/.test(drawer), 'the writer can reach it in the ledger');
 });
+
+/* M219: the catch-up's total counted EVERY covered page, including lines that
+ * reach INTO the word-for-word window — pages that were never due. So the
+ * total came out short and the banner ran past its own end ("3 of 2"), which
+ * a writer cannot tell from a runaway. */
+test('M219: the catch-up counts only what is due, and its bar never overruns', async () => {
+  const { db } = await import('../../js/store.js');
+  const { saveMemory, catchUpRecord, redoLine } = await import('../../js/agents/memory.js');
+
+  const st = await db.stories.create({ title: 'a hole and a line in the window' });
+  for (let i = 0; i < 80; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 20);
+  await db.settings.set('memoryBatch', 6);
+  /* covered: 0-11 and 30-59 — a HOLE at 12-29 — plus a line reaching into the
+   * word-for-word window at 60-65, which is not due and must not be counted */
+  await saveMemory(st.id, { window: 20, nodes: [
+    { id: 'a', span: [0, 5], level: 1, at: 1, text: 'line a' },
+    { id: 'b', span: [6, 11], level: 1, at: 1, text: 'line b' },
+    ...Array.from({ length: 5 }, (_, i) => ({ id: 'c' + i, span: [30 + i * 6, 35 + i * 6], level: 1, at: 1, text: 'later ' + i })),
+    { id: 'w', span: [60, 65], level: 1, at: 1, text: 'a line reaching into the window' },
+  ] });
+
+  const real = globalThis.fetch;
+  let call = 0;
+  globalThis.fetch = async () => {
+    call += 1;
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: '[Sept 1] Jovan did something, number ' + call + '; Rias answered' } }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  const seen = [];
+  let r = null;
+  let gone = null;
+  let past = null;
+  try {
+    r = await catchUpRecord({ connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' },
+      storyId: st.id, onProgress: (p) => seen.push([p.batch, p.batches]) });
+
+    /* while we are here: a line whose pages are gone, and one running past the end */
+    const st2 = await db.stories.create({ title: 'short' });
+    for (let i = 0; i < 20; i += 1) await db.messages.append(st2.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+    await saveMemory(st2.id, { window: 10, nodes: [{ id: 'x', span: [50, 55], level: 1, at: 1, text: 'about pages that are gone' }] });
+    gone = await redoLine({ connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' }, storyId: st2.id, nodeId: 'x' });
+    await saveMemory(st2.id, { window: 10, nodes: [{ id: 'y', span: [16, 21], level: 1, at: 1, text: 'running past the end' }] });
+    past = await redoLine({ connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' }, storyId: st2.id, nodeId: 'y' });
+  } finally { globalThis.fetch = real; }
+
+  assert(seen.length > 0, 'it folded the hole');
+  for (const [done, total] of seen) assert(done <= total, 'the bar never overruns: ' + done + ' of ' + total);
+  eq(seen[seen.length - 1][0], seen[seen.length - 1][1], 'and reaches its end exactly');
+  eq(r.folded, 18, 'folding exactly the eighteen pages of the hole, not the pages in the window');
+
+  eq(gone.ok, false, 'a line whose pages are gone is refused');
+  assert(/pages that line was written from are gone/.test(gone.why), gone.why);
+  eq(past.ok, true, 'a line running past the end folds from what remains');
+  eq(past.pages, 4, 'the four pages that are really there');
+});

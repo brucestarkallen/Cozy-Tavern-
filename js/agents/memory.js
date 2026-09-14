@@ -1074,8 +1074,15 @@ export async function catchUpRecord({ connection, storyId, onProgress, onRetry, 
   if (!dueRange(history.length, window, mem.nodes, batch)) {
     return { ok: true, nothingDue: true, folded: 0, batches: 0 };
   }
-  const covered = coveredSet(mem.nodes).size;
-  const toFold = Math.max(0, (history.length - window) - covered);
+  /* M219: COUNT ONLY WHAT IS DUE. This took every covered page, including
+   * lines that reach INTO the word-for-word window — pages that were never
+   * due — so the total came out short and the banner ran past its own end
+   * ("3 of 2"). A writer watching a bar overshoot cannot tell a miscount from
+   * a runaway. Only pages PAST the window and not already covered count. */
+  const limit = Math.max(0, history.length - window);
+  const already = coveredSet(mem.nodes);
+  let toFold = 0;
+  for (let i = 0; i < limit; i += 1) if (!already.has(i)) toFold += 1;
   const batches = Math.max(1, Math.floor(toFold / batch));
   let doneBatches = 0;
   let folded = 0;

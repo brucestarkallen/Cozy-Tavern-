@@ -4641,3 +4641,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   every banner raised has a stop; nearly every callKeeper has a renew above it; the chain still
   never raises a banner.
 - 462/462 harness + 37/37 walk + 8/8 play + contrast. version.js -> m218-001.
+
+# M219 — the closing audit of M216–M218
+- THE CATCH-UP'S TOTAL COUNTED PAGES THAT WERE NEVER DUE. It took every covered page — including
+  lines that reach INTO the word-for-word window, which are not due at all — so the total came out
+  short and the banner ran PAST ITS OWN END: "1 of 2, 2 of 2, 3 of 2". A writer watching a bar
+  overshoot cannot tell a miscount from a runaway. Only pages past the window and not already
+  covered are counted now: the same shape reads 1/3, 2/3, 3/3 and folds exactly the eighteen pages
+  of the hole.
+- Read and found sound on the same pass: redoLine refuses a line whose pages are GONE, folds from
+  what remains when a line runs past the end of the story, is given EVERY line before it as prior
+  context and none of the lines after (proven by reading the fold call's own request body — the
+  first attempt read the AUDIT's body by mistake and reported a false failure), and is given
+  exactly its own pages. catchUpRecord fills a hole in the middle correctly and never wipes.
+- 463/463 harness + 37/37 walk + 8/8 play, each alone + wipe + two-browser + append + guard +
+  contrast + coat + the anchor differential (484/484) + no lint errors. version.js -> m219-001.
