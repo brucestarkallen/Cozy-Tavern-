@@ -346,6 +346,16 @@ const AUDIT_SYSTEM = [
   'belong there instead. Both must appear exactly: the wrong words in the',
   'line, the right ones in the pages.',
   '',
+  'NEVER WRITE WHAT IS ALREADY ESTABLISHED. If a fact stands in the record',
+  'above this line — a full name, a kinship, a place, an age — it is SETTLED.',
+  'Writing it again is not detail, it is noise the storyteller reads every',
+  'turn for the rest of the tale. A detail carries only what is NEW on these',
+  'pages and missing from this line.',
+  '',
+  'NEVER RECORD PRESENTATION. Colours, hex values, fonts, line-heights,',
+  'borders, pixel sizes, CSS and markup are how a page was DRESSED, not what',
+  'happened in the story. A storyteller needs none of it.',
+  '',
   'HOW LONG THE DETAIL SHOULD BE. As short as it can be and still complete \u2014',
   'never a word of padding, never a sentence where a phrase will do, never',
   'anything the line already says. But length is judged by NEED, not by a',
@@ -399,8 +409,19 @@ export function applyAuditFixes(lineText, fixes, sourceText) {
   return { text, used };
 }
 
-export function buildAuditMessages(sourceText, noteText) {
+export function buildAuditMessages(sourceText, noteText, priorRecord = '') {
   const user = [
+    /* M229: WHAT IS ALREADY ESTABLISHED. The audit was given the pages and
+     * the line and NOTHING ELSE — no prior record — so every batch's detail
+     * re-established what the story settled long ago: "Jovan's full name is
+     * Jovan Wells" written again, and again, and again, eighty pages after
+     * anyone could have doubted it. The summariser has had a hard exclusion
+     * against restating <prior_context> since the beginning; the audit, which
+     * writes beside it, had none. */
+    ...(String(priorRecord || '').trim()
+      ? ['ALREADY ESTABLISHED — everything the record holds before this line. Never write any of it again:',
+        '"""', String(priorRecord).trim().slice(0, 12000), '"""', '']
+      : []),
     'The pages the line was written from:',
     '"""',
     String(sourceText || '').slice(0, 12000),
@@ -785,7 +806,16 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
   try {
     const signature = nodeSignature(node);
     if (typeof renew === 'function' && !renew()) return;
-    const auditRaw = await callKeeper(connection, buildAuditMessages(sourceText, node.text), signal);
+    /* M229: the lines BEFORE this one — what the story has already settled.
+     * Never the lines after it: a detail must not know the future. */
+    let priorRecord = '';
+    try {
+      const held = await loadMemory(storyId);
+      const earlier = (held.nodes || []).filter((n) => n && Array.isArray(n.span)
+        && Array.isArray(node.span) && n.span[1] < node.span[0]);
+      priorRecord = recordFor({ ...held, nodes: earlier });
+    } catch (err) { priorRecord = ''; }
+    const auditRaw = await callKeeper(connection, buildAuditMessages(sourceText, node.text, priorRecord), signal);
     /* M195: a wrong fact is REPAIRED IN THE LINE; only what the line never
      * said goes to the detail beneath it. */
     const repaired = applyAuditFixes(node.text, parseAuditFixes(auditRaw), sourceText);
@@ -794,7 +824,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
     /* M111: the hard tokens, checked in code; one sharper ask; the rest written beneath */
     let loss = lossCheck(sourceText, lineText, detail, knownNames);
     if (loss.missingNames.length || loss.missingNumbers.length) {
-      const second = buildAuditMessages(sourceText, lineText + (detail ? '\n• Detail worth keeping: ' + detail : ''));
+      const second = buildAuditMessages(sourceText, lineText + (detail ? '\n• Detail worth keeping: ' + detail : ''), priorRecord);
       second.user += '\n\nThese from the pages appear in neither the line nor its detail: ' + [...loss.missingNames.map((n) => 'the name ' + n), ...loss.missingNumbers.map((n) => 'the figure ' + n)].join('; ') + '. Return DETAIL with every one that a storyteller would need, and what each was (who, what count, when).';
       try {
         if (typeof renew === 'function') renew();
@@ -820,7 +850,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
       if (loss.missingNames.length || loss.missingNumbers.length) {
         try {
           const missing = [...loss.missingNames.slice(0, 8), ...loss.missingNumbers.slice(0, 8)];
-          const third = buildAuditMessages(sourceText, lineText + (detail ? '\n• Detail worth keeping: ' + detail : ''));
+          const third = buildAuditMessages(sourceText, lineText + (detail ? '\n• Detail worth keeping: ' + detail : ''), priorRecord);
           third.user += '\n\nThese appear in the pages and in neither the line nor its detail: ' + missing.join('; ')
             + '.\nWrite DETAIL as SHORT PHRASES that read as English beside the line — who each one is, or what the figure counts, and why it matters. '
             + 'Never a bare list of words. If one of them is not actually a person, a place or a figure that matters, leave it out.';

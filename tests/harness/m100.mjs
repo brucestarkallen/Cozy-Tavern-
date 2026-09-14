@@ -1618,3 +1618,39 @@ test('M228: no page is read by nobody — the record and the pages meet', () => 
   const noRecord = Math.max(4, Math.min(30, 600 - 0));
   eq(noRecord, 30, 'with no record at all it reads the cap, not the whole tale');
 });
+
+/* M229: from the writer's own record, four details in a row:
+ *   "Jovan's full name is Jovan Wells" … "Rias's full name is Rias Wells" …
+ *   "the phone graphic uses #121212 background, #333 border, #2d2d2f bubbles"
+ * The audit was given the pages and the line and NOTHING ELSE — no prior
+ * record — so every batch re-established what the story had settled eighty
+ * pages earlier. The summariser has had a hard exclusion against restating
+ * <prior_context> since the beginning; the audit, which writes beside it,
+ * had none. And nothing told it that hex values are how a page was DRESSED,
+ * not what happened in the story. */
+test('M229: the detail knows what is already established, and never records presentation', async () => {
+  const { buildAuditMessages } = await import('../../js/agents/memory.js');
+
+  const withPrior = buildAuditMessages('the pages', 'the line',
+    '- [Sept 1] Jovan Wells came home\n- [Sept 2] Rias Wells kept the house');
+  assert(/Jovan Wells came home/.test(withPrior.user), 'the audit is shown what the record already holds');
+  assert(/ALREADY ESTABLISHED/.test(withPrior.user), 'labelled as settled');
+  assert(/Never write any of it again/.test(withPrior.user), 'and told plainly not to repeat it');
+  assert(withPrior.user.indexOf('ALREADY ESTABLISHED') < withPrior.user.indexOf('The pages the line was written from'),
+    'before the pages, as prior context should sit');
+
+  assert(/NEVER WRITE WHAT IS ALREADY ESTABLISHED/.test(withPrior.system), 'the brief carries the rule');
+  assert(/it is noise the storyteller reads every/.test(withPrior.system), 'with the reason it matters');
+  assert(/NEVER RECORD PRESENTATION/.test(withPrior.system), 'and presentation is banned outright');
+  assert(/Colours, hex values, fonts, line-heights/.test(withPrior.system), 'naming exactly what the writer saw');
+
+  const without = buildAuditMessages('the pages', 'the line');
+  assert(!/ALREADY ESTABLISHED/.test(without.user), 'no prior record adds nothing at all');
+
+  /* the run hands it the lines BEFORE this one, never the ones after */
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  assert(/n\.span\[1\] < node\.span\[0\]/.test(src), 'only the lines before it');
+  assert(/never the lines after it: a detail must not know the future/i.test(src), 'and the reason is written down');
+  eq((src.match(/buildAuditMessages\(sourceText,[\s\S]{0,120}?priorRecord\)/g) || []).length, 3,
+    'the first ask and both re-asks all carry it');
+});

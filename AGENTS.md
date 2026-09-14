@@ -4788,3 +4788,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   record covers 0-95, the pages read are 96-117, gap NONE. A cap of thirty stands for the case
   where the keeper is switched off entirely and the unfolded tail is the whole tale.
 - 471/471 harness + 37/37 walk + 8/8 play. version.js -> m228-001.
+
+# M229 — the detail had no memory of the story it was writing about
+- FROM THE WRITER'S OWN RECORD, four details in a row: "Jovan's full name is Jovan Wells" …
+  "Rias's full name is Rias Wells" … "Vanessa was thirteen with braces when Jovan met her" …
+  "the phone graphic uses #121212 background, #333 border, #2d2d2f bubbles, #777 timestamp".
+- THE AUDIT WAS GIVEN THE PAGES AND THE LINE AND NOTHING ELSE. No prior record at all. So every
+  batch re-established what the story had settled eighty pages earlier, and the storyteller read
+  the same full names every turn for the rest of the tale. The SUMMARISER has had a hard exclusion
+  against restating <prior_context> since the beginning; the AUDIT, which writes the detail right
+  beside it, had none. It is given the lines BEFORE this one now — never the ones after, a detail
+  must not know the future — under the heading "ALREADY ESTABLISHED … Never write any of it
+  again", and its brief carries the rule with the reason.
+- AND NOTHING TOLD IT THAT PRESENTATION IS NOT STORY. Colours, hex values, fonts, line-heights,
+  borders, pixel sizes, CSS and markup are how a page was DRESSED. Banned outright.
+- The "also named: Chloe, Caleb Thorne, Wells" in the writer's record is OLD — written before M208
+  removed that token dump. Rebuilding or redoing those lines clears them.
+- 472/472 harness + 37/37 walk + 8/8 play. version.js -> m229-001.
