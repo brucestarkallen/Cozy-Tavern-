@@ -4711,3 +4711,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the edit is dead on arrival — <fetch> the line first." That is the same fault in the model's own
   half of the loop, and Chat Assistant has carried the fix for a long time.
 - 466/466 harness + 37/37 walk + 8/8 play. version.js -> m223-001.
+
+# M224 — the housekeeper nagging about cards nobody could apply
+- THE WRITER APPLIED THREE CARDS, ALL SUCCEEDED, AND WAS THEN TOLD: "a few housekeeping items are
+  still sitting in cards from that sweep … items I proposed but they weren't applied. If you apply
+  those…" — about cards that COULD NEVER BE APPLIED BY ANYONE, because their anchors were gone.
+- TWO FAULTS, ONE ON TOP OF THE OTHER:
+  1. autoSupersede opened with `if (!fresh.length) return 0;` — it did nothing at all unless the
+     answer carried NEW cards. A turn with no cards is exactly the turn where a dead card is
+     stranded, which is the writer's case precisely: a clean audit after a good sweep, and the
+     stale ones left with nothing to displace them.
+  2. Even when it ran, a dead card was only set aside if a NEW card happened to target the same
+     thing. With no replacement it stayed pending FOREVER — shown to the housekeeper every turn as
+     work outstanding, so it dutifully nagged the writer about it in prose.
+  A card whose anchor no longer matches is retired on its own now, with its own plain reason. It
+  is not the writer's job to sort out cards that cannot land.
+- 467/467 harness + 37/37 walk + 8/8 play. version.js -> m224-001.

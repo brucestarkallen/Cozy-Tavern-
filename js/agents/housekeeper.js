@@ -1696,7 +1696,11 @@ export function mergeDuplicates(list) {
 /* Retire the older cards this answer replaces. Returns how many were set aside. */
 export function autoSupersede(session, newCards, world) {
   const fresh = (Array.isArray(newCards) ? newCards : []).filter((p) => p && p.status === 'pending');
-  if (!fresh.length) return 0;
+  /* M224: NOT when there are no new cards. This returned at once unless the
+   * answer carried fresh cards — and a turn with no cards is exactly the turn
+   * where a dead one is stranded. The writer's own case: three cards applied,
+   * a clean audit after, and the stale ones from the sweep before left
+   * sitting in the panel with nothing to displace them. */
   let n = 0;
   for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
     for (const old of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
@@ -1707,6 +1711,21 @@ export function autoSupersede(session, newCards, world) {
       const dead = !failed && anchorIsDead(old, world);
       const t = cardTarget(old);
       const hit = fresh.some((nw) => ((failed || dead) ? (t !== null && t === cardTarget(nw)) : supersededByNew(old, nw)));
+      /* M224: A DEAD CARD IS RETIRED ON ITS OWN. It was only ever set aside
+       * when a NEW card happened to replace it — so a pending card whose
+       * anchor had gone (the writer fixed it by hand, a later card changed
+       * the words, the page moved) sat in the panel FOREVER, unapplyable.
+       * The housekeeper is shown those cards every turn and nagged the
+       * writer about them in prose — "items I proposed but they weren't
+       * applied. If you apply those…" — about cards that could never be
+       * applied by anyone. A card that cannot land is not the writer's
+       * problem to sort out. */
+      if (!hit && dead) {
+        old.status = 'stale';
+        old.words = 'Set aside on its own — its anchor no longer matches, so this card can never be applied.';
+        n += 1;
+        continue;
+      }
       if (!hit) continue;
       old.status = 'superseded';
       old.words = failed ? 'Set aside — replaced after it could not land.'

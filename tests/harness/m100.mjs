@@ -1464,3 +1464,32 @@ test('M223: a record edit reaches the detail beneath the line, not only the line
   assert(/clipped and its whitespace collapsed, so an anchor built from one cannot match/.test(hk),
     'with the reason, as Chat Assistant states it');
 });
+
+/* M224: the writer applied three cards, all succeeded, and the housekeeper
+ * then told him in prose that "a few housekeeping items are still sitting in
+ * cards from that sweep … items I proposed but they weren't applied. If you
+ * apply those…" — about cards that COULD NEVER BE APPLIED BY ANYONE, because
+ * their anchors were gone. A dead card was only ever set aside when a NEW
+ * card happened to target the same thing, so one with no replacement sat in
+ * the panel forever, shown to the housekeeper every turn as still pending. */
+test('M224: a card whose anchor has gone retires itself, with no replacement needed', async () => {
+  const { autoSupersede, anchorIsDead } = await import('../../js/agents/housekeeper.js');
+  const world = { messages: [{ id: 'm1', role: 'assistant', text: 'the page as it stands now' }], memory: { nodes: [] }, lore: [], modules: [], story: {} };
+
+  const dead = { id: 'c1', kind: 'edit', status: 'pending', label: 'a fix nobody can land',
+    op: { messageId: 'm1', find: 'words that are no longer on the page', replace: 'x' } };
+  const live = { id: 'c2', kind: 'edit', status: 'pending', label: 'a fix that still fits',
+    op: { messageId: 'm1', find: 'the page as it stands', replace: 'the page as it reads' } };
+  eq(anchorIsDead(dead, world), true, 'the first card’s anchor really is gone');
+  eq(anchorIsDead(live, world), false, 'and the second’s is not');
+
+  const session = { turns: [{ proposals: [dead, live] }] };
+  autoSupersede(session, [], world);          /* NO new cards at all */
+  eq(dead.status, 'stale', 'the dead card sets itself aside');
+  assert(/can never be applied/.test(dead.words), dead.words);
+  eq(live.status, 'pending', 'while a card that can still land is left alone');
+
+  const hk = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/if \(!hit && dead\) \{/.test(hk), 'retired without waiting for a replacement');
+  assert(hk.indexOf('if (!hit && dead)') < hk.indexOf('if (!hit) continue;'), 'checked before the old skip, or it could never run');
+});
