@@ -43,8 +43,18 @@ const MAX_TOKENS = 3000;
 export async function rebuildRecord({ connection, storyId, onProgress, signal, stale } = {}) {
   if (!connection || !storyId) return null;
   const mem = await loadMemory(storyId);
-  await db.settings.set('memoryBackup:' + storyId, { at: Date.now(), nodes: mem.nodes });
-  await saveMemory(storyId, { ...mem, nodes: [] });
+  /* M202: THE WAY BACK IS NOT OVERWRITTEN BY A FAILED REBUILD. The backup was
+   * taken unconditionally — so a rebuild that stumbled partway (the keeper
+   * could not reach the storyteller) left a HALF record, and pressing
+   * rebuild again saved that half over the writer's real one. "Put the old
+   * record back" then put back the wreckage. The same fault M165 fixed for
+   * the people; the record had it too. A record a rebuild made keeps the
+   * backup that stands. */
+  const heldBackup = await db.settings.get('memoryBackup:' + storyId);
+  if (!(heldBackup && mem.rebuiltAt)) {
+    await db.settings.set('memoryBackup:' + storyId, { at: Date.now(), nodes: mem.nodes });
+  }
+  await saveMemory(storyId, { ...mem, nodes: [], rebuiltAt: Date.now() });
   const history = visiblePages(await db.messages.list(storyId));
   const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
@@ -56,8 +66,32 @@ export async function rebuildRecord({ connection, storyId, onProgress, signal, s
     const before = (await loadMemory(storyId)).nodes;
     if (!dueRange(history.length, window, before, batch)) break;
     await maybeSummarize({ connection, storyId, signal });
-    const after = (await loadMemory(storyId)).nodes;
-    if (after.length === before.length) break; /* nothing more could be written */
+    let after = (await loadMemory(storyId)).nodes;
+    /* M202: A KEEPER THAT STUMBLED IS NOT A RECORD THAT IS FINISHED. This
+     * broke out the moment a round wrote nothing — and maybeSummarize
+     * swallows a wire that failed, so "couldn't reach the storyteller" read
+     * exactly like "there is nothing left to fold". The rebuild stopped
+     * halfway, reported its half as the total, and the writer was left with
+     * an incomplete record and no idea why. A round that writes nothing
+     * while work is STILL DUE is a stumble: it waits and tries again, three
+     * times, and only then gives up — and says so. */
+    if (after.length === before.length) {
+      let recovered = false;
+      for (const pause of [1500, 4000, 9000]) {
+        if (stale && stale()) return null;
+        await new Promise((r) => setTimeout(r, pause));
+        await maybeSummarize({ connection, storyId, signal });
+        after = (await loadMemory(storyId)).nodes;
+        if (after.length !== before.length) { recovered = true; break; }
+      }
+      if (!recovered) {
+        return {
+          folded, toFold, lines: after.length,
+          stalled: true,
+          why: 'the keeper could not be reached — the record is part-built; the old one can be put back',
+        };
+      }
+    }
     folded = after.reduce((n, node) => n + (node.span[1] - node.span[0] + 1), 0);
     rounds += 1;
     if (typeof onProgress === 'function') onProgress({ folded, toFold });
@@ -69,7 +103,9 @@ export async function restoreRecord(storyId) {
   const backup = await db.settings.get('memoryBackup:' + storyId);
   if (!backup || !Array.isArray(backup.nodes)) return false;
   const mem = await loadMemory(storyId);
-  await saveMemory(storyId, { ...mem, nodes: backup.nodes });
+  /* M202: the record is the writer's own again — the next rebuild may back it up */
+  const { rebuiltAt, ...rest } = mem;
+  await saveMemory(storyId, { ...rest, nodes: backup.nodes });
   return true;
 }
 
@@ -222,6 +258,11 @@ export async function restorePeople(storyId) {
 
 export function rebuildRecordWords(r) {
   if (!r) return 'nothing to rebuild';
+  /* M202: a rebuild that stopped early says so, instead of reporting its
+   * half as the whole and leaving the writer to wonder. */
+  if (r.stalled) {
+    return `the rebuild stopped at ${r.folded} of ${r.toFold} pages — ${r.why}`;
+  }
   return `rebuilt the record: folded ${r.folded} of ${r.toFold} pages into ${r.lines} ${r.lines === 1 ? 'line' : 'lines'}`;
 }
 export function rebuildPeopleWords(r) {

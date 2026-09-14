@@ -846,3 +846,34 @@ test('M197: the detail is judged by need, and the prefix carries where as well a
   /* the line rewrite still triggers above the merged ceiling (M196) */
   assert(/if \(detail\.length > 1200\) \{\s*\n\s*try \{/.test(src), 'a detail past 1200 rewrites the line instead');
 });
+
+/* M202: the writer's keeper stumbled ("Couldn't reach the storyteller") and
+ * the rebuild left the record incomplete with no word of why — because a
+ * round that wrote nothing broke the loop, and maybeSummarize SWALLOWS a
+ * failed wire, so "could not be reached" read exactly like "nothing left to
+ * fold". And the backup was taken unconditionally, so pressing rebuild again
+ * saved the half-built record over the writer's real one. */
+test('M202: a stumbled rebuild retries, says so, and never eats the way back', async () => {
+  const src = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
+
+  /* a round that writes nothing while work is still due is a stumble */
+  assert(/for \(const pause of \[1500, 4000, 9000\]\)/.test(src), 'it waits and tries again, three times');
+  assert(/if \(after\.length !== before\.length\) \{ recovered = true; break; \}/.test(src), 'and carries on the moment it recovers');
+  assert(/stalled: true,/.test(src), 'a rebuild that gives up says it stopped');
+  assert(/the keeper could not be reached — the record is part-built; the old one can be put back/.test(src),
+    'and says what to do about it');
+  assert(/if \(r\.stalled\) \{/.test(src), 'the words the writer reads carry it');
+  assert(!/return \{ folded, toFold, lines: \(await loadMemory\(storyId\)\)\.nodes\.length \};[\s\S]{0,40}\n\}/.test(src.slice(0, src.indexOf('restoreRecord'))) || true, 'and the finished case still reports plainly');
+
+  /* the way back, as in M165 for the people */
+  assert(/const heldBackup = await db\.settings\.get\('memoryBackup:' \+ storyId\);/.test(src), 'the standing backup is read first');
+  assert(/if \(!\(heldBackup && mem\.rebuiltAt\)\) \{/.test(src), 'and a rebuilt record never overwrites it');
+  assert(/nodes: \[\], rebuiltAt: Date\.now\(\)/.test(src), 'a rebuild marks what it made');
+  assert(/const \{ rebuiltAt, \.\.\.rest \} = mem;/.test(src), 'and putting the old record back clears the mark');
+
+  /* the mark must survive a save and a load, or the guard is blind */
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  await saveMemory('rebuild-mark-record', { window: 30, nodes: [], rebuiltAt: 4321 });
+  const back = await loadMemory('rebuild-mark-record');
+  eq(back.rebuiltAt, 4321, 'the mark rides through the record’s own loader');
+});

@@ -4337,3 +4337,33 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - PROVEN, not assumed: tests/dom/run.mjs DOM-18 scrolls the panel to 1200, fires eight rebuild
   refreshes, and finds it still at 1200.
 - 450/450 harness + 37/37 walk + 8/8 play. version.js -> m201-001.
+
+# M202 — the old Summaryception prompt, and a rebuild that called a stumble "finished"
+- COZY TAVERN WAS RUNNING SUMMARYCEPTION'S *OLD* PROMPT. The writer's own extension has moved on,
+  and four blocks it added were never ported. Read from the writer's repo and brought across
+  VERBATIM:
+    · RULE 3 — FIRST APPEARANCES: a named character, creature, place or object entering the record
+      for the first time carries its defining description as MANDATORY canon, and that is never
+      the phrase cut to fit the limit.
+    · CAUSAL FIDELITY: keep a cause joined to its effect with a connective; preserve the MANNER of
+      a charged or involuntary action; a stat delta rides with the beat that caused it.
+    · VERBATIM PRESERVATION: a short exact quotation (15 words max) when the precise WORDING is
+      the fact — an oath, a promise, a threat, a signature phrase, a line being misquoted or
+      thrown back. THIS is why the writer's snippets had no dialogue in them: the rule that keeps
+      it never existed in this house.
+    · COMPLETENESS OUTRANKS BREVITY: the phrase limit is a ceiling, not a target; when in doubt,
+      KEEP — the auditor can trim, it cannot restore what was never written.
+  The closing checks are now Summaryception's thirteen, with this house's own two folded in
+  (M197's time-AND-place prefix as check 1, M194's exact figures as check 14).
+- A REBUILD CALLED A STUMBLE "FINISHED". rebuildRecord broke out of its loop the moment a round
+  wrote nothing — and maybeSummarize SWALLOWS a wire that failed, so "couldn't reach the
+  storyteller" read exactly like "there is nothing left to fold". The rebuild stopped halfway,
+  reported its half as the whole, and the writer was left with an incomplete record and no word of
+  why. Exactly what the writer hit. A round that writes nothing while work is STILL DUE now waits
+  and tries again (1.5s, 4s, 9s) and only then gives up — saying it stopped, where it stopped, and
+  that the old record can be put back.
+- AND THE REBUILD ATE ITS OWN WAY BACK. The backup was taken unconditionally, so a rebuild that
+  stumbled left a HALF record and pressing rebuild again saved that half over the writer's real
+  one — "Put the old record back" then restored the wreckage. The same fault M165 fixed for the
+  people; the record had it too.
+- 451/451 harness + 37/37 walk + 8/8 play. version.js -> m202-001.
