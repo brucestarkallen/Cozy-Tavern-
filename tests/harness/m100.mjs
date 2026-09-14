@@ -847,75 +847,7 @@ test('M197: the detail is judged by need, and the prefix carries where as well a
   assert(/if \(detail\.length > 1200\) \{\s*\n\s*try \{/.test(src), 'a detail past 1200 rewrites the line instead');
 });
 
-/* M202: the writer's keeper stumbled ("Couldn't reach the storyteller") and
- * the rebuild left the record incomplete with no word of why — because a
- * round that wrote nothing broke the loop, and maybeSummarize SWALLOWS a
- * failed wire, so "could not be reached" read exactly like "nothing left to
- * fold". And the backup was taken unconditionally, so pressing rebuild again
- * saved the half-built record over the writer's real one. */
-test('M202: a stumbled rebuild retries, says so, and never eats the way back', async () => {
-  const src = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
 
-  /* a round that writes nothing while work is still due is a stumble */
-  assert(/const pauses = \[1500, 4000, 9000\];/.test(src), 'it waits and tries again, three times');
-  assert(/if \(typeof onRetry === 'function'\) await onRetry\(\{ ms: pause, attempt: a \+ 1, of: pauses\.length \}\);/.test(src),
-    'and the wait is one the writer can watch count down');
-  assert(/if \(after\.length !== before\.length\) \{ recovered = true; break; \}/.test(src), 'and carries on the moment it recovers');
-  assert(/stalled: true,/.test(src), 'a rebuild that gives up says it stopped');
-  assert(/the keeper could not be reached — the record is part-built; the old one can be put back/.test(src),
-    'and says what to do about it');
-  assert(/if \(r\.stalled\) \{/.test(src), 'the words the writer reads carry it');
-  assert(!/return \{ folded, toFold, lines: \(await loadMemory\(storyId\)\)\.nodes\.length \};[\s\S]{0,40}\n\}/.test(src.slice(0, src.indexOf('restoreRecord'))) || true, 'and the finished case still reports plainly');
-
-  /* the way back, as in M165 for the people */
-  assert(/const heldBackup = await db\.settings\.get\('memoryBackup:' \+ storyId\);/.test(src), 'the standing backup is read first');
-  assert(/if \(!\(heldBackup && mem\.rebuiltAt\)\) \{/.test(src), 'and a rebuilt record never overwrites it');
-  assert(/nodes: \[\], rebuiltAt: Date\.now\(\)/.test(src), 'a rebuild marks what it made');
-  assert(/const \{ rebuiltAt, \.\.\.rest \} = mem;/.test(src), 'and putting the old record back clears the mark');
-
-  /* the mark must survive a save and a load, or the guard is blind */
-  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
-  await saveMemory('rebuild-mark-record', { window: 30, nodes: [], rebuiltAt: 4321 });
-  const back = await loadMemory('rebuild-mark-record');
-  eq(back.rebuiltAt, 4321, 'the mark rides through the record’s own loader');
-});
-
-/* M205: two faults in M203's own work, found by auditing it rather than by
- * running the suites — which passed throughout. */
-test('M205: a finished rebuild starts fresh, and the banner never claims a success that failed', async () => {
-  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
-  const src = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
-  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-
-  /* RESUME ONLY WHAT STOPPED SHORT. M203 resumed whenever the record had been
-   * rebuilt before and held lines — true after a rebuild that FINISHED, so
-   * the next press resumed a completed job: nothing wiped, nothing due, and
-   * the button did nothing at all. */
-  assert(/const resuming = Boolean\(mem\.rebuildStalled && mem\.nodes\.length\);/.test(src), 'a stall is what decides a resume');
-  assert(/rebuildStalled: true/.test(src), 'a stall is marked');
-  assert(/rebuildStalled: false/.test(src), 'and cleared when a rebuild completes');
-  const decides = async (mem) => {
-    await saveMemory('m205', mem);
-    const m = await loadMemory('m205');
-    return Boolean(m.rebuildStalled && m.nodes.length);
-  };
-  const lines = [{ id: 'n1', span: [0, 5], text: 'a line' }];
-  eq(await decides({ window: 30, nodes: lines, rebuiltAt: 1, rebuildStalled: false }), false, 'a finished rebuild starts fresh');
-  eq(await decides({ window: 30, nodes: lines, rebuiltAt: 1, rebuildStalled: true }), true, 'a stalled one carries on');
-  eq(await decides({ window: 30, nodes: [], rebuiltAt: 1, rebuildStalled: true }), false, 'and an empty record has nothing to carry on from');
-
-  /* THE BANNER MUST NOT LIE. It waited on pendingWork, which resolves
-   * "settled" whether the work SUCCEEDED OR FAILED — so an auditor that could
-   * not reach its connection still ended with "The ledger was audited" in
-   * front of the writer. */
-  assert(/const outcome = promise \? await promise : null;/.test(chat), 'the banner reads the queue’s own result');
-  assert(/if \(outcome && outcome\.ok === false\) \{/.test(chat), 'and a failure is a failure');
-  for (const words of ['The world was founded from the brief', 'The ledger was audited',
-    'Every standing was rebuilt', 'The people were rebuilt']) {
-    assert(chat.includes("bannerFollows(banner, story, '" + words + "', promise);"),
-      '“' + words + '” is decided by its own promise, not by a bare wait');
-  }
-});
 
 /* M207: the writer's own screen — "Rebuilding the record · page 18 of 98 ·
  * 18%" above "the keeper ran 2 minutes ago and stumbled — outwaited". The
@@ -1002,33 +934,39 @@ test('M208: no token dumps in the record, and the writer may stop what they star
   assert(/stopWork\(storyId\);/.test(chat), 'and the queue is what it stops');
 });
 
-/* M209: A STOP IS NOT A STALL. M208 made a stop keep its place, so pressing
- * Stop and then Rebuild carried on from where the writer had just chosen to
- * abandon — the opposite of what Stop is for. Resuming belongs to a failure
- * NOBODY CHOSE (the keeper outwaited, the wire fell over). The two look the
- * same from the queue's side and are opposite things to the writer. */
-test('M209: a stop starts the next rebuild fresh; only a failure carries on', async () => {
-  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
-  const lines = [{ id: 'n1', span: [0, 5], text: 'a line' }];
-  const resumes = async (mem) => {
-    await saveMemory('m209', mem);
-    const m = await loadMemory('m209');
-    return Boolean(m.rebuildStalled && m.nodes.length);
-  };
+/* M210: ONE BUTTON, ONE MEANING. M203 made a press sometimes resume and
+ * sometimes start over, depending on how the LAST run had ended — so the
+ * writer could not tell which they were getting, and after a run that
+ * finished it did nothing at all. Rebuild means from the first page, every
+ * press. The carrying-on belongs inside a run: a round that stumbles waits
+ * and tries again rather than throwing the run away. */
+test('M210: Rebuild always starts from the first page, and retries live inside one run', async () => {
+  const src = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
 
-  eq(await resumes({ window: 30, nodes: lines, rebuiltAt: 1, rebuildStalled: true }), true,
-    'a rebuild the keeper stumbled on carries on');
-  eq(await resumes({ window: 30, nodes: lines, rebuiltAt: 1, rebuildStalled: false }), false,
-    'and one the writer stopped starts from the first page');
+  assert(/await saveMemory\(storyId, \{ \.\.\.mem, nodes: \[\], rebuiltAt: Date\.now\(\) \}\);/.test(src),
+    'the record is let go on every press');
+  assert(!/resuming/.test(src), 'nothing resumes across presses');
+  assert(!/rebuildStalled/.test(src), 'and no mark decides what a press means');
 
+  /* the retry still lives INSIDE the run — that is the carrying-on that matters */
+  assert(/const pauses = \[1500, 4000, 9000\];/.test(src), 'a round that stumbles waits and tries again');
+  assert(/if \(after\.length !== before\.length\) \{ recovered = true; break; \}/.test(src), 'and carries on the moment it recovers');
+  assert(/stalled: true,/.test(src), 'only a run that gives up says so');
+  assert(/press Rebuild to start again, or put the old record back/.test(src), 'and says what to do');
+
+  /* the way back is still never overwritten by a rebuild's own output (M202) */
+  assert(/const heldBackup = await db\.settings\.get\('memoryBackup:' \+ storyId\);/.test(src), 'the standing backup is read first');
+  assert(/if \(!\(heldBackup && mem\.rebuiltAt\)\) \{/.test(src), 'and a rebuilt record never overwrites it');
+
+  /* a stop just stops */
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/async function stoppedByHand\(storyId\)/.test(chat), 'a stop by hand is its own thing');
-  assert(/if \(mem && mem\.rebuildStalled\) await saveMemory\(storyId, \{ \.\.\.mem, rebuildStalled: false \}\);/.test(chat),
-    'and it clears the record’s resume mark');
-  assert(/if \(st && st\.peopleRebuiltAt\) await saveState\(storyId, \{ \.\.\.st, peopleRebuiltAt: null \}\);/.test(chat),
-    'and the people’s');
+  assert(/function stoppedByHand\(storyId\) \{\s*\n\s*if \(storyId\) stopWork\(storyId\);/.test(chat),
+    'a stop stops the queue and nothing else');
+  assert(!/rebuildStalled/.test(chat), 'there is no mark left for it to clear');
   const wired = (chat.match(/if \(s\) stoppedByHand\(s\);/g) || []).length;
   eq(wired, 8, 'all eight actions stop this way (' + wired + ')');
-  assert(/Stopped — the next run starts from the first page/.test(chat), 'and the banner says exactly that');
-  assert(!/Stopped — what was done is kept/.test(chat), 'never the old promise to carry on');
+
+  /* the banner never claims a success that failed (M205's half that still holds) */
+  assert(/const outcome = promise \? await promise : null;/.test(chat), 'the banner reads the queue’s own result');
+  assert(/if \(outcome && outcome\.ok === false\) \{/.test(chat), 'and a failure is a failure');
 });

@@ -51,22 +51,18 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
    * the people; the record had it too. A record a rebuild made keeps the
    * backup that stands. */
   const heldBackup = await db.settings.get('memoryBackup:' + storyId);
-  /* M205: RESUME ONLY WHAT ACTUALLY STOPPED SHORT. This resumed whenever the
-   * record had been rebuilt before and held lines — which is true after a
-   * rebuild that FINISHED, so the next press resumed a completed job: nothing
-   * wiped, nothing due, and the button did nothing at all. A stall is marked
-   * explicitly and cleared the moment a rebuild completes. */
-  const resuming = Boolean(mem.rebuildStalled && mem.nodes.length);
   if (!(heldBackup && mem.rebuiltAt)) {
     await db.settings.set('memoryBackup:' + storyId, { at: Date.now(), nodes: mem.nodes });
   }
-  /* M203: A REBUILD THAT STOPPED CARRIES ON FROM WHERE IT STOPPED. It wiped
-   * the record and folded from the first page EVERY time — so a rebuild that
-   * stumbled at page 100 of 200 threw away those hundred pages of work and
-   * made the writer pay for them again. A part-built record (marked
-   * rebuiltAt, and holding lines) is resumed: dueRange picks up at the first
-   * page no line covers. Only a fresh rebuild starts from nothing. */
-  if (!resuming) await saveMemory(storyId, { ...mem, nodes: [], rebuiltAt: Date.now(), rebuildStalled: false });
+  /* M210: REBUILD ALWAYS MEANS FROM THE FIRST PAGE. M203 made a press
+   * sometimes resume and sometimes start over, depending on how the LAST run
+   * had ended — so one button did two different things and the writer could
+   * not tell which they were getting. It is one thing now: the record is let
+   * go and folded again from the first page, every single press. The
+   * carrying-on belongs INSIDE a run — a round that stumbles waits and tries
+   * again, three times, rather than throwing the run away — and never
+   * across presses. */
+  await saveMemory(storyId, { ...mem, nodes: [], rebuiltAt: Date.now() });
   const history = visiblePages(await db.messages.list(storyId));
   const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
@@ -104,20 +100,17 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
         if (after.length !== before.length) { recovered = true; break; }
       }
       if (!recovered) {
-        await saveMemory(storyId, { ...(await loadMemory(storyId)), rebuildStalled: true });
         return {
           folded, toFold, lines: after.length,
-          stalled: true, resumable: true,
-          why: 'the keeper could not be reached — the record is part-built; the old one can be put back',
+          stalled: true,
+          why: 'the keeper could not be reached — press Rebuild to start again, or put the old record back',
         };
       }
     }
     folded = after.reduce((n, node) => n + (node.span[1] - node.span[0] + 1), 0);
     rounds += 1;
-    if (typeof onProgress === 'function') onProgress({ folded, toFold, lines: after.length, resumed: resuming });
+    if (typeof onProgress === 'function') onProgress({ folded, toFold, lines: after.length });
   }
-  /* M205: it finished — the next press starts a fresh rebuild, not a resume */
-  await saveMemory(storyId, { ...(await loadMemory(storyId)), rebuildStalled: false });
   return { folded, toFold, lines: (await loadMemory(storyId)).nodes.length };
 }
 

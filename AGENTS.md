@@ -4490,3 +4490,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
       page. The banner says exactly that: "Stopped — the next run starts from the first page."
   Both marks are cleared, the record's and the people's, and all eight actions stop this way.
 - 457/457 harness + 37/37 walk + 8/8 play. version.js -> m209-001.
+
+# M210 — one button, one meaning
+- REBUILD SOMETIMES RESUMED AND SOMETIMES STARTED OVER, depending on how the LAST run had ended.
+  One button doing two different things, with nothing on screen to say which — and after a run
+  that finished it could do NOTHING AT ALL. The writer put it plainly: Rebuild must always delete
+  everything and start from the first page; the carrying-on he wants is the RETRY inside a single
+  run, which never stopped and never needed a press.
+  So: the record is let go and folded again from the first page on EVERY press. No resuming across
+  presses, no mark deciding what a press means. Inside a run, a round that stumbles still waits
+  and tries again three times rather than throwing the run away, and only a run that gives up
+  after that says so. The backup is still never overwritten by a rebuild's own output (M202).
+- AND THE STOP WAS UGLY. It was text with a red underline under it — which reads as a mistake in
+  the page, not a control. A quiet pill on the banner's own surface, plain to read and plain to
+  press, still meeting AA in both coats. And a stop now just stops: there is no mark left for it
+  to clear, because Rebuild starts fresh whatever happened before.
+- Three laws written for the resume went with it, replaced by the one that is now true.
+- 455/455 harness + 37/37 walk + 8/8 play + contrast. version.js -> m210-001.

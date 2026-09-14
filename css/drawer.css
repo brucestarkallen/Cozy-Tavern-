@@ -604,18 +604,19 @@
 .work-banner.is-waiting .work-banner-fill { background: var(--danger); }
 .work-banner.is-done .work-banner-fill { background: var(--ok); width: 100%; }
 
-/* M208: the stop, in the banner where the writer is already watching. */
+/* M210: the stop, as a BUTTON. It was text with a red underline under it,
+ * which reads as a mistake in the page rather than a control. A quiet pill on
+ * the banner's own surface: plain to read, plain to press, and it meets AA. */
 .work-banner-stop {
   flex: 0 0 auto;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.78rem;
-  /* M208: --danger on the banner's own surface measured 4.1:1, under AA —
-   * caught by tests/contrast.py on the very pass that added it. The house
-   * ink, underlined so it still reads as the one thing here to press. */
+  padding: 0.18rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
   color: var(--text);
+  font-size: 0.76rem;
   font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-color: var(--danger);
+  line-height: 1.4;
 }
+.work-banner-stop:hover { border-color: var(--danger); color: var(--danger); }
 .work-banner-stop[hidden] { display: none; }
