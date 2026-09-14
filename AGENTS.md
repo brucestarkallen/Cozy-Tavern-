@@ -4251,3 +4251,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   or empty is refused, and a keeper that stumbles falls back to the old clause-wise trim rather
   than losing the line. The writer is never asked to notice any of it.
 - 447/447 harness + 36/36 walk + 8/8 play. version.js -> m196-001.
+
+# M197 — the detail is judged by need, and the prefix carries where
+- A NUMBER CANNOT TELL "SHE IS LEFT-HANDED" FROM A BATTLE PLAN. The detail was capped at 240
+  characters per answer and 480 merged — fine for a small fact, hopeless for a plan with its bait,
+  its ground and its fallback, or a newly introduced person's appearance, or a political
+  arrangement and who owes what to whom. And a plan cut in half is WORSE than no plan: the
+  storyteller half-remembers it and writes the wrong scene. The discipline lives in the audit's
+  own brief now — as short as it can be and still complete, never a word of padding, never a
+  sentence where a phrase will do; but length judged by NEED, with the kinds of matter that earn
+  the room named outright. The counts that remain are runaway guards at 1400, far enough out that
+  nothing honest meets them, and a detail past 1200 still rewrites the LINE instead (M196).
+- AND THE PREFIX KNEW THE HOUR BUT NOT THE ROOM. Rule 7 carried time alone, so the record could
+  say when a scene happened and never where it stood. It carries both now, in one compact prefix
+  after a dividing dot — "[Sept 1, 08:24 · the Wells kitchen]" — in the shortest form that is
+  unmistakable. A scene that MOVES names where it begins and records the move as a phrase. Neither
+  is invented: whichever the passage states is what appears, and the prefix is omitted only when
+  it states neither. The closing checks ask for both.
+- 448/448 harness + 36/36 walk + 8/8 play. version.js -> m197-001.

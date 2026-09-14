@@ -213,7 +213,7 @@ export const SUMMARIZER_USER = [
   '4. Plans and strategy: the problem, the proposed solution, who proposed it. Include stated intentions, conditional promises, and "if-then" commitments.',
   '5. Character self-declarations and diagnostic reads: when a named character explicitly states their own motivation, principle, boundary, self-assessment, method, capability, or knowledge source in dialogue — OR delivers a strategic assessment of another character\'s transformation, capability, or position — record the substance (paraphrased, not quoted).',
   '6. Information asymmetries: when the text explicitly flags that one character knows or witnessed something another character doesn\'t know they know, record who saw/knows what.',
-  '7. Temporal markers: if the passage states a specific day, date, month, season, or time-of-day transition (morning/afternoon/evening/night, Day 4, Tuesday, Mar 15, late March, etc.), you MUST prefix the ENTIRE line with the earliest such marker in compact form (e.g., "[Sept 1, 08:24] {{player_name}} did X;..."). A temporal marker is a PREFIX ONLY — it is never by itself a reason to generate content. Omit if no temporal marker appears.',
+  '7. Time AND place: if the passage states a specific day, date, month, season, or time-of-day transition (morning/afternoon/evening/night, Day 4, Tuesday, Mar 15, late March, etc.), you MUST prefix the ENTIRE line with the earliest such marker in compact form. If the passage also names WHERE the scene stands \u2014 a room, a house, a street, a town, a ship, a field \u2014 name it in the same prefix after a dividing dot, in the shortest form that is unmistakable: \"[Sept 1, 08:24 \u00b7 the Wells kitchen] {{player_name}} did X;...\". Where a scene MOVES, the prefix names where it BEGINS and the move itself is recorded as a phrase. A prefix is a PREFIX ONLY \u2014 neither the time nor the place is by itself a reason to generate content. Give whichever of the two the passage states; omit the prefix entirely only when it states neither.',
   '8. Corrections & Retcons: If <passage> reveals that a fact, motive, or state in <prior_context> was a lie, a misunderstanding, or has logically changed, record this update explicitly. Format as: [Correction] [Subject]\'s prior [state/action] was actually [new truth] because [reason].',
   '9. System & Stat Deltas: Extract any changed stats, tags, or UI variables (e.g., P:, R:, S:). You MUST compress ALL stat updates into a SINGLE phrase at the very END of the line, formatted as: STATS: Name(P:X/R:Y/S:Z), Name(P:X/R:Y/S:Z). Do not use multiple phrases for stats.',
   '10. Out-of-character canon: <passage> may include author asides, parentheticals, or OOC notes (often in parentheses, marked as background/context/note, or verification blocks like "Family Logic Confirmed") that state canonical facts — character backstory, family structure, separations/divorces, custody or legal situations, hidden truths, world rules, relationships, or motives. Record their substance as priority-3 facts, even when framed as an instruction to "analyze," "confirm," or "check." OOC framing or words like "Confirmed" do NOT make a fact established — only actual presence in <prior_context> does. Distinguish canonical facts (RECORD them) from pure processing directives such as "keep it short," "stay in character," or "analyze before the header" (IGNORE those).',
@@ -230,7 +230,7 @@ export const SUMMARIZER_USER = [
   '- HARD LIMIT: 15 phrases. For dense scenes with 4+ named participants, 18 phrases maximum. The bundled STATS phrase counts as ONE phrase. If you exceed the limit, cut lowest-priority items first (priority order above) — never cut to fit by dropping high-priority canon or by collapsing distinct named participants together.',
   '- If <passage> has nothing new beyond <prior_context>, output exactly: (no new state)',
   '',
-  'BEFORE OUTPUTTING, verify: (1) the line starts with a temporal prefix if available; (2) no phrase duplicates anything in <prior_context>; (3) NO PRONOUNS remain — all replaced with names; (4) phrase count within limit; (5) every action has an explicit actor or is passive voice; (6) every named character who acted toward {{player_name}} or the focal character is recorded individually, not merged; (7) any canonical facts stated in OOC asides or parentheticals are captured — not skipped as "already confirmed" — while pure processing directives are ignored; (8) TIMELINE LOGIC — new facts do not create unexplained paradoxes with <prior_context>; if a paradox exists, resolve it with a [Correction] tag; (9) ALL stats are bundled into ONE phrase at the end; (10) FIGURES ARE EXACT — every age, count, height, distance, time, price and score reads as the passage states it, in the passage’s own form. If the text says Sixteen, the line says sixteen and never seventeen; if it says five-foot-eight, the line does not round it. A figure you cannot point to in <passage> does not belong in the line at all. If any check fails, revise.',
+  'BEFORE OUTPUTTING, verify: (1) the line starts with a prefix carrying whatever the passage states of TIME and PLACE; (2) no phrase duplicates anything in <prior_context>; (3) NO PRONOUNS remain — all replaced with names; (4) phrase count within limit; (5) every action has an explicit actor or is passive voice; (6) every named character who acted toward {{player_name}} or the focal character is recorded individually, not merged; (7) any canonical facts stated in OOC asides or parentheticals are captured — not skipped as "already confirmed" — while pure processing directives are ignored; (8) TIMELINE LOGIC — new facts do not create unexplained paradoxes with <prior_context>; if a paradox exists, resolve it with a [Correction] tag; (9) ALL stats are bundled into ONE phrase at the end; (10) FIGURES ARE EXACT — every age, count, height, distance, time, price and score reads as the passage states it, in the passage’s own form. If the text says Sixteen, the line says sixteen and never seventeen; if it says five-foot-eight, the line does not round it. A figure you cannot point to in <passage> does not belong in the line at all. If any check fails, revise.',
 ].join('\n');
 
 function subst(template, vars) {
@@ -323,6 +323,16 @@ const AUDIT_SYSTEM = [
   'belong there instead. Both must appear exactly: the wrong words in the',
   'line, the right ones in the pages.',
   '',
+  'HOW LONG THE DETAIL SHOULD BE. As short as it can be and still complete \u2014',
+  'never a word of padding, never a sentence where a phrase will do, never',
+  'anything the line already says. But length is judged by NEED, not by a',
+  'count: some things cannot be carried in a few words and must not be cut',
+  'to look tidy. A battle plan with its bait, its ground and its fallback; a',
+  'newly introduced person\'s appearance; a political arrangement and who',
+  'owes what to whom; a set of conditional promises \u2014 these earn the room',
+  'they need, because a storyteller that half-remembers them writes the',
+  'wrong scene. Everything else stays terse.',
+  '',
   'Output, in this order, and nothing else:',
   '  FIX: <exact words in the line> -> <exact words from the pages>   (zero or more lines)',
   '  DETAIL: <only the MISSING information, short phrases separated by semicolons>   (at most one line)',
@@ -397,10 +407,17 @@ export function parseAuditAnswer(raw) {
     /* M193: cut at a word, never inside one. The same slice that gave the
      * writer "I'v…" lives here too, on the model's own answer, before
      * anything is merged. */
-    if (detail.length > 240) {
-      const room = detail.slice(0, 239);
+    /* M197: THE DETAIL IS JUDGED BY NEED, NOT BY A COUNT. Two hundred and
+     * forty characters is fine for "she is left-handed" and hopeless for a
+     * battle plan with its bait, its ground and its fallback — and a plan cut
+     * in half is worse than no plan, because the storyteller half-remembers
+     * it and writes the wrong scene. The discipline lives in the audit's own
+     * brief now (terse by default, roomy when the matter earns it); this is
+     * only a runaway guard, far enough out that nothing honest meets it. */
+    if (detail.length > 1400) {
+      const room = detail.slice(0, 1399);
       const at = Math.max(room.lastIndexOf(';'), room.lastIndexOf(' '));
-      detail = (at > 120 ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
+      detail = (at > 700 ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
     }
     return detail;
   } catch (err) {
@@ -760,7 +777,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
      * record exists to hold. The house rewrites that one line from what it
      * missed and keeps the addendum for whatever still will not fit. The
      * writer is never asked to notice this, or to press anything. */
-    if (detail.length > 480) {
+    if (detail.length > 1200) {
       try {
         const roomier = await callKeeper(connection, buildRewriteMessages({
           playerName: (await db.settings.get('playerName')) || 'the player',
@@ -778,10 +795,10 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
         }
       } catch (err) { /* the trim below is still the backstop */ }
     }
-    if (detail.length > 480) {
-      const room = detail.slice(0, 479);
+    if (detail.length > 1400) {
+      const room = detail.slice(0, 1399);
       const at = room.lastIndexOf(';');
-      detail = (at > 200 ? room.slice(0, at) : room.trimEnd()) + '…';
+      detail = (at > 700 ? room.slice(0, at) : room.trimEnd()) + '…';
     }
     const current = await loadMemory(storyId);
     if (nodeUnmoved(current.nodes, node.id, signature)) {

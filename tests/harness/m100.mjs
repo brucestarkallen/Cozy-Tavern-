@@ -813,3 +813,36 @@ test('M196: a line too poor to annotate is rewritten by the house, not handed to
   /* the mended line is what gets saved */
   assert(/if \(mended\) standing\.text = lineText;/.test(src), 'and the saved line is the mended one');
 });
+
+/* M197: the detail's length was a number, and a number cannot tell "she is
+ * left-handed" from a battle plan with its bait, its ground and its
+ * fallback. A plan cut in half is worse than no plan — the storyteller
+ * half-remembers it and writes the wrong scene. And the line's prefix
+ * carried WHEN but never WHERE, so the record knew the hour of a scene and
+ * not the room it stood in. */
+test('M197: the detail is judged by need, and the prefix carries where as well as when', async () => {
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+
+  /* the discipline is in the brief, not in a count */
+  assert(/HOW LONG THE DETAIL SHOULD BE/.test(src), 'the audit is told how to judge length');
+  assert(/length is judged by NEED, not by a/.test(src), 'by need, not by a count');
+  assert(/battle plan with its bait, its ground and its fallback/.test(src), 'and what earns the room is named');
+  assert(/Everything else stays terse/.test(src), 'while everything else stays terse');
+  assert(!/detail\.length > 240/.test(src), 'the old 240 count is gone');
+  assert(!/detail\.length > 480/.test(src), 'and so is the 480');
+  assert(/detail\.length > 1400/.test(src), 'what remains is a runaway guard, far out');
+
+  /* the prefix */
+  assert(/'7\. Time AND place:/.test(src), 'the rule is about time AND place');
+  assert(src.includes('Sept 1, 08:24 \\u00b7 the Wells kitchen') || src.includes('Sept 1, 08:24 \u00b7 the Wells kitchen'),
+    'and shows the shape, dividing dot and all');
+  eq('\u00b7', '\u00b7', 'and that escape is the dot it looks like once JavaScript reads it');
+  assert(/names where it BEGINS and the move itself is recorded as a phrase/.test(src), 'a scene that moves is handled');
+  assert(/omit the prefix entirely only when it states neither/.test(src), 'and neither is invented');
+  assert(/the line starts with a prefix carrying whatever the passage states of TIME and PLACE/.test(src),
+    'the closing checks ask for it too');
+  assert(!/the line starts with a temporal prefix if available/.test(src), 'the time-only check is gone');
+
+  /* the line rewrite still triggers above the merged ceiling (M196) */
+  assert(/if \(detail\.length > 1200\) \{\s*\n\s*try \{/.test(src), 'a detail past 1200 rewrites the line instead');
+});
