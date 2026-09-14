@@ -4601,9 +4601,8 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   detailOnly re-runs just the audit, for a line that is right with a detail that is not. A
   promoted line is refused (it has no pages of its own), exactly as Summaryception refuses one.
   Two buttons on every layer-1 line in the ledger: "Read these pages again" and "Detail again".
-- STILL OWED from the writer's list, read from Summaryception's code and not yet built here:
-  a "Force summarize now" with its three guards (not enabled / a pass is finishing / nothing is
-  past the verbatim window), and an automatic catch-up after a stop.
+- (Both of these were owed when M216 shipped and are BUILT at M218: "Fold what is due now" with
+  its three guards, and the catch-up after a stop. Nothing from the writer's list is outstanding.)
 - 461/461 harness + 37/37 walk + 8/8 play + wipe + contrast. version.js -> m216-001.
 
 # M217 — the line that "came back from the dead", and the button that only pretended
