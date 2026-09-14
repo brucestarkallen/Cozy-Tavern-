@@ -40,7 +40,7 @@ const MAX_TOKENS = 3000;
 
 /* ---------- the record ---------- */
 
-export async function rebuildRecord({ connection, storyId, onProgress, onRetry, signal, stale } = {}) {
+export async function rebuildRecord({ connection, storyId, onProgress, onRetry, signal, stale, renew } = {}) {
   if (!connection || !storyId) return null;
   const mem = await loadMemory(storyId);
   /* M202: THE WAY BACK IS NOT OVERWRITTEN BY A FAILED REBUILD. The backup was
@@ -75,6 +75,9 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
   let rounds = 0;
   while (rounds < 400) {
     if (stale && stale()) return null;
+    /* M207: this round gets its own minute — a rebuild is many calls, and the
+     * job's single leash aborted it partway through every long tale. */
+    if (typeof renew === 'function' && !renew()) return null;
     const before = (await loadMemory(storyId)).nodes;
     if (!dueRange(history.length, window, before, batch)) break;
     await maybeSummarize({ connection, storyId, signal });
@@ -95,6 +98,7 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
         if (stale && stale()) return null;
         if (typeof onRetry === 'function') await onRetry({ ms: pause, attempt: a + 1, of: pauses.length });
         else await new Promise((r) => setTimeout(r, pause));
+        if (typeof renew === 'function' && !renew()) return null;
         await maybeSummarize({ connection, storyId, signal });
         after = (await loadMemory(storyId)).nodes;
         if (after.length !== before.length) { recovered = true; break; }
@@ -192,7 +196,7 @@ export function parseReaderAnswer(raw) {
   return { deltas: [], shifts: [] };
 }
 
-export async function rebuildPeople({ connection, storyId, brief = '', castNotes = '', onProgress, signal, stale } = {}) {
+export async function rebuildPeople({ connection, storyId, brief = '', castNotes = '', onProgress, signal, stale, renew } = {}) {
   if (!connection || !storyId) return null;
   const state = await loadState(storyId);
   const mc = mcName(state) !== 'the player' ? mcName(state) : '';
@@ -230,6 +234,8 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
   let applied = 0;
   let refused = 0;
   for (let from = 0; from < history.length; from += batch) {
+    /* M207: this batch gets its own minute (see the record rebuild) */
+    if (typeof renew === 'function' && !renew()) return null;
     if (stale && stale()) return null;
     const pages = history.slice(from, from + batch);
     const current = await loadState(storyId);

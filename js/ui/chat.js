@@ -1604,9 +1604,9 @@ export function initChat(ctx) {
     const connection = await resolveWorkerConnection(story, 'keeper');
     if (!connection) { banner.failed('The keeper needs a connection first'); return false; }
     const banner = beginWork('Rebuilding the record');
-    const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale }) => {
+    const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale, renew }) => {
       const result = await rebuildRecord({
-        connection, storyId: story.id, signal, stale,
+        connection, storyId: story.id, signal, stale, renew,
         onProgress: ({ folded, toFold, resumed }) => banner.step(folded, toFold, resumed ? 'page (carried on at)' : 'page'),
         onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
       });
@@ -1623,8 +1623,8 @@ export function initChat(ctx) {
     const connection = await resolveWorkerConnection(story, 'scribe');
     if (!connection) { banner.failed('The scribe needs a connection first'); return false; }
     const banner = beginWork('Rebuilding the people');
-    const promise = enqueueWork(story.id, { name: 'scribe', run: async ({ signal, stale }) => {
-      const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, onProgress: ({ read, total }) => banner.step(read, total, 'page') });
+    const promise = enqueueWork(story.id, { name: 'scribe', run: async ({ signal, stale, renew }) => {
+      const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew, onProgress: ({ read, total }) => banner.step(read, total, 'page') });
       /* M135: the rebuilt pages also land in the LAST turn's boundary snapshot and
        * the last page's checkpoint — so a retry, a swipe or a branch at the newest
        * page starts from the rebuilt pages, not the frozen ones. Older boundaries

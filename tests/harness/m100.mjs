@@ -916,3 +916,42 @@ test('M205: a finished rebuild starts fresh, and the banner never claims a succe
       '“' + words + '” is decided by its own promise, not by a bare wait');
   }
 });
+
+/* M207: the writer's own screen — "Rebuilding the record · page 18 of 98 ·
+ * 18%" above "the keeper ran 2 minutes ago and stumbled — outwaited". The
+ * queue gave the WHOLE JOB one sixty-second leash, which is right for one
+ * worker asking one question and hopeless for a rebuild, which is sixteen
+ * questions across a hundred pages. On any tale long enough to need a
+ * rebuild, the rebuild could never finish. */
+test('M207: a job that works in rounds renews its leash; a hung call is still cut off', async () => {
+  const { workerSignal } = await import('../../js/agents/status.js');
+
+  /* work that keeps going is not punished for taking more than a minute */
+  const long = workerSignal(300);
+  for (let i = 0; i < 6; i += 1) {
+    await new Promise((r) => setTimeout(r, 200));
+    eq(long.renew(), true, 'round ' + i + ' renews');
+  }
+  eq(long.signal.aborted, false, '1.2s of work under a 0.3s leash, renewed each round, is never aborted');
+  long.done();
+
+  /* a call that hangs is still cut off, and a renew after that is refused */
+  const hung = workerSignal(200);
+  await new Promise((r) => setTimeout(r, 350));
+  eq(hung.signal.aborted, true, 'a hung call is cut off');
+  eq(hung.renew(), false, 'and cannot be revived by a renew');
+  hung.done();
+
+  /* the queue hands it down, and both rebuilds take it */
+  const queue = readFileSync(new URL('../../js/agents/queue.js', import.meta.url), 'utf8');
+  assert(/const \{ signal, done, renew \} = workerSignal\(\);/.test(queue), 'the queue takes a renew');
+  assert(/job\.run\(\{ signal, stale: isStale, renew \}\)/.test(queue), 'and hands it to the job');
+  const rb = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
+  eq((rb.match(/typeof renew === 'function' && !renew\(\)/g) || []).length, 3,
+    'the record rebuild renews each round and after each retry pause; the people rebuild each batch');
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/run: async \(\{ signal, stale, renew \}\) => \{\s*\n\s*const result = await rebuildRecord\(\{\s*\n\s*connection, storyId: story\.id, signal, stale, renew,/.test(chat),
+    'the record rebuild is handed it');
+  assert(/rebuildPeople\(\{ connection, storyId: story\.id, brief: story\.brief \|\| '', castNotes: story\.castNotes \|\| '', signal, stale, renew,/.test(chat),
+    'and so is the people rebuild');
+});

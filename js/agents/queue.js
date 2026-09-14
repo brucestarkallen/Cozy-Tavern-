@@ -128,10 +128,11 @@ async function runJob(job) {
       await sleepImpl(backoffMs(attempt, lastErr && lastErr.retryAfterMs));
       if (isStale()) return { ok: false, stale: true, why: 'left behind' };
     }
-    const { signal, done } = workerSignal();
+    const { signal, done, renew } = workerSignal();
     markWorkerRunning(storyId, name, true); /* M46: "reading now…" on the workers line */
     try {
-      const value = await job.run({ signal, stale: isStale });
+      /* M207: a job that works in rounds renews its leash each round */
+      const value = await job.run({ signal, stale: isStale, renew });
       done();
       markWorkerRunning(storyId, name, false);
       if (isStale()) return { ok: false, stale: true, why: 'left behind' };

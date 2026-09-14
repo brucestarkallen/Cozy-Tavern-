@@ -4438,3 +4438,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   rest a page on. Held by a law: a line sent with at=1999 is stored with the device's own time.
 - 454/454 harness + 37/37 walk + 8/8 play + wipe + guard + two-browser + append.
   version.js -> m206-001.
+
+# M207 — "the keeper stumbled — outwaited": the rebuild could never finish
+- FROM THE WRITER'S OWN SCREEN: "Rebuilding the record · page 18 of 98 · 18%" sitting above "the
+  keeper ran 2 minutes ago and stumbled — outwaited". The queue gave the WHOLE JOB one
+  sixty-second leash (workerSignal's WORKER_TIMEOUT_MS). That is right for one worker asking one
+  question, and hopeless for a rebuild, which is sixteen questions across a hundred pages. So on
+  ANY tale long enough to need a rebuild, the rebuild was aborted partway and could never finish —
+  which is exactly what the writer reported two sessions running ("I rebuild ledger and the ledger
+  not complete"), and what M202's retry then dressed up as a stall.
+- THE LEASH IS PER CALL, NOT PER JOB. workerSignal hands out a renew() that resets the timer; the
+  queue passes it to every job; a job that works in rounds calls it at the top of each round (the
+  record rebuild each round and after each retry pause, the people rebuild each batch). A hung
+  call is still cut off after sixty seconds and a renew after an abort is refused — proven both
+  ways: 1.2s of renewed work under a 0.3s leash survives, an unrenewed 200ms leash still aborts.
+- 455/455 harness + 37/37 walk + 8/8 play. version.js -> m207-001.

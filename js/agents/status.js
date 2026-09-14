@@ -52,10 +52,25 @@ export function onWorkerChange(fn) {
  * callers must settle it in a finally. */
 export function workerSignal(timeoutMs = WORKER_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
+  let timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
   return {
     signal: controller.signal,
     done: () => clearTimeout(timer),
+    /* M207: THE LEASH IS PER CALL, NOT PER JOB. Sixty seconds is right for one
+     * worker asking one question. A REBUILD is sixteen questions across a
+     * hundred pages, and it shared that single sixty seconds — so on the
+     * writer's 98-page tale it was aborted at page 18, every time, and the
+     * workers' line read "the keeper stumbled — outwaited". The rebuild could
+     * not finish, ever, on any story long enough to need one. A job that
+     * works in rounds renews the leash at the top of each round: a hung call
+     * is still cut off after sixty seconds, and honest work is never
+     * punished for taking more than one minute in total. */
+    renew: () => {
+      if (controller.signal.aborted) return false;
+      clearTimeout(timer);
+      timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
+      return true;
+    },
   };
 }
 
