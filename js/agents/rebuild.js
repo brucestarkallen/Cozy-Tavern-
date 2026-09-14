@@ -287,7 +287,7 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
     const pages = history.slice(from, from + batch);
     const current = await loadState(storyId);
     const prompt = buildReaderMessages({ state: current, record: recordUpTo(mem, from), pages, mc });
-    const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: MAX_TOKENS, effort: 'off', signal });
+    const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: MAX_TOKENS, signal });
     const answer = parseReaderAnswer(text);
     /* a name the ledger already knows wins over the reader's spelling —
      * "Rias" lands on "Rias Wells", never beside her */

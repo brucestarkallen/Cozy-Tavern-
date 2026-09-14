@@ -321,7 +321,7 @@ async function callRefereeOnce(connection, system, user, signal) {
    * small. A refused call throws here and callReferee reads that as '' —
    * on the send path a failure means no ruling this turn, never a stall. */
   if (!connection || typeof connection !== 'object') return '';
-  const { text } = await callWorker(connection, { system, user, maxTokens: MAX_TOKENS, effort: 'off', signal });
+  const { text } = await callWorker(connection, { system, user, maxTokens: MAX_TOKENS, signal });
   return text;
 }
 

@@ -232,7 +232,7 @@ export async function readStatedStandings({ connection, brief = '', castNotes = 
   if (connection) {
     try {
       const prompt = buildStatedStandingsMessages({ brief, castNotes, mc });
-      const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 1500, effort: 'off', signal });
+      const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 1500, signal });
       const cleaned = String(text || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '');
       for (const c of balancedCandidates(cleaned, 5)) {
         const p = parseLenient(c);
@@ -313,7 +313,7 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   if (!prompt.hasMaterial) return null;
   let read = null; let raw = ''; let user = prompt.user;
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { text, finishReason } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, effort: 'off', signal });
+    const { text, finishReason } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, signal });
     raw = text;
     read = parseFounderAnswer(text);
     if (finishReason === 'length' && read.note === 'unusable') read.note = 'cut short';

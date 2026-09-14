@@ -165,7 +165,6 @@ export async function checkTurn({ connection, state, assistantText, signal, brie
     system: prompt.system,
     user: prompt.user,
     maxTokens: MAX_TOKENS,
-    effort: 'off',
     signal,
   });
   return parseContinuityAnswer(text);
@@ -235,7 +234,7 @@ export function parseMendAnswer(raw) {
 export async function mendPages({ connection, storyId, pages, contradiction, record, playerName, signal, apply }) {
   if (!connection || !storyId || !Array.isArray(pages) || !pages.length || !contradiction) return [];
   const prompt = buildMendMessages({ record, contradiction, pages, playerName });
-  const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, effort: 'off', signal });
+  const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, signal });
   const edits = parseMendAnswer(text);
   const changed = [];
   for (const e of edits) {

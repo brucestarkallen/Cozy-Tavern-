@@ -170,3 +170,23 @@ test('M28-7: the referee’s seeder never clobbers a known main-character name',
   const src = readFileSync(new URL('../../js/agents/referee.js', import.meta.url), 'utf8');
   assert(/if \(!known\) state\.sheet\.playerName = nm;/.test(src), 'seeder sets the name only when none is known');
 });
+
+/* M233: every worker used to ask for effort:'off' outright, and I called it
+ * "a worker choosing about its own job" — the same paternalism I had just
+ * been told twice to stop, dressed as a principle. The writer assigns the
+ * connection; whether his keeper thinks is his call and his tokens. */
+test('M233: thinking is the connection’s to decide, for every worker', async () => {
+  const { workerConnection } = await import('../../js/agents/call.js');
+  const at = (r) => workerConnection({ baseUrl: 'https://x', model: 'm', ...(r ? { reasoning: r } : {}) }, {});
+
+  eq(at({ effort: 'medium' }).reasoning.effort, 'medium', 'a connection that asks to think, thinks');
+  eq(at({ effort: 'off' }).reasoning.effort, 'off', 'one that asks not to, does not');
+  eq('reasoning' in at(null), false, 'and one that says nothing sends nothing');
+
+  /* no worker overrules it any more */
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['auditor', 'continuity', 'extractor', 'founder', 'memory', 'rebuild', 'scribe']) {
+    const src = readFileSync(new URL('../../js/agents/' + f + '.js', import.meta.url), 'utf8');
+    assert(!/effort: 'off'/.test(src), f + '.js no longer forces thinking off');
+  }
+});

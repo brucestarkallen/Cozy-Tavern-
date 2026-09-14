@@ -193,7 +193,6 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     system: prompt.system,
     user: prompt.user,
     maxTokens: MAX_TOKENS,
-    effort: 'off',
     signal,
   });
   const { deltas } = parseScribeAnswer(raw);

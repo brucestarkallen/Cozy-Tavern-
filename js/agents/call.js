@@ -63,11 +63,13 @@ export function workerConnection(connection, { maxTokens, effort, temperature } 
   else if (!Number.isFinite(c.temperature)) delete c.temperature;
   const room = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.round(maxTokens) : WORKER_MAX_TOKENS;
   c.maxTokens = Math.max(room, Number.isFinite(c.maxTokens) ? Math.round(c.maxTokens) : 0) || room;
-  /* M232: and the same for thinking. A worker that asks for an effort gets it;
-   * otherwise the connection's own stands, and a connection that says nothing
-   * is left alone. The one exception is the house's own ask of 'off', which
-   * every worker makes by default — that is a WORKER'S choice about its own
-   * job, not the house rewriting the writer's connection. */
+  /* M233: THINKING IS THE WRITER'S TO DECIDE, LIKE EVERYTHING ELSE. Every
+   * worker used to ask for effort:'off' outright, and I called that "a worker
+   * choosing about its own job" — which was the same paternalism I had just
+   * been told twice to stop, dressed as a principle. The writer assigns the
+   * connection; if he wants his keeper to think, that is his call and his
+   * tokens. No worker asks for 'off' any more: what the connection says
+   * stands, and a connection that says nothing sends nothing. */
   if (typeof effort === 'string' && effort) c.reasoning = { ...(c.reasoning || {}), effort };
   else if (!c.reasoning || typeof c.reasoning.effort !== 'string') delete c.reasoning;
   return c;

@@ -257,7 +257,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   let raw = '';
   let user = prompt.user;
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { text, finishReason } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, effort: 'off', signal });
+    const { text, finishReason } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, signal });
     raw = text;
     read = parseAuditorAnswer(text);
     if (finishReason === 'length' && read.note === 'unusable') read.note = 'cut short';
@@ -580,7 +580,7 @@ export async function rebuildStandings({ connection, storyId, brief = '', castNo
   const all = (await db.messages.list(storyId)).filter((m) => !m.hidden);
   const pages = all.slice(-AUDIT_PAGES).map((m) => ({ role: m.role, text: pageText(m) }));
   const prompt = buildRebuildMessages({ state: s1, brief, castNotes, record: wholeRecord(mem), pages, mc });
-  const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, effort: 'off', signal });
+  const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, signal });
   const read = parseFounderLike(text);
   if (stale && stale()) return null;
   const guarded = [];

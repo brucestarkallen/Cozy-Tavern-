@@ -340,8 +340,7 @@ export async function extractTurn({ connection, state, userText, assistantText, 
         system: prompt.system,
         user,
         maxTokens: MAX_TOKENS,
-        effort: 'off',
-        signal,
+            signal,
       });
       read = parseExtractorAnswer(text);
       read.raw = text;

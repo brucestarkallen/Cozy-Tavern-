@@ -303,7 +303,6 @@ async function callKeeper(connection, prompt, signal) {
     system: prompt.system,
     user: prompt.user,
     maxTokens: MAX_TOKENS,
-    effort: 'off',
     signal,
   });
   return text;

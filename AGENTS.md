@@ -4858,3 +4858,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   that worker — temperature, top-p, prefill, search, thinking — and the house supplies only a floor
   on answer room.
 - 473/473 harness + 37/37 walk + 8/8 play. version.js -> m232-001.
+
+# M233 — thinking is the writer's to decide, like everything else
+- EVERY WORKER ASKED FOR effort:'off' OUTRIGHT — eleven sites — and I called that "a worker
+  choosing about its own job, not the house rewriting the connection". It was the same paternalism
+  the writer had already told me twice to stop, dressed as a principle. He assigns the connection
+  per worker; whether his keeper thinks is his call and his tokens. Every forced 'off' is gone: a
+  connection that asks to think, thinks; one that asks not to, does not; one that says nothing
+  sends nothing and the provider decides.
+- The storyteller's own dial (effectiveReasoning in ui/chat.js) is untouched — that is the STORY's
+  thinking, already resolved per-story then per-connection, and not a worker.
+- So a worker's entire behaviour is the writer's now: temperature, top-p, prefill, search,
+  thinking. The house supplies only a floor on answer room.
+- 474/474 harness + 37/37 walk + 8/8 play. version.js -> m233-001.
