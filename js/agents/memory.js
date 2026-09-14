@@ -599,7 +599,23 @@ export function hardTokens(passage, knownNames = []) {
   const known = (Array.isArray(knownNames) ? knownNames : []).map((n) => String(n || '').trim()).filter((n) => n.length >= 2);
   for (const n of known) if (new RegExp('(?<![\\p{L}])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'u').test(text)) names.add(n);
   const counts = new Map();
-  for (const m of text.matchAll(/(?<![.!?]\s|^|"|\n)\b(\p{Lu}[\p{Ll}'’-]{2,})\b/gmu)) counts.set(m[1], (counts.get(m[1]) || 0) + 1);
+  /* M192: A CONTRACTION IS NOT A PERSON. The pattern took any capitalised
+   * word of three characters that repeats — so "I'm" and "I'v" (out of
+   * "I've") were filed as NAMES, and "Vanessa's" as a second person beside
+   * Vanessa. The record's own detail read "also named: Mariner's, Lane,
+   * Wells, England, Vanessa's, I'm, Entryway, I'v…" — nonsense the
+   * storyteller reads every turn, and every false name also costs a second
+   * call to the keeper asking where it went. A possessive folds onto the
+   * name it belongs to; a contraction is not a name at all. */
+  const CONTRACTION = /['’](m|ve|ll|re|d|t)$/i;
+  for (const m of text.matchAll(/(?<![.!?]\s|^|"|\n)\b(\p{Lu}[\p{Ll}'’-]{2,})\b/gmu)) {
+    let w = m[1];
+    if (/^I['’]/.test(w)) continue;
+    if (CONTRACTION.test(w)) continue;
+    const bare = w.replace(/['’]s$/i, '');
+    if (bare.length >= 3) w = bare;
+    counts.set(w, (counts.get(w) || 0) + 1);
+  }
   const STOP = new Set(['The', 'She', 'He', 'They', 'And', 'But', 'Then', 'When', 'His', 'Her', 'Their', 'You', 'Your', 'Not', 'For', 'With', 'That', 'This', 'There', 'What', 'Where', 'Who', 'How', 'Why', 'Yes', 'No', 'Now', 'Still', 'Just', 'Even', 'Only', 'Story', 'Player', 'Detail', 'Fine', 'Okay', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
   for (const [w, c] of counts) if (c >= 2 && !STOP.has(w)) names.add(w);
   const numbers = new Set();
@@ -611,6 +627,27 @@ export function hardTokens(passage, knownNames = []) {
   }
   return { names: [...names], numbers: [...numbers] };
 }
+
+/* M192: two details, merged without repeating themselves. Clauses are held
+ * apart by semicolons; two that read alike once case, spacing and end
+ * punctuation are set aside are the same clause. */
+export function mergeDetail(first, second) {
+  const norm = (c) => c.toLowerCase().replace(/[.;,\s]+$/g, '').replace(/\s+/g, ' ').trim();
+  const out = [];
+  const seen = new Set();
+  for (const part of [first, second]) {
+    for (const clause of String(part || '').split(/\s*;\s*/)) {
+      const c = clause.trim().replace(/[.;,]+$/g, '');
+      if (!c) continue;
+      const key = norm(c);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(c);
+    }
+  }
+  return out.join('; ');
+}
+
 export function lossCheck(passage, lineText, detailText, knownNames = []) {
   const { names, numbers } = hardTokens(passage, knownNames);
   const kept = (String(lineText || '') + '\n' + String(detailText || '')).toLowerCase();
@@ -643,7 +680,11 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
       second.user += '\n\nThese from the pages appear in neither the line nor its detail: ' + [...loss.missingNames.map((n) => 'the name ' + n), ...loss.missingNumbers.map((n) => 'the figure ' + n)].join('; ') + '. Return DETAIL with every one that a storyteller would need, and what each was (who, what count, when).';
       try {
         const again = parseAuditAnswer(await callKeeper(connection, second, signal));
-        if (again && !(detail && detail.toLowerCase().includes(again.toLowerCase()))) detail = detail ? detail + '; ' + again : again;
+        /* M192: merged CLAUSE BY CLAUSE — the second answer only had to
+         * differ by a full stop to be appended whole, and the writer's own
+         * record showed the same three clauses twice over, which then ate
+         * the 480-character room and cut the rest off. */
+        detail = mergeDetail(detail, again);
       } catch (err) { /* the code writes the rest */ }
       loss = lossCheck(sourceText, node.text, detail, knownNames);
       const rest = [];
@@ -652,7 +693,13 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
       if (rest.length) detail = (detail ? detail + '; ' : '') + rest.join('; ');
     }
     if (!detail) return;
-    if (detail.length > 480) detail = detail.slice(0, 479).trimEnd() + '…';
+    /* M192: when it must be cut, cut at a CLAUSE — the old slice landed
+     * mid-word ("I'v…") and left a fragment of nothing. */
+    if (detail.length > 480) {
+      const room = detail.slice(0, 479);
+      const at = room.lastIndexOf(';');
+      detail = (at > 200 ? room.slice(0, at) : room.trimEnd()) + '…';
+    }
     const current = await loadMemory(storyId);
     if (nodeUnmoved(current.nodes, node.id, signature)) {
       const standing = current.nodes.find((n) => n && n.id === node.id);

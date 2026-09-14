@@ -4172,3 +4172,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   unrelated one, and the send path consults it BEFORE it touches the ledger.
 - 443/443 harness + 36/36 walk + 8/8 play, each run alone + wipe + guard + two-browser + append.
   version.js -> m191-001.
+
+# M192 — the record's detail line: three faults in one line
+- From the writer's own record: "Detail worth keeping: Jovan is sixteen, not seventeen; … ; Jovan
+  is sixteen, not seventeen; … ; also named: Mariner's, Lane, Wells, England, Vanessa's, I'm,
+  Entryway, I'v…"
+- A CONTRACTION IS NOT A PERSON. hardTokens took any capitalised word of three characters that
+  repeats, so "I'm" and "I'v" (out of "I've") were filed as NAMES and "Vanessa's" as a second
+  person beside Vanessa. That nonsense then rides to the storyteller every turn, and every false
+  name ALSO costs a second call to the keeper asking where it went. A possessive folds onto the
+  name it belongs to; a contraction is not a name at all.
+- THE SAME CLAUSES, TWICE. The sharper second ask was appended whole unless the first detail
+  contained it exactly — so an answer differing only by a full stop was written again in full.
+  Merged clause by clause now (mergeDetail), matching once case, spacing and end punctuation are
+  set aside. This is what ate the 480-character room in the writer's line.
+- AND THE CUT LANDED MID-WORD. "I'v…" is a fragment of nothing. The cut looks for a clause
+  boundary and takes that instead.
+- NOT A FAULT, and left as it is: the line saying "seventeen" while the detail says "sixteen, not
+  seventeen" is the auditor doing its work — the keeper's line was wrong and the audit caught it,
+  so the correction rides with the line and the storyteller reads both. Rewriting the line itself
+  would risk losing everything else in it. With the duplication gone the correction is short and
+  reads plainly.
+- 444/444 harness + 36/36 walk + 8/8 play. version.js -> m192-001.

@@ -693,3 +693,40 @@ test('M191: walking back an over-broad rename does not rename everything back', 
   assert(/if \(undoingRename\) \{[\s\S]{0,260}return \{ silent: false/.test(chat), 'and holds the change to this page alone');
   assert(chat.indexOf('const undoingRename') < chat.indexOf("type: 'people.rename', from: removed"), 'before it renames the ledger');
 });
+
+/* M192: the writer's own record read
+ *   "Detail worth keeping: Jovan is sixteen, not seventeen; … ; Jovan is
+ *    sixteen, not seventeen; … ; also named: Mariner's, Lane, Wells,
+ *    England, Vanessa's, I'm, Entryway, I'v…"
+ * Three faults in one line: contractions and possessives filed as PEOPLE,
+ * the same clauses written twice, and the cut landing mid-word. */
+test('M192: the record’s detail names people, says each thing once, and never ends mid-word', async () => {
+  const { hardTokens, mergeDetail } = await import('../../js/agents/memory.js');
+
+  const passage = "Vanessa Reynolds kicked off her flip-flops. I'm not babysitting, she said. "
+    + "I've told you twice. Vanessa's dock is on Mariner's Lane. Vanessa Reynolds laughed. I'm serious.";
+  const names = hardTokens(passage, []).names;
+  for (const junk of ["I'm", "I'v", "I've", "Vanessa's", "Mariner's"]) {
+    assert(!names.includes(junk), junk + ' is not a person: ' + names.join(', '));
+  }
+  assert(names.includes('Reynolds'), 'a real name is still found: ' + names.join(', '));
+
+  /* a possessive folds onto the name it belongs to, never a second person */
+  const two = hardTokens("Mira went out. The dock was Mira's. Mira's boat waited. Mira came back to Mira's boat.", []).names;
+  assert(!two.some((n) => /['’]s$/.test(n)), 'no possessive survives as a name: ' + two.join(', '));
+
+  /* the same clauses, twice, merge to once — the second answer only had to
+   * differ by a full stop to be appended whole */
+  const a = 'Jovan is sixteen, not seventeen; Vanessa said Sixteen when demanding his status; the evening plan is not in the source pages.';
+  const b = 'Jovan is sixteen, not seventeen; Vanessa said Sixteen when demanding his status; Alexia Vanderbilt is a named person';
+  const merged = mergeDetail(a, b);
+  eq((merged.match(/sixteen, not seventeen/g) || []).length, 1, 'said once: ' + merged);
+  assert(/Alexia Vanderbilt is a named person$/.test(merged), 'and the new clause is kept: ' + merged);
+  eq(mergeDetail('', 'only the second'), 'only the second', 'either side may be empty');
+  eq(mergeDetail('only the first', ''), 'only the first', 'either side may be empty');
+
+  /* the cut lands on a clause, not inside a word */
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  assert(/const at = room\.lastIndexOf\(';'\);/.test(src), 'the cut looks for a clause boundary');
+  assert(!/detail\.slice\(0, 479\)\.trimEnd\(\) \+ '…';/.test(src), 'and never simply chops mid-word');
+});
