@@ -1541,11 +1541,21 @@ export function initChat(ctx) {
    * the chain instead of the call: when the story's tracked work is done, it
    * says so. An early return finishes it too — a banner left spinning over
    * nothing is worse than no banner. */
-  async function bannerFollows(banner, story, words) {
+  async function bannerFollows(banner, story, words, promise) {
     if (!banner) return;
     if (!story) { banner.failed('Open a story first'); return; }
     try {
-      await pendingWork(story.id, 600000);
+      /* M205: THE BANNER MUST NOT LIE. This waited on pendingWork, which
+       * resolves "settled" whether the work SUCCEEDED OR FAILED — so an
+       * auditor that could not reach its connection still ended with "The
+       * ledger was audited" in front of the writer. The queue's own promise
+       * carries {ok, why}; that is what decides what the banner says. */
+      const outcome = promise ? await promise : null;
+      if (outcome && outcome.ok === false) {
+        banner.failed(outcome.why ? 'It stopped — ' + outcome.why : 'It stumbled — the workers’ line says why');
+        return;
+      }
+      if (!promise) await pendingWork(story.id, 600000);
       banner.done(words);
     } catch (err) {
       banner.failed('It stumbled — the workers’ line says why');
@@ -1583,7 +1593,7 @@ export function initChat(ctx) {
     } });
     noteWork(story.id, promise);
     banner.say('reading the brief, the cast, the cards and the lore');
-    bannerFollows(banner, story, 'The world was founded from the brief');
+    bannerFollows(banner, story, 'The world was founded from the brief', promise);
     return true;
   }
 
@@ -1640,7 +1650,7 @@ export function initChat(ctx) {
       return { silent: false, detail: rebuildPeopleWords(result) };
     } });
     noteWork(story.id, promise);
-    bannerFollows(banner, story, 'The people were rebuilt');
+    bannerFollows(banner, story, 'The people were rebuilt', promise);
     return true;
   }
   async function restoreRecordNow() {
@@ -1673,7 +1683,7 @@ export function initChat(ctx) {
     } });
     noteWork(story.id, promise);
     banner.say('reading the brief, the record and the pages');
-    bannerFollows(banner, story, 'Every standing was rebuilt');
+    bannerFollows(banner, story, 'Every standing was rebuilt', promise);
     return true;
   }
 
@@ -1803,7 +1813,7 @@ export function initChat(ctx) {
     } });
     noteWork(story.id, promise);
     banner.say('reading the whole ledger');
-    bannerFollows(banner, story, 'The ledger was audited');
+    bannerFollows(banner, story, 'The ledger was audited', promise);
     return true;
   }
 

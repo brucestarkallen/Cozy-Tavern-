@@ -51,7 +51,12 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
    * the people; the record had it too. A record a rebuild made keeps the
    * backup that stands. */
   const heldBackup = await db.settings.get('memoryBackup:' + storyId);
-  const resuming = Boolean(mem.rebuiltAt && mem.nodes.length);
+  /* M205: RESUME ONLY WHAT ACTUALLY STOPPED SHORT. This resumed whenever the
+   * record had been rebuilt before and held lines — which is true after a
+   * rebuild that FINISHED, so the next press resumed a completed job: nothing
+   * wiped, nothing due, and the button did nothing at all. A stall is marked
+   * explicitly and cleared the moment a rebuild completes. */
+  const resuming = Boolean(mem.rebuildStalled && mem.nodes.length);
   if (!(heldBackup && mem.rebuiltAt)) {
     await db.settings.set('memoryBackup:' + storyId, { at: Date.now(), nodes: mem.nodes });
   }
@@ -61,7 +66,7 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
    * made the writer pay for them again. A part-built record (marked
    * rebuiltAt, and holding lines) is resumed: dueRange picks up at the first
    * page no line covers. Only a fresh rebuild starts from nothing. */
-  if (!resuming) await saveMemory(storyId, { ...mem, nodes: [], rebuiltAt: Date.now() });
+  if (!resuming) await saveMemory(storyId, { ...mem, nodes: [], rebuiltAt: Date.now(), rebuildStalled: false });
   const history = visiblePages(await db.messages.list(storyId));
   const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
@@ -95,6 +100,7 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
         if (after.length !== before.length) { recovered = true; break; }
       }
       if (!recovered) {
+        await saveMemory(storyId, { ...(await loadMemory(storyId)), rebuildStalled: true });
         return {
           folded, toFold, lines: after.length,
           stalled: true, resumable: true,
@@ -106,6 +112,8 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
     rounds += 1;
     if (typeof onProgress === 'function') onProgress({ folded, toFold, lines: after.length, resumed: resuming });
   }
+  /* M205: it finished — the next press starts a fresh rebuild, not a resume */
+  await saveMemory(storyId, { ...(await loadMemory(storyId)), rebuildStalled: false });
   return { folded, toFold, lines: (await loadMemory(storyId)).nodes.length };
 }
 

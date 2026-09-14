@@ -879,3 +879,40 @@ test('M202: a stumbled rebuild retries, says so, and never eats the way back', a
   const back = await loadMemory('rebuild-mark-record');
   eq(back.rebuiltAt, 4321, 'the mark rides through the record’s own loader');
 });
+
+/* M205: two faults in M203's own work, found by auditing it rather than by
+ * running the suites — which passed throughout. */
+test('M205: a finished rebuild starts fresh, and the banner never claims a success that failed', async () => {
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const src = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+
+  /* RESUME ONLY WHAT STOPPED SHORT. M203 resumed whenever the record had been
+   * rebuilt before and held lines — true after a rebuild that FINISHED, so
+   * the next press resumed a completed job: nothing wiped, nothing due, and
+   * the button did nothing at all. */
+  assert(/const resuming = Boolean\(mem\.rebuildStalled && mem\.nodes\.length\);/.test(src), 'a stall is what decides a resume');
+  assert(/rebuildStalled: true/.test(src), 'a stall is marked');
+  assert(/rebuildStalled: false/.test(src), 'and cleared when a rebuild completes');
+  const decides = async (mem) => {
+    await saveMemory('m205', mem);
+    const m = await loadMemory('m205');
+    return Boolean(m.rebuildStalled && m.nodes.length);
+  };
+  const lines = [{ id: 'n1', span: [0, 5], text: 'a line' }];
+  eq(await decides({ window: 30, nodes: lines, rebuiltAt: 1, rebuildStalled: false }), false, 'a finished rebuild starts fresh');
+  eq(await decides({ window: 30, nodes: lines, rebuiltAt: 1, rebuildStalled: true }), true, 'a stalled one carries on');
+  eq(await decides({ window: 30, nodes: [], rebuiltAt: 1, rebuildStalled: true }), false, 'and an empty record has nothing to carry on from');
+
+  /* THE BANNER MUST NOT LIE. It waited on pendingWork, which resolves
+   * "settled" whether the work SUCCEEDED OR FAILED — so an auditor that could
+   * not reach its connection still ended with "The ledger was audited" in
+   * front of the writer. */
+  assert(/const outcome = promise \? await promise : null;/.test(chat), 'the banner reads the queue’s own result');
+  assert(/if \(outcome && outcome\.ok === false\) \{/.test(chat), 'and a failure is a failure');
+  for (const words of ['The world was founded from the brief', 'The ledger was audited',
+    'Every standing was rebuilt', 'The people were rebuilt']) {
+    assert(chat.includes("bannerFollows(banner, story, '" + words + "', promise);"),
+      '“' + words + '” is decided by its own promise, not by a bare wait');
+  }
+});

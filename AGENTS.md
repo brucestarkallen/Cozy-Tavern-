@@ -4402,3 +4402,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   drawer, so a closed ledger cannot show it at all. The automatic readers keep reporting where
   they always have — the workers' line in the ledger, and the receipt under the page.
 - 453/453 harness + 37/37 walk + 8/8 play. version.js -> m204-001.
+
+# M205 — auditing M203's own work, which the suites had passed throughout
+- RESUME ONLY WHAT ACTUALLY STOPPED SHORT. M203's resume asked "has this record been rebuilt
+  before, and does it hold lines?" — which is TRUE after a rebuild that FINISHED. So the next
+  press resumed a completed job: the record was not wiped, dueRange found nothing due, and the
+  button did NOTHING AT ALL, silently. A stall is marked explicitly now (rebuildStalled) and
+  cleared the moment a rebuild completes; only a real stall is carried on.
+- THE BANNER MUST NOT LIE. bannerFollows waited on pendingWork, which resolves "settled" whether
+  the work SUCCEEDED OR FAILED. An auditor that could not reach its connection therefore ended
+  with "The ledger was audited" in front of the writer — the banner saying the opposite of the
+  workers' line two inches below it. The queue's own promise carries {ok, why}; that is what
+  decides what the banner says, and the four actions that hand work to the chain each pass their
+  own promise.
+- BOTH WERE FOUND BY AUDITING THE NEW CODE, NOT BY RUNNING THE SUITES — which passed, green, over
+  both of them. That has been the difference all session: reading finds what testing does not.
+- 454/454 harness + 37/37 walk + 8/8 play. version.js -> m205-001.
