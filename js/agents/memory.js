@@ -171,7 +171,14 @@ export function renderMemory(mem) {
  * within CONTEXT_CAP. `minLevel` lets a promotion see only the layers above
  * the one it is merging. */
 export function recordFor(mem, minLevel = 1) {
-  const lines = orderedLines(mem).filter((n) => n.level >= minLevel).map((n) => n.text.trim());
+  /* M216: THE DETAIL RIDES WITH ITS LINE HERE TOO. Only the storyteller's
+   * copy (renderMemory) carried it — so the keeper writing the NEXT line
+   * could not see that the line before it had been corrected, and would
+   * write the wrong fact again; the auditor checking the ledger against the
+   * record could not see it; the mender could not; the housekeeper could
+   * not. The one place a correction and a battle plan live was invisible to
+   * every worker that needed them. */
+  const lines = orderedLines(mem).filter((n) => n.level >= minLevel).map(lineWords);
   let text = lines.join('\n');
   if (text.length > CONTEXT_CAP) text = text.slice(text.length - CONTEXT_CAP);
   return text;
@@ -182,7 +189,9 @@ export function recordFor(mem, minLevel = 1) {
  * oldest only when it truly overflows the slot budget, exactly as the
  * storyteller's copy is. */
 export function wholeRecord(mem) {
-  const lines = orderedLines(mem).map((n) => n.text.trim()).filter(Boolean);
+  /* M216: with the detail, for the same reason — this is what the auditor,
+   * the rebuild, the mender and the housekeeper read. */
+  const lines = orderedLines(mem).map(lineWords).filter(Boolean);
   let kept = lines.slice();
   while (kept.length > 1 && kept.join('\n').length > SLOT_BUDGET) kept.shift();
   return kept.join('\n');
@@ -993,4 +1002,58 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
    * a copy from before the calls */
   if (changed) { const now = await loadMemory(storyId); now.window = window; mem = now; await saveMemory(storyId, mem); }
   return changed ? mem : null;
+}
+
+/* M216: ONE LINE, AGAIN — Summaryception's per-snippet redo, which this house
+ * never had. A single line that came out wrong, or a detail that came out as
+ * nonsense, meant rebuilding the WHOLE record: minutes of work that throws
+ * away every other line that was perfectly good. This folds that line's own
+ * pages again, in place, and leaves everything around it alone.
+ *
+ * Only a layer-1 line can be redone — a promoted line has no source pages of
+ * its own, exactly as Summaryception refuses one. `detailOnly` re-runs just
+ * the audit against the line as it stands, for a detail that read as
+ * nonsense while the line itself was fine. */
+export async function redoLine({ connection, storyId, nodeId, detailOnly = false, signal, renew } = {}) {
+  if (!connection || !storyId || !nodeId) return { ok: false, why: 'nothing to redo' };
+  let mem = await loadMemory(storyId);
+  const node = (mem.nodes || []).find((n) => n && n.id === nodeId);
+  if (!node) return { ok: false, why: 'that line is no longer in the record' };
+  if (node.level !== 1) return { ok: false, why: 'a promoted line has no pages of its own to read again' };
+  if (!Array.isArray(node.span) || node.span[0] < 0) return { ok: false, why: 'that line has no pages behind it' };
+
+  const history = visiblePages(await db.messages.list(storyId));
+  const pages = history.slice(node.span[0], node.span[1] + 1);
+  if (!pages.length) return { ok: false, why: 'the pages that line was written from are gone' };
+
+  const playerName = (await db.settings.get('playerName')) || 'the player';
+  const knownNames = await knownNamesOf(storyId);
+  const passage = passageOf(pages, playerName);
+
+  if (!detailOnly) {
+    if (typeof renew === 'function') renew();
+    /* the lines BEFORE this one are its prior context, exactly as they were
+     * when it was first written — never the lines that come after it */
+    const before = { ...mem, nodes: (mem.nodes || []).filter((n) => n && Array.isArray(n.span) && n.span[1] < node.span[0]) };
+    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before) }), signal);
+    const text = parseMemoryAnswer(raw);
+    if (!text) return { ok: false, why: 'the keeper gave nothing back' };
+    mem = await loadMemory(storyId);
+    const fresh = (mem.nodes || []).find((n) => n && n.id === nodeId);
+    if (!fresh) return { ok: false, why: 'that line moved while the keeper was reading' };
+    fresh.text = text === '(no new state)' ? '' : text;
+    fresh.empty = text === '(no new state)';
+    delete fresh.detail;              /* the old detail described the old line */
+    fresh.at = Date.now();
+    await saveMemory(storyId, mem);
+  }
+
+  /* and the audit again, so the line gets its detail back (or its first one) */
+  const current = await loadMemory(storyId);
+  const again = (current.nodes || []).find((n) => n && n.id === nodeId);
+  if (again && again.text) await audit(connection, storyId, again, passage, signal, knownNames, renew);
+
+  const after = await loadMemory(storyId);
+  const done = (after.nodes || []).find((n) => n && n.id === nodeId);
+  return { ok: true, text: done ? done.text : '', detail: done ? done.detail || '' : '', pages: pages.length };
 }

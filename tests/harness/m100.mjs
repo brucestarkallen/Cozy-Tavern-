@@ -965,7 +965,7 @@ test('M210: Rebuild always starts from the first page, and retries live inside o
     'a stop stops the queue and nothing else');
   assert(!/rebuildStalled/.test(chat), 'there is no mark left for it to clear');
   const wired = (chat.match(/if \(s\) stoppedByHand\(s\);/g) || []).length;
-  eq(wired, 8, 'all eight actions stop this way (' + wired + ')');
+  eq(wired, 9, 'every action stops this way — eight, plus M216’s per-line redo (' + wired + ')');
 
   /* the banner never claims a success that failed (M205's half that still holds) */
   assert(/const outcome = promise \? await promise : null;/.test(chat), 'the banner reads the queue’s own result');
@@ -1058,8 +1058,8 @@ test('M212: the prompt the keeper is sent carries every ported block', async () 
 test('M213: every keeper call renews, and a long rebuild runs to the end', async () => {
   const mem = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
   /* every call in the file renews before it goes */
-  eq((mem.match(/typeof renew === 'function'/g) || []).length, 6,
-    'the fold, the audit, its two re-asks, the overflow rewrite and the promotion all renew');
+  eq((mem.match(/typeof renew === 'function'/g) || []).length, 7,
+    'the fold, the audit, its two re-asks, the overflow rewrite, the promotion and M216’s per-line redo all renew');
   assert(/async function audit\(connection, storyId, node, sourceText, signal, knownNames = \[\], renew\)/.test(mem),
     'the audit is given the renew');
   assert(/await audit\(connection, storyId, node, passage, signal, await knownNamesOf\(storyId\), renew\);/.test(mem),
@@ -1164,4 +1164,74 @@ test('M215: a wire that falls over mid-rebuild is a stumble, and the ladder is p
   eq(Boolean(r && r.stalled), false, 'and came back from it');
   eq(seen[seen.length - 1], '6/6', 'finishing every batch: ' + seen.join(' '));
   eq(r.lines, 6, 'six lines written');
+});
+
+/* M216: two things Summaryception has had for years and this house never did,
+ * both named by the writer:
+ *  - THE DETAIL WAS INVISIBLE TO EVERY WORKER BUT THE STORYTELLER. Only
+ *    renderMemory carried it. So the keeper writing the NEXT line could not
+ *    see that the line before it had been CORRECTED and would write the wrong
+ *    fact again; the auditor checking the ledger could not see it; nor the
+ *    mender; nor the housekeeper. The one place a correction and a battle
+ *    plan live was hidden from everyone who needed them.
+ *  - ONE BAD LINE MEANT REBUILDING THE WHOLE RECORD. Summaryception redoes a
+ *    single snippet, and its detail, in place. */
+test('M216: every reader sees the detail, and one line can be folded again alone', async () => {
+  const { recordFor, wholeRecord, renderMemory, redoLine, saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { db } = await import('../../js/store.js');
+
+  const mem = { window: 20, nodes: [{ id: 'n1', span: [0, 5], level: 1, at: 1,
+    text: '[Sept 1] Jovan arrived', detail: 'the plan is to burn the north wood and bait the convoy with the gold' }] };
+  for (const [who, out] of [['the storyteller', renderMemory(mem)], ['the keeper', recordFor(mem)], ['the auditor, mender and housekeeper', wholeRecord(mem)]]) {
+    assert(out.includes('burn the north wood'), who + ' sees the detail');
+    assert(out.includes('Detail worth keeping'), who + ' sees it labelled');
+  }
+
+  /* one line, again */
+  const st = await db.stories.create({ title: 'a record with one bad line' });
+  for (let i = 0; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 20);
+  await saveMemory(st.id, { window: 20, nodes: [
+    { id: 'a', span: [0, 5], level: 1, at: 1, text: 'LINE ONE, which came out wrong', detail: 'also named: nonsense, junk' },
+    { id: 'b', span: [6, 11], level: 1, at: 1, text: 'LINE TWO, which is fine' },
+    { id: 'p', span: [0, 11], level: 2, at: 1, text: 'a promoted line' },
+  ] });
+
+  const real = globalThis.fetch;
+  let call = 0;
+  globalThis.fetch = async () => {
+    call += 1;
+    const body = call === 1 ? '[Sept 1] Jovan did the thing properly this time; Rias answered him' : 'NONE';
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: body } }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  const conn = { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' };
+  let r = null;
+  let promoted = null;
+  let gone = null;
+  try {
+    r = await redoLine({ connection: conn, storyId: st.id, nodeId: 'a' });
+    promoted = await redoLine({ connection: conn, storyId: st.id, nodeId: 'p' });
+    gone = await redoLine({ connection: conn, storyId: st.id, nodeId: 'zz' });
+  } finally { globalThis.fetch = real; }
+
+  eq(r.ok, true, 'the line was folded again');
+  const after = await loadMemory(st.id);
+  const a = after.nodes.find((n) => n.id === 'a');
+  assert(/did the thing properly/.test(a.text), 'with new words: ' + a.text);
+  assert(!a.detail, 'and its nonsense detail cleared — the old detail described the old line');
+  eq(after.nodes.find((n) => n.id === 'b').text, 'LINE TWO, which is fine', 'every other line is untouched');
+
+  eq(promoted.ok, false, 'a promoted line is refused');
+  assert(/no pages of its own/.test(promoted.why), promoted.why);
+  eq(gone.ok, false, 'and a line that has gone is refused');
+
+  /* and the writer can reach it */
+  const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
+  assert(/Read these pages again/.test(drawer), 'the line carries its own button');
+  assert(/n\.detail \? 'Detail again' : 'Add a detail'/.test(drawer), 'and one for its detail');
+  assert(/if \(n\.level === 1 && Array\.isArray\(n\.span\) && n\.span\[0\] >= 0 && !n\.correction\)/.test(drawer),
+    'offered only on a line that has pages of its own');
 });

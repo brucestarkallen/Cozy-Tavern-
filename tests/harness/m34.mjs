@@ -50,7 +50,10 @@ test('M34-4 the record rides whole, oldest to newest, under its header; over bud
   const out = renderMemory(mem);
   assert(out.startsWith(RECORD_HEADER + '\n- first\n  • Detail worth keeping: forty crowns\n- second\n- third'), out);
   assert(!/\n- \n/.test(out), 'an empty node says nothing');
-  eq(recordFor(mem), 'first\nsecond\nthird');
+  /* M216: the detail rides with its line for EVERY reader now, not only the
+   * storyteller's copy — the keeper writing the next line has to see that
+   * this one was corrected, or it writes the wrong fact again. */
+  eq(recordFor(mem), '- first\n  • Detail worth keeping: forty crowns\n- second\n- third');
   const big = { window: 30, nodes: Array.from({ length: 200 }, (_, i) => ({ id: 'n' + i, span: [i * 6, i * 6 + 5], text: 'line ' + i + ' ' + 'x'.repeat(220), level: 1, at: i })) };
   const trimmed = renderMemory(big);
   assert(trimmed.length <= SLOT_BUDGET + 200 && /earlier lines rest beyond the budget/.test(trimmed), 'trimmed with a word');

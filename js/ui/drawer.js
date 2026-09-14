@@ -1895,6 +1895,26 @@ function recordPanel(ctx) {
       }
       const row = document.createElement('div');
       row.className = 'row';
+      /* M216: ONE LINE, AGAIN — Summaryception's per-snippet redo, which this
+       * house never had. A single line that came out wrong meant rebuilding
+       * the WHOLE record and throwing away every other line that was fine. */
+      if (n.level === 1 && Array.isArray(n.span) && n.span[0] >= 0 && !n.correction) {
+        const again = document.createElement('button');
+        again.type = 'button'; again.className = 'text-btn'; again.textContent = 'Read these pages again';
+        again.title = 'The keeper folds just this line’s own pages again. Every other line is left alone.';
+        again.addEventListener('click', async () => {
+          if (ctx.chat && typeof ctx.chat.redoRecordLine === 'function') await ctx.chat.redoRecordLine(n.id, false);
+        });
+        row.appendChild(again);
+        const dAgain = document.createElement('button');
+        dAgain.type = 'button'; dAgain.className = 'text-btn';
+        dAgain.textContent = n.detail ? 'Detail again' : 'Add a detail';
+        dAgain.title = 'The audit reads this line against its pages again and writes what it left out.';
+        dAgain.addEventListener('click', async () => {
+          if (ctx.chat && typeof ctx.chat.redoRecordLine === 'function') await ctx.chat.redoRecordLine(n.id, true);
+        });
+        row.appendChild(dAgain);
+      }
       const edit = document.createElement('button');
       edit.type = 'button'; edit.className = 'text-btn'; edit.textContent = 'Rewrite';
       edit.addEventListener('click', async () => {

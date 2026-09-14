@@ -4584,3 +4584,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - PROVEN: the wire taken down for four calls in the middle of a run — three retries used, and the
   rebuild came back and finished 6 of 6.
 - 460/460 harness + 37/37 walk + 8/8 play. version.js -> m215-001.
+
+# M216 — two things Summaryception has had for years, read from its code
+- THE DETAIL WAS INVISIBLE TO EVERY WORKER BUT THE STORYTELLER. Only renderMemory carried it;
+  recordFor and wholeRecord both stripped it with .map(n => n.text). So the KEEPER writing the next
+  line could not see that the line before it had been CORRECTED — and would write the wrong fact
+  again; the AUDITOR checking the ledger against the record could not see it; nor the MENDER; nor
+  the HOUSEKEEPER. The one place a correction, a battle plan or a first appearance lives was
+  hidden from everyone who needed it. Both now render lines with lineWords, exactly as the
+  storyteller's copy does, and both still trim from the oldest when over budget.
+- ONE BAD LINE MEANT REBUILDING THE WHOLE RECORD. Summaryception redoes a single snippet in place
+  (sc-snippet-redo) and its detail separately (sc-detail-redo); this house had neither, so a
+  single line that came out wrong cost minutes and threw away every other line that was fine.
+  redoLine() folds that line's own pages again — with only the lines BEFORE it as prior context,
+  never the ones after — clears the detail that described the old words, and re-runs the audit.
+  detailOnly re-runs just the audit, for a line that is right with a detail that is not. A
+  promoted line is refused (it has no pages of its own), exactly as Summaryception refuses one.
+  Two buttons on every layer-1 line in the ledger: "Read these pages again" and "Detail again".
+- STILL OWED from the writer's list, read from Summaryception's code and not yet built here:
+  a "Force summarize now" with its three guards (not enabled / a pass is finishing / nothing is
+  past the verbatim window), and an automatic catch-up after a stop.
+- 461/461 harness + 37/37 walk + 8/8 play + wipe + contrast. version.js -> m216-001.

@@ -53,7 +53,7 @@ import { enqueueWork, stopWork, queuedCount } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection } from '../agents/memory.js';
+import { maybeSummarize, redoLine, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
@@ -1608,6 +1608,26 @@ export function initChat(ctx) {
   }
 
   /* M52: the gradual rebuilds — six pages at a time from turn 0, Summaryception's way. */
+  /* M216: one record line, folded again from its own pages — never the whole
+   * record. Summaryception has had this per snippet for years. */
+  async function redoRecordLine(nodeId, detailOnly) {
+    const banner = beginWork(detailOnly ? 'Reading the detail again' : 'Reading these pages again',
+      () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped'); });
+    const story = await activeStory();
+    if (!story) { banner.failed('Open a story first'); return false; }
+    const connection = await resolveWorkerConnection(story, 'keeper');
+    if (!connection) { banner.failed('The keeper needs a connection first'); return false; }
+    const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, renew }) => {
+      const r = await redoLine({ connection, storyId: story.id, nodeId, detailOnly, signal, renew });
+      if (!r || !r.ok) { banner.failed(r && r.why ? r.why : 'the keeper gave nothing back'); return { silent: true }; }
+      banner.done(detailOnly ? 'The detail was written again' : 'That line was folded again');
+      if (ctx.drawer && typeof ctx.drawer.onStoriesChanged === 'function') ctx.drawer.onStoriesChanged();
+      return { silent: false, detail: detailOnly ? 'read one line’s detail again' : 'folded one line again' };
+    } });
+    noteWork(story.id, promise);
+    return true;
+  }
+
   async function rebuildRecordNow() {
     const banner = beginWork('Rebuilding the record', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
@@ -4575,6 +4595,7 @@ export function initChat(ctx) {
     resumeUnfinishedChain,
     foundNow,
     rebuildStandingsNow,
+    redoRecordLine,
     rebuildRecordNow,
     rebuildPeopleNow,
     restoreRecordNow,
