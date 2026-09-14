@@ -4663,3 +4663,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   could not find the button that had been built for him. Named "Summarize now", with the title
   naming Summaryception's own "Force Summarize Now" so the connection is plain.
 - 463/463 harness + 37/37 walk + 8/8 play + contrast. version.js -> m220-001.
+
+# M221 — a turn spent entirely on fetching
+- THE WRITER PRESSED THE HOUSEKEEPER AND GOT BACK, WHOLE, 51 CHARACTERS:
+  <fetch>["#rbrq3w1", "#r86y302", "#r87g7v3"] — and no cards at all. When the fetch rounds run out
+  and the answer is STILL nothing but a <fetch>, that raw block was handed back as the reply: a
+  whole turn spent asking to read things, with nothing done, and the writer looking at protocol.
+  It is served what it asked for and told once, plainly, that there is no more fetching this turn
+  and it must answer now. The exhausted case is checked BEFORE the ordinary one, or it could never
+  run at all.
+- AND THE ANSWER TO THE WRITER'S OTHER QUESTION: yes, the housekeeper reads a record line's DETAIL,
+  both in the record it is handed (M216 put the detail into wholeRecord, which is what it is given)
+  and in any line it fetches by handle — serveFetch appends "• Detail worth keeping: …" to the
+  line's own text.
+- FOR THE RECORD: the AUDITOR has no notion of fetch at all — the word appears nowhere in
+  auditor.js. An "audit" that comes back as <fetch> is a housekeeper turn, not an audit.
+- 464/464 harness + 37/37 walk + 8/8 play. version.js -> m221-001.

@@ -1371,3 +1371,31 @@ test('M219: the catch-up counts only what is due, and its bar never overruns', a
   eq(past.ok, true, 'a line running past the end folds from what remains');
   eq(past.pages, 4, 'the four pages that are really there');
 });
+
+/* M221: the writer pressed the housekeeper and got back, whole, 51 characters:
+ *   <fetch>["#rbrq3w1", "#r86y302", "#r87g7v3"]
+ * and no cards at all. When the fetch rounds run out and the answer is STILL
+ * nothing but a <fetch>, that raw block was handed back as the reply — a turn
+ * spent entirely on asking to read things, with nothing done. */
+test('M221: a turn is never spent entirely on fetching, and a fetched record line carries its detail', () => {
+  const hk = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+
+  assert(/if \(parsed\.fetch\.length && round >= MAX_FETCH_ROUNDS && !toldNoMoreFetching\) \{/.test(hk),
+    'rounds exhausted with a fetch still on the wire is caught');
+  assert(/That is everything you may fetch this turn\. Answer now with the blocks the writer asked for — no more <fetch>\./.test(hk),
+    'and it is told so, plainly, once');
+  assert(/let toldNoMoreFetching = false;/.test(hk), 'told once, never in a loop');
+  assert(hk.indexOf('round >= MAX_FETCH_ROUNDS') < hk.indexOf('round < MAX_FETCH_ROUNDS'),
+    'the exhausted case is checked BEFORE the ordinary one, or it could never run');
+
+  /* a fetched record line comes back with its detail — the housekeeper can
+   * read what the audit wrote beneath a line, not only the line */
+  assert(/nd\.detail \? '\\n• Detail worth keeping: ' \+ nd\.detail : ''/.test(hk),
+    'a fetched record line carries its detail');
+
+  /* and the auditor has nothing to do with fetch — that vocabulary is the
+   * housekeeper's alone, which is why an "audit" that returns <fetch> is a
+   * housekeeper turn, not an audit */
+  const aud = readFileSync(new URL('../../js/agents/auditor.js', import.meta.url), 'utf8');
+  assert(!/fetch/.test(aud), 'the auditor neither asks for nor answers a fetch');
+});

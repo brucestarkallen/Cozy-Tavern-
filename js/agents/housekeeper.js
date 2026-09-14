@@ -2579,6 +2579,7 @@ export async function runConversation({
     const thoughts = [];
     let fetchedBlind = false;
     let toldMalformed = false;
+  let toldNoMoreFetching = false;
     /* Session history rides after the served context — newest first is NOT
      * wanted here; the talk reads in order, capped. */
     /* M81: THE MODEL SEES ITS OWN TURNS AS THEY WERE (Chat Assistant's history):
@@ -2627,6 +2628,22 @@ export async function runConversation({
         pot = pot * 2;
         wire.push({ role: 'assistant', content: raw });
         wire.push({ role: 'user', content: '[CUT SHORT] Your answer ran out of room inside a block, so that block was lost. Re-send the whole answer with every block FIRST and fewer words after; the cards are the work.' });
+        continue;
+      }
+      /* M221: A TURN SPENT ENTIRELY ON FETCHING IS A TURN WASTED. When the
+       * rounds run out and the answer is STILL nothing but a <fetch>, the
+       * housekeeper handed that raw block back as its reply — the writer
+       * asked it to do something and got '<fetch>["#rbrq3w1", "#r86y302",
+       * "#r87g7v3"]' and no cards at all. It is told once, plainly, that it
+       * has what it asked for and must answer now. */
+      if (parsed.fetch.length && round >= MAX_FETCH_ROUNDS && !toldNoMoreFetching) {
+        toldNoMoreFetching = true;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({
+          role: 'user',
+          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory })
+            + '\n\nThat is everything you may fetch this turn. Answer now with the blocks the writer asked for — no more <fetch>.',
+        });
         continue;
       }
       if (parsed.fetch.length && round < MAX_FETCH_ROUNDS) {
