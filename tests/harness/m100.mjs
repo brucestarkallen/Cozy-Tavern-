@@ -1654,3 +1654,32 @@ test('M229: the detail knows what is already established, and never records pres
   eq((src.match(/buildAuditMessages\(sourceText,[\s\S]{0,120}?priorRecord\)/g) || []).length, 3,
     'the first ask and both re-asks all carry it');
 });
+
+/* M230: the writer, on the LATEST coat, still had "also named: Chloe, Caleb
+ * Thorne, Wells" in his record — and I told him it was old. It was not. M208
+ * took the token dump out of the loss path and LEFT THE ONE M196 had written
+ * in the overflow path. Two sites, one fixed, and I checked neither when he
+ * said it was still happening. */
+test('M230: there is no place left that writes a bare list as a detail', async () => {
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  /* code only — the comments quote the old dumps while explaining them */
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  eq((code.match(/'also named: ' \+/g) || []).length, 0, 'no site builds an "also named" list');
+  eq((code.match(/'figures: ' \+/g) || []).length, 0, 'nor a "figures" list');
+  assert(/detail = '';/.test(code), 'the overflow path writes nothing rather than a list');
+
+  /* and the guard that catches one arriving from the model still stands */
+  const { looksLikeTokenDump } = await import('../../js/agents/memory.js');
+  eq(looksLikeTokenDump('also named: Chloe, Caleb Thorne, Wells'), true, 'the writer’s own line is refused');
+  eq(looksLikeTokenDump('Vanessa holds the only photo of the pier fire, and means to trade it'), false,
+    'while a phrase that says what and why is kept');
+
+  /* the detail must read as something a person can use beside the line */
+  const { buildAuditMessages } = await import('../../js/agents/memory.js');
+  const m = buildAuditMessages('pages', 'line', '- prior');
+  assert(/WRITE IT SO IT READS BESIDE THE LINE/.test(m.system), 'it is told where the detail is read');
+  assert(/say WHAT the thing is and WHY it matters here/.test(m.system), 'and what each phrase must carry');
+  assert(/never a[\s\S]{0,12}bare noun, never a label with a colon, never a list of names/.test(m.system),
+    'and what it must not be');
+  assert(/would puzzle someone who had just read the line above it/.test(m.system), 'with the test to apply');
+});

@@ -4805,3 +4805,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The "also named: Chloe, Caleb Thorne, Wells" in the writer's record is OLD — written before M208
   removed that token dump. Rebuilding or redoing those lines clears them.
 - 472/472 harness + 37/37 walk + 8/8 play. version.js -> m229-001.
+
+# M230 — the token dump had TWO homes and M208 closed one
+- THE WRITER, ON THE LATEST COAT, STILL HAD "also named: Chloe, Caleb Thorne, Wells" IN HIS
+  RECORD — and I told him it was old and to fold the line again. It was not old. M208 took the
+  dump out of the LOSS path and left the one M196 had written in the OVERFLOW path
+  (`detail = 'also named: ' + after.missingNames…`). Two sites, one fixed, and when he said it was
+  still happening I explained it away instead of grepping for the string he had literally pasted
+  in front of me. There is no place left that writes a bare list: the overflow path writes nothing,
+  because the rewritten line already holds what those names were doing, and if it does not,
+  nothing beats nonsense.
+- AND THE DETAIL MUST READ BESIDE THE LINE. The writer: "the wording of detail is also confusing
+  it should be understandable what information on the detail is and connection with main summary
+  snippet". Every phrase must now say WHAT the thing is and WHY it matters here — "Vanessa holds
+  the only photo of the pier fire, and means to trade it" — never a bare noun, never a label with
+  a colon, never a list of names. The test given to the model: if a phrase would puzzle someone
+  who had just read the line above it, it is the wrong phrase.
+- 473/473 harness + 37/37 walk + 8/8 play. version.js -> m230-001.

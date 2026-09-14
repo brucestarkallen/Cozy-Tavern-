@@ -346,6 +346,14 @@ const AUDIT_SYSTEM = [
   'belong there instead. Both must appear exactly: the wrong words in the',
   'line, the right ones in the pages.',
   '',
+  'WRITE IT SO IT READS BESIDE THE LINE. The detail sits directly under the',
+  'record line and is read with it, by a storyteller in the middle of a scene.',
+  'Each phrase must say WHAT the thing is and WHY it matters here — "Vanessa',
+  'holds the only photo of the pier fire, and means to trade it" — never a',
+  'bare noun, never a label with a colon, never a list of names. If a phrase',
+  'would puzzle someone who had just read the line above it, it is the wrong',
+  'phrase. Nothing in it should need the pages to make sense.',
+  '',
   'NEVER WRITE WHAT IS ALREADY ESTABLISHED. If a fact stands in the record',
   'above this line — a full name, a kinship, a place, an age — it is SETTLED.',
   'Writing it again is not detail, it is noise the storyteller reads every',
@@ -890,7 +898,14 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
           lineText = rewritten;
           repaired.used.push({ from: '(the line)', to: '(rewritten to hold what it had left out)' });
           const after = lossCheck(sourceText, lineText, '', knownNames);
-          detail = after.missingNames.length ? 'also named: ' + after.missingNames.slice(0, 8).join(', ') : '';
+          /* M230: NOT HERE EITHER. M208 took the token dump out of the loss
+           * path and left this one, written at M196 — so a line whose
+           * addendum overflowed still ended with "also named: Chloe, Caleb
+           * Thorne, Wells" pasted under it, on the latest coat, exactly as
+           * the writer reported. There is no second place to write a bare
+           * list; the rewritten line already holds what those names were
+           * doing, and if it does not, nothing is better than nonsense. */
+          detail = '';
         }
       } catch (err) { /* the trim below is still the backstop */ }
     }
