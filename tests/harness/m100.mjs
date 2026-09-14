@@ -1311,7 +1311,7 @@ test('M218: the catch-up fills the gaps, never wipes, and refuses when it should
   assert(/The keeper needs a connection first/.test(body), 'and a missing connection is named too');
 
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
-  assert(/Fold what is due now/.test(drawer), 'the writer can reach it in the ledger');
+  assert(/Summarize now/.test(drawer), 'the writer can reach it in the ledger, under the name he calls it');
 });
 
 /* M219: the catch-up's total counted EVERY covered page, including lines that

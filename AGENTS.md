@@ -4656,3 +4656,10 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   exactly its own pages. catchUpRecord fills a hole in the middle correctly and never wipes.
 - 463/463 harness + 37/37 walk + 8/8 play, each alone + wipe + two-browser + append + guard +
   contrast + coat + the anchor differential (484/484) + no lint errors. version.js -> m219-001.
+
+# M220 — a control nobody can find is a control that does not exist
+- The catch-up was called "Fold what is due now" — this house's own phrasing. The writer went
+  looking for "summarize now", which is what Summaryception calls it and what is in his head. He
+  could not find the button that had been built for him. Named "Summarize now", with the title
+  naming Summaryception's own "Force Summarize Now" so the connection is plain.
+- 463/463 harness + 37/37 walk + 8/8 play + contrast. version.js -> m220-001.

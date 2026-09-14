@@ -1728,8 +1728,12 @@ function workersPanel(ctx) {
   const catchUp = document.createElement('button');
   catchUp.type = 'button';
   catchUp.className = 'text-btn';
-  catchUp.textContent = 'Fold what is due now';
-  catchUp.title = 'The keeper folds every page that has left the word-for-word window and has no line yet. Nothing already written is touched.';
+  /* M220: named what the writer calls it. "Fold what is due now" is this
+   * house's own phrasing and he went looking for "summarize now" — the name
+   * Summaryception uses and the name in his own head. A control nobody can
+   * find is a control that does not exist. */
+  catchUp.textContent = 'Summarize now';
+  catchUp.title = 'Summaryception\u2019s "Force Summarize Now": the keeper folds every page that has left the word-for-word window and has no record line yet. Nothing already written is touched.';
   catchUp.addEventListener('click', async () => {
     if (ctx.chat && typeof ctx.chat.summarizeNow === 'function') await ctx.chat.summarizeNow();
   });
