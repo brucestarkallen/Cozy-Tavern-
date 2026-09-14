@@ -863,6 +863,14 @@ export function initChat(ctx) {
   async function openStory(id) {
     ctx.setActiveStoryId(id);
     renderStoryList();
+    /* M189: a tale whose pages are not here yet fetches them now. The shelf
+     * arrives with the house book (a few kilobytes); the pages of a tale come
+     * when the reader opens it, so a browser holds what it is actually read
+     * in and not a copy of everything. */
+    const known = await db.stories.get(id);
+    if (known && known.shallow && ctx.booksStatus && typeof ctx.booksStatus.fetchStory === 'function') {
+      try { await ctx.booksStatus.fetchStory(id); } catch (err) { /* the boot pull is still the backstop */ }
+    }
     await renderThread({ structural: true });
     closePanel();
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
@@ -4426,6 +4434,7 @@ export function initChat(ctx) {
   loadRules().catch(() => {});
 
   ctx.chat = {
+    openStory, /* M189: so a fetch-on-open can be exercised by a test */
     isBusy: () => Boolean(busy),
     isReplaying,
     repairTimeline,

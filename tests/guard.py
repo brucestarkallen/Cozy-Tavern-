@@ -96,6 +96,30 @@ try:
         page.wait_for_timeout(1500)
         titles = page.evaluate("async () => (await window.__cozy.db.stories.list()).map(s => s.title)")
         check('a genuinely new empty tale is not blocked', 'A tale not yet begun' in titles, str(titles))
+
+        # M189: a SECOND browser must learn the shelf without copying it
+        ctx2 = browser.new_context()
+        b2 = boot(ctx2)
+        b2.wait_for_timeout(2500)
+        shelf = b2.evaluate("async () => (await window.__cozy.db.stories.list()).map(s => ({ t: s.title, shallow: !!s.shallow }))")
+        check('the second browser knows the whole shelf', len(shelf) == 2, str(shelf))
+        check('but holds no pages for a tale it has not opened',
+              b2.evaluate("""async () => { const st = (await window.__cozy.db.stories.list()).find(s => s.title === 'Ravenwood'); return (await window.__cozy.db.messages.list(st.id)).length; }""") == 0,
+              'pages before opening')
+        check('and the tale is marked as not yet fetched',
+              any(x['t'] == 'Ravenwood' and x['shallow'] for x in shelf), str(shelf))
+
+        # opening it fetches the pages
+        b2.evaluate("""async () => {
+          const st = (await window.__cozy.db.stories.list()).find(s => s.title === 'Ravenwood');
+          await window.__cozy.chat.openStory(st.id);
+        }""")
+        b2.wait_for_timeout(2500)
+        after_open = b2.evaluate("""async () => { const st = (await window.__cozy.db.stories.list()).find(s => s.title === 'Ravenwood'); return { pages: (await window.__cozy.db.messages.list(st.id)).length, shallow: !!st.shallow }; }""")
+        check('opening the tale fetches its pages', after_open['pages'] == 40, str(after_open))
+        check('and it is no longer marked unfetched', after_open['shallow'] is False, str(after_open))
+        check('the device still holds forty pages', device_pages(sid) == 40, str(device_pages(sid)))
+        ctx2.close()
         browser.close()
 finally:
     srv.terminate()

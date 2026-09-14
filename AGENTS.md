@@ -4113,3 +4113,26 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - tests/guard.py holds it, against the real serve.py in a real browser.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + wipe + two-browser + append + guard.
   version.js -> m188-001.
+
+# M189 — a browser holds the tales it is read in, not a copy of everything
+- OPENING A BROWSER COPIED THE WHOLE SHELF INTO IT. Boot pulled every book, so a second browser
+  opened once held a full duplicate of every tale — at ten thousand tales, gigabytes per browser,
+  and a browser is not where a story lives. THE HOUSE BOOK ALREADY CARRIED THE SHELF and it was
+  being thrown away: exportHouse has always written the story list (id, title, when it was made,
+  which shelf it sits on), and importHouse even named the `stories` store in its transaction
+  scope, but never wrote a single row to it. That is why every browser had to fetch every book
+  just to learn what was on the shelf.
+- Now: boot pulls the HOUSE book (a few kilobytes) plus any tale this browser already holds, so
+  nothing it has goes stale. A tale from the house list is marked `shallow` — the shelf knows it,
+  the pages are not here. openStory fetches those pages the first time the reader opens the tale,
+  and the mark is cleared. M188's guard is what makes this safe: a shallow tale can never push
+  over the device's copy, so a story row with no pages under it cannot empty a book.
+- tests/guard.py holds the whole shape: a second browser knows the whole shelf, holds NO pages for
+  a tale it has not opened, fetches them on opening, and the device still holds its forty pages.
+  tests/wipe.py now opens each tale after the wipe, as a reader would, and finds every page.
+- AND A MISTAKE MADE ALONG THE WAY, for the record: the planting block first landed in
+  importStory, where it does not belong, referencing a variable that does not exist there. Lint
+  caught it. Two functions in this file build a transaction the same way; a patch matched the
+  wrong one.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + wipe + two-browser + append + guard.
+  version.js -> m189-001.

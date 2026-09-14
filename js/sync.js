@@ -233,6 +233,13 @@ export async function initSync(ctx) {
     return r;
   };
   /* on demand: push every tale now (a first save of a browser's whole shelf) */
+  /* M189: fetch one tale's pages, on demand, when the reader opens it. */
+  status.fetchStory = async (id) => {
+    if (!id) return false;
+    const answer = await ask({ kind: 'pullOne', id, expect: 'pulledOne' });
+    if (answer && answer.pulled) dropCaches();
+    return Boolean(answer && answer.pulled);
+  };
   status.pushAll = async () => {
     for (const id of knownIds) dirty.add(id);
     dirty.add('_house');

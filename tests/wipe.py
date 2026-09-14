@@ -23,6 +23,12 @@ LAST_PAGE = '''async () => {
   await db.messages.append(st.id, { role: 'assistant', text: 'the very last page, written a heartbeat before the wipe' });
 }'''
 
+OPEN_ALL = '''async () => {
+  for (const st of await window.__cozy.db.stories.list()) {
+    await window.__cozy.chat.openStory(st.id);
+  }
+}'''
+
 fails = []
 
 
@@ -116,6 +122,14 @@ try:
 
         page2 = boot(ctx2)
         page2.wait_for_timeout(2500)
+
+        # M189: the shelf comes back at once; a tale's PAGES come when it is
+        # opened, so a browser holds what it is read in, not a copy of
+        # everything. Open every tale, as a reader would.
+        titles_back = page2.evaluate("async () => (await window.__cozy.db.stories.list()).map(s => s.title)")
+        check('the whole shelf comes back at once', sorted(titles_back) == sorted(before), str(sorted(titles_back)))
+        page2.evaluate(OPEN_ALL)
+        page2.wait_for_timeout(3500)
         after = shelf(page2)
 
         check('every story came back', sorted(after) == sorted(before), str(sorted(after)))

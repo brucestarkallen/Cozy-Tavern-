@@ -730,12 +730,30 @@ async function importHouse(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || data.kind !== 'house') throw new Error('not the house book');
   const d = await openDB();
+  /* M189: which tales this browser already holds, read BEFORE the write —
+   * a get-then-put nested inside the transaction never landed. */
+  const held = new Set((await run('stories', 'readonly', (s) => s.getAllKeys())) || []);
   await new Promise((resolve, reject) => {
     const t = d.transaction(['connections', 'settings', 'stories'], 'readwrite');
     const cs = t.objectStore('connections');
     for (const c of (data.connections || [])) cs.put(c);
     const ss = t.objectStore('settings');
     for (const r of (data.settings || [])) if (r && typeof r.key === 'string') ss.put(r);
+    /* M189: THE HOUSE BOOK CARRIES THE SHELF, AND IT WAS BEING THROWN AWAY.
+     * exportHouse has always written the story list — id, title, when it was
+     * made, which shelf it sits on — and the `stories` store was even named
+     * in this transaction's scope, but nothing was ever written to it. Every
+     * browser therefore had to pull EVERY TALE'S BOOK just to know what was
+     * on the shelf. With the list applied here a browser knows the shelf from
+     * a few kilobytes and fetches a tale's pages when the reader opens it.
+     * A row that arrives this way is marked `shallow` — its pages are not
+     * here yet, and M188's guard will not let it push over the device's copy.
+     * A tale this browser already holds is left exactly as it stands. */
+    const sts = t.objectStore('stories');
+    for (const row of (data.stories || [])) {
+      if (!row || typeof row.id !== 'string' || held.has(row.id)) continue;
+      sts.put({ ...row, shallow: true });
+    }
     t.oncomplete = () => resolve(); t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
   });
   dropCaches();

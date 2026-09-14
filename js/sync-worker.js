@@ -172,7 +172,9 @@ self.onmessage = async (e) => {
         const st = (await db.stories.list()).find((x) => x && x.id === msg.id);
         if (st) { await db.stories.remove(msg.id); await db.settings.delete('bookStamp:' + msg.id); self.postMessage({ kind: 'pulledOne', pulled: 1, gone: true }); return; }
       }
-      const pulled = want.length ? await pullBooks(want) : 0;
+      const pulled = want.length ? await pullBooks(want, { all: true }) : 0;
+      /* M189: its pages are here now — it may be pushed like any other */
+      if (pulled) { const st = await db.stories.get(msg.id); if (st && st.shallow) await db.stories.update(msg.id, { shallow: false }); }
       self.postMessage({ kind: 'pulledOne', pulled });
       return;
     }
@@ -181,7 +183,16 @@ self.onmessage = async (e) => {
       if (typeof msg.clientId === 'string' && msg.clientId) CLIENT_ID = msg.clientId;
       const books = await manifest();
       if (!books) { self.postMessage({ kind: 'boot', reachable: false, status: lastManifestStatus }); return; }
-      const pulled = await pullBooks(books);
+      /* M189: THE SHELF, NOT EVERY TALE. Boot pulled every book, so opening a
+       * browser copied the writer's whole shelf into it — at ten thousand
+       * tales that is gigabytes per browser, and a browser is not where a
+       * story lives. The house book carries the shelf (titles, order, the
+       * connections, the settings) in a few kilobytes; a tale's pages come
+       * when the reader opens it. Tales this browser ALREADY holds are still
+       * kept up to date at boot, so nothing it has can go stale. */
+      const known = new Set((await db.stories.list()).filter((x) => x && !x.shallow).map((x) => x.id));
+      const wanted = books.filter((b) => b && (b.id === HOUSE || known.has(b.id)));
+      const pulled = await pullBooks(wanted);
       /* M160: a tale the device has buried is let go here too — before this,
        * boot saw the book missing from the manifest and PUSHED the local copy
        * back up, so a tale deleted in one browser was resurrected by the next
