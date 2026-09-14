@@ -58,6 +58,17 @@ const SYSTEM_PROMPT = [
   '           the page left genuinely open.',
   '  unthread — a loose end that closed, worded as it was written before.',
   '',
+  'CLOSE WHAT THE PAGE ANSWERED (M227). Before you write anything, read the',
+  'loose ends already open on each person above and ask of EVERY one: did this',
+  'page answer it? A question asked and then answered, an introduction promised',
+  'and then made, a photo hunted and then found, a name waited for and then',
+  'spoken — close it with unthread, worded as it stands in the ledger. Loose',
+  'ends do not expire on their own: one left open is carried to the storyteller',
+  'for the rest of the tale as something still hanging, and a page that answers',
+  'it is the ONLY thing that closes it. Closing what the page answered matters',
+  'as much as opening what it left open — a ledger full of finished business is',
+  'a ledger that lies.',
+  '',
   'CHARACTER GRAVITY (M54 — the writer’s own law, for every page you keep):',
   '  - STACK: new feelings ADD to old — humiliation + intrigue + fury coexist; cruel + fascinated',
   '    is MORE dangerous, never nicer. A page that replaces a feeling with its opposite is drift.',
@@ -96,7 +107,17 @@ const SYSTEM_PROMPT = [
 
 /* Exported for the harness: the two messages any provider flavor receives. */
 export function buildScribeMessages({ state, userText, assistantText }) {
-  const ledger = renderPeopleTiers(state, { recentPages: [] });
+  /* M227: THE SCRIBE COULD NOT SEE THE LOOSE ENDS IT WAS MEANT TO CLOSE.
+   * renderPeopleTiers only gives a full page — Loose ends included — to
+   * people on scene, and recalls an OFF-scene person only when these pages
+   * name them. This passed an EMPTY page list, so nobody off scene was ever
+   * recalled and their open loose ends were invisible. Every thread on
+   * anyone not currently in the room therefore stayed open FOREVER, however
+   * plainly the page answered it — Alexia's unfinished self-introduction,
+   * Aurora's answered question, Ms June's, Vanessa's hunted photo, all of
+   * them piling up for the housekeeper to find. The pages of this very turn
+   * are what it is reading; they are what decides who is recalled. */
+  const ledger = renderPeopleTiers(state, { recentPages: [String(userText || ''), String(assistantText || '')] });
   const user = [
     'Here is what the character pages currently say:',
     ledger && ledger.text ? ledger.text : 'Nothing is written on the character pages yet.',

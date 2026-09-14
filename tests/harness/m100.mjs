@@ -1551,3 +1551,39 @@ test('M226: the extractor is given the story before the pages it can see', async
   assert(/const oldest = Math\.max\(0, prior\.length - before\.length\);/.test(chat), 'measured from the pages it is already shown');
   assert(/record: foldedBefore,/.test(chat), 'and handed over');
 });
+
+/* M227: the housekeeper kept finding finished business still open — Alexia's
+ * completed self-introduction, Aurora's answered question, Ms June's, a photo
+ * already found. All of them on people who were OFF SCENE.
+ * renderPeopleTiers gives a full page — Loose ends included — to people on
+ * scene, and recalls an off-scene person only when the recent pages name
+ * them. The scribe passed an EMPTY page list. So nobody off scene was ever
+ * recalled, their open loose ends were invisible to the one worker that can
+ * close them, and every thread on anyone not in the room stayed open FOREVER,
+ * however plainly the page answered it. */
+test('M227: the scribe sees the loose ends it is meant to close', async () => {
+  const { buildScribeMessages } = await import('../../js/agents/scribe.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+
+  const st = emptyState();
+  st.characters = { Alexia: { core: 'a neighbour', state: '', arc: '',
+    threads: ['she has not finished her self-introduction'], updatedAtTurn: 1 } };
+
+  const named = buildScribeMessages({ state: st, userText: 'x',
+    assistantText: 'Alexia finished introducing herself at last.', playerName: 'Jovan' });
+  const seen = (named.system || '') + '\n' + (named.user || '');
+  assert(/finished her self-introduction/.test(seen),
+    'a person the page NAMES shows their open loose ends, even off scene');
+  assert(/CLOSE WHAT THE PAGE ANSWERED/.test(seen), 'and the scribe is told to close what was answered');
+  assert(/a ledger full of finished business is/.test(seen), 'with the reason it matters');
+
+  const unnamed = buildScribeMessages({ state: st, userText: 'x',
+    assistantText: 'Nobody mentioned her at all.', playerName: 'Jovan' });
+  assert(!/finished her self-introduction/.test((unnamed.system || '') + (unnamed.user || '')),
+    'while someone the page never names is still left out — the tiers are not abandoned');
+
+  const src = readFileSync(new URL('../../js/agents/scribe.js', import.meta.url), 'utf8');
+  assert(/recentPages: \[String\(userText \|\| ''\), String\(assistantText \|\| ''\)\]/.test(src),
+    'the pages of this very turn are what decide who is recalled');
+  assert(!/renderPeopleTiers\(state, \{ recentPages: \[\] \}\)/.test(src), 'never an empty list again');
+});

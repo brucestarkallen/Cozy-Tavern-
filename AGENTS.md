@@ -4755,3 +4755,22 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   so the story runs oldest to newest — and cut to the lines older than the pages it can already
   see (memoryForWindow at prior.length - before.length), so nothing is told to it twice.
 - 469/469 harness + 37/37 walk + 8/8 play. version.js -> m226-001.
+
+# M227 — the scribe could not see the loose ends it was meant to close
+- THE HOUSEKEEPER KEPT FINDING FINISHED BUSINESS STILL OPEN: Alexia's completed self-introduction,
+  Aurora's answered question, Ms June's answered question, a photo already found. Every one of
+  them on a person who was OFF SCENE.
+  renderPeopleTiers gives a full page — Loose ends included — to people on scene, and recalls an
+  OFF-scene person only when the recent pages name them. The scribe passed an EMPTY page list. So
+  nobody off scene was ever recalled, their open loose ends were invisible to the one worker that
+  can close them, and every thread on anyone not standing in the room stayed open FOREVER, however
+  plainly the page answered it. The housekeeper was not wrong; it was reporting a real pile-up
+  that nothing could clear.
+  The pages of this very turn decide who is recalled now — and a person the page never names is
+  still left out, so the tiers still do their work.
+- AND THE SCRIBE WAS NEVER TOLD TO LOOK. Its brief named `unthread` and said only "a loose end
+  that closed, worded as it was written before" — nothing asked it to READ the open ones against
+  the page. CLOSE WHAT THE PAGE ANSWERED (M227) does: read every loose end already open on each
+  person and ask whether this page answered it, because loose ends do not expire on their own and
+  a ledger full of finished business is a ledger that lies.
+- 470/470 harness + 37/37 walk + 8/8 play. version.js -> m227-001.
