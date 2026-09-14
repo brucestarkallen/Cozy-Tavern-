@@ -715,6 +715,22 @@ export function hardTokens(passage, knownNames = []) {
 /* M192: two details, merged without repeating themselves. Clauses are held
  * apart by semicolons; two that read alike once case, spacing and end
  * punctuation are set aside are the same clause. */
+/* M208: a bare list of words is not a detail. "also named: Rachel British,
+ * American, Reynolds" reads as nonsense beside a summary line, and the
+ * storyteller is handed it every turn. A clause that carries no verb and no
+ * preposition — just names separated by commas — is refused. */
+export function looksLikeTokenDump(text) {
+  const t = String(text || '').trim();
+  if (!t) return true;
+  if (/^(also named|figures?|names?)\s*:/i.test(t)) return true;
+  const words = t.split(/\s+/);
+  if (words.length < 4) return false;
+  const commas = (t.match(/,/g) || []).length;
+  const joiners = (t.match(/\b(is|was|are|were|has|had|said|told|and|of|in|at|to|for|with|from|who|which|that)\b/gi) || []).length;
+  /* many commas and almost no English between them */
+  return commas >= 3 && joiners <= 1;
+}
+
 export function mergeDetail(first, second) {
   const norm = (c) => c.toLowerCase().replace(/[.;,\s]+$/g, '').replace(/\s+/g, ' ').trim();
   const out = [];
@@ -774,11 +790,29 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
          * the 480-character room and cut the rest off. */
         detail = mergeDetail(detail, again);
       } catch (err) { /* the code writes the rest */ }
+      /* M208: NO TOKEN DUMPS. When the sharper ask still left something out,
+       * the code pasted the raw tokens in — and the writer's record read
+       * "Detail worth keeping: also named: cardinal, Aurora house next door,
+       * also named: Rachel British, American, Reynolds, figures 16, 18".
+       * That is not a detail worth keeping. It is a debug list, it is
+       * incoherent beside the line it belongs to, half of it is not even a
+       * name ("British", "American"), and the storyteller reads it every
+       * turn. A detail must be SENTENCES that stand with the line above
+       * them. One more ask, for those things written as phrases; and if that
+       * does not come back as prose, nothing is written at all — the line
+       * losing a name is a smaller harm than the record talking nonsense. */
       loss = lossCheck(sourceText, lineText, detail, knownNames);
-      const rest = [];
-      if (loss.missingNames.length) rest.push('also named: ' + loss.missingNames.slice(0, 8).join(', '));
-      if (loss.missingNumbers.length) rest.push('figures: ' + loss.missingNumbers.slice(0, 8).join(', '));
-      if (rest.length) detail = (detail ? detail + '; ' : '') + rest.join('; ');
+      if (loss.missingNames.length || loss.missingNumbers.length) {
+        try {
+          const missing = [...loss.missingNames.slice(0, 8), ...loss.missingNumbers.slice(0, 8)];
+          const third = buildAuditMessages(sourceText, lineText + (detail ? '\n• Detail worth keeping: ' + detail : ''));
+          third.user += '\n\nThese appear in the pages and in neither the line nor its detail: ' + missing.join('; ')
+            + '.\nWrite DETAIL as SHORT PHRASES that read as English beside the line — who each one is, or what the figure counts, and why it matters. '
+            + 'Never a bare list of words. If one of them is not actually a person, a place or a figure that matters, leave it out.';
+          const last = parseAuditAnswer(await callKeeper(connection, third, signal));
+          if (last && !looksLikeTokenDump(last)) detail = mergeDetail(detail, last);
+        } catch (err) { /* nothing is written rather than nonsense */ }
+      }
     }
     /* M206: JUDGED AFTER EVERYTHING THAT COULD MEND THE LINE, NOT BEFORE.
      * This was read here, ABOVE the overflow rewrite (M196) that also mends

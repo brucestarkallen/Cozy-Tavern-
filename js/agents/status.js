@@ -65,6 +65,10 @@ export function workerSignal(timeoutMs = WORKER_TIMEOUT_MS) {
      * works in rounds renews the leash at the top of each round: a hung call
      * is still cut off after sixty seconds, and honest work is never
      * punished for taking more than one minute in total. */
+    /* M208: the writer's own stop. An AbortSignal cannot be aborted from
+     * outside itself — only its controller can do it, so the controller
+     * hands this out with the signal. */
+    abort: () => { clearTimeout(timer); controller.abort(new Error('stopped by hand')); },
     renew: () => {
       if (controller.signal.aborted) return false;
       clearTimeout(timer);

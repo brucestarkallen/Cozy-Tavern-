@@ -63,8 +63,14 @@ test('M22 lore walks back to SillyTavern (worldbook export shape)', () => {
 
 test('M22 reverse id-coverage law: every control in the page is wired', () => {
   const html = read('index.html');
-  const js = ['js/ui/chat.js', 'js/ui/settings.js', 'js/ui/drawer.js', 'js/ui/housekeeper.js',
-    'js/ui/receiptview.js', 'js/ui/welcome.js', 'js/app.js'].map(read).join('\n');
+  /* M208: EVERY ui module, read from the folder — not a hand-written list.
+   * The list went stale the moment a new one was added (ui/workbanner.js),
+   * and the law then reported a control as unwired when it was wired
+   * perfectly well in the file the list did not know about. A law that
+   * cries wolf is worse than no law: the next reader learns to ignore it. */
+  const uiDir = new URL('../../js/ui/', import.meta.url);
+  const js = [...fs.readdirSync(uiDir).filter((f) => f.endsWith('.js')).map((f) => 'js/ui/' + f), 'js/app.js']
+    .map(read).join('\n');
   const controlIds = [...html.matchAll(/<(button|select|input|textarea)[^>]*\sid="([^"]+)"/g)].map((m) => m[2]);
   const unwired = controlIds.filter((id) => !js.includes(`'${id}'`) && !js.includes(`"${id}"`) && !js.includes(`getElementById('${id}')`));
   assert(unwired.length === 0, `controls with no wiring anywhere: ${unwired.join(', ')}`);

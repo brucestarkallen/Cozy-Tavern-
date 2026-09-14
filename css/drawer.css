@@ -603,3 +603,19 @@
 }
 .work-banner.is-waiting .work-banner-fill { background: var(--danger); }
 .work-banner.is-done .work-banner-fill { background: var(--ok); width: 100%; }
+
+/* M208: the stop, in the banner where the writer is already watching. */
+.work-banner-stop {
+  flex: 0 0 auto;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.78rem;
+  /* M208: --danger on the banner's own surface measured 4.1:1, under AA —
+   * caught by tests/contrast.py on the very pass that added it. The house
+   * ink, underlined so it still reads as the one thing here to press. */
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--danger);
+}
+.work-banner-stop[hidden] { display: none; }

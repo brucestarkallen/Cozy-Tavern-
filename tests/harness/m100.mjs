@@ -944,7 +944,7 @@ test('M207: a job that works in rounds renews its leash; a hung call is still cu
 
   /* the queue hands it down, and both rebuilds take it */
   const queue = readFileSync(new URL('../../js/agents/queue.js', import.meta.url), 'utf8');
-  assert(/const \{ signal, done, renew \} = workerSignal\(\);/.test(queue), 'the queue takes a renew');
+  assert(/const \{ signal, done, renew, abort \} = workerSignal\(\);/.test(queue), 'the queue takes a renew (and a stop)');
   assert(/job\.run\(\{ signal, stale: isStale, renew \}\)/.test(queue), 'and hands it to the job');
   const rb = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
   eq((rb.match(/typeof renew === 'function' && !renew\(\)/g) || []).length, 3,
@@ -954,4 +954,49 @@ test('M207: a job that works in rounds renews its leash; a hung call is still cu
     'the record rebuild is handed it');
   assert(/rebuildPeople\(\{ connection, storyId: story\.id, brief: story\.brief \|\| '', castNotes: story\.castNotes \|\| '', signal, stale, renew,/.test(chat),
     'and so is the people rebuild');
+});
+
+/* M208: two faults the writer read off his own screen.
+ *  - "Detail worth keeping: also named: cardinal, Aurora house next door,
+ *    also named: Rachel British, American, Reynolds, figures 16, 18" — a
+ *    debug token list pasted where a sentence belongs, half of it not even
+ *    names, and the storyteller reads it every turn.
+ *  - a rebuild is minutes of work and there was NO WAY TO CALL IT OFF. */
+test('M208: no token dumps in the record, and the writer may stop what they started', async () => {
+  const { looksLikeTokenDump } = await import('../../js/agents/memory.js');
+  for (const junk of ['also named: cardinal, Aurora house next door',
+    'Rachel British, American, Reynolds, Wells', 'figures: 16, 18', 'names: a, b, c, d']) {
+    eq(looksLikeTokenDump(junk), true, 'refused: ' + junk);
+  }
+  for (const real of ['Jovan is sixteen, not seventeen; Vanessa said Sixteen when demanding his status',
+    'the plan is to burn the north wood and bait the convoy with the gold',
+    'Alexia Vanderbilt is the neighbour Vanessa warned Jovan not to talk to']) {
+    eq(looksLikeTokenDump(real), false, 'kept: ' + real);
+  }
+
+  const mem = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  assert(!/rest\.push\('also named: '/.test(mem), 'the code no longer pastes a name list');
+  assert(!/rest\.push\('figures: '/.test(mem), 'nor a figure list');
+  assert(/Never a bare list of words/.test(mem), 'it asks for phrases that read as English');
+  assert(/if \(last && !looksLikeTokenDump\(last\)\) detail = mergeDetail\(detail, last\);/.test(mem),
+    'and writes nothing at all rather than nonsense');
+
+  /* the stop */
+  const { workerSignal } = await import('../../js/agents/status.js');
+  const w = workerSignal(60000);
+  eq(w.signal.aborted, false, 'a call in flight');
+  w.abort();
+  eq(w.signal.aborted, true, 'is aborted by the writer’s stop');
+  eq(String(w.signal.reason && w.signal.reason.message), 'stopped by hand', 'and says so');
+
+  const queue = readFileSync(new URL('../../js/agents/queue.js', import.meta.url), 'utf8');
+  assert(/export function stopWork\(storyId\)/.test(queue), 'the queue can be stopped');
+  assert(/if \(list\) list\.length = 0;/.test(queue), 'everything still queued for that story is dropped');
+  assert(/return \{ ok: false, stopped: true, why: 'stopped by hand' \};/.test(queue), 'a stop is a stop, not a failure');
+  assert(!/if \(stoppedByHand\)[\s\S]{0,200}attempt/.test(queue), 'and is never retried');
+
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  const wired = (chat.match(/beginWork\('[^']+', \(\) => \{ const s = ctx\.getActiveStoryId\(\); if \(s\) stopWork\(s\);/g) || []).length;
+  eq(wired, 8, 'all eight manual actions can be stopped (' + wired + ')');
+  assert(/Stopped — what was done is kept/.test(chat), 'and the work already done stands');
 });

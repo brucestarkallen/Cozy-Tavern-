@@ -4453,3 +4453,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   call is still cut off after sixty seconds and a renew after an abort is refused — proven both
   ways: 1.2s of renewed work under a 0.3s leash survives, an unrenewed 200ms leash still aborts.
 - 455/455 harness + 37/37 walk + 8/8 play. version.js -> m207-001.
+
+# M208 — a stop for the writer's own hand, and no more token dumps in the record
+- THE RECORD WAS TALKING NONSENSE. From the writer's screen: "Detail worth keeping: also named:
+  cardinal, Aurora house next door, also named: Rachel British, American, Reynolds, figures 16,
+  18". When the sharper second ask still left something out, the CODE pasted the raw tokens in —
+  a debug list where a sentence belongs, half of it not even names ("British", "American"),
+  written twice, and read by the storyteller every single turn. A detail must be sentences that
+  stand with the line above them. One more ask now, for those things written as phrases that read
+  as English beside the line; and if what comes back is still a bare list (looksLikeTokenDump —
+  many commas, almost no English between them), NOTHING is written. A line losing a name is a
+  smaller harm than the record talking nonsense at the storyteller forever.
+- AND THERE WAS NO WAY TO CALL OFF A REBUILD. Minutes of work and the only way out was closing the
+  tab, which is not a control. The banner carries a Stop: it aborts the call in flight (an
+  AbortSignal cannot be aborted from outside itself, so workerSignal's controller hands the abort
+  out beside the signal), drops everything still queued for that story, and is honest — a stop
+  returns {stopped:true}, is never retried, and never reads as a failure. The work already done
+  stands: a part-built record is kept and resumed (M205), so pressing Rebuild again carries on.
+  All eight manual actions can be stopped.
+- TWO LAWS EARNED THEIR KEEP ON THE SAME PASS. tests/contrast.py caught the new Stop at 4.1:1 on
+  the banner's surface, under AA, the moment it was added. And M22's id-coverage law reported the
+  Stop as unwired — because its file list was HAND-WRITTEN and did not know about ui/workbanner.js;
+  it reads the ui folder now, because a law that cries wolf teaches the next reader to ignore it.
+- 456/456 harness + 37/37 walk + 8/8 play + wipe + guard + two-browser + append + contrast.
+  version.js -> m208-001.

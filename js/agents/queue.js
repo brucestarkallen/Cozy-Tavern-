@@ -29,6 +29,28 @@ export const BACKOFF_CAP_MS = 60000;   /* no wait grows past a minute */
 let epoch = 0;
 let activeStoryId = null;
 const queues = new Map();   // storyId -> job[]
+
+/* M208: THE WRITER MAY STOP WHAT THE WRITER STARTED. A rebuild is minutes of
+ * work and there was no way to call it off — the only way out was closing the
+ * tab, which is not a control. A stop aborts the call in flight, drops
+ * everything still queued for that story, and is honest about it: the work
+ * already done stands (a part-built record is kept and resumed, M205), and
+ * the banner says it was stopped by hand, not that it failed. */
+const stopping = new Map();   // storyId -> a live abort for the job in flight
+
+export function stopWork(storyId) {
+  if (!storyId) return false;
+  const list = queues.get(storyId);
+  const queued = list ? list.length : 0;
+  if (list) list.length = 0;                    /* nothing more of this run starts */
+  const live = stopping.get(storyId);
+  if (live && typeof live.abort === 'function') { try { live.abort(); } catch (err) { /* fine */ } }
+  return Boolean(live) || queued > 0;
+}
+
+export function workIsRunning(storyId) {
+  return Boolean(stopping.get(storyId)) || Boolean((queues.get(storyId) || []).length);
+}
 const running = new Map();  // storyId -> boolean
 
 /* The wait between tries, injectable so the harness can watch the schedule
@@ -128,7 +150,10 @@ async function runJob(job) {
       await sleepImpl(backoffMs(attempt, lastErr && lastErr.retryAfterMs));
       if (isStale()) return { ok: false, stale: true, why: 'left behind' };
     }
-    const { signal, done, renew } = workerSignal();
+    const { signal, done, renew, abort } = workerSignal();
+    /* M208: the writer's own stop reaches the call in flight */
+    let stoppedByHand = false;
+    stopping.set(storyId, { abort: () => { stoppedByHand = true; abort(); } });
     markWorkerRunning(storyId, name, true); /* M46: "reading now…" on the workers line */
     try {
       /* M207: a job that works in rounds renews its leash each round */
@@ -141,9 +166,16 @@ async function runJob(job) {
       if (!value || value.silent !== true) {
         await noteWorkerRun(storyId, name, { ok: true, detail: value && value.detail, raw: value && value.raw });
       }
+      stopping.delete(storyId);
       return { ok: true, value };
     } catch (err) {
       done();
+      if (stoppedByHand) {
+        stopping.delete(storyId);
+        markWorkerRunning(storyId, name, false);
+        await noteWorkerRun(storyId, name, { ok: false, detail: 'stopped by hand' });
+        return { ok: false, stopped: true, why: 'stopped by hand' };
+      }
       markWorkerRunning(storyId, name, false);
       lastErr = err;
       if (isStale()) return { ok: false, stale: true, why: 'left behind' };

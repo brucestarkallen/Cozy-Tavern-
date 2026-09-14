@@ -24,8 +24,10 @@ let el = null;
 let whatEl = null;
 let countEl = null;
 let fillEl = null;
+let stopEl = null;
 let clearTimer = 0;
 let token = 0;
+let onStop = null;
 
 function parts() {
   if (el && el.isConnected) return true;
@@ -33,6 +35,13 @@ function parts() {
   whatEl = document.getElementById('work-banner-what');
   countEl = document.getElementById('work-banner-count');
   fillEl = document.getElementById('work-banner-fill');
+  stopEl = document.getElementById('work-banner-stop');
+  if (stopEl && !stopEl.dataset.wired) {
+    stopEl.dataset.wired = '1';
+    stopEl.addEventListener('click', () => {
+      if (typeof onStop === 'function') { const f = onStop; onStop = null; f(); }
+    });
+  }
   return Boolean(el && whatEl && countEl && fillEl);
 }
 
@@ -50,10 +59,12 @@ function paint(what, count, pct, state) {
 /* Begin a piece of work. Returns a handle; every method on it is a no-op once
  * a newer piece of work has begun, so two actions can never fight over the
  * banner. */
-export function beginWork(what) {
+export function beginWork(what, stop) {
   const mine = ++token;
   const live = () => mine === token;
+  onStop = typeof stop === 'function' ? stop : null;
   paint(what, '', 0, 'running');
+  if (stopEl) stopEl.hidden = !onStop;
   return {
     /* "batch 7 of 24 · 29%" — in whatever units the caller counts in */
     step(done, total, unit = 'batch') {
@@ -73,11 +84,15 @@ export function beginWork(what) {
       paint(what, words || '', undefined, 'running');
     },
     done(words) {
+      if (stopEl) stopEl.hidden = true;
+      onStop = null;
       if (!live()) return;
       paint(words || what, 'done', 100, 'done');
       clearTimer = setTimeout(() => { if (live() && el) el.hidden = true; }, 4500);
     },
     failed(words) {
+      if (stopEl) stopEl.hidden = true;
+      onStop = null;
       if (!live()) return;
       paint(words || what, 'stopped', undefined, 'waiting');
       clearTimer = setTimeout(() => { if (live() && el) el.hidden = true; }, 9000);
