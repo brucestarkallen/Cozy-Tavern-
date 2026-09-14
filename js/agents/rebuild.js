@@ -83,11 +83,16 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
     if (stale && stale()) return null;
     /* M207: this round gets its own minute — a rebuild is many calls, and the
      * job's single leash aborted it partway through every long tale. */
-    if (typeof renew === 'function' && !renew()) return null;
+    /* M213: an abort reports what it DID fold. Returning null printed as
+     * "nothing to rebuild" over a run that had folded eighteen pages. */
+    if (typeof renew === 'function' && !renew()) {
+      return { folded, toFold, lines: (await loadMemory(storyId)).nodes.length, stalled: true,
+        why: 'the run was cut short — press Rebuild to start again' };
+    }
     const before = (await loadMemory(storyId)).nodes;
     if (!dueRange(history.length, window, before, batch)) break;
     await maybeSummarize({
-      connection, storyId, signal,
+      connection, storyId, signal, renew,
       onBatch: ({ pages }) => {
         doneBatches += 1;
         folded += pages;
@@ -111,9 +116,12 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
         if (stale && stale()) return null;
         if (typeof onRetry === 'function') await onRetry({ ms: pause, attempt: a + 1, of: pauses.length });
         else await new Promise((r) => setTimeout(r, pause));
-        if (typeof renew === 'function' && !renew()) return null;
+        if (typeof renew === 'function' && !renew()) {
+          return { folded, toFold, lines: (await loadMemory(storyId)).nodes.length, stalled: true,
+            why: 'the run was cut short — press Rebuild to start again' };
+        }
         await maybeSummarize({
-          connection, storyId, signal,
+          connection, storyId, signal, renew,
           onBatch: ({ pages }) => {
             doneBatches += 1;
             folded += pages;
@@ -250,8 +258,13 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
   let applied = 0;
   let refused = 0;
   for (let from = 0; from < history.length; from += batch) {
-    /* M207: this batch gets its own minute (see the record rebuild) */
-    if (typeof renew === 'function' && !renew()) return null;
+    /* M207: this batch gets its own minute (see the record rebuild).
+     * M213: and a run cut short reports what it READ, never null — null
+     * printed as "nothing to rebuild" over work that had really happened. */
+    if (typeof renew === 'function' && !renew()) {
+      return { read, total: history.length, applied, refused, digits: 0, stalled: true,
+        why: 'the run was cut short — press Rebuild to start again' };
+    }
     if (stale && stale()) return null;
     const pages = history.slice(from, from + batch);
     const current = await loadState(storyId);

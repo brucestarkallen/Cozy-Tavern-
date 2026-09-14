@@ -768,9 +768,14 @@ async function knownNamesOf(storyId) {
   } catch (err) { return []; }
 }
 
-async function audit(connection, storyId, node, sourceText, signal, knownNames = []) {
+/* M213: the audit makes its OWN keeper calls — one, and up to three when it
+ * has to ask again — and none of them renewed the leash. So even with every
+ * fold renewing, a batch could spend four calls between renews and the run
+ * was cut off mid-rebuild. Every call in this file renews before it goes. */
+async function audit(connection, storyId, node, sourceText, signal, knownNames = [], renew) {
   try {
     const signature = nodeSignature(node);
+    if (typeof renew === 'function' && !renew()) return;
     const auditRaw = await callKeeper(connection, buildAuditMessages(sourceText, node.text), signal);
     /* M195: a wrong fact is REPAIRED IN THE LINE; only what the line never
      * said goes to the detail beneath it. */
@@ -783,6 +788,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
       const second = buildAuditMessages(sourceText, lineText + (detail ? '\n• Detail worth keeping: ' + detail : ''));
       second.user += '\n\nThese from the pages appear in neither the line nor its detail: ' + [...loss.missingNames.map((n) => 'the name ' + n), ...loss.missingNumbers.map((n) => 'the figure ' + n)].join('; ') + '. Return DETAIL with every one that a storyteller would need, and what each was (who, what count, when).';
       try {
+        if (typeof renew === 'function') renew();
         const again = parseAuditAnswer(await callKeeper(connection, second, signal));
         /* M192: merged CLAUSE BY CLAUSE — the second answer only had to
          * differ by a full stop to be appended whole, and the writer's own
@@ -809,6 +815,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
           third.user += '\n\nThese appear in the pages and in neither the line nor its detail: ' + missing.join('; ')
             + '.\nWrite DETAIL as SHORT PHRASES that read as English beside the line — who each one is, or what the figure counts, and why it matters. '
             + 'Never a bare list of words. If one of them is not actually a person, a place or a figure that matters, leave it out.';
+          if (typeof renew === 'function') renew();
           const last = parseAuditAnswer(await callKeeper(connection, third, signal));
           if (last && !looksLikeTokenDump(last)) detail = mergeDetail(detail, last);
         } catch (err) { /* nothing is written rather than nonsense */ }
@@ -831,6 +838,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
      * writer is never asked to notice this, or to press anything. */
     if (detail.length > 1200) {
       try {
+        if (typeof renew === 'function') renew();
         const roomier = await callKeeper(connection, buildRewriteMessages({
           playerName: (await db.settings.get('playerName')) || 'the player',
           record: '',
@@ -871,7 +879,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
  * jumps of eighteen pages — the writer watched it sit at nothing and then
  * leap to "18 of 99". Summaryception counts batches because a batch is the
  * unit of work a writer can actually feel. */
-export async function maybeSummarize({ connection, storyId, signal, onSourceIssue, stale, onBatch } = {}) {
+export async function maybeSummarize({ connection, storyId, signal, onSourceIssue, stale, onBatch, renew } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   const gone = () => Boolean(stale && stale());
@@ -893,6 +901,12 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
   for (let n = 0; n < BATCHES_PER_RUN; n += 1) {
     const range = dueRange(history.length, window, mem.nodes, batch);
     if (!range) break;
+    /* M213: EVERY CALL GETS ITS OWN MINUTE. M207 renewed the leash once per
+     * ROUND — and a round is three batches, three separate asks. Three keeper
+     * calls on a slow model pass sixty seconds easily, so the signal aborted
+     * mid-run and the rebuild returned nothing at all: the writer saw it stop
+     * dead at batch 3 of 16 and read "nothing to rebuild". */
+    if (typeof renew === 'function' && !renew()) break;
     const pages = history.slice(range[0], range[1]);
     const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem) }), signal);
     const text = parseMemoryAnswer(raw);
@@ -926,7 +940,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       const passage = passageOf(pages, playerName);
       const recordBefore = recordFor({ nodes: mem.nodes.filter((n) => n.id !== node.id) });
       await verify(connection, storyId, node, passage, recordBefore, playerName, signal, onSourceIssue);
-      await audit(connection, storyId, node, passage, signal, await knownNamesOf(storyId));
+      await audit(connection, storyId, node, passage, signal, await knownNamesOf(storyId), renew);
     }
     mem = await loadMemory(storyId);
     mem.window = window;
@@ -940,6 +954,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const toMerge = layer.slice(0, NOTES_PER_PROMOTION);
     if (toMerge.length < 2) continue;
     const record = recordFor(mem, level + 1);
+    if (typeof renew === 'function') renew();
     let raw = await callKeeper(connection, buildFoldMessages(toMerge, { playerName, record }), signal);
     let text = parseMemoryAnswer(raw);
     const sourcesLen = toMerge.reduce((a, node) => a + node.text.length, 0);
@@ -969,7 +984,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     mem.nodes.push(merged);
     changed = true;
     await saveMemory(storyId, mem);
-    await audit(connection, storyId, merged, toMerge.map((node) => node.text).join('\n\n'), signal, await knownNamesOf(storyId));
+    await audit(connection, storyId, merged, toMerge.map((node) => node.text).join('\n\n'), signal, await knownNamesOf(storyId), renew);
     mem = await loadMemory(storyId);
     mem.window = window;
   }

@@ -1046,3 +1046,63 @@ test('M212: the prompt the keeper is sent carries every ported block', async () 
   }
   assert(sent.includes('Jovan'), 'and the player’s name is substituted in');
 });
+
+/* M213: the writer's rebuild stopped dead at batch 3 of 16 and read "nothing
+ * to rebuild". M207 renewed the leash once per ROUND — and a round is
+ * BATCHES_PER_RUN batches, each its own keeper call, each followed by the
+ * AUDIT'S calls (one, up to three when it asks again). Four or more calls
+ * between renews passes sixty seconds easily on a real model, the signal
+ * aborted mid-rebuild, and rebuildRecord returned null — which prints as
+ * "nothing to rebuild" over a run that had folded eighteen pages. */
+test('M213: every keeper call renews, and a long rebuild runs to the end', async () => {
+  const mem = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  /* every call in the file renews before it goes */
+  eq((mem.match(/typeof renew === 'function'/g) || []).length, 6,
+    'the fold, the audit, its two re-asks, the overflow rewrite and the promotion all renew');
+  assert(/async function audit\(connection, storyId, node, sourceText, signal, knownNames = \[\], renew\)/.test(mem),
+    'the audit is given the renew');
+  assert(/await audit\(connection, storyId, node, passage, signal, await knownNamesOf\(storyId\), renew\);/.test(mem),
+    'and handed it by the folder');
+
+  const rb = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
+  assert(/connection, storyId, signal, renew,/.test(rb), 'the rebuild hands it down');
+  assert(/why: 'the run was cut short — press Rebuild to start again'/.test(rb),
+    'and a run that IS cut short reports what it folded, never null');
+  assert(!/&& !renew\(\)\) return null;/.test(rb), 'null is what printed as "nothing to rebuild"');
+
+  /* the writer's own shelf, end to end */
+  const { db } = await import('../../js/store.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  const { rebuildRecord } = await import('../../js/agents/rebuild.js');
+  const { workerSignal } = await import('../../js/agents/status.js');
+  const st = await db.stories.create({ title: 'a hundred and eighteen pages' });
+  for (let i = 0; i < 118; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 20);
+  await db.settings.set('memoryBatch', 6);
+  await saveMemory(st.id, { window: 20, nodes: [] });
+
+  const real = globalThis.fetch;
+  let call = 0;
+  globalThis.fetch = async () => {
+    call += 1;
+    const body = '[Sept 1] Jovan did something worth recording, number ' + call + '; Rias answered him';
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: body } }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  const seen = [];
+  let r = null;
+  try {
+    const w = workerSignal(60000);
+    r = await rebuildRecord({
+      connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' },
+      storyId: st.id, renew: w.renew, signal: w.signal,
+      onProgress: (p) => seen.push(p.batch + '/' + p.batches),
+    });
+  } finally { globalThis.fetch = real; }
+
+  eq(seen[seen.length - 1], '16/16', 'it runs to the last batch, not to batch 3: ' + seen.join(' '));
+  eq(Boolean(r && r.stalled), false, 'and is never cut short');
+  eq(r.lines, 16, 'sixteen lines written');
+});

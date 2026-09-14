@@ -4534,3 +4534,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   older rules they were built on are still there. Held by a law on the SENT message, never on the
   file's contents.
 - 457/457 harness + 37/37 walk + 8/8 play. version.js -> m212-001.
+
+# M213 — the rebuild stopped at batch 3 of 16 and said "nothing to rebuild"
+- THE LEASH WAS RENEWED ONCE PER ROUND, AND A ROUND IS FOUR OR MORE CALLS. M207 renewed at the top
+  of each round — but a round is BATCHES_PER_RUN (three) folds, and EVERY fold is followed by the
+  AUDIT'S own calls: one, and up to three when it has to ask again, plus the overflow rewrite.
+  Four or more keeper calls between renews passes sixty seconds easily on a real model, so the
+  signal aborted mid-rebuild. On the writer's 118-page tale it died at batch 3 of 16.
+  Every keeper call in agents/memory.js renews before it goes now — the fold, the audit, both of
+  its re-asks, the overflow rewrite and the promotion fold.
+- AND AN ABORTED RUN RETURNED null, WHICH PRINTS AS "nothing to rebuild". Over a run that had
+  really folded eighteen pages. Both rebuilds report what they did with stalled:true and a plain
+  why. null is never returned for a cut-short run again.
+- PROVEN ON THE WRITER'S OWN SHELF: 118 pages, window 20, batch 6 — the rebuild now reaches 16/16,
+  sixteen lines, not cut short. Held as a law, end to end, with a scripted keeper.
+- AND THE DIAL LIED ABOUT ITS OWN UNIT. "Turns per record line: 6" while the number is PAGES (6
+  pages = 3 turns) — the aria-label said pages, the visible label said turns, and the writer read
+  the number as turns. It says "Pages per record line" now, with the turn arithmetic beside it.
+- 458/458 harness + 37/37 walk + 8/8 play. version.js -> m213-001.
