@@ -181,3 +181,37 @@ test('M179: every overlay that closes on a timer carries a generation', () => {
   const open = w.slice(w.indexOf('function open('), w.indexOf('function open(') + 260);
   assert(/closeGeneration \+= 1;/.test(open), 'opening stales a close already in flight');
 });
+
+/* M199: pressing Audit or Rebuild threw the writer back to the top of the
+ * panel — render() empties panelsEl and builds it again — and the button
+ * said nothing at all, so there was no way to tell whether the thing they
+ * pressed had even started, let alone finished. */
+test('M199: the ledger panel keeps its place, and every action says what it is doing', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const src = fs.readFileSync(path.join(here, '../../js/ui/drawer.js'), 'utf8');
+
+  /* the place is kept in render itself, so every caller has it */
+  const at = src.indexOf('function render() {');
+  assert(at !== -1, 'the drawer still has a render');
+  const body = src.slice(at, at + 1600);
+  assert(/const keptTop = panelsEl\.scrollTop;/.test(body), 'render remembers where the panel stood');
+  assert(/panelsEl\.scrollTop = keptTop;/.test(body), 'and puts it back');
+  assert(body.indexOf('const keptTop') < body.indexOf("panelsEl.textContent = ''"), 'remembered BEFORE the panel is emptied');
+
+  /* and every action that hands work to the chain reports itself */
+  assert(/const whileWorking = \(button, working, done\)/.test(src), 'there is one way to say it');
+  assert(/button\.disabled = true;/.test(src), 'a button in flight cannot be pressed twice');
+  assert(/button\.textContent = 'It stumbled — try again';/.test(src), 'and says so when it fails');
+  assert(/finally \{\s*\n\s*setTimeout\(\(\) => \{ button\.textContent = words; button\.disabled = false; \}/.test(src),
+    'then goes back to its own words');
+  for (const [label, working] of [
+    ['Read the pages again', 'Reading the pages…'],
+    ['Audit the ledger', 'Auditing the ledger…'],
+    ['Found the world from the brief', 'Founding the world…'],
+    ['Rebuild the record from the pages', 'Rebuilding the record…'],
+    ['Put the old record back', 'Putting it back…'],
+  ]) {
+    assert(src.includes(label), label + ' is still there');
+    assert(src.includes(working), label + ' says what it is doing: ' + working);
+  }
+});

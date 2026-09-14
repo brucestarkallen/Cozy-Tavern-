@@ -4282,3 +4282,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the record is not its work; the audit has its own line saying it mends the line itself and
   writes what was missing beneath it, and never touches prose.
 - 448/448 harness + 36/36 walk + 8/8 play. version.js -> m198-001.
+
+# M199 — the panel kept losing the writer's place, and the buttons said nothing
+- PRESSING A BUTTON THREW THE WRITER BACK TO THE TOP. render() empties panelsEl and builds it
+  again, which puts the scroll at zero — so Audit, Rebuild the record, Read the pages again, any
+  of them, and the writer lost the thing they had been looking at and had no way to see whether
+  what they pressed had finished. The background refresh (quietRender) had kept the position since
+  M105; every OTHER caller did not. It is kept in render() itself now, taken BEFORE the panel is
+  emptied and restored across two frames, so every caller has it.
+- AND THE BUTTONS SAID NOTHING AT ALL. They hand their work to the background chain and returned
+  in silence. Each one now says what it is doing while it runs (\"Auditing the ledger…\"), says what
+  happened when it lands (\"The ledger was audited\"), says so plainly when it stumbles, cannot be
+  pressed twice while in flight, and comes back to its own words a breath later. Five of them:
+  Read the pages again, Audit the ledger, Found the world from the brief, Rebuild the record from
+  the pages, Put the old record back.
+- The ninety-turn play's own law caught the change (it checked the button was itself again the
+  instant the work returned); it now waits for the button to come back and checks it is pressable.
+- 449/449 harness + 36/36 walk + 8/8 play. version.js -> m199-001.

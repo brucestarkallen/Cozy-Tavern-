@@ -1672,13 +1672,34 @@ function workersPanel(ctx) {
   const list = document.createElement('ul');
   list.className = 'log-list';
   /* M40: read the pages again — by hand, when something looks missing */
+  /* M199: A BUTTON THAT SAYS WHAT IT IS DOING. These hand their work to the
+   * background chain and returned in silence, so the writer pressed Audit or
+   * Rebuild and had nothing at all to look at — no change on the button, no
+   * word when it finished. It says so on itself, and goes back to its own
+   * words when the work lands. */
+  const whileWorking = (button, working, done) => async (run) => {
+    const words = button.textContent;
+    button.disabled = true;
+    button.textContent = working;
+    try {
+      await run();
+      button.textContent = done;
+    } catch (err) {
+      button.textContent = 'It stumbled — try again';
+    } finally {
+      setTimeout(() => { button.textContent = words; button.disabled = false; }, 2600);
+    }
+  };
+
   const rescan = document.createElement('button');
   rescan.type = 'button';
   rescan.className = 'text-btn';
   rescan.textContent = 'Read the pages again';
   rescan.title = 'The workers read the latest page again, with the eight before it in view, and write what they find.';
   rescan.addEventListener('click', async () => {
-    if (ctx.chat && typeof ctx.chat.rescanLedger === 'function') await ctx.chat.rescanLedger();
+    await whileWorking(rescan, 'Reading the pages…', 'The pages were read')(async () => {
+      if (ctx.chat && typeof ctx.chat.rescanLedger === 'function') await ctx.chat.rescanLedger();
+    });
   });
   /* M41: audit the ledger — the whole of it against the brief, the pages and the record */
   const audit = document.createElement('button');
@@ -1687,7 +1708,9 @@ function workersPanel(ctx) {
   audit.textContent = 'Audit the ledger';
   audit.title = 'The auditor holds the whole ledger against the brief, the latest pages and the record, sets right what it can, and notes the rest.';
   audit.addEventListener('click', async () => {
-    if (ctx.chat && typeof ctx.chat.auditNow === 'function') await ctx.chat.auditNow();
+    await whileWorking(audit, 'Auditing the ledger…', 'The ledger was audited')(async () => {
+      if (ctx.chat && typeof ctx.chat.auditNow === 'function') await ctx.chat.auditNow();
+    });
   });
   /* M45: found the world from the brief, the cast, the cards and the lore */
   const found = document.createElement('button');
@@ -1696,8 +1719,11 @@ function workersPanel(ctx) {
   found.textContent = 'Found the world from the brief';
   found.title = 'The founder reads the brief, the cast notes, the invited cards and the lore, and writes every named person, bond, appearance, faction, seat and thread they establish into the ledger.';
   found.addEventListener('click', async () => {
-    if (ctx.chat && typeof ctx.chat.foundNow === 'function') await ctx.chat.foundNow();
+    await whileWorking(found, 'Founding the world…', 'The world was founded')(async () => {
+      if (ctx.chat && typeof ctx.chat.foundNow === 'function') await ctx.chat.foundNow();
+    });
   });
+
   /* M52: re-fold the record from the first page, six pages at a time */
   const refold = document.createElement('button');
   refold.type = 'button';
@@ -1706,13 +1732,19 @@ function workersPanel(ctx) {
   refold.title = 'The record’s lines are backed up and let go; the keeper folds the pages again from the first, six at a time, holes first. The old record can be put back.';
   refold.addEventListener('click', async () => {
     if (!window.confirm('Rebuild the record from the first page, six pages at a time? The old record is kept and can be put back.')) return;
-    if (ctx.chat && typeof ctx.chat.rebuildRecordNow === 'function') await ctx.chat.rebuildRecordNow();
+    await whileWorking(refold, 'Rebuilding the record…', 'The record is rebuilt')(async () => {
+      if (ctx.chat && typeof ctx.chat.rebuildRecordNow === 'function') await ctx.chat.rebuildRecordNow();
+    });
   });
   const unfold = document.createElement('button');
   unfold.type = 'button';
   unfold.className = 'text-btn';
   unfold.textContent = 'Put the old record back';
-  unfold.addEventListener('click', async () => { if (ctx.chat && typeof ctx.chat.restoreRecordNow === 'function') await ctx.chat.restoreRecordNow(); });
+  unfold.addEventListener('click', async () => {
+    await whileWorking(unfold, 'Putting it back…', 'The old record is back')(async () => {
+      if (ctx.chat && typeof ctx.chat.restoreRecordNow === 'function') await ctx.chat.restoreRecordNow();
+    });
+  });
   const row = document.createElement('div');
   row.className = 'row';
   row.append(found, rescan, audit);
@@ -2017,6 +2049,17 @@ export function initDrawer(ctx) {
   });
 
   function render() {
+    /* M199: THE PANEL KEEPS ITS PLACE. render() empties panelsEl and builds
+     * it again, which throws the scroll position to the top — so pressing
+     * Audit, or Rebuild the record, or anything else that refreshes the
+     * drawer, threw the writer back to the top of the panel and left them
+     * with no way to see whether the thing they pressed had finished. The
+     * background refresh (quietRender) had kept the position since M105;
+     * every OTHER caller did not. It is kept here, so every caller has it. */
+    const keptTop = panelsEl.scrollTop;
+    const restore = () => { if (panelsEl.scrollTop !== keptTop) panelsEl.scrollTop = keptTop; };
+    requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
+
     /* Re-point the live subscription at whichever story is active now. */
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }
     const storyId = ctx.getActiveStoryId();

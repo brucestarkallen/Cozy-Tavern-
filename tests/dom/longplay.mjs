@@ -361,7 +361,12 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   assert(mem.nodes.some((n) => n.correction && /Aurora Vane/.test(n.text)), 'the record carries the correction');
   assert(after.canon && after.canon.Aurora && after.canon.Aurora.facts.some((f) => f.key === 'surname' && f.value === 'Vane'), 'the truth is locked in the ledger');
   assert(after.audit.issues.find((i) => /Vance/.test(i.what)).fixable === true, 'the report calls it fixed, not noted');
-  assert(/Audit the ledger/.test(btn.textContent), 'the button is itself again');
+  /* M199: the button says what it is doing and then says it is done, so the
+   * writer can tell — it comes back to its own words a breath later. */
+  assert(/Auditing the ledger|The ledger was audited|Audit the ledger/.test(btn.textContent),
+    'the button reports itself: ' + btn.textContent);
+  await until(() => /^Audit the ledger$/.test(btn.textContent), 'the button comes back to its own words', 6000);
+  assert(btn.disabled === false, 'and can be pressed again');
   script.auditArmed = false;
   click(q('#btn-ledger'));
   eq(errors.length, 0, errors.slice(0, 5).join(' | '));
