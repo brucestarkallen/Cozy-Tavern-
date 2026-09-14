@@ -837,6 +837,15 @@ const SYSTEM_PROMPT = [
   '  left the window): {"line":"#r1a2b3c","find":"…","replace":"…","reason":"why"} — "line" is the',
   '  handle shown with each line; find is quoted exactly from that line. Never invent an event',
   '  into the record; repair what it says.',
+  '  The DETAIL beneath a line ("• Detail worth keeping: …") is part of that line and may be',
+  '  repaired the same way — quote from the detail itself, without the "• Detail worth keeping:"',
+  '  label.',
+  '  ANCHORS ARE COPIES, NOT DESCRIPTIONS (Chat Assistant\u2019s law). Every "find" must be copied',
+  '  character for character out of text you are HOLDING. A record line shown in an index or a',
+  '  summary is clipped and its whitespace collapsed, so an anchor built from one cannot match and',
+  '  the edit is dead on arrival. If you do not hold the whole line, <fetch> it by its #r\u2026 mark',
+  '  first. Never rewrite a whole line by quoting the whole of it: quote the shortest span that',
+  '  is wrong.',
   '<lore>[ ... ]</lore> — changes to the lore shelf (the entries that wake when',
   '  their keys are spoken in the latest pages):',
   '  {"add":true,"name":"NAME","keys":["NAME","the neighbor"],"content":"…","constant":false,"reason":"why"}',
@@ -1433,7 +1442,8 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       proposals.push({ id: uid(), ts: Date.now(), kind: 'record', label: 'record: ' + (op.line || '?'), reason: cleanReason(op.reason), op, status: 'refused', words: 'no record line answers to “' + (op.line || op.find.slice(0, 40)) + '”', review: [] });
       continue;
     }
-    const loc = locate(node.text, op.find);
+    const found = locateInNode(node, op.find);
+    const loc = found.loc;
     proposals.push({
       id: uid(), ts: Date.now(), kind: 'record',
       label: typeof op.label === 'string' && op.label.trim() ? op.label.trim() : 'record line ' + recordHandle(node),
@@ -1664,7 +1674,7 @@ export function anchorIsDead(p, { messages, memory, lore, modules, story } = {})
   if (typeof op.find !== 'string' || !op.find) return false;
   try {
     if (p.kind === 'edit') { const m = (messages || []).find((x) => x && x.id === op.messageId); return !m || !locate(pageText(m), op.find).ok; }
-    if (p.kind === 'record') { const nd = ((memory && memory.nodes) || []).find((x) => x && x.id === op.nodeId); return !nd || !locate(nd.text, op.find).ok; }
+    if (p.kind === 'record') { const nd = ((memory && memory.nodes) || []).find((x) => x && x.id === op.nodeId); return !nd || !locateInNode(nd, op.find).loc.ok; }
     if (p.kind === 'redit') { const mod = (modules || []).find((x) => x && x.id === op.moduleId); return !mod || !locate(String(mod.text || ''), op.find).ok; }
     if (p.kind === 'brief') { const cur = story && typeof story[op.field] === 'string' ? story[op.field] : ''; return !locate(cur, op.find).ok; }
   } catch (err) { return false; }
@@ -2136,15 +2146,44 @@ async function applyRecordOp(storyId, p, batch) {
   const at = (mem.nodes || []).findIndex((nd) => nd && nd.id === op.nodeId);
   if (at === -1) return { ok: false, words: 'that record line has gone' };
   const node = mem.nodes[at];
-  const located = locate(node.text, op.find);
-  if (!located.ok) return { ok: false, words: located.reason };
-  const newText = applyLocated(node.text, located, op.replace);
-  if (newText === node.text) return { ok: false, words: 'the new words are the words already there' };
+  /* M223: the line, or its detail — whichever holds the anchor */
+  const found = locateInNode(node, op.find);
+  if (!found.loc.ok) return { ok: false, words: found.loc.reason };
+  const field = found.where;
+  const was = String(node[field] || '');
+  const newText = applyLocated(was, found.loc, op.replace);
+  if (newText === was) return { ok: false, words: 'the new words are the words already there' };
   const nodes = mem.nodes.slice();
-  nodes[at] = { ...node, text: newText, verified: { at: Date.now(), fixed: 'the housekeeper' } };
+  nodes[at] = { ...node, [field]: newText, verified: { at: Date.now(), fixed: 'the housekeeper' } };
   await saveMemory(storyId, { ...mem, nodes });
-  batch.items.push({ kind: 'record', nodeId: node.id, before: node.text, afterHash: hashText(newText) });
-  return { ok: true, words: 'The record line reads differently now.' };
+  batch.items.push({ kind: 'record', nodeId: node.id, field, before: was, afterHash: hashText(newText) });
+  return { ok: true, words: field === 'detail' ? 'The detail beneath that line reads differently now.' : 'The record line reads differently now.' };
+}
+
+/* M223: A RECORD LINE IS ITS WORDS *AND* ITS DETAIL. Since M216 the
+ * housekeeper READS a line's "• Detail worth keeping: …" — so it does the
+ * obvious thing and proposes corrections to it ("indigo eyes" -> "blue
+ * eyes", "Jovan is seventeen" -> "sixteen"). But the anchor was matched
+ * against node.text ALONE, which never contains the detail, so every one of
+ * those edits came back "Refused — its anchor does not match the line". The
+ * writer watched a whole audit's worth of correct findings bounce. Sight
+ * without reach. The anchor is looked for in the line, then in its detail,
+ * and the edit is written back to whichever it was found in. */
+function locateInNode(node, find) {
+  const inText = locate(String(node.text || ''), find);
+  if (inText.ok) return { where: 'text', loc: inText };
+  const detail = String(node.detail || '');
+  if (detail) {
+    const inDetail = locate(detail, find);
+    if (inDetail.ok) return { where: 'detail', loc: inDetail };
+    /* the model often copies the label in with it */
+    const bare = find.replace(/^\s*[•\-]?\s*Detail worth keeping:\s*/i, '').trim();
+    if (bare && bare !== find) {
+      const trimmed = locate(detail, bare);
+      if (trimmed.ok) return { where: 'detail', loc: trimmed, find: bare };
+    }
+  }
+  return { where: 'text', loc: inText };
 }
 
 /* M74: the brief and the cast notes — the writer's standing words. */

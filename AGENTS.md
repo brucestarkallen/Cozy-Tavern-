@@ -4693,3 +4693,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Verified end to end: the audit turn now uses its three rounds, is SERVED the line and its
   detail, is told once there is no more fetching, and never returns a bare fetch.
 - 465/465 harness + 37/37 walk + 8/8 play. version.js -> m222-001.
+
+# M223 — sight without reach: a record edit could not touch the detail
+- THE WRITER'S AUDIT PRODUCED A PAGE OF CORRECT FINDINGS AND EVERY ONE WAS REFUSED. "indigo eyes"
+  -> "blue eyes"; "Jovan is seventeen" -> "sixteen"; "Suzune is a nickname, not a surname" — all of
+  them right, all of them "Refused — its anchor does not match the line".
+  Since M216 the housekeeper READS a line's "• Detail worth keeping: …", so it did the obvious
+  thing and proposed corrections to it. But the anchor was matched against node.text ALONE, which
+  never contains the detail. I gave it sight without reach, and it spent a whole audit on findings
+  that could not land.
+  locateInNode looks in the line, then in its detail, and the edit is written back to whichever
+  held the anchor. The "• Detail worth keeping:" label pasted in with the quote is forgiven,
+  because models copy it.
+- AND CHAT ASSISTANT'S LAW, PORTED: "ANCHORS ARE COPIES, NOT DESCRIPTIONS. Every find must be
+  copied character for character out of text you are HOLDING. A line shown in an index or a
+  summary is clipped and its whitespace collapsed, so an anchor built from one cannot match and
+  the edit is dead on arrival — <fetch> the line first." That is the same fault in the model's own
+  half of the loop, and Chat Assistant has carried the fix for a long time.
+- 466/466 harness + 37/37 walk + 8/8 play. version.js -> m223-001.

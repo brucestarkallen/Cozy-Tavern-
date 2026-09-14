@@ -1432,3 +1432,35 @@ test('M222: a record handle is a handle, and an audit can fetch the lines it jud
   const ui = readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
   assert(/FETCH those pages whole \(their #handles\) and the line/.test(ui), 'the Audit ask asks for exactly this');
 });
+
+/* M223: the writer's audit produced a page of correct findings — "indigo
+ * eyes" -> "blue eyes", "Jovan is seventeen" -> "sixteen", "Suzune is a
+ * nickname, not a surname" — and EVERY ONE came back "Refused — its anchor
+ * does not match the line". Since M216 the housekeeper READS a line's
+ * "• Detail worth keeping: …", so it does the obvious thing and proposes
+ * corrections to it; but the anchor was matched against node.text ALONE,
+ * which never contains the detail. Sight without reach. */
+test('M223: a record edit reaches the detail beneath the line, not only the line', async () => {
+  const { stageProposals, recordHandle } = await import('../../js/agents/housekeeper.js');
+  const nd = { id: 'node-abc-1', span: [0, 5], level: 1, at: 1,
+    text: 'Jovan arrived at the Lantern',
+    detail: "Aurora's physical description: strawberry blonde hair, indigo eyes; Jovan is seventeen" };
+  const h = recordHandle(nd);
+  const card = (find, replace) => stageProposals({ record: [{ line: h, find, replace, reason: 'r' }] },
+    { messages: [], memory: { nodes: [nd] } })[0];
+
+  eq(card('arrived at the Lantern', 'arrived at the inn').status, 'pending', 'an anchor in the LINE still stages');
+  eq(card('indigo eyes', 'blue eyes').status, 'pending', 'an anchor in the DETAIL stages — the writer’s exact case');
+  eq(card('Jovan is seventeen', 'Jovan is sixteen').status, 'pending', 'and his other one');
+  eq(card('• Detail worth keeping: ' + nd.detail, 'Aurora: blue eyes; Jovan is sixteen').status, 'pending',
+    'and the label pasted in with it is forgiven — models copy it');
+  eq(card('the elephants marched at noon', 'x').status, 'refused', 'while words that are nowhere are still refused');
+
+  const hk = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
+  assert(/function locateInNode\(node, find\)/.test(hk), 'one place decides where an anchor lives');
+  assert(/nodes\[at\] = \{ \.\.\.node, \[field\]: newText/.test(hk), 'and the edit is written back to whichever it was found in');
+  /* Chat Assistant's law, carried over so the model stops writing anchors it cannot match */
+  assert(/ANCHORS ARE COPIES, NOT DESCRIPTIONS/.test(hk), 'the anchor law is in the protocol');
+  assert(/clipped and its whitespace collapsed, so an anchor built from one cannot match/.test(hk),
+    'with the reason, as Chat Assistant states it');
+});
