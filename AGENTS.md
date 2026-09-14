@@ -4418,3 +4418,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - BOTH WERE FOUND BY AUDITING THE NEW CODE, NOT BY RUNNING THE SUITES — which passed, green, over
   both of them. That has been the difference all session: reading finds what testing does not.
 - 454/454 harness + 37/37 walk + 8/8 play. version.js -> m205-001.
+
+# M206 — the closing sweep: auditing this session's own work
+- M196 DID NOTHING, QUIETLY. `const mended = repaired.used.length > 0` was read ABOVE the overflow
+  rewrite that also mends the line — so a line rewritten because its addendum overflowed was never
+  saved unless the audit happened to return a FIX as well, and the early return below could drop
+  it entirely. The whole of M196 was dead whenever it was the only thing that had changed. The
+  decision is made after every mender has run, immediately before the save.
+- A PAGE DELETED ACROSS BROWSERS CAME BACK. M185's by-client rule only protected a browser's
+  deletions of its OWN appended pages. A page CHROME appended, which Opera then pulled and the
+  writer deleted in Opera, was folded straight back in — "let this page go" undone, across
+  browsers, silently. Proven.
+  The push now carries the browser's own bookStamp (X-Cozy-Base): a log line OLDER than what that
+  browser had already taken in was known to it, so its absence is a DELETION; a line newer than
+  that stamp could not have been known, so its absence is the race M184 exists for. Both laws hold
+  together in tests/append.py — the deleted page stays gone AND the unseen page still survives.
+- AND THE LINE IS STAMPED BY THE DEVICE, not by whichever browser sent it. The fold compares that
+  stamp against a browser's bookStamp, and two browsers' clocks are not a comparison anyone should
+  rest a page on. Held by a law: a line sent with at=1999 is stored with the device's own time.
+- 454/454 harness + 37/37 walk + 8/8 play + wipe + guard + two-browser + append.
+  version.js -> m206-001.

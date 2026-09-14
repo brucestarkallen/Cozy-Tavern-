@@ -780,8 +780,12 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
       if (loss.missingNumbers.length) rest.push('figures: ' + loss.missingNumbers.slice(0, 8).join(', '));
       if (rest.length) detail = (detail ? detail + '; ' : '') + rest.join('; ');
     }
-    const mended = repaired.used.length > 0;
-    if (!detail && !mended) return;
+    /* M206: JUDGED AFTER EVERYTHING THAT COULD MEND THE LINE, NOT BEFORE.
+     * This was read here, ABOVE the overflow rewrite (M196) that also mends
+     * the line — so a line rewritten because its addendum overflowed was
+     * never saved unless the audit happened to return a FIX as well, and the
+     * early return below could drop it entirely. The whole of M196 did
+     * nothing, quietly, whenever it was the only thing that had changed. */
     /* M192: when it must be cut, cut at a CLAUSE — the old slice landed
      * mid-word ("I'v…") and left a fragment of nothing. */
     /* M196: A LINE TOO POOR TO ANNOTATE IS REWRITTEN, NOT TRIMMED. The detail
@@ -814,6 +818,8 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
       const at = room.lastIndexOf(';');
       detail = (at > 700 ? room.slice(0, at) : room.trimEnd()) + '…';
     }
+    const mended = repaired.used.length > 0;
+    if (!detail && !mended) return;
     const current = await loadMemory(storyId);
     if (nodeUnmoved(current.nodes, node.id, signature)) {
       const standing = current.nodes.find((n) => n && n.id === node.id);

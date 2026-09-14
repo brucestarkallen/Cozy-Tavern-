@@ -37,8 +37,12 @@ async function getBook(id) {
   if (!res.ok) return null;
   return res.text();
 }
-async function putBook(id, json) {
-  const res = await fetch(api('api/books/one/' + encodeURIComponent(id)), { method: 'POST', headers: { 'content-type': 'application/json', 'x-cozy-client': CLIENT_ID }, body: json, signal: AbortSignal.timeout(LEASH) });
+async function putBook(id, json, base) {
+  const headers = { 'content-type': 'application/json', 'x-cozy-client': CLIENT_ID };
+  /* M206: what this browser had already taken in, so the device can tell a
+   * page the writer DELETED from one this browser has simply never seen. */
+  if (base) headers['x-cozy-base'] = base;
+  const res = await fetch(api('api/books/one/' + encodeURIComponent(id)), { method: 'POST', headers, body: json, signal: AbortSignal.timeout(LEASH) });
   return res.ok;
 }
 const stampOf = (json) => (/"exportedAt"\s*:\s*"([^"]+)"/.exec(String(json).slice(0, 4096)) || [])[1] || '';
@@ -104,7 +108,8 @@ async function pushIds(ids) {
     const json = id === HOUSE ? await db.exportHouse() : await db.exportStory(id);
     if (!json) continue;
     if (id !== HOUSE && await wouldEmptyTheBook(id, json)) { refused.push(id); continue; }
-    if (await putBook(id, json)) { await db.settings.set('bookStamp:' + id, stampOf(json)); done.push(id); }
+    const base = id === HOUSE ? '' : await db.settings.get('bookStamp:' + id);
+    if (await putBook(id, json, base)) { await db.settings.set('bookStamp:' + id, stampOf(json)); done.push(id); }
   }
   if (refused.length) {
     /* the browser is the one that is wrong here — take the device's copy */

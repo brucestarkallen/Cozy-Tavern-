@@ -24,8 +24,10 @@ def check(name, ok, extra=''):
         fails.append(name)
 
 
-def post(p, b, who=''):
+def post(p, b, who='', base=''):
     h = {'X-Cozy-Client': who} if who else {}
+    if base:
+        h['X-Cozy-Base'] = base
     return urllib.request.urlopen(urllib.request.Request(BASE + p, data=b, method='POST', headers=h)).read()
 
 
@@ -187,6 +189,34 @@ try:
           not any(f.startswith('t7.json.bak1') or f == 't7.log' for f in os.listdir(folder)), str(os.listdir(folder)))
     man = json.loads(get('api/books/list'))
     check('and the other browser is still told it went', 't7' in man.get('gone', []), str(man.get('gone')))
+
+    # M206: a page ONE browser appended, pulled by the OTHER, then deleted by
+    # the writer there. The by-client rule alone folded it straight back —
+    # "let this page go" undone across browsers.
+    shutil.rmtree(os.path.join(DATA, 'books'), ignore_errors=True)
+    post('api/books/one/t8', small3(['m0', 'm1'], 't8'), 'opera')
+    post('api/books/page/t8', json.dumps({'m': {'id': 'm2', 'text': "Chrome wrote this"}}).encode(), 'chrome')
+    time.sleep(0.05)
+    opera_base = json.loads(get('api/books/one/t8'))['exportedAt']      # Opera pulls it
+    post('api/books/one/t8', small3(['m0', 'm1'], 't8'), 'opera', opera_base)
+    after = [m['id'] for m in json.loads(get('api/books/one/t8'))['messages']]
+    check('a page from the other browser, deleted by the writer, stays gone', 'm2' not in after, str(after))
+
+    # and the race M184 exists for is STILL saved
+    post('api/books/one/t9', small3(['m0', 'm1'], 't9'), 'opera')
+    stale = json.loads(get('api/books/one/t9'))['exportedAt']           # Opera's stamp, before Chrome writes
+    time.sleep(0.05)
+    post('api/books/page/t9', json.dumps({'m': {'id': 'NEW', 'text': "Chrome's newest"}}).encode(), 'chrome')
+    post('api/books/one/t9', small3(['m0', 'm1'], 't9'), 'opera', stale)
+    race = [m['id'] for m in json.loads(get('api/books/one/t9'))['messages']]
+    check('while a page it never saw still survives its push', 'NEW' in race, str(race))
+
+    # the device stamps the line, never the browser that sent it
+    post('api/books/one/ta', small3(['m0'], 'ta'), 'opera')
+    post('api/books/page/ta', json.dumps({'at': '1999-01-01T00:00:00.000Z', 'm': {'id': 'x', 'text': 'y'}}).encode(), 'chrome')
+    with open(os.path.join(DATA, 'books', 'ta.log')) as f:
+        line = json.loads(f.readline())
+    check('the device stamps the line with its own clock', line['at'] > '2020', str(line.get('at')))
 finally:
     srv.terminate()
 

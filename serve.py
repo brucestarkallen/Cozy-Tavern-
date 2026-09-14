@@ -90,6 +90,11 @@ def _log_path(book_path):
     return book_path[:-len('.json')] + '.log'
 
 
+def _now_stamp():
+    t = time.time()
+    return time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(t)) + ('.%03dZ' % int((t % 1) * 1000))
+
+
 def _log_stamp(log_path):
     """When the log last moved, as an ISO stamp. M183: the FILE'S MTIME, not
     a field parsed out of it. The first try read the last 4096 bytes and
@@ -153,7 +158,7 @@ def _merge_log(book_bytes, log_path):
 
 
 
-def _fold_missing(book_bytes, log_path, by_client=''):
+def _fold_missing(book_bytes, log_path, by_client='', base=''):
     """The incoming book, plus any appended page it does not already hold —
     except the ones THIS browser appended itself.
 
@@ -183,6 +188,15 @@ def _fold_missing(book_bytes, log_path, by_client=''):
         if isinstance(m, dict) and m.get('id') is not None:
             have.add(m['id'])
     mine = str(by_client or '')
+    # M206: WHAT THE PUSHER COULD HAVE KNOWN. The by-client rule alone only
+    # protected a browser's deletions of its OWN appended pages: a page CHROME
+    # appended, which Opera then pulled and the writer deleted in Opera, was
+    # folded straight back — "let this page go" undone across browsers. The
+    # browser's own bookStamp says what it had already taken in. A line older
+    # than that stamp was known to it, so its absence is a deletion; a line
+    # newer than it could not have been known, so its absence is the race
+    # M184 exists for.
+    seen_upto = str(base or '')
     added = 0
     try:
         with open(log_path, 'r', encoding='utf-8') as f:
@@ -199,6 +213,9 @@ def _fold_missing(book_bytes, log_path, by_client=''):
                     continue
                 if mine and row.get('by') == mine:
                     continue  # this browser appended it and its own book omits it: let go
+                stamped = row.get('at')
+                if seen_upto and isinstance(stamped, str) and stamped <= seen_upto:
+                    continue  # it had this page and left it out: a deletion, not a race
                 msgs.append(m)
                 have.add(m['id'])
                 added += 1
@@ -448,7 +465,8 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             # acquire/release: an os error anywhere in here would otherwise
             # leave the lock held and deadlock every later write.
             with _log_lock:
-                body = _fold_missing(body, _log_path(bp), self.headers.get('X-Cozy-Client', ''))
+                body = _fold_missing(body, _log_path(bp), self.headers.get('X-Cozy-Client', ''),
+                                     self.headers.get('X-Cozy-Base', ''))
                 os.makedirs(os.path.dirname(bp), exist_ok=True)
                 tmp = bp + '.tmp'
                 with open(tmp, 'wb') as f:
@@ -511,6 +529,11 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 os.makedirs(os.path.dirname(bp), exist_ok=True)
                 # M185: the line records WHO appended it (see _fold_missing)
                 row['by'] = self.headers.get('X-Cozy-Client', '')
+                # M206: stamped by the DEVICE, not by whichever browser sent it.
+                # The fold below compares this against a browser's own bookStamp,
+                # and two browsers' clocks are not a comparison anyone should rest
+                # a page on.
+                row['at'] = _now_stamp()
                 lp = _log_path(bp)
                 with _log_lock:
                     with open(lp, 'a', encoding='utf-8') as f:
