@@ -4237,3 +4237,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - So the record now reads as the writer expected: the LINE says sixteen, and the detail says what
   the line left out.
 - 446/446 harness + 36/36 walk + 8/8 play. version.js -> m195-001.
+
+# M196 — a line too poor to annotate is rewritten by the house
+- THE ADDENDUM'S CAP WAS A DEAD END, AND THE ONLY WAY OUT WAS THE WRITER'S HAND. The detail is an
+  addendum; 480 characters is right for what a line left out. But when the audit found MORE than
+  that missing, the cut threw away exactly the continuity the record exists to hold — and the only
+  answer on offer was to tell the writer to rebuild the record himself, which is babysitting, and
+  against his standing law that the house is autonomous and self-healing.
+- The house mends its own line now. When the missing matter overflows the addendum, the keeper is
+  asked to rewrite THAT ONE LINE so every missing thing is in it, keeping everything the line
+  already said, in the same form. The rewritten line is what stands; the addendum keeps only what
+  still will not fit. Guards: a rewrite that comes back stunted (less than half the line's length)
+  or empty is refused, and a keeper that stumbles falls back to the old clause-wise trim rather
+  than losing the line. The writer is never asked to notice any of it.
+- 447/447 harness + 36/36 walk + 8/8 play. version.js -> m196-001.

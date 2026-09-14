@@ -753,6 +753,31 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
     if (!detail && !mended) return;
     /* M192: when it must be cut, cut at a CLAUSE — the old slice landed
      * mid-word ("I'v…") and left a fragment of nothing. */
+    /* M196: A LINE TOO POOR TO ANNOTATE IS REWRITTEN, NOT TRIMMED. The detail
+     * is an addendum — 480 characters is right for what a line left out. When
+     * the audit finds MORE than that missing, the LINE is the problem, and
+     * cutting the addendum to fit throws away exactly the continuity the
+     * record exists to hold. The house rewrites that one line from what it
+     * missed and keeps the addendum for whatever still will not fit. The
+     * writer is never asked to notice this, or to press anything. */
+    if (detail.length > 480) {
+      try {
+        const roomier = await callKeeper(connection, buildRewriteMessages({
+          playerName: (await db.settings.get('playerName')) || 'the player',
+          record: '',
+          snippet: lineText,
+          correction: 'The line below left these out, and they matter: ' + detail
+            + '\n\nRewrite the line so every one of them is in it. Keep everything the line already says. Same form: one line, short phrases separated by semicolons.',
+        }), signal);
+        const rewritten = parseMemoryAnswer(roomier);
+        if (rewritten && rewritten !== '(no new state)' && rewritten.length > lineText.length / 2) {
+          lineText = rewritten;
+          repaired.used.push({ from: '(the line)', to: '(rewritten to hold what it had left out)' });
+          const after = lossCheck(sourceText, lineText, '', knownNames);
+          detail = after.missingNames.length ? 'also named: ' + after.missingNames.slice(0, 8).join(', ') : '';
+        }
+      } catch (err) { /* the trim below is still the backstop */ }
+    }
     if (detail.length > 480) {
       const room = detail.slice(0, 479);
       const at = room.lastIndexOf(';');

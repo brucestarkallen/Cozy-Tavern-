@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m195-001)
+# Cozy Tavern — handoff for the next session (state at m196-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M195). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M196). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 446 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 447 checks on the engines, assembler, workers, laws.
 - `cd tests/dom && node run.mjs` — the walk: 36 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models

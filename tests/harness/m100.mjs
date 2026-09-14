@@ -788,3 +788,28 @@ test('M195: the audit mends the line, and keeps the detail for what was missing'
   /* and the run really saves the mended line */
   assert(/if \(mended\) standing\.text = lineText;/.test(src), 'the mended line is what gets saved');
 });
+
+/* M196: the addendum's cap was a dead end. When the audit found MORE than
+ * 480 characters missing, the cut threw away exactly the continuity the
+ * record exists to hold — and the only answer on offer was to tell the
+ * writer to rebuild the record by hand, which is babysitting. The house
+ * mends its own line. */
+test('M196: a line too poor to annotate is rewritten by the house, not handed to the writer', () => {
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  const at = src.indexOf('A LINE TOO POOR TO ANNOTATE');
+  assert(at !== -1, 'the law is written where it acts');
+  const body = src.slice(at, at + 2100);
+  assert(/buildRewriteMessages\(\{/.test(body), 'it asks the keeper to rewrite the line');
+  assert(/Rewrite the line so every one of them is in it\. Keep everything the line already says\./.test(body),
+    'and to keep what the line already held');
+  assert(/lineText = rewritten;/.test(body), 'the rewritten line is the one that stands');
+  assert(/rewritten\.length > lineText\.length \/ 2/.test(body),
+    'a rewrite that came back stunted is refused — a short answer must never replace a full line');
+  assert(/\(no new state\)/.test(body), 'and neither may an empty one');
+  assert(/catch \(err\) \{[\s\S]{0,60}the trim below is still the backstop/.test(body),
+    'a keeper that stumbles falls back to the old trim rather than losing the line');
+  /* and the trim still exists beneath it, as the last resort */
+  assert(/const at = room\.lastIndexOf\(';'\);/.test(src.slice(at)), 'the clause-wise trim remains as the backstop');
+  /* the mended line is what gets saved */
+  assert(/if \(mended\) standing\.text = lineText;/.test(src), 'and the saved line is the mended one');
+});
