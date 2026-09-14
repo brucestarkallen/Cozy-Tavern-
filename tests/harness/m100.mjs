@@ -1683,3 +1683,32 @@ test('M230: there is no place left that writes a bare list as a detail', async (
     'and what it must not be');
   assert(/would puzzle someone who had just read the line above it/.test(m.system), 'with the test to apply');
 });
+
+/* M235: from the writer's own record — every line ending "STATS: none", and
+ * one line severed at "...and graded Jo…" with everything after it gone and
+ * no sign of what. */
+test('M235: no empty stats phrase, and a line is never cut mid-word', async () => {
+  const { parseMemoryAnswer } = await import('../../js/agents/memory.js');
+
+  eq(parseMemoryAnswer('Jovan arrived and Rias met him; STATS: none'), 'Jovan arrived and Rias met him',
+    'a bare "STATS: none" is dropped — it tells the storyteller nothing, on every line, forever');
+  for (const empty of ['STATS: n/a', 'STATS: nil', 'STATS: unchanged', 'STATS: no changes']) {
+    eq(parseMemoryAnswer('Jovan arrived; ' + empty), 'Jovan arrived', empty + ' too');
+  }
+  assert(/STATS: Rias\(P:88\/R:70\/S:49\)$/.test(parseMemoryAnswer('Jovan arrived; STATS: Rias(P:88/R:70/S:49)')),
+    'while REAL stats are kept whole');
+
+  /* the cut lands on a whole phrase */
+  const long = Array.from({ length: 120 }, (_, i) => 'phrase number ' + i + ' about something that happened').join('; ')
+    + '; and graded Jovan on mythology';
+  const cut = parseMemoryAnswer(long);
+  assert(cut.length <= 4000, 'it is cut');
+  assert(/…$/.test(cut), 'and says so');
+  const lastPhrase = cut.replace(/…$/, '').split('; ').pop();
+  assert(/happened$/.test(lastPhrase), 'ending on a whole phrase, not a severed word: ' + JSON.stringify(lastPhrase.slice(-30)));
+
+  /* and the keeper is told not to write the empty phrase in the first place */
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  assert(/IF NO STAT CHANGED ON THESE PAGES, WRITE NOTHING AT ALL/.test(src), 'the rule is in the brief');
+  assert(/not \\\\"STATS: none\\\\"/.test(src) || /STATS: none/.test(src), 'naming the exact thing the writer saw');
+});

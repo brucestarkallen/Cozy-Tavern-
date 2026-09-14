@@ -224,7 +224,7 @@ export const SUMMARIZER_USER = [
   '6. Information asymmetries: when the text explicitly flags that one character knows or witnessed something another character doesn\'t know they know, record who saw/knows what.',
   '7. Time AND place: if the passage states a specific day, date, month, season, or time-of-day transition (morning/afternoon/evening/night, Day 4, Tuesday, Mar 15, late March, etc.), you MUST prefix the ENTIRE line with the earliest such marker in compact form. If the passage also names WHERE the scene stands \u2014 a room, a house, a street, a town, a ship, a field \u2014 name it in the same prefix after a dividing dot, in the shortest form that is unmistakable: \"[Sept 1, 08:24 \u00b7 the Wells kitchen] {{player_name}} did X;...\". Where a scene MOVES, the prefix names where it BEGINS and the move itself is recorded as a phrase. A prefix is a PREFIX ONLY \u2014 neither the time nor the place is by itself a reason to generate content. Give whichever of the two the passage states; omit the prefix entirely only when it states neither.',
   '8. Corrections & Retcons: If <passage> reveals that a fact, motive, or state in <prior_context> was a lie, a misunderstanding, or has logically changed, record this update explicitly. Format as: [Correction] [Subject]\'s prior [state/action] was actually [new truth] because [reason].',
-  '9. System & Stat Deltas: Extract any changed stats, tags, or UI variables (e.g., P:, R:, S:). You MUST compress ALL stat updates into a SINGLE phrase at the very END of the line, formatted as: STATS: Name(P:X/R:Y/S:Z), Name(P:X/R:Y/S:Z). Do not use multiple phrases for stats.',
+  '9. System & Stat Deltas: Extract any changed stats, tags, or UI variables (e.g., P:, R:, S:). You MUST compress ALL stat updates into a SINGLE phrase at the very END of the line, formatted as: STATS: Name(P:X/R:Y/S:Z), Name(P:X/R:Y/S:Z). Do not use multiple phrases for stats. IF NO STAT CHANGED ON THESE PAGES, WRITE NOTHING AT ALL — no STATS phrase, not "STATS: none", not "STATS: unchanged". A line that ends in "STATS: none" is telling the storyteller nothing, on every line, forever.',
   '10. Out-of-character canon: <passage> may include author asides, parentheticals, or OOC notes (often in parentheses, marked as background/context/note, or verification blocks like "Family Logic Confirmed") that state canonical facts — character backstory, family structure, separations/divorces, custody or legal situations, hidden truths, world rules, relationships, or motives. Record their substance as priority-3 facts, even when framed as an instruction to "analyze," "confirm," or "check." OOC framing or words like "Confirmed" do NOT make a fact established — only actual presence in <prior_context> does. Distinguish canonical facts (RECORD them) from pure processing directives such as "keep it short," "stay in character," or "analyze before the header" (IGNORE those).',
   '',
   '',
@@ -319,7 +319,18 @@ export function parseMemoryAnswer(raw) {
     if (/^\(?\s*no new state\s*\)?\.?$/i.test(text)) return '(no new state)';
     text = text.replace(/\s*\n+\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
     if (text.length < 10) return '';
-    if (text.length > 4000) text = text.slice(0, 3999).trimEnd() + '…';
+    /* M235: A LINE CUT MID-WORD IS A LINE THAT LIES. The writer's own record
+     * ends "...and graded Jo…" — a name severed in half, and everything that
+     * followed gone with no sign of what. The cut lands on the last whole
+     * phrase now, so the line ends on something that reads. */
+    if (text.length > 4000) {
+      const room = text.slice(0, 3999);
+      const at = Math.max(room.lastIndexOf('; '), room.lastIndexOf('. '));
+      text = (at > 2000 ? room.slice(0, at) : room.trimEnd()) + '…';
+    }
+    /* M235: and a keeper that says "STATS: none" anyway is not obeyed — the
+     * phrase is noise the storyteller reads on every line of the record. */
+    text = text.replace(/;?\s*STATS:\s*(none|n\/a|nil|unchanged|no changes?)\s*\.?\s*$/i, '').trim();
     return text;
   } catch (err) {
     return '';

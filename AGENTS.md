@@ -4885,3 +4885,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   height — landing wherever that happens to be. It is not a position anyone chose; it is the old
   one having nowhere left to be. The connection just edited is brought back under the eye instead.
 - 475/475 harness + 37/37 walk + 8/8 play + contrast. version.js -> m234-001.
+
+# M235 — "STATS: none" on every line, and a line severed mid-name
+- EVERY RECORD LINE ENDED "STATS: none". Rule 9 demanded ALL stat changes be bundled into one
+  phrase at the end of the line, and said nothing about what to do when NOTHING changed — so the
+  keeper dutifully wrote the phrase anyway, and the storyteller read "STATS: none" on every line
+  of the record for the whole tale. The rule now says outright: if no stat changed, write nothing
+  at all — not "none", not "unchanged". And a keeper that writes it anyway is not obeyed; the code
+  strips a bare one.
+- AND A LINE WAS CUT MID-NAME. The writer's own record ends "...and graded Jo…" — a name severed
+  in half with everything after it gone and no sign of what. parseMemoryAnswer chopped at 4000
+  characters exactly, wherever that landed. It cuts on the last whole phrase now, so a line that
+  must be trimmed still ends on something that reads. (The real remedy for a line that long is
+  the phrase limit in rule 9's sibling — HARD LIMIT 15, 18 for dense scenes — which that line
+  plainly overran; the cut is the backstop, not the fix.)
+- 476/476 harness + 37/37 walk + 8/8 play. version.js -> m235-001.
