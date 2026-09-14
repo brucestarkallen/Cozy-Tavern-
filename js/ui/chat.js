@@ -1541,6 +1541,26 @@ export function initChat(ctx) {
    * the chain instead of the call: when the story's tracked work is done, it
    * says so. An early return finishes it too — a banner left spinning over
    * nothing is worse than no banner. */
+
+  /* M209: A STOP IS NOT A STALL. The writer stops because they want to be
+   * rid of this run and start again from the first page — so a stop clears
+   * the mark that would have made the next rebuild CARRY ON. Resuming is for
+   * a failure nobody chose (the keeper outwaited, the wire fell over): that
+   * keeps its mark and picks up where it stopped. The two look the same from
+   * the queue's side and are opposite things to the writer. */
+  async function stoppedByHand(storyId) {
+    stopWork(storyId);
+    if (!storyId) return;
+    try {
+      const mem = await loadMemory(storyId);
+      if (mem && mem.rebuildStalled) await saveMemory(storyId, { ...mem, rebuildStalled: false });
+    } catch (err) { /* the next rebuild starts fresh either way */ }
+    try {
+      const st = await loadState(storyId);
+      if (st && st.peopleRebuiltAt) await saveState(storyId, { ...st, peopleRebuiltAt: null });
+    } catch (err) { /* fine */ }
+  }
+
   async function bannerFollows(banner, story, words, promise) {
     if (!banner) return;
     if (!story) { banner.failed('Open a story first'); return; }
@@ -1563,7 +1583,7 @@ export function initChat(ctx) {
   }
 
   async function rescanLedger() {
-    const banner = beginWork('Reading the pages again', () => { const s = ctx.getActiveStoryId(); if (s) stopWork(s); banner.failed('Stopped — what was done is kept'); });
+    const banner = beginWork('Reading the pages again', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the next run starts from the first page'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const pages = (await db.messages.list(story.id)).filter((m) => !m.hidden);
@@ -1580,7 +1600,7 @@ export function initChat(ctx) {
   /* M45: found the world, by hand — from the brief, the cast notes, the
    * cards and the lore, regardless of the fingerprint. */
   async function foundNow() {
-    const banner = beginWork('Founding the world from the brief', () => { const s = ctx.getActiveStoryId(); if (s) stopWork(s); banner.failed('Stopped — what was done is kept'); });
+    const banner = beginWork('Founding the world from the brief', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the next run starts from the first page'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'founder');
@@ -1603,7 +1623,7 @@ export function initChat(ctx) {
     if (!story) return false;
     const connection = await resolveWorkerConnection(story, 'keeper');
     if (!connection) { banner.failed('The keeper needs a connection first'); return false; }
-    const banner = beginWork('Rebuilding the record', () => { const s = ctx.getActiveStoryId(); if (s) stopWork(s); banner.failed('Stopped — what was done is kept'); });
+    const banner = beginWork('Rebuilding the record', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the next run starts from the first page'); });
     const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale, renew }) => {
       const result = await rebuildRecord({
         connection, storyId: story.id, signal, stale, renew,
@@ -1622,7 +1642,7 @@ export function initChat(ctx) {
     if (!story) return false;
     const connection = await resolveWorkerConnection(story, 'scribe');
     if (!connection) { banner.failed('The scribe needs a connection first'); return false; }
-    const banner = beginWork('Rebuilding the people', () => { const s = ctx.getActiveStoryId(); if (s) stopWork(s); banner.failed('Stopped — what was done is kept'); });
+    const banner = beginWork('Rebuilding the people', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the next run starts from the first page'); });
     const promise = enqueueWork(story.id, { name: 'scribe', run: async ({ signal, stale, renew }) => {
       const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew, onProgress: ({ read, total }) => banner.step(read, total, 'page') });
       /* M135: the rebuilt pages also land in the LAST turn's boundary snapshot and
@@ -1654,7 +1674,7 @@ export function initChat(ctx) {
     return true;
   }
   async function restoreRecordNow() {
-    const banner = beginWork('Putting the old record back', () => { const s = ctx.getActiveStoryId(); if (s) stopWork(s); banner.failed('Stopped — what was done is kept'); });
+    const banner = beginWork('Putting the old record back', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the next run starts from the first page'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const ok = await restoreRecord(story.id);
@@ -1662,7 +1682,7 @@ export function initChat(ctx) {
     return ok;
   }
   async function restorePeopleNow() {
-    const banner = beginWork('Putting the people back', () => { const s = ctx.getActiveStoryId(); if (s) stopWork(s); banner.failed('Stopped — what was done is kept'); });
+    const banner = beginWork('Putting the people back', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the next run starts from the first page'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const ok = await restorePeople(story.id);
@@ -1672,7 +1692,7 @@ export function initChat(ctx) {
 
   /* M50: rebuild every standing by hand — from the brief, the record and the pages. */
   async function rebuildStandingsNow() {
-    const banner = beginWork('Rebuilding every standing', () => { const s = ctx.getActiveStoryId(); if (s) stopWork(s); banner.failed('Stopped — what was done is kept'); });
+    const banner = beginWork('Rebuilding every standing', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the next run starts from the first page'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'auditor');
@@ -1801,7 +1821,7 @@ export function initChat(ctx) {
   }
 
   async function auditNow() {
-    const banner = beginWork('Auditing the ledger', () => { const s = ctx.getActiveStoryId(); if (s) stopWork(s); banner.failed('Stopped — what was done is kept'); });
+    const banner = beginWork('Auditing the ledger', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the next run starts from the first page'); });
     const story = await activeStory();
     if (!story) return false;
     const connection = await resolveWorkerConnection(story, 'auditor');

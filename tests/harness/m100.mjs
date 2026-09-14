@@ -996,7 +996,39 @@ test('M208: no token dumps in the record, and the writer may stop what they star
   assert(!/if \(stoppedByHand\)[\s\S]{0,200}attempt/.test(queue), 'and is never retried');
 
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  const wired = (chat.match(/beginWork\('[^']+', \(\) => \{ const s = ctx\.getActiveStoryId\(\); if \(s\) stopWork\(s\);/g) || []).length;
+  /* M209: the stop goes through stoppedByHand now — see the law below */
+  const wired = (chat.match(/beginWork\('[^']+', \(\) => \{ const s = ctx\.getActiveStoryId\(\); if \(s\) stoppedByHand\(s\);/g) || []).length;
   eq(wired, 8, 'all eight manual actions can be stopped (' + wired + ')');
-  assert(/Stopped — what was done is kept/.test(chat), 'and the work already done stands');
+  assert(/stopWork\(storyId\);/.test(chat), 'and the queue is what it stops');
+});
+
+/* M209: A STOP IS NOT A STALL. M208 made a stop keep its place, so pressing
+ * Stop and then Rebuild carried on from where the writer had just chosen to
+ * abandon — the opposite of what Stop is for. Resuming belongs to a failure
+ * NOBODY CHOSE (the keeper outwaited, the wire fell over). The two look the
+ * same from the queue's side and are opposite things to the writer. */
+test('M209: a stop starts the next rebuild fresh; only a failure carries on', async () => {
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const lines = [{ id: 'n1', span: [0, 5], text: 'a line' }];
+  const resumes = async (mem) => {
+    await saveMemory('m209', mem);
+    const m = await loadMemory('m209');
+    return Boolean(m.rebuildStalled && m.nodes.length);
+  };
+
+  eq(await resumes({ window: 30, nodes: lines, rebuiltAt: 1, rebuildStalled: true }), true,
+    'a rebuild the keeper stumbled on carries on');
+  eq(await resumes({ window: 30, nodes: lines, rebuiltAt: 1, rebuildStalled: false }), false,
+    'and one the writer stopped starts from the first page');
+
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/async function stoppedByHand\(storyId\)/.test(chat), 'a stop by hand is its own thing');
+  assert(/if \(mem && mem\.rebuildStalled\) await saveMemory\(storyId, \{ \.\.\.mem, rebuildStalled: false \}\);/.test(chat),
+    'and it clears the record’s resume mark');
+  assert(/if \(st && st\.peopleRebuiltAt\) await saveState\(storyId, \{ \.\.\.st, peopleRebuiltAt: null \}\);/.test(chat),
+    'and the people’s');
+  const wired = (chat.match(/if \(s\) stoppedByHand\(s\);/g) || []).length;
+  eq(wired, 8, 'all eight actions stop this way (' + wired + ')');
+  assert(/Stopped — the next run starts from the first page/.test(chat), 'and the banner says exactly that');
+  assert(!/Stopped — what was done is kept/.test(chat), 'never the old promise to carry on');
 });

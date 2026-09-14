@@ -4477,3 +4477,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   it reads the ui folder now, because a law that cries wolf teaches the next reader to ignore it.
 - 456/456 harness + 37/37 walk + 8/8 play + wipe + guard + two-browser + append + contrast.
   version.js -> m208-001.
+
+# M209 — a stop is not a stall
+- M208 GOT THE STOP BACKWARDS. It kept the run's place, so pressing Stop and then Rebuild carried
+  on from exactly where the writer had just chosen to ABANDON — the opposite of what a stop is
+  for. The writer said it plainly: "I want to stop so I can rebuild from the beginning."
+- THE TWO LOOK THE SAME FROM THE QUEUE'S SIDE AND ARE OPPOSITE THINGS TO THE WRITER:
+    a STALL is a failure nobody chose — the keeper outwaited, the wire fell over. It keeps its
+      mark and the next rebuild picks up where it stopped, because paying twice for work that
+      already succeeded is the thing M203 fixed.
+    a STOP is the writer's own hand. It clears the mark, so the next rebuild starts from the first
+      page. The banner says exactly that: "Stopped — the next run starts from the first page."
+  Both marks are cleared, the record's and the people's, and all eight actions stop this way.
+- 457/457 harness + 37/37 walk + 8/8 play. version.js -> m209-001.
