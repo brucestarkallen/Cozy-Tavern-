@@ -373,3 +373,35 @@ test('M214: every action’s banner exists before it is touched, and never claim
   assert(/if \(result && result\.stalled\) banner\.failed\('Stopped at ' \+ result\.folded/.test(chat), 'the record’s banner too');
   assert(/if \(result && result\.stalled\) banner\.failed\('Stopped at ' \+ result\.read/.test(chat), 'and the people’s');
 });
+
+/* M234: the writer typed 0,3 into the temperature — a decimal point in most
+ * of the world — and "Test connection" passed merrily. It passed because
+ * NOTHING WAS BEING SENT: the field is <input type="number">, so a browser
+ * handed a comma gives back an empty string or something parseFloat reads as
+ * 0. His number was silently thrown away and he had no way to know. */
+test('M234: a comma is a decimal point, and closing the form keeps your place', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const set = fs.readFileSync(path.join(here, '../../js/ui/settings.js'), 'utf8');
+  const html = fs.readFileSync(path.join(here, '../../index.html'), 'utf8');
+
+  assert(/\.replace\(',', '\.'\)/.test(set), 'a comma is read as the point it is');
+  /* and the field must be able to HOLD one — a number input cannot */
+  for (const id of ['conn-temperature', 'conn-topp']) {
+    const m = new RegExp('<input id="' + id + '" type="([a-z]+)"([^>]*)>').exec(html);
+    assert(m, id + ' is in the page');
+    eq(m[1], 'text', id + ' is not a number input, which silently drops a comma');
+    assert(/inputmode="decimal"/.test(m[2]), id + ' still raises a numeric keypad on a phone');
+  }
+  /* the parse itself */
+  const numOrUnset = (v) => { const r = String(v || '').trim().replace(',', '.'); const n = parseFloat(r); return r !== '' && Number.isFinite(n) ? n : undefined; };
+  eq(numOrUnset('0,3'), 0.3, 'a comma decimal');
+  eq(numOrUnset('0.3'), 0.3, 'a point decimal');
+  eq(numOrUnset('0,25'), 0.25);
+  eq(numOrUnset(''), undefined, 'empty stays unset — the provider decides');
+  eq(numOrUnset('abc'), undefined, 'and words are not numbers');
+
+  /* closing the form collapses a tall panel, so the browser clamps the scroll */
+  assert(/const rememberPlace = \(\)/.test(set), 'where the writer was is remembered');
+  assert(/const returnToPlace = \(\)/.test(set), 'and given back');
+  assert(/row\.scrollIntoView\(\{ block: 'nearest' \}\)/.test(set), 'the connection just edited comes back under the eye');
+});

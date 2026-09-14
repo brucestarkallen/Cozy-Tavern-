@@ -430,6 +430,7 @@ export function initSettings(ctx) {
 
   function openForm(conn) {
     editingId = conn ? conn.id : null;
+    rememberPlace();
     els.form.hidden = false;
     els.formTitle.textContent = conn ? `Changing “${conn.label}”` : 'A new connection';
     hideModelPicker();
@@ -565,16 +566,51 @@ export function initSettings(ctx) {
   });
 
   els.btnAdd.addEventListener('click', () => openForm(null));
-  els.btnCancel.addEventListener('click', () => { els.form.hidden = true; editingId = null; });
+
+  /* M234: CLOSING THE CONNECTION FORM THREW THE WRITER DOWN THE PAGE. The
+   * form is hidden inline, so a tall panel collapses to nothing and the page
+   * gets shorter — and the browser clamps the scroll to the new height,
+   * landing wherever that happens to be. It is not a new position the writer
+   * chose; it is the old one having nowhere to be. The connection being
+   * edited is brought back under the eye instead. */
+  let cameFrom = 0;
+  const scroller = () => els.form.closest('.settings-panels, .drawer-panels, .sheet-body') || document.scrollingElement || document.documentElement;
+  const rememberPlace = () => { const sc = scroller(); cameFrom = sc ? sc.scrollTop : 0; };
+  const returnToPlace = () => {
+    const sc = scroller();
+    if (!sc) return;
+    requestAnimationFrame(() => {
+      const row = editingId ? document.querySelector('#connection-list [data-id="' + CSS.escape(editingId) + '"]') : null;
+      if (row && typeof row.scrollIntoView === 'function') { row.scrollIntoView({ block: 'nearest' }); return; }
+      sc.scrollTop = Math.min(cameFrom, Math.max(0, sc.scrollHeight - sc.clientHeight));
+    });
+  };
+
+  els.btnCancel.addEventListener('click', () => {
+    const was = editingId;
+    els.form.hidden = true;
+    returnToPlace();
+    editingId = was;
+    returnToPlace();
+    editingId = null;
+  });
 
   els.form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const p = presetById(els.preset.value);
     /* A dial left empty stays unset — the providers then send nothing for
      * it and the storyteller's own defaults rule (M8). */
+    /* M234: A COMMA IS A DECIMAL POINT IN MOST OF THE WORLD. These are
+     * <input type="number">, so a browser handed "0,3" gives back either an
+     * EMPTY string or something parseFloat reads as 0 — and the writer's
+     * temperature was silently thrown away or silently set to zero, with
+     * "Test connection" passing merrily because nothing was being sent at
+     * all. He typed a perfectly sensible number and had no way to know it
+     * had not been kept. A comma is read as the point it is. */
     const numOrUnset = (input) => {
-      const n = parseFloat(input.value);
-      return input.value.trim() !== '' && Number.isFinite(n) ? n : undefined;
+      const raw = String((input && input.value) || '').trim().replace(',', '.');
+      const n = parseFloat(raw);
+      return raw !== '' && Number.isFinite(n) ? n : undefined;
     };
     /* M22-B: the SillyTavern courtesy — the address is normalized as it's
      * kept (trailing slashes stripped, a known house's missing /v1 added).

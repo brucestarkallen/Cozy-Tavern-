@@ -4871,3 +4871,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - So a worker's entire behaviour is the writer's now: temperature, top-p, prefill, search,
   thinking. The house supplies only a floor on answer room.
 - 474/474 harness + 37/37 walk + 8/8 play. version.js -> m233-001.
+
+# M234 — a comma is a decimal point, and a closing form threw the writer down the page
+- THE WRITER TYPED 0,3 INTO THE TEMPERATURE AND "TEST CONNECTION" PASSED. It passed because
+  NOTHING WAS BEING SENT. The field is <input type="number">, so a browser handed a comma gives
+  back an EMPTY string — or, keeping the text, something parseFloat reads as 0. His number was
+  silently thrown away (or silently made zero) and the test's success told him it had worked. A
+  decimal comma is how most of the world writes a number.
+  Both sampling fields are text with inputmode="decimal" now — a number input CANNOT hold a comma,
+  so reading it better was not enough — and a comma is read as the point it is.
+- AND CLOSING THE CONNECTION FORM THREW HIM DOWN THE PAGE. The form is hidden inline, so a tall
+  panel collapses to nothing, the page gets shorter, and the browser clamps the scroll to the new
+  height — landing wherever that happens to be. It is not a position anyone chose; it is the old
+  one having nowhere left to be. The connection just edited is brought back under the eye instead.
+- 475/475 harness + 37/37 walk + 8/8 play + contrast. version.js -> m234-001.
