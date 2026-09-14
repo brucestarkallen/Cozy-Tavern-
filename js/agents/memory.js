@@ -348,7 +348,14 @@ export function parseAuditAnswer(raw) {
     if (!m) return '';
     let detail = m[1].trim();
     if (!detail) return '';
-    if (detail.length > 240) detail = detail.slice(0, 239).trimEnd() + '…';
+    /* M193: cut at a word, never inside one. The same slice that gave the
+     * writer "I'v…" lives here too, on the model's own answer, before
+     * anything is merged. */
+    if (detail.length > 240) {
+      const room = detail.slice(0, 239);
+      const at = Math.max(room.lastIndexOf(';'), room.lastIndexOf(' '));
+      detail = (at > 120 ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
+    }
     return detail;
   } catch (err) {
     return '';

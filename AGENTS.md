@@ -4194,3 +4194,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   would risk losing everything else in it. With the duplication gone the correction is short and
   reads plainly.
 - 444/444 harness + 36/36 walk + 8/8 play. version.js -> m192-001.
+
+# M193 — the other mid-word cut
+- The same chop that gave the writer "I'v…" lives in parseAuditAnswer too, on the model's own
+  answer at 240 characters, before anything is merged. It cuts at a word now, and drops a dangling
+  comma or semicolon before the ellipsis.
+- FOR THE RECORD, the room the record actually has: a summary LINE may run to 4000 characters —
+  battle strategy, who moved which way, who owes whom, a whole political turn all belong THERE.
+  The detail is not a second summary; it is the auditor's correction of that line, and 240
+  characters (480 once a sharper second ask is merged in) is right for a correction. If a line is
+  missing something big, the answer is to rebuild the record, not to grow the detail.
+- 444/444 harness + 36/36 walk + 8/8 play. version.js -> m193-001.
