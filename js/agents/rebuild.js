@@ -40,7 +40,7 @@ const MAX_TOKENS = 3000;
 
 /* ---------- the record ---------- */
 
-export async function rebuildRecord({ connection, storyId, onProgress, signal, stale } = {}) {
+export async function rebuildRecord({ connection, storyId, onProgress, onRetry, signal, stale } = {}) {
   if (!connection || !storyId) return null;
   const mem = await loadMemory(storyId);
   /* M202: THE WAY BACK IS NOT OVERWRITTEN BY A FAILED REBUILD. The backup was
@@ -51,10 +51,17 @@ export async function rebuildRecord({ connection, storyId, onProgress, signal, s
    * the people; the record had it too. A record a rebuild made keeps the
    * backup that stands. */
   const heldBackup = await db.settings.get('memoryBackup:' + storyId);
+  const resuming = Boolean(mem.rebuiltAt && mem.nodes.length);
   if (!(heldBackup && mem.rebuiltAt)) {
     await db.settings.set('memoryBackup:' + storyId, { at: Date.now(), nodes: mem.nodes });
   }
-  await saveMemory(storyId, { ...mem, nodes: [], rebuiltAt: Date.now() });
+  /* M203: A REBUILD THAT STOPPED CARRIES ON FROM WHERE IT STOPPED. It wiped
+   * the record and folded from the first page EVERY time — so a rebuild that
+   * stumbled at page 100 of 200 threw away those hundred pages of work and
+   * made the writer pay for them again. A part-built record (marked
+   * rebuiltAt, and holding lines) is resumed: dueRange picks up at the first
+   * page no line covers. Only a fresh rebuild starts from nothing. */
+  if (!resuming) await saveMemory(storyId, { ...mem, nodes: [], rebuiltAt: Date.now() });
   const history = visiblePages(await db.messages.list(storyId));
   const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
@@ -77,9 +84,12 @@ export async function rebuildRecord({ connection, storyId, onProgress, signal, s
      * times, and only then gives up — and says so. */
     if (after.length === before.length) {
       let recovered = false;
-      for (const pause of [1500, 4000, 9000]) {
+      const pauses = [1500, 4000, 9000];
+      for (let a = 0; a < pauses.length; a += 1) {
+        const pause = pauses[a];
         if (stale && stale()) return null;
-        await new Promise((r) => setTimeout(r, pause));
+        if (typeof onRetry === 'function') await onRetry({ ms: pause, attempt: a + 1, of: pauses.length });
+        else await new Promise((r) => setTimeout(r, pause));
         await maybeSummarize({ connection, storyId, signal });
         after = (await loadMemory(storyId)).nodes;
         if (after.length !== before.length) { recovered = true; break; }
@@ -87,14 +97,14 @@ export async function rebuildRecord({ connection, storyId, onProgress, signal, s
       if (!recovered) {
         return {
           folded, toFold, lines: after.length,
-          stalled: true,
+          stalled: true, resumable: true,
           why: 'the keeper could not be reached — the record is part-built; the old one can be put back',
         };
       }
     }
     folded = after.reduce((n, node) => n + (node.span[1] - node.span[0] + 1), 0);
     rounds += 1;
-    if (typeof onProgress === 'function') onProgress({ folded, toFold });
+    if (typeof onProgress === 'function') onProgress({ folded, toFold, lines: after.length, resumed: resuming });
   }
   return { folded, toFold, lines: (await loadMemory(storyId)).nodes.length };
 }

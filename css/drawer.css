@@ -570,3 +570,36 @@
 
 /* M143: the thread stays painted behind the drawer (M141's visibility:hidden
  * forced a full repaint of the thread on every close — the close lag). */
+
+/* M203: the work banner — what the house is doing, while it does it. It sits
+ * at the top of the ledger and stays put; a toast that vanishes is no use to
+ * a writer watching a two-hundred-page rebuild. */
+.work-banner {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 0.55rem 0.9rem 0.6rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.86rem;
+  color: var(--text);
+}
+.work-banner[hidden] { display: none; }
+.work-banner-line { display: flex; gap: 0.6rem; align-items: baseline; justify-content: space-between; }
+.work-banner-count { font-family: var(--mono); font-size: 0.78rem; color: var(--text-2); white-space: nowrap; }
+.work-banner-track {
+  margin-top: 0.4rem;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.work-banner-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: var(--ember);
+  transition: width 0.25s ease;
+}
+.work-banner.is-waiting .work-banner-fill { background: var(--danger); }
+.work-banner.is-done .work-banner-fill { background: var(--ok); width: 100%; }

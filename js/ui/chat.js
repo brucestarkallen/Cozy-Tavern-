@@ -43,6 +43,7 @@
 import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText, windowPlan } from '../assemble/stack.js';
+import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the house is doing */
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
@@ -1534,26 +1535,46 @@ export function initChat(ctx) {
    * with a founding-deep look behind it (the last eight pages), so a
    * ledger that missed something — a worker that ran out of room, a
    * connection that was wrong at the time — can be caught up by hand. */
+
+  /* M203: a banner that was begun must always be finished. These hand their
+   * work to the background chain and return at once, so the banner follows
+   * the chain instead of the call: when the story's tracked work is done, it
+   * says so. An early return finishes it too — a banner left spinning over
+   * nothing is worse than no banner. */
+  async function bannerFollows(banner, story, words) {
+    if (!banner) return;
+    if (!story) { banner.failed('Open a story first'); return; }
+    try {
+      await pendingWork(story.id, 600000);
+      banner.done(words);
+    } catch (err) {
+      banner.failed('It stumbled — the workers’ line says why');
+    }
+  }
+
   async function rescanLedger() {
+    const banner = beginWork('Reading the pages again');
     const story = await activeStory();
-    if (!story) return false;
+    if (!story) { banner.failed('Open a story first'); return false; }
     const pages = (await db.messages.list(story.id)).filter((m) => !m.hidden);
     const last = [...pages].reverse().find((m) => m.role === 'assistant');
-    if (!last) return false;
+    if (!last) { banner.failed('No page to read yet'); return false; }
     const before = pages.slice(0, pages.indexOf(last));
     const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
     startBackgroundWork(story, last, lastUser ? pageText(lastUser) : '', { deep: true });
-    toast('The workers are reading the pages again.');
+    banner.say('the workers are reading');
+    bannerFollows(banner, story, 'The pages were read again');
     return true;
   }
 
   /* M45: found the world, by hand — from the brief, the cast notes, the
    * cards and the lore, regardless of the fingerprint. */
   async function foundNow() {
+    const banner = beginWork('Founding the world from the brief');
     const story = await activeStory();
-    if (!story) return false;
+    if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'founder');
-    if (!connection) { toast('The founder needs a connection first.'); return false; }
+    if (!connection) { banner.failed('The founder needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'founder', run: async ({ signal, stale }) => {
       const cast = await castForStory(story);
       const lore = await loadLore(story.id);
@@ -1561,7 +1582,8 @@ export function initChat(ctx) {
       return { silent: false, detail: founderRunWords(result), raw: result && result.raw };
     } });
     noteWork(story.id, promise);
-    toast('The founder is reading the brief, the cast, the cards and the lore.');
+    banner.say('reading the brief, the cast, the cards and the lore');
+    bannerFollows(banner, story, 'The world was founded from the brief');
     return true;
   }
 
@@ -1570,22 +1592,29 @@ export function initChat(ctx) {
     const story = await activeStory();
     if (!story) return false;
     const connection = await resolveWorkerConnection(story, 'keeper');
-    if (!connection) { toast('The keeper needs a connection first.'); return false; }
+    if (!connection) { banner.failed('The keeper needs a connection first'); return false; }
+    const banner = beginWork('Rebuilding the record');
     const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale }) => {
-      const result = await rebuildRecord({ connection, storyId: story.id, signal, stale, onProgress: ({ folded, toFold }) => toast(`Re-folding the record — ${folded} of ${toFold} pages…`) });
+      const result = await rebuildRecord({
+        connection, storyId: story.id, signal, stale,
+        onProgress: ({ folded, toFold, resumed }) => banner.step(folded, toFold, resumed ? 'page (carried on at)' : 'page'),
+        onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
+      });
+      if (result && result.stalled) banner.failed('The rebuild stopped at ' + result.folded + ' of ' + result.toFold + ' pages — press it again to carry on');
+      else banner.done(rebuildRecordWords(result));
       return { silent: false, detail: rebuildRecordWords(result) };
     } });
     noteWork(story.id, promise);
-    toast('Re-folding the record from the first page, six pages at a time.');
     return true;
   }
   async function rebuildPeopleNow() {
     const story = await activeStory();
     if (!story) return false;
     const connection = await resolveWorkerConnection(story, 'scribe');
-    if (!connection) { toast('The scribe needs a connection first.'); return false; }
+    if (!connection) { banner.failed('The scribe needs a connection first'); return false; }
+    const banner = beginWork('Rebuilding the people');
     const promise = enqueueWork(story.id, { name: 'scribe', run: async ({ signal, stale }) => {
-      const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, onProgress: ({ read, total }) => toast(`Re-reading the people — ${read} of ${total} pages…`) });
+      const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, onProgress: ({ read, total }) => banner.step(read, total, 'page') });
       /* M135: the rebuilt pages also land in the LAST turn's boundary snapshot and
        * the last page's checkpoint — so a retry, a swipe or a branch at the newest
        * page starts from the rebuilt pages, not the frozen ones. Older boundaries
@@ -1611,36 +1640,40 @@ export function initChat(ctx) {
       return { silent: false, detail: rebuildPeopleWords(result) };
     } });
     noteWork(story.id, promise);
-    toast('Re-reading the people from the first page, six pages at a time.');
+    bannerFollows(banner, story, 'The people were rebuilt');
     return true;
   }
   async function restoreRecordNow() {
+    const banner = beginWork('Putting the old record back');
     const story = await activeStory();
-    if (!story) return false;
+    if (!story) { banner.failed('Open a story first'); return false; }
     const ok = await restoreRecord(story.id);
-    toast(ok ? 'The old record is back.' : 'No older record is kept.');
+    if (ok) banner.done('The old record is back'); else banner.failed('No older record is kept');
     return ok;
   }
   async function restorePeopleNow() {
+    const banner = beginWork('Putting the people back');
     const story = await activeStory();
-    if (!story) return false;
+    if (!story) { banner.failed('Open a story first'); return false; }
     const ok = await restorePeople(story.id);
-    toast(ok ? 'The old pages and standings are back.' : 'No older pages are kept.');
+    if (ok) banner.done('The old pages and standings are back'); else banner.failed('No older pages are kept');
     return ok;
   }
 
   /* M50: rebuild every standing by hand — from the brief, the record and the pages. */
   async function rebuildStandingsNow() {
+    const banner = beginWork('Rebuilding every standing');
     const story = await activeStory();
-    if (!story) return false;
+    if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'auditor');
-    if (!connection) { toast('The auditor needs a connection first.'); return false; }
+    if (!connection) { banner.failed('The auditor needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale }) => {
       const result = await rebuildStandings({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
       return { silent: false, detail: rebuildRunWords(result), raw: result && result.raw };
     } });
     noteWork(story.id, promise);
-    toast('Rebuilding every standing from the brief, the record and the pages.');
+    banner.say('reading the brief, the record and the pages');
+    bannerFollows(banner, story, 'Every standing was rebuilt');
     return true;
   }
 
@@ -1758,17 +1791,19 @@ export function initChat(ctx) {
   }
 
   async function auditNow() {
+    const banner = beginWork('Auditing the ledger');
     const story = await activeStory();
     if (!story) return false;
     const connection = await resolveWorkerConnection(story, 'auditor');
-    if (!connection) { toast('The auditor needs a connection first.'); return false; }
+    if (!connection) { banner.failed('The auditor needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale }) => {
       let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
       if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     } });
     noteWork(story.id, promise);
-    toast('The auditor is reading the whole ledger.');
+    banner.say('reading the whole ledger');
+    bannerFollows(banner, story, 'The ledger was audited');
     return true;
   }
 

@@ -857,7 +857,9 @@ test('M202: a stumbled rebuild retries, says so, and never eats the way back', a
   const src = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
 
   /* a round that writes nothing while work is still due is a stumble */
-  assert(/for \(const pause of \[1500, 4000, 9000\]\)/.test(src), 'it waits and tries again, three times');
+  assert(/const pauses = \[1500, 4000, 9000\];/.test(src), 'it waits and tries again, three times');
+  assert(/if \(typeof onRetry === 'function'\) await onRetry\(\{ ms: pause, attempt: a \+ 1, of: pauses\.length \}\);/.test(src),
+    'and the wait is one the writer can watch count down');
   assert(/if \(after\.length !== before\.length\) \{ recovered = true; break; \}/.test(src), 'and carries on the moment it recovers');
   assert(/stalled: true,/.test(src), 'a rebuild that gives up says it stopped');
   assert(/the keeper could not be reached — the record is part-built; the old one can be put back/.test(src),

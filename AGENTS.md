@@ -4367,3 +4367,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   one — "Put the old record back" then restored the wreckage. The same fault M165 fixed for the
   people; the record had it too.
 - 451/451 harness + 37/37 walk + 8/8 play. version.js -> m202-001.
+
+# M203 — what the house is doing, while it does it
+- EVERY MANUAL ACTION WENT SILENT. Audit the ledger, read the pages again, found the world,
+  rebuild the record, rebuild the people, rebuild every standing, put either back — each handed
+  its work to the background chain and then said nothing, or one toast that vanished in seconds. A
+  two-hundred-page rebuild is MINUTES of silence, and the writer was left scrolling to guess
+  whether it had finished, stalled or died. Summaryception has shown the shape for years.
+- ONE BANNER, at the top of the ledger where the writer is already looking, for all eight actions.
+  It says what is running, how far it has got ("page 7 of 24 · 29%"), and counts a stumble down
+  ("trying again in 4s (2 of 3)") so a wait never looks like a death. A newer action takes the
+  banner and the older one goes quiet, so two can never fight over it. A law walks every action
+  and insists it begins a banner AND always finishes it — including on every early return, because
+  a banner left spinning over nothing is worse than no banner at all.
+- AND A REBUILD THAT STOPPED NOW CARRIES ON FROM WHERE IT STOPPED. rebuildRecord wiped the record
+  and folded from the first page EVERY time — so a rebuild that stumbled at page 100 of 200 threw
+  away those hundred pages of work and made the writer pay for them again. A part-built record
+  (marked rebuiltAt, holding lines) is resumed; dueRange picks up at the first page no line
+  covers. Only a fresh rebuild starts from nothing, and the banner says which it is doing.
+- THE SHELL AUDIT EARNED ITS KEEP: M30-8 caught js/ui/workbanner.js missing from sw.js's SHELL the
+  moment the file was added — the exact trap M200 described, found by a law rather than by a
+  writer whose browser had quietly stopped updating.
+- 452/452 harness + 37/37 walk + 8/8 play + wipe + contrast. version.js -> m203-001.

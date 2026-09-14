@@ -258,3 +258,48 @@ test('M200: a rebuild keeps the reader’s place, and a new coat is never held u
     'the look is retried while the server is restarting');
   assert(/registration\.waiting\.postMessage\(\{ kind: 'takeOver' \}\)/.test(app), 'and a stuck coat is woken');
 });
+
+/* M203: every manual action handed its work to the background chain and then
+ * said nothing, or one toast that vanished. A two-hundred-page rebuild is
+ * minutes of silence — the writer was left scrolling to guess whether it had
+ * finished, stalled, or died. */
+test('M203: every manual action has a banner, and always finishes it', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
+  const html = fs.readFileSync(path.join(here, '../../index.html'), 'utf8');
+
+  /* the banner exists where the writer is already looking */
+  for (const id of ['work-banner', 'work-banner-what', 'work-banner-count', 'work-banner-fill']) {
+    assert(html.includes('id="' + id + '"'), 'the banner has its ' + id);
+  }
+  assert(/role="status" aria-live="polite"/.test(html), 'and a screen reader hears it change');
+
+  /* every manual action begins one */
+  const actions = ['rescanLedger', 'foundNow', 'auditNow', 'rebuildRecordNow',
+    'rebuildPeopleNow', 'rebuildStandingsNow', 'restoreRecordNow', 'restorePeopleNow'];
+  for (const fn of actions) {
+    const at = chat.indexOf('async function ' + fn + '(');
+    assert(at !== -1, fn + ' exists');
+    const body = chat.slice(at, at + 1800);
+    assert(/const banner = beginWork\('/.test(body), fn + ' begins a banner');
+    assert(/banner\.(done|failed)\(|bannerFollows\(banner/.test(body), fn + ' always finishes it');
+    /* and no early return leaves it spinning over nothing */
+    const earlyReturns = body.match(/if \(![a-zA-Z]+\) \{[^}]*return false; \}/g) || [];
+    for (const line of earlyReturns) {
+      assert(/banner\.failed\(/.test(line), fn + ' finishes the banner on an early return: ' + line);
+    }
+  }
+
+  /* it counts, it says when it stumbles, and two actions cannot fight over it */
+  const banner = fs.readFileSync(path.join(here, '../../js/ui/workbanner.js'), 'utf8');
+  assert(/' · ' \+ pct \+ '%'/.test(banner), 'it shows a percentage');
+  assert(/unit \+ ' ' \+ done \+ ' of ' \+ total/.test(banner), 'and a count of batches');
+  assert(/trying again in ' \+ left \+ 's'/.test(banner), 'and counts a retry down');
+  assert(/const mine = \+\+token;[\s\S]{0,80}const live = \(\) => mine === token;/.test(banner),
+    'a newer piece of work takes the banner and the older one goes quiet');
+  assert(/export async function waitVisibly/.test(banner), 'a worker’s own pause can be watched');
+
+  /* the shell must carry it, or an offline open loses the banner entirely */
+  const sw = fs.readFileSync(path.join(here, '../../sw.js'), 'utf8');
+  assert(sw.includes("'js/ui/workbanner.js'"), 'the shell carries the banner');
+});
