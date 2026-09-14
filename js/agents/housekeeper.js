@@ -1270,7 +1270,11 @@ export function expandCommand(text) {
 
 function cleanReason(value) {
   const s = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
-  return s.length > 200 ? s.slice(0, 199).trimEnd() + '…' : s;
+  /* M237: cut on a word — a card's reason is read by the writer. */
+  if (s.length <= 200) return s;
+  const room = s.slice(0, 199);
+  const at = Math.max(room.lastIndexOf(' '), room.lastIndexOf(', '));
+  return (at > 100 ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
 }
 
 /* Parse a range the model offered: "3-9", [3,9], "all", or nothing.

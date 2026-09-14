@@ -80,7 +80,11 @@ export function workerSignal(timeoutMs = WORKER_TIMEOUT_MS) {
 
 function cleanWhy(why) {
   const words = String(why || '').trim().replace(/\s+/g, ' ');
-  return words.length > 80 ? words.slice(0, 79).trimEnd() + '…' : words;
+  /* M237: cut on a word — the workers' line is read by the writer. */
+  if (words.length <= 80) return words;
+  const room = words.slice(0, 79);
+  const at = room.lastIndexOf(' ');
+  return (at > 40 ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
 }
 
 /* Record one worker's last run for a story. ok=false wants a why (one plain

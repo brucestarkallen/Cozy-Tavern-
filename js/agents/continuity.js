@@ -118,7 +118,12 @@ export function buildContinuityMessages({ state, assistantText, brief = '' }) {
 function cleanWords(value) {
   if (typeof value !== 'string') return '';
   const tidied = value.trim().replace(/\s+/g, ' ');
-  return tidied.length > WORDS_CAP ? tidied.slice(0, WORDS_CAP - 1).trimEnd() + '…' : tidied;
+  /* M237: cut on a word — the reader's own words about a mend are read by
+   * the writer on the receipt. */
+  if (tidied.length <= WORDS_CAP) return tidied;
+  const room = tidied.slice(0, WORDS_CAP - 1);
+  const at = Math.max(room.lastIndexOf(' '), room.lastIndexOf('; '), room.lastIndexOf(', '));
+  return (at > Math.floor(WORDS_CAP / 2) ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
 }
 
 /* Exported for the harness. Clean JSON, fenced JSON, prose-wrapped JSON,

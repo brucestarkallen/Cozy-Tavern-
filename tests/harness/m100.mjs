@@ -1746,3 +1746,39 @@ test('M236: the whole-list path dedupes too, and a loose end is never cut mid-wo
   assert(/if \(list\.some\(\(kept\) => sameLooseEnd\(kept, t\)\)\) continue;/.test(src), 'the setter asks the same guard mergeDeltas does');
   assert(!/return clean\.length > cap \? clean\.slice\(0, cap - 1\)/.test(src), 'and nothing chops at the cap exactly');
 });
+
+/* M237: the sweep the writer demanded. He had reported the same fault three
+ * times in three places — a record line cut mid-name, a loose end cut
+ * mid-thought — and each time I fixed the one he showed me. So: every cap in
+ * the house that shortens CONTENT (as against a list label) cuts on a word,
+ * and no list has one write path that checks for duplicates and another that
+ * does not. */
+test('M237: no cap in the house severs a word, and no list has an unguarded door', async () => {
+  const here = new URL('../../', import.meta.url);
+  const read = (p) => readFileSync(new URL(p, here), 'utf8');
+
+  /* the content caps — a ledger field, a mend's words, the workers' line, a card's reason */
+  for (const [file, what] of [
+    ['js/engine/apply.js', 'a ledger field (core, state, arc)'],
+    ['js/agents/continuity.js', 'the second reader’s words'],
+    ['js/agents/status.js', 'the workers’ line'],
+    ['js/agents/housekeeper.js', 'a card’s reason'],
+    ['js/engine/people.js', 'a loose end'],
+    ['js/agents/memory.js', 'a record line and its detail'],
+  ]) {
+    const src = read(file);
+    assert(/lastIndexOf\(' '\)|lastIndexOf\(';'\)|lastIndexOf\('; '\)/.test(src),
+      what + ' is cut on a word or a clause, not at the cap exactly (' + file + ')');
+  }
+
+  /* the ledger's lists: every one that can be written twice asks the same question */
+  const people = read('js/engine/people.js');
+  assert(/if \(list\.some\(\(kept\) => sameLooseEnd\(kept, t\)\)\) continue;/.test(people), 'threads: the whole-list path dedupes');
+  assert(/const at = next\[key\]\.threads\.findIndex\(\(t\) => sameLooseEnd\(String\(t\), text\)\);/.test(people), 'threads: and the one-at-a-time path');
+
+  const apply = read('js/engine/apply.js');
+  assert(/if \(findPresent\(state, name\) !== -1\) \{/.test(apply), 'present: someone already in the room is refused');
+  assert(/const wanted = new Set\(list\.map/.test(apply), 'mood: a closed set of known flags, so no flag can be written twice');
+  assert(/state\.canon = lockFact\(state\.canon, canonKey, \{ key, value \}/.test(apply),
+    'canon: a truth is locked BY KEY, so relocking corrects rather than duplicates');
+});

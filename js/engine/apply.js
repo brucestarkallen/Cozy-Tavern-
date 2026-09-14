@@ -187,7 +187,14 @@ export function storyTurn(state) {
 function capText(value, limit) {
   if (typeof value !== 'string') return '';
   const clean = value.trim().replace(/\s+/g, ' ');
-  return clean.length > limit ? clean.slice(0, limit - 1).trimEnd() + '…' : clean;
+  /* M237: cut on a WORD. This chopped at the limit exactly, so a ledger
+   * field — a person's core, their state, their arc — could end mid-word
+   * with nothing to say what was lost. The same fault as M235's record cut
+   * and M236's loose end; this is the third door. */
+  if (clean.length <= limit) return clean;
+  const room = clean.slice(0, limit - 1);
+  const at = Math.max(room.lastIndexOf(' '), room.lastIndexOf('; '), room.lastIndexOf(', '));
+  return (at > Math.floor(limit / 2) ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
 }
 
 /* ---------- the words the clock speaks ---------- */

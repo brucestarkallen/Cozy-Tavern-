@@ -4913,3 +4913,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   exactly, wherever that landed. It cuts on the last whole word now (the same fault as M235's
   record cut, in a second place).
 - 477/477 harness + 37/37 walk + 8/8 play. version.js -> m236-001.
+
+# M237 — the sweep: every cap, every door
+- THE WRITER HAD REPORTED THE SAME FAULT THREE TIMES IN THREE PLACES — a record line cut
+  mid-name, a loose end cut mid-thought — and each time I fixed only the one he showed me. That is
+  why he was still here after twenty-four hours without playing his story. So, swept:
+  · EVERY CAP THAT SHORTENS CONTENT now cuts on a word or a clause: a ledger field (core, state,
+    arc) in engine/apply.js, the second reader's words, the workers' line, a card's reason, a
+    loose end, a record line and its detail. Six places, one fault. The remaining slices are list
+    LABELS — a story title in a list, a preview line — where a chop costs nothing.
+  · EVERY LIST WITH MORE THAN ONE WRITE PATH asks the same question on both. Threads was the one
+    unguarded door (M236). Read and found sound: `present` refuses someone already in the room,
+    `mode.snapshot` works from a closed set of known flags so nothing can be written twice, and
+    canon locks a truth BY KEY so relocking corrects rather than duplicates.
+- 478/478 harness + 37/37 walk + 8/8 play + wipe + contrast. version.js -> m237-001.
