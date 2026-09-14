@@ -4523,3 +4523,14 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   again from page one (11 lines, first one new). A first line that is unchanged means the coat is
   older than M202, which is the pass that ported Summaryception's newer prompt.
 - 456/456 harness + 37/37 walk + 8/8 play. version.js -> m211-001.
+
+# M212 — the prompt the keeper is SENT, not the prompt in the file
+- Summaryception keeps TWO copies of its summarizer prompt: the live one and a migration "old
+  default". A port that landed in the wrong copy would leave the keeper folding by the OLD rules
+  while this file looked entirely correct — and the writer would rebuild, get the same lines back,
+  and have nothing to explain it. Verified by building the real message and reading what goes out:
+  all six blocks reach the keeper (VERBATIM PRESERVATION, CAUSAL FIDELITY, FIRST APPEARANCES,
+  COMPLETENESS OUTRANKS BREVITY, plus this house's FIGURES ARE EXACT and Time AND place), and the
+  older rules they were built on are still there. Held by a law on the SENT message, never on the
+  file's contents.
+- 457/457 harness + 37/37 walk + 8/8 play. version.js -> m212-001.

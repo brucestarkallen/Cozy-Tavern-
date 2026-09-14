@@ -1019,3 +1019,30 @@ test('M211: the rebuild counts batches, one at a time, and the bar reaches the e
   assert(!mem.nodes.some((n) => /OLD LINE/.test(n.text)), 'the old record is gone');
   assert(/^NEW line /.test(mem.nodes[0].text), 'and the first line was folded again: ' + mem.nodes[0].text);
 });
+
+/* M212: M202 ported Summaryception's newer prompt, and Summaryception keeps
+ * TWO copies of it — the live one and a migration "old default". A port that
+ * landed in the wrong copy would leave the keeper folding by the old rules
+ * while the file looked right, and the writer would rebuild and get the same
+ * lines back with nothing to explain it. So the check is on what the keeper
+ * is actually SENT, not on what the file contains. */
+test('M212: the prompt the keeper is sent carries every ported block', async () => {
+  const { buildMemoryMessages } = await import('../../js/agents/memory.js');
+  const p = buildMemoryMessages([{ role: 'assistant', text: 'She said sixteen.' }], { playerName: 'Jovan', record: '' });
+  const sent = p.system + '\n' + p.user;
+  for (const block of [
+    'VERBATIM PRESERVATION',          /* the dialogue rule — why the writer's snippets had none */
+    'CAUSAL FIDELITY',
+    'FIRST APPEARANCES',
+    'COMPLETENESS OUTRANKS BREVITY',
+    'FIGURES ARE EXACT',              /* this house's own, M194 */
+    'Time AND place',                 /* this house's own, M197 */
+  ]) {
+    assert(sent.includes(block), block + ' reaches the keeper');
+  }
+  /* and the older rules it was built on are still there */
+  for (const block of ['HARD EXCLUSIONS', 'ACTOR RULES', 'ABSOLUTE PRONOUN BAN', 'BEFORE OUTPUTTING, verify']) {
+    assert(sent.includes(block), block + ' is still there');
+  }
+  assert(sent.includes('Jovan'), 'and the player’s name is substituted in');
+});
