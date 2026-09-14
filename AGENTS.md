@@ -4299,3 +4299,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The ninety-turn play's own law caught the change (it checked the button was itself again the
   instant the work returned); it now waits for the button to come back and checks it is pressable.
 - 449/449 harness + 36/36 walk + 8/8 play. version.js -> m199-001.
+
+# M200 — thrown out of your own reading, and a coat that would not come
+- EVERY STRUCTURAL REBUILD JUMPED, AND USUALLY TO THE TOP. renderThread empties the thread and
+  builds it again, and then called scrollToBottom() — BEFORE the new pages had laid out, so
+  scrollHeight was still the old small number and the thread landed near the TOP. Mending a page,
+  a swipe, a worker's write-back, closing the story panel: every one of them threw the reader out
+  of the scene they were reading and made them scroll back down to find out whether the thing had
+  even finished. M199 fixed this for the ledger PANEL and left the THREAD, which is where the
+  writer actually reads.
+  A rebuild keeps the reader's place now: the page under the top of the viewport goes back under
+  the top of the viewport, restored across two frames AFTER layout. Only an OPENING lands at the
+  latest page (openStory, removeStory, branchFrom, retry, regenerate), and only a reader already
+  at the tail is carried down with it.
+- A NEW COAT COULD BE HELD UP BY ONE MISSING FILE, FOREVER. self.skipWaiting() was chained after
+  cache.addAll(SHELL) — and addAll is all-or-nothing. One asset that 404s (a file added to the
+  house and forgotten in the list, a file removed and left in it) failed the whole install, the
+  new worker never took over, and every browser served the OLD COAT with no sign of why. The
+  takeover comes first and does not depend on the cache; the shell fills file by file and a file
+  that will not come is simply not cached. A waiting worker also takes over when the room asks it
+  to, and the room asks again at 2s, 6s, 15s and 30s after opening — because the launcher RESTARTS
+  serve.py, so the first look can land while the port is still dead.
+- 450/450 harness + 36/36 walk + 8/8 play + the wipe test. version.js -> m200-001.

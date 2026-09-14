@@ -277,8 +277,21 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
        * comes back into view, and every ten minutes — and the new worker takes
        * over on its own (skipWaiting + claim), so the page reloads itself
        * once; nobody has to remember to refresh. */
-      const lookForUpdate = () => { try { registration.update().catch(() => {}); } catch (err) { /* fine */ } };
+      const lookForUpdate = () => {
+        try {
+          registration.update().catch(() => {});
+          /* M200: and if a worker is already waiting — installed but never
+           * given the room — tell it to take over. A coat that installed
+           * while the server was mid-restart used to sit there unused. */
+          if (registration.waiting) registration.waiting.postMessage({ kind: 'takeOver' });
+        } catch (err) { /* fine */ }
+      };
       lookForUpdate();
+      /* M200: the launcher pulls and RESTARTS serve.py, so the first look can
+       * land while the port is still dead. A few more, close together, catch
+       * the coat the moment the tavern is warm again — instead of leaving the
+       * writer on the old one until the ten-minute round comes by. */
+      for (const wait of [2000, 6000, 15000, 30000]) setTimeout(lookForUpdate, wait);
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') lookForUpdate(); });
       setInterval(lookForUpdate, 10 * 60 * 1000);
       registration.addEventListener('updatefound', () => {

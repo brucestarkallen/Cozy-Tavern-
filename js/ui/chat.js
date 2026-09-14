@@ -856,7 +856,7 @@ export function initChat(ctx) {
     await db.stories.remove(story.id);
     if (ctx.getActiveStoryId() === story.id) ctx.setActiveStoryId(null);
     await refreshStories();
-    await renderThread({ structural: true });
+    await renderThread({ structural: true, opening: true });
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
   }
 
@@ -871,7 +871,7 @@ export function initChat(ctx) {
     if (known && known.shallow && ctx.booksStatus && typeof ctx.booksStatus.fetchStory === 'function') {
       try { await ctx.booksStatus.fetchStory(id); } catch (err) { /* the boot pull is still the backstop */ }
     }
-    await renderThread({ structural: true });
+    await renderThread({ structural: true, opening: true });
     closePanel();
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
     /* M69: a ledger from a longer telling is caught by its own stamps on open */
@@ -1209,7 +1209,41 @@ export function initChat(ctx) {
   let structuralRenderToken = 0;
   const shownExtra = new Map(); /* M136: per story, how many more turns the writer asked to see */
   const shownFrom = new Map(); /* M136: per story, the index of the first drawn page */
-  async function renderThread({ structural = false } = {}) {
+  /* M200: WHERE THE READER WAS. A structural rebuild empties the thread and
+   * builds it again, and every one of them then jumped — to the bottom by
+   * intent, and in practice often to the TOP, because scrollToBottom runs
+   * before the new pages have laid out and scrollHeight is still the old
+   * small number. So mending a page, a swipe, a worker's write-back, an
+   * audit, any of them threw the reader out of the scene they were reading
+   * and made them scroll back down to find out whether it had finished.
+   * A rebuild keeps the reader's place: the page that was under the top of
+   * the viewport goes back under the top of the viewport. Only an OPENING
+   * lands at the latest page, and only a reader already at the tail is
+   * carried down with it. */
+  function markPlace() {
+    const t = els.thread;
+    if (!t) return null;
+    const top = t.getBoundingClientRect().top;
+    for (const node of t.querySelectorAll('.msg')) {
+      const box = node.getBoundingClientRect();
+      if (box.bottom > top + 4) return { id: node.dataset.id, offset: box.top - top };
+    }
+    return null;
+  }
+
+  function returnToPlace(place) {
+    const t = els.thread;
+    if (!t || !place || !place.id) return false;
+    const node = t.querySelector('.msg[data-id="' + CSS.escape(place.id) + '"]');
+    if (!node) return false;
+    const top = t.getBoundingClientRect().top;
+    t.scrollTop += (node.getBoundingClientRect().top - top) - place.offset;
+    return true;
+  }
+
+  async function renderThread({ structural = false, opening = false } = {}) {
+    const place = structural ? markPlace() : null;
+    const wasAtTail = nearBottom();
     const story = await activeStory();
     const showThinking = (await db.settings.get('showThinking')) !== false;
     const turnsShownSetting = Number(await db.settings.get('turnsShown')); /* M136 */
@@ -1295,10 +1329,21 @@ export function initChat(ctx) {
       }
     }
     lastRender = { storyId: story.id, ids, showThinking };
-    /* M22-E3: opening a story (or a structural rebuild) lands at the
-     * latest page; a quiet append while you're reading above the tail
-     * never drags you down — the jump pill offers the way back instead. */
-    if (structural || nearBottom()) scrollToBottom();
+    /* M22-E3: opening a story lands at the latest page; a quiet append while
+     * you're reading above the tail never drags you down — the jump pill
+     * offers the way back instead.
+     * M200: and a structural REBUILD keeps the reader where they were, after
+     * the new pages have laid out — never before, or scrollHeight is still
+     * the old number and the thread lands at the top. */
+    if (opening || (!structural && nearBottom())) {
+      scrollToBottom();
+    } else if (structural) {
+      const settle = () => {
+        if (wasAtTail) { scrollToBottom(); return; }
+        if (!returnToPlace(place)) scrollToBottom();
+      };
+      requestAnimationFrame(() => { settle(); requestAnimationFrame(settle); });
+    }
     updateJump();
     refreshEmber();
   }
@@ -3298,7 +3343,7 @@ export function initChat(ctx) {
     if (trailing.length) { await db.messages.deleteFrom(story.id, trailing[0].id); await forgetCheckpoints(story.id, trailing.map((m) => m.id)); }
     busy = true;
     try {
-      await renderThread({ structural: true });
+      await renderThread({ structural: true, opening: true });
       await generate();
       stories = await db.stories.list();
       renderStoryList();
@@ -3346,7 +3391,7 @@ export function initChat(ctx) {
         if (next) { await db.messages.deleteFrom(story.id, next.id); await forgetCheckpoints(story.id, history.slice(at + 1).map((m) => m.id)); }
       }
       await refreshPreview(story.id); // M21: the shelf re-reads what's left
-      await renderThread({ structural: true });
+      await renderThread({ structural: true, opening: true });
       await generate();
       stories = await db.stories.list();
       renderStoryList();
@@ -3745,7 +3790,7 @@ export function initChat(ctx) {
     if (lore.length) await saveLore(branch.id, lore.map((e) => ({ ...e })));
     ctx.setActiveStoryId(branch.id);
     await refreshStories(true);
-    await renderThread({ structural: true });
+    await renderThread({ structural: true, opening: true });
     closePanel();
     toast(`The tale forks here — “${branch.title}” waits on the shelf.`);
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();

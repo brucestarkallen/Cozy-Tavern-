@@ -215,3 +215,41 @@ test('M199: the ledger panel keeps its place, and every action says what it is d
     assert(src.includes(working), label + ' says what it is doing: ' + working);
   }
 });
+
+/* M200: two ways the writer was thrown out of their own reading.
+ *  - every structural rebuild JUMPED, and jumped before the new pages had
+ *    laid out, so it landed near the TOP; mending a page, a swipe, a
+ *    worker's write-back all threw the reader out of the scene.
+ *  - a new coat's takeover was chained after cache.addAll(SHELL), which is
+ *    all-or-nothing: one missing file and the old coat served forever. */
+test('M200: a rebuild keeps the reader’s place, and a new coat is never held up by one file', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
+
+  assert(/function markPlace\(\)/.test(chat), 'the thread remembers where the reader was');
+  assert(/function returnToPlace\(place\)/.test(chat), 'and puts them back');
+  assert(/const place = structural \? markPlace\(\) : null;/.test(chat), 'taken before the thread is emptied');
+  assert(/if \(opening \|\| \(!structural && nearBottom\(\)\)\) \{/.test(chat), 'only an opening lands at the latest page');
+  assert(/requestAnimationFrame\(\(\) => \{ settle\(\); requestAnimationFrame\(settle\); \}\);/.test(chat),
+    'and the place is restored AFTER layout — before it, scrollHeight is the old number and the thread lands at the top');
+  /* a mend, a swipe, a write-back, closing the panel: none of them are openings */
+  const openings = (chat.match(/renderThread\(\{ structural: true, opening: true \}\)/g) || []).length;
+  const rebuilds = (chat.match(/renderThread\(\{ structural: true/g) || []).length;
+  assert(openings >= 4 && openings < rebuilds, openings + ' openings of ' + rebuilds + ' rebuilds — the rest keep the place');
+
+  const sw = fs.readFileSync(path.join(here, '../../sw.js'), 'utf8');
+  /* the code alone — the comment above it quotes the old call while
+   * explaining why it went */
+  const install = sw.slice(sw.indexOf("addEventListener('install'"), sw.indexOf("addEventListener('activate'"))
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  assert(/self\.skipWaiting\(\);/.test(install), 'the takeover happens');
+  assert(install.indexOf('self.skipWaiting()') < install.indexOf('caches.open'), 'BEFORE the cache is filled, never chained after it');
+  assert(!/cache\.addAll\(SHELL\)/.test(install), 'the shell is not filled all-or-nothing');
+  assert(/cache\.add\(path\)\.catch\(\(\) => null\)/.test(install), 'a file that will not come is simply not cached');
+  assert(/event\.data\.kind === 'takeOver'/.test(sw), 'and a waiting coat takes over when the room asks');
+
+  const app = fs.readFileSync(path.join(here, '../../js/app.js'), 'utf8');
+  assert(/for \(const wait of \[2000, 6000, 15000, 30000\]\) setTimeout\(lookForUpdate, wait\);/.test(app),
+    'the look is retried while the server is restarting');
+  assert(/registration\.waiting\.postMessage\(\{ kind: 'takeOver' \}\)/.test(app), 'and a stuck coat is woken');
+});

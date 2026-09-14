@@ -88,11 +88,25 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
+  /* M200: A NEW COAT MUST NEVER BE HELD UP BY ONE MISSING FILE. skipWaiting
+   * was chained AFTER cache.addAll(SHELL), and addAll is all-or-nothing — so
+   * a single asset that 404s (a file added to the house and forgotten in the
+   * list, a file removed and left in it) failed the whole install, the new
+   * worker never took over, and every browser served the old coat FOREVER
+   * with no sign of why. The takeover comes first and does not depend on the
+   * cache; the shell is filled file by file, and a file that will not come
+   * is simply not cached. */
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE)
-      .then((cache) => cache.addAll(SHELL))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE).then((cache) => Promise.all(
+      SHELL.map((path) => cache.add(path).catch(() => null))
+    ))
   );
+});
+
+/* M200: a waiting worker takes over when the room asks it to. */
+self.addEventListener('message', (event) => {
+  if (event && event.data && event.data.kind === 'takeOver') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
