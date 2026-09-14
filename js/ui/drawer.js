@@ -1731,7 +1731,11 @@ function workersPanel(ctx) {
   refold.textContent = 'Rebuild the record from the pages';
   refold.title = 'The record’s lines are backed up and let go; the keeper folds the pages again from the first, six at a time, holes first. The old record can be put back.';
   refold.addEventListener('click', async () => {
-    if (!window.confirm('Rebuild the record from the first page, six pages at a time? The old record is kept and can be put back.')) return;
+    /* M217: SAY WHAT IT UNDOES. "The old record is kept" did not tell the
+     * writer that every line they had rewritten by hand, and every line they
+     * had let go, would be written again from the pages — which is what a
+     * rebuild IS, and is why a line they thought deleted came back. */
+    if (!window.confirm('Rebuild the whole record from the first page?\n\nEvery line is folded again from the pages — including any you rewrote by hand or let go, which will come back. To redo just one line instead, use "Fold again" on that line.\n\nThe old record is kept and can be put back.')) return;
     await whileWorking(refold, 'Rebuilding the record…', 'The record is rebuilt')(async () => {
       if (ctx.chat && typeof ctx.chat.rebuildRecordNow === 'function') await ctx.chat.rebuildRecordNow();
     });
@@ -1898,14 +1902,11 @@ function recordPanel(ctx) {
       /* M216: ONE LINE, AGAIN — Summaryception's per-snippet redo, which this
        * house never had. A single line that came out wrong meant rebuilding
        * the WHOLE record and throwing away every other line that was fine. */
+      /* M217: only the DETAIL button is new here — "Fold again" below already
+       * exists and is made to do the real thing, rather than standing beside
+       * a second button that means almost the same (M210's law: one button,
+       * one meaning). */
       if (n.level === 1 && Array.isArray(n.span) && n.span[0] >= 0 && !n.correction) {
-        const again = document.createElement('button');
-        again.type = 'button'; again.className = 'text-btn'; again.textContent = 'Read these pages again';
-        again.title = 'The keeper folds just this line’s own pages again. Every other line is left alone.';
-        again.addEventListener('click', async () => {
-          if (ctx.chat && typeof ctx.chat.redoRecordLine === 'function') await ctx.chat.redoRecordLine(n.id, false);
-        });
-        row.appendChild(again);
         const dAgain = document.createElement('button');
         dAgain.type = 'button'; dAgain.className = 'text-btn';
         dAgain.textContent = n.detail ? 'Detail again' : 'Add a detail';
@@ -1929,8 +1930,21 @@ function recordPanel(ctx) {
       const drop = document.createElement('button');
       drop.type = 'button'; drop.className = 'text-btn';
       drop.textContent = n.correction ? 'Let go' : 'Fold again';
-      drop.title = n.correction ? 'Remove this correction from the record.' : 'Let this line go; the keeper folds these pages again from their words.';
+      /* M217: "Fold again" DELETED THE LINE AND HOPED. It dropped the line and
+       * left the background keeper to notice the gap and refold those pages
+       * on some later turn — so the record sat with a hole in it, the
+       * storyteller read a story missing those pages, and if the keeper was
+       * off or the connection was down it never came back at all. It folds
+       * them NOW, in place, and only falls back to letting the line go when
+       * there is no keeper to ask. */
+      drop.title = n.correction ? 'Remove this correction from the record.' : 'The keeper folds this line’s own pages again, now. Every other line is left alone.';
       drop.addEventListener('click', async () => {
+        if (!n.correction && n.level === 1 && Array.isArray(n.span) && n.span[0] >= 0
+          && ctx.chat && typeof ctx.chat.redoRecordLine === 'function') {
+          await ctx.chat.redoRecordLine(n.id, false);
+          render();
+          return;
+        }
         const fresh = await loadMemory(story.id);
         await saveMemory(story.id, { ...fresh, nodes: fresh.nodes.filter((x) => x.id !== n.id) });
         notify(story.id);

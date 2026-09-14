@@ -1230,7 +1230,11 @@ test('M216: every reader sees the detail, and one line can be folded again alone
 
   /* and the writer can reach it */
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
-  assert(/Read these pages again/.test(drawer), 'the line carries its own button');
+  /* M217: it is "Fold again" — the button that already existed, made to do
+   * the real thing rather than deleting the line and hoping (M210's law: one
+   * button, one meaning). */
+  assert(/await ctx\.chat\.redoRecordLine\(n\.id, false\);/.test(drawer), 'the line carries its own redo');
+  assert(/Fold again/.test(drawer), 'under the name it already had');
   assert(/n\.detail \? 'Detail again' : 'Add a detail'/.test(drawer), 'and one for its detail');
   assert(/if \(n\.level === 1 && Array\.isArray\(n\.span\) && n\.span\[0\] >= 0 && !n\.correction\)/.test(drawer),
     'offered only on a line that has pages of its own');

@@ -4605,3 +4605,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   a "Force summarize now" with its three guards (not enabled / a pass is finishing / nothing is
   past the verbatim window), and an automatic catch-up after a stop.
 - 461/461 harness + 37/37 walk + 8/8 play + wipe + contrast. version.js -> m216-001.
+
+# M217 — the line that "came back from the dead", and the button that only pretended
+- THE WRITER'S REPORT WAS NOT A RESURRECTION BUG. A record line can be let go by hand, and a
+  rebuild folds EVERY page from the first — so a line the writer had deliberately dropped, or
+  rewritten in their own words, is written again from the pages. That is what a rebuild IS. The
+  confirm did not say so: "The old record is kept and can be put back" tells the writer nothing
+  about their hand edits being undone. It now says plainly that every line comes back, including
+  the ones they let go, and points at the per-line redo instead.
+- AND "FOLD AGAIN" ONLY PRETENDED. It deleted the line and left the BACKGROUND keeper to notice
+  the gap and refold those pages on some later turn — so the record sat with a hole in it, the
+  storyteller read a story missing those pages, and if the keeper was switched off or the
+  connection was down it never came back at all. It folds them NOW, through M216's redoLine, and
+  falls back to letting the line go only when there is no keeper to ask.
+- M216's second button went with it: "Fold again" already existed and now does the real thing, so
+  a second button meaning almost the same would have broken M210's law (one button, one meaning).
+  Only "Detail again" is new on a line.
+- 461/461 harness + 37/37 walk + 8/8 play. version.js -> m217-001.

@@ -151,7 +151,7 @@ test('M175: every destructive tap in the house asks first', () => {
   for (const [file, needle] of [
     ['../../js/ui/settings.js', 'Rewrite every page'],
     ['../../js/ui/settings.js', 'Take the lore shelf down'],
-    ['../../js/ui/drawer.js', 'Rebuild the record from the first page'],
+    ['../../js/ui/drawer.js', 'Rebuild the whole record from the first page?'],
   ]) {
     const src = fs.readFileSync(path.join(here, file), 'utf8');
     const i = src.indexOf(needle);
