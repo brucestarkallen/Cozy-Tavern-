@@ -655,3 +655,41 @@ test('M178: a take-back reverses the row the writer tapped, not one that reads t
   assert(/Number\.isInteger\(entry\.jid\)\s*\n\s*\? fresh\.log\.findIndex\(\(e\) => e && e\.jid === entry\.jid && !e\.undone\)/.test(src), 'the panel takes back by journal id');
   assert(/e\.ts === entry\.ts && e\.words === entry\.words/.test(src), 'and older rows, written before the id, still match the old way');
 });
+
+/* M191: A CORRECTION IS NOT A NEW RENAME. The ripple makes one changed fact
+ * true EVERYWHERE — right when a name was simply wrong, wrong when the
+ * writer is walking back a rename that went too far. Rename the coach Alex
+ * to Wood and the sweep takes Alexia's "don't call me Alex" with it; fix
+ * that one line by hand and the ripple saw Wood→Alex and renamed the coach
+ * BACK. The story flipped between all-Alex and all-Wood and never settled. */
+test('M191: walking back an over-broad rename does not rename everything back', async () => {
+  const { factChange, isNameLike } = await import('../../js/agents/ripple.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+
+  /* the correction really does read as a name change — that is the trap */
+  const ch = factChange('Alexia frowned. “Don’t call me Wood,” she said.',
+                        'Alexia frowned. “Don’t call me Alex,” she said.');
+  eq(ch.removed, 'Wood');
+  eq(ch.added, 'Alex');
+  assert(isNameLike(ch.removed) && isNameLike(ch.added), 'and both read as names, so the full sweep would run');
+
+  /* the journal is what tells the two apart */
+  let st = applyMutations(emptyState(), [{ type: 'people.set', name: 'Alex', field: 'core', text: 'the coach' }]).state;
+  st = applyMutations(st, [{ type: 'people.rename', from: 'Alex', to: 'Wood', cause: 'the writer' }]).state;
+  const walkingBack = (j, removed, added) => (Array.isArray(j) ? j : []).slice(-400).some((e) => {
+    const m = e && e.m;
+    return m && m.type === 'people.rename'
+      && String(m.from || '').trim().toLowerCase() === String(added).trim().toLowerCase()
+      && String(m.to || '').trim().toLowerCase() === String(removed).trim().toLowerCase();
+  });
+  eq(walkingBack(st.journal, 'Wood', 'Alex'), true, 'Wood→Alex after an Alex→Wood rename is a walk-back');
+  eq(walkingBack(st.journal, 'Alex', 'Corvin'), false, 'a genuinely new rename is not');
+  eq(walkingBack(st.journal, 'Mira', 'Wood'), false, 'nor an unrelated one');
+
+  /* and the send path really consults it */
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/const undoingRename = \(Array\.isArray\(st\.journal\)/.test(chat), 'the ripple asks the journal first');
+  assert(/if \(undoingRename\) \{[\s\S]{0,260}return \{ silent: false/.test(chat), 'and holds the change to this page alone');
+  assert(chat.indexOf('const undoingRename') < chat.indexOf("type: 'people.rename', from: removed"), 'before it renames the ledger');
+});

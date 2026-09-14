@@ -4155,3 +4155,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   forty throughout. Three laws in tests/guard.py.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + wipe + two-browser + append + guard
   (thirteen laws). version.js -> m190-001.
+
+# M191 — a correction is not a new rename
+- THE STORY COULD FLIP BETWEEN TWO NAMES AND NEVER SETTLE. The ripple makes one changed fact true
+  EVERYWHERE — right when a name was simply wrong, and wrong when the writer is walking back a
+  rename that went too far. The writer's own case: a coach named Alex, and Alexia who says "don't
+  call me Alex". Rename the coach to Wood and the sweep takes her line with it. Fix that one line
+  by hand and the ripple read a name change Wood→Alex and renamed THE COACH BACK — all-Alex again.
+  Correct it once more and it flips to all-Wood. There was no way out by hand.
+- THE JOURNAL TELLS THE TWO APART. If it already holds a people.rename from `added` to `removed`,
+  the writer is walking that rename back, not making a new one: the change holds on the page they
+  edited and goes no further, and the room says so plainly. A genuinely new rename, or an
+  unrelated one, sweeps as it always did.
+- Proven both ways in tests/harness/m100.mjs: the correction really does read as a name change
+  (that is the trap), the journal distinguishes a walk-back from a new rename and from an
+  unrelated one, and the send path consults it BEFORE it touches the ledger.
+- 443/443 harness + 36/36 walk + 8/8 play, each run alone + wipe + guard + two-browser + append.
+  version.js -> m191-001.

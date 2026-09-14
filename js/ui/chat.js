@@ -1649,6 +1649,25 @@ export function initChat(ctx) {
       if (isNameLike(removed) && isNameLike(added)) {
         /* the ledger */
         const st = await loadState(story.id);
+        /* M191: A CORRECTION IS NOT A NEW RENAME. The ripple makes one
+         * changed fact true EVERYWHERE, which is right when a name was
+         * simply wrong — and wrong when the writer is undoing a rename that
+         * went too far. Rename the coach Alex to Wood and the sweep takes
+         * Alexia's "don't call me Alex" with it; fix that one line by hand
+         * and this saw a name change Wood→Alex and renamed the coach BACK,
+         * so the story flipped between all-Alex and all-Wood and never
+         * settled. If the journal shows this browser renaming added→removed
+         * already, the writer is walking one of those back: it holds on this
+         * page and goes no further. */
+        const undoingRename = (Array.isArray(st.journal) ? st.journal : []).slice(-400).some((j) => {
+          const m = j && j.m;
+          return m && m.type === 'people.rename'
+            && String(m.from || '').trim().toLowerCase() === String(added).trim().toLowerCase()
+            && String(m.to || '').trim().toLowerCase() === String(removed).trim().toLowerCase();
+        });
+        if (undoingRename) {
+          return { silent: false, detail: '“' + removed + '” is “' + added + '” on this page. The rest of the story keeps “' + removed + '” — this reads as walking back a rename, not a new one.' };
+        }
         const r = applyMutations(st, [{ type: 'people.rename', from: removed, to: added, cause: who + '’s edit' }]);
         if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); words.push(r.applied[0].words.replace(/\.$/, '')); }
         /* the record */
