@@ -4269,3 +4269,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   is invented: whichever the passage states is what appears, and the prefix is omitted only when
   it states neither. The closing checks ask for both.
 - 448/448 harness + 36/36 walk + 8/8 play. version.js -> m197-001.
+
+# M198 — the settings text said two readers were one
+- Settings described the second reader's mending and then ended with "The record's own lines are
+  checked the same way and rewritten when they misread a page" — which is the AUDIT'S work, not
+  the second reader's. They run on different schedules, read in OPPOSITE directions (the reader
+  judges a page against what lasts; the audit judges a record line against the pages it came
+  from), and one of them may edit the writer's prose while the other may never. The writer read
+  that paragraph and could not tell them apart, which is the paragraph's fault.
+- Split, in both places: the switch's own note, and the roster in the help panel. The reader's
+  note now names what it reads (the locked truths, the ledgers, the brief) and says plainly that
+  the record is not its work; the audit has its own line saying it mends the line itself and
+  writes what was missing beneath it, and never touches prose.
+- 448/448 harness + 36/36 walk + 8/8 play. version.js -> m198-001.
