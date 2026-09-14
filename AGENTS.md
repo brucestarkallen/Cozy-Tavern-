@@ -4569,3 +4569,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - And bannerFollows no longer paints "done" over a banner the job has already closed itself.
 - 459/459 harness + 37/37 walk + 8/8 play + wipe + two-browser + append + guard + contrast + coat
   + the anchor differential (484/484 identical) + no lint errors. version.js -> m214-001.
+
+# M215 — "does it always retry?" — it did not
+- A THROWN WIRE ERROR ESCAPED THE WHOLE REBUILD. callKeeper THROWS on a connection reset and
+  nothing in rebuildRecord caught it — so the error left the function entirely, the QUEUE caught
+  it, and the queue retried the WHOLE JOB. Which wipes the record and folds from page one again.
+  A hundred pages of work thrown away by one blip, up to five times over, with the banner snapping
+  back to batch 1 each time. Caught inside the round now: a thrown call is simply a round that
+  wrote nothing, and the retry ladder is what handles it.
+- AND THE LADDER WAS TOO SHORT TO MATTER. Three tries across fifteen seconds — any real provider
+  hiccup outlasts that. Six rungs now (1.5s, 4s, 9s, 20s, 45s, 90s): about three minutes of
+  patience, every wait counted down on the banner so it never looks dead, and Stop available
+  throughout. Past that the connection is genuinely gone and saying so beats spinning forever.
+- PROVEN: the wire taken down for four calls in the middle of a run — three retries used, and the
+  rebuild came back and finished 6 of 6.
+- 460/460 harness + 37/37 walk + 8/8 play. version.js -> m215-001.

@@ -949,7 +949,8 @@ test('M210: Rebuild always starts from the first page, and retries live inside o
   assert(!/rebuildStalled/.test(src), 'and no mark decides what a press means');
 
   /* the retry still lives INSIDE the run — that is the carrying-on that matters */
-  assert(/const pauses = \[1500, 4000, 9000\];/.test(src), 'a round that stumbles waits and tries again');
+  assert(/const pauses = \[1500, 4000, 9000, 20000, 45000, 90000\];/.test(src),
+    'a round that stumbles waits and tries again — six rungs, patient enough to outlast a real hiccup (M215)');
   assert(/if \(after\.length !== before\.length\) \{ recovered = true; break; \}/.test(src), 'and carries on the moment it recovers');
   assert(/stalled: true,/.test(src), 'only a run that gives up says so');
   assert(/press Rebuild to start again, or put the old record back/.test(src), 'and says what to do');
@@ -1105,4 +1106,62 @@ test('M213: every keeper call renews, and a long rebuild runs to the end', async
   eq(seen[seen.length - 1], '16/16', 'it runs to the last batch, not to batch 3: ' + seen.join(' '));
   eq(Boolean(r && r.stalled), false, 'and is never cut short');
   eq(r.lines, 16, 'sixteen lines written');
+});
+
+/* M215: the writer asked whether a rebuild always retries. It did not.
+ *  - a THROWN wire error (a connection reset) escaped rebuildRecord entirely.
+ *    The queue caught it and retried the WHOLE JOB, which wipes the record and
+ *    folds from page one again — a hundred pages of work thrown away by one
+ *    blip, up to five times over.
+ *  - and the ladder was three tries across fifteen seconds, which any real
+ *    provider hiccup outlasts. */
+test('M215: a wire that falls over mid-rebuild is a stumble, and the ladder is patient', async () => {
+  const rb = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
+  assert(/const pauses = \[1500, 4000, 9000, 20000, 45000, 90000\];/.test(rb),
+    'six tries across about three minutes, not three across fifteen seconds');
+  assert(/\} catch \(err\) \{ \/\* the ladder below decides what to do about it \*\/ \}/.test(rb),
+    'a thrown call is caught where the ladder can see it');
+  assert(/\} catch \(err\) \{ \/\* still down — the next rung of the ladder \*\/ \}/.test(rb),
+    'and on every rung after');
+
+  /* the wire goes down for four calls in the middle of a run */
+  const { db } = await import('../../js/store.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  const { rebuildRecord } = await import('../../js/agents/rebuild.js');
+  const { workerSignal } = await import('../../js/agents/status.js');
+  const st = await db.stories.create({ title: 'a run through a bad patch' });
+  for (let i = 0; i < 60; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 20);
+  await db.settings.set('memoryBatch', 6);
+  await saveMemory(st.id, { window: 20, nodes: [] });
+
+  const real = globalThis.fetch;
+  let call = 0;
+  const down = [4, 5, 6, 7];
+  globalThis.fetch = async () => {
+    call += 1;
+    if (down.includes(call)) throw new Error('connection reset');
+    const body = '[Sept 1] Jovan did something worth recording, number ' + call + '; Rias answered him';
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: body } }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  const waits = [];
+  const seen = [];
+  let r = null;
+  try {
+    const w = workerSignal(60000);
+    r = await rebuildRecord({
+      connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' },
+      storyId: st.id, renew: w.renew, signal: w.signal,
+      onProgress: (p) => seen.push(p.batch + '/' + p.batches),
+      onRetry: async ({ attempt, of }) => { waits.push(attempt + '/' + of); await new Promise((z) => setTimeout(z, 10)); },
+    });
+  } finally { globalThis.fetch = real; }
+
+  assert(waits.length >= 1, 'it retried rather than dying: ' + waits.join(', '));
+  eq(Boolean(r && r.stalled), false, 'and came back from it');
+  eq(seen[seen.length - 1], '6/6', 'finishing every batch: ' + seen.join(' '));
+  eq(r.lines, 6, 'six lines written');
 });

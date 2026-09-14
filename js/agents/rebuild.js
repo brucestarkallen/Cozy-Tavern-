@@ -91,14 +91,23 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
     }
     const before = (await loadMemory(storyId)).nodes;
     if (!dueRange(history.length, window, before, batch)) break;
-    await maybeSummarize({
-      connection, storyId, signal, renew,
-      onBatch: ({ pages }) => {
-        doneBatches += 1;
-        folded += pages;
-        if (typeof onProgress === 'function') onProgress({ batch: doneBatches, batches, folded, toFold });
-      },
-    });
+    /* M215: A WIRE THAT FALLS OVER MID-REBUILD IS A STUMBLE, NOT A CRASH.
+     * callKeeper THROWS on a connection reset, and nothing here caught it —
+     * so the error escaped rebuildRecord entirely, the queue caught it, and
+     * the queue retried the WHOLE JOB, which wipes the record and folds from
+     * page one again. A hundred pages of work thrown away by one blip, up to
+     * five times over. Caught here, it is just a round that wrote nothing,
+     * and the retry ladder below is what handles it. */
+    try {
+      await maybeSummarize({
+        connection, storyId, signal, renew,
+        onBatch: ({ pages }) => {
+          doneBatches += 1;
+          folded += pages;
+          if (typeof onProgress === 'function') onProgress({ batch: doneBatches, batches, folded, toFold });
+        },
+      });
+    } catch (err) { /* the ladder below decides what to do about it */ }
     let after = (await loadMemory(storyId)).nodes;
     /* M202: A KEEPER THAT STUMBLED IS NOT A RECORD THAT IS FINISHED. This
      * broke out the moment a round wrote nothing — and maybeSummarize
@@ -110,7 +119,14 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
      * times, and only then gives up — and says so. */
     if (after.length === before.length) {
       let recovered = false;
-      const pauses = [1500, 4000, 9000];
+      /* M215: PATIENT ENOUGH TO OUTLAST A HICCUP. Three tries over fifteen
+       * seconds is thin — a provider that coughs for half a minute killed a
+       * rebuild that was otherwise going fine, and the writer had to come
+       * back and press it again. Six tries over about three minutes, each
+       * wait counted down on the banner so it never looks dead, and Stop is
+       * there the whole time. Beyond that the connection is genuinely gone
+       * and saying so is kinder than spinning forever. */
+      const pauses = [1500, 4000, 9000, 20000, 45000, 90000];
       for (let a = 0; a < pauses.length; a += 1) {
         const pause = pauses[a];
         if (stale && stale()) return null;
@@ -120,14 +136,16 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
           return { folded, toFold, lines: (await loadMemory(storyId)).nodes.length, stalled: true,
             why: 'the run was cut short — press Rebuild to start again' };
         }
-        await maybeSummarize({
-          connection, storyId, signal, renew,
-          onBatch: ({ pages }) => {
-            doneBatches += 1;
-            folded += pages;
-            if (typeof onProgress === 'function') onProgress({ batch: doneBatches, batches, folded, toFold });
-          },
-        });
+        try {
+          await maybeSummarize({
+            connection, storyId, signal, renew,
+            onBatch: ({ pages }) => {
+              doneBatches += 1;
+              folded += pages;
+              if (typeof onProgress === 'function') onProgress({ batch: doneBatches, batches, folded, toFold });
+            },
+          });
+        } catch (err) { /* still down — the next rung of the ladder */ }
         after = (await loadMemory(storyId)).nodes;
         if (after.length !== before.length) { recovered = true; break; }
       }
