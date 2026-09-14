@@ -4507,3 +4507,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   to clear, because Rebuild starts fresh whatever happened before.
 - Three laws written for the resume went with it, replaced by the one that is now true.
 - 455/455 harness + 37/37 walk + 8/8 play + contrast. version.js -> m210-001.
+
+# M211 — the banner counted calls, not batches
+- THE WRITER WATCHED IT SIT AT NOTHING AND LEAP TO "18 of 99". maybeSummarize folds THREE batches
+  per call (BATCHES_PER_RUN) and the rebuild's banner was counting CALLS — so it could only ever
+  move in jumps of eighteen pages. Summaryception counts batches because a batch is the unit of
+  work a writer can feel. onBatch fires after every batch now; the banner reads
+  "batch 4 of 11 · 36% · 24 of 69 pages".
+- AND THE BAR COULD NEVER CLOSE. The batch count was ceil(toFold / batch) — but dueRange holds a
+  PART batch back for next time, so the last few pages are never folded, and the banner ended a
+  finished run reading "11 of 12 · 92%". A writer watching a bar that never closes cannot tell
+  finished from stuck. Floor, not ceil: the last step reaches the end.
+- ON THE FIRST LINE COMING BACK THE SAME: it does not. Proven end to end with a scripted keeper —
+  a record holding an old line, rebuilt, comes back with the old line GONE and every line folded
+  again from page one (11 lines, first one new). A first line that is unchanged means the coat is
+  older than M202, which is the pass that ported Summaryception's newer prompt.
+- 456/456 harness + 37/37 walk + 8/8 play. version.js -> m211-001.

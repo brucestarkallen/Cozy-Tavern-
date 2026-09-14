@@ -970,3 +970,52 @@ test('M210: Rebuild always starts from the first page, and retries live inside o
   assert(/const outcome = promise \? await promise : null;/.test(chat), 'the banner reads the queue’s own result');
   assert(/if \(outcome && outcome\.ok === false\) \{/.test(chat), 'and a failure is a failure');
 });
+
+/* M211: the writer watched the rebuild's banner sit at nothing and then leap
+ * to "18 of 99". maybeSummarize folds THREE batches per call
+ * (BATCHES_PER_RUN), and the banner was counting calls — so it could only
+ * ever move in jumps of eighteen pages. Summaryception counts batches,
+ * because a batch is the unit of work a writer can feel. */
+test('M211: the rebuild counts batches, one at a time, and the bar reaches the end', async () => {
+  const { db } = await import('../../js/store.js');
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { rebuildRecord } = await import('../../js/agents/rebuild.js');
+
+  const st = await db.stories.create({ title: 'a long telling' });
+  for (let i = 0; i < 99; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 30);
+  await saveMemory(st.id, { window: 30, nodes: [{ id: 'old1', span: [0, 5], text: 'OLD LINE from the old prompt', level: 1, at: 1 }] });
+
+  const real = globalThis.fetch;
+  let call = 0;
+  globalThis.fetch = async () => {
+    call += 1;
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: 'NEW line ' + call } }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  const seen = [];
+  try {
+    await rebuildRecord({
+      connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' },
+      storyId: st.id,
+      onProgress: (p) => seen.push({ batch: p.batch, batches: p.batches, folded: p.folded }),
+    });
+  } finally { globalThis.fetch = real; }
+
+  /* one step per batch, in order, no leaps */
+  assert(seen.length >= 10, 'it reported every batch (' + seen.length + ')');
+  for (let i = 0; i < seen.length; i += 1) eq(seen[i].batch, i + 1, 'step ' + (i + 1) + ' is batch ' + (i + 1));
+  eq(seen[0].folded, 6, 'the first step is six pages, not eighteen');
+  eq(seen[1].folded, 12, 'and the second is twelve');
+
+  /* and the bar closes: a part-batch is held back by dueRange, so counting it
+   * left the banner at "11 of 12 · 92%" on a run that had finished */
+  eq(seen[seen.length - 1].batch, seen[seen.length - 1].batches, 'the last step reaches the end');
+
+  /* and the rebuild really did replace the old line */
+  const mem = await loadMemory(st.id);
+  assert(!mem.nodes.some((n) => /OLD LINE/.test(n.text)), 'the old record is gone');
+  assert(/^NEW line /.test(mem.nodes[0].text), 'and the first line was folded again: ' + mem.nodes[0].text);
+});

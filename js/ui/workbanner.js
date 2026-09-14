@@ -67,10 +67,14 @@ export function beginWork(what, stop) {
   if (stopEl) stopEl.hidden = !onStop;
   return {
     /* "batch 7 of 24 · 29%" — in whatever units the caller counts in */
-    step(done, total, unit = 'batch') {
+    /* "batch 4 of 17 · 24% · 24 of 99 pages" — the unit the work is really
+     * done in, and what that means in pages beside it. */
+    step(done, total, unit = 'batch', aside) {
       if (!live()) return;
       const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-      paint(what, total > 0 ? unit + ' ' + done + ' of ' + total + ' · ' + pct + '%' : unit + ' ' + done, pct, 'running');
+      const count = (total > 0 ? unit + ' ' + done + ' of ' + total + ' · ' + pct + '%' : unit + ' ' + done)
+        + (aside ? ' · ' + aside : '');
+      paint(what, count, pct, 'running');
     },
     /* a stumble, with the wait counting down so the writer sees it is alive */
     waiting(seconds, attempt, of) {

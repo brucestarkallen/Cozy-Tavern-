@@ -67,6 +67,16 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
   const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
   const toFold = Math.max(0, history.length - window);
+  /* M211: batches, because a batch is the unit of work a writer can feel. A
+   * run folds three of them, so counting runs made the banner leap from
+   * nothing to "18 of 99" and sit there. */
+  /* M211: FLOOR, not ceil. A batch is only folded when it is FULL (dueRange
+   * holds a part-batch back for next time), so counting the leftover pages
+   * as a batch left the banner reading "11 of 12 · 92%" at the end of a run
+   * that had in fact finished — and a writer watching a bar that never
+   * closes has no way to tell finished from stuck. */
+  const batches = Math.max(1, Math.floor(toFold / batch));
+  let doneBatches = 0;
   let folded = 0;
   let rounds = 0;
   while (rounds < 400) {
@@ -76,7 +86,14 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
     if (typeof renew === 'function' && !renew()) return null;
     const before = (await loadMemory(storyId)).nodes;
     if (!dueRange(history.length, window, before, batch)) break;
-    await maybeSummarize({ connection, storyId, signal });
+    await maybeSummarize({
+      connection, storyId, signal,
+      onBatch: ({ pages }) => {
+        doneBatches += 1;
+        folded += pages;
+        if (typeof onProgress === 'function') onProgress({ batch: doneBatches, batches, folded, toFold });
+      },
+    });
     let after = (await loadMemory(storyId)).nodes;
     /* M202: A KEEPER THAT STUMBLED IS NOT A RECORD THAT IS FINISHED. This
      * broke out the moment a round wrote nothing — and maybeSummarize
@@ -95,7 +112,14 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
         if (typeof onRetry === 'function') await onRetry({ ms: pause, attempt: a + 1, of: pauses.length });
         else await new Promise((r) => setTimeout(r, pause));
         if (typeof renew === 'function' && !renew()) return null;
-        await maybeSummarize({ connection, storyId, signal });
+        await maybeSummarize({
+          connection, storyId, signal,
+          onBatch: ({ pages }) => {
+            doneBatches += 1;
+            folded += pages;
+            if (typeof onProgress === 'function') onProgress({ batch: doneBatches, batches, folded, toFold });
+          },
+        });
         after = (await loadMemory(storyId)).nodes;
         if (after.length !== before.length) { recovered = true; break; }
       }
@@ -109,7 +133,6 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
     }
     folded = after.reduce((n, node) => n + (node.span[1] - node.span[0] + 1), 0);
     rounds += 1;
-    if (typeof onProgress === 'function') onProgress({ folded, toFold, lines: after.length });
   }
   return { folded, toFold, lines: (await loadMemory(storyId)).nodes.length };
 }

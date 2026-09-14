@@ -1617,7 +1617,7 @@ export function initChat(ctx) {
     const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale, renew }) => {
       const result = await rebuildRecord({
         connection, storyId: story.id, signal, stale, renew,
-        onProgress: ({ folded, toFold, resumed }) => banner.step(folded, toFold, 'page'),
+        onProgress: ({ batch, batches, folded, toFold }) => banner.step(batch, batches, 'batch', folded + ' of ' + toFold + ' pages'),
         onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
       });
       if (result && result.stalled) banner.failed('Stopped at ' + result.folded + ' of ' + result.toFold + ' pages — the keeper could not be reached');

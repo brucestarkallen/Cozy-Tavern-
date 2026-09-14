@@ -866,7 +866,12 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
 
 /* Write the lines that are due, then promote any layer that has grown past
  * its size. Returns the memory when something changed, else null. */
-export async function maybeSummarize({ connection, storyId, signal, onSourceIssue, stale } = {}) {
+/* M211: onBatch fires after EVERY batch, not once per run. A run folds three
+ * batches (BATCHES_PER_RUN), so a rebuild's banner could only ever move in
+ * jumps of eighteen pages — the writer watched it sit at nothing and then
+ * leap to "18 of 99". Summaryception counts batches because a batch is the
+ * unit of work a writer can actually feel. */
+export async function maybeSummarize({ connection, storyId, signal, onSourceIssue, stale, onBatch } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   const gone = () => Boolean(stale && stale());
@@ -915,6 +920,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     mem.window = window;
     mem.nodes.push(node);
     changed = true;
+      if (typeof onBatch === 'function') onBatch({ span: node.span, pages: node.span[1] - node.span[0] + 1 });
     await saveMemory(storyId, mem);
     if (!node.empty) {
       const passage = passageOf(pages, playerName);
