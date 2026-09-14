@@ -4205,3 +4205,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   characters (480 once a sharper second ask is merged in) is right for a correction. If a line is
   missing something big, the answer is to rebuild the record, not to grow the detail.
 - 444/444 harness + 36/36 walk + 8/8 play. version.js -> m193-001.
+
+# M194 — the keeper never checked a figure
+- The writer's line said Jovan is SEVENTEEN where the page said "Sixteen". The keeper closes with
+  nine checks — pronouns, actors, phrase count, stats, paradoxes, OOC canon, temporal prefix — and
+  not one of them looks at a FIGURE, which is the single kind of mistake a reader notices at once
+  and the storyteller then repeats for the rest of the tale. A tenth check: every age, count,
+  height, distance, time, price and score must read as the passage states it, in the passage's own
+  form (Sixteen stays sixteen; five-foot-eight is not rounded), and a figure that cannot be
+  pointed to in <passage> does not belong in the line at all.
+- WHERE THINGS BELONG, since the writer asked: strategy and politics go in the LINE — rule 4 asks
+  for the problem, the proposed solution and who proposed it, and rule 3 for titles, counts and
+  tactical detail. The line has 4000 characters. "Detail worth keeping" is the AUDITOR'S
+  correction of that line, not a second summary, and 240 characters is right for a correction.
+  A line missing something big is rebuilt, not annotated.
+- 445/445 harness + 36/36 walk + 8/8 play. version.js -> m194-001.

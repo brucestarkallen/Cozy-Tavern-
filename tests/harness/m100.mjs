@@ -730,3 +730,24 @@ test('M192: the record’s detail names people, says each thing once, and never 
   assert(/const at = room\.lastIndexOf\(';'\);/.test(src), 'the cut looks for a clause boundary');
   assert(!/detail\.slice\(0, 479\)\.trimEnd\(\) \+ '…';/.test(src), 'and never simply chops mid-word');
 });
+
+/* M194: the writer's line said Jovan is SEVENTEEN when the page said
+ * "Sixteen". The keeper's nine closing checks covered pronouns, actors,
+ * phrase count, stats and paradoxes — and never once looked at a figure,
+ * which is the one kind of mistake a reader notices immediately and the
+ * storyteller then repeats. */
+test('M194: the keeper is told to check its figures against the passage', async () => {
+  const { SUMMARY_SYSTEM } = await import('../../js/agents/memory.js');
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  const prompt = typeof SUMMARY_SYSTEM === 'string' ? SUMMARY_SYSTEM : src;
+  assert(/FIGURES ARE EXACT/.test(prompt), 'the closing checks include the figures');
+  assert(/every age, count, height, distance, time, price and score/.test(prompt), 'and name what counts as one');
+  assert(/does not round it/.test(prompt), 'a stated measurement is not rounded');
+  assert(/does not belong in the line at all/.test(prompt), 'and a figure not in the passage is not invented');
+  /* the rest of the closing checks must survive alongside it */
+  for (const kept of ['NO PRONOUNS remain', 'phrase count within limit', 'ALL stats are bundled', 'TIMELINE LOGIC']) {
+    assert(prompt.includes(kept), 'the older check still stands: ' + kept);
+  }
+  /* and strategy is still asked for in the LINE, which is where it belongs */
+  assert(/Plans and strategy: the problem, the proposed solution, who proposed it/.test(prompt), 'strategy belongs in the line');
+});
