@@ -39,7 +39,10 @@ test('M28-1: every house is told to stop thinking, in its own spelling, and the 
     eq(r.mutations.length, 5, `${h.name}: five founding mutations`);
     const sent = house.calls[0].body;
     assert(thinkingOff(sent, house.calls[0].anthropic), `${h.name}: thinking is off on the wire`);
-    eq(sent.temperature, 0, `${h.name}: cold`);
+    /* M232: a connection that says nothing about temperature sends nothing —
+     * the provider's own default stands, because that is what the writer
+     * chose by leaving it alone. A worker that wants cold asks for it. */
+    eq('temperature' in sent, false, `${h.name}: the provider's default is left alone`);
     eq(sent.max_tokens, 2400, `${h.name}: the worker budget, not the storyteller’s (M37: 2400)`);
     assert(!('top_p' in sent), `${h.name}: no storyteller dials`);
   }
@@ -92,14 +95,14 @@ test('M28-2b: a worker may still ask for thought — the ladder decides the spel
   eq(c.searchOn, true, 'and its search');
   /* and a connection that says nothing still gets a steady worker */
   const bare = workerConnection({ baseUrl: 'https://x', model: 'm' }, {});
-  eq(bare.temperature, 0, 'a connection with no temperature answers steadily');
-  eq(bare.reasoning.effort, 'off', 'and without thinking');
+  eq('temperature' in bare, false, 'a connection with no temperature sends none — the provider decides');
+  eq('reasoning' in bare, false, 'and none of the house’s thinking either');
   assert(bare.maxTokens > 0, 'with room to answer in');
   /* M231: the connection above sets 0.25 and says nothing about thinking —
    * so it answers at 0.25, and thinking stays off because nothing asked for
    * it. Neither is the house overruling the writer. */
   eq(c.temperature, 0.25, 'still the connection’s own');
-  eq(c.reasoning.effort, 'off', 'off because the connection did not ask, not because the house forced it');
+  eq('reasoning' in c, false, 'and nothing about thinking, because the connection said nothing (M232)');
 });
 
 test('M28-3: no fetch() survives in any worker — one wire path in the house', () => {

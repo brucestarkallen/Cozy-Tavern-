@@ -4843,3 +4843,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   writer's record was doing. Summaryception's own default is 0.3 (Ollama) / 0.8
   (OpenAI-compatible), never 0. The writer can now simply set it on his worker connection.
 - 473/473 harness + 37/37 walk + 8/8 play. version.js -> m231-001.
+
+# M232 — nothing set means the provider's default, not the house's zero
+- M231 STOPPED OVERRIDING A TEMPERATURE THE CONNECTION HAD, AND THEN STILL IMPOSED 0 ON ONE THAT
+  HAD NONE. Same overruling, quieter. A connection that says nothing about temperature is the
+  writer saying "whatever this provider does"; the house has no business answering for him. The
+  key is removed entirely now, so nothing is sent and the provider's own default stands. The same
+  for thinking.
+- WHAT A WORKER STILL DECIDES FOR ITSELF is its own ASK — every worker calls with effort:'off',
+  which is a worker choosing not to think about its own job, not the house rewriting the writer's
+  connection. A worker that wants cold asks for cold (the referee asks for a 12s budget, the
+  extractor asks for nothing and takes the connection's).
+- So the whole of a worker's behaviour is now the writer's to set, on the connection he assigns to
+  that worker — temperature, top-p, prefill, search, thinking — and the house supplies only a floor
+  on answer room.
+- 473/473 harness + 37/37 walk + 8/8 play. version.js -> m232-001.

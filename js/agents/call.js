@@ -53,13 +53,23 @@ export const WORKER_MAX_TOKENS = 1200;
  * worker's JSON in half. Everything the connection DOES say, it says. */
 export function workerConnection(connection, { maxTokens, effort, temperature } = {}) {
   const c = { ...connection };
-  /* the caller's ask, then the connection's own, then the house's floor */
+  /* M232: NOTHING SET MEANS THE PROVIDER'S DEFAULT, NOT THE HOUSE'S ZERO.
+   * M231 stopped overriding a temperature the connection HAD and then still
+   * imposed 0 on one that had none — which is the same overruling, only
+   * quieter. A connection that says nothing about temperature is a writer
+   * saying "whatever this provider does"; the house has no business
+   * answering for him. The key is removed entirely so nothing is sent. */
   if (Number.isFinite(temperature)) c.temperature = temperature;
-  else if (!Number.isFinite(c.temperature)) c.temperature = 0;
+  else if (!Number.isFinite(c.temperature)) delete c.temperature;
   const room = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.round(maxTokens) : WORKER_MAX_TOKENS;
   c.maxTokens = Math.max(room, Number.isFinite(c.maxTokens) ? Math.round(c.maxTokens) : 0) || room;
+  /* M232: and the same for thinking. A worker that asks for an effort gets it;
+   * otherwise the connection's own stands, and a connection that says nothing
+   * is left alone. The one exception is the house's own ask of 'off', which
+   * every worker makes by default — that is a WORKER'S choice about its own
+   * job, not the house rewriting the writer's connection. */
   if (typeof effort === 'string' && effort) c.reasoning = { ...(c.reasoning || {}), effort };
-  else if (!c.reasoning || typeof c.reasoning.effort !== 'string') c.reasoning = { effort: 'off' };
+  else if (!c.reasoning || typeof c.reasoning.effort !== 'string') delete c.reasoning;
   return c;
 }
 
