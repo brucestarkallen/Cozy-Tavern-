@@ -20,6 +20,12 @@ srv = subprocess.Popen([sys.executable, os.path.join(REPO, 'serve.py')],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1.5)
 
+RENAME = '''async () => {
+  const st = (await window.__cozy.db.stories.list()).find(s => s.title === 'Ravenwood');
+  await window.__cozy.db.stories.update(st.id, { title: 'Ravenwood (renamed)' });
+  await window.__cozy.booksStatus.pushAll();
+}'''
+
 fails = []
 
 
@@ -120,6 +126,25 @@ try:
         check('and it is no longer marked unfetched', after_open['shallow'] is False, str(after_open))
         check('the device still holds forty pages', device_pages(sid) == 40, str(device_pages(sid)))
         ctx2.close()
+
+        # M190: renaming a tale whose pages are NOT here yet. Its book cannot
+        # be pushed (M188 refuses an empty one), so the device heals the
+        # browser — and that heal used to write the book's old title back over
+        # the rename, and land the pages from another thread while the room
+        # went on showing an empty tale.
+        ctx3 = browser.new_context()
+        b3 = boot(ctx3)
+        b3.wait_for_timeout(2500)
+        b3.evaluate(RENAME)
+        b3.wait_for_timeout(3500)
+        got = b3.evaluate("""async () => {
+          const st = (await window.__cozy.db.stories.list()).find(s => /Ravenwood/.test(s.title));
+          return { t: st.title, shallow: !!st.shallow, pages: (await window.__cozy.db.messages.list(st.id)).length };
+        }""")
+        check('a rename of an unfetched tale is not undone by the heal', 'renamed' in got['t'], str(got))
+        check('and the healed pages really arrive in the room', got['pages'] == 40, str(got))
+        check('the device kept every page throughout', device_pages(sid) == 40, str(device_pages(sid)))
+        ctx3.close()
         browser.close()
 finally:
     srv.terminate()

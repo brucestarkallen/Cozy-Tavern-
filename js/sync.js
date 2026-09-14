@@ -206,6 +206,19 @@ export async function initSync(ctx) {
       if (ctx.onStoriesChanged) ctx.onStoriesChanged();
     } catch (err) { /* a refresh that stumbles is not worth a broken room */ }
   };
+  /* M190: a tale the worker had to heal (its pages pulled back after a push
+   * the device refused) has landed in the store from another thread. Drop the
+   * caches and redraw, or the reader keeps looking at an empty tale. */
+  worker.addEventListener('message', (e) => {
+    const msg = e && e.data;
+    if (!msg || msg.kind !== 'healed' || !Array.isArray(msg.ids)) return;
+    dropCaches();
+    for (const id of msg.ids) liveRepaint(id);
+  });
+  const liveRepaint = (bookId) => {
+    if (busyNow()) { refreshOwed = bookId; return; }
+    paint(bookId).catch(() => {});
+  };
   const listen = () => {
     if (typeof EventSource !== 'function' || live) return;
     try { live = new EventSource('api/events'); } catch (err) { live = null; return; }

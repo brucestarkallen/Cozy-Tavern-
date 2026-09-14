@@ -4136,3 +4136,22 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   wrong one.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + wipe + two-browser + append + guard.
   version.js -> m189-001.
+
+# M190 — the audit of M180-M189: what the new sync did to a tale you had not opened
+- A TALE'S BOOK UNDID WHAT THE SHELF KNEW. importStory wrote `data.story` over the local row
+  wholesale. A tale whose pages are not here yet cannot be pushed (M188 refuses an empty book), so
+  a rename of such a tale lived only in the house book — and the moment that tale's own book was
+  fetched, the book's OLD title was written back over it. Renaming a tale you had not opened
+  simply undid itself. The newer row wins now: if this browser's row was touched more recently
+  than the book was exported, its title and shelf stand. Fetching a tale also clears its `shallow`
+  mark, which is the truth of it — the pages are here.
+- AND THE HEAL LANDED WHERE THE ROOM COULD NOT SEE IT. When M188 refuses a push it pulls the
+  device's copy back — from the sync WORKER, into the store, while the main thread went on holding
+  its own cached (empty) page list for that tale. The reader was left looking at a tale with no
+  pages at all, with every page sitting safe on the device, until the next reload. The worker says
+  `healed` now and the room drops its caches and redraws (waiting, as ever, for a turn in flight).
+- Measured through the whole chain: B sees the tale unfetched, renames it, pushes, is refused,
+  is healed — and ends with the rename kept, all forty pages in the room, and the device holding
+  forty throughout. Three laws in tests/guard.py.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + wipe + two-browser + append + guard
+  (thirteen laws). version.js -> m190-001.

@@ -707,14 +707,34 @@ async function exportHouse() {
   const house = rows.filter((r) => r && typeof r.key === 'string' && !STORY_ROW(r.key, ids) && !STORY_PREFIXED.test(r.key) && r.key !== 'booksStamp');
   return JSON.stringify({ namespace: NAMESPACE, kind: 'house', exportedAt: new Date().toISOString(), settings: house, connections: await run('connections', 'readonly', (s) => s.getAll()), stories: all.map((x) => ({ id: x.id, title: x.title, createdAt: x.createdAt, updatedAt: x.updatedAt, projectId: x.projectId })) });
 }
+/* M190: A TALE'S BOOK MUST NOT UNDO WHAT THE SHELF KNOWS. importStory wrote
+ * `data.story` over the local row wholesale — so a title changed in this
+ * browser was silently reverted the moment that tale's book was fetched (the
+ * book still carried the old name, because a tale whose pages are not here
+ * cannot be pushed). Renaming a tale you had not opened simply undid itself.
+ * The newer row wins: if this browser's row was touched more recently than
+ * the book was exported, its title and shelf stand. */
+function mergeStoryRow(incoming, local) {
+  if (!local) return incoming;
+  const mine = Number(local.updatedAt) || 0;
+  const theirs = Number(incoming && incoming.updatedAt) || 0;
+  if (theirs >= mine) return { ...local, ...incoming };
+  return { ...incoming, ...local };
+}
+
 async function importStory(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || data.kind !== 'story' || !data.story || !data.story.id) throw new Error('not a story book');
   const id = data.story.id;
   const d = await openDB();
+  /* M190: read the local row BEFORE the write, so the newer one wins. */
+  const localRow = await run('stories', 'readonly', (s) => s.get(id));
   await new Promise((resolve, reject) => {
     const t = d.transaction(['stories', 'messages', 'settings'], 'readwrite');
-    t.objectStore('stories').put(data.story);
+    /* the pages are here now, so it is no longer a tale we only know of */
+    const merged = mergeStoryRow(data.story, localRow);
+    delete merged.shallow;
+    t.objectStore('stories').put(merged);
     const ms = t.objectStore('messages');
     const idx = ms.index('byStory');
     const req = idx.getAllKeys(id);

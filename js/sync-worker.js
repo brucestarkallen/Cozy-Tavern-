@@ -108,9 +108,14 @@ async function pushIds(ids) {
   }
   if (refused.length) {
     /* the browser is the one that is wrong here — take the device's copy */
-    await db.settings.delete('bookStamp:' + refused[0]).catch(() => {});
+    for (const id of refused) { try { await db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } }
     const books = await manifest();
     if (books) await pullBooks(books.filter((b) => refused.includes(b.id)), { all: true });
+    /* M190: and TELL THE ROOM. The pages land in the store from this worker,
+     * but the main thread is still holding its own cached (empty) list for
+     * that tale — so the reader saw a tale with no pages at all until the
+     * next reload, while every page sat safe on the device. */
+    self.postMessage({ kind: 'healed', ids: refused });
   }
   return done;
 }
