@@ -4822,3 +4822,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   a colon, never a list of names. The test given to the model: if a phrase would puzzle someone
   who had just read the line above it, it is the wrong phrase.
 - 473/473 harness + 37/37 walk + 8/8 play. version.js -> m230-001.
+
+# M231 — the connection the writer chose is the connection that answers
+- workerConnection TOOK A COPY OF THE CONNECTION AND THREW AWAY ITS SETTINGS: temperature forced
+  to 0, top-p DELETED, prefill deleted, search deleted, thinking forced off. So a connection the
+  writer had made FOR his workers, with the values he wanted on it, was used for its address and
+  its model and nothing else. The writer put it plainly: "Why not use connections!! Do you think
+  I'm stupid enough to put prefill on my worker! I can create connections specifically for my
+  workers." He is right — he assigns a connection PER WORKER, and that is exactly where those
+  choices belong.
+- Worse, top-p was DELETED rather than set, so instead of a chosen value a worker got whatever
+  that provider happens to default to — different on DeepSeek, Z.ai and OpenRouter. Not a decision,
+  an accident.
+- What the connection says, it says. What remains in workerConnection is only what a connection
+  cannot say: a FLOOR on the room an answer needs, so a storyteller connection set to 200 tokens
+  cannot cut a worker's JSON in half; and a default of temperature 0 / thinking off for a
+  connection that specifies neither.
+- FOR THE RECORD on temperature: Cozy Tavern forced 0, which is greedy decoding and the setting
+  most prone to degenerate repetition on long structured prompts — a fair description of what the
+  writer's record was doing. Summaryception's own default is 0.3 (Ollama) / 0.8
+  (OpenAI-compatible), never 0. The writer can now simply set it on his worker connection.
+- 473/473 harness + 37/37 walk + 8/8 play. version.js -> m231-001.

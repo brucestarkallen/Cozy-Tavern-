@@ -39,14 +39,27 @@ export const WORKER_MAX_TOKENS = 1200;
 /* The connection as a worker holds it: the writer's key, address, model and
  * refusal memory — never the storyteller's dials. The prefill and the web
  * search are the storyteller's; a worker gets none of either. */
+/* M231: THE CONNECTION THE WRITER CHOSE IS THE CONNECTION THAT ANSWERS.
+ * This took a copy of the connection and then threw away its temperature, its
+ * top-p, its prefill, its search and its thinking, substituting the house's
+ * own — so a connection the writer had made FOR his workers, with the values
+ * he wanted, was used for its address and model and nothing else. Worse,
+ * top-p was DELETED rather than set, so instead of a chosen value the worker
+ * got whatever that provider happens to default to, differently on every
+ * house. The writer assigns a connection per worker; that is the place those
+ * choices belong.
+ * What remains here is only what a connection cannot say: a floor on the room
+ * an answer needs, so a storyteller connection set to 200 tokens cannot cut a
+ * worker's JSON in half. Everything the connection DOES say, it says. */
 export function workerConnection(connection, { maxTokens, effort, temperature } = {}) {
   const c = { ...connection };
-  delete c.prefill;
-  delete c.searchOn;
-  delete c.topP;
-  c.temperature = Number.isFinite(temperature) ? temperature : 0;
-  c.maxTokens = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.round(maxTokens) : WORKER_MAX_TOKENS;
-  c.reasoning = { effort: typeof effort === 'string' && effort ? effort : 'off' };
+  /* the caller's ask, then the connection's own, then the house's floor */
+  if (Number.isFinite(temperature)) c.temperature = temperature;
+  else if (!Number.isFinite(c.temperature)) c.temperature = 0;
+  const room = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.round(maxTokens) : WORKER_MAX_TOKENS;
+  c.maxTokens = Math.max(room, Number.isFinite(c.maxTokens) ? Math.round(c.maxTokens) : 0) || room;
+  if (typeof effort === 'string' && effort) c.reasoning = { ...(c.reasoning || {}), effort };
+  else if (!c.reasoning || typeof c.reasoning.effort !== 'string') c.reasoning = { effort: 'off' };
   return c;
 }
 

@@ -78,10 +78,28 @@ test('M28-2b: a worker may still ask for thought — the ladder decides the spel
   await withHouse(h, () => callWorker(HOUSES[0].conn, { system: 's', user: 'u', effort: 'high' }).catch(() => null));
   const b = h.calls[0].body;
   eq(b.thinking && b.thinking.type, 'enabled', 'asked for, granted, in Z.ai’s spelling');
-  const c = workerConnection({ prefill: 'never', searchOn: true, topP: 0.9, temperature: 1.2 }, {});
-  assert(!c.prefill && !c.searchOn && !('topP' in c), 'the storyteller’s dials never reach a worker');
-  eq(c.temperature, 0);
-  eq(c.reasoning.effort, 'off');
+  /* M231: THE CONNECTION THE WRITER CHOSE IS THE CONNECTION THAT ANSWERS.
+   * This used to assert the opposite — that a worker threw away its
+   * connection's temperature, top-p, prefill and search and used the house's
+   * own. But the writer ASSIGNS A CONNECTION PER WORKER; that is exactly
+   * where those choices belong, and top-p was DELETED rather than set, so a
+   * worker got whatever the provider happened to default to. What the
+   * connection says, it says. */
+  const c = workerConnection({ prefill: 'never', searchOn: true, topP: 0.9, temperature: 0.25 }, {});
+  eq(c.temperature, 0.25, 'the connection’s own temperature stands');
+  eq(c.topP, 0.9, 'and its top-p — never deleted into a provider default');
+  eq(c.prefill, 'never', 'and its prefill');
+  eq(c.searchOn, true, 'and its search');
+  /* and a connection that says nothing still gets a steady worker */
+  const bare = workerConnection({ baseUrl: 'https://x', model: 'm' }, {});
+  eq(bare.temperature, 0, 'a connection with no temperature answers steadily');
+  eq(bare.reasoning.effort, 'off', 'and without thinking');
+  assert(bare.maxTokens > 0, 'with room to answer in');
+  /* M231: the connection above sets 0.25 and says nothing about thinking —
+   * so it answers at 0.25, and thinking stays off because nothing asked for
+   * it. Neither is the house overruling the writer. */
+  eq(c.temperature, 0.25, 'still the connection’s own');
+  eq(c.reasoning.effort, 'off', 'off because the connection did not ask, not because the house forced it');
 });
 
 test('M28-3: no fetch() survives in any worker — one wire path in the house', () => {
