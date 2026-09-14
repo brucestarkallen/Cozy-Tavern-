@@ -751,3 +751,40 @@ test('M194: the keeper is told to check its figures against the passage', async 
   /* and strategy is still asked for in the LINE, which is where it belongs */
   assert(/Plans and strategy: the problem, the proposed solution, who proposed it/.test(prompt), 'strategy belongs in the line');
 });
+
+/* M195: A WRONG FACT IS NOT A DETAIL WORTH KEEPING. The audit was asked ONE
+ * question — "does the line omit anything" — so a model that noticed the age
+ * was wrong had nowhere to put it but the addendum, and the writer's record
+ * read "Jovan is seventeen … Detail worth keeping: Jovan is sixteen, not
+ * seventeen". The storyteller was handed both and the writer had to referee.
+ * The detail slot is for what the line NEVER SAID (as Summaryception's 📝
+ * line is); a wrong fact is repaired in the line itself. */
+test('M195: the audit mends the line, and keeps the detail for what was missing', async () => {
+  const { parseAuditFixes, applyAuditFixes, parseAuditAnswer } = await import('../../js/agents/memory.js');
+  const raw = 'FIX: Jovan is seventeen -> Jovan is sixteen\nDETAIL: Alexia Vanderbilt is a named person Vanessa warned Jovan about';
+
+  const fixes = parseAuditFixes(raw);
+  eq(fixes.length, 1, 'the correction is read as a fix');
+  eq(fixes[0].from, 'Jovan is seventeen');
+  eq(fixes[0].to, 'Jovan is sixteen');
+  eq(parseAuditAnswer(raw), '', 'and the DETAIL on a later line is not mistaken for one');
+
+  const line = 'Vanessa Reynolds said Jovan is seventeen and looks like a K-drama summoned him';
+  const pages = 'Sixteen, Vanessa said. Jovan is sixteen and looks like a K-drama summoned him.';
+  const out = applyAuditFixes(line, fixes, pages);
+  assert(/Jovan is sixteen/.test(out.text), 'the line itself is put right: ' + out.text);
+  assert(!/seventeen/.test(out.text), 'and the wrong figure is gone');
+  assert(/K-drama summoned him/.test(out.text), 'the rest of the line is untouched');
+
+  /* a fix the pages do not support is refused — the model may not rewrite the record */
+  eq(applyAuditFixes(line, [{ from: 'seventeen', to: 'forty' }], pages).used.length, 0, 'a figure not in the pages is refused');
+  eq(applyAuditFixes(line, [{ from: 'not in this line at all', to: 'sixteen' }], pages).used.length, 0, 'and words not in the line are refused');
+  eq(applyAuditFixes(line, [{ from: 'seventeen', to: 'seventeen' }], pages).used.length, 0, 'a fix that changes nothing is refused');
+
+  /* the audit is told the difference */
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  assert(/A WRONG FACT IS NOT A MISSING ONE/.test(src), 'the audit is told a wrong fact is a FIX');
+  assert(/only the MISSING information/.test(src), 'and the detail is for what the line never said');
+  /* and the run really saves the mended line */
+  assert(/if \(mended\) standing\.text = lineText;/.test(src), 'the mended line is what gets saved');
+});

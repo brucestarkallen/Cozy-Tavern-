@@ -316,9 +316,55 @@ const AUDIT_SYSTEM = [
   'structure, hidden truths, world rules, relationships, motives). Pure processing',
   'directives ("keep it short", "stay in character") are NOT information.',
   '',
-  'If the line already captures everything important, output exactly: NONE',
-  'Otherwise output ONE line: DETAIL: <only the missing information, short phrases separated by semicolons>',
+  '',
+  'A WRONG FACT IS NOT A MISSING ONE. If the line states something the pages',
+  'contradict — a wrong age, count, height, name, title or time — that is a',
+  'FIX, not a detail. Give it as the line\'s own words and the words that',
+  'belong there instead. Both must appear exactly: the wrong words in the',
+  'line, the right ones in the pages.',
+  '',
+  'Output, in this order, and nothing else:',
+  '  FIX: <exact words in the line> -> <exact words from the pages>   (zero or more lines)',
+  '  DETAIL: <only the MISSING information, short phrases separated by semicolons>   (at most one line)',
+  'If the line is right and complete, output exactly: NONE',
 ].join('\n');
+
+/* M195: the corrections the audit found, as the line's own words and what
+ * belongs there instead. A wrong fact is REPAIRED IN THE LINE; only what the
+ * line never said goes to the detail beneath it. Before this the audit was
+ * asked one question — "does the line omit anything" — so a model that
+ * noticed a wrong age had nowhere to put it but the detail, and the record
+ * read "Jovan is seventeen ... Detail worth keeping: Jovan is sixteen, not
+ * seventeen". The storyteller was handed both and the writer had to referee. */
+export function parseAuditFixes(raw) {
+  const out = [];
+  const text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:\w+)?/g, '');
+  for (const line of text.split('\n')) {
+    const m = line.trim().match(/^fix\s*:\s*(.+?)\s*(?:->|→|=>)\s*(.+?)\s*$/i);
+    if (!m) continue;
+    const from = m[1].replace(/^["“”']|["“”']$/g, '').trim();
+    const to = m[2].replace(/^["“”']|["“”']$/g, '').trim();
+    if (!from || !to || from === to || from.length > 120 || to.length > 120) continue;
+    out.push({ from, to });
+  }
+  return out.slice(0, 6);
+}
+
+/* A fix is applied only when it is provably safe: the wrong words really are
+ * in the line, and the right words really are in the pages. Anything else is
+ * the model rewriting the record, which it may not do. */
+export function applyAuditFixes(lineText, fixes, sourceText) {
+  let text = String(lineText || '');
+  const source = String(sourceText || '');
+  const used = [];
+  for (const fix of (Array.isArray(fixes) ? fixes : [])) {
+    if (!text.includes(fix.from)) continue;
+    if (!source.toLowerCase().includes(fix.to.toLowerCase())) continue;
+    text = text.split(fix.from).join(fix.to);
+    used.push(fix);
+  }
+  return { text, used };
+}
 
 export function buildAuditMessages(sourceText, noteText) {
   const user = [
@@ -679,11 +725,15 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
   try {
     const signature = nodeSignature(node);
     const auditRaw = await callKeeper(connection, buildAuditMessages(sourceText, node.text), signal);
+    /* M195: a wrong fact is REPAIRED IN THE LINE; only what the line never
+     * said goes to the detail beneath it. */
+    const repaired = applyAuditFixes(node.text, parseAuditFixes(auditRaw), sourceText);
+    let lineText = repaired.text;
     let detail = parseAuditAnswer(auditRaw);
     /* M111: the hard tokens, checked in code; one sharper ask; the rest written beneath */
-    let loss = lossCheck(sourceText, node.text, detail, knownNames);
+    let loss = lossCheck(sourceText, lineText, detail, knownNames);
     if (loss.missingNames.length || loss.missingNumbers.length) {
-      const second = buildAuditMessages(sourceText, node.text + (detail ? '\n• Detail worth keeping: ' + detail : ''));
+      const second = buildAuditMessages(sourceText, lineText + (detail ? '\n• Detail worth keeping: ' + detail : ''));
       second.user += '\n\nThese from the pages appear in neither the line nor its detail: ' + [...loss.missingNames.map((n) => 'the name ' + n), ...loss.missingNumbers.map((n) => 'the figure ' + n)].join('; ') + '. Return DETAIL with every one that a storyteller would need, and what each was (who, what count, when).';
       try {
         const again = parseAuditAnswer(await callKeeper(connection, second, signal));
@@ -693,13 +743,14 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
          * the 480-character room and cut the rest off. */
         detail = mergeDetail(detail, again);
       } catch (err) { /* the code writes the rest */ }
-      loss = lossCheck(sourceText, node.text, detail, knownNames);
+      loss = lossCheck(sourceText, lineText, detail, knownNames);
       const rest = [];
       if (loss.missingNames.length) rest.push('also named: ' + loss.missingNames.slice(0, 8).join(', '));
       if (loss.missingNumbers.length) rest.push('figures: ' + loss.missingNumbers.slice(0, 8).join(', '));
       if (rest.length) detail = (detail ? detail + '; ' : '') + rest.join('; ');
     }
-    if (!detail) return;
+    const mended = repaired.used.length > 0;
+    if (!detail && !mended) return;
     /* M192: when it must be cut, cut at a CLAUSE — the old slice landed
      * mid-word ("I'v…") and left a fragment of nothing. */
     if (detail.length > 480) {
@@ -710,7 +761,8 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
     const current = await loadMemory(storyId);
     if (nodeUnmoved(current.nodes, node.id, signature)) {
       const standing = current.nodes.find((n) => n && n.id === node.id);
-      standing.detail = detail;
+      if (mended) standing.text = lineText;   /* M195: the line itself is put right */
+      if (detail) standing.detail = detail;
       await saveMemory(storyId, current);
     }
   } catch (err) { /* an auditor that stumbles changes nothing */ }

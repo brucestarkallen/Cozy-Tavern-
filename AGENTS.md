@@ -4220,3 +4220,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   correction of that line, not a second summary, and 240 characters is right for a correction.
   A line missing something big is rebuilt, not annotated.
 - 445/445 harness + 36/36 walk + 8/8 play. version.js -> m194-001.
+
+# M195 — a wrong fact is not a detail worth keeping
+- THE AUDIT WAS ASKED ONLY ONE QUESTION: "does the line omit anything important". So a model that
+  noticed the line said SEVENTEEN where the pages said Sixteen had nowhere to put that but the
+  addendum, and the writer's record read "Jovan is seventeen … Detail worth keeping: Jovan is
+  sixteen, not seventeen". The storyteller was handed both and the WRITER had to referee his own
+  record. The writer named the fault exactly: "detail worth keeping" means what the line never
+  said — it is Summaryception's 📝 line, a second summary for what would otherwise be lost (a
+  battle strategy, a political turn) — and a wrong fact is not that.
+- TWO JOBS, TWO OUTPUTS NOW. The audit returns FIX lines (the line's own words -> the words that
+  belong there) and at most one DETAIL line (only what was MISSING). A fix is applied only when it
+  is provably safe: the wrong words really are in the line AND the right words really are in the
+  pages. Anything else is the model rewriting the record, which it may not do. The mended line is
+  what gets saved; the detail beneath it carries only additions.
+- So the record now reads as the writer expected: the LINE says sixteen, and the detail says what
+  the line left out.
+- 446/446 harness + 36/36 walk + 8/8 play. version.js -> m195-001.
