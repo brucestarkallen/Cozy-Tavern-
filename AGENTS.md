@@ -4900,3 +4900,16 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the phrase limit in rule 9's sibling — HARD LIMIT 15, 18 for dense scenes — which that line
   plainly overran; the cut is the backstop, not the fix.)
 - 476/476 harness + 37/37 walk + 8/8 play. version.js -> m235-001.
+
+# M236 — two doors into the people ledger, one guarded
+- FROM THE WRITER'S OWN LEDGER, Vanessa carried BOTH "She is hunting for a name and a photo of
+  'England boy' before Saturday." and "She is STILL hunting for a name and a photo of 'England
+  boy' before Saturday." The same loose end twice, read by the storyteller every turn.
+  mergeDeltas has asked sameLooseEnd before adding a thread since M134 — but setPersonField, the
+  WHOLE-LIST path a worker or the housekeeper uses to write the threads at once, simply took what
+  it was given. One door guarded, one open. It asks the same guard now.
+- AND A LOOSE END WAS SEVERED MID-THOUGHT: "...and Vanessa is still running interference with…" —
+  nothing to say what she was running interference WITH. cleanFieldText chopped at the cap
+  exactly, wherever that landed. It cuts on the last whole word now (the same fault as M235's
+  record cut, in a second place).
+- 477/477 harness + 37/37 walk + 8/8 play. version.js -> m236-001.

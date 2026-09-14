@@ -1712,3 +1712,37 @@ test('M235: no empty stats phrase, and a line is never cut mid-word', async () =
   assert(/IF NO STAT CHANGED ON THESE PAGES, WRITE NOTHING AT ALL/.test(src), 'the rule is in the brief');
   assert(/not \\\\"STATS: none\\\\"/.test(src) || /STATS: none/.test(src), 'naming the exact thing the writer saw');
 });
+
+/* M236: from the writer's own people ledger, Vanessa carried
+ *   "She is hunting for a name and a photo of 'England boy' before Saturday."
+ *   "She is STILL hunting for a name and a photo of 'England boy' before Saturday."
+ * — the same loose end twice, read by the storyteller every turn; and one
+ * ending "...Vanessa is still running interference with…", severed mid-thought
+ * with nothing to say what she was running interference WITH. */
+test('M236: the whole-list path dedupes too, and a loose end is never cut mid-word', async () => {
+  const { setPersonField, sameLooseEnd } = await import('../../js/engine/people.js');
+
+  /* the guard itself was always right — it was simply never asked on this path */
+  eq(sameLooseEnd("She is hunting for a name and a photo of 'England boy' before Saturday",
+    "She is still hunting for a name and a photo of 'England boy' before Saturday"), true,
+  'the two read as one loose end');
+
+  const both = "She is hunting for a name and a photo of 'England boy' before Saturday"
+    + "; She is still hunting for a name and a photo of 'England boy' before Saturday"
+    + "; She needs her mother's file";
+  const out = setPersonField({ turn: 1, characters: {} }, {}, 'Vanessa', 'threads', both, 1);
+  eq(out.entry.threads.length, 2, 'the duplicate is dropped, the distinct one kept: ' + JSON.stringify(out.entry.threads));
+  assert(/mother/.test(out.entry.threads[1]), 'and it is the right one that survived');
+
+  /* the cut lands on a word */
+  const long = 'The squad chat is losing its mind over who Jovan is and one girl has already made a playlist '
+    + 'and Vanessa is still running interference with the whole group before Saturday';
+  const cut = setPersonField({ turn: 1, characters: {} }, {}, 'V', 'threads', long, 1).entry.threads[0];
+  assert(/…$/.test(cut), 'it is cut');
+  const lastWord = cut.replace(/…$/, '').split(' ').pop();
+  assert(/^[A-Za-z']+$/.test(lastWord) && long.includes(lastWord), 'ending on a whole word: ' + JSON.stringify(lastWord));
+
+  const src = readFileSync(new URL('../../js/engine/people.js', import.meta.url), 'utf8');
+  assert(/if \(list\.some\(\(kept\) => sameLooseEnd\(kept, t\)\)\) continue;/.test(src), 'the setter asks the same guard mergeDeltas does');
+  assert(!/return clean\.length > cap \? clean\.slice\(0, cap - 1\)/.test(src), 'and nothing chops at the cap exactly');
+});

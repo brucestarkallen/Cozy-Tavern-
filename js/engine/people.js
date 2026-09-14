@@ -130,7 +130,15 @@ export function mcKey(state) {
 function cleanFieldText(text, cap) {
   const clean = String(text || '').trim().replace(/\s+/g, ' ');
   if (!clean) return '';
-  return clean.length > cap ? clean.slice(0, cap - 1).trimEnd() + '…' : clean;
+  if (clean.length <= cap) return clean;
+  /* M236: CUT ON A WORD, NEVER INSIDE ONE. This chopped at the cap exactly,
+   * so the writer's own ledger carried a loose end ending "...and Vanessa is
+   * still running interference with…" — severed mid-thought, and nothing to
+   * say what she was running interference WITH. A cap that lands anywhere is
+   * a cap that ruins whatever it lands on. */
+  const room = clean.slice(0, cap - 1);
+  const at = Math.max(room.lastIndexOf(' '), room.lastIndexOf(', '), room.lastIndexOf('; '));
+  return (at > Math.floor(cap / 2) ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
 }
 
 /* The contamination guard: one person's words must never be written into
@@ -277,11 +285,22 @@ export function setPersonField(state, characters, name, field, text, turn) {
   const entry = before ? { ...before, threads: before.threads.slice() } : emptyPerson();
   const atTurn = Number.isFinite(turn) ? turn : (Number.isFinite(state && state.turn) ? state.turn : 0);
   if (f === 'threads') {
-    const list = String(text || '')
-      .split(/[;\n]/)
-      .map((t) => cleanFieldText(t, THREAD_CAP))
-      .filter(Boolean)
-      .slice(0, THREADS_MAX);
+    /* M236: THE WHOLE-LIST PATH NEVER DEDUPED. mergeDeltas has asked
+     * sameLooseEnd before adding a thread since M134 — but this setter, which
+     * a worker or the housekeeper uses to write the LIST at once, simply took
+     * what it was given. So the writer's Vanessa carried "She is hunting for
+     * a name and a photo of 'England boy' before Saturday." AND "She is STILL
+     * hunting for a name and a photo of 'England boy' before Saturday." — the
+     * same loose end twice, read by the storyteller every turn. Two doors,
+     * one guarded. */
+    const list = [];
+    for (const raw of String(text || '').split(/[;\n]/)) {
+      const t = cleanFieldText(raw, THREAD_CAP);
+      if (!t) continue;
+      if (list.some((kept) => sameLooseEnd(kept, t))) continue;
+      list.push(t);
+      if (list.length >= THREADS_MAX) break;
+    }
     entry.threads = list;
   } else {
     const clean = cleanFieldText(text, FIELD_CAPS[f]);
