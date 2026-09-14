@@ -1547,7 +1547,9 @@ test('M226: the extractor is given the story before the pages it can see', async
   /* the send path computes it for the pages OLDER than the ones it can see,
    * so nothing is told to the extractor twice */
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/foldedBefore = recordFor\(memoryForWindow\(mem, oldest\)\);/.test(chat), 'only the lines older than the visible pages');
+  /* M228: the same cut, now measured against a page count that reaches back
+   * to the record itself rather than a fixed four or eight */
+  assert(/foldedBefore = mem \? recordFor\(memoryForWindow\(mem, oldest\)\) : '';/.test(chat), 'only the lines older than the visible pages');
   assert(/const oldest = Math\.max\(0, prior\.length - before\.length\);/.test(chat), 'measured from the pages it is already shown');
   assert(/record: foldedBefore,/.test(chat), 'and handed over');
 });
@@ -1586,4 +1588,33 @@ test('M227: the scribe sees the loose ends it is meant to close', async () => {
   assert(/recentPages: \[String\(userText \|\| ''\), String\(assistantText \|\| ''\)\]/.test(src),
     'the pages of this very turn are what decide who is recalled');
   assert(!/renderPeopleTiers\(state, \{ recentPages: \[\] \}\)/.test(src), 'never an empty list again');
+});
+
+/* M228: M226 gave the extractor the folded record and I told the writer it
+ * "sees the whole story". It did not. The record holds only pages that have
+ * LEFT the word-for-word window and been folded; the newest ones — twenty at
+ * his settings — have no line yet, and the extractor saw four. So sixteen
+ * pages were too NEW for the record and too OLD for its window, and were read
+ * by NOTHING: a hole that moved forward with the story and never closed. */
+test('M228: no page is read by nobody — the record and the pages meet', () => {
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/const foldedTo = mem \? Math\.max\(0, \.\.\.\(mem\.nodes \|\| \[\]\)/.test(chat),
+    'it finds the last page the record covers');
+  assert(/const unfolded = Math\.max\(deep \? 8 : 4, Math\.min\(UNFOLDED_MAX, prior\.length - foldedTo\)\);/.test(chat),
+    'and reads back to exactly there');
+  assert(/const UNFOLDED_MAX = 30;/.test(chat), 'with a cap for when the keeper is off entirely');
+  assert(!/before = prior\.slice\(deep \? -8 : -4\)/.test(chat), 'never a fixed four or eight again');
+
+  /* the arithmetic, on the writer's own shelf: 118 pages, window 20, batch 6 */
+  const pages = 118;
+  const foldedTo = Math.floor((pages - 20) / 6) * 6;       /* 96 */
+  for (const deep of [false, true]) {
+    const unfolded = Math.max(deep ? 8 : 4, Math.min(30, pages - foldedTo));
+    const firstRead = pages - unfolded;
+    eq(firstRead <= foldedTo, true,
+      'the pages read (' + firstRead + '-' + (pages - 1) + ') reach back to the record (0-' + (foldedTo - 1) + ') with no gap');
+  }
+  /* and a keeper switched off entirely: the cap holds, it does not read 600 pages */
+  const noRecord = Math.max(4, Math.min(30, 600 - 0));
+  eq(noRecord, 30, 'with no record at all it reads the cap, not the whole tale');
 });

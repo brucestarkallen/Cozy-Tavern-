@@ -4774,3 +4774,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   person and ask whether this page answered it, because loose ends do not expire on their own and
   a ledger full of finished business is a ledger that lies.
 - 470/470 harness + 37/37 walk + 8/8 play. version.js -> m227-001.
+
+# M228 — no page is read by nobody
+- M226 GAVE THE EXTRACTOR THE RECORD AND I TOLD THE WRITER IT "SEES THE WHOLE STORY". It did not.
+  The record holds only pages that have LEFT the word-for-word window AND been folded; the newest
+  ones — twenty at the writer's settings — have no line yet, and the extractor read four of them
+  (eight on a deep read). So SIXTEEN PAGES were too NEW for the record and too OLD for its window
+  and were read by NOTHING: a hole that moved forward with the story and never closed. The writer
+  saw it immediately ("so it'll now read all the pages that's not summarized or not!!") — the
+  answer was no, and my summary of my own change had papered over it.
+- The pages it reads now run back to the last page the record covers, so the record and the pages
+  MEET with nothing between them. Measured on his own shelf (118 pages, window 20, batch 6): the
+  record covers 0-95, the pages read are 96-117, gap NONE. A cap of thirty stands for the case
+  where the keeper is switched off entirely and the unfolded tail is the whole tale.
+- 471/471 harness + 37/37 walk + 8/8 play. version.js -> m228-001.

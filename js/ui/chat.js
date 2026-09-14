@@ -2087,13 +2087,28 @@ export function initChat(ctx) {
         const ordered = (await db.messages.list(story.id)).filter((m) => !m.hidden);
         const atSelf = ordered.findIndex((m) => m.id === msg.id);
         const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
-        before = prior.slice(deep ? -8 : -4).map((m) => ({ role: m.role, text: pageText(m) }));
-        /* M226: and the folded record for everything OLDER than those pages,
-         * so nothing is told to it twice. */
+        /* M228: NO PAGE IS READ BY NOBODY. M226 gave the extractor the folded
+         * record and I called it "the whole story" — it was not. The record
+         * only holds pages that have LEFT the word-for-word window and been
+         * folded; the newest ones (twenty, at the writer's settings) have no
+         * line yet. The extractor saw four of them. So sixteen pages were
+         * too NEW for the record and too OLD for its window, and were read by
+         * NOTHING — a hole that moved forward with the story and never
+         * closed. The pages it reads now run back to the last page the record
+         * covers, so the record and the pages meet with nothing between them.
+         * A cap stands in case the keeper is off entirely and the unfolded
+         * tail is the whole tale. */
+        const UNFOLDED_MAX = 30;
+        let mem = null;
+        try { mem = await loadMemory(story.id); } catch (err) { mem = null; }
+        const foldedTo = mem ? Math.max(0, ...(mem.nodes || [])
+          .filter((n) => n && Array.isArray(n.span))
+          .map((n) => n.span[1] + 1), 0) : 0;
+        const unfolded = Math.max(deep ? 8 : 4, Math.min(UNFOLDED_MAX, prior.length - foldedTo));
+        before = prior.slice(-unfolded).map((m) => ({ role: m.role, text: pageText(m) }));
         try {
-          const mem = await loadMemory(story.id);
           const oldest = Math.max(0, prior.length - before.length);
-          foldedBefore = recordFor(memoryForWindow(mem, oldest));
+          foldedBefore = mem ? recordFor(memoryForWindow(mem, oldest)) : '';
         } catch (err) { foldedBefore = ''; }
       }
       const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw } = await extractTurn({
