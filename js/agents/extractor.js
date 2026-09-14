@@ -208,7 +208,7 @@ function systemPrompt({ mc, founding }) {
 }
 
 /* Exported for the harness: the two messages any provider flavor receives. */
-export function buildExtractorMessages({ state, userText, assistantText, before = [], founding, brief = '', castNotes = '' }) {
+export function buildExtractorMessages({ state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '' }) {
   /* founding: passed explicitly by the send path (it already knows), else
    * read off the ledger's own youth. */
   if (typeof founding !== 'boolean') founding = isYoungLedger(state);
@@ -227,6 +227,18 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
       : []),
     ...(castNotes && String(castNotes).trim()
       ? ['Who is in it, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 1500), FENCE, '']
+      : []),
+    /* M226: THE STORY BEFORE THE PAGES IT CAN SEE. The extractor writes the
+     * ledger from the newest page and the four before it — eight on a deep
+     * read — and was NEVER given the record. So on a hundred-page tale
+     * everything older than eight pages was invisible to the one worker that
+     * decides who is present, where they are, and what is true: it could
+     * "discover" a person the story has known for eighty pages, or miss that
+     * a thread it sees opening was closed long ago. The folded record is what
+     * the storyteller reads in place of those pages; the extractor reads it
+     * too now. */
+    ...(record && String(record).trim()
+      ? ['The story so far, folded — what the pages before these ones hold:', FENCE, String(record).trim(), FENCE, '']
       : []),
     ...(before.length
       ? ['The pages just before this one:', FENCE, before.map((b) => (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + String(b.text || '').slice(0, 2000)).join('\n\n'), FENCE, '']

@@ -53,7 +53,7 @@ import { enqueueWork, stopWork, workIsRunning, queuedCount } from '../agents/que
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
@@ -2078,6 +2078,7 @@ export function initChat(ctx) {
        * instead of asking "what changed?"), and the writer's brief and cast
        * notes ride along so the names are known. */
       let before = [];
+      let foldedBefore = '';
       const young = isYoungLedger(stateBefore);
       if (young || deep) {
         /* "The pages just before this one" — the store lists pages in
@@ -2087,6 +2088,13 @@ export function initChat(ctx) {
         const atSelf = ordered.findIndex((m) => m.id === msg.id);
         const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
         before = prior.slice(deep ? -8 : -4).map((m) => ({ role: m.role, text: pageText(m) }));
+        /* M226: and the folded record for everything OLDER than those pages,
+         * so nothing is told to it twice. */
+        try {
+          const mem = await loadMemory(story.id);
+          const oldest = Math.max(0, prior.length - before.length);
+          foldedBefore = recordFor(memoryForWindow(mem, oldest));
+        } catch (err) { foldedBefore = ''; }
       }
       const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw } = await extractTurn({
         connection,
@@ -2097,6 +2105,7 @@ export function initChat(ctx) {
         founding: young,
         brief: story.brief || '',
         castNotes: story.castNotes || '',
+        record: foldedBefore,
         signal,
       });
       /* B5: a page that has gone teaches the ledger nothing. M12: nor does

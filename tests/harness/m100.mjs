@@ -1519,3 +1519,35 @@ test('M225: "cannot tell" is never "dead" — a half-built world retires nothing
   const hk = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
   assert(/"CANNOT TELL" IS NOT "DEAD"/.test(hk), 'the law is written where it acts');
 });
+
+/* M226: the extractor writes the ledger from the newest page and the four
+ * before it — eight on a deep read — and was NEVER given the record. The word
+ * "record" appeared nowhere in extractor.js. So on a hundred-page tale
+ * everything older than eight pages was invisible to the ONE worker that
+ * decides who is present, where they stand and what is true: it could
+ * "discover" a person the story has known for eighty pages, or miss that a
+ * thread it sees opening was closed long ago. */
+test('M226: the extractor is given the story before the pages it can see', async () => {
+  const { buildExtractorMessages } = await import('../../js/agents/extractor.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+
+  const withRecord = buildExtractorMessages({
+    state: emptyState(), userText: 'I go in', assistantText: 'The door opens.',
+    before: [{ role: 'user', text: 'the page just before' }],
+    record: '- [Sept 1] Jovan came home after two years\n- [Sept 2] Rias kept the house',
+  });
+  assert(/Jovan came home after two years/.test(withRecord.user), 'the folded record rides');
+  assert(/The story so far, folded/.test(withRecord.user), 'labelled so the model knows what it is');
+  assert(withRecord.user.indexOf('The story so far, folded') < withRecord.user.indexOf('The pages just before this one'),
+    'and sits before the recent pages, oldest first, as the story runs');
+
+  const without = buildExtractorMessages({ state: emptyState(), userText: 'x', assistantText: 'y', before: [] });
+  assert(!/The story so far, folded/.test(without.user), 'no record adds nothing at all');
+
+  /* the send path computes it for the pages OLDER than the ones it can see,
+   * so nothing is told to the extractor twice */
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/foldedBefore = recordFor\(memoryForWindow\(mem, oldest\)\);/.test(chat), 'only the lines older than the visible pages');
+  assert(/const oldest = Math\.max\(0, prior\.length - before\.length\);/.test(chat), 'measured from the pages it is already shown');
+  assert(/record: foldedBefore,/.test(chat), 'and handed over');
+});

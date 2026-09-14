@@ -4740,6 +4740,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   newest page and the four before it — eight with "Read the pages again" (deep) — and NEVER the
   folded record. So everything older than eight pages is invisible to it. For scene state (who is
   here, the clock, a wound) the recent pages are the right material; for a repair sweep over a long
-  tale they are not, and the writer is right that the folded record should ride there. NOT DONE —
-  written here rather than rushed at the end of a session.
+  tale they are not. DONE at M226.
 - 468/468 harness + 37/37 walk + 8/8 play. version.js -> m225-001.
+
+# M226 — the extractor could not see the story it was writing down
+- THE WORD "record" APPEARED NOWHERE IN extractor.js. The one worker that decides who is present,
+  where they stand, what is locked true and which threads are open was given the newest page and
+  the FOUR before it — eight on a deep read — and nothing else. On a hundred-page tale everything
+  older than eight pages was invisible to it: it could "discover" a person the story had known for
+  eighty pages, seat someone who left long ago, or miss that a thread it watched open had been
+  closed. This is very likely the source of the stale threads and lagging STATE/ARC lines the
+  housekeeper kept finding.
+- The folded record rides now, labelled "The story so far, folded", placed BEFORE the recent pages
+  so the story runs oldest to newest — and cut to the lines older than the pages it can already
+  see (memoryForWindow at prior.length - before.length), so nothing is told to it twice.
+- 469/469 harness + 37/37 walk + 8/8 play. version.js -> m226-001.
