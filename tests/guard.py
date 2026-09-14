@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""M188: an empty tale must never overwrite a full one on the device.
+
+The one way a writer's pages could be destroyed in a second: a browser
+holding a story row with no pages under it pushes that story, and every page
+on the device is replaced by nothing.
+"""
+import json, os, shutil, subprocess, sys, time
+from playwright.sync_api import sync_playwright
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA = os.environ.get('COZY_TEST_DATA', '/tmp/cozydata-guard')
+PORT = os.environ.get('COZY_TEST_PORT', '8080')
+BASE = 'http://127.0.0.1:%s/' % PORT
+
+shutil.rmtree(DATA, ignore_errors=True)
+os.makedirs(DATA, exist_ok=True)
+srv = subprocess.Popen([sys.executable, os.path.join(REPO, 'serve.py')],
+                       env=dict(os.environ, PORT=PORT, COZY_DATA_DIR=DATA),
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1.5)
+
+fails = []
+
+
+def check(name, ok, extra=''):
+    print(('  ok   — ' if ok else '  FAIL — ') + name + ((' :: ' + extra) if extra else ''))
+    if not ok:
+        fails.append(name)
+
+
+def boot(ctx):
+    page = ctx.new_page()
+    page.goto(BASE, wait_until='load')
+    page.wait_for_function("!!window.__cozy && !!window.__cozy.chat", timeout=25000)
+    page.wait_for_timeout(1500)
+    return page
+
+
+def device_pages(story_id):
+    p = os.path.join(DATA, 'books', story_id + '.json')
+    if not os.path.exists(p):
+        return None
+    with open(p) as f:
+        return len(json.load(f).get('messages', []))
+
+
+try:
+    with sync_playwright() as p:
+        browser = p.chromium.launch(args=['--no-sandbox'])
+        ctx = browser.new_context()
+        page = boot(ctx)
+
+        sid = page.evaluate("""async () => {
+          const db = window.__cozy.db;
+          const st = await db.stories.create({ title: 'Ravenwood' });
+          for (let i = 0; i < 40; i += 1) await db.messages.append(st.id, { role: 'assistant', text: 'page ' + i });
+          await window.__cozy.booksStatus.pushAll();
+          return st.id;
+        }""")
+        page.wait_for_timeout(1500)
+        check('forty pages are on the device', device_pages(sid) == 40, str(device_pages(sid)))
+
+        # THE DISASTER, as it can really happen: a browser holds the story
+        # ROW with no pages ever fetched under it — a half-finished pull, a
+        # failed import, a story row that arrived without its book — and then
+        # pushes. Deleting pages one by one is the WRITER's doing and stays
+        # allowed; this is not.
+        page.evaluate("""async (sid) => {
+          const db = window.__cozy.db;
+          const d = await new Promise((res) => { const r = indexedDB.open('cozytavern.v1'); r.onsuccess = () => res(r.result); });
+          await new Promise((res) => {
+            const t = d.transaction('messages', 'readwrite');
+            const s = t.objectStore('messages');
+            const q = s.index('byStory').getAllKeys(sid);
+            q.onsuccess = () => { for (const k of q.result) s.delete(k); };
+            t.oncomplete = res;
+          });
+        }""", sid)
+        page.evaluate("async () => { await window.__cozy.booksStatus.pushAll(); }")
+        page.wait_for_timeout(3000)
+
+        left = device_pages(sid)
+        check('a browser that never fetched the pages NEVER empties the device',
+              left == 40, '%s pages left on the device' % left)
+
+        page.wait_for_timeout(2000)
+        back = page.evaluate("""async (sid) => (await window.__cozy.db.messages.list(sid)).length""", sid)
+        check('and the browser is given the pages back', back == 40, '%d pages in the browser' % back)
+
+        # a genuinely new tale, with no pages yet, still pushes fine
+        page.evaluate("""async () => {
+          const st = await window.__cozy.db.stories.create({ title: 'A tale not yet begun' });
+          await window.__cozy.booksStatus.pushAll();
+        }""")
+        page.wait_for_timeout(1500)
+        titles = page.evaluate("async () => (await window.__cozy.db.stories.list()).map(s => s.title)")
+        check('a genuinely new empty tale is not blocked', 'A tale not yet begun' in titles, str(titles))
+        browser.close()
+finally:
+    srv.terminate()
+
+print()
+print('the guard holds' if not fails else 'FAILED: ' + ', '.join(fails))
+sys.exit(1 if fails else 0)

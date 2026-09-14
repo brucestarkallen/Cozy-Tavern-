@@ -75,12 +75,42 @@ async function putPage(id, row) {
   } catch (err) { return false; }
 }
 
+/* M188: AN EMPTY TALE NEVER OVERWRITES A FULL ONE. This is the one way a
+ * writer's pages could be destroyed in a second: a browser that holds a
+ * story row with no pages under it pushes that story, and the device's copy
+ * — every page of it — is replaced by nothing. It can happen from a failed
+ * import, a half-finished pull, a story row that arrived without its book.
+ * A push that would REMOVE pages from the device is refused and the tale is
+ * pulled back instead. Nothing legitimate is blocked: a genuinely new tale
+ * has no book on the device to empty, and a writer deleting pages one by one
+ * still leaves pages behind. Only "all of them, at once, from a browser that
+ * has none" is stopped, which is never something a writer did. */
+async function wouldEmptyTheBook(id, json) {
+  let mine = 0;
+  try { mine = (JSON.parse(json).messages || []).length; } catch (err) { return false; }
+  if (mine > 0) return false;
+  try {
+    const res = await fetch(api('api/books/one/' + encodeURIComponent(id)), { signal: AbortSignal.timeout(LEASH) });
+    if (!res.ok) return false;                       /* no book there: nothing to empty */
+    const theirs = ((await res.json()).messages || []).length;
+    return theirs > 0;
+  } catch (err) { return true; }                     /* cannot tell: refuse, and keep the pages */
+}
+
 async function pushIds(ids) {
   const done = [];
+  const refused = [];
   for (const id of ids) {
     const json = id === HOUSE ? await db.exportHouse() : await db.exportStory(id);
     if (!json) continue;
+    if (id !== HOUSE && await wouldEmptyTheBook(id, json)) { refused.push(id); continue; }
     if (await putBook(id, json)) { await db.settings.set('bookStamp:' + id, stampOf(json)); done.push(id); }
+  }
+  if (refused.length) {
+    /* the browser is the one that is wrong here — take the device's copy */
+    await db.settings.delete('bookStamp:' + refused[0]).catch(() => {});
+    const books = await manifest();
+    if (books) await pullBooks(books.filter((b) => refused.includes(b.id)), { all: true });
   }
   return done;
 }

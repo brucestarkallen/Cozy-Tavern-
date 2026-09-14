@@ -4094,3 +4094,22 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   copy — the whole thing lands around ten megabytes, which is two photographs.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
   + the append test (fourteen laws). version.js -> m187-001.
+
+# M188 — an empty tale never overwrites a full one
+- THE ONE WAY A WRITER'S PAGES COULD BE DESTROYED IN A SECOND. A browser holding a story ROW with
+  no pages ever fetched under it pushes that story, and the device's copy — every page of it — is
+  replaced by nothing. It can happen today from a half-finished pull, a failed import, or a story
+  row that arrived without its book, and it is the exact hazard that lazy-loading tales would
+  make routine. A push whose book has no pages, against a device book that HAS pages, is refused;
+  the browser's stamp is dropped and the tale is pulled back instead, so the browser is corrected
+  by the device rather than the other way round. If the device cannot be asked, the push is
+  refused — when it cannot be told, it keeps the pages.
+- WHAT IS NOT BLOCKED, and must not be: a genuinely new tale with no pages yet (there is no book
+  on the device to empty), and a writer deleting pages one at a time or rewriting from a page
+  (each of those pushes still carries pages, and each is the writer's own doing). The first
+  version of the test got this wrong — it deleted forty pages one by one and expected the guard to
+  stop it. That is the writer deleting their own pages and it stays allowed; the guard is for the
+  browser that never had them.
+- tests/guard.py holds it, against the real serve.py in a real browser.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + wipe + two-browser + append + guard.
+  version.js -> m188-001.
