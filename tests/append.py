@@ -168,6 +168,25 @@ try:
           logsize < 2 * 1024 * 1024, '%d bytes left in the log' % logsize)
     kept = json.loads(get('api/books/one/t6'))['messages']
     check('and every page survives the folding', len(kept) == 24, '%d pages' % len(kept))
+
+    # M187: a tombstone is a marker, not the whole book
+    shutil.rmtree(os.path.join(DATA, 'books'), ignore_errors=True)
+    fat = json.dumps({'namespace': 'cozytavern.v1', 'kind': 'story', 'exportedAt': '2026-01-01T00:00:00.000Z',
+                      'story': {'id': 't7', 'title': 'T'}, 'settings': [],
+                      'messages': [{'id': 'p%d' % i, 'text': 'z' * 4000} for i in range(200)]}).encode()
+    post('api/books/one/t7', fat, 'opera')
+    post('api/books/one/t7', fat, 'opera')          # a second push, so a .bak1 exists
+    post('api/books/page/t7', json.dumps({'at': 'x', 'm': {'id': 'extra', 'text': 'z' * 4000}}).encode(), 'opera')
+    folder = os.path.join(DATA, 'books')
+    before = sum(os.path.getsize(os.path.join(folder, f)) for f in os.listdir(folder))
+    post('api/books/drop/t7', b'', 'opera')
+    after = sum(os.path.getsize(os.path.join(folder, f)) for f in os.listdir(folder))
+    check('letting a tale go actually frees its room', after < before * 0.1,
+          '%.2f MB -> %.2f MB' % (before / 1048576, after / 1048576))
+    check('its safety copy and its log go too',
+          not any(f.startswith('t7.json.bak1') or f == 't7.log' for f in os.listdir(folder)), str(os.listdir(folder)))
+    man = json.loads(get('api/books/list'))
+    check('and the other browser is still told it went', 't7' in man.get('gone', []), str(man.get('gone')))
 finally:
     srv.terminate()
 

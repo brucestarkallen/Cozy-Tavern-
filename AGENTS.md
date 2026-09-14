@@ -4080,3 +4080,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   in neither the snapshot nor the log.
 - 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
   + the append test (now eleven laws). version.js -> m186-001.
+
+# M187 — a tombstone is a marker, not the whole book
+- LETTING A TALE GO FREED NOTHING. The drop renamed <id>.json to <id>.json.gone, so the entire
+  book stayed on the device forever. Measured on a shelf the size of the writer's: a 160-page tale
+  let go left 0.6 MB sitting there and the shelf's total did not move at all. The manifest only
+  ever reads the tombstone's NAME. The book, its .bak1 safety copy and its log all go now; an
+  empty file keeps the name, so the other browser is still told the tale was let go.
+  Measured after: 1.54 MB -> 0.00 MB, and the other browser still learns of it.
+- FOR THE RECORD, WHAT A SHELF COSTS. 633 pages across six tales with full ledgers, snapshots and
+  sixty version states each: 2.4 MB of books on the device, plus 2.4 MB of .bak1 safety copies.
+  Each BROWSER keeps its own IndexedDB cache of the same shelf, so two browsers means one more
+  copy — the whole thing lands around ten megabytes, which is two photographs.
+- 442/442 harness + 36/36 walk + 8/8 play, each run alone + the wipe test + the two-browser proof
+  + the append test (fourteen laws). version.js -> m187-001.

@@ -547,15 +547,21 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 # everywhere — not pushed back up by the next one to open.
                 try:
                     os.makedirs(os.path.dirname(bp), exist_ok=True)
-                    try:
-                        os.remove(_log_path(bp))
-                    except OSError:
-                        pass
-                    if os.path.exists(bp):
-                        os.replace(bp, bp + '.gone')
-                    else:
-                        with open(bp + '.gone', 'wb') as f:
-                            f.write(b'')
+                    # M187: A TOMBSTONE IS A MARKER, NOT THE WHOLE BOOK. The
+                    # drop renamed <id>.json to <id>.json.gone, so letting a
+                    # tale go freed NOTHING — a 160-page tale measured 0.6 MB
+                    # still sitting there, and the shelf's total did not move.
+                    # The manifest only ever reads the tombstone's NAME. The
+                    # book, its safety copy and its log all go; an empty file
+                    # keeps the name, so the other browser still learns the
+                    # tale was let go.
+                    for leftover in (_log_path(bp), bp + '.bak1', bp):
+                        try:
+                            os.remove(leftover)
+                        except OSError:
+                            pass
+                    with open(bp + '.gone', 'wb') as f:
+                        f.write(b'')
                 except OSError:
                     pass
                 _announce(os.path.basename(bp)[:-len('.json')], self.headers.get('X-Cozy-Client', ''))
