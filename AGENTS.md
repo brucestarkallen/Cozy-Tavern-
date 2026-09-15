@@ -5007,3 +5007,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - This is the self-healing the writer asked for at the start and did not have: the house notices
   its own bad output and fixes it before the writer ever sees it.
 - 482/482 harness + 37/37 walk + 8/8 play. version.js -> m243-001.
+
+# M244 — "so I just accept it's cut?" — no
+- M243 ENDED WITH "the cut line stands — a cut line still beats no line". The writer read that and
+  asked whether he is meant to shrug at a quarter of his record losing its tail. He is right:
+  accepting a cut line is still losing his story, and "better than nothing" is the excuse of a
+  house that has run out of ideas.
+- SIX PAGES THAT WILL NOT FIT IN ONE LINE ARE FOLDED AS THREE. A second overrun is not a keeper to
+  be scolded again — it is a BATCH TOO BIG for one line. The fold halves the range for THAT fold
+  only (the writer's own batch setting is untouched), writes a complete line over the first half,
+  and sets the line's span to what it actually read, so the remainder is still due and folds on
+  the next round. Nothing is lost and no page is skipped — proven across four rounds with a keeper
+  that overruns every third call: spans 0-5, 6-11, 12-17, contiguous, not one line cut.
+- The cut line now stands ONLY when even half the pages will not come back whole, which is a dead
+  connection, not a long scene.
+- 483/483 harness + 37/37 walk + 8/8 play. version.js -> m244-001.

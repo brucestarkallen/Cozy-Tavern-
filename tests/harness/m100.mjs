@@ -1942,7 +1942,51 @@ test('M243: a line that overran is written again, not stored cut', async () => {
   assert(!/…$/.test(line), 'what is STORED does not end cut: ' + JSON.stringify(line.slice(-40)));
   assert(phraseCount(line) < 40, 'and is the shorter complete answer (' + phraseCount(line) + ' phrases)');
 
-  /* and a keeper that fails the second time keeps the cut line — better than none */
+  /* M244: and a keeper that overruns AGAIN does not get its cut line stored —
+   * the batch is halved instead, so nothing is lost at all. */
   const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
-  assert(/catch \(err\) \{ \/\* the cut line stands — better than none \*\/ \}/.test(src), 'a stumble on the re-ask loses nothing');
+  assert(/AND IF IT OVERRAN AGAIN, THE BATCH IS TOO BIG FOR ONE LINE/.test(src), 'a second overrun folds fewer pages');
+  assert(/range\[1\] = range\[0\] \+ half;/.test(src), 'and the line covers only what it read, so the rest folds next round');
+});
+
+/* M244: the writer read "the cut line stands — a cut line still beats no
+ * line" and said: so I just accept it's cut? He was right. Accepting a cut
+ * line is still losing his story. Six pages that will not fit in one line
+ * are folded as THREE pages, not as a shorter line with its tail gone. */
+test('M244: a second overrun folds fewer pages, and no page is skipped', async () => {
+  const { db } = await import('../../js/store.js');
+  const { saveMemory, loadMemory, maybeSummarize } = await import('../../js/agents/memory.js');
+
+  const st = await db.stories.create({ title: 'a keeper that will not fit six pages' });
+  for (let i = 0; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 20);
+  await db.settings.set('memoryBatch', 6);
+  await saveMemory(st.id, { window: 20, nodes: [] });
+
+  const huge = Array.from({ length: 40 }, (_, i) => 'phrase ' + i + ' about a thing that happened at some length here indeed').join('; ');
+  const real = globalThis.fetch;
+  let call = 0;
+  globalThis.fetch = async () => {
+    call += 1;
+    /* overruns the fold AND the re-ask; behaves once given half the pages */
+    const body = call <= 2 ? huge : '[Sept 1] Jovan arrived; Rias met him';
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: body } }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  try {
+    await maybeSummarize({ connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' }, storyId: st.id });
+  } finally { globalThis.fetch = real; }
+
+  const nodes = (await loadMemory(st.id)).nodes;
+  const first = nodes[0];
+  assert(!/…$/.test(first.text), 'what is stored is NOT cut: ' + JSON.stringify(first.text));
+  eq(first.span[1] - first.span[0] + 1, 3, 'it covers three pages, not six — the rest folds next round');
+
+  /* and across several rounds nothing is skipped */
+  const covered = new Set();
+  for (const n of nodes) for (let i = n.span[0]; i <= n.span[1]; i += 1) covered.add(i);
+  const highest = Math.max(...covered);
+  for (let i = 0; i <= highest; i += 1) assert(covered.has(i), 'page ' + i + ' is covered — no gap is left behind');
 });

@@ -1007,7 +1007,29 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
         if (again && again !== '(no new state)' && !answerWasCut() && phraseCount(again) <= phraseCount(text)) {
           text = again;
         }
-      } catch (err) { /* the cut line stands — better than none */ }
+      } catch (err) { /* fall through to the split below */ }
+    }
+
+    /* M244: AND IF IT OVERRAN AGAIN, THE BATCH IS TOO BIG FOR ONE LINE —
+     * so fold FEWER PAGES, not a shorter line. Storing the cut one was
+     * accepting the loss: the writer asked, rightly, whether he is meant to
+     * shrug at a quarter of his record having its tail missing. He is not.
+     * Six pages that will not fit in eighteen phrases are folded as three and
+     * three: two complete lines, nothing lost, and the next round picks up
+     * the rest. The batch is only halved for THIS fold — the writer's own
+     * setting is untouched. */
+    if ((answerWasCut() || phraseCount(text) > 20) && pages.length > 1) {
+      const half = Math.max(1, Math.floor(pages.length / 2));
+      try {
+        if (typeof renew === 'function') renew();
+        const firstHalf = parseMemoryAnswer(await callKeeper(
+          connection, buildMemoryMessages(pages.slice(0, half), { playerName, record: recordFor(mem) }), signal,
+        ));
+        if (firstHalf && firstHalf !== '(no new state)' && !answerWasCut()) {
+          text = firstHalf;
+          range[1] = range[0] + half;   /* this line covers only what it read */
+        }
+      } catch (err) { /* the cut line stands only when even half will not come */ }
     }
     const node = text === '(no new state)'
       ? { id: nodeId(), span: [range[0], range[1] - 1], text: '', level: 1, at: Date.now(), empty: true }
