@@ -1380,6 +1380,36 @@ test('DOM-18 the ledger keeps the writer’s place through a rebuild’s refresh
   await tick(300);
 });
 
+
+/* M250: a worker that stumbles is written to the workers' line in the LEDGER
+ * DRAWER — and nowhere else. So a writer whose keeper connection had fallen
+ * over could play four scenes without a word of it, while nothing of those
+ * pages was being folded, and find out only when he happened to open the
+ * ledger. The button carries a quiet mark instead. */
+test('DOM-19 a worker that stumbles marks the ledger, and success clears it', async () => {
+  const { db } = await import('../../js/store.js');
+  const { noteWorkerRun } = await import('../../js/agents/status.js');
+  const st = await db.stories.create({ title: 'a keeper that fell over' });
+  for (let i = 0; i < 6; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await tick(600);
+
+  const btn = q('#btn-ledger');
+  eq(btn.classList.contains('has-trouble'), false, 'clean while all is well');
+
+  await noteWorkerRun(st.id, 'keeper', { ok: false, why: 'could not reach the storyteller' });
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await tick(500);
+  eq(btn.classList.contains('has-trouble'), true, 'marked the moment the keeper stumbles');
+  assert(/keeper stumbled/.test(btn.getAttribute('title')), 'and says which worker: ' + btn.getAttribute('title'));
+  assert(/the pages are safe/.test(btn.getAttribute('title')), 'and that nothing is lost');
+
+  await noteWorkerRun(st.id, 'keeper', { ok: true, detail: 'folded six pages' });
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await tick(500);
+  eq(btn.classList.contains('has-trouble'), false, 'and clears itself the moment it comes back');
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

@@ -49,6 +49,7 @@ import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
+import { loadWorkerStatus } from '../agents/status.js';   /* M250 */
 import { enqueueWork, stopWork, workIsRunning, queuedCount } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
@@ -1347,6 +1348,7 @@ export function initChat(ctx) {
     }
     updateJump();
     refreshEmber();
+    markLedgerTrouble(story.id);   /* M250 */
   }
 
   /* Re-render one page in place (an edit, a swipe, a worker's write-back). */
@@ -1656,6 +1658,33 @@ export function initChat(ctx) {
     }, 15000 * (tried + 1));
   }
   const clearFinishCount = (storyId, action) => autoFinish.delete(storyId + ':' + action);
+
+
+  /* M250: A WORKER FAILING QUIETLY WHILE THE WRITER PLAYS ON. A worker that
+   * stumbles is written to the workers' line in the LEDGER DRAWER — and
+   * nowhere else. So a writer whose keeper connection had fallen over could
+   * play four scenes without a word of it, while nothing of those pages was
+   * being folded, and find out only when he happened to open the ledger. The
+   * ledger button carries a quiet mark the moment a worker has stumbled twice
+   * running, and drops it the moment one succeeds. Nothing interrupts the
+   * scene; the mark is simply there, or it is not. */
+  let ledgerMark = null;
+  async function markLedgerTrouble(storyId) {
+    try {
+      const btn = document.getElementById('btn-ledger');
+      if (!btn || !storyId) return;
+      const shelf = (await loadWorkerStatus(storyId)) || {};
+      /* the workers whose silence costs the writer the story itself */
+      const minders = ['keeper', 'extractor', 'scribe', 'world'];
+      const sore = minders.filter((n) => shelf[n] && shelf[n].ok === false);
+      const trouble = sore.length > 0;
+      btn.classList.toggle('has-trouble', trouble);
+      btn.setAttribute('title', trouble
+        ? 'The ledger — ' + sore.join(', ') + ' stumbled; the pages are safe and will be folded when it comes back'
+        : 'The ledger — the house’s memory of the scene and the world');
+      if (trouble && ledgerMark !== 'on') { ledgerMark = 'on'; } else if (!trouble) { ledgerMark = null; }
+    } catch (err) { /* a mark is never worth a thrown turn */ }
+  }
 
   async function summarizeNow() {
     const banner = beginWork('Folding what is due', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — press it again to carry on'); });

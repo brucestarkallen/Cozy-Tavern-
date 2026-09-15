@@ -1069,3 +1069,18 @@ body.read-only .send-btn { opacity: 0.4; }
 /* M56 — the story menu's shelves */
 .msg-menu-shelves { border-top: 1px solid var(--hairline); margin-top: 4px; padding-top: 4px; }
 .msg-menu-head { padding: 4px 12px 2px; }
+
+/* M250: the ledger carries a quiet mark when a worker has stumbled — so a
+ * keeper whose connection fell over cannot go unnoticed for four scenes. */
+.room-btn.has-trouble { position: relative; }
+.room-btn.has-trouble::after {
+  content: '';
+  position: absolute;
+  top: 0.28rem;
+  right: 0.28rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: var(--warn, #d9a441);
+  box-shadow: 0 0 0 2px var(--surface);
+}

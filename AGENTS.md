@@ -5108,3 +5108,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   stopped on its own, on a complete clause. The format is semicolon-separated phrases and nothing
   requires a terminal mark; a line that genuinely WAS cut is caught and re-asked (M243, M246).
 - 488/488 harness + 37/37 walk + 8/8 play. version.js -> m249-001.
+
+# M250 — a worker failing quietly while the writer plays on
+- THE WRITER ASKED WHAT HAPPENS IF HE KEEPS PLAYING WHILE A WORKER'S CONNECTION IS DOWN AND HE
+  DOES NOT KNOW. The answer was: nothing tells him. A worker that stumbles is written to the
+  workers' line in the LEDGER DRAWER and NOWHERE ELSE — not on the page, not in the chat, not on
+  the receipt. So a keeper whose connection had fallen over could cost him four scenes of folding
+  with no word of it, and he would find out only when he happened to open the ledger.
+- The ledger button carries a quiet mark now — a small amber dot, no interruption — the moment any
+  of the four minders that keep the story (keeper, extractor, scribe, world agent) has stumbled,
+  and it drops the moment one succeeds. Its title says WHICH worker and that the pages are safe
+  and will be folded when it comes back, because the writer's first fear is always that something
+  was lost.
+- WHAT HAPPENS WHEN IT COMES BACK, unchanged and worth writing down: dueRange always returns to
+  the OLDEST hole, so nothing is skipped and the record never gains a gap in its middle; and the
+  keeper folds BATCHES_PER_RUN (three) per page written, so a four-scene outage clears in a page
+  or two of play — or at once with Summarize now.
+- 488/488 harness + 38/38 walk + 8/8 play + contrast. version.js -> m250-001.
