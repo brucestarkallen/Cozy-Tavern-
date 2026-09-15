@@ -5228,3 +5228,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   something; what the page answered. A FOUNDING read is left alone — it is writing the world, not
   catching up.
 - 492/492 harness + 39/39 walk + 8/8 play. version.js -> m256-001.
+
+# M257 — a name cut short, and a person in two places
+- FROM THE WRITER'S AUDIT AT TURN 69, thirteen fixes and two real faults beneath them:
+  · "Vanessa Rey" SAT BESIDE "Vanessa Reynolds" — a second page, a second seat, her own duplicate
+    "now" line. A truncation falls between every rule there was: spelling distance is five
+    characters, too far for the near-name rule; and "Vanessa Rey" is not the first or last WORD of
+    "Vanessa Reynolds", it is one and a half of them. A name that shares its whole first word and
+    runs on into the next is that name cut short. Both ways, one match only, never for a single
+    word — Mira and Miranda stay two people, and two names that both continue "Vanessa Reyn" match
+    neither.
+  · MI-NA AND VANESSA WERE IN THE KITCHEN AND ON THE ROAD TO IT AT ONCE, "overdue by about 2
+    minutes", and the auditor cleared them by hand every few turns. presence.enter has always
+    cleared a seat; nothing stopped a seat being WRITTEN for someone standing in the room. A guard
+    at that door now refuses it, in every form of her name.
+- AND A SEAT IS NOT A PAGE. Reaching for one matcher, the guard first used findPersonKey — which
+  also merges near SPELLINGS, right for a character page and WRONG for a seat: it made "Person2"
+  the same seat as "Person1", one letter apart, and six DOM laws caught it at once. Seating
+  resolves only a name that is plainly the SAME name — a first name, a surname, one cut short —
+  never a near miss. One person still cannot take two seats.
+- 493/493 harness + 39/39 walk + 8/8 play + wipe. version.js -> m257-001.

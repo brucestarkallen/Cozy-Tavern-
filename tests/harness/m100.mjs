@@ -2264,3 +2264,53 @@ test('M256: the worker reading the page can write what the page put in front of 
   eq(Object.keys(r2.state.knowledge).join(','), 'Claire Stone',
     'and her first name lands on the page she already has, never a second (M239)');
 });
+
+/* M257: from the writer's own audit, turn 69. Two faults, thirteen fixes:
+ *   "The ledger's presence list names 'Vanessa Rey' … the ledger also carries
+ *    a separate character page for 'Vanessa Rey' … the same person under a
+ *    wrong name"
+ *   "the absent seats still carry Mi-na Song and Vanessa Reynolds … while the
+ *    pages show all three [in the kitchen]"
+ * The auditor was clearing both by hand, every few turns, forever. */
+test('M257: a name cut short is the same person, and nobody is in two places', async () => {
+  const { findPersonKey } = await import('../../js/engine/people.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+
+  /* A TRUNCATION FELL BETWEEN EVERY RULE: spelling distance is five
+   * characters, too far; and "Vanessa Rey" is not the first or last WORD of
+   * "Vanessa Reynolds" — it is one and a half of them. */
+  const cast = { 'Vanessa Reynolds': {}, 'Caleb Thorne': {} };
+  eq(findPersonKey(cast, 'Vanessa Rey'), 'Vanessa Reynolds', 'a name cut short finds its person');
+  eq(findPersonKey(cast, 'Caleb Thor'), 'Caleb Thorne', 'and so does another');
+  eq(findPersonKey(cast, 'Vanessa'), 'Vanessa Reynolds', 'while the older rules still hold');
+  eq(findPersonKey({ Mira: {} }, 'Miranda'), '', 'a single word is never cut short — Mira and Miranda stay two people');
+  eq(findPersonKey({ 'Vanessa Reynolds': {}, 'Vanessa Reynaldo': {} }, 'Vanessa Reyn'), '',
+    'and two who both continue it match neither');
+
+  /* NOBODY IS IN TWO PLACES. presence.enter clears a seat; nothing stopped a
+   * seat being WRITTEN for someone standing in the room. */
+  const inRoom = applyMutations(emptyState(), [{ type: 'presence.enter', name: 'Vanessa Reynolds', position: 'by the stove' }]).state;
+  for (const form of ['Vanessa Reynolds', 'Vanessa', 'Reynolds', 'Vanessa Rey']) {
+    const r = applyMutations(inRoom, [{ type: 'offscreen.set', name: form, location: 'the lane', activity: 'walking' }]);
+    eq(r.applied.length, 0, 'she cannot be written elsewhere as "' + form + '"');
+    assert(/is in the scene/.test((r.rejected[0] || {}).why || ''), 'and it says why: ' + (r.rejected[0] || {}).why);
+  }
+  eq(applyMutations(inRoom, [{ type: 'offscreen.set', name: 'Caleb Thorne', location: 'the lane', activity: 'walking' }]).applied.length, 1,
+    'while someone genuinely absent still seats');
+  /* and walking in still clears an old seat, as it always did */
+  const away = applyMutations(emptyState(), [{ type: 'offscreen.set', name: 'Caleb Thorne', location: 'the lane', activity: 'walking' }]).state;
+  const back = applyMutations(away, [{ type: 'presence.enter', name: 'Caleb Thorne' }]).state;
+  assert(!back.offscreen['Caleb Thorne'], 'walking in clears the road');
+
+  /* A SEAT IS NOT A PAGE. findPersonKey merges near SPELLINGS — right for a
+   * character page, wrong for a seat: it made Person2 the same seat as
+   * Person1, one letter apart. */
+  let many = emptyState();
+  for (const n of ['Person1', 'Person2', 'Person3', 'Person4']) many = applyMutations(many, [{ type: 'presence.enter', name: n }]).state;
+  eq(many.present.map((p) => p.name).join(','), 'Person1,Person2,Person3,Person4',
+    'four near-spelled names keep four seats');
+  /* while one person cannot take two */
+  const twice = applyMutations(inRoom, [{ type: 'presence.enter', name: 'Vanessa' }]);
+  eq(twice.applied.length, 0, 'and one person cannot be seated twice under a short name');
+});

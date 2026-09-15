@@ -98,6 +98,8 @@ function nameBound(name) {
  * then near-names within the bounded edit distance — but only when exactly
  * one key qualifies; an ambiguous near-name matches no one. '' when the
  * name is new to the ledger. Exported for the harness. */
+const keyLower = (k) => String(k || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
 export function findPersonKey(characters, name) {
   const wanted = normalizeName(name).toLowerCase();
   if (!wanted) return '';
@@ -127,6 +129,26 @@ export function findPersonKey(characters, name) {
   };
   const byPart = keys.filter((k) => partOf(k, wanted));
   if (byPart.length === 1) return byPart[0];
+
+  /* M257: A NAME CUT SHORT IS THE SAME PERSON. The writer's ledger carried
+   * "Vanessa Rey" beside "Vanessa Reynolds" — a second page, a second seat,
+   * her own duplicate "now" line — because a truncation falls between every
+   * rule there was: spelling distance is five characters, too far; and
+   * "Vanessa Rey" is not the first or last WORD of "Vanessa Reynolds", it is
+   * one and a half of them. A name that shares its whole first word and runs
+   * on into the next is that name cut short, not a stranger. Both ways, and
+   * only when exactly one person answers — and never for a single word, so
+   * Mira and Miranda stay two people. */
+  const cutShort = (a, b) => {
+    const x = a.split(/\s+/).filter(Boolean);
+    const y = b.split(/\s+/).filter(Boolean);
+    if (x.length < 2 && y.length < 2) return false;
+    const [shortOne, longOne] = a.length <= b.length ? [a, b] : [b, a];
+    const sw = shortOne.split(/\s+/).filter(Boolean);
+    return sw.length >= 2 && longOne.startsWith(shortOne) && longOne.length > shortOne.length;
+  };
+  const byCut = keys.filter((k) => cutShort(keyLower(k), wanted));
+  if (byCut.length === 1) return byCut[0];
 
   /* and the other way: the scribe writes "Vanessa Reynolds" onto a page the
    * extractor opened as "Vanessa" */

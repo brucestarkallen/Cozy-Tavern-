@@ -135,10 +135,42 @@ function normalizeName(name) {
   return UNSAFE_NAMES.has(clean.toLowerCase()) ? '' : clean;
 }
 
+/* M257: THE SEAT AND THE PAGE MUST AGREE ON WHO SOMEONE IS. This matched a
+ * name EXACTLY while the people ledger resolved short names, surnames, near
+ * spellings and truncations (M238, M257) — so "Vanessa" was a stranger to the
+ * scene and a known person to her page, and the new guard below could be
+ * walked straight past by writing her first name. One question, asked the
+ * same way everywhere. */
 function findPresent(state, name) {
-  const wanted = name.toLowerCase();
-  return state.present.findIndex((p) => p && typeof p.name === 'string'
+  const wanted = String(name || '').trim().toLowerCase();
+  if (!wanted) return -1;
+  const exact = state.present.findIndex((p) => p && typeof p.name === 'string'
     && p.name.trim().toLowerCase() === wanted);
+  if (exact !== -1) return exact;
+  /* M257: a SEAT is not a page. findPersonKey also merges near SPELLINGS —
+   * right for a character page, where a misheard name should find its person,
+   * and WRONG here: it made "Person2" the same seat as "Person1", one letter
+   * apart, and six laws caught it at once. Seating is a hard fact. Only a
+   * name that is plainly the SAME name resolves: a first name, a surname, or
+   * one cut short — never a near miss. */
+  const words = (t) => String(t).trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const want = words(wanted);
+  const sameName = (seat) => {
+    const has = words(seat);
+    if (has.join(' ') === want.join(' ')) return true;
+    if (want.length === 1 && has.length > 1) return has[0] === want[0] || has[has.length - 1] === want[0];
+    if (has.length === 1 && want.length > 1) return want[0] === has[0] || want[want.length - 1] === has[0];
+    const a = want.join(' ');
+    const b = has.join(' ');
+    if (want.length >= 2 && has.length >= 2) {
+      const [shortOne, longOne] = a.length <= b.length ? [a, b] : [b, a];
+      return longOne.startsWith(shortOne) && longOne.length > shortOne.length;
+    }
+    return false;
+  };
+  const hits = state.present.filter((p) => p && typeof p.name === 'string' && sameName(p.name));
+  if (hits.length !== 1) return -1;
+  return state.present.indexOf(hits[0]);
 }
 
 function isInt(value) {
@@ -568,6 +600,16 @@ const HANDLERS = {
     const activity = capText(m.activity, 140);
     if (!location && !activity) {
       return { why: 'it didn’t say where they went or what they’re at' };
+    }
+    /* M257: NOBODY IS IN TWO PLACES. The world agent writes where the ABSENT
+     * are; presence.enter clears a seat when someone walks in. But nothing
+     * stopped a seat being written for someone who is STANDING IN THE ROOM —
+     * so the writer's ledger had Mi-na Song and Vanessa Reynolds in the Wells
+     * kitchen AND on the road to it, "overdue by about 2 minutes", and the
+     * auditor cleared them by hand every few turns. A guard at the door costs
+     * nothing and ends it. */
+    if (findPresent(state, name) !== -1) {
+      return { why: name + ' is in the scene — they cannot be written elsewhere' };
     }
     const seated = findSeat(state.offscreen, name);
     const key = seated ? seated.key : name;
