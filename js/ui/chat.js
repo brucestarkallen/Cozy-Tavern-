@@ -2239,6 +2239,17 @@ export function initChat(ctx) {
       const voicesBefore = prior.filter((m) => m.role === 'assistant' && Array.isArray(m.voices) && m.voices.length).slice(-3).map((m) => m.voices);
       /* M134: how far the clock moved across this page (a #time skip, a night) — the
        * world agent re-seats everyone when it jumped */
+      /* M249: the folded story for everything older than the pages it can
+       * see, so a life beyond the scene is filled from what has happened —
+       * which its own brief demands and it was never given. */
+      let worldRecord = '';
+      try {
+        const mem = await loadMemory(story.id);
+        const foldedTo = Math.max(0, ...(mem.nodes || [])
+          .filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1), 0);
+        const oldest = Math.max(0, Math.min(foldedTo, prior.length - before.length));
+        worldRecord = recordFor(memoryForWindow(mem, oldest));
+      } catch (err) { worldRecord = ''; }
       const clockNow = (await loadState(story.id)).clock;
       const clockWas = chainClock.before;
       const jumpedMinutes = clockNow && clockWas && Number.isFinite(clockNow.minutes) && Number.isFinite(clockWas.minutes) ? Math.max(0, clockNow.minutes - clockWas.minutes) : 0;
@@ -2248,6 +2259,7 @@ export function initChat(ctx) {
         userText,
         assistantText: pageText(msg),
         before,
+        record: worldRecord,   /* M249: the folded story, as the extractor gets it */
         brief: story.brief || '',
         castNotes: story.castNotes || '',
         voicesBefore,

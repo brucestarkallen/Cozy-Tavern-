@@ -2162,3 +2162,47 @@ test('M247: a long line is left alone — only a cut one is re-asked', async () 
   assert(/if \(answerWasCut\(\) \|\| keeperWasTruncated\(\)\) \{/.test(src), 'the re-ask fires on a cut, not on length');
   assert(!/phraseCount\(text\) > 20/.test(src), 'a phrase count never triggers it');
 });
+
+/* M249: after a time skip the writer's own SISTER came back with an agenda of
+ * getting his phone number. The world agent decides what the ABSENT are doing
+ * between scenes and what they want next — and its own brief says a person's
+ * life is "filled from the real record, not invented", while the word record
+ * appeared NOWHERE ELSE in the file. It was told to use something it was
+ * never given, so after a jump it filled a life from the ledger's bare facts
+ * and the last few pages, which on a hundred-page tale is nothing at all. */
+test('M249: the world agent is given the story it is told to fill a life from', async () => {
+  const { buildWorldMessages } = await import('../../js/agents/world.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+
+  let st = emptyState();
+  st.sheet = { actors: {}, playerName: 'Jovan' };
+  st = applyMutations(st, [{ type: 'people.set', name: 'Rias Wells', field: 'core', text: "Jovan's sister, kept the house two years" }]).state;
+  st = applyMutations(st, [{ type: 'offscreen.set', name: 'Rias Wells', location: 'the kitchen', activity: 'frying eggs', agenda: 'feed him' }]).state;
+
+  const withRecord = buildWorldMessages({ state: st, userText: 'x', assistantText: 'y', before: [],
+    brief: 'a lake town', record: '- [Aug 20] Rias Wells is Jovan’s sister and kept the house two years' });
+  assert(/kept the house two years/.test(withRecord.user), 'the folded story rides');
+  assert(/THE STORY SO FAR, FOLDED/.test(withRecord.user), 'labelled so it knows what it is');
+  assert(/filled from THIS, never invented over it/.test(withRecord.user), 'and told to fill a life from it');
+  assert(withRecord.user.indexOf('THE STORY SO FAR, FOLDED') < withRecord.user.indexOf('THE LEDGER'),
+    'before the ledger’s bare facts, oldest first as the story runs');
+
+  /* what it could already see is untouched */
+  for (const [what, probe] of [['her page', 'sister'], ['where she is', 'kitchen'],
+    ['what she is doing', 'frying eggs'], ['what she wants', 'feed him']]) {
+    assert(withRecord.user.includes(probe) || withRecord.system.includes(probe), 'it still sees ' + what);
+  }
+
+  const without = buildWorldMessages({ state: st, userText: 'x', assistantText: 'y', before: [] });
+  assert(!/THE STORY SO FAR/.test(without.user), 'and no record adds nothing at all');
+
+  /* the send path computes it for the pages older than the ones it can see */
+  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
+  assert(/worldRecord = recordFor\(memoryForWindow\(mem, oldest\)\);/.test(chat), 'only the lines older than the visible pages');
+  assert(/record: worldRecord,/.test(chat), 'and handed over');
+
+  /* and the brief that demanded it is still there — this closes that loop */
+  assert(/filled from the real record, not invented/.test(withRecord.system),
+    'the brief still demands a record, and now there is one');
+});

@@ -262,19 +262,34 @@ function spokenVoices(voicesBefore) {
   return blocks.map((b, i) => '  turn -' + (blocks.length - i) + ': ' + b.map((v) => (v.speaker || '?') + ' (' + (v.channel || 'reply') + '): ' + (v.content || '')).join(' · ')).join('\n');
 }
 
-export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], jumpedMinutes = 0 }) {
+export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], jumpedMinutes = 0, record = '' }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   const present = Array.isArray(state.present) ? state.present : [];
   const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
+  /* M249: IT WAS TOLD TO USE A RECORD IT WAS NEVER GIVEN. Its own brief says a
+   * person's life is "filled from the real record, not invented" — and the
+   * word record appeared nowhere else in this file. So the one worker that
+   * decides what the ABSENT are doing between scenes, and what they want
+   * next, knew only the ledger's bare facts and the last few pages. After a
+   * time skip it wrote whatever fit those — which is how the writer's own
+   * SISTER came back with an agenda of getting his phone number. The folded
+   * story rides now, as it does to the extractor (M226). */
+  const recordSoFar = String(record || '').trim();
+  const FENCE3 = '\u0022\u0022\u0022';
   const elsewhereAll = renderOffscreen(state.offscreen, present, clockMinutes, 40);
   const threads = renderThreads(Array.isArray(state.threads) ? state.threads.filter((t) => t && typeof t === 'object' && t.title) : []);
   const knowledge = renderKnowledge(state.knowledge, present);
   const factions = renderFactions(state.factions);
   const cores = characterCores(state);
   const user = [
+    /* M249: the story, before the ledger's bare facts — so a life beyond the
+     * scene is filled from what has actually happened, as the brief demands */
+    ...(recordSoFar ? ['THE STORY SO FAR, FOLDED — what the pages before these ones hold. A person\u2019s life',
+      'beyond the scene is filled from THIS, never invented over it:',
+      FENCE3, recordSoFar.slice(0, 12000), FENCE3, ''] : []),
     'THE LEDGER (the state of the scene):',
     facts,
     '',

@@ -5088,3 +5088,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   nature, and each backed by a real browser proof or by arithmetic in the same test.
 - 487/487 harness + 37/37 walk + 8/8 play + wipe + contrast + coat + the anchor differential.
   version.js -> m248-001.
+
+# M249 — the world agent was told to use a record it was never given
+- AFTER A TIME SKIP THE WRITER'S OWN SISTER CAME BACK WITH AN AGENDA OF GETTING HIS PHONE NUMBER.
+  The world agent decides what the ABSENT are doing between scenes and what they want next. Its
+  own brief says a person's life beyond the scene is "filled from the real record, not invented" —
+  and the word `record` appeared NOWHERE ELSE in world.js. It was told to use something it was
+  never given, so after a jump it filled a life from the ledger's bare facts and the last three
+  pages, which on a hundred-page tale is nothing at all. The same fault as M226 (the extractor)
+  and M240 (the auditor and the bodies): a worker instructed to read a thing that never reached it.
+- The folded story rides now, placed BEFORE the ledger's facts so the story runs oldest to newest,
+  cut to the lines older than the pages it can already see. What it could already see — the
+  person's page, where they were left, what they were doing, what they wanted — is untouched.
+- READ AND FOUND SOUND while there: the world agent DOES see an absent person's page, location,
+  activity and agenda. Two earlier probes said otherwise and both were bad fixtures of mine, not
+  the code.
+- AND ON THE WRITER'S OTHER QUESTION: a record line ending with no full stop is not a cut. His
+  Pages 55–60 measures 2,111 characters of a 4,000 cap and exactly 15 phrases of a 15 limit — it
+  stopped on its own, on a complete clause. The format is semicolon-separated phrases and nothing
+  requires a terminal mark; a line that genuinely WAS cut is caught and re-asked (M243, M246).
+- 488/488 harness + 37/37 walk + 8/8 play. version.js -> m249-001.
