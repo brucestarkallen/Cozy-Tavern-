@@ -2314,3 +2314,36 @@ test('M257: a name cut short is the same person, and nobody is in two places', a
   const twice = applyMutations(inRoom, [{ type: 'presence.enter', name: 'Vanessa' }]);
   eq(twice.applied.length, 0, 'and one person cannot be seated twice under a short name');
 });
+
+/* M258: the writer counted — thirteen fixes in one audit, and I had explained
+ * two. The rest were their own faults. thread.close appeared NOWHERE in
+ * extractor.js, exactly as knowledge.add had not (M256): the world agent has
+ * it, and the world agent is about the ABSENT. So a question answered, a plan
+ * abandoned, a promise kept ON THIS PAGE could be closed by nobody — three at
+ * once in his tale: Chloe's clip abandoned, Aurora's message delivered,
+ * Caleb's frame posted, every one still burning in the ledger and read to the
+ * storyteller every turn as something still hanging. */
+test('M258: the extractor can close a thread the page resolved', async () => {
+  const { buildExtractorMessages } = await import('../../js/agents/extractor.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+
+  const st = emptyState();
+  st.characters = { Mira: { core: 'the innkeeper', state: '', arc: '', threads: [], updatedAtTurn: 1 } };
+  st.threads = [{ title: "Chloe's clip of Jovan at the Wells house", at: 1 }];
+  const m = buildExtractorMessages({ state: st, userText: 'x', assistantText: 'y', before: [], founding: false });
+  const sent = m.system + '\n' + m.user;
+
+  assert(/thread\.close \{"type":"thread\.close"/.test(sent), 'thread.close is in its vocabulary at last');
+  assert(/the question answered, the plan abandoned, the promise kept/.test(sent), 'with what counts as resolving one');
+  assert(/Use the title the ledger shows, worded as it stands/.test(sent), 'and how to name it');
+  assert(/Chloe's clip/.test(sent), 'and it is SHOWN the open threads — it cannot close what it cannot see');
+
+  /* and the engine takes it */
+  let s2 = applyMutations(emptyState(), [{ type: 'thread.set', title: "Chloe's clip of Jovan at the Wells house", note: 'she means to post it' }]).state;
+  eq((s2.threads || []).length, 1, 'a thread opens');
+  const closed = applyMutations(s2, [{ type: 'thread.close', title: "Chloe's clip of Jovan at the Wells house" }]);
+  eq(closed.applied.length, 1, 'and the extractor can close it');
+  assert(!(closed.state.threads || []).some((t) => t && t.title && /Chloe/.test(t.title) && !t.closed),
+    'so it stops being read to the storyteller as something still hanging');
+});

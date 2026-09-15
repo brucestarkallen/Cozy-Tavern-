@@ -115,6 +115,15 @@ const VOCABULARY = [
    * audit reports ("no knowledge line for Claire Stone, who plainly
    * witnessed…"). The worker READING THE PAGE is the one that should write
    * it. */
+  /* M258: AND THE THREADS IT WATCHED RESOLVE. thread.close appeared nowhere
+   * in this file either — the world agent has it, and the world agent is
+   * about the ABSENT. So a question answered, a plan abandoned, a promise
+   * kept ON THIS PAGE could be closed by nobody, and the auditor found three
+   * of them at once in the writer's own tale: Chloe's clip abandoned,
+   * Aurora's message delivered, Caleb's frame posted — every one still
+   * burning in the ledger, read to the storyteller every turn as something
+   * still hanging. */
+  'thread.close {"type":"thread.close","title":"the title as the ledger holds it"} — a story thread THIS page resolved: the question answered, the plan abandoned, the promise kept, the thing found. Use the title the ledger shows, worded as it stands.',
   'knowledge.add {"type":"knowledge.add","name":"NAME","fact":"that Jovan lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. Only what THIS page put in front of them, and only where being told, or not told, could change what they do.',
   'mode.snapshot {"type":"mode.snapshot","flags":["travel"]} — THE WHOLE BOARD, EVERY PAGE: every mood that holds at the END of this page, from: combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit — a car, a train, a road; NOT once they have arrived and stepped out), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several). Anything you do not name is cleared. An empty list clears them all.',
   'body.injure {"type":"body.injure","name":"NAME","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',

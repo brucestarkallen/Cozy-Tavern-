@@ -5248,3 +5248,26 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   resolves only a name that is plainly the SAME name — a first name, a surname, one cut short —
   never a near miss. One person still cannot take two seats.
 - 493/493 harness + 39/39 walk + 8/8 play + wipe. version.js -> m257-001.
+
+# M258 — the writer counted: thirteen fixes, and I had explained two
+- HE WAS RIGHT. The turn-69 audit held FIVE distinct faults, not two:
+  1. the absent seats not cleared (M257)
+  2. "Vanessa Rey" beside "Vanessa Reynolds" (M257)
+  3. THREE THREADS THE PAGE HAD RESOLVED, still burning — thread.close appeared NOWHERE in
+     extractor.js, exactly as knowledge.add had not (M256). The world agent has it, and the world
+     agent is about the ABSENT. So a question answered, a plan abandoned, a promise kept ON THIS
+     PAGE could be closed by nobody: Chloe's clip abandoned, Aurora's message delivered, Caleb's
+     frame posted — every one read to the storyteller every turn as something still hanging.
+     FIXED: the extractor has thread.close, and is shown the open threads it might close.
+  4. three knowledge lines missing — fixed the turn before at M256.
+  5. SEVEN STANDINGS "missing from the record". NOT a bug: only the auditor seeds a standing from
+     the brief, and the writer's brief carries its digits INSIDE PROSE SENTENCES ("Caleb is Rias's
+     ex-boyfriend … (P:20 R:5 S:5)"), which the pure parser cannot read — it takes a name only
+     where the name heads its own line. The auditor reads them with a MODEL, which is why it can.
+     So they are restored on its next sweep, up to three turns after a person is first met. Making
+     it sooner means a model call on first appearance; recorded here rather than rushed.
+- THE PATTERN WORTH CARRYING: three times now a worker has been asked to do something it had no
+  tool for — the auditor and the bodies (M240), the extractor and knowledge.add (M256), the
+  extractor and thread.close (M258). When a report keeps naming the same omission, look first for
+  the missing VERB, not the careless model.
+- 494/494 harness + 39/39 walk + 8/8 play. version.js -> m258-001.
