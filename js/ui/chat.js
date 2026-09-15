@@ -2171,6 +2171,47 @@ export function initChat(ctx) {
           foldedBefore = mem ? recordFor(memoryForWindow(mem, oldest)) : '';
         } catch (err) { foldedBefore = ''; }
       }
+      /* M251: THE LEDGER HAD NO WAY BACK. The RECORD walks to its oldest hole
+       * every fold (dueRange), so an outage costs nothing. The LEDGER is
+       * per-turn: it reads THIS page and no other. So a writer playing four
+       * scenes through a broken connection lost every state change in them —
+       * who came in, who left, what was locked, what was hurt — with nothing
+       * that would ever go back for it, and the record recovering perfectly
+       * beside it, which made the loss invisible.
+       * state.page only ever advances when the read SUCCEEDS, so it is an
+       * honest mark of how far the ledger has got. Any assistant page past it
+       * and before this one was never read: the oldest is read now, first,
+       * one per turn, so the ledger closes its gap while the writer plays on
+       * exactly as the record does. */
+      try {
+        const told = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant');
+        const here = told.findIndex((m) => m.id === msg.id);
+        const readTo = Number.isInteger(stateBefore.page) ? stateBefore.page : -1;
+        if (here > readTo + 1) {
+          const missed = told[readTo + 1];
+          if (missed && missed.id !== msg.id) {
+            const all = visiblePages(await db.messages.list(story.id));
+            const at = all.findIndex((m) => m.id === missed.id);
+            const itsUser = at > 0 ? [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user') : null;
+            const back = await extractTurn({
+              connection, state: stateBefore,
+              userText: itsUser ? pageText(itsUser) : '',
+              assistantText: pageText(missed),
+              before: [], founding: false,
+              brief: story.brief || '', castNotes: story.castNotes || '',
+              record: foldedBefore, signal,
+            });
+            if (!back.failed && Array.isArray(back.mutations) && back.mutations.length) {
+              const older = await loadState(story.id);
+              older.page = readTo + 1;
+              const done = applyMutations(older, back.mutations);
+              await saveState(story.id, done.state);
+              notify(story.id);
+            }
+          }
+        }
+      } catch (err) { /* the page in hand still gets read */ }
+
       const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw } = await extractTurn({
         connection,
         state: stateBefore,

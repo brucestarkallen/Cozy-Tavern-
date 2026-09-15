@@ -496,3 +496,38 @@ test('M248: a run says whether it FINISHED, and the house carries on when it did
   assert(/if \(ctx\.getActiveStoryId\(\) !== storyId\) return;/.test(chat), 'and never on a story the writer has left');
   assert(/clearFinishCount\(story\.id, 'rebuildRecordNow'\)/.test(chat), 'a run that finishes forgets its attempts');
 });
+
+/* M251: THE LEDGER HAD NO WAY BACK. The RECORD walks to its oldest hole on
+ * every fold, so an outage costs it nothing. The LEDGER is per-turn: it reads
+ * THIS page and no other. So a writer playing four scenes through a broken
+ * connection lost every state change in them — who came in, who left, what
+ * was locked, what was hurt — with nothing that would ever go back for it,
+ * and the record recovering perfectly beside it, which made the loss
+ * invisible. */
+test('M251: the ledger walks back to its oldest unread page, as the record does', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
+
+  assert(/THE LEDGER HAD NO WAY BACK/.test(chat), 'the law is written where it acts');
+  assert(/const readTo = Number\.isInteger\(stateBefore\.page\) \? stateBefore\.page : -1;/.test(chat),
+    'how far the ledger has read is taken from state.page');
+  assert(/if \(here > readTo \+ 1\) \{/.test(chat), 'and a gap is noticed');
+  assert(/const missed = told\[readTo \+ 1\];/.test(chat), 'reaching for the OLDEST unread page, never the newest');
+  assert(/older\.page = readTo \+ 1;/.test(chat), 'and the mark advances by exactly one');
+  assert(/\} catch \(err\) \{ \/\* the page in hand still gets read \*\/ \}/.test(chat),
+    'a catch-up that stumbles never costs the page the writer just wrote');
+
+  /* state.page only advances on a SUCCESSFUL read — that is what makes it an
+   * honest mark of the gap */
+  const at = chat.indexOf("if (extractFailed) throw new Error('no answer reached us');");
+  assert(at !== -1, 'a failed read throws');
+  assert(chat.indexOf('fresh.page = k === -1 ? fresh.page : k;') > at,
+    'and the page mark is only set AFTER that throw, so a failure never advances it');
+
+  /* the arithmetic, on the writer's own case: four scenes read by nobody */
+  const step = (readTo, here) => (here > readTo + 1 ? readTo + 1 : null);
+  eq(step(-1, 3), 0, 'nothing read yet, four pages in: it goes back for the first');
+  eq(step(0, 3), 1, 'then the second');
+  eq(step(2, 3), null, 'and stops when the gap is closed');
+  eq(step(3, 3), null, 'and does nothing when there was never one');
+});

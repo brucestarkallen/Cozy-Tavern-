@@ -5125,3 +5125,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   keeper folds BATCHES_PER_RUN (three) per page written, so a four-scene outage clears in a page
   or two of play — or at once with Summarize now.
 - 488/488 harness + 38/38 walk + 8/8 play + contrast. version.js -> m250-001.
+
+# M251 — the ledger had no way back
+- THE WRITER ASKED THE RIGHT QUESTION: the RECORD self-heals after an outage — what about the
+  scene, the people, the world? It did not. The record walks to its OLDEST hole on every fold
+  (dueRange), so an outage costs it nothing. The LEDGER is per-turn: it reads THIS page and no
+  other, and nothing anywhere went back for a page it had missed. "Read the pages again" reads
+  only the LAST page. So four scenes played through a broken connection lost every state change in
+  them — who came in, who left, what was locked, what was hurt — permanently, while the record
+  recovered perfectly beside it, which is what made the loss invisible.
+- state.page only ever advances when the read SUCCEEDS (it is set after the throw), so it is an
+  honest mark of how far the ledger has got. Any assistant page past it and before the one in hand
+  was never read: the OLDEST is read first, one per turn, before the page in hand — so the ledger
+  closes its gap while the writer plays on, exactly as the record does. A catch-up that stumbles
+  costs nothing: the page in hand is still read.
+- 489/489 harness + 38/38 walk + 8/8 play + wipe. version.js -> m251-001.
