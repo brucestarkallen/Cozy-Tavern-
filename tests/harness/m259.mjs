@@ -26,7 +26,7 @@ function scriptedHouse(answers) {
   const fetchImpl = async (url, opts) => {
     const body = JSON.parse(opts.body);
     calls.push({ url: String(url), body });
-    const a = answers[Math.min(calls.length - 1, answers.length - 1)];
+    const a = typeof answers === 'function' ? await answers(body) : answers[Math.min(calls.length - 1, answers.length - 1)];
     const text = typeof a === 'string' ? a : a.text;
     const finish = typeof a === 'string' ? 'stop' : (a.finish || 'stop');
     if (body.stream) {
@@ -785,4 +785,104 @@ test('M259-23: the ledger is kept on a page the auditor does not read', async ()
   assert(r.applied.length >= 2 && after.log.some((l) => /Old Passerby/.test(l.words)), 'and each change is in the log, with its take-back');
   const again = await ledgerUpkeep({ storyId, brief: 'Jovan and his sister.' });
   eq(again.applied.length, 0, 'a kept ledger needs nothing the next time');
+});
+
+/* ---------- M262: the house heals what the old readers left ---------- */
+
+test('M259-24: the lines the old keeper read in part are found and read again, whole', async () => {
+  const { partlyReadLines, redoLine, loadMemory } = await import('../../js/agents/memory.js');
+  const msgs = [
+    { id: 'a1', role: 'user', text: 'short' }, { id: 'a2', role: 'assistant', text: 'x'.repeat(9000) + ' LONG-END' },
+    { id: 'a3', role: 'user', text: 'short' }, { id: 'a4', role: 'assistant', text: 'a short page' },
+  ];
+  const mem = { window: 20, nodes: [
+    { id: 'L1', span: [0, 1], level: 1, text: 'a line over a long page', at: 1 },
+    { id: 'L2', span: [2, 3], level: 1, text: 'a line over short pages', at: 2 },
+    { id: 'L3', span: [0, 1], level: 1, text: 'already read whole', at: 3, whole: true },
+    { id: 'L4', span: [0, 1], level: 1, text: 'tried three times', at: 4, healTries: 3 },
+  ] };
+  eq(partlyReadLines(mem, msgs).join('|'), 'L1', 'only a line over a page past the old cut, never marked whole, not given up on');
+  const big = Array.from({ length: 6 }, (_, i) => ({ id: 'b' + i, role: i % 2 ? 'assistant' : 'user', text: 'y'.repeat(5000) }));
+  eq(partlyReadLines({ nodes: [{ id: 'B1', span: [0, 5], level: 1, text: 't', at: 1 }] }, big).join('|'), 'B1', 'and a line over a batch past the old cut');
+
+  const sid = 'm259-heal-record';
+  for (const m of msgs) await db.messages.append(sid, { role: m.role, text: m.text });
+  await saveMemory(sid, { window: 20, nodes: [{ id: 'L1', span: [0, 1], level: 1, text: 'a line over a long page', at: 1 }] });
+  const house = scriptedHouse(['Jovan waited; the long page ended at LONG-END.', 'NONE']);
+  const r = await withHouse(house, () => redoLine({ connection: CONN, storyId: sid, nodeId: 'L1' }));
+  eq(r.ok, true, 'the line is read again');
+  assert(bodyText(house.calls[0]).includes('LONG-END'), 'from the whole page');
+  const after = await loadMemory(sid);
+  eq(after.nodes[0].whole, true, 'and marked whole');
+  assert(/LONG-END/.test(after.nodes[0].text), 'with what the page\u2019s end held');
+  eq(partlyReadLines(after, await db.messages.list(sid)).length, 0, 'so it is never read again');
+
+  /* and a line the keeper folds now is marked whole from the start */
+  const { maybeSummarize } = await import('../../js/agents/memory.js');
+  const sid2 = 'm259-fold-whole';
+  for (let i = 0; i < 20; i += 1) await db.messages.append(sid2, { role: i % 2 ? 'assistant' : 'user', text: 'fold page ' + (i + 1) + ' ' + 'z'.repeat(i % 2 ? 7000 : 20) });
+  await db.settings.set('memoryWindow', 10);
+  await db.settings.set('memoryBatch', 6);
+  const fh = scriptedHouse(['Jovan walked the fold pages.', 'NONE']);
+  await withHouse(fh, () => maybeSummarize({ connection: CONN, storyId: sid2, stale: () => false }));
+  const folded = (await loadMemory(sid2)).nodes.filter((n) => n.level === 1 && !n.empty);
+  assert(folded.length >= 1 && folded.every((n) => n.whole === true), 'a new line is marked whole: ' + JSON.stringify(folded.map((n) => n.whole)));
+  eq(partlyReadLines(await loadMemory(sid2), await db.messages.list(sid2)).length, 0, 'and never taken for one read in part');
+  await db.settings.set('memoryWindow', undefined);
+  await db.settings.set('memoryBatch', undefined);
+});
+
+test('M259-25: the old auditor\u2019s mark is found, the people are re-read on the side and swapped in whole, once', async () => {
+  const { rebuildPeople, oldAuditorRaised, peopleHealDue, HEAL_GEN } = await import('../../js/agents/rebuild.js');
+  let st = applyMutations(emptyState(), [{ type: 'rel.set', name: 'Old Friend', p: 20, cause: 'the brief states (P:20)' }]).state;
+  st = applyMutations(st, [{ type: 'rel.shift', name: 'Old Friend', axis: 'p', delta: -15, cause: 'he lied to her about the photos' }]).state;
+  eq(oldAuditorRaised(st), false, 'a page beat alone is no mark');
+  st = applyMutations(st, [{ type: 'rel.set', name: 'Old Friend', p: 20, cause: 'the brief says they are old friends' }]).state;
+  eq(oldAuditorRaised(st), true, 'a "brief says" set after a page beat is the old auditor\u2019s mark');
+  eq(peopleHealDue(st), true, 'so the story is due a re-reading');
+  eq(peopleHealDue({ ...st, healedGen: HEAL_GEN }), false, 'once healed, never again');
+  const fresh = applyMutations(emptyState(), [{ type: 'rel.set', name: 'Rias', p: 60, cause: 'the brief states (P:60)' }]).state;
+  eq(peopleHealDue(fresh), false, 'a story without the mark is left alone');
+
+  const sid = 'm259-heal-people';
+  st.sheet = { actors: {}, playerName: 'Jovan' };
+  st.characters = { 'Old Friend': { core: 'an old page written by the old scribe', state: '', arc: '', threads: [], updatedAtTurn: 0 } };
+  await saveState(sid, st);
+  for (let i = 0; i < 12; i += 1) await db.messages.append(sid, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + (i + 1) + (i === 5 ? ' — Mira pours Jovan a drink.' : '') });
+  const seen = [];
+  const answer = async (body) => {
+    const all = JSON.stringify(body);
+    if (/reading a story/i.test(all)) {
+      const live = await loadState(sid);
+      seen.push(Object.keys(live.characters || {}).join(',') + '/' + ((live.relationships || {})['Old Friend'] || {}).p);
+      return JSON.stringify({ deltas: [{ name: 'Mira', field: 'core', text: 'the innkeeper, read again' }], shifts: [{ name: 'Mira', axis: 'p', delta: 5, cause: 'she poured him drink number ' + seen.length }] });
+    }
+    return '{"standings":[]}';
+  };
+  const house = scriptedHouse(answer);
+  const r = await withHouse(house, () => rebuildPeople({ connection: CONN, storyId: sid, brief: 'Jovan comes home.', stale: () => false }));
+  assert(seen.length >= 2, 'the reader was asked batch by batch (' + seen.length + ')');
+  assert(seen.every((x) => x === 'Old Friend/20'), 'and while it read, the live ledger stood whole and untouched: ' + seen.join(' | '));
+  const after = await loadState(sid);
+  eq(Object.keys(after.characters).join(','), 'Mira', 'then the re-read people are swapped in');
+  eq(after.relationships.Mira.p, 5 * seen.length, 'with the standings the pages earned');
+  eq(Boolean(after.relationships['Old Friend']), false, 'and the pushed-back standing is gone');
+  assert(after.log.some((l) => /read again from the pages/.test(l.words)), 'the log says so');
+  assert(r.read === 12, 'every page was read');
+  assert(Number.isFinite(after.peopleRebuiltAt), 'the rebuilt world is marked as the rebuild\u2019s');
+  const backup = await db.settings.get('peopleBackup:' + sid);
+  eq(Object.keys(backup.characters).join(','), 'Old Friend', 'and the way back holds the world before it');
+  await withHouse(scriptedHouse(answer), () => rebuildPeople({ connection: CONN, storyId: sid, brief: 'Jovan comes home.', stale: () => false }));
+  eq(Object.keys((await db.settings.get('peopleBackup:' + sid)).characters).join(','), 'Old Friend', 'a second rebuild never overwrites the way back (M165)');
+
+  /* a run cut short changes nothing */
+  const sid2 = 'm259-heal-cut';
+  await saveState(sid2, st);
+  for (let i = 0; i < 12; i += 1) await db.messages.append(sid2, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + (i + 1) });
+  let renews = 0;
+  const cut = await withHouse(scriptedHouse(answer), () => rebuildPeople({ connection: CONN, storyId: sid2, brief: 'b', stale: () => false, renew: () => { renews += 1; return renews < 2; } }));
+  eq(cut.stalled, true, 'a run cut short says so');
+  const kept = await loadState(sid2);
+  eq(Object.keys(kept.characters).join(','), 'Old Friend', 'and the live people are exactly as they were');
+  eq(kept.relationships['Old Friend'].p, 20, 'standings too');
 });

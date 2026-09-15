@@ -143,7 +143,8 @@ test('M165: a second rebuild never overwrites the way back to the hand-written w
   const src = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
   assert(/const hadBackup = await db\.settings\.get\('peopleBackup:' \+ storyId\);/.test(src), 'the standing backup is read first');
   assert(/if \(!\(hadBackup && state\.peopleRebuiltAt\)\) \{/.test(src), 'and a rebuilt world never overwrites it');
-  assert(/s = \{ \.\.\.s, peopleRebuiltAt: Date\.now\(\) \};/.test(src), 'a rebuild marks what it made');
+  /* M262: the mark is set at the swap, when the rebuild's world is written (M259-25 runs it) */
+  assert(/const out = \{ \.\.\.live, characters: shadow\.characters, relationships: shadow\.relationships, peopleRebuiltAt: Date\.now\(\) \};/.test(src), 'a rebuild marks what it made');
   assert(/const \{ peopleRebuiltAt, \.\.\.rest \} = state;/.test(src), 'and putting the people back clears the mark, so the next rebuild may save again');
 
   /* the mark must survive a save and a load, or the guard is blind */

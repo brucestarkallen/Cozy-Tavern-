@@ -54,7 +54,7 @@ import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
@@ -62,7 +62,7 @@ import { wholeRecord } from '../agents/memory.js'; /* M35/M51: the whole record 
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
-import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
+import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
 import { renderWorldBrief, threadHousekeeping } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
@@ -2468,10 +2468,26 @@ export function initChat(ctx) {
           await mendAround(story, connection, ids, issue + (fix ? '. It should read: ' + fix : ''), signal);
         },
       });
-      if (!mem) return { silent: false, detail: 'nothing due yet' };
+      /* M262: THE LINES THE OLD KEEPER READ IN PART are read again, two a page,
+       * from whole pages — each line swaps whole, so the record is never
+       * missing a line while it heals; a line that will not come back after
+       * three tries is left as it is */
+      let reread = 0;
+      try {
+        for (const nodeId of partlyReadLines(await loadMemory(story.id), await db.messages.list(story.id)).slice(0, 2)) {
+          if (stale()) break;
+          const r = await redoLine({ connection, storyId: story.id, nodeId, signal, renew });
+          if (r && r.ok) { reread += 1; continue; }
+          const held = await loadMemory(story.id);
+          const node = (held.nodes || []).find((n) => n && n.id === nodeId);
+          if (node) { node.healTries = (node.healTries || 0) + 1; await saveMemory(story.id, held); }
+        }
+      } catch (err) { /* the next page carries on */ }
+      const healed = reread ? ` · read ${reread} older ${reread === 1 ? 'line' : 'lines'} again from whole pages` : '';
+      if (!mem) return { silent: false, detail: 'nothing due yet' + healed };
       const lines = mem.nodes.filter((n) => !n.empty).length;
       const added = mem.nodes.length - beforeCount;
-      return { silent: false, detail: `${added > 0 ? 'wrote ' + added + (added === 1 ? ' line' : ' lines') : 'reshaped the record'} — ${lines} ${lines === 1 ? 'line' : 'lines'} on the record` };
+      return { silent: false, detail: `${added > 0 ? 'wrote ' + added + (added === 1 ? ' line' : ' lines') : 'reshaped the record'} — ${lines} ${lines === 1 ? 'line' : 'lines'} on the record` + healed };
     });
 
     /* 4. The continuity reader (M6): advisory drift notes against canon and
@@ -2540,6 +2556,24 @@ export function initChat(ctx) {
       let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
       if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
+    });
+
+    /* 4a. M262: THE HOUSE HEALS WHAT THE OLD READERS LEFT. A story that bears
+     * the old auditor's mark (standings pushed back to the brief over what
+     * the pages earned) is re-read once — the people and their standings,
+     * built on the side and swapped in whole — then stamped. Before the
+     * checkpoint, so the page's version keeps the healed ledger. */
+    enqueue('scribe', async ({ signal, stale, renew }) => {
+      if (story.extraction === false || stale()) return { silent: true };
+      if (!peopleHealDue(await loadState(story.id))) return { silent: true };
+      const connection = await resolveWorkerConnection(story, 'scribe');
+      if (!connection) return { silent: true };
+      const r = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
+      if (!r || r.stalled) return { silent: false, detail: 'began reading the people again from the pages (the old auditor had pushed standings back to the brief) — it starts again on the next page' };
+      const after = await loadState(story.id);
+      await saveState(story.id, { ...after, healedGen: HEAL_GEN });
+      notify(story.id);
+      return { silent: false, detail: 'read the people and their standings again from the pages, once — the old auditor had pushed standings back to the brief (' + rebuildPeopleWords(r) + '; the drawer can put the old ones back)' };
     });
 
     /* 4b. M40: the version's checkpoint — the ledger as it stands once the

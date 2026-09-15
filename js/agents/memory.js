@@ -203,6 +203,29 @@ export function wholeRecord(mem, cap = SLOT_BUDGET) {
  * `least`), each with its number; and the record lines older than those, so
  * the two meet with nothing between them and nothing told twice (M228). The
  * writer's page of this very pair is read with the page, not here. */
+/* M262: THE LINES THE OLD KEEPER READ IN PART. Before M259 the keeper read a
+ * page's first 6,000 characters and a batch's first 24,000 — so a line over a
+ * longer page, or a fuller batch, never held that page's end. Those lines
+ * (never marked whole) are found here, oldest first, to be read again one by
+ * one; a line over short pages lost nothing and is left alone. A line already
+ * merged into a higher layer has no pages of its own to read again. */
+export const OLD_PAGE_CUT = 6000;
+export const OLD_BATCH_CUT = 24000;
+export function partlyReadLines(mem, messages) {
+  const pages = visiblePages(messages);
+  return (mem && Array.isArray(mem.nodes) ? mem.nodes : [])
+    .filter((n) => n && n.level === 1 && !n.whole && !n.empty && !n.correction && !((n.healTries || 0) >= 3) && Array.isArray(n.span) && n.span[0] >= 0)
+    .filter((n) => {
+      const span = pages.slice(n.span[0], n.span[1] + 1);
+      if (!span.length) return false;
+      const lengths = span.map((m) => pageTextOf(m).length);
+      const passage = lengths.reduce((a, b) => a + b + 20, 0);
+      return lengths.some((l) => l > OLD_PAGE_CUT) || passage > OLD_BATCH_CUT;
+    })
+    .sort((a, b) => a.span[0] - b.span[0])
+    .map((n) => n.id);
+}
+
 export const STORY_SO_FAR_MOST = 100;
 /* a page's shown words (its chosen swipe), as the assembler reads them */
 function pageTextOf(m) {
@@ -1105,8 +1128,8 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       } catch (err) { /* the cut line stands only when even half will not come */ }
     }
     const node = text === '(no new state)'
-      ? { id: nodeId(), span: [range[0], range[1] - 1], text: '', level: 1, at: Date.now(), empty: true }
-      : { id: nodeId(), span: [range[0], range[1] - 1], text, level: 1, at: Date.now() };
+      ? { id: nodeId(), span: [range[0], range[1] - 1], text: '', level: 1, at: Date.now(), empty: true, whole: true }
+      : { id: nodeId(), span: [range[0], range[1] - 1], text, level: 1, at: Date.now(), whole: true }; /* M262: folded from whole pages */
     /* M72: THE RECORD IS RE-READ BEFORE IT IS WRITTEN. The call above is slow;
      * while it ran, a hand or a rewind may have moved the record (a hole
      * punched for an edited page, lines let go after a retry, the
@@ -1227,6 +1250,7 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
     if (!fresh) return { ok: false, why: 'that line moved while the keeper was reading' };
     fresh.text = text === '(no new state)' ? '' : text;
     fresh.empty = text === '(no new state)';
+    fresh.whole = true; /* M262: read again from whole pages */
     delete fresh.detail;              /* the old detail described the old line */
     fresh.at = Date.now();
     await saveMemory(storyId, mem);

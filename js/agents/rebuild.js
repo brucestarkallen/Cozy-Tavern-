@@ -28,7 +28,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify } from '../engine/state.js';
-import { applyMutations } from '../engine/apply.js';
+import { applyMutations, appendLog } from '../engine/apply.js';
 import { mcName } from '../engine/duels.js';
 import { renderPeopleTiers } from '../engine/people.js';
 import { renderRelationships } from '../engine/relationships.js';
@@ -239,6 +239,28 @@ export function parseReaderAnswer(raw) {
   return { deltas: [], shifts: [] };
 }
 
+/* M262: THE OLD AUDITOR'S MARK. Before M259 the auditor was shown six
+ * standings of thirteen and "restored" the rest to the brief's level — over
+ * whatever the pages had earned, page after page. Its sets read "the brief
+ * says"; one written AFTER a page-earned beat is the mark. A story that bears
+ * it is re-read once (the people and their standings), then stamped. */
+export const HEAL_GEN = 262;
+export function oldAuditorRaised(state) {
+  for (const rel of Object.values((state && state.relationships) || {})) {
+    let earned = false;
+    for (const e of (rel && Array.isArray(rel.history) ? rel.history : [])) {
+      const c = String((e && e.cause) || '').trim();
+      if (!c) continue;
+      if (earned && /^set — the brief says/i.test(c)) return true;
+      if (!/^set\b|^the brief\b|^the founder\b/i.test(c)) earned = true;
+    }
+  }
+  return false;
+}
+export function peopleHealDue(state) {
+  return !(Number(state && state.healedGen) >= HEAL_GEN) && oldAuditorRaised(state);
+}
+
 export async function rebuildPeople({ connection, storyId, brief = '', castNotes = '', onProgress, signal, stale, renew } = {}) {
   if (!connection || !storyId) return null;
   const state = await loadState(storyId);
@@ -264,11 +286,14 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
   const digits = (await readStatedStandings({ connection, brief, castNotes, mc, signal }))
     .map((st) => ({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mc || 'the main character') }));
   ({ state: s } = applyMutations(s, digits));
-  /* M165: the mark that says this world came from a rebuild, so the next
-   * attempt keeps the way back to the hand-written one. */
-  s = { ...s, peopleRebuiltAt: Date.now() };
-  await saveState(storyId, s);
-  notify(storyId);
+  /* M262: ON THE SIDE, SWAPPED IN WHOLE. The people and the standings were let
+   * go and SAVED before the first page was read, then refilled batch by batch —
+   * so for the length of a rebuild the storyteller wrote with half-empty
+   * standings and missing pages, and a rebuild cut short left them half built.
+   * The re-reading is built here, off the ledger; the live one stands untouched
+   * until the last page is read, then the people and the standings are swapped
+   * in at once. A run cut short changes nothing. */
+  let shadow = s;
 
   const history = visiblePages(await db.messages.list(storyId)).map((m) => ({ role: m.role, text: pageText(m) }));
   const mem = await loadMemory(storyId);
@@ -286,13 +311,12 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
     }
     if (stale && stale()) return null;
     const pages = history.slice(from, from + batch);
-    const current = await loadState(storyId);
-    const prompt = buildReaderMessages({ state: current, record: recordUpTo(mem, from), pages, mc });
+    const prompt = buildReaderMessages({ state: shadow, record: recordUpTo(mem, from), pages, mc });
     const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: MAX_TOKENS, signal });
     const answer = parseReaderAnswer(text);
     /* a name the ledger already knows wins over the reader's spelling —
      * "Rias" lands on "Rias Wells", never beside her */
-    const known = [...Object.keys(current.relationships || {}), ...Object.keys(current.characters || {})];
+    const known = [...Object.keys(shadow.relationships || {}), ...Object.keys(shadow.characters || {})];
     const resolve = (name) => known.find((k) => samePersonLoose(k, name)) || name;
     const mutations = [];
     for (const d of answer.deltas) {
@@ -304,16 +328,24 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
       mutations.push({ type: 'rel.shift', name: resolve(sh.name), axis: sh.axis, delta: Number(sh.delta), cause: sh.cause });
     }
     if (mutations.length) {
-      const fresh = await loadState(storyId);
-      const r = applyMutations(fresh, mutations);
+      const r = applyMutations(shadow, mutations);
       applied += r.applied.length;
       refused += r.rejected.length;
-      await saveState(storyId, r.state);
-      notify(storyId);
+      shadow = r.state;
     }
     read = Math.min(history.length, from + batch);
     if (typeof onProgress === 'function') onProgress({ read, total: history.length });
   }
+  if (stale && stale()) return null;
+  /* the swap: the people and the standings as re-read; everything else as it
+   * stands now (a hand edit made meanwhile is kept) */
+  const live = await loadState(storyId);
+  /* M165: the mark that says this world came from a rebuild, so the next
+   * attempt keeps the way back to the hand-written one. */
+  const out = { ...live, characters: shadow.characters, relationships: shadow.relationships, peopleRebuiltAt: Date.now() };
+  appendLog(out, 'The people and their standings were read again from the pages (' + applied + ' notes and shifts) — the drawer can put the old ones back.', null);
+  await saveState(storyId, out);
+  notify(storyId);
   return { read, total: history.length, applied, refused, digits: digits.length };
 }
 

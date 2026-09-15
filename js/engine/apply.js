@@ -177,7 +177,7 @@ function isInt(value) {
   return typeof value === 'number' && Number.isFinite(value) && Math.floor(value) === value;
 }
 
-function appendLog(state, words, undo) {
+export function appendLog(state, words, undo) {
   const entry = { ts: Date.now(), words, undone: false };
   if (undo) entry.undo = undo;
   state.log.push(entry);

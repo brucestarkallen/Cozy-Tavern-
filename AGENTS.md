@@ -5437,3 +5437,33 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The two wiring points in chat.js (the upkeep on an unread page, the thread cooling) were each
   removed in a throwaway copy and the walk run: DOM-21 failed on exactly that line both times.
 - 517/517 harness + 40/40 walk + 8/8 play + the two-browser proof (11/11). version.js -> m261-001.
+
+# M262 — the house heals what the old readers left
+- THE WRITER ASKED: his story began before M259; should he play on, or press Rebuild? He wants
+  a house that heals itself while he plays. So the harm the old readers left is found and
+  mended with no hand on it:
+  - WHAT ALREADY HEALS AS HE PLAYS: knowledge written twice folds on load (M92); a thread nobody
+    carried cools on the next page (M261); positions go on the next move; the upkeep runs every
+    page; the auditor, now shown everything, sets right a wrong name, a missing fact, a finished
+    thread, page by page.
+  - WHAT PLAY ALONE COULD NEVER MEND, now mended by the page chain itself:
+    1. RECORD LINES THE OLD KEEPER READ IN PART (a page past 6,000 characters, a batch past
+       24,000 — memory.js partlyReadLines): read again from whole pages, two a page (redoLine),
+       each line swapped whole so the record is never missing one; a new or re-read line is
+       marked whole and never read again; a line that fails three times is left as it is.
+       A line already merged into a higher layer has no pages of its own — only "Rebuild the
+       record" re-reads those.
+    2. STANDINGS THE OLD AUDITOR PUSHED BACK TO THE BRIEF (it was shown six of thirteen and
+       "restored" the rest, over what the pages had earned, every page — rebuild.js
+       oldAuditorRaised: a "set — the brief says" after a page-earned beat): the story's people
+       and standings are read again from the pages, ONCE (healedGen), with the take-back kept.
+  - THE REBUILD NO LONGER EMPTIES THE LEDGER WHILE IT READS: it let the people and standings go
+    and saved that before reading the first page — for the length of a rebuild the storyteller
+    wrote with half-empty standings, and a run cut short left them half built. It builds on the
+    side now and swaps the people and standings in whole at the end; a run cut short changes
+    nothing; a hand edit made meanwhile is kept; the log says what happened.
+- Laws: M259-24 (lines read in part found, re-read whole, marked; new folds marked), M259-25 (the
+  mark found, healed once; the live ledger untouched while it reads; a cut run changes nothing;
+  the way back never overwritten), DOM-22 (in the real chain: both heals, no hand on them). 8
+  deliberate breaks, each caught. M165's grep follows the swap.
+- 519/519 harness + 41/41 walk + 8/8 play. version.js -> m262-001.

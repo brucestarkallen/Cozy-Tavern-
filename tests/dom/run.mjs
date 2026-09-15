@@ -1521,6 +1521,45 @@ test('DOM-21 the page chain looks: a worker that asks for page 1 by its number i
   eq(auditorRan, false, 'and no audit was asked for');
 });
 
+test('DOM-22 the house heals what the old readers left, with no hand on it: a line read in part is read again whole, and a story with the old auditor’s mark has its people re-read once (M262)', async () => {
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const st = await db.stories.create({ title: 'the old reading' });
+  await db.messages.append(st.id, { role: 'user', text: 'I climb.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The stair turns. ' + 'w'.repeat(7000) + ' LONG-TAIL-SEEN' });
+  await db.messages.append(st.id, { role: 'user', text: 'I go on.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Lakeside Park — Friday, March 14, 2025 | 14:30 | 🌤 | coat | standing]\n\nThe top of the stair.' });
+  let led = applyMutations(blankLedger(), [{ type: 'rel.set', name: 'Old Friend', p: 20, cause: 'the brief states (P:20)' }]).state;
+  led = applyMutations(led, [{ type: 'rel.shift', name: 'Old Friend', axis: 'p', delta: -15, cause: 'he lied to her' }]).state;
+  led = applyMutations(led, [{ type: 'rel.set', name: 'Old Friend', p: 20, cause: 'the brief says they are friends' }]).state;
+  await saveLedger(st.id, led);
+  await saveMemory(st.id, { window: 20, nodes: [{ id: 'node-oldread1', span: [0, 1], level: 1, text: 'Jovan climbed the stair.', at: 1 }] });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
+  house.state.workerAnswer = (body, sys) => {
+    if (/narrative-state tracker/i.test(sys)) return 'Jovan climbed the stair to its end; LONG-TAIL-SEEN.';
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    click(q('.msg-act[data-act="go on"]'));
+    await until(async () => { const l = await db.settings.get('state:' + st.id); return l && l.healedGen; }, 'the people to be re-read', 40000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg-pending'), 'the chain to finish', 40000);
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  const mem = await loadMemory(st.id);
+  const line = mem.nodes.find((n) => n.id === 'node-oldread1');
+  assert(line && line.whole === true && /LONG-TAIL-SEEN/.test(line.text), 'the line read in part was read again, whole: ' + JSON.stringify(line));
+  const ledger = await db.settings.get('state:' + st.id);
+  assert(!(ledger.relationships || {})['Old Friend'], 'the standing the old auditor pushed back is re-read from the pages');
+  assert((ledger.log || []).some((l) => /read again from the pages/.test(l.words)), 'the log says so');
+  const backup = await db.settings.get('peopleBackup:' + st.id);
+  assert(backup && backup.relationships && backup.relationships['Old Friend'], 'and the way back holds what was there');
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
