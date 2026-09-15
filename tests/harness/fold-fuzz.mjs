@@ -19,6 +19,7 @@ const NAMES = ['Mara', 'Tomas', 'Iris', 'Corvin', 'the ferryman', 'Mira'];
 const PLACES = ['the chapel', 'the north road', 'the Wayward Lantern', 'a booth'];
 const WORDS = ['a split lip', 'the long climb', 'a broken wrist', 'a sleepless night'];
 
+let beatSeq = 0;
 function randomMutation() {
   const name = pick(NAMES);
   switch (Math.floor(rnd() * 14)) {
@@ -31,7 +32,8 @@ function randomMutation() {
     case 6: return { type: 'body.injure', name, what: pick(WORDS), sev: 1 + Math.floor(rnd() * 3), treated: rnd() < 0.4 };
     case 7: return { type: 'body.strain', name, what: pick(WORDS) };
     case 8: return { type: 'body.heal', name, what: pick(WORDS) };
-    case 9: return { type: 'rel.shift', name, axis: pick(['p', 'r', 's']), delta: Math.round((rnd() * 40) - 20), cause: 'the chapel' };
+    /* M261: a beat is counted once, so a story's beats are its own — never the same words over and over */
+    case 9: return { type: 'rel.shift', name, axis: pick(['p', 'r', 's']), delta: Math.round((rnd() * 40) - 20), cause: 'the chapel, beat' + (beatSeq += 1) };
     case 10: return { type: 'offscreen.set', name, location: pick(PLACES), activity: 'waiting', stance: pick(['toward', 'busy', '']) };
     case 11: return { type: 'canon.lock', name, key: pick(['eyes', 'hair', 'trade']), value: pick(['grey', 'black', 'a smith']) };
     case 12: return { type: 'people.set', name, field: pick(['core', 'state', 'arc']), text: 'something true of them ' + Math.floor(rnd() * 99) };

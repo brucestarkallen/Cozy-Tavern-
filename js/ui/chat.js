@@ -47,24 +47,24 @@ import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the hous
 import { finalizeReceipt } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
-import { applyMutations } from '../engine/apply.js';
+import { applyMutations, storyTurn } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
 import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
-import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
+import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
-import { renderWorldBrief } from '../engine/world.js';
+import { renderWorldBrief, threadHousekeeping } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory } from '../import/cards.js';
 import { loadLore, matchLoreDetailed, saveLore } from '../import/lorebook.js';
@@ -2202,40 +2202,20 @@ export function initChat(ctx) {
        * writes the ground, the people, the hour and the main character down
        * instead of asking "what changed?"), and the writer's brief and cast
        * notes ride along so the names are known. */
+      const young = isYoungLedger(stateBefore);
+      /* M261: THE STORY SO FAR, ON EVERY PAGE. The extractor read the pages
+       * before this one only on a founding or a deep read; on every other page
+       * it had the page and nothing else — no idea who "she" was, what was
+       * promised, which thread this page answered. It reads what the
+       * storyteller read now: every page the record has not folded, whole, and
+       * the record for the rest (memory.js storySoFar, M228's meeting point). */
       let before = [];
       let foldedBefore = '';
-      const young = isYoungLedger(stateBefore);
-      if (young || deep) {
-        /* "The pages just before this one" — the store lists pages in
-         * telling order (ts). Comparing UUID strings (m.id < msg.id) picked
-         * an arbitrary handful instead, starving the founding read. */
-        const ordered = (await db.messages.list(story.id)).filter((m) => !m.hidden);
-        const atSelf = ordered.findIndex((m) => m.id === msg.id);
-        const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
-        /* M228: NO PAGE IS READ BY NOBODY. M226 gave the extractor the folded
-         * record and I called it "the whole story" — it was not. The record
-         * only holds pages that have LEFT the word-for-word window and been
-         * folded; the newest ones (twenty, at the writer's settings) have no
-         * line yet. The extractor saw four of them. So sixteen pages were
-         * too NEW for the record and too OLD for its window, and were read by
-         * NOTHING — a hole that moved forward with the story and never
-         * closed. The pages it reads now run back to the last page the record
-         * covers, so the record and the pages meet with nothing between them.
-         * A cap stands in case the keeper is off entirely and the unfolded
-         * tail is the whole tale. */
-        const UNFOLDED_MAX = 30;
+      try {
         let mem = null;
         try { mem = await loadMemory(story.id); } catch (err) { mem = null; }
-        const foldedTo = mem ? Math.max(0, ...(mem.nodes || [])
-          .filter((n) => n && Array.isArray(n.span))
-          .map((n) => n.span[1] + 1), 0) : 0;
-        const unfolded = Math.max(deep ? 8 : 4, Math.min(UNFOLDED_MAX, prior.length - foldedTo));
-        before = prior.slice(-unfolded).map((m, k, arr) => ({ role: m.role, text: pageText(m), number: prior.length - arr.length + k + 1 }));
-        try {
-          const oldest = Math.max(0, prior.length - before.length);
-          foldedBefore = mem ? recordFor(memoryForWindow(mem, oldest)) : '';
-        } catch (err) { foldedBefore = ''; }
-      }
+        ({ before, record: foldedBefore } = storySoFar(await db.messages.list(story.id), mem, msg.id, { least: deep ? 8 : 4 }));
+      } catch (err) { before = []; foldedBefore = ''; }
       /* M251: THE LEDGER HAD NO WAY BACK. The RECORD walks to its oldest hole
        * every fold (dueRange), so an outage costs nothing. The LEDGER is
        * per-turn: it reads THIS page and no other. So a writer playing four
@@ -2340,6 +2320,12 @@ export function initChat(ctx) {
         const prefix = Number.isInteger(fresh.page) ? fresh.page : -1;
         if (k !== -1) fresh.page = (k === prefix + 1) ? k : prefix;
       }
+      /* M261: A THREAD THE STORY STOPPED CARRYING COOLS BY ITSELF. Nothing
+       * cooled a thread: one no page closed stayed "hot" and was read to the
+       * storyteller as live every turn until eight newer ones pushed it out —
+       * and the auditor closed them by hand, page after page. Untouched for
+       * THREAD_COOL_PAGES pages, it goes cold (never one this page moves). */
+      list.push(...threadHousekeeping(fresh.threads, storyTurn(fresh), list.filter((m) => m && (m.type === 'thread.set' || m.type === 'thread.close')).map((m) => m.title || m.name)));
       const { state: next, applied, rejected } = applyMutations(fresh, list);
       if (!applied.length) { await saveState(story.id, next); } /* the stamp stands even when nothing was written */
       if (applied.length) {
@@ -2386,24 +2372,20 @@ export function initChat(ctx) {
       const ordered = (await db.messages.list(story.id)).filter((m) => !m.hidden);
       const atSelf = ordered.findIndex((m) => m.id === msg.id);
       const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
-      /* the page before the pair, for the thread of things */
-      const before = prior.slice(-3, -1).map((m, k, arr) => ({ role: m.role, text: pageText(m), number: prior.length - 1 - arr.length + k + 1 }));
       /* M85: the voices the last pages carried, so the world rotates its
        * speakers and topics instead of repeating them */
       const voicesBefore = prior.filter((m) => m.role === 'assistant' && Array.isArray(m.voices) && m.voices.length).slice(-3).map((m) => m.voices);
-      /* M134: how far the clock moved across this page (a #time skip, a night) — the
-       * world agent re-seats everyone when it jumped */
-      /* M249: the folded story for everything older than the pages it can
-       * see, so a life beyond the scene is filled from what has happened —
-       * which its own brief demands and it was never given. */
+      /* M249/M261: the story so far — every page the record has not folded,
+       * whole, and the record for the rest — as the extractor reads it */
+      let before = [];
       let worldRecord = '';
       try {
-        const mem = await loadMemory(story.id);
-        const foldedTo = Math.max(0, ...(mem.nodes || [])
-          .filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1), 0);
-        const oldest = Math.max(0, Math.min(foldedTo, prior.length - before.length));
-        worldRecord = recordFor(memoryForWindow(mem, oldest));
-      } catch (err) { worldRecord = ''; }
+        let mem = null;
+        try { mem = await loadMemory(story.id); } catch (err) { mem = null; }
+        ({ before, record: worldRecord } = storySoFar(ordered, mem, msg.id, { least: 2 }));
+      } catch (err) { before = []; worldRecord = ''; }
+      /* M134: how far the clock moved across this page (a #time skip, a night) — the
+       * world agent re-seats everyone when it jumped */
       const clockNow = (await loadState(story.id)).clock;
       const clockWas = chainClock.before;
       const jumpedMinutes = clockNow && clockWas && Number.isFinite(clockNow.minutes) && Number.isFinite(clockWas.minutes) ? Math.max(0, clockNow.minutes - clockWas.minutes) : 0;
@@ -2538,16 +2520,22 @@ export function initChat(ctx) {
      * right through the closed vocabulary, what cannot be is noted. */
     enqueue('auditor', async ({ signal, stale, renew }) => {
       if (story.extraction === false || stale()) return { silent: true };
-      if (!(await auditOn(story))) return { silent: true };
+      /* M261: a page the auditor does not read is still kept — in code, logged
+       * with its take-back; the workers line stays quiet, as the auditor did */
+      const upkeepOnly = async () => {
+        try { await ledgerUpkeep({ storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', stale }); } catch (err) { /* the next page keeps it */ }
+        return { silent: true };
+      };
+      if (!(await auditOn(story))) return upkeepOnly();
       const owed = pendingAudit.has(story.id);
       if (!audit && !owed) {
         const visible = (await db.messages.list(story.id)).filter((m) => !m.hidden && m.role === 'assistant').length;
         const every = await auditEvery();
-        if (visible === 0 || visible % every !== 0) return { silent: true };
+        if (visible === 0 || visible % every !== 0) return upkeepOnly();
       }
       pendingAudit.delete(story.id);
       const connection = await resolveWorkerConnection(story, 'auditor');
-      if (!connection) return { silent: true };
+      if (!connection) return upkeepOnly();
       if (stale()) return { silent: true };
       let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
       if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);

@@ -122,6 +122,24 @@ export function sameThreadTitle(a, b) {
 /* Set (or update) a thread. A title already there is updated in place —
  * fields given replace, fields omitted keep. Hot threads are capped: past
  * THREADS_MAX the coldest, oldest thread is let go. */
+/* M261: A THREAD THE STORY STOPPED CARRYING COOLS BY ITSELF. The mutations
+ * that cool every hot thread untouched for THREAD_COOL_PAGES pages — never one
+ * whose title answers to `spared` (the threads this very page moves). */
+export const THREAD_COOL_PAGES = 15;
+export function threadHousekeeping(threads, nowTurn, spared = []) {
+  const list = Array.isArray(threads) ? threads : [];
+  if (!Number.isFinite(nowTurn)) return [];
+  const keep = (Array.isArray(spared) ? spared : []).filter((t) => typeof t === 'string' && t.trim());
+  const out = [];
+  for (const t of list) {
+    if (!t || typeof t !== 'object' || typeof t.title !== 'string' || t.heat === 'cold') continue;
+    if (!Number.isFinite(t.atTurn) || nowTurn - t.atTurn < THREAD_COOL_PAGES) continue;
+    if (keep.some((k) => keyOf(k) === keyOf(t.title) || sameThreadTitle(k, t.title))) continue;
+    out.push({ type: 'thread.set', title: t.title, heat: 'cold' });
+  }
+  return out;
+}
+
 export function setThread(threads, { title, owner, heat, next } = {}, atTurn) {
   const list = copyThreads(threads);
   const name = cleanText(title, 120);

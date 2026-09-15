@@ -61,7 +61,8 @@ test('M41-2 end to end: what is wrong is set right through the ledger; what cann
 test('M41-3 the house knows the auditor: last in the chain every few turns, by hand from the drawer, on the roster', () => {
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(chat.indexOf("enqueue('continuity'") < chat.indexOf("enqueue('auditor'") && chat.indexOf("enqueue('auditor'") < chat.indexOf("enqueue('checkpoint'"), 'after the second reader, before the checkpoint');
-  assert(/visible % every !== 0\) return \{ silent: true \};/.test(chat), 'every few turns');
+  /* M261: a page the auditor does not read still gets the code-side upkeep (M259-23, DOM-21) */
+  assert(/visible % every !== 0\) return upkeepOnly\(\);/.test(chat), 'every few turns');
   assert(/async function auditNow\(\)/.test(chat) && /auditNow,/.test(chat));
   assert(WORKER_NAMES.includes('auditor') && WORKER_ROWS.some(([k]) => k === 'auditor'));
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');

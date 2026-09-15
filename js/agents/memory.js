@@ -198,6 +198,37 @@ export function wholeRecord(mem, cap = SLOT_BUDGET) {
   return kept.join('\n');
 }
 
+/* M261: THE STORY SO FAR, for a reader of one page. Every page the record
+ * has not folded, from its end to the page before this one (never fewer than
+ * `least`), each with its number; and the record lines older than those, so
+ * the two meet with nothing between them and nothing told twice (M228). The
+ * writer's page of this very pair is read with the page, not here. */
+export const STORY_SO_FAR_MOST = 100;
+/* a page's shown words (its chosen swipe), as the assembler reads them */
+function pageTextOf(m) {
+  if (m && Array.isArray(m.swipes) && m.swipes.length) {
+    const i = Number.isFinite(m.swipeIdx) ? Math.min(m.swipes.length - 1, Math.max(0, m.swipeIdx)) : m.swipes.length - 1;
+    const sw = m.swipes[i];
+    if (sw && typeof sw.text === 'string') return sw.text;
+  }
+  return m && typeof m.text === 'string' ? m.text : (m && typeof m.content === 'string' ? m.content : '');
+}
+export function storySoFar(messages, mem, messageId, { least = 4, most = STORY_SO_FAR_MOST } = {}) {
+  const ordered = visiblePages(messages);
+  const atSelf = ordered.findIndex((m) => m && m.id === messageId);
+  const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
+  const context = prior.length && prior[prior.length - 1].role === 'user' ? prior.slice(0, -1) : prior;
+  const foldedTo = mem && Array.isArray(mem.nodes)
+    ? Math.max(0, ...mem.nodes.filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1))
+    : 0;
+  const count = Math.max(least, Math.min(most, context.length - foldedTo));
+  const pages = context.slice(-count);
+  const before = pages.map((m, k) => ({ role: m.role, text: pageTextOf(m), number: context.length - pages.length + k + 1 }));
+  let record = '';
+  try { record = mem ? recordFor(memoryForWindow(mem, Math.max(0, context.length - pages.length))) : ''; } catch (err) { record = ''; }
+  return { before, record, number: atSelf === -1 ? 0 : atSelf + 1 };
+}
+
 /* M259: the whole record with the pages each line covers (1-based, as the
  * page index numbers them) — so a reader can fetch a line's own pages and
  * check it. Over the cap, the oldest lines go first and a line says so. */

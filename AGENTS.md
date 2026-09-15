@@ -5385,3 +5385,55 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   breaks, each caught. M221's "the auditor never fetches" and M74-6's signature grep follow the
   new design.
 - 514/514 harness + 40/40 walk + 8/8 play + the two-browser proof (11/11). version.js -> m260-001.
+
+# M261 — one story so far for every ledger reader, and a ledger that does not go stale
+- THE WORDS, because the writer asked for them to be straight: FOLDED pages are the older ones
+  the keeper has summarized into the record — still in the chat, never hidden; UNFOLDED pages are
+  the newest, which the storyteller reads word for word; HIDDEN is a separate flag (the house's
+  own "continue" nudges, pages hidden in SillyTavern before import) and every reader skips it.
+- THE WRITER'S ORDER: quality, not cost. So the extractor, the world agent and the auditor read
+  ONE story so far (memory.js storySoFar): every unfolded page whole, newest first, into 70% of
+  the connection's room (lookup.js windowOfPages, viewBudget); the record for the folded pages;
+  the whole brief; the whole ledger; and the other 30% kept free for looking. The extractor saw
+  the pages before its page only on a founding or deep read — on every other page it did not
+  know who "she" was. The auditor's M260 budget of 100,000 characters is gone: it reads every
+  unfolded page that fits.
+  - A VIEW LEAVES ROOM TO LOOK (found building it): a view that filled the whole room left
+    nothing for the pages then asked for — the first was served, the rest refused.
+  - The story so far is labelled ALREADY READ, NOT NEWS; only the new page is reported on.
+  - A BEAT IS COUNTED ONCE (apply.js sameBeat): with old pages in view, a beat sent again from one
+    of them would move a standing twice. The same beat — same words in any order, or nearly all
+    of them — on the same axis and the same way, within the last six causes, is `same`. A
+    different figure ("20 dollars" / "50 dollars") or the other direction is a new beat.
+  - The scribe and the second reader still read the new page alone: they judge only it.
+- THE HOUSEKEEPER was shown the storyteller's trimmed ledger while asked to keep it true: it sees
+  the whole ledger now. Its own pages setting (4–40 whole, default 12) is the writer's.
+- STALENESS, BOOK BY BOOK — what went stale with nothing to clear it:
+  1. WHERE EACH STOOD: "by the stove" was read to the storyteller after the scene moved to the
+     garden. The ground moving lets every position go (dress stays); the page's reader writes
+     the new ones in the same batch; a take-back restores them key for key.
+  2. ONE PLACE, TWO SPELLINGS: "The Wells Residence" / "Wells Residence" read as a move — and
+     would have cleared the positions every page. samePlace ignores case, a leading "the" and
+     punctuation.
+  3. THREADS NEVER COOLED: a thread no page closed stayed hot, read as live every turn, until
+     eight newer ones pushed it out — the auditor closed them by hand, page after page. Untouched
+     for THREAD_COOL_PAGES (15) pages, a thread goes cold in the page chain itself (never one
+     the page moves) — engine/world.js threadHousekeeping.
+  4. THE UPKEEP WAITED FOR THE AUDITOR: retiring those who passed through, sweeping the house's
+     example names, clearing seats nothing carries — all code, all run only inside an audit. An
+     auditor switched off, or reading every fifth page, meant a ledger nobody kept.
+     auditor.js ledgerUpkeep runs on every page the auditor does not read, journaled, quiet on
+     the workers line.
+  What code cannot see — a person who left without the page saying so — stays the readers'
+  (the extractor first, the auditor behind it).
+- THE WALK'S OWN SCRIPTED READERS read their prompt as if it held only the new page (the first
+  "PersonN entered" in it) — with the story so far in view they read page one every time, and six
+  scenarios fell. They read the new page now (newPageOf), as the real reader is told to.
+- Laws: M259-21..23; M226/M228 run storySoFar instead of reading chat.js; DOM-21 proves in the
+  real chain that both readers get the story so far, that a thread nobody carried cooled, and that
+  with the auditor switched off one who passed through was still retired and no audit was asked
+  for. 16 deliberate breaks this round, each caught; one crash-killed break run left a break in
+  apply.js, found by checking every break site, restored, and the runner made crash-safe.
+- The two wiring points in chat.js (the upkeep on an unread page, the thread cooling) were each
+  removed in a throwaway copy and the walk run: DOM-21 failed on exactly that line both times.
+- 517/517 harness + 40/40 walk + 8/8 play + the two-browser proof (11/11). version.js -> m261-001.

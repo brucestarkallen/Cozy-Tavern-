@@ -42,6 +42,10 @@ async function showAllPages() {
   }
 }
 
+/* M261: the extractor is shown the story so far; the page it reports on comes after this line —
+ * a scripted reader reads THAT page, as the real one is told to */
+const newPageOf = (user) => { const text = String(user || ''); const at = text.lastIndexOf('And the storyteller answered:'); return at === -1 ? text : text.slice(at); };
+
 const walkDefaultWorker = (body, sys) => {
   const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
   if (/mend a story/i.test(sys) || /<contradiction>/.test(user)) {
@@ -439,7 +443,7 @@ test('DOM-8a branch 0→0 keeps the ledger; branch N→0 carries page 0’s ledg
   const priorWorker = house.state.workerAnswer;
   house.state.workerAnswer = (body, sys) => {
     const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
-    if (/keep the ledger/i.test(sys) && /Kim walked in/.test(user)) return '{"mutations":[{"type":"presence.enter","name":"Kim","position":"in the booth"}]}';
+    if (/keep the ledger/i.test(sys) && /Kim walked in/.test(newPageOf(user))) return '{"mutations":[{"type":"presence.enter","name":"Kim","position":"in the booth"}]}';
     return priorWorker(body, sys);
   };
   /* a fresh story: one exchange, then branch at its only page → the present ledger comes along */
@@ -520,7 +524,7 @@ test('DOM-8c the checkpoint invariant holds under a random sequence of sends, sw
   house.state.workerAnswer = (body, sys) => {
     const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
     if (/keep the ledger/i.test(sys)) {
-      const m = user.match(/(Person\d+) entered/);
+      const m = newPageOf(user).match(/(Person\d+) entered/);
       return m ? '{"mutations":[{"type":"presence.enter","name":"' + m[1] + '"}]}' : '{"mutations":[]}';
     }
     return priorWorker(body, sys);
@@ -1470,6 +1474,13 @@ test('DOM-21 the page chain looks: a worker that asks for page 1 by its number i
   const st = await db.stories.create({ title: 'the lookout' });
   await db.messages.append(st.id, { role: 'user', text: 'I climb the tower. PAGE-ONE-MARKER: the lantern is blue.' });
   await db.messages.append(st.id, { role: 'assistant', text: '[Lakeside Park — Friday, March 14, 2025 | 14:30 | 🌤 | coat | standing]\n\nThe tower creaks.' });
+  /* M261: a thread nobody has carried for a long while, to see it cool on this page */
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  await saveLedger(st.id, { ...blankLedger(), threads: [{ title: 'An old promise nobody carries', owner: 'Liara', heat: 'hot', atTurn: -20 }],
+    characters: { 'Old Passerby': { core: 'a cab driver from long ago', state: '', arc: '', threads: [], updatedAtTurn: -60 } } });
+  /* M261: and the auditor switched off — the ledger is kept anyway */
+  const auditWas = await db.settings.get('auditOn');
+  await db.settings.set('auditOn', false);
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
@@ -1488,15 +1499,26 @@ test('DOM-21 the page chain looks: a worker that asks for page 1 by its number i
     await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg-pending'), 'the chain to finish', 30000);
   } finally {
     house.state.workerAnswer = walkDefaultWorker;
+    await db.settings.set('auditOn', auditWas === undefined ? true : auditWas);
   }
   const extractorCalls = house.state.calls.slice(from).filter((c) => c.isWorker && /keep the ledger/i.test(JSON.stringify(c.body.messages || [])));
   assert(extractorCalls.length >= 2, 'the extractor asked twice: ' + extractorCalls.length);
-  const second = JSON.stringify(extractorCalls[1].body.messages);
+  const second = extractorCalls[1].body.messages;
+  const lastAsk = String(second[second.length - 1].content || '');
   assert(/page 3 of the story/.test(JSON.stringify(extractorCalls[0].body.messages)), 'the chain told it which page it reads');
-  assert(second.includes('PAGE-ONE-MARKER: the lantern is blue.'), 'page 1 was served whole, by its number, from the tale itself');
-  assert(second.includes('<fetch>[\\"1\\"]</fetch>'), 'with its own ask in the conversation');
+  assert(/What you asked for, whole:[\s\S]*the writer wrote \(\d+ chars, COMPLETE[\s\S]*PAGE-ONE-MARKER: the lantern is blue\./.test(lastAsk), 'page 1 was served whole, by its number, from the tale itself: ' + lastAsk.slice(0, 200));
+  /* M261: and the chain hands both readers the story so far, whole */
+  assert(JSON.stringify(extractorCalls[0].body.messages).includes('The tower creaks.'), 'the extractor was shown the page before, whole');
+  const worldCalls = house.state.calls.slice(from).filter((c) => c.isWorker && /world beyond the page/i.test(JSON.stringify(c.body.messages || [])));
+  assert(worldCalls.length && JSON.stringify(worldCalls[0].body.messages).includes('PAGE-ONE-MARKER'), 'and so was the world agent');
+  assert(second.some((mm) => mm.role === 'assistant' && String(mm.content).includes('<fetch>["1"]</fetch>')), 'with its own ask in the conversation');
   const ledger = await db.settings.get('state:' + st.id);
   assert(ledger && ledger.sheet && ledger.sheet.playerName === 'Jovan', 'and the answer after the look was written');
+  const old = (ledger.threads || []).find((t) => t.title === 'An old promise nobody carries');
+  assert(old && old.heat === 'cold', 'the page chain cooled the thread nobody carried: ' + JSON.stringify(old));
+  assert(ledger.characters && ledger.characters['Old Passerby'] && ledger.characters['Old Passerby'].retired, 'with the auditor off, one who passed through long ago was still retired: ' + JSON.stringify(ledger.characters && ledger.characters['Old Passerby']));
+  const auditorRan = house.state.calls.slice(from).some((c) => c.isWorker && /auditor of the ledger/i.test(JSON.stringify(c.body.messages || [])));
+  eq(auditorRan, false, 'and no audit was asked for');
 });
 
 console.log('Cozy Tavern — the dom walk');

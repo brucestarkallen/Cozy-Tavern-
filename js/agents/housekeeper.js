@@ -48,12 +48,13 @@
  */
 
 import { db } from '../store.js';
-import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
+import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations, undoEntry } from '../engine/apply.js';
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
 import { loadLore, saveLore } from '../import/lorebook.js'; /* M38: the housekeeper keeps the lore shelf too */
 import { loadMemory, saveMemory } from './memory.js'; /* M61: and the record */
 import { pageText } from '../assemble/stack.js';
+import { renderWholeLedger } from '../engine/whole.js';
 import { createProvider } from '../providers/index.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 
@@ -690,7 +691,10 @@ export function buildHousekeeperContext({
 
   const fullPages = visible.slice(-n).map((m) => formatPage(m));
 
-  const ledger = renderStateFacts(state) || 'The ledger is blank so far.';
+  /* M261: the WHOLE ledger — it was shown the storyteller's trimmed copy (six
+   * standings, five threads, four facts a person knows, no ground), and asked
+   * to keep that ledger true */
+  const ledger = renderWholeLedger(state) || 'The ledger is blank so far.';
   const rulebook = (Array.isArray(modules) ? modules : [])
     .map((mod) => mod && typeof mod.name === 'string'
       ? mod.name + (mod.pinned ? ' (pinned on)' : '')

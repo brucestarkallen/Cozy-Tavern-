@@ -300,13 +300,26 @@ const HANDLERS = {
     const before = state.place ? state.place.name : null;
     /* M259: a change that changes nothing is not a change — the header line
      * re-sends its place on every page, and the auditor, shown no ground at
-     * all, re-set one the ledger already held and called it a fix */
-    if (typeof before === 'string' && before.trim().toLowerCase() === name.trim().toLowerCase()) return { ok: false, why: 'the scene already stands in ' + before, same: true };
+     * all, re-set one the ledger already held and called it a fix.
+     * M261: "The Wells Residence" and "Wells Residence" are one place. */
+    if (typeof before === 'string' && samePlace(before, name)) return { ok: false, why: 'the scene already stands in ' + before, same: true };
     state.place = { name };
+    /* M261: WHERE EACH STOOD BELONGS TO THE OLD GROUND. "By the stove" went on
+     * being read to the storyteller after the scene had moved to the garden.
+     * The ground moving lets every position go (dress stays); the page's own
+     * reader writes the new ones in the same batch, and a take-back puts the
+     * old ones back. */
+    const positions = [];
+    for (const p of Array.isArray(state.present) ? state.present : []) {
+      if (p && typeof p.position === 'string' && p.position.trim()) {
+        positions.push({ name: p.name, position: p.position, keys: Object.keys(p) });
+        delete p.position;
+      }
+    }
     return {
       ok: true,
       words: 'The scene now stands in ' + name + '.',
-      undo: { kind: 'place', before },
+      undo: { kind: 'place', before, positions },
     };
   },
 
@@ -555,6 +568,17 @@ const HANDLERS = {
     const found = findRelationship(state.relationships, name);
     const key = found ? found.key : name;
     const before = found ? cloneMap({ [key]: found.rel })[key] : null;
+    /* M261: A BEAT IS COUNTED ONCE. The page's reader now sees the pages before
+     * it; a beat from one of them, sent again, would move a standing twice.
+     * The same beat (the same words, in any order, or nearly all of them) in
+     * this standing's recent causes, on the same axis and the same way, is
+     * already counted. */
+    if (found && Array.isArray(found.rel.history)) {
+      const recent = found.rel.history.slice(-BEAT_WINDOW);
+      if (recent.some((h) => h && h.axis === axis && Math.sign(Number(h.delta) || 0) === Math.sign(raw) && sameBeat(h.cause, cause))) {
+        return { why: key + ' — that beat is already counted', same: true };
+      }
+    }
     state.relationships = relShift(
       state.relationships, key,
       { axis, delta: raw, cause },
@@ -1015,6 +1039,34 @@ export function placeholderIn(mutation) {
   return '';
 }
 
+/* M261: two names for one place — case, a leading "the", punctuation */
+function placeKey(name) {
+  return String(name || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+export function samePlace(a, b) {
+  const x = placeKey(a);
+  return Boolean(x) && x === placeKey(b);
+}
+
+/* M261: the same beat — the same words in any order, or nearly all of them */
+export const BEAT_WINDOW = 6;
+function beatWords(text) {
+  return String(text || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((w) => w.length > 2 || /\d/.test(w)); /* a figure is never noise: 20 dollars is not 50 */
+}
+export function sameBeat(a, b) {
+  const x = beatWords(a); const y = beatWords(b);
+  if (!x.length || !y.length) return false;
+  if ([...x].sort().join(' ') === [...y].sort().join(' ')) return true;
+  /* different figures are different beats, however alike the rest */
+  const figures = (list) => list.filter((w) => /\d/.test(w)).sort().join(' ');
+  if (figures(x) !== figures(y)) return false;
+  const sx = new Set(x); const sy = new Set(y);
+  if (sx.size < 3 || sy.size < 3) return false;
+  let hit = 0;
+  for (const w of sx) if (sy.has(w)) hit += 1;
+  return hit / Math.max(sx.size, sy.size) >= 0.8;
+}
+
 export function applyMutations(state, mutations) {
   const next = copyState(state);
   const applied = [];
@@ -1138,6 +1190,21 @@ function applyUndo(next, undo) {
       ok = true;
     } else if (undo.kind === 'place') {
       next.place = undo.before ? { name: undo.before } : null;
+      /* M261: the positions the move let go come back to whoever is still here */
+      for (const was of Array.isArray(undo.positions) ? undo.positions : []) {
+        const at = (next.present || []).findIndex((p) => p && p.name === was.name);
+        if (at === -1 || next.present[at].position) continue;
+        /* the entry as it stood, key for key */
+        const entry = next.present[at];
+        const rebuilt = {};
+        for (const k of Array.isArray(was.keys) ? was.keys : []) {
+          if (k === 'position') rebuilt.position = was.position;
+          else if (k in entry) rebuilt[k] = entry[k];
+        }
+        for (const k of Object.keys(entry)) if (!(k in rebuilt)) rebuilt[k] = entry[k];
+        if (!('position' in rebuilt)) rebuilt.position = was.position;
+        next.present[at] = rebuilt;
+      }
       ok = true;
     } else if (undo.kind === 'clock') {
       next.clock = undo.before ? { ...undo.before } : null;

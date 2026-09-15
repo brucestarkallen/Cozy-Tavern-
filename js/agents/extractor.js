@@ -39,7 +39,7 @@ import { withFictionFrame } from './voice.js'; /* M21: the workers never break t
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 
 import { renderWholeLedger, wholePage } from '../engine/whole.js'; /* M259: the whole ledger, and the page read to its end */
-import { askWithFetch, fetchLaw } from './lookup.js'; /* M259: it may look for what it was not shown */
+import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
 import { mcName } from '../engine/duels.js';
 
 /* M28: the answer is JSON only and thinking is OFF on the wire (call.js),
@@ -203,6 +203,8 @@ function systemPrompt({ mc, founding }) {
       '     a plan abandoned — thread.close, the title exactly as the ledger quotes it.',
       'THE LEDGER ABOVE IS ALL OF IT — every standing, thread, line of who knows what',
       'and seat. A fact someone already knows, in any words, is not written again.',
+      'ONLY THE NEW PAGE IS NEWS: the pages before it are already in the ledger. A beat the',
+      'standings\' latest causes already name is already counted.',
       'Be conservative. Write down only what the prose explicitly shows — never what it',
       'merely hints at, never what might be true. Injuries only when the blow lands',
       'on-page; feelings shift only from on-page acts, and every shift needs its cause',
@@ -244,7 +246,7 @@ function systemPrompt({ mc, founding }) {
 
 /* Exported for the harness: the two messages any provider flavor receives. */
 export const EXTRACTOR_LOOKS = 2;
-export function buildExtractorMessages({ state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', pageNumber = 0 }) {
+export function buildExtractorMessages({ state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', pageNumber = 0, contextBudget = Infinity }) {
   /* founding: passed explicitly by the send path (it already knows), else
    * read off the ledger's own youth. */
   if (typeof founding !== 'boolean') founding = isYoungLedger(state);
@@ -277,11 +279,16 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
       ? ['The story so far, folded — what the pages before these ones hold:', FENCE, String(record).trim(), FENCE, '']
       : []),
     ...(before.length
-      ? ['The pages just before this one:', FENCE, before.map((b) => {
-        const shown = wholePage(b.text, 4000);
-        const label = Number.isInteger(b.number) && b.number > 0 ? '[p' + b.number + (shown.length !== String(b.text || '').length ? ' — shortened; fetch "' + b.number + '" for all of it' : '') + '] ' : '';
-        return label + (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + shown;
-      }).join('\n\n'), FENCE, '']
+      ? (() => {
+        /* M261: whole, newest first, into the room; the rest by number */
+        const w = windowOfPages(before, contextBudget);
+        return [
+          'The pages just before this one — ALREADY READ. Nothing on them is news and nothing on them is yours to write; they are here so you know who is who, what was promised and where things stand:',
+          FENCE, w.shown.join('\n\n') || '(none fit — fetch them by number)', FENCE,
+          ...(w.index.length ? ['Earlier pages not shown above (fetch any by its number):', ...w.index] : []),
+          '',
+        ];
+      })()
       : []),
     'The writer just wrote:',
     '"""',
@@ -355,7 +362,9 @@ export async function extractTurn({ connection, state, userText, assistantText, 
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
   /* M259: THE RECORD RIDES. chat.js has handed it over since M226; this line
    * dropped it on arrival, so the extractor never once saw it. */
-  const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes, record, pageNumber });
+  const bare = buildExtractorMessages({ state, userText, assistantText, before: [], founding: young, brief, castNotes, record, pageNumber });
+  const contextBudget = viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length);
+  const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes, record, pageNumber, contextBudget });
   /* M31: an answer we can't use, or a founding that came back empty, earns
    * ONE second ask with a sharper word — here, not five blind retries in
    * the queue. The raw answer rides out so the drawer can show it. */
@@ -386,6 +395,8 @@ export async function extractTurn({ connection, state, userText, assistantText, 
         maxTokens: MAX_TOKENS,
         signal,
         renew,
+        leash: leashFor,
+        room: roomChars(connection, MAX_TOKENS),
         rounds: attempt === 0 ? EXTRACTOR_LOOKS : 1,
         isAnswer: (t) => { const r = parseExtractorAnswer(t); return r.note === 'ok' || r.note === 'empty'; },
         source: { storyId, story: story || { brief, castNotes } },

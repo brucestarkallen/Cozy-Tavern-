@@ -17,8 +17,61 @@ import { callWorker } from './call.js';
 import { db } from '../store.js';
 import { loadMemory } from './memory.js';
 import { parseFetchRefs, serveFetch } from './housekeeper.js';
+import { wholePage as wholePageLocal } from '../engine/pagecut.js';
 
 export const WORKER_FETCH_ROUNDS = 3;
+
+/* M261: the room a connection has, in characters (about three a token, less
+ * the answer's own budget). A connection with no size set is taken at 128,000
+ * tokens, the smallest house the writer uses. */
+export function roomChars(connection, maxTokens = 6000) {
+  const size = connection && typeof connection.contextSize === 'number' && connection.contextSize > 0 ? connection.contextSize : 128000;
+  return Math.max(30000, Math.floor((size - maxTokens - 2000) * 3));
+}
+
+/* M261: A VIEW LEAVES ROOM TO LOOK. A reader's view that filled the whole room
+ * left nothing for the pages it then asked for — the first was served and the
+ * rest refused for lack of room. The view takes 70% of the room; the looks
+ * have the rest. */
+export const LOOK_RESERVE = 0.3;
+export function viewBudget(connection, maxTokens, bareSize) {
+  return Math.floor(roomChars(connection, maxTokens) * (1 - LOOK_RESERVE)) - Math.max(0, Number(bareSize) || 0);
+}
+
+/* M261: a call that holds a lot is given the time to read it — a minute, and
+ * a second more for every four thousand characters. */
+export function leashFor(size) {
+  return 60000 + Math.ceil(Math.max(0, Number(size) || 0) / 4000) * 1000;
+}
+
+const PREVIEW = 150;
+const CONTEXT_PAGE_CAP = 24000;
+/* M261: the story so far as a reader is shown it — every page whole, newest
+ * first, into `budget` characters; the pages that do not fit stand as index
+ * lines with their numbers, to be fetched. `before` items: {role, text, number}. */
+export function windowOfPages(before, budget = Infinity) {
+  const list = Array.isArray(before) ? before : [];
+  let left = Number.isFinite(budget) ? Math.max(0, budget) : Infinity;
+  const shown = [];
+  const index = [];
+  let full = true;
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const b = list[i] || {};
+    const text = String(b.text || '');
+    const who = b.role === 'user' ? 'The writer' : 'The storyteller';
+    const num = Number.isInteger(b.number) && b.number > 0 ? b.number : 0;
+    const t = wholePageLocal(text, CONTEXT_PAGE_CAP);
+    if (!full || t.length + 80 > left) {
+      full = false;
+      const flat = text.replace(/\s+/g, ' ').trim();
+      index.unshift((num ? 'p' + num + ' ' : '') + who + ' — ' + (flat.length > PREVIEW ? flat.slice(0, PREVIEW - 1).trimEnd() + '…' : (flat || '(an empty page)')));
+      continue;
+    }
+    shown.unshift((num ? '[p' + num + (t.length !== text.length ? ' — shortened; fetch "' + num + '" for all of it' : '') + '] ' : '') + who + ': ' + t);
+    left -= t.length + 80;
+  }
+  return { shown, index };
+}
 
 /* The <fetch> refs in a worker's answer, and whether a block was there at all. */
 export function fetchRefsIn(text) {

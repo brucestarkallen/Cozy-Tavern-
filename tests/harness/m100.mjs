@@ -1633,11 +1633,18 @@ test('M226: the extractor is given the story before the pages it can see', async
 
   /* the send path computes it for the pages OLDER than the ones it can see,
    * so nothing is told to the extractor twice */
-  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  /* M228: the same cut, now measured against a page count that reaches back
-   * to the record itself rather than a fixed four or eight */
-  assert(/foldedBefore = mem \? recordFor\(memoryForWindow\(mem, oldest\)\) : '';/.test(chat), 'only the lines older than the visible pages');
-  assert(/const oldest = Math\.max\(0, prior\.length - before\.length\);/.test(chat), 'measured from the pages it is already shown');
+  /* M228/M261: the cut lives in memory.js storySoFar now, and is RUN here:
+   * the record lines older than the pages shown, measured from those pages */
+  {
+    const { storySoFar } = await import('../../js/agents/memory.js');
+    const msgs = Array.from({ length: 20 }, (_, i) => ({ id: 'p' + i, role: i % 2 ? 'assistant' : 'user', text: 'page ' + (i + 1) }));
+    const memo = { window: 20, nodes: [{ id: 'n1', span: [0, 5], level: 1, text: 'LINE-A', at: 1 }, { id: 'n2', span: [6, 11], level: 1, text: 'LINE-B', at: 2 }] };
+    const told = storySoFar(msgs, memo, 'p19');
+    assert(told.record.includes('LINE-A') && told.record.includes('LINE-B'), 'only the lines older than the visible pages');
+    eq(told.before.map((b) => b.number).join(','), '13,14,15,16,17,18', 'measured from the pages it is already shown — the record and the pages meet');
+    assert(!told.before.some((b) => b.text === 'page 19'), 'the writer\'s page of this pair is read with the page, not twice');
+    eq(told.number, 20, 'and the page knows its own number');
+  }
   /* M259: AND THE CALL CARRIES IT. This law read chat.js for the words
    * "record: foldedBefore" and passed for weeks while extractTurn threw the
    * record away on arrival. It runs the call now. */
@@ -1691,14 +1698,19 @@ test('M227: the scribe sees the loose ends it is meant to close', async () => {
  * his settings — have no line yet, and the extractor saw four. So sixteen
  * pages were too NEW for the record and too OLD for its window, and were read
  * by NOTHING: a hole that moved forward with the story and never closed. */
-test('M228: no page is read by nobody — the record and the pages meet', () => {
-  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/const foldedTo = mem \? Math\.max\(0, \.\.\.\(mem\.nodes \|\| \[\]\)/.test(chat),
-    'it finds the last page the record covers');
-  assert(/const unfolded = Math\.max\(deep \? 8 : 4, Math\.min\(UNFOLDED_MAX, prior\.length - foldedTo\)\);/.test(chat),
-    'and reads back to exactly there');
-  assert(/const UNFOLDED_MAX = 30;/.test(chat), 'with a cap for when the keeper is off entirely');
-  assert(!/before = prior\.slice\(deep \? -8 : -4\)/.test(chat), 'never a fixed four or eight again');
+test('M228: no page is read by nobody — the record and the pages meet', async () => {
+  /* M261: RUN, not read — memory.js storySoFar is where the cut lives now */
+  const { storySoFar, STORY_SO_FAR_MOST } = await import('../../js/agents/memory.js');
+  const msgs = Array.from({ length: 40 }, (_, i) => ({ id: 'q' + i, role: i % 2 ? 'assistant' : 'user', text: 'page ' + (i + 1) }));
+  const read = storySoFar(msgs, { window: 20, nodes: [{ id: 'm1', span: [0, 17], level: 1, text: 'L', at: 1 }] }, 'q39');
+  eq(read.before[0].number, 19, 'it finds the last page the record covers');
+  eq(read.before[read.before.length - 1].number, 38, 'and reads back to exactly there, up to the page before this one');
+  eq(storySoFar(msgs, { window: 20, nodes: [{ id: 'm2', span: [0, 36], level: 1, text: 'L', at: 1 }] }, 'q39').before.length, 4, 'never fewer than four');
+  eq(storySoFar(msgs, { window: 20, nodes: [{ id: 'm3', span: [0, 36], level: 1, text: 'L', at: 1 }] }, 'q39', { least: 8 }).before.length, 8, 'eight on a deep read');
+  const tale = Array.from({ length: 300 }, (_, i) => ({ id: 't' + i, role: i % 2 ? 'assistant' : 'user', text: 'p' }));
+  eq(storySoFar(tale, null, 't299').before.length, STORY_SO_FAR_MOST, 'with a cap for when the keeper is off entirely');
+  const hid = msgs.map((m, i) => (i === 30 ? { ...m, hidden: true } : m));
+  assert(!storySoFar(hid, null, 'q39').before.some((b) => b.text === 'page 31'), 'a hidden page is never part of it');
 
   /* the arithmetic, on the writer's own shelf: 118 pages, window 20, batch 6 */
   const pages = 118;
@@ -2219,9 +2231,8 @@ test('M249: the world agent is given the story it is told to fill a life from', 
   const without = buildWorldMessages({ state: st, userText: 'x', assistantText: 'y', before: [] });
   assert(!/THE STORY SO FAR/.test(without.user), 'and no record adds nothing at all');
 
-  /* the send path computes it for the pages older than the ones it can see */
-  const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/worldRecord = recordFor\(memoryForWindow\(mem, oldest\)\);/.test(chat), 'only the lines older than the visible pages');
+  /* M261: the send path hands the world agent memory.js storySoFar — run in
+   * M226/M228, and seen in the real chain in DOM-21 */
   /* M259: AND THE CALL CARRIES IT — worldTurn dropped it on arrival */
   const { worldTurn } = await import('../../js/agents/world.js');
   const { saveState } = await import('../../js/engine/state.js');

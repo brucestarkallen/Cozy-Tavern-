@@ -575,7 +575,8 @@ test('M259-18: the auditor is shown what fits, looks for the rest, and a reading
     issuesAnswer([{ what: 'Rias witnessed Caleb’s sale on page 10 and has no line for it', fix: 'add it', pages: false,
       mutations: [{ type: 'knowledge.add', name: 'Rias Wells', fact: 'that Caleb sold the photos' }] }]),
   ]);
-  const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief: longBrief, stale: () => false }));
+  /* a small house, so not every unfolded page fits and the index is used */
+  const r = await withHouse(house, () => auditLedger({ connection: { ...CONN, contextSize: 70000 }, storyId, brief: longBrief, stale: () => false }));
   const first = bodyText(house.calls[0]);
   assert(first.includes('STORY-PAGE-30-ENDS'), 'the present page is shown to its end');
   assert(!first.includes('THE-OLD-FACT'), 'an older unfolded page past the view is not shown whole…');
@@ -673,4 +674,115 @@ test('M259-20: one server for everyone who looks — search, the brief, and a ro
   await withHouse(garbled, () => askWithFetch(CONN, { system: 's', user: 'u', maxTokens: 100, isAnswer: (t) => /"issues"/.test(t), source: { messages: big } }));
   eq(garbled.calls.length, 2, 'an unreadable fetch is answered once, plainly');
   assert(/could not be read/.test(bodyText(garbled.calls[1])), 'with how to ask');
+});
+
+/* ---------- M261: one story so far, and a ledger that does not go stale ---------- */
+
+test('M259-21: the extractor and the world agent read the story so far whole, with room left to look; the housekeeper sees the whole ledger', async () => {
+  const before = [];
+  for (let i = 1; i <= 12; i += 1) before.push({ role: i % 2 ? 'user' : 'assistant', text: 'CONTEXT PAGE ' + i + ' ' + 'c'.repeat(i % 2 ? 50 : 9000) + ' END-' + i, number: i });
+  const st = bigLedger();
+  const eh = thinkingHouse({ answer: '{"mutations":[{"type":"mode.snapshot","flags":[]}]}' });
+  await withHouse(eh, () => extractTurn({ connection: CONN, state: st, userText: 'u', assistantText: 'The new page.', founding: false, before, pageNumber: 13 }));
+  const sent = bodyText(eh.calls[0]);
+  const ends = (text, i) => new RegExp('END-' + i + '(?!\\d)').test(text);
+  for (let i = 1; i <= 12; i += 1) assert(ends(sent, i), 'the extractor reads page ' + i + ' whole');
+  assert(/ALREADY READ/.test(sent) && /ONLY THE NEW PAGE IS NEWS/.test(sent), 'and is told the pages before are not news');
+
+  /* a small house: the newest fit, the rest stand by number, and room is kept for looking */
+  const small = { ...CONN, contextSize: 20000 };
+  const sh = thinkingHouse({ answer: '{"mutations":[{"type":"mode.snapshot","flags":[]}]}' });
+  await withHouse(sh, () => extractTurn({ connection: small, state: emptyState(), userText: 'u', assistantText: 'The new page.', founding: false, before, pageNumber: 13 }));
+  const ss = bodyText(sh.calls[0]);
+  assert(ends(ss, 12) && !ends(ss, 2), 'the newest pages whole, the oldest not');
+  assert(/p2 The storyteller — CONTEXT PAGE 2/.test(ss), 'the oldest stand in the index by number');
+  const { roomChars, LOOK_RESERVE } = await import('../../js/agents/lookup.js');
+  const size = sh.calls[0].body.messages.reduce((n, mm) => n + String(mm.content || '').length, 0);
+  assert(size <= roomChars(small, 4000) * 0.7 + 2000, 'the view leaves room to look — at most 70% of the room: ' + size + ' of ' + roomChars(small, 4000));
+  eq(LOOK_RESERVE, 0.3, 'three tenths of every room are kept for looking');
+
+  const storyId = 'm259-world-window';
+  await saveState(storyId, bigLedger());
+  const wh = thinkingHouse({ answer: '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null,"voices":[]}}' });
+  await withHouse(wh, () => worldTurn({ connection: CONN, storyId, userText: 'u', assistantText: 'The new page.', before, pageNumber: 13, stale: () => false }));
+  const ws = bodyText(wh.calls[0]);
+  for (let i = 1; i <= 12; i += 1) assert(ends(ws, i), 'the world agent reads page ' + i + ' whole');
+
+  const { buildHousekeeperContext } = await import('../../js/agents/housekeeper.js');
+  const hk = buildHousekeeperContext({ story: { title: 't', brief: 'b' }, messages: [], state: bigLedger(), modules: [], lore: [], memory: null, session: null, contextPages: 12 });
+  for (const [i, n] of NAMES.entries()) assert(hk.includes(n + ' — P:' + (80 - i * 5)), 'the housekeeper sees every standing: ' + n);
+  assert(hk.includes('Thread number 8 about') && hk.includes('distinct fact number 0 ') && hk.includes('The ground: the Wells kitchen.'), 'every thread, every fact, and the ground');
+});
+
+test('M259-22: nothing in the ledger goes stale by itself — the ground, the threads, the beats', async () => {
+  const { undoLast } = await import('../../js/engine/apply.js');
+  let st = applyMutations(emptyState(), [
+    { type: 'place.set', name: 'The Wells Residence' },
+    { type: 'presence.enter', name: 'Rias Wells', position: 'by the stove', attire: 'apron' },
+    { type: 'presence.enter', name: 'Jovan', position: 'at the table' },
+  ]).state;
+  const same = applyMutations(st, [{ type: 'place.set', name: 'wells residence' }]);
+  eq(same.rejected[0] && same.rejected[0].same, true, '"The Wells Residence" and "wells residence" are one place');
+  eq(same.state.present[0].position, 'by the stove', 'and nobody\'s position moves');
+  const moved = applyMutations(st, [{ type: 'place.set', name: 'the garden' }, { type: 'presence.update', name: 'Jovan', position: 'on the bench' }]);
+  eq(moved.state.present.find((p) => p.name === 'Rias Wells').position, undefined, 'the ground moving lets "by the stove" go');
+  eq(moved.state.present.find((p) => p.name === 'Rias Wells').attire, 'apron', 'dress stays');
+  eq(moved.state.present.find((p) => p.name === 'Jovan').position, 'on the bench', 'and the page\'s own positions are written after it');
+  const onlyMove = applyMutations(st, [{ type: 'place.set', name: 'the garden' }]).state;
+  const back = undoLast(onlyMove);
+  eq(JSON.stringify(back.state.present), JSON.stringify(st.present), 'a take-back puts every position back, exactly');
+  eq(back.state.place.name, 'The Wells Residence', 'and the ground');
+
+  const { threadHousekeeping, THREAD_COOL_PAGES } = await import('../../js/engine/world.js');
+  const threads = [
+    { title: 'Old promise of the lake trip', owner: 'Rias', heat: 'hot', atTurn: 2 },
+    { title: 'Fresh quarrel', owner: 'Jovan', heat: 'hot', atTurn: 20 },
+    { title: 'Already cold', heat: 'cold', atTurn: 1 },
+    { title: 'Old but moved on this page', heat: 'hot', atTurn: 1 },
+  ];
+  const now = 2 + THREAD_COOL_PAGES;
+  const cool = threadHousekeeping(threads, now, ['old but moved on this page']);
+  eq(cool.map((m) => m.title + ':' + m.heat).join('|'), 'Old promise of the lake trip:cold', 'only a hot thread untouched for ' + THREAD_COOL_PAGES + ' pages cools — never one this page moves');
+  eq(threadHousekeeping(threads, now - 1, []).length, 1, 'one page short of the age, the lake trip stays hot (the other old one is spared by nobody here)');
+  let ts = applyMutations(emptyState(), [{ type: 'thread.set', title: 'Old promise of the lake trip', owner: 'Rias', heat: 'hot' }]).state;
+  ts = { ...ts, page: 40 };
+  const cooled = applyMutations(ts, threadHousekeeping(ts.threads, 41, []));
+  eq(cooled.state.threads[0].heat, 'cold', 'applied, it goes cold and stays on the list');
+
+  let rs = applyMutations(emptyState(), [{ type: 'rel.shift', name: 'Caleb', axis: 'p', delta: 5, cause: 'he brought her coffee at dawn' }]).state;
+  const again = applyMutations(rs, [{ type: 'rel.shift', name: 'Caleb', axis: 'p', delta: 5, cause: 'At dawn he brought her coffee.' }]);
+  eq(again.rejected[0] && again.rejected[0].same, true, 'the same beat in other order is already counted');
+  eq(again.state.relationships.Caleb.p, 5, 'and the standing does not move twice');
+  eq(applyMutations(rs, [{ type: 'rel.shift', name: 'Caleb', axis: 'p', delta: 5, cause: 'he stood up for her in front of Vanessa' }]).applied.length, 1, 'a new beat counts');
+  eq(applyMutations(rs, [{ type: 'rel.shift', name: 'Caleb', axis: 'p', delta: -5, cause: 'he brought her coffee at dawn' }]).applied.length, 1, 'the same words the other way is a different beat');
+  rs = applyMutations(emptyState(), [{ type: 'rel.shift', name: 'Aurora', axis: 'p', delta: 3, cause: 'she lent him 20 dollars' }]).state;
+  eq(applyMutations(rs, [{ type: 'rel.shift', name: 'Aurora', axis: 'p', delta: 3, cause: 'she lent him 50 dollars' }]).applied.length, 1, 'a figure is never noise');
+});
+
+test('M259-23: the ledger is kept on a page the auditor does not read', async () => {
+  const { ledgerUpkeep } = await import('../../js/agents/auditor.js');
+  const storyId = 'm259-upkeep';
+  let st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+  st.characters = {
+    'Old Passerby': { core: 'a cab driver', state: '', arc: '', threads: [], updatedAtTurn: 0 },
+    'Rias Wells': { core: 'his sister', state: '', arc: '', threads: [], updatedAtTurn: 0 },
+  };
+  st = applyMutations(st, [
+    { type: 'presence.enter', name: 'Jovan' },
+    { type: 'rel.set', name: 'Rias Wells', p: 60, cause: 'the brief says she is his sister' },
+    { type: 'offscreen.set', name: 'Cab Driver', location: 'the rank', activity: 'waiting for fares', stance: 'busy' },
+  ]).state;
+  st.offscreen['Cab Driver'].atTurn = 0;
+  st = { ...st, page: 50 };
+  await saveState(storyId, st);
+  await db.messages.append(storyId, { role: 'user', text: 'I walk home.' });
+  await db.messages.append(storyId, { role: 'assistant', text: 'Jovan walks home alone through the rain.' });
+  const r = await ledgerUpkeep({ storyId, brief: 'Jovan and his sister.', castNotes: '' });
+  const after = await loadState(storyId);
+  eq(Boolean(after.characters['Old Passerby'].retired), true, 'one who passed through long ago retires');
+  eq(Boolean(after.characters['Rias Wells'].retired), false, 'one with a bond stays');
+  eq(Boolean(after.offscreen['Cab Driver']), false, 'a seat nothing carries is cleared');
+  assert(r.applied.length >= 2 && after.log.some((l) => /Old Passerby/.test(l.words)), 'and each change is in the log, with its take-back');
+  const again = await ledgerUpkeep({ storyId, brief: 'Jovan and his sister.' });
+  eq(again.applied.length, 0, 'a kept ledger needs nothing the next time');
 });

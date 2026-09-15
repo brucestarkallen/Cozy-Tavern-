@@ -53,7 +53,7 @@ import { renderOffscreen } from '../engine/offscreen.js';
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
 import { STANCES } from '../engine/world.js';
-import { askWithFetch, fetchLaw } from './lookup.js'; /* M259: it may look for what it was not shown */
+import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
 import { renderAllThreads, renderAllKnowledge, renderAllFactions, wholePage } from '../engine/whole.js'; /* M259: every thread, every line of who knows what, every faction; the page read to its end */
 
 const MAX_TOKENS = 6000; /* M37: room for a long founding even if a house thinks a little anyway */
@@ -265,7 +265,7 @@ function spokenVoices(voicesBefore) {
 }
 
 export const WORLD_LOOKS = 2;
-export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0 }) {
+export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
   const known = mcName(state);
@@ -317,11 +317,12 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     ...(cores ? ['THE PEOPLE, AS THE LEDGER KNOWS THEM:', cores, ''] : []),
     ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 12000), FENCE, ...(String(brief).trim().length > 12000 ? ['(the brief goes on — fetch "brief" for all of it)'] : []), ''] : []),
     ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 8000), FENCE, ...(String(castNotes).trim().length > 8000 ? ['(the cast notes go on — fetch "cast" for all of it)'] : []), ''] : []),
-    ...(before.length ? ['THE PAGES JUST BEFORE:', FENCE, before.map((b) => {
-      const shown = wholePage(b.text, 3000);
-      const label = Number.isInteger(b.number) && b.number > 0 ? '[p' + b.number + (shown.length !== String(b.text || '').length ? ' — shortened; fetch "' + b.number + '" for all of it' : '') + '] ' : '';
-      return label + (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + shown;
-    }).join('\n\n'), FENCE, ''] : []),
+    ...(before.length ? (() => {
+      /* M261: the story so far, whole, newest first, into the room */
+      const w = windowOfPages(before, contextBudget);
+      return ['THE PAGES JUST BEFORE (already read — the world they show is already written):', FENCE, w.shown.join('\n\n') || '(none fit — fetch them by number)', FENCE,
+        ...(w.index.length ? ['Earlier pages not shown above (fetch any by its number):', ...w.index] : []), ''];
+    })() : []),
     ...(Number.isInteger(pageNumber) && pageNumber > 0 ? ['(The storyteller\'s page below is page ' + pageNumber + ' of the story; every earlier page can be fetched by its number.)'] : []),
     'THE WRITER JUST WROTE:',
     FENCE,
@@ -382,7 +383,9 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   const state = await loadState(storyId);
   /* M259: THE RECORD RIDES. chat.js has handed it over since M249; this line
    * dropped it on arrival. */
-  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore, jumpedMinutes, record, pageNumber });
+  const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, voicesBefore, jumpedMinutes, record, pageNumber });
+  const contextBudget = viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length);
+  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore, jumpedMinutes, record, pageNumber, contextBudget });
   /* M31: an answer we can't use earns ONE second ask with a sharper word;
    * the raw answer rides out so the drawer can show it. */
   let read = null;
@@ -397,6 +400,8 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
       effort,
       signal,
       renew,
+      leash: leashFor,
+      room: roomChars(connection, MAX_TOKENS),
       rounds: attempt === 0 ? WORLD_LOOKS : 1,
       isAnswer: (t) => { const r = parseWorldAnswer(t); return r.note !== 'unusable' && r.note !== 'cut short'; },
       source: { storyId, story: story || { brief, castNotes } },

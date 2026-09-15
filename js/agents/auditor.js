@@ -32,7 +32,7 @@ import { findThread } from '../engine/world.js';
  * six standings, five threads, four things a person knows, no ground at all.
  * It reads the whole ledger now (engine/whole.js). */
 import { renderWholeLedger, wholePage, PAGE_CAP } from '../engine/whole.js';
-import { askWithFetch, fetchLaw } from './lookup.js'; /* M259: it looks for what it was not shown */
+import { askWithFetch, fetchLaw, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259: it looks for what it was not shown */
 import { messageIndexLine, refOf } from './housekeeper.js';
 import { mcName } from '../engine/duels.js';
 import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
@@ -42,16 +42,13 @@ import { pageText } from '../assemble/stack.js';
 const MAX_TOKENS = 6000;
 export const DEFAULT_AUDIT_EVERY = 1; /* turns — M94: every page, as Summaryception's continuity auditor runs on every line */
 export const AUDIT_PAGES = 10;        /* the fewest pages the auditor reads word for word (and the mender's reach) */
-/* M259: every page the record has not yet folded, up to AUDIT_PAGES_MAX, so
- * no page is read by nobody — the record holds the folded ones, the auditor
- * reads the rest word for word, each to its end. */
-export const AUDIT_PAGES_MAX = 40;
+/* M259: a page is read to its end (engine/pagecut.js); past this, its middle is
+ * shortened and it says how to fetch it whole. */
 export const AUDIT_PAGE_CAP = 24000;
-/* M259: the pages shown whole by default. The rest stand in an index and are
- * served whole the moment the auditor asks — a reading that must hold forty
- * long pages every turn is slow and dear, and a model reads a haystack less
- * carefully than a page it chose. */
-export const AUDIT_VIEW_CHARS = 100000;
+/* M261: QUALITY FIRST. Every page the record has not folded is shown whole,
+ * into the connection's whole room — the writer's order: the auditor sees
+ * all of them. Only what does not fit stands in the index, to be fetched. */
+export const AUDIT_VIEW_CHARS = Infinity;
 export const AUDIT_RECORD_CAP = 120000; /* the whole record — not the storyteller's 30,000 */
 const BRIEF_CAP = 40000;                /* the brief is the first authority; it was cut at 4,000 */
 const CAST_CAP = 20000;
@@ -87,8 +84,8 @@ function law({ mc }) {
     'THE LEDGER YOU ARE SHOWN IS ALL OF IT: every standing, every open thread, every line of who',
     'knows what, every seat, every lock. A thing not listed is not in the ledger; a thing listed in',
     'other words is ALREADY in it — never write it again. Name a thread exactly as its title is quoted.',
-    'THE PAGES ARE NOT ALL SHOWN: the newest are shown whole, the other pages the record has not',
-    'folded stand in an index, and every page of the story can be fetched by its number.',
+    'THE PAGES: every page the record has not folded is shown whole when it fits; any that do not',
+    'fit stand in an index, and every page of the story, folded or not, can be fetched by its number.',
     '',
     fetchLaw({ when: 'Look before you judge: never report something missing, wrong or unwritten on the strength of a page you were not shown whole — fetch it (or find the words) first. A record line names the pages it covers; fetch them to check the line.' }),
     '',
@@ -220,7 +217,7 @@ export function buildAuditorMessages({ state, brief = '', castNotes = '', record
     'THE RECORD (the folded pages, oldest to newest; each line names the pages it covers):',
     FENCE, String(record || '').trim() || '(nothing recorded yet)', FENCE,
     '',
-    'THE NEWEST PAGES, word for word (the last is the present):',
+    'THE PAGES THE RECORD HAS NOT YET FOLDED, word for word (the last is the present):',
     FENCE,
     (Array.isArray(pages) ? pages : []).map((p) => {
       const label = Number.isInteger(p.ordinal)
@@ -231,7 +228,7 @@ export function buildAuditorMessages({ state, brief = '', castNotes = '', record
     FENCE,
     '',
     ...(Array.isArray(index) && index.length
-      ? ['THE OTHER PAGES THE RECORD HAS NOT YET FOLDED — not shown above; fetch any by its number:', ...index, '']
+      ? ['MORE PAGES THE RECORD HAS NOT FOLDED — no room to show them above; fetch any by its number:', ...index, '']
       : []),
     ...(pageCount ? ['The story has ' + pageCount + ' pages; any of them, folded or not, is served whole by its number.', ''] : []),
     'THE LEDGER, ALL OF IT (as it stood before the latest page):',
@@ -293,8 +290,7 @@ export function auditLeashMs(prompt) {
 }
 
 export function auditRoomChars(connection) {
-  const size = connection && typeof connection.contextSize === 'number' && connection.contextSize > 0 ? connection.contextSize : 128000;
-  return Math.max(30000, Math.floor((size - MAX_TOKENS - 2000) * 3));
+  return roomChars(connection, MAX_TOKENS); /* M261: one measure of a room, for every reader */
 }
 
 /* M259: what the auditor is shown of the pages the record has not folded —
@@ -317,7 +313,7 @@ export function auditView(list, foldedTo, budget = AUDIT_VIEW_CHARS) {
     const isLatest = latestStory && m.role === 'assistant';
     if (isLatest) latestStory = false;
     const t = wholePage(text, isLatest ? PAGE_CAP : AUDIT_PAGE_CAP);
-    if (!isLatest && (!full || shown.length >= AUDIT_PAGES_MAX || t.length + 60 > left)) {
+    if (!isLatest && (!full || t.length + 60 > left)) {
       full = false;
       index.unshift('p' + (i + 1) + ' ' + messageIndexLine(m));
       continue;
@@ -350,7 +346,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const record = recordWithPages(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35))));
   const foldedTo = Math.max(0, ...((mem && Array.isArray(mem.nodes)) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1));
   const bare = buildAuditorMessages({ state, brief, castNotes, record, pages: [], pageCount: all.length });
-  const view = auditView(all, foldedTo, Math.min(AUDIT_VIEW_CHARS, room - bare.system.length - bare.user.length));
+  const view = auditView(all, foldedTo, Math.min(AUDIT_VIEW_CHARS, viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length)));
   if (!view.shown.length) return null;
   const prompt = buildAuditorMessages({ state, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length });
   let read = null;
@@ -362,7 +358,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
      * housekeeper's words, served by the housekeeper's server */
     const { text, finishReason, looked: seen } = await askWithFetch(connection, {
       system: prompt.system, user, maxTokens: MAX_TOKENS, signal, renew,
-      leash: (size) => 60000 + Math.ceil(size / 4000) * 1000,
+      leash: leashFor,
       isAnswer: (t) => parseAuditorAnswer(t).note === 'ok',
       source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes } },
       room,
@@ -460,6 +456,31 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   await saveState(storyId, out);
   notify(storyId);
   return { applied, rejected, issues, note: 'ok', raw, looked };
+}
+
+/* M261: THE LEDGER'S UPKEEP DOES NOT WAIT FOR THE AUDITOR. Retiring those who
+ * passed through, sweeping the house's own example names, clearing seats
+ * nothing carries — all of it is code, and all of it ran only inside an audit.
+ * Switch the auditor off, or read every fifth page, and the ledger stopped
+ * being kept. This is the same upkeep, alone, for a page the auditor does not
+ * read; every change is journaled like any other, with its take-back. */
+export async function ledgerUpkeep({ storyId, brief = '', castNotes = '', stale } = {}) {
+  if (!storyId) return null;
+  const fresh = await loadState(storyId);
+  const all = answeredOnly((await db.messages.list(storyId)).filter((m) => !m.hidden));
+  const list = [
+    ...peopleHousekeeping(fresh),
+    ...exampleLeakHousekeeping(fresh, brief, castNotes),
+    ...seatHousekeeping(fresh, { brief, castNotes, pages: all.map((m) => ({ role: m.role, text: pageText(m) })) }),
+  ];
+  if (!list.length) return { applied: [], rejected: [] };
+  if (stale && stale()) return null;
+  const { state: next, applied, rejected } = applyMutations(fresh, list);
+  if (applied.length) {
+    await saveState(storyId, next);
+    notify(storyId);
+  }
+  return { applied, rejected };
 }
 
 /* M57: who has passed through. A person retires when ALL hold: not present;
