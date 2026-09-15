@@ -5050,3 +5050,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The writer found this by asking a question about punctuation. It would not have shown in any
   test, because a fake wire that never runs out of room never sets finishReason to 'length'.
 - 485/485 harness + 37/37 walk + 8/8 play. version.js -> m246-001.
+
+# M247 — a regression I shipped an hour earlier: a long line treated as a broken one
+- THE WRITER'S REBUILD STOPPED AT PAGES 25–30 OF 98. M243 re-asked whenever a line ran past TWENTY
+  phrases — but a rich scene legitimately does, and the writer's own good lines run to twenty-eight.
+  So EVERY batch paid an extra keeper call, and then M244's halving cut it to THREE pages. Twice
+  the calls for half the progress, on every single batch: a rebuild that looks like it stopped
+  early because it is crawling.
+- A LONG LINE IS NOT A BROKEN LINE. Only one that lost its end is. The re-ask and the halving fire
+  on a cut alone now — the house's own (answerWasCut) or the wire's (keeperWasTruncated, M246).
+  Measured on the writer's shelf with a keeper writing dense 24-phrase COMPLETE lines: 16/16,
+  sixteen lines, every one a full six pages, 72 calls where it had been paying nearly twice that.
+- The two fixtures that had covered M243 and M244 used a long-but-uncut answer, so they were
+  testing the wrong trigger and went green on the regression. They exceed the cap properly now.
+- 486/486 harness + 37/37 walk + 8/8 play. version.js -> m247-001.

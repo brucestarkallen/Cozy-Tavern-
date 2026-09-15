@@ -1005,7 +1005,13 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * with the overrun named; the shorter honest answer wins, and only if
      * that fails too is the cut one kept, because a cut line still beats no
      * line. */
-    if (answerWasCut() || keeperWasTruncated() || phraseCount(text) > 20) {
+    /* M247: ONLY A LINE THAT WAS ACTUALLY CUT. M243 also re-asked whenever a
+     * line ran past twenty phrases — but a rich scene legitimately does, and
+     * the writer's own good lines run further. So every batch paid an extra
+     * keeper call and then got HALVED to three pages, doubling the work and
+     * halving the progress: a rebuild that looked like it had stopped early.
+     * A long line is not a broken line. Only one that lost its end is. */
+    if (answerWasCut() || keeperWasTruncated()) {
       try {
         if (typeof renew === 'function') renew();
         const tooLong = buildMemoryMessages(pages, { playerName, record: recordFor(mem) });
@@ -1029,7 +1035,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * three: two complete lines, nothing lost, and the next round picks up
      * the rest. The batch is only halved for THIS fold — the writer's own
      * setting is untouched. */
-    if ((answerWasCut() || keeperWasTruncated() || phraseCount(text) > 20) && pages.length > 1) {
+    if ((answerWasCut() || keeperWasTruncated()) && pages.length > 1) {
       const half = Math.max(1, Math.floor(pages.length / 2));
       try {
         if (typeof renew === 'function') renew();

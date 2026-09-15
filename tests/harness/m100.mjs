@@ -1917,7 +1917,9 @@ test('M243: a line that overran is written again, not stored cut', async () => {
   await db.settings.set('memoryBatch', 6);
   await saveMemory(st.id, { window: 20, nodes: [] });
 
-  const huge = Array.from({ length: 40 }, (_, i) => 'phrase number ' + i + ' about a thing that happened at some length here').join('; ');
+  /* M247: genuinely PAST the 4000 cap — a merely long line is not a broken
+   * one and no longer triggers the re-ask */
+  const huge = Array.from({ length: 90 }, (_, i) => 'phrase number ' + i + ' about a thing that happened at some considerable length here indeed').join('; ');
   const real = globalThis.fetch;
   let call = 0;
   let asked = '';
@@ -1963,7 +1965,7 @@ test('M244: a second overrun folds fewer pages, and no page is skipped', async (
   await db.settings.set('memoryBatch', 6);
   await saveMemory(st.id, { window: 20, nodes: [] });
 
-  const huge = Array.from({ length: 40 }, (_, i) => 'phrase ' + i + ' about a thing that happened at some length here indeed').join('; ');
+  const huge = Array.from({ length: 90 }, (_, i) => 'phrase ' + i + ' about a thing that happened at some considerable length here indeed').join('; ');
   const real = globalThis.fetch;
   let call = 0;
   globalThis.fetch = async () => {
@@ -2037,4 +2039,53 @@ test('M246: a line the wire cut is not stored as a finished line', async () => {
   assert(/lastKeeperWasTruncated = String\(finishReason \|\| ''\)\.toLowerCase\(\) === 'length';/.test(src), 'and reads it');
   eq((src.match(/keeperWasTruncated\(\)/g) || []).length, 5,
     'and every place that handles a cut handles this one too — the overrun ask, its test, the halving, and its test');
+});
+
+/* M247: the writer's rebuild stopped at Pages 25–30 of 98 — a regression I
+ * had shipped an hour earlier. M243 re-asked whenever a line ran past twenty
+ * phrases, but a rich scene legitimately does (his own good lines run to
+ * twenty-eight), so EVERY batch paid an extra keeper call and then got HALVED
+ * to three pages. Twice the calls for half the progress. A long line is not a
+ * broken line; only one that lost its end is. */
+test('M247: a long line is left alone — only a cut one is re-asked', async () => {
+  const { db } = await import('../../js/store.js');
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { rebuildRecord } = await import('../../js/agents/rebuild.js');
+  const { workerSignal } = await import('../../js/agents/status.js');
+
+  const st = await db.stories.create({ title: 'a hundred and eighteen pages of dense scenes' });
+  for (let i = 0; i < 118; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 20);
+  await db.settings.set('memoryBatch', 6);
+  await saveMemory(st.id, { window: 20, nodes: [] });
+
+  /* a keeper writing DENSE but COMPLETE lines — 24 phrases, well under the cap */
+  const dense = '[Sept 1] ' + Array.from({ length: 24 }, (_, i) => 'Jovan did thing ' + i).join('; ');
+  const real = globalThis.fetch;
+  let call = 0;
+  globalThis.fetch = async () => {
+    call += 1;
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: dense } }] }) + '\n\n'
+      + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  const seen = [];
+  try {
+    const w = workerSignal(60000);
+    await rebuildRecord({ connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' },
+      storyId: st.id, renew: w.renew, signal: w.signal, onProgress: (p) => seen.push([p.batch, p.batches]) });
+  } finally { globalThis.fetch = real; }
+
+  const nodes = (await loadMemory(st.id)).nodes;
+  eq(seen[seen.length - 1][0], seen[seen.length - 1][1], 'the rebuild reaches its end: ' + seen[seen.length - 1].join('/'));
+  eq(nodes.length, 16, 'sixteen lines for a hundred and eighteen pages');
+  for (const n of nodes) {
+    eq(n.span[1] - n.span[0] + 1, 6, 'every line covers a FULL batch — none halved for being merely long');
+  }
+
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  assert(/if \(answerWasCut\(\) \|\| keeperWasTruncated\(\)\) \{/.test(src), 'the re-ask fires on a cut, not on length');
+  assert(!/phraseCount\(text\) > 20/.test(src), 'a phrase count never triggers it');
 });
