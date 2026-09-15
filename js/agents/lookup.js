@@ -17,17 +17,14 @@ import { callWorker } from './call.js';
 import { db } from '../store.js';
 import { loadMemory } from './memory.js';
 import { parseFetchRefs, serveFetch } from './housekeeper.js';
-import { wholePage as wholePageLocal } from '../engine/pagecut.js';
+import { wholePage as wholePageLocal, roomChars } from '../engine/pagecut.js';
 
 export const WORKER_FETCH_ROUNDS = 3;
 
 /* M261: the room a connection has, in characters (about three a token, less
  * the answer's own budget). A connection with no size set is taken at 128,000
  * tokens, the smallest house the writer uses. */
-export function roomChars(connection, maxTokens = 6000) {
-  const size = connection && typeof connection.contextSize === 'number' && connection.contextSize > 0 ? connection.contextSize : 128000;
-  return Math.max(30000, Math.floor((size - maxTokens - 2000) * 3));
-}
+export { roomChars } from '../engine/pagecut.js';
 
 /* M261: A VIEW LEAVES ROOM TO LOOK. A reader's view that filled the whole room
  * left nothing for the pages it then asked for — the first was served and the

@@ -42,7 +42,7 @@ import { withFictionFrame } from './voice.js'; /* M21: the workers never break t
 import { callWorker as sharedCall } from './call.js'; /* M28: the one wire path for workers */
 import { loadState } from '../engine/state.js';
 import { mcName } from '../engine/duels.js';
-import { wholePage } from '../engine/pagecut.js'; /* M259: every page of a batch, read to its end */
+import { wholePage, roomChars } from '../engine/pagecut.js'; /* M259: every page of a batch, read to its end; M265: the room */
 
 const KEY_PREFIX = 'memory:';
 const MAX_TOKENS = 1600; /* one dense line, or one merged line; thinking is off on the wire (M28) */
@@ -60,7 +60,11 @@ export const NOTES_PER_PROMOTION = 2;
 export const MAX_LAYERS = 9;
 export const SHRINK_FLOOR = 0.4;       /* a merge shorter than this share of its sources is asked again */
 export const SLOT_BUDGET = 30000;      /* chars: the record rides whole; trimmed from the oldest only when it truly overflows */
-export const CONTEXT_CAP = 14000;      /* chars of the record shown to the summarizer as prior context (newest end) */
+export const CONTEXT_CAP = 14000;      /* the least the summarizer is shown of the record as prior context (M265: its room decides the rest) */
+/* M265: the keeper's prior context is as much of the record as its own room holds (Summaryception hands its summarizer all of it) */
+export function keeperRecordCap(connection) {
+  return Math.max(CONTEXT_CAP, Math.floor(roomChars(connection, 3000) * 0.4));
+}
 /* kept names — the M6/M12 contract published them */
 export const OVERFLOW = 0;
 export const L2_TRIGGER = NOTES_PER_LAYER;
@@ -171,7 +175,7 @@ export function renderMemory(mem, cap = SLOT_BUDGET) {
 /* The record as the summarizer is shown it: plain lines, newest end kept
  * within CONTEXT_CAP. `minLevel` lets a promotion see only the layers above
  * the one it is merging. */
-export function recordFor(mem, minLevel = 1) {
+export function recordFor(mem, minLevel = 1, cap = CONTEXT_CAP) {
   /* M216: THE DETAIL RIDES WITH ITS LINE HERE TOO. Only the storyteller's
    * copy (renderMemory) carried it — so the keeper writing the NEXT line
    * could not see that the line before it had been corrected, and would
@@ -179,10 +183,18 @@ export function recordFor(mem, minLevel = 1) {
    * record could not see it; the mender could not; the housekeeper could
    * not. The one place a correction and a battle plan live was invisible to
    * every worker that needed them. */
+  /* M265: WHOLE LINES, AND ONLY WHEN IT MUST. This cut the text at a fixed
+   * 14,000 characters from the end — mid-line — for the keeper AND for the
+   * extractor and the world agent reading the story so far. Summaryception
+   * hands its summarizer every line of every layer. The cap is the caller's
+   * room now; past it the oldest WHOLE lines go, and a line says how many. */
   const lines = orderedLines(mem).filter((n) => n.level >= minLevel).map(lineWords);
-  let text = lines.join('\n');
-  if (text.length > CONTEXT_CAP) text = text.slice(text.length - CONTEXT_CAP);
-  return text;
+  const limit = Number.isFinite(cap) && cap > 0 ? cap : Infinity;
+  const note = (n) => (n ? '(' + n + ' earlier ' + (n === 1 ? 'line' : 'lines') + ' not shown — no room)\n' : '');
+  let dropped = 0;
+  /* the note counts inside the room it speaks of */
+  while (lines.length > 1 && (note(dropped) + lines.join('\n')).length > limit) { lines.shift(); dropped += 1; }
+  return note(dropped) + lines.join('\n');
 }
 
 /* M51: the WHOLE record, oldest to newest — what a reader of the whole story
@@ -264,7 +276,7 @@ function pageTextOf(m) {
   }
   return m && typeof m.text === 'string' ? m.text : (m && typeof m.content === 'string' ? m.content : '');
 }
-export function storySoFar(messages, mem, messageId, { least = 4, most = STORY_SO_FAR_MOST } = {}) {
+export function storySoFar(messages, mem, messageId, { least = 4, most = STORY_SO_FAR_MOST, recordCap = Infinity } = {}) {
   const ordered = visiblePages(messages);
   const atSelf = ordered.findIndex((m) => m && m.id === messageId);
   const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
@@ -276,8 +288,15 @@ export function storySoFar(messages, mem, messageId, { least = 4, most = STORY_S
   const pages = context.slice(-count);
   const before = pages.map((m, k) => ({ role: m.role, text: pageTextOf(m), number: context.length - pages.length + k + 1 }));
   let record = '';
-  try { record = mem ? recordFor(memoryForWindow(mem, Math.max(0, context.length - pages.length))) : ''; } catch (err) { record = ''; }
+  try { record = mem ? recordFor(memoryForWindow(mem, Math.max(0, context.length - pages.length)), 1, recordCap) : ''; } catch (err) { record = ''; }
   return { before, record, number: atSelf === -1 ? 0 : atSelf + 1 };
+}
+
+/* M265: the record lines older than a page, with their details, in the
+ * room given — what a reader of the story's past is handed */
+export function recordLinesBefore(mem, pageIndex, cap = Infinity) {
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span) && n.span[1] < pageIndex);
+  return recordFor({ nodes }, 1, cap);
 }
 
 /* M259: the whole record with the pages each line covers (1-based, as the
@@ -962,7 +981,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
       const held = await loadMemory(storyId);
       const earlier = (held.nodes || []).filter((n) => n && Array.isArray(n.span)
         && Array.isArray(node.span) && n.span[1] < node.span[0]);
-      priorRecord = recordFor({ ...held, nodes: earlier });
+      priorRecord = recordFor({ ...held, nodes: earlier }, 1, keeperRecordCap(connection));
     } catch (err) { priorRecord = ''; }
     const auditRaw = await callKeeper(connection, buildAuditMessages(sourceText, node.text, priorRecord), signal);
     /* M195: a wrong fact is REPAIRED IN THE LINE; only what the line never
@@ -1103,7 +1122,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * dead at batch 3 of 16 and read "nothing to rebuild". */
     if (typeof renew === 'function' && !renew()) break;
     const pages = history.slice(range[0], range[1]);
-    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem) }), signal);
+    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal);
     let text = parseMemoryAnswer(raw);
     if (!text) break; /* the worker went quiet — these pages wait for next time */
     /* M242: A LINE THAT OVERRAN IS NOT A LINE. It was stored cut — five of the
@@ -1121,7 +1140,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     if (answerWasCut() || keeperWasTruncated()) {
       try {
         if (typeof renew === 'function') renew();
-        const tooLong = buildMemoryMessages(pages, { playerName, record: recordFor(mem) });
+        const tooLong = buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) });
         tooLong.user += '\n\nYour last answer ran past the limit and had to be CUT, losing its end. '
           + 'It had ' + phraseCount(text) + ' phrases; the hard limit is 15, or 18 for a scene with four or more named people. '
           + 'Write it again WITHIN the limit: keep every high-priority item (the writer\'s decisions, each named person\'s '
@@ -1147,7 +1166,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       try {
         if (typeof renew === 'function') renew();
         const firstHalf = parseMemoryAnswer(await callKeeper(
-          connection, buildMemoryMessages(pages.slice(0, half), { playerName, record: recordFor(mem) }), signal,
+          connection, buildMemoryMessages(pages.slice(0, half), { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal,
         ));
         if (firstHalf && firstHalf !== '(no new state)' && !answerWasCut() && !keeperWasTruncated()) {
           text = firstHalf;
@@ -1182,7 +1201,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     await saveMemory(storyId, mem);
     if (!node.empty) {
       const passage = passageOf(pages, playerName);
-      const recordBefore = recordFor({ nodes: mem.nodes.filter((n) => n.id !== node.id) });
+      const recordBefore = recordFor({ nodes: mem.nodes.filter((n) => n.id !== node.id) }, 1, keeperRecordCap(connection));
       await verify(connection, storyId, node, passage, recordBefore, playerName, signal, onSourceIssue);
       await audit(connection, storyId, node, passage, signal, await knownNamesOf(storyId), renew);
     }
@@ -1201,7 +1220,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     if (squeeze.mode === 'lines' ? layer.length <= squeeze.lines : (layer.length <= NOTES_PER_PROMOTION || recordChars(mem) <= room)) continue;
     const toMerge = layer.slice(0, NOTES_PER_PROMOTION);
     if (toMerge.length < 2) continue;
-    const record = recordFor(mem, level + 1);
+    const record = recordFor(mem, level + 1, keeperRecordCap(connection));
     if (typeof renew === 'function') renew();
     let raw = await callKeeper(connection, buildFoldMessages(toMerge, { playerName, record }), signal);
     let text = parseMemoryAnswer(raw);
@@ -1275,7 +1294,7 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
     /* the lines BEFORE this one are its prior context, exactly as they were
      * when it was first written — never the lines that come after it */
     const before = { ...mem, nodes: (mem.nodes || []).filter((n) => n && Array.isArray(n.span) && n.span[1] < node.span[0]) };
-    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before) }), signal);
+    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before, 1, keeperRecordCap(connection)) }), signal);
     const text = parseMemoryAnswer(raw);
     if (!text) return { ok: false, why: 'the keeper gave nothing back' };
     mem = await loadMemory(storyId);
@@ -1338,7 +1357,7 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
     const pages = history.slice(a, b + 1);
     if (!pages.length) return { ok: false, why: 'the pages behind that line are gone' };
     if (typeof renew === 'function') renew();
-    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }) }), signal);
+    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }, 1, keeperRecordCap(connection)) }), signal);
     const text = parseMemoryAnswer(raw);
     if (!text) return { ok: false, why: 'the keeper gave nothing back' };
     made.push(text === '(no new state)'

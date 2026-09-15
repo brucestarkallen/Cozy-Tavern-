@@ -1007,3 +1007,49 @@ test('M259-28: the writer chooses when the record squeezes; the record rides in 
   await db.settings.set('memorySqueeze', undefined);
   await db.settings.set('memoryWindow', undefined);
 });
+
+test('M259-29: NO SILENT CUT — every reader of the record gets it whole in its room; a cut is whole lines, and says so', async () => {
+  const { recordFor, storySoFar, keeperRecordCap, maybeSummarize, recordLinesBefore, CONTEXT_CAP } = await import('../../js/agents/memory.js');
+  const lines = Array.from({ length: 150 }, (_, i) => ({ id: 'node-nc' + i, span: [i * 6, i * 6 + 5], level: 1, text: 'NOCUT-LINE-' + i + ' ' + 'q'.repeat(500), at: i + 1, whole: true }));
+  const mem = { window: 20, nodes: lines };
+  const whole = recordFor(mem, 1, Infinity);
+  assert(whole.includes('NOCUT-LINE-0 ') && whole.includes('NOCUT-LINE-149 '), 'with room, every line');
+  const cut = recordFor(mem, 1, 20000);
+  assert(cut.length <= 20000 && cut.includes('NOCUT-LINE-149 ') && !cut.includes('NOCUT-LINE-0 '), 'without it, the newest kept');
+  assert(/^\(\d+ earlier lines not shown — no room\)\n- NOCUT-LINE-\d+ /.test(cut), 'whole lines only, and a line says how many went: ' + cut.slice(0, 80));
+  assert(keeperRecordCap({ contextSize: 128000 }) > 100000 && keeperRecordCap({ contextSize: 128000 }) > CONTEXT_CAP, 'the keeper is shown as much as its room holds');
+  const msgs = Array.from({ length: 1000 }, (_, i) => ({ id: 'nc' + i, role: i % 2 ? 'assistant' : 'user', text: 'p' + i }));
+  const told = storySoFar(msgs, mem, 'nc999');
+  assert(told.record.includes('NOCUT-LINE-0 '), 'the extractor and the world agent are told the whole story so far');
+  assert(recordLinesBefore(mem, 12).includes('NOCUT-LINE-1 ') && !recordLinesBefore(mem, 12).includes('NOCUT-LINE-2 '), 'a rebuild batch is told the lines before it');
+
+  /* the world agent: no second cut */
+  const sid = 'm259-nocut-world';
+  await saveState(sid, bigLedger());
+  const wh = thinkingHouse({ answer: '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null,"voices":[]}}' });
+  await withHouse(wh, () => worldTurn({ connection: CONN, storyId: sid, userText: 'u', assistantText: 'a page', record: whole, stale: () => false }));
+  const ws = sentText(wh.calls[0]);
+  assert(ws.includes('NOCUT-LINE-0 ') && ws.includes('NOCUT-LINE-149 '), 'the world agent reads the record it is handed, first line and last');
+
+  /* the keeper's own prior context */
+  const ksid = 'm259-nocut-keeper';
+  for (let i = 0; i < 930; i += 1) await db.messages.append(ksid, { role: i % 2 ? 'assistant' : 'user', text: 'keeper page ' + i });
+  await saveMemory(ksid, { window: 10, nodes: lines });
+  await db.settings.set('memoryWindow', 10);
+  const kh = scriptedHouse(async () => 'A new line.');
+  await withHouse(kh, () => maybeSummarize({ connection: CONN, storyId: ksid, stale: () => false }));
+  const summarize = kh.calls.find((c) => /narrative-state tracker/i.test(JSON.stringify(c.body)));
+  assert(summarize && bodyText(summarize).includes('NOCUT-LINE-0 '), 'the keeper writing a new line is shown the oldest line too');
+  await db.settings.set('memoryWindow', undefined);
+
+  /* the standings rebuild */
+  const { rebuildStandings } = await import('../../js/agents/auditor.js');
+  const rsid = 'm259-nocut-rebuild';
+  await saveState(rsid, emptyState());
+  await db.messages.append(rsid, { role: 'user', text: 'u' });
+  await db.messages.append(rsid, { role: 'assistant', text: 'a' });
+  await saveMemory(rsid, { window: 20, nodes: lines });
+  const rh = thinkingHouse({ answer: '{"mutations":[]}' });
+  await withHouse(rh, () => rebuildStandings({ connection: CONN, storyId: rsid, stale: () => false }));
+  assert(rh.calls.some((c) => { const b = JSON.stringify(c.body); return b.includes('THE RECORD (what the pages established') && b.includes('NOCUT-LINE-0 '); }), 'the standings rebuild reads it whole, past the old 60,000');
+});

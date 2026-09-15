@@ -17,6 +17,15 @@
 
 export const PAGE_CAP = 60000;
 
+/* M265: the room a connection has, in characters (about three a token, less
+ * the answer's own budget) — here, with no imports, so the record keeper and
+ * every worker measure it the same way. A connection with no size set is taken
+ * at 128,000 tokens. */
+export function roomChars(connection, maxTokens = 6000) {
+  const size = connection && typeof connection.contextSize === 'number' && connection.contextSize > 0 ? connection.contextSize : 128000;
+  return Math.max(30000, Math.floor((size - maxTokens - 2000) * 3));
+}
+
 export function wholePage(text, cap = PAGE_CAP) {
   const s = String(text || '');
   if (!Number.isFinite(cap) || cap <= 0 || s.length <= cap) return s;

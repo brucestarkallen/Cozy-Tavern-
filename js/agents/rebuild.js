@@ -32,9 +32,9 @@ import { applyMutations, appendLog } from '../engine/apply.js';
 import { mcName } from '../engine/duels.js';
 import { renderPeopleTiers, sameLooseEnd } from '../engine/people.js';
 import { renderRelationships } from '../engine/relationships.js';
-import { loadMemory, saveMemory, maybeSummarize, dueRange, cleanWindow, cleanBatch, visiblePages, DEFAULT_BATCH } from './memory.js';
+import { loadMemory, saveMemory, maybeSummarize, dueRange, cleanWindow, cleanBatch, visiblePages, DEFAULT_BATCH, recordLinesBefore } from './memory.js';
 import { pageText } from '../assemble/stack.js';
-import { wholePage } from '../engine/pagecut.js'; /* M259: each page read to its end */
+import { wholePage, roomChars } from '../engine/pagecut.js'; /* M259: each page read to its end */
 import { readStatedStandings, samePersonLoose } from './founder.js';
 
 const MAX_TOKENS = 3000;
@@ -192,12 +192,9 @@ const READER_SYSTEM = [
   'No commentary, no fences: the JSON only.',
 ].join('\n');
 
-function recordUpTo(mem, pageIndex) {
-  return (mem && Array.isArray(mem.nodes) ? mem.nodes : [])
-    .filter((n) => n && Array.isArray(n.span) && n.span[1] < pageIndex)
-    .sort((a, b) => a.span[0] - b.span[0])
-    .map((n) => n.text.trim())
-    .join('\n');
+/* M265: the lines before a batch, with their details (M216), in the room */
+function recordUpTo(mem, pageIndex, cap) {
+  return recordLinesBefore(mem, pageIndex, cap);
 }
 
 export function buildReaderMessages({ state, record, pages, mc }) {
@@ -340,7 +337,7 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
     }
     if (stale && stale()) return null;
     const pages = history.slice(from, from + batch);
-    const prompt = buildReaderMessages({ state: shadow, record: recordUpTo(mem, from), pages, mc });
+    const prompt = buildReaderMessages({ state: shadow, record: recordUpTo(mem, from, Math.floor(roomChars(connection, MAX_TOKENS) * 0.35)), pages, mc });
     const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: MAX_TOKENS, signal });
     const answer = parseReaderAnswer(text);
     /* a name the ledger already knows wins over the reader's spelling —

@@ -292,7 +292,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
      * scene is filled from what has actually happened, as the brief demands */
     ...(recordSoFar ? ['THE STORY SO FAR, FOLDED — what the pages before these ones hold. A person\u2019s life',
       'beyond the scene is filled from THIS, never invented over it:',
-      FENCE3, recordSoFar.slice(0, 12000), FENCE3, ''] : []),
+      FENCE3, recordSoFar, FENCE3, ''] : []), /* M265: it was cut again to its first 12,000 — the newest lines lost */
     'THE LEDGER (the state of the scene):',
     facts,
     '',

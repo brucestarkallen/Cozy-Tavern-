@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m264-001)
+# Cozy Tavern — handoff for the next session (state at m265-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M264). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M265). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 522 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 523 checks on the engines, assembler, workers, laws.
 - `cd tests/dom && node run.mjs` — the walk: 42 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
@@ -31,6 +31,9 @@ Full history of every law and fix: AGENTS.md (M1 … M264). SPEC.md holds the fo
 - Nothing goes stale by itself (M261): the ground moving lets positions go; one place under two
   spellings is one place; an untouched thread cools after 15 pages; the code upkeep (retire,
   sweep, clear seats) runs on every page, audited or not (ledgerUpkeep).
+- NO SILENT CUT (M265): no reader of the record is handed less than its room holds; a cut is
+  whole lines with a note (recordFor(mem, minLevel, cap)); a full storyteller room is said out
+  loud. Before adding a reader of anything long, test it with an input past every old cap.
 - The record's room and its squeezing (M264): the record rides in the room the storyteller's
   context leaves (recordRoom, never under 30,000 chars); squeezing is the writer's choice
   (memorySqueeze: auto = only when the record would not fit / never / a number of lines).

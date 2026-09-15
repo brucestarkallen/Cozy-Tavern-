@@ -756,7 +756,7 @@ export function buildRebuildMessages({ state, brief, castNotes, record, pages, m
     '',
     'THE BRIEF (the first authority):', Q, String(brief || '').slice(0, 12000) || '(none)', Q,
     'THE CAST NOTES:', Q, String(castNotes || '').slice(0, 6000) || '(none)', Q,
-    'THE RECORD (what the pages established, oldest to newest):', Q, String(record || '').slice(-60000) || '(nothing yet)' /* M259: it kept the OLDEST 14,000 and lost the newest */, Q,
+    'THE RECORD (what the pages established, oldest to newest):', Q, String(record || '') || '(nothing yet)' /* M265: the caller gives it in its room */, Q,
     'THE LATEST PAGES:', Q, (pages || []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(p.text, 12000)).join('\n\n'), Q,
     '',
     'THE PEOPLE THE LEDGER KNOWS: ' + (uniq.join(', ') || '(none)'),
@@ -788,7 +788,7 @@ export async function rebuildStandings({ connection, storyId, brief = '', castNo
   const mem = await loadMemory(storyId);
   const all = (await db.messages.list(storyId)).filter((m) => !m.hidden);
   const pages = all.slice(-AUDIT_PAGES).map((m) => ({ role: m.role, text: pageText(m) }));
-  const prompt = buildRebuildMessages({ state: s1, brief, castNotes, record: wholeRecord(mem, 60000), pages, mc }); /* M259: the whole record */
+  const prompt = buildRebuildMessages({ state: s1, brief, castNotes, record: wholeRecord(mem, Math.floor(roomChars(connection, 4000) * 0.35)), pages, mc }); /* M265: the whole record, in its room */
   if (typeof renew === 'function') renew(auditLeashMs(prompt));
   const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, signal });
   const read = parseFounderLike(text);

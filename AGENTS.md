@@ -5516,3 +5516,35 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   characters reaches the storyteller whole). M34-5 and M259-26 test the by-number way and say so.
   5 deliberate breaks caught; the send path's room removed in a throwaway copy fails DOM-23.
 - 522/522 harness + 42/42 walk + 8/8 play. version.js -> m264-001.
+
+# M265 — NO SILENT CUT: every reader of the record gets it whole in its room
+- THE WRITER, on M264's finding (the storyteller shown only 30,000 characters of the record,
+  the oldest lines dropped out of its view, silently, for many versions): "how did nobody find
+  this?" Because no test ever built a record that long (the ninety-turn play folds ~15 lines),
+  the only sign was a note INSIDE the storyteller's prompt, and nothing ever held what a reader
+  was sent against the record as stored. Nothing was deleted — the lines were all kept; they were
+  left out of what was sent.
+- THE SAME FAULT, EVERYWHERE IT STOOD (found by sweeping every reader of the record):
+  1. the extractor and the world agent (the story so far): the newest 14,000 characters —
+     recordFor's fixed CONTEXT_CAP, cut MID-LINE;
+  2. the world agent, a second time: that cut again to its FIRST 12,000 — the newest lines lost;
+  3. the keeper writing a new line (its prior context), its verifier, its detail auditor, the
+     squeeze and both re-reads: the same 14,000 — while Summaryception hands its summarizer every
+     line of every layer;
+  4. the mender: 30,000; 5. the standings rebuild: 60,000; 6. the people rebuild: lines without
+     their details.
+  FIXED: recordFor takes the caller's room and cuts WHOLE lines only, oldest first, with a line
+  saying how many ("N earlier lines not shown — no room"), counted inside the room it speaks of.
+  The keeper is shown as much as its own room holds (keeperRecordCap, never under 14,000); the
+  story so far, the mender and the standings rebuild read the record in their connection's room
+  (engine/pagecut.js roomChars, one measure for everyone); the people rebuild reads the lines
+  before each batch with their details (recordLinesBefore).
+- A FULL ROOM IS SAID OUT LOUD: when the storyteller's room cannot hold the whole record
+  (squeezing set to never, or a small context), the writer is told, once a session for each tale,
+  how many of the oldest lines were left out and how to fold them in instead.
+- Laws: M259-29 (NO SILENT CUT — every reader: whole with room; whole lines and a note without;
+  the keeper, the story so far, the world agent, the standings rebuild), DOM-14b (the mender reads
+  a record past 30,000 whole, in the real chain), DOM-23 (a full room is said out loud). 5
+  deliberate breaks caught; the mender's old cap and the silenced warning, each in a throwaway
+  copy, fail DOM-14b and DOM-23.
+- 523/523 harness + 42/42 walk + 8/8 play. version.js -> m265-001.

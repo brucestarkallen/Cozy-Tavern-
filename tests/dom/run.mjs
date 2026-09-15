@@ -1250,6 +1250,14 @@ test('DOM-14b the second reader mends a drifted page by the smallest edit, and t
   house.state.workerAnswer = walkDefaultWorker; /* a failed earlier scenario must not leave its mocks behind */
   house.state.mend = true;
   house.state.storyAnswer = () => 'Liara looked at Kim, who was not her mother.\n\nThe booth was quiet.';
+  /* M265: a record past the old 30,000 characters — the mender must still read its oldest line */
+  const { loadMemory: loadRec, saveMemory: saveRec } = await import('../../js/agents/memory.js');
+  const recSid = await storyId();
+  const recBefore = await loadRec(recSid);
+  await saveRec(recSid, { ...recBefore, nodes: [...(recBefore.nodes || []),
+    { id: 'node-mendold', span: [0, 0], level: 1, text: 'MENDER-OLDEST ' + 'o'.repeat(20000), at: 1, whole: true },
+    { id: 'node-mendnew', span: [1, 1], level: 1, text: 'MENDER-NEWER ' + 'n'.repeat(20000), at: 2, whole: true }] });
+  const mendFrom = house.state.calls.length;
   type(q('#composer-input'), 'What will your mother think?');
   submit(q('#composer'));
   await until(() => assistantPages().length >= 1 && /Kim/.test(bodyText(assistantPages()[assistantPages().length - 1])), 'the drifted answer', 10000);
@@ -1258,6 +1266,9 @@ test('DOM-14b the second reader mends a drifted page by the smallest edit, and t
   const page = await until(async () => (await db.messages.list(sid)).find((m) => m.mended && /Kris/.test(m.text)), 'the mend to land', 15000);
   assert(/Kris, who was not her mother/.test(page.text) && /The booth was quiet\./.test(page.text), 'one word changed, the page kept: ' + page.text);
   eq(page.mended.before, 'Liara looked at Kim, who was not her mother.\n\nThe booth was quiet.');
+  const menderAsk = house.state.calls.slice(mendFrom).find((c) => c.isWorker && /<contradiction>/.test(JSON.stringify(c.body.messages || [])));
+  assert(menderAsk && JSON.stringify(menderAsk.body).includes('MENDER-OLDEST'), 'the mender read the record whole, its oldest line past the old 30,000 included');
+  await saveRec(recSid, { ...(await loadRec(recSid)), nodes: (await loadRec(recSid)).nodes.filter((n) => n.id !== 'node-mendold' && n.id !== 'node-mendnew') });
   /* M43: no chip on the page; the earlier words are a tap away in the drawer */
   assert(!q(`.msg[data-id="${page.id}"] .msg-act.mended`), 'no chip on the page');
   click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
@@ -1590,7 +1601,7 @@ test('DOM-23 the record rides in the room the storyteller’s context leaves, an
   /* a record longer than the old 30,000 characters rides whole */
   const st = await db.stories.create({ title: 'the long record' });
   for (let i = 0; i < 70; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: (i % 2 ? 'The tale goes on, page ' : 'I go on, page ') + (i + 1) });
-  await saveMemory(st.id, { window: 20, nodes: Array.from({ length: 10 }, (_, k) => ({ id: 'node-long' + k, span: [k * 6, k * 6 + 5], level: 1, text: 'RECORD-LINE-' + k + ' ' + 'r'.repeat(4000), at: k + 1, whole: true })) });
+  await saveMemory(st.id, { window: 20, nodes: Array.from({ length: 10 }, (_, k) => ({ id: 'node-long' + k, span: [k * 6, k * 6 + 5], level: 1, text: 'RECORD-LINE-' + k + ' ' + 'r'.repeat(8000), at: k + 1, whole: true })) });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
@@ -1601,6 +1612,29 @@ test('DOM-23 the record rides in the room the storyteller’s context leaves, an
   assert(told.includes('RECORD-LINE-0 ') && told.includes('RECORD-LINE-7 '), 'the oldest record line rides with the newest');
   assert(!/rest beyond the budget/.test(told), 'and none is let go');
   await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg-pending'), 'the chain to finish', 40000);
+
+  /* M265: a room too small for the record, squeezing set to never — the writer is told */
+  const conns = await db.connections.list();
+  const activeId = await db.settings.get('activeConnectionId');
+  const conn = conns.find((c) => c.id === activeId) || conns[0];
+  const sizeWas = conn.contextSize;
+  await db.connections.update(conn.id, { contextSize: 20000 });
+  await db.settings.set('memorySqueeze', 'never');
+  /* every word the house says, kept — a later toast must not hide this one */
+  const said = [];
+  const realToast = env.ctx.toast;
+  env.ctx.toast = (w) => { said.push(String(w)); return realToast ? realToast(w) : undefined; };
+  try {
+    const n = assistantPages().length;
+    click(q('.msg-act[data-act="go on"]'));
+    await until(() => assistantPages().length > n, 'another page', 20000);
+    await until(() => said.some((w) => /The storyteller’s context is full: the oldest \d+ record lines? (was|were) left out of this page/.test(w)), 'the full room to be said out loud: ' + JSON.stringify(said), 10000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg-pending'), 'the chain to finish', 40000);
+  } finally {
+    env.ctx.toast = realToast;
+    await db.connections.update(conn.id, { contextSize: sizeWas });
+    await db.settings.set('memorySqueeze', 'auto');
+  }
 });
 
 console.log('Cozy Tavern — the dom walk');

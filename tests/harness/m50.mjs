@@ -115,7 +115,8 @@ test('M51 the auditor, the rebuild and the mender read the WHOLE record, not the
   await withHouse(house2, () => rebuildStandings({ connection: HOUSES[0].conn, storyId: sid, stale: () => false }));
   assert(house2.calls.some((c) => { const b = JSON.stringify(c.body); return b.includes('THE RECORD (what the pages established') && b.includes('[Day 0]'); }), 'the rebuild reads it whole too');
   const chat = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/record: wholeRecord\(mem\)/.test(chat), 'the mender too');
+  /* M265: the mender reads it in its connection's room — DOM-14b runs it with a record past the old 30,000 */
+  assert(/record: wholeRecord\(mem, Math\.floor\(roomChars\(connection\) \* 0\.35\)\)/.test(chat), 'the mender too');
 });
 
 test('M57-002 the writer’s exact block: a CORE line WITHOUT digits is not a heading — Aurora owns her → Jovan line', () => {

@@ -45,6 +45,7 @@ import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText, windowPlan } from '../assemble/stack.js';
 import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the house is doing */
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
+import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
@@ -1428,6 +1429,7 @@ export function initChat(ctx) {
 
   /* M264: the room the storyteller's context leaves the record — the same
    * measure the send path uses, for the keeper deciding whether to squeeze */
+  const warnedRecordFull = new Set(); /* M265: said once a session for each tale */
   async function recordRoomFor(story) {
     try {
       const conn = await resolveConnection(story);
@@ -2085,7 +2087,7 @@ export function initChat(ctx) {
       storyId: story.id,
       pages,
       contradiction,
-      record: wholeRecord(mem),
+      record: wholeRecord(mem, Math.floor(roomChars(connection) * 0.35)), /* M265: it was cut at 30,000 */
       playerName,
       signal,
       apply: (page, after, why) => applyMend(story.id, page, after, why),
@@ -2227,7 +2229,7 @@ export function initChat(ctx) {
       try {
         let mem = null;
         try { mem = await loadMemory(story.id); } catch (err) { mem = null; }
-        ({ before, record: foldedBefore } = storySoFar(await db.messages.list(story.id), mem, msg.id, { least: deep ? 8 : 4 }));
+        ({ before, record: foldedBefore } = storySoFar(await db.messages.list(story.id), mem, msg.id, { least: deep ? 8 : 4, recordCap: Math.floor(roomChars(connection) * 0.35) }));
       } catch (err) { before = []; foldedBefore = ''; }
       /* M251: THE LEDGER HAD NO WAY BACK. The RECORD walks to its oldest hole
        * every fold (dueRange), so an outage costs nothing. The LEDGER is
@@ -2395,7 +2397,7 @@ export function initChat(ctx) {
       try {
         let mem = null;
         try { mem = await loadMemory(story.id); } catch (err) { mem = null; }
-        ({ before, record: worldRecord } = storySoFar(ordered, mem, msg.id, { least: 2 }));
+        ({ before, record: worldRecord } = storySoFar(ordered, mem, msg.id, { least: 2, recordCap: Math.floor(roomChars(connection) * 0.35) }));
       } catch (err) { before = []; worldRecord = ''; }
       /* M134: how far the clock moved across this page (a #time skip, a night) — the
        * world agent re-seats everyone when it jumped */
@@ -3131,6 +3133,17 @@ export function initChat(ctx) {
         windowTokens: visiblePages(history).slice(verbatimStart).reduce((n, m) => n + estimateTokens(pageText(m)), 0),
       });
       const memoryText = renderMemory(memoryForWindow(mem, verbatimStart), recordCap);
+      /* M265: A FULL ROOM IS SAID OUT LOUD. When the storyteller's room cannot
+       * hold the whole record (squeezing set to never, or a small context), the
+       * oldest lines rest outside this page — and the writer is told, once a
+       * session for each tale, instead of finding out by losing them. */
+      {
+        const full = /\((\d+) earlier lines? rest beyond the budget\.\)/.exec(memoryText);
+        if (full && !warnedRecordFull.has(story.id)) {
+          warnedRecordFull.add(story.id);
+          toast('The storyteller’s context is full: the oldest ' + full[1] + ' record ' + (full[1] === '1' ? 'line was' : 'lines were') + ' left out of this page. Squeezing “Only when the whole record would no longer fit” (Settings) folds them in instead.');
+        }
+      }
       /* M7: slot 4 — the story's invited cast. Slot 7 — the lore shelf's
        * answer for the latest pages, each entry scanning its own depth;
        * the receipt names which entries woke. */
