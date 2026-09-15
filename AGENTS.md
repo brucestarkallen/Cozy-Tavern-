@@ -4959,3 +4959,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   never set, so nothing does arithmetic on a clock that does not exist), and the bodies ledger
   (no unguarded list push).
 - 480/480 harness + 37/37 walk + 8/8 play. version.js -> m239-001.
+
+# M240 — the auditor was auditing a ledger it could not see
+- THE WRITER ASKED WHY THE AUDITOR NEVER CAUGHT THE STALE LOOSE ENDS THE HOUSEKEEPER KEPT FINDING.
+  Two reasons, and one is absurd:
+  · ITS CHECKLIST NAMED thread.close / thread.set — the STORY's plot threads. It was never once
+    asked about the "Loose ends:" line on a PERSON'S own page, which is a different list entirely
+    and the very one piling up. It is asked now, in its own section, told they are not the story
+    threads, told to close one with people.unthread worded as it stands, and told why: a loose end
+    left open is carried to the storyteller as something still hanging for the rest of the tale.
+  · AND IT IS TOLD, IN ITS OWN BRIEF, TO CATCH "a wound healed still open" — while the word
+    "bodies" appeared NOWHERE in auditor.js. The one reader asked to hold the WHOLE ledger against
+    the pages was auditing a ledger it could not see. It is shown now, under "what their bodies
+    carry".
+- A law now walks every ledger and insists the auditor is shown it: the people pages, a person's
+  loose ends, locked canon, who knows what, the factions, the bodies, the record, the pages
+  themselves and the writer's brief. It cannot go blind to one of them again.
+- 481/481 harness + 37/37 walk + 8/8 play. version.js -> m240-001.

@@ -1844,3 +1844,48 @@ test('M239: knowledge and factions find a person under any of their names', asyn
   assert(/export function nearKey\(keys, name\)/.test(src), 'one matcher');
   eq((src.match(/return nearKey\(Object\.keys\(safe\), name\);/g) || []).length, 2, 'used by both ledgers');
 });
+
+/* M240: the writer asked why the AUDITOR never caught the stale loose ends
+ * the housekeeper kept finding. Two reasons, and one is absurd:
+ *  - its checklist named thread.close/thread.set, which are the STORY's plot
+ *    threads — it was never once asked about the "Loose ends:" line on a
+ *    person's own page, the very thing piling up.
+ *  - and it is told, in its own words, to catch "a wound healed still open"
+ *    while the word "bodies" appeared NOWHERE in the file. It was auditing a
+ *    ledger it could not see. */
+test('M240: the auditor sees every ledger it is told to audit, loose ends included', async () => {
+  const { buildAuditorMessages } = await import('../../js/agents/auditor.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+
+  const st = emptyState();
+  st.characters = { Mira: { core: 'the innkeeper', state: 'behind the bar', arc: '',
+    threads: ['she still owes the ferryman'], updatedAtTurn: 1 } };
+  st.present = [{ name: 'Mira' }];
+  st.bodies = { Mira: { injuries: [{ what: 'a cut hand', how: 'the glass', at: 1, healed: false }], strain: [] } };
+  st.knowledge = { Mira: [{ fact: 'that the well is poisoned', at: 1 }] };
+  st.canon = { Mira: { facts: [{ key: 'hair', value: 'black' }] } };
+  st.factions = { 'the Vanderbilts': { stance: 'cold', agenda: 'keep the lake', at: 1 } };
+
+  const m = buildAuditorMessages({ state: st, brief: 'a lake town', castNotes: '',
+    record: '- [Sept 1] Mira poured', pages: [{ role: 'assistant', text: 'Mira wiped the bar' }] });
+  const all = m.system + '\n' + m.user;
+
+  /* every ledger, and the pages */
+  for (const [what, probe] of [
+    ['the people pages', 'the innkeeper'],
+    ['a person’s loose ends', 'owes the ferryman'],
+    ['locked canon', 'black'],
+    ['who knows what', 'well is poisoned'],
+    ['the factions', 'keep the lake'],
+    ['WHAT THEIR BODIES CARRY', 'cut hand'],
+    ['the record', 'Mira poured'],
+    ['the pages themselves', 'Mira wiped the bar'],
+    ['the writer’s brief', 'a lake town'],
+  ]) assert(all.includes(probe), 'the auditor is shown ' + what);
+
+  /* and is asked about the loose ends, which it never was */
+  assert(/LOOSE ENDS ON A PERSON'S OWN PAGE/.test(all), 'the checklist names them');
+  assert(/which is NOT the same as/.test(all), 'and says they are not the story threads');
+  assert(/people\.unthread/.test(all), 'and how to close one');
+  assert(/one left open is carried to the storyteller/.test(all), 'and why it matters');
+});

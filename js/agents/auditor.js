@@ -28,6 +28,7 @@ import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn } from '../engine/app
 import { renderOffscreen } from '../engine/offscreen.js';
 import { renderCanon } from '../engine/canon.js';
 import { renderThreads, renderKnowledge, renderFactions } from '../engine/world.js';
+import { renderBodies } from '../engine/bodies.js';   /* M240: it was told to catch a healed wound and never shown the wounds */
 import { mcName } from '../engine/duels.js';
 import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { loadMemory, wholeRecord } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
@@ -98,6 +99,12 @@ function law({ mc }) {
     '    on judgment; raising a wrongly-zeroed standing is a correction you can prove.',
     '  - THE THREADS: a thread the pages show resolved still hot (thread.close); a live agenda the',
     '    pages show and the ledger lacks (thread.set).',
+    '  - THE LOOSE ENDS ON A PERSON\'S OWN PAGE (their "Loose ends:" line, which is NOT the same as',
+    '    the story threads above): one the pages have plainly ANSWERED and is still written there —',
+    '    a question asked and answered, an introduction promised and made, a photo hunted and found,',
+    '    a name waited for and spoken. Close it with people.unthread, worded as it stands on the page.',
+    '    These do not expire on their own, and one left open is carried to the storyteller as',
+    '    something still hanging for the rest of the tale.',
     '  - WHO KNOWS WHAT: a present person who plainly witnessed something on the latest pages with no',
     '    knowledge line for it (knowledge.add).',
     '',
@@ -174,6 +181,11 @@ export function buildAuditorMessages({ state, brief = '', castNotes = '', record
   const canon = state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : '';
   const threads = renderThreads(Array.isArray(state.threads) ? state.threads.filter((t) => t && typeof t === 'object' && t.title) : []);
   const knowledge = renderKnowledge(state.knowledge, present);
+  /* M240: IT WAS TOLD TO CATCH "a wound healed still open" AND NEVER SHOWN
+   * THE WOUNDS. The word "bodies" appeared nowhere in this file. The one
+   * reader asked to hold the whole ledger against the pages was auditing a
+   * ledger it could not see. */
+  const bodies = renderBodies(state.bodies, clockMinutes, Number.isFinite(state && state.turn) ? state.turn : 0);
   const factions = renderFactions(state.factions);
   const people = characterPages(state);
   const user = [
@@ -188,6 +200,7 @@ export function buildAuditorMessages({ state, brief = '', castNotes = '', record
     '— what is locked true —', canon || '(nothing locked)',
     '— the threads —', threads || '(none)',
     '— who knows what (the present) —', knowledge || '(nothing written)',
+    '— what their bodies carry —', bodies || '(nothing written)',
     '— the factions —', factions || '(none)',
     '',
     'THE RECORD (oldest to newest):',
