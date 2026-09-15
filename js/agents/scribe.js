@@ -19,7 +19,8 @@
  * carries retryAfterMs for the queue's backoff (M28: providers/wire.js).
  */
 
-import { firstBalancedObject } from './jsonutil.js';
+import { balancedCandidates, parseLenient } from './jsonutil.js';
+import { wholePage } from '../engine/whole.js'; /* M259: the page read to its end */
 import { loadState, saveState, notify } from '../engine/state.js';
 import { renderPeopleTiers } from '../engine/people.js';
 import { applyMutations } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
@@ -28,7 +29,9 @@ import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 import { retryAfterMs } from '../providers/wire.js'; /* M28: moved to the wire; re-exported for the harness contract */
 export { retryAfterMs };
 
-const MAX_TOKENS = 600; /* sparse deltas; thinking is off on the wire (M28) */
+/* M259: was 600 — a busy page's notes ran past it, and the cut answer was
+ * read as "nothing shifted". Thinking is off on the wire (M28). */
+const MAX_TOKENS = 2400;
 
 /* ---------- the prompt (human-voiced, kept in the code) ---------- */
 
@@ -124,12 +127,12 @@ export function buildScribeMessages({ state, userText, assistantText }) {
     '',
     'The writer just wrote:',
     '"""',
-    String(userText || '').slice(0, 4000),
+    wholePage(userText, 12000),
     '"""',
     '',
     'And the storyteller answered:',
     '"""',
-    String(assistantText || '').slice(0, 8000),
+    wholePage(assistantText),
     '"""',
     '',
     'What shifted on the character pages, if anything? JSON only.',
@@ -144,19 +147,28 @@ export function buildScribeMessages({ state, userText, assistantText }) {
  * Any trouble at all resolves to {deltas:[]}. */
 export function parseScribeAnswer(raw) {
   try {
-    let text = String(raw || '');
-    text = text.replace(/```(?:json|JSON)?/g, '');
-    const candidate = firstBalancedObject(text);
-    if (!candidate) return { deltas: [] };
-    const parsed = JSON.parse(candidate);
-    const list = parsed && Array.isArray(parsed.deltas) ? parsed.deltas : [];
-    const deltas = list.filter(
+    /* M259: read the way every other worker's answer is read (M26/M31) —
+     * thinking stripped, up to five candidates, the lenient repair — and a
+     * list the wire cut off keeps every note that arrived whole. It took the
+     * FIRST brace and parsed it strictly, so a model that thought out loud
+     * first, or ran out of room, was read as "nothing shifted". */
+    const text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '');
+    const keep = (list) => (Array.isArray(list) ? list : []).filter(
       (d) => d && typeof d === 'object'
         && typeof d.name === 'string' && d.name.trim()
         && typeof d.field === 'string' && d.field.trim()
         && typeof d.text === 'string' && d.text.trim()
     );
-    return { deltas };
+    for (const c of balancedCandidates(text, 5)) {
+      const p = parseLenient(c);
+      if (p && Array.isArray(p.deltas)) return { deltas: keep(p.deltas) };
+    }
+    const at = text.search(/"deltas"\s*:\s*\[/);
+    if (at !== -1) {
+      const inner = text.slice(text.indexOf('[', at) + 1);
+      return { deltas: keep(balancedCandidates(inner, 80).map((c) => parseLenient(c)).filter(Boolean)), cut: true };
+    }
+    return { deltas: [] };
   } catch (err) {
     return { deltas: [] };
   }
@@ -179,7 +191,7 @@ function nameFromWords(words, fallback) {
   return at > 0 ? words.slice(0, at) : String(fallback || '').trim();
 }
 
-export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale } = {}) {
+export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale, renew } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
@@ -189,14 +201,44 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   /* M28: the one wire path — thinking off per house, temperature 0; a
    * transport failure throws (with retryAfterMs when the house named a wait)
    * and the queue retries. */
-  const { text: raw } = await callWorker(connection, {
+  if (typeof renew === 'function') renew(); /* M259: every call gets its own minute (M213) */
+  const first = await callWorker(connection, {
     system: prompt.system,
     user: prompt.user,
     maxTokens: MAX_TOKENS,
     signal,
   });
-  const { deltas } = parseScribeAnswer(raw);
-  if (!deltas.length) return { changes: [], dropped: [] };
+  let read = parseScribeAnswer(first.text);
+  let note = 'ok';
+  /* M259: an answer the wire cut, or one that could not be read, is asked for
+   * ONCE more — never taken as "nothing shifted" (M246's law, here too). An
+   * honest {"deltas":[]} is not asked again. */
+  const honestEmpty = /"deltas"\s*:\s*\[\s*\]/.test(String(first.text || ''));
+  /* cut = the wire said so, or the answer itself stops mid-list (a house that
+   * never reports a finish reason still cuts) */
+  const wasCut = first.finishReason === 'length' || Boolean(read.cut);
+  if (wasCut || (!read.deltas.length && !honestEmpty)) {
+    try {
+      if (typeof renew === 'function') renew();
+      const again = await callWorker(connection, {
+        system: prompt.system,
+        user: prompt.user + '\n\n' + (wasCut
+          ? 'Your last answer ran out of room before it ended. Answer again, complete: the changes that matter most, one short sentence each, at most twelve deltas. JSON only.'
+          : 'Your last answer was not a JSON object with a "deltas" list. Answer with the JSON object only.'),
+        maxTokens: MAX_TOKENS,
+        signal,
+      });
+      const second = parseScribeAnswer(again.text);
+      const secondWhole = again.finishReason !== 'length' && !second.cut;
+      if (second.deltas.length > read.deltas.length || (secondWhole && second.deltas.length >= read.deltas.length)) read = second;
+      note = secondWhole ? 'ok' : 'cut short';
+    } catch (err) {
+      if (!read.deltas.length) throw err;
+      note = wasCut ? 'cut short' : 'ok';
+    }
+  }
+  const { deltas } = read;
+  if (!deltas.length) return { changes: [], dropped: [], note };
 
   if (stale && stale()) return null; /* the writer has moved on — discard */
 
@@ -214,9 +256,9 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   const { state: next, applied, rejected } = applyMutations(fresh, kept.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
   const dropped = rejected.map((r) => ({ delta: r.mutation, why: r.why }));
-  if (!changes.length) return { changes, dropped };
+  if (!changes.length) return { changes, dropped, note };
   if (stale && stale()) return null;
   await saveState(storyId, next);
   notify(storyId);
-  return { changes, dropped };
+  return { changes, dropped, note };
 }

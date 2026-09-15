@@ -106,6 +106,19 @@ export function switchWorkerStory(storyId) {
 /* Queue a job on a story's channel. job = {name, run({signal, stale})}.
  * Resolves {ok:true, value} | {ok:true, stale:true} | {ok:false, why} —
  * never rejects. The name must be one the workers' ledger knows. */
+/* M259: A JOB IN THE PAGE'S CHAIN. The chain wrapped each job to add its own
+ * staleness — and passed on only {signal, stale}, so the leash's renew never
+ * reached a single worker in the chain: the keeper, which renews before every
+ * call when it is handed the leash (M213), shared one minute across up to nine
+ * calls; the auditor could not lengthen its leash for a whole-ledger reading. */
+export function chainJob(run, isOld) {
+  return ({ signal, stale, renew } = {}) => run({
+    signal,
+    stale: () => Boolean((typeof stale === 'function' && stale()) || (typeof isOld === 'function' && isOld())),
+    renew,
+  });
+}
+
 export function enqueueWork(storyId, job) {
   if (!storyId || !job || typeof job.run !== 'function') {
     return Promise.resolve({ ok: false, why: 'misshapen' });

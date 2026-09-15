@@ -5271,3 +5271,81 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   extractor and thread.close (M258). When a report keeps naming the same omission, look first for
   the missing VERB, not the careless model.
 - 494/494 harness + 39/39 walk + 8/8 play. version.js -> m258-001.
+
+# M259 — the ledger bulletproof: every reader sees ALL of it, and reads every page to its end
+- THE WRITER'S ORDER: the ledger tracks the whole moving world on its own; the auditor sees the
+  WHOLE ledger and every page the record has not folded; the auditor is the last line, for a rare
+  slip — never the same finding every turn. He asked for an audit instead of another round of
+  pasted reports. What it found:
+  1. EVERY READER WAS SHOWN THE STORYTELLER'S TRIMMED LEDGER (renderStateFacts: the six strongest
+     standings, five threads, four facts a person knows, six seats, four factions, sections shed
+     when long, and NO LINE FOR THE GROUND). Measured on thirteen standings, eight threads and nine
+     facts, the auditor saw six, five and four. It reported the rest missing, re-added a fact in
+     new words (a duplicate that pushed another fact out of view), "restored" a standing the pages
+     had lowered — and found the same things again the next turn. FIXED: engine/whole.js
+     renderWholeLedger, every book and nothing shed, for the auditor, the extractor and the
+     founder; the world agent gets every thread, knowledge line and faction; the storyteller's own
+     copy names the ground.
+  2. NO PAGE WAS READ TO ITS END. The extractor, world agent, scribe and second reader cut a page
+     at 8,000 characters, the auditor at 5,000, the keeper at 6,000 a page and 24,000 a batch (on
+     a larger batch the LAST pages were never folded at all), the rebuilds at 4,000/5,000, the
+     director at 3,000 — every one from the FRONT, and the end of a page is where the scene
+     stands. FIXED: engine/pagecut.js wholePage — a page is read whole; one past its cap loses its
+     MIDDLE, never its end; a keeper batch shares 120,000 characters.
+  3. THE AUDITOR READ THE LAST TEN PAGES AND A RECORD TRIMMED TO 30,000. With a window of twenty
+     or thirty, the pages between the record's end and the last ten were read by nobody, and a
+     long tale's oldest lines fell off. FIXED: it reads every page the record has not folded
+     (never fewer than 10, never more than 40, newest first into the connection's room, each to
+     its end) and the whole record (to 120,000). The brief, its first authority, was cut at
+     4,000: now 40,000.
+  4. THE RECORD NEVER REACHED THE EXTRACTOR OR THE WORLD AGENT. chat.js handed it over (M226,
+     M249); extractTurn and worldTurn dropped it on arrival — and their laws read chat.js for the
+     words "record: foldedBefore" and passed. FIXED, and those laws now make the call.
+  5. A FINISHED LOOSE END THE AUDITOR CLOSED WAS THROWN AWAY: its scope's forbidden list named
+     people.note, so the M240/M241 close never landed and the finding vanished from the report.
+     FIXED: the scope is an ALLOW-list (AUDITOR_TYPES). people.note passes only as unthread; the
+     moment (mood, position, dress, how far a beat moved a standing, time passing, weariness) is
+     dropped; so is a presence.enter for someone already here, which is a move.
+  6. "SET RIGHT" MEANT "WROTE A CHANGE", NOT "THE CHANGE HELD". A thread closed under reworded
+     words was refused, stayed open, and read "Set right". FIXED: the report counts what LANDED
+     (auditLineWords); a refused change reads "Seen; its change did not hold (why)"; a finding
+     whose every change the ledger already held is not reported. Threads are found by SENSE:
+     every telling word of the shorter title in the longer, a title of names alone only as the
+     very same names, and exactly one thread answering or none. The run words never hide the
+     house's own changes behind "true to the story".
+  7. THE AUDITOR COULD UNDO THE STORY: it could raise a standing the pages had lowered, and set
+     the ground and hour against the header. FIXED: it restores only a ZERO standing; it may bring
+     the ground and hour only TO what the latest header line says.
+  8. A CHANGE THAT CHANGED NOTHING WAS WRITTEN: the header re-sends its place every page, and the
+     same hour, position, standing, lock, main character or presence was logged or refused.
+     FIXED: each is `same` — nothing written or journaled, never counted as a refusal. "X comes in
+     at a new spot" for someone already here is written as the move it is.
+  9. THE SCRIBE'S BUDGET WAS 600 TOKENS, and a cut or think-aloud answer read as "nothing
+     shifted"; the second reader, the referee and the director's watcher took the first brace
+     strictly. FIXED: 2,400; the tolerant parse everywhere (parseFirstObject too); the scribe asks
+     once more when an answer is cut — by the wire's word or visibly — and says what it did.
+  10. THE MENDER WAS SHOWN 6,000 CHARACTERS AND ASKED FOR "THE COMPLETE PAGE": a page a little
+     longer came back without its ending, passed the size check, and was SAVED. FIXED: it sees the
+     whole page and answers with EDITS (find → replace, each find standing exactly once in its
+     page); a whole-page answer still lands for a short page; a mend that drops a sixth of a page,
+     or its closing lines, is refused.
+  11. THE LEASH NEVER REACHED THE CHAIN. The page chain's wrapper passed {signal, stale} only, so
+     the keeper shared ONE minute across up to nine calls (M213's renew never arrived), and the
+     auditor could not ask for time to read the whole ledger. FIXED: queue.js chainJob hands the
+     renew on; the extractor, world agent and scribe renew before every call; the auditor asks for
+     a minute plus a second per 4,000 characters it reads (auditLeashMs), and its prompt puts the
+     brief, the record and the older pages FIRST and the ledger last, so a house can reuse what it
+     already read.
+- M258 WAS WRONG about "seven standings missing": the founder already reads the brief's standings
+  with a model. The auditor had been shown six standings of thirteen, and reported the rest.
+- THE PATTERN: a reader told to hold X was shown a trimmed X, or handed X by its caller and never
+  given it. Before blaming the model, print what the worker is actually sent.
+- Laws: tests/harness/m259.mjs — 17, each driving real calls through a scripted wire and reading
+  back what was sent or written; 45 deliberate breaks, each caught by its own law. Laws that read
+  source text now run the feature (M226, M249, M51, M131); laws that held the old behaviour say
+  why they changed (M47-2 the mood, M48-1 the shift, M178 the fixture, M41-2 the brief, M72-9 the
+  wrapper, DOM-10 "wrote 1 change").
+- THE LONG PLAY NEVER ENDED: the page's timers kept its process alive after the last law (the
+  m258 commit does the same), so a script waiting on it never heard the result. It ends with the
+  run's own code now, as the walk does.
+- 511/511 harness + 39/39 walk + 8/8 play + the two-browser proof (11/11). version.js -> m259-001.

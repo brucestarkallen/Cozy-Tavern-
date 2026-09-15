@@ -71,7 +71,52 @@ export function findThread(threads, title) {
   const wanted = keyOf(title);
   if (!wanted) return -1;
   const list = Array.isArray(threads) ? threads : [];
-  return list.findIndex((t) => t && typeof t.title === 'string' && keyOf(t.title) === wanted);
+  const exact = list.findIndex((t) => t && typeof t.title === 'string' && keyOf(t.title) === wanted);
+  if (exact !== -1) return exact;
+  /* M259: A THREAD IS FOUND BY SENSE, as a loose end is (M241). A worker
+   * closing "Chloe's clip of Jovan" when the ledger holds "Chloe's clip of
+   * Jovan at the Wells house" was refused ("no thread called …"), the thread
+   * stayed open, and the auditor found it again the next turn — while a
+   * thread.set under reworded words opened a SECOND copy. Only when exactly
+   * one thread answers; two that both do match neither. */
+  const hits = [];
+  list.forEach((t, i) => { if (t && typeof t.title === 'string' && sameThreadTitle(t.title, title)) hits.push(i); });
+  return hits.length === 1 ? hits[0] : -1;
+}
+
+const THREAD_STOP = new Set(['the', 'and', 'for', 'with', 'from', 'that', 'this', 'his', 'her', 'hers', 'their', 'about', 'into', 'over', 'will', 'what', 'who', 'was', 'are', 'has', 'have', 'had', 'its', 'not', 'but', 'out', 'off', 'onto', 'upon', 'after', 'before', 'him', 'she', 'they', 'them']);
+/* The telling words of a title, and which of them are common words (written
+ * lower-case) rather than names. */
+function titleWords(t) {
+  const all = new Set();
+  const common = new Set();
+  const tokens = String(t || '')
+    .replace(/[‘’´`]/g, "'")
+    .replace(/'s\b/gi, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/);
+  for (const raw of tokens) {
+    const low = raw.toLowerCase();
+    if (low.length <= 2 || THREAD_STOP.has(low)) continue;
+    const w = low.length > 4 && low.endsWith('s') ? low.slice(0, -1) : low;
+    all.add(w);
+    if (raw[0] === raw[0].toLowerCase()) common.add(w);
+  }
+  return { all, common };
+}
+/* Two thread titles that say the same thing: EVERY telling word of the
+ * shorter is in the longer, and the shorter has at least two. A share of the
+ * words is not enough — "Claire Stone" and "Alaric Stone" share a word, and
+ * "Rias and Jovan's dinner" is not "Rias wants Jovan's number". A title of
+ * names alone ("Rias and Jovan") says only who — it is the same thread only
+ * as the very same names, never every longer thread those two are in. */
+export function sameThreadTitle(a, b) {
+  const x = titleWords(a); const y = titleWords(b);
+  const [short, long] = x.all.size <= y.all.size ? [x, y] : [y, x];
+  if (short.all.size < 2) return false;
+  for (const w of short.all) if (!long.all.has(w)) return false;
+  if (!short.common.size) return short.all.size === long.all.size;
+  return true;
 }
 
 /* Set (or update) a thread. A title already there is updated in place —

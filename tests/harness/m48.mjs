@@ -28,7 +28,11 @@ test('M48-1 a standing earned on the pages, or for a person the brief names, is 
   const house = thinkingHouse({ answer });
   const r = await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId, brief: 'Jovan comes home. Mira is his sister.', castNotes: '', stale: () => false }));
   const st = await loadState(storyId);
-  eq(st.relationships.Aurora.p, 51, 'Aurora stands (earned on the page) and may still rise');
+  /* M259: how far a beat moves a standing is the PAGE READER's (one writer per fact, M131).
+   * The auditor re-reads up to forty pages every turn and sees only the latest causes, so a
+   * shift from it counts a beat the extractor already counted — a standing that climbs every
+   * turn. Its rel.shift is dropped; Aurora stands where the pages put her. */
+  eq(st.relationships.Aurora.p, 48, 'Aurora stands (earned on the page); the auditor does not move her');
   eq(st.relationships.Mira.p, 30, 'Mira stands (the brief names her)');
   eq(st.relationships.Caleb.p, 0, 'Caleb, no page behind him and not in the brief, is zeroed');
   eq(r.rejected.filter((x) => /may not take it away/.test(x.why)).length, 2);

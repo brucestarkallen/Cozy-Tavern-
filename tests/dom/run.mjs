@@ -267,7 +267,8 @@ test('DOM-10 the drawer: every panel renders, the world beyond the page speaks, 
   }
   const drawerText = q('#drawer-panels').textContent;
   assert(/Kim/.test(drawerText), 'Kim is in the drawer');
-  assert(/wrote \d+ changes|nothing to write down/.test(drawerText), 'the extractor says what it did: ' + drawerText.slice(-300));
+  /* M259: one change is "wrote 1 change" — a header that re-sends the ground and the hour no longer counts as two more */
+  assert(/wrote \d+ changes?|nothing to write down/.test(drawerText), 'the extractor says what it did: ' + drawerText.slice(Math.max(0, drawerText.indexOf('The workers')), drawerText.indexOf('The workers') + 1500));
   assert(/moved the world in/.test(drawerText), 'the world agent says what it did');
   assert(qa('#drawer-panels .worker-said').length >= 1, 'what it said is folded under a worker');
   click(q('#btn-ledger'));

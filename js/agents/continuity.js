@@ -24,7 +24,8 @@ import { renderStateFacts } from '../engine/state.js';
 import { renderCanon } from '../engine/canon.js';
 /* M9 (B16): the tolerant JSON-finder is shared by every agent —
  * agents/jsonutil.js. */
-import { firstBalancedObject } from './jsonutil.js';
+import { balancedCandidates, parseLenient } from './jsonutil.js';
+import { wholePage } from '../engine/whole.js'; /* M259: the page read to its end */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 
@@ -105,7 +106,7 @@ export function buildContinuityMessages({ state, assistantText, brief = '' }) {
     '',
     'The page just finished:',
     '"""',
-    String(assistantText || '').slice(0, 8000),
+    wholePage(assistantText),
     '"""',
     '',
     'Where does the page drift from what is written down, if anywhere? JSON only.',
@@ -132,12 +133,17 @@ function cleanWords(value) {
  * all resolves {findings:[]}. */
 export function parseContinuityAnswer(raw) {
   try {
-    let text = String(raw || '');
+    /* M259: thinking stripped, up to five candidates, the lenient repair — as
+     * every other worker's answer is read (M26/M31) */
+    let text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '');
     text = text.replace(/```(?:json|JSON)?/g, '');
-    const candidate = firstBalancedObject(text);
-    if (!candidate) return { findings: [] };
-    const parsed = JSON.parse(candidate);
-    const list = parsed && Array.isArray(parsed.findings) ? parsed.findings : [];
+    let parsed = null;
+    for (const c of balancedCandidates(text, 5)) {
+      const p = parseLenient(c);
+      if (p && Array.isArray(p.findings)) { parsed = p; break; }
+    }
+    if (!parsed) return { findings: [] };
+    const list = parsed.findings;
     const findings = [];
     for (const item of list) {
       const words = cleanWords(item && item.words);
@@ -186,7 +192,7 @@ const MEND_SYSTEM = 'You mend a story\'s pages so they stop contradicting what i
 
 export function buildMendMessages({ record, contradiction, pages, playerName = 'the player' }) {
   const passage = (Array.isArray(pages) ? pages : [])
-    .map((p, i) => '[' + i + '] (' + (p.role === 'assistant' ? 'STORY' : 'PLAYER') + ') ' + String(p.text || '').slice(0, 6000))
+    .map((p, i) => '[' + i + '] (' + (p.role === 'assistant' ? 'STORY' : 'PLAYER') + ') ' + String(p.text || ''))
     .join('\n\n');
   const user = [
     '<player_name>' + playerName + '</player_name>',
@@ -200,7 +206,11 @@ export function buildMendMessages({ record, contradiction, pages, playerName = '
     '',
     'Edit the fewest (STORY) pages by the smallest amount so the passage no longer contradicts the record. Keep each edited page\'s style, length, formatting, and all unrelated content. Never edit a (PLAYER) page. If a page\'s text is embedded in another page\'s quote, edit the ORIGINAL, not the quote. If no safe minimal edit exists, output [].',
     '',
-    'Output ONLY the JSON array: [{"index":<number>,"text":"<complete corrected page text>"}]',
+    /* M259: THE EDIT, NOT THE PAGE. Asked for "the complete corrected page",
+     * a model shown a long page either handed back a page without its ending
+     * or spent minutes writing out thousands of words it was told to keep. */
+    'Output ONLY the JSON array of edits: [{"index":<number>,"find":"<the exact words to change, copied character for character from that page>","replace":"<the words that take their place>"}]',
+    'Each "find" is a phrase or a sentence that appears exactly ONCE in its page — never the whole page. Two changes to one page are two entries.',
   ].join('\n');
   return { system: withFictionFrame(MEND_SYSTEM), user };
 }
@@ -208,23 +218,34 @@ export function buildMendMessages({ record, contradiction, pages, playerName = '
 export function parseMendAnswer(raw) {
   try {
     let text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '').trim();
-    const start = text.indexOf('[');
-    if (start === -1) return [];
-    /* the first balanced array */
-    let depth = 0; let inStr = false; let esc = false; let end = -1;
-    for (let i = start; i < text.length; i += 1) {
-      const ch = text[i];
-      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
-      if (ch === '"') inStr = true;
-      else if (ch === '[') depth += 1;
-      else if (ch === ']') { depth -= 1; if (depth === 0) { end = i; break; } }
+    /* M259: the first balanced array that reads as a list, past a stray
+     * bracket in the prose; a trailing comma is repaired */
+    let list = null;
+    let from = 0;
+    for (let tries = 0; tries < 5 && list === null; tries += 1) {
+      const start = text.indexOf('[', from);
+      if (start === -1) break;
+      let depth = 0; let inStr = false; let esc = false; let end = -1;
+      for (let i = start; i < text.length; i += 1) {
+        const ch = text[i];
+        if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+        if (ch === '"') inStr = true;
+        else if (ch === '[') depth += 1;
+        else if (ch === ']') { depth -= 1; if (depth === 0) { end = i; break; } }
+      }
+      if (end === -1) break;
+      const read = parseLenient(text.slice(start, end + 1));
+      if (Array.isArray(read) && (!read.length || read.some((e) => e && typeof e === 'object'))) list = read;
+      from = start + 1;
     }
-    if (end === -1) return [];
-    const list = JSON.parse(text.slice(start, end + 1));
     if (!Array.isArray(list)) return [];
-    return list
-      .filter((e) => e && typeof e === 'object' && Number.isInteger(e.index) && typeof e.text === 'string' && e.text.trim())
-      .map((e) => ({ index: e.index, text: e.text }));
+    const out = [];
+    for (const e of list) {
+      if (!e || typeof e !== 'object' || !Number.isInteger(e.index)) continue;
+      if (typeof e.find === 'string' && e.find.length >= 3 && typeof e.replace === 'string') out.push({ index: e.index, find: e.find, replace: e.replace });
+      else if (typeof e.text === 'string' && e.text.trim()) out.push({ index: e.index, text: e.text });
+    }
+    return out;
   } catch (err) {
     return [];
   }
@@ -236,21 +257,52 @@ export function parseMendAnswer(raw) {
  * page is refused — that is a rewrite, not a mend). Applies the edits to the
  * store with `mended:{before, why, at}` so the page can be taken back.
  * Returns [{id, before, after}] for what changed. Throws on transport. */
+export const MEND_PAGE_MAX = 60000;
+
 export async function mendPages({ connection, storyId, pages, contradiction, record, playerName, signal, apply }) {
   if (!connection || !storyId || !Array.isArray(pages) || !pages.length || !contradiction) return [];
+  /* M259: THE MENDER IS SHOWN THE WHOLE PAGE. It was shown the first 6,000
+   * characters and asked for "the complete corrected page" — so for a page a
+   * little longer, what came back was the page without its ending, and it
+   * passed the size check below and was saved. A page too long to hand back
+   * whole is not offered at all; the answer has room for the longest page. */
+  const offered = pages.filter((p) => String(p && p.text || '').length <= MEND_PAGE_MAX);
+  if (!offered.some((p) => p.role === 'assistant')) return [];
+  pages = offered;
   const prompt = buildMendMessages({ record, contradiction, pages, playerName });
   const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, signal });
   const edits = parseMendAnswer(text);
+  const byPage = new Map();
+  for (const e of edits) { if (!byPage.has(e.index)) byPage.set(e.index, []); byPage.get(e.index).push(e); }
   const changed = [];
-  for (const e of edits) {
-    const page = pages[e.index];
+  for (const [index, list] of byPage) {
+    const page = pages[index];
     if (!page || page.role !== 'assistant') continue;
     const before = String(page.text || '');
-    const after = e.text;
+    let after = before;
+    const swaps = list.filter((e) => typeof e.find === 'string');
+    if (swaps.length) {
+      /* each edit lands only where its words stand exactly once */
+      for (const sw of swaps) {
+        const at = after.indexOf(sw.find);
+        if (at === -1 || after.indexOf(sw.find, at + 1) !== -1) continue;
+        after = after.slice(0, at) + sw.replace + after.slice(at + sw.find.length);
+      }
+    } else {
+      after = list[list.length - 1].text; /* the whole page, as a short page may still be answered */
+    }
     if (after === before) continue;
     /* a mend is small: a change larger than half the page is a rewrite */
     const delta = Math.abs(after.length - before.length);
     if (delta > before.length * 0.5 || editDistanceRatio(before, after) > 0.5) continue;
+    /* M259: and a mend never loses a page's ending — the smallest edit does not
+     * drop a sixth of a page, nor its closing lines */
+    if (after.length < before.length * 0.85) continue;
+    const linesOf = (t) => t.trim().split('\n');
+    const lostEnding = linesOf(after).length < linesOf(before).length
+      && !after.includes(before.trim().slice(-60).trim())
+      && linesOf(after).slice(-1)[0] !== linesOf(before).slice(-1)[0];
+    if (lostEnding) continue;
     if (typeof apply === 'function') await apply(page, after, contradiction);
     changed.push({ id: page.id, before, after });
   }

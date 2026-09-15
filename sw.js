@@ -31,6 +31,8 @@ const SHELL = [
   'js/engine/relationships.js',
   'js/engine/offscreen.js',
   'js/engine/world.js',
+  'js/engine/whole.js',
+  'js/engine/pagecut.js',
   'js/engine/canon.js',
   'js/engine/referee-math.js',
   'js/engine/duels.js',

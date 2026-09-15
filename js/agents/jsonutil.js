@@ -60,12 +60,19 @@ export function firstBalancedObject(text) {
 /* The shared first step of every agent parser: strip markdown fences, find
  * the first balanced object, JSON.parse it. null on any trouble — the
  * callers decide what an empty answer means. */
-export function parseFirstObject(raw) {
+export function parseFirstObject(raw, want = null) {
+  /* M259: the thinking stripped, up to five candidates, the lenient repair —
+   * the way every other worker's answer has been read since M26/M31. It took
+   * the first brace and parsed it strictly, so the referee's and the
+   * director's watcher's answers were lost to a model that thought out loud
+   * first or left a trailing comma. `want` picks the object that answers. */
   try {
-    const candidate = firstBalancedObject(String(raw || '').replace(/```(?:json|JSON)?/g, ''));
-    if (!candidate) return null;
-    const parsed = JSON.parse(candidate);
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    const text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '');
+    for (const c of balancedCandidates(text, 5)) {
+      const parsed = parseLenient(c);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (typeof want !== 'function' || want(parsed))) return parsed;
+    }
+    return null;
   } catch (err) {
     return null;
   }

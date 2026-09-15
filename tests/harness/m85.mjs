@@ -742,7 +742,20 @@ test('M131-1 OWNERSHIP OF THE LEDGER: every fact has one writer; every second wr
   const ex = read('extractor'); const world = read('world'); const scribe = read('scribe'); const aud = read('auditor');
   /* the moment (presence position, wardrobe, mood) — the extractor only */
   assert(/mode\.snapshot/.test(ex) && !/mode\.snapshot/.test(world) && !/mode\.snapshot/.test(scribe), 'the mood board is the extractor’s');
-  assert(/MOMENT_TYPES = new Set\(\['mode\.snapshot', 'presence\.set', 'people\.note'\]\)/.test(aud), 'the auditor never lands the moment');
+  /* M259: held by RUNNING the scope. This line used to read a list in the
+   * source — a list that named people.note and so threw away every finished
+   * loose end the auditor was told to close. */
+  {
+    const { auditorScope } = await import('../../js/agents/auditor.js');
+    const who = { sheet: { playerName: 'Jovan' } };
+    for (const m of [{ type: 'mode.snapshot', flags: [] }, { type: 'presence.update', name: 'A', position: 'p' },
+      { type: 'rel.shift', name: 'A', axis: 'p', delta: 3, cause: 'c' }, { type: 'people.note', name: 'A', field: 'state', text: 't' },
+      { type: 'clock.advance', minutes: 5 }, { type: 'body.strain', name: 'A', what: 'w' }]) {
+      eq(auditorScope([{ what: 'w', fix: 'f', mutations: [m] }], who).length, 0, 'the auditor never lands the moment: ' + m.type);
+    }
+    eq(auditorScope([{ what: 'w', fix: 'f', mutations: [{ type: 'people.note', name: 'A', field: 'unthread', text: 'x' }] }], who)[0].mutations.length, 1,
+      'while a finished loose end is what lasts, and lands');
+  }
   /* the now of an absent person — the world agent’s seat; the scribe writes state for the present only */
   assert(/seated\.has\(String\(d\.name/.test(scribe), 'the scribe drops state for the seated absent');
   /* the ground and the hour — the header, in code, over the extractor’s own guess */

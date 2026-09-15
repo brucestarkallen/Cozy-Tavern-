@@ -26,7 +26,8 @@ import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
-import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
+import { loadState, saveState, notify } from '../engine/state.js';
+import { renderWholeLedger } from '../engine/whole.js'; /* M259: what the ledger already says — all of it */
 import { applyMutations } from '../engine/apply.js';
 import { mcName } from '../engine/duels.js';
 
@@ -268,7 +269,7 @@ export function buildFounderMessages({ state, brief = '', castNotes = '', cast =
     return '## ' + c.name + '\n' + bits.join('\n');
   }).join('\n\n');
   const shelf = (Array.isArray(lore) ? lore : []).filter((e) => e && e.enabled !== false).map((e) => '- ' + (e.name || (e.keys || [])[0] || 'an entry') + ' [' + (e.keys || []).join(', ') + ']: ' + String(e.content || '').slice(0, 800)).join('\n');
-  const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
+  const facts = renderWholeLedger(state) || 'Nothing is written in the ledger yet.';
   const user = [
     'THE BRIEF (the writer\'s own words):',
     FENCE, String(brief || '').trim().slice(0, 12000) || '(none written)', FENCE,

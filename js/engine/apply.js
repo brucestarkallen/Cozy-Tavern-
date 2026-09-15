@@ -141,7 +141,7 @@ function normalizeName(name) {
  * scene and a known person to her page, and the new guard below could be
  * walked straight past by writing her first name. One question, asked the
  * same way everywhere. */
-function findPresent(state, name) {
+export function findPresent(state, name) {
   const wanted = String(name || '').trim().toLowerCase();
   if (!wanted) return -1;
   const exact = state.present.findIndex((p) => p && typeof p.name === 'string'
@@ -261,7 +261,7 @@ const HANDLERS = {
     if (!name) return { ok: false, why: 'the main character needs a name' };
     if (!state.sheet || typeof state.sheet !== 'object') state.sheet = { actors: {}, playerName: '' };
     const before = typeof state.sheet.playerName === 'string' ? state.sheet.playerName.trim() : '';
-    if (before && before.toLowerCase() === name.toLowerCase()) return { ok: false, why: 'the main character is already known as ' + before };
+    if (before && before.toLowerCase() === name.toLowerCase()) return { ok: false, why: 'the main character is already known as ' + before, same: true }; /* M259: already so */
     if (before) return { ok: false, why: 'the main character is already known as ' + before + ' — change it by hand in How they measure' };
     state.sheet = { ...state.sheet, playerName: name.slice(0, 60) };
     return {
@@ -298,6 +298,10 @@ const HANDLERS = {
     const name = normalizeName(m.name || m.place || '');
     if (!name) return { ok: false, why: 'a place needs a name' };
     const before = state.place ? state.place.name : null;
+    /* M259: a change that changes nothing is not a change — the header line
+     * re-sends its place on every page, and the auditor, shown no ground at
+     * all, re-set one the ledger already held and called it a fix */
+    if (typeof before === 'string' && before.trim().toLowerCase() === name.trim().toLowerCase()) return { ok: false, why: 'the scene already stands in ' + before, same: true };
     state.place = { name };
     return {
       ok: true,
@@ -315,9 +319,12 @@ const HANDLERS = {
       return { why: 'those numbers don’t land on any calendar' };
     }
     const before = state.clock ? { ...state.clock } : null;
-    state.clock = state.clock
+    const target = state.clock
       ? setClock(state.clock, { year, month, day, hour, minute })
       : createClock({ calendar: 'real', start: { year, month, day, hour, minute } });
+    /* M259: the same hour is no change */
+    if (before && Number.isFinite(before.minutes) && target && target.minutes === before.minutes) return { why: 'the clock already reads ' + (renderClock(before) || 'that'), same: true };
+    state.clock = target;
     const words = 'The clock was set — ' + renderClock(state.clock) + '.';
     return { words, undo: { kind: 'clock', before } };
   },
@@ -351,7 +358,17 @@ const HANDLERS = {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
     if (findPresent(state, name) !== -1) {
-      return { why: name + ' is already written in' };
+      /* M259: someone already here who "comes in" at a new spot has MOVED —
+       * the position or dress the page gave is written, not thrown away
+       * with a refusal. With nothing new it is already so, not a refusal. */
+      const pos = typeof m.position === 'string' ? m.position.trim() : '';
+      const att = typeof m.attire === 'string' ? m.attire.trim() : '';
+      if (pos || att) {
+        const moved = HANDLERS['presence.update'](state, { type: 'presence.update', name, ...(pos ? { position: pos } : {}), ...(att ? { attire: att } : {}) });
+        if (moved && moved.same) return { why: name + ' is already written in', same: true };
+        return moved;
+      }
+      return { why: name + ' is already written in', same: true };
     }
     const entry = { name };
     const position = typeof m.position === 'string' ? m.position.trim() : '';
@@ -405,6 +422,11 @@ const HANDLERS = {
     }
     const before = { ...state.present[at] };
     const entry = state.present[at];
+    /* M259: the same position and dress is no change */
+    {
+      const same = (field) => m[field] === undefined || (typeof m[field] === 'string' ? m[field].trim() : '') === (typeof entry[field] === 'string' ? entry[field].trim() : '');
+      if (same('position') && same('attire')) return { why: entry.name + ' is already so', same: true };
+    }
     const changed = [];
     if (m.position !== undefined) {
       const position = typeof m.position === 'string' ? m.position.trim() : '';
@@ -564,6 +586,8 @@ const HANDLERS = {
     const found = findRelationship(state.relationships, name);
     const key = found ? found.key : name;
     const before = found ? cloneMap({ [key]: found.rel })[key] : null;
+    /* M259: a standing already at every number given is no change */
+    if (found && Object.entries(given).every(([axis, value]) => (Number(found.rel[axis]) || 0) === value)) return { why: key + ' already stands so', same: true };
     if (!found) state.relationships[key] = { p: 0, r: 0, s: 0, history: [] };
     const rel = state.relationships[key];
     for (const [axis, value] of Object.entries(given)) rel[axis] = value;
@@ -657,6 +681,8 @@ const HANDLERS = {
     const canonKey = findCanonKey(state.canon, name) || name;
     const before = state.canon[canonKey] ? cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey] : null;
     const held = before ? findFact(before, key) : null;
+    /* M259: a truth already locked in those words is no change */
+    if (held && String(held.entry.value || '').trim().toLowerCase() === value.trim().toLowerCase()) return { why: canonKey + ' — ' + held.entry.key + ' is already locked as ' + held.entry.value, same: true };
     state.canon = lockFact(state.canon, canonKey, { key, value }, clockMinutesOf(state));
     const words = held
       ? canonKey + ' — ' + held.entry.key + ' stands corrected: ' + value + ' (it was ' + held.entry.value + ').'
@@ -708,9 +734,10 @@ const HANDLERS = {
     const title = capText(m.title || m.name, 120);
     if (!title) return { why: 'a thread needs a title' };
     const before = Array.isArray(state.threads) ? state.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
-    if (findThread(before, title) === -1) return { why: 'no thread called ' + title + ' is open' };
+    const at = findThread(before, title);
+    if (at === -1) return { why: 'no thread called ' + title + ' is open' };
     state.threads = closeThread(state.threads, title);
-    return { words: 'A thread closed: ' + title + '.', undo: { kind: 'threads.restore', before } };
+    return { words: 'A thread closed: ' + before[at].title + '.', undo: { kind: 'threads.restore', before } };
   },
 
   'knowledge.add'(state, m) {
@@ -1035,7 +1062,8 @@ export function applyMutations(state, mutations) {
        * agent's writes instead of its own. */
       applied.push({ mutation, words: result.words, jid });
     } else {
-      rejected.push({ mutation, why: (result && result.why) || 'it didn’t hold' });
+      /* M259: a change that would change nothing says so (same) — it is not a refusal */
+      rejected.push({ mutation, why: (result && result.why) || 'it didn’t hold', ...(result && result.same ? { same: true } : {}) });
     }
   }
 

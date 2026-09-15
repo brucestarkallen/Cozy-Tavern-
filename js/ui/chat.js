@@ -50,7 +50,7 @@ import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNe
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
-import { enqueueWork, stopWork, workIsRunning, queuedCount } from '../agents/queue.js';
+import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
@@ -1878,8 +1878,8 @@ export function initChat(ctx) {
     if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'auditor');
     if (!connection) { banner.failed('The auditor needs a connection first'); return false; }
-    const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale }) => {
-      const result = await rebuildStandings({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
+    const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale, renew }) => {
+      const result = await rebuildStandings({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
       return { silent: false, detail: rebuildRunWords(result), raw: result && result.raw };
     } });
     noteWork(story.id, promise);
@@ -1896,7 +1896,7 @@ export function initChat(ctx) {
    * every later turn carries the brief's truth even where no safe edit was
    * found (the storyteller recolors forward — Canon Definition, Drift
    * Recovery). Nothing here waits for a hand. */
-  async function resolveBriefWins(story, connection, result, signal) {
+  async function resolveBriefWins(story, connection, result, signal, renew) {
     if (!result || !Array.isArray(result.issues)) return result;
     const wins = result.issues.filter((i) => i && i.pages && i.fix);
     if (!wins.length) return result;
@@ -1904,6 +1904,7 @@ export function initChat(ctx) {
     const all = (await db.messages.list(story.id)).filter((m) => !m.hidden && m.role === 'assistant');
     const last = all[all.length - 1];
     for (const issue of wins) {
+      if (typeof renew === 'function') renew(); /* M259: each mend is its own call */
       if (last) {
         try {
           const changed = await mendAround(story, connection, [last.id], issue.what + ' It should read: ' + issue.fix, signal, AUDIT_PAGES);
@@ -2007,9 +2008,9 @@ export function initChat(ctx) {
     if (!story) return false;
     const connection = await resolveWorkerConnection(story, 'auditor');
     if (!connection) { banner.failed('The auditor needs a connection first'); return false; }
-    const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale }) => {
-      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
-      if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal);
+    const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale, renew }) => {
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
+      if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     } });
     noteWork(story.id, promise);
@@ -2120,7 +2121,7 @@ export function initChat(ctx) {
     /* M134: the clock as the chain begins — the world link measures how far this page moved it */
     const chainClock = { before: null };
     const enqueue = (name, run) => {
-      const promise = enqueueWork(story.id, { name, run: ({ signal, stale }) => run({ signal, stale: () => stale() || (chainGen.get(story.id) || 0) !== gen }) });
+      const promise = enqueueWork(story.id, { name, run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
       noteWork(story.id, promise);
       return promise;
     };
@@ -2180,7 +2181,7 @@ export function initChat(ctx) {
 
     /* 1. The extractor (M3): read the page, propose mutations, apply and
      * save them, and write the outcome back onto the same message. */
-    enqueue('extractor', async ({ signal, stale }) => {
+    enqueue('extractor', async ({ signal, stale, renew }) => {
       if (story.extraction === false) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'extractor');
       if (!connection) return { silent: true };
@@ -2255,7 +2256,7 @@ export function initChat(ctx) {
               assistantText: pageText(missed),
               before: [], founding: false,
               brief: story.brief || '', castNotes: story.castNotes || '',
-              record: foldedBefore, signal,
+              record: foldedBefore, signal, renew,
             });
             if (!back.failed && Array.isArray(back.mutations) && back.mutations.length) {
               const older = await loadState(story.id);
@@ -2279,6 +2280,7 @@ export function initChat(ctx) {
         castNotes: story.castNotes || '',
         record: foldedBefore,
         signal,
+        renew,
       });
       /* B5: a page that has gone teaches the ledger nothing. M12: nor does
        * a page of a story the writer has left. */
@@ -2350,7 +2352,8 @@ export function initChat(ctx) {
         if (mast) await reink(story.id, msg.id, { masthead: mast });
       } catch { /* a masthead is a courtesy, never a crisis */ }
       const n = applied.length;
-      const refused = rejected.length ? ` (${rejected.length} refused: ${rejected.slice(0, 3).map((r) => r.why).join('; ')})` : '';
+      const refusals = rejected.filter((r) => !(r && r.same)); /* M259: "already so" is not a refusal */
+      const refused = refusals.length ? ` (${refusals.length} refused: ${refusals.slice(0, 3).map((r) => r.why).join('; ')})` : '';
       const detail = extractNote === 'unusable'
         ? 'its answer could not be used'
         : extractNote === 'cut short'
@@ -2364,7 +2367,7 @@ export function initChat(ctx) {
      * who knows what, the factions, who must now exist — and leave the
      * storyteller a brief for the next turn. Off the send path; the next
      * send reads whatever brief stands (pendingWork's courtesy wait). */
-    enqueue('world', async ({ signal, stale }) => {
+    enqueue('world', async ({ signal, stale, renew }) => {
       if (story.extraction === false || stale()) return { silent: true };
       if (!(await worldAgentOn(story))) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'world');
@@ -2407,6 +2410,7 @@ export function initChat(ctx) {
         effort: await worldEffort(),
         signal,
         stale,
+        renew,
         jumpedMinutes,
       });
       /* M85: the voices land under the page they followed (a re-ink, like
@@ -2426,26 +2430,32 @@ export function initChat(ctx) {
     /* 2. The scribe (M12): sparse deltas onto the character pages — who
      * they are, where they are, how things stand, loose ends. It answers
      * to the ledger's own switch, like the extractor. */
-    enqueue('scribe', async ({ signal, stale }) => {
+    enqueue('scribe', async ({ signal, stale, renew }) => {
       if (story.extraction === false || stale()) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'scribe');
       if (!connection) return { silent: true };
-      await scribeTurn({
+      const kept = await scribeTurn({
         connection,
         storyId: story.id,
         userText,
         assistantText: pageText(msg),
         signal,
         stale,
+        renew,
       });
-      return { silent: false };
+      /* M259: the scribe says what it did, like every other minder */
+      if (!kept) return { silent: true };
+      const n = kept.changes.length;
+      const detail = (n ? `wrote ${n} ${n === 1 ? 'note' : 'notes'} on the character pages` : 'nothing shifted on the character pages')
+        + (kept.note === 'cut short' ? ' (its answer ran out of room twice; every note that arrived whole was kept)' : '');
+      return { silent: false, detail };
     });
 
     /* 3. The memory keeper (M6; M12 grew the detail auditor inside it):
      * fold what has scrolled past the verbatim window into layered notes.
      * M9 (B12): its own per-story switch — the ledger's switch no longer
      * speaks for it. */
-    enqueue('keeper', async ({ signal, stale }) => {
+    enqueue('keeper', async ({ signal, stale, renew }) => {
       if (story.keeper === false) return { silent: true };
       if (story.keeper !== true && (await db.settings.get('memoryKeeper')) === false) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'keeper');
@@ -2456,6 +2466,7 @@ export function initChat(ctx) {
         connection,
         storyId: story.id,
         signal,
+        renew, /* M259: every call gets its own minute (M213) — the chain never handed it over */
         stale, /* M72: a keeper whose ledger was rewound under it writes nothing */
         /* M35: a line's passage contradicts the record → mend those pages */
         onSourceIssue: async ({ issue, fix, span }) => {
@@ -2514,7 +2525,7 @@ export function initChat(ctx) {
     /* 4a. M41: the auditor — every few turns (or by hand), the whole ledger
      * against the brief, the pages and the record; what is wrong is set
      * right through the closed vocabulary, what cannot be is noted. */
-    enqueue('auditor', async ({ signal, stale }) => {
+    enqueue('auditor', async ({ signal, stale, renew }) => {
       if (story.extraction === false || stale()) return { silent: true };
       if (!(await auditOn(story))) return { silent: true };
       const owed = pendingAudit.has(story.id);
@@ -2527,8 +2538,8 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'auditor');
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
-      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale });
-      if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal);
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
+      if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     });
 

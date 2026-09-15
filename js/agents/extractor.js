@@ -38,7 +38,7 @@ import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 
-import { renderStateFacts } from '../engine/state.js';
+import { renderWholeLedger, wholePage } from '../engine/whole.js'; /* M259: the whole ledger, and the page read to its end */
 import { mcName } from '../engine/duels.js';
 
 /* M28: the answer is JSON only and thinking is OFF on the wire (call.js),
@@ -123,7 +123,7 @@ const VOCABULARY = [
    * Aurora's message delivered, Caleb's frame posted — every one still
    * burning in the ledger, read to the storyteller every turn as something
    * still hanging. */
-  'thread.close {"type":"thread.close","title":"the title as the ledger holds it"} — a story thread THIS page resolved: the question answered, the plan abandoned, the promise kept, the thing found. Use the title the ledger shows, worded as it stands.',
+  'thread.close {"type":"thread.close","title":"the title as the ledger holds it"} — a story thread THIS page resolved: the question answered, the plan abandoned, the promise kept, the thing found. Use the title the ledger shows, worded as it stands (each title is quoted on the thread list).',
   'knowledge.add {"type":"knowledge.add","name":"NAME","fact":"that Jovan lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. Only what THIS page put in front of them, and only where being told, or not told, could change what they do.',
   'mode.snapshot {"type":"mode.snapshot","flags":["travel"]} — THE WHOLE BOARD, EVERY PAGE: every mood that holds at the END of this page, from: combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit — a car, a train, a road; NOT once they have arrived and stepped out), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several). Anything you do not name is cleared. An empty list clears them all.',
   'body.injure {"type":"body.injure","name":"NAME","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
@@ -189,16 +189,19 @@ function systemPrompt({ mc, founding }) {
       '',
       'BEFORE YOU ANSWER, THE FOUR MOST OFTEN MISSED (M256 — every one of these',
       'was found by the auditor three turns late, in the writer\'s own tale):',
-      '  1. THE GROUND MOVED. If the scene now stands somewhere else — a gate, a',
-      '     kitchen, one house further down the lane — place.set. A header that',
-      '     names a place the ledger does not hold means it moved.',
+      '  1. THE GROUND MOVED. The ledger holds it on its "The ground:" line. A page',
+      '     that opens with a header line has its place written in code; on a page',
+      '     with none, if the scene now stands somewhere else — a gate, a kitchen,',
+      '     one house further down the lane — place.set.',
       '  2. SOMEONE PRESENT MOVED WITHIN IT. Reaching a gate, a hand on a latch,',
       '     crossing to the window: presence.update. Their old position is a lie',
       '     until you write the new one.',
       '  3. SOMEONE LEARNED SOMETHING. Anyone standing there who heard the answer,',
       '     saw the handshake, caught the lie: knowledge.add, for each of them.',
       '  4. WHAT THE PAGE ANSWERED. A question asked and answered, a promise kept,',
-      '     an audit passed — say so in the note so the thread can close.',
+      '     a plan abandoned — thread.close, the title exactly as the ledger quotes it.',
+      'THE LEDGER ABOVE IS ALL OF IT — every standing, thread, line of who knows what',
+      'and seat. A fact someone already knows, in any words, is not written again.',
       'Be conservative. Write down only what the prose explicitly shows — never what it',
       'merely hints at, never what might be true. Injuries only when the blow lands',
       'on-page; feelings shift only from on-page acts, and every shift needs its cause',
@@ -243,7 +246,7 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
   /* founding: passed explicitly by the send path (it already knows), else
    * read off the ledger's own youth. */
   if (typeof founding !== 'boolean') founding = isYoungLedger(state);
-  const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
+  const facts = renderWholeLedger(state) || 'Nothing is written in the ledger yet.'; /* M259 */
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   const onNow = Object.entries((state && state.mode) || {}).filter(([, v]) => v).map(([k]) => k);
@@ -254,10 +257,10 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     'Moods on the board right now: ' + (onNow.length ? onNow.join(', ') : 'none') + ' — restate the whole board with mode.snapshot.',
     '',
     ...(brief && String(brief).trim()
-      ? ['What this story is about, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 1500), FENCE, '']
+      ? ['What this story is about, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 12000), FENCE, '']
       : []),
     ...(castNotes && String(castNotes).trim()
-      ? ['Who is in it, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 1500), FENCE, '']
+      ? ['Who is in it, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 8000), FENCE, '']
       : []),
     /* M226: THE STORY BEFORE THE PAGES IT CAN SEE. The extractor writes the
      * ledger from the newest page and the four before it — eight on a deep
@@ -272,16 +275,16 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
       ? ['The story so far, folded — what the pages before these ones hold:', FENCE, String(record).trim(), FENCE, '']
       : []),
     ...(before.length
-      ? ['The pages just before this one:', FENCE, before.map((b) => (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + String(b.text || '').slice(0, 2000)).join('\n\n'), FENCE, '']
+      ? ['The pages just before this one:', FENCE, before.map((b) => (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + wholePage(b.text, 4000)).join('\n\n'), FENCE, '']
       : []),
     'The writer just wrote:',
     '"""',
-    String(userText || '').slice(0, 4000),
+    wholePage(userText, 12000),
     '"""',
     '',
     'And the storyteller answered:',
     '"""',
-    String(assistantText || '').slice(0, 8000),
+    wholePage(assistantText),
     '"""',
     '',
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
@@ -339,11 +342,13 @@ export function parseExtractorAnswer(raw) {
  * line. What never throws: an answer we can't use, which resolves
  * {mutations:[], note:'unusable'} so the drawer can say so. A missing
  * connection or an empty page resolves {mutations:[], failed:true}. */
-export async function extractTurn({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', signal } = {}) {
+export async function extractTurn({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew } = {}) {
   if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
   if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
-  const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes });
+  /* M259: THE RECORD RIDES. chat.js has handed it over since M226; this line
+   * dropped it on arrival, so the extractor never once saw it. */
+  const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes, record });
   /* M31: an answer we can't use, or a founding that came back empty, earns
    * ONE second ask with a sharper word — here, not five blind retries in
    * the queue. The raw answer rides out so the drawer can show it. */
@@ -367,6 +372,7 @@ export async function extractTurn({ connection, state, userText, assistantText, 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let read;
     try {
+      if (typeof renew === 'function') renew(); /* M259: every call gets its own minute (M213) */
       const { text, finishReason } = await callWorker(connection, {
         system: prompt.system,
         user,

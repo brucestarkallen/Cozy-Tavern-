@@ -387,3 +387,6 @@ test('LONG-6 the intimate rule wakes on the writer’s own words a beat before t
 });
 
 await runAll();
+/* M259: end with the run's own code, as the walk does — the page's timers kept this process
+ * alive after the last law, so a script waiting on it never heard the result */
+process.exit(process.exitCode || 0);

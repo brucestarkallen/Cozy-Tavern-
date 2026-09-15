@@ -48,7 +48,7 @@ import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: t
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
 import { loadMemory, saveMemory, orderedLines, visiblePages } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
-import { carriedBy, SEAT_MENTION_PAGES } from '../agents/auditor.js'; /* M104: why each person is carried */
+import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
 import { pageText } from '../assemble/stack.js';
 import { db } from '../store.js';
 
@@ -1360,10 +1360,10 @@ function driftPanel(ctx) {
       list.appendChild(head);
       for (const i of audit.issues) {
         const li = document.createElement('li');
-        li.className = 'log-row' + (i.fixable ? '' : ' drift-warn');
-        /* M93: nothing the auditor sees is left for the writer — a line without a
-         * change is a thing seen and let stand, never a chore */
-        li.textContent = (i.fixable ? 'Set right: ' : 'Seen, left as the story has it: ') + i.what + (i.fix ? ' → ' + i.fix : '');
+        /* M259: "Set right" only when a change LANDED (agents/auditor.js) */
+        const line = auditLineWords(i);
+        li.className = 'log-row' + (line.warn ? ' drift-warn' : '');
+        li.textContent = line.text;
         list.appendChild(li);
       }
     }

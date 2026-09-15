@@ -40,7 +40,10 @@ test('M41-2 end to end: what is wrong is set right through the ledger; what cann
     { what: 'the brief and the pages disagree about the year', fix: '', mutations: [] },
   ] });
   const house = thinkingHouse({ answer });
-  const r = await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId, brief: 'Kendall’s mother is Kris.', stale: () => false }));
+  /* M259: the brief names Kris Jenner in full — a page for an unnamed house
+   * example name is swept on the next reading (M95), and the run words no
+   * longer hide that sweep behind "true to the story" */
+  const r = await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId, brief: 'Kendall’s mother is Kris Jenner.', stale: () => false }));
   eq(r.note, 'ok'); eq(r.applied.length, 4, r.rejected.map((x) => x.why).join(' | '));
   const st = await loadState(storyId);
   eq(st.present.length, 1); eq(st.present[0].name, 'Liara');
@@ -51,7 +54,7 @@ test('M41-2 end to end: what is wrong is set right through the ledger; what cann
   assert(/found 4 things, set 4 right:[\s\S]*1 seen, nothing to change/.test(auditRunWords(r)), auditRunWords(r));
   assert(st.log.some((l) => /Kenji/.test(l.words)), 'the change is logged (and so take-back-able)');
   const clean = thinkingHouse({ answer: '{"issues":[]}' });
-  const r2 = await withHouse(clean, () => auditLedger({ connection: HOUSES[0].conn, storyId, stale: () => false }));
+  const r2 = await withHouse(clean, () => auditLedger({ connection: HOUSES[0].conn, storyId, brief: 'Kendall’s mother is Kris Jenner.', stale: () => false }));
   eq(auditRunWords(r2), 'the ledger is true to the story');
 });
 

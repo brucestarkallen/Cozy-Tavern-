@@ -23,12 +23,15 @@ import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
-import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
-import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn } from '../engine/apply.js';
-import { renderOffscreen } from '../engine/offscreen.js';
-import { renderCanon } from '../engine/canon.js';
-import { renderThreads, renderKnowledge, renderFactions } from '../engine/world.js';
-import { renderBodies } from '../engine/bodies.js';   /* M240: it was told to catch a healed wound and never shown the wounds */
+import { loadState, saveState, notify, headerMutations } from '../engine/state.js';
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent } from '../engine/apply.js';
+import { findSeat } from '../engine/offscreen.js';
+import { findThread } from '../engine/world.js';
+/* M240: it was told to catch a healed wound and never shown the wounds.
+ * M259: and it was shown the storyteller's TRIMMED copy of everything else —
+ * six standings, five threads, four things a person knows, no ground at all.
+ * It reads the whole ledger now (engine/whole.js). */
+import { renderWholeLedger, wholePage } from '../engine/whole.js';
 import { mcName } from '../engine/duels.js';
 import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { loadMemory, wholeRecord } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
@@ -36,16 +39,23 @@ import { pageText } from '../assemble/stack.js';
 
 const MAX_TOKENS = 6000;
 export const DEFAULT_AUDIT_EVERY = 1; /* turns — M94: every page, as Summaryception's continuity auditor runs on every line */
-export const AUDIT_PAGES = 10;        /* the latest pages the auditor reads in full */
+export const AUDIT_PAGES = 10;        /* the fewest pages the auditor reads word for word (and the mender's reach) */
+/* M259: every page the record has not yet folded, up to AUDIT_PAGES_MAX, so
+ * no page is read by nobody — the record holds the folded ones, the auditor
+ * reads the rest word for word, each to its end. */
+export const AUDIT_PAGES_MAX = 40;
+export const AUDIT_PAGE_CAP = 24000;
+export const AUDIT_RECORD_CAP = 120000; /* the whole record — not the storyteller's 30,000 */
+const BRIEF_CAP = 40000;                /* the brief is the first authority; it was cut at 4,000 */
+const CAST_CAP = 20000;
 
 const VOCABULARY = [
-  'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30}',
-  'place.set {"type":"place.set","name":"the chapel"}',
-  'presence.enter {"type":"presence.enter","name":"NAME","position":"by the fire"} / presence.leave {"type":"presence.leave","name":"NAME"} / presence.update {"type":"presence.update","name":"NAME","position":"at the window"}',
+  'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — to the latest header line\'s own hour, or when the latest STORY page has none',
+  'place.set {"type":"place.set","name":"the chapel"} — to the latest header line\'s own place, or when the latest STORY page has none',
+  'presence.enter {"type":"presence.enter","name":"NAME"} / presence.leave {"type":"presence.leave","name":"NAME"}',
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — only when the ledger has no main character',
-  'mode.snapshot {"type":"mode.snapshot","flags":["socialField"]} — the moods that hold at the end of the latest page, all of them; anything not named is cleared',
   'body.injure {"type":"body.injure","name":"NAME","what":"…","sev":1-3} / body.heal {"type":"body.heal","name":"NAME","what":"…"}',
-  'rel.shift {"type":"rel.shift","name":"OTHER NAME","axis":"p|r|s","delta":-20..20,"cause":"the on-page beat"} / rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"}',
+  'rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"} — only to restore a standing that is wrongly zero, or to zero one written for someone else',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"toward|seeking|tense|busy|waiting","etaMinutes":25} / offscreen.clear {"type":"offscreen.clear","name":"NAME"}',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black"} / canon.unlock {"type":"canon.unlock","name":"NAME","key":"hair"}',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} / thread.close {"type":"thread.close","title":"…"}',
@@ -67,13 +77,18 @@ function law({ mc }) {
     '  3. THE RECORD — what earlier pages established, oldest to newest; a [Correction] line supersedes.',
     mc ? `The main character is ${mc}.` : 'The main character is not yet named; if the pages make it plain, mc.set names them.',
     '',
+    'WHAT YOU ARE SHOWN IS ALL OF IT: every standing, every open thread, every line of who knows',
+    'what, every seat, every lock, and every page the record has not yet folded. A thing not listed',
+    'is not in the ledger; a thing listed in other words is ALREADY in it — never write it again.',
+    'Name a thread exactly as its title is quoted.',
+    '',
     'Find every place the ledger disagrees with those truths, and every place it is missing something',
     'the pages plainly established:',
-    '  - THE MOOD: do the moods on the board still hold at the end of the latest page? "In transit"',
-    '    after he stepped out of the car, "a social field" in an emptied room, "combat" after the fight',
-    '    ended — a stale mood wakes the wrong rules. Restate the board with mode.snapshot.',
-    '  - THE HOUR AND THE GROUND: does the clock and the place match the latest page\'s header line',
-    '    [Place — Day, Date | HH:MM | …] and the scene as written? Set them if not.',
+    '  - THE HOUR AND THE GROUND: when the latest STORY page opens with a header line',
+    '    [Place — Day, Date | HH:MM | …], that line is the truth for both, and the house writes it into',
+    '    the ledger in code; set them only to what that line says, never to anything else. When the',
+    '    latest page has NO header line and the ground or the hour on the ledger plainly disagrees',
+    '    with where and when that page stands, set them.',
     '  - WHO IS HERE: is everyone on the latest page in the ledger\'s presence, and is everyone marked',
     '    present actually still in the scene? Someone who left pages ago and is still "here" is an',
     '    error; someone who arrived and is not listed is an error.',
@@ -97,7 +112,9 @@ function law({ mc }) {
     '    missing) for a person the brief or the pages establish as bonded to the main character —',
     '    a childhood friend, a devoted sister, a lover — is an error; RESTORE it with rel.set at the',
     '    level the brief\'s words warrant (cause: "the brief says …"). Lowering is what you may not do',
-    '    on judgment; raising a wrongly-zeroed standing is a correction you can prove.',
+    '    on judgment; raising a wrongly-zeroed standing is a correction you can prove. A standing',
+    '    the PAGES have moved (its latest causes quote a beat) is never yours to set, up or down, and',
+    '    how far a beat moved a standing is the page reader\'s to write, never yours.',
     '  - THE THREADS: a thread the pages show resolved still hot (thread.close); a live agenda the',
     '    pages show and the ledger lacks (thread.set).',
     '  - THE LOOSE ENDS ON A PERSON\'S OWN PAGE (their "Loose ends:" line, which is NOT the same as',
@@ -114,7 +131,7 @@ function law({ mc }) {
     '',
     'THE MAIN CHARACTER HAS NO CHARACTER PAGE, by design — the writer plays them. Never report it',
     'missing, never write one.',
-    'NOT YOUR JOB — THE MOMENT: posture, position, what a hand is doing, a sip taken, a knee on the',
+    'NOT YOUR JOB — THE MOMENT: posture, position, dress, the mood board, what a hand is doing, a sip taken, a knee on the',
     'vinyl, clothing of the moment, an absent person\'s activity this hour, a thread\'s next small',
     'step, a character page\'s "now" line. The extractor, the world agent and the scribe rewrite',
     'those after EVERY page; the ledger you read describes the moment BEFORE the latest page, and a',
@@ -122,7 +139,7 @@ function law({ mc }) {
     'them. Yours is what LASTS and what is WRONG: the wrong name, age, kin, origin, role; a person',
     'present who left pages ago or absent who is plainly here; a wound healed still open; a standing',
     'wrongly zero; a thread the pages closed still hot or a live agenda missing; a witnessed fact',
-    'with no knowledge line; the clock or the ground unset while the header names them; a duplicate.',
+    'with no knowledge line; the clock or the ground wrong on a page with no header line; a duplicate.',
     'A reading with two or three findings is usual; a reading with fifteen is a reading of the',
     'moment, and wrong.',
     '',
@@ -166,7 +183,7 @@ function characterPages(state) {
     if (c.state) bits.push('now: ' + c.state);
     if (c.arc) bits.push('arc: ' + c.arc);
     if (Array.isArray(c.threads) && c.threads.length) bits.push('loose ends: ' + c.threads.map((t) => (typeof t === 'string' ? t : t && t.text)).filter(Boolean).join('; '));
-    lines.push(name + ' — ' + bits.join(' | '));
+    lines.push(name + (c.retired ? ' (passed through — out of the story until a page names them)' : '') + ' — ' + bits.join(' | '));
   }
   return lines.join('\n');
 }
@@ -175,42 +192,30 @@ function characterPages(state) {
 export function buildAuditorMessages({ state, brief = '', castNotes = '', record = '', pages = [] }) {
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
-  const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
-  const present = Array.isArray(state.present) ? state.present : [];
-  const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
-  const seats = renderOffscreen(state.offscreen, present, clockMinutes, 40);
-  const canon = state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : '';
-  const threads = renderThreads(Array.isArray(state.threads) ? state.threads.filter((t) => t && typeof t === 'object' && t.title) : []);
-  const knowledge = renderKnowledge(state.knowledge, present);
-  /* M240: IT WAS TOLD TO CATCH "a wound healed still open" AND NEVER SHOWN
-   * THE WOUNDS. The word "bodies" appeared nowhere in this file. The one
-   * reader asked to hold the whole ledger against the pages was auditing a
-   * ledger it could not see. */
-  const bodies = renderBodies(state.bodies, clockMinutes, Number.isFinite(state && state.turn) ? state.turn : 0);
-  const factions = renderFactions(state.factions);
+  /* M259: the WHOLE ledger — every standing with its numbers, every thread,
+   * every line of who knows what, every seat, lock, wound and faction, and
+   * the ground (engine/whole.js). */
+  const whole = renderWholeLedger(state) || 'Nothing is written in the ledger yet.';
   const people = characterPages(state);
   const user = [
     'THE BRIEF (the writer\'s own words):',
-    FENCE, String(brief || '').trim().slice(0, 4000) || '(none written)', FENCE,
-    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT (the writer\'s own words):', FENCE, String(castNotes).trim().slice(0, 3000), FENCE] : []),
+    FENCE, String(brief || '').trim().slice(0, BRIEF_CAP) || '(none written)', FENCE,
+    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT (the writer\'s own words):', FENCE, String(castNotes).trim().slice(0, CAST_CAP), FENCE] : []),
     '',
-    'THE LEDGER, ALL OF IT:',
-    '— the state of the scene —', facts,
-    '— every seat of the absent —', seats || '(none)',
-    '— the character pages —', people || '(none)',
-    '— what is locked true —', canon || '(nothing locked)',
-    '— the threads —', threads || '(none)',
-    '— who knows what (the present) —', knowledge || '(nothing written)',
-    '— what their bodies carry —', bodies || '(nothing written)',
-    '— the factions —', factions || '(none)',
-    '',
-    'THE RECORD (oldest to newest):',
+    /* M259: what changes least comes first, the ledger (which changes every
+     * page) last — so the house can reuse what it already read of the brief,
+     * the record and the older pages instead of reading them all again. */
+    'THE RECORD (the folded pages, oldest to newest):',
     FENCE, String(record || '').trim() || '(nothing recorded yet)', FENCE,
     '',
-    'THE LATEST PAGES (the last is the present):',
+    'THE PAGES THE RECORD HAS NOT YET FOLDED, word for word (the last is the present):',
     FENCE,
-    (Array.isArray(pages) ? pages : []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(p.text || '').slice(0, 5000)).join('\n\n'),
+    (Array.isArray(pages) ? pages : []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(p.text || '')).join('\n\n'),
     FENCE,
+    '',
+    'THE LEDGER, ALL OF IT (as it stood before the latest page):',
+    whole,
+    '— the character pages —', people || '(none)',
     '',
     'Hold the ledger against the brief, the pages and the record. JSON only.',
   ].join('\n');
@@ -253,7 +258,49 @@ export function answeredOnly(list) {
   return arr.slice(0, cut);
 }
 
-export async function auditLedger({ connection, storyId, brief = '', castNotes = '', signal, stale } = {}) {
+/* M259: the room the auditor's connection has, in characters (about three a
+ * token, less the answer's own budget). A connection with no size set is
+ * taken at 128,000 tokens, the smallest house the writer uses. */
+/* M259: THE LEASH FOR ONE BIG CALL. A worker's call is cut off after sixty
+ * seconds; an auditor that reads the whole ledger, the whole record and every
+ * unfolded page can be handed a hundred thousand tokens, and reading them is
+ * honest work. A minute, and a second more for every four thousand characters
+ * it is handed. */
+export function auditLeashMs(prompt) {
+  const size = prompt ? String(prompt.system || '').length + String(prompt.user || '').length : 0;
+  return 60000 + Math.ceil(size / 4000) * 1000;
+}
+
+export function auditRoomChars(connection) {
+  const size = connection && typeof connection.contextSize === 'number' && connection.contextSize > 0 ? connection.contextSize : 128000;
+  return Math.max(30000, Math.floor((size - MAX_TOKENS - 2000) * 3));
+}
+
+/* M259: the pages the auditor reads word for word — from where the record
+ * stops to the newest (never fewer than AUDIT_PAGES, never more than
+ * AUDIT_PAGES_MAX), each read to its end, the newest first into the room. */
+export function pagesForAudit(list, foldedTo, room) {
+  const all = Array.isArray(list) ? list : [];
+  if (!all.length) return [];
+  const from = Number.isFinite(foldedTo) ? foldedTo : 0;
+  const start = Math.max(0, Math.min(from, all.length - AUDIT_PAGES), all.length - AUDIT_PAGES_MAX);
+  let left = Number.isFinite(room) && room > 0 ? room : Infinity;
+  const out = [];
+  for (let i = all.length - 1; i >= start; i -= 1) {
+    const m = all[i];
+    const text = pageText(m);
+    let t = wholePage(text, AUDIT_PAGE_CAP);
+    if (t.length + 12 > left) {
+      if (left < 3000) break;
+      t = wholePage(text, left - 200);
+    }
+    out.unshift({ role: m.role, text: t });
+    left -= t.length + 12;
+  }
+  return out;
+}
+
+export async function auditLedger({ connection, storyId, brief = '', castNotes = '', signal, stale, renew } = {}) {
   if (!connection || typeof connection !== 'object' || !storyId) return null;
   const state = await loadState(storyId);
   const mem = await loadMemory(storyId);
@@ -264,13 +311,25 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * seated the main character downstairs; the story had not. Answered
    * turns only. */
   const all = answeredOnly(allRaw);
-  const pages = all.slice(-AUDIT_PAGES).map((m) => ({ role: m.role, text: pageText(m) }));
+  if (!all.length) return null;
+  /* M259: EVERY PAGE THE RECORD HAS NOT FOLDED, and the WHOLE record. It read
+   * the last ten pages and a record trimmed to the storyteller's 30,000
+   * characters — so with a window of twenty or thirty pages, the pages
+   * between the record's end and the last ten were read by NOBODY, and a
+   * long tale's oldest lines fell off the front. The room is the
+   * connection's own. */
+  const room = auditRoomChars(connection);
+  const record = wholeRecord(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35))));
+  const foldedTo = Math.max(0, ...((mem && Array.isArray(mem.nodes)) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1));
+  const bare = buildAuditorMessages({ state, brief, castNotes, record, pages: [] });
+  const pages = pagesForAudit(all, foldedTo, room - bare.system.length - bare.user.length);
   if (!pages.length) return null;
-  const prompt = buildAuditorMessages({ state, brief, castNotes, record: wholeRecord(mem), pages });
+  const prompt = buildAuditorMessages({ state, brief, castNotes, record, pages });
   let read = null;
   let raw = '';
   let user = prompt.user;
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (typeof renew === 'function') renew(auditLeashMs({ system: prompt.system, user }));
     const { text, finishReason } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, signal });
     raw = text;
     read = parseAuditorAnswer(text);
@@ -281,7 +340,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   if (read.note !== 'ok') return { applied: [], rejected: [], issues: [], note: read.note, raw };
   if (stale && stale()) return null;
   const fresh = await loadState(storyId);
-  read.issues = auditorScope(read.issues, fresh); /* M128: the moment never lands from an audit */
+  /* M259: the latest STORY page's header line has already written the ground
+   * and the hour in code (M128/M131) — the auditor never overrides it. */
+  const latestStory = [...all].reverse().find((m) => m && m.role === 'assistant' && !m.ooc);
+  const header = latestStory ? headerMutations(pageText(latestStory)) : [];
+  read.issues = auditorScope(read.issues, fresh, { header }); /* M128: the moment never lands from an audit */
   /* M48: the auditor may not take a standing away on judgment. A rel.set
    * that lowers a standing is refused when that standing has ANY on-page
    * history (a cause the extractor wrote from a page) or when the person is
@@ -297,13 +360,23 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const rel = key ? fresh.relationships[key] : null;
       const lowering = m.type === 'rel.shift' ? Number(m.delta) < 0
         : rel ? ['p', 'r', 's'].some((ax) => Number.isFinite(m[ax]) && m[ax] < (rel[ax] || 0)) : false;
+      const earned = Boolean(rel) && Array.isArray(rel.history) && rel.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim()));
       if (rel && lowering) {
-        const earned = Array.isArray(rel.history) && rel.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim()));
         const inBrief = material.includes(m.name.trim().toLowerCase());
         if (earned || inBrief) {
           keptStandings.push({ mutation: m, why: (earned ? 'the standing was earned on the pages' : 'the brief names ' + m.name) + ' — the auditor may not take it away' });
           continue;
         }
+      }
+      /* M259: NOR RAISE ONE THE PAGES MOVED. The auditor restores a standing
+       * that is wrongly ZERO; one the pages have moved is the page reader's.
+       * Shown only the six strongest standings, it took the rest for missing
+       * and "restored" them at the brief's level — which, for a standing the
+       * pages had brought DOWN, erased what the story had earned. */
+      const zero = !rel || (!(rel.p || 0) && !(rel.r || 0) && !(rel.s || 0));
+      if (rel && !zero && earned && !lowering) {
+        keptStandings.push({ mutation: m, why: 'the pages moved this standing — the auditor restores only a standing that is zero' });
+        continue;
       }
     }
     guarded.push(m);
@@ -320,16 +393,35 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   guarded.push(...seatHousekeeping(fresh, { brief, castNotes, pages: all.map((m) => ({ role: m.role, text: pageText(m) })) }));
   /* M50: the standings, kept clean in code — no judgment anywhere here. */
   const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
+  if (typeof renew === 'function') renew(); /* a fresh minute for the brief's digits */
   const statedByModel = await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
   guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...keptStandings];
-  const report = { at: Date.now(), turn: storyTurn(next), issues: read.issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)) })) };
+  /* M259: THE REPORT SAYS WHAT LANDED. "Set right" meant "it wrote a change",
+   * not "the change held": a thread closed under a reworded title was
+   * refused, stayed open, and the report still said it was set right — then
+   * found it again the next turn. And a finding whose every change the ledger
+   * ALREADY held (the scene already stands there, the standing already reads
+   * so) was the auditor misreading, not a fix: it is not reported at all. */
+  const landedSet = new Set(applied.map((a) => a.mutation));
+  const whyOf = new Map();
+  for (const r of rejected) if (r && r.mutation) whyOf.set(r.mutation, r);
+  const issues = [];
+  for (const i of read.issues) {
+    const landed = i.mutations.filter((m) => landedSet.has(m)).length;
+    const missed = i.mutations.filter((m) => !landedSet.has(m));
+    const alreadySo = (m) => Boolean(whyOf.get(m) && whyOf.get(m).same);
+    if (!landed && missed.length && missed.every(alreadySo) && !(i.pages && i.fix)) continue;
+    const refused = missed.filter((m) => !alreadySo(m)).map((m) => (whyOf.get(m) && whyOf.get(m).why) || 'it did not hold').slice(0, 3);
+    issues.push({ ...i, landed, refused });
+  }
+  const report = { at: Date.now(), turn: storyTurn(next), issues: issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)), landed: i.landed, refused: i.refused })) };
   const out = { ...next, audit: report };
   if (stale && stale()) return null;
   await saveState(storyId, out);
   notify(storyId);
-  return { applied, rejected, issues: read.issues, note: 'ok', raw };
+  return { applied, rejected, issues, note: 'ok', raw };
 }
 
 /* M57: who has passed through. A person retires when ALL hold: not present;
@@ -397,20 +489,46 @@ export function exampleLeakHousekeeping(state, brief = '', castNotes = '') {
  * for the main character is never written (the writer plays them). What
  * stays: presence, standings, locks, wounds, seats made or cleared, threads
  * opened or closed, knowledge, the clock and the ground, forgetting. */
-const MOMENT_TYPES = new Set(['mode.snapshot', 'presence.set', 'people.note']);
-export function auditorScope(issues, state) {
+/* M259: THE AUDITOR'S DOORS, as a list of what it MAY open rather than of what
+ * it may not. The old list of forbidden types named people.note — so every
+ * finished loose end the auditor was told to close (M240/M241) was thrown
+ * away here, and an issue whose only change was that close vanished from
+ * the report. A closed loose end LASTS: it passes now, and only that field.
+ * The page reader's things (a mood, a position, a dress, how far a beat
+ * moved a standing, time passing, weariness) and anything no one may write
+ * on judgment are dropped. */
+export const AUDITOR_TYPES = new Set([
+  'clock.set', 'place.set', 'presence.enter', 'presence.leave', 'mc.set',
+  'body.injure', 'body.heal', 'rel.set', 'offscreen.set', 'offscreen.clear',
+  'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add',
+  'faction.set', 'people.set', 'people.note', 'people.forget',
+]);
+export function auditorScope(issues, state, { header = [] } = {}) {
   const mc = String((state && state.sheet && state.sheet.playerName) || '').trim().toLowerCase();
-  const seats = state && state.offscreen ? Object.keys(state.offscreen).map((k) => k.toLowerCase()) : [];
-  const threads = Array.isArray(state && state.threads) ? state.threads.map((t) => String((t && t.title) || '').toLowerCase()) : [];
+  const said = Array.isArray(header) ? header : [];
+  /* does the header line agree with this place or hour? null when it is silent */
+  const headerAgrees = (m) => {
+    const h = said.find((x) => x && x.type === m.type);
+    if (!h) return null;
+    if (m.type === 'place.set') return String(h.name || '').trim().toLowerCase() === String(m.name || m.place || '').trim().toLowerCase();
+    return ['year', 'month', 'day', 'hour', 'minute'].every((k) => Number(h[k]) === Number(m[k]));
+  };
+  const seats = (state && state.offscreen && typeof state.offscreen === 'object') ? state.offscreen : {};
   const moment = (m) => {
-    if (!m || typeof m !== 'object') return true;
-    if (MOMENT_TYPES.has(m.type)) return true;
+    if (!m || typeof m !== 'object' || typeof m.type !== 'string') return true;
+    if (!AUDITOR_TYPES.has(m.type)) return true;
+    /* the header line is the truth for the ground and the hour (M131): the
+     * auditor may bring the ledger TO it, never move it anywhere else */
+    if ((m.type === 'place.set' || m.type === 'clock.set') && headerAgrees(m) === false) return true;
+    if (m.type === 'people.note') return String(m.field || '').trim().toLowerCase() !== 'unthread';
+    /* someone already here who "comes in" is a move — the page reader's */
+    if (m.type === 'presence.enter' && Array.isArray(state && state.present) && findPresent(state, m.name) !== -1) return true;
     if (m.type === 'people.set') {
       if (mc && String(m.name || '').trim().toLowerCase() === mc) return true;
       return m.field === 'state' || m.field === 'arc' || m.field === 'threads';
     }
-    if (m.type === 'offscreen.set' && seats.includes(String(m.name || '').trim().toLowerCase())) return true;
-    if (m.type === 'thread.set' && threads.includes(String(m.title || '').trim().toLowerCase())) return true;
+    if (m.type === 'offscreen.set' && typeof m.name === 'string' && findSeat(seats, m.name)) return true;
+    if (m.type === 'thread.set' && findThread(state && state.threads, m.title || m.name) !== -1) return true;
     return false;
   };
   const kept = [];
@@ -422,6 +540,24 @@ export function auditorScope(issues, state) {
     kept.push({ ...issue, mutations: muts });
   }
   return kept;
+}
+
+/* M259: the words a report line is drawn with — "Set right" only when a
+ * change LANDED (or the house mends the pages for the brief). A report from
+ * before M259 carries no count and reads as it always did. */
+export function auditLineWords(i) {
+  if (!i || typeof i !== 'object') return { text: '', warn: false };
+  const counted = Number.isFinite(i.landed);
+  const setRight = counted ? (i.landed > 0 || Boolean(i.pages && i.fix)) : Boolean(i.fixable);
+  const refusedAll = counted && !setRight && Array.isArray(i.refused) && i.refused.length > 0;
+  /* M93: nothing the auditor sees is left for the writer — a line without a
+   * change is a thing seen and let stand, never a chore */
+  const text = setRight
+    ? 'Set right: ' + i.what + (i.fix ? ' → ' + i.fix : '')
+    : refusedAll
+      ? 'Seen; its change did not hold (' + i.refused[0] + '): ' + i.what
+      : 'Seen, left as the story has it: ' + i.what + (i.fix ? ' → ' + i.fix : '');
+  return { text, warn: !setRight };
 }
 
 /* M103: WHO KEEPS A SEAT — the writer's own ACW law ("ACW tracks hot threads,
@@ -561,8 +697,8 @@ export function buildRebuildMessages({ state, brief, castNotes, record, pages, m
     '',
     'THE BRIEF (the first authority):', Q, String(brief || '').slice(0, 12000) || '(none)', Q,
     'THE CAST NOTES:', Q, String(castNotes || '').slice(0, 6000) || '(none)', Q,
-    'THE RECORD (what the pages established, oldest to newest):', Q, String(record || '').slice(0, 14000) || '(nothing yet)', Q,
-    'THE LATEST PAGES:', Q, (pages || []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(p.text || '').slice(0, 4000)).join('\n\n'), Q,
+    'THE RECORD (what the pages established, oldest to newest):', Q, String(record || '').slice(-60000) || '(nothing yet)' /* M259: it kept the OLDEST 14,000 and lost the newest */, Q,
+    'THE LATEST PAGES:', Q, (pages || []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(p.text, 12000)).join('\n\n'), Q,
     '',
     'THE PEOPLE THE LEDGER KNOWS: ' + (uniq.join(', ') || '(none)'),
     '',
@@ -576,7 +712,7 @@ export function buildRebuildMessages({ state, brief, castNotes, record, pages, m
   return { system: withFictionFrame(REBUILD_SYSTEM), user };
 }
 
-export async function rebuildStandings({ connection, storyId, brief = '', castNotes = '', signal, stale } = {}) {
+export async function rebuildStandings({ connection, storyId, brief = '', castNotes = '', signal, stale, renew } = {}) {
   if (!connection || !storyId) return null;
   const state = await loadState(storyId);
   const mc = mcName(state) !== 'the player' ? mcName(state) : '';
@@ -593,7 +729,8 @@ export async function rebuildStandings({ connection, storyId, brief = '', castNo
   const mem = await loadMemory(storyId);
   const all = (await db.messages.list(storyId)).filter((m) => !m.hidden);
   const pages = all.slice(-AUDIT_PAGES).map((m) => ({ role: m.role, text: pageText(m) }));
-  const prompt = buildRebuildMessages({ state: s1, brief, castNotes, record: wholeRecord(mem), pages, mc });
+  const prompt = buildRebuildMessages({ state: s1, brief, castNotes, record: wholeRecord(mem, 60000), pages, mc }); /* M259: the whole record */
+  if (typeof renew === 'function') renew(auditLeashMs(prompt));
   const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, signal });
   const read = parseFounderLike(text);
   if (stale && stale()) return null;
@@ -631,15 +768,18 @@ export function auditRunWords(result) {
   if (result.note === 'unusable') return 'its answer could not be used';
   if (result.note === 'cut short') return 'its answer ran out of room';
   const n = result.issues.length;
-  if (!n) return 'the ledger is true to the story';
   const fixed = result.applied.length;
-  const bits = [`found ${n} ${n === 1 ? 'thing' : 'things'}`];
+  /* M259: a run whose only changes were the house's own (the brief's digits,
+   * a passer-through retired) says what it changed, never "true" */
+  if (!n && !fixed) return 'the ledger is true to the story';
+  const bits = n ? [`found ${n} ${n === 1 ? 'thing' : 'things'}`] : [];
   if (fixed) bits.push(`set ${fixed} right: ` + result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (fixed > 4 ? ' · …' : ''));
   const briefWins = result.issues.filter((i) => i.pages && i.fix).length;
   if (briefWins) bits.push(`${briefWins} the brief wins — ${result.mendedPages || 0} ${result.mendedPages === 1 ? 'page' : 'pages'} mended, the record corrected`);
   const seen = result.issues.filter((i) => !i.mutations.length && !(i.pages && i.fix)).length;
   if (seen) bits.push(`${seen} seen, nothing to change`);
-  if (result.rejected.length) bits.push(`${result.rejected.length} refused`);
+  const refusedN = result.rejected.filter((r) => !(r && r.same)).length; /* M259: "already so" is not a refusal */
+  if (refusedN) bits.push(`${refusedN} refused`);
   return bits.join(', ');
 }
 

@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m258-001)
+# Cozy Tavern — handoff for the next session (state at m259-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M258). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M259). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 494 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 511 checks on the engines, assembler, workers, laws.
 - `cd tests/dom && node run.mjs` — the walk: 39 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
@@ -13,6 +13,16 @@ Full history of every law and fix: AGENTS.md (M1 … M258). SPEC.md holds the fo
   settings open/scroll/close; recreate from AGENTS.md M145 if needed.
 
 ## The laws that matter most (all enforced in code and held by tests)
+- Every reader that writes or checks the ledger sees ALL of it (engine/whole.js), never the
+  storyteller's trimmed copy; every page is read to its END (engine/pagecut.js — a page past its
+  cap loses its middle); the auditor reads every page the record has not folded plus the whole
+  record, and its doors are an allow-list — it restores only a zero standing and never moves the
+  header's ground or hour (M259). A test that says a worker "uses" something must make the call
+  and read what was sent.
+- A change that changes nothing is `same`: not written, not journaled, not a refusal (M259).
+- The mender answers with find → replace edits; a mend never shortens a page (M259).
+- The page chain hands every worker its leash (queue.js chainJob); every worker call gets its own
+  minute; a long reading asks for a longer one (M259).
 - One writer per ledger fact; every second writer is a named guard (M131). The moment (posture,
   wardrobe, mood, the ground, the hour) is the extractor's from the newest page; the header line
   is the truth for ground and hour (M128); an absent person's now is the world agent's seat
@@ -53,12 +63,12 @@ Full history of every law and fix: AGENTS.md (M1 … M258). SPEC.md holds the fo
   The launcher (cozytavern.sh) douses and relights this folder's serve.py on EVERY run (M158),
   and serve.py re-execs itself when its file changes (M157) — no manual restart, ever. The
   worker's fetches must use api(path) (a relative fetch in a worker resolves against /js/).
-- Two-browser proof: the session's /tmp/twobrowsers.py (Playwright, two contexts, the real
-  serve.py) — eight checks: B holds A's story/pages/ledger/connection; B reads the DEVICE's
+- Two-browser proof: tests/twobrowsers.py (Playwright, two contexts, the real
+  serve.py) — eleven checks: B holds A's story/pages/ledger/connection; B reads the DEVICE's
   manifest, never a kept copy; a page written after B first booted still reaches B; a tale let
-  go in A stays gone in B and is never pushed back; the worker caches no api answer. Recreate
-  from AGENTS.md M160 if it is not on disk. Run it before any commit that touches sync,
-  sw.js, serve.py or store.js.
+  go in A stays gone in B and is never pushed back; the worker caches no api answer. Run it
+  (`python3 tests/twobrowsers.py`; the browsers are in /opt/pw-browsers) before any commit that
+  touches sync, sw.js, serve.py or store.js.
 
 ## Known limits (not bugs)
 - The prose of the model the writer points at it. The house hands it the truth and catches

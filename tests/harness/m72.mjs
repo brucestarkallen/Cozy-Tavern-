@@ -196,8 +196,10 @@ test('M72-9 every job in the chain answers to the chain generation, and the keep
   const c = chat();
   const bw = c.slice(c.indexOf('function startBackgroundWork('), c.indexOf('async function gatherSettings('));
   assert(/const gen = chainGen\.get\(story\.id\) \|\| 0;/.test(bw), 'captured when queued');
-  assert(/stale: \(\) => stale\(\) \|\| \(chainGen\.get\(story\.id\) \|\| 0\) !== gen/.test(bw), 'a turned counter is stale');
-  for (const name of ['world', 'scribe', 'auditor']) assert(new RegExp("enqueue\\('" + name + "', async \\(\\{ signal, stale \\}\\) => \\{\\n\\s*if \\(story\\.extraction === false \\|\\| stale\\(\\)\\) return").test(bw), name + ' checks first');
+  /* M259: the wrapper is queue.js chainJob now (it also hands the leash on);
+   * M259-17 runs it and proves a turned counter makes the job stale */
+  assert(/run: chainJob\(run, \(\) => \(chainGen\.get\(story\.id\) \|\| 0\) !== gen\)/.test(bw), 'a turned counter is stale');
+  for (const name of ['world', 'scribe', 'auditor']) assert(new RegExp("enqueue\\('" + name + "', async \\(\\{ signal, stale(, renew)? \\}\\) => \\{\\n\\s*if \\(story\\.extraction === false \\|\\| stale\\(\\)\\) return").test(bw), name + ' checks first');
   assert(/stale, \/\* M72: a keeper whose ledger was rewound under it writes nothing \*\//.test(bw), 'the keeper is told');
   assert(/enqueue\('seeder', async \(\{ signal, stale \}\) => \{\n\s*try \{\n\s*if \(stale\(\)\) return/.test(bw), 'the seeder too');
   const cont = bw.slice(bw.indexOf("enqueue('continuity'"), bw.indexOf("enqueue('auditor'"));

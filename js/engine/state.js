@@ -508,6 +508,13 @@ export function renderStateFacts(state) {
     if (spoken) sections.push({ shed: 0, text: 'The hour: ' + spoken + '.' });
   }
 
+  /* M259: THE GROUND. Where the scene stands was on no reader's copy of the
+   * ledger at all — not the storyteller's, not the extractor's, not the
+   * auditor's — though every one of them was asked whether it had moved. */
+  if (state.place && typeof state.place.name === 'string' && state.place.name.trim()) {
+    sections.push({ shed: 0, text: 'The ground: ' + state.place.name.trim() + '.' });
+  }
+
   const here = present
     .map((p) => {
       if (!p || !p.name) return '';

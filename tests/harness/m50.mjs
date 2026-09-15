@@ -98,8 +98,22 @@ test('M51 the auditor, the rebuild and the mender read the WHOLE record, not the
   const tail = recordFor(mem);
   assert(whole.includes('[Day 0]'), 'the founding is in the whole record');
   assert(!tail.includes('[Day 0]') && tail.length <= CONTEXT_CAP, 'the summarizer’s tail drops it');
-  const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/auditor.js', import.meta.url), 'utf8');
-  assert(!/recordFor\(/.test(src) && /wholeRecord\(mem\)/.test(src), 'the auditor and the rebuild read the whole record');
+  /* M259: held by RUNNING the auditor and the rebuild, not by reading their
+   * source for "wholeRecord(mem)" — they now pass how much of it they read */
+  const { auditLedger, rebuildStandings } = await import('../../js/agents/auditor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const { db } = await import('../../js/store.js');
+  const sid = 'm51-whole';
+  await saveState(sid, emptyState());
+  await db.messages.append(sid, { role: 'user', text: 'u' });
+  await db.messages.append(sid, { role: 'assistant', text: 'a' });
+  await saveMemory(sid, mem);
+  const house = thinkingHouse({ answer: '{"issues":[]}' });
+  await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId: sid, stale: () => false }));
+  assert(JSON.stringify(house.calls[0].body).includes('[Day 0]'), 'the auditor reads the whole record, the founding included');
+  const house2 = thinkingHouse({ answer: '{"mutations":[]}' });
+  await withHouse(house2, () => rebuildStandings({ connection: HOUSES[0].conn, storyId: sid, stale: () => false }));
+  assert(house2.calls.some((c) => { const b = JSON.stringify(c.body); return b.includes('THE RECORD (what the pages established') && b.includes('[Day 0]'); }), 'the rebuild reads it whole too');
   const chat = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/record: wholeRecord\(mem\)/.test(chat), 'the mender too');
 });

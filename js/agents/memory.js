@@ -42,6 +42,7 @@ import { withFictionFrame } from './voice.js'; /* M21: the workers never break t
 import { callWorker as sharedCall } from './call.js'; /* M28: the one wire path for workers */
 import { loadState } from '../engine/state.js';
 import { mcName } from '../engine/duels.js';
+import { wholePage } from '../engine/pagecut.js'; /* M259: every page of a batch, read to its end */
 
 const KEY_PREFIX = 'memory:';
 const MAX_TOKENS = 1600; /* one dense line, or one merged line; thinking is off on the wire (M28) */
@@ -188,12 +189,12 @@ export function recordFor(mem, minLevel = 1) {
  * (the auditor, the rebuild, the mender) should see. Trimmed from the
  * oldest only when it truly overflows the slot budget, exactly as the
  * storyteller's copy is. */
-export function wholeRecord(mem) {
+export function wholeRecord(mem, cap = SLOT_BUDGET) {
   /* M216: with the detail, for the same reason — this is what the auditor,
    * the rebuild, the mender and the housekeeper read. */
   const lines = orderedLines(mem).map(lineWords).filter(Boolean);
   let kept = lines.slice();
-  while (kept.length > 1 && kept.join('\n').length > SLOT_BUDGET) kept.shift();
+  while (kept.length > 1 && kept.join('\n').length > cap) kept.shift();
   return kept.join('\n');
 }
 
@@ -264,10 +265,18 @@ function subst(template, vars) {
 
 /* The passage the summarizer reads: the batch's pages, each with its
  * author, in order. */
-export function passageOf(pages, playerName) {
-  return (Array.isArray(pages) ? pages : [])
-    .filter((p) => p && !p.hidden)
-    .map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER (' + playerName + '): ') + String(p.text || '').slice(0, 6000))
+/* M259: EVERY PAGE, TO ITS END. Each page was cut at 6,000 characters and
+ * the batch at 24,000, both from the front — so a long page's ending never
+ * reached the record, and on a larger batch the LAST pages were never folded
+ * at all: no line anywhere held them once they left the window. The room is
+ * shared across the batch; a page past its share loses its middle, never
+ * its end. */
+export const PASSAGE_CAP = 120000;
+export function passageOf(pages, playerName, cap = PASSAGE_CAP) {
+  const list = (Array.isArray(pages) ? pages : []).filter((p) => p && !p.hidden);
+  const each = list.length ? Math.max(4000, Math.floor(cap / list.length)) : cap;
+  return list
+    .map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER (' + playerName + '): ') + wholePage(p.text, each))
     .join('\n\n');
 }
 
@@ -277,7 +286,7 @@ export function buildMemoryMessages(pages, { playerName = 'the player', record =
   const user = subst(SUMMARIZER_USER, {
     player_name: playerName,
     context_str: record || '(nothing recorded yet — this is the beginning)',
-    story_txt: passageOf(pages, playerName).slice(0, 24000),
+    story_txt: passageOf(pages, playerName),
   });
   return { system: withFictionFrame(subst(SUMMARIZER_SYSTEM, { player_name: playerName })), user };
 }
@@ -462,11 +471,11 @@ export function buildAuditMessages(sourceText, noteText, priorRecord = '') {
      * writes beside it, had none. */
     ...(String(priorRecord || '').trim()
       ? ['ALREADY ESTABLISHED — everything the record holds before this line. Never write any of it again:',
-        '"""', String(priorRecord).trim().slice(0, 12000), '"""', '']
+        '"""', String(priorRecord).trim().slice(-40000), '"""', ''] /* M259: the NEWEST established lines are the ones a repeat would echo */
       : []),
     'The pages the line was written from:',
     '"""',
-    String(sourceText || '').slice(0, 12000),
+    wholePage(sourceText, PASSAGE_CAP + 4000), /* M259: the whole batch, as the keeper read it */
     '"""',
     '',
     'The record line:',

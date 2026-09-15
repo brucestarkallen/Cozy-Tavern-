@@ -34,6 +34,7 @@ import { renderPeopleTiers } from '../engine/people.js';
 import { renderRelationships } from '../engine/relationships.js';
 import { loadMemory, saveMemory, maybeSummarize, dueRange, cleanWindow, cleanBatch, visiblePages, DEFAULT_BATCH } from './memory.js';
 import { pageText } from '../assemble/stack.js';
+import { wholePage } from '../engine/pagecut.js'; /* M259: each page read to its end */
 import { readStatedStandings, samePersonLoose } from './founder.js';
 
 const MAX_TOKENS = 3000;
@@ -215,7 +216,7 @@ export function buildReaderMessages({ state, record, pages, mc }) {
     standings,
     '',
     'THE NEXT PAGES:',
-    pages.map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(p.text || '').slice(0, 5000)).join('\n\n'),
+    pages.map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(p.text, 16000)).join('\n\n'),
     '',
     'What do these pages change? JSON only.',
   ].join('\n');

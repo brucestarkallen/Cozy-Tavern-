@@ -69,10 +69,13 @@ export function workerSignal(timeoutMs = WORKER_TIMEOUT_MS) {
      * outside itself — only its controller can do it, so the controller
      * hands this out with the signal. */
     abort: () => { clearTimeout(timer); controller.abort(new Error('stopped by hand')); },
-    renew: () => {
+    /* M259: a call KNOWN to be long (the auditor reading the whole ledger and
+     * every unfolded page) asks for a longer leash for that call alone; a hung
+     * call is still cut off, only later. */
+    renew: (ms) => {
       if (controller.signal.aborted) return false;
       clearTimeout(timer);
-      timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
+      timer = setTimeout(() => controller.abort(new Error('timeout')), Number.isFinite(ms) && ms > 0 ? ms : timeoutMs);
       return true;
     },
   };

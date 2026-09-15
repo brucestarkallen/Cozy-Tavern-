@@ -52,7 +52,8 @@ import { applyMutations } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
-import { renderThreads, renderKnowledge, renderFactions, STANCES } from '../engine/world.js';
+import { STANCES } from '../engine/world.js';
+import { renderAllThreads, renderAllKnowledge, renderAllFactions, wholePage } from '../engine/whole.js'; /* M259: every thread, every line of who knows what, every faction; the page read to its end */
 
 const MAX_TOKENS = 6000; /* M37: room for a long founding even if a house thinks a little anyway */
 export const WORLD_SHOWN_MAX = 6;
@@ -280,9 +281,9 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
   const recordSoFar = String(record || '').trim();
   const FENCE3 = '\u0022\u0022\u0022';
   const elsewhereAll = renderOffscreen(state.offscreen, present, clockMinutes, 40);
-  const threads = renderThreads(Array.isArray(state.threads) ? state.threads.filter((t) => t && typeof t === 'object' && t.title) : []);
-  const knowledge = renderKnowledge(state.knowledge, present);
-  const factions = renderFactions(state.factions);
+  const threads = renderAllThreads(state.threads);
+  const knowledge = renderAllKnowledge(state.knowledge, present);
+  const factions = renderAllFactions(state.factions);
   const cores = characterCores(state);
   const user = [
     /* M249: the story, before the ledger's bare facts — so a life beyond the
@@ -299,7 +300,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     'THREADS:',
     threads || 'None open yet.',
     '',
-    'WHO KNOWS WHAT (the present):',
+    'WHO KNOWS WHAT (every line written, for everyone — a fact already here in other words is already known):',
     knowledge || 'Nothing written yet.',
     '',
     'FACTIONS:',
@@ -312,17 +313,17 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     spokenVoices(voicesBefore) || 'None yet.',
     '',
     ...(cores ? ['THE PEOPLE, AS THE LEDGER KNOWS THEM:', cores, ''] : []),
-    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 2000), FENCE, ''] : []),
-    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 2000), FENCE, ''] : []),
-    ...(before.length ? ['THE PAGES JUST BEFORE:', FENCE, before.map((b) => (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + String(b.text || '').slice(0, 1500)).join('\n\n'), FENCE, ''] : []),
+    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 12000), FENCE, ''] : []),
+    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 8000), FENCE, ''] : []),
+    ...(before.length ? ['THE PAGES JUST BEFORE:', FENCE, before.map((b) => (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + wholePage(b.text, 3000)).join('\n\n'), FENCE, ''] : []),
     'THE WRITER JUST WROTE:',
     FENCE,
-    String(userText || '').slice(0, 3000),
+    wholePage(userText, 12000),
     FENCE,
     '',
     'AND THE STORYTELLER ANSWERED:',
     FENCE,
-    String(assistantText || '').slice(0, 8000),
+    wholePage(assistantText),
     FENCE,
     '',
     'Advance the world by the clock and write the brief. JSON only.',
@@ -366,19 +367,22 @@ export function parseWorldAnswer(raw) {
 
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
-export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0 } = {}) {
+export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
 
   const state = await loadState(storyId);
-  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore, jumpedMinutes });
+  /* M259: THE RECORD RIDES. chat.js has handed it over since M249; this line
+   * dropped it on arrival. */
+  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore, jumpedMinutes, record });
   /* M31: an answer we can't use earns ONE second ask with a sharper word;
    * the raw answer rides out so the drawer can show it. */
   let read = null;
   let raw = '';
   let user = prompt.user;
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (typeof renew === 'function') renew(); /* M259: every call gets its own minute (M213) */
     const { text, finishReason } = await callWorker(connection, {
       system: prompt.system,
       user,

@@ -35,6 +35,7 @@ import { db } from '../store.js';
 import { loadState, renderStateFacts } from '../engine/state.js';
 import { pageText } from '../assemble/stack.js';
 import { parseFirstObject } from './jsonutil.js';
+import { wholePage } from '../engine/pagecut.js'; /* M259: the latest pages read to their end */
 import { callModel } from './housekeeper.js';
 import { maybeRunEditor } from './editor.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
@@ -248,7 +249,7 @@ export async function writeDirective({
         signal,
       });
       if (watchAns && !watchAns.error && typeof watchAns.text === 'string') {
-        const verdict = parseFirstObject(watchAns.text);
+        const verdict = parseFirstObject(watchAns.text, (o) => 'ok' in o);
         passes.watched = Boolean(verdict);
         if (verdict && verdict.ok === false && typeof verdict.text === 'string' && verdict.text.trim()) {
           text = verdict.text.trim();
@@ -333,7 +334,7 @@ export async function directorStatus({ connection, storyId, call, signal } = {})
   if (!d.text) return { ok: false, error: 'no episode stands' };
   if (d.concluded) return { ok: true, words: 'Episode ' + d.episode + ' has concluded — seed or write the next.' };
   const [messages, state] = await Promise.all([db.messages.list(storyId), loadState(storyId)]);
-  const pages = messages.filter((m) => !m.hidden).slice(-10).map((m) => (m.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(m.text || '').slice(0, 3000)).join('\n\n');
+  const pages = messages.filter((m) => !m.hidden).slice(-10).map((m) => (m.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(m.text, 8000)).join('\n\n');
   const caller = typeof call === 'function' ? call : (req) => callModel(connection, req);
   const answer = await caller({
     system: withFictionFrame('You check a secret episode’s progress for a story’s director. You receive the SECRET DIRECTIVE and the latest pages. Judge how far along the episode is WITHOUT revealing the directive: which beats have landed, which are open, whether the episode question has been answered on screen. Answer in three short lines a player may read without spoilers: where it stands, what is still open (in vague terms), and whether it should conclude.'),
@@ -346,7 +347,7 @@ export async function directorStatus({ connection, storyId, call, signal } = {})
 export async function directorIdeas({ connection, storyId, story, call, signal } = {}) {
   const [messages, state] = await Promise.all([db.messages.list(storyId), loadState(storyId)]);
   const tale = story || await db.stories.get(storyId);
-  const pages = messages.filter((m) => !m.hidden).slice(-8).map((m) => (m.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(m.text || '').slice(0, 3000)).join('\n\n');
+  const pages = messages.filter((m) => !m.hidden).slice(-8).map((m) => (m.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(m.text, 8000)).join('\n\n');
   const caller = typeof call === 'function' ? call : (req) => callModel(connection, req);
   const answer = await caller({
     system: withFictionFrame('You propose episode SEEDS for a story’s director: three genuinely different doors the next episode could open, one line each — the situation the world brings to the main character and the question it poses, never the player’s answer. Different in kind: one pressure from the past, one from a present want of an NPC, one from the world at large. Answer with the three lines only, numbered.'),

@@ -643,10 +643,13 @@ test('M178: a take-back reverses the row the writer tapped, not one that reads t
   const { applyMutations } = await import('../../js/engine/apply.js');
   const { emptyState } = await import('../../js/engine/state.js');
   const st = applyMutations(emptyState(), [
+    /* M259: a change that changes nothing writes no row any more, so the two
+     * rows that read alike come from two REAL changes (the clock moving on
+     * the same ten minutes twice) — the case the take-back must still tell apart */
     { type: 'presence.enter', name: 'Mara' },
-    { type: 'presence.update', name: 'Mara', position: 'by the door' },
-    { type: 'presence.update', name: 'Mara', position: 'by the fire' },
-    { type: 'presence.update', name: 'Mara', position: 'by the fire' },
+    { type: 'clock.set', year: 2026, month: 3, day: 14, hour: 9, minute: 0 },
+    { type: 'clock.advance', minutes: 10, reason: 'a pause' },
+    { type: 'clock.advance', minutes: 10, reason: 'a pause' },
   ]).state;
   const log = st.log;
   eq(log.length, 4, 'four rows');
@@ -1636,7 +1639,15 @@ test('M226: the extractor is given the story before the pages it can see', async
    * to the record itself rather than a fixed four or eight */
   assert(/foldedBefore = mem \? recordFor\(memoryForWindow\(mem, oldest\)\) : '';/.test(chat), 'only the lines older than the visible pages');
   assert(/const oldest = Math\.max\(0, prior\.length - before\.length\);/.test(chat), 'measured from the pages it is already shown');
-  assert(/record: foldedBefore,/.test(chat), 'and handed over');
+  /* M259: AND THE CALL CARRIES IT. This law read chat.js for the words
+   * "record: foldedBefore" and passed for weeks while extractTurn threw the
+   * record away on arrival. It runs the call now. */
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const house = thinkingHouse({ answer: '{"mutations":[{"type":"mode.snapshot","flags":[]}]}' });
+  await withHouse(house, () => extractTurn({ connection: HOUSES[0].conn, state: emptyState(), userText: 'I go in', assistantText: 'The door opens.',
+    founding: false, record: '- [Sept 1] Jovan came home after two years' }));
+  assert(JSON.stringify(house.calls[0].body).includes('Jovan came home after two years'), 'and handed over — the record reaches the wire');
 });
 
 /* M227: the housekeeper kept finding finished business still open — Alexia's
@@ -2212,7 +2223,15 @@ test('M249: the world agent is given the story it is told to fill a life from', 
   /* the send path computes it for the pages older than the ones it can see */
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/worldRecord = recordFor\(memoryForWindow\(mem, oldest\)\);/.test(chat), 'only the lines older than the visible pages');
-  assert(/record: worldRecord,/.test(chat), 'and handed over');
+  /* M259: AND THE CALL CARRIES IT — worldTurn dropped it on arrival */
+  const { worldTurn } = await import('../../js/agents/world.js');
+  const { saveState } = await import('../../js/engine/state.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  await saveState('m249-live', st);
+  const house = thinkingHouse({ answer: '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null,"voices":[]}}' });
+  await withHouse(house, () => worldTurn({ connection: HOUSES[0].conn, storyId: 'm249-live', userText: 'x', assistantText: 'y',
+    record: '- [Aug 20] Rias Wells kept the house two years', stale: () => false }));
+  assert(JSON.stringify(house.calls[0].body).includes('Rias Wells kept the house two years'), 'and handed over — the record reaches the wire');
 
   /* and the brief that demanded it is still there — this closes that loop */
   assert(/filled from the real record, not invented/.test(withRecord.system),
