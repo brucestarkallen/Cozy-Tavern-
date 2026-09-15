@@ -5169,3 +5169,28 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   Both laws ride the round trip now.
 - 490/490 harness + 38/38 walk + 8/8 play + wipe + two-browser + append + guard + contrast + coat
   + the anchor differential. version.js -> m253-001.
+
+# M254 — a green light that means something, and a third coat
+- THE WRITER ASKED FOR GREEN AS REASSURANCE HE CAN TRUST: "it's absolutely confirmation everything
+  is perfect, I don't need to worry and just continue the story." So it is NOT "no errors seen
+  lately". Green burns only when ALL of these hold, checked fresh on every redraw:
+    · every minder that has run, ran WELL (keeper, extractor, scribe, world agent)
+    · none of them stopped partway
+    · the LEDGER has read every page told — no gap behind state.page
+    · the RECORD has nothing due — no page past the word-for-word window without a line
+  And if any of it cannot be checked, it is NOT green. A light that lies once is worse than none.
+  Amber for a stumble or a run that stopped partway; nothing at all on a story with no history yet.
+- THE LAMP. Both marks are lit like a lamp — a radial face and a corona — not a flat dot. The
+  amber one BREATHES so a glance catches it; the green one is STEADY, because a light that
+  flickers is asking for attention and this one is saying the opposite. Stillness is honoured for
+  prefers-reduced-motion.
+- THE DEEP — a third coat, in the register the writer asked for: a near-black room, prose lit teal,
+  ember kept for the things that act. Every colour token the other coats define is defined here,
+  the 🎨 display pack included — a coat that leaves the pack out inherits lamplight's near-black
+  cards into a teal room, which is the very fault M167 fixed for daylight. Held to the same law in
+  a real browser: tests/contrast.py now walks dark, light AND deep — 0 surfaces under AA, worst
+  5.61:1.
+- AND TWO LAWS COUNTED THE COATS AS EXACTLY TWO, so a third broke them for no reason. Both are
+  coat-aware now: every coat must name the ink on its own ember exactly once, and every coat must
+  name the spoken and thought colours.
+- 491/491 harness + 38/38 walk + 8/8 play + wipe + contrast (three coats) + coat. version.js -> m254-001.

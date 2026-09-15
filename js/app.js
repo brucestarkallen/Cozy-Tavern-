@@ -21,7 +21,7 @@ const sky = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)
 let themeMode = 'dark';
 
 function resolveTheme() {
-  if (themeMode === 'dark' || themeMode === 'light') return themeMode;
+  if (themeMode === 'dark' || themeMode === 'light' || themeMode === 'deep') return themeMode;
   /* system mode: follow the sky, hearth when the sky is silent */
   return sky && sky.matches ? 'light' : 'dark';
 }
@@ -29,11 +29,12 @@ function resolveTheme() {
 function applyTheme() {
   document.documentElement.dataset.theme = resolveTheme();
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', resolveTheme() === 'dark' ? '#16120f' : '#f5efe4');
+  const now = resolveTheme();
+  if (meta) meta.setAttribute('content', now === 'deep' ? '#0a0f12' : now === 'dark' ? '#16120f' : '#f5efe4');
 }
 
 function setTheme(mode) {
-  themeMode = mode === 'dark' || mode === 'light' ? mode : 'system';
+  themeMode = mode === 'dark' || mode === 'light' || mode === 'deep' ? mode : 'system';
   applyTheme();
 }
 

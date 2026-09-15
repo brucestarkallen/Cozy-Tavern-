@@ -581,3 +581,49 @@ test('M252: the workers’ line is newest first, and an empty answer draws no fo
   assert(/if \(row\.raw && String\(row\.raw\)\.trim\(\)\.length > 1\) \{/.test(drawer),
     'a fold is only drawn when there is something to read');
 });
+
+/* M254: the writer asked for a green light he can trust — "it's absolutely
+ * confirmation everything is perfect, I don't need to worry and just continue
+ * the story". So green is not "no errors seen lately": a light that lies once
+ * is worse than no light. */
+test('M254: green means read, folded and waiting on nothing — and a third coat', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
+  const css = fs.readFileSync(path.join(here, '../../css/chat.css'), 'utf8');
+  const base = fs.readFileSync(path.join(here, '../../css/base.css'), 'utf8');
+  const html = fs.readFileSync(path.join(here, '../../index.html'), 'utf8');
+
+  /* all four conditions, and nothing less */
+  assert(/const allWell = !trouble && !partly && !behind && ran > 0 && told > 0;/.test(chat),
+    'green needs every condition at once');
+  assert(/const ledgerBehind = told > 0 && readTo < told - 1;/.test(chat), 'the ledger must have read every page told');
+  assert(/const recordBehind = Boolean\(dueRange\(pages\.length, window, mem\.nodes, batch\)\);/.test(chat),
+    'and the record must have nothing due');
+  assert(/catch \(err\) \{ behind = true; \}/.test(chat), 'and if it cannot be checked, it is NOT green');
+  assert(/everything is read and folded\. Nothing is waiting\. Write on\./.test(chat), 'and it says so plainly');
+
+  /* the lamp */
+  assert(/\.room-btn\.all-well::after/.test(css), 'green has its own lamp');
+  assert(/0 0 12px 3px rgba\(34, 197, 94, 0\.4\)/.test(css), 'lit with a corona, not a flat dot');
+  assert(/animation: ledger-lamp/.test(css), 'and the amber one breathes so a glance catches it');
+  assert(/prefers-reduced-motion/.test(css), 'unless the writer asked for stillness');
+  assert(!/\.room-btn\.all-well[^}]*animation:/.test(css), 'the green one is steady — a light that flickers asks for attention');
+
+  /* the third coat defines EVERY token the others do, or a control falls back
+   * to a browser default and looks like a mistake (M168's lesson) */
+  const blockOf = (sel) => {
+    const at = base.indexOf(sel);
+    return at === -1 ? '' : base.slice(at, base.indexOf('}', at));
+  };
+  const root = blockOf(':root');
+  const deep = blockOf("html[data-theme='deep']");
+  assert(deep, 'the deep coat exists');
+  const colourTokens = [...new Set([...root.matchAll(/(--[a-z0-9-]+):\s*#/g)].map((m) => m[1]))];
+  assert(colourTokens.length >= 15, 'the house has a full palette (' + colourTokens.length + ')');
+  for (const t of colourTokens) assert(deep.includes(t + ':'), 'the deep coat defines ' + t);
+
+  assert(/value="deep"/.test(html), 'and the writer can choose it');
+  const app = fs.readFileSync(path.join(here, '../../js/app.js'), 'utf8');
+  assert(/themeMode === 'deep'/.test(app), 'the house resolves it');
+  assert(/now === 'deep' \? '#0a0f12'/.test(app), 'and the phone’s own bar matches it');
+});

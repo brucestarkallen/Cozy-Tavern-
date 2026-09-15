@@ -60,8 +60,14 @@ test('M32-4 the colour switch exists, is wired, and the theme carries both colou
   const settings = readFileSync(new URL('../../js/ui/settings.js', import.meta.url), 'utf8');
   assert(/db\.settings\.set\('colourSpeech'/.test(settings) && /plain-speech/.test(settings));
   const css = readFileSync(new URL('../../css/base.css', import.meta.url), 'utf8');
-  eq((css.match(/--spoken:/g) || []).length, 2, 'both themes name the spoken colour');
-  eq((css.match(/--thought:/g) || []).length, 2, 'both themes name the thought colour');
+  /* M254: EVERY coat names it, however many there are — a fixed count of two
+   * broke the moment a third coat was added, for no reason at all. */
+  {
+    const coatCount = 1 + [...css.matchAll(/html\[data-theme='[a-z]+'\]/g)].length;
+    eq((css.match(/--spoken:/g) || []).length, coatCount,
+      'every coat names the spoken colour (' + coatCount + ' coats)');
+    eq((css.match(/--thought:/g) || []).length, coatCount, 'and the thought colour');
+  }
   assert(/\.spoken \{ color: var\(--spoken\)/.test(css) && /\.thought \{ color: var\(--thought\)/.test(css));
   const app = readFileSync(new URL('../../js/app.js', import.meta.url), 'utf8');
   assert(/plain-speech/.test(app), 'applied at boot');

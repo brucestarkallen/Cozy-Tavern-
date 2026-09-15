@@ -1677,12 +1677,47 @@ export function initChat(ctx) {
       /* the workers whose silence costs the writer the story itself */
       const minders = ['keeper', 'extractor', 'scribe', 'world'];
       const sore = minders.filter((n) => shelf[n] && shelf[n].ok === false);
+      const part = minders.filter((n) => shelf[n] && shelf[n].ok !== false && shelf[n].unfinished);
+
+      /* M254: GREEN MEANS SOMETHING, or it means nothing at all. The writer
+       * asked for it as reassurance he can trust — "I don't need to worry and
+       * just continue the story" — so it is not "no errors seen lately". It
+       * is every one of these, checked fresh:
+       *   · every minder that has run, ran WELL
+       *   · none of them stopped partway
+       *   · the LEDGER has read every page told (no gap behind state.page)
+       *   · the RECORD has no page past the word-for-word window without a line
+       * Anything short of all four and it is not green. A light that lies once
+       * is worse than no light. */
+      let behind = false;
+      let told = 0;
+      try {
+        const pages = visiblePages(await db.messages.list(storyId));
+        const assistants = pages.filter((m) => m.role === 'assistant');
+        told = assistants.length;
+        const st = await loadState(storyId);
+        const readTo = Number.isInteger(st.page) ? st.page : -1;
+        const ledgerBehind = told > 0 && readTo < told - 1;
+        const mem = await loadMemory(storyId);
+        const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
+        const batch = cleanBatch(await db.settings.get('memoryBatch'));
+        const recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
+        behind = ledgerBehind || recordBehind;
+      } catch (err) { behind = true; }   /* if it cannot be checked, it is not green */
+
+      const ran = minders.filter((n) => shelf[n]).length;
       const trouble = sore.length > 0;
-      btn.classList.toggle('has-trouble', trouble);
+      const partly = !trouble && part.length > 0;
+      const allWell = !trouble && !partly && !behind && ran > 0 && told > 0;
+
+      btn.classList.toggle('has-trouble', trouble || partly);
+      btn.classList.toggle('all-well', allWell);
       btn.setAttribute('title', trouble
         ? 'The ledger — ' + sore.join(', ') + ' stumbled; the pages are safe and will be folded when it comes back'
-        : 'The ledger — the house’s memory of the scene and the world');
-      if (trouble && ledgerMark !== 'on') { ledgerMark = 'on'; } else if (!trouble) { ledgerMark = null; }
+        : partly ? 'The ledger — ' + part.join(', ') + ' stopped partway; it will carry on by itself'
+          : allWell ? 'The ledger — everything is read and folded. Nothing is waiting. Write on.'
+            : 'The ledger — the house’s memory of the scene and the world');
+      ledgerMark = trouble ? 'trouble' : partly ? 'partly' : allWell ? 'well' : null;
     } catch (err) { /* a mark is never worth a thrown turn */ }
   }
 

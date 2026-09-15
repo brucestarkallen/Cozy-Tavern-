@@ -79,6 +79,73 @@
   --pk-teal: #4a9c8c;
 }
 
+/* M254: THE DEEP — a third coat, in the register the writer asked for: a
+ * near-black room, prose lit teal like a lamp behind glass, ember kept for
+ * the things that act. Every token the other two coats define is defined
+ * here, or a control somewhere falls back to a browser default and looks
+ * like a mistake (M168's lesson). */
+html[data-theme='deep'] {
+  --bg: #0a0f12;
+  --bg-2: #0e161a;
+  --surface: #121d22;
+  --surface-2: #17262c;
+  --border: #24424c;
+  --border-soft: #1a333b;
+  --text: #dff3f0;
+  --text-2: #a8ccc8;
+  --muted: #7ba39e;
+  --ember: #e4813a;
+  --ember-hot: #ff9d52;
+  --ember-dim: #8a4f24;
+  --spoken: #7fe3d0;
+  --thought: #9ab7d8;
+  --user-tint: #123039;
+  --danger: #ef6b5e;
+  --ok: #4fd18b;
+  --warn: #f0b64d;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  --on-ember: #14100c;
+  --scrim: rgba(4, 9, 11, 0.72);
+
+  /* M254: the 🎨 display pack, in the deep coat's own register. M167
+   * moved this pack off hard hex so it would follow the coat; a coat
+   * that does not define it inherits lamplight's near-black cards into
+   * a teal room, which is the very fault M167 fixed for daylight. */
+  --pk-card-1: #132131;
+  --pk-card-2: #162134;
+  --pk-card-3: #132631;
+  --pk-chip-bg: #13212c;
+  --pk-box-bg: #0f1626;
+  --pk-box-edge: #263c53;
+  --pk-rule: #1b2c3d;
+  --pk-place: #a7f3ff;
+  --pk-body: #a1e2e2;
+  --pk-body-2: #a1e6eb;
+  --pk-body-3: #a7eaef;
+  --pk-body-4: #9cdada;
+  --pk-quiet: #90cacd;
+  --pk-quiet-2: #c0b8a0;
+  --pk-quiet-3: #8ac2bc;
+  --pk-quiet-4: #73a19a;
+  --pk-quiet-5: #638989;
+  --pk-quiet-6: #58829c;
+  --pk-quiet-7: #41627a;
+  --pk-quiet-8: #517067;
+  --pk-gold: #c9a24e;
+  --pk-gold-2: #c9a84c;
+  --pk-gold-dim: #8a7a4a;
+  --pk-red: #d45246;
+  --pk-red-2: #d47060;
+  --pk-red-dim: #8a3a3a;
+  --pk-amber: #d4842a;
+  --pk-sky: #4da7da;
+  --pk-rose: #c78a96;
+  --pk-violet: #6382c9;
+  --pk-violet-2: #6f93d1;
+  --pk-violet-3: #41419c;
+  --pk-teal: #35a59e;
+}
+
 html[data-theme='light'] {
   /* Parchment (light) */
   --bg: #f5efe4;

@@ -316,15 +316,27 @@ test('M167: the 🎨 pack paints in tokens, so it follows the coat', async () =>
  * Save, and the send button the writer presses every single turn — was dark
  * brown on dark orange, 2.9:1, under AA. Measured in tests/contrast.py. */
 test('M168: the ink on the ember turns with the ember, and every coat defines it once', () => {
+  /* M254: split by COAT, not at the light block — a third coat (the deep) made
+   * a slice-based count read two inks in one block and fail for no reason. */
   const css = readFileSync(new URL('../../css/base.css', import.meta.url), 'utf8');
-  const light = css.slice(css.indexOf("html[data-theme='light']"));
-  const root = css.slice(0, css.indexOf("html[data-theme='light']"));
-  const inkOf = (block) => (block.match(/--on-ember:\s*([^;]+);/g) || []).map((s) => s.split(':')[1].trim().replace(';', ''));
-  const dark = inkOf(root);
-  const day = inkOf(light);
-  eq(dark.length, 1, 'lamplight names the ink once (' + dark.join(', ') + ')');
-  eq(day.length, 1, 'daylight names it once too — a second would shadow the first (' + day.join(', ') + ')');
-  assert(dark[0] !== day[0], 'and the two coats do not share one ink over two very different embers');
+  const coats = [];
+  {
+    const marks = [{ name: 'lamplight', at: css.indexOf(':root') }];
+    for (const m of css.matchAll(/html\[data-theme='([a-z]+)'\]/g)) marks.push({ name: m[1], at: m.index });
+    marks.sort((a, b) => a.at - b.at);
+    for (let i = 0; i < marks.length; i += 1) {
+      const end = i + 1 < marks.length ? marks[i + 1].at : css.length;
+      coats.push({ name: marks[i].name, block: css.slice(marks[i].at, end) });
+    }
+  }
+  assert(coats.length >= 3, 'the house has at least three coats (' + coats.map((c) => c.name).join(', ') + ')');
+  const inks = [];
+  for (const coat of coats) {
+    const named = (coat.block.match(/--on-ember:\s*([^;]+);/g) || []).map((x) => x.split(':')[1].trim().replace(';', ''));
+    eq(named.length, 1, coat.name + ' names the ink on the ember exactly once — a second would shadow the first (' + named.join(', ') + ')');
+    inks.push(named[0]);
+  }
+  assert(new Set(inks).size > 1, 'and the coats do not all share one ink over very different embers');
 
   /* a native <option> takes the UA's ink unless the page says otherwise */
   assert(/^option \{ color: var\(--text\); background: var\(--surface\); \}$/m.test(css), 'an option is painted by the house, not the browser');

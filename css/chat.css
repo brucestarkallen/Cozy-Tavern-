@@ -1070,17 +1070,50 @@ body.read-only .send-btn { opacity: 0.4; }
 .msg-menu-shelves { border-top: 1px solid var(--hairline); margin-top: 4px; padding-top: 4px; }
 .msg-menu-head { padding: 4px 12px 2px; }
 
-/* M250: the ledger carries a quiet mark when a worker has stumbled — so a
- * keeper whose connection fell over cannot go unnoticed for four scenes. */
-.room-btn.has-trouble { position: relative; }
-.room-btn.has-trouble::after {
+/* M250/M254: the ledger's own light. Amber when a minder has stumbled or
+ * stopped partway; green when everything is read, folded and waiting on
+ * nothing. The writer asked for it as reassurance he can trust, so it is lit
+ * like a real lamp — a soft corona, not a flat dot — and the green one only
+ * burns when all four of its conditions hold. */
+.room-btn.has-trouble,
+.room-btn.all-well { position: relative; }
+
+.room-btn.has-trouble::after,
+.room-btn.all-well::after {
   content: '';
   position: absolute;
-  top: 0.28rem;
-  right: 0.28rem;
-  width: 0.42rem;
-  height: 0.42rem;
+  top: 0.26rem;
+  right: 0.26rem;
+  width: 0.46rem;
+  height: 0.46rem;
   border-radius: 50%;
-  background: var(--warn, #d9a441);
-  box-shadow: 0 0 0 2px var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.room-btn.all-well::after {
+  background: radial-gradient(circle at 35% 30%, #d7ffe6 0%, #6ee7a0 45%, #22c55e 100%);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 5px 1px rgba(34, 197, 94, 0.85),
+    0 0 12px 3px rgba(34, 197, 94, 0.4);
+}
+
+.room-btn.has-trouble::after {
+  background: radial-gradient(circle at 35% 30%, #ffe9c2 0%, #f0b64d 45%, #d9822b 100%);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 5px 1px rgba(217, 130, 43, 0.9),
+    0 0 12px 3px rgba(217, 130, 43, 0.45);
+  animation: ledger-lamp 2.4s ease-in-out infinite;
+}
+
+/* the amber one breathes, so a glance catches it; the green one is steady,
+ * because a light that flickers is a light that asks for attention */
+@keyframes ledger-lamp {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-btn.has-trouble::after { animation: none; }
 }
