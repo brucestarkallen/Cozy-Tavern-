@@ -107,6 +107,15 @@ const VOCABULARY = [
   'presence.enter {"type":"presence.enter","name":"NAME","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown',
   'presence.leave {"type":"presence.leave","name":"OTHER NAME"} — when someone clearly leaves the scene',
   'presence.update {"type":"presence.update","name":"NAME","position":"at the window"} — when someone present moves or changes dress',
+  /* M256: WHO KNOWS WHAT, FOR THE PEOPLE IN THE ROOM. knowledge.add appeared
+   * NOWHERE in this file. The world agent has it, but the world agent is
+   * about the ABSENT — so a thing witnessed by someone standing right there
+   * was written down by NOBODY, and the auditor picked it up three turns
+   * later, one person at a time, which is what the writer kept seeing in his
+   * audit reports ("no knowledge line for Claire Stone, who plainly
+   * witnessed…"). The worker READING THE PAGE is the one that should write
+   * it. */
+  'knowledge.add {"type":"knowledge.add","name":"NAME","fact":"that Jovan lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. Only what THIS page put in front of them, and only where being told, or not told, could change what they do.',
   'mode.snapshot {"type":"mode.snapshot","flags":["travel"]} — THE WHOLE BOARD, EVERY PAGE: every mood that holds at the END of this page, from: combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit — a car, a train, a road; NOT once they have arrived and stepped out), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several). Anything you do not name is cleared. An empty list clears them all.',
   'body.injure {"type":"body.injure","name":"NAME","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
   'body.strain {"type":"body.strain","name":"NAME","what":"the long climb"} — weariness short of injury, when the prose shows it',
@@ -168,6 +177,19 @@ function systemPrompt({ mc, founding }) {
       'If the page opens with a bracketed header line — [Place — Day, Month DD, Year | HH:MM | weather |',
       'attire | position] — it is the truth for the hour (clock.set when the date or hour differs from',
       'the ledger), the ground (place.set when it moved), and the main character\'s attire and position.',
+      '',
+      'BEFORE YOU ANSWER, THE FOUR MOST OFTEN MISSED (M256 — every one of these',
+      'was found by the auditor three turns late, in the writer\'s own tale):',
+      '  1. THE GROUND MOVED. If the scene now stands somewhere else — a gate, a',
+      '     kitchen, one house further down the lane — place.set. A header that',
+      '     names a place the ledger does not hold means it moved.',
+      '  2. SOMEONE PRESENT MOVED WITHIN IT. Reaching a gate, a hand on a latch,',
+      '     crossing to the window: presence.update. Their old position is a lie',
+      '     until you write the new one.',
+      '  3. SOMEONE LEARNED SOMETHING. Anyone standing there who heard the answer,',
+      '     saw the handshake, caught the lie: knowledge.add, for each of them.',
+      '  4. WHAT THE PAGE ANSWERED. A question asked and answered, a promise kept,',
+      '     an audit passed — say so in the note so the thread can close.',
       'Be conservative. Write down only what the prose explicitly shows — never what it',
       'merely hints at, never what might be true. Injuries only when the blow lands',
       'on-page; feelings shift only from on-page acts, and every shift needs its cause',

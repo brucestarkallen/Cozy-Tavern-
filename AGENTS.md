@@ -5211,3 +5211,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   partway). A stumble that lands while another worker is still reading shows BLUE until they are
   all done, then AMBER — wait first, look after.
 - 491/491 harness + 39/39 walk + 8/8 play + contrast (three coats). version.js -> m255-001.
+
+# M256 — the auditor was doing a job nobody else could
+- THE WRITER READ HIS OWN AUDIT REPORT AND ASKED THE RIGHT QUESTION: can the ledger be improved so
+  the auditor is not needed to fix the same things over and over? All five of that turn's findings
+  were one fault — "no knowledge line for Claire Stone, who plainly witnessed…", the same for
+  Alaric, the ground moved to the Wells gate and was not written, Jovan reached the gate and his
+  position was not updated.
+- knowledge.add APPEARED NOWHERE IN extractor.js. The world agent has it — but the world agent is
+  about the ABSENT. So a thing witnessed by someone standing right there in the room was written
+  down by NOBODY, and the auditor picked it up three turns later, one person at a time, forever.
+  The worker READING THE PAGE has it now, with the bar written plainly: only what this page put in
+  front of them, and only where being told, or not told, could change what they do.
+- AND THE FOUR IT MOST OFTEN MISSED are named in its closing checks, each one taken from the
+  writer's own report: the ground moved; someone present moved within it; someone learned
+  something; what the page answered. A FOUNDING read is left alone — it is writing the world, not
+  catching up.
+- 492/492 harness + 39/39 walk + 8/8 play. version.js -> m256-001.

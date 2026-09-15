@@ -2218,3 +2218,49 @@ test('M249: the world agent is given the story it is told to fill a life from', 
   assert(/filled from the real record, not invented/.test(withRecord.system),
     'the brief still demands a record, and now there is one');
 });
+
+/* M256: the writer read his own audit report and asked whether the LEDGER
+ * could be improved so the auditor is not needed to fix the same things over
+ * and over. Five of the auditor's five findings that turn were one fault:
+ *   "no knowledge line for Claire Stone, who plainly witnessed …"
+ *   "no knowledge line for Alaric Stone, who plainly witnessed …"
+ *   "the ledger's presence line omits that Jovan has now reached the gate"
+ *   "the scene's ground is the Wells gate, not the Stone gate"
+ * knowledge.add appeared NOWHERE in extractor.js. The world agent has it, but
+ * the world agent is about the ABSENT — so a thing witnessed by someone
+ * standing right there was written by NOBODY, and the auditor picked it up
+ * three turns later, one person at a time. */
+test('M256: the worker reading the page can write what the page put in front of it', async () => {
+  const { buildExtractorMessages } = await import('../../js/agents/extractor.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+
+  const st = emptyState();
+  st.characters = { Mira: { core: 'the innkeeper', state: '', arc: '', threads: [], updatedAtTurn: 1 } };
+  st.present = [{ name: 'Mira' }];
+  const m = buildExtractorMessages({ state: st, userText: 'x', assistantText: 'y', before: [], founding: false });
+  const sent = m.system + '\n' + m.user;
+
+  assert(/knowledge\.add \{"type":"knowledge\.add"/.test(sent), 'knowledge.add is in its vocabulary at last');
+  assert(/a secret told, a name heard, a lie caught/.test(sent), 'with what counts as learning something');
+  assert(/only where being told, or not told, could change what they do/.test(sent), 'and the bar for writing one');
+
+  /* the four the auditor kept catching three turns late */
+  for (const rule of ['THE GROUND MOVED', 'SOMEONE PRESENT MOVED WITHIN IT',
+    'SOMEONE LEARNED SOMETHING', 'WHAT THE PAGE ANSWERED']) {
+    assert(sent.includes(rule), 'it is asked about ' + rule);
+  }
+
+  /* a founding read is left alone — it is writing the world, not catching up */
+  const founding = buildExtractorMessages({ state: emptyState(), userText: 'x', assistantText: 'y', before: [], founding: true });
+  assert(!/THE FOUR MOST OFTEN MISSED/.test(founding.system + founding.user), 'a founding read is not nagged about catching up');
+
+  /* and the engine takes what it now writes */
+  let s2 = applyMutations(emptyState(), [{ type: 'people.set', name: 'Claire Stone', field: 'core', text: "Alaric's sister" }]).state;
+  const r = applyMutations(s2, [{ type: 'knowledge.add', name: 'Claire Stone', fact: 'that Jovan lived in England' }]);
+  eq(r.applied.length, 1, 'a knowledge line from the extractor lands');
+  eq((r.state.knowledge['Claire Stone'] || []).length, 1, 'and she really knows it');
+  const r2 = applyMutations(r.state, [{ type: 'knowledge.add', name: 'Claire', fact: 'that Alaric shook his hand' }]);
+  eq(Object.keys(r2.state.knowledge).join(','), 'Claire Stone',
+    'and her first name lands on the page she already has, never a second (M239)');
+});
