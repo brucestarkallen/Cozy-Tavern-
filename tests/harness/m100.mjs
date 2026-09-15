@@ -1782,3 +1782,34 @@ test('M237: no cap in the house severs a word, and no list has an unguarded door
   assert(/state\.canon = lockFact\(state\.canon, canonKey, \{ key, value \}/.test(apply),
     'canon: a truth is locked BY KEY, so relocking corrects rather than duplicates');
 });
+
+/* M238: THE LEDGER COULD HOLD THE SAME PERSON TWICE AND NEVER SAY SO. The
+ * writer did not report this one — he could not have; nothing announces it.
+ * Spelling distance never bridges "Vanessa" and "Vanessa Reynolds", nine
+ * characters apart. So the moment one worker wrote the short name and
+ * another the full one, the ledger held TWO PEOPLE, each with half her
+ * history — half her loose ends on one page, half on the other, her standing
+ * split, and the storyteller reading them as different characters. */
+test('M238: a first name finds its person, and an ambiguous one refuses', async () => {
+  const { findPersonKey } = await import('../../js/engine/people.js');
+
+  const cast = { 'Vanessa Reynolds': {}, 'Rias Wells': {}, 'Caleb Thorne': {} };
+  eq(findPersonKey(cast, 'Vanessa'), 'Vanessa Reynolds', 'a first name');
+  eq(findPersonKey(cast, 'vanessa'), 'Vanessa Reynolds', 'however it is cased');
+  eq(findPersonKey(cast, 'Reynolds'), 'Vanessa Reynolds', 'a surname too');
+  eq(findPersonKey(cast, 'Rias'), 'Rias Wells', 'and another');
+  eq(findPersonKey(cast, 'Vanessa Reynolds'), 'Vanessa Reynolds', 'the exact name still, first');
+
+  /* the other way: the extractor opened her page as "Vanessa", the scribe
+   * writes "Vanessa Reynolds" */
+  eq(findPersonKey({ Vanessa: {} }, 'Vanessa Reynolds'), 'Vanessa', 'a full name finds a page opened under the short one');
+
+  /* AMBIGUITY REFUSES — two Vanessas means neither is guessed at */
+  eq(findPersonKey({ 'Vanessa Reynolds': {}, 'Vanessa Stone': {} }, 'Vanessa'), '',
+    'two people answer to it, so nothing is matched and a new page is the honest outcome');
+  eq(findPersonKey({ 'Rias Wells': {}, 'Jovan Wells': {} }, 'Wells'), '', 'and the same for a shared surname');
+
+  /* a single-word page is not swallowed by an unrelated single-word name */
+  eq(findPersonKey({ Mira: {} }, 'Kira'), 'Mira', 'near-spellings still match as they always did');
+  eq(findPersonKey({ Mira: {} }, 'Alexander'), '', 'while an unrelated name does not');
+});

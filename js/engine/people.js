@@ -108,7 +108,37 @@ export function findPersonKey(characters, name) {
     const bound = Math.min(nameBound(k), nameBound(wanted)) || 1;
     return boundedLevenshtein(k.toLowerCase(), wanted, bound) <= bound;
   });
-  return near.length === 1 ? near[0] : '';
+  if (near.length === 1) return near[0];
+
+  /* M238: A FIRST NAME IS THE SAME PERSON AS THEIR FULL NAME. Spelling
+   * distance never bridges "Vanessa" and "Vanessa Reynolds" — nine
+   * characters apart — so the moment ONE worker wrote the short name and
+   * another the full one, the ledger held TWO PEOPLE, each with half her
+   * history, and the storyteller read them as different characters. Nothing
+   * announced it. The writer's own ledger has "Vanessa Reynolds" from the
+   * scribe and "Vanessa" everywhere in the prose.
+   * A name matches a longer one when it is that name's own first or last
+   * word — and ONLY when exactly one person answers to it. Two Vanessas in
+   * the story means neither is matched, and a new page is the honest
+   * outcome. */
+  const partOf = (full, part) => {
+    const words = full.toLowerCase().split(/\s+/).filter(Boolean);
+    return words.length > 1 && (words[0] === part || words[words.length - 1] === part);
+  };
+  const byPart = keys.filter((k) => partOf(k, wanted));
+  if (byPart.length === 1) return byPart[0];
+
+  /* and the other way: the scribe writes "Vanessa Reynolds" onto a page the
+   * extractor opened as "Vanessa" */
+  const wantWords = wanted.split(/\s+/).filter(Boolean);
+  if (wantWords.length > 1) {
+    const byWhole = keys.filter((k) => {
+      const kk = k.toLowerCase();
+      return kk === wantWords[0] || kk === wantWords[wantWords.length - 1];
+    });
+    if (byWhole.length === 1) return byWhole[0];
+  }
+  return '';
 }
 
 /* Every name that means the main character (their story name plus the

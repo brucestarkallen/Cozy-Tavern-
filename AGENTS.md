@@ -4927,3 +4927,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
     `mode.snapshot` works from a closed set of known flags so nothing can be written twice, and
     canon locks a truth BY KEY so relocking corrects rather than duplicates.
 - 478/478 harness + 37/37 walk + 8/8 play + wipe + contrast. version.js -> m237-001.
+
+# M238 — the ledger could hold the same person twice and never say so
+- THE WRITER DID NOT REPORT THIS ONE. He could not have: nothing announces it. findPersonKey
+  matched an exact name, then near-SPELLINGS — and spelling distance never bridges "Vanessa" and
+  "Vanessa Reynolds", nine characters apart. So the moment ONE worker wrote the short name and
+  another the full one, the ledger held TWO PEOPLE: half her loose ends on one page and half on
+  the other, her standing split in two, her core written once and missing from the other, and the
+  storyteller reading them as different characters for the rest of the tale. His own ledger has
+  "Vanessa Reynolds" from the scribe and "Vanessa" throughout the prose.
+- A name now matches a longer one when it is that name's own FIRST or LAST word, and a full name
+  finds a page opened under either — but ONLY when exactly one person answers to it. Two Vanessas,
+  or two Wellses asked for by surname, match NOTHING: a new page is the honest outcome, and
+  guessing between them would be the worse failure. Near-spelling matching is untouched and still
+  runs first.
+- 479/479 harness + 37/37 walk + 8/8 play. version.js -> m238-001.
