@@ -1076,9 +1076,11 @@ body.read-only .send-btn { opacity: 0.4; }
  * like a real lamp — a soft corona, not a flat dot — and the green one only
  * burns when all four of its conditions hold. */
 .room-btn.has-trouble,
+.room-btn.is-working,
 .room-btn.all-well { position: relative; }
 
 .room-btn.has-trouble::after,
+.room-btn.is-working::after,
 .room-btn.all-well::after {
   content: '';
   position: absolute;
@@ -1107,6 +1109,23 @@ body.read-only .send-btn { opacity: 0.4; }
   animation: ledger-lamp 2.4s ease-in-out infinite;
 }
 
+/* M255: blue while the house is reading this scene — so the writer is never
+ * left wondering whether it is thinking or has forgotten. It pulses more
+ * plainly than the amber, because it means "wait", not "look". */
+.room-btn.is-working::after {
+  background: radial-gradient(circle at 35% 30%, #d8ecff 0%, #6bb8f0 45%, #2f86d6 100%);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 5px 1px rgba(47, 134, 214, 0.9),
+    0 0 12px 3px rgba(47, 134, 214, 0.45);
+  animation: ledger-working 1.4s ease-in-out infinite;
+}
+
+@keyframes ledger-working {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.86); }
+}
+
 /* the amber one breathes, so a glance catches it; the green one is steady,
  * because a light that flickers is a light that asks for attention */
 @keyframes ledger-lamp {
@@ -1115,5 +1134,6 @@ body.read-only .send-btn { opacity: 0.4; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .room-btn.has-trouble::after { animation: none; }
+  .room-btn.has-trouble::after,
+  .room-btn.is-working::after { animation: none; }
 }

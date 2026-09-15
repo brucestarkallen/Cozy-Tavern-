@@ -1410,6 +1410,60 @@ test('DOM-19 a worker that stumbles marks the ledger, and success clears it', as
   eq(btn.classList.contains('has-trouble'), false, 'and clears itself the moment it comes back');
 });
 
+
+/* M255: the writer sent two scenes, waited ten minutes, and the green light
+ * only came back after RELOADING THE BROWSER. The light was computed when the
+ * thread REDREW — which happens before the background chain has finished — so
+ * it showed the world as it was a second after sending and nothing ever
+ * looked again. And there was no light at all for "reading now", so he could
+ * not tell thinking from forgotten. */
+test('DOM-20 the ledger light follows the work itself: blue, then green, with no reload', async () => {
+  const { db } = await import('../../js/store.js');
+  const { noteWorkerRun, markWorkerRunning } = await import('../../js/agents/status.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+
+  const st = await db.stories.create({ title: 'the three lights' });
+  for (let i = 0; i < 4; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'on' });
+    await db.messages.append(st.id, { role: 'assistant', text: 'The scene turns.' });
+  }
+  await db.settings.set('memoryWindow', 20);
+  await saveState(st.id, { ...emptyState(), page: 3 });
+  await saveMemory(st.id, { window: 20, nodes: [] });
+  for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await tick(700);
+
+  const btn = q('#btn-ledger');
+  const lamp = () => (btn.classList.contains('is-working') ? 'blue'
+    : btn.classList.contains('has-trouble') ? 'amber'
+      : btn.classList.contains('all-well') ? 'green' : 'dark');
+
+  eq(lamp(), 'green', 'everything read and folded');
+
+  /* a worker starts — and the thread is NOT redrawn */
+  markWorkerRunning(st.id, 'extractor', true);
+  await tick(400);
+  eq(lamp(), 'blue', 'the light follows the work, not the redraw');
+  assert(/reading this scene now/.test(btn.getAttribute('title')), 'and says so: ' + btn.getAttribute('title'));
+
+  markWorkerRunning(st.id, 'extractor', false);
+  await noteWorkerRun(st.id, 'extractor', { ok: true, detail: 'wrote 3 changes' });
+  await tick(500);
+  eq(lamp(), 'green', 'and comes back to green when it settles — no reload');
+
+  /* and a stumble while working shows blue, not amber: wait, then look */
+  markWorkerRunning(st.id, 'keeper', true);
+  await noteWorkerRun(st.id, 'scribe', { ok: false, why: 'could not be reached' });
+  await tick(400);
+  eq(lamp(), 'blue', 'while the house is still reading, the light says wait');
+  markWorkerRunning(st.id, 'keeper', false);
+  await tick(500);
+  eq(lamp(), 'amber', 'and only then does it say look');
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

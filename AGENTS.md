@@ -5194,3 +5194,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   coat-aware now: every coat must name the ink on its own ember exactly once, and every coat must
   name the spoken and thought colours.
 - 491/491 harness + 38/38 walk + 8/8 play + wipe + contrast (three coats) + coat. version.js -> m254-001.
+
+# M255 — the light was computed at the wrong moment, and there were only two of them
+- THE WRITER SENT TWO SCENES, WAITED TEN MINUTES, AND SAW GREEN ONLY AFTER RELOADING THE BROWSER.
+  markLedgerTrouble was called from renderThread — which runs BEFORE the background chain has
+  finished — so the light showed the world as it stood a second after sending, and nothing ever
+  looked again. status.js has broadcast every start and settle all along (onWorkerChange); the
+  light simply never listened. It does now, so it follows the WORK rather than the redraw.
+- AND THERE WAS NO LIGHT FOR "READING NOW". Green went dark the moment a scene was sent and stayed
+  dark with nothing to say whether the house was thinking or had forgotten. A third light: BLUE
+  while any minder is reading or waiting its turn. It pulses more plainly than the amber, because
+  it means WAIT, not LOOK.
+- THE WRITER'S OWN QUESTION — when does green go out and come back? Green is never lit while the
+  house is at work, so: send a scene, it turns BLUE at once; when every minder has settled it
+  turns GREEN (all read, all folded, nothing due) or AMBER (something stumbled or stopped
+  partway). A stumble that lands while another worker is still reading shows BLUE until they are
+  all done, then AMBER — wait first, look after.
+- 491/491 harness + 39/39 walk + 8/8 play + contrast (three coats). version.js -> m255-001.

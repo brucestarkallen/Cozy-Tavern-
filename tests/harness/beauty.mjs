@@ -594,8 +594,12 @@ test('M254: green means read, folded and waiting on nothing — and a third coat
   const html = fs.readFileSync(path.join(here, '../../index.html'), 'utf8');
 
   /* all four conditions, and nothing less */
-  assert(/const allWell = !trouble && !partly && !behind && ran > 0 && told > 0;/.test(chat),
+  /* M255: and a fifth — never green while the house is still reading */
+  assert(/const allWell = !busy && !trouble && !partly && !behind && ran > 0 && told > 0;/.test(chat),
     'green needs every condition at once');
+  assert(/const busy = runningWorkers\(storyId\)\.length > 0 \|\| queuedCount\(storyId\) > 0;/.test(chat),
+    'and knows when the house is still at work');
+  assert(/onWorkerChange\(\(\) => \{/.test(chat), 'the light follows the work, not the redraw');
   assert(/const ledgerBehind = told > 0 && readTo < told - 1;/.test(chat), 'the ledger must have read every page told');
   assert(/const recordBehind = Boolean\(dueRange\(pages\.length, window, mem\.nodes, batch\)\);/.test(chat),
     'and the record must have nothing due');

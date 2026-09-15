@@ -49,7 +49,7 @@ import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
 import { applyMutations } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
-import { loadWorkerStatus } from '../agents/status.js';   /* M250 */
+import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
 import { enqueueWork, stopWork, workIsRunning, queuedCount } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
@@ -1708,18 +1708,39 @@ export function initChat(ctx) {
       const ran = minders.filter((n) => shelf[n]).length;
       const trouble = sore.length > 0;
       const partly = !trouble && part.length > 0;
-      const allWell = !trouble && !partly && !behind && ran > 0 && told > 0;
+      /* M255: A THIRD LIGHT — WORKING. The writer sent a scene and watched the
+       * green light sit there, then go out, with nothing to say whether the
+       * house was thinking or had forgotten. Blue while any minder is reading
+       * or waiting its turn; then green or amber when they have all settled.
+       * So the light answers the question he actually asked: is it done? */
+      const busy = runningWorkers(storyId).length > 0 || queuedCount(storyId) > 0;
+      const allWell = !busy && !trouble && !partly && !behind && ran > 0 && told > 0;
 
-      btn.classList.toggle('has-trouble', trouble || partly);
+      btn.classList.toggle('is-working', busy);
+      btn.classList.toggle('has-trouble', !busy && (trouble || partly));
       btn.classList.toggle('all-well', allWell);
-      btn.setAttribute('title', trouble
+      btn.setAttribute('title', busy
+        ? 'The ledger — reading this scene now'
+        : trouble
         ? 'The ledger — ' + sore.join(', ') + ' stumbled; the pages are safe and will be folded when it comes back'
         : partly ? 'The ledger — ' + part.join(', ') + ' stopped partway; it will carry on by itself'
           : allWell ? 'The ledger — everything is read and folded. Nothing is waiting. Write on.'
             : 'The ledger — the house’s memory of the scene and the world');
-      ledgerMark = trouble ? 'trouble' : partly ? 'partly' : allWell ? 'well' : null;
+      ledgerMark = busy ? 'working' : trouble ? 'trouble' : partly ? 'partly' : allWell ? 'well' : null;
     } catch (err) { /* a mark is never worth a thrown turn */ }
   }
+
+
+  /* M255: THE LIGHT WAS ONLY EVER COMPUTED WHEN THE THREAD REDREW — which
+   * happens BEFORE the background chain has finished. So after a scene the
+   * light showed the state of the world as it was a second after sending,
+   * and nothing ever looked again: the writer waited ten minutes and only saw
+   * green after reloading the browser. The house already tells anyone who
+   * asks when a worker starts or settles; the light listens now. */
+  onWorkerChange(() => {
+    const id = ctx.getActiveStoryId();
+    if (id) markLedgerTrouble(id);
+  });
 
   async function summarizeNow() {
     const banner = beginWork('Folding what is due', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — press it again to carry on'); });
