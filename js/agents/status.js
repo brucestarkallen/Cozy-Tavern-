@@ -136,6 +136,16 @@ export async function loadWorkerStatus(storyId) {
           why: typeof row.why === 'string' ? row.why : '',
           detail: typeof row.detail === 'string' ? row.detail : '',
           raw: typeof row.raw === 'string' ? row.raw : '',
+          /* M253: THE LOADER DROPPED WHAT M248 HAD JUST LEARNED TO WRITE.
+           * noteWorkerRun stored `unfinished` and `resume` faithfully; this
+           * reader rebuilds each row from a FIXED LIST OF FIELDS and simply
+           * did not name them — so every row came back with unfinished
+           * undefined, the amber mark could never appear, and the "Finish it"
+           * button could never be offered. The whole of M248 was dead on
+           * arrival and its law passed, because the law read the source
+           * instead of the round trip. */
+          unfinished: row.unfinished === true,
+          resume: typeof row.resume === 'string' ? row.resume : '',
         };
       }
     }

@@ -5152,3 +5152,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - AND A RUN WITH AN EMPTY ANSWER DREW A "what it said" FOLD ONTO AN EMPTY BOX — four times over in
   the writer's own panel. A fold is drawn only when there is something to read.
 - 490/490 harness + 38/38 walk + 8/8 play. version.js -> m252-001.
+
+# M253 — the closing audit: two of this session's own fixes were dead
+- THE LEDGER'S SELF-HEAL HEALED EXACTLY ONE PAGE. M251's catch-up read the oldest missed page and
+  marked it — and then the ordinary read stamped the mark with the index of the page IN HAND,
+  claiming every page between them had been read when none had. So the gap vanished from the mark
+  and stayed in the ledger, which is WORSE than not healing: the writer would have been told his
+  four lost scenes were read. state.page means "every page up to here has been read"; reading the
+  page in hand only extends that when it is the very next one. Measured: four scenes lost, then
+  playing on — read up to 0, 1, 2, 3, 4, 5, closing one page a turn instead of being abandoned.
+- AND THE WHOLE OF M248 WAS DEAD ON ARRIVAL. noteWorkerRun stored `unfinished` and `resume`
+  faithfully; loadWorkerStatus rebuilds each row from a FIXED LIST OF FIELDS and did not name
+  them. So every row came back with unfinished undefined: the amber mark could never appear and
+  "Finish it" could never be offered. Its law passed throughout, because the law READ THE SOURCE
+  instead of the round trip — the same fault as M196 and M221, in a fix written the same day.
+  Both laws ride the round trip now.
+- 490/490 harness + 38/38 walk + 8/8 play + wipe + two-browser + append + guard + contrast + coat
+  + the anchor differential. version.js -> m253-001.

@@ -451,7 +451,25 @@ test('M245: no dial is drawn twice, and a branch of a branch keeps a readable na
  * batch 15 of 16 while he slept looked exactly like one that had finished.
  * And: if it did not finish, the house should carry on by itself, with a
  * button for when he would rather it did not. */
-test('M248: a run says whether it FINISHED, and the house carries on when it did not', () => {
+test('M248: a run says whether it FINISHED, and the house carries on when it did not', async () => {
+  /* M253: this law READ THE SOURCE and passed while the whole feature was
+   * dead — loadWorkerStatus rebuilds each row from a fixed list of fields and
+   * did not name the new ones, so `unfinished` came back undefined every
+   * time and the amber mark could never appear. It rides the ROUND TRIP now. */
+  const { noteWorkerRun, loadWorkerStatus } = await import('../../js/agents/status.js');
+  await noteWorkerRun('m253', 'keeper', { ok: true, detail: 'folded 18 of 98', unfinished: true, resume: 'rebuildRecordNow' });
+  let row = (await loadWorkerStatus('m253')).keeper;
+  eq(row.unfinished, true, 'unfinished survives being written and read back');
+  eq(row.resume, 'rebuildRecordNow', 'and so does what it would take to finish');
+  await noteWorkerRun('m253', 'keeper', { ok: true, detail: 'folded 98 of 98' });
+  row = (await loadWorkerStatus('m253')).keeper;
+  eq(row.unfinished, false, 'a run that finishes clears it — green again');
+  eq(row.resume, '', 'and leaves no button behind');
+  await noteWorkerRun('m253', 'keeper', { ok: false, why: 'could not be reached' });
+  row = (await loadWorkerStatus('m253')).keeper;
+  eq(row.unfinished, false, 'a stumble is not an unfinished run');
+  eq(row.resume, '', 'and offers no ghost Finish it');
+
   const here = path.dirname(fileURLToPath(import.meta.url));
   const status = fs.readFileSync(path.join(here, '../../js/agents/status.js'), 'utf8');
   const queue = fs.readFileSync(path.join(here, '../../js/agents/queue.js'), 'utf8');
@@ -521,8 +539,13 @@ test('M251: the ledger walks back to its oldest unread page, as the record does'
    * honest mark of the gap */
   const at = chat.indexOf("if (extractFailed) throw new Error('no answer reached us');");
   assert(at !== -1, 'a failed read throws');
-  assert(chat.indexOf('fresh.page = k === -1 ? fresh.page : k;') > at,
+  /* M253: the mark is a contiguous PREFIX now — reading the page in hand
+   * only extends it when that page is the very next one, so a catch-up can
+   * never be abandoned by the main read stamping its own index over it. */
+  assert(chat.indexOf('if (k !== -1) fresh.page = (k === prefix + 1) ? k : prefix;') > at,
     'and the page mark is only set AFTER that throw, so a failure never advances it');
+  assert(/THE MARK IS A CONTIGUOUS PREFIX, NOT THE NEWEST PAGE READ/.test(chat),
+    'and it is a prefix, so the gap closes instead of being abandoned');
 
   /* the arithmetic, on the writer's own case: four scenes read by nobody */
   const step = (readTo, here) => (here > readTo + 1 ? readTo + 1 : null);

@@ -2256,7 +2256,22 @@ export function initChat(ctx) {
       if (extractFailed) throw new Error('no answer reached us');
       const fresh = await loadState(story.id);
       /* M69: every write from this chain is stamped with this page's index */
-      { const k = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id); fresh.page = k === -1 ? fresh.page : k; }
+      /* M253: THE MARK IS A CONTIGUOUS PREFIX, NOT THE NEWEST PAGE READ.
+       * M251's catch-up read the oldest missed page and marked it — and then
+       * this line stamped the mark with the index of the page IN HAND, which
+       * claimed every page between them had been read when none of them had.
+       * So the self-heal recovered exactly ONE page and then abandoned the
+       * rest, silently, which is worse than not healing at all: the gap was
+       * gone from the mark but still gone from the ledger.
+       * state.page means "every page up to here has been read". Reading the
+       * page in hand only extends that when it is the very next one. The
+       * page's own changes are written either way — this governs the MARK,
+       * not the reading. */
+      {
+        const k = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id);
+        const prefix = Number.isInteger(fresh.page) ? fresh.page : -1;
+        if (k !== -1) fresh.page = (k === prefix + 1) ? k : prefix;
+      }
       const { state: next, applied, rejected } = applyMutations(fresh, list);
       if (!applied.length) { await saveState(story.id, next); } /* the stamp stands even when nothing was written */
       if (applied.length) {
