@@ -23,8 +23,8 @@
  * of certainties, not a biography, and no single entry may blow the render
  * budget. (The applier caps again on the way in; the caps here keep direct
  * callers honest too.) */
-const KEY_CAP = 40;
-const VALUE_CAP = 140;
+const KEY_CAP = 120;   /* M266: kept whole (were 40 and 140) */
+const VALUE_CAP = 1000;
 const FACTS_SHOWN = 6; // per character, in the compact render
 
 function clean(text, cap) {
@@ -101,7 +101,7 @@ export function unlockFact(canon, name, key) {
 /* The compact render: present characters only, one line each —
  * "Mara — hair: black; eyes: grey." Returns '' when no one present carries
  * a locked fact, so the state-of-things slot can omit the section. */
-export function renderCanon(canon, presentNames) {
+export function renderCanon(canon, presentNames, perPerson = FACTS_SHOWN) {
   if (!canon || typeof canon !== 'object') return '';
   const names = Array.isArray(presentNames) ? presentNames : [];
   const lines = [];
@@ -117,7 +117,7 @@ export function renderCanon(canon, presentNames) {
     const facts = Array.isArray(entry.facts) ? entry.facts : [];
     const shown = facts
       .filter((f) => f && typeof f.key === 'string' && typeof f.value === 'string' && f.key.trim() && f.value.trim())
-      .slice(0, FACTS_SHOWN)
+      .slice(0, perPerson)
       .map((f) => f.key.trim() + ': ' + f.value.trim());
     if (shown.length) lines.push(canonKey + ' — ' + shown.join('; ') + '.');
   }

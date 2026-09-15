@@ -270,7 +270,20 @@ export function keepWritersOwn(live, rebuilt) {
  * whatever the pages had earned, page after page. Its sets read "the brief
  * says"; one written AFTER a page-earned beat is the mark. A story that bears
  * it is re-read once (the people and their standings), then stamped. */
-export const HEAL_GEN = 262;
+export const HEAL_GEN = 266;
+/* M266: NOTES THE OLD LIMITS CUT. A person's page was saved through limits of
+ * 300 / 240 / 240 characters (a loose end 140), cut on a word with "…" — the
+ * rest lost. A page that carries such a cut is read again from the pages, once. */
+const OLD_FIELD_CUTS = { core: 300, state: 240, arc: 240 };
+export function oldCutNotes(state) {
+  const cutAt = (t, cap) => typeof t === 'string' && t.endsWith('…') && t.length > cap / 2 && t.length <= cap;
+  for (const c of Object.values((state && state.characters) || {})) {
+    if (!c || typeof c !== 'object') continue;
+    for (const [f, cap] of Object.entries(OLD_FIELD_CUTS)) if (!(c.hand && c.hand[f]) && cutAt(c[f], cap)) return true;
+    if (!(c.hand && c.hand.threads) && (Array.isArray(c.threads) ? c.threads : []).some((t) => cutAt(t, 140))) return true;
+  }
+  return false;
+}
 export function oldAuditorRaised(state) {
   for (const rel of Object.values((state && state.relationships) || {})) {
     let earned = false;
@@ -284,7 +297,7 @@ export function oldAuditorRaised(state) {
   return false;
 }
 export function peopleHealDue(state) {
-  return !(Number(state && state.healedGen) >= HEAL_GEN) && oldAuditorRaised(state);
+  return !(Number(state && state.healedGen) >= HEAL_GEN) && (oldAuditorRaised(state) || oldCutNotes(state));
 }
 
 export async function rebuildPeople({ connection, storyId, brief = '', castNotes = '', onProgress, signal, stale, renew } = {}) {

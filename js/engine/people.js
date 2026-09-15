@@ -33,12 +33,15 @@ import { isMcAlias, mcName } from './duels.js';
 import { storyTurn } from './apply.js';
 
 /* Field caps — the ledger holds brushstrokes, not chapters. */
-export const CORE_CAP = 300;
-export const STATE_CAP = 240;
-export const ARC_CAP = 240;
-export const THREAD_CAP = 140;
+/* M266: A NOTE IS KEPT WHOLE. These were 300, 240, 240 and 140 — so a "now"
+ * line that ran long was saved as "…and privately…", the rest lost for good.
+ * They guard against a runaway answer now, nothing more. */
+export const CORE_CAP = 4000;
+export const STATE_CAP = 4000;
+export const ARC_CAP = 4000;
+export const THREAD_CAP = 1000;
 export const THREADS_MAX = 8;
-export const RECALL_CARD_CAP = 500;
+export const RECALL_CARD_CAP = 2000;
 /* Tier laws (SPEC.md M12). */
 export const PRESENT_CARDS_MAX = 6;
 export const RECALL_MAX = 3;
@@ -405,14 +408,19 @@ export function stateLabel(entry, turn) {
 }
 
 function cardText(name, entry, turn, cap) {
-  const lines = [name + (entry.core ? ' — ' + entry.core : '')];
-  if (entry.state) lines.push(stateLabel(entry, turn) + entry.state);
-  if (entry.arc) lines.push('Between you: ' + entry.arc);
+  const head = name + (entry.core ? ' — ' + entry.core : '');
+  const now = entry.state ? stateLabel(entry, turn) + entry.state : '';
+  let arc = entry.arc ? 'Between you: ' + entry.arc : '';
   const threads = (entry.threads || []).slice(0, 3);
-  if (threads.length) lines.push('Loose ends: ' + threads.join('; '));
-  let text = lines.join('\n');
-  if (cap && text.length > cap) text = text.slice(0, cap - 1).trimEnd() + '…';
-  return text;
+  let ends = threads.length ? 'Loose ends: ' + threads.join('; ') : '';
+  const build = () => [head, now, arc, ends].filter(Boolean).join('\n');
+  /* M266: WHOLE LINES, NEVER A CUT MID-SENTENCE. The card was chopped at its
+   * cap wherever that fell. Now a card past its room lets go of whole lines —
+   * the loose ends first, then how things stand between you; who they are and
+   * where they are always ride whole. */
+  if (cap && build().length > cap) ends = '';
+  if (cap && build().length > cap) arc = '';
+  return build();
 }
 
 /* A name spoken in the latest pages? Case-insensitive, on a word boundary. */

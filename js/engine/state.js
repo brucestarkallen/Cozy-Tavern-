@@ -471,7 +471,18 @@ export async function restoreSnapshot(storyId, turnId) {
  * lowest-priority sections are let go until it fits — canon sheds after the
  * body ledger (SPEC.md M6), and the ruling, the hour, and who's here
  * always stay. */
-export function renderStateFacts(state) {
+/* M266: THE STATE OF THINGS IN THE ROOM THE STORYTELLER HAS. It was built for
+ * a small prompt — 4,000 characters, the six strongest standings, five threads,
+ * four facts a person knows, six seats, four factions — and a 300k context was
+ * sent that and no more. `whole` shows every item; `budget` is the room the
+ * section may take before it sheds. */
+export function stateView(budgetTokens) {
+  const tokens = Number.isFinite(budgetTokens) && budgetTokens > 0 ? budgetTokens : 0;
+  const budget = Math.max(STATE_BUDGET, Math.min(60000, Math.floor(tokens * 3 * 0.1)));
+  return { budget, whole: budget >= STATE_BUDGET * 4 };
+}
+
+export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false } = {}) {
   if (!state || typeof state !== 'object') return '';
 
   const clockMinutes = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
@@ -528,11 +539,11 @@ export function renderStateFacts(state) {
 
   /* M6: what's true of them — locked facts for whoever is in the scene.
    * Counts toward the budget and sheds after the body ledger. */
-  const canonLines = renderCanon(state.canon, present.map((p) => p && p.name));
-  if (canonLines) sections.push({ shed: 2, text: 'True of them: ' + canonLines.split('\n').join('\n'), trimTo: 8, head: 'True of them: ' });
+  const canonLines = renderCanon(state.canon, present.map((p) => p && p.name), whole ? Infinity : undefined);
+  if (canonLines) sections.push({ shed: 2, text: 'True of them: ' + canonLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'True of them: ' });
 
   const bodyLines = renderBodies(state.bodies, clockMinutes, turnCount)
-    .split('\n').filter(Boolean).slice(0, BODIES_TOP);
+    .split('\n').filter(Boolean).slice(0, whole ? Infinity : BODIES_TOP);
   if (bodyLines.length) sections.push({ shed: 3, text: bodyLines.join('\n') });
 
   /* Standings: nonzero only, top 6 by how strongly they feel (|p|+|r|+|s|). */
@@ -546,23 +557,23 @@ export function renderStateFacts(state) {
     }))
     .filter((row) => row.magnitude > 0)
     .sort((a, b) => b.magnitude - a.magnitude)
-    .slice(0, RELATIONSHIPS_TOP)
+    .slice(0, whole ? Infinity : RELATIONSHIPS_TOP)
     .map((row) => row.name + ' — '
       + AXES.map((axis) => axisWords(axis, row.rel[axis])).filter(Boolean).join(', '));
   if (standings.length) sections.push({ shed: 4, text: standings.join('\n') });
 
   /* M29: who knows what — the present only, so the storyteller never has
    * to search the transcript for whether Liara was in the room. */
-  const knowledgeLines = renderKnowledge(state.knowledge, present);
-  if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: 8, head: 'Who knows what: ' });
+  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined);
+  if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'Who knows what: ' });
 
   /* M86: the living world is not the first thing the budget drops — who is
    * moving toward the scene stands with the body ledger (shed 3); the
    * standings and the threads follow (4); the factions last (5). */
-  const elsewhere = renderOffscreen(state.offscreen, present, clockMinutes);
+  const elsewhere = renderOffscreen(state.offscreen, present, clockMinutes, whole ? 1000 : undefined);
   if (elsewhere) sections.push({ shed: 3, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
 
-  const factionLines = renderFactions(state.factions);
+  const factionLines = renderFactions(state.factions, whole ? Infinity : undefined);
   if (factionLines) sections.push({ shed: 5, text: 'Factions: ' + factionLines.split('\n').join('\n') });
 
   const mode = state.mode || {};
@@ -581,7 +592,7 @@ export function renderStateFacts(state) {
   const legacy = Array.isArray(state.threads)
     ? state.threads.map((t) => (typeof t === 'string' ? t : t && !t.title && (t.label || t.name))).filter(Boolean)
     : [];
-  const threadText = [renderThreads(structured), legacy.join('; ')].filter(Boolean).join('\n');
+  const threadText = [renderThreads(structured, whole ? Infinity : undefined), legacy.join('; ')].filter(Boolean).join('\n');
   if (threadText) sections.push({ shed: 4, text: 'Threads still open: ' + threadText.split('\n').join('\n') });
 
   /* The budget: shed the least vital until the block fits. The ruling, the
@@ -593,7 +604,7 @@ export function renderStateFacts(state) {
    * what each knows) are TRIMMED to their first lines before any section
    * is shed whole — sixteen guests' eye colours never push an arrival or a
    * thread off the page. */
-  if (join().length > STATE_BUDGET) {
+  if (join().length > budget) {
     for (const sec of kept) {
       if (!Number.isFinite(sec.trimTo)) continue;
       const lines = sec.text.slice(sec.head.length).split('\n');
@@ -601,7 +612,7 @@ export function renderStateFacts(state) {
       sec.text = sec.head + lines.slice(0, sec.trimTo).join('\n') + '\n(and ' + (lines.length - sec.trimTo) + ' more present, not written here)';
     }
   }
-  while (join().length > STATE_BUDGET && kept.some((s) => s.shed > 0)) {
+  while (join().length > budget && kept.some((s) => s.shed > 0)) {
     let worst = 0;
     for (let i = 1; i < kept.length; i += 1) {
       if (kept[i].shed > kept[worst].shed) worst = i;

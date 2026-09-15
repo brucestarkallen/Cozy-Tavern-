@@ -1053,3 +1053,72 @@ test('M259-29: NO SILENT CUT — every reader of the record gets it whole in its
   await withHouse(rh, () => rebuildStandings({ connection: CONN, storyId: rsid, stale: () => false }));
   assert(rh.calls.some((c) => { const b = JSON.stringify(c.body); return b.includes('THE RECORD (what the pages established') && b.includes('NOCUT-LINE-0 '); }), 'the standings rebuild reads it whole, past the old 60,000');
 });
+
+test('M259-30: every note in the ledger is kept whole — no “…and privately…”', async () => {
+  const { renderPeopleTiers } = await import('../../js/engine/people.js');
+  const { oldCutNotes, peopleHealDue, HEAL_GEN } = await import('../../js/agents/rebuild.js');
+  const caleb = 'Posted to the cheer squad chat that Jovan is Rias\u2019s brother, framed him as squaring up at the Bluebird and staring him down on the Sterling driveway, cast him as \u2018the season\u2019s villain\u2019 headed for \u2018a throne by september,\u2019 and privately messaged Vanessa that he would make Jovan regret coming home before the first game of the season.';
+  const long = caleb + ' ' + caleb;
+  let st = applyMutations(emptyState(), [
+    { type: 'people.set', name: 'Caleb Thorne', field: 'state', text: long },
+    { type: 'people.set', name: 'Caleb Thorne', field: 'core', text: long },
+    { type: 'people.note', name: 'Caleb Thorne', field: 'arc', text: long },
+    { type: 'people.note', name: 'Caleb Thorne', field: 'thread', text: caleb },
+    { type: 'thread.set', title: 'Caleb\u2019s campaign against Jovan', owner: 'Caleb Thorne', next: long },
+    { type: 'knowledge.add', name: 'Vanessa Reynolds', fact: long },
+    { type: 'offscreen.set', name: 'Caleb Thorne', location: 'the Thorne house, upstairs, in the room with the trophies from three seasons', activity: long, agenda: long, stance: 'busy' },
+    { type: 'canon.lock', name: 'Caleb Thorne', key: 'the grudge he carries against the Wells family', value: long },
+    { type: 'faction.set', name: 'The cheer squad', stance: 'wary', agenda: long, move: long },
+    { type: 'rel.set', name: 'Caleb Thorne', p: -20, cause: long },
+    { type: 'body.injure', name: 'Caleb Thorne', what: long, sev: 1 },
+  ]).state;
+  const c = st.characters['Caleb Thorne'];
+  eq(c.state, long, 'the now line, whole');
+  eq(c.core, long, 'their nature, whole');
+  eq(c.arc, long, 'how things stand, whole');
+  eq(c.threads[0], caleb, 'a loose end, whole');
+  eq(st.threads[0].next, long, 'a thread\u2019s next step, whole');
+  eq(st.knowledge['Vanessa Reynolds'][0].fact, long, 'what someone knows, whole');
+  const seat = st.offscreen['Caleb Thorne'];
+  eq(seat.activity, long, 'an absent person\u2019s doing, whole');
+  eq(seat.agenda, long, 'and their agenda');
+  assert(!/…/.test(JSON.stringify(st.canon)), 'a locked truth, whole');
+  assert(!/…/.test(JSON.stringify(st.factions)), 'a faction\u2019s agenda and move, whole');
+  assert(st.relationships['Caleb Thorne'].history.some((h) => h.cause.includes('before the first game of the season')), 'a standing\u2019s cause, whole');
+  assert(!/…/.test(JSON.stringify(st.bodies)), 'a wound, whole');
+  assert(!/…/.test(JSON.stringify(st.log.map((l) => l.words))), 'and every line of the log says it whole');
+
+  /* the storyteller\u2019s card for someone off the scene sheds whole lines, never a word */
+  const lean = { ...st, present: [], offscreen: {}, characters: { 'Caleb Thorne': { core: 'the captain', state: 'posting', arc: 'x'.repeat(1500), threads: ['y'.repeat(900)], updatedAtTurn: 0 } } };
+  const tiers = renderPeopleTiers(lean, { recentPages: ['Caleb Thorne texted again.'] });
+  const card = JSON.stringify(tiers);
+  assert(card.includes('the captain') && card.includes('posting'), 'who they are and where they are ride whole');
+  assert(!card.includes('yyyy'), 'the loose ends go first when the card is past its room');
+  assert(!/(x|y)…/.test(card), 'and nothing is cut mid-line');
+
+  /* a page the old limits cut is healed once */
+  const cutOld = { characters: { 'Caleb Thorne': { core: 'the captain', state: caleb.slice(0, 225).trimEnd() + '…', arc: '', threads: [] } } };
+  eq(oldCutNotes(cutOld), true, 'a now line cut at the old 240 is found');
+  eq(peopleHealDue(cutOld), true, 'and the page is due a re-reading');
+  eq(peopleHealDue({ ...cutOld, healedGen: HEAL_GEN }), false, 'once');
+  eq(oldCutNotes({ characters: { A: { core: 'Loves the sea…', state: '', arc: '' } } }), false, 'a short line that simply ends in an ellipsis is not a cut');
+  eq(oldCutNotes({ characters: { A: { core: '', state: caleb.slice(0, 225).trimEnd() + '…', arc: '', hand: { state: true } } } }), false, 'and the writer\u2019s own words are never re-read over');
+});
+
+test('M259-31: the storyteller is shown the whole state of things when its context has the room', async () => {
+  const { stateView, STATE_BUDGET } = await import('../../js/engine/state.js');
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  const st = bigLedger();
+  const compact = renderStateFacts(st);
+  assert(compact.length <= STATE_BUDGET, 'a small room keeps the compact view');
+  const view = stateView(200000);
+  eq(view.whole, true, 'a 200k context is shown everything');
+  eq(stateView(0).whole, false, 'an unknown room keeps the compact view');
+  const whole = renderStateFacts(st, view);
+  for (const n of NAMES) assert(whole.includes(n), 'every standing: ' + n);
+  for (let i = 1; i <= 8; i += 1) assert(whole.includes('Thread number ' + i + ' about'), 'every thread: ' + i);
+  for (let i = 0; i < 9; i += 1) assert(whole.includes('distinct fact number ' + i + ' '), 'everything the present know: ' + i);
+  const req = buildRequest({ story: { title: 't', brief: 'b' }, messages: [{ id: 'u1', role: 'user', text: 'go' }], settings: {}, state: st, modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens: 200000 } });
+  const wire = JSON.stringify(req);
+  assert(NAMES.every((n) => wire.includes(n)) && wire.includes('Thread number 8 about') && wire.includes('distinct fact number 0 '), 'and the storyteller\u2019s request carries all of it');
+});

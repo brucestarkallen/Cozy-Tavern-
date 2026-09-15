@@ -48,7 +48,7 @@ export function renderAllStandings(relationships) {
     const causes = (Array.isArray(r.history) ? r.history : [])
       .filter((h) => h && typeof h.cause === 'string' && h.cause.trim())
       .slice(-2)
-      .map((h) => clip(h.cause, 100));
+      .map((h) => clip(h.cause, 400));
     rows.push(name + ' — P:' + num(r.p) + ' R:' + num(r.r) + ' S:' + num(r.s)
       + (causes.length ? ' (latest causes: ' + causes.join(' | ') + ')' : ''));
   }

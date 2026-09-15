@@ -92,7 +92,7 @@
  */
 
 import { estimateTokens } from './receipt.js';
-import { renderStateFacts } from '../engine/state.js';
+import { renderStateFacts, stateView } from '../engine/state.js';
 import { renderPeopleTiers } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -507,7 +507,7 @@ export function buildRequest({
   }
 
   /* --- 5. The state of things --- */
-  const facts = renderStateFacts(state);
+  const facts = renderStateFacts(state, stateView(windowInfo && windowInfo.budgetTokens)); /* M266: in the room the storyteller has */
   pushSlot('The state of things', facts);
 
   /* --- 6. Active modules (everything selected that isn't the craft) --- */

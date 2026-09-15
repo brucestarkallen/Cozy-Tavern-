@@ -5548,3 +5548,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   deliberate breaks caught; the mender's old cap and the silenced warning, each in a throwaway
   copy, fail DOM-14b and DOM-23.
 - 523/523 harness + 42/42 walk + 8/8 play. version.js -> m265-001.
+
+# M266 — every note in the ledger is kept whole, and the storyteller is shown the whole state of things
+- THE WRITER found Caleb Thorne's "Now:" line ending "…and privately…" and asked whether it
+  was the record's fault again. It was its twin: every ledger field was SAVED through a small
+  cap (a person's nature 300, now 240, arc 240, a loose end 140; a fact 200; a seat's doing 140;
+  a lock 140; a next step 200; a faction's agenda 140; a wound 140; a cause 200 …), cut on a word
+  with "…", the rest gone for good. The caps were for the storyteller's small state block; they
+  cut at the door instead.
+- FIXED: every field is saved whole; the caps are guards against a runaway answer (4,000 for a
+  page's fields, 1,000 for the rest) and nothing an honest note reaches. A storyteller card past
+  its room sheds WHOLE lines (loose ends first, then how things stand), never a word.
+- THE STATE OF THINGS FOLLOWS THE ROOM (state.js stateView): it was built for 4,000 characters —
+  six standings, five threads, four facts a person knows, six seats, four factions. With the
+  connection's room it takes a tenth of the context (up to 60,000) and, past 16,000, shows every
+  item. A small or unknown room keeps the compact view.
+- HEALED ONCE: a person's page carrying a cut the old caps made (not the writer's own) is read
+  again from the pages with the people re-read (HEAL_GEN 266, oldCutNotes).
+- Laws: M259-30 (every field whole — a real Caleb line; a card sheds whole lines; the old cuts
+  found, healed once, never over the writer's words), M259-31 (the whole state of things, and the
+  storyteller's request carries it). M236, M166 and M85-6 test the guards at their new sizes and
+  say so. 9 deliberate breaks caught.
+- 525/525 harness + 42/42 walk + 8/8 play. version.js -> m266-001.

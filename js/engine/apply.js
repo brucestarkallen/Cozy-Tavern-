@@ -216,6 +216,8 @@ export function storyTurn(state) {
 /* Free text the ledgers accept: cleaned, and capped so no single note can
  * blow the state-of-things render budget. Over-long text is trimmed, not
  * rejected — the meaning usually survives the trim. */
+/* M266: every limit below guards against a runaway answer; none is meant to
+ * cut a note a reader wrote in earnest (they were 40–200, and cut them). */
 function capText(value, limit) {
   if (typeof value !== 'string') return '';
   const clean = value.trim().replace(/\s+/g, ' ');
@@ -484,7 +486,7 @@ const HANDLERS = {
   'body.injure'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const what = capText(m.what, 140);
+    const what = capText(m.what, 1000);
     if (!what) return { why: 'it didn’t say what the hurt was' };
     const key = findBodyKey(state.bodies, name) || name;
     const before = state.bodies[key] ? cloneMap({ [key]: state.bodies[key] })[key] : null;
@@ -502,7 +504,7 @@ const HANDLERS = {
   'body.strain'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const what = capText(m.what, 140);
+    const what = capText(m.what, 1000);
     if (!what) return { why: 'it didn’t say what wore them down' };
     const key = findBodyKey(state.bodies, name) || name;
     const before = state.bodies[key] ? cloneMap({ [key]: state.bodies[key] })[key] : null;
@@ -561,7 +563,7 @@ const HANDLERS = {
     if (!Number.isFinite(raw) || raw === 0) {
       return { why: 'it didn’t say how far the feeling moved' };
     }
-    const cause = capText(m.cause, 200);
+    const cause = capText(m.cause, 1000);
     if (!cause) {
       return { why: 'a shift between people needs its reason in words — what on the page earned it' };
     }
@@ -596,7 +598,7 @@ const HANDLERS = {
   'rel.set'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const cause = capText(m.cause, 200);
+    const cause = capText(m.cause, 1000);
     if (!cause) {
       return { why: 'writing a standing down by hand still needs its reason in words' };
     }
@@ -639,15 +641,15 @@ const HANDLERS = {
     if (!found) return { why: 'no standing stands for ' + name };
     const before = cloneMap({ [found.key]: found.rel })[found.key];
     delete state.relationships[found.key];
-    const why = capText(m.cause, 200);
+    const why = capText(m.cause, 1000);
     return { words: found.key + '’s standing was let go' + (why ? ' — ' + why.replace(/\.+$/, '') : '') + '.', undo: { kind: 'rel.restore', name: found.key, before } };
   },
 
   'offscreen.set'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const location = capText(m.location, 120);
-    const activity = capText(m.activity, 140);
+    const location = capText(m.location, 500);
+    const activity = capText(m.activity, 1000);
     if (!location && !activity) {
       return { why: 'it didn’t say where they went or what they’re at' };
     }
@@ -673,7 +675,7 @@ const HANDLERS = {
     const etaMinutes = Number.isFinite(eta) && eta >= 0 ? Math.min(60 * 24 * 30, Math.round(eta)) : undefined;
     state.offscreen = seat(
       state.offscreen, key,
-      { location, activity, agenda: capText(m.agenda, 140), stance, etaMinutes },
+      { location, activity, agenda: capText(m.agenda, 1000), stance, etaMinutes },
       clockMinutesOf(state), storyTurn(state)
     );
     let words = 'Elsewhere: ' + key + ' — ' + [location, activity].filter(Boolean).join(', ');
@@ -700,9 +702,9 @@ const HANDLERS = {
   'canon.lock'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const key = capText(m.key, 40);
+    const key = capText(m.key, 120);
     if (!key) return { why: 'it didn’t say what the truth is called — hair, eyes, a limp' };
-    const value = capText(m.value, 140);
+    const value = capText(m.value, 1000);
     if (!value) return { why: 'it didn’t say what’s true of ' + name };
     const canonKey = findCanonKey(state.canon, name) || name;
     const before = state.canon[canonKey] ? cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey] : null;
@@ -721,7 +723,7 @@ const HANDLERS = {
     if (!name) return { why: 'no name came with it' };
     const canonKey = findCanonKey(state.canon, name);
     if (!canonKey) return { why: 'nothing is locked true of ' + name };
-    const key = capText(m.key, 40);
+    const key = capText(m.key, 120);
     const held = findFact(state.canon[canonKey], key);
     if (!held) return { why: 'no truth called “' + (key || '?') + '” is locked for ' + canonKey };
     const before = cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey];
@@ -742,22 +744,22 @@ const HANDLERS = {
   /* ---------- M29: the world beyond the page ---------- */
 
   'thread.set'(state, m) {
-    const title = capText(m.title || m.name, 120);
+    const title = capText(m.title || m.name, 300);
     if (!title) return { why: 'a thread needs a title' };
     const heat = typeof m.heat === 'string' ? m.heat.trim().toLowerCase() : '';
     const before = Array.isArray(state.threads) ? state.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
     const at = findThread(before, title);
     state.threads = setThread(state.threads, {
-      title, owner: capText(m.owner, 60), heat: heat === 'cold' ? 'cold' : (heat === 'hot' ? 'hot' : undefined), next: capText(m.next, 200),
+      title, owner: capText(m.owner, 120), heat: heat === 'cold' ? 'cold' : (heat === 'hot' ? 'hot' : undefined), next: capText(m.next, 1000),
     }, storyTurn(state));
     const words = (at === -1 ? 'A thread opened: ' : 'A thread moved: ') + title
-      + (capText(m.next, 200) ? ' — next, ' + capText(m.next, 200).replace(/\.+$/, '') : '')
+      + (capText(m.next, 1000) ? ' — next, ' + capText(m.next, 1000).replace(/\.+$/, '') : '')
       + (heat === 'cold' ? ' (gone cold)' : '') + '.';
     return { words, undo: { kind: 'threads.restore', before } };
   },
 
   'thread.close'(state, m) {
-    const title = capText(m.title || m.name, 120);
+    const title = capText(m.title || m.name, 300);
     if (!title) return { why: 'a thread needs a title' };
     const before = Array.isArray(state.threads) ? state.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
     const at = findThread(before, title);
@@ -768,7 +770,7 @@ const HANDLERS = {
 
   'knowledge.add'(state, m) {
     const name = normalizeName(m.name);
-    const fact = capText(m.fact || m.text, 200);
+    const fact = capText(m.fact || m.text, 1000);
     if (!name) return { why: 'no name came with it' };
     if (!fact) return { why: 'it didn’t say what ' + name + ' learned' };
     const key = findKnowledgeKey(state.knowledge, name) || name;
@@ -786,11 +788,11 @@ const HANDLERS = {
      * guard. So a faction called "__proto__" was REPORTED as moved ("burned
      * the bridge") while the ledger stored nothing at all. Names go through
      * the name door, whoever they belong to. */
-    const name = capText(normalizeName(m.name), 80);
+    const name = capText(normalizeName(m.name), 200);
     if (!name) return { why: 'a faction needs a name' };
-    const stance = capText(m.stance, 140);
-    const agenda = capText(m.agenda, 140);
-    const move = capText(m.move, 200);
+    const stance = capText(m.stance, 500);
+    const agenda = capText(m.agenda, 1000);
+    const move = capText(m.move, 1000);
     if (!stance && !agenda && !move) return { why: 'it didn’t say what ' + name + ' wants or did' };
     const key = findFactionKey(state.factions, name) || name;
     const before = state.factions && state.factions[key] ? { ...state.factions[key] } : null;
@@ -807,7 +809,7 @@ const HANDLERS = {
     if (state.characters[key].retired) return { why: key + ' has already passed through' };
     const before = cloneMap({ [key]: state.characters[key] })[key];
     state.characters[key] = { ...state.characters[key], retired: true, retiredAtTurn: storyTurn(state) };
-    return { words: key + ' passed through — ' + (capText(m.cause, 160) || 'no bond, no seat, no thread, and thirty turns gone') + '.', undo: { kind: 'people.restore', name: key, before } };
+    return { words: key + ' passed through — ' + (capText(m.cause, 1000) || 'no bond, no seat, no thread, and thirty turns gone') + '.', undo: { kind: 'people.restore', name: key, before } };
   },
   /* M100: people.rename — a name changed by the writer's hand is changed
    * everywhere the ledger holds it (keys and fields). Undoable whole. */
@@ -821,7 +823,7 @@ const HANDLERS = {
     const { state: renamed, count } = renameInState(state, from, to);
     if (!count) return { why: 'nothing in the ledger is called ' + from };
     for (const k of keys) if (renamed[k] !== undefined) state[k] = renamed[k];
-    return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 160) + ')' : '') + '.', undo: { kind: 'people.renamed', before } };
+    return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.renamed', before } };
   },
   /* M96: people.forget — a person who was never the story's (a leaked example,
    * a mistaken name) is erased for good: page, seat, standing, knowledge, locks,
@@ -856,7 +858,7 @@ const HANDLERS = {
     if (bodyKey) delete state.bodies[bodyKey];
     if (presentAt !== -1) state.present.splice(presentAt, 1);
     if (Array.isArray(state.threads)) state.threads = state.threads.filter((t) => !(t && typeof t === 'object' && same(t.owner)));
-    return { words: name + ' was never the story\'s — forgotten for good' + (m.cause ? ' (' + capText(m.cause, 160) + ')' : '') + '.', undo: { kind: 'people.forgotten', name, before } };
+    return { words: name + ' was never the story\'s — forgotten for good' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.forgotten', name, before } };
   },
   'people.wake'(state, m) {
     const key = findPersonKey(state.characters, m.name);
@@ -912,8 +914,8 @@ const HANDLERS = {
     }
     const FIELD_WORDS = { core: 'their nature', state: 'where they are', arc: 'how things stand with them', thread: 'a loose end', unthread: 'a loose end closed' };
     const shown = field === 'thread' || field === 'unthread'
-      ? capText(m.text, 120)
-      : capText(state.characters[key][field], 160);
+      ? capText(m.text, 1000)
+      : capText(state.characters[key][field], 4000);
     return {
       words: key + ' — ' + (FIELD_WORDS[field] || 'their page') + ' was noted' + (shown ? ': ' + shown.replace(/\.+$/, '') : '') + '.',
       undo: { kind: 'people.restore', name: key, before },
@@ -955,7 +957,7 @@ const HANDLERS = {
   'undo.apply'(state, m) {
     if (!m || !m.undo || typeof m.undo !== 'object') return { why: 'nothing to take back' };
     if (!applyUndo(state, m.undo)) return { why: 'the world moved on; that change cannot be walked back' };
-    return { words: 'Taken back — ' + capText(m.of, 200), undo: null };
+    return { words: 'Taken back — ' + capText(m.of, 1000), undo: null };
   },
 
   /* ---------- M11: the combat ledger bridge ---------- */
@@ -1025,7 +1027,7 @@ const HANDLERS = {
       /* The body ledger knows story names, not aliases of the player. */
       if (!h.name || /^(the player|you|player)$/i.test(h.name)) continue;
       const key = findBodyKey(state.bodies, h.name) || h.name;
-      const what = capText('wounds taken in the fight with ' + (h.foe || 'their foe'), 140);
+      const what = capText('wounds taken in the fight with ' + (h.foe || 'their foe'), 1000);
       state.bodies = addInjury(state.bodies, key,
         { what, sev: h.injuries >= 2 ? 3 : 2, treated: false },
         clockMinutesOf(state), storyTurn(state));

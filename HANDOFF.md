@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m265-001)
+# Cozy Tavern — handoff for the next session (state at m266-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M265). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M266). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 523 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 525 checks on the engines, assembler, workers, laws.
 - `cd tests/dom && node run.mjs` — the walk: 42 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
@@ -31,6 +31,8 @@ Full history of every law and fix: AGENTS.md (M1 … M265). SPEC.md holds the fo
 - Nothing goes stale by itself (M261): the ground moving lets positions go; one place under two
   spellings is one place; an untouched thread cools after 15 pages; the code upkeep (retire,
   sweep, clear seats) runs on every page, audited or not (ledgerUpkeep).
+- Every ledger note is saved whole (M266); the storyteller's state of things follows the room
+  (stateView). A cap is a runaway guard, never a size a real note reaches.
 - NO SILENT CUT (M265): no reader of the record is handed less than its room holds; a cut is
   whole lines with a note (recordFor(mem, minLevel, cap)); a full storyteller room is said out
   loud. Before adding a reader of anything long, test it with an input past every old cap.

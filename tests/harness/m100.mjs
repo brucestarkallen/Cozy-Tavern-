@@ -240,7 +240,7 @@ test('M166: the magic keys are refused as names, never silently swallowed', asyn
 
   /* every door that stores under a NAME goes through the one guard */
   const src = readFileSync(new URL('../../js/engine/apply.js', import.meta.url), 'utf8');
-  assert(/const name = capText\(normalizeName\(m\.name\), 80\);/.test(src), 'the faction door uses the name guard');
+  assert(/const name = capText\(normalizeName\(m\.name\), \d+\);/.test(src), 'the faction door uses the name guard');
 
   /* and a real name is unharmed */
   const ok = applyMutations(emptyState(), [{ type: 'people.set', name: 'Mara', field: 'core', text: 'the innkeeper' }]);
@@ -1849,9 +1849,12 @@ test('M236: the whole-list path dedupes too, and a loose end is never cut mid-wo
   eq(out.entry.threads.length, 2, 'the duplicate is dropped, the distinct one kept: ' + JSON.stringify(out.entry.threads));
   assert(/mother/.test(out.entry.threads[1]), 'and it is the right one that survived');
 
-  /* the cut lands on a word */
-  const long = 'The squad chat is losing its mind over who Jovan is and one girl has already made a playlist '
+  /* M266: a loose end of any honest length is kept whole now */
+  const honest = 'The squad chat is losing its mind over who Jovan is and one girl has already made a playlist '
     + 'and Vanessa is still running interference with the whole group before Saturday';
+  eq(setPersonField({ turn: 1, characters: {} }, {}, 'V', 'threads', honest, 1).entry.threads[0], honest, 'an honest loose end is kept whole');
+  /* and a runaway one, past the guard, is cut on a word */
+  const long = (honest + ' ').repeat(8).trim();
   const cut = setPersonField({ turn: 1, characters: {} }, {}, 'V', 'threads', long, 1).entry.threads[0];
   assert(/…$/.test(cut), 'it is cut');
   const lastWord = cut.replace(/…$/, '').split(' ').pop();

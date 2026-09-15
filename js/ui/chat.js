@@ -2595,11 +2595,11 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'scribe');
       if (!connection) return { silent: true };
       const r = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
-      if (!r || r.stalled) return { silent: false, detail: 'began reading the people again from the pages (the old auditor had pushed standings back to the brief) — it starts again on the next page' };
+      if (!r || r.stalled) return { silent: false, detail: 'began reading the people again from the pages (notes the old house cut short, or standings pushed back to the brief) — it starts again on the next page' };
       const after = await loadState(story.id);
       await saveState(story.id, { ...after, healedGen: HEAL_GEN });
       notify(story.id);
-      return { silent: false, detail: 'read the people and their standings again from the pages, once — the old auditor had pushed standings back to the brief (' + rebuildPeopleWords(r) + '; the drawer can put the old ones back)' };
+      return { silent: false, detail: 'read the people and their standings again from the pages, once — for notes the old house had cut short, or standings the old auditor had pushed back to the brief (' + rebuildPeopleWords(r) + '; the drawer can put the old ones back)' };
     });
 
     /* 4b. M40: the version's checkpoint — the ledger as it stands once the

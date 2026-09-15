@@ -142,15 +142,15 @@ export function threadHousekeeping(threads, nowTurn, spared = []) {
 
 export function setThread(threads, { title, owner, heat, next } = {}, atTurn) {
   const list = copyThreads(threads);
-  const name = cleanText(title, 120);
+  const name = cleanText(title, 300);
   if (!name) return list;
   const at = findThread(list, name);
   const base = at === -1 ? { title: name } : list[at];
   const entry = { ...base };
-  if (cleanText(owner)) entry.owner = cleanText(owner, 60);
+  if (cleanText(owner)) entry.owner = cleanText(owner, 120);
   if (THREAD_HEAT.includes(heat)) entry.heat = heat;
   if (!entry.heat) entry.heat = 'hot';
-  if (cleanText(next)) entry.next = cleanText(next, 200);
+  if (cleanText(next)) entry.next = cleanText(next, 1000);
   entry.atTurn = Number.isFinite(atTurn) ? atTurn : (entry.atTurn ?? null);
   if (at === -1) list.push(entry); else list[at] = entry;
   while (list.length > THREADS_MAX) {
@@ -172,12 +172,12 @@ export function closeThread(threads, title) {
   return list;
 }
 
-export function renderThreads(threads) {
+export function renderThreads(threads, top = THREADS_RENDER) {
   const list = copyThreads(threads);
   if (!list.length) return '';
   const rank = (t) => (t.heat === 'cold' ? 1 : 0);
   list.sort((a, b) => rank(a) - rank(b) || (b.atTurn ?? -1) - (a.atTurn ?? -1));
-  return list.slice(0, THREADS_RENDER).map((t) => {
+  return list.slice(0, top).map((t) => {
     let line = (t.heat === 'cold' ? '(cold) ' : '') + t.title;
     if (t.owner) line += ' — ' + t.owner;
     if (t.next) line += (t.owner ? ' means to ' : ' — next: ') + t.next.replace(/\.+$/, '');
@@ -257,8 +257,8 @@ export function findKnowledgeKey(knowledge, name) {
  * KNOWLEDGE_PER_NAME. */
 export function addKnowledge(knowledge, name, fact, atTurn) {
   const next = copyKnowledge(knowledge);
-  const who = cleanText(name, 60);
-  const what = cleanText(fact, 200);
+  const who = cleanText(name, 120);
+  const what = cleanText(fact, 1000);
   if (!who || !what) return next;
   const key = findKnowledgeKey(next, who) || who;
   const list = next[key] || [];
@@ -306,7 +306,7 @@ export function dedupeKnowledge(knowledge) {
 /* What the present know — newest facts first, a few each. `present` is
  * state.present ([{name}] — plain strings tolerated). Omit anyone with
  * nothing written. */
-export function renderKnowledge(knowledge, present) {
+export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER) {
   const safe = copyKnowledge(knowledge);
   const names = (Array.isArray(present) ? present : [])
     .map((p) => (typeof p === 'string' ? p : p && p.name))
@@ -315,7 +315,7 @@ export function renderKnowledge(knowledge, present) {
   for (const name of names) {
     const key = findKnowledgeKey(safe, name);
     if (!key || !safe[key].length) continue;
-    const facts = safe[key].slice(-KNOWLEDGE_RENDER).reverse().map((k) => k.fact.replace(/\.+$/, ''));
+    const facts = safe[key].slice(Number.isFinite(per) ? -per : 0).reverse().map((k) => k.fact.replace(/\.+$/, ''));
     lines.push(key + ' knows: ' + facts.join('; ') + '.');
   }
   return lines.join('\n');
@@ -342,24 +342,24 @@ export function findFactionKey(factions, name) {
 
 export function setFaction(factions, name, { stance, agenda, move } = {}, atTurn) {
   const next = copyFactions(factions);
-  const who = cleanText(name, 80);
+  const who = cleanText(name, 200);
   if (!who) return next;
   const key = findFactionKey(next, who) || who;
   const entry = { ...(next[key] || {}) };
-  if (cleanText(stance)) entry.stance = cleanText(stance, 140);
-  if (cleanText(agenda)) entry.agenda = cleanText(agenda, 140);
-  if (cleanText(move)) entry.move = cleanText(move, 200);
+  if (cleanText(stance)) entry.stance = cleanText(stance, 500);
+  if (cleanText(agenda)) entry.agenda = cleanText(agenda, 1000);
+  if (cleanText(move)) entry.move = cleanText(move, 1000);
   entry.atTurn = Number.isFinite(atTurn) ? atTurn : (entry.atTurn ?? null);
   next[key] = entry;
   return next;
 }
 
-export function renderFactions(factions) {
+export function renderFactions(factions, top = FACTIONS_RENDER) {
   const safe = copyFactions(factions);
   const rows = Object.entries(safe)
     .map(([name, f]) => ({ name, f, at: Number.isFinite(f.atTurn) ? f.atTurn : -1 }))
     .sort((a, b) => b.at - a.at)
-    .slice(0, FACTIONS_RENDER);
+    .slice(0, top);
   return rows.map(({ name, f }) => {
     const bits = [];
     if (f.stance) bits.push(f.stance);
@@ -408,7 +408,7 @@ function describeMinutes(m) {
 export function normalizeBrief(raw, atTurn, atPage) {
   if (!raw || typeof raw !== 'object') return null;
   const lines = (v) => (Array.isArray(v) ? v : [])
-    .map((s) => cleanText(typeof s === 'string' ? s : (s && (s.text || s.words || s.line)), 240))
+    .map((s) => cleanText(typeof s === 'string' ? s : (s && (s.text || s.words || s.line)), 1000))
     .filter(Boolean)
     .slice(0, BRIEF_LINES);
   const pressure = lines(raw.pressure);
@@ -416,7 +416,7 @@ export function normalizeBrief(raw, atTurn, atPage) {
   let twb = null;
   const t = raw.twb;
   if (t && typeof t === 'object' && (cleanText(t.who) || cleanText(t.changed))) {
-    twb = { who: cleanText(t.who, 60), where: cleanText(t.where, 120), changed: cleanText(t.changed, 300) };
+    twb = { who: cleanText(t.who, 120), where: cleanText(t.where, 500), changed: cleanText(t.changed, 1000) };
   }
   const voices = normalizeVoices(raw.voices);
   const at = Number.isFinite(atTurn) ? atTurn : null;
@@ -443,12 +443,12 @@ export function normalizeVoices(raw) {
   const out = [];
   for (const v of raw) {
     if (!v || typeof v !== 'object') continue;
-    const content = cleanText(v.content || v.text || v.line, 280);
-    const speaker = cleanText(v.speaker || v.who, 60);
+    const content = cleanText(v.content || v.text || v.line, 1000);
+    const speaker = cleanText(v.speaker || v.who, 120);
     if (!content || !speaker) continue;
     const iconRaw = cleanText(v.icon, 8);
     const icon = iconRaw || '💬';
-    const channel = cleanText(v.channel || v.where, 90);
+    const channel = cleanText(v.channel || v.where, 200);
     out.push({ icon, speaker, channel, content });
     if (out.length >= VOICES_MAX) break;
   }

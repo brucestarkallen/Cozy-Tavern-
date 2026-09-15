@@ -153,13 +153,13 @@ test('M85-6 the voices: the brief’s shape, the block in the writer’s own for
     { icon: '🍺', speaker: 'Old Mattis', channel: 'the Drowned Bell · dusk', content: 'Prices up again, and the captain drinking on credit.' },
     { speaker: '-> Renna', content: 'He always pays. Eventually.' },
     { speaker: '', content: 'no speaker — dropped' },
-    { speaker: 'A clerk', channel: 'the dispatch office', content: 'x'.repeat(400) },
+    { speaker: 'A clerk', channel: 'the dispatch office', content: 'x'.repeat(1400) },
     { speaker: 'Fourth', content: 'four' }, { speaker: 'Fifth', content: 'a fifth is noise' },
   ] };
   const b = normalizeBrief(raw, 7);
   eq(b.voices.length, VOICES_MAX, 'four at most, the empty speaker dropped');
   eq(b.voices[1].icon, '💬', 'a missing icon is the DM glyph');
-  assert(b.voices[2].content.length <= 280, 'content is capped');
+  assert(b.voices[2].content.length <= 1000, 'a runaway voice is capped (M266: at 1000 — an honest one is whole)');
   eq(b.empty, undefined, 'a brief with only voices is not empty');
   const block = renderVoicesBlock(b.voices);
   assert(block.startsWith('{VOICES}\n[VOICE: 🍺 | Old Mattis | the Drowned Bell · dusk | Prices up again') && block.endsWith('{/VOICES}'), block);
