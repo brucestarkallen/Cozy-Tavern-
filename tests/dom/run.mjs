@@ -1465,6 +1465,40 @@ test('DOM-20 the ledger light follows the work itself: blue, then green, with no
   eq(lamp(), 'amber', 'and only then does it say look');
 });
 
+test('DOM-21 the page chain looks: a worker that asks for page 1 by its number is served it whole (M260)', async () => {
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the lookout' });
+  await db.messages.append(st.id, { role: 'user', text: 'I climb the tower. PAGE-ONE-MARKER: the lantern is blue.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Lakeside Park — Friday, March 14, 2025 | 14:30 | 🌤 | coat | standing]\n\nThe tower creaks.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
+  let asked = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys)) {
+      asked += 1;
+      return asked === 1 ? '<fetch>["1"]</fetch>' : FOUNDING;
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  const from = house.state.calls.length;
+  try {
+    click(q('.msg-act[data-act="go on"]'));
+    await until(() => asked >= 2, 'the extractor to ask, be served, and answer', 30000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg-pending'), 'the chain to finish', 30000);
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  const extractorCalls = house.state.calls.slice(from).filter((c) => c.isWorker && /keep the ledger/i.test(JSON.stringify(c.body.messages || [])));
+  assert(extractorCalls.length >= 2, 'the extractor asked twice: ' + extractorCalls.length);
+  const second = JSON.stringify(extractorCalls[1].body.messages);
+  assert(/page 3 of the story/.test(JSON.stringify(extractorCalls[0].body.messages)), 'the chain told it which page it reads');
+  assert(second.includes('PAGE-ONE-MARKER: the lantern is blue.'), 'page 1 was served whole, by its number, from the tale itself');
+  assert(second.includes('<fetch>[\\"1\\"]</fetch>'), 'with its own ask in the conversation');
+  const ledger = await db.settings.get('state:' + st.id);
+  assert(ledger && ledger.sheet && ledger.sheet.playerName === 'Jovan', 'and the answer after the look was written');
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

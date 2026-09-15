@@ -39,6 +39,7 @@ import { withFictionFrame } from './voice.js'; /* M21: the workers never break t
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 
 import { renderWholeLedger, wholePage } from '../engine/whole.js'; /* M259: the whole ledger, and the page read to its end */
+import { askWithFetch, fetchLaw } from './lookup.js'; /* M259: it may look for what it was not shown */
 import { mcName } from '../engine/duels.js';
 
 /* M28: the answer is JSON only and thinking is OFF on the wire (call.js),
@@ -242,7 +243,8 @@ function systemPrompt({ mc, founding }) {
 }
 
 /* Exported for the harness: the two messages any provider flavor receives. */
-export function buildExtractorMessages({ state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '' }) {
+export const EXTRACTOR_LOOKS = 2;
+export function buildExtractorMessages({ state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', pageNumber = 0 }) {
   /* founding: passed explicitly by the send path (it already knows), else
    * read off the ledger's own youth. */
   if (typeof founding !== 'boolean') founding = isYoungLedger(state);
@@ -257,10 +259,10 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     'Moods on the board right now: ' + (onNow.length ? onNow.join(', ') : 'none') + ' — restate the whole board with mode.snapshot.',
     '',
     ...(brief && String(brief).trim()
-      ? ['What this story is about, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 12000), FENCE, '']
+      ? ['What this story is about, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 12000), FENCE, ...(String(brief).trim().length > 12000 ? ['(the brief goes on — fetch "brief" for all of it)'] : []), '']
       : []),
     ...(castNotes && String(castNotes).trim()
-      ? ['Who is in it, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 8000), FENCE, '']
+      ? ['Who is in it, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 8000), FENCE, ...(String(castNotes).trim().length > 8000 ? ['(the cast notes go on — fetch "cast" for all of it)'] : []), '']
       : []),
     /* M226: THE STORY BEFORE THE PAGES IT CAN SEE. The extractor writes the
      * ledger from the newest page and the four before it — eight on a deep
@@ -275,13 +277,18 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
       ? ['The story so far, folded — what the pages before these ones hold:', FENCE, String(record).trim(), FENCE, '']
       : []),
     ...(before.length
-      ? ['The pages just before this one:', FENCE, before.map((b) => (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + wholePage(b.text, 4000)).join('\n\n'), FENCE, '']
+      ? ['The pages just before this one:', FENCE, before.map((b) => {
+        const shown = wholePage(b.text, 4000);
+        const label = Number.isInteger(b.number) && b.number > 0 ? '[p' + b.number + (shown.length !== String(b.text || '').length ? ' — shortened; fetch "' + b.number + '" for all of it' : '') + '] ' : '';
+        return label + (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + shown;
+      }).join('\n\n'), FENCE, '']
       : []),
     'The writer just wrote:',
     '"""',
     wholePage(userText, 12000),
     '"""',
     '',
+    ...(Number.isInteger(pageNumber) && pageNumber > 0 ? ['(The storyteller\'s page below is page ' + pageNumber + ' of the story; every earlier page can be fetched by its number.)'] : []),
     'And the storyteller answered:',
     '"""',
     wholePage(assistantText),
@@ -289,7 +296,7 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     '',
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
-  return { system: withFictionFrame(systemPrompt({ mc, founding })), user, founding, mc };
+  return { system: withFictionFrame(systemPrompt({ mc, founding }) + '\n\n' + fetchLaw({ rounds: EXTRACTOR_LOOKS, when: 'Look only when THIS page leans on something you were not shown — a person, a promise or a place from an earlier page, a name the brief defines further on. Most pages need no look.' })), user, founding, mc };
 }
 
 /* M28: a ledger is young when it has no ground and nobody in it — the same
@@ -342,13 +349,13 @@ export function parseExtractorAnswer(raw) {
  * line. What never throws: an answer we can't use, which resolves
  * {mutations:[], note:'unusable'} so the drawer can say so. A missing
  * connection or an empty page resolves {mutations:[], failed:true}. */
-export async function extractTurn({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew } = {}) {
+export async function extractTurn({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew, storyId = '', story = null, pageNumber = 0 } = {}) {
   if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
   if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
   /* M259: THE RECORD RIDES. chat.js has handed it over since M226; this line
    * dropped it on arrival, so the extractor never once saw it. */
-  const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes, record });
+  const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes, record, pageNumber });
   /* M31: an answer we can't use, or a founding that came back empty, earns
    * ONE second ask with a sharper word — here, not five blind retries in
    * the queue. The raw answer rides out so the drawer can show it. */
@@ -372,12 +379,16 @@ export async function extractTurn({ connection, state, userText, assistantText, 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let read;
     try {
-      if (typeof renew === 'function') renew(); /* M259: every call gets its own minute (M213) */
-      const { text, finishReason } = await callWorker(connection, {
+      /* M259: every call gets its own minute (M213), and it may look */
+      const { text, finishReason } = await askWithFetch(connection, {
         system: prompt.system,
         user,
         maxTokens: MAX_TOKENS,
-            signal,
+        signal,
+        renew,
+        rounds: attempt === 0 ? EXTRACTOR_LOOKS : 1,
+        isAnswer: (t) => { const r = parseExtractorAnswer(t); return r.note === 'ok' || r.note === 'empty'; },
+        source: { storyId, story: story || { brief, castNotes } },
       });
       read = parseExtractorAnswer(text);
       read.raw = text;

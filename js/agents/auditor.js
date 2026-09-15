@@ -31,10 +31,12 @@ import { findThread } from '../engine/world.js';
  * M259: and it was shown the storyteller's TRIMMED copy of everything else —
  * six standings, five threads, four things a person knows, no ground at all.
  * It reads the whole ledger now (engine/whole.js). */
-import { renderWholeLedger, wholePage } from '../engine/whole.js';
+import { renderWholeLedger, wholePage, PAGE_CAP } from '../engine/whole.js';
+import { askWithFetch, fetchLaw } from './lookup.js'; /* M259: it looks for what it was not shown */
+import { messageIndexLine, refOf } from './housekeeper.js';
 import { mcName } from '../engine/duels.js';
 import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
-import { loadMemory, wholeRecord } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
+import { loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
 
 const MAX_TOKENS = 6000;
@@ -45,6 +47,11 @@ export const AUDIT_PAGES = 10;        /* the fewest pages the auditor reads word
  * reads the rest word for word, each to its end. */
 export const AUDIT_PAGES_MAX = 40;
 export const AUDIT_PAGE_CAP = 24000;
+/* M259: the pages shown whole by default. The rest stand in an index and are
+ * served whole the moment the auditor asks — a reading that must hold forty
+ * long pages every turn is slow and dear, and a model reads a haystack less
+ * carefully than a page it chose. */
+export const AUDIT_VIEW_CHARS = 100000;
 export const AUDIT_RECORD_CAP = 120000; /* the whole record — not the storyteller's 30,000 */
 const BRIEF_CAP = 40000;                /* the brief is the first authority; it was cut at 4,000 */
 const CAST_CAP = 20000;
@@ -77,10 +84,13 @@ function law({ mc }) {
     '  3. THE RECORD — what earlier pages established, oldest to newest; a [Correction] line supersedes.',
     mc ? `The main character is ${mc}.` : 'The main character is not yet named; if the pages make it plain, mc.set names them.',
     '',
-    'WHAT YOU ARE SHOWN IS ALL OF IT: every standing, every open thread, every line of who knows',
-    'what, every seat, every lock, and every page the record has not yet folded. A thing not listed',
-    'is not in the ledger; a thing listed in other words is ALREADY in it — never write it again.',
-    'Name a thread exactly as its title is quoted.',
+    'THE LEDGER YOU ARE SHOWN IS ALL OF IT: every standing, every open thread, every line of who',
+    'knows what, every seat, every lock. A thing not listed is not in the ledger; a thing listed in',
+    'other words is ALREADY in it — never write it again. Name a thread exactly as its title is quoted.',
+    'THE PAGES ARE NOT ALL SHOWN: the newest are shown whole, the other pages the record has not',
+    'folded stand in an index, and every page of the story can be fetched by its number.',
+    '',
+    fetchLaw({ when: 'Look before you judge: never report something missing, wrong or unwritten on the strength of a page you were not shown whole — fetch it (or find the words) first. A record line names the pages it covers; fetch them to check the line.' }),
     '',
     'Find every place the ledger disagrees with those truths, and every place it is missing something',
     'the pages plainly established:',
@@ -189,7 +199,7 @@ function characterPages(state) {
 }
 
 /* Exported for the harness. */
-export function buildAuditorMessages({ state, brief = '', castNotes = '', record = '', pages = [] }) {
+export function buildAuditorMessages({ state, brief = '', castNotes = '', record = '', pages = [], index = [], pageCount = 0 }) {
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   /* M259: the WHOLE ledger — every standing with its numbers, every thread,
@@ -200,19 +210,30 @@ export function buildAuditorMessages({ state, brief = '', castNotes = '', record
   const user = [
     'THE BRIEF (the writer\'s own words):',
     FENCE, String(brief || '').trim().slice(0, BRIEF_CAP) || '(none written)', FENCE,
+    ...(String(brief || '').trim().length > BRIEF_CAP ? ['(the brief goes on — fetch "brief" for all of it)'] : []),
     ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT (the writer\'s own words):', FENCE, String(castNotes).trim().slice(0, CAST_CAP), FENCE] : []),
+    ...(String(castNotes || '').trim().length > CAST_CAP ? ['(the cast notes go on — fetch "cast" for all of it)'] : []),
     '',
     /* M259: what changes least comes first, the ledger (which changes every
      * page) last — so the house can reuse what it already read of the brief,
      * the record and the older pages instead of reading them all again. */
-    'THE RECORD (the folded pages, oldest to newest):',
+    'THE RECORD (the folded pages, oldest to newest; each line names the pages it covers):',
     FENCE, String(record || '').trim() || '(nothing recorded yet)', FENCE,
     '',
-    'THE PAGES THE RECORD HAS NOT YET FOLDED, word for word (the last is the present):',
+    'THE NEWEST PAGES, word for word (the last is the present):',
     FENCE,
-    (Array.isArray(pages) ? pages : []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(p.text || '')).join('\n\n'),
+    (Array.isArray(pages) ? pages : []).map((p) => {
+      const label = Number.isInteger(p.ordinal)
+        ? '[p' + p.ordinal + (p.ref ? ' ' + p.ref : '') + (p.cut ? ' — shortened; fetch "' + p.ordinal + '" for all of it' : '') + '] '
+        : '';
+      return label + (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(p.text || '');
+    }).join('\n\n'),
     FENCE,
     '',
+    ...(Array.isArray(index) && index.length
+      ? ['THE OTHER PAGES THE RECORD HAS NOT YET FOLDED — not shown above; fetch any by its number:', ...index, '']
+      : []),
+    ...(pageCount ? ['The story has ' + pageCount + ' pages; any of them, folded or not, is served whole by its number.', ''] : []),
     'THE LEDGER, ALL OF IT (as it stood before the latest page):',
     whole,
     '— the character pages —', people || '(none)',
@@ -276,28 +297,35 @@ export function auditRoomChars(connection) {
   return Math.max(30000, Math.floor((size - MAX_TOKENS - 2000) * 3));
 }
 
-/* M259: the pages the auditor reads word for word — from where the record
- * stops to the newest (never fewer than AUDIT_PAGES, never more than
- * AUDIT_PAGES_MAX), each read to its end, the newest first into the room. */
-export function pagesForAudit(list, foldedTo, room) {
+/* M259: what the auditor is shown of the pages the record has not folded —
+ * the newest whole, into AUDIT_VIEW_CHARS (the latest story page always, to
+ * its end); the older ones as index lines it can fetch by number. */
+export function auditView(list, foldedTo, budget = AUDIT_VIEW_CHARS) {
   const all = Array.isArray(list) ? list : [];
-  if (!all.length) return [];
+  const shown = [];
+  const index = [];
+  if (!all.length) return { shown, index };
   const from = Number.isFinite(foldedTo) ? foldedTo : 0;
-  const start = Math.max(0, Math.min(from, all.length - AUDIT_PAGES), all.length - AUDIT_PAGES_MAX);
-  let left = Number.isFinite(room) && room > 0 ? room : Infinity;
-  const out = [];
+  const start = Math.max(0, Math.min(from, all.length - AUDIT_PAGES));
+  /* no room left means the present page alone — never "no limit" */
+  let left = Number.isFinite(budget) ? Math.max(0, budget) : Infinity;
+  let full = true;
+  let latestStory = true;
   for (let i = all.length - 1; i >= start; i -= 1) {
     const m = all[i];
     const text = pageText(m);
-    let t = wholePage(text, AUDIT_PAGE_CAP);
-    if (t.length + 12 > left) {
-      if (left < 3000) break;
-      t = wholePage(text, left - 200);
+    const isLatest = latestStory && m.role === 'assistant';
+    if (isLatest) latestStory = false;
+    const t = wholePage(text, isLatest ? PAGE_CAP : AUDIT_PAGE_CAP);
+    if (!isLatest && (!full || shown.length >= AUDIT_PAGES_MAX || t.length + 60 > left)) {
+      full = false;
+      index.unshift('p' + (i + 1) + ' ' + messageIndexLine(m));
+      continue;
     }
-    out.unshift({ role: m.role, text: t });
-    left -= t.length + 12;
+    shown.unshift({ ordinal: i + 1, ref: refOf(m), role: m.role, text: t, cut: t.length !== text.length });
+    left -= t.length + 60;
   }
-  return out;
+  return { shown, index };
 }
 
 export async function auditLedger({ connection, storyId, brief = '', castNotes = '', signal, stale, renew } = {}) {
@@ -319,25 +347,35 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * long tale's oldest lines fell off the front. The room is the
    * connection's own. */
   const room = auditRoomChars(connection);
-  const record = wholeRecord(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35))));
+  const record = recordWithPages(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35))));
   const foldedTo = Math.max(0, ...((mem && Array.isArray(mem.nodes)) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1));
-  const bare = buildAuditorMessages({ state, brief, castNotes, record, pages: [] });
-  const pages = pagesForAudit(all, foldedTo, room - bare.system.length - bare.user.length);
-  if (!pages.length) return null;
-  const prompt = buildAuditorMessages({ state, brief, castNotes, record, pages });
+  const bare = buildAuditorMessages({ state, brief, castNotes, record, pages: [], pageCount: all.length });
+  const view = auditView(all, foldedTo, Math.min(AUDIT_VIEW_CHARS, room - bare.system.length - bare.user.length));
+  if (!view.shown.length) return null;
+  const prompt = buildAuditorMessages({ state, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length });
   let read = null;
   let raw = '';
   let user = prompt.user;
+  const looked = [];
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (typeof renew === 'function') renew(auditLeashMs({ system: prompt.system, user }));
-    const { text, finishReason } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, signal });
+    /* M259: it may look — any page whole, a search, the whole brief — in the
+     * housekeeper's words, served by the housekeeper's server */
+    const { text, finishReason, looked: seen } = await askWithFetch(connection, {
+      system: prompt.system, user, maxTokens: MAX_TOKENS, signal, renew,
+      leash: (size) => 60000 + Math.ceil(size / 4000) * 1000,
+      isAnswer: (t) => parseAuditorAnswer(t).note === 'ok',
+      source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes } },
+      room,
+      rounds: attempt === 0 ? undefined : 1, /* a second ask looks once at most */
+    });
+    looked.push(...(seen || []));
     raw = text;
     read = parseAuditorAnswer(text);
     if (finishReason === 'length' && read.note === 'unusable') read.note = 'cut short';
     if (read.note === 'ok') break;
     user = prompt.user + '\n\nYour last answer was not a JSON object with an "issues" list. Answer with the JSON object only, and keep it short.';
   }
-  if (read.note !== 'ok') return { applied: [], rejected: [], issues: [], note: read.note, raw };
+  if (read.note !== 'ok') return { applied: [], rejected: [], issues: [], note: read.note, raw, looked };
   if (stale && stale()) return null;
   const fresh = await loadState(storyId);
   /* M259: the latest STORY page's header line has already written the ground
@@ -421,7 +459,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   if (stale && stale()) return null;
   await saveState(storyId, out);
   notify(storyId);
-  return { applied, rejected, issues, note: 'ok', raw };
+  return { applied, rejected, issues, note: 'ok', raw, looked };
 }
 
 /* M57: who has passed through. A person retires when ALL hold: not present;
@@ -763,6 +801,20 @@ export function rebuildRunWords(result) {
   return 'rebuilt the standings: let go of ' + result.cleared + ', wrote ' + result.digits + ' from the brief’s digits, ' + result.applied.length + ' from the pages and the record' + (result.rejected.length ? ' (' + result.rejected.length + ' refused)' : '');
 }
 
+/* M259: what a looking worker looked at, for the workers line */
+export function lookedWords(looked) {
+  const list = Array.isArray(looked) ? looked : [];
+  if (!list.length) return '';
+  const pages = list.filter((r) => /^#?[0-9a-f]{3,12}$|^\d+$/i.test(String(r).trim())).length;
+  const finds = list.filter((r) => /^find:/i.test(String(r).trim())).map((r) => '“' + String(r).trim().replace(/^find:\s*/i, '') + '”');
+  const briefs = list.filter((r) => /^(brief|cast)$/i.test(String(r).trim())).map((r) => (String(r).trim().toLowerCase() === 'brief' ? 'the brief' : 'the cast notes'));
+  const bits = [];
+  if (pages) bits.push(pages + (pages === 1 ? ' page' : ' pages'));
+  if (finds.length) bits.push('searched ' + finds.join(', '));
+  if (briefs.length) bits.push([...new Set(briefs)].join(' and '));
+  return bits.length ? ' (looked at: ' + bits.join('; ') + ')' : '';
+}
+
 export function auditRunWords(result) {
   if (!result) return 'nothing to read';
   if (result.note === 'unusable') return 'its answer could not be used';
@@ -771,7 +823,7 @@ export function auditRunWords(result) {
   const fixed = result.applied.length;
   /* M259: a run whose only changes were the house's own (the brief's digits,
    * a passer-through retired) says what it changed, never "true" */
-  if (!n && !fixed) return 'the ledger is true to the story';
+  if (!n && !fixed) return 'the ledger is true to the story' + lookedWords(result.looked);
   const bits = n ? [`found ${n} ${n === 1 ? 'thing' : 'things'}`] : [];
   if (fixed) bits.push(`set ${fixed} right: ` + result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (fixed > 4 ? ' · …' : ''));
   const briefWins = result.issues.filter((i) => i.pages && i.fix).length;
@@ -780,7 +832,7 @@ export function auditRunWords(result) {
   if (seen) bits.push(`${seen} seen, nothing to change`);
   const refusedN = result.rejected.filter((r) => !(r && r.same)).length; /* M259: "already so" is not a refusal */
   if (refusedN) bits.push(`${refusedN} refused`);
-  return bits.join(', ');
+  return bits.join(', ') + lookedWords(result.looked);
 }
 
 export async function auditOn(story) {

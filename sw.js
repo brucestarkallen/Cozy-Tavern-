@@ -33,6 +33,7 @@ const SHELL = [
   'js/engine/world.js',
   'js/engine/whole.js',
   'js/engine/pagecut.js',
+  'js/agents/lookup.js',
   'js/engine/canon.js',
   'js/engine/referee-math.js',
   'js/engine/duels.js',

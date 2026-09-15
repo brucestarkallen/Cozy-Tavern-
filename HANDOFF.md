@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m259-001)
+# Cozy Tavern — handoff for the next session (state at m260-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M259). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M260). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 511 checks on the engines, assembler, workers, laws.
-- `cd tests/dom && node run.mjs` — the walk: 39 scenarios of the real app in jsdom (every button,
+- `node tests/harness/run.mjs` — 514 checks on the engines, assembler, workers, laws.
+- `cd tests/dom && node run.mjs` — the walk: 40 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -23,6 +23,9 @@ Full history of every law and fix: AGENTS.md (M1 … M259). SPEC.md holds the fo
 - The mender answers with find → replace edits; a mend never shortens a page (M259).
 - The page chain hands every worker its leash (queue.js chainJob); every worker call gets its own
   minute; a long reading asks for a longer one (M259).
+- No reader is cut off by a number (M260): what a worker is shown fits, and anything else — any
+  page by its number, "find: WORDS", "brief" — is asked for with the housekeeper's <fetch>
+  through the housekeeper's serveFetch (agents/lookup.js). One way to look, for everyone.
 - One writer per ledger fact; every second writer is a named guard (M131). The moment (posture,
   wardrobe, mood, the ground, the hour) is the extractor's from the newest page; the header line
   is the truth for ground and hour (M128); an absent person's now is the world agent's seat

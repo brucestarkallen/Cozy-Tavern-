@@ -5349,3 +5349,39 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   m258 commit does the same), so a script waiting on it never heard the result. It ends with the
   run's own code now, as the walk does.
 - 511/511 harness + 39/39 walk + 8/8 play + the two-browser proof (11/11). version.js -> m259-001.
+
+# M260 — a worker that can look: no reader is cut off by a number
+- THE WRITER ASKED why a worker is cut off at a fixed count of characters when the housekeeper
+  simply asks for what it needs. There is no good reason: a limit decides ahead of time what a
+  reader may never see. So the auditor, the extractor and the world agent LOOK now, in the
+  housekeeper's own words (<fetch>[…]</fetch>), through the housekeeper's own server
+  (serveFetch) — one way to look for everyone who reads the story (agents/lookup.js
+  askWithFetch):
+  - any page whole, by its number (1-based among the pages not hidden, as the index counts them)
+    or its #code — a folded page too;
+  - "find: WORDS" — every page that holds them, newest first, by number (never a hidden page);
+  - "brief" / "cast" — the writer's own words, whole.
+  The housekeeper gained the same two, so the same words mean the same thing everywhere.
+- THE AUDITOR'S VIEW FITS; THE REST IS ASKED FOR. The newest pages whole into 100,000 characters
+  (the present page always, to its end); the other unfolded pages as index lines ("p12 #code —
+  preview"); every record line names the pages it covers ("[pages 13–18]") so it can be checked
+  against them; a brief or cast notes past their view, and a shortened page, say so and how to get
+  the rest. A reading that had to hold forty long pages every turn was slow and dear, and a model
+  reads a haystack less carefully than a page it chose.
+- The extractor and the world agent are told the number of the page they read, their earlier
+  pages carry their numbers, and they look only when the page leans on something they were not
+  shown (two looks; one on a second ask).
+- A READING IS NEVER SPENT ON LOOKING (M221's law, for the workers too): three looks, then the
+  worker is told once to answer; an unreadable fetch block is answered once with how to ask; a
+  final answer is never held up by a stray fetch; a look that would overflow the reader's room
+  names what it could not serve. Every call gets its own leash, the auditor's scaled to what it
+  holds; the workers line says what the auditor looked at.
+- FOUND ON THE WAY: a connection whose room was already spent turned the page budget NEGATIVE, and
+  a negative budget read as "no limit" — every page, exactly when there was no room. It is the
+  present page alone now.
+- Laws: M259-18..20 (the auditor, the extractor and the world agent looking through a scripted
+  wire; the shared server; the room; the spent budget) and DOM-21 (the real page chain: an
+  extractor that asks for page 1 by its number is served it whole from the tale); 15 deliberate
+  breaks, each caught. M221's "the auditor never fetches" and M74-6's signature grep follow the
+  new design.
+- 514/514 harness + 40/40 walk + 8/8 play + the two-browser proof (11/11). version.js -> m260-001.

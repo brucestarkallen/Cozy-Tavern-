@@ -543,3 +543,134 @@ test('M259-17: a long reading gets a longer leash, and every call in the page ch
   eq(sh.calls.length, 2, 'fixture: the scribe asked twice');
   eq(count.n, 2, 'the scribe: one minute per call');
 });
+
+/* ---------- looking: the view that fits, and anything else on request ---------- */
+
+async function lookingStory(storyId) {
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+  st.present = [{ name: 'Jovan' }, { name: 'Rias Wells' }];
+  await saveState(storyId, st);
+  const ids = [];
+  for (let i = 0; i < 30; i += 1) {
+    let text;
+    if (i % 2 === 0) text = 'PLAYER PAGE ' + (i + 1) + ': I keep going.';
+    else text = 'STORY PAGE ' + (i + 1) + ' opens. ' + 'q'.repeat(20000) + ' STORY-PAGE-' + (i + 1) + '-ENDS';
+    if (i === 2) text += ' The SILVER-KEY was hidden under the stair.';
+    if (i === 9) text = text.replace(' opens.', ' opens. ' + 'w'.repeat(400) + ' Rias learned THE-OLD-FACT: Caleb sold the photos.');
+    if (i === 27) text += ' Jovan turned the SILVER-KEY over in his hand.';
+    const m = await db.messages.append(storyId, { role: i % 2 ? 'assistant' : 'user', text });
+    ids.push(m.id);
+  }
+  await saveMemory(storyId, { window: 20, nodes: [{ id: 'node-foldA1', span: [0, 5], level: 1, text: 'FOLDED-LINE for the first six pages', at: 1 }] });
+  return ids;
+}
+const bodyText = (call) => call.body.messages.map((mm) => String(mm.content || '')).join('\n');
+
+test('M259-18: the auditor is shown what fits, looks for the rest, and a reading is never spent on looking', async () => {
+  const storyId = 'm259-look';
+  await lookingStory(storyId);
+  const longBrief = 'The brief opens. ' + 'b'.repeat(45000) + ' BRIEF-FAR-TAIL: Rias owns the lake house.';
+  const house = scriptedHouse([
+    '<fetch>["10", "3", "find: SILVER-KEY", "brief"]</fetch>',
+    issuesAnswer([{ what: 'Rias witnessed Caleb’s sale on page 10 and has no line for it', fix: 'add it', pages: false,
+      mutations: [{ type: 'knowledge.add', name: 'Rias Wells', fact: 'that Caleb sold the photos' }] }]),
+  ]);
+  const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief: longBrief, stale: () => false }));
+  const first = bodyText(house.calls[0]);
+  assert(first.includes('STORY-PAGE-30-ENDS'), 'the present page is shown to its end');
+  assert(!first.includes('THE-OLD-FACT'), 'an older unfolded page past the view is not shown whole…');
+  assert(/\np10 #[0-9a-f]{6} the storyteller — STORY PAGE 10 opens\./.test(first), '…it stands in the index, by number: ' + (first.match(/\np10[^\n]*/) || [''])[0].slice(0, 80));
+  assert(first.includes('[pages 1–6] FOLDED-LINE'), 'a record line names the pages it covers');
+  assert(first.includes('fetch "brief" for all of it') && !first.includes('BRIEF-FAR-TAIL'), 'the brief past its view says so');
+  assert(first.includes('YOU CAN LOOK'), 'and the auditor is told it may look');
+  const second = bodyText(house.calls[1]);
+  assert(second.includes('THE-OLD-FACT'), 'the page it asked for is served whole');
+  assert(second.includes('STORY PAGE 4 opens') === false && second.includes('SILVER-KEY was hidden'), 'a FOLDED page is served by its number too');
+  assert(/\[find: SILVER-KEY\] 2 pages/.test(second) && /p28 /.test(second) && /p3 /.test(second), 'the search names every page that holds the words, by number');
+  assert(second.includes('BRIEF-FAR-TAIL'), 'the whole brief is served');
+  assert(house.calls[1].body.messages.some((mm) => mm.role === 'assistant' && /<fetch>\["10"/.test(String(mm.content))), 'its own fetch rides in the conversation');
+  const after = await loadState(storyId);
+  assert((after.knowledge['Rias Wells'] || []).some((k) => /Caleb sold the photos/.test(k.fact)), 'what it found by looking lands');
+  eq(r.looked.join('|'), '10|3|find: SILVER-KEY|brief', 'the reading says what it looked at');
+  const { auditRunWords } = await import('../../js/agents/auditor.js');
+  assert(/\(looked at: 2 pages; searched “SILVER-KEY”; the brief\)/.test(auditRunWords(r)), 'and the workers line says so: ' + auditRunWords(r));
+
+  /* a connection with no room left is shown the present page alone — never every page */
+  const { auditView } = await import('../../js/agents/auditor.js');
+  const list = (await db.messages.list(storyId)).filter((m) => !m.hidden);
+  for (const budget of [0, -5000]) {
+    const v = auditView(list, 6, budget);
+    eq(v.shown.map((p) => p.ordinal).join(','), '30', 'budget ' + budget + ': only the present page is shown');
+    eq(v.index.length, 23, 'and every other unfolded page stands in the index');
+  }
+
+  /* an auditor that only ever fetches is told once to answer, and never comes back as a bare fetch */
+  const greedy = scriptedHouse(['<fetch>["12"]</fetch>']);
+  const g = await withHouse(greedy, () => auditLedger({ connection: CONN, storyId, stale: () => false }));
+  assert(greedy.calls.length <= 6, 'looking is bounded: ' + greedy.calls.length + ' calls');
+  assert(greedy.calls.some((c) => /no more <fetch>/.test(bodyText(c))), 'it was told to answer now');
+  eq(g.note, 'unusable', 'a reading spent on looking is reported as unusable, never as a finding');
+  eq(g.applied.length, 0, 'and writes nothing');
+});
+
+test('M259-19: the extractor and the world agent look for what the page leans on', async () => {
+  const storyId = 'm259-look2';
+  await lookingStory(storyId);
+  const st = await loadState(storyId);
+  const house = scriptedHouse([
+    '<fetch>["10"]</fetch>',
+    '{"mutations":[{"type":"knowledge.add","name":"Rias Wells","fact":"that Caleb sold the photos"},{"type":"mode.snapshot","flags":[]}]}',
+  ]);
+  const ticks = [];
+  const out = await withHouse(house, () => extractTurn({ connection: CONN, state: st, userText: 'I ask Rias about it.', assistantText: 'Rias remembers what she learned.',
+    founding: false, storyId, pageNumber: 30, renew: () => { ticks.push(1); return true; } }));
+  assert(house.calls[0].body.messages.some((mm) => mm.role === 'system' && /YOU CAN LOOK/.test(mm.content)) || /YOU CAN LOOK/.test(JSON.stringify(house.calls[0].body)), 'the extractor is told it may look');
+  assert(bodyText(house.calls[0]).includes('page 30 of the story'), 'and which page it is reading');
+  assert(bodyText(house.calls[1]).includes('THE-OLD-FACT'), 'the page it asked for is served whole');
+  assert(out.mutations.some((m) => m.type === 'knowledge.add' && /Caleb sold/.test(m.fact)), 'and its reading uses it');
+  eq(ticks.length, house.calls.length, 'every call got its own minute');
+
+  const greedy = scriptedHouse(['<fetch>["4"]</fetch>']);
+  await withHouse(greedy, () => extractTurn({ connection: CONN, state: st, userText: 'u', assistantText: 'a page', founding: false, storyId, pageNumber: 30 }));
+  assert(greedy.calls.length <= 5, 'the extractor’s looking is bounded: ' + greedy.calls.length);
+
+  const wh = scriptedHouse([
+    '<fetch>["find: SILVER-KEY"]</fetch>',
+    '{"mutations":[],"brief":{"pressure":["the key under the stair"],"ripe":[],"twb":null,"voices":[]}}',
+  ]);
+  const w = await withHouse(wh, () => worldTurn({ connection: CONN, storyId, userText: 'u', assistantText: 'Jovan holds the key.', pageNumber: 30, stale: () => false }));
+  assert(/YOU CAN LOOK/.test(JSON.stringify(wh.calls[0].body)), 'the world agent is told it may look');
+  assert(/\[find: SILVER-KEY\] 2 pages/.test(bodyText(wh.calls[1])), 'and its search is answered');
+  assert(w && w.note !== 'unusable', 'and its answer is read after the look');
+});
+
+test('M259-20: one server for everyone who looks — search, the brief, and a round that would overflow', async () => {
+  const { parseFetchRefs, serveFetch, findInPages } = await import('../../js/agents/housekeeper.js');
+  eq(parseFetchRefs('["12", "#a1b2c3", "find: Caleb Thorne", "brief", "cast", "rule: The Prose", "nonsense words"]').join('|'), '12|#a1b2c3|find: Caleb Thorne|brief|cast|rule: The Prose', 'the refs everyone may use');
+  const pages = [
+    { id: 'aaaa01', role: 'user', text: 'I ask about Caleb.' },
+    { id: 'aaaa02', role: 'assistant', text: 'Caleb Thorne left early.' },
+    { id: 'aaaa03', role: 'assistant', text: 'Nobody mentions him.', hidden: true },
+    { id: 'aaaa04', role: 'assistant', text: 'Thorne, Caleb — the name on the envelope.' },
+  ];
+  const found = findInPages(pages, 'Caleb Thorne');
+  assert(/2 pages/.test(found) && /\np3 #aaaa04/.test(found) && /\np2 #aaaa02/.test(found), 'the exact words, then every word of them, by visible number: ' + found);
+  assert(!/aaaa03/.test(found), 'a hidden page is not searched');
+  assert(/no page holds/.test(findInPages(pages, 'the lighthouse')), 'nothing found says so');
+  const brief = serveFetch(['brief', 'cast'], pages, { story: { brief: 'THE WHOLE BRIEF', castNotes: '' } });
+  assert(/\[the brief\] \(15 chars, COMPLETE\)\nTHE WHOLE BRIEF/.test(brief) && /There are no cast notes written/.test(brief), brief);
+  const big = [{ id: 'bbbb01', role: 'assistant', text: 'x'.repeat(9000) }, { id: 'bbbb02', role: 'assistant', text: 'y'.repeat(9000) }];
+  const tight = serveFetch(['1', '2'], big, { room: 12000 });
+  assert(tight.includes('x'.repeat(9000)) && !tight.includes('y'.repeat(9000)), 'a round stops before it overflows the reader');
+  assert(/Not served this round — no room for them all \(ask again for fewer\): 2/.test(tight), 'and names what it could not serve');
+
+  const { askWithFetch } = await import('../../js/agents/lookup.js');
+  const both = scriptedHouse(['{"issues":[]} <fetch>["1"]</fetch>']);
+  const b = await withHouse(both, () => askWithFetch(CONN, { system: 's', user: 'u', maxTokens: 100, isAnswer: (t) => /"issues"/.test(t), source: { messages: big } }));
+  eq(both.calls.length, 1, 'a final answer is never held up by a stray fetch');
+  assert(/"issues"/.test(b.text), 'and is returned as it came');
+  const garbled = scriptedHouse(['<fetch>page ten please</fetch>', '{"issues":[]}']);
+  await withHouse(garbled, () => askWithFetch(CONN, { system: 's', user: 'u', maxTokens: 100, isAnswer: (t) => /"issues"/.test(t), source: { messages: big } }));
+  eq(garbled.calls.length, 2, 'an unreadable fetch is answered once, plainly');
+  assert(/could not be read/.test(bodyText(garbled.calls[1])), 'with how to ask');
+});

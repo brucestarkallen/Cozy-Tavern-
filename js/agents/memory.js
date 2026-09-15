@@ -198,6 +198,22 @@ export function wholeRecord(mem, cap = SLOT_BUDGET) {
   return kept.join('\n');
 }
 
+/* M259: the whole record with the pages each line covers (1-based, as the
+ * page index numbers them) — so a reader can fetch a line's own pages and
+ * check it. Over the cap, the oldest lines go first and a line says so. */
+export function recordWithPages(mem, cap = SLOT_BUDGET) {
+  const lines = orderedLines(mem).map((n) => {
+    const where = Array.isArray(n.span) && n.span[0] >= 0
+      ? '[pages ' + (n.span[0] + 1) + (n.span[1] > n.span[0] ? '–' + (n.span[1] + 1) : '') + '] '
+      : (n.correction ? '[correction] ' : '');
+    return lineWords(n).replace(/^- /, '- ' + where);
+  });
+  const kept = lines.slice();
+  let dropped = 0;
+  while (kept.length > 1 && kept.join('\n').length > cap) { kept.shift(); dropped += 1; }
+  return (dropped ? '(' + dropped + ' earlier ' + (dropped === 1 ? 'line' : 'lines') + ' not shown — their pages can be fetched by number)\n' : '') + kept.join('\n');
+}
+
 /* ---------- the prompt: Summaryception's, verbatim in substance ---------- */
 
 export const SUMMARIZER_SYSTEM = 'You are a precise narrative-state tracker for an ongoing fiction. Output one line of short phrases — no preamble, no commentary, no markdown. Record only what the passage states. Never infer, never guess. Out-of-character material inside the passage (parenthetical notes, analysis or verification blocks before/after the scene) counts as part of the record when it establishes background facts not already in prior context; OOC framing or words like "Confirmed" do not make a fact established.';

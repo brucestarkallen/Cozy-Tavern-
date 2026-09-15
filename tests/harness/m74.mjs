@@ -117,8 +117,9 @@ test('M74-5 a ledger card is measured against the slice it touches — a page tu
 test('M74-6 fetch serves a rule or a lore entry by name; the ripple sweeps the brief and the cast notes', () => {
   const src = hk();
   assert(/\/\^\(rule\|lore\):\\s\*\\S\/i\.test\(t\)/.test(src), 'fetch refs accept rule: and lore:');
-  assert(/function serveFetch\(refs, messages, \{ modules = \[\], lore = \[\], memory = null \} = \{\}\)/.test(src), 'serveFetch takes the rulebook, the shelf and the record (M124)');
-  assert(/serveFetch\(parsed\.fetch, messages, \{ modules, lore, memory \}\)/.test(src), 'and is handed them, the record too');
+  /* M259: and the story (its brief) and the reader's room — the workers look through it too */
+  assert(/function serveFetch\(refs, messages, \{ modules = \[\], lore = \[\], memory = null[^}]*\} = \{\}\)/.test(src), 'serveFetch takes the rulebook, the shelf and the record (M124)');
+  assert(/serveFetch\(parsed\.fetch, messages, \{ modules, lore, memory(, story)? \}\)/.test(src), 'and is handed them, the record too');
   const where = rippleScan([{ id: '#x', find: 'Kris is the mother', replace: 'Kim is the mother' }], { messages: [], memory: { nodes: [] }, state: emptyState(), lore: [], story: { brief: 'Kris is the mother of Kendall.', castNotes: 'Kris is the mother.' } });
   assert(where.length === 1 && where[0].where.includes('the brief') && where[0].where.includes('the cast notes'), JSON.stringify(where));
 });

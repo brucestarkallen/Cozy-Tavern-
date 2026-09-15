@@ -53,6 +53,7 @@ import { renderOffscreen } from '../engine/offscreen.js';
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
 import { STANCES } from '../engine/world.js';
+import { askWithFetch, fetchLaw } from './lookup.js'; /* M259: it may look for what it was not shown */
 import { renderAllThreads, renderAllKnowledge, renderAllFactions, wholePage } from '../engine/whole.js'; /* M259: every thread, every line of who knows what, every faction; the page read to its end */
 
 const MAX_TOKENS = 6000; /* M37: room for a long founding even if a house thinks a little anyway */
@@ -263,7 +264,8 @@ function spokenVoices(voicesBefore) {
   return blocks.map((b, i) => '  turn -' + (blocks.length - i) + ': ' + b.map((v) => (v.speaker || '?') + ' (' + (v.channel || 'reply') + '): ' + (v.content || '')).join(' · ')).join('\n');
 }
 
-export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], jumpedMinutes = 0, record = '' }) {
+export const WORLD_LOOKS = 2;
+export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0 }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
   const known = mcName(state);
@@ -313,9 +315,14 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     spokenVoices(voicesBefore) || 'None yet.',
     '',
     ...(cores ? ['THE PEOPLE, AS THE LEDGER KNOWS THEM:', cores, ''] : []),
-    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 12000), FENCE, ''] : []),
-    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 8000), FENCE, ''] : []),
-    ...(before.length ? ['THE PAGES JUST BEFORE:', FENCE, before.map((b) => (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + wholePage(b.text, 3000)).join('\n\n'), FENCE, ''] : []),
+    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 12000), FENCE, ...(String(brief).trim().length > 12000 ? ['(the brief goes on — fetch "brief" for all of it)'] : []), ''] : []),
+    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 8000), FENCE, ...(String(castNotes).trim().length > 8000 ? ['(the cast notes go on — fetch "cast" for all of it)'] : []), ''] : []),
+    ...(before.length ? ['THE PAGES JUST BEFORE:', FENCE, before.map((b) => {
+      const shown = wholePage(b.text, 3000);
+      const label = Number.isInteger(b.number) && b.number > 0 ? '[p' + b.number + (shown.length !== String(b.text || '').length ? ' — shortened; fetch "' + b.number + '" for all of it' : '') + '] ' : '';
+      return label + (b.role === 'user' ? 'The writer: ' : 'The storyteller: ') + shown;
+    }).join('\n\n'), FENCE, ''] : []),
+    ...(Number.isInteger(pageNumber) && pageNumber > 0 ? ['(The storyteller\'s page below is page ' + pageNumber + ' of the story; every earlier page can be fetched by its number.)'] : []),
     'THE WRITER JUST WROTE:',
     FENCE,
     wholePage(userText, 12000),
@@ -332,7 +339,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
   const jumpWords = Number.isFinite(jumpedMinutes) && jumpedMinutes >= 180
     ? 'THE CLOCK JUMPED ' + (jumpedMinutes >= 1440 ? Math.round(jumpedMinutes / 1440) + ' day(s)' : Math.round(jumpedMinutes / 60) + ' hours') + ' since the last page. Every seat is stale: re-seat EVERY absent person for the new hour — where they are now, asleep or awake as the hour decides, what changed for them in the gap; close any arrival, want or thread the gap resolved; nothing seated before the jump stands unexamined.'
     : '';
-  return { system: withFictionFrame(law({ mc, clockWords, hourWords, jumpWords })), user };
+  return { system: withFictionFrame(law({ mc, clockWords, hourWords, jumpWords }) + '\n\n' + fetchLaw({ rounds: WORLD_LOOKS, when: 'Look only when the world you must move rests on a page or a passage you were not shown — who someone is, what they promised, where they went. Most pages need no look.' })), user };
 }
 
 /* Exported for the harness. Thinking spans stripped, fences stripped, up to
@@ -367,7 +374,7 @@ export function parseWorldAnswer(raw) {
 
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
-export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew } = {}) {
+export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0 } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
@@ -375,20 +382,24 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   const state = await loadState(storyId);
   /* M259: THE RECORD RIDES. chat.js has handed it over since M249; this line
    * dropped it on arrival. */
-  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore, jumpedMinutes, record });
+  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore, jumpedMinutes, record, pageNumber });
   /* M31: an answer we can't use earns ONE second ask with a sharper word;
    * the raw answer rides out so the drawer can show it. */
   let read = null;
   let raw = '';
   let user = prompt.user;
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (typeof renew === 'function') renew(); /* M259: every call gets its own minute (M213) */
-    const { text, finishReason } = await callWorker(connection, {
+    /* M259: every call gets its own minute (M213), and it may look */
+    const { text, finishReason } = await askWithFetch(connection, {
       system: prompt.system,
       user,
       maxTokens: MAX_TOKENS,
       effort,
       signal,
+      renew,
+      rounds: attempt === 0 ? WORLD_LOOKS : 1,
+      isAnswer: (t) => { const r = parseWorldAnswer(t); return r.note !== 'unusable' && r.note !== 'cut short'; },
+      source: { storyId, story: story || { brief, castNotes } },
     });
     raw = text;
     read = parseWorldAnswer(text);

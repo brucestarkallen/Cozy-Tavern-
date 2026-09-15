@@ -535,7 +535,7 @@ export function tolerantJson(raw) {
 /* <fetch>[3, "#a1b2c3"]</fetch> — the ids may come as numbers, quoted
  * strings, or bare #codes (not valid JSON), so refs are read token-wise
  * after a tolerant parse attempt. */
-function parseFetchRefs(body) {
+export function parseFetchRefs(body) {
   /* M74: a page handle, or a rule / lore entry by name ("rule: The Prose", "lore: Aurora") */
   /* M222: A RECORD HANDLE IS A HANDLE TOO. This took hex only — page ids are
    * hex, but a RECORD line's mark is "#r" + the node's own id, which carries
@@ -547,7 +547,10 @@ function parseFetchRefs(body) {
   const isRef = (t) => /^#?[0-9a-f]{3,12}$/i.test(t)
     || /^#r[0-9a-z]{2,16}$/i.test(t)
     || /^\d{1,5}$/.test(t)
-    || /^(rule|lore):\s*\S/i.test(t);
+    || /^(rule|lore):\s*\S/i.test(t)
+    /* M259: a search, and the writer's own words — for the workers and the housekeeper alike */
+    || /^find:\s*\S/i.test(t)
+    || /^(brief|cast)$/i.test(t);
   const parsed = tolerantJson(body);
   if (Array.isArray(parsed)) {
     return parsed.map((r) => String(r).trim()).filter((t) => t && isRef(t));
@@ -853,7 +856,7 @@ const SYSTEM_PROMPT = [
   '  {"entry":"NAME","remove":true,"reason":"why"}',
   '  "entry" is the entry’s name or its first key. Content is the truth the',
   '  storyteller should carry when the key is spoken — facts, not prose.',
-  '<fetch>["#a1b2c3", "#r7k2p9x", "rule: The Prose", "lore: NAME"]</fetch> — ask to be served (a page by its #handle, a record line by its #r… mark, a rule or a lore entry by name)',
+  '<fetch>["#a1b2c3", "#r7k2p9x", "rule: The Prose", "lore: NAME", "find: WORDS", "brief"]</fetch> — ask to be served (a page by its #handle, a record line by its #r… mark, a rule or a lore entry by name, every page that holds some words, the brief or the cast notes whole)',
   '  whole: pages you only have one-line previews of, a rulebook rule’s text, a lore',
   '  entry cut short above. You may ask up to three times in a turn.',
   '<supersede>label, label</supersede> — retire still-pending cards from your',
@@ -2523,15 +2526,63 @@ export async function callModel(connection, { system, messages, maxTokens, signa
   }
 }
 
-/* The pages a <fetch> asked for, served whole (capped). */
-function serveFetch(refs, messages, { modules = [], lore = [], memory = null } = {}) {
+/* M259: every page that holds some words — the exact words first, else every
+ * word of them — newest first, each with its number to fetch it by. */
+export function findInPages(messages, words, cap = FETCH_REF_CAP) {
+  const visible = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
+  const phrase = String(words || '').trim();
+  if (!phrase) return 'A search needs words — "find: NAME" or "find: the words".';
+  const low = phrase.toLowerCase();
+  const terms = low.split(/\s+/).filter((w) => w.length > 1);
+  const hits = [];
+  let total = 0;
+  for (let i = visible.length - 1; i >= 0; i -= 1) {
+    const text = pageText(visible[i]);
+    const t = text.toLowerCase();
+    let at = t.indexOf(low);
+    if (at === -1) {
+      if (!terms.length || !terms.every((w) => t.includes(w))) continue;
+      at = t.indexOf(terms[0]);
+    }
+    total += 1;
+    if (hits.length >= cap) continue;
+    const from = Math.max(0, at - 100);
+    const snippet = text.slice(from, at + low.length + 100).replace(/\s+/g, ' ').trim();
+    hits.push('p' + (i + 1) + ' ' + refOf(visible[i]) + ' ' + (visible[i].role === 'assistant' ? 'the storyteller' : 'the writer') + ' — …' + snippet + '…');
+  }
+  if (!hits.length) return '[find: ' + phrase + '] no page holds those words.';
+  return '[find: ' + phrase + '] ' + total + (total === 1 ? ' page' : ' pages') + ', newest first' + (total > hits.length ? ' (the newest ' + hits.length + ' shown — search narrower for the rest)' : '') + '. Fetch a page by its number to read it whole:\n' + hits.join('\n');
+}
+
+/* The pages a <fetch> asked for, served whole (capped). M259: also a search
+ * ("find: …") and the writer's own words ("brief", "cast"); `room` stops a
+ * round before it overflows the reader's context — what is left is named. */
+export function serveFetch(refs, messages, { modules = [], lore = [], memory = null, story = null, room = Infinity } = {}) {
   const lines = [];
+  const unserved = [];
+  let used = 0;
+  const push = (ref, block) => {
+    if (used + block.length > room && lines.length) { unserved.push(ref); return; }
+    lines.push(block);
+    used += block.length;
+  };
   for (const ref of refs.slice(0, FETCH_REF_CAP)) {
+    const said = String(ref).trim();
+    const find = /^find:\s*(.+)$/i.exec(said);
+    if (find) { push(ref, findInPages(messages, find[1])); continue; }
+    if (/^(brief|cast)$/i.test(said)) {
+      const which = said.toLowerCase();
+      const words = which === 'brief' ? (story && story.brief) : (story && story.castNotes);
+      push(ref, words && String(words).trim()
+        ? '[' + (which === 'brief' ? 'the brief' : 'the cast notes') + '] (' + String(words).length + ' chars, COMPLETE)\n' + String(words)
+        : 'There ' + (which === 'brief' ? 'is no brief' : 'are no cast notes') + ' written.');
+      continue;
+    }
     /* M124: a record line, served whole by its handle (#r…) or "record: #r…" */
     const rec = /^(?:record:\s*)?(#?r[a-z0-9]{4,8})$/i.exec(String(ref).trim());
     if (rec && memory) {
       const nd = recordNodeByHandle(memory.nodes || [], rec[1]);
-      lines.push(nd ? '[' + recordHandle(nd) + ' pages ' + (nd.span[0] + 1) + '–' + (nd.span[1] + 1) + '] (' + String(nd.text || '').length + ' chars, COMPLETE)\n' + String(nd.text || '') + (nd.detail ? '\n• Detail worth keeping: ' + nd.detail : '') : 'No record line answers to “' + rec[1] + '” — the handles are the [#r…] marks on the record above.');
+      push(ref, nd ? '[' + recordHandle(nd) + ' pages ' + (nd.span[0] + 1) + '–' + (nd.span[1] + 1) + '] (' + String(nd.text || '').length + ' chars, COMPLETE)\n' + String(nd.text || '') + (nd.detail ? '\n• Detail worth keeping: ' + nd.detail : '') : 'No record line answers to “' + rec[1] + '” — the handles are the [#r…] marks on the record above.');
       continue;
     }
     /* M74: a rule or a lore entry, served whole by name */
@@ -2540,22 +2591,23 @@ function serveFetch(refs, messages, { modules = [], lore = [], memory = null } =
       const want = named[2].trim().toLowerCase();
       if (named[1].toLowerCase() === 'rule') {
         const mod = (Array.isArray(modules) ? modules : []).find((m) => m && typeof m.name === 'string' && m.name.trim().toLowerCase() === want);
-        lines.push(mod ? '[rule: ' + mod.name + '] (' + String(mod.text || '').length + ' chars, COMPLETE)\n' + String(mod.text || '') : 'No rule is called “' + named[2].trim() + '” — the rulebook’s names are listed above.');
+        push(ref, mod ? '[rule: ' + mod.name + '] (' + String(mod.text || '').length + ' chars, COMPLETE)\n' + String(mod.text || '') : 'No rule is called “' + named[2].trim() + '” — the rulebook’s names are listed above.');
       } else {
         const e = (Array.isArray(lore) ? lore : []).find((x) => x && ((typeof x.name === 'string' && x.name.trim().toLowerCase() === want) || (Array.isArray(x.keys) && x.keys.some((k) => String(k).trim().toLowerCase() === want))));
-        lines.push(e ? '[lore: ' + (e.name || (e.keys || [])[0]) + '] keys: ' + ((e.keys || []).join(', ') || '(none)') + ' (' + String(e.content || '').length + ' chars, COMPLETE)\n' + String(e.content || '') : 'No lore entry answers to “' + named[2].trim() + '”.');
+        push(ref, e ? '[lore: ' + (e.name || (e.keys || [])[0]) + '] keys: ' + ((e.keys || []).join(', ') || '(none)') + ' (' + String(e.content || '').length + ' chars, COMPLETE)\n' + String(e.content || '') : 'No lore entry answers to “' + named[2].trim() + '”.');
       }
       continue;
     }
     const msg = resolveMessageRef(messages, ref);
     if (!msg) {
-      lines.push(refOf({ id: ref }) + ' — no page answers to “' + ref + '”.');
+      push(ref, refOf({ id: ref }) + ' — no page answers to “' + ref + '”.');
       continue;
     }
-    lines.push(formatPage(msg));
+    push(ref, formatPage(msg));
   }
   /* M61 (v2.72): over-cap ids are named back, never dropped */
-  if (refs.length > FETCH_REF_CAP) lines.push('Not served this round (ask again for them): ' + refs.slice(FETCH_REF_CAP).join(', '));
+  if (refs.length > FETCH_REF_CAP) unserved.push(...refs.slice(FETCH_REF_CAP));
+  if (unserved.length) lines.push('Not served this round — no room for them all (ask again for fewer): ' + unserved.join(', '));
   return lines.join('\n\n');
 }
 
@@ -2727,7 +2779,7 @@ export async function runConversation({
         wire.push({ role: 'assistant', content: raw });
         wire.push({
           role: 'user',
-          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory })
+          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory, story })
             + '\n\nThat is everything you may fetch this turn. Answer now with the blocks the writer asked for — no more <fetch>.',
         });
         continue;
@@ -2738,7 +2790,7 @@ export async function runConversation({
         wire.push({ role: 'assistant', content: raw });
         wire.push({
           role: 'user',
-          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory }),
+          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory, story }),
         });
         continue;
       }

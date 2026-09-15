@@ -1896,6 +1896,14 @@ export function initChat(ctx) {
    * every later turn carries the brief's truth even where no safe edit was
    * found (the storyteller recolors forward — Canon Definition, Drift
    * Recovery). Nothing here waits for a hand. */
+  /* M259: a page's number, as the page index and the fetch server count it
+   * (1-based among the pages that are not hidden) */
+  async function pageNumberOf(storyId, messageId) {
+    try {
+      return visiblePages(await db.messages.list(storyId)).findIndex((m) => m.id === messageId) + 1;
+    } catch (err) { return 0; }
+  }
+
   async function resolveBriefWins(story, connection, result, signal, renew) {
     if (!result || !Array.isArray(result.issues)) return result;
     const wins = result.issues.filter((i) => i && i.pages && i.fix);
@@ -2222,7 +2230,7 @@ export function initChat(ctx) {
           .filter((n) => n && Array.isArray(n.span))
           .map((n) => n.span[1] + 1), 0) : 0;
         const unfolded = Math.max(deep ? 8 : 4, Math.min(UNFOLDED_MAX, prior.length - foldedTo));
-        before = prior.slice(-unfolded).map((m) => ({ role: m.role, text: pageText(m) }));
+        before = prior.slice(-unfolded).map((m, k, arr) => ({ role: m.role, text: pageText(m), number: prior.length - arr.length + k + 1 }));
         try {
           const oldest = Math.max(0, prior.length - before.length);
           foldedBefore = mem ? recordFor(memoryForWindow(mem, oldest)) : '';
@@ -2257,6 +2265,7 @@ export function initChat(ctx) {
               before: [], founding: false,
               brief: story.brief || '', castNotes: story.castNotes || '',
               record: foldedBefore, signal, renew,
+              storyId: story.id, story, pageNumber: at + 1, /* M259: it may look */
             });
             if (!back.failed && Array.isArray(back.mutations) && back.mutations.length) {
               const older = await loadState(story.id);
@@ -2281,6 +2290,7 @@ export function initChat(ctx) {
         record: foldedBefore,
         signal,
         renew,
+        storyId: story.id, story, pageNumber: await pageNumberOf(story.id, msg.id), /* M259: it may look */
       });
       /* B5: a page that has gone teaches the ledger nothing. M12: nor does
        * a page of a story the writer has left. */
@@ -2377,7 +2387,7 @@ export function initChat(ctx) {
       const atSelf = ordered.findIndex((m) => m.id === msg.id);
       const prior = atSelf === -1 ? ordered : ordered.slice(0, atSelf);
       /* the page before the pair, for the thread of things */
-      const before = prior.slice(-3, -1).map((m) => ({ role: m.role, text: pageText(m) }));
+      const before = prior.slice(-3, -1).map((m, k, arr) => ({ role: m.role, text: pageText(m), number: prior.length - 1 - arr.length + k + 1 }));
       /* M85: the voices the last pages carried, so the world rotates its
        * speakers and topics instead of repeating them */
       const voicesBefore = prior.filter((m) => m.role === 'assistant' && Array.isArray(m.voices) && m.voices.length).slice(-3).map((m) => m.voices);
@@ -2411,6 +2421,7 @@ export function initChat(ctx) {
         signal,
         stale,
         renew,
+        story, pageNumber: atSelf + 1, /* M259: it may look */
         jumpedMinutes,
       });
       /* M85: the voices land under the page they followed (a re-ink, like

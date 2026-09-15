@@ -1481,11 +1481,10 @@ test('M221: a turn is never spent entirely on fetching, and a fetched record lin
   assert(/nd\.detail \? '\\n• Detail worth keeping: ' \+ nd\.detail : ''/.test(hk),
     'a fetched record line carries its detail');
 
-  /* and the auditor has nothing to do with fetch — that vocabulary is the
-   * housekeeper's alone, which is why an "audit" that returns <fetch> is a
-   * housekeeper turn, not an audit */
-  const aud = readFileSync(new URL('../../js/agents/auditor.js', import.meta.url), 'utf8');
-  assert(!/fetch/.test(aud), 'the auditor neither asks for nor answers a fetch');
+  /* M259: the auditor LOOKS now, in the housekeeper's words (the writer asked
+   * for it) — and the same law holds for it: a reading is never spent entirely
+   * on fetching. M259-18 runs an auditor that only ever fetches and proves it
+   * is told once to answer and never comes back as a bare fetch. */
 });
 
 /* M222: THE AUDIT BUTTON'S ONE INSTRUCTION COULD NEVER BE OBEYED. The
