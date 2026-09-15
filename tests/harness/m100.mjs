@@ -1886,6 +1886,11 @@ test('M240: the auditor sees every ledger it is told to audit, loose ends includ
   /* and is asked about the loose ends, which it never was */
   assert(/LOOSE ENDS ON A PERSON'S OWN PAGE/.test(all), 'the checklist names them');
   assert(/which is NOT the same as/.test(all), 'and says they are not the story threads');
-  assert(/people\.unthread/.test(all), 'and how to close one');
+  /* M241: with the tool that ALREADY EXISTED — people.note {field:"unthread"}.
+   * M240 told it to use "people.unthread", which was never a mutation at all,
+   * so every loose end it found would have been refused as an unknown type;
+   * and building one would have been a second way to do what people.note
+   * already does. */
+  assert(/people\.note/.test(all) && /unthread/.test(all), 'and how to close one, with the tool that exists');
   assert(/one left open is carried to the storyteller/.test(all), 'and why it matters');
 });

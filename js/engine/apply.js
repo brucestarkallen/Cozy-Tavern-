@@ -44,7 +44,7 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
-import { setPersonField, findPersonKey, mergeDeltas } from './people.js';
+import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd } from './people.js';
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES } from './world.js'; /* M29: the world beyond the page */

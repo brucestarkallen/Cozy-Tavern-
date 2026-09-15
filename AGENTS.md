@@ -4976,3 +4976,19 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   loose ends, locked canon, who knows what, the factions, the bodies, the record, the pages
   themselves and the writer's brief. It cannot go blind to one of them again.
 - 481/481 harness + 37/37 walk + 8/8 play. version.js -> m240-001.
+
+# M241 — I told the auditor to use a tool that did not exist
+- M240 ADDED "Close it with people.unthread" TO THE AUDITOR'S CHECKLIST AN HOUR AGO. There is no
+  such mutation. Every finished loose end it dutifully found would have come back refused as an
+  unknown type — an instruction with no tool to carry it out, which is worse than not asking, and
+  exactly the kind of thing the writer has spent a day catching for me.
+- AND THE TOOL ALREADY EXISTED. people.note {name, field:"thread"|"unthread", text} has closed one
+  loose end since the housekeeper had a vocabulary. I started building people.unthread before
+  noticing — a SECOND way to do what one mutation already did, which is M210's law (one button,
+  one meaning) broken in the engine instead of the UI. The half-built duplicate is removed and the
+  auditor points at people.note.
+- Proven end to end: the auditor's wording ("she still has not finished her self introduction")
+  closes the ledger's wording ("she has not finished her self-introduction") through
+  sameLooseEnd — matched by SENSE, because no model repeats a line verbatim — and a loose end that
+  is not there is refused.
+- 481/481 harness + 37/37 walk + 8/8 play. version.js -> m241-001.

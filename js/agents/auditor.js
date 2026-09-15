@@ -52,6 +52,7 @@ const VOCABULARY = [
   'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"…"}',
   'faction.set {"type":"faction.set","name":"…","stance":"…","agenda":"…","move":"…"}',
   'people.set {"type":"people.set","name":"NAME","field":"core|state|arc","text":"…"} — the main character\'s core and arc are never written',
+  'people.note {"type":"people.note","name":"NAME","field":"unthread","text":"the loose end as it stands"} \u2014 closes ONE finished loose end (field "thread" opens one); matched by sense, so word it close to how it reads',
   'people.forget {"type":"people.forget","name":"NAME","cause":"…"} — ONLY for a person who was never the story\'s (a name no page, no brief and no cast note ever held); erases their page, seat, standing, knowledge and locks for good',
 ].join('\n');
 
@@ -102,7 +103,7 @@ function law({ mc }) {
     '  - THE LOOSE ENDS ON A PERSON\'S OWN PAGE (their "Loose ends:" line, which is NOT the same as',
     '    the story threads above): one the pages have plainly ANSWERED and is still written there —',
     '    a question asked and answered, an introduction promised and made, a photo hunted and found,',
-    '    a name waited for and spoken. Close it with people.unthread, worded as it stands on the page.',
+    '    a name waited for and spoken. Close it with people.note {field:\"unthread\"}, worded as it stands on the page.',
     '    These do not expire on their own, and one left open is carried to the storyteller as',
     '    something still hanging for the rest of the tale.',
     '  - WHO KNOWS WHAT: a present person who plainly witnessed something on the latest pages with no',
