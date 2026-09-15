@@ -311,7 +311,19 @@ async function callKeeper(connection, prompt, signal) {
 /* One line, read whole. Fences and wrapper words stripped; a line-break
  * inside the answer is folded into a space (one line is the law). Returns
  * '' when nothing usable; '(no new state)' is returned as exactly that. */
+/* M242: DID THE LAST ANSWER HAVE TO BE CUT? The writer had FIVE LINES OF
+ * SIXTEEN ending in an ellipsis — a quarter of his record silently missing
+ * its tail, and the only way to know was to read every line himself and
+ * count characters. A line that overran is not a line; the house must notice
+ * and ask again, not store the wreck and hope he looks. */
+let lastAnswerWasCut = false;
+export function answerWasCut() { return lastAnswerWasCut; }
+export function phraseCount(text) {
+  return String(text || '').split(/;\s+/).filter((p) => p.trim()).length;
+}
+
 export function parseMemoryAnswer(raw) {
+  lastAnswerWasCut = false;
   try {
     let text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '');
     text = text.replace(/```(?:\w+)?/g, '').trim();
@@ -327,6 +339,7 @@ export function parseMemoryAnswer(raw) {
       const room = text.slice(0, 3999);
       const at = Math.max(room.lastIndexOf('; '), room.lastIndexOf('. '));
       text = (at > 2000 ? room.slice(0, at) : room.trimEnd()) + '…';
+      lastAnswerWasCut = true;
     }
     /* M235: and a keeper that says "STATS: none" anyway is not obeyed — the
      * phrase is noise the storyteller reads on every line of the record. */
@@ -973,8 +986,29 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     if (typeof renew === 'function' && !renew()) break;
     const pages = history.slice(range[0], range[1]);
     const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem) }), signal);
-    const text = parseMemoryAnswer(raw);
+    let text = parseMemoryAnswer(raw);
     if (!text) break; /* the worker went quiet — these pages wait for next time */
+    /* M242: A LINE THAT OVERRAN IS NOT A LINE. It was stored cut — five of the
+     * writer's sixteen ended in an ellipsis with their tails gone, and the
+     * only way to know was to read each one and count. Asked again, once,
+     * with the overrun named; the shorter honest answer wins, and only if
+     * that fails too is the cut one kept, because a cut line still beats no
+     * line. */
+    if (answerWasCut() || phraseCount(text) > 20) {
+      try {
+        if (typeof renew === 'function') renew();
+        const tooLong = buildMemoryMessages(pages, { playerName, record: recordFor(mem) });
+        tooLong.user += '\n\nYour last answer ran past the limit and had to be CUT, losing its end. '
+          + 'It had ' + phraseCount(text) + ' phrases; the hard limit is 15, or 18 for a scene with four or more named people. '
+          + 'Write it again WITHIN the limit: keep every high-priority item (the writer\'s decisions, each named person\'s '
+          + 'doings, new facts, plans and promises, first appearances, exact wording that IS the fact) and drop the '
+          + 'lowest-priority ones. A complete short line beats a long one with its end missing.';
+        const again = parseMemoryAnswer(await callKeeper(connection, tooLong, signal));
+        if (again && again !== '(no new state)' && !answerWasCut() && phraseCount(again) <= phraseCount(text)) {
+          text = again;
+        }
+      } catch (err) { /* the cut line stands — better than none */ }
+    }
     const node = text === '(no new state)'
       ? { id: nodeId(), span: [range[0], range[1] - 1], text: '', level: 1, at: Date.now(), empty: true }
       : { id: nodeId(), span: [range[0], range[1] - 1], text, level: 1, at: Date.now() };

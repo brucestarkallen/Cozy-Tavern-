@@ -4992,3 +4992,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   sameLooseEnd — matched by SENSE, because no model repeats a line verbatim — and a loose end that
   is not there is refused.
 - 481/481 harness + 37/37 walk + 8/8 play. version.js -> m241-001.
+
+# M243 — a line that overran was stored cut, and only the writer could tell
+- FIVE OF THE WRITER'S SIXTEEN RECORD LINES ENDED IN AN ELLIPSIS. A quarter of his record silently
+  missing its tail — one severed mid-name ("and graded Jo…"), one at 3997 characters of a 4000 cap
+  with twenty-eight phrases where the limit is eighteen. The only way to know was to read every
+  line himself and count characters, and he asked, fairly, whether that is now his job.
+  It is not. A line that overran is NOT A LINE. parseMemoryAnswer reports whether it had to cut;
+  a fold that overran (cut, or past twenty phrases) asks the keeper ONCE more, telling it exactly
+  what happened — how many phrases it wrote, what the limit is, which items to keep and which to
+  drop, and that a complete short line beats a long one with its end missing. The shorter complete
+  answer replaces the wreck. If the second ask stumbles too, the cut line stands, because a cut
+  line still beats no line.
+- This is the self-healing the writer asked for at the start and did not have: the house notices
+  its own bad output and fixes it before the writer ever sees it.
+- 482/482 harness + 37/37 walk + 8/8 play. version.js -> m243-001.
