@@ -1634,6 +1634,29 @@ export function initChat(ctx) {
    * keeper on partway through a long tale, was dozens of batches behind with
    * no way to catch up but playing turn after turn. This never wipes: it
    * fills the gaps and stops. */
+
+  /* M248: THE HOUSE FINISHES WHAT IT STARTED. A long run that stops partway —
+   * the keeper unreachable for three minutes, the writer asleep — used to sit
+   * there until he noticed. On by default: when a run reports itself
+   * unfinished, the house waits a little and carries on from where it
+   * stopped, up to three times. Nothing already done is redone. Turn it off
+   * and the amber "Finish it" button is there instead. */
+  const autoFinish = new Map();   // storyId+action -> attempts made
+  async function maybeFinish(storyId, action, result) {
+    if (!storyId || !action || !result || !result.stalled) return;
+    if ((await db.settings.get('autoFinish')) === false) return;
+    const key = storyId + ':' + action;
+    const tried = autoFinish.get(key) || 0;
+    if (tried >= 3) return;
+    autoFinish.set(key, tried + 1);
+    const again = { rebuildRecordNow, rebuildPeopleNow, summarizeNow };
+    setTimeout(() => {
+      if (ctx.getActiveStoryId() !== storyId) return;
+      if (typeof again[action] === 'function') again[action]();
+    }, 15000 * (tried + 1));
+  }
+  const clearFinishCount = (storyId, action) => autoFinish.delete(storyId + ':' + action);
+
   async function summarizeNow() {
     const banner = beginWork('Folding what is due', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — press it again to carry on'); });
     const story = await activeStory();
@@ -1662,10 +1685,11 @@ export function initChat(ctx) {
         onProgress: ({ batch: b, batches, folded, toFold }) => banner.step(b, batches, 'batch', folded + ' of ' + toFold + ' pages'),
         onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
       });
-      if (!r || r.ok === false) banner.failed(r && r.why ? r.why : 'it stumbled');
+      if (!r || r.ok === false) { banner.failed(r && r.why ? r.why : 'it stumbled'); maybeFinish(story.id, 'summarizeNow', r || { stalled: true }); }
       else if (r.nothingDue) banner.done('Nothing was due');
       else banner.done('Folded ' + r.folded + ' pages into ' + r.batches + ' ' + (r.batches === 1 ? 'line' : 'lines'));
-      return { silent: false, detail: r && r.ok ? 'folded ' + (r.folded || 0) + ' pages that were due' : 'the catch-up stumbled' };
+      return { silent: false, detail: r && r.ok ? 'folded ' + (r.folded || 0) + ' pages that were due' : 'the catch-up stumbled',
+        unfinished: Boolean(r && (r.stalled || r.ok === false)), resume: 'summarizeNow' };
     } });
     noteWork(story.id, promise);
     return true;
@@ -1683,9 +1707,13 @@ export function initChat(ctx) {
         onProgress: ({ batch, batches, folded, toFold }) => banner.step(batch, batches, 'batch', folded + ' of ' + toFold + ' pages'),
         onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
       });
-      if (result && result.stalled) banner.failed('Stopped at ' + result.folded + ' of ' + result.toFold + ' pages — the keeper could not be reached');
-      else banner.done(rebuildRecordWords(result));
-      return { silent: false, detail: rebuildRecordWords(result) };
+      if (result && result.stalled) {
+        banner.failed('Stopped at ' + result.folded + ' of ' + result.toFold + ' pages — carrying on shortly');
+        maybeFinish(story.id, 'rebuildRecordNow', result);
+      } else { banner.done(rebuildRecordWords(result)); clearFinishCount(story.id, 'rebuildRecordNow'); }
+      /* M248: green only when it reached the end */
+      return { silent: false, detail: rebuildRecordWords(result),
+        unfinished: Boolean(result && result.stalled), resume: 'rebuildRecordNow' };
     } });
     noteWork(story.id, promise);
     return true;
@@ -1729,9 +1757,12 @@ export function initChat(ctx) {
        * checked this since M203 and the people rebuild had not, so its
        * banner closed with "The people were rebuilt" over a run the leash
        * had cut off. */
-      if (result && result.stalled) banner.failed('Stopped at ' + result.read + ' of ' + result.total + ' pages — ' + (result.why || 'the run was cut short'));
-      else banner.done(rebuildPeopleWords(result));
-      return { silent: false, detail: rebuildPeopleWords(result) };
+      if (result && result.stalled) {
+        banner.failed('Stopped at ' + result.read + ' of ' + result.total + ' pages — carrying on shortly');
+        maybeFinish(story.id, 'rebuildPeopleNow', result);
+      } else { banner.done(rebuildPeopleWords(result)); clearFinishCount(story.id, 'rebuildPeopleNow'); }
+      return { silent: false, detail: rebuildPeopleWords(result),
+        unfinished: Boolean(result && result.stalled), resume: 'rebuildPeopleNow' };
     } });
     noteWork(story.id, promise);
     /* M214: the job closes its own banner (it knows whether the run stalled);

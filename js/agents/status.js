@@ -91,14 +91,29 @@ function cleanWhy(why) {
  * word of what went wrong, e.g. "no answer", "unreachable"). */
 export const RAW_CAP = 2000;
 
-export async function noteWorkerRun(storyId, name, { ok, why, detail, raw } = {}) {
+/* M248: DID IT FINISH, OR ONLY STOP? A run was recorded as ok or stumbled and
+ * nothing else — so a rebuild that reached batch 15 of 16 and gave up sat in
+ * the workers' line looking exactly like one that had finished, and the
+ * writer, who had been asleep, had no way to tell. A run that did real work
+ * and did not reach the end is a THIRD thing: unfinished. It carries what it
+ * would take to finish, so the house (or the writer) can pick it up. */
+export async function noteWorkerRun(storyId, name, { ok, why, detail, raw, unfinished, resume } = {}) {
   try {
     if (!storyId || !WORKER_NAMES.includes(name)) return;
     const shelf = (await loadWorkerStatus(storyId)) || {};
     /* M31: what the worker actually said, capped — so "its answer could not
      * be used" can be looked at instead of guessed at. */
     const said = typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, RAW_CAP) : '';
-    shelf[name] = { at: Date.now(), ok: ok !== false, why: ok === false ? cleanWhy(why) || 'stumbled' : '', detail: typeof detail === 'string' ? detail : '', raw: said };
+    shelf[name] = {
+      at: Date.now(),
+      ok: ok !== false,
+      why: ok === false ? cleanWhy(why) || 'stumbled' : '',
+      detail: typeof detail === 'string' ? detail : '',
+      raw: said,
+      /* M248: green when it finished; amber when it stopped partway */
+      unfinished: unfinished === true,
+      resume: unfinished === true && typeof resume === 'string' ? resume : '',
+    };
     await db.settings.set(KEY_PREFIX + storyId, shelf);
     markWorkerRunning(storyId, name, false); /* M46: settled — the panel re-reads */
   } catch (err) { /* the ledger of workers never makes work of its own */ }

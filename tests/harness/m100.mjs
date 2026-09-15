@@ -794,7 +794,42 @@ test('M195: the audit mends the line, and keeps the detail for what was missing'
  * record exists to hold — and the only answer on offer was to tell the
  * writer to rebuild the record by hand, which is babysitting. The house
  * mends its own line. */
-test('M196: a line too poor to annotate is rewritten by the house, not handed to the writer', () => {
+test('M196: a line too poor to annotate is rewritten by the house, not handed to the writer', async () => {
+  /* M248: this law only READ the source — it would have passed with the
+   * feature dead. It runs it now: an audit that finds more missing than the
+   * addendum can hold must come back with the LINE rewritten to hold it. */
+  const { db } = await import('../../js/store.js');
+  const { saveMemory, loadMemory, maybeSummarize } = await import('../../js/agents/memory.js');
+  const st = await db.stories.create({ title: 'a line that left too much out' });
+  for (let i = 0; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 20);
+  await db.settings.set('memoryBatch', 6);
+  await saveMemory(st.id, { window: 20, nodes: [] });
+
+  const realFetch = globalThis.fetch;
+  /* folds and audits interleave, so the answer is chosen by WHAT WAS ASKED,
+   * never by the call number */
+  globalThis.fetch = async (u, o) => {
+    const ask = String((o && o.body) || '');
+    const detail = Array.from({ length: 40 }, (_, i) => 'a thing the line left out, number ' + i + ', which matters').join('; ');
+    const body = /Rewrite the line so every one of them is in it/.test(ask)
+      ? '[Sept 1] Jovan arrived, and every one of the things the line had left out is in it now'
+      : /The record line:/.test(ask) ? ('DETAIL: ' + detail)
+        : '[Sept 1] Jovan arrived';
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: body } }] }) + '\n\n'
+      + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  try {
+    await maybeSummarize({ connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' }, storyId: st.id });
+  } finally { globalThis.fetch = realFetch; }
+  const node = (await loadMemory(st.id)).nodes[0];
+  assert(/every one of the things the line had left out/.test(node.text),
+    'the LINE was rewritten to hold what its addendum could not: ' + JSON.stringify(node.text));
+  assert(!node.detail || node.detail.length < 1200, 'and the addendum is not a dumping ground: ' + (node.detail || '').length);
+
   const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
   const at = src.indexOf('A LINE TOO POOR TO ANNOTATE');
   assert(at !== -1, 'the law is written where it acts');
@@ -1377,7 +1412,45 @@ test('M219: the catch-up counts only what is due, and its bar never overruns', a
  * and no cards at all. When the fetch rounds run out and the answer is STILL
  * nothing but a <fetch>, that raw block was handed back as the reply — a turn
  * spent entirely on asking to read things, with nothing done. */
-test('M221: a turn is never spent entirely on fetching, and a fetched record line carries its detail', () => {
+test('M221: a turn is never spent entirely on fetching, and a fetched record line carries its detail', async () => {
+  /* M248: this law only READ the source. It runs the turn now: a model that
+   * fetches every round must be served, told once there is no more, and its
+   * turn must not come back as a bare <fetch>. */
+  const { db } = await import('../../js/store.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  const { housekeeperTurn, recordHandle } = await import('../../js/agents/housekeeper.js');
+  const nd = { id: 'node-aaa-1', span: [0, 5], level: 1, at: 1, text: 'a thin line',
+    detail: 'the plan is to burn the north wood' };
+  const st = await db.stories.create({ title: 'a housekeeper that only fetches' });
+  for (let i = 0; i < 12; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await saveMemory(st.id, { window: 6, nodes: [nd] });
+
+  const realFetch = globalThis.fetch;
+  const sent = [];
+  let n = 0;
+  globalThis.fetch = async (u, o) => {
+    n += 1;
+    sent.push(String((o && o.body) || ''));
+    const body = n <= 6 ? '<fetch>["' + recordHandle(nd) + '"]</fetch>'
+      : 'Found it.\n<ledits>[{"type":"people.set","name":"Mara","field":"core","text":"the innkeeper"}]</ledits>';
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: body } }] }) + '\n\n'
+      + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  let turn = null;
+  try {
+    turn = await housekeeperTurn({ storyId: st.id, writerText: 'audit the house', shownText: '',
+      connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' } });
+  } finally { globalThis.fetch = realFetch; }
+
+  eq(turn.ok, true, 'the turn came back');
+  assert(sent.some((b) => /a thin line/.test(b)), 'the line it asked for was served');
+  assert(sent.some((b) => /burn the north wood/.test(b)), 'WITH its detail — what the audit wrote beneath it');
+  assert(sent.some((b) => /no more <fetch>/.test(b)), 'and it was told once that there is no more fetching');
+  assert(!/^<fetch>/.test(String(turn.raw || '').trim()), 'the turn does not come back as a bare fetch: ' + JSON.stringify(String(turn.raw || '').slice(0, 60)));
+
   const hk = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
 
   assert(/if \(parsed\.fetch\.length && round >= MAX_FETCH_ROUNDS && !toldNoMoreFetching\) \{/.test(hk),

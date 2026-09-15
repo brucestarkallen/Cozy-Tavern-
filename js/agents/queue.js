@@ -164,7 +164,14 @@ async function runJob(job) {
       /* The job may ask for silence (a switch was off, nothing to note);
        * every honest run is otherwise written on the workers line. */
       if (!value || value.silent !== true) {
-        await noteWorkerRun(storyId, name, { ok: true, detail: value && value.detail, raw: value && value.raw });
+        /* M248: a job may say it did real work and did not reach the end */
+        await noteWorkerRun(storyId, name, {
+          ok: true,
+          detail: value && value.detail,
+          raw: value && value.raw,
+          unfinished: Boolean(value && value.unfinished),
+          resume: value && value.resume,
+        });
       }
       stopping.delete(storyId);
       return { ok: true, value };

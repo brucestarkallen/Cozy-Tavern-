@@ -5064,3 +5064,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The two fixtures that had covered M243 and M244 used a long-but-uncut answer, so they were
   testing the wrong trigger and went green on the regression. They exceed the cap properly now.
 - 486/486 harness + 37/37 walk + 8/8 play. version.js -> m247-001.
+
+# M248 — a mark the writer can read at a glance, and a house that finishes what it started
+- A RUN THAT REACHED THE END AND ONE THAT GAVE UP AT BATCH 15 OF 16 READ THE SAME. "it went well",
+  both of them — so a rebuild that stopped while the writer slept was indistinguishable from one
+  that finished, and the only way to know was to read the record and count. A run is now a THIRD
+  thing when it did real work and did not reach the end: UNFINISHED, carrying what it would take
+  to carry on.
+  The workers' line shows it: ● green finished, ◐ amber stopped partway, ○ stumbled — with a
+  name for a screen reader, never colour alone — and an amber "Finish it" on any unfinished run.
+- AND THE HOUSE FINISHES IT ITSELF, ON BY DEFAULT. autoFinish: when a long run reports itself
+  unfinished the house waits and carries on from where it stopped, three attempts, backing off
+  (15s, 30s, 45s), never on a story the writer has left, and forgetting its count the moment a run
+  completes. Turn it off and the button is there instead. The writer asked for exactly this: "so
+  everything autonomous and I know everything green".
+- AND THE LAW FILE ITSELF WAS AUDITED. 58 laws, no duplicate names, but NINE read only source text
+  — they would have passed with the feature dead. The two guarding self-healing now RUN it:
+  M196 folds a real line and proves the LINE comes back rewritten when its addendum overflows
+  (it failed twice while being written, both times a bad fixture, never the code); M221 runs a
+  whole housekeeper turn against a model that fetches every round and proves the line is served
+  WITH its detail, that it is told once there is no more fetching, and that the turn never comes
+  back as a bare <fetch>. The other seven assert on CSS tokens and prompt wording — textual by
+  nature, and each backed by a real browser proof or by arithmetic in the same test.
+- 487/487 harness + 37/37 walk + 8/8 play + wipe + contrast + coat + the anchor differential.
+  version.js -> m248-001.

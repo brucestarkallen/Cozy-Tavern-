@@ -370,8 +370,11 @@ test('M214: every action’s banner exists before it is touched, and never claim
   const rb = fs.readFileSync(path.join(here, '../../js/agents/rebuild.js'), 'utf8');
   assert(/if \(r\.stalled\) \{[\s\S]{0,160}\$\{r\.folded\} of \$\{r\.toFold\} pages/.test(rb), 'the record’s words say when it stopped');
   assert(/if \(r\.stalled\) return `the rebuild stopped at \$\{r\.read\}/.test(rb), 'and the people’s');
-  assert(/if \(result && result\.stalled\) banner\.failed\('Stopped at ' \+ result\.folded/.test(chat), 'the record’s banner too');
-  assert(/if \(result && result\.stalled\) banner\.failed\('Stopped at ' \+ result\.read/.test(chat), 'and the people’s');
+  /* M248: and it now also sets the house carrying on by itself */
+  assert(/banner\.failed\('Stopped at ' \+ result\.folded[\s\S]{0,200}maybeFinish\(story\.id, 'rebuildRecordNow'/.test(chat),
+    'the record’s banner too, and it asks the house to finish');
+  assert(/banner\.failed\('Stopped at ' \+ result\.read[\s\S]{0,200}maybeFinish\(story\.id, 'rebuildPeopleNow'/.test(chat),
+    'and the people’s');
 });
 
 /* M234: the writer typed 0,3 into the temperature — a decimal point in most
@@ -441,4 +444,55 @@ test('M245: no dial is drawn twice, and a branch of a branch keeps a readable na
   }
   eq(names[3], 'Ravenwood — a branch 4', 'four branches deep is still readable: ' + names.join(' / '));
   for (const n of names) assert((n.match(/a branch/g) || []).length === 1, 'and never stacks the suffix: ' + n);
+});
+
+/* M248: the writer asked for a mark he can read at a glance — green when a
+ * run finished, amber when it did not — because a rebuild that gave up at
+ * batch 15 of 16 while he slept looked exactly like one that had finished.
+ * And: if it did not finish, the house should carry on by itself, with a
+ * button for when he would rather it did not. */
+test('M248: a run says whether it FINISHED, and the house carries on when it did not', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const status = fs.readFileSync(path.join(here, '../../js/agents/status.js'), 'utf8');
+  const queue = fs.readFileSync(path.join(here, '../../js/agents/queue.js'), 'utf8');
+  const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
+  const drawer = fs.readFileSync(path.join(here, '../../js/ui/drawer.js'), 'utf8');
+
+  /* the third state: not ok, not merely stumbled — unfinished */
+  assert(/unfinished, resume \} = \{\} \) =>|unfinished, resume \} = \{\}\) \{/.test(status) || /unfinished, resume \}/.test(status),
+    'a run can be recorded as unfinished');
+  assert(/unfinished: unfinished === true,/.test(status), 'and it is stored');
+  assert(/resume: unfinished === true && typeof resume === 'string' \? resume : '',/.test(status),
+    'with what it would take to finish');
+  assert(/unfinished: Boolean\(value && value\.unfinished\)/.test(queue), 'the queue carries it up from the job');
+
+  /* the three long jobs report it */
+  for (const [job, action] of [['rebuildRecordWords', 'rebuildRecordNow'], ['rebuildPeopleWords', 'rebuildPeopleNow']]) {
+    const at = chat.indexOf('detail: ' + job + '(result)');
+    assert(at !== -1, job + ' still reports');
+    const near = chat.slice(at, at + 200);
+    assert(/unfinished: Boolean\(result && result\.stalled\)/.test(near), job + ' says whether it finished');
+    assert(near.includes("resume: '" + action + "'"), job + ' names how to carry on');
+  }
+  assert(/resume: 'summarizeNow'/.test(chat), 'and the catch-up too');
+
+  /* the mark the writer reads */
+  assert(/const state = !row\.ok \? 'bad' : \(row\.unfinished \? 'part' : 'good'\);/.test(drawer), 'three states, not two');
+  assert(/mark\.className = 'run-mark run-mark-' \+ state;/.test(drawer), 'each with its own mark');
+  assert(/aria-label/.test(drawer.slice(drawer.indexOf('run-mark'), drawer.indexOf('run-mark') + 400)),
+    'and a name for a screen reader, not colour alone');
+  assert(/and stopped partway/.test(drawer), 'the words say it too');
+
+  /* the button, for when the house is told not to */
+  assert(/fix\.textContent = 'Finish it';/.test(drawer), 'an unfinished run offers to be finished');
+  assert(/Carry on from where it stopped\. Nothing already done is redone\./.test(drawer), 'and says what that means');
+  assert(/if \(row\.unfinished && row\.resume && ctx\.chat && typeof ctx\.chat\[row\.resume\] === 'function'\)/.test(drawer),
+    'offered only where there is something to carry on');
+
+  /* and the house doing it itself, on by default */
+  assert(/if \(\(await db\.settings\.get\('autoFinish'\)\) === false\) return;/.test(chat), 'ON unless the writer turns it off');
+  assert(/if \(tried >= 3\) return;/.test(chat), 'three attempts, never a loop');
+  assert(/15000 \* \(tried \+ 1\)/.test(chat), 'backing off between them');
+  assert(/if \(ctx\.getActiveStoryId\(\) !== storyId\) return;/.test(chat), 'and never on a story the writer has left');
+  assert(/clearFinishCount\(story\.id, 'rebuildRecordNow'\)/.test(chat), 'a run that finishes forgets its attempts');
 });

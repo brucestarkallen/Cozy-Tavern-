@@ -620,3 +620,18 @@
 }
 .work-banner-stop:hover { border-color: var(--danger); color: var(--danger); }
 .work-banner-stop[hidden] { display: none; }
+
+/* M248: the run mark — green finished, amber stopped partway, hollow stumbled. */
+.run-mark { flex: 0 0 auto; margin-right: 0.45rem; font-size: 0.72rem; line-height: 1.6; }
+.run-mark-good { color: var(--ok); }
+.run-mark-part { color: var(--warn, #d9a441); }
+.run-mark-bad  { color: var(--danger); }
+.run-fix {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid var(--warn, #d9a441);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 600;
+}

@@ -1801,12 +1801,35 @@ function workersPanel(ctx) {
       const row = shelf[name];
       const li = document.createElement('li');
       li.className = 'log-row';
+      /* M248: A MARK THE WRITER CAN READ AT A GLANCE. A run that reached the
+       * end and one that gave up at batch 15 of 16 read the same — "it went
+       * well" — so a rebuild that stopped while he slept was indistinguishable
+       * from one that finished. Green when it finished, AMBER when it stopped
+       * partway, red when it stumbled outright. */
+      const state = !row.ok ? 'bad' : (row.unfinished ? 'part' : 'good');
+      const mark = document.createElement('span');
+      mark.className = 'run-mark run-mark-' + state;
+      mark.setAttribute('aria-label', state === 'good' ? 'finished' : state === 'part' ? 'stopped partway' : 'stumbled');
+      mark.textContent = state === 'good' ? '\u25CF' : state === 'part' ? '\u25D0' : '\u25CB';
+      li.appendChild(mark);
       const words = document.createElement('span');
       const when = fmtWhenWords(row.at);
       words.textContent = (WORKER_WORDS[name] || name) + ' ran ' + when
-        + (row.ok ? (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.')
-                  : ' and stumbled — ' + (row.why || 'stumbled') + '.');
+        + (!row.ok ? (' and stumbled — ' + (row.why || 'stumbled') + '.')
+          : row.unfinished ? (' and stopped partway' + (row.detail ? ' — ' + row.detail : '') + '.')
+            : (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.'));
       li.appendChild(words);
+      /* M248: and the way to finish it, one tap — or none at all, if the
+       * house is set to carry on by itself. */
+      if (row.unfinished && row.resume && ctx.chat && typeof ctx.chat[row.resume] === 'function') {
+        const fix = document.createElement('button');
+        fix.type = 'button';
+        fix.className = 'text-btn run-fix';
+        fix.textContent = 'Finish it';
+        fix.title = 'Carry on from where it stopped. Nothing already done is redone.';
+        fix.addEventListener('click', async () => { await ctx.chat[row.resume](); });
+        li.appendChild(fix);
+      }
       /* M31: what it actually said, folded — so "could not be used" can be
        * read instead of guessed at. */
       if (row.raw) {
