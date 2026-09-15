@@ -5036,3 +5036,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   — filled with titles too long to read. The stem is taken once and the branches are numbered from
   there: "— a branch", "— a branch 2", "— a branch 3".
 - 484/484 harness + 37/37 walk + 8/8 play. version.js -> m245-001.
+
+# M246 — a line the WIRE cut was stored as a finished line
+- THE WRITER ASKED WHETHER A SUMMARY ENDING WITH NO FULL STOP, NO QUESTION MARK, NOTHING AT ALL,
+  IS NORMAL. It is the shape of a line the PROVIDER cut at its own token limit. A line the HOUSE
+  cuts ends in an ellipsis and the house knows to ask again (M243, M244); a line the WIRE cuts
+  simply STOPS, mid-clause, with no mark of any kind — and callKeeper kept only the text and threw
+  finishReason AWAY. So it was stored as a finished line with its end missing and nothing, anywhere,
+  to say so. Not to the writer, not to the audit, not to the storyteller that reads it every turn.
+- callWorker has returned finishReason all along; callKeeper now keeps it, and 'length' is treated
+  exactly as the house's own cut: ask again shorter, and if that is cut too, halve the batch. Five
+  places handle a cut and all five handle this one.
+- The writer found this by asking a question about punctuation. It would not have shown in any
+  test, because a fake wire that never runs out of room never sets finishReason to 'length'.
+- 485/485 harness + 37/37 walk + 8/8 play. version.js -> m246-001.

@@ -298,13 +298,24 @@ export function buildFoldMessages(nodes, { playerName = 'the player', record = '
 
 /* ---------- the call (M28: the one wire path, agents/call.js) ---------- */
 
+/* M246: DID THE WIRE CUT IT? A line the HOUSE cuts ends in an ellipsis and
+ * the house knows to ask again (M243). A line the PROVIDER cuts — its token
+ * limit reached, finishReason 'length' — simply STOPS: no ellipsis, no full
+ * stop, nothing to tell the writer or the house that the end is missing. It
+ * was stored as a finished line. The writer noticed it as "a summary ending
+ * with nothing at all", which is exactly the shape of it. callKeeper kept
+ * only the text and threw the reason away. */
+let lastKeeperWasTruncated = false;
+export function keeperWasTruncated() { return lastKeeperWasTruncated; }
+
 async function callKeeper(connection, prompt, signal) {
-  const { text } = await sharedCall(connection, {
+  const { text, finishReason } = await sharedCall(connection, {
     system: prompt.system,
     user: prompt.user,
     maxTokens: MAX_TOKENS,
     signal,
   });
+  lastKeeperWasTruncated = String(finishReason || '').toLowerCase() === 'length';
   return text;
 }
 
@@ -994,7 +1005,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * with the overrun named; the shorter honest answer wins, and only if
      * that fails too is the cut one kept, because a cut line still beats no
      * line. */
-    if (answerWasCut() || phraseCount(text) > 20) {
+    if (answerWasCut() || keeperWasTruncated() || phraseCount(text) > 20) {
       try {
         if (typeof renew === 'function') renew();
         const tooLong = buildMemoryMessages(pages, { playerName, record: recordFor(mem) });
@@ -1004,7 +1015,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
           + 'doings, new facts, plans and promises, first appearances, exact wording that IS the fact) and drop the '
           + 'lowest-priority ones. A complete short line beats a long one with its end missing.';
         const again = parseMemoryAnswer(await callKeeper(connection, tooLong, signal));
-        if (again && again !== '(no new state)' && !answerWasCut() && phraseCount(again) <= phraseCount(text)) {
+        if (again && again !== '(no new state)' && !answerWasCut() && !keeperWasTruncated() && phraseCount(again) <= phraseCount(text)) {
           text = again;
         }
       } catch (err) { /* fall through to the split below */ }
@@ -1018,14 +1029,14 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * three: two complete lines, nothing lost, and the next round picks up
      * the rest. The batch is only halved for THIS fold — the writer's own
      * setting is untouched. */
-    if ((answerWasCut() || phraseCount(text) > 20) && pages.length > 1) {
+    if ((answerWasCut() || keeperWasTruncated() || phraseCount(text) > 20) && pages.length > 1) {
       const half = Math.max(1, Math.floor(pages.length / 2));
       try {
         if (typeof renew === 'function') renew();
         const firstHalf = parseMemoryAnswer(await callKeeper(
           connection, buildMemoryMessages(pages.slice(0, half), { playerName, record: recordFor(mem) }), signal,
         ));
-        if (firstHalf && firstHalf !== '(no new state)' && !answerWasCut()) {
+        if (firstHalf && firstHalf !== '(no new state)' && !answerWasCut() && !keeperWasTruncated()) {
           text = firstHalf;
           range[1] = range[0] + half;   /* this line covers only what it read */
         }

@@ -1990,3 +1990,51 @@ test('M244: a second overrun folds fewer pages, and no page is skipped', async (
   const highest = Math.max(...covered);
   for (let i = 0; i <= highest; i += 1) assert(covered.has(i), 'page ' + i + ' is covered — no gap is left behind');
 });
+
+/* M246: the writer asked whether a summary ending with no full stop, no
+ * question mark, nothing at all, is normal. It is the shape of a line the
+ * PROVIDER cut at its token limit. A line the HOUSE cuts ends in an ellipsis
+ * and the house knows to ask again (M243); a line the WIRE cuts simply STOPS
+ * — and callKeeper kept only the text and threw finishReason away, so it was
+ * stored as a finished line with its end missing and nothing to say so. */
+test('M246: a line the wire cut is not stored as a finished line', async () => {
+  const { db } = await import('../../js/store.js');
+  const { saveMemory, loadMemory, maybeSummarize, keeperWasTruncated } = await import('../../js/agents/memory.js');
+
+  const st = await db.stories.create({ title: 'a provider that runs out of room' });
+  for (let i = 0; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  await db.settings.set('memoryWindow', 20);
+  await db.settings.set('memoryBatch', 6);
+  await saveMemory(st.id, { window: 20, nodes: [] });
+
+  const real = globalThis.fetch;
+  let call = 0;
+  globalThis.fetch = async () => {
+    call += 1;
+    /* stops mid-sentence at the token limit: no ellipsis, no terminal mark */
+    const body = call === 1
+      ? '[Sept 1] Jovan arrived; Rias met him at the door and said she had been'
+      : '[Sept 1] Jovan arrived; Rias met him at the door';
+    const finish = call === 1 ? 'length' : 'stop';
+    const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: body } }] }) + '\n\n'
+      + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: finish }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(),
+      body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); } }),
+      async json() { return {}; }, async text() { return sse; }, clone() { return this; } };
+  };
+  try {
+    await maybeSummarize({ connection: { id: 'c', type: 'openai', baseUrl: 'https://x.test', model: 'm', apiKey: 'k' }, storyId: st.id });
+  } finally { globalThis.fetch = real; }
+
+  assert(call > 1, 'it noticed the wire had cut the answer and asked again');
+  const line = (await loadMemory(st.id)).nodes[0].text;
+  assert(!/said she had been$/.test(line), 'the truncated answer was not stored: ' + JSON.stringify(line));
+  eq(line, '[Sept 1] Jovan arrived; Rias met him at the door', 'the complete one was');
+
+  /* the reason really is carried out of the call */
+  const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
+  assert(/const \{ text, finishReason \} = await sharedCall/.test(src), 'callKeeper keeps the reason');
+  assert(/lastKeeperWasTruncated = String\(finishReason \|\| ''\)\.toLowerCase\(\) === 'length';/.test(src), 'and reads it');
+  eq((src.match(/keeperWasTruncated\(\)/g) || []).length, 5,
+    'and every place that handles a cut handles this one too — the overrun ask, its test, the halving, and its test');
+});
