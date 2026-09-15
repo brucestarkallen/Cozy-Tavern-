@@ -5140,3 +5140,15 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   closes its gap while the writer plays on, exactly as the record does. A catch-up that stumbles
   costs nothing: the page in hand is still read.
 - 489/489 harness + 38/38 walk + 8/8 play + wipe. version.js -> m251-001.
+
+# M252 — the workers' line was in the wrong order
+- THE WRITER PRESSED REBUILD THE PEOPLE, WENT LOOKING FOR THE GREEN MARK, AND FOUND "18 hours ago"
+  AT THE TOP. The line was drawn in a FIXED worker order (WORKER_NAMES), so a run from yesterday
+  sat above one from a moment ago and there was no way to tell which end was the latest. His own
+  rebuild — "the scribe ran just now … read 118 of 118 pages, 193 changes" — was THIRD FROM THE
+  BOTTOM of a list of ten. A mark nobody can find is a mark that does not exist (M220's lesson,
+  in a second place).
+  Newest first now, and the heading says so.
+- AND A RUN WITH AN EMPTY ANSWER DREW A "what it said" FOLD ONTO AN EMPTY BOX — four times over in
+  the writer's own panel. A fold is drawn only when there is something to read.
+- 490/490 harness + 38/38 walk + 8/8 play. version.js -> m252-001.

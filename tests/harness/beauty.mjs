@@ -531,3 +531,30 @@ test('M251: the ledger walks back to its oldest unread page, as the record does'
   eq(step(2, 3), null, 'and stops when the gap is closed');
   eq(step(3, 3), null, 'and does nothing when there was never one');
 });
+
+/* M252: the writer pressed Rebuild the people, went looking for the green
+ * mark, and found "18 hours ago" at the top of the list — because the line
+ * was drawn in a FIXED worker order, so a run from yesterday sat above one
+ * from a moment ago and there was no way to tell which end was which. His
+ * rebuild was third from the bottom. */
+test('M252: the workers’ line is newest first, and an empty answer draws no fold', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const drawer = fs.readFileSync(path.join(here, '../../js/ui/drawer.js'), 'utf8');
+
+  assert(/\.sort\(\(a, b\) => \(Number\(shelf\[b\]\.at\) \|\| 0\) - \(Number\(shelf\[a\]\.at\) \|\| 0\)\);/.test(drawer),
+    'the line is sorted by when each worker ran');
+  assert(/last run, newest first:/.test(drawer), 'and the heading says which end is which');
+
+  /* the ordering itself, on the writer's own panel */
+  const shelf = { eye: { at: 1000 }, extractor: { at: 1000 }, world: { at: 1000 },
+    scribe: { at: 9999 }, keeper: { at: 5000 }, auditor: { at: 1000 } };
+  const NAMES = ['founder', 'eye', 'extractor', 'world', 'scribe', 'keeper', 'referee',
+    'continuity', 'auditor', 'ripple', 'housekeeper', 'director', 'editor'];
+  const order = NAMES.filter((n) => shelf[n]).sort((a, b) => (shelf[b].at || 0) - (shelf[a].at || 0));
+  eq(order[0], 'scribe', 'the thing that just ran is first: ' + order.join(', '));
+  eq(order[1], 'keeper', 'then the next most recent');
+
+  /* a run whose answer was empty drew a "what it said" fold onto an empty box */
+  assert(/if \(row\.raw && String\(row\.raw\)\.trim\(\)\.length > 1\) \{/.test(drawer),
+    'a fold is only drawn when there is something to read');
+});

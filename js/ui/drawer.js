@@ -1791,12 +1791,18 @@ function workersPanel(ctx) {
     if (live.includes('founder')) { found.disabled = true; found.textContent = 'Founding…'; } else found.textContent = 'Found the world from the brief';
     if (live.includes('auditor')) { audit.disabled = true; audit.textContent = 'Auditing…'; } else audit.textContent = 'Audit the ledger';
     if (live.includes('extractor') || live.includes('world')) { rescan.disabled = true; rescan.textContent = 'Reading…'; } else rescan.textContent = 'Read the pages again';
-    const seen = WORKER_NAMES.filter((name) => shelf[name]);
+    /* M252: NEWEST FIRST. The line was drawn in a FIXED worker order, so a run
+     * from eighteen hours ago sat above one from a moment ago — the writer
+     * pressed Rebuild, went looking for it, and found "18 hours ago" at the
+     * top of the list with no way to tell which end was which. The thing that
+     * just happened is the thing he is looking for. */
+    const seen = WORKER_NAMES.filter((name) => shelf[name])
+      .sort((a, b) => (Number(shelf[b].at) || 0) - (Number(shelf[a].at) || 0));
     if (!seen.length && !live.length) {
       note.textContent = 'No worker has run yet. When one does — a reading of the ledger, a weighing of a page — its last run is noted here, well or ill.';
       return;
     }
-    note.textContent = live.length ? 'Reading now — the line lands here the moment it is done:' : 'Background work is quiet in the story but never silent here. Each worker’s last run:';
+    note.textContent = live.length ? 'Reading now — the line lands here the moment it is done:' : 'Background work is quiet in the story but never silent here. Each worker’s last run, newest first:';
     for (const name of seen) {
       const row = shelf[name];
       const li = document.createElement('li');
@@ -1832,7 +1838,11 @@ function workersPanel(ctx) {
       }
       /* M31: what it actually said, folded — so "could not be used" can be
        * read instead of guessed at. */
-      if (row.raw) {
+      /* M252: only when there is something to read. A run whose raw answer was
+       * whitespace — or a shape with nothing in it — still drew a "what it
+       * said" fold that opened onto an empty box, four times over in the
+       * writer's own panel. */
+      if (row.raw && String(row.raw).trim().length > 1) {
         const fold = document.createElement('details');
         fold.className = 'worker-said';
         const sum = document.createElement('summary');
