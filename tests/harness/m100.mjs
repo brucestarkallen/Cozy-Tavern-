@@ -1813,3 +1813,34 @@ test('M238: a first name finds its person, and an ambiguous one refuses', async 
   eq(findPersonKey({ Mira: {} }, 'Kira'), 'Mira', 'near-spellings still match as they always did');
   eq(findPersonKey({ Mira: {} }, 'Alexander'), '', 'while an unrelated name does not');
 });
+
+/* M239: the four ledgers the writer had not been shown. findKnowledgeKey and
+ * findFactionKey matched an EXACT key and nothing else — no spelling
+ * tolerance, no short name — while the people ledger had at least
+ * near-spelling matching. So "Vanessa" and "Vanessa Reynolds" became TWO
+ * RECORDS OF WHO KNOWS WHAT, and the storyteller was told she does not know
+ * the thing she was told on the page before. Knowledge is the one ledger
+ * where a split is invisible AND changes what characters say aloud. */
+test('M239: knowledge and factions find a person under any of their names', async () => {
+  const { findKnowledgeKey, findFactionKey } = await import('../../js/engine/world.js');
+
+  const know = { 'Vanessa Reynolds': [], 'Caleb Thorne': [] };
+  eq(findKnowledgeKey(know, 'Vanessa'), 'Vanessa Reynolds', 'a first name reaches her knowledge');
+  eq(findKnowledgeKey(know, 'Reynolds'), 'Vanessa Reynolds', 'and a surname');
+  eq(findKnowledgeKey(know, 'Vanessa Reynolds'), 'Vanessa Reynolds', 'the whole name still, first');
+  eq(findKnowledgeKey(know, 'Caleb'), 'Caleb Thorne', 'and the same for anyone else');
+  eq(findKnowledgeKey({ 'Vanessa Reynolds': [], 'Vanessa Stone': [] }, 'Vanessa'), null,
+    'two people answer to it, so neither is guessed at');
+
+  const factions = { 'the Vanderbilt family': {}, 'Ravenwood town council': {} };
+  eq(findFactionKey(factions, 'Vanderbilt'), 'the Vanderbilt family', 'a name INSIDE a longer one, which no first-or-last rule reaches');
+  eq(findFactionKey(factions, 'Ravenwood council'), 'Ravenwood town council', 'and a shortened form of a long name');
+  eq(findFactionKey(factions, 'the Vanderbilt family'), 'the Vanderbilt family', 'the whole name still');
+  eq(findFactionKey({ 'the Wells family': {}, 'the Wells council': {} }, 'Wells'), null, 'a shared word matches neither');
+  eq(findFactionKey(factions, 'the Thorne gang'), null, 'and an unrelated name matches nothing');
+
+  /* one rule, shared, so the three ledgers cannot drift apart again */
+  const src = readFileSync(new URL('../../js/engine/world.js', import.meta.url), 'utf8');
+  assert(/export function nearKey\(keys, name\)/.test(src), 'one matcher');
+  eq((src.match(/return nearKey\(Object\.keys\(safe\), name\);/g) || []).length, 2, 'used by both ledgers');
+});

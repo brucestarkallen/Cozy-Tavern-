@@ -134,11 +134,59 @@ function copyKnowledge(knowledge) {
   return out;
 }
 
+/* M239: THE SAME NAME, TWICE, IN THE TWO LEDGERS THAT CAN LEAST AFFORD IT.
+ * findKnowledgeKey and findFactionKey matched an EXACT key and nothing else —
+ * no spelling tolerance, no short name — while the people ledger had at least
+ * near-spelling matching (and, since M238, first and last names). So
+ * "Vanessa" and "Vanessa Reynolds" became TWO RECORDS OF WHO KNOWS WHAT: the
+ * storyteller told that she does not know the thing she was told on the page
+ * before. The same for a faction under two names. Knowledge is the one
+ * ledger where a split is invisible AND changes what characters say.
+ * The rule is the people ledger's: an exact key, then a near spelling, then a
+ * name that is the FIRST or LAST word of exactly one key — and ambiguity
+ * matches nothing, because guessing between two is the worse failure. */
+export function nearKey(keys, name) {
+  const wanted = keyOf(name);
+  if (!wanted) return null;
+  const list = Array.isArray(keys) ? keys : [];
+  const exact = list.find((k) => keyOf(k) === wanted);
+  if (exact) return exact;
+
+  const words = String(wanted).split(/\s+/).filter(Boolean);
+  const partOf = (k) => {
+    const kw = keyOf(k).split(/\s+/).filter(Boolean);
+    return kw.length > 1 && (kw[0] === wanted || kw[kw.length - 1] === wanted);
+  };
+  const byPart = list.filter(partOf);
+  if (byPart.length === 1) return byPart[0];
+
+  if (words.length > 1) {
+    const byWhole = list.filter((k) => {
+      const kk = keyOf(k);
+      return kk === words[0] || kk === words[words.length - 1];
+    });
+    if (byWhole.length === 1) return byWhole[0];
+  }
+
+  /* M239: and a name that sits INSIDE a longer one — "Vanderbilt" in "the
+   * Vanderbilt family", which no first-or-last rule reaches. A whole word,
+   * never a fragment, and still only when exactly one key answers to it: "the
+   * Wells family" beside "the Wells council" matches neither. */
+  const anyWord = list.filter((k) => keyOf(k).split(/\s+/).filter(Boolean).includes(wanted));
+  if (anyWord.length === 1) return anyWord[0];
+  if (words.length > 1) {
+    const mine = new Set(words);
+    const shared = list.filter((k) => keyOf(k).split(/\s+/).filter(Boolean).some((w) => w.length > 3 && mine.has(w)));
+    if (shared.length === 1) return shared[0];
+  }
+  return null;
+}
+
 export function findKnowledgeKey(knowledge, name) {
   const wanted = keyOf(name);
   if (!wanted) return null;
   const safe = knowledge && typeof knowledge === 'object' ? knowledge : {};
-  return Object.keys(safe).find((k) => keyOf(k) === wanted) || null;
+  return nearKey(Object.keys(safe), name);
 }
 
 /* Add one fact to one person. The same fact twice (case-insensitive) is a
@@ -226,7 +274,7 @@ export function findFactionKey(factions, name) {
   const wanted = keyOf(name);
   if (!wanted) return null;
   const safe = factions && typeof factions === 'object' ? factions : {};
-  return Object.keys(safe).find((k) => keyOf(k) === wanted) || null;
+  return nearKey(Object.keys(safe), name);
 }
 
 export function setFaction(factions, name, { stance, agenda, move } = {}, atTurn) {

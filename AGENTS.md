@@ -4942,3 +4942,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   guessing between them would be the worse failure. Near-spelling matching is untouched and still
   runs first.
 - 479/479 harness + 37/37 walk + 8/8 play. version.js -> m238-001.
+
+# M239 — the four ledgers nobody had read
+- KNOWLEDGE AND FACTIONS MATCHED AN EXACT KEY AND NOTHING ELSE. No spelling tolerance, no short
+  name — while the PEOPLE ledger had at least near-spelling matching (and first/last names since
+  M238). So "Vanessa" and "Vanessa Reynolds" became TWO RECORDS OF WHO KNOWS WHAT, and the
+  storyteller was told she does not know the thing she was told on the page before. Knowledge is
+  the one ledger where a split is invisible AND changes what characters say aloud. Factions the
+  same, under two names.
+  One matcher now, shared by both: an exact key, then a name that is the FIRST or LAST word of
+  exactly one key, then a whole word sitting INSIDE exactly one key ("Vanderbilt" in "the
+  Vanderbilt family", which no first-or-last rule reaches). Ambiguity matches NOTHING — "the Wells
+  family" beside "the Wells council" answers to neither, because guessing between two is worse
+  than a new entry.
+- READ AND FOUND SOUND on the same pass: the clock's minutes (clockMinutesOf returns null when
+  never set, so nothing does arithmetic on a clock that does not exist), and the bodies ledger
+  (no unguarded list push).
+- 480/480 harness + 37/37 walk + 8/8 play. version.js -> m239-001.
