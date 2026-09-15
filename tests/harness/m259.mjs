@@ -921,12 +921,14 @@ test('M259-26: a squeezed line over pages read in part is read again from its pa
   const lines = Array.from({ length: 101 }, (_, i) => ({ id: 'node-q' + i, span: [i * 6, i * 6 + 5], level: 1, text: 'line ' + i, at: i + 1, whole: true }));
   await saveMemory(sq, { window: 10, nodes: lines });
   await db.settings.set('memoryWindow', 10);
+  await db.settings.set('memorySqueeze', 100); /* M264: the by-number way, where a layer of 101 squeezes */
   await withHouse(scriptedHouse(async (body) => (tracker(body) ? 'Lines zero and one, squeezed.' : 'NONE')), () => maybeSummarize({ connection: CONN, storyId: sq, stale: () => false }));
   const squeezed = (await loadMemory(sq)).nodes.filter((n) => n.level === 2);
   assert(squeezed.length >= 1, 'a squeeze happened (' + squeezed.length + ')');
   assert(squeezed.every((n) => n.whole === true), 'a squeeze of whole lines is whole');
   await db.settings.set('memoryBatch', undefined);
   await db.settings.set('memoryWindow', undefined);
+  await db.settings.set('memorySqueeze', undefined);
 });
 
 test('M259-27: what the writer wrote by hand stands through any re-reading', async () => {
@@ -970,4 +972,38 @@ test('M259-27: what the writer wrote by hand stands through any re-reading', asy
   eq(landed.ok, true, 'the card lands: ' + landed.words);
   const carded = (await loadState(hsid)).characters['Card Person'];
   eq(carded && carded.hand && carded.hand.core, true, 'and is marked the writer\u2019s own');
+});
+
+test('M259-28: the writer chooses when the record squeezes; the record rides in the room his context leaves', async () => {
+  const { cleanSqueeze, recordRoom, renderMemory, maybeSummarize, loadMemory, SLOT_BUDGET } = await import('../../js/agents/memory.js');
+  eq(JSON.stringify(cleanSqueeze(undefined)), '{"mode":"auto"}', 'the house squeezes by room unless told otherwise');
+  eq(JSON.stringify(cleanSqueeze('never')), '{"mode":"never"}', 'never');
+  eq(JSON.stringify(cleanSqueeze(0)), '{"mode":"never"}', '0 is never, as in Summaryception');
+  eq(JSON.stringify(cleanSqueeze(20)), '{"mode":"lines","lines":20}', 'a number of lines');
+  eq(cleanSqueeze(1).lines, 3, 'never fewer than three');
+  eq(recordRoom({ contextTokens: 300000, maxTokens: 30000, windowTokens: 60000 }), (300000 - 60000 - 40000 - 30000) * 3, 'a big context leaves the record a big room');
+  eq(recordRoom({ contextTokens: 32000, maxTokens: 8000, windowTokens: 20000 }), SLOT_BUDGET, 'a small one never less than the old 30,000');
+
+  const many = { window: 20, nodes: Array.from({ length: 120 }, (_, i) => ({ id: 'n' + i, span: [i * 6, i * 6 + 5], level: 1, text: 'RECORD-LINE-' + i + ' ' + 'r'.repeat(400), at: i + 1 })) };
+  const small = renderMemory(many);
+  const big = renderMemory(many, recordRoom({ contextTokens: 300000, maxTokens: 30000, windowTokens: 60000 }));
+  assert(!small.includes('RECORD-LINE-0 ') && /rest beyond the budget/.test(small), 'in the old 30,000 the oldest lines were let go');
+  assert(big.includes('RECORD-LINE-0 ') && !/rest beyond the budget/.test(big), 'in the room a big context leaves, every line rides');
+
+  /* the three choices, on a real layer of 101 lines */
+  const tracker = (body) => /narrative-state tracker/i.test(JSON.stringify(body));
+  const squeezeWith = async (setting, room, sid) => {
+    for (let i = 0; i < 612; i += 1) await db.messages.append(sid, { role: i % 2 ? 'assistant' : 'user', text: 'p' + i });
+    await saveMemory(sid, { window: 10, nodes: Array.from({ length: 101 }, (_, i) => ({ id: 'node-s' + i, span: [i * 6, i * 6 + 5], level: 1, text: 'line ' + i + ' ' + 'x'.repeat(300), at: i + 1, whole: true })) });
+    await db.settings.set('memoryWindow', 10);
+    await db.settings.set('memorySqueeze', setting);
+    await withHouse(scriptedHouse(async (body) => (tracker(body) ? 'Two old lines, squeezed.' : 'NONE')), () => maybeSummarize({ connection: CONN, storyId: sid, stale: () => false, recordRoomChars: room }));
+    return (await loadMemory(sid)).nodes.filter((n) => n.level === 2).length;
+  };
+  eq(await squeezeWith('never', 1000, 'm259-sq-never'), 0, 'never: no squeeze, even in a tiny room');
+  eq(await squeezeWith(100, 10000000, 'm259-sq-lines'), 1, 'a number: a layer past it squeezes, whatever the room');
+  eq(await squeezeWith(undefined, 10000000, 'm259-sq-autobig'), 0, 'auto: the whole record fits a big room — no squeeze');
+  eq(await squeezeWith(undefined, 5000, 'm259-sq-autosmall'), 1, 'auto: it would not fit — the oldest two are squeezed');
+  await db.settings.set('memorySqueeze', undefined);
+  await db.settings.set('memoryWindow', undefined);
 });

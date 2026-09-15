@@ -44,7 +44,7 @@ import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText, windowPlan } from '../assemble/stack.js';
 import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the house is doing */
-import { finalizeReceipt } from '../assemble/receipt.js';
+import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
@@ -54,7 +54,7 @@ import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
@@ -1426,6 +1426,19 @@ export function initChat(ctx) {
     return all.find((c) => c.id === wanted) || all[0] || null;
   }
 
+  /* M264: the room the storyteller's context leaves the record — the same
+   * measure the send path uses, for the keeper deciding whether to squeeze */
+  async function recordRoomFor(story) {
+    try {
+      const conn = await resolveConnection(story);
+      const mem = await loadMemory(story.id);
+      const win = mem && Number.isFinite(mem.window) && mem.window > 0 ? mem.window : ((await db.settings.get('memoryWindow')) || 30);
+      const pages = visiblePages(await db.messages.list(story.id));
+      const windowTokens = pages.slice(-win).reduce((n, m) => n + estimateTokens(pageText(m)), 0);
+      return recordRoom({ contextTokens: conn && conn.contextSize, maxTokens: conn && conn.maxTokens, windowTokens });
+    } catch (err) { return undefined; }
+  }
+
   /* M3: the workers may use a connection of their own (Settings → The
    * workers); by default they borrow the one telling the story. */
   async function resolveWorkerConnection(story, worker) {
@@ -1766,7 +1779,7 @@ export function initChat(ctx) {
     if (!connection) { banner.failed('The keeper needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale, renew }) => {
       const r = await catchUpRecord({
-        connection, storyId: story.id, signal, stale, renew,
+        connection, storyId: story.id, signal, stale, renew, recordRoomChars: await recordRoomFor(story),
         onProgress: ({ batch: b, batches, folded, toFold }) => banner.step(b, batches, 'batch', folded + ' of ' + toFold + ' pages'),
         onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
       });
@@ -1788,7 +1801,7 @@ export function initChat(ctx) {
     if (!connection) { banner.failed('The keeper needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'keeper', run: async ({ signal, stale, renew }) => {
       const result = await rebuildRecord({
-        connection, storyId: story.id, signal, stale, renew,
+        connection, storyId: story.id, signal, stale, renew, recordRoomChars: await recordRoomFor(story),
         onProgress: ({ batch, batches, folded, toFold }) => banner.step(batch, batches, 'batch', folded + ' of ' + toFold + ' pages'),
         onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
       });
@@ -2460,6 +2473,7 @@ export function initChat(ctx) {
         storyId: story.id,
         signal,
         renew, /* M259: every call gets its own minute (M213) — the chain never handed it over */
+        recordRoomChars: await recordRoomFor(story), /* M264: squeeze only when it would not fit */
         stale, /* M72: a keeper whose ledger was rewound under it writes nothing */
         /* M35: a line's passage contradicts the record → mend those pages */
         onSourceIssue: async ({ issue, fix, span }) => {
@@ -3110,7 +3124,13 @@ export function initChat(ctx) {
       const verbatimStart = keeperOn
         ? windowPlan({ pages: visiblePages(history), memory: { window: memWindow, nodes: windowInfo.nodes } }).resting
         : Math.max(0, visiblePages(history).length - memWindow);
-      const memoryText = renderMemory(memoryForWindow(mem, verbatimStart));
+      /* M264: the record rides in the room the storyteller's context leaves it */
+      const recordCap = recordRoom({
+        contextTokens: connection && connection.contextSize,
+        maxTokens: connection && connection.maxTokens,
+        windowTokens: visiblePages(history).slice(verbatimStart).reduce((n, m) => n + estimateTokens(pageText(m)), 0),
+      });
+      const memoryText = renderMemory(memoryForWindow(mem, verbatimStart), recordCap);
       /* M7: slot 4 — the story's invited cast. Slot 7 — the lore shelf's
        * answer for the latest pages, each entry scanning its own depth;
        * the receipt names which entries woke. */

@@ -30,7 +30,7 @@ import {
   loreToWorldbook, worldbookFilename,
 } from '../import/lorebook.js';
 import { parseSTChat, importAsStory } from '../import/chats.js';
-import { cleanWindow, cleanBatch } from '../agents/memory.js';
+import { cleanWindow, cleanBatch, cleanSqueeze } from '../agents/memory.js';
 import { WORKER_ROWS } from '../agents/assign.js';
 /* M16: the house's version word stands in the header line. */
 import { VERSION } from '../version.js';
@@ -140,6 +140,8 @@ export function initSettings(ctx) {
     memoryKeeper: document.getElementById('memory-keeper'),
     memoryWindow: document.getElementById('memory-window'),
     memoryBatch: document.getElementById('memory-batch'),
+    memorySqueeze: document.getElementById('memory-squeeze'),
+    memorySqueezeLines: document.getElementById('memory-squeeze-lines'),
     memoryBatchValue: document.getElementById('memory-batch-value'),
     memoryWindowValue: document.getElementById('memory-window-value'),
     continuityCheck: document.getElementById('continuity-check'),
@@ -1154,6 +1156,11 @@ export function initSettings(ctx) {
     const batch = cleanBatch(await db.settings.get('memoryBatch'));
     els.memoryBatch.value = String(batch);
     els.memoryBatchValue.textContent = String(batch);
+    /* M264: when the record's oldest lines are squeezed */
+    const squeeze = cleanSqueeze(await db.settings.get('memorySqueeze'));
+    els.memorySqueeze.value = squeeze.mode;
+    els.memorySqueezeLines.value = String(squeeze.mode === 'lines' ? squeeze.lines : 100);
+    els.memorySqueezeLines.hidden = squeeze.mode !== 'lines';
     /* M29: the world agent — on by default; its effort, off by default. */
     els.worldAgent.checked = (await db.settings.get('worldAgent')) !== false;
     /* M41: the auditor */
@@ -1198,6 +1205,14 @@ export function initSettings(ctx) {
   els.memoryBatch.addEventListener('change', async () => {
     await db.settings.set('memoryBatch', cleanBatch(els.memoryBatch.value));
   });
+  /* M264: one control, one meaning — the choice, and its number when it has one */
+  const saveSqueeze = async () => {
+    const mode = els.memorySqueeze.value;
+    els.memorySqueezeLines.hidden = mode !== 'lines';
+    await db.settings.set('memorySqueeze', mode === 'lines' ? cleanSqueeze(els.memorySqueezeLines.value).lines : mode);
+  };
+  els.memorySqueeze.addEventListener('change', saveSqueeze);
+  els.memorySqueezeLines.addEventListener('change', saveSqueeze);
 
   els.continuityCheck.addEventListener('change', async () => {
     await db.settings.set('continuityCheck', els.continuityCheck.checked);
@@ -2080,7 +2095,7 @@ export function initSettings(ctx) {
    * while the writer's own rules stay. */
   const RESET_KEYS = [
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
-    'memoryKeeper', 'memoryWindow', 'memoryBatch', 'continuityCheck', 'mendPages',
+    'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
     'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle',
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',

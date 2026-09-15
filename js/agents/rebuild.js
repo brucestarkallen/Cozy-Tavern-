@@ -41,7 +41,7 @@ const MAX_TOKENS = 3000;
 
 /* ---------- the record ---------- */
 
-export async function rebuildRecord({ connection, storyId, onProgress, onRetry, signal, stale, renew } = {}) {
+export async function rebuildRecord({ connection, storyId, onProgress, onRetry, signal, stale, renew, recordRoomChars } = {}) {
   if (!connection || !storyId) return null;
   const mem = await loadMemory(storyId);
   /* M202: THE WAY BACK IS NOT OVERWRITTEN BY A FAILED REBUILD. The backup was
@@ -100,7 +100,7 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
      * five times over. Caught here, it is just a round that wrote nothing,
      * and the retry ladder below is what handles it. */
     try {
-      await maybeSummarize({
+      await maybeSummarize({ recordRoomChars,
         connection, storyId, signal, renew,
         onBatch: ({ pages }) => {
           doneBatches += 1;
@@ -138,7 +138,7 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
             why: 'the run was cut short — press Rebuild to start again' };
         }
         try {
-          await maybeSummarize({
+          await maybeSummarize({ recordRoomChars,
             connection, storyId, signal, renew,
             onBatch: ({ pages }) => {
               doneBatches += 1;

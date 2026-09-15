@@ -541,6 +541,14 @@
           <p class="quiet">Fewer pages kept word for word means smaller, quicker turns; more means the recent tale stays exactly as written for longer.</p>
           <label class="stack-label" for="memory-batch">Pages per record line (a turn is two pages — yours and the storyteller's — so 6 pages is 3 turns, Summaryception's "turns per summary" = 3): <span id="memory-batch-value">6</span></label>
           <input id="memory-batch" type="range" min="2" max="20" step="2" value="6" aria-label="How many pages become one record line">
+          <label class="stack-label" for="memory-squeeze">When the record's oldest lines are squeezed into one (Summaryception's "Max Snippets per Layer"):</label>
+          <select id="memory-squeeze" aria-label="When the record's oldest lines are squeezed into one">
+            <option value="auto">Only when the whole record would no longer fit the storyteller's room</option>
+            <option value="never">Never — every line stays as written</option>
+            <option value="lines">When a layer passes a number of lines</option>
+          </select>
+          <input id="memory-squeeze-lines" type="number" min="3" max="100000" step="1" value="100" aria-label="Lines in a layer before its oldest two are squeezed" hidden>
+          <p class="quiet">Squeezing writes two old record lines as one shorter line, so a very long tale still fits. The first choice squeezes only when the record would otherwise not fit your connection's context — on a large context, that is never. The record itself rides in whatever room your connection's context leaves after the word-for-word pages.</p>
           <p class="quiet">The keeper keeps a record, not a retelling: as pages leave the word-for-word window, each batch becomes one dense line of what was NEW — your decisions first, then each named character's actions, new facts, plans and promises, who knows what — with the Summaryception rules (explicit actors, no pronouns, a date prefix, corrections). The whole record rides to the storyteller, oldest to newest, as established canon. Six pages (three exchanges) per line is the tested pace; two is the finest.</p>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="continuity-check"> A second reader checks each finished page against what's written down</label>

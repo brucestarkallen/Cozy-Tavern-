@@ -62,6 +62,8 @@ test('M34-4 the record rides whole, oldest to newest, under its header; over bud
 });
 
 test('M34-5 end to end: lines are written at the catch-up pace, "(no new state)" covers, and a layer past its size promotes with the shrink guard', async () => {
+  /* M264: the house squeezes by room now (auto); a layer past a NUMBER of lines is the writer's other choice, and this law is that one */
+  await (await import('../../js/store.js')).db.settings.set('memorySqueeze', 100);
   const storyId = 'm34-e2e';
   for (const p of pages(48)) await db.messages.append(storyId, { role: p.role, text: p.text });
   await db.settings.set('memoryKeeper', true);
@@ -128,6 +130,7 @@ test('M34-5 end to end: lines are written at the catch-up pace, "(no new state)"
   eq(l2[0].span.join('-'), '0-11', 'it covers both sources');
   eq(after.nodes.filter((x) => x.level === 1 && x.text.startsWith('line 0:')).length, 0, 'the sources left');
   assert(SHRINK_FLOOR > 0 && SHRINK_FLOOR < 1);
+  await db.settings.set('memorySqueeze', undefined); /* M264: back to the house's way */
 });
 
 test('M34-6 the keyboard stays down on a phone: the house never focuses the composer after an answer or a new tale on touch', () => {

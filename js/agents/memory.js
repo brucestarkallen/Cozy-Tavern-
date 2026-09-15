@@ -157,13 +157,13 @@ function lineWords(node) {
 /* The whole record under its header. '' when nothing is remembered yet, so
  * the slot can be omitted. Over budget, the OLDEST lines are let go first —
  * with a line saying so — never the newest. */
-export function renderMemory(mem) {
+export function renderMemory(mem, cap = SLOT_BUDGET) {
   const lines = orderedLines(mem).map(lineWords);
   if (!lines.length) return '';
   const kept = lines.slice();
   let dropped = 0;
   const body = () => kept.join('\n');
-  while (kept.length > 1 && (RECORD_HEADER.length + 1 + body().length) > SLOT_BUDGET) { kept.shift(); dropped += 1; }
+  while (kept.length > 1 && (RECORD_HEADER.length + 1 + body().length) > cap) { kept.shift(); dropped += 1; }
   const head = dropped ? RECORD_HEADER + '\n(' + dropped + ' earlier ' + (dropped === 1 ? 'line' : 'lines') + ' rest beyond the budget.)' : RECORD_HEADER;
   return head + '\n' + body();
 }
@@ -203,6 +203,34 @@ export function wholeRecord(mem, cap = SLOT_BUDGET) {
  * `least`), each with its number; and the record lines older than those, so
  * the two meet with nothing between them and nothing told twice (M228). The
  * writer's page of this very pair is read with the page, not here. */
+/* M264: WHEN THE RECORD IS SQUEEZED — the writer's choice (Summaryception's
+ * "Max Snippets per Layer", which he keeps at infinity). The house's way is
+ * 'auto': a layer squeezes its oldest two lines only while the whole record
+ * would no longer fit the storyteller's room — on a big context, never. 'never'
+ * keeps every line as written (on a small room the oldest then rest outside the
+ * storyteller's view, as before); a number is the old way (a layer past that
+ * many lines squeezes; the house used 100). 0 means never, as in Summaryception. */
+export const RECORD_RESERVE_TOKENS = 40000;
+export function cleanSqueeze(value) {
+  if (value === 'never' || value === 0 || value === '0') return { mode: 'never' };
+  if (value === undefined || value === null || value === '' || value === 'auto') return { mode: 'auto' };
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) ? { mode: 'lines', lines: Math.min(100000, Math.max(3, n)) } : { mode: 'auto' };
+}
+/* M264: THE RECORD'S ROOM. It rode in a fixed 30,000 characters whatever the
+ * storyteller's context — on a 300,000-token house the oldest lines were let go
+ * with most of the room unused. The room is what the context leaves after the
+ * word-for-word pages, the answer and a reserve for the rules and the ledger —
+ * never less than the old 30,000. */
+export function recordRoom({ contextTokens, maxTokens, windowTokens } = {}) {
+  const ctx = Number.isFinite(contextTokens) && contextTokens > 0 ? contextTokens : 200000;
+  const spare = ctx - Math.max(0, Number(windowTokens) || 0) - RECORD_RESERVE_TOKENS - Math.max(0, Number(maxTokens) || 0);
+  return Math.max(SLOT_BUDGET, Math.floor(spare * 3));
+}
+export function recordChars(mem) {
+  return orderedLines(mem).map(lineWords).join('\n').length;
+}
+
 /* M262: THE LINES THE OLD KEEPER READ IN PART. Before M259 the keeper read a
  * page's first 6,000 characters and a batch's first 24,000 — so a line over a
  * longer page, or a fuller batch, never held that page's end. Those lines
@@ -1046,7 +1074,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
  * jumps of eighteen pages — the writer watched it sit at nothing and then
  * leap to "18 of 99". Summaryception counts batches because a batch is the
  * unit of work a writer can actually feel. */
-export async function maybeSummarize({ connection, storyId, signal, onSourceIssue, stale, onBatch, renew } = {}) {
+export async function maybeSummarize({ connection, storyId, signal, onSourceIssue, stale, onBatch, renew, recordRoomChars } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   const gone = () => Boolean(stale && stale());
@@ -1162,11 +1190,15 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     mem.window = window;
   }
 
-  /* 2. promotion: a layer past its size merges its oldest two, up */
+  /* 2. promotion: a layer past its size merges its oldest two, up —
+   * M264: as the writer chose (auto / never / a number of lines) */
+  const squeeze = cleanSqueeze(await db.settings.get('memorySqueeze'));
+  const room = Number.isFinite(recordRoomChars) && recordRoomChars > 0 ? recordRoomChars : SLOT_BUDGET;
   for (let level = 1; level < MAX_LAYERS; level += 1) {
+    if (squeeze.mode === 'never') break;
     const layer = mem.nodes.filter((n) => n.level === level && !n.empty && !n.correction)
       .sort((a, b) => (a.span[0] - b.span[0]) || ((a.at || 0) - (b.at || 0)));
-    if (layer.length <= NOTES_PER_LAYER) continue;
+    if (squeeze.mode === 'lines' ? layer.length <= squeeze.lines : (layer.length <= NOTES_PER_PROMOTION || recordChars(mem) <= room)) continue;
     const toMerge = layer.slice(0, NOTES_PER_PROMOTION);
     if (toMerge.length < 2) continue;
     const record = recordFor(mem, level + 1);
@@ -1334,7 +1366,7 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
  * with no way to catch up but playing turn after turn. This folds until
  * nothing is due, reporting every batch, with the same retry ladder a
  * rebuild has — and it NEVER wipes: it only fills the gaps. */
-export async function catchUpRecord({ connection, storyId, onProgress, onRetry, signal, stale, renew } = {}) {
+export async function catchUpRecord({ connection, storyId, onProgress, onRetry, signal, stale, renew, recordRoomChars } = {}) {
   if (!connection || !storyId) return null;
   const mem = await loadMemory(storyId);
   const history = visiblePages(await db.messages.list(storyId));
@@ -1362,7 +1394,7 @@ export async function catchUpRecord({ connection, storyId, onProgress, onRetry, 
     }
     const before = (await loadMemory(storyId)).nodes.length;
     try {
-      await maybeSummarize({
+      await maybeSummarize({ recordRoomChars,
         connection, storyId, signal, renew,
         onBatch: ({ pages }) => {
           doneBatches += 1;
@@ -1383,7 +1415,7 @@ export async function catchUpRecord({ connection, storyId, onProgress, onRetry, 
         else await new Promise((r) => setTimeout(r, pauses[a]));
         if (typeof renew === 'function' && !renew()) break;
         try {
-          await maybeSummarize({ connection, storyId, signal, renew,
+          await maybeSummarize({ recordRoomChars, connection, storyId, signal, renew,
             onBatch: ({ pages }) => { doneBatches += 1; folded += pages; if (typeof onProgress === 'function') onProgress({ batch: doneBatches, batches, folded, toFold }); } });
         } catch (err) { /* the next rung */ }
         after = (await loadMemory(storyId)).nodes;

@@ -1573,6 +1573,36 @@ test('DOM-22 the house heals what the old readers left, with no hand on it: a li
   assert(backup && backup.relationships && backup.relationships['Old Friend'], 'and the way back holds what was there');
 });
 
+test('DOM-23 the record rides in the room the storyteller’s context leaves, and the writer chooses when it squeezes (M264)', async () => {
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  /* the choice, in Settings */
+  const pick = q('#memory-squeeze');
+  assert(pick && pick.value === 'auto', 'the house squeezes by room unless told otherwise: ' + (pick && pick.value));
+  pick.value = 'never'; pick.dispatchEvent(new env.window.Event('change'));
+  await until(async () => (await db.settings.get('memorySqueeze')) === 'never', 'never to be kept');
+  pick.value = 'lines'; pick.dispatchEvent(new env.window.Event('change'));
+  await until(async () => (await db.settings.get('memorySqueeze')) === 100, 'a number of lines to be kept');
+  eq(q('#memory-squeeze-lines').hidden, false, 'the number shows when it is the choice');
+  pick.value = 'auto'; pick.dispatchEvent(new env.window.Event('change'));
+  await until(async () => (await db.settings.get('memorySqueeze')) === 'auto', 'auto to be kept');
+  eq(q('#memory-squeeze-lines').hidden, true, 'and hides when it is not');
+  /* a record longer than the old 30,000 characters rides whole */
+  const st = await db.stories.create({ title: 'the long record' });
+  for (let i = 0; i < 70; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: (i % 2 ? 'The tale goes on, page ' : 'I go on, page ') + (i + 1) });
+  await saveMemory(st.id, { window: 20, nodes: Array.from({ length: 10 }, (_, k) => ({ id: 'node-long' + k, span: [k * 6, k * 6 + 5], level: 1, text: 'RECORD-LINE-' + k + ' ' + 'r'.repeat(4000), at: k + 1, whole: true })) });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
+  const from = house.state.calls.length;
+  click(q('.msg-act[data-act="go on"]'));
+  await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller to be asked', 20000);
+  const told = JSON.stringify(house.state.calls.slice(from).find((c) => !c.isWorker).body);
+  assert(told.includes('RECORD-LINE-0 ') && told.includes('RECORD-LINE-7 '), 'the oldest record line rides with the newest');
+  assert(!/rest beyond the budget/.test(told), 'and none is let go');
+  await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg-pending'), 'the chain to finish', 40000);
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

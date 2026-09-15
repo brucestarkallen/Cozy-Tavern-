@@ -5492,3 +5492,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   through the heal). 10 deliberate breaks caught; the drawer's own mark removed in a throwaway
   copy fails DOM-22.
 - 521/521 harness (three runs) + 41/41 walk + 8/8 play. version.js -> m263-001.
+
+# M264 — the writer chooses when the record squeezes, and the record rides in the room his context leaves
+- THE WRITER ASKED whether the squeezing has a setting — in SillyTavern he keeps Summaryception's
+  "Max Snippets per Layer" at infinity (a 300k context, rarely past 140k). It had none: a layer
+  squeezed past 100 lines, fixed. And the look behind it found the limit that mattered more: the
+  record rode to the storyteller in a FIXED 30,000 characters, whatever the context — past that,
+  the oldest lines were let go (not squeezed: gone from the storyteller's view) with most of a
+  300k room unused. So "never squeeze" alone would have traded a squeeze for a loss.
+- THE ROOM (memory.js recordRoom): what the storyteller's context leaves after the word-for-word
+  pages, the answer (maxTokens) and a 40,000-token reserve for the rules and the ledger — never
+  less than the old 30,000. The send path renders the record into it; the keeper measures the same
+  room (chat.js recordRoomFor).
+- THE CHOICE (Settings → the memory keeper, "When the record's oldest lines are squeezed into one
+  (Summaryception's "Max Snippets per Layer")", setting memorySqueeze, memory.js cleanSqueeze):
+  - Only when the whole record would no longer fit the storyteller's room — the house's way now
+    (auto): on a big context, never;
+  - Never — every line stays as written (0 means never, as in Summaryception);
+  - When a layer passes a number of lines — the old way (the house used 100).
+  The record rebuild and the catch-up are handed the same room.
+- Laws: M259-28 (the choices; the room; the record rides whole in a big room; a real layer of 101
+  lines under each choice), DOM-23 (the choice saved from Settings; a record past 30,000
+  characters reaches the storyteller whole). M34-5 and M259-26 test the by-number way and say so.
+  5 deliberate breaks caught; the send path's room removed in a throwaway copy fails DOM-23.
+- 522/522 harness + 42/42 walk + 8/8 play. version.js -> m264-001.
