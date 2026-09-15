@@ -1188,6 +1188,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       text,
       level: level + 1,
       at: Date.now(),
+      whole: toMerge.every((node) => node.whole === true), /* M263: squeezed from lines read whole */
     };
     /* M72: the sources must still stand, unmoved, when the merge lands */
     if (gone()) return changed ? mem : null;
@@ -1264,6 +1265,66 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
   const after = await loadMemory(storyId);
   const done = (after.nodes || []).find((n) => n && n.id === nodeId);
   return { ok: true, text: done ? done.text : '', detail: done ? done.detail || '' : '', pages: pages.length };
+}
+
+/* M263: A SQUEEZED LINE READ IN PART. A layer past NOTES_PER_LAYER squeezes
+ * its oldest two lines into one — written from the LINES, so a squeezed line
+ * over pages the old keeper read in part holds what they missed. It has no
+ * pages of its own to redo, so its pages are read again, a batch at a time,
+ * into first-layer lines that take its place whole (the layer squeezes them
+ * again, read whole, as it grows). */
+export function partlyReadMerged(mem, messages) {
+  const pages = visiblePages(messages);
+  return (mem && Array.isArray(mem.nodes) ? mem.nodes : [])
+    .filter((n) => n && n.level >= 2 && !n.whole && !n.empty && !((n.healTries || 0) >= 3) && Array.isArray(n.span) && n.span[0] >= 0)
+    .filter((n) => {
+      const lengths = pages.slice(n.span[0], n.span[1] + 1).map((m) => pageTextOf(m).length);
+      if (!lengths.length) return false;
+      if (lengths.some((l) => l > OLD_PAGE_CUT)) return true;
+      for (let i = 0; i < lengths.length; i += 6) {
+        if (lengths.slice(i, i + 6).reduce((a, b) => a + b + 20, 0) > OLD_BATCH_CUT) return true;
+      }
+      return false;
+    })
+    .sort((a, b) => a.span[0] - b.span[0])
+    .map((n) => n.id);
+}
+
+export async function rereadMergedLine({ connection, storyId, lineId, signal, renew } = {}) {
+  if (!connection || !storyId || !lineId) return { ok: false, why: 'nothing to read again' };
+  const mem = await loadMemory(storyId);
+  const node = (mem.nodes || []).find((n) => n && n.id === lineId);
+  if (!node || !(node.level >= 2) || !Array.isArray(node.span) || node.span[0] < 0) return { ok: false, why: 'no squeezed line answers to that' };
+  const history = visiblePages(await db.messages.list(storyId));
+  const batch = cleanBatch(await db.settings.get('memoryBatch'));
+  const playerName = (await db.settings.get('playerName')) || 'the player';
+  const knownNames = await knownNamesOf(storyId);
+  const older = (mem.nodes || []).filter((n) => n && n.id !== lineId && Array.isArray(n.span) && n.span[1] < node.span[0]);
+  const made = [];
+  for (let a = node.span[0]; a <= node.span[1]; a += batch) {
+    const b = Math.min(node.span[1], a + batch - 1);
+    const pages = history.slice(a, b + 1);
+    if (!pages.length) return { ok: false, why: 'the pages behind that line are gone' };
+    if (typeof renew === 'function') renew();
+    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }) }), signal);
+    const text = parseMemoryAnswer(raw);
+    if (!text) return { ok: false, why: 'the keeper gave nothing back' };
+    made.push(text === '(no new state)'
+      ? { id: nodeId(), span: [a, b], text: '', level: 1, at: Date.now(), empty: true, whole: true }
+      : { id: nodeId(), span: [a, b], text, level: 1, at: Date.now(), whole: true });
+  }
+  /* the swap: the squeezed line leaves only as its pages' lines take its place */
+  const now = await loadMemory(storyId);
+  const at = (now.nodes || []).findIndex((n) => n && n.id === lineId);
+  if (at === -1) return { ok: false, why: 'that line moved while its pages were read' };
+  now.nodes.splice(at, 1, ...made);
+  await saveMemory(storyId, now);
+  for (const n of made) {
+    if (n.empty) continue;
+    const passage = passageOf(history.slice(n.span[0], n.span[1] + 1), playerName);
+    await audit(connection, storyId, n, passage, signal, knownNames, renew);
+  }
+  return { ok: true, lines: made.length };
 }
 
 /* M218: FOLD EVERYTHING THAT IS DUE, NOW — Summaryception's "Force Summarize

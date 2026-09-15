@@ -584,6 +584,7 @@ const HANDLERS = {
       { axis, delta: raw, cause },
       clockMinutesOf(state)
     );
+    if (m.byHand === true && state.relationships[key]) state.relationships[key] = { ...state.relationships[key], hand: true }; /* M263 */
     const total = state.relationships[key][axis];
     let words = key + ' — ' + axisWords(axis, total) + ', after ' + cause.replace(/\.+$/, '') + '.';
     if (Math.abs(raw) > MAX_DELTA) {
@@ -615,6 +616,7 @@ const HANDLERS = {
     if (!found) state.relationships[key] = { p: 0, r: 0, s: 0, history: [] };
     const rel = state.relationships[key];
     for (const [axis, value] of Object.entries(given)) rel[axis] = value;
+    if (m.byHand === true) rel.hand = true; /* M263: a standing the writer set is his */
     rel.history.push({
       atMinutes: clockMinutesOf(state),
       axis: Object.keys(given)[0],
@@ -871,6 +873,11 @@ const HANDLERS = {
     if (!result.entry) return { why: result.why };
     const before = result.before ? cloneMap({ [result.key]: result.before })[result.key] : null;
     if (result.entry.retired) { const { retired, retiredAtTurn, ...rest } = result.entry; result.entry = rest; } /* M57: a page written wakes them */
+    /* M263: WHAT THE WRITER WROTE BY HAND IS MARKED HIS, so no re-reading of
+     * the pages ever writes over it; a later write by a reader is the story's
+     * again, and the mark for that field goes */
+    result.entry.hand = markHand(result.entry.hand, field, m.byHand === true);
+    if (!Object.keys(result.entry.hand).length) delete result.entry.hand;
     state.characters[result.key] = result.entry;
     const FIELD_WORDS = {
       core: 'their nature',
@@ -897,6 +904,12 @@ const HANDLERS = {
     const before = state.characters && state.characters[key] ? cloneMap({ [key]: state.characters[key] })[key] : null;
     state.characters = characters;
     const field = changes[0].field;
+    /* M263: a loose end written or closed by hand marks the list his */
+    if (state.characters[key]) {
+      const hand = markHand(state.characters[key].hand, field === 'thread' || field === 'unthread' ? 'threads' : field, m.byHand === true);
+      const { hand: _old, ...rest } = state.characters[key];
+      state.characters[key] = Object.keys(hand).length ? { ...rest, hand } : rest;
+    }
     const FIELD_WORDS = { core: 'their nature', state: 'where they are', arc: 'how things stand with them', thread: 'a loose end', unthread: 'a loose end closed' };
     const shown = field === 'thread' || field === 'unthread'
       ? capText(m.text, 120)
@@ -1037,6 +1050,15 @@ export function placeholderIn(mutation) {
     if (v && PLACEHOLDER_NAMES.includes(v)) return mutation[f].trim();
   }
   return '';
+}
+
+/* M263: the hand mark of a person's page, field by field */
+function markHand(hand, field, byHand) {
+  const next = hand && typeof hand === 'object' ? { ...hand } : {};
+  if (!field) return next;
+  if (byHand) next[field] = true;
+  else delete next[field];
+  return next;
 }
 
 /* M261: two names for one place — case, a leading "the", punctuation */

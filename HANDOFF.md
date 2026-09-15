@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m262-001)
+# Cozy Tavern — handoff for the next session (state at m263-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M262). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M263). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 519 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 521 checks on the engines, assembler, workers, laws.
 - `cd tests/dom && node run.mjs` — the walk: 41 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
@@ -31,6 +31,9 @@ Full history of every law and fix: AGENTS.md (M1 … M262). SPEC.md holds the fo
 - Nothing goes stale by itself (M261): the ground moving lets positions go; one place under two
   spellings is one place; an untouched thread cools after 15 pages; the code upkeep (retire,
   sweep, clear seats) runs on every page, audited or not (ledgerUpkeep).
+- The writer's own words stand (M263): hand edits (drawer, housekeeper cards) carry a hand mark,
+  and every people rebuild keeps them (keepWritersOwn). Squeezed record lines over pages read in
+  part are re-read and swapped (rereadMergedLine).
 - The house heals what older readers left (M262): record lines read in part are read again two a
   page (partlyReadLines → redoLine); a story with the old auditor's mark has its people re-read
   once (peopleHealDue → rebuildPeople). A people rebuild builds on the side and swaps in whole.

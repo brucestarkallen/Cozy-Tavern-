@@ -30,7 +30,7 @@ import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations, appendLog } from '../engine/apply.js';
 import { mcName } from '../engine/duels.js';
-import { renderPeopleTiers } from '../engine/people.js';
+import { renderPeopleTiers, sameLooseEnd } from '../engine/people.js';
 import { renderRelationships } from '../engine/relationships.js';
 import { loadMemory, saveMemory, maybeSummarize, dueRange, cleanWindow, cleanBatch, visiblePages, DEFAULT_BATCH } from './memory.js';
 import { pageText } from '../assemble/stack.js';
@@ -239,6 +239,35 @@ export function parseReaderAnswer(raw) {
   return { deltas: [], shifts: [] };
 }
 
+/* M263: WHAT THE WRITER WROTE STANDS. A re-reading of the pages replaced every
+ * page and standing — the writer's own words among them. A field he wrote by
+ * hand (hand mark) is his, and so is a standing he set: they are kept over the
+ * re-reading; his loose ends come first, the re-read ones after. */
+export function keepWritersOwn(live, rebuilt) {
+  const characters = { ...((rebuilt && rebuilt.characters) || {}) };
+  for (const [name, c] of Object.entries((live && live.characters) || {})) {
+    if (!c || !c.hand || typeof c.hand !== 'object' || !Object.keys(c.hand).length) continue;
+    const key = Object.keys(characters).find((k) => samePersonLoose(k, name)) || name;
+    const base = characters[key];
+    const into = base ? { ...base, threads: (base.threads || []).slice() } : { core: '', state: '', arc: '', threads: [], updatedAtTurn: c.updatedAtTurn };
+    for (const f of ['core', 'state', 'arc']) if (c.hand[f]) into[f] = c[f] || '';
+    if (c.hand.threads) {
+      const mine = Array.isArray(c.threads) ? c.threads.slice() : [];
+      for (const t of into.threads) if (!mine.some((x) => sameLooseEnd(x, t))) mine.push(t);
+      into.threads = mine;
+    }
+    into.hand = { ...c.hand };
+    characters[key] = into;
+  }
+  const relationships = { ...((rebuilt && rebuilt.relationships) || {}) };
+  for (const [name, r] of Object.entries((live && live.relationships) || {})) {
+    if (!r || r.hand !== true) continue;
+    for (const k of Object.keys(relationships)) if (k !== name && samePersonLoose(k, name)) delete relationships[k];
+    relationships[name] = r;
+  }
+  return { characters, relationships };
+}
+
 /* M262: THE OLD AUDITOR'S MARK. Before M259 the auditor was shown six
  * standings of thirteen and "restored" the rest to the brief's level — over
  * whatever the pages had earned, page after page. Its sets read "the brief
@@ -342,7 +371,8 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
   const live = await loadState(storyId);
   /* M165: the mark that says this world came from a rebuild, so the next
    * attempt keeps the way back to the hand-written one. */
-  const out = { ...live, characters: shadow.characters, relationships: shadow.relationships, peopleRebuiltAt: Date.now() };
+  const kept = keepWritersOwn(live, shadow);
+  const out = { ...live, characters: kept.characters, relationships: kept.relationships, peopleRebuiltAt: Date.now() };
   appendLog(out, 'The people and their standings were read again from the pages (' + applied + ' notes and shifts) — the drawer can put the old ones back.', null);
   await saveState(storyId, out);
   notify(storyId);

@@ -144,7 +144,7 @@ test('M165: a second rebuild never overwrites the way back to the hand-written w
   assert(/const hadBackup = await db\.settings\.get\('peopleBackup:' \+ storyId\);/.test(src), 'the standing backup is read first');
   assert(/if \(!\(hadBackup && state\.peopleRebuiltAt\)\) \{/.test(src), 'and a rebuilt world never overwrites it');
   /* M262: the mark is set at the swap, when the rebuild's world is written (M259-25 runs it) */
-  assert(/const out = \{ \.\.\.live, characters: shadow\.characters, relationships: shadow\.relationships, peopleRebuiltAt: Date\.now\(\) \};/.test(src), 'a rebuild marks what it made');
+  assert(/const out = \{ \.\.\.live, characters: kept\.characters, relationships: kept\.relationships, peopleRebuiltAt: Date\.now\(\) \};/.test(src), 'a rebuild marks what it made');
   assert(/const \{ peopleRebuiltAt, \.\.\.rest \} = state;/.test(src), 'and putting the people back clears the mark, so the next rebuild may save again');
 
   /* the mark must survive a save and a load, or the guard is blind */
@@ -643,7 +643,13 @@ test('M177: the engine keeps the writer off the enemy line, however the fight wa
 test('M178: a take-back reverses the row the writer tapped, not one that reads the same', async () => {
   const { applyMutations } = await import('../../js/engine/apply.js');
   const { emptyState } = await import('../../js/engine/state.js');
-  const st = applyMutations(emptyState(), [
+  /* M263: the same millisecond is made, not hoped for — a slow run once put the
+   * two rows a millisecond apart and the precondition failed, not the law */
+  const realNow = Date.now;
+  Date.now = () => 1700000000000;
+  let st;
+  try {
+  st = applyMutations(emptyState(), [
     /* M259: a change that changes nothing writes no row any more, so the two
      * rows that read alike come from two REAL changes (the clock moving on
      * the same ten minutes twice) — the case the take-back must still tell apart */
@@ -652,6 +658,7 @@ test('M178: a take-back reverses the row the writer tapped, not one that reads t
     { type: 'clock.advance', minutes: 10, reason: 'a pause' },
     { type: 'clock.advance', minutes: 10, reason: 'a pause' },
   ]).state;
+  } finally { Date.now = realNow; }
   const log = st.log;
   eq(log.length, 4, 'four rows');
   eq(log[2].words, log[3].words, 'two of them read exactly alike');

@@ -5467,3 +5467,28 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the way back never overwritten), DOM-22 (in the real chain: both heals, no hand on them). 8
   deliberate breaks, each caught. M165's grep follows the swap.
 - 519/519 harness + 41/41 walk + 8/8 play. version.js -> m262-001.
+
+# M263 — the writer's own words stand, and squeezed lines heal too
+- THE WRITER ASKED what two of M262's limits meant. Both were gaps; both are closed.
+- WHAT THE WRITER WROTE STANDS. A re-reading of the pages (the one-time heal, or Rebuild the
+  people) replaced every page and standing — the writer's own words among them. What he writes by
+  hand (the drawer's forms, and a housekeeper card he lets land) is marked his, field by field
+  (people.set / people.note → hand.core, hand.threads…; rel.set / rel.shift → hand), and
+  rebuild.js keepWritersOwn keeps it over the re-reading: his fields, his loose ends first, the
+  standings he set. A reader writing the same field later takes the mark off that field — the
+  field is the story's again.
+- SQUEEZED LINES. A layer past NOTES_PER_LAYER (100 lines, about six hundred folded pages)
+  squeezes its oldest two lines into one, written from the lines — so over pages the old keeper
+  read in part, a squeezed line holds what they missed, with no pages of its own to redo.
+  memory.js partlyReadMerged finds it; rereadMergedLine reads its pages again a batch at a time
+  and puts first-layer lines, read whole, in its place in one swap; one a page, when no
+  first-layer line waits. A squeeze of whole lines is whole. (A tale of a hundred-odd pages has
+  never squeezed — every line it holds is a first-layer line, healed by M262.)
+- ON THE WAY: M178 needed two log rows in the same millisecond and hoped for it; a slow run put
+  them a millisecond apart. The clock is held still for that step now.
+- Laws: M259-26 (a squeezed line found, re-read, swapped; a real 101-line layer squeezes whole),
+  M259-27 (the mark field by field; a reader takes it off; a rebuild keeps his words, loose ends
+  and standings; a housekeeper card is his), DOM-22 (a page written in the drawer's form stands
+  through the heal). 10 deliberate breaks caught; the drawer's own mark removed in a throwaway
+  copy fails DOM-22.
+- 521/521 harness (three runs) + 41/41 walk + 8/8 play. version.js -> m263-001.

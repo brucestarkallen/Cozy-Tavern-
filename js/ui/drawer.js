@@ -77,11 +77,14 @@ async function currentStory(ctx) {
 /* Hand changes ride the same rails as the extractor's: proposed as
  * mutations, applied, saved, announced. Returns the applied words (unused
  * by most callers; the log panel shows them soon enough). */
+const HAND_TYPES = new Set(['people.set', 'people.note', 'rel.set', 'rel.shift']);
 async function handMutate(ctx, mutations) {
   const story = await currentStory(ctx);
   if (!story) return [];
   const state = await loadStateForWrite(story.id);
-  const { state: next, applied } = applyMutations(state, mutations);
+  /* M263: a page or a standing written here is the writer's own */
+  const mine = (Array.isArray(mutations) ? mutations : []).map((m) => (m && HAND_TYPES.has(m.type) ? { ...m, byHand: true } : m));
+  const { state: next, applied } = applyMutations(state, mine);
   if (applied.length) {
     await saveState(story.id, next);
     notify(story.id);

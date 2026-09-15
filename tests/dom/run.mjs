@@ -1539,6 +1539,17 @@ test('DOM-22 the house heals what the old readers left, with no hand on it: a li
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
+  /* M263: the writer writes a page by hand in the drawer, as he would */
+  click(q('#btn-ledger'));
+  await until(() => !q('#drawer').hidden, 'the drawer opens'); await env.ctx.drawer.renderAllRooms(); await tick(350);
+  const personField = await until(() => q('#drawer-panels input[placeholder^="Write on a page by hand"]'), 'the hand page form');
+  const lform = personField.closest('form');
+  type(personField, 'Hand Written Person');
+  lform.querySelector('select').value = 'core';
+  type(lform.querySelector('input[placeholder="What to write down"]'), 'WRITTEN BY THE WRITER');
+  submit(lform);
+  await until(async () => { const l = await db.settings.get('state:' + st.id); return l && l.characters && l.characters['Hand Written Person']; }, 'the hand page to be written');
+  click(q('#btn-ledger'));
   house.state.workerAnswer = (body, sys) => {
     if (/narrative-state tracker/i.test(sys)) return 'Jovan climbed the stair to its end; LONG-TAIL-SEEN.';
     return walkDefaultWorker(body, sys);
@@ -1556,6 +1567,8 @@ test('DOM-22 the house heals what the old readers left, with no hand on it: a li
   const ledger = await db.settings.get('state:' + st.id);
   assert(!(ledger.relationships || {})['Old Friend'], 'the standing the old auditor pushed back is re-read from the pages');
   assert((ledger.log || []).some((l) => /read again from the pages/.test(l.words)), 'the log says so');
+  const own = (ledger.characters || {})['Hand Written Person'];
+  assert(own && own.core === 'WRITTEN BY THE WRITER' && own.hand && own.hand.core, 'the page the writer wrote by hand stood through the re-reading: ' + JSON.stringify(own));
   const backup = await db.settings.get('peopleBackup:' + st.id);
   assert(backup && backup.relationships && backup.relationships['Old Friend'], 'and the way back holds what was there');
 });

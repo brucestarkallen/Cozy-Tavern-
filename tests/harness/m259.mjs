@@ -886,3 +886,88 @@ test('M259-25: the old auditor\u2019s mark is found, the people are re-read on t
   eq(Object.keys(kept.characters).join(','), 'Old Friend', 'and the live people are exactly as they were');
   eq(kept.relationships['Old Friend'].p, 20, 'standings too');
 });
+
+/* ---------- M263: squeezed lines, and the writer's own words ---------- */
+
+test('M259-26: a squeezed line over pages read in part is read again from its pages; a squeeze of whole lines is whole', async () => {
+  const { partlyReadMerged, rereadMergedLine, loadMemory, maybeSummarize } = await import('../../js/agents/memory.js');
+  const sid = 'm259-merged';
+  for (let i = 0; i < 12; i += 1) await db.messages.append(sid, { role: i % 2 ? 'assistant' : 'user', text: 'merged page ' + (i + 1) + ' ' + (i === 3 ? 'm'.repeat(8000) + ' MERGED-TAIL' : '') });
+  const msgs = await db.messages.list(sid);
+  const two = [
+    { id: 'node-M2', span: [0, 11], level: 2, text: 'a squeezed line of twelve pages', at: 1 },
+    { id: 'node-W2', span: [0, 11], level: 2, text: 'a squeezed line of whole lines', at: 2, whole: true },
+  ];
+  eq(partlyReadMerged({ nodes: two }, msgs).join('|'), 'node-M2', 'a squeezed line over a long page is found; one squeezed from whole lines is not');
+  await saveMemory(sid, { window: 20, nodes: [two[0]] });
+  await db.settings.set('memoryBatch', 6);
+  const tracker = (body) => /narrative-state tracker/i.test(JSON.stringify(body));
+  const house = scriptedHouse(async (body) => {
+    const t = bodyText({ body });
+    if (tracker(body) && t.includes('merged page 4 ')) return 'Pages one to six; MERGED-TAIL kept.';
+    if (tracker(body) && t.includes('merged page 9 ')) return 'Pages seven to twelve.';
+    return 'NONE';
+  });
+  const r = await withHouse(house, () => rereadMergedLine({ connection: CONN, storyId: sid, lineId: 'node-M2' }));
+  eq(r.ok, true, 'it is read again');
+  const after = await loadMemory(sid);
+  eq(after.nodes.map((n) => n.level + ':' + n.span.join('-') + ':' + (n.whole === true)).join('|'), '1:0-5:true|1:6-11:true', 'replaced in place by its pages\u2019 own lines, read whole');
+  assert(/MERGED-TAIL/.test(after.nodes[0].text), 'holding what the long page\u2019s end held');
+  eq(partlyReadMerged(after, msgs).length, 0, 'and never read again');
+
+  /* a layer past its size squeezes its oldest two — whole when both were whole */
+  const sq = 'm259-squeeze';
+  for (let i = 0; i < 612; i += 1) await db.messages.append(sq, { role: i % 2 ? 'assistant' : 'user', text: 'p' + i });
+  const lines = Array.from({ length: 101 }, (_, i) => ({ id: 'node-q' + i, span: [i * 6, i * 6 + 5], level: 1, text: 'line ' + i, at: i + 1, whole: true }));
+  await saveMemory(sq, { window: 10, nodes: lines });
+  await db.settings.set('memoryWindow', 10);
+  await withHouse(scriptedHouse(async (body) => (tracker(body) ? 'Lines zero and one, squeezed.' : 'NONE')), () => maybeSummarize({ connection: CONN, storyId: sq, stale: () => false }));
+  const squeezed = (await loadMemory(sq)).nodes.filter((n) => n.level === 2);
+  assert(squeezed.length >= 1, 'a squeeze happened (' + squeezed.length + ')');
+  assert(squeezed.every((n) => n.whole === true), 'a squeeze of whole lines is whole');
+  await db.settings.set('memoryBatch', undefined);
+  await db.settings.set('memoryWindow', undefined);
+});
+
+test('M259-27: what the writer wrote by hand stands through any re-reading', async () => {
+  const { rebuildPeople } = await import('../../js/agents/rebuild.js');
+  let st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+  st = applyMutations(st, [
+    { type: 'people.set', name: 'Mira', field: 'core', text: 'MY OWN WORDS: the innkeeper who hides a letter', byHand: true },
+    { type: 'people.set', name: 'Mira', field: 'state', text: 'behind the bar' },
+    { type: 'people.note', name: 'Mira', field: 'thread', text: 'she still owes the ferryman', byHand: true },
+    { type: 'people.set', name: 'Tomas', field: 'core', text: 'a smith, as the old scribe wrote' },
+    { type: 'rel.set', name: 'Mira', p: 42, cause: 'I decide this', byHand: true },
+    { type: 'rel.set', name: 'Tomas', p: 10, cause: 'the brief states (P:10)' },
+  ]).state;
+  eq(JSON.stringify(st.characters.Mira.hand), '{"core":true,"threads":true}', 'the mark says what the writer wrote, field by field');
+  eq(st.relationships.Mira.hand, true, 'and the standing he set');
+  eq(st.characters.Tomas.hand, undefined, 'a reader\u2019s page carries no mark');
+  const re = applyMutations(st, [{ type: 'people.set', name: 'Mira', field: 'core', text: 'rewritten by a reader' }]).state;
+  eq(JSON.stringify(re.characters.Mira.hand), '{"threads":true}', 'a reader writing the field later takes the mark off that field');
+  const sid = 'm259-hand';
+  await saveState(sid, st);
+  for (let i = 0; i < 6; i += 1) await db.messages.append(sid, { role: i % 2 ? 'assistant' : 'user', text: 'hand page ' + (i + 1) });
+  const answer = async (body) => (/reading a story/i.test(JSON.stringify(body))
+    ? JSON.stringify({ deltas: [{ name: 'Mira', field: 'core', text: 'the reader\u2019s own reading' }, { name: 'Mira', field: 'state', text: 'at the door' }, { name: 'Tomas', field: 'core', text: 'a smith, read again' }],
+      shifts: [{ name: 'Mira', axis: 'p', delta: 5, cause: 'she smiled at the page' }, { name: 'Tomas', axis: 'p', delta: 3, cause: 'he nodded' }] })
+    : '{"standings":[]}');
+  await withHouse(scriptedHouse(answer), () => rebuildPeople({ connection: CONN, storyId: sid, brief: 'b', stale: () => false }));
+  const after = await loadState(sid);
+  eq(after.characters.Mira.core, 'MY OWN WORDS: the innkeeper who hides a letter', 'the writer\u2019s own words stand');
+  eq(after.characters.Mira.state, 'at the door', 'what he did not write is read again');
+  eq((after.characters.Mira.threads || [])[0], 'she still owes the ferryman', 'his loose end stands first');
+  eq(after.characters.Tomas.core, 'a smith, read again', 'a page no one wrote by hand is read again');
+  eq(after.relationships.Mira.p, 42, 'the standing he set stands');
+  eq(after.relationships.Tomas.p, 3, 'one he did not set is read again from the pages');
+
+  /* a housekeeper card the writer lets land is his own writing too */
+  const { applyProposal } = await import('../../js/agents/housekeeper.js');
+  const hsid = 'm259-hand-card';
+  await saveState(hsid, emptyState());
+  const session = { turns: [{ proposals: [{ id: 'card-1', kind: 'ledit', status: 'pending', label: 'write Card Person', op: { mutations: [{ type: 'people.set', name: 'Card Person', field: 'core', text: 'FROM A CARD THE WRITER LET LAND' }] } }] }], batches: [] };
+  const landed = await applyProposal(session, hsid, 'card-1');
+  eq(landed.ok, true, 'the card lands: ' + landed.words);
+  const carded = (await loadState(hsid)).characters['Card Person'];
+  eq(carded && carded.hand && carded.hand.core, true, 'and is marked the writer\u2019s own');
+});

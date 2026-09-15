@@ -54,7 +54,7 @@ import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
@@ -2481,6 +2481,16 @@ export function initChat(ctx) {
           const held = await loadMemory(story.id);
           const node = (held.nodes || []).find((n) => n && n.id === nodeId);
           if (node) { node.healTries = (node.healTries || 0) + 1; await saveMemory(story.id, held); }
+        }
+        /* M263: and a squeezed line, one a page, when no first-layer line waits */
+        if (!reread && !stale()) {
+          for (const lineId of partlyReadMerged(await loadMemory(story.id), await db.messages.list(story.id)).slice(0, 1)) {
+            const r = await rereadMergedLine({ connection, storyId: story.id, lineId, signal, renew });
+            if (r && r.ok) { reread += 1; continue; }
+            const held = await loadMemory(story.id);
+            const node = (held.nodes || []).find((n) => n && n.id === lineId);
+            if (node) { node.healTries = (node.healTries || 0) + 1; await saveMemory(story.id, held); }
+          }
         }
       } catch (err) { /* the next page carries on */ }
       const healed = reread ? ` · read ${reread} older ${reread === 1 ? 'line' : 'lines'} again from whole pages` : '';

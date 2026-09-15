@@ -2094,7 +2094,9 @@ async function applyLeditOp(storyId, p, batch) {
   const words = [];
   if (ledgerOps.length) {
     const fresh = await loadState(storyId);
-    const { state: next, applied, rejected } = applyMutations(fresh, ledgerOps);
+    /* M263: a card the writer let land is the writer's own edit */
+    const HAND = new Set(['people.set', 'people.note', 'rel.set', 'rel.shift']);
+    const { state: next, applied, rejected } = applyMutations(fresh, ledgerOps.map((m) => (m && HAND.has(m.type) ? { ...m, byHand: true } : m)));
     if (applied.length) {
       await saveState(storyId, next);
       notify(storyId);
