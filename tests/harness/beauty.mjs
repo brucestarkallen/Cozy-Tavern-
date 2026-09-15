@@ -405,3 +405,40 @@ test('M234: a comma is a decimal point, and closing the form keeps your place', 
   assert(/const returnToPlace = \(\)/.test(set), 'and given back');
   assert(/row\.scrollIntoView\(\{ block: 'nearest' \}\)/.test(set), 'the connection just edited comes back under the eye');
 });
+
+/* M245: two faults the writer photographed on one screen — the same
+ * housekeeper dial listed TWICE, and a story called "Actually use this lol —
+ * a branch — a branch — a branch — a branch — a branch — a branch — a branch
+ * — a branch". */
+test('M245: no dial is drawn twice, and a branch of a branch keeps a readable name', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const set = fs.readFileSync(path.join(here, '../../js/ui/settings.js'), 'utf8');
+  const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
+
+  /* the panel clears once and then AWAITS on every row — two overlapping
+   * renders both cleared, both waited, and both appended */
+  assert(/let workerRowsGeneration = 0;/.test(set), 'a render knows whether it is the newest');
+  assert(/const mine = \+\+workerRowsGeneration;/.test(set), 'and takes its own mark');
+  eq((set.match(/if \(mine !== workerRowsGeneration\) return;/g) || []).length, 3,
+    'and stops at every point it would otherwise append after an await');
+  const at = set.indexOf('const mine = ++workerRowsGeneration;');
+  assert(at < set.indexOf("els.workerAssignments.textContent = ''"), 'the mark is taken BEFORE the list is cleared');
+
+  /* the suffix was simply appended, so a branch of a branch grew its own name */
+  assert(!/title: story\.title \+ ' — a branch' \}/.test(chat), 'the suffix is never simply appended');
+  assert(/replace\(\/\\s\*—\\s\*a branch\(\\s\*\\d\+\)\?\\s\*\$\/i, ''\)/.test(chat), 'the stem is taken first');
+  assert(/for \(let n = 2; taken\.has\(title\); n \+= 1\)/.test(chat), 'and the branches are numbered');
+
+  /* the naming itself */
+  const stemOf = (t) => String(t || 'a tale').replace(/\s*—\s*a branch(\s*\d+)?\s*$/i, '').trim() || 'a tale';
+  const taken = new Set(['Ravenwood']);
+  const names = [];
+  for (let i = 0; i < 4; i += 1) {
+    const stem = stemOf(names.length ? names[names.length - 1] : 'Ravenwood');
+    let t = stem + ' — a branch';
+    for (let n = 2; taken.has(t); n += 1) t = stem + ' — a branch ' + n;
+    taken.add(t); names.push(t);
+  }
+  eq(names[3], 'Ravenwood — a branch 4', 'four branches deep is still readable: ' + names.join(' / '));
+  for (const n of names) assert((n.match(/a branch/g) || []).length === 1, 'and never stacks the suffix: ' + n);
+});

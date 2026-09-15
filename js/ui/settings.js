@@ -37,6 +37,8 @@ import { VERSION } from '../version.js';
 import { loadRules, saveRules, tryRule, applyRules, builtinOriginal, importSillyTavernRegex, MODE_WORDS, VOICE_WORDS } from '../regex.js'; /* M30: the regex shelf; M31: bring your SillyTavern regex */
 import { pageText } from '../assemble/stack.js';
 
+let workerRowsGeneration = 0;
+
 export function initSettings(ctx) {
   const els = {
     connList: document.getElementById('connection-list'),
@@ -989,9 +991,18 @@ export function initSettings(ctx) {
     els.workerConn.value = wanted && all.some((c) => c.id === wanted) ? wanted : '';
 
     /* M17: per-worker hands — each quiet helper may ride a connection of its own */
+    /* M245: AN ASYNC RENDER RACE PUT THE SAME DIAL ON THE PAGE TWICE. The list
+     * is cleared once, then EVERY row awaits (the assignment map, the
+     * housekeeper's own thinking setting). Two renders overlapping — and this
+     * panel re-renders on a good many things — both clear, both wait, and
+     * both append: the writer saw "How much the housekeeper thinks before it
+     * answers" listed twice, with two selects that set the same setting. A
+     * render that has been overtaken stops appending. */
     const assignMap = (await db.settings.get('workerConnections')) || {};
+    const mine = ++workerRowsGeneration;
     els.workerAssignments.textContent = '';
     for (const [key, words] of WORKER_ROWS) {
+      if (mine !== workerRowsGeneration) return;
       const row = document.createElement('label');
       row.className = 'stack-label worker-assign-row';
       const sel = document.createElement('select');
@@ -1017,6 +1028,7 @@ export function initSettings(ctx) {
       labelText.textContent = words;
       row.appendChild(labelText);
       row.appendChild(sel);
+      if (mine !== workerRowsGeneration) return;
       els.workerAssignments.appendChild(row);
       /* M76: the housekeeper thinks — its own effort, never the connection's "off" */
       if (key === 'housekeeper') {
@@ -1033,6 +1045,7 @@ export function initSettings(ctx) {
         tw.textContent = 'How much the housekeeper thinks before it answers — its connection’s own switch unless you set it here; the reasoning shows under each reply';
         think.appendChild(tw);
         think.appendChild(tsel);
+        if (mine !== workerRowsGeneration) return;
         els.workerAssignments.appendChild(think);
       }
     }

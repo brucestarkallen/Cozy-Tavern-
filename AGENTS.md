@@ -5022,3 +5022,17 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - The cut line now stands ONLY when even half the pages will not come back whole, which is a dead
   connection, not a long scene.
 - 483/483 harness + 37/37 walk + 8/8 play. version.js -> m244-001.
+
+# M245 — the same dial twice, and a branch of a branch of a branch
+- THE HOUSEKEEPER'S THINKING DIAL WAS ON THE PAGE TWICE, two selects setting one setting. Not a
+  duplicated block — an ASYNC RENDER RACE. The worker list is cleared ONCE and then every row
+  AWAITS (the assignment map, the housekeeper's own setting). Two renders overlapping — and this
+  panel re-renders on a good many things — both clear, both wait, and both append. A render that
+  has been overtaken now stops, at every point it would otherwise append after an await, and takes
+  its mark BEFORE the clear.
+- AND A BRANCH OF A BRANCH GREW ITS OWN NAME: "Actually use this lol — a branch — a branch — a
+  branch — a branch — a branch — a branch — a branch — a branch". The suffix was simply appended
+  to whatever the title already was, so the writer's shelf — the one list he uses to find a story
+  — filled with titles too long to read. The stem is taken once and the branches are numbered from
+  there: "— a branch", "— a branch 2", "— a branch 3".
+- 484/484 harness + 37/37 walk + 8/8 play. version.js -> m245-001.

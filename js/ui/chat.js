@@ -3797,7 +3797,17 @@ export function initChat(ctx) {
     const at = history.findIndex((m) => m.id === messageId);
     if (at === -1) return;
     const pages = history.slice(0, at + 1).filter((m) => m && !m.hidden);
-    const branch = await db.stories.create({ title: story.title + ' — a branch' });
+    /* M245: A BRANCH OF A BRANCH GREW ITS OWN NAME. The suffix was simply
+     * appended, so the writer's shelf carried "Actually use this lol — a
+     * branch — a branch — a branch — a branch — a branch — a branch — a
+     * branch — a branch" — a title too long to read, in the one list he uses
+     * to find a story. The stem is taken once and the branches are numbered
+     * from there. */
+    const stem = String(story.title || 'a tale').replace(/\s*—\s*a branch(\s*\d+)?\s*$/i, '').trim() || 'a tale';
+    const taken = new Set((await db.stories.list()).map((x) => String(x.title || '')));
+    let title = stem + ' — a branch';
+    for (let n = 2; taken.has(title); n += 1) title = stem + ' — a branch ' + n;
+    const branch = await db.stories.create({ title });
     const carry = {};
     for (const key of BRANCH_CARRY) {
       if (story[key] !== undefined && story[key] !== null) carry[key] = story[key];
