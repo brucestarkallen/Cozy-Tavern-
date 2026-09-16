@@ -5705,3 +5705,52 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   thinking kept from the store.
 - 529/529 harness + 43/43 walk + 8/8 play + housekeeper_rounds 14/14 + perf (plain, bigfetch,
   history) within budget. version.js -> m271-001.
+
+# M272 — the housekeeper's cards have names of their own; the brief's opening stays; Mr. is not Mrs.
+- THE WRITER (three screenshots and four points, before installing M270/M271):
+  1. The housekeeper froze for minutes with a status that did not move — the M270 bug (the
+     second round after a look-up streamed into nothing), already fixed there. And the live
+     bubble showed the raw wire (<fetch>[…], <brief>[{"field":…) — "not beautiful".
+  2. It proposed to "update" the brief's STATE line (the story's opening) and, told no, the
+     SCENE block and LAST line; its withdrawals took more or less than asked.
+  3. It found, and fixed by cards, things the house should fix itself.
+  4. It told the writer applied cards were still pending.
+- CAUSES AND FIXES:
+  - THE LIVE ANSWER (answerAsWritten): blocks never show while written; a quiet note stands in
+    their place ("looking something up…", "writing its cards…"); plain words are appended, the
+    answer is drawn whole once a block may be forming (0.06 ms a frame for 10,000 characters);
+    a new round draws the old one to its last word, then says what comes next.
+  - A CARD'S NAME IS ITS OWN (stageProposals): the numbering began at 1 in every answer, so two
+    answers each had a "ledger changes 1" — one applied, one pending — and every brief card was
+    "the brief". The housekeeper read two fates under one name (point 4), and <supersede>, which
+    withdraws by name, took every card of that name (point 2). Names are unique across the
+    session; a brief card is named for the words it changes ("the brief — # STATE: Thu…").
+  - ONE LIST OF WHAT BECAME OF EVERY CARD ("CARDS ALREADY SETTLED" in the context), to be
+    trusted over anything an earlier answer said.
+  - THE BRIEF'S OPENING (touchesOpening, openingLinesOf): its STATE / SCENE / WHERE / PRESENT /
+    ACTIVITY / LAST / NOW / TIME / DATE / HOUR lines are where the story began; the housekeeper
+    is told so, and the house refuses a card that moves them (find/replace, append or a whole
+    rewrite) unless the writer names the line ("the state line", "the SCENE block").
+  - A LEDGER CARD IS NAMED FOR WHAT IT TOUCHES: "people's pages changes N" (it was "ledger
+    changes 1" for eight edits to the pages of the people).
+  - MR. IS NOT MRS. (findPersonKey): "Mrs. Sterling" is one letter from "Mr. Sterling", inside
+    the near-name slack — her lines were written on his page. Different titles (Mr, Mrs, Ms,
+    Miss, Dr, Aunt, Uncle…) are never one person; a titled name never lands on a page opened
+    under the bare surname. Seats, standings and pages all resolve through it.
+  - A FACT LET GO (knowledge.forget): the ledger could only add to what someone knew. Every line
+    answering to the quoted fact goes; a take-back restores them. The housekeeper has it; the
+    auditor does not. Reworded copies are not folded on their own.
+  - THE MAIN CHARACTER'S "WHERE" BELONGS TO THE OLD GROUND: a scene move lets his page's state go
+    (as it lets positions go) unless the writer wrote it; a take-back restores it.
+  - A THREAD LINE THAT BROKE OFF (brokenOff: an article, a joining word, or "means to" with no
+    verb) is not written — the old next step stands; a name written twice is written once
+    (undoubled: a possessive after a doubled word, or a whole name doubled — "Bora Bora" stays).
+- THE CARD CUT MID-SENTENCE ("he off—") was M266's (notes kept whole).
+- Laws: M259-36 (all of the above, the finished lines that must stand included); M83-3 reads the
+  brief card's new name. 16 deliberate breaks caught. housekeeper_rounds.py: 16 checks, the live
+  answer never showing a block among them. The rounds test's reloads wait for the new page (the
+  old one could answer for a moment), and its fake model writes a look-up in pieces, as models do.
+- A doubled comma in an import (the panel's) stopped the app from loading; the real-browser
+  test caught it. The harness cannot: it never loads the panel.
+- 530/530 harness + 43/43 walk + 8/8 play + housekeeper_rounds 16/16 + perf (plain, bigfetch)
+  within budget. version.js -> m272-001.

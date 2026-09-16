@@ -142,7 +142,7 @@ export function threadHousekeeping(threads, nowTurn, spared = []) {
 
 export function setThread(threads, { title, owner, heat, next } = {}, atTurn) {
   const list = copyThreads(threads);
-  const name = cleanText(title, 300);
+  const name = undoubled(cleanText(title, 300));
   if (!name) return list;
   const at = findThread(list, name);
   const base = at === -1 ? { title: name } : list[at];
@@ -150,7 +150,7 @@ export function setThread(threads, { title, owner, heat, next } = {}, atTurn) {
   if (cleanText(owner)) entry.owner = cleanText(owner, 120);
   if (THREAD_HEAT.includes(heat)) entry.heat = heat;
   if (!entry.heat) entry.heat = 'hot';
-  if (cleanText(next)) entry.next = cleanText(next, 1000);
+  if (cleanText(next)) entry.next = undoubled(cleanText(next, 1000));
   entry.atTurn = Number.isFinite(atTurn) ? atTurn : (entry.atTurn ?? null);
   if (at === -1) list.push(entry); else list[at] = entry;
   while (list.length > THREADS_MAX) {
@@ -274,6 +274,29 @@ export function addKnowledge(knowledge, name, fact, atTurn) {
   list.push({ fact: what, atTurn: Number.isFinite(atTurn) ? atTurn : null });
   next[key] = list.slice(-KNOWLEDGE_PER_NAME);
   return next;
+}
+
+/* M272: a line the model broke off mid-phrase. Only endings no finished
+ * clause has: an article, a joining word, or an infinitive with no verb
+ * ("means to"). A sentence may end on "to", "in" or "with" ("the party she
+ * wants to go to", "whether to move in") — those stand. */
+const BROKEN_OFF = /\b(?:the|a|an|and|or|but|because|whose|than|(?:means|meant|wants|wanted|plans|planned|going|has|have|had|tries|tried|needs|hopes|intends|about|is|are|was|were|am) to)\s*[,;:—–-]?\s*$/i;
+export function brokenOff(text) {
+  return BROKEN_OFF.test(String(text || '').trim());
+}
+/* M272: a name written twice running is written once — "Alexia Alexia's
+ * rematch", "Alexia Vanderbilt Alexia Vanderbilt plans". A single word said
+ * twice with no possessive after it is left alone ("Bora Bora"). */
+export function undoubled(text) {
+  let out = String(text || '');
+  for (let pass = 0; pass < 3; pass += 1) {
+    const next = out
+      .replace(/\b([A-Z][\p{L}-]*)\s+\1(?=['’]s\b)/gu, '$1')
+      .replace(/\b([A-Z][\p{L}-]*(?:\s+[A-Z][\p{L}-]*){1,2})\s+\1\b/gu, '$1');
+    if (next === out) break;
+    out = next;
+  }
+  return out;
 }
 
 export function factKey(f) {

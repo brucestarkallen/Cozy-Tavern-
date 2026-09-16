@@ -54,7 +54,10 @@ class Fake(BaseHTTPRequestHandler):
             if not second:
                 for i in range(20):
                     send({'choices': [{'index': 0, 'delta': {'reasoning_content': 'first look %d. ' % i}}]}); time.sleep(0.01)
-                send({'choices': [{'index': 0, 'delta': {'content': 'Let me look. <fetch>["find: seventeen"]</fetch>'}}]})
+                # written the way a model writes: a piece at a time, frames painted between
+                for piece in ['Let me look. ', '<fetch>[', '"find: ', 'seventeen"', ']</fetch>']:
+                    send({'choices': [{'index': 0, 'delta': {'content': piece}}]})
+                    time.sleep(0.35)
             else:
                 steps = 200
                 for i in range(steps):
@@ -70,6 +73,19 @@ class Fake(BaseHTTPRequestHandler):
 
 class Threaded(ThreadingMixIn, HTTPServer):
     daemon_threads = True
+
+
+def open_housekeeper(page):
+    """After a reload the old page can answer for a moment: knock until the new one is up and the sheet is open."""
+    for _ in range(80):
+        try:
+            if page.evaluate("document.readyState === 'complete' && !!(window.__cozy && window.__cozy.housekeeper) && !document.getElementById('hk-sheet').hidden"):
+                return
+            if page.evaluate("document.readyState === 'complete' && !!(window.__cozy && window.__cozy.housekeeper)"):
+                page.click('#btn-housekeeper', timeout=2000)
+        except Exception:
+            pass
+        time.sleep(0.5)
 
 
 def main():
@@ -101,18 +117,17 @@ def main():
               await db.settings.set('welcomeSeen', true);
               await db.settings.set('hkStallSec', stall);
             }''', [f'http://127.0.0.1:{FAKE}', STALL])
-            page.reload()
-            page.wait_for_function('window.__cozy && window.__cozy.chat', timeout=30000)
-            for _ in range(40):
-                if page.evaluate("!document.getElementById('hk-sheet').hidden"):
-                    break
-                page.click('#btn-housekeeper'); time.sleep(0.5)
+            page.reload(wait_until='load')
+            open_housekeeper(page)
             page.wait_for_selector('#hk-sheet:not([hidden])', timeout=10000)
             time.sleep(0.5)
             page.evaluate('''() => {
               window.__said = [];
+              window.__live = [];
               const s = document.getElementById('hk-status');
               new MutationObserver(() => window.__said.push(s.textContent)).observe(s, { childList: true, characterData: true, subtree: true });
+              const th = document.getElementById('hk-thread');
+              new MutationObserver(() => { const b = th.querySelector('.hk-pending'); if (b) window.__live.push(b.textContent); }).observe(th, { childList: true, characterData: true, subtree: true });
             }''')
             page.fill('#hk-input', 'Jovan is 16 — fix the page that says seventeen')
             page.click('#hk-send')
@@ -130,6 +145,9 @@ def main():
               status: document.getElementById('hk-status').textContent,
             })''')
             checks.append(('the second round streamed and was named', any('reading what it looked up (round 2)' in s for s in out['said'])))
+            live = page.evaluate('window.__live')
+            checks.append(('the live answer never shows the wire’s blocks', bool(live) and not any('<fetch>' in t or '</fetch>' in t for t in live)))
+            checks.append(('it says it is looking something up instead', any('looking something up' in t for t in live)))
             checks.append(('the watch never cut the live round', not any('went silent' in s for s in out['said'] + [out['status']])))
             checks.append(('the second round\u2019s answer arrived', 'THE-SECOND-ROUND-ANSWER' in out['answer']))
             # --- M271: the housekeeper works on behind a closed sheet, and its history stays ---
@@ -167,12 +185,8 @@ def main():
             page.fill('#hk-input', 'THIRD-QUESTION: what did Chloe post?')
             page.click('#hk-send')
             time.sleep(1.0)
-            page.reload()
-            page.wait_for_function('window.__cozy && window.__cozy.chat', timeout=30000)
-            for _ in range(40):
-                if page.evaluate("!document.getElementById('hk-sheet').hidden"):
-                    break
-                page.click('#btn-housekeeper'); time.sleep(0.5)
+            page.reload(wait_until='load')
+            open_housekeeper(page)
             time.sleep(0.8)
             back = page.evaluate("({ box: document.getElementById('hk-input').value, status: document.getElementById('hk-status').textContent })")
             checks.append(('after a reload mid-ask, the question is back in the box', 'THIRD-QUESTION' in back['box']))

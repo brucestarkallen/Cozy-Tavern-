@@ -103,6 +103,24 @@ function nameBound(name) {
  * name is new to the ledger. Exported for the harness. */
 const keyLower = (k) => String(k || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
+/* M272: A TITLE TELLS TWO PEOPLE APART. "Mrs. Sterling" is one letter from
+ * "Mr. Sterling", inside the near-name slack — so her lines were written on
+ * her husband's page, and she had none of her own. Two names whose titles
+ * differ are never the same person; the same title with or without its dot is. */
+const TITLE_RE = /^(mr|mrs|ms|miss|mx|mister|missus|madam|madame|mme|mlle|dr|doctor|prof|professor|sir|dame|lady|lord|master|aunt|auntie|uncle|grandma|grandpa|granny|nana)\.?\s+(?=\S)/i;
+const TITLE_SAME = { mister: 'mr', missus: 'mrs', doctor: 'dr', professor: 'prof', auntie: 'aunt', madame: 'madam' };
+export function nameTitle(name) {
+  const m = TITLE_RE.exec(String(name || '').trim());
+  if (!m) return '';
+  const t = m[1].toLowerCase();
+  return TITLE_SAME[t] || t;
+}
+function titlesDiffer(a, b) {
+  const x = nameTitle(a);
+  const y = nameTitle(b);
+  return Boolean(x && y && x !== y);
+}
+
 export function findPersonKey(characters, name) {
   const wanted = normalizeName(name).toLowerCase();
   if (!wanted) return '';
@@ -110,6 +128,7 @@ export function findPersonKey(characters, name) {
   const exact = keys.find((k) => k.toLowerCase() === wanted);
   if (exact) return exact;
   const near = keys.filter((k) => {
+    if (titlesDiffer(k, wanted)) return false; /* M272 */
     const bound = Math.min(nameBound(k), nameBound(wanted)) || 1;
     return boundedLevenshtein(k.toLowerCase(), wanted, bound) <= bound;
   });
@@ -150,13 +169,14 @@ export function findPersonKey(characters, name) {
     const sw = shortOne.split(/\s+/).filter(Boolean);
     return sw.length >= 2 && longOne.startsWith(shortOne) && longOne.length > shortOne.length;
   };
-  const byCut = keys.filter((k) => cutShort(keyLower(k), wanted));
+  const byCut = keys.filter((k) => !titlesDiffer(k, wanted) && cutShort(keyLower(k), wanted));
   if (byCut.length === 1) return byCut[0];
 
   /* and the other way: the scribe writes "Vanessa Reynolds" onto a page the
    * extractor opened as "Vanessa" */
   const wantWords = wanted.split(/\s+/).filter(Boolean);
-  if (wantWords.length > 1) {
+  /* M272: "Mrs. Sterling" is not whoever was written down as plain "Sterling" */
+  if (wantWords.length > 1 && !nameTitle(wanted)) {
     const byWhole = keys.filter((k) => {
       const kk = k.toLowerCase();
       return kk === wantWords[0] || kk === wantWords[wantWords.length - 1];

@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m271-001)
+# Cozy Tavern — handoff for the next session (state at m272-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M271). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M272). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 529 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 530 checks on the engines, assembler, workers, laws.
 - `cd tests/dom && node run.mjs` — the walk: 43 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
@@ -36,6 +36,12 @@ Full history of every law and fix: AGENTS.md (M1 … M271). SPEC.md holds the fo
 - Nothing goes stale by itself (M261): the ground moving lets positions go; one place under two
   spellings is one place; an untouched thread cools after 15 pages; the code upkeep (retire,
   sweep, clear seats) runs on every page, audited or not (ledgerUpkeep).
+- The housekeeper's cards (M272): every card name is unique in its session (withdrawal is by name);
+  the context lists what became of every settled card; the brief's opening lines (STATE, SCENE,
+  WHERE, PRESENT, ACTIVITY, LAST…) are refused unless the writer names them.
+- Names (M272): different titles (Mr/Mrs/Ms/Dr/Aunt…) are never one person.
+- A change to js/ui/*.js is only proven by the walk or the real-browser tests — the harness never
+  loads those files (M272: a syntax error there stopped the app while the harness was green).
 - Every ledger note is saved whole (M266); the storyteller's state of things follows the room
   (stateView). A cap is a runaway guard, never a size a real note reaches.
 - NO SILENT CUT (M265): no reader of the record is handed less than its room holds; a cut is

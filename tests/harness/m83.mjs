@@ -65,7 +65,8 @@ test('M83-3 a whole-page rewrite (no find) stages, shows, applies and undoes; ST
   const bp = stageProposals(parseProtocol('<brief>[{"field":"brief","find":"Alexia (15)","replace":"Alexia (16)","reason":"a"}]</brief>'), { messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, story: st });
   const sess = { turns: [{ role: 'housekeeper', text: 'x', ts: 1, proposals: bp }], batches: [] };
   const ctx = buildHousekeeperContext({ story: { ...st, brief: 'Alexia (16), the eldest' }, messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session: sess, contextPages: 8 });
-  assert(/“the brief”.*⚠ STALE — its anchor no longer matches/.test(ctx), 'the brief card is marked stale in the pending list: ' + ctx.slice(ctx.indexOf('PENDING CARDS'), ctx.indexOf('PENDING CARDS') + 200));
+  /* M272: a brief card is named for the words it changes */
+  assert(/“the brief — Alexia \(15\)”.*⚠ STALE — its anchor no longer matches/.test(ctx), 'the brief card is marked stale in the pending list: ' + ctx.slice(ctx.indexOf('PENDING CARDS'), ctx.indexOf('PENDING CARDS') + 200));
   /* the ripple reaches a person's threads */
   const state = applyMutations(emptyState(), [{ type: 'people.note', name: 'Ann', field: 'thread', text: 'owes the ferryman' }]).state;
   const where = rippleScan([{ id: ref, find: 'owes the ferryman', replace: 'owes the boatman' }], { messages: [], memory: { nodes: [] }, state, lore: [], story: {} });

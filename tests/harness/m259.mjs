@@ -1264,3 +1264,95 @@ test('M259-35: every housekeeper round streams to the writer\u2019s view, and a 
   assert(seen.slice(roundAt).some((t) => t.text === 'ROUND-TWO-THINKING') && seen.slice(roundAt).some((t) => t.text === 'ROUND-TWO-WORDS'), 'the second round streams to the view — it streamed into nothing');
   assert(r && r.ok !== false, 'and the turn is answered');
 });
+
+test('M259-36: the housekeeper\u2019s cards have names of their own; the brief\u2019s opening stays; the house tells Mr. from Mrs.; a fact can be let go', async () => {
+  const hk = await import('../../js/agents/housekeeper.js');
+  const { undoLast } = await import('../../js/engine/apply.js');
+  const { findPersonKey } = await import('../../js/engine/people.js');
+  const base = { messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] } };
+
+  /* names of their own, across the session */
+  const session = { turns: [{ role: 'housekeeper', text: 'a', proposals: [{ id: 'p1', label: 'ledger changes 1', kind: 'ledit', status: 'applied' }, { id: 'p2', label: 'people\u2019s pages changes 1', kind: 'ledit', status: 'pending' }] }] };
+  const led = hk.stageProposals(hk.parseProtocol('<ledits>[{"type":"thread.set","title":"The party","next":"Saturday"}]</ledits>'), { ...base, session, story: { brief: '' } });
+  eq(led[0].label, 'ledger changes 2', 'a ledger card is numbered after the session\u2019s own, not from 1 again');
+  const ppl = hk.stageProposals(hk.parseProtocol('<ledits>[{"type":"people.set","name":"Maya Bell","field":"core","text":"the squad\u2019s archivist"}]</ledits>'), { ...base, session, story: { brief: '' } });
+  eq(ppl[0].label, 'people\u2019s pages changes 2', 'a bundle of page-of-the-people edits is named for what it touches');
+  const withdraw = { turns: [{ role: 'housekeeper', text: 'a', proposals: [{ id: 'a', label: 'the brief — # STATE: Thu', status: 'pending' }, { id: 'b', label: 'the brief — WHERE: the Uber', status: 'pending' }] }] };
+  const sup = hk.applySupersede(withdraw, ['the brief — # STATE: Thu']);
+  eq(sup.count, 1, 'a withdrawal by name takes exactly one card');
+  eq(withdraw.turns[0].proposals[1].status, 'pending', 'the other stays');
+
+  /* the one list of what became of every card */
+  const ctx = hk.buildHousekeeperContext({ story: { title: 't', brief: '' }, messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session, contextPages: 8 });
+  assert(/CARDS ALREADY SETTLED[\s\S]*“ledger changes 1”: APPLIED/.test(ctx), 'an applied card is listed as applied, whatever an old answer said');
+
+  /* the brief's opening */
+  const brief = '# STATE: Thu 20 Aug 2026, 11:00 / Uber backseat\nSCENE\nWHERE: the Uber\nPRESENT: Jovan\nLAST: he looks out\n\nJovan Wells is sixteen.';
+  const story = { title: 't', brief, castNotes: '' };
+  const stage = (block, writerText) => hk.stageProposals(hk.parseProtocol(block), { ...base, session: { turns: [] }, story, writerText });
+  const stateCard = stage('<brief>[{"field":"brief","find":"11:00 / Uber backseat","replace":"17:20 / the Wells kitchen"}]</brief>', 'Jovan is 16 — fix the page that says seventeen');
+  eq(stateCard[0].status, 'refused', 'the STATE line is not brought up to date');
+  assert(/opening/.test(stateCard[0].words), 'and it says why: ' + stateCard[0].words);
+  eq(stage('<brief>[{"field":"brief","find":"WHERE: the Uber","replace":"WHERE: the kitchen"}]</brief>', 'tidy it').at(0).status, 'refused', 'nor the SCENE block');
+  eq(stage('<brief>[{"field":"brief","append":"LAST: Maya sends a screenshot"}]</brief>', 'tidy it').at(0).status, 'refused', 'nor a new LAST line');
+  eq(stage('<brief>[{"field":"brief","text":"# STATE: Fri\\nJovan Wells is sixteen."}]</brief>', 'tidy it').at(0).status, 'refused', 'nor a whole rewrite that moves the opening');
+  eq(stage('<brief>[{"field":"brief","find":"11:00 / Uber backseat","replace":"11:30 / Uber backseat"}]</brief>', 'in the brief, change the state line: the story starts at 11:30').at(0).status, 'pending', 'the writer naming the line may change it');
+  eq(stage('<brief>[{"field":"brief","find":"WHERE: the Uber","replace":"WHERE: the kitchen"}]</brief>', 'in the brief, fix where Jovan lives').at(0).status, 'refused', 'a message that only says "where" does not open the opening');
+  const fact = stage('<brief>[{"field":"brief","find":"Jovan Wells is sixteen.","replace":"Jovan Wells is sixteen, a first-year."}]</brief>', 'in the brief, add that he is a first-year');
+  eq(fact[0].status, 'pending', 'a fact of the brief is still the housekeeper\u2019s to change');
+  assert(/^the brief — Jovan Wells is sixteen/.test(fact[0].label), 'named for the words it changes: ' + fact[0].label);
+
+  /* Mr. and Mrs. */
+  let st = emptyState();
+  st = applyMutations(st, [{ type: 'people.set', name: 'Mr. Sterling', field: 'core', text: 'a chamois in his back pocket' }]).state;
+  st = applyMutations(st, [{ type: 'people.set', name: 'Mrs. Sterling', field: 'core', text: 'small, sharp-eyed, a dish towel over one shoulder' }]).state;
+  assert(st.characters['Mr. Sterling'] && st.characters['Mrs. Sterling'], 'two pages: ' + Object.keys(st.characters).join(', '));
+  assert(/chamois/.test(st.characters['Mr. Sterling'].core) && !/dish towel/.test(st.characters['Mr. Sterling'].core), 'his page keeps his life');
+  eq(findPersonKey(st.characters, 'Mr Sterling'), 'Mr. Sterling', 'the same title without its dot is the same man');
+  eq(findPersonKey({ Sterling: {} }, 'Mrs. Sterling'), '', 'a titled name is not whoever was written down as the bare surname');
+  eq(findPersonKey({ Vanessa: {} }, 'Vanessa Reynolds'), 'Vanessa', 'while an untitled full name still finds its first name (M238)');
+
+  /* a fact let go */
+  let kn = applyMutations(emptyState(), [
+    { type: 'knowledge.add', name: 'Emilia Vanderbilt', fact: 'hurt her knee at practice on 05 Sep 2021' },
+    { type: 'knowledge.add', name: 'Emilia Vanderbilt', fact: 'that Jovan is back in town' },
+  ]).state;
+  const forgot = applyMutations(kn, [{ type: 'knowledge.forget', name: 'Emilia', fact: 'hurt her knee at practice on 05 Sep 2021' }]);
+  eq(forgot.state.knowledge['Emilia Vanderbilt'].length, 1, 'the line is let go');
+  eq(forgot.state.knowledge['Emilia Vanderbilt'][0].fact, 'that Jovan is back in town', 'and only that one');
+  eq(undoLast(forgot.state).state.knowledge['Emilia Vanderbilt'].length, 2, 'a take-back restores it');
+  eq(applyMutations(kn, [{ type: 'knowledge.forget', name: 'Emilia', fact: 'something she never knew at all' }]).rejected.length, 1, 'a fact she does not hold is refused, not guessed');
+
+  /* the main character's "where" belongs to the old ground */
+  let mc = emptyState();
+  mc.sheet = { actors: {}, playerName: 'Jovan' };
+  mc = applyMutations(mc, [{ type: 'place.set', name: 'The Bluebird' }, { type: 'people.set', name: 'Jovan', field: 'state', text: 'arrives at the Bluebird sock-footed' }]).state;
+  const moved = applyMutations(mc, [{ type: 'place.set', name: 'The Wells kitchen' }]).state;
+  assert(!(moved.characters.Jovan && moved.characters.Jovan.state), 'the move lets his old "where" go');
+  eq(undoLast(moved).state.characters.Jovan.state, 'arrives at the Bluebird sock-footed', 'a take-back restores it');
+  let mine = applyMutations(mc, [{ type: 'people.set', name: 'Jovan', field: 'state', text: 'MY OWN WORDS', byHand: true }]).state;
+  mine = applyMutations(mine, [{ type: 'place.set', name: 'The Wells kitchen' }]).state;
+  eq(mine.characters.Jovan.state, 'MY OWN WORDS', 'the writer\u2019s own words stay');
+
+  /* a thread line that broke off, a name written twice */
+  let th = applyMutations(emptyState(), [{ type: 'thread.set', title: 'Vanessa\u2019s party', next: 'throw it on Saturday' }]).state;
+  th = applyMutations(th, [{ type: 'thread.set', title: 'Vanessa\u2019s party', next: 'Vanessa means to' }]).state;
+  eq(th.threads[0].next, 'throw it on Saturday', 'a next step that broke off is not written');
+  const dbl = applyMutations(emptyState(), [{ type: 'thread.set', title: 'Alexia Alexia\u2019s sunrise rematch', next: 'Saturday' }]).state;
+  eq(dbl.threads[0].title, 'Alexia\u2019s sunrise rematch', 'a name written twice is written once');
+  const { undoubled, brokenOff } = await import('../../js/engine/world.js');
+  eq(undoubled('Alexia Vanderbilt Alexia Vanderbilt plans the rematch'), 'Alexia Vanderbilt plans the rematch', 'a whole name written twice, once');
+  eq(undoubled('The trip to Bora Bora'), 'The trip to Bora Bora', 'a place that says its word twice is left alone');
+  eq(undoubled('she had had enough'), 'she had had enough', 'and so is plain English');
+  for (const whole of ['find the party she wants to go to', 'decide whether to move in', 'figure out who she can count on', 'say what she is worried about']) {
+    eq(brokenOff(whole), false, 'a finished line stands: ' + whole);
+  }
+  for (const cut of ['Vanessa means to', 'throw a party for the', 'call Jovan and', 'the plan is to']) {
+    eq(brokenOff(cut), true, 'a broken one does not: ' + cut);
+  }
+  const went = applyMutations(emptyState(), [{ type: 'thread.set', title: 'Vanessa\u2019s party', next: 'find the party she wants to go to' }]).state;
+  eq(went.threads[0].next, 'find the party she wants to go to', 'and a finished next step is written');
+
+  /* the live answer */
+  eq(hk.answerAsWritten('Let me look. <fetch>["#a1"]</fetch>\n<brief>[{"find":"# STATE'), 'Let me look.\n\n(looking something up…) (writing its cards…)', 'the wire\u2019s blocks never show in the live answer');
+});

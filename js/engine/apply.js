@@ -44,10 +44,10 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
-import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd } from './people.js';
+import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc } from './people.js';
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
-import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES } from './world.js'; /* M29: the world beyond the page */
+import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
 
 const LOG_CAP = 200;
 
@@ -318,10 +318,25 @@ const HANDLERS = {
         delete p.position;
       }
     }
+    /* M272: THE MAIN CHARACTER'S "WHERE THEY ARE" BELONGS TO THE OLD GROUND TOO.
+     * Jovan's page still read "arrives at the Bluebird" five hours and three
+     * places later, and every reader of the whole ledger took it for now. A
+     * move lets it go (the writer's own words stay); a take-back restores it. */
+    let mcState = null;
+    if (typeof before === 'string' && before) {
+      for (const [k, entry] of Object.entries(state.characters && typeof state.characters === 'object' ? state.characters : {})) {
+        if (!entry || typeof entry.state !== 'string' || !entry.state.trim() || (entry.hand && entry.hand.state) || !isMc(state, k)) continue;
+        mcState = { key: k, state: entry.state };
+        const rest = { ...entry };
+        delete rest.state;
+        state.characters = { ...state.characters, [k]: rest };
+        break;
+      }
+    }
     return {
       ok: true,
       words: 'The scene now stands in ' + name + '.',
-      undo: { kind: 'place', before, positions },
+      undo: { kind: 'place', before, positions, mcState },
     };
   },
 
@@ -749,11 +764,15 @@ const HANDLERS = {
     const heat = typeof m.heat === 'string' ? m.heat.trim().toLowerCase() : '';
     const before = Array.isArray(state.threads) ? state.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
     const at = findThread(before, title);
+    /* M272: a next step that breaks off mid-phrase ("Vanessa means to") is not written — the old one stands */
+    const nextRaw = capText(m.next, 1000);
+    const nextStep = nextRaw && !brokenOff(nextRaw) ? nextRaw : '';
     state.threads = setThread(state.threads, {
-      title, owner: capText(m.owner, 120), heat: heat === 'cold' ? 'cold' : (heat === 'hot' ? 'hot' : undefined), next: capText(m.next, 1000),
+      title, owner: capText(m.owner, 120), heat: heat === 'cold' ? 'cold' : (heat === 'hot' ? 'hot' : undefined), next: nextStep,
     }, storyTurn(state));
     const words = (at === -1 ? 'A thread opened: ' : 'A thread moved: ') + title
-      + (capText(m.next, 1000) ? ' — next, ' + capText(m.next, 1000).replace(/\.+$/, '') : '')
+      + (nextStep ? ' — next, ' + nextStep.replace(/\.+$/, '') : '')
+      + (nextRaw && !nextStep ? ' (its next step broke off mid-phrase, so the old one stands)' : '')
       + (heat === 'cold' ? ' (gone cold)' : '') + '.';
     return { words, undo: { kind: 'threads.restore', before } };
   },
@@ -766,6 +785,27 @@ const HANDLERS = {
     if (at === -1) return { why: 'no thread called ' + title + ' is open' };
     state.threads = closeThread(state.threads, title);
     return { words: 'A thread closed: ' + before[at].title + '.', undo: { kind: 'threads.restore', before } };
+  },
+
+  /* M272: A FACT LET GO — one the person does not know after all, or a copy
+   * written twice. The ledger could only ever add to what someone knew. Every
+   * line that answers to the quoted fact goes; a take-back restores them. */
+  'knowledge.forget'(state, m) {
+    const name = normalizeName(m.name);
+    const fact = capText(m.fact || m.text, 1000);
+    if (!name) return { why: 'no name came with it' };
+    if (!fact) return { why: 'it didn’t say which fact to let go' };
+    const key = findKnowledgeKey(state.knowledge, name);
+    const list = key && state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key] : [];
+    if (!list.length) return { why: (key || name) + ' has nothing written down to let go' };
+    const want = factKey(fact);
+    const keep = list.filter((k) => !(sameFact(k.fact, fact) || (want.length >= 12 && factKey(k.fact).includes(want))));
+    if (keep.length === list.length) return { why: 'no line of what ' + key + ' knows answers to “' + fact.slice(0, 80) + '”' };
+    const before = list.map((k) => ({ ...k }));
+    const gone = list.length - keep.length;
+    state.knowledge = { ...state.knowledge, [key]: keep };
+    if (!keep.length) delete state.knowledge[key];
+    return { words: key + ' no longer knows: ' + fact.replace(/\.+$/, '') + ' (' + gone + (gone === 1 ? ' line' : ' lines') + ' let go).', undo: { kind: 'knowledge.restore', name: key, before } };
   },
 
   'knowledge.add'(state, m) {
@@ -1214,6 +1254,9 @@ function applyUndo(next, undo) {
       ok = true;
     } else if (undo.kind === 'place') {
       next.place = undo.before ? { name: undo.before } : null;
+      if (undo.mcState && next.characters && next.characters[undo.mcState.key] && !next.characters[undo.mcState.key].state) {
+        next.characters = { ...next.characters, [undo.mcState.key]: { ...next.characters[undo.mcState.key], state: undo.mcState.state } };
+      }
       /* M261: the positions the move let go come back to whoever is still here */
       for (const was of Array.isArray(undo.positions) ? undo.positions : []) {
         const at = (next.present || []).findIndex((p) => p && p.name === was.name);

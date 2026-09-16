@@ -748,6 +748,17 @@ export function buildHousekeeperContext({
       pending.push('- “' + pr.label + '”' + (pr.op && pr.op.messageId ? ' on ' + refOf({ id: pr.op.messageId }) : '') + stale);
     }
   }
+  /* M272: WHAT BECAME OF EVERY CARD, IN ONE PLACE. The fate of each answer's
+   * cards rode after that answer only; an older answer's own words ("still
+   * pending") outlived the cards, and the housekeeper repeated them. */
+  const done = [];
+  for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
+    for (const pr of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
+      if (!pr || pr.status === 'pending' || pr.kind === 'unreadable') continue;
+      done.push('- “' + pr.label + '”: ' + cardFate(pr, session));
+    }
+  }
+  if (done.length) parts.push('CARDS ALREADY SETTLED (this list is what became of them NOW — trust it over anything an earlier answer said; never call one of these pending):\n' + done.slice(-60).join('\n'));
   parts.push(pending.length
     ? 'PENDING CARDS (staged earlier, not yet applied by the writer). A card marked STALE must be withdrawn with <supersede> or re-proposed with a fresh anchor in THIS answer; a card the writer no longer needs is withdrawn the same way — prose never removes a card:\n' + pending.join('\n')
     : 'PENDING CARDS: none.');
@@ -787,6 +798,10 @@ const SYSTEM_PROMPT = [
   '  {"field":"brief","find":"the exact words","replace":"the new words","reason":"why"}',
   '  {"field":"cast","text":"the whole new cast notes","reason":"why"} — replaces all of it',
   '  {"field":"brief","append":"a new paragraph","reason":"why"} — adds at the end',
+  '  THE BRIEF\'S OPENING IS WHERE THE STORY BEGAN: its STATE / SCENE / WHERE / PRESENT /',
+  '  ACTIVITY / LAST lines never follow the story, and you never bring them up to date —',
+  '  the present moment is the ledger\'s (the ground, the hour, who is here). The house',
+  '  refuses such a card unless the writer names that line.',
   '  Quote find exactly from THE BRIEF / THE CAST NOTES above. An empty field can',
   '  only take "text" or "append". The founder re-reads a changed brief on its own.',
   '  A fact the brief already states is REPLACED where it stands (an age, a name, a',
@@ -831,7 +846,9 @@ const SYSTEM_PROMPT = [
   '  offscreen.set {name,location,activity,agenda?,stance?,etaMinutes?}; offscreen.clear {name};',
   '  canon.lock {name,key,value}; canon.unlock {name,key};',
   '  thread.set {title,owner,heat,next}; thread.close {title};',
-  '  knowledge.add {name,fact} — who knows what; faction.set {name,stance,agenda,move};',
+  '  knowledge.add {name,fact} — who knows what; knowledge.forget {name,fact} — a fact they',
+  '  do not know after all, or one written twice (quote it; every copy goes);',
+  '  faction.set {name,stance,agenda,move};',
   '  people.set {name,field:core|state|arc|threads,text} — a whole field of a person’s page',
   '    (threads: the whole list, separated by semicolons; the main character takes state and',
   '    threads only); people.note {name,field:thread|unthread,text} — add or close ONE loose end;',
@@ -995,7 +1012,7 @@ export function ledgerTargetKey(m) {
   if (t.startsWith('offscreen.')) return 'offscreen:' + name;
   if (t.startsWith('canon.')) return 'canon:' + name;
   if (t.startsWith('thread.')) return 'threads';
-  if (t === 'knowledge.add') return 'knowledge:' + name;
+  if (t === 'knowledge.add' || t === 'knowledge.forget') return 'knowledge:' + name;
   if (t === 'faction.set') return 'faction:' + name;
   if (t.startsWith('people.')) return 'people:' + name;
   if (t.startsWith('combat.')) return 'combat';
@@ -1331,13 +1348,48 @@ export function recordNodeByHandle(nodes, handle) {
   return (nodes || []).find((nd) => nd && recordHandle(nd).slice(2) === h.slice(-6)) || null;
 }
 
-export function stageProposals(parsed, { messages, state, modules, lore, memory, session, story } = {}) {
+/* M272: the brief's opening lines — where the story began */
+const OPENING_LINE = /^[\s#>*•-]*(?:\*\*)?\s*(STATE|SCENE|WHERE|PRESENT|ACTIVITY|LAST|NOW|TIME|DATE|HOUR)\b\s*(?:\*\*)?\s*[:：—–-]/;
+/* the writer names the line itself: "the state line", "the SCENE block", "the opening" */
+const OPENING_WORDS = /\b(?:STATE|SCENE|WHERE|PRESENT|ACTIVITY|LAST)\b|\b(?:[Ss]tate|[Ss]cene|[Ww]here|[Pp]resent|[Aa]ctivity|[Ll]ast)\s+(?:line|block|section|part)\b|\b[Oo]pening\b|\b[Ss]tart(?:ing)?\s+(?:state|scene|point)\b/;
+export function touchesOpening(text) {
+  return String(text || '').split('\n').some((line) => OPENING_LINE.test(line));
+}
+export function openingLinesOf(text) {
+  return String(text || '').split('\n').filter((line) => OPENING_LINE.test(line)).map((l) => l.trim()).join('\n');
+}
+function linesAround(text, located) {
+  const src = String(text || '');
+  const start = located && Number.isFinite(located.start) ? located.start : -1;
+  const end = located && Number.isFinite(located.end) ? located.end : start;
+  if (start < 0) return '';
+  const a = src.lastIndexOf('\n', start) + 1;
+  const b = src.indexOf('\n', Math.max(start, end - 1));
+  return src.slice(a, b === -1 ? src.length : b);
+}
+
+export function stageProposals(parsed, { messages, state, modules, lore, memory, session, story, writerText = '' } = {}) {
   const proposals = [];
   const all = Array.isArray(messages) ? messages : [];
   const visible = all.filter((m) => m && !m.hidden);
   const mods = Array.isArray(modules) ? modules : [];
-  let auto = 0;
-  const nextLabel = (base) => { auto += 1; return base + ' ' + auto; };
+  /* M272: A CARD'S NAME IS ITS OWN IN THE WHOLE SESSION. The count began at 1
+   * in every answer, so two answers each had a "ledger changes 1" — one
+   * applied, one pending — and the housekeeper, reading both fates under one
+   * name, told the writer applied cards were still waiting; and <supersede>,
+   * which withdraws by name, could take a card from another answer. */
+  const sessionLabels = new Set();
+  for (const t of (session && Array.isArray(session.turns) ? session.turns : [])) {
+    for (const pr of (Array.isArray(t.proposals) ? t.proposals : [])) if (pr && pr.label) sessionLabels.add(labelKey(pr.label));
+  }
+  const madeLabels = new Set();
+  const nextLabel = (base) => {
+    let n = 1;
+    while (sessionLabels.has(labelKey(base + ' ' + n)) || madeLabels.has(labelKey(base + ' ' + n))) n += 1;
+    const l = base + ' ' + n;
+    madeLabels.add(labelKey(l));
+    return l;
+  };
   /* M61 (v2.76): a pending card whose anchor is dead is retired by a newer
    * proposal for the same page — never by anchor equality */
   const retireDead = (messageId) => {
@@ -1477,7 +1529,10 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       id: uid(),
       ts: Date.now(),
       kind: 'ledit',
-      label: nextLabel('ledger changes'),
+      /* M272: named for what it touches — eight edits to the pages of the people
+       * were filed as "ledger changes 1" */
+      label: nextLabel(mutations.every((m) => /^people\./.test(m.type)) ? 'people’s pages changes'
+        : mutations.some((m) => /^people\./.test(m.type)) ? 'ledger and people’s pages changes' : 'ledger changes'),
       reason: cleanReason(reasonOp ? reasonOp.reason : ''),
       op: { mutations, preview },
       status: 'pending',
@@ -1545,15 +1600,28 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     const field = String(op.field || '').trim().toLowerCase() === 'cast' || /cast/i.test(String(op.field || '')) ? 'cast' : 'brief';
     const key = field === 'cast' ? 'castNotes' : 'brief';
     const current = story && typeof story[key] === 'string' ? story[key] : '';
-    const label = typeof op.label === 'string' && op.label.trim() ? op.label.trim() : (field === 'cast' ? 'the cast notes' : 'the brief');
+    const plain = (t, n) => String(t).trim().split('\n')[0].replace(/[“”"]/g, '').slice(0, n).trim();
+    const what = typeof op.find === 'string' && op.find.trim() ? ' — ' + plain(op.find, 48)
+      : typeof op.append === 'string' && op.append.trim() ? ' — adding ' + plain(op.append, 40)
+      : typeof op.text === 'string' ? ' — all of it' : '';
+    const label = typeof op.label === 'string' && op.label.trim() ? op.label.trim() : (field === 'cast' ? 'the cast notes' : 'the brief') + what;
     const reason = cleanReason(op.reason);
+    /* M272: THE BRIEF'S OPENING IS WHERE THE STORY BEGAN. Its STATE / SCENE /
+     * WHERE / PRESENT / ACTIVITY / LAST lines never follow the story — the
+     * ledger holds the present moment. The housekeeper proposed "updating"
+     * them, was told no, and proposed the rest of the block instead. Refused
+     * here unless the writer asked for that line by name. */
+    const openingAsked = field === 'brief' && OPENING_WORDS.test(String(writerText || '')) && asksAboutBrief(writerText) && asksForChange(writerText);
+    const refuseOpening = () => proposals.push({ id: uid(), ts: Date.now(), kind: 'brief', label, reason, op: { field: key }, status: 'refused', words: 'THE BRIEF’s opening — where the story began — stays as written; the present moment is the ledger’s (the ground, the hour, who is here). Ask for that line by name to change it.', review: [] });
     const refuse = (words) => proposals.push({ id: uid(), ts: Date.now(), kind: 'brief', label, reason, op: { field: key }, status: 'refused', words, review: [] });
     let staged = null;
     if (typeof op.text === 'string') {
       if (!op.text.trim()) { refuse('the new text came in empty — to clear it, say so and the writer can do it by hand'); continue; }
+      if (field === 'brief' && !openingAsked && openingLinesOf(op.text) !== openingLinesOf(current)) { refuseOpening(); continue; }
       staged = { field: key, text: op.text };
     } else if (typeof op.append === 'string') {
       if (!op.append.trim()) { refuse('nothing to add'); continue; }
+      if (field === 'brief' && !openingAsked && touchesOpening(op.append)) { refuseOpening(); continue; }
       /* M79: a fact the field already states, appended again, is a second copy */
       if (normalizeWords(current).includes(normalizeWords(op.append))) { refuse('it already says that — nothing to add'); continue; }
       staged = { field: key, append: op.append.trim() };
@@ -1561,6 +1629,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       if (!current.trim()) { refuse('it is empty — there is nothing to find; use "text" or "append"'); continue; }
       const located = locate(current, op.find);
       if (!located.ok) { refuse(located.reason); continue; }
+      if (field === 'brief' && !openingAsked && (touchesOpening(linesAround(current, located)) || touchesOpening(op.replace))) { refuseOpening(); continue; }
       if (applyLocated(current, located, op.replace) === current) { refuse('the new words are the words already there'); continue; }
       /* M79: an edit that only ADDS words the same line already holds is a second copy — refused */
       const dup = duplicateOnLine(current, located, op.find, op.replace);
@@ -1639,6 +1708,19 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   const setAside = autoSupersede(session, merged.list, { messages, memory, lore, modules, story });
   merged.list.setAside = setAside;
   merged.list.intraDups = merged.dropped;
+  /* M272: a name an earlier answer's card holds, or one this answer used twice,
+   * gets a number — so a withdrawal by name takes exactly one card */
+  const seenHere = new Set();
+  for (const pr of merged.list) {
+    if (!pr || !pr.label) continue;
+    if (sessionLabels.has(labelKey(pr.label)) || seenHere.has(labelKey(pr.label))) {
+      const base = pr.label;
+      let n = 2;
+      while (sessionLabels.has(labelKey(base + ' (' + n + ')')) || seenHere.has(labelKey(base + ' (' + n + ')'))) n += 1;
+      pr.label = base + ' (' + n + ')';
+    }
+    seenHere.add(labelKey(pr.label));
+  }
   return merged.list;
 }
 
@@ -2685,7 +2767,7 @@ export function sessionWireOf(session) {
     out.push({ role: 'assistant', content: whole.length > WIRE_RAW_CAP ? whole.slice(0, WIRE_RAW_CAP) + '\n…(cut for room)' : whole });
     const cards = Array.isArray(t.proposals) ? t.proposals.filter((p) => p && p.kind !== 'unreadable') : [];
     if (cards.length) {
-      out.push({ role: 'user', content: '[STATE] What became of the cards in your last answer:\n' + cards.map((p) => '- “' + p.label + '”: ' + cardFate(p, session)).join('\n') + '\nWhat was applied now stands in THE BRIEF, the pages, the ledger, the record or the lore above; what was not applied did not happen — never assume it did.' });
+      out.push({ role: 'user', content: '[STATE] What became of the cards in the answer above, as they stand NOW:\n' + cards.map((p) => '- “' + p.label + '”: ' + cardFate(p, session)).join('\n') + '\nWhat was applied now stands in THE BRIEF, the pages, the ledger, the record or the lore above; what was not applied did not happen — never assume it did.' });
     }
   }
   return out;
@@ -2696,6 +2778,30 @@ export function sessionWireOf(session) {
  * Never throws. Returns {ok, raw, parsed, fetchRounds, thinking, error?}. */
 /* M270: why the housekeeper was asked again, in words that finish
  * "The housekeeper is …" */
+/* M272: THE ANSWER AS THE WRITER SHOULD SEE IT WHILE IT IS WRITTEN. The live
+ * bubble showed the raw wire — <fetch>["#a1c71a", …], <brief>[{"field":…
+ * — until the answer was in. The blocks become cards; while they are written,
+ * a quiet note stands where they are. */
+const LIVE_BLOCK_TAGS = ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'memedits', 'wiedits', 'bedits', 'fetch', 'supersede'];
+const LIVE_BLOCK_RES = LIVE_BLOCK_TAGS.map((tag) => [tag, new RegExp('<' + tag + '>[\\s\\S]*?</' + tag + '>', 'g')]); /* built once — this runs every frame */
+export function answerAsWritten(text) {
+  let out = String(text || '');
+  let looked = false;
+  let carded = false;
+  for (const [tag, re] of LIVE_BLOCK_RES) {
+    out = out.replace(re, () => { if (tag === 'fetch') looked = true; else carded = true; return ''; });
+  }
+  let cut = -1;
+  for (const tag of LIVE_BLOCK_TAGS) {
+    const at = out.indexOf('<' + tag + '>');
+    if (at !== -1 && (cut === -1 || at < cut)) { cut = at; if (tag === 'fetch') looked = true; else carded = true; }
+  }
+  if (cut !== -1) out = out.slice(0, cut);
+  out = out.replace(/<\/?[a-z]*$/i, '').replace(/\n{3,}/g, '\n\n').trim();
+  const notes = [looked ? '(looking something up…)' : '', carded ? '(writing its cards…)' : ''].filter(Boolean).join(' ');
+  return [out, notes].filter(Boolean).join('\n\n') || '…';
+}
+
 export function roundWhy(content) {
   const t = String(content || '');
   if (/^What you asked for, whole/.test(t)) return 'reading what it looked up';
@@ -2938,7 +3044,7 @@ export async function housekeeperTurn({
     });
     if (!result.ok) return { ok: false, error: result.error || 'the housekeeper went quiet' };
 
-    const proposals = stageProposals(result.parsed, { messages, state, modules, lore, memory: mem, session, story });
+    const proposals = stageProposals(result.parsed, { messages, state, modules, lore, memory: mem, session, story, writerText });
     let withdrawNote = '';
     /* M82: what was set aside by this answer's cards, said in the talk */
     if (proposals.setAside) withdrawNote += '\n\n(' + proposals.setAside + (proposals.setAside === 1 ? ' older card' : ' older cards') + ' set aside — replaced by this answer’s; Apply all applies only the newest version of each fix.)';

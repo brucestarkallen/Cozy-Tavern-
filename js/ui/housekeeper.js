@@ -21,8 +21,7 @@ import {
   cleanContextPages, DEFAULT_CONTEXT_PAGES,
   listSessions, switchSession, newSession, branchSession, renameSession, deleteSession, clearSession, deleteLastExchange,
   editTurnAt, deleteTurnAt, truncateForRetry, keepVersions, walkVersion, versionsOf, /* M73: the bubble row */
-  expandCommand, COMMANDS, buildHousekeeperContext, callModel,
-} from '../agents/housekeeper.js';
+  expandCommand, COMMANDS, buildHousekeeperContext, callModel, answerAsWritten } from '../agents/housekeeper.js';
 import { loadState, renderStateFacts } from '../engine/state.js';
 import { loadMemory, wholeRecord } from '../agents/memory.js';
 import { loadLore } from '../import/lorebook.js';
@@ -826,6 +825,8 @@ export function initHousekeeper(ctx) {
     /* M269: what streamed since the last frame, drawn once a frame */
     let waitingThink = '';
     let waitingProse = '';
+    let liveAnswer = '';
+    let liveRedrawn = false;
     let drawQueued = false;
     let proseBegun = false;
     const atBottom = () => thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80;
@@ -873,7 +874,12 @@ export function initHousekeeper(ctx) {
             }
           }
         }
-        pendingBubble.appendChild(document.createTextNode(waitingProse));
+        /* M272: the answer as it will read — the blocks it is writing become a quiet note.
+         * Plain words are added at the end; once a block may be forming (a "<"),
+         * the answer is drawn whole each frame, as it will read. */
+        liveAnswer += waitingProse;
+        if (!liveRedrawn && liveAnswer.indexOf('<') === -1) pendingBubble.appendChild(document.createTextNode(waitingProse));
+        else { liveRedrawn = true; pendingBubble.textContent = answerAsWritten(liveAnswer); }
         waitingProse = '';
       }
       tick();
@@ -919,12 +925,16 @@ export function initHousekeeper(ctx) {
           lastBeat = Date.now();
           /* M270: a new round — the heartbeat, and a fresh answer on its way */
           if (tok && tok.channel === 'round') {
+            /* M272: the round before is drawn to its last word first, then the bubble says what comes next */
+            if (drawQueued || waitingThink || waitingProse) drawStream();
             roundNo = Number.isFinite(tok.round) ? tok.round : roundNo + 1;
             roundWhy = tok.why || 'answering again';
             waitingProse = '';
+            liveAnswer = '';
+            liveRedrawn = false;
             proseBegun = false;
             answerChars = 0;
-            pendingBubble.textContent = '…';
+            pendingBubble.textContent = '(' + roundWhy + '…)';
             if (liveThinking) liveThinking += '\n\n— asked again —\n\n';
             if (thinkFold) { thinkFold.open = true; thinkFold.querySelector('summary').textContent = 'How it’s weighing it…'; }
             tick();
