@@ -40,6 +40,7 @@
  *    fresh (referee.refereeStep).
  */
 
+import { tidyPeople, tidyDue, tidyRunWords } from '../agents/tidy.js'; /* M291: the character pages, tidied once */
 import { streamText } from './streamtext.js'; /* M279 */
 import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
@@ -2730,6 +2731,19 @@ export function initChat(ctx) {
       let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
       if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
+    });
+
+    /* 4a'. M291: THE CHARACTER PAGES, TIDIED ONCE — background out of "now", a household's
+     * words on the right page — the standings untouched; a reading that could not be read
+     * leaves the stamp for next time. */
+    enqueue('scribe', async ({ signal, stale, renew }) => {
+      if (story.extraction === false || stale()) return { silent: true };
+      if (!tidyDue(await loadState(story.id))) return { silent: true };
+      const connection = await resolveWorkerConnection(story, 'scribe');
+      if (!connection) return { silent: true };
+      const r = await tidyPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
+      if (!r) return { silent: true };
+      return { silent: false, detail: tidyRunWords(r), unfinished: r.failed > 0 };
     });
 
     /* 4a. M262: THE HOUSE HEALS WHAT THE OLD READERS LEFT. A story that bears

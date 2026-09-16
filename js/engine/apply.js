@@ -916,7 +916,7 @@ const HANDLERS = {
 
   'people.set'(state, m) {
     const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
-    const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state));
+    const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state), { clear: m.clear === true });
     if (!result.entry) return { why: result.why };
     const before = result.before ? cloneMap({ [result.key]: result.before })[result.key] : null;
     if (result.entry.retired) { const { retired, retiredAtTurn, ...rest } = result.entry; result.entry = rest; } /* M57: a page written wakes them */
@@ -932,7 +932,7 @@ const HANDLERS = {
       arc: 'how things stand with them',
       threads: 'their loose ends',
     };
-    const words = result.key + ' — ' + (FIELD_WORDS[field] || 'their page') + ' was written down'
+    const words = result.key + ' — ' + (FIELD_WORDS[field] || 'their page') + (m.clear === true ? ' was let go' : ' was written down')
       + (field === 'threads'
         ? (result.entry.threads.length ? ': ' + result.entry.threads.join('; ') : ' — all let go')
         : ': ' + result.entry[field])

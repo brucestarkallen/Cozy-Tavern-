@@ -46,6 +46,8 @@ const SYSTEM_PROMPT = [
   'Each delta is {"name":"NAME","field":"state","text":"…"} where field is one of:',
   '  core   — their stable nature: voice, tells, what never really changes.',
   '           Write it rarely, only when the prose truly shows it.',
+  '  (a "state" that holds who they are in their life — school year, age, role, family, home — is not a',
+  '   state: add those facts to their core and write where they are and what they are doing now. M291)',
   '  state  — where they are and how they are doing, RIGHT NOW. Lead with',
   '           the place. Rewrite it when they move or their condition turns.',
   '           ONLY for people IN THE SCENE. A person who is elsewhere has a',

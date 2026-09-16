@@ -42,6 +42,7 @@ import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
 import { isMc } from '../engine/people.js';
+import { storyTurn as storyTurnOf } from '../engine/apply.js'; /* M291: how long ago a page was last written */
 import { listCast, attachToStory, detachFromStory } from '../import/cards.js';
 import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '../agents/status.js';
 import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices */
@@ -992,7 +993,22 @@ function onTheirMindPanel(ctx) {
         li.appendChild(small);
       };
       line('', entry.core);
-      line('Now: ', entry.state);
+      /* M291: NOW, ALIVE. A person away is where the world says they are (the seat); a note from a
+       * scene long gone says how long ago; only those on the page, and the latest word, read "Now". */
+      {
+        const here = (state.present || []).some((p) => p && p.name && p.name.toLowerCase() === name.toLowerCase());
+        const seatKey = Object.keys(state.offscreen || {}).find((k) => k.toLowerCase() === name.toLowerCase());
+        const seat = seatKey ? state.offscreen[seatKey] : null;
+        const turnNow = storyTurnOf(state);
+        const ago = Number.isFinite(entry.updatedAtTurn) ? Math.max(0, turnNow - entry.updatedAtTurn) : 0;
+        if (!here && !isTheMc && seat && (seat.location || seat.activity)) {
+          line('Now (elsewhere): ', [seat.location, seat.activity].filter(Boolean).join(', '));
+        } else if (!here && !isTheMc && entry.state && ago > 2) {
+          line('Last seen ' + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ', entry.state);
+        } else {
+          line('Now: ', entry.state);
+        }
+      }
       line('Between you: ', entry.arc);
       if (Array.isArray(entry.threads) && entry.threads.length) {
         /* M131: a loose end that repeats a world thread this person owns is shown once — as the thread */

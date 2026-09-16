@@ -1958,6 +1958,63 @@ test('DOM-31 Retry while the page\u2019s readers are still out: nothing they rea
   }
 });
 
+test('DOM-32 the character pages read alive: the ones here say what they are doing, the absent where the world has them, an old note how old it is (M291)', async () => {
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const st = await db.stories.create({ title: 'the pages alive' });
+  await db.messages.append(st.id, { role: 'user', text: 'Evening.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The lamps came on along Mariner\u2019s Lane.' });
+  await saveState(st.id, { ...emptyState(), page: 60, tidiedGen: 999, place: { name: 'The Wells kitchen' }, present: [{ name: 'Jovan' }, { name: 'Aurora Sterling' }],
+    characters: {
+      'Aurora Sterling': { core: 'Warm, sociable, quietly perceptive.', state: 'at the kitchen window, phone in hand', arc: '', threads: [], updatedAtTurn: 60 },
+      'Ms. June': { core: 'Bluebird waitress in her fifties.', state: 'Held Jovan\u2019s face at the diner and comped the first round.', arc: '', threads: [], updatedAtTurn: 20 },
+      'Eli Sterling': { core: 'About six, rail-thin.', state: 'Dragged inside mid-protest about vampire logistics.', arc: '', threads: [], updatedAtTurn: 30 },
+    },
+    offscreen: { 'Ms. June': { location: 'the Bluebird, closing up', activity: 'stacking chairs' } } });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await env.ctx.drawer.renderAllRooms(); await tick(350);
+  const rowOf = (name) => [...qa('#drawer .mind-row')].find((li) => li.firstChild && li.firstChild.textContent === name);
+  await until(() => rowOf('Ms. June'), 'the character pages to draw', 10000);
+  const text = (name) => [...rowOf(name).querySelectorAll('small')].map((x) => x.textContent).join(' | ');
+  assert(/Now: at the kitchen window, phone in hand/.test(text('Aurora Sterling')), 'the one here: what she is doing \u2014 ' + text('Aurora Sterling'));
+  assert(/Now \(elsewhere\): the Bluebird, closing up, stacking chairs/.test(text('Ms. June')) && !/comped the first round/.test(text('Ms. June')), 'the absent: where the world has her, not the diner long gone \u2014 ' + text('Ms. June'));
+  assert(/Last seen 31 pages ago: Dragged inside/.test(text('Eli Sterling')), 'an old note says how old it is \u2014 ' + text('Eli Sterling'));
+  click(q('#btn-ledger')); await tick(300);
+});
+
+test('DOM-33 a story whose pages hold who they are in "now" is tidied once by the house, on its own (M291)', async () => {
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the pages tidied' });
+  await db.messages.append(st.id, { role: 'user', text: 'Evening at home.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'Rias leaned on the counter.' });
+  await saveState(st.id, { ...emptyState(), page: 0, place: { name: 'The Wells kitchen' }, present: [{ name: 'Jovan' }, { name: 'Rias Wells' }],
+    characters: { 'Rias Wells': { core: 'Confident, playful, possessive by nature.', state: 'Ravenwood High second-year, student council VP; 17', arc: '', threads: [], updatedAtTurn: 0 } } });
+  let tidyAsked = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/character pages of a long story tidy/i.test(sys)) {
+      tidyAsked += 1;
+      return '{"pages":[{"name":"Rias Wells","core":"Confident, playful, possessive by nature. Ravenwood High second-year, student council VP; 17.","state":"leaning on the kitchen counter"}]}';
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    click(q('.msg-act[data-act="go on"]'));
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg.pending'), 'the page to land', 40000);
+    await until(() => queuedCount(st.id) === 0 && tidyAsked > 0, 'the house to tidy the pages', 40000);
+    await until(async () => (await loadState(st.id)).tidiedGen >= 291, 'the tidy to be stamped', 20000);
+    const after = await loadState(st.id);
+    const rias = after.characters['Rias Wells'];
+    assert(/second-year, student council VP; 17/.test(rias.core), 'who she is holds her year: ' + rias.core);
+    assert(!/second-year/.test(rias.state || ''), 'and her now is no longer who she is: ' + rias.state);
+    eq(tidyAsked, 1, 'asked once');
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

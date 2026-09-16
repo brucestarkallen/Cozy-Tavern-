@@ -74,6 +74,7 @@ const SHELL = [
   'js/agents/director.js',
   'js/agents/editor.js',
   'js/agents/housekeeper.js',
+  'js/agents/tidy.js',
   'js/agents/voice.js',
   'js/commands.js',
   'js/providers/effort.js',

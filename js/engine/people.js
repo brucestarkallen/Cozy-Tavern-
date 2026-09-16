@@ -361,7 +361,7 @@ export function mergeDeltas(state, characters, deltas, turn) {
 /* The hand's door (people.set in engine/apply.js): write one field
  * outright. Same validation, same MC law. `threads` takes the whole list,
  * separated by semicolons or newlines. Returns {entry, key} or {why}. */
-export function setPersonField(state, characters, name, field, text, turn) {
+export function setPersonField(state, characters, name, field, text, turn, { clear = false } = {}) {
   const cleanName = normalizeName(name);
   if (!cleanName) return { why: 'no name came with it' };
   const f = typeof field === 'string' ? field.trim().toLowerCase() : '';
@@ -397,6 +397,10 @@ export function setPersonField(state, characters, name, field, text, turn) {
       if (list.length >= THREADS_MAX) break;
     }
     entry.threads = list;
+  } else if (clear && (f === 'state' || f === 'arc')) {
+    /* M291: let go on purpose — a now that was never a now, a line that was someone else's */
+    if (!entry[f]) return { why: 'there was nothing written there' };
+    entry[f] = '';
   } else {
     const clean = cleanFieldText(text, FIELD_CAPS[f]);
     if (!clean) return { why: 'the note came in empty' };

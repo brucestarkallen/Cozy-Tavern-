@@ -2250,3 +2250,72 @@ test('M259-56: the house asks the provider how much its model holds — a room l
   eq(contextOf(a) + contextOf(b), 1400000, 'and both have the answer');
   eq(detectKey(twin), 'm1@https://api.twin.example/v1', 'the answer belongs to the model at its address');
 });
+
+test('M259-57: the character pages are tidied once — who they are out of "now", a household\u2019s words on the right page — and a field can be let go', async () => {
+  const td = await import('../../js/agents/tidy.js');
+  const { undoLast } = await import('../../js/engine/apply.js');
+  const base = emptyState(); base.sheet = { actors: {}, playerName: 'Jovan Wells' }; base.page = 199;
+  /* a field let go on purpose, journaled, and taken back */
+  const withNow = applyMutations(base, [{ type: 'people.set', name: 'Rias Wells', field: 'state', text: 'Ravenwood High second-year; 17' }]).state;
+  const cleared = applyMutations(withNow, [{ type: 'people.set', name: 'Rias Wells', field: 'state', text: '', clear: true }]);
+  eq(cleared.state.characters['Rias Wells'].state, '', 'a state let go');
+  assert(/Rias Wells — where they are was let go/.test(cleared.applied[0].words), 'and the log says so: ' + cleared.applied[0].words);
+  eq(undoLast(cleared.state).state.characters['Rias Wells'].state, 'Ravenwood High second-year; 17', 'and it can be taken back');
+  eq(applyMutations(base, [{ type: 'people.set', name: 'Nobody', field: 'core', text: '', clear: true }]).applied.length, 0, 'a core is never let go this way');
+  /* what calls for a tidy */
+  const st = { ...base, characters: {
+    'Rias Wells': { core: 'Confident, playful, possessive by nature.', state: 'Ravenwood High second-year, student council VP; 17', arc: 'devoted older sister', threads: [], updatedAtTurn: 190 },
+    'Mr. Sterling': { core: 'Aurora and Eli\u2019s father; tall, silvering.', state: 'Crossed the driveway with the dish towel still in her fist; she is baking Sunday.', arc: 'moved her to tears she blamed on dust', threads: [], updatedAtTurn: 190 },
+    'Mrs. Sterling': { core: 'Aurora and Eli\u2019s mother; small, sharp-eyed.', state: '', arc: '', threads: [], updatedAtTurn: 100 },
+    'Ms. June': { core: 'Bluebird waitress in her fifties.', state: 'Held Jovan\u2019s face at the diner.', arc: 'folded him into the diner\u2019s care', threads: [], updatedAtTurn: 120 },
+    'Hand Kept': { core: 'the writer\u2019s own', state: 'a first-year; 16', arc: '', threads: [], updatedAtTurn: 50, hand: { state: true } },
+  }, offscreen: { 'Ms. June': { location: 'the Bluebird, closing up', activity: 'stacking chairs' } }, relationships: { 'Rias Wells': { p: 100, r: 100, s: 52, history: [] } } };
+  assert(td.lifeLineInNow(st) && td.titleCrossed(st) && td.tidyDue(st), 'who they are in "now", and a husband\u2019s page speaking of her, call for a tidy');
+  eq(td.tidyDue({ ...st, tidiedGen: td.TIDY_GEN }), false, 'once, not again');
+  eq(td.lifeLineInNow({ ...base, characters: { 'Hand Kept': st.characters['Hand Kept'] } }), false, 'a line the writer wrote by hand is his');
+  /* what an answer may change */
+  const muts = td.tidyMutations(st, [
+    { name: 'Rias Wells', core: 'Confident, playful, possessive by nature. Ravenwood High second-year, student council VP; 17.', state: '' },
+    { name: 'Hand Kept', state: '' },
+    { name: 'Ms. June', core: 'short' },
+    { name: 'Jovan Wells', state: 'x' },
+    { name: 'Nobody Known', state: 'x' },
+  ]);
+  eq(JSON.stringify(muts.map((m) => [m.name, m.field, m.clear === true])), JSON.stringify([['Rias Wells', 'core', false], ['Rias Wells', 'state', true]]), 'only what it may: never the writer\u2019s field, a shortened core, the main character, or a stranger');
+  /* end to end */
+  const sid = 'm259-tidy';
+  await saveState(sid, st);
+  await db.messages.append(sid, { role: 'user', text: 'We eat.' });
+  await db.messages.append(sid, { role: 'assistant', text: 'LATEST-PAGE: Mrs. Sterling set the pie down; Rias laughed at the counter.' });
+  const answer = JSON.stringify({ pages: [
+    { name: 'Rias Wells', core: 'Confident, playful, possessive by nature. Ravenwood High second-year, student council VP; 17.', state: 'at the kitchen counter, laughing' },
+    { name: 'Mr. Sterling', state: '', arc: '' },
+    { name: 'Mrs. Sterling', state: 'Crossed the driveway with the dish towel still in her fist; she is baking Sunday.', arc: 'Jovan\u2019s answer moved her to tears she blamed on dust' },
+    { name: 'Ms. June', state: '' },
+  ] });
+  const house = scriptedHouse([answer]);
+  const r = await withHouse(house, () => td.tidyPeople({ connection: CONN, storyId: sid, brief: 'BRIEF-FOR-TIDY Rias Wells is Jovan\u2019s sister.', castNotes: 'CAST-FOR-TIDY' }));
+  const after = await loadState(sid);
+  eq(after.characters['Rias Wells'].state, 'at the kitchen counter, laughing', 'Rias\u2019s now is her now');
+  assert(/second-year, student council VP; 17/.test(after.characters['Rias Wells'].core) && /^Confident, playful/.test(after.characters['Rias Wells'].core), 'and who she is holds her year and her age, every old word kept');
+  eq(after.characters['Mr. Sterling'].state + '|' + after.characters['Mr. Sterling'].arc, '|', 'his page lets go of her moments');
+  assert(/dish towel still in her fist/.test(after.characters['Mrs. Sterling'].state) && /tears/.test(after.characters['Mrs. Sterling'].arc), 'and hers holds them');
+  eq(after.characters['Ms. June'].state, '', 'a scene long gone lets go where the world has seated her');
+  eq(JSON.stringify(after.relationships['Rias Wells']), JSON.stringify(st.relationships['Rias Wells']), 'the standings are not touched');
+  eq(after.tidiedGen, td.TIDY_GEN, 'stamped');
+  const sent = JSON.stringify(house.calls[0].body);
+  assert(sent.includes('BRIEF-FOR-TIDY') && sent.includes('CAST-FOR-TIDY') && sent.includes('the Bluebird, closing up') && sent.includes('LATEST-PAGE'), 'it read the brief, the cast notes, where the absent are, and the latest page');
+  assert(/tidied 4 pages/.test(td.tidyRunWords(r)), 'the workers\u2019 line says what it did: ' + td.tidyRunWords(r));
+  /* an answer it cannot read leaves the stamp for next time */
+  const sid2 = 'm259-tidy-2';
+  await saveState(sid2, st);
+  await db.messages.append(sid2, { role: 'assistant', text: 'a page' });
+  const r2 = await withHouse(scriptedHouse(['not json at all']), () => td.tidyPeople({ connection: CONN, storyId: sid2 }));
+  eq(r2.failed, 1, 'the unreadable answer is counted');
+  assert(td.tidyDue(await loadState(sid2)), 'and the tidy is still due');
+  /* the founder and the scribe are told the same thing */
+  const fo = await import('../../js/agents/founder.js');
+  const sc = await import('../../js/agents/scribe.js');
+  assert(/who they are in their life \(school year, age, role, family, home\) belongs in their core, never in "state"/.test(fo.buildFounderMessages({ state: base, brief: 'b' }).system), 'the founder puts who they are in the core');
+  assert(/is not a[\s\S]*state: add those facts to their core/.test(sc.buildScribeMessages({ state: base, userText: 'u', assistantText: 'a' }).system), 'and the scribe moves it there');
+});

@@ -6278,3 +6278,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   Removing only the late one is not observable (the early check stands) — noted.
 - 550/550 harness + 50/50 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story)
   within budget + lint 0 errors. version.js -> m290-001.
+
+# M291 — the character pages, tidied once and read alive
+- THE WRITER (the drawer's character pages beside "What's happening elsewhere"): "still stupid — stale,
+  not alive, weird confusing structure, no consistency on who's who and their background."
+- WHAT WAS WRONG: (1) the founder was told a page's state is "where they are in their life", so eleven
+  pages read "Now: Ravenwood High second-year; 17" — who they are, standing where the moment should,
+  while the scribe was told state is "RIGHT NOW"; a person away is the world agent's (the scribe drops
+  their state by design), so nothing ever replaced it; (2) the drawer printed that state as "Now:"
+  whatever it was — Ms. June still at the diner, Eli still being dragged inside — though the world
+  agent's seat had them elsewhere; (3) Mrs. Sterling's moments ("her fist", "she is baking", "moved
+  her to tears") sat on Mr. Sterling's page — the M272 title fix stopped new ones, the old stayed.
+- FIXED: the founder puts who they are (school year, age, role, family, home) in the core, state only
+  for where they are at the opening; the scribe moves such a state into the core. agents/tidy.js — once
+  a story (tidyDue: a life line in a now, or a titled page speaking of the other titled one of its
+  house; TIDY_GEN 291), the pages are read in eights with the brief, the cast notes, the households'
+  pages, where the absent are and the latest pages, and each field set where it belongs: never a field
+  the writer wrote by hand, never a core shortened or emptied, the standings untouched, every line
+  journaled; an unreadable answer leaves the stamp for next time. A state or an arc can be let go on
+  purpose (people.set clear — "was let go", taken back like any line). The drawer reads "Now:" for
+  those here, "Now (elsewhere): …" from the seat for the absent, "Last seen N pages ago: …" for an old
+  note.
+- Laws: M259-57 (let go and taken back; what calls for a tidy; what an answer may change; the tidy end to
+  end — her year in her core, his page letting go of her moments and hers holding them, a seated
+  absent's old scene let go, the standings untouched, the stamp, what it read; an unread answer
+  unstamped; the founder and the scribe told), DOM-32 (the drawer alive), DOM-33 (the chain tidies a
+  story on its own, once). 6 harness breaks, the old drawer and the missing chain job caught.
+- 551/551 harness + 52/52 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story)
+  within budget + lint 0 errors. version.js -> m291-001.
