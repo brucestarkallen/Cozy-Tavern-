@@ -5972,3 +5972,28 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   lines). 4 deliberate breaks caught, and the browser check caught the old tail view.
 - 537/537 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   (housekeeper, story, bigfetch) within budget + lint 0 errors. version.js -> m279-001.
+
+# M280 — the page reader decides every open thread; the writer's own people wait
+- THE WRITER: (1) "The five thread closings were real repairs — so make sure it doesn't need the
+  auditor to do it." (2) "At page 200 I asked the housekeeper to add new characters to the brief.
+  Will they be on the ledger later?"
+- (1) Closing a thread the page resolved was item four of the page reader's checklist, under "be
+  conservative — never what it merely hints at"; a thread resolved over a few pages stayed open until
+  the auditor, reading several at once, closed five in one reading. The page reader is now handed
+  the OPEN THREADS by name (title, owner, next step, cold marked) under every non-founding page, and
+  answers in their own slot — {"mutations":[…], "resolved":["exact title", …]} — which this page
+  resolved; the parser turns each into one thread.close (openThreadsBlock, parseExtractorAnswer).
+  The auditor stays the last defense for the ones it still misses. Whether DeepSeek fills the slot
+  well is not measurable here.
+- (2) The founder re-reads the brief whenever it changes (its fingerprint) on the next page, and
+  writes the new people in; the storyteller reads the brief every page. The gap: the people upkeep
+  (M57, every page since M261) retired anyone with no bond, seat, thread or lock after thirty quiet
+  pages — a character added for page 240 lost the card the storyteller reads. A person the brief or
+  the cast notes name (whole name or first name, as a whole word) is never retired for being away;
+  the audit and the page-by-page upkeep both hand it the brief.
+- Laws: M259-44 (the slot closes once each; the list with next steps and [cold]; none on a founding
+  read; end to end the resolved thread closes and the other stands; brief people kept by first or
+  whole name, a passer-through retired, a name inside another word no mention; the per-page upkeep
+  keeps them). 6 deliberate breaks caught.
+- 538/538 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + lint 0
+  errors. version.js -> m280-001.

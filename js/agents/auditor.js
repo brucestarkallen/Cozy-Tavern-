@@ -457,7 +457,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   }
   /* M57: passers-through retire in code — no bond, no seat, no thread, no
    * lock, not present, and thirty turns since their page last moved. */
-  guarded.push(...peopleHousekeeping(fresh));
+  guarded.push(...peopleHousekeeping(fresh, brief, castNotes));
   /* M95: the house's own example names, echoed into a ledger by a worker of an
    * older coat, are swept out unless the brief or the cast notes name them. */
   guarded.push(...exampleLeakHousekeeping(fresh, brief, castNotes));
@@ -518,7 +518,7 @@ export async function ledgerUpkeep({ storyId, brief = '', castNotes = '', stale 
   const fresh = await loadState(storyId);
   const all = answeredOnly((await db.messages.list(storyId)).filter((m) => !m.hidden));
   const list = [
-    ...peopleHousekeeping(fresh),
+    ...peopleHousekeeping(fresh, brief, castNotes),
     ...exampleLeakHousekeeping(fresh, brief, castNotes),
     ...seatHousekeeping(fresh, { brief, castNotes, pages: all.map((m) => ({ role: m.role, text: pageText(m) })) }),
   ];
@@ -537,8 +537,20 @@ export async function ledgerUpkeep({ storyId, brief = '', castNotes = '', stale 
  * nothing locked true of them; not the main character; and their page has
  * not moved for RETIRE_AFTER turns. Woken by any page or entrance. */
 export const RETIRE_AFTER = 30;
-export function peopleHousekeeping(state) {
+export function peopleHousekeeping(state, brief = '', castNotes = '') {
   const out = [];
+  /* M280: THE WRITER'S OWN PEOPLE ARE NEVER RETIRED FOR BEING AWAY. A character
+   * added to the brief at page 200 for page 240 had no bond, no seat and no
+   * thread yet — and thirty quiet pages later lost the card the storyteller
+   * reads. Named in the brief or the cast notes (whole name or first name), a
+   * person waits as long as the story needs. */
+  const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
+  const wordIn = (w) => w.length >= 3 && new RegExp('(^|[^\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^\\p{L}]|$)', 'u').test(material);
+  const inBrief = (name) => {
+    const full = String(name || '').trim().toLowerCase();
+    if (!full || !material.trim()) return false;
+    return wordIn(full) || wordIn(full.split(/\s+/)[0]);
+  };
   const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
   /* M163: PAGES, like the stamp it is compared against. updatedAtTurn is
    * written in pages told (M162); this read state.turn, the write counter,
@@ -558,6 +570,7 @@ export function peopleHousekeeping(state) {
     const k = lower(name);
     if (mc && samePersonLoose(name, mc)) continue;
     if (present.has(k) || seated.has(k) || locked.has(k)) continue;
+    if (inBrief(name)) continue; /* M280 */
     if (Array.isArray(c.threads) && c.threads.length) continue;
     const relKey = Object.keys(rels).find((r) => samePersonLoose(r, name));
     const rel = relKey ? rels[relKey] : null;

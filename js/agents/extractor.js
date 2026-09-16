@@ -223,7 +223,10 @@ function systemPrompt({ mc, founding }) {
     who,
     '',
     'Answer with JSON ONLY, in exactly this shape:',
-    '{"mutations":[ ... ]}',
+    '{"mutations":[ ... ], "resolved":[ ... ]}',
+    '"resolved" holds the exact titles of the OPEN THREADS (listed under the page) that THIS page',
+    'resolved — the question answered, the plan carried out or abandoned, the promise kept, the thing',
+    'found, the decision made. A thread the page only moved is not resolved. [] when none was.',
     '',
     'The only mutations that exist:',
     VOCABULARY,
@@ -301,9 +304,28 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     wholePage(assistantText),
     '"""',
     '',
+    ...(!founding ? openThreadsBlock(state) : []),
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
   return { system: withFictionFrame(systemPrompt({ mc, founding }) + '\n\n' + fetchLaw({ rounds: EXTRACTOR_LOOKS, when: 'Look only when THIS page leans on something you were not shown — a person, a promise or a place from an earlier page, a name the brief defines further on. Most pages need no look.' })), user, founding, mc };
+}
+
+/* M280: THE OPEN THREADS, EACH TO BE DECIDED. Closing a thread the page
+ * resolved was item four of a checklist, under "be conservative" — and a
+ * thread resolved over a few pages stayed open until the auditor, reading
+ * several at once, closed five in one reading. The page reader is handed the
+ * open threads by name and answers, in their own slot, which this page
+ * resolved. */
+export function openThreadsBlock(state) {
+  const threads = (state && Array.isArray(state.threads) ? state.threads : [])
+    .filter((t) => t && typeof t === 'object' && typeof t.title === 'string' && t.title.trim());
+  if (!threads.length) return [];
+  return [
+    'OPEN THREADS — decide each against THIS page; the titles of the ones it resolved go in "resolved":',
+    ...threads.map((t, i) => (i + 1) + '. \u201c' + t.title.trim() + '\u201d' + (t.owner ? ' (' + t.owner + ')' : '')
+      + (t.next ? ' \u2014 next: ' + String(t.next).trim() : '') + (t.heat === 'cold' ? ' [cold]' : '')),
+    '',
+  ];
 }
 
 /* M28: a ledger is young when it has no ground and nobody in it — the same
@@ -341,6 +363,14 @@ export function parseExtractorAnswer(raw) {
     const mutations = list.filter(
       (m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim()
     );
+    /* M280: each title the page resolved closes its thread (once) */
+    const closing = new Set(mutations.filter((m) => m.type === 'thread.close').map((m) => String(m.title || m.name || '').trim().toLowerCase()));
+    for (const title of (Array.isArray(parsed.resolved) ? parsed.resolved : [])) {
+      const t = typeof title === 'string' ? title.trim() : (title && typeof title.title === 'string' ? title.title.trim() : '');
+      if (!t || closing.has(t.toLowerCase())) continue;
+      closing.add(t.toLowerCase());
+      mutations.push({ type: 'thread.close', title: t });
+    }
     return { mutations, note: mutations.length ? 'ok' : 'empty' };
   } catch (err) {
     return { mutations: [], note: 'unusable' };

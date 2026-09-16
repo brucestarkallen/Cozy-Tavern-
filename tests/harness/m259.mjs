@@ -1671,3 +1671,47 @@ test('M259-43: a streamed thinking is drawn line by line — whole from its firs
   eq(saysAllIsWell({ what: 'the ledger\u2019s standing for Caleb Thorne is P:0 R:-28 S:0, but the pages show his conduct; a standing the pages have moved is not the ledger\u2019s to zero', fix: 'Caleb Thorne\u2019s standing toward Jovan stands as the pages moved it' }), true, '"stands as the pages moved it" is no finding');
   eq(saysAllIsWell({ what: 'the ledger\u2019s thread \u2018Maya\u2019s quiet archive\u2019 is still hot, but the pages show Maya sent Chloe four texts', fix: 'the thread is resolved' }), false, 'a thread the pages closed is one');
 });
+
+test('M259-44: the page reader decides every open thread against its page; the writer\u2019s own people are never retired for being away', async () => {
+  const ex = await import('../../js/agents/extractor.js');
+  const { peopleHousekeeping } = await import('../../js/agents/auditor.js');
+  /* the answer's own slot closes threads, once each */
+  const parsed = ex.parseExtractorAnswer('{"mutations":[{"type":"thread.close","title":"Maya\u2019s quiet archive"}],"resolved":["Maya\u2019s quiet archive",{"title":"Rias and the folder called old"},"",42]}');
+  eq(parsed.mutations.filter((m) => m.type === 'thread.close').map((m) => m.title).join('|'), 'Maya\u2019s quiet archive|Rias and the folder called old', 'each resolved title closes its thread, once');
+  eq(ex.parseExtractorAnswer('{"mutations":[]}').mutations.length, 0, 'an answer without the slot closes nothing');
+  /* the page reader is shown every open thread by name, to decide */
+  let st = applyMutations(emptyState(), [
+    { type: 'place.set', name: 'the Wells kitchen' }, { type: 'presence.enter', name: 'Rias Wells' },
+    { type: 'thread.set', title: 'Rias and the folder called old', owner: 'Rias Wells', next: 'hear why he called it old' },
+    { type: 'thread.set', title: 'Aurora\u2019s Friday welcome', owner: 'Aurora Sterling', next: 'decide how to welcome him', heat: 'cold' },
+  ]).state;
+  const msg = ex.buildExtractorMessages({ state: st, userText: 'u', assistantText: 'Jovan renamed it FAMILY RAVENWOOD; Rias nodded.', founding: false });
+  assert(/OPEN THREADS/.test(msg.user) && msg.user.includes('\u201cRias and the folder called old\u201d (Rias Wells) \u2014 next: hear why he called it old') && msg.user.includes('\u201cAurora\u2019s Friday welcome\u201d') && /\[cold\]/.test(msg.user), 'every open thread is listed with its next step');
+  assert(/"resolved"/.test(msg.system), 'and the answer has a slot for the ones this page resolved');
+  assert(!/OPEN THREADS/.test(ex.buildExtractorMessages({ state: st, userText: 'u', assistantText: 'a', founding: true }).user), 'a founding read has no threads to decide');
+  /* end to end: the page reader answers, the thread closes */
+  const house = thinkingHouse({ answer: '{"mutations":[],"resolved":["Rias and the folder called old"]}' });
+  const r = await withHouse(house, () => ex.extractTurn({ connection: CONN, state: st, userText: 'u', assistantText: 'Jovan renamed it FAMILY RAVENWOOD; Rias nodded and sat beside him.', founding: false }));
+  const after = applyMutations(st, r.mutations).state;
+  eq(after.threads.map((t) => t.title).join('|'), 'Aurora\u2019s Friday welcome', 'the thread the page resolved is closed, the other stands');
+
+  /* the writer's own people wait as long as the story needs */
+  const world = { ...emptyState(), page: 240, sheet: { actors: {}, playerName: 'Jovan' }, characters: {
+    'Nora Stone': { core: 'the baker', updatedAtTurn: 200 },
+    'Wendell Price': { core: 'the driver', updatedAtTurn: 200 },
+    'Cab Driver': { core: 'a driver', updatedAtTurn: 200 },
+  } };
+  const retired = peopleHousekeeping(world, 'Nora runs the bakery on Elm. Wendell Price drives the Uber.', '').map((m) => m.name).sort();
+  eq(retired.join('|'), 'Cab Driver', 'a brief-named person (by first name or whole name) is never retired for being away; a passer-through still is');
+  eq(peopleHousekeeping(world).map((m) => m.name).sort().join('|'), 'Cab Driver|Nora Stone|Wendell Price', 'and without a brief the old law holds');
+  eq(peopleHousekeeping(world, 'The Norah of old; Wendellson.', '').map((m) => m.name).sort().join('|'), 'Cab Driver|Nora Stone|Wendell Price', 'a name inside another word is not a mention');
+  /* and the upkeep that runs every page hands it the brief */
+  const { ledgerUpkeep } = await import('../../js/agents/auditor.js');
+  const sid = 'm259-brief-people';
+  await saveState(sid, world);
+  await db.messages.append(sid, { role: 'user', text: 'u' });
+  await db.messages.append(sid, { role: 'assistant', text: 'a quiet page' });
+  await ledgerUpkeep({ storyId: sid, brief: 'Nora runs the bakery on Elm. Wendell Price drives the Uber.', castNotes: '', stale: () => false });
+  const kept = await loadState(sid);
+  assert(!kept.characters['Nora Stone'].retired && !kept.characters['Wendell Price'].retired && kept.characters['Cab Driver'].retired, 'the page-by-page upkeep keeps the brief\u2019s people and retires the passer-through');
+});
