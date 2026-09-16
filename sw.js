@@ -18,6 +18,7 @@ const SHELL = [
   'js/app.js',
   'js/store.js',
   'js/providers/index.js',
+  'js/providers/room.js',
   'js/providers/anthropic.js',
   'js/providers/openai.js',
   'js/assemble/stack.js',

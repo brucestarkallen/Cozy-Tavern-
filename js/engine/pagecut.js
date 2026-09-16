@@ -15,14 +15,15 @@
  * the MIDDLE, never the end. No imports: the record keeper and the engine
  * both use it. */
 
+import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
 export const PAGE_CAP = 60000;
 
 /* M265: the room a connection has, in characters (about three a token, less
- * the answer's own budget) — here, with no imports, so the record keeper and
- * every worker measure it the same way. A connection with no size set is taken
- * at 128,000 tokens. */
+ * the answer's own budget), so the record keeper and every worker measure it
+ * the same way. M285: a connection with no size set is taken at its
+ * provider's (providers/room.js — itself without imports). */
 export function roomChars(connection, maxTokens = 6000) {
-  const size = connection && typeof connection.contextSize === 'number' && connection.contextSize > 0 ? connection.contextSize : 128000;
+  const size = contextOf(connection);
   return Math.max(30000, Math.floor((size - maxTokens - 2000) * 3));
 }
 

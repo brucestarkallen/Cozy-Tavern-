@@ -1842,6 +1842,29 @@ test('DOM-27 the ledger reads the pages it missed — while the writer plays and
   }
 });
 
+test('DOM-28 the ember bar measures the room the house plans in — the connection\u2019s own, not a flat 200,000 (M285)', async () => {
+  const { contextOf } = await import('../../js/providers/room.js');
+  const conns = await db.connections.list();
+  const conn = conns.find((c) => c && c.baseUrl && /mock\.example/.test(c.baseUrl)) || conns[0];
+  assert(conn && !(typeof conn.contextSize === 'number' && conn.contextSize > 0), 'the walk\u2019s connection sets no room of its own');
+  const room = contextOf(conn);
+  eq(room, 128000, 'an endpoint the house does not know is planned at 128,000');
+  const st = await db.stories.create({ title: 'the room' });
+  await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The lamp is lit.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  click(q('.msg-act[data-act="go on"]'));
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg.pending'), 'the page to land', 40000);
+  const withReceipt = (await db.messages.list(st.id)).reverse().find((m) => m && m.receipt && typeof m.receipt.totalTokens === 'number');
+  assert(withReceipt && withReceipt.receipt.totalTokens > 0, 'the page kept its receipt');
+  const want = Math.min(100, Math.max(1, (withReceipt.receipt.totalTokens / room) * 100));
+  await until(() => parseFloat(q('#ember-fill').style.width) > 0, 'the ember bar to fill', 10000);
+  await tick(300);
+  const got = parseFloat(q('#ember-fill').style.width);
+  assert(Math.abs(got - want) < 0.01, 'the ember bar reads the page against the planned room: ' + got.toFixed(3) + '% (want ' + want.toFixed(3) + '%; a flat 200,000 would read ' + (withReceipt.receipt.totalTokens / 2000).toFixed(3) + '%)');
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

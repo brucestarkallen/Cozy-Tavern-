@@ -2018,3 +2018,26 @@ test('M259-50: the sister sick at home stays with the story; a newcomer is carri
   assert(!/(^|\n)Mara Quinn \u2014/.test(lateOut) && /\n- Mara Quinn \u2014 a fishmonger/.test(lateOut), 'past her first pages, with no bond, she is a line on the roster: ' + (lateOut.match(/\n- Mara Quinn[^\n]*/) || [''])[0]);
   console.log('      M259-50 measured: ' + JSON.stringify(report));
 });
+
+test('M259-51: the model\u2019s room has one answer — the writer\u2019s number, else his provider\u2019s, for the storyteller and every worker', async () => {
+  const { contextOf, presetIdFor, PRESET_CONTEXT, UNKNOWN_CONTEXT } = await import('../../js/providers/room.js');
+  const { PRESETS } = await import('../../js/providers/index.js');
+  for (const p of PRESETS) eq(PRESET_CONTEXT[p.id], p.contextSize, 'the room table holds the preset\u2019s own number: ' + p.id);
+  eq(Object.keys(PRESET_CONTEXT).sort().join(','), PRESETS.map((p) => p.id).sort().join(','), 'and every preset is in it');
+  eq(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1', contextSize: 500000 }), 500000, 'the writer\u2019s number wins');
+  eq(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }), 128000, 'an empty DeepSeek room is DeepSeek\u2019s \u2014 it was taken as 200,000');
+  eq(contextOf({ type: 'openai', preset: 'deepseek', baseUrl: 'https://proxy.example/v1' }), 128000, 'the preset it was made from is trusted first');
+  eq(contextOf({ type: 'anthropic', baseUrl: 'https://api.anthropic.com' }), 200000, 'Claude\u2019s is Claude\u2019s');
+  eq(contextOf({ type: 'openai', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' }), 1000000, 'Google\u2019s is Google\u2019s');
+  eq(contextOf({ type: 'openai', baseUrl: 'https://mock.example/v1' }), UNKNOWN_CONTEXT, 'an unknown endpoint is taken at 128,000');
+  eq(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1', contextSize: 0 }), 128000, 'a zero is no number');
+  eq(presetIdFor(null), 'custom', 'no connection is a custom one');
+  /* the workers and the storyteller ask the same question */
+  const { roomChars } = await import('../../js/engine/pagecut.js');
+  assert(roomChars({ type: 'openai', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' }) > 2500000, 'a worker on Google with no number is given Google\u2019s room');
+  eq(roomChars({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }), roomChars({ contextSize: 128000 }), 'and on DeepSeek, DeepSeek\u2019s');
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  const { peopleView } = await import('../../js/engine/people.js');
+  eq(JSON.stringify(peopleView(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }))), JSON.stringify(peopleView(128000)), 'the storyteller\u2019s people are sized to the same room');
+  assert(buildRequest({ story: { title: 't', brief: 'b' }, messages: [{ id: 'u1', role: 'user', text: 'go' }], settings: {}, state: emptyState(), modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens: contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }) } }), 'a request is built in that room');
+});

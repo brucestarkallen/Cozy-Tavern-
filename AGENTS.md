@@ -6123,3 +6123,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   breaks caught (one needed the crowded case to be seen). M259-47/48 read the roster's lines.
 - 544/544 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   (story) within budget + lint 0 errors. version.js -> m284-001.
+
+# M285 — the model's room has one answer: the writer's number, else his provider's
+- THE WRITER: "Short context and large context — how is it chosen? From the connection?"
+- IT IS THE CONNECTION'S "The model's room, in tokens" (Settings, the connection form). Checking
+  that answer found the house had two different answers when the field was EMPTY — the storyteller
+  (budget, ember bar, record room) took 200,000 for every provider; the workers (engine/pagecut.js)
+  took 128,000 — and neither was the provider's: the form's own placeholder showed DeepSeek's
+  128,000 while the storyteller planned a DeepSeek story in 200,000.
+- FIXED: js/providers/room.js (no imports) — contextOf(conn): the writer's number; else the room of
+  the preset the connection came from (presetIdFor: the preset it was made from, else by kind and
+  address — the settings form's reading, moved here and shared); else 128,000. The storyteller's
+  budget, the ember bar, the record room and every worker's room ask it. PRESET_CONTEXT is held to
+  PRESETS by a law.
+- Laws: M259-51 (the table matches the presets; the writer's number wins; DeepSeek by address and by
+  preset; Claude; Google; an unknown endpoint; zero is no number; the workers and the storyteller's
+  people view ask the same), DOM-28 (in the app, the ember bar reads the page against 128,000 for an
+  unknown endpoint — the old flat 200,000 reads 8.936% where 13.962% is right). The first DOM-28
+  failure message read the bar before waiting (it said 0%); it reads it after now.
+  4 deliberate harness breaks and the DOM break caught.
+- 545/545 harness + 47/47 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  (story, housekeeper) within budget + lint 0 errors. version.js -> m285-001.

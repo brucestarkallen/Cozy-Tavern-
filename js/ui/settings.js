@@ -16,6 +16,7 @@
 
 import { db } from '../store.js';
 import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '../providers/index.js';
+import { presetIdFor } from '../providers/room.js'; /* M285 */
 import { EFFORT_RANK, effortFor, reasonStyle } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
@@ -403,17 +404,9 @@ export function initSettings(ctx) {
   /* Which preset a saved connection most resembles, so "Change" opens the
    * form on familiar footing. */
   function presetFor(conn) {
-    /* M22: the form stores the preset it started from — trust it first. */
-    if (conn.preset && typeof conn.preset === 'string') return conn.preset;
-    if (conn.type === 'anthropic') return 'claude';
-    const base = (conn.baseUrl || '').toLowerCase();
-    if (base.includes('openrouter.ai')) return 'openrouter';
-    if (base.includes('api.openai.com')) return 'openai';
-    if (base.includes('api.z.ai')) return 'zai';
-    if (base.includes('generativelanguage.googleapis.com')) return 'google';
-    if (base.includes('api.deepseek.com')) return 'deepseek';
-    if (base.includes('127.0.0.1:8642')) return 'hermes';
-    return 'custom';
+    /* M22: the form stores the preset it started from — trust it first.
+     * M285: one reading of it for the whole house (providers/room.js). */
+    return presetIdFor(conn);
   }
 
   els.preset.addEventListener('change', fillFromPreset);

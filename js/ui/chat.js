@@ -43,6 +43,7 @@
 import { streamText } from './streamtext.js'; /* M279 */
 import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
+import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
 import { buildRequest, pageText, windowPlan } from '../assemble/stack.js';
 import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the house is doing */
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
@@ -1398,9 +1399,7 @@ export function initChat(ctx) {
       receipt = last ? last.receipt : null;
     }
     const connection = await resolveConnection(story);
-    const size = connection && typeof connection.contextSize === 'number' && connection.contextSize > 0
-      ? connection.contextSize
-      : 200000;
+    const size = contextOf(connection); /* M285: the provider's room when none is set */
     const total = receipt ? receipt.totalTokens : 0;
     const pct = total ? Math.min(100, Math.max(1, (total / size) * 100)) : 0;
     els.emberFill.style.width = pct + '%';
@@ -1439,7 +1438,7 @@ export function initChat(ctx) {
       const win = mem && Number.isFinite(mem.window) && mem.window > 0 ? mem.window : ((await db.settings.get('memoryWindow')) || 30);
       const pages = visiblePages(await db.messages.list(story.id));
       const windowTokens = pages.slice(-win).reduce((n, m) => n + estimateTokens(pageText(m)), 0);
-      return recordRoom({ contextTokens: conn && conn.contextSize, maxTokens: conn && conn.maxTokens, windowTokens });
+      return recordRoom({ contextTokens: contextOf(conn), maxTokens: conn && conn.maxTokens, windowTokens });
     } catch (err) { return undefined; }
   }
 
@@ -3255,9 +3254,7 @@ export function initChat(ctx) {
          * speaks — the help text under it is now true (M9, §1). */
         window: memWindow,
         nodes: mem && Array.isArray(mem.nodes) ? mem.nodes : undefined,
-        budgetTokens: connection && typeof connection.contextSize === 'number' && connection.contextSize > 0
-          ? connection.contextSize
-          : 200000,
+        budgetTokens: contextOf(connection), /* M285: the provider's room when none is set */
       };
       /* M44: a line and the page it summarizes never ride together — measured
        * against the window that will ACTUALLY be sent, coverage law included. */
@@ -3266,7 +3263,7 @@ export function initChat(ctx) {
         : Math.max(0, visiblePages(history).length - memWindow);
       /* M264: the record rides in the room the storyteller's context leaves it */
       const recordCap = recordRoom({
-        contextTokens: connection && connection.contextSize,
+        contextTokens: contextOf(connection),
         maxTokens: connection && connection.maxTokens,
         windowTokens: visiblePages(history).slice(verbatimStart).reduce((n, m) => n + estimateTokens(pageText(m)), 0),
       });
