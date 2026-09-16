@@ -745,7 +745,7 @@ export function buildHousekeeperContext({
       let stale = '';
       if (pr.kind === 'edit' && pr.op && pr.op.messageId && !(Array.isArray(messages) ? messages : []).find((x) => x && x.id === pr.op.messageId)) stale = ' ⚠ STALE — the page is gone';
       else if (anchorIsDead(pr, { messages, memory, lore, modules, story })) stale = ' ⚠ STALE — its anchor no longer matches (already fixed, or the text changed)'; /* M83: every anchor kind, not pages only */
-      pending.push('- “' + pr.label + '”' + (pr.op && pr.op.messageId ? ' on ' + refOf({ id: pr.op.messageId }) : '') + stale);
+      pending.push('- “' + pr.label + '”' + (pr.op && pr.op.messageId ? ' on ' + refOf({ id: pr.op.messageId }) : '') + (pr.groupName ? ' — group “' + pr.groupName + '”' : '') + stale);
     }
   }
   /* M272: WHAT BECAME OF EVERY CARD, IN ONE PLACE. The fate of each answer's
@@ -760,7 +760,7 @@ export function buildHousekeeperContext({
   }
   if (done.length) parts.push('CARDS ALREADY SETTLED (this list is what became of them NOW — trust it over anything an earlier answer said; never call one of these pending):\n' + done.slice(-60).join('\n'));
   parts.push(pending.length
-    ? 'PENDING CARDS (staged earlier, not yet applied by the writer). A card marked STALE must be withdrawn with <supersede> or re-proposed with a fresh anchor in THIS answer; a card the writer no longer needs is withdrawn the same way — prose never removes a card:\n' + pending.join('\n')
+    ? 'PENDING CARDS (staged earlier, not yet applied by the writer). A card marked STALE must be withdrawn with <supersede> or re-proposed with a fresh anchor in THIS answer; a card the writer no longer needs is withdrawn the same way — prose never removes a card. Cards of one group fix one problem: withdrawing any of them withdraws the whole group:\n' + pending.join('\n')
     : 'PENDING CARDS: none.');
   /* M74: the lore shelf WHOLE (it used to show 200 characters of each entry,
    * so an edit to an entry had nothing true to quote). A very long entry is
@@ -881,7 +881,13 @@ const SYSTEM_PROMPT = [
   '  whole: pages you only have one-line previews of, a rulebook rule’s text, a lore',
   '  entry cut short above. You may ask up to three times in a turn.',
   '<supersede>label, label</supersede> — retire still-pending cards from your',
-  '  earlier answers when this answer replaces them.',
+  '  earlier answers when this answer replaces them. A card named takes its WHOLE',
+  '  GROUP with it; "group: NAME" names a group; "only: label" takes that one card alone.',
+  'GROUPS: when one problem is fixed in several places (a page, a record line, a page',
+  '  of the people, the brief), give every one of those entries the same "group" — a',
+  '  short name for the problem, e.g. "group":"Rias\'s slip about Jovan\'s age". The',
+  '  writer thinks in problems, not cards: a problem taken back is taken back everywhere.',
+  '  Keep the same group name when you re-propose any of its cards.',
   '',
   'Be surgical and be honest. Propose only what the writer asked for or what',
   'clearly needs repair; say plainly when nothing needs doing. Never rewrite a',
@@ -1348,6 +1354,75 @@ export function recordNodeByHandle(nodes, handle) {
   return (nodes || []).find((nd) => nd && recordHandle(nd).slice(2) === h.slice(-6)) || null;
 }
 
+/* M273: the groups — a name the housekeeper gave, or the house's own joining */
+export function cleanGroupName(v) {
+  return typeof v === 'string' ? v.replace(/[,\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, 80) : '';
+}
+function reasonKey(r) {
+  const k = String(r || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return k.length >= 16 ? k : '';
+}
+/* the change a find/replace makes, widened to whole words:
+ * "I sent a sixteen-year-old boy" → "I sent a fourteen-year-old boy" is sixteen-year-old→fourteen-year-old */
+export function changeOf(find, replace) {
+  const a = String(find || '');
+  const b = String(replace || '');
+  if (!a || a === b) return '';
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) p += 1;
+  let q = 0;
+  while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q += 1;
+  const start = Math.max(a.lastIndexOf(' ', p - 1) + 1, 0);
+  const tailA = a.slice(a.length - q);
+  const cut = tailA.search(/\s/);
+  const endA = a.length - q + (cut === -1 ? q : cut);
+  const endB = b.length - q + (cut === -1 ? q : cut);
+  const norm = (t) => t.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').replace(/\s+/g, ' ');
+  const gone = norm(a.slice(start, endA));
+  const come = norm(b.slice(start, endB));
+  if (gone === come || (gone.length < 3 && come.length < 3)) return '';
+  return gone + '→' + come;
+}
+function cardChange(p) {
+  const op = p && p.op;
+  return op && typeof op.find === 'string' && typeof op.replace === 'string' ? changeOf(op.find, op.replace) : '';
+}
+export function groupCards(cards, session) {
+  const list = (Array.isArray(cards) ? cards : []).filter((p) => p && typeof p === 'object');
+  const parent = list.map((_, i) => i);
+  const root = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const join = (i, j) => { const a = root(i); const b = root(j); if (a !== b) parent[b] = a; };
+  const byKey = new Map();
+  list.forEach((p, i) => {
+    const keys = [];
+    if (p.groupName) keys.push('n:' + labelKey(p.groupName));
+    const rk = reasonKey(p.reason);
+    if (rk) keys.push('r:' + rk);
+    const ck = cardChange(p);
+    if (ck) keys.push('c:' + ck);
+    for (const k of keys) { if (byKey.has(k)) join(byKey.get(k), i); else byKey.set(k, i); }
+  });
+  const members = new Map();
+  list.forEach((p, i) => { const r = root(i); if (!members.has(r)) members.set(r, []); members.get(r).push(p); });
+  /* a name used in an earlier answer is the same group there */
+  const earlier = new Map();
+  for (const t of (session && Array.isArray(session.turns) ? session.turns : [])) {
+    for (const q of (Array.isArray(t.proposals) ? t.proposals : [])) if (q && q.group && q.groupName) earlier.set(labelKey(q.groupName), q.group);
+  }
+  const stamp = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  let n = 0;
+  for (const group of members.values()) {
+    const named = group.find((p) => p.groupName);
+    if (group.length < 2 && !named) continue;
+    n += 1;
+    const name = named ? named.groupName
+      : (group.map((p) => cleanGroupName(p.reason)).find(Boolean) || (cardChange(group[0]) || 'one change').replace('→', ' → ')).slice(0, 60);
+    const id = named && earlier.has(labelKey(named.groupName)) ? earlier.get(labelKey(named.groupName)) : 'g-' + stamp + '-' + n;
+    for (const p of group) { p.group = id; p.groupName = name; }
+  }
+  return list;
+}
+
 /* M272: the brief's opening lines — where the story began */
 const OPENING_LINE = /^[\s#>*•-]*(?:\*\*)?\s*(STATE|SCENE|WHERE|PRESENT|ACTIVITY|LAST|NOW|TIME|DATE|HOUR)\b\s*(?:\*\*)?\s*[:：—–-]/;
 /* the writer names the line itself: "the state line", "the SCENE block", "the opening" */
@@ -1382,6 +1457,9 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   for (const t of (session && Array.isArray(session.turns) ? session.turns : [])) {
     for (const pr of (Array.isArray(t.proposals) ? t.proposals : [])) if (pr && pr.label) sessionLabels.add(labelKey(pr.label));
   }
+  /* M273: which entry each card came from — the group the housekeeper gave it rides along */
+  const marks = [];
+  const markSource = (op) => marks.push({ at: proposals.length, op });
   const madeLabels = new Set();
   const nextLabel = (base) => {
     let n = 1;
@@ -1403,6 +1481,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   };
 
   for (const op of (parsed && Array.isArray(parsed.edits) ? parsed.edits : [])) {
+    markSource(op);
     if (!op || typeof op !== 'object') continue;
     if (op.bulk_replace === true) {
       const find = typeof op.find === 'string' ? op.find : '';
@@ -1493,6 +1572,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   /* M61: the record's lines */
   const nodes = memory && Array.isArray(memory.nodes) ? memory.nodes : [];
   for (const op of (parsed && Array.isArray(parsed.record) ? parsed.record : [])) {
+    markSource(op);
     if (!op || typeof op !== 'object' || typeof op.find !== 'string' || !op.find || typeof op.replace !== 'string') continue;
     let node = recordNodeByHandle(nodes, op.line);
     /* the anchor itself decides when the handle is wrong or missing — and when
@@ -1520,6 +1600,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
 
   const ledits = parsed && Array.isArray(parsed.ledits) ? parsed.ledits : [];
   const mutations = ledits.filter((m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim());
+  markSource(mutations.find((m) => typeof m.group === 'string' && m.group.trim()) || null);
   if (mutations.length) {
     const reasonOp = ledits.find((m) => m && typeof m.reason === 'string' && m.reason.trim());
     /* M76: the card shows what the ledger WILL say — a dry run on a copy */
@@ -1542,6 +1623,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   }
 
   for (const op of (parsed && Array.isArray(parsed.redits) ? parsed.redits : [])) {
+    markSource(op);
     if (!op || typeof op !== 'object') continue;
     if (typeof op.find !== 'string' || !op.find || typeof op.replace !== 'string') continue;
     const wanted = String(op.module || '').trim().toLowerCase();
@@ -1592,11 +1674,13 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
 
   /* M75-003: an unreadable block is a card the writer can see, refused with its reason */
   for (const u of (parsed && Array.isArray(parsed.unreadable) ? parsed.unreadable : [])) {
+    markSource(null);
     proposals.push({ id: uid(), ts: Date.now(), kind: 'unreadable', label: 'a <' + u.tag + '> block that could not be read', reason: '', op: { tag: u.tag }, status: 'refused', words: 'it was in the answer but is not JSON the house can read (it began: “' + u.body.slice(0, 160).replace(/\s+/g, ' ') + '”) — the housekeeper was asked once to re-send it', review: [] });
   }
 
   /* M74: the brief and the cast notes */
   for (const op of (parsed && Array.isArray(parsed.brief) ? parsed.brief : [])) {
+    markSource(op);
     const field = String(op.field || '').trim().toLowerCase() === 'cast' || /cast/i.test(String(op.field || '')) ? 'cast' : 'brief';
     const key = field === 'cast' ? 'castNotes' : 'brief';
     const current = story && typeof story[key] === 'string' ? story[key] : '';
@@ -1658,6 +1742,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       || null;
   };
   for (const op of (parsed && Array.isArray(parsed.lore) ? parsed.lore : [])) {
+    markSource(op);
     if (!op || typeof op !== 'object') continue;
     const reason = cleanReason(op.reason);
     if (op.add === true) {
@@ -1704,6 +1789,19 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
 
   /* M82: Chat Assistant's auto-supersede, whole — never a reliance on the model
    * remembering a <supersede> block */
+  /* M273: CARDS THAT FIX ONE PROBLEM ARE ONE GROUP. The writer asked to take
+   * back one problem the housekeeper had fixed in three places; it withdrew
+   * one card of the three. A card carries the group its entry named, and the
+   * house joins the cards of one answer that share a reason or make the same
+   * change ("sixteen-year-old" → "fourteen-year-old" on a page and in a record
+   * line). A withdrawal takes the whole group. */
+  for (let i = 0; i < marks.length; i += 1) {
+    const end = i + 1 < marks.length ? marks[i + 1].at : proposals.length;
+    const named = cleanGroupName(marks[i].op && marks[i].op.group);
+    if (!named) continue;
+    for (let j = marks[i].at; j < end; j += 1) if (proposals[j]) proposals[j].groupName = named;
+  }
+  groupCards(proposals, session);
   const merged = mergeDuplicates(proposals);
   const setAside = autoSupersede(session, merged.list, { messages, memory, lore, modules, story });
   merged.list.setAside = setAside;
@@ -1713,6 +1811,8 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   const seenHere = new Set();
   for (const pr of merged.list) {
     if (!pr || !pr.label) continue;
+    /* M273: a withdrawal lists names split at commas — so a name never holds one */
+    pr.label = String(pr.label).replace(/,/g, ' ').replace(/\s{2,}/g, ' ').trim();
     if (sessionLabels.has(labelKey(pr.label)) || seenHere.has(labelKey(pr.label))) {
       const base = pr.label;
       let n = 2;
@@ -1932,23 +2032,52 @@ function labelKey(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9]+/
 /* Supersede: retire still-pending cards whose labels the reply named.
  * Returns {count, unmatched}. */
 export function applySupersede(session, labels) {
-  const wanted = new Map((Array.isArray(labels) ? labels : []).map((l) => [labelKey(l), String(l).trim()]).filter(([k]) => k));
-  if (!wanted.size) return { count: 0, unmatched: [] };
-  let count = 0;
-  const hit = new Set();
+  /* M273: A WITHDRAWAL TAKES THE WHOLE GROUP — a card named, every pending card
+   * of its group with it; "group: NAME" names a group; "only: NAME" takes that
+   * one card alone. A line that is a whole name is taken whole, so a name that
+   * holds a comma (written before M273) still answers. */
+  const all = [];
   for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
-    for (const p of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
-      const k = labelKey(p && p.label);
-      if (p && p.status === 'pending' && wanted.has(k)) {
-        p.status = 'superseded';
-        p.words = 'Set aside — a later answer withdrew it.';
-        count += 1;
-        hit.add(k);
+    for (const p of (Array.isArray(turn.proposals) ? turn.proposals : [])) if (p && typeof p === 'object') all.push(p);
+  }
+  const knownLabel = new Set(all.map((p) => labelKey(p.label)));
+  const knownGroup = new Set(all.filter((p) => p.groupName).map((p) => labelKey(p.groupName)));
+  const entries = [];
+  for (const raw of (Array.isArray(labels) ? labels : [])) {
+    const line = String(raw || '').trim();
+    if (!line) continue;
+    const bare = line.replace(/^(only|group)\s*:\s*/i, '');
+    if (knownLabel.has(labelKey(bare)) || knownGroup.has(labelKey(bare)) || !line.includes(',')) entries.push(line);
+    else for (const part of line.split(',')) if (part.trim()) entries.push(part.trim());
+  }
+  const gone = new Set();
+  const groupsTaken = new Map();
+  const unmatched = [];
+  for (const entry of entries) {
+    const only = /^only\s*:/i.test(entry);
+    const asGroup = /^group\s*:/i.test(entry);
+    const key = labelKey(entry.replace(/^(only|group)\s*:\s*/i, ''));
+    if (!key) continue;
+    const before = gone.size;
+    const named = asGroup ? [] : all.filter((p) => labelKey(p.label) === key);
+    for (const p of named) {
+      if (p.status === 'pending') gone.add(p);
+      if (!only && p.group) {
+        for (const q of all) if (q.group === p.group && q.status === 'pending') { gone.add(q); groupsTaken.set(p.group, p.groupName || ''); }
       }
     }
+    if (!only && (asGroup || !named.length)) {
+      for (const p of all) {
+        if (p.groupName && labelKey(p.groupName) === key && p.status === 'pending') { gone.add(p); groupsTaken.set(p.group, p.groupName); }
+      }
+    }
+    if (gone.size === before) unmatched.push(entry);
   }
-  const unmatched = [...wanted.entries()].filter(([k]) => !hit.has(k)).map(([, raw]) => raw);
-  return { count, unmatched };
+  for (const p of gone) {
+    p.status = 'superseded';
+    p.words = 'Set aside — a later answer withdrew it' + (p.group && groupsTaken.has(p.group) ? ', with the rest of “' + p.groupName + '”' : '') + '.';
+  }
+  return { count: gone.size, unmatched, groups: [...new Set([...groupsTaken.values()].filter(Boolean))] };
 }
 
 export function findProposal(session, proposalId) {
@@ -3052,7 +3181,7 @@ export async function housekeeperTurn({
     if (result.parsed.supersede.length) {
       const sup = applySupersede(session, result.parsed.supersede);
       if (sup.unmatched.length) withdrawNote = '\n\n(No pending card answers to: ' + sup.unmatched.map((l) => '“' + l + '”').join(', ') + ' — nothing was withdrawn for those.)';
-      else if (sup.count && !proposals.length) withdrawNote = '\n\n(Withdrew ' + sup.count + (sup.count === 1 ? ' card' : ' cards') + '.)';
+      else if (sup.count && (!proposals.length || sup.groups.length)) withdrawNote += '\n\n(Withdrew ' + sup.count + (sup.count === 1 ? ' card' : ' cards') + (sup.groups.length ? ' — all of ' + sup.groups.map((g) => '“' + g + '”').join(', ') : '') + '.)';
     }
 
     session.turns.push({ role: 'writer', text: String(shownText || writerText || ''), ts: Date.now() });

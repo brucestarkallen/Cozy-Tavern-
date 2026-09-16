@@ -5754,3 +5754,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   test caught it. The harness cannot: it never loads the panel.
 - 530/530 harness + 43/43 walk + 8/8 play + housekeeper_rounds 16/16 + perf (plain, bigfetch)
   within budget. version.js -> m272-001.
+
+# M273 — cards that fix one problem are one group: taking one back takes them all
+- THE WRITER, on M272's unique names: "Does this actually help? What I mean is: I asked to
+  supersede A, and A was one problem fixed in three places — it withdrew one card of the three.
+  The housekeeper must know which cards belong together." He was right that M272 alone made his
+  case worse: three brief cards had shared one name, and a withdrawal by that name took all
+  three by accident; with names of their own, a withdrawal took one.
+- THE GROUP: every block entry may carry "group" (a short name for the problem); the card takes
+  it (stageProposals marks which entry each card came from). The house also joins the cards of
+  one answer that share a reason (16+ characters) or make the same change (changeOf: the
+  find→replace difference widened to whole words — "sixteen-year-old→fourteen-year-old" on a page
+  and in a record line). A later answer's card with the same group name joins the earlier group.
+- A WITHDRAWAL TAKES THE WHOLE GROUP (applySupersede): a card named takes every pending card of
+  its group; "group: NAME" (or the name plainly) takes the group; "only: label" takes one card.
+  Each withdrawn card says so; the talk's note says "Withdrew 3 cards — all of “…”".
+- THE HOUSEKEEPER SEES THE GROUPS: the pending list names each card's group and says what a
+  withdrawal means; the teaching asks for a group on every entry of one problem, kept when a
+  card is re-proposed. THE WRITER SEES THEM: a card reads "Part of “…” — 1 of 3".
+- A COMMA NEVER STAYS IN A NAME: a withdrawal list is split at commas, and M272's brief-card
+  names could hold one ("# STATE: Thu 20 Aug 2026, 11:00") — such a card could not be withdrawn.
+  Names are cleaned of commas; a line that is a whole existing name is taken whole, so older
+  names with commas still answer.
+- Laws: M259-37 (named groups across a page, a record line and a page of the people; the lone
+  card; one named → all; only:; group:; the same change and the same reason joined; different
+  fixes apart; a later card joins; commas), DOM-25 (the card's group line). 12 deliberate breaks
+  caught. DOM-25 opens the sheet afresh (an earlier scenario can leave it open).
+- 531/531 harness + 44/44 walk + 8/8 play + housekeeper_rounds all green + perf within budget.
+  version.js -> m273-001.

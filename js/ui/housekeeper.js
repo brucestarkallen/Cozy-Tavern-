@@ -507,6 +507,20 @@ export function initHousekeeper(ctx) {
     head.append(label, kind);
     card.append(head);
 
+    /* M273: the problem this card is one part of — taken back, the whole group goes */
+    if (p.group && p.groupName) {
+      const family = [];
+      for (const t of (session && Array.isArray(session.turns) ? session.turns : [])) {
+        for (const q of (Array.isArray(t.proposals) ? t.proposals : [])) if (q && q.group === p.group) family.push(q);
+      }
+      if (family.length > 1) {
+        const line = document.createElement('p');
+        line.className = 'hk-card-group';
+        line.textContent = 'Part of “' + p.groupName + '” — ' + (family.indexOf(p) + 1) + ' of ' + family.length;
+        card.append(line);
+      }
+    }
+
     /* M76: the reason at the top, always — its absence is shown, not hidden */
     if (p.kind !== 'unreadable') {
       const reason = document.createElement('p');

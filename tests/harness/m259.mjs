@@ -1356,3 +1356,79 @@ test('M259-36: the housekeeper\u2019s cards have names of their own; the brief\u
   /* the live answer */
   eq(hk.answerAsWritten('Let me look. <fetch>["#a1"]</fetch>\n<brief>[{"find":"# STATE'), 'Let me look.\n\n(looking something up…) (writing its cards…)', 'the wire\u2019s blocks never show in the live answer');
 });
+
+test('M259-37: cards that fix one problem are one group — taking one back takes them all', async () => {
+  const hk = await import('../../js/agents/housekeeper.js');
+  const GROUP = 'Rias\u2019s slip about Jovan\u2019s age';
+  const messages = [
+    { id: 'aaaa01page', role: 'assistant', text: 'Rias said: I sent a sixteen-year-old boy to that island.' },
+    { id: 'bbbb02page', role: 'assistant', text: 'The cheer chat was founded 2014, the year the squad began.' },
+  ];
+  const memory = { nodes: [{ id: 'node-rd8pjm2', span: [0, 0], level: 1, text: 'Rias admits she sent a sixteen-year-old boy away.' }] };
+  const base = { messages, state: emptyState(), modules: [], lore: [], memory, story: { title: 't', brief: '' } };
+  const P1 = hk.refOf(messages[0]);
+  const P2 = hk.refOf(messages[1]);
+  const reset = (list) => { for (const c of list) c.status = 'pending'; };
+
+  /* the housekeeper names the problem on each of its three cards */
+  const answer = '<edits>[{"id":"' + P1 + '","find":"a sixteen-year-old boy","replace":"a fourteen-year-old boy","reason":"he was fourteen","group":"' + GROUP + '"},'
+    + '{"id":"' + P2 + '","find":"founded 2014","replace":"founded 2024","reason":"the chat is new"}]</edits>'
+    + '<record>[{"line":"#rd8pjm2","find":"sixteen-year-old","replace":"fourteen-year-old","reason":"the same word, re-cut","group":"' + GROUP + '"}]</record>'
+    + '<ledits>[{"type":"people.set","name":"Rias Wells","field":"arc","text":"she knows he was fourteen","group":"' + GROUP + '"}]</ledits>';
+  const session = { turns: [] };
+  const cards = hk.stageProposals(hk.parseProtocol(answer), { ...base, session });
+  const slip = cards.filter((c) => c.groupName === GROUP);
+  eq(slip.length, 3, 'the three cards of one problem are one group: ' + cards.map((c) => c.label + '=' + (c.groupName || '-') + '/' + c.status).join(' | '));
+  eq(new Set(slip.map((c) => c.group)).size, 1, 'under one id');
+  const chat = cards.find((c) => /2024/.test(JSON.stringify(c.op || {})));
+  assert(chat && !chat.group, 'the unrelated card stands alone');
+  session.turns.push({ role: 'writer', text: 'fix Rias' }, { role: 'housekeeper', text: 'done', proposals: cards });
+
+  const sup = hk.applySupersede(session, [slip[0].label]);
+  eq(sup.count, 3, 'one card named — the whole group is withdrawn');
+  eq(sup.groups.join('|'), GROUP, 'and the note can say which problem');
+  eq(chat.status, 'pending', 'the unrelated card stays');
+  assert(slip.every((c) => c.status === 'superseded' && /with the rest of/.test(c.words)), 'each withdrawn card says why');
+
+  reset(slip);
+  eq(hk.applySupersede(session, ['only: ' + slip[1].label]).count, 1, '"only:" takes that one card alone');
+  reset(slip);
+  eq(hk.applySupersede(session, ['group: ' + GROUP]).count, 3, '"group:" names the problem');
+  reset(slip);
+  eq(hk.applySupersede(session, [GROUP]).count, 3, 'and a problem named plainly is the problem');
+  reset(slip);
+
+  /* the house joins them without being told: the same change in two places */
+  const implicit = hk.stageProposals(hk.parseProtocol(
+    '<edits>[{"id":"' + P1 + '","find":"a sixteen-year-old boy","replace":"a fourteen-year-old boy","reason":"he was fourteen then"}]</edits>'
+    + '<record>[{"line":"#rd8pjm2","find":"sixteen-year-old","replace":"fourteen-year-old","reason":"re-cut"}]</record>'), { ...base, session: { turns: [] } });
+  eq(implicit.length, 2, 'two cards');
+  assert(implicit[0].group && implicit[0].group === implicit[1].group, 'the same change in two places is one group');
+  /* or one reason for two different changes */
+  const reasoned = hk.stageProposals(hk.parseProtocol(
+    '<edits>[{"id":"' + P2 + '","find":"founded 2014","replace":"founded 2024","reason":"the squad chat began in 2024, not 2014"},'
+    + '{"id":"' + P2 + '","find":"the year the squad began","replace":"two years after the squad began","reason":"the squad chat began in 2024, not 2014"}]</edits>'), { ...base, session: { turns: [] } });
+  assert(reasoned.length === 2 && reasoned[0].group && reasoned[0].group === reasoned[1].group, 'one reason, one group');
+  /* unrelated cards stay apart */
+  const apart = hk.stageProposals(hk.parseProtocol(
+    '<edits>[{"id":"' + P1 + '","find":"that island","replace":"that far island","reason":"where he went"},'
+    + '{"id":"' + P2 + '","find":"founded 2014","replace":"founded 2024","reason":"when the chat began"}]</edits>'), { ...base, session: { turns: [] } });
+  assert(apart.length === 2 && !apart[0].group && !apart[1].group, 'two different fixes are two cards, no group');
+
+  /* a later card named for the same problem joins it */
+  const later = hk.stageProposals(hk.parseProtocol('<edits>[{"id":"' + P1 + '","find":"that island","replace":"that island off the coast","reason":"x","group":"' + GROUP + '"}]</edits>'), { ...base, session });
+  eq(later[0].group, slip[0].group, 'a later answer\u2019s card for the same problem is in the same group');
+
+  /* names and commas */
+  const named = hk.stageProposals(hk.parseProtocol('<edits>[{"id":"' + P2 + '","find":"founded 2014","replace":"founded 2024","label":"cheer chat, founding year"}]</edits>'), { ...base, session: { turns: [] } });
+  eq(named[0].label, 'cheer chat founding year', 'a name never holds a comma — a withdrawal list is split at commas');
+  const old = { turns: [{ role: 'housekeeper', text: 'a', proposals: [{ id: 'x', label: 'the brief — # STATE: Thu 20 Aug 2026, 11:00', status: 'pending' }, { id: 'y', label: '11:00', status: 'pending' }] }] };
+  eq(hk.applySupersede(old, ['the brief — # STATE: Thu 20 Aug 2026, 11:00']).count, 1, 'an older name with a comma is taken whole');
+  eq(old.turns[0].proposals[1].status, 'pending', 'and its tail is not taken for another card');
+  const two = { turns: [{ role: 'housekeeper', text: 'a', proposals: [{ id: 'x', label: 'card one', status: 'pending' }, { id: 'y', label: 'card two', status: 'pending' }] }] };
+  eq(hk.applySupersede(two, ['card one, card two']).count, 2, 'a list of names still works');
+
+  /* the housekeeper sees the groups */
+  const ctx = hk.buildHousekeeperContext({ story: base.story, messages, state: emptyState(), modules: [], lore: [], memory, session, contextPages: 8 });
+  assert(ctx.includes('group “' + GROUP + '”') && /withdrawing any of them withdraws the whole group/.test(ctx), 'the pending list names each card\u2019s group, and what withdrawing means');
+});

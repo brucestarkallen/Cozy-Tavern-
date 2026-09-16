@@ -543,6 +543,8 @@
 .hk-bubble .hk-swipe-count { font-variant-numeric: tabular-nums; }
 .hk-receipt { font-size: 0.78rem; color: var(--text-2); align-self: stretch; }
 .hk-card-reason.hk-card-noreason { opacity: 0.55; font-style: italic; }
+/* M273: the problem a card is one part of */
+.hk-card-group { margin: 0.1rem 0 0.35rem; font-size: 0.82rem; color: var(--muted); }
 .hk-raw { align-self: stretch; font-size: 0.78rem; color: var(--text-2); }
 .hk-raw summary { cursor: pointer; }
 .hk-raw .hk-viewer { max-height: 40vh; margin-top: 4px; }

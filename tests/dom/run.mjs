@@ -1665,6 +1665,36 @@ test('DOM-24 a page mended by mistake is put back by the house itself (M268)', a
   assert(/SIXTEEN-AS-WRITTEN/.test(bodyText(q(`.msg[data-id="${pg.id}"]`) || { textContent: '' }) || (q(`.msg[data-id="${pg.id}"]`) || {}).textContent || ''), 'the page on screen shows the storyteller\u2019s own words');
 });
 
+test('DOM-25 a card shows the problem it is one part of (M273)', async () => {
+  const st = await db.stories.create({ title: 'the grouped cards' });
+  const pg = await db.messages.append(st.id, { role: 'assistant', text: 'I sent a sixteen-year-old boy to that island.' });
+  const card = (id, label, find, replace, grouped) => ({
+    id, ts: 1, kind: 'edit', label, reason: 'he was fourteen', op: { messageId: pg.id, find, replace },
+    status: 'pending', words: '', review: [],
+    ...(grouped ? { group: 'g-test-1', groupName: 'Rias\u2019s slip about Jovan\u2019s age' } : {}),
+  });
+  await db.settings.set('hk:' + st.id, { sessions: [{ id: 1, name: 'Session 1', turns: [
+    { role: 'writer', text: 'fix Rias', ts: 1 },
+    { role: 'housekeeper', text: 'Three cards.', ts: 2, proposals: [
+      card('grp-c1', 're-ink one', 'sixteen-year-old', 'fourteen-year-old', true),
+      card('grp-c2', 're-ink two', 'a sixteen', 'a fourteen', true),
+      card('grp-c3', 're-ink three', 'that island', 'that far island', false),
+    ] },
+  ] }], activeId: 1, batches: [] });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  /* an earlier scenario may have left the sheet open on another story: open it afresh */
+  if (!q('#hk-sheet').hidden) { click(q('#btn-hk-close')); await until(() => q('#hk-sheet').hidden, 'the sheet to close first', 5000); }
+  click(q('#btn-housekeeper'));
+  await until(() => !q('#hk-sheet').hidden && ['grp-c1', 'grp-c2', 'grp-c3'].every((id) => q('.hk-card[data-proposal-id="' + id + '"]')), 'the three cards', 10000);
+  const line = (id) => { const g = q('.hk-card[data-proposal-id="' + id + '"] .hk-card-group'); return g ? g.textContent : ''; };
+  eq(line('grp-c1'), 'Part of \u201cRias\u2019s slip about Jovan\u2019s age\u201d \u2014 1 of 2', 'the first card of the problem says so');
+  eq(line('grp-c2'), 'Part of \u201cRias\u2019s slip about Jovan\u2019s age\u201d \u2014 2 of 2', 'and the second');
+  eq(line('grp-c3'), '', 'the lone card says nothing of a group');
+  click(q('#btn-hk-close'));
+  await until(() => q('#hk-sheet').hidden, 'the sheet to close', 5000);
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
