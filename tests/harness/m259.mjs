@@ -2319,3 +2319,33 @@ test('M259-57: the character pages are tidied once — who they are out of "now"
   assert(/who they are in their life \(school year, age, role, family, home\) belongs in their core, never in "state"/.test(fo.buildFounderMessages({ state: base, brief: 'b' }).system), 'the founder puts who they are in the core');
   assert(/is not a[\s\S]*state: add those facts to their core/.test(sc.buildScribeMessages({ state: base, userText: 'u', assistantText: 'a' }).system), 'and the scribe moves it there');
 });
+
+test('M259-58: a title\u2019s period does not end a sentence; where the absent are is said once in a whole request', async () => {
+  const { firstSentence } = await import('../../js/engine/sentence.js');
+  eq(firstSentence('Ms. June runs the Bluebird. She remembers orders.'), 'Ms. June runs the Bluebird.', 'a title is not an ending');
+  eq(firstSentence('Dr. A. B. Smith met her. Then left.'), 'Dr. A. B. Smith met her.', 'nor an initial');
+  eq(firstSentence('She left. Then came back.'), 'She left.', 'a real ending still ends it, and keeps its mark');
+  eq(firstSentence('His father; tall, silvering.'), 'His father', 'a semicolon ends a clause without being kept');
+  eq(firstSentence('No ending at all'), 'No ending at all', 'and a line with none is whole');
+  const { renderPeopleTiers, peopleView } = await import('../../js/engine/people.js');
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan Wells' }; st.page = 200;
+  st.characters = {
+    'Ms. June': { core: 'Ms. June is the Bluebird waitress in her fifties. She remembers orders.', state: 'Mr. Pike is at her counter.', arc: '', threads: [], updatedAtTurn: 190 },
+    'Aurora Sterling': { core: 'Warm, sociable, quietly perceptive.', state: 'an old note', arc: 'Friday is settled.', threads: [], updatedAtTurn: 190 },
+    'Rias Wells': { core: 'His sister.', state: 'at the counter', arc: '', threads: [], updatedAtTurn: 199 },
+  };
+  st.present = [{ name: 'Jovan Wells' }, { name: 'Rias Wells' }];
+  st.offscreen = { 'Aurora Sterling': { location: 'SEAT-AURORA her bedroom, window seat', activity: 'screenshotting the thread' } };
+  st.relationships = { 'Aurora Sterling': { p: 71, r: 67, s: 7, history: [] } };
+  const small = renderPeopleTiers(st, { recentPages: [], view: peopleView(500000), brief: '', scenePages: [] }).text;
+  assert(/- Ms\. June \u2014 Ms\. June is the Bluebird waitress in her fifties \u00b7 now: Mr\. Pike is at her counter/.test(small), 'her line says who she is and where, whole past the titles: ' + (small.match(/- Ms\. June[^\n]*/) || [''])[0]);
+  const wire = (budgetTokens) => JSON.stringify(buildRequest({ story: { title: 't', brief: 'b' }, messages: [{ id: 'u1', role: 'user', text: 'go' }], settings: {}, state: st, modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens } }));
+  const count = (w) => w.split('SEAT-AURORA').length - 1;
+  const whole = wire(1000000);
+  eq(count(whole), 1, 'a whole request says where Aurora is once');
+  assert(/Aurora Sterling \u2014 Warm, sociable, quietly perceptive\.\\nNow: away \u2014 where they are now is under Elsewhere/.test(whole), 'and her card points there');
+  assert(!whole.includes('an old note'), 'her old note is not read as her now');
+  const tight = renderPeopleTiers(st, { recentPages: [], view: peopleView(0), brief: '', scenePages: [], seatsInState: false }).text;
+  assert(tight.includes('SEAT-AURORA'), 'where the state of things may shed its seats, the card keeps hers');
+});

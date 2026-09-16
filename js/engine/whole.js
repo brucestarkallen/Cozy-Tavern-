@@ -27,6 +27,7 @@ import { renderOffscreen } from './offscreen.js';
 import { renderFightLine, mcName } from './duels.js';
 import { findKnowledgeKey } from './world.js';
 import { storyTurn } from './apply.js';
+import { firstSentence } from './sentence.js'; /* M292 */
 
 export const MOOD_FLAGS = ['combat', 'intimate', 'travel', 'socialField', 'isolation', 'group'];
 
@@ -185,7 +186,7 @@ export function writerText(text, room, label, canFetch = false) {
  *   5  those away: the first clause of it.
  * Whoever is here keeps the whole page. null = the name only. */
 export function firstClause(text, max = 200) {
-  const first = String(text || '').trim().split(/(?<=[.;!?])\s/)[0];
+  const first = firstSentence(text); /* M292: a title's period does not end it */
   if (first.length <= max) return first;
   const sp = first.lastIndexOf(' ', max);
   return first.slice(0, sp > max / 2 ? sp : max) + '\u2026';

@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m291-001)
+# Cozy Tavern — handoff for the next session (state at m292-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M291). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M292). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 551 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 552 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 52 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -37,6 +37,8 @@ Full history of every law and fix: AGENTS.md (M1 … M291). SPEC.md holds the fo
 - Nothing goes stale by itself (M261): the ground moving lets positions go; one place under two
   spellings is one place; an untouched thread cools after 15 pages; the code upkeep (retire,
   sweep, clear seats) runs on every page, audited or not (ledgerUpkeep).
+- One page view (M292): the drawer draws the pages once ("The people"); "How they feel toward you" is the
+  standings; a whole request says where the absent are once; engine/sentence.js knows titles.
 - Character pages (M291): core = who they are, state = the now; agents/tidy.js tidies a story's pages
   once; the drawer reads the seat for the absent and ages an old note.
 - Retry mid-reading (M290): a rewound page's readers write nothing (early check + stale guards on every

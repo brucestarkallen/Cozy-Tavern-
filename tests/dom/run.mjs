@@ -1973,9 +1973,12 @@ test('DOM-32 the character pages read alive: the ones here say what they are doi
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await env.ctx.drawer.renderAllRooms(); await tick(350);
-  const rowOf = (name) => [...qa('#drawer .mind-row')].find((li) => li.firstChild && li.firstChild.textContent === name);
+  /* M292: the pages are drawn once, in "The people" */
+  const rowOf = (name) => [...qa('#drawer .people-row')].find((li) => li.firstChild && (li.firstChild.textContent === name || li.firstChild.textContent.startsWith(name + ' \u2014 ')));
   await until(() => rowOf('Ms. June'), 'the character pages to draw', 10000);
-  const text = (name) => [...rowOf(name).querySelectorAll('small')].map((x) => x.textContent).join(' | ');
+  const text = (name) => [...rowOf(name).querySelectorAll('.quiet')].map((x) => x.textContent).join(' | ');
+  /* her page, in the panels that draw pages (the world's list of where the absent are is not a page) */
+  eq([...qa('#drawer [data-panel="the-people"] .mind-row, #drawer [data-panel="on-their-mind"] .mind-row')].filter((li) => li.firstChild && /^Ms\. June/.test(li.firstChild.textContent)).length, 1, 'and Ms. June\u2019s page is drawn once, not twice');
   assert(/Now: at the kitchen window, phone in hand/.test(text('Aurora Sterling')), 'the one here: what she is doing \u2014 ' + text('Aurora Sterling'));
   assert(/Now \(elsewhere\): the Bluebird, closing up, stacking chairs/.test(text('Ms. June')) && !/comped the first round/.test(text('Ms. June')), 'the absent: where the world has her, not the diner long gone \u2014 ' + text('Ms. June'));
   assert(/Last seen 31 pages ago: Dragged inside/.test(text('Eli Sterling')), 'an old note says how old it is \u2014 ' + text('Eli Sterling'));

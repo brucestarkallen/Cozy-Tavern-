@@ -513,7 +513,7 @@ export function buildRequest({
    * the roster steps once per turn with no writes of its own. --- */
   const recentPages = wireable(history).slice(-3).map((m) => m.content);
   const scenePages = wireable(history).slice(-10).map((m) => m.content); /* M283: who the story keeps naming */
-  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages }); /* M281: in the room the storyteller has; M282: the brief weighs who matters */
+  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
   const peopleText = people ? people.text : '';
   if (peopleText) {
     const t = people.tiers;

@@ -34,6 +34,7 @@ const SHELL = [
   'js/engine/offscreen.js',
   'js/engine/world.js',
   'js/engine/whole.js',
+  'js/engine/sentence.js',
   'js/engine/pagecut.js',
   'js/agents/lookup.js',
   'js/engine/canon.js',

@@ -30,6 +30,7 @@
  */
 
 import { isMcAlias, mcName } from './duels.js';
+import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
 
 /* Field caps — the ledger holds brushstrokes, not chapters. */
@@ -556,7 +557,7 @@ export const PRESENT_CARDS_MIN = 3;   /* the present who always keep their card,
 function shortClause(text, max) {
   const t = String(text || '').trim().replace(/\s+/g, ' ');
   if (!t) return '';
-  const first = t.split(/(?<=[.;!?])\s/)[0].replace(/[.;]$/, '');
+  const first = firstSentence(t).replace(/[.;]$/, ''); /* M292: a title's period does not end it */
   if (first.length <= max) return first;
   const cut = first.slice(0, max);
   const sp = cut.lastIndexOf(' ');
@@ -576,7 +577,7 @@ function shortClause(text, max) {
  *
  *   renderPeopleTiers(state, { recentPages, rotation })
  *     -> { text, tiers:{cards, also, recall, roster} } | null */
-export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view = null, brief = '', scenePages = [] } = {}) {
+export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view = null, brief = '', scenePages = [], seatsInState = false } = {}) {
   const lim = view && typeof view === 'object' ? view : { budget: PEOPLE_BUDGET, cards: PRESENT_CARDS_MAX, recall: RECALL_MAX, roster: ROSTER_MAX };
   if (!state || typeof state !== 'object') return null;
   const characters = state.characters && typeof state.characters === 'object' ? state.characters : {};
@@ -620,9 +621,17 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   const named = offScene.filter((k) => namedIn(recentPages, k));
   const coming = offScene.filter((k) => !named.includes(k) && ['toward', 'seeking'].includes(String((seatOf(k) || {}).stance || '')));
   const recalled = named.concat(coming).slice(0, lim.recall);
-  const awayCard = (k) => {
+  /* M292: WHERE THE ABSENT ARE IS SAID ONCE. When the state of things lists every seat (a whole view),
+   * a card or a line here does not say it again — it points there. */
+  const awayNow = (k) => {
     const seat = seatOf(k);
-    const entry = seat ? { ...characters[k], state: [seat.location, seat.activity].filter(Boolean).join(', ') || characters[k].state, updatedAtTurn: turn } : characters[k];
+    if (!seat) return null;
+    if (seatsInState) return 'away \u2014 where they are now is under Elsewhere';
+    return [seat.location, seat.activity].filter(Boolean).join(', ') || null;
+  };
+  const awayCard = (k) => {
+    const now = awayNow(k);
+    const entry = now ? { ...characters[k], state: now, updatedAtTurn: turn } : characters[k];
     return cardText(k, entry, turn, RECALL_CARD_CAP);
   };
   /* M284: with room, the roster says who each one is and where — a bare name told the storyteller nothing */
@@ -738,9 +747,9 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     const moreWords = more > 0 ? 'and ' + more + ' more the ledger knows' : '';
     if (shortLines) {
       const lines = shown.map((k) => {
-        const seat = seatOf(k);
         const who = shortClause(characters[k].core, 90);
-        const now = shortClause(seat ? [seat.location, seat.activity].filter(Boolean).join(', ') : characters[k].state, 70);
+        const seated = awayNow(k);
+        const now = seated && seatsInState ? 'away (see Elsewhere)' : shortClause(seated || characters[k].state, 70);
         return '- ' + k + (who ? ' \u2014 ' + who : '') + (now ? ' \u00b7 now: ' + now : '') + ' (' + agoOf(k) + ')';
       });
       sections.push({ shed: 3, text: 'Elsewhere in the tale:\n' + lines.join('\n') + (moreWords ? '\n' + moreWords.charAt(0).toUpperCase() + moreWords.slice(1) + '.' : '') });

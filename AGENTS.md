@@ -6306,3 +6306,28 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   story on its own, once). 6 harness breaks, the old drawer and the missing chain job caught.
 - 551/551 harness + 52/52 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story)
   within budget + lint 0 errors. version.js -> m291-001.
+
+# M292 — one page view; where the absent are said once; a title's period does not end a sentence
+- THE WRITER: "What's the difference between 'The character pages' and 'The people'? Why so much
+  redundancy — it wastes tokens and could confuse the storyteller. Audit everything."
+- TWO VIEWS OF THE SAME PAGES: "On their mind" drew every character page (M12) and "The people" drew
+  them again (M104) — and M291's live "now" reached only the first, so the second still showed Eli's
+  old scene. FIXED: the pages are drawn once, in "The people" (who they are, the now alive — seat /
+  "Last seen N pages ago", between you, loose ends once), with the writer's pen beside them; the other
+  panel is "How they feel toward you" — the standings, their form, and the people rebuild. (What the
+  drawer shows is the writer's; the storyteller never reads it.)
+- IN THE STORYTELLER'S REQUEST, measured: each absent person's seat rode twice — in the state of
+  things' "Elsewhere" and again in the people block. FIXED: when the state of things lists every
+  seat (a whole view), a card reads "Now: away — where they are now is under Elsewhere" and a roster
+  line "now: away (see Elsewhere)"; a small room (whose state of things may shed seats) keeps them.
+  Core, arc, loose ends and a thread's next step each ride once; the standings' causes do not ride.
+- A BUG THE MEASURE FOUND: short lines and lean pages cut a note at its first period — "Ms. June runs
+  the Bluebird" became "Ms. June — Ms · now: Ms". engine/sentence.js firstSentence (no imports): a
+  title, an initial or "e.g." does not end a sentence; an ending keeps its mark (a semicolon does not);
+  used by the people's short lines and the lean pages.
+- Laws: M259-58 (the sentences; her line whole past the titles; a whole request says a seat once and
+  the card points there; an old note not read as the now; a small room keeps the seat), DOM-32 reads
+  the one view and counts her page once (the two-copies drawer draws it twice — caught). 4 harness
+  breaks caught.
+- 552/552 harness + 52/52 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story)
+  within budget + lint 0 errors. version.js -> m292-001.

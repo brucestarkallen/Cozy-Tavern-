@@ -894,74 +894,18 @@ function onTheirMindPanel(ctx) {
     render();
   });
 
-  /* M12: the character ledger lives here too — who each person is, where
-   * they are, how things stand, and their loose ends; the scribe writes it
-   * after each turn, and the writer's hand writes it through the same
-   * validated, undoable mutation (people.set). */
-  const ledgerHead = document.createElement('h4');
-  ledgerHead.className = 'lbl ledger-subhead';
-  ledgerHead.textContent = 'The character pages';
-  const ledgerNote = quietNote('');
-  const ledgerList = document.createElement('ul');
-  ledgerList.className = 'present-list';
-
-  const ledgerForm = document.createElement('form');
-  ledgerForm.className = 'present-form ledger-form';
-  const personInput = document.createElement('input');
-  personInput.type = 'text';
-  personInput.maxLength = 60;
-  personInput.placeholder = 'Write on a page by hand — the person’s name';
-  personInput.setAttribute('aria-label', 'Whose character page');
-  const fieldSelect = document.createElement('select');
-  fieldSelect.setAttribute('aria-label', 'Which page of their ledger');
-  for (const [value, words] of [
-    ['state', 'Where they are'],
-    ['core', 'Their nature'],
-    ['arc', 'How things stand'],
-    ['threads', 'Loose ends (separate with ;)'],
-  ]) {
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = words;
-    fieldSelect.appendChild(opt);
-  }
-  const textInput = document.createElement('input');
-  textInput.type = 'text';
-  textInput.maxLength = 300;
-  textInput.placeholder = 'What to write down';
-  textInput.setAttribute('aria-label', 'What to write on their page');
-  const writeBtn = document.createElement('button');
-  writeBtn.type = 'submit';
-  writeBtn.className = 'text-btn';
-  writeBtn.textContent = 'Write it on their page';
-  ledgerForm.append(personInput, fieldSelect, textInput, writeBtn);
-
-  ledgerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = personInput.value.trim();
-    const text = textInput.value.trim();
-    if (!name || !text) return;
-    const mutation = { type: 'people.set', name, field: fieldSelect.value, text };
-    personInput.value = textInput.value = '';
-    await handMutate(ctx, [mutation]);
-    render();
-  });
-
-  wrap.append(ledgerHead, ledgerNote, ledgerList, ledgerForm);
+  /* M292: the character pages are drawn once — in "The people" (they were drawn here too, and a fix
+   * that reached one copy left the other stale); this panel is how they feel toward the main character. */
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
-    ledgerList.textContent = '';
     if (!story) {
       note.textContent = 'Open a story and the ledger will know whose hearts these are.';
-      ledgerNote.textContent = '';
       form.hidden = true;
-      ledgerForm.hidden = true;
       return;
     }
     form.hidden = false;
-    ledgerForm.hidden = false;
     const state = await loadState(story.id);
     const rel = state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
     const names = Object.keys(rel).filter((n) => rel[n] && typeof rel[n] === 'object');
@@ -969,55 +913,6 @@ function onTheirMindPanel(ctx) {
       ? 'How they stand toward the main character — warmth, pull, charge. Nothing moves without a cause.'
       : 'No standings written yet. Feelings are only written down when something on the page earns it.';
 
-    /* The character pages (M12). The main character's page is record-only —
-     * where they are and their loose ends; nature and arc are never
-     * written there. */
-    const characters = state.characters && typeof state.characters === 'object' ? state.characters : {};
-    const people = Object.keys(characters).filter((n) => characters[n] && typeof characters[n] === 'object');
-    ledgerNote.textContent = people.length
-      ? 'Who they are, where they are, how it stands, what’s still open. The scribe writes after each turn; you can write by hand, and every line can be taken back from “What changed and why”.'
-      : 'No character pages yet. As the story turns, the scribe writes them here — or write one by hand below.';
-    for (const name of people) {
-      const entry = characters[name];
-      const isTheMc = isMc(state, name);
-      const li = document.createElement('li');
-      li.className = 'present-row mind-row';
-      const head = document.createElement('span');
-      head.textContent = name + (isTheMc ? ' (that’s you)' : '');
-      li.appendChild(head);
-      const line = (label, text) => {
-        if (!text) return;
-        const small = document.createElement('small');
-        small.className = 'quiet';
-        small.textContent = label + text;
-        li.appendChild(small);
-      };
-      line('', entry.core);
-      /* M291: NOW, ALIVE. A person away is where the world says they are (the seat); a note from a
-       * scene long gone says how long ago; only those on the page, and the latest word, read "Now". */
-      {
-        const here = (state.present || []).some((p) => p && p.name && p.name.toLowerCase() === name.toLowerCase());
-        const seatKey = Object.keys(state.offscreen || {}).find((k) => k.toLowerCase() === name.toLowerCase());
-        const seat = seatKey ? state.offscreen[seatKey] : null;
-        const turnNow = storyTurnOf(state);
-        const ago = Number.isFinite(entry.updatedAtTurn) ? Math.max(0, turnNow - entry.updatedAtTurn) : 0;
-        if (!here && !isTheMc && seat && (seat.location || seat.activity)) {
-          line('Now (elsewhere): ', [seat.location, seat.activity].filter(Boolean).join(', '));
-        } else if (!here && !isTheMc && entry.state && ago > 2) {
-          line('Last seen ' + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ', entry.state);
-        } else {
-          line('Now: ', entry.state);
-        }
-      }
-      line('Between you: ', entry.arc);
-      if (Array.isArray(entry.threads) && entry.threads.length) {
-        /* M131: a loose end that repeats a world thread this person owns is shown once — as the thread */
-        const owned = (state.threads || []).filter((t) => t && t.owner && String(t.owner).toLowerCase() === name.toLowerCase()).map((t) => String((t.title || '') + ' ' + (t.next || '')).toLowerCase());
-        const ends = entry.threads.filter((le) => !owned.some((o) => { const a = String(le).toLowerCase().split(/\W+/).filter((w) => w.length > 3); const hit = a.filter((w) => o.includes(w)).length; return a.length >= 4 && hit / a.length >= 0.6; }));
-        if (ends.length) line('Loose ends: ', ends.join('; '));
-      }
-      ledgerList.appendChild(li);
-    }
     for (const name of names) {
       const entry = rel[name];
       const li = document.createElement('li');
@@ -1559,17 +1454,53 @@ function peoplePanel(ctx) {
   const note = quietNote('');
   const list = document.createElement('ul');
   list.className = 'present-list';
-  wrap.append(note, list);
+  /* M292: the writer's pen, beside the pages it writes on (it lived in the other copy of them) */
+  const penForm = document.createElement('form');
+  penForm.className = 'present-form ledger-form';
+  const personInput = document.createElement('input');
+  personInput.type = 'text';
+  personInput.maxLength = 60;
+  personInput.placeholder = 'Write on a page by hand — the person’s name';
+  personInput.setAttribute('aria-label', 'Whose character page');
+  const fieldSelect = document.createElement('select');
+  fieldSelect.setAttribute('aria-label', 'Which part of their page');
+  for (const [value, words] of [['state', 'Where they are now'], ['core', 'Who they are'], ['arc', 'How things stand with you'], ['threads', 'Loose ends (separate with ;)']]) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = words;
+    fieldSelect.appendChild(opt);
+  }
+  const textInput = document.createElement('input');
+  textInput.type = 'text';
+  textInput.maxLength = 4000;
+  textInput.placeholder = 'What to write down';
+  textInput.setAttribute('aria-label', 'What to write on their page');
+  const writeBtn = document.createElement('button');
+  writeBtn.type = 'submit';
+  writeBtn.className = 'text-btn';
+  writeBtn.textContent = 'Write it on their page';
+  penForm.append(personInput, fieldSelect, textInput, writeBtn);
+  penForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const who = personInput.value.trim();
+    const words = textInput.value.trim();
+    if (!who || !words) return;
+    personInput.value = textInput.value = '';
+    await handMutate(ctx, [{ type: 'people.set', name: who, field: fieldSelect.value, text: words }]);
+    render();
+  });
+  wrap.append(note, list, penForm);
   const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
+    penForm.hidden = !story;
     if (!story) { note.textContent = 'Open a story and every character’s page will be here.'; return; }
     const state = await loadState(story.id);
     const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
     const names = Object.keys(chars).filter((n) => chars[n] && typeof chars[n] === 'object' && !chars[n].retired);
     const passed = Object.keys(chars).filter((n) => chars[n] && typeof chars[n] === 'object' && chars[n].retired);
     if (!names.length && !passed.length) { note.textContent = 'No character pages yet. The scribe writes one for everyone who acts on a page; the world agent for everyone it seats.'; return; }
-    note.textContent = names.length + (names.length === 1 ? ' page' : ' pages') + ' — who each person is (core), how they are now (state), how they stand with the main character (arc), and their loose ends.';
+    note.textContent = names.length + (names.length === 1 ? ' page' : ' pages') + ' — who each person is, where they are now, how things stand with you, and what is still open. The scribe writes them after each page; you can write on one by hand below, and every line can be taken back from “What changed and why”.';
     const present = new Set((state.present || []).map((p) => String(p && p.name || '').toLowerCase()));
     names.sort((a, b) => (present.has(b.toLowerCase()) - present.has(a.toLowerCase())) || a.localeCompare(b));
     /* M104: why each person is carried, in the house's own words — information
@@ -1592,26 +1523,23 @@ function peoplePanel(ctx) {
        * beside it */
       const seatKey = state.offscreen && Object.keys(state.offscreen).find((k) => k.toLowerCase() === name.toLowerCase());
       const seatNow = seatKey && !present.has(name.toLowerCase()) ? (() => { const sn = state.offscreen[seatKey] || {}; return [sn.location, sn.activity].filter(Boolean).join(', ') + (sn.agenda ? ' (meaning to ' + sn.agenda + ')' : ''); })() : '';
-      for (const [label, key] of [['Core', 'core'], ['Now', 'state'], ['Arc', 'arc']]) {
-        if (key === 'state' && seatNow) {
-          const p = document.createElement('div');
-          p.className = 'quiet';
-          p.textContent = 'Now (elsewhere): ' + seatNow;
-          li.appendChild(p);
-          continue;
-        }
-        if (typeof c[key] === 'string' && c[key].trim()) {
-          const p = document.createElement('div');
-          p.className = 'quiet';
-          p.textContent = label + ': ' + c[key].trim();
-          li.appendChild(p);
-        }
-      }
+      /* M291/M292: the now alive — the one here says what they are doing; the absent, where the
+       * world has them; a note from a scene long gone, how old it is */
+      const turnNow = storyTurnOf(state);
+      const ago = Number.isFinite(c.updatedAtTurn) ? Math.max(0, turnNow - c.updatedAtTurn) : 0;
+      const isHere = present.has(name.toLowerCase());
+      const mine = isMc(state, name);
+      const addLine = (text) => { const p = document.createElement('div'); p.className = 'quiet'; p.textContent = text; li.appendChild(p); };
+      if (typeof c.core === 'string' && c.core.trim()) addLine('Who they are: ' + c.core.trim());
+      if (seatNow) addLine('Now (elsewhere): ' + seatNow);
+      else if (typeof c.state === 'string' && c.state.trim()) addLine((!isHere && !mine && ago > 2 ? 'Last seen ' + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ' : 'Now: ') + c.state.trim());
+      if (typeof c.arc === 'string' && c.arc.trim()) addLine('Between you: ' + c.arc.trim());
       if (Array.isArray(c.threads) && c.threads.length) {
-        const p = document.createElement('div');
-        p.className = 'quiet';
-        p.textContent = 'Loose ends: ' + c.threads.map((t) => (typeof t === 'string' ? t : t && t.text)).filter(Boolean).join('; ');
-        li.appendChild(p);
+        /* M131: a loose end that repeats a world thread this person owns is shown once — as the thread */
+        const owned = (state.threads || []).filter((t) => t && t.owner && String(t.owner).toLowerCase() === name.toLowerCase()).map((t) => String((t.title || '') + ' ' + (t.next || '')).toLowerCase());
+        const ends = c.threads.map((t) => (typeof t === 'string' ? t : t && t.text)).filter(Boolean)
+          .filter((le) => !owned.some((o) => { const w = String(le).toLowerCase().split(/\W+/).filter((x) => x.length > 3); const hit = w.filter((x) => o.includes(x)).length; return w.length >= 4 && hit / w.length >= 0.6; }));
+        if (ends.length) addLine('Loose ends: ' + ends.join('; '));
       }
       list.appendChild(li);
     }
@@ -2084,7 +2012,7 @@ const PANELS = [
   },
   {
     id: 'on-their-mind',
-    title: 'On their mind',
+    title: 'How they feel toward you', /* M292: the standings; the pages are in "The people" */
     render: (ctx) => onTheirMindPanel(ctx),
   },
   {
