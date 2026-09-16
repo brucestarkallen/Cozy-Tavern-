@@ -6093,3 +6093,33 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   M12 tiers and M259-45 read the relevance roster and the larger room. 13 deliberate breaks caught.
 - 543/543 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story,
   housekeeper) within budget + lint 0 errors. version.js -> m283-001.
+
+# M284 — a newcomer is carried; everyone without a card is a line that says who they are
+- THE WRITER: "Are the characters smart or not? If my sister is sick at home while the MC moves away,
+  is she gone — while she's literally thinking about him? How many get full, how many short? When
+  new characters come in beside many important ones, what happens to them? I asked for a backup
+  section for minor characters — smart, not gamey."
+- MEASURED (M259-50, his case): the MC at a new ground (the Harbor Market), six in the scene with a
+  newcomer among them, the sister away sick ("home, in bed with a fever; rereading his texts,
+  thinking about him"), ten bonded and twenty minor people elsewhere. On 500k, 128k and 107k rooms:
+  all 6 present carded; 9 away carded — the sister first with her seat's words, Aurora (bond and a
+  hot thread), Claire, Alexia, the two the brief names, the three whose pages are at the market;
+  21 short lines; nobody left out; 15,573 characters. Crowded (twelve more bonded away) on 107k:
+  6 present cards, 7 away cards (the sister still first), 35 short lines, 14,407 of 19,260.
+- WHAT WAS MISSING, AND NOW IS NOT:
+  1. A NEWCOMER had no bond, thread or lock, so ranked last in a crowded room and was a bare name the
+     page they left. Every person's page now carries firstSeenTurn (written once, by the hand's door
+     and the scribe's; kept on load), and for their first ten pages they weigh +30 — carded in the
+     scene and after they step out; past that, their story (bond, threads, the ground, the latest
+     names) decides.
+  2. THE ROSTER WAS BARE NAMES. With room it is a line each — who they are (the first clause of
+     their page), where they are now (their seat, else their state), when last seen — the nearest
+     first, the rest counted. Room is kept for those lines before the away cards take theirs, so a
+     crowded tale sheds away cards one by one, never the whole tier (which had taken the sister).
+  The model's own judgement already feeds the weights: the world agent's threads (+40 a hot one)
+  and its seats heading toward the main character (recalled).
+- Laws: M259-50 (firstSeenTurn by both doors, kept, never moved; the scenario on three rooms; the
+  crowded room; the newcomer carried away from the scene, and a line ten pages on). 6 deliberate
+  breaks caught (one needed the crowded case to be seen). M259-47/48 read the roster's lines.
+- 544/544 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  (story) within budget + lint 0 errors. version.js -> m284-001.

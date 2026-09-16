@@ -1830,8 +1830,9 @@ test('M259-47: who matters rides without a pin \u2014 a first name recalls, the 
   const roomy = renderPeopleTiers(st, { recentPages: ['Jovan looks at the door.'], rotation: 0, view: big, brief });
   assert(/Away, and much on the story\u2019s mind:\nRias Wells \u2014 Rias Wells core line/.test(roomy.text), 'Rias, away and unnamed, rides first among the absent');
   assert(roomy.text.includes('Aurora Sterling \u2014 Aurora Sterling core line') && roomy.text.includes('Nora Stone \u2014 Nora Stone core line'), 'and Aurora and Nora ride as cards');
-  assert(!roomy.text.includes('Bit Player \u2014') && /Elsewhere in the tale: [^\n]*Bit Player/.test(roomy.text), 'a bit player is a name on the roster');
-  assert(!/Elsewhere in the tale: [^\n]*Rias Wells/.test(roomy.text), 'and a card is not named again on the roster');
+  const rosterOf = (text) => text.split('Elsewhere in the tale:')[1] || '';
+  assert(!/(^|\n)Bit Player \u2014/.test(roomy.text) && rosterOf(roomy.text).includes('\n- Bit Player \u2014 Bit Player core line'), 'a bit player is a line on the roster, not a card');
+  assert(!rosterOf(roomy.text).includes('Rias Wells'), 'and a card is not named again on the roster');
   eq(roomy.tiers.important, 3, 'three away who matter');
 
   /* a first name recalls */
@@ -1891,10 +1892,12 @@ test('M259-48: the scribe reads the brief and every page it keeps; the writer\u2
   assert(importanceOf(town, 'Gerald Pike', '', 81, scene) < importanceOf(town, 'Tess Ward', '', 81, scene), 'a name the last pages keep saying weighs more than a stranger to the scene');
   const atDiner = renderPeopleTiers(town, { recentPages: [], view: peopleView(200000), scenePages: scene.lately });
   assert(/Away, and much on the story\u2019s mind:\nMs\. June/.test(atDiner.text), 'at the diner, Ms. June rides as a card');
-  assert(/Elsewhere in the tale: Tess Ward[^\n]*Gerald Pike/.test(atDiner.text), 'the roster names the lately-named before a stranger to the scene, whatever order the ledger holds them in');
+  const rosterAt = (text) => text.split('Elsewhere in the tale:')[1] || '';
+  const r1 = rosterAt(atDiner.text);
+  assert(r1.includes('\n- Tess Ward') && r1.includes('\n- Gerald Pike') && r1.indexOf('\n- Tess Ward') < r1.indexOf('\n- Gerald Pike'), 'the roster names the lately-named before a stranger to the scene, whatever order the ledger holds them in');
   const moved = { ...town, place: { name: 'The Wells kitchen' } };
   const atHome = renderPeopleTiers(moved, { recentPages: [], view: peopleView(200000), scenePages: [] });
-  assert(!/Ms\. June \u2014/.test(atHome.text) && /Elsewhere in the tale: [^\n]*Ms\. June/.test(atHome.text), 'at home, she steps back to the roster of herself');
+  assert(!/(^|\n)Ms\. June \u2014/.test(atHome.text) && rosterAt(atHome.text).includes('\n- Ms. June \u2014 the Bluebird waitress'), 'at home, she steps back to the roster of herself \u2014 still saying who she is');
 });
 
 test('M259-49: every worker reads the writer\u2019s brief and cast notes whole to a large room, and a cut past it is a line that says so', async () => {
@@ -1936,4 +1939,82 @@ test('M259-49: every worker reads the writer\u2019s brief and cast notes whole t
   assert(Object.keys(texts).length >= 5, 'the workers under test: ' + Object.keys(texts).join(', '));
   const past = sc.buildScribeMessages({ state: st, userText: 'u', assistantText: 'a', brief: huge, castNotes: huge });
   assert(/\(the brief continues \u2014 \d+ more characters not shown here\)/.test(past.user) && /\(the cast notes continue \u2014/.test(past.user), 'the scribe, too, is held to the room and told so');
+});
+
+test('M259-50: the sister sick at home stays with the story; a newcomer is carried; everyone else is a line that says who they are', async () => {
+  const { renderPeopleTiers, peopleView, mergeDeltas } = await import('../../js/engine/people.js');
+  /* when a person came into the tale is written once, by either door */
+  const base = emptyState(); base.sheet = { actors: {}, playerName: 'Jovan Wells' }; base.page = 40;
+  const noted = applyMutations(base, [{ type: 'people.set', name: 'Mara Quinn', field: 'core', text: 'a fishmonger\u2019s daughter' }]).state;
+  eq(noted.characters['Mara Quinn'].firstSeenTurn, 41, 'the hand\u2019s door writes when she came in');
+  const again = applyMutations({ ...noted, page: 45 }, [{ type: 'people.set', name: 'Mara Quinn', field: 'state', text: 'at her stall' }]).state;
+  eq(again.characters['Mara Quinn'].firstSeenTurn, 41, 'and a later note does not move it');
+  const merged = mergeDeltas(base, {}, [{ name: 'Old Pete', field: 'core', text: 'a net mender' }], 41);
+  eq(merged.characters['Old Pete'].firstSeenTurn, 41, 'the scribe\u2019s door writes it too');
+  const saved = 'm259-firstseen';
+  await saveState(saved, again);
+  eq((await loadState(saved)).characters['Mara Quinn'].firstSeenTurn, 41, 'and it is kept when the ledger is read back');
+
+  /* the scene: Jovan has moved to the harbor; his sister is sick at home */
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan Wells' }; st.page = 199;
+  const page = (core, state, arc, at, first) => ({ core, state, arc, threads: [], updatedAtTurn: at, ...(Number.isFinite(first) ? { firstSeenTurn: first } : {}) });
+  const bonded = (n) => page(n + ' — ' + 'who she is, whole. '.repeat(30), n + ' is somewhere of her own. '.repeat(8), 'Between them: '.repeat(40), 180);
+  st.characters = {
+    'Rias Wells': page('Rias Wells — Jovan\u2019s older sister. ' + 'Fierce and tender. '.repeat(30), 'at home, sick', 'She would walk through fire for him. '.repeat(20), 170),
+    'Mara Quinn': page('a fishmonger\u2019s daughter with salt in her voice', 'at her stall, weighing mackerel', '', 199, 197),
+    'Ms. Holt': page('the Harbor Market\u2019s oldest vendor', 'arranging lemons', '', 150, 20),
+    'Old Pete': page('a net mender who talks to gulls', 'mending nets', '', 150, 20),
+    'Chloe Maxwell': bonded('Chloe Maxwell'), 'Vanessa Reynolds': bonded('Vanessa Reynolds'), 'Eli Sterling': bonded('Eli Sterling'),
+    'Aurora Sterling': bonded('Aurora Sterling'), 'Claire Stone': bonded('Claire Stone'), 'Alaric Stone': bonded('Alaric Stone'),
+    'Mi-na Song': bonded('Mi-na Song'), 'Emilia Vanderbilt': bonded('Emilia Vanderbilt'), 'Alexia Vanderbilt': bonded('Alexia Vanderbilt'),
+    'Caleb Thorne': bonded('Caleb Thorne'), 'Maya Bell': bonded('Maya Bell'), 'Mr. Sterling': bonded('Mr. Sterling'),
+  };
+  for (let i = 1; i <= 20; i += 1) st.characters['Townsperson ' + String.fromCharCode(64 + i) + ' Lane'] = page(i <= 3 ? 'sells rope at the Harbor Market' : 'a face from the old neighbourhood', 'about their day', '', 120, 10);
+  st.relationships = {
+    'Rias Wells': { p: 100, r: 100, s: 52, history: [] }, 'Aurora Sterling': { p: 71, r: 67, s: 7, history: [] },
+    'Vanessa Reynolds': { p: 41, r: 37, s: 3, history: [] }, 'Claire Stone': { p: 26, r: 13, s: 0, history: [] },
+    'Alexia Vanderbilt': { p: 0, r: 31, s: 0, history: [] }, 'Caleb Thorne': { p: 0, r: -28, s: 0, history: [] },
+    'Chloe Maxwell': { p: 14, r: 8, s: 0, history: [] }, 'Mi-na Song': { p: 11, r: 0, s: 0, history: [] },
+  };
+  st.threads = [{ title: 'Aurora\u2019s Friday welcome', owner: 'Aurora Sterling', heat: 'hot', next: 'welcome him' }];
+  st.offscreen = { 'Rias Wells': { location: 'home, in bed with a fever', activity: 'rereading his texts, thinking about him', stance: 'waiting' } };
+  st.place = { name: 'The Harbor Market \u2014 the fish stalls' };
+  st.present = ['Mara Quinn', 'Ms. Holt', 'Old Pete', 'Chloe Maxwell', 'Vanessa Reynolds', 'Eli Sterling'].map((name) => ({ name }));
+  const brief = 'Rias Wells is Jovan\u2019s older sister. Alaric Stone is Claire\u2019s brother. Mr. Sterling lives next door.';
+  const lately = ['Jovan walked the harbor with Mara Quinn.', 'The gulls screamed over the stalls.'];
+  const report = {};
+  for (const [label, tokens] of [['500k', 500000], ['128k', 128000], ['107k', 107000]]) {
+    const out = renderPeopleTiers(st, { recentPages: lately, view: peopleView(tokens), brief, scenePages: lately });
+    const away = out.text.split('Away, and much on the story\u2019s mind:')[1] || '';
+    const roster = out.text.split('Elsewhere in the tale:')[1] || '';
+    report[label] = { chars: out.text.length, ...out.tiers, lines: (roster.match(/\n- /g) || []).length, more: (roster.match(/And (\d+) more/) || [0, 0])[1] };
+    assert(/Named, though not in the scene right now:|Away, and much on the story\u2019s mind:/.test(out.text) && /\nRias Wells \u2014 Rias Wells \u2014 Jovan\u2019s older sister[\s\S]*?Now: home, in bed with a fever, rereading his texts, thinking about him/.test(out.text), label + ': his sick sister rides as a card, where she is and what she is thinking');
+    assert(/(^|\n)Mara Quinn \u2014/.test(out.text), label + ': the newcomer in the scene keeps her card');
+    assert(/Townsperson A Lane \u2014 sells rope at the Harbor Market/.test(out.text) || label === '107k', label + ': a minor person of this very ground comes forward');
+    assert(/\n- Townsperson (D|E|F|G) Lane \u2014 a face from the old neighbourhood \u00b7 now: about their day \(last seen/.test(roster), label + ': a minor person elsewhere is a line that says who they are');
+    assert(!roster.includes('Rias Wells') && !roster.includes('Aurora Sterling'), label + ': no card is named again on the roster');
+    assert(out.text.length <= peopleView(tokens).budget, label + ': the block holds to its room (' + out.text.length + ')');
+  }
+  /* a crowded tale on the smallest room that still says who everyone is: the away cards
+   * take only what the lines leave them — the sister first, and the roster whole */
+  const crowd = { ...st, characters: { ...st.characters }, relationships: { ...st.relationships } };
+  for (let i = 1; i <= 12; i += 1) {
+    const n = 'Friend ' + String.fromCharCode(64 + i) + ' Vale';
+    crowd.characters[n] = bonded(n);
+    crowd.relationships[n] = { p: 20 + i, r: 0, s: 0, history: [] };
+  }
+  const tight = renderPeopleTiers(crowd, { recentPages: lately, view: peopleView(107000), brief, scenePages: lately });
+  const tightRoster = tight.text.split('Elsewhere in the tale:')[1] || '';
+  assert(tight.text.length <= peopleView(107000).budget, 'the crowded block holds to its room: ' + tight.text.length + ' of ' + peopleView(107000).budget);
+  assert(/\nRias Wells \u2014 Rias Wells \u2014 Jovan\u2019s older sister/.test(tight.text), 'crowded, the sister still rides as a card');
+  assert(tight.tiers.important >= 1 && (tightRoster.match(/\n- /g) || []).length >= 20, 'and the roster keeps its lines: ' + JSON.stringify(tight.tiers));
+  report.crowded107k = { chars: tight.text.length, ...tight.tiers };
+
+  /* the newcomer, gone from the scene within her first pages, stays a card; ten pages on, she weighs what her story has made her */
+  const left = { ...st, present: st.present.filter((p) => p.name !== 'Mara Quinn') };
+  assert(/Away, and much on the story\u2019s mind:[\s\S]*\nMara Quinn \u2014/.test(renderPeopleTiers(left, { recentPages: [], view: peopleView(500000), brief, scenePages: [] }).text), 'a newcomer who steps out stays a card for her first pages');
+  const later = { ...left, page: 215 };
+  const lateOut = renderPeopleTiers(later, { recentPages: [], view: peopleView(500000), brief, scenePages: [] }).text;
+  assert(!/(^|\n)Mara Quinn \u2014/.test(lateOut) && /\n- Mara Quinn \u2014 a fishmonger/.test(lateOut), 'past her first pages, with no bond, she is a line on the roster: ' + (lateOut.match(/\n- Mara Quinn[^\n]*/) || [''])[0]);
+  console.log('      M259-50 measured: ' + JSON.stringify(report));
 });

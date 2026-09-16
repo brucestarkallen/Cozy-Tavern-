@@ -322,7 +322,7 @@ export function mergeDeltas(state, characters, deltas, turn) {
 
     let key = findPersonKey(next, name);
     if (!key) key = name;
-    if (!next[key]) next[key] = emptyPerson();
+    if (!next[key]) { next[key] = emptyPerson(); next[key].firstSeenTurn = atTurn; } /* M284: when they came into the tale */
 
     if (field === 'thread' || field === 'unthread') {
       /* M134: a loose end closes on the SENSE of the words, not their exact
@@ -378,6 +378,7 @@ export function setPersonField(state, characters, name, field, text, turn) {
   const before = characters[key] ? { ...characters[key], threads: (characters[key].threads || []).slice() } : null;
   const entry = before ? { ...before, threads: before.threads.slice() } : emptyPerson();
   const atTurn = Number.isFinite(turn) ? turn : (Number.isFinite(state && state.turn) ? state.turn : 0);
+  if (!before) entry.firstSeenTurn = atTurn; /* M284: when they came into the tale */
   if (f === 'threads') {
     /* M236: THE WHOLE-LIST PATH NEVER DEDUPED. mergeDeltas has asked
      * sameLooseEnd before adding a thread since M134 — but this setter, which
@@ -535,10 +536,28 @@ export function importanceOf(state, name, briefText = '', turn = 0, scene = {}) 
     if (hay && words.some((w) => wordRe(w).test(hay))) score += 25;
   }
   if (Array.isArray(scene.lately) && scene.lately.length && namedIn(scene.lately, name)) score += 10;
+  /* M284: A NEWCOMER IS CARRIED WHILE THE STORY MAKES THEM. Someone the tale
+   * has just brought in has no bond, no thread, no lock yet — and ranked last
+   * in a crowded room, and was a bare name the page they left. For their first
+   * pages they weigh as someone who matters. */
+  if (entry && Number.isFinite(entry.firstSeenTurn) && turn - entry.firstSeenTurn <= NEWCOMER_PAGES) score += 30;
   return score; /* the scene's nearness is now, and does not wane with the absence */
 }
 export const IMPORTANT_AT = 20;       /* the least an absent person weighs to ride as a card */
+export const NEWCOMER_PAGES = 10;     /* M284: a person new to the tale is carried this long, bond or none */
 export const PRESENT_CARDS_MIN = 3;   /* the present who always keep their card, whatever the room */
+
+/* M284: the first clause of a note, held to a length at a word — a line's
+ * reminder of who someone is, never their page. */
+function shortClause(text, max) {
+  const t = String(text || '').trim().replace(/\s+/g, ' ');
+  if (!t) return '';
+  const first = t.split(/(?<=[.;!?])\s/)[0].replace(/[.;]$/, '');
+  if (first.length <= max) return first;
+  const cut = first.slice(0, max);
+  const sp = cut.lastIndexOf(' ');
+  return (sp > max * 0.5 ? cut.slice(0, sp) : cut).replace(/[,;:\s]+$/, '') + '\u2026';
+}
 
 /* The tiered cast injection (SPEC.md M12, slot 5 area):
  *   1. full ledger cards for whoever is present (cap 6)
@@ -646,9 +665,14 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   /* Tier 3b (M282): the absent who matter most, in the room that is left —
    * most important first, each card to the recall size, seats honoured. */
   const important = [];
+  /* M284: with room, the roster says who each one is and where — a bare name told the storyteller nothing */
+  const shortLines = lim.budget >= PEOPLE_BUDGET * 4;
   {
     const used = sections.reduce((n, x) => n + x.text.length + 2, 0);
-    let room = lim.budget - used - 1500; /* the roster's line keeps its place */
+    /* M284: the short lines of everyone without a card keep their room */
+    const rest = offScene.filter((k) => !recalled.includes(k)).length;
+    const reserve = shortLines ? Math.min(14000, 190 * Math.min(rest, lim.roster)) : 1500;
+    let room = lim.budget - used - reserve;
     const pool = offScene.filter((k) => !recalled.includes(k) && (weigh.get(k) || 0) >= IMPORTANT_AT).sort(byWeight);
     const cards = [];
     for (const k of pool) {
@@ -676,13 +700,25 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   const rosterPool = offScene.filter((k) => !recalled.includes(k) && !important.includes(k)).sort(byWeight);
   if (rosterPool.length) {
     const shown = rosterPool.slice(0, lim.roster);
-    const line = shown.map((k) => {
+    const agoOf = (k) => {
       const ago = ageWords(characters[k], turn);
-      return k + (ago > 0 ? ' (last seen ' + ago + (ago === 1 ? ' turn' : ' turns') + ' ago)' : ' (with us just now)');
-    });
+      return ago > 0 ? 'last seen ' + ago + (ago === 1 ? ' turn' : ' turns') + ' ago' : 'with us just now';
+    };
     const more = rosterPool.length - shown.length;
-    sections.push({ shed: 3, text: 'Elsewhere in the tale: ' + line.join(', ') + (more > 0 ? ', and ' + more + ' more the ledger knows' : '') + '.' });
-    tiers.roster = line.length;
+    const moreWords = more > 0 ? 'and ' + more + ' more the ledger knows' : '';
+    if (shortLines) {
+      const lines = shown.map((k) => {
+        const seat = seatOf(k);
+        const who = shortClause(characters[k].core, 90);
+        const now = shortClause(seat ? [seat.location, seat.activity].filter(Boolean).join(', ') : characters[k].state, 70);
+        return '- ' + k + (who ? ' \u2014 ' + who : '') + (now ? ' \u00b7 now: ' + now : '') + ' (' + agoOf(k) + ')';
+      });
+      sections.push({ shed: 3, text: 'Elsewhere in the tale:\n' + lines.join('\n') + (moreWords ? '\n' + moreWords.charAt(0).toUpperCase() + moreWords.slice(1) + '.' : '') });
+    } else {
+      const line = shown.map((k) => k + ' (' + agoOf(k) + ')');
+      sections.push({ shed: 3, text: 'Elsewhere in the tale: ' + line.join(', ') + (moreWords ? ', ' + moreWords : '') + '.' });
+    }
+    tiers.roster = shown.length;
   }
 
   /* The budget: shed the least vital until it fits; the present cards

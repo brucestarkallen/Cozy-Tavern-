@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m283-001)
+# Cozy Tavern — handoff for the next session (state at m284-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M283). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M284). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 543 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 544 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 46 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -37,6 +37,8 @@ Full history of every law and fix: AGENTS.md (M1 … M283). SPEC.md holds the fo
 - Nothing goes stale by itself (M261): the ground moving lets positions go; one place under two
   spellings is one place; an untouched thread cools after 15 pages; the code upkeep (retire,
   sweep, clear seats) runs on every page, audited or not (ledgerUpkeep).
+- Newcomers and lines (M284): firstSeenTurn on every page; +30 for the first ten pages; the roster is
+  one line each (who, where, when) with room kept for it.
 - The writer's material (M283): the scribe reads the brief and cast notes; every worker holds them
   to writerText's room with a stated line cut; the storyteller's cast notes and lore follow its room;
   relevance (the ground, the latest names) orders the people, no rotation.
