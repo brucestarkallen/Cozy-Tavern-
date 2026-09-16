@@ -1917,6 +1917,47 @@ test('DOM-30 a connection with no room set is planned in the room its provider r
   }
 });
 
+test('DOM-31 Retry while the page\u2019s readers are still out: nothing they read of the page let go lands in the ledger (M290)', async () => {
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the page let go' });
+  await db.messages.append(st.id, { role: 'user', text: 'We sit by the lake.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The lake is still. Jovan watches it.' });
+  await saveState(st.id, { ...emptyState(), page: 0, place: { name: 'The lake shore' }, present: [{ name: 'Jovan' }] });
+  let told = 0;
+  house.state.storyAnswer = () => { told += 1; return told === 1 ? 'DOOMED-PAGE: the storm broke over the pier.' : 'KEPT-PAGE: the evening stayed calm by the lake.'; };
+  house.state.workerAnswer = (body, sys) => {
+    const text = JSON.stringify(body);
+    if (/keep the ledger/i.test(sys) && text.includes('DOOMED-PAGE')) {
+      /* the reader of the page that will be let go is still out when Retry is pressed */
+      return new Promise((resolve) => setTimeout(() => resolve('{"mutations":[{"type":"mode.snapshot","flags":[]},{"type":"place.set","name":"THE DOOMED PIER"},{"type":"knowledge.add","name":"Jovan","fact":"DOOMED-FACT the storm broke"},{"type":"presence.enter","name":"Doomed Stranger"}],"resolved":[]}'), 7000));
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    click(q('.msg-act[data-act="go on"]'));
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg.pending') && [...qa('.msg-assistant')].some((n) => /DOOMED-PAGE/.test(n.textContent)), 'the page to land', 30000);
+    await tick(400);
+    await until(() => q('#btn-retry') && !q('#btn-retry').hidden, 'Retry to show', 10000);
+    click(q('#btn-retry'));
+    await until(() => [...qa('.msg-assistant')].some((n) => /KEPT-PAGE/.test(n.textContent)) && !env.ctx.chat.isBusy(), 'the page written again', 40000);
+    await tick(8000); /* past the held reader */
+    await until(() => queuedCount(st.id) === 0, 'the house to settle', 60000);
+    const after = await loadState(st.id);
+    assert(!/DOOMED/.test(JSON.stringify(after.place)), 'the ground is not the page let go\u2019s: ' + JSON.stringify(after.place));
+    assert(!JSON.stringify(after.knowledge || {}).includes('DOOMED-FACT'), 'and nobody knows what only the page let go said');
+    assert(!(after.present || []).some((p) => /Doomed Stranger/.test(p.name)), 'and nobody the page let go brought in is here');
+    assert(!JSON.stringify(after.journal || []).includes('DOOMED'), 'and the journal holds nothing of it');
+    const pages = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').map((m) => m.text);
+    assert(!pages.some((t) => /DOOMED-PAGE/.test(t)) && pages.some((t) => /KEPT-PAGE/.test(t)), 'the page let go is gone and the new one stands');
+  } finally {
+    house.state.storyAnswer = null;
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

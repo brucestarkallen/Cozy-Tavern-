@@ -49,6 +49,7 @@ export function makeHouse() {
     } else {
       answer = typeof state.storyAnswer === 'function' ? state.storyAnswer(body) : (state.storyAnswer || `[Lakeside Park — Friday, March 14, 2025 | 14:30 | 🌤 partly cloudy | gray hoodie | seated on bench]\n\nLiara watched him not eat. "You knew," she said. (answer ${n})`);
     }
+    if (answer && typeof answer.then === 'function') answer = await answer; /* M290: a scenario may hold an answer back */
     if (u.includes('/v1/messages')) {
       return sse([
         'event: content_block_start\ndata: ' + JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }) + '\n\n',

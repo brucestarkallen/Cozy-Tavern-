@@ -1767,7 +1767,7 @@ export function initChat(ctx) {
   /* M251/M276: one page the ledger missed, read and marked. A read that finds
    * nothing to change still counts — a quiet page is a read page (it did not,
    * and the mark never passed it). */
-  async function readMissedPage(story, connection, missed, k, { signal, renew, record = '' } = {}) {
+  async function readMissedPage(story, connection, missed, k, { signal, renew, record = '', stale = () => false } = {}) {
     const all = visiblePages(await db.messages.list(story.id));
     const at = all.findIndex((m) => m.id === missed.id);
     const itsUser = at > 0 ? [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user') : null;
@@ -1781,6 +1781,7 @@ export function initChat(ctx) {
       storyId: story.id, story, pageNumber: at + 1, /* M259: it may look */
     });
     if (!back || back.failed || !Array.isArray(back.mutations)) return false;
+    if (stale()) return false; /* M290: a rewind let this reading go */
     const older = await loadState(story.id);
     const stampWas = Number.isInteger(older.page) ? older.page : -1;
     older.page = k; /* M69: its changes are stamped with the page they came from */
@@ -1810,7 +1811,7 @@ export function initChat(ctx) {
         for (let i = 0; i < 3 && !stale(); i += 1) {
           const k = oldestUnread(await loadState(storyId), told.length);
           if (k === -1) break;
-          if (!(await readMissedPage(story, connection, told[k], k, { signal, renew }))) break;
+          if (!(await readMissedPage(story, connection, told[k], k, { signal, renew, stale }))) break;
           read += 1;
         }
         const still = oldestUnread(await loadState(storyId), told.length) !== -1;
@@ -2382,7 +2383,7 @@ export function initChat(ctx) {
         /* M276: the oldest page no read has reached — never one read already */
         /* a founding read takes in the pages before the one in hand — nothing to catch up first */
         const k0 = here === -1 || young ? -1 : oldestUnread(stateBefore, here);
-        if (k0 !== -1) await readMissedPage(story, connection, told[k0], k0, { signal, renew, record: foldedBefore });
+        if (k0 !== -1) await readMissedPage(story, connection, told[k0], k0, { signal, renew, record: foldedBefore, stale });
       } catch (err) { /* the page in hand still gets read */ }
 
       const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw } = await extractTurn({
@@ -2461,7 +2462,9 @@ export function initChat(ctx) {
           next.readAhead = (Array.isArray(next.readAhead) ? next.readAhead : []).filter((x) => x > next.readTo);
         } else markPageRead(next, pageInHand);
       }
-      if (!applied.length) { await saveState(story.id, next); } /* the stamp stands even when nothing was written */
+      /* M290: a page a rewind has let go writes nothing — not even its stamp (a Retry pressed while this
+       * reader was still out could have its rewound ledger written over by the page it let go) */
+      if (!applied.length) { if (stale()) return { silent: true }; await saveState(story.id, next); } /* the stamp stands even when nothing was written */
       if (applied.length) {
         if (stale()) return { silent: true };
         await saveState(story.id, next);
@@ -2741,6 +2744,7 @@ export function initChat(ctx) {
       if (!connection) return { silent: true };
       const r = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
       if (!r || r.stalled) return { silent: false, detail: 'began reading the people again from the pages (notes the old house cut short, or standings pushed back to the brief) — it starts again on the next page' };
+      if (stale()) return { silent: true }; /* M290 */
       const after = await loadState(story.id);
       await saveState(story.id, { ...after, healedGen: HEAL_GEN });
       notify(story.id);

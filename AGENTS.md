@@ -6257,3 +6257,24 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the page against it). 6 harness breaks and the DOM break (the storyteller not asking) caught.
 - 550/550 harness + 49/49 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story)
   within budget + lint 0 errors. version.js -> m289-001.
+
+# M290 — Retry while the page's readers are still out
+- THE WRITER: "If I stop the storyteller mid-reply, the light is blue, and I press Retry for a better
+  page — that's fine, right?"
+- IT IS, AND NOW IT IS PROVEN IN THE APP. Retry waits for the readers (five seconds a job), rewinds the
+  ledger to the snapshot before the turn (every rewind turns the chain's generation), lets the record
+  go past that page, deletes the page and writes a new one. A reader still out when the rewind lands
+  checks, the moment its model answers, that its chain is current AND its page still stands — and
+  quits without a word written.
+- THE GAPS CLOSED (defence behind that check, in the window between it and the save): the page
+  reader's "nothing changed" save wrote without asking whether it was stale; so did the people heal's
+  last save; so did the missed-page catch-up (M276). Each asks now (readMissedPage takes stale; the
+  catch-up and the idle reading pass it). The keeper, the scribe and the world agent already did.
+- tests/dom/env.mjs: a scenario's answer may be a promise (a reader held back).
+- Law: DOM-31 (a page lands, its reader is held seven seconds with a place, a fact and a newcomer; Retry
+  is pressed at once; after the new page and the settled house nothing of the page let go is in the
+  ledger, the journal, the room or anyone's knowledge; the page is gone and the new one stands).
+  Removing the early check (stale / page still there) with the late one: the fact leaks — caught.
+  Removing only the late one is not observable (the early check stands) — noted.
+- 550/550 harness + 50/50 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story)
+  within budget + lint 0 errors. version.js -> m290-001.
