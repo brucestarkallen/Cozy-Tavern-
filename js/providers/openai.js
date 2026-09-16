@@ -14,6 +14,7 @@
  * durationMs = fetch start to stream end.
  */
 
+import { reportedContext } from './room.js'; /* M289 */
 import { readSSE } from './sse.js';
 import { withImagePart, transportError } from './wire.js';
 /* M22-A/D: the full reasoning ladder (per-house spellings, alias-down,
@@ -445,9 +446,8 @@ export function createOpenAIProvider(connection) {
     const body = await res.json();
     const rows = body && Array.isArray(body.data) ? body.data : [];
     return rows
-      .map((m) => (m && typeof m.id === 'string' ? m.id : ''))
-      .filter(Boolean)
-      .map((id) => ({ id, label: id }));
+      .filter((m) => m && typeof m.id === 'string' && m.id)
+      .map((m) => ({ id: m.id, label: m.id, context: reportedContext(m) })); /* M289: the room it reports */
   }
 
   return { test, listModels, streamChat, testPrefill };

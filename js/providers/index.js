@@ -72,7 +72,7 @@ export const PRESETS = [
     type: 'openai',
     baseUrl: 'https://api.deepseek.com/v1',
     model: 'deepseek-chat',
-    contextSize: 128000,
+    contextSize: 1000000, /* M289: DeepSeek V4 — a million tokens */
     hint: 'e.g. deepseek-chat, deepseek-reasoner',
   },
   {

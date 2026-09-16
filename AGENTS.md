@@ -6231,3 +6231,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   refs; a served rule). 8 deliberate breaks caught.
 - 549/549 harness + 48/48 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   (housekeeper, bigfetch) within budget + lint 0 errors. version.js -> m288-001.
+
+# M289 — the house asks the provider how much its model holds; DeepSeek holds a million
+- THE WRITER: "You keep saying low context, but all my models are at least 500k. Are your updates still good?"
+- THEY ARE — IF THE HOUSE KNOWS THE ROOM, and it did not: "The model's room, in tokens" left empty
+  was planned at the preset's size, and M285 made DeepSeek's preset (128,000 — the size of the API
+  DeepSeek retired on 24 July 2026; V4 Pro and Flash hold 1,000,000) the answer for the storyteller
+  too (it had taken 200,000). His workers and storyteller run on DeepSeek; a custom house (NeuralWatt,
+  Wafer) was 128,000. Every reader worked in an eighth of its room: the record folded early, the
+  people's block was "roomy" not "vast", the cast notes and lore held to a third, the auditor and the
+  housekeeper went lean for a ledger they could hold whole.
+- FIXED: the DeepSeek preset is 1,000,000 (PRESETS and PRESET_CONTEXT). providers/detect.js
+  learnContext — a connection with no room set asks its provider's model list once, in the background
+  (a moment's wait before the storyteller's first page, learnContextWithin); a size the list reports
+  for this very model at this address (context_length, max_model_len, context_window,
+  max_input_tokens, top_provider.context_length, …) is kept on the connection (detectedContext,
+  detectedFor) and used until the model or the address changes; nothing reported: asked again after
+  a day; two asks at once are one question. contextOf: the writer's number, else the reported
+  room, else the preset, else 128,000. The model lists keep the size each model reports; the settings
+  form shows it in the empty field ("… (the provider says)"); saving a connection asks.
+- Laws: M259-56 (the preset; the names providers use; the list keeps the size; asked, kept, for that
+  model only; the writer wins; a known room not asked again; silence asked again after a day; two asks
+  one question), M259-51 reads DeepSeek's million, DOM-30 (in the app: the provider reports 600,000 for
+  the connection's model among others; after one page the connection keeps it and the ember bar reads
+  the page against it). 6 harness breaks and the DOM break (the storyteller not asking) caught.
+- 550/550 harness + 49/49 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story)
+  within budget + lint 0 errors. version.js -> m289-001.

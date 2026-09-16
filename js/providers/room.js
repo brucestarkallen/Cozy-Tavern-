@@ -1,4 +1,6 @@
 /* M285: THE MODEL'S ROOM — ONE ANSWER FOR THE WHOLE HOUSE.
+ * M289: the writer's number; else the size the provider reports for this very
+ * model (providers/detect.js asks once, in the background); else the preset's.
  *
  * A connection's "The model's room, in tokens" is how much the model can
  * hold. Left empty, the storyteller took 200,000 for every provider and the
@@ -13,7 +15,7 @@ export const PRESET_CONTEXT = {
   openrouter: 128000,
   zai: 200000,
   google: 1000000,
-  deepseek: 128000,
+  deepseek: 1000000, /* M289: DeepSeek V4 (Pro and Flash) holds a million; the 128k API was retired on 24 July 2026 */
   hermes: 200000,
   custom: 128000,
 };
@@ -35,7 +37,22 @@ export function presetIdFor(conn) {
   return 'custom';
 }
 
+/* M289: a size the provider reported belongs to one model at one address */
+export function detectKey(conn) {
+  return String((conn && conn.model) || '').trim() + '@' + String((conn && conn.baseUrl) || '').trim();
+}
 export function contextOf(conn) {
   if (conn && typeof conn.contextSize === 'number' && conn.contextSize > 0) return conn.contextSize;
+  if (conn && Number(conn.detectedContext) > 0 && conn.detectedFor === detectKey(conn)) return Math.floor(conn.detectedContext);
   return PRESET_CONTEXT[presetIdFor(conn)] || UNKNOWN_CONTEXT;
 }
+/* M289: the size the provider reports for a model, under any of the names houses use */
+export function reportedContext(m) {
+  if (!m || typeof m !== 'object') return 0;
+  const candidates = [m.context_length, m.max_model_len, m.context_window, m.max_context_length, m.max_input_tokens,
+    m.inputTokenLimit, m.input_token_limit, m.contextLength, m.max_context_tokens,
+    m.top_provider && m.top_provider.context_length, m.limits && m.limits.context, m.limit && m.limit.context];
+  for (const c of candidates) { const n = Number(c); if (Number.isFinite(n) && n >= 1000) return Math.floor(n); }
+  return 0;
+}
+

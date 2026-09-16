@@ -1890,6 +1890,33 @@ test('DOM-29 a long tale with a big brief never outgrows the model: the storytel
   await until(() => queuedCount(st.id) === 0, 'the house to settle', 60000);
 });
 
+test('DOM-30 a connection with no room set is planned in the room its provider reports for the model (M289)', async () => {
+  const conns = await db.connections.list();
+  const conn = conns.find((c) => c && c.baseUrl && /mock\.example/.test(c.baseUrl)) || conns[0];
+  await db.connections.update(conn.id, { detectTriedFor: null, detectTriedAt: null, detectedContext: null, detectedFor: null });
+  house.state.models = [{ id: 'other-model', context_length: 32000 }, { id: conn.model, context_length: 600000 }];
+  try {
+    const st = await db.stories.create({ title: 'the provider says' });
+    await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+    await db.messages.append(st.id, { role: 'assistant', text: 'The lamp is lit.' });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    click(q('.msg-act[data-act="go on"]'));
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg.pending'), 'the page to land', 40000);
+    const kept = (await db.connections.list()).find((c) => c.id === conn.id);
+    eq(kept.detectedContext, 600000, 'the connection keeps the room its provider reports for its model');
+    const withReceipt = (await db.messages.list(st.id)).reverse().find((m) => m && m.receipt && typeof m.receipt.totalTokens === 'number');
+    const want = Math.min(100, Math.max(1, (withReceipt.receipt.totalTokens / 600000) * 100));
+    await until(() => parseFloat(q('#ember-fill').style.width) > 0, 'the ember bar to fill', 10000);
+    await tick(300);
+    const got = parseFloat(q('#ember-fill').style.width);
+    assert(Math.abs(got - want) < 0.01, 'the ember bar reads the page against the provider\u2019s 600,000: ' + got.toFixed(4) + '% (want ' + want.toFixed(4) + '%; the old guess would read ' + (withReceipt.receipt.totalTokens / 1280).toFixed(4) + '%)');
+  } finally {
+    house.state.models = null;
+    await db.connections.update(conn.id, { detectTriedFor: null, detectTriedAt: null, detectedContext: null, detectedFor: null });
+  }
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

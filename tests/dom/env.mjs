@@ -36,7 +36,7 @@ export function makeHouse() {
   const fetchImpl = async (url, opts = {}) => {
     const u = String(url);
     if (/api\/books/.test(u)) return jsonRes({}, 404);
-    if (/\/v1\/models$/.test(u)) return jsonRes({ data: [] });
+    if (/\/v1\/models$/.test(u)) return jsonRes({ data: state.models || [] }); /* M289: a scenario may say what the house reports */
     const body = opts.body ? JSON.parse(opts.body) : {};
     const sys = Array.isArray(body.messages) ? body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : String(body.system || '');
     const isWorker = /keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record line|auditor of the ledger|found the ledger|reading a story's past|housekeeper of a cozy tavern|referee|cast sheet|Answer with JSON ONLY|JSON ONLY/i.test(sys) && !/You are telling a story/.test(sys);

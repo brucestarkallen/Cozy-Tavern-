@@ -16,7 +16,8 @@
 
 import { db } from '../store.js';
 import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '../providers/index.js';
-import { presetIdFor } from '../providers/room.js'; /* M285 */
+import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
+import { learnContext } from '../providers/detect.js'; /* M289 */
 import { EFFORT_RANK, effortFor, reasonStyle } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
@@ -444,6 +445,10 @@ export function initSettings(ctx) {
       els.connTopP.value = typeof conn.topP === 'number' ? String(conn.topP) : '';
       els.connMaxTokens.value = typeof conn.maxTokens === 'number' ? String(conn.maxTokens) : '';
       els.connContextSize.value = typeof conn.contextSize === 'number' ? String(conn.contextSize) : '';
+      /* M289: left empty, the room the provider reports for this model is what the house plans in — say it */
+      if (typeof conn.contextSize !== 'number' && Number(conn.detectedContext) > 0 && conn.detectedFor === detectKey(conn)) {
+        els.connContextSize.placeholder = String(conn.detectedContext) + ' (the provider says)';
+      }
       /* M22-C/D: the search switch, its ceiling, and the prefill. */
       els.search.checked = conn.searchOn === true;
       els.searchCount.value = typeof conn.searchMaxUses === 'number' ? String(conn.searchMaxUses) : '';
@@ -657,8 +662,11 @@ export function initSettings(ctx) {
         patch.prefillDownAt = null;
       }
       await db.connections.update(editingId, patch);
+      /* M289: an empty room is asked of the provider now, in the background */
+      db.connections.list().then((all) => { const c = all.find((x) => x.id === editingId); if (c) learnContext(c).catch(() => {}); }).catch(() => {});
     } else {
       const saved = await db.connections.add(fields);
+      learnContext(saved).catch(() => {}); /* M289: its room, asked of the provider */
       if (!(await activeConnectionId())) {
         await db.settings.set('activeConnectionId', saved.id);
       }

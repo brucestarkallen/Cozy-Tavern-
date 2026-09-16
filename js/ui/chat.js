@@ -44,6 +44,7 @@ import { streamText } from './streamtext.js'; /* M279 */
 import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
+import { learnContext, learnContextWithin } from '../providers/detect.js'; /* M289: the provider's own word on its room */
 import { buildRequest, pageText, windowPlan } from '../assemble/stack.js';
 import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the house is doing */
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
@@ -1419,12 +1420,16 @@ export function initChat(ctx) {
    * tells this story"); by default the house connection tells them all. */
   async function resolveConnection(story) {
     const all = await db.connections.list();
+    let found = null;
     if (story && typeof story.connectionId === 'string' && story.connectionId) {
-      const own = all.find((c) => c.id === story.connectionId);
-      if (own) return own;
+      found = all.find((c) => c.id === story.connectionId) || null;
     }
-    const wanted = await db.settings.get('activeConnectionId');
-    return all.find((c) => c.id === wanted) || all[0] || null;
+    if (!found) {
+      const wanted = await db.settings.get('activeConnectionId');
+      found = all.find((c) => c.id === wanted) || all[0] || null;
+    }
+    if (found) learnContext(found).catch(() => {}); /* M289: its room, asked of the provider in the background */
+    return found;
   }
 
   /* M264: the room the storyteller's context leaves the record — the same
@@ -1453,7 +1458,7 @@ export function initChat(ctx) {
     const legacy = await db.settings.get('workerConnectionId');
     const all = await db.connections.list();
     const picked = pickWorkerConnection({ map, legacy, connections: all }, worker);
-    if (picked) return picked;
+    if (picked) { learnContext(picked).catch(() => {}); return picked; } /* M289 */
     return resolveConnection(story);
   }
 
@@ -3122,7 +3127,9 @@ export function initChat(ctx) {
       const story = await activeStory();
       if (!story) return;
 
-      const connection = await resolveConnection(story);
+      let connection = await resolveConnection(story);
+      /* M289: the provider's word on its room, waited for a moment on the first page */
+      if (connection) connection = await learnContextWithin(connection, 1500);
       if (!connection) {
         els.thread.appendChild(noteNode(
           'There’s no connection yet. Add one in Settings and the tavern can open its doors.'

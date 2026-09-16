@@ -2025,20 +2025,20 @@ test('M259-51: the model\u2019s room has one answer — the writer\u2019s number
   for (const p of PRESETS) eq(PRESET_CONTEXT[p.id], p.contextSize, 'the room table holds the preset\u2019s own number: ' + p.id);
   eq(Object.keys(PRESET_CONTEXT).sort().join(','), PRESETS.map((p) => p.id).sort().join(','), 'and every preset is in it');
   eq(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1', contextSize: 500000 }), 500000, 'the writer\u2019s number wins');
-  eq(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }), 128000, 'an empty DeepSeek room is DeepSeek\u2019s \u2014 it was taken as 200,000');
-  eq(contextOf({ type: 'openai', preset: 'deepseek', baseUrl: 'https://proxy.example/v1' }), 128000, 'the preset it was made from is trusted first');
+  eq(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }), 1000000, 'an empty DeepSeek room is DeepSeek\u2019s \u2014 a million since V4 (M289)');
+  eq(contextOf({ type: 'openai', preset: 'deepseek', baseUrl: 'https://proxy.example/v1' }), 1000000, 'the preset it was made from is trusted first');
   eq(contextOf({ type: 'anthropic', baseUrl: 'https://api.anthropic.com' }), 200000, 'Claude\u2019s is Claude\u2019s');
   eq(contextOf({ type: 'openai', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' }), 1000000, 'Google\u2019s is Google\u2019s');
   eq(contextOf({ type: 'openai', baseUrl: 'https://mock.example/v1' }), UNKNOWN_CONTEXT, 'an unknown endpoint is taken at 128,000');
-  eq(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1', contextSize: 0 }), 128000, 'a zero is no number');
+  eq(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1', contextSize: 0 }), 1000000, 'a zero is no number (the preset stands)');
   eq(presetIdFor(null), 'custom', 'no connection is a custom one');
   /* the workers and the storyteller ask the same question */
   const { roomChars } = await import('../../js/engine/pagecut.js');
   assert(roomChars({ type: 'openai', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' }) > 2500000, 'a worker on Google with no number is given Google\u2019s room');
-  eq(roomChars({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }), roomChars({ contextSize: 128000 }), 'and on DeepSeek, DeepSeek\u2019s');
+  eq(roomChars({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }), roomChars({ contextSize: 1000000 }), 'and on DeepSeek, DeepSeek\u2019s');
   const { buildRequest } = await import('../../js/assemble/stack.js');
   const { peopleView } = await import('../../js/engine/people.js');
-  eq(JSON.stringify(peopleView(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }))), JSON.stringify(peopleView(128000)), 'the storyteller\u2019s people are sized to the same room');
+  eq(JSON.stringify(peopleView(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }))), JSON.stringify(peopleView(1000000)), 'the storyteller\u2019s people are sized to the same room');
   assert(buildRequest({ story: { title: 't', brief: 'b' }, messages: [{ id: 'u1', role: 'user', text: 'go' }], settings: {}, state: emptyState(), modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens: contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }) } }), 'a request is built in that room');
 });
 
@@ -2198,4 +2198,55 @@ test('M259-55: the housekeeper reads a ledger of many faces lean in its room and
   const huge = { ...story, brief: para(150000, 'bigbrief') };
   assert(/\(the brief continues \u2014 \d+ more characters not shown here\)/.test(JSON.stringify(dir.buildDirectorBrief({ story: huge, messages: recent, state: st, prev: null, mode: 'new' }))), 'the director is held to the workers\u2019 room and told so');
   assert(/\(the brief continues \u2014/.test(JSON.stringify(edi.buildEditorMessages({ story: huge, messages: recent, state: st, prev: null }))), 'and so is the editor');
+});
+
+test('M259-56: the house asks the provider how much its model holds — a room left empty is the model\u2019s own, not an old preset\u2019s', async () => {
+  const { contextOf, detectKey, reportedContext } = await import('../../js/providers/room.js');
+  const { learnContext, ASK_AGAIN_MS } = await import('../../js/providers/detect.js');
+  const { createProvider, PRESETS } = await import('../../js/providers/index.js');
+  eq(PRESETS.find((p) => p.id === 'deepseek').contextSize, 1000000, 'DeepSeek\u2019s preset is V4\u2019s million');
+  eq(reportedContext({ id: 'x', context_length: 1048576 }), 1048576, 'OpenRouter\u2019s name for it');
+  eq(reportedContext({ id: 'x', max_model_len: 524288 }), 524288, 'vLLM\u2019s');
+  eq(reportedContext({ id: 'x', top_provider: { context_length: 600000 } }), 600000, 'a provider\u2019s own');
+  eq(reportedContext({ id: 'x' }), 0, 'none said is none');
+  /* the model list keeps the size it reports */
+  const lists = [];
+  const listing = { calls: [], fetch: async (url) => { lists.push(String(url)); return new Response(JSON.stringify({ data: [{ id: 'glm-5.2', context_length: 524288 }, { id: 'kimi-k3', max_model_len: 1000000 }, { id: 'plain' }] }), { status: 200, headers: { 'content-type': 'application/json' } }); } };
+  const conn = { id: 'c-neural', type: 'openai', baseUrl: 'https://api.neuralwatt.example/v1', apiKey: 'k', model: 'glm-5.2' };
+  const got = await withHouse(listing, () => createProvider(conn).listModels());
+  eq(JSON.stringify(got.map((m) => [m.id, m.context])), JSON.stringify([['glm-5.2', 524288], ['kimi-k3', 1000000], ['plain', 0]]), 'each model with the room it reports');
+  /* an empty room is asked once, and kept for that very model */
+  await db.connections.add(conn);
+  const stored = (await db.connections.list()).find((c) => c.id === 'c-neural');
+  eq(contextOf(stored), 128000, 'unknown and unasked: the careful guess');
+  const learned = await withHouse(listing, () => learnContext(stored));
+  eq(contextOf(learned), 524288, 'asked: the provider\u2019s own number');
+  const reread = (await db.connections.list()).find((c) => c.id === 'c-neural');
+  eq(contextOf(reread), 524288, 'and it is kept on the connection');
+  eq(contextOf({ ...reread, model: 'kimi-k3' }), 128000, 'another model on the connection is not taken at this one\u2019s size');
+  eq(contextOf({ ...reread, contextSize: 300000 }), 300000, 'the writer\u2019s own number always wins');
+  const before = lists.length;
+  await withHouse(listing, () => learnContext(reread));
+  eq(lists.length, before, 'a known room is not asked again');
+  /* a provider that says nothing is asked again after a day, not every page */
+  const silent = { calls: [], fetch: async (url) => { lists.push(String(url)); return new Response(JSON.stringify({ data: [{ id: 'deep-model' }] }), { status: 200, headers: { 'content-type': 'application/json' } }); } };
+  const quiet = { id: 'c-quiet', type: 'openai', baseUrl: 'https://api.wafer.example/v1', apiKey: 'k', model: 'deep-model' };
+  await db.connections.add(quiet);
+  const t0 = 1000000;
+  const once = await withHouse(silent, () => learnContext(quiet, { now: t0 }));
+  const n1 = lists.length;
+  await withHouse(silent, () => learnContext(once, { now: t0 + 60000 }));
+  eq(lists.length, n1, 'not asked again within the day');
+  await withHouse(silent, () => learnContext(once, { now: t0 + ASK_AGAIN_MS + 1 }));
+  eq(lists.length, n1 + 1, 'asked again the next day');
+  eq(contextOf(once), 128000, 'and meanwhile the careful guess stands');
+  /* two asks at once are one question */
+  const slowCalls = [];
+  const slow = { calls: [], fetch: async (url) => { slowCalls.push(url); await new Promise((r) => setTimeout(r, 50)); return new Response(JSON.stringify({ data: [{ id: 'm1', context_length: 700000 }] }), { status: 200, headers: { 'content-type': 'application/json' } }); } };
+  const twin = { id: 'c-twin', type: 'openai', baseUrl: 'https://api.twin.example/v1', apiKey: 'k', model: 'm1' };
+  await db.connections.add(twin);
+  const [a, b] = await withHouse(slow, () => Promise.all([learnContext(twin), learnContext(twin)]));
+  eq(slowCalls.length, 1, 'one question for two asks');
+  eq(contextOf(a) + contextOf(b), 1400000, 'and both have the answer');
+  eq(detectKey(twin), 'm1@https://api.twin.example/v1', 'the answer belongs to the model at its address');
 });

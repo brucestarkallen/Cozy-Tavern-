@@ -19,6 +19,7 @@
  * prefill that stayed home). testPrefill() is the settings form's probe.
  */
 
+import { reportedContext } from './room.js'; /* M289 */
 import { readSSE } from './sse.js';
 import { withImagePart, transportError } from './wire.js';
 /* M22-A/D: the full reasoning ladder + rejection memory, and the
@@ -206,7 +207,7 @@ export function createAnthropicProvider(connection) {
     const rows = body && Array.isArray(body.data) ? body.data : [];
     return rows
       .filter((m) => m && typeof m.id === 'string')
-      .map((m) => ({ id: m.id, label: typeof m.display_name === 'string' && m.display_name ? m.display_name : m.id }));
+      .map((m) => ({ id: m.id, label: typeof m.display_name === 'string' && m.display_name ? m.display_name : m.id, context: reportedContext(m) }));
   }
 
   /* One POST of the finished body, with the M22 rejection memory: a
