@@ -119,7 +119,7 @@ export function initHousekeeper(ctx) {
    * answer — so a writer who looked elsewhere came back to nothing, and an ask
    * cut that way saved nothing either. The live nodes are kept here and drawn
    * again under the session's turns whenever the sheet is drawn. */
-  let live = null;
+  let liveAsk = null;
   const DRAFT_PREFIX = 'hkDraft:';
 
   async function ensureSession() {
@@ -612,7 +612,7 @@ export function initHousekeeper(ctx) {
       thread.append(note);
       return;
     }
-    const liveHere = live && live.storyId === sessionStoryId && (!Number.isFinite(live.sessionId) || !session || live.sessionId === session.id);
+    const liveHere = liveAsk && liveAsk.storyId === sessionStoryId && (!Number.isFinite(liveAsk.sessionId) || !session || liveAsk.sessionId === session.id);
     if (!session.turns.length && !liveHere) {
       const note = document.createElement('p');
       note.className = 'quiet hk-empty';
@@ -648,7 +648,7 @@ export function initHousekeeper(ctx) {
     thread.scrollTop = thread.scrollHeight;
     /* M271: the ask still in flight, drawn where it belongs */
     if (liveHere) {
-      for (const node of live.nodes()) thread.append(node);
+      for (const node of liveAsk.nodes()) thread.append(node);
       thread.scrollTop = thread.scrollHeight;
     }
   }
@@ -835,7 +835,7 @@ export function initHousekeeper(ctx) {
     let liveThinking = ''; /* M80: what streamed, kept here too — never lost to a round or a wire that returned it empty */
     let thinkFold = null;
     let thinkBody = null;
-    live = { storyId: story.id, sessionId: session && session.id, nodes: () => [writerBubble, thinkFold, pendingBubble].filter(Boolean) };
+    liveAsk = { storyId: story.id, sessionId: session && session.id, nodes: () => [writerBubble, thinkFold, pendingBubble].filter(Boolean) };
     /* M269: what streamed since the last frame, drawn once a frame */
     let waitingThink = '';
     let waitingProse = '';
@@ -977,7 +977,7 @@ export function initHousekeeper(ctx) {
         why: result.error || '',
       });
       if (!result.ok) {
-        live = null;
+        liveAsk = null;
         pendingBubble.remove();
         if (!open) toast('The housekeeper could not answer — your question is back in its box.');
         statusLine.textContent = stalled
@@ -993,7 +993,7 @@ export function initHousekeeper(ctx) {
        * writer moved to another story or session while it worked, the store
        * already holds it there (housekeeperTurn saved it by storyId); this view
        * must not draw it into the room the writer is in now. */
-      live = null;
+      liveAsk = null;
       try { await db.settings.set(DRAFT_PREFIX + story.id, ''); } catch (err) { /* nothing to put back */ }
       if (sessionStoryId !== story.id || (session && Number.isFinite(session.id) && Number.isFinite(result.session.id) && session.id !== result.session.id)) {
         toast('The housekeeper answered in the session that asked — open it to read.');
@@ -1037,14 +1037,14 @@ export function initHousekeeper(ctx) {
       if (!open) toast('The housekeeper answered — open it to read.');
       return true;
     } catch (err) {
-      live = null;
+      liveAsk = null;
       pendingBubble.remove();
       input.value = text;
       statusLine.textContent = 'It stumbled: ' + ((err && err.message) || 'unknown') + '. Nothing was changed.';
     } finally {
       clearInterval(ticker);
       streamDone = true; /* M269: a stumbled or cut turn draws nothing later either */
-      live = null;
+      liveAsk = null;
       if (thinkFold && thinkFold.isConnected) thinkFold.remove(); /* render() draws the kept thinking from the turn */
       workerCtl = null;
       setBusy(false);
@@ -1391,7 +1391,7 @@ export function initHousekeeper(ctx) {
     await renderSessions();
     render();
     await Promise.all([loadRules(), refreshStatusLine()]);
-    if (!live && !busy && !input.value.trim()) {
+    if (!liveAsk && !busy && !input.value.trim()) {
       try {
         const story = await activeStory();
         const draft = story ? await db.settings.get(DRAFT_PREFIX + story.id) : '';

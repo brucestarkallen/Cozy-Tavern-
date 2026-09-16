@@ -1430,6 +1430,7 @@ export function initChat(ctx) {
   /* M264: the room the storyteller's context leaves the record — the same
    * measure the send path uses, for the keeper deciding whether to squeeze */
   const warnedRecordFull = new Set(); /* M265: said once a session for each tale */
+  const mendsChecked = new Set(); /* M268: mistaken mends are looked for once a session for each tale */
   async function recordRoomFor(story) {
     try {
       const conn = await resolveConnection(story);
@@ -2486,7 +2487,12 @@ export function initChat(ctx) {
       });
       /* M268: a mend that should never have been is put back first, by the house */
       let putBack = [];
-      try { putBack = await putBackMistakenMends(story.id); } catch (err) { putBack = []; }
+      /* once a session for each tale — M268 keeps new ones from being made, and
+       * the look reads every page */
+      if (!mendsChecked.has(story.id)) {
+        mendsChecked.add(story.id);
+        try { putBack = await putBackMistakenMends(story.id); } catch (err) { putBack = []; }
+      }
       for (const id of putBack) { try { await rerenderMessage(story.id, id); } catch (err) { /* the next render shows it */ } }
       if (putBack.length) toast('The house put back ' + putBack.length + (putBack.length === 1 ? ' page it had' : ' pages it had') + ' mended by mistake — the storyteller’s own words are back.');
       /* M262: THE LINES THE OLD KEEPER READ IN PART are read again, two a page,

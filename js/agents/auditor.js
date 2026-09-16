@@ -777,7 +777,7 @@ export function buildRebuildMessages({ state, brief, castNotes, record, pages, m
     'people are not standings and must not appear.',
     '',
     'THE BRIEF (the first authority):', Q, String(brief || '').slice(0, 40000) || '(none)' /* M267: whole */, Q,
-    'THE CAST NOTES:', Q, String(castNotes || '').slice(0, 6000) || '(none)', Q,
+    'THE CAST NOTES:', Q, String(castNotes || '').slice(0, 20000) || '(none)' /* M274: as the founder reads them */, Q,
     'THE RECORD (what the pages established, oldest to newest):', Q, String(record || '') || '(nothing yet)' /* M265: the caller gives it in its room */, Q,
     'THE LATEST PAGES:', Q, (pages || []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(p.text, 12000)).join('\n\n'), Q,
     '',

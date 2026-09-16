@@ -437,7 +437,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
       const key = m.name.trim().toLowerCase();
       if (!hasPage(m.name) && !pagesInAnswer.has(key)) {
         const bits = [m.activity, m.agenda ? 'wants ' + m.agenda : '', m.location ? 'at ' + m.location : ''].filter(Boolean);
-        withPages.push({ type: 'people.set', name: m.name.trim(), field: 'core', text: (bits.join('; ') || 'seated by the world agent').slice(0, 280) });
+        withPages.push({ type: 'people.set', name: m.name.trim(), field: 'core', text: (bits.join('; ') || 'seated by the world agent').slice(0, 4000) }); /* M274: a page field is kept whole */
         pagesInAnswer.add(key);
       }
     }

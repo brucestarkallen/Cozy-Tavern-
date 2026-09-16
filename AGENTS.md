@@ -5782,3 +5782,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   caught. DOM-25 opens the sheet afresh (an earlier scenario can leave it open).
 - 531/531 harness + 44/44 walk + 8/8 play + housekeeper_rounds all green + perf within budget.
   version.js -> m273-001.
+
+# M274 — the audit
+- THE WRITER: "Have you pushed and audited the whole thing for bugs?" Pushed, yes (M273); audited
+  as a whole, no — each release had been checked where it touched. So, the whole of it:
+- LINT (tests/audit_lint.sh — ESLint 9, real-bug rules as errors): 70 files, 0 errors. Every
+  warning read by hand: 38 names used before their definition (all inside functions that run
+  after the definition — the sync worker's client id, sync's paint/liveRepaint, the drawer's and
+  chat's closures — no crash at load or at run); 12 shadowed names (a seat-name parameter beside
+  the seat() import, loop counters in arrow functions, a local import beside a static one — and
+  M271's in-flight ask, also called `live` beside the cards box's own `live`: renamed liveAsk); 37
+  unused names (dead state — a render token, a ledger mark, imports left behind — none a skipped
+  check).
+- THE OFFLINE SHELL (sw.js): its list holds every js/css file on disk (72 of 72), and its cache
+  is named for the version.
+- COSTS THAT GROW WITH THE TALE: after every page the keeper's job read every page three times;
+  the look for mistaken mends (M268) needs doing once a session for each tale (M268 keeps new ones
+  from being made) — it is.
+- THE LAST QUIET CUTS (the same fault as M265–M267, found by listing every fixed cut left):
+  a correction to the record was cut at 600 (the writer's edit ripple and "the brief wins" write
+  them) — 4,000; the director's ideas read the first 6,000 of the brief — 40,000; the writer's
+  steer to the director was cut at 2,000 — 12,000; a person the world agent seats got a first
+  page cut at 280 — 4,000; the standings rebuild read 6,000 of the cast notes — 20,000; a card's
+  reason, cut on a word at 200, reads to 600.
+- Law M259-38 (each of those, whole); its first draft let the rebuild's cut pass because the
+  stated-standings reader beside it already had the notes whole — it now checks the rebuild's
+  own call. 6 deliberate breaks caught.
+- Every suite, each run alone: 532/532 harness, 44/44 walk, 8/8 play, two-browser 11/11,
+  housekeeper_rounds 16/16, perf (housekeeper, story) within budget. version.js -> m274-001.

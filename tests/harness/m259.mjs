@@ -1432,3 +1432,55 @@ test('M259-37: cards that fix one problem are one group — taking one back take
   const ctx = hk.buildHousekeeperContext({ story: base.story, messages, state: emptyState(), modules: [], lore: [], memory, session, contextPages: 8 });
   assert(ctx.includes('group “' + GROUP + '”') && /withdrawing any of them withdraws the whole group/.test(ctx), 'the pending list names each card\u2019s group, and what withdrawing means');
 });
+
+test('M259-38: the last quiet cuts — a correction, the director\u2019s brief and the writer\u2019s steer, a seated person\u2019s page, the rebuild\u2019s cast notes, a card\u2019s reason', async () => {
+  const { addCorrection } = await import('../../js/agents/memory.js');
+  const long = 'the writer set this right: ' + 'word '.repeat(420) + 'THE-END-OF-IT';
+  const mem = addCorrection({ nodes: [] }, long);
+  assert(mem.nodes[0].text.includes('THE-END-OF-IT'), 'a correction is kept whole (it was cut at 600)');
+
+  const dir = await import('../../js/agents/director.js');
+  const sid = 'm259-lastcuts';
+  await db.messages.append(sid, { role: 'user', text: 'u' });
+  await db.messages.append(sid, { role: 'assistant', text: 'a page' });
+  await saveState(sid, emptyState());
+  const brief = 'The brief opens. ' + 'b'.repeat(9000) + ' BRIEF-TAIL-SEEN';
+  let seen = '';
+  const call = async (req) => { seen = JSON.stringify(req.messages || []); return { text: '1. an idea\n2. another\n3. a third' }; };
+  await dir.directorIdeas({ connection: CONN, storyId: sid, story: { id: sid, title: 't', brief }, call });
+  assert(seen.includes('BRIEF-TAIL-SEEN'), 'the director reads the whole brief (it was cut at 6,000)');
+  const steer = 'Aim it this way: ' + 's'.repeat(3000) + ' STEER-TAIL-SEEN';
+  await dir.saveDirector(sid, { ...(await dir.loadDirector(sid)), text: 'EPISODE 1 — a directive', episode: 1 });
+  await dir.directorSteer({ connection: CONN, storyId: sid, story: { id: sid, title: 't', brief }, direction: steer, call: async (req) => { seen = JSON.stringify(req.messages || []); return { text: 'EPISODE 1 — re-aimed' }; } });
+  assert(seen.includes('STEER-TAIL-SEEN'), 'and the writer\u2019s own direction whole (it was cut at 2,000)');
+
+  const wsid = 'm259-lastcuts-world';
+  await saveState(wsid, emptyState());
+  const activity = 'walking the long way round the lake ' + 'w'.repeat(400) + ' SEAT-TAIL-SEEN';
+  const wh = thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Maya Bell', location: 'the lake path', activity, stance: 'busy' }], brief: { pressure: [], ripe: [], twb: null, voices: [] } }) });
+  await withHouse(wh, () => worldTurn({ connection: CONN, storyId: wsid, userText: 'u', assistantText: 'Maya Bell went to the lake.', stale: () => false }));
+  const maya = (await loadState(wsid)).characters['Maya Bell'];
+  assert(maya && /SEAT-TAIL-SEEN/.test(maya.core || ''), 'a person the world agent seats gets a whole first page (it was cut at 280): ' + JSON.stringify(maya && maya.core).slice(0, 80));
+
+  const { rebuildStandings } = await import('../../js/agents/auditor.js');
+  const rsid = 'm259-lastcuts-rebuild';
+  await saveState(rsid, emptyState());
+  await db.messages.append(rsid, { role: 'user', text: 'u' });
+  await db.messages.append(rsid, { role: 'assistant', text: 'a' });
+  const cast = 'Rias Wells — ' + 'c'.repeat(8000) + ' CAST-TAIL-SEEN';
+  const rh = thinkingHouse({ answer: '{"mutations":[]}' });
+  await withHouse(rh, () => rebuildStandings({ connection: CONN, storyId: rsid, brief: 'b', castNotes: cast, stale: () => false }));
+  /* the rebuild itself — not the stated-standings reader beside it, which had them whole already */
+  const rebuildCall = rh.calls.find((c) => JSON.stringify(c.body).includes('THE BRIEF (the first authority)'));
+  assert(rebuildCall, 'the rebuild was asked');
+  assert(JSON.stringify(rebuildCall.body).includes('CAST-TAIL-SEEN'), 'the standings rebuild reads the cast notes whole (it was cut at 6,000)');
+
+  const hk = await import('../../js/agents/housekeeper.js');
+  const msgs = [{ id: 'reasonpage01', role: 'assistant', text: 'The cheer chat was founded 2014.' }];
+  const why = (r) => hk.stageProposals(hk.parseProtocol('<edits>[{"id":"#reason","find":"founded 2014","replace":"founded 2024","reason":' + JSON.stringify(r) + '}]</edits>'), { messages: msgs, state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, story: { brief: '' } })[0].reason;
+  const mid = 'because ' + 'the squad chat began two years after the squad did, '.repeat(9);
+  eq(why(mid), mid.trim().replace(/\s+/g, ' '), 'a reason of ' + mid.length + ' characters is kept whole (it was cut at 200)');
+  const huge = 'because ' + 'the squad chat began two years after the squad did, '.repeat(20);
+  const cut = why(huge);
+  assert(cut.length <= 600 && cut.endsWith('…') && !/\s…$/.test(cut) && huge.startsWith(cut.slice(0, -1)), 'a runaway reason is cut on a word, visibly: ' + cut.slice(-40));
+});

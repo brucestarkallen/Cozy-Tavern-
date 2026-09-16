@@ -143,7 +143,7 @@ export function addCorrection(mem, text) {
   const line = /^\[Correction\]/i.test(words) ? words : '[Correction] ' + words;
   const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).map((n) => ({ ...n }));
   if (nodes.some((n) => n.correction && n.text.trim().toLowerCase() === line.toLowerCase())) return { ...mem, nodes };
-  nodes.push({ id: nodeId(), span: [-1, -1], text: line.slice(0, 600), level: 1, at: Date.now(), correction: true });
+  nodes.push({ id: nodeId(), span: [-1, -1], text: line.slice(0, 4000), level: 1, at: Date.now(), correction: true }); /* M274: whole — it was cut at 600 */
   /* the oldest corrections go when there are too many — the pages have long carried the truth by then */
   const corrections = nodes.filter((n) => n.correction).sort((a, b) => (a.at || 0) - (b.at || 0));
   const drop = new Set(corrections.slice(0, Math.max(0, corrections.length - CORRECTIONS_MAX)).map((n) => n.id));

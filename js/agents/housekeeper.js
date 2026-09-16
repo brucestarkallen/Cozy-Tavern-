@@ -1301,10 +1301,11 @@ export function expandCommand(text) {
 function cleanReason(value) {
   const s = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
   /* M237: cut on a word — a card's reason is read by the writer. */
-  if (s.length <= 200) return s;
-  const room = s.slice(0, 199);
+  /* M274: 600 — a reason is the housekeeper explaining itself to the writer (it was 200) */
+  if (s.length <= 600) return s;
+  const room = s.slice(0, 599);
   const at = Math.max(room.lastIndexOf(' '), room.lastIndexOf(', '));
-  return (at > 100 ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
+  return (at > 300 ? room.slice(0, at) : room).trimEnd().replace(/[,;]$/, '') + '…';
 }
 
 /* Parse a range the model offered: "3-9", [3,9], "all", or nothing.
