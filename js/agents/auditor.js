@@ -804,7 +804,11 @@ export function standingsHousekeeping(state, brief, castNotes, mc, stated = null
       const bare = (c) => /^set — the (brief|cast notes?)(\s+(says|states|said))?\.?$/i.test(c);
       const elsewhere = (c) => /^set — the (brief|cast notes?)\b/i.test(c)
         && [...c.matchAll(/\btowards?\s+([A-Z][\p{L}'’-]+)/gu)].some((x) => !samePersonLoose(x[1], mc));
-      const onlyBrief = causes.every((c) => bare(c) || elsewhere(c));
+      /* every entry was set by a hand (none is a beat a page earned), and the one that stands now
+       * is a bare or elsewhere brief line — an earlier auditor's start beneath it changes nothing */
+      const noBeat = causes.every((c) => /^set — /i.test(c));
+      const standsOn = causes[causes.length - 1];
+      const onlyBrief = noBeat && (bare(standsOn) || elsewhere(standsOn));
       const setByBrief = digits.some((st) => samePersonLoose(st.name, k));
       if (onlyBrief && !setByBrief) {
         out.push({ type: 'rel.clear', name: k, cause: 'a standing the brief does not set toward ' + mc });

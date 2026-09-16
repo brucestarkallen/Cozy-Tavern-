@@ -1619,9 +1619,15 @@ test('M259-42: a standing is toward the main character — never one the brief s
     'Emilia Vanderbilt': { p: 20, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says' }], hand: true },
     'Mira': { p: 30, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says Mira is his sister' }] },
     'Eli Sterling': { p: 15, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says he is devoted toward Aurora' }] },
+    /* the turn-76 shape: an older auditor's start, then a bare brief line on top of it */
+    'Maya Bell': { p: 65, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 Maya\u2019s standing toward Jovan is moved by the day\u2019s events' }, { axis: 'p', delta: 0, cause: 'set \u2014 the brief says' }] },
+    /* a beat a page earned, then a bare brief line on top: the page's standing stays */
+    'Vanessa Reynolds': { p: 37, r: 0, s: 0, history: [{ axis: 'p', delta: 5, cause: 'she waited for him at the gate' }, { axis: 'p', delta: 0, cause: 'set \u2014 the brief says' }] },
+    /* a bare line once, then a bond about him on top: it stands */
+    'Tom Wells': { p: 40, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says' }, { axis: 'p', delta: 0, cause: 'set \u2014 the brief says Tom is his brother' }] },
   } };
   const clears = standingsHousekeeping(old, brief, '', 'Jovan', []).filter((m) => m.type === 'rel.clear').map((m) => m.name).sort();
-  eq(clears.join(','), 'Eli Sterling,Mrs. Sterling,Sophie Dale', 'the house lets go of bare brief standings and ones said to be toward someone else \u2014 never one about him (\u201chis sister\u201d), one the pages moved, or the writer\u2019s own');
+  eq(clears.join(','), 'Eli Sterling,Maya Bell,Mrs. Sterling,Sophie Dale', 'the house lets go of bare brief standings and ones said to be toward someone else \u2014 never one about him (\u201chis sister\u201d), one the pages moved, or the writer\u2019s own');
   const kept = standingsHousekeeping(old, brief, '', 'Jovan', [{ name: 'Sophie Dale', p: 65, r: 0, s: 0 }]).filter((m) => m.type === 'rel.clear').map((m) => m.name);
   assert(!kept.includes('Sophie Dale'), 'one the house\u2019s own reading of the brief sets toward him stays');
 });

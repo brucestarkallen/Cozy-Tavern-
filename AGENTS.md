@@ -5938,3 +5938,9 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   caught (one found the bare rule untested alone — a case was added).
 - 536/536 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   within budget + lint 0 errors. version.js -> m278-001.
+- m278-002: the house's cleanup looked for EVERY cause to be a bare or elsewhere brief line — but
+  the writer's Sophie may carry the turn-76 auditor's start beneath the bare line, and would have
+  stayed. It now reads the cause the standing STANDS ON (the latest), when no entry is a beat a
+  page earned (every cause "set — …"). M259-42 adds that shape (Maya: a start, then a bare line —
+  let go), a beat then a bare line (Vanessa — stays) and a bare line then a bond about him (Tom —
+  stays); both new rules broken and caught. 536/536 + 46/46 + 8/8.
