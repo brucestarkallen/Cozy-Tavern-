@@ -461,12 +461,56 @@ function cardText(name, entry, turn, cap) {
   return build();
 }
 
-/* A name spoken in the latest pages? Case-insensitive, on a word boundary. */
-function namedIn(pages, name) {
-  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp('(^|[^\\w])' + esc + '([^\\w]|$)', 'i');
-  return (pages || []).some((p) => re.test(String(p || '')));
+/* A name spoken in the latest pages? Case-insensitive, on a word boundary.
+ * M282: by the whole name OR the first name — the writer says "Rias", and
+ * "Rias Wells" was never recalled; a titled name ("Mr. Sterling") only whole,
+ * since a surname is shared by the family. Letters of any script. */
+const TITLE_WORD = /^(mr|mrs|ms|miss|mx|dr|prof|professor|sir|lady|lord|aunt|auntie|uncle|grandma|grandpa|father|mother|sister|brother|coach|officer|detective|captain|madam|madame)\.?$/i;
+export function spokenNames(name) {
+  const whole = String(name || '').trim();
+  if (!whole) return [];
+  const words = whole.split(/\s+/);
+  const out = [whole];
+  if (words.length > 1 && !TITLE_WORD.test(words[0]) && words[0].replace(/[^\p{L}]/gu, '').length >= 3) out.push(words[0]);
+  return out;
 }
+const wordRe = (n) => new RegExp('(^|[^\\p{L}\\p{N}_])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^\\p{L}\\p{N}_]|$)', 'iu');
+function namedIn(pages, name) {
+  const res = spokenNames(name).map(wordRe);
+  return (pages || []).some((p) => res.some((re) => re.test(String(p || ''))));
+}
+
+/* M282: WHO MATTERS, WITHOUT A PIN. The writer will not pin anyone, and an
+ * absent person who matters was a name on the roster — their page never rode
+ * unless spoken in the last three messages. Weighed in code: how strongly they
+ * stand toward the main character, the threads they carry, whether the brief
+ * or the cast notes name them, a truth locked about them — less a little for
+ * every page they have been away. */
+export function importanceOf(state, name, briefText = '', turn = 0) {
+  const k = String(name || '').trim().toLowerCase();
+  if (!k) return 0;
+  const first = spokenNames(name).slice(1).map((f) => f.toLowerCase());
+  const same = (x) => {
+    const y = String(x || '').trim().toLowerCase();
+    return Boolean(y) && (y === k || first.includes(y));
+  };
+  const rels = state && state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
+  const relKey = Object.keys(rels).find(same);
+  const rel = relKey ? rels[relKey] : null;
+  let score = rel ? Math.abs(rel.p || 0) + Math.abs(rel.r || 0) + Math.abs(rel.s || 0) : 0;
+  for (const t of (state && Array.isArray(state.threads) ? state.threads : [])) {
+    if (t && same(t.owner)) score += t.heat === 'cold' ? 15 : 40;
+  }
+  const material = String(briefText || '');
+  if (material.trim() && spokenNames(name).some((n) => wordRe(n).test(material))) score += 30;
+  if (state && state.canon && typeof state.canon === 'object' && Object.keys(state.canon).some(same)) score += 20;
+  const entry = state && state.characters ? state.characters[name] : null;
+  const last = entry && Number.isFinite(entry.updatedAtTurn) ? entry.updatedAtTurn : turn;
+  score -= Math.min(30, Math.max(0, turn - last) * 0.5);
+  return score;
+}
+export const IMPORTANT_AT = 20;       /* the least an absent person weighs to ride as a card */
+export const PRESENT_CARDS_MIN = 3;   /* the present who always keep their card, whatever the room */
 
 /* The tiered cast injection (SPEC.md M12, slot 5 area):
  *   1. full ledger cards for whoever is present (cap 6)
@@ -481,7 +525,7 @@ function namedIn(pages, name) {
  *
  *   renderPeopleTiers(state, { recentPages, rotation })
  *     -> { text, tiers:{cards, also, recall, roster} } | null */
-export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view = null } = {}) {
+export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view = null, brief = '' } = {}) {
   const lim = view && typeof view === 'object' ? view : { budget: PEOPLE_BUDGET, cards: PRESENT_CARDS_MAX, recall: RECALL_MAX, roster: ROSTER_MAX };
   if (!state || typeof state !== 'object') return null;
   const characters = state.characters && typeof state.characters === 'object' ? state.characters : {};
@@ -506,13 +550,24 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   }
 
   const sections = [];
-  const tiers = { cards: 0, also: 0, recall: 0, roster: 0 };
+  const tiers = { cards: 0, also: 0, recall: 0, important: 0, roster: 0 };
 
   /* Tier 1: full cards for the present, cap 6. Tier 2: whoever is present
    * beyond that (or present with nothing yet written) rides the compact
    * line. */
-  const cardKeys = presentKeys.slice(0, lim.cards);
-  const overflow = presentKeys.slice(lim.cards);
+  /* M282: the most important present first; a card past the room rides the line instead */
+  const weigh = new Map(keys.map((k) => [k, importanceOf(state, k, brief, turn)]));
+  const byWeight = (a, b) => (weigh.get(b) || 0) - (weigh.get(a) || 0);
+  const cardKeys = [];
+  let cardRoom = 0;
+  for (const key of presentKeys.slice().sort(byWeight)) {
+    if (!keys.includes(key) || cardKeys.length >= lim.cards) continue;
+    const size = cardText(key, characters[key], turn).length + 2;
+    if (cardKeys.length >= PRESENT_CARDS_MIN && cardRoom + size > lim.budget * 0.7) continue;
+    cardKeys.push(key);
+    cardRoom += size;
+  }
+  const overflow = presentKeys.filter((k) => !cardKeys.includes(k));
   const unwritten = present.filter((name) => {
     const key = findPersonKey(characters, name) || name;
     return !keys.includes(key);
@@ -559,9 +614,32 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     tiers.recall = recalled.length;
   }
 
+  /* Tier 3b (M282): the absent who matter most, in the room that is left —
+   * most important first, each card to the recall size, seats honoured. */
+  const important = [];
+  {
+    const used = sections.reduce((n, x) => n + x.text.length + 2, 0);
+    let room = lim.budget - used - 1500; /* the roster's line keeps its place */
+    const pool = offScene.filter((k) => !recalled.includes(k) && (weigh.get(k) || 0) >= IMPORTANT_AT).sort(byWeight);
+    const cards = [];
+    for (const k of pool) {
+      const seat = seatOf(k);
+      const entry = seat ? { ...characters[k], state: [seat.location, seat.activity].filter(Boolean).join(', ') || characters[k].state, updatedAtTurn: turn } : characters[k];
+      const card = cardText(k, entry, turn, RECALL_CARD_CAP);
+      if (card.length + 2 > room) continue;
+      cards.push(card);
+      important.push(k);
+      room -= card.length + 2;
+    }
+    if (cards.length) {
+      sections.push({ shed: 4, text: 'Away, and much on the story\u2019s mind:\n' + cards.join('\n\n') });
+      tiers.important = cards.length;
+    }
+  }
+
   /* Tier 4: the rotating roster — everyone else the ledger knows, one step
    * around the shelf each turn, each with how long since they were seen. */
-  const rosterPool = offScene.filter((k) => !recalled.includes(k));
+  const rosterPool = offScene.filter((k) => !recalled.includes(k) && !important.includes(k));
   if (rosterPool.length) {
     const step = ((Math.floor(rotation) % rosterPool.length) + rosterPool.length) % rosterPool.length;
     const rotated = rosterPool.length <= lim.roster ? rosterPool : rosterPool.slice(step).concat(rosterPool.slice(0, step)).slice(0, lim.roster);
@@ -589,6 +667,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   if (!stayed.has(1)) tiers.also = 0;
   if (!stayed.has(2)) tiers.recall = 0;
   if (!stayed.has(3)) tiers.roster = 0;
+  if (!stayed.has(4)) tiers.important = 0;
   const text = join();
   return text ? { text, tiers } : null;
 }

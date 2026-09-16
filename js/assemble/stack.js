@@ -494,7 +494,7 @@ export function buildRequest({
    * ledger has anything to say. Rotation derives from the page count, so
    * the roster steps once per turn with no writes of its own. --- */
   const recentPages = wireable(history).slice(-3).map((m) => m.content);
-  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: peopleView(windowInfo && windowInfo.budgetTokens) }); /* M281: in the room the storyteller has */
+  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || '') }); /* M281: in the room the storyteller has; M282: the brief weighs who matters */
   const peopleText = people ? people.text : '';
   if (peopleText) {
     const t = people.tiers;
@@ -502,6 +502,7 @@ export function buildRequest({
     if (t.cards) said.push(t.cards + (t.cards === 1 ? ' card' : ' cards') + ' for who is here');
     if (t.also) said.push('the rest of the room in a line');
     if (t.recall) said.push(t.recall + ' named or on their way, not in the scene');
+    if (t.important) said.push(t.important + ' away who matter most');
     if (t.roster) said.push('the roster of the absent');
     pushSlot('On their mind', peopleText, 'the character ledger', said.join('; '));
   }

@@ -1731,7 +1731,7 @@ test('M259-45: the people follow the room — every present person a card, the n
   st.offscreen = { [names[12]]: { location: 'the lane', activity: 'walking over', stance: 'toward', etaMinutes: 5 } };
   const recent = ['Jovan asked about ' + names[10] + ' and ' + names[11] + '.'];
   const small = renderPeopleTiers(st, { recentPages: recent, rotation: 0 });
-  eq(small.tiers.cards, 6, 'the old tiers: six cards');
+  eq(small.tiers.cards, 4, 'a small room: the present cards take up to 70% of it, never fewer than three (M282) \u2014 six whole cards had filled it alone');
   assert(small.text.length <= PEOPLE_BUDGET, 'held to the old budget');
   eq(small.tiers.recall + small.tiers.roster, 0, 'with notes kept whole, the named and the roster were shed \u2014 and are no longer reported as sent');
   assert(!small.text.includes(names[10]), 'what was shed is not in the text either');
@@ -1780,4 +1780,69 @@ test('M259-46: every part the receipt lists is in the request — nothing counte
   }
   const at = wire.indexOf('PEOPLE-MARK');
   assert(at !== -1 && at < wire.indexOf('PLACE-MARK'), 'the people\u2019s pages lead the story-state, before the state of things');
+});
+
+test('M259-47: who matters rides without a pin \u2014 a first name recalls, the weightiest present keep their cards, the absent who matter ride as cards in the room left', async () => {
+  const { renderPeopleTiers, peopleView, importanceOf, spokenNames } = await import('../../js/engine/people.js');
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  eq(JSON.stringify(spokenNames('Rias Wells')), JSON.stringify(['Rias Wells', 'Rias']), 'a first name is a name');
+  eq(JSON.stringify(spokenNames('Mr. Sterling')), JSON.stringify(['Mr. Sterling']), 'a titled name only whole \u2014 the surname is the family\u2019s');
+  eq(JSON.stringify(spokenNames('Al Moss')), JSON.stringify(['Al Moss']), 'a first name under three letters only whole');
+  eq(JSON.stringify(spokenNames('Mrs. Sterling')), JSON.stringify(['Mrs. Sterling']), 'Mrs. is a title, not a first name');
+  const { isMc } = await import('../../js/engine/people.js');
+  const who = { sheet: { playerName: 'Jovan' } };
+  assert(!isMc(who, 'Card Player') && !isMc(who, 'You Sung') && !isMc(who, 'Bit Player'), 'a name with "player" or "you" in it is a person of the tale');
+  assert(isMc(who, 'the player') && isMc(who, 'you') && isMc(who, 'Jovan Wells') && !isMc(who, 'Rias Wells'), 'the plain labels and his own name are him');
+
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+  const note = (n, len) => ({ core: n + ' core line. ' + 'x'.repeat(len), state: n + ' state line', arc: '', updatedAtTurn: 90 });
+  st.characters = {
+    'Rias Wells': note('Rias Wells', 300), 'Aurora Sterling': note('Aurora Sterling', 300), 'Nora Stone': note('Nora Stone', 300),
+    'Mr. Sterling': note('Mr. Sterling', 300), 'Bit Player': note('Bit Player', 300), 'Old Hand': { ...note('Old Hand', 300), updatedAtTurn: 1 },
+    'Chloe Maxwell': note('Chloe Maxwell', 900), 'Vanessa Reynolds': note('Vanessa Reynolds', 900), 'Maya Bell': note('Maya Bell', 900),
+    'Emilia Vanderbilt': note('Emilia Vanderbilt', 900), 'Claire Stone': note('Claire Stone', 900),
+  };
+  st.relationships = {
+    'Rias Wells': { p: 100, r: 100, s: 52, history: [] },
+    'Aurora Sterling': { p: 71, r: 67, s: 7, history: [] },
+    'Claire Stone': { p: 26, r: 13, s: 0, history: [] },
+    'Old Hand': { p: 30, r: 0, s: 0, history: [] },
+  };
+  st.threads = [{ title: 'Aurora\u2019s Friday welcome', owner: 'Aurora', heat: 'hot', next: 'welcome him' }];
+  st.page = 99;
+  const brief = 'Nora Stone runs the bakery. Rias Wells is his sister.';
+  const turn = 100;
+  const w = (n) => importanceOf(st, n, brief, turn);
+  assert(w('Rias Wells') > w('Aurora Sterling') && w('Aurora Sterling') > w('Nora Stone') && w('Nora Stone') > w('Bit Player'), 'weighed: Rias ' + w('Rias Wells') + ', Aurora ' + w('Aurora Sterling') + ' (a thread by her first name), Nora ' + w('Nora Stone') + ' (the brief), a bit player ' + w('Bit Player'));
+  assert(w('Old Hand') < 30, 'a long absence weighs a little less: ' + w('Old Hand'));
+
+  /* the present: five with long pages, a small room \u2014 the weightiest keep cards, the rest ride the line */
+  st.present = ['Chloe Maxwell', 'Vanessa Reynolds', 'Maya Bell', 'Emilia Vanderbilt', 'Claire Stone'].map((name) => ({ name }));
+  const small = renderPeopleTiers(st, { recentPages: ['nothing named'], rotation: 0, view: peopleView(0), brief });
+  eq(small.tiers.cards, 3, 'as many cards as 70% of a small room holds \u2014 three here');
+  assert(/^Claire Stone \u2014/.test(small.text), 'the weightiest present person leads: ' + small.text.slice(0, 40));
+  assert(/Also here: [^\n]*/.test(small.text), 'the rest of the room rides the line');
+
+  /* the room: the absent who matter ride as cards, unnamed; the bit player only on the roster */
+  const big = peopleView(500000);
+  const roomy = renderPeopleTiers(st, { recentPages: ['Jovan looks at the door.'], rotation: 0, view: big, brief });
+  assert(/Away, and much on the story\u2019s mind:\nRias Wells \u2014 Rias Wells core line/.test(roomy.text), 'Rias, away and unnamed, rides first among the absent');
+  assert(roomy.text.includes('Aurora Sterling \u2014 Aurora Sterling core line') && roomy.text.includes('Nora Stone \u2014 Nora Stone core line'), 'and Aurora and Nora ride as cards');
+  assert(!roomy.text.includes('Bit Player \u2014') && /Elsewhere in the tale: [^\n]*Bit Player/.test(roomy.text), 'a bit player is a name on the roster');
+  assert(!/Elsewhere in the tale: [^\n]*Rias Wells/.test(roomy.text), 'and a card is not named again on the roster');
+  eq(roomy.tiers.important, 3, 'three away who matter');
+
+  /* a first name recalls */
+  const called = renderPeopleTiers(st, { recentPages: ['I call Rias.'], rotation: 0, view: peopleView(0), brief });
+  assert(/Named, though not in the scene right now:\nRias Wells/.test(called.text), 'the writer says Rias, and Rias Wells is recalled');
+  /* however long the pages, three present always keep their cards */
+  const longSt = { ...st, characters: { ...st.characters, 'Chloe Maxwell': note('Chloe Maxwell', 6000), 'Vanessa Reynolds': note('Vanessa Reynolds', 6000), 'Maya Bell': note('Maya Bell', 6000), 'Claire Stone': note('Claire Stone', 6000) } };
+  eq(renderPeopleTiers(longSt, { recentPages: [], rotation: 0, view: peopleView(0), brief }).tiers.cards, 3, 'three cards at least, however long their pages');
+  const titled = renderPeopleTiers(st, { recentPages: ['The Sterling porch light is on. Riasan tea.'], rotation: 0, view: peopleView(0), brief });
+  assert(!/Named, though not in the scene right now:[\s\S]*(Mr\. Sterling|Rias Wells)/.test(titled.text), 'a surname alone does not call Mr. Sterling; a name inside another word calls no one');
+
+  /* the storyteller's request carries Rias's page though she is away and unnamed */
+  const req = buildRequest({ story: { title: 't', brief }, messages: [{ id: 'u1', role: 'user', text: 'Jovan looks at the door.' }], settings: {}, state: st, modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens: 500000 } });
+  const wire = JSON.stringify(req);
+  assert(wire.includes('Rias Wells core line') && wire.includes('away who matter most'), 'the request carries her page, and the receipt says why');
 });

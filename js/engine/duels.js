@@ -102,10 +102,16 @@ export function mcAliases(state) {
   return out;
 }
 
+/* M282: the plain labels are a WHOLE name — "Card Player" and "You Sung" are
+ * people of the tale, not the main character; his story name keeps the loose
+ * whole-word match ("Jovan Wells" is Jovan). */
+const PLAIN_LABELS = new Set(['you', 'the player', 'player']);
 export function isMcAlias(state, name) {
   const n = String(name || '').trim();
   if (!n) return false;
-  return mcAliases(state).some((a) => samePersonName(n, a));
+  if (PLAIN_LABELS.has(n.toLowerCase().replace(/\s+/g, ' '))) return true;
+  const story = mcName(state);
+  return story !== 'the player' && samePersonName(n, story);
 }
 
 /* Sheet key for a name, or null. Exact (case-insensitive) first, then a

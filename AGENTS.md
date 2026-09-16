@@ -6023,3 +6023,35 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   people lead the story-state). 6 deliberate breaks caught, the M12 omission among them.
 - 540/540 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   (story) within budget + lint 0 errors. version.js -> m281-001.
+
+# M282 — who matters rides without a pin; a first name recalls; "player" in a name is a person
+- THE WRITER: "Is it foolproof, smart and autonomous? Some characters are really important, but I
+  don't want to pin anything — my philosophy is autonomous." And: did the conversation's compaction
+  harm anything? (It did not: the repository is the record; every release was verified from a fresh
+  clone.)
+- AUDIT OF M281 (re-read line by line) found: the present "always keep their cards" — and with notes
+  kept whole (M266) twelve present cards could run to ~144k characters on a 128k context, past any
+  budget. And beyond it:
+  1. RECALL NEVER HEARD A FIRST NAME. namedIn matched the ledger key whole: the writer says "Rias",
+     and "Rias Wells" was not recalled; \w also broke on any non-ASCII letter. Now spokenNames: the
+     whole name or the first name (3+ letters, not a title — "Mr. Sterling" only whole, the surname
+     is the family's), matched on Unicode word boundaries.
+  2. AN ABSENT PERSON WHO MATTERS WAS A NAME ON THE ROSTER unless spoken in the last three messages.
+     importanceOf weighs, in code: |P|+|R|+|S| toward the main character, 40 a hot thread they own
+     (15 cold), 30 named in the brief or cast notes, 20 a truth locked about them, less half a point
+     a page away (to 30). A new tier — "Away, and much on the story's mind" — gives the absent who
+     weigh 20 or more their cards (recall size) in the room left, weightiest first; the roster names
+     the rest.
+  3. THE PRESENT ARE ORDERED BY WEIGHT and take cards to 70% of the room — three always, however
+     long; the rest ride the "Also here" line.
+  4. "PLAYER" IN A NAME WAS THE MAIN CHARACTER. isMcAlias matched the plain labels word by word, so
+     "Card Player" or "You Sung" was him — no standing, no card. The labels ("you", "the player",
+     "player") are whole names now; his story name keeps the loose match ("Jovan Wells" is Jovan).
+     Found because the new law's bit player was named "Bit Player".
+- Laws: M259-47 (spoken names and titles; the plain labels; the weights and their order; a small room
+  keeps three present cards by weight and the line; three always however long; the room gives Rias,
+  Aurora and Nora their cards away and unnamed, a bit player only the roster, no card named twice; a
+  first name recalls, a surname or a name inside a word does not; the request carries her page and
+  the receipt says why); M259-45 reads the new small-room count. 8 deliberate breaks caught.
+- 541/541 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  (story) within budget + lint 0 errors. version.js -> m282-001.
