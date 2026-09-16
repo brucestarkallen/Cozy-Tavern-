@@ -1504,3 +1504,41 @@ test('M259-39: a job is settled only after its result is written — the light n
     eq(details[0], 'THE-NEW-RESULT', 'and its first look already found this job\u2019s result, not the one before');
   } finally { off(); }
 });
+
+test('M259-40: an outage closes while the writer plays on — no page read twice, a quiet page counts', async () => {
+  const { markPageRead, oldestUnread, emptyState: blank, saveState: save, loadState: load, foldJournal } = await import('../../js/engine/state.js');
+  /* pages 0..9 told; pages 1 and 2 were never read (an outage); the writer keeps writing */
+  const st = { ...blank(), page: 0, readTo: 0, readAhead: [] };
+  const reads = new Map();
+  const read = (k) => { reads.set(k, (reads.get(k) || 0) + 1); markPageRead(st, k); };
+  for (let here = 3; here <= 9; here += 1) {
+    const k0 = oldestUnread(st, here);   /* the page chain's catch-up: one a turn */
+    if (k0 !== -1) read(k0);
+    read(here);                          /* the page in hand */
+  }
+  eq(st.readTo, 9, 'the mark reaches the newest page — the gap closed while the writer played (it stayed two wide for ever)');
+  eq(st.readAhead.join(','), '', 'nothing left waiting');
+  eq([...reads.values()].every((n) => n === 1), true, 'and no page was read twice: ' + JSON.stringify([...reads]));
+  /* the idle reading closes it without a new page */
+  const idle = { ...blank(), page: 2, readTo: 2, readAhead: [6] };
+  const got = [];
+  for (let k = oldestUnread(idle, 7); k !== -1; k = oldestUnread(idle, 7)) { got.push(k); markPageRead(idle, k); }
+  eq(got.join(','), '3,4,5', 'idle, it reads only the pages no read has reached');
+  eq(idle.readTo, 6, 'and the page read earlier out of turn is taken into the mark');
+  eq(markPageRead({ page: 4, readAhead: [] }, 2).readTo, 4, 'an older page read again never moves the mark back');
+  /* the turn's stamp is not the reading mark: the send path stamps the COMING page (M72) */
+  const stamped = { ...blank(), page: 6, readTo: 2, readAhead: [] };
+  eq(oldestUnread(stamped, 6), 3, 'a stamp on the coming page leaves the unread pages unread — the catch-up still sees them');
+  /* kept across a save, cleared when the line is rebuilt to a page */
+  await save('m259-readahead', { ...blank(), page: 3, readAhead: [5, 2, 7] });
+  eq((await load('m259-readahead')).readAhead.join(','), '5,7', 'the pages read ahead are kept; one behind the mark is dropped');
+  await save('m259-readahead2', { ...blank(), page: 2, readAhead: [3, 5] });
+  const loaded = await load('m259-readahead2');
+  eq(loaded.readTo + '|' + loaded.readAhead.join(','), '3|5', 'a page read just past the mark is taken into it when the ledger is read back');
+  eq(loaded.page, 2, 'and the stamp is left as it was');
+  await save('m259-readahead3', { ...blank(), page: 9, readTo: 4, readAhead: [] });
+  const both = await load('m259-readahead3');
+  eq(both.page + '|' + both.readTo, '9|4', 'the stamp and the reading mark are kept apart through a save');
+  const rebuilt = foldJournal({ ...blank(), page: 7, readAhead: [9], journal: [] }, [{ snap: { ...blank(), page: 1, journal: [] } }], 3, applyMutations);
+  assert(rebuilt && Array.isArray(rebuilt.readAhead) && rebuilt.readAhead.length === 0 && rebuilt.page === 3 && rebuilt.readTo <= 3, 'a ledger rebuilt to an earlier page has read no further and holds nothing past it: ' + JSON.stringify(rebuilt && { page: rebuilt.page, readTo: rebuilt.readTo, readAhead: rebuilt.readAhead }));
+});

@@ -1798,6 +1798,50 @@ test('DOM-26 a gap in the record is folded by the house itself and the light com
   }
 });
 
+test('DOM-27 the ledger reads the pages it missed — while the writer plays and while the house is idle — and a quiet page counts (M276)', async () => {
+  const { noteWorkerRun } = await import('../../js/agents/status.js');
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const btn = q('#btn-ledger');
+  const lamp = () => (btn.classList.contains('is-working') ? 'blue' : btn.classList.contains('has-trouble') ? 'amber' : btn.classList.contains('all-well') ? 'green' : 'dark');
+  const st = await db.stories.create({ title: 'the missed pages' });
+  for (let i = 0; i < 6; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'on ' + i });
+    await db.messages.append(st.id, { role: 'assistant', text: 'The scene turns quietly, page ' + i + '.' });
+  }
+  /* the ledger read pages 0..2; 3, 4 and 5 went unread (an outage), and none of them changed anything */
+  await saveState(st.id, { ...emptyState(), page: 2, place: { name: 'The kitchen' }, present: [{ name: 'Jovan' }] });
+  await saveMemory(st.id, { window: 20, nodes: [] });
+  for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
+  /* a worker marked stumbling holds the light, so the idle reading does not close the gap before the writer
+   * plays on — the page chain reads the new page out of turn first; the world agent's own run then clears it */
+  await noteWorkerRun(st.id, 'world', { ok: false, why: 'held for the scenario' });
+  const ledgerReads = () => house.state.calls.filter((c) => c.isWorker && /keep the ledger/i.test(String(((c.body.messages || [])[0] || {}).content || ''))).length;
+  house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? '{"mutations":[]}' : walkDefaultWorker(body, sys));
+  try {
+    const before = ledgerReads();
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await tick(300);
+    await until(() => queuedCount(st.id) === 0 && !btn.classList.contains('is-working'), 'the house to settle after opening', 20000);
+    const opened = ledgerReads() - before;
+    eq(opened, 0, 'the light held: nothing read on opening');
+    /* the writer plays on: one page, and the chain reads the oldest missed page beside it */
+    click(q('.msg-act[data-act="go on"]'));
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg.pending'), 'the chain to finish', 40000);
+    /* the chain read page 3 (the oldest missed) and the new page 6 out of turn; the idle reading, the moment
+     * the chain is done, reads 4 and 5 — and the mark takes 6 without reading it again */
+    await until(async () => (await loadState(st.id)).readTo === 6, 'the reading mark to reach the newest page', 30000);
+    await until(() => queuedCount(st.id) === 0 && lamp() === 'green', 'the light to come back green: ' + lamp(), 20000);
+    const total = ledgerReads() - before;
+    eq(total, 4, 'four readings in all — pages 3, 4 and 5 once each and the new page once, nothing read twice (' + opened + ' on opening)');
+    eq((await loadState(st.id)).readAhead.length, 0, 'nothing is left waiting');
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

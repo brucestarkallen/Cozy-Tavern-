@@ -93,6 +93,9 @@ export const emptyState = () => ({
   journal: [],              // [{id, p, m}] — page index, the mutation as applied (cap JOURNAL_CAP)
   journalSeq: 0,
   page: -1,
+  /* M276: readTo (every page up to there has been READ; state.page is the stamp for this turn's
+   * writes, M72) is left unset here, so a ledger built on this and given a page reads from that page */
+  readAhead: [], /* M276: pages read past readTo, waiting for the ones before them */
   /* M11: the referee's world. */
   sheet: { actors: {}, playerName: '' }, // how they measure — 0-10 ratings, domains, lasting conditions
   duel: null,             // the live duel engine state (engine/duels.js), null when no duel is joined
@@ -326,6 +329,14 @@ function normalize(saved) {
   next.audit = saved.audit && typeof saved.audit === 'object' ? saved.audit : null; /* M41 */
   next.journal = Array.isArray(saved.journal) ? saved.journal.filter((e) => e && Number.isInteger(e.p) && e.m && typeof e.m === 'object' && typeof e.m.type === 'string') : []; /* M69 */
   next.page = Number.isInteger(saved.page) ? saved.page : -1;
+  /* M276: the reading mark, apart from the stamp — a ledger saved before it began from its page */
+  next.readTo = Number.isInteger(saved.readTo) ? saved.readTo : next.page;
+  next.readAhead = (Array.isArray(saved.readAhead) ? saved.readAhead : []).filter((k) => Number.isInteger(k) && k > next.readTo);
+  { /* a page read just past the mark is the mark's */
+    const ahead = new Set(next.readAhead);
+    while (ahead.has(next.readTo + 1)) { ahead.delete(next.readTo + 1); next.readTo += 1; }
+    next.readAhead = [...ahead].sort((a, b) => a - b);
+  }
   next.journalSeq = Number.isInteger(saved.journalSeq) ? saved.journalSeq : 0;
   next.founded = saved.founded && typeof saved.founded === 'object' ? saved.founded : null; /* M45 */
   next.canon = migrateCanon(saved.canon);
@@ -760,6 +771,9 @@ export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
     state = applyMutationsFn(state, groups.get(p)).state;
   }
   state.page = targetPage;
+  /* M276: a line rebuilt to a page has read no further than that page, and holds nothing read past it */
+  state.readTo = Math.min(Number.isInteger(state.readTo) ? state.readTo : targetPage, targetPage);
+  state.readAhead = [];
   state.pendingVerdict = null;
   state.refHistory = Array.isArray(current.refHistory) ? deepCopy(current.refHistory) : [];
   return state;
@@ -774,4 +788,41 @@ export function timelineAhead(state, pages) {
   if (Number.isInteger(state.page) && state.page >= pages) why.push('the ledger stands at page ' + (state.page + 1) + ' of ' + pages);
   if (Array.isArray(state.journal) && state.journal.some((e) => e.p >= pages)) why.push('the journal holds pages beyond the end');
   return why;
+}
+
+/* M276: THE READING MARK AND THE PAGES READ PAST IT. state.page had two jobs:
+ * the stamp every write of a turn carries (M72 — the send path sets it to the
+ * COMING page, so the referee's writes belong to it) and "every page up to
+ * here has been read" (M251/M253). The send path's stamp was saved, and the
+ * mark jumped past every page an outage had left unread: the catch-up saw no
+ * gap, the light went green, and those pages' changes were lost without a
+ * word. The mark is state.readTo now; state.page is the stamp alone. A page read out of turn — the page in hand while older
+ * ones wait, or one a catch-up reached — is remembered in readAhead, and the
+ * mark takes it the moment the pages before it are read. Without it the
+ * catch-up read one missed page a turn while the page in hand never counted:
+ * the gap stayed exactly as wide for as long as the writer played, and each
+ * turn read again a page already read. */
+export function readMark(state) {
+  if (!state || typeof state !== 'object') return -1;
+  if (Number.isInteger(state.readTo)) return state.readTo;
+  return Number.isInteger(state.page) ? state.page : -1;
+}
+export function markPageRead(state, k) {
+  if (!state || typeof state !== 'object' || !Number.isInteger(k) || k < 0) return state;
+  const page = readMark(state);
+  if (k <= page) { state.readTo = page; return state; }
+  const ahead = new Set((Array.isArray(state.readAhead) ? state.readAhead : []).filter((x) => Number.isInteger(x) && x > page));
+  ahead.add(k);
+  let mark = page;
+  while (ahead.has(mark + 1)) { ahead.delete(mark + 1); mark += 1; }
+  state.readTo = mark;
+  state.readAhead = [...ahead].sort((a, b) => a - b);
+  return state;
+}
+/* the oldest page before `before` that no read has reached; -1 when none */
+export function oldestUnread(state, before) {
+  const page = readMark(state);
+  const ahead = new Set(Array.isArray(state && state.readAhead) ? state.readAhead : []);
+  for (let k = page + 1; k < before; k += 1) if (!ahead.has(k)) return k;
+  return -1;
 }

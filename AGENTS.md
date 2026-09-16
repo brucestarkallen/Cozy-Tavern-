@@ -5844,3 +5844,43 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - 5 deliberate breaks of DOM-26 caught (each fix undone in a copy); the settle order's too.
 - 533/533 harness + 45/45 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   within budget + lint 0 errors. version.js -> m275-001.
+
+# M276 — an outage closes while the writer plays on, and while the house is idle
+- THE WRITER: "amber fixes itself, right? If the next scenes run normally it self-heals?" Checking
+  before answering found that for the LEDGER it did not. The page reader marks state.page only
+  when a read succeeds (M251), reads the oldest missed page on each new page, and M253 made the
+  mark a contiguous prefix. But the page in hand, read out of turn, was forgotten: next turn the
+  catch-up read it AGAIN as "missed", and the gap stayed exactly as wide for as long as the writer
+  played — the mark never caught up, pages were read twice (their changes applied twice), and the
+  light could never be green again after an outage. M248's law tested the arithmetic with the
+  newest page held still. And a missed page whose reading changed nothing never moved the mark
+  at all (it was only saved when there were changes).
+- FIXED (engine/state.js markPageRead, oldestUnread; state.readAhead): a page read past the mark
+  is remembered and taken into the mark the moment the pages before it are read; the catch-up
+  reaches only pages no read has reached; a quiet page is a read page; a page's changes are
+  stamped with ITS OWN index (they were stamped with the mark for a page read out of turn, so a
+  branch at the mark carried them); readAhead is kept on load (a page just past the mark taken in)
+  and cleared when a line is rebuilt to a page.
+- THE LIGHT READS WHAT IT SEES (fillLedgerGap): the ledger behind while the house is idle and no
+  worker failing sends the reader through the missed pages (three a job), backing off 1, 2, 4 …
+  30 minutes when it reads nothing, amber while pages remain; an unfounded ledger is left to the
+  page chain.
+- Laws: M259-40 (the outage played through with the writer writing — the mark reaches the newest
+  page, no page read twice; idle reading; the save and the rebuild), M248 and M254 read the new
+  wiring; DOM-27 (a three-page outage of quiet pages: one new page, then the idle reading — four
+  readings in all, the mark at the newest page, the light green).
+- THE ROOT UNDER IT, found when DOM-27 first ran the real chain: state.page had two jobs — the
+  stamp every write of a turn carries (M72: the send path sets it to the COMING page, and the
+  referee's save wrote it) and the reading mark (M251/M253). Every send with the referee on moved
+  the mark past every page an outage had left unread: the catch-up saw no gap, the light went
+  green, and those pages' changes were lost without a word — M251's self-heal never ran in the
+  real app. The reading mark is state.readTo now (engine/state.js readMark: readTo, else page for a
+  ledger saved before); state.page is the stamp alone. A ledger built on emptyState() and given a
+  page reads from that page (readTo is left unset there — set to -1, every page read again).
+- A FOUNDING READ takes in the pages before the one in hand: no catch-up before it, and everything
+  up to that page counts as read after it (DOM-21 caught the double reading).
+- Breaks: the mark forgetting pages read out of turn (DOM-27: five readings, M259-40), the reading
+  mark taken from the stamp again (DOM-27: one reading — the old loss), the idle reading switched off
+  (DOM-27).
+- 534/534 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  within budget + lint 0 errors. version.js -> m276-001.

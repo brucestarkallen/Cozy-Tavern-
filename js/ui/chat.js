@@ -47,7 +47,7 @@ import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the hous
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
@@ -1707,14 +1707,15 @@ export function initChat(ctx) {
        * is worse than no light. */
       let behind = false;
       let recordBehind = false;
+      let ledgerBehind = false;
       let told = 0;
       try {
         const pages = visiblePages(await db.messages.list(storyId));
         const assistants = pages.filter((m) => m.role === 'assistant');
         told = assistants.length;
         const st = await loadState(storyId);
-        const readTo = Number.isInteger(st.page) ? st.page : -1;
-        const ledgerBehind = told > 0 && readTo < told - 1;
+        const readTo = readMark(st); /* M276: how far the ledger has READ, not the turn's stamp */
+        ledgerBehind = told > 0 && readTo < told - 1;
         const mem = await loadMemory(storyId);
         const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
         const batch = cleanBatch(await db.settings.get('memoryBatch'));
@@ -1750,7 +1751,75 @@ export function initChat(ctx) {
        * while the house is idle and no worker is failing, the keeper is sent to
        * fold it, once a minute at most for each tale. */
       if (recordBehind && !busy && !trouble) fillRecordGap(storyId);
+      /* M276: and the pages the ledger never read are read while the house is idle */
+      if (ledgerBehind && !busy && !trouble) fillLedgerGap(storyId);
     } catch (err) { /* a mark is never worth a thrown turn */ }
+  }
+
+  /* M251/M276: one page the ledger missed, read and marked. A read that finds
+   * nothing to change still counts — a quiet page is a read page (it did not,
+   * and the mark never passed it). */
+  async function readMissedPage(story, connection, missed, k, { signal, renew, record = '' } = {}) {
+    const all = visiblePages(await db.messages.list(story.id));
+    const at = all.findIndex((m) => m.id === missed.id);
+    const itsUser = at > 0 ? [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user') : null;
+    const back = await extractTurn({
+      connection, state: await loadState(story.id),
+      userText: itsUser ? pageText(itsUser) : '',
+      assistantText: pageText(missed),
+      before: [], founding: false,
+      brief: story.brief || '', castNotes: story.castNotes || '',
+      record, signal, renew,
+      storyId: story.id, story, pageNumber: at + 1, /* M259: it may look */
+    });
+    if (!back || back.failed || !Array.isArray(back.mutations)) return false;
+    const older = await loadState(story.id);
+    const stampWas = Number.isInteger(older.page) ? older.page : -1;
+    older.page = k; /* M69: its changes are stamped with the page they came from */
+    const done = applyMutations(older, back.mutations);
+    done.state.page = stampWas; /* the stamp is the turn's, not this old page's */
+    markPageRead(done.state, k);
+    await saveState(story.id, done.state);
+    notify(story.id);
+    return true;
+  }
+  const ledgerFilledAt = new Map();
+  const ledgerTries = new Map();
+  async function fillLedgerGap(storyId) {
+    try {
+      const tries = ledgerTries.get(storyId) || 0;
+      if (Date.now() - (ledgerFilledAt.get(storyId) || 0) < Math.min(30 * 60000, 60000 * 2 ** tries)) return;
+      if (workIsRunning(storyId) || queuedCount(storyId) > 0) return;
+      const story = await db.stories.get(storyId);
+      if (!story || story.extraction === false) return;
+      if (isYoungLedger(await loadState(storyId))) return; /* an unfounded ledger is founded by the page chain */
+      const connection = await resolveWorkerConnection(story, 'extractor');
+      if (!connection) return;
+      ledgerFilledAt.set(storyId, Date.now());
+      const promise = enqueueWork(storyId, { name: 'extractor', run: async ({ signal, stale, renew }) => {
+        const told = visiblePages(await db.messages.list(storyId)).filter((m) => m.role === 'assistant');
+        let read = 0;
+        for (let i = 0; i < 3 && !stale(); i += 1) {
+          const k = oldestUnread(await loadState(storyId), told.length);
+          if (k === -1) break;
+          if (!(await readMissedPage(story, connection, told[k], k, { signal, renew }))) break;
+          read += 1;
+        }
+        const still = oldestUnread(await loadState(storyId), told.length) !== -1;
+        if (!still) ledgerTries.delete(storyId);
+        else if (read) ledgerTries.set(storyId, 0);
+        else ledgerTries.set(storyId, tries + 1);
+        if (!read && !still) return { silent: true };
+        return {
+          silent: false,
+          detail: !still ? 'read ' + read + (read === 1 ? ' page' : ' pages') + ' the ledger had missed'
+            : read ? 'read ' + read + ' of the pages the ledger missed — the rest follow'
+              : 'could not read the pages the ledger missed yet — it tries again later',
+          unfinished: still,
+        };
+      } });
+      noteWork(storyId, promise);
+    } catch (err) { /* the next look tries again */ }
   }
 
   const gapFilledAt = new Map();
@@ -2302,31 +2371,10 @@ export function initChat(ctx) {
       try {
         const told = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant');
         const here = told.findIndex((m) => m.id === msg.id);
-        const readTo = Number.isInteger(stateBefore.page) ? stateBefore.page : -1;
-        if (here > readTo + 1) {
-          const missed = told[readTo + 1];
-          if (missed && missed.id !== msg.id) {
-            const all = visiblePages(await db.messages.list(story.id));
-            const at = all.findIndex((m) => m.id === missed.id);
-            const itsUser = at > 0 ? [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user') : null;
-            const back = await extractTurn({
-              connection, state: stateBefore,
-              userText: itsUser ? pageText(itsUser) : '',
-              assistantText: pageText(missed),
-              before: [], founding: false,
-              brief: story.brief || '', castNotes: story.castNotes || '',
-              record: foldedBefore, signal, renew,
-              storyId: story.id, story, pageNumber: at + 1, /* M259: it may look */
-            });
-            if (!back.failed && Array.isArray(back.mutations) && back.mutations.length) {
-              const older = await loadState(story.id);
-              older.page = readTo + 1;
-              const done = applyMutations(older, back.mutations);
-              await saveState(story.id, done.state);
-              notify(story.id);
-            }
-          }
-        }
+        /* M276: the oldest page no read has reached — never one read already */
+        /* a founding read takes in the pages before the one in hand — nothing to catch up first */
+        const k0 = here === -1 || young ? -1 : oldestUnread(stateBefore, here);
+        if (k0 !== -1) await readMissedPage(story, connection, told[k0], k0, { signal, renew, record: foldedBefore });
       } catch (err) { /* the page in hand still gets read */ }
 
       const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw } = await extractTurn({
@@ -2386,11 +2434,11 @@ export function initChat(ctx) {
        * page in hand only extends that when it is the very next one. The
        * page's own changes are written either way — this governs the MARK,
        * not the reading. */
-      {
-        const k = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id);
-        const prefix = Number.isInteger(fresh.page) ? fresh.page : -1;
-        if (k !== -1) fresh.page = (k === prefix + 1) ? k : prefix;
-      }
+      /* M276: the page's changes are stamped with ITS OWN index (a branch before it
+       * must not carry them); the mark then takes it through markPageRead, which
+       * keeps it a contiguous prefix and remembers a page read out of turn */
+      const pageInHand = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id);
+      if (pageInHand !== -1) fresh.page = pageInHand;
       /* M261: A THREAD THE STORY STOPPED CARRYING COOLS BY ITSELF. Nothing
        * cooled a thread: one no page closed stayed "hot" and was read to the
        * storyteller as live every turn until eight newer ones pushed it out —
@@ -2398,6 +2446,13 @@ export function initChat(ctx) {
        * THREAD_COOL_PAGES pages, it goes cold (never one this page moves). */
       list.push(...threadHousekeeping(fresh.threads, storyTurn(fresh), list.filter((m) => m && (m.type === 'thread.set' || m.type === 'thread.close')).map((m) => m.title || m.name)));
       const { state: next, applied, rejected } = applyMutations(fresh, list);
+      if (pageInHand !== -1) {
+        if (young) {
+          /* the founding read took in every page before this one: all of them are read */
+          next.readTo = Math.max(readMark(next), pageInHand);
+          next.readAhead = (Array.isArray(next.readAhead) ? next.readAhead : []).filter((x) => x > next.readTo);
+        } else markPageRead(next, pageInHand);
+      }
       if (!applied.length) { await saveState(story.id, next); } /* the stamp stands even when nothing was written */
       if (applied.length) {
         if (stale()) return { silent: true };

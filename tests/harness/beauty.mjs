@@ -527,11 +527,11 @@ test('M251: the ledger walks back to its oldest unread page, as the record does'
   const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
 
   assert(/THE LEDGER HAD NO WAY BACK/.test(chat), 'the law is written where it acts');
-  assert(/const readTo = Number\.isInteger\(stateBefore\.page\) \? stateBefore\.page : -1;/.test(chat),
-    'how far the ledger has read is taken from state.page');
-  assert(/if \(here > readTo \+ 1\) \{/.test(chat), 'and a gap is noticed');
-  assert(/const missed = told\[readTo \+ 1\];/.test(chat), 'reaching for the OLDEST unread page, never the newest');
-  assert(/older\.page = readTo \+ 1;/.test(chat), 'and the mark advances by exactly one');
+  /* M276: the catch-up reaches the oldest page NO read has reached (oldestUnread), and the
+   * mark moves through markPageRead — M259-40 plays the outage through with the writer writing */
+  assert(/const k0 = here === -1 \|\| young \? -1 : oldestUnread\(stateBefore, here\);/.test(chat), 'a gap is noticed from the reading mark and the pages read ahead (a founding read covers the pages before it)');
+  assert(/if \(k0 !== -1\) await readMissedPage\(story, connection, told\[k0\], k0/.test(chat), 'reaching for the OLDEST unread page, never the newest');
+  assert(/markPageRead\(done\.state, k\);/.test(chat), 'and the mark takes it');
   assert(/\} catch \(err\) \{ \/\* the page in hand still gets read \*\/ \}/.test(chat),
     'a catch-up that stumbles never costs the page the writer just wrote');
 
@@ -542,7 +542,7 @@ test('M251: the ledger walks back to its oldest unread page, as the record does'
   /* M253: the mark is a contiguous PREFIX now — reading the page in hand
    * only extends it when that page is the very next one, so a catch-up can
    * never be abandoned by the main read stamping its own index over it. */
-  assert(chat.indexOf('if (k !== -1) fresh.page = (k === prefix + 1) ? k : prefix;') > at,
+  assert(chat.indexOf('} else markPageRead(next, pageInHand);') > at,
     'and the page mark is only set AFTER that throw, so a failure never advances it');
   assert(/THE MARK IS A CONTIGUOUS PREFIX, NOT THE NEWEST PAGE READ/.test(chat),
     'and it is a prefix, so the gap closes instead of being abandoned');
@@ -600,7 +600,8 @@ test('M254: green means read, folded and waiting on nothing — and a third coat
   assert(/const busy = runningWorkers\(storyId\)\.length > 0 \|\| queuedCount\(storyId\) > 0;/.test(chat),
     'and knows when the house is still at work');
   assert(/onWorkerChange\(\(\) => \{/.test(chat), 'the light follows the work, not the redraw');
-  assert(/const ledgerBehind = told > 0 && readTo < told - 1;/.test(chat), 'the ledger must have read every page told');
+  /* M276: declared beside `behind` so the light can send the reader to the pages it missed */
+  assert(/ledgerBehind = told > 0 && readTo < told - 1;/.test(chat) && /if \(ledgerBehind && !busy && !trouble\) fillLedgerGap\(storyId\);/.test(chat), 'the ledger must have read every page told');
   /* M275: declared beside `behind` so the light can send the keeper to a gap it sees */
   assert(/recordBehind = Boolean\(dueRange\(pages\.length, window, mem\.nodes, batch\)\);/.test(chat) && /if \(recordBehind && !busy && !trouble\) fillRecordGap\(storyId\);/.test(chat),
     'and the record must have nothing due');
