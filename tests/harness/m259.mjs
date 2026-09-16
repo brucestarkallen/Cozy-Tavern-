@@ -183,7 +183,10 @@ test('M259-5: the auditor restores a zero standing but never moves one the pages
   const after = await loadState(storyId);
   eq(after.relationships['Caleb Thorne'].p, 5, 'the drop the pages earned stands');
   eq(after.relationships['Rias Wells'].p, 60, 'the missing bond is restored');
-  eq(after.audit.issues[0].landed, 0, 'the refused raise is reported as not landed');
+  /* M277: a standing move the auditor may not make is counted, not listed — the restore is the one finding */
+  eq(after.audit.issues.length, 1, 'only the restore is reported: ' + JSON.stringify(after.audit.issues.map((i) => i.what)));
+  eq(after.audit.issues[0].landed, 1, 'and it landed');
+  eq(after.audit.leftStandings, 1, 'the refused raise is counted for the workers line');
 });
 
 test('M259-6: the header line owns the ground and the hour — the auditor never overrides it', async () => {
@@ -1541,4 +1544,40 @@ test('M259-40: an outage closes while the writer plays on — no page read twice
   eq(both.page + '|' + both.readTo, '9|4', 'the stamp and the reading mark are kept apart through a save');
   const rebuilt = foldJournal({ ...blank(), page: 7, readAhead: [9], journal: [] }, [{ snap: { ...blank(), page: 1, journal: [] } }], 3, applyMutations);
   assert(rebuilt && Array.isArray(rebuilt.readAhead) && rebuilt.readAhead.length === 0 && rebuilt.page === 3 && rebuilt.readTo <= 3, 'a ledger rebuilt to an earlier page has read no further and holds nothing past it: ' + JSON.stringify(rebuilt && { page: rebuilt.page, readTo: rebuilt.readTo, readAhead: rebuilt.readAhead }));
+});
+
+test('M259-41: the main character holds no standing; the auditor starts a standing only from the brief; its refused standing moves are counted, not listed', async () => {
+  const { auditRunWords } = await import('../../js/agents/auditor.js');
+  let base = emptyState(); base.sheet = { actors: {}, playerName: 'Jovan' };
+  const mcTry = applyMutations(base, [
+    { type: 'rel.set', name: 'Jovan', p: 10, cause: 'the old folder' },
+    { type: 'rel.shift', name: 'Jovan', axis: 'p', delta: 5, cause: 'the old folder' },
+    { type: 'rel.shift', name: 'Rias Wells', axis: 'p', delta: 5, cause: 'she smiled at him' },
+  ]);
+  eq(mcTry.rejected.length, 2, 'no standing for the main character, set or shifted');
+  assert(!mcTry.state.relationships.Jovan && mcTry.state.relationships['Rias Wells'], 'while others\u2019 still move');
+
+  const storyId = 'm259-standing-starts';
+  let st = applyMutations(base, [{ type: 'presence.enter', name: 'Jovan' }, { type: 'rel.set', name: 'Rias Wells', p: 60, cause: 'the brief says she is his sister' }]).state;
+  st = applyMutations(st, [{ type: 'rel.shift', name: 'Rias Wells', axis: 'p', delta: 5, cause: 'she laughed at his joke' }]).state;
+  await saveState(storyId, st);
+  await db.messages.append(storyId, { role: 'user', text: 'I open the old folder.' });
+  await db.messages.append(storyId, { role: 'assistant', text: 'Rias watched him. Across town, Sophie counted the minutes on a violin case.' });
+  const house = scriptedHouse([issuesAnswer([
+    { what: 'The ledger has no standing for Jovan, but he opened the old folder', fix: 'moved by the folder', pages: false, mutations: [{ type: 'rel.set', name: 'Jovan', p: 10, cause: 'moved by the old folder' }] },
+    { what: 'The ledger has no standing for Sophie Dale, but she counted eleven minutes on the latch', fix: 'moved by the evening', pages: false, mutations: [{ type: 'rel.set', name: 'Sophie Dale', p: 8, cause: 'moved by the evening\u2019s events' }] },
+    { what: 'Rias\u2019s standing is P:65 but the page moves her', fix: 'P:70', pages: false, mutations: [{ type: 'rel.set', name: 'Rias Wells', p: 70, cause: 'the page moves her' }] },
+    { what: 'The ledger has no standing for Claire Stone though the brief makes her his oldest friend', fix: 'P:40', pages: false, mutations: [{ type: 'rel.set', name: 'Claire Stone', p: 40, cause: 'the brief says she is his oldest friend' }] },
+    { what: 'The ledger has no standing for Maya Bell', fix: 'P:12', pages: false, mutations: [{ type: 'rel.set', name: 'Maya Bell', p: 12, cause: 'the brief says she keeps a folder on him' }] },
+  ])]);
+  const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief: 'Rias Wells is his sister. Claire Stone is his oldest friend.', stale: () => false }));
+  const after = await loadState(storyId);
+  assert(!after.relationships.Jovan, 'no standing was started for the main character');
+  assert(!after.relationships['Sophie Dale'], 'nor for someone the brief does not name, on a page\u2019s reason');
+  assert(!after.relationships['Maya Bell'], 'nor for someone the brief does not name, whatever reason is given');
+  eq(after.relationships['Rias Wells'].p, 65, 'a standing the pages moved is the page reader\u2019s');
+  eq(after.relationships['Claire Stone'].p, 40, 'a bond the brief names, at zero, is restored');
+  eq(after.audit.issues.length, 1, 'only the restore is reported: ' + JSON.stringify(after.audit.issues.map((i) => i.what.slice(0, 40))));
+  eq(after.audit.leftStandings, 4, 'the four standing moves it may not make are counted');
+  assert(/left 4 standing changes to the page reader/.test(auditRunWords(r)), 'and the workers line says so: ' + auditRunWords(r));
 });

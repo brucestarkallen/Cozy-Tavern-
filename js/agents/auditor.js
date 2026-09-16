@@ -35,6 +35,7 @@ import { renderWholeLedger, wholePage, PAGE_CAP } from '../engine/whole.js';
 import { askWithFetch, fetchLaw, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259: it looks for what it was not shown */
 import { messageIndexLine, refOf } from './housekeeper.js';
 import { mcName } from '../engine/duels.js';
+import { isMc } from '../engine/people.js'; /* M277: the main character holds no standing */
 import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
@@ -60,6 +61,7 @@ const VOCABULARY = [
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — only when the ledger has no main character',
   'body.injure {"type":"body.injure","name":"NAME","what":"…","sev":1-3} / body.heal {"type":"body.heal","name":"NAME","what":"…"}',
   'rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"} — only to restore a standing that is wrongly zero, or to zero one written for someone else',
+  '  (never to start or move a standing from a page — a beat is the page reader\'s, and the brief\'s digits are restored by the house; never one for the main character)',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"toward|seeking|tense|busy|waiting","etaMinutes":25} / offscreen.clear {"type":"offscreen.clear","name":"NAME"}',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black"} / canon.unlock {"type":"canon.unlock","name":"NAME","key":"hair"}',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} / thread.close {"type":"thread.close","title":"…"}',
@@ -422,6 +424,23 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         keptStandings.push({ mutation: m, why: 'the pages moved this standing — the auditor restores only a standing that is zero' });
         continue;
       }
+      /* M277: NOR START ONE FROM A PAGE. A standing that is missing or zero
+       * was the auditor's to fill with any value on any reason — so it wrote
+       * standings "moved by the evening's events" for people who had not met
+       * the main character, and one for the main character himself. A beat is
+       * the page reader's; the brief's digits are restored by the house
+       * (standingsHousekeeping). The auditor restores a zero standing only for
+       * someone the brief or the cast notes name, on a reason that quotes them
+       * — and may still zero one written for someone else. */
+      const setsAny = m.type === 'rel.set' && ['p', 'r', 's'].some((ax) => Number(m[ax]));
+      if (zero && setsAny) {
+        const named = material.includes(m.name.trim().toLowerCase());
+        const quotes = /\b(brief|cast notes?)\b/i.test(String(m.cause || ''));
+        if (!named || !quotes || isMc(fresh, m.name)) {
+          keptStandings.push({ mutation: m, why: 'a standing is started by the pages, not by the auditor' });
+          continue;
+        }
+      }
     }
     guarded.push(m);
   }
@@ -442,6 +461,12 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...keptStandings];
+  /* M277: a standing move the auditor may not make is not a finding for the
+   * writer — eleven such lines filled a reading that changed four things */
+  const standingRefused = new Set([
+    ...keptStandings.map((k) => k.mutation),
+    ...rejectedByApplier.filter((r) => r && r.mutation && /^rel\./.test(r.mutation.type) && /holds no standing/.test(String(r.why || ''))).map((r) => r.mutation),
+  ]);
   /* M259: THE REPORT SAYS WHAT LANDED. "Set right" meant "it wrote a change",
    * not "the change held": a thread closed under a reworded title was
    * refused, stayed open, and the report still said it was set right — then
@@ -452,20 +477,23 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const whyOf = new Map();
   for (const r of rejected) if (r && r.mutation) whyOf.set(r.mutation, r);
   const issues = [];
+  let leftStandings = 0;
   for (const i of read.issues) {
     const landed = i.mutations.filter((m) => landedSet.has(m)).length;
     const missed = i.mutations.filter((m) => !landedSet.has(m));
     const alreadySo = (m) => Boolean(whyOf.get(m) && whyOf.get(m).same);
     if (!landed && missed.length && missed.every(alreadySo) && !(i.pages && i.fix)) continue;
-    const refused = missed.filter((m) => !alreadySo(m)).map((m) => (whyOf.get(m) && whyOf.get(m).why) || 'it did not hold').slice(0, 3);
+    /* M277: a finding whose every change was a standing move the auditor may not make is not reported */
+    if (!landed && missed.length && missed.every((m) => standingRefused.has(m) || alreadySo(m)) && !(i.pages && i.fix)) { leftStandings += 1; continue; }
+    const refused = missed.filter((m) => !alreadySo(m) && !standingRefused.has(m)).map((m) => (whyOf.get(m) && whyOf.get(m).why) || 'it did not hold').slice(0, 3);
     issues.push({ ...i, landed, refused });
   }
-  const report = { at: Date.now(), turn: storyTurn(next), issues: issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)), landed: i.landed, refused: i.refused })) };
+  const report = { at: Date.now(), turn: storyTurn(next), leftStandings, issues: issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)), landed: i.landed, refused: i.refused })) };
   const out = { ...next, audit: report };
   if (stale && stale()) return null;
   await saveState(storyId, out);
   notify(storyId);
-  return { applied, rejected, issues, note: 'ok', raw, looked };
+  return { applied, rejected, issues, note: 'ok', raw, looked, leftStandings };
 }
 
 /* M261: THE LEDGER'S UPKEEP DOES NOT WAIT FOR THE AUDITOR. Retiring those who
@@ -869,6 +897,8 @@ export function auditRunWords(result) {
   if (!n && !fixed) return 'the ledger is true to the story' + lookedWords(result.looked);
   const bits = n ? [`found ${n} ${n === 1 ? 'thing' : 'things'}`] : [];
   if (fixed) bits.push(`set ${fixed} right: ` + result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (fixed > 4 ? ' · …' : ''));
+  /* M277: standing moves it may not make, counted — not listed */
+  if (result.leftStandings) bits.push(`left ${result.leftStandings} standing ${result.leftStandings === 1 ? 'change' : 'changes'} to the page reader`);
   const briefWins = result.issues.filter((i) => i.pages && i.fix).length;
   if (briefWins) bits.push(`${briefWins} the brief wins — ${result.mendedPages || 0} ${result.mendedPages === 1 ? 'page' : 'pages'} mended, the record corrected`);
   const seen = result.issues.filter((i) => !i.mutations.length && !(i.pages && i.fix)).length;

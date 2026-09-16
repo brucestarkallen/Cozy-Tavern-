@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m276-001)
+# Cozy Tavern — handoff for the next session (state at m277-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M276). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M277). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 534 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 535 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 46 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -37,6 +37,8 @@ Full history of every law and fix: AGENTS.md (M1 … M276). SPEC.md holds the fo
 - Nothing goes stale by itself (M261): the ground moving lets positions go; one place under two
   spellings is one place; an untouched thread cools after 15 pages; the code upkeep (retire,
   sweep, clear seats) runs on every page, audited or not (ledgerUpkeep).
+- Standings (M277): never for the main character; the auditor starts one only for a brief-named
+  person on a reason quoting the brief; its refused standing moves are counted, not listed.
 - The ledger mark (M276): state.page is every page up to there read; readAhead holds pages read
   out of turn; the catch-up reads only pages no read reached; the light sends the reader when idle.
 - The light repairs what it sees (M275): a record gap seen while idle sends the keeper (backing off

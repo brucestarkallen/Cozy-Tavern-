@@ -5884,3 +5884,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   (DOM-27).
 - 534/534 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   within budget + lint 0 errors. version.js -> m276-001.
+
+# M277 — the main character holds no standing; the auditor starts a standing only from the brief
+- THE WRITER (the drawer at turn 76): "It's been good — anything to fix, especially the ledger?"
+  Of fifteen audit lines, eleven were standing moves the auditor may not make ("its change did not
+  hold — the pages moved this standing"), and four "set right" lines STARTED standings: one for the
+  main character himself ("Jovan's standing toward the table is moved by the 'old' folder") and
+  three for people who had not met him that evening (Sophie at the music-room door, Mr. Sterling
+  facing Caleb, Maya making her folder), on reasons like "moved by the evening's events".
+- CAUSES: the engine let anyone write a standing for the main character (standingsHousekeeping
+  cleared one only at the NEXT audit, reading the ledger from before that audit's own writes); and
+  the auditor's guard (M48/M259) refused lowering an earned standing and raising a moved one, but a
+  standing that was missing or zero was its to fill with any value on any reason — a second beat
+  counter beside the page reader.
+- FIXED: rel.set and rel.shift refuse the main character (apply.js, for every writer); the auditor
+  starts a missing or zero standing only for someone the brief or the cast notes name, on a reason
+  that quotes them (the brief's digits are the house's own, standingsHousekeeping) — zeroing one
+  written for someone else stands; a standing move it may not make is counted (audit.leftStandings,
+  "left N standing changes to the page reader"), not listed; its law says so.
+- NOT CHANGED: the standings the turn-76 audit already started (Sophie, Maya, Eli, Mr. Sterling)
+  stay until the writer takes them back in the drawer; the main character's is cleared by the
+  next audit's housekeeping.
+- Laws: M259-41 (the main character refused, set and shifted; the auditor's starts refused for the
+  main character, for an unnamed person on a page's reason and on a reason quoting the brief; a
+  moved standing left alone; a brief-named bond restored; one finding reported; four counted), M259-5
+  and M50-3 and LONG-8 read the new behaviour (a refusal counted, not listed; an old ledger's
+  main-character standing still let go by the rebuild). 6 deliberate breaks caught.
+- 535/535 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  within budget + lint 0 errors. version.js -> m277-001.

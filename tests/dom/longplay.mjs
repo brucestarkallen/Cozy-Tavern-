@@ -343,7 +343,7 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   const btn = qa('#drawer-panels button').find((b) => /Audit the ledger/.test(b.textContent));
   assert(btn, 'the button is on the drawer');
   click(btn);
-  await until(async () => { const s2 = await db.settings.get('state:' + sid); return s2 && s2.audit && s2.audit.issues && s2.audit.issues.length === 4; }, 'the audit report', 30000);
+  await until(async () => { const s2 = await db.settings.get('state:' + sid); return s2 && s2.audit && s2.audit.issues && s2.audit.issues.length === 3; }, 'the audit report', 30000); /* M277: the refused standing is counted, not listed */
   await idle(sid);
   const after = await db.settings.get('state:' + sid);
   assert(!after.present.some((p) => p.name === 'Person7'), 'the fixable issue landed: Person7 left');
@@ -351,8 +351,8 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   const report = after.audit.issues;
   assert(report.some((i) => /house number/.test(i.what) && i.fixable === false), 'the unfixable one is reported as such');
   const workers = await db.settings.get('workers:' + sid);
-  const detail = await until(async () => { const w = await db.settings.get('workers:' + sid); const d = w && w.auditor && w.auditor.detail; return d && /found 4 things/.test(d) ? d : null; }, 'the armed run on the workers’ line', 30000);
-  assert(/found 4 things/.test(detail) && /set 2 right/.test(detail) && /1 the brief wins — 1 page mended, the record corrected/.test(detail) && /1 seen, nothing to change/.test(detail) && /1 refused/.test(detail), 'the workers’ line names the run: ' + detail);
+  const detail = await until(async () => { const w = await db.settings.get('workers:' + sid); const d = w && w.auditor && w.auditor.detail; return d && /found 3 things/.test(d) ? d : null; }, 'the armed run on the workers’ line', 30000);
+  assert(/found 3 things/.test(detail) && /set 2 right/.test(detail) && /1 the brief wins — 1 page mended, the record corrected/.test(detail) && /1 seen, nothing to change/.test(detail) && /left 1 standing change to the page reader/.test(detail), 'the workers’ line names the run: ' + detail);
   /* M90: THE BRIEF WINS, with no hand on it — the page mended, the earlier words kept, the record corrected, the truth locked */
   const pages2 = (await db.messages.list(sid)).filter((m) => m.role === 'assistant');
   const mendedPage = pages2.find((m) => m.mended && /Aurora Vance/.test(m.mended.before));

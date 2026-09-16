@@ -51,7 +51,9 @@ test('M50-3 the rebuild: everything let go, the digits written in code, the mode
   const storyId = 'm50';
   let s = emptyState(); s.sheet.playerName = 'Jovan';
   s.characters = { 'Aurora Sterling': { core: 'x' }, 'Sophie Dale': { core: 'y' }, Vanessa: { core: 'z' } };
-  s = applyMutations(s, [{ type: 'rel.set', name: '→ Jovan', p: 65, r: 30, s: 5, cause: 'x' }, { type: 'rel.set', name: 'Alaric', p: 70, r: 0, s: 0, cause: 'x' }]).state;
+  /* M277: the engine no longer writes a standing for the main character — an older ledger may hold one, and the rebuild still lets it go */
+  s = applyMutations(s, [{ type: 'rel.set', name: 'Alaric', p: 70, r: 0, s: 0, cause: 'x' }]).state;
+  s.relationships['→ Jovan'] = { p: 65, r: 30, s: 5, history: [{ axis: 'p', delta: 65, cause: 'x' }] };
   await saveState(storyId, s);
   await db.messages.append(storyId, { role: 'assistant', text: 'Sophie waited for Jovan at the gate.' });
   const answer = JSON.stringify({ mutations: [

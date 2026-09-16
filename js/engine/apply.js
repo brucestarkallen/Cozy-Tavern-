@@ -570,6 +570,8 @@ const HANDLERS = {
   'rel.shift'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
+    /* M277: a standing is what someone feels toward the main character — never his own */
+    if (isMc(state, name)) return { why: 'the main character holds no standing — standings are what others feel toward him' };
     const axis = typeof m.axis === 'string' ? m.axis.trim().toLowerCase() : '';
     if (!AXES.includes(axis)) {
       return { why: '“' + (axis || '?') + '” isn’t an axis the ledger keeps (only p, r, s — and only toward the main character)' };
@@ -613,6 +615,7 @@ const HANDLERS = {
   'rel.set'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
+    if (isMc(state, name) && ['p', 'r', 's'].some((ax) => Number(m[ax]))) return { why: 'the main character holds no standing — standings are what others feel toward him' }; /* M277 */
     const cause = capText(m.cause, 1000);
     if (!cause) {
       return { why: 'writing a standing down by hand still needs its reason in words' };
