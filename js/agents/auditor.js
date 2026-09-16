@@ -573,8 +573,15 @@ export const AUDITOR_TYPES = new Set([
   'faction.set', 'people.set', 'people.note', 'people.forget',
 ]);
 const ALL_IS_WELL = /\b(stands? as written|left as written|as the story has it|(?:is|are) (?:live and )?(?:correct|correctly \w+|complete|consistent|accurate|fine)|none is wrongly|nothing (?:is )?(?:wrong|stale|missing)|match(?:es)? the (?:brief|pages)|no canon contradicts|no (?:change|fix) (?:is )?needed)\b/i;
+/* M268: "→ no change" and "the moment, not mine to report" were still reported */
+const NO_CHANGE_FIX = /^\s*(?:no change|none|nothing(?: to (?:do|change|fix))?|no action|leave it(?: as it is)?|as is|n\/a)\b/i;
+const NOT_MINE = /\bnot mine to report\b|\bnot (?:my|the auditor'?s) (?:job|door)\b|\bomits? (?:nothing|no one)\b|\badds? no one\b|\bmatch(?:es)? the header\b/i;
 export function saysAllIsWell(issue) {
-  return ALL_IS_WELL.test(String((issue && issue.fix) || '')) || ALL_IS_WELL.test(String((issue && issue.what) || '')) && !/\bbut\b/i.test(String((issue && issue.what) || ''));
+  const fix = String((issue && issue.fix) || '');
+  const what = String((issue && issue.what) || '');
+  if (NO_CHANGE_FIX.test(fix)) return true;
+  if (NOT_MINE.test(what) && !/\b(?:set|close|add|clear|restore|zero)\b/i.test(fix)) return true;
+  return ALL_IS_WELL.test(fix) || (ALL_IS_WELL.test(what) && !/\bbut\b/i.test(what));
 }
 
 export function auditorScope(issues, state, { header = [] } = {}) {

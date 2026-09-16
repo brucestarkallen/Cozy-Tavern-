@@ -1166,6 +1166,67 @@ test('M259-32: a report of what went right is not a finding; the second reader n
     { issue: 'Snippet says Jovan is sixteen, but the passage says he is seventeen', fix: 'Jovan is seventeen', kind: 'drift', where: 'source' },
     { issue: 'The passage itself puts Alexia on the train, but the record establishes she never left the academy', fix: 'Alexia is at the academy', kind: 'continuity', where: 'source' },
   ]));
-  eq(v[0].where, 'snippet', 'a summary\u2019s own error goes to the summary, whatever its label');
+  /* M268: a label and a sentence that disagree act on nothing — the snippet was right in the case that taught this */
+  eq(v[0].where, 'unsure', 'a label and a sentence that disagree are left alone');
   eq(v[1].where, 'source', 'a page that truly contradicts the record still goes to the mender');
+});
+
+test('M259-33: the summary checker holds the brief above every page, and the report leaves out what needs no change', async () => {
+  const { saysAllIsWell } = await import('../../js/agents/auditor.js');
+  eq(saysAllIsWell({ what: 'The ledger\u2019s presence list still has Vanessa at Jovan\u2019s elbow, but the latest page has Mi-na\u2019s palm-up hand between them; the real error is that Here now does not list Mi-na\u2019s ruling state, which is the moment, not mine to report.', fix: 'no change' }), true, 'a line whose own fix is "no change" is not a finding');
+  eq(saysAllIsWell({ what: 'The ledger still seats Mi-na, Rias, Chloe and Vanessa in the Wells kitchen, but the ground and hour match; the Here now omits no one and adds no one.', fix: 'No change.' }), true, 'nor one that says the list omits no one');
+  eq(saysAllIsWell({ what: 'The ledger has Chloe by the window but the page has her at the door', fix: 'no change' }), true, 'a line whose only word is "no change" is not a finding');
+  eq(saysAllIsWell({ what: 'The ledger has Chloe by the window but the page has her at the door', fix: 'move her to the door' }), false, 'while the same line with a change is one');
+
+  const { maybeSummarize, loadMemory } = await import('../../js/agents/memory.js');
+  const story = await db.stories.create({ title: 'the age' });
+  const sid = story.id;
+  await db.stories.update(sid, { brief: 'Jovan Wells is SIXTEEN years old and just came home.' });
+  let st = applyMutations(emptyState(), [{ type: 'canon.lock', name: 'Jovan', key: 'age', value: 'sixteen' }]).state;
+  await saveState(sid, st);
+  for (let i = 0; i < 20; i += 1) await db.messages.append(sid, { role: i % 2 ? 'assistant' : 'user', text: (i === 3 ? 'Jovan, seventeen and tired, dropped his bag.' : 'age page ' + (i + 1)) });
+  await db.settings.set('memoryWindow', 10);
+  await db.settings.set('memoryBatch', 6);
+  const asked = { verify: '', rewrites: 0 };
+  const house = scriptedHouse(async (body) => {
+    const t = bodyText({ body });
+    if (/Check for exactly two things/.test(t)) {
+      asked.verify = t;
+      return JSON.stringify([{ issue: 'Snippet says Jovan is sixteen, but the passage says he is seventeen', fix: 'Jovan is seventeen', kind: 'drift', where: 'source' }]);
+    }
+    if (/Rewrite <snippet>/.test(t)) { asked.rewrites += 1; return 'Jovan (17) came home.'; }
+    if (/omit any important information/.test(t)) return 'NONE';
+    return 'Jovan (16) came home and dropped his bag.';
+  });
+  const mends = [];
+  await withHouse(house, () => maybeSummarize({ connection: CONN, storyId: sid, stale: () => false, onSourceIssue: async (x) => { mends.push(x); } }));
+  assert(asked.verify.includes('THE WRITER\'S BRIEF (it outranks every page)') && asked.verify.includes('SIXTEEN years old'), 'the checker is shown the brief, ranked above the pages');
+  assert(asked.verify.includes('LOCKED TRUTHS') && /age: sixteen/i.test(asked.verify), 'and the locked truths');
+  assert(/OUTRANKS EVERY PAGE/.test(asked.verify), 'and told the brief outranks a page');
+  eq(mends.length, 0, 'a confused finding sends no one to change the pages');
+  eq(asked.rewrites, 0, 'nor rewrites the line');
+  const line = (await loadMemory(sid)).nodes.find((n) => n.level === 1 && !n.empty);
+  assert(line && /\(16\)/.test(line.text), 'the line keeps the brief\u2019s truth: ' + (line && line.text));
+  await db.settings.set('memoryWindow', undefined);
+  await db.settings.set('memoryBatch', undefined);
+});
+
+test('M259-34: a page mended by mistake is put back by the house, and its record line is folded again', async () => {
+  const { putBackMistakenMends, loadMemory } = await import('../../js/agents/memory.js');
+  const sid = 'm259-unmend';
+  await db.messages.append(sid, { role: 'user', text: 'u' });
+  const wrong = await db.messages.append(sid, { role: 'assistant', text: 'Jovan, seventeen and tired, dropped his bag.' });
+  const right = await db.messages.append(sid, { role: 'assistant', text: 'The glitch is gone from this line.' });
+  await db.messages.update(sid, wrong.id, { mended: { before: 'Jovan, sixteen and tired, dropped his bag.', why: 'Snippet says Jovan is sixteen, but the passage says he is seventeen. It should read: Jovan is seventeen, not sixteen', at: 1 } });
+  await db.messages.update(sid, right.id, { mended: { before: 'The glitch 四十年 is gone from this line.', why: 'The page holds a stray character from another script — a glitch of the wire', at: 2 } });
+  await saveMemory(sid, { window: 20, nodes: [{ id: 'node-over', span: [0, 1], level: 1, text: 'Jovan (17) dropped his bag.', at: 1, whole: true }, { id: 'node-other', span: [2, 2], level: 1, text: 'glitch line', at: 2, whole: true }] });
+  const back = await putBackMistakenMends(sid);
+  eq(back.join('|'), wrong.id, 'only the mistaken mend is put back');
+  const pages = await db.messages.list(sid);
+  eq(pages.find((m) => m.id === wrong.id).text, 'Jovan, sixteen and tired, dropped his bag.', 'the storyteller\u2019s own words are back');
+  eq(pages.find((m) => m.id === wrong.id).mended, null, 'and it is no longer marked mended');
+  eq(pages.find((m) => m.id === right.id).text, 'The glitch is gone from this line.', 'a right mend stands');
+  const nodes = (await loadMemory(sid)).nodes.map((n) => n.id).join('|');
+  eq(nodes, 'node-other', 'the record line over the restored page is let go, to be folded again');
+  eq((await putBackMistakenMends(sid)).length, 0, 'and nothing is put back twice');
 });

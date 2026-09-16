@@ -1637,6 +1637,29 @@ test('DOM-23 the record rides in the room the storyteller’s context leaves, an
   }
 });
 
+test('DOM-24 a page mended by mistake is put back by the house itself (M268)', async () => {
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the wrong mend' });
+  await db.messages.append(st.id, { role: 'user', text: 'I come home.' });
+  const pg = await db.messages.append(st.id, { role: 'assistant', text: '[Lakeside Park — Friday, March 14, 2025 | 14:30 | 🌤 | coat | standing]\n\nJovan, seventeen, dropped his bag.' });
+  await db.messages.update(st.id, pg.id, { mended: { before: '[Lakeside Park — Friday, March 14, 2025 | 14:30 | 🌤 | coat | standing]\n\nJovan, SIXTEEN-AS-WRITTEN, dropped his bag.', why: 'Snippet says Jovan is sixteen, but the passage says he is seventeen. It should read: Jovan is seventeen', at: 1 } });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
+  const said = [];
+  const realToast = env.ctx.toast;
+  env.ctx.toast = (w) => { said.push(String(w)); return realToast ? realToast(w) : undefined; };
+  try {
+    click(q('.msg-act[data-act="go on"]'));
+    await until(async () => { const m = (await db.messages.list(st.id)).find((x) => x.id === pg.id); return m && /SIXTEEN-AS-WRITTEN/.test(m.text) && !m.mended; }, 'the mistaken mend to be put back', 40000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg-pending'), 'the chain to finish', 40000);
+  } finally {
+    env.ctx.toast = realToast;
+  }
+  assert(said.some((w) => /put back 1 page it had mended by mistake/.test(w)), 'and says so: ' + JSON.stringify(said));
+  assert(/SIXTEEN-AS-WRITTEN/.test(bodyText(q(`.msg[data-id="${pg.id}"]`) || { textContent: '' }) || (q(`.msg[data-id="${pg.id}"]`) || {}).textContent || ''), 'the page on screen shows the storyteller\u2019s own words');
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

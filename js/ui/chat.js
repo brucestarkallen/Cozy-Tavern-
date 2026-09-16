@@ -55,7 +55,7 @@ import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
@@ -2053,7 +2053,7 @@ export function initChat(ctx) {
 
   async function applyMend(storyId, page, after, why) {
     const before = String(page.text || '');
-    const patch = { text: after, mended: { before, why: String(why || '').slice(0, 300), at: Date.now() } };
+    const patch = { text: after, mended: { before, why: String(why || '').slice(0, 4000), at: Date.now() } }; /* M268: the reason whole */
     if (Array.isArray(page.swipes) && page.swipes.length) {
       const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
       const swipes = page.swipes.slice();
@@ -2484,6 +2484,11 @@ export function initChat(ctx) {
           await mendAround(story, connection, ids, issue + (fix ? '. It should read: ' + fix : ''), signal);
         },
       });
+      /* M268: a mend that should never have been is put back first, by the house */
+      let putBack = [];
+      try { putBack = await putBackMistakenMends(story.id); } catch (err) { putBack = []; }
+      for (const id of putBack) { try { await rerenderMessage(story.id, id); } catch (err) { /* the next render shows it */ } }
+      if (putBack.length) toast('The house put back ' + putBack.length + (putBack.length === 1 ? ' page it had' : ' pages it had') + ' mended by mistake — the storyteller’s own words are back.');
       /* M262: THE LINES THE OLD KEEPER READ IN PART are read again, two a page,
        * from whole pages — each line swaps whole, so the record is never
        * missing a line while it heals; a line that will not come back after

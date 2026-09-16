@@ -42,7 +42,8 @@ import { withFictionFrame } from './voice.js'; /* M21: the workers never break t
 import { callWorker as sharedCall } from './call.js'; /* M28: the one wire path for workers */
 import { loadState } from '../engine/state.js';
 import { mcName } from '../engine/duels.js';
-import { wholePage, roomChars } from '../engine/pagecut.js'; /* M259: every page of a batch, read to its end; M265: the room */
+import { wholePage, roomChars } from '../engine/pagecut.js';
+import { renderCanon } from '../engine/canon.js'; /* M268: the brief and the locks for the checker */ /* M259: every page of a batch, read to its end; M265: the room */
 
 const KEY_PREFIX = 'memory:';
 const MAX_TOKENS = 1600; /* one dense line, or one merged line; thinking is off on the wire (M28) */
@@ -717,7 +718,9 @@ export function parseVerifyAnswer(raw) {
          * mender went to change the PAGES, which were right. An issue that says
          * the snippet is wrong and the passage right is the snippet's, whatever
          * its label. */
-        where: e.where === 'source' && !snippetIsWrong(e.issue) ? 'source' : 'snippet',
+        /* M268: a label and a sentence that disagree act on NOTHING — the snippet was
+         * right and the page wrong in the case that taught this ("Jovan is sixteen") */
+        where: e.where === 'source' ? (snippetIsWrong(e.issue) ? 'unsure' : 'source') : 'snippet',
       }))
       .slice(0, 6);
   } catch (err) {
@@ -731,9 +734,30 @@ export function snippetIsWrong(issue) {
     || /\bsnippet\b[^.]*\bbut the passage\b/i.test(t);
 }
 
+/* M268: THE BRIEF OUTRANKS A PAGE. The checker was handed the record's lines
+ * and nothing else — so when a page slipped ("Jovan is seventeen") against the
+ * brief ("sixteen"), it believed the page, called the correct line wrong, and
+ * sent the mender to make the pages say seventeen. Summaryception hands its
+ * checker the notepad — the starting canon — before the story so far; this
+ * hands it the writer's brief and the locked truths, ranked above every page. */
+export const BRIEF_OUTRANKS = 'THE WRITER\'S BRIEF OUTRANKS EVERY PAGE. When <passage> disagrees with the brief or a locked truth in <record> — an age, a name, a kinship, a home — the passage is wrong: flag it "source", with the brief\'s truth as the fix. Never flag the snippet for keeping the brief\'s truth.';
+export async function canonRecord(storyId, record) {
+  let brief = '';
+  let locks = '';
+  try { const story = await db.stories.get(storyId); brief = String((story && story.brief) || '').trim(); } catch (err) { brief = ''; }
+  try { const st = await loadState(storyId); locks = st && st.canon && typeof st.canon === 'object' ? renderCanon(st.canon, Object.keys(st.canon), Infinity) : ''; } catch (err) { locks = ''; }
+  const parts = [];
+  if (brief) parts.push('THE WRITER\'S BRIEF (it outranks every page):\n' + brief.slice(0, 40000));
+  if (locks) parts.push('LOCKED TRUTHS:\n' + locks);
+  parts.push('THE STORY SO FAR:\n' + (String(record || '').trim() || '(nothing recorded yet)'));
+  return parts.join('\n\n');
+}
+
 async function verify(connection, storyId, node, passage, record, playerName, signal, onSourceIssue) {
   try {
-    const raw = await callKeeper(connection, buildVerifyMessages({ playerName, record, passage, snippet: node.text }), signal);
+    record = await canonRecord(storyId, record);
+    const ask = buildVerifyMessages({ playerName, record, passage, snippet: node.text });
+    const raw = await callKeeper(connection, { ...ask, user: ask.user + '\n\n' + BRIEF_OUTRANKS }, signal);
     const issues = parseVerifyAnswer(raw);
     if (!issues.length) return { rewritten: false, sourceIssues: [] };
     const snippetIssues = issues.filter((i) => i.where === 'snippet');
@@ -865,6 +889,35 @@ export function memoryTruncatedAt(mem, index) {
 
 /* M44: the record without the line covering visible `index` (an edited or
  * swiped page): a hole, refilled holes-first by the keeper. */
+/* M268: A MEND THAT SHOULD NEVER HAVE BEEN. A finding that said the summary
+ * line was wrong (and the page right) was once sent to the mender, which then
+ * changed pages ("Jovan is seventeen" over a brief that says sixteen). Such a
+ * mend is put back by the house itself — the page's own earlier words, as the
+ * drawer's take-back does — and the record line over it is let go, so the
+ * keeper folds it again from the words the storyteller wrote. Returns the ids. */
+export async function putBackMistakenMends(storyId) {
+  if (!storyId) return [];
+  const all = await db.messages.list(storyId);
+  const back = [];
+  for (const page of all) {
+    if (!page || !page.mended || typeof page.mended.before !== 'string' || !snippetIsWrong(page.mended.why)) continue;
+    const patch = { text: page.mended.before, mended: null };
+    if (Array.isArray(page.swipes) && page.swipes.length) {
+      const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
+      const swipes = page.swipes.slice();
+      swipes[idx] = { ...swipes[idx], text: page.mended.before };
+      patch.swipes = swipes;
+    }
+    await db.messages.update(storyId, page.id, patch);
+    back.push(page.id);
+    try {
+      const k = visiblePages(await db.messages.list(storyId)).findIndex((m) => m.id === page.id);
+      if (k !== -1) await saveMemory(storyId, memoryWithoutPage(await loadMemory(storyId), k));
+    } catch (err) { /* the keeper's next pass covers the hole anyway */ }
+  }
+  return back;
+}
+
 export function memoryWithoutPage(mem, index) {
   const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => !(n && Array.isArray(n.span) && n.span[0] <= index && index <= n.span[1]));
   return { ...mem, nodes };

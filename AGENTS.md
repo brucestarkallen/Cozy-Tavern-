@@ -5596,3 +5596,28 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   (asterisks, bold, dead phrases), recoloured on the next page.
 - Laws: M259-32; M85's second-reader check follows. 5 deliberate breaks caught.
 - 526/526 harness + 42/42 walk + 8/8 play. version.js -> m267-001.
+
+# M268 — the brief outranks a page; a mend that should never have been is put back by the house
+- THE WRITER: "Jovan is 16, not 17 — it's in the brief." M267's answer had told him the
+  "Jovan is seventeen" mend was harmless, from the mend's own words, without reading the brief.
+  It was not: a storyteller page slipped to "seventeen"; the record line said sixteen (right);
+  the keeper's checker — handed the record's lines and nothing else — believed the page, and the
+  mender was sent to make pages say seventeen. Summaryception hands its checker the NOTEPAD (the
+  starting canon) before the story so far; the port had dropped it. And M267's own routing
+  (a "snippet says…" finding goes to the snippet) would have rewritten the correct line.
+- FIXED:
+  1. THE CHECKER HOLDS THE BRIEF ABOVE EVERY PAGE (memory.js canonRecord, BRIEF_OUTRANKS): the
+     writer's brief and the locked truths lead its record, and it is told a page against them
+     is the page's error, with the brief's truth as the fix.
+  2. A LABEL AND A SENTENCE THAT DISAGREE ACT ON NOTHING: "source" with a "snippet says…"
+     sentence is 'unsure' — no page mended, no line rewritten.
+  3. A MEND THAT SHOULD NEVER HAVE BEEN IS PUT BACK (putBackMistakenMends): every page the chain
+     reads, a mend whose reason says the snippet was wrong gets the storyteller's own words back,
+     its record line let go to be folded again, and the writer is told. The mend's reason is kept
+     whole (it was cut at 300).
+  4. THE REPORT LEAVES OUT "→ no change": a line whose fix is "no change", or that calls itself
+     "the moment, not mine to report" / "omits no one", is dropped.
+- Laws: M259-32 (follows), M259-33 (the checker's record; a confused finding acts on nothing; the
+  no-change lines), M259-34 (the put-back, a right mend kept, the line let go, never twice),
+  DOM-24 (in the real chain, by itself, said out loud). 7 deliberate breaks caught.
+- 528/528 harness + 43/43 walk + 8/8 play. version.js -> m268-001.
