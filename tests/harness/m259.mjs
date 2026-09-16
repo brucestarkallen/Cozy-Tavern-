@@ -1823,7 +1823,7 @@ test('M259-47: who matters rides without a pin \u2014 a first name recalls, the 
   const small = renderPeopleTiers(st, { recentPages: ['nothing named'], rotation: 0, view: peopleView(0), brief });
   eq(small.tiers.cards, 3, 'as many cards as 70% of a small room holds \u2014 three here');
   assert(/^Claire Stone \u2014/.test(small.text), 'the weightiest present person leads: ' + small.text.slice(0, 40));
-  assert(/Also here: [^\n]*/.test(small.text), 'the rest of the room rides the line');
+  assert(/Also here:\n- /.test(small.text), 'the rest of the room rides the line \u2014 each saying who they are (M286)');
 
   /* the room: the absent who matter ride as cards, unnamed; the bit player only on the roster */
   const big = peopleView(500000);
@@ -2040,4 +2040,43 @@ test('M259-51: the model\u2019s room has one answer — the writer\u2019s number
   const { peopleView } = await import('../../js/engine/people.js');
   eq(JSON.stringify(peopleView(contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }))), JSON.stringify(peopleView(128000)), 'the storyteller\u2019s people are sized to the same room');
   assert(buildRequest({ story: { title: 't', brief: 'b' }, messages: [{ id: 'u1', role: 'user', text: 'go' }], settings: {}, state: emptyState(), modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens: contextOf({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1' }) } }), 'a request is built in that room');
+});
+
+test('M259-52: twelve in the scene \u2014 the present take what the away do not need, and whoever has no card still says who they are and what they are doing', async () => {
+  const { renderPeopleTiers, peopleView } = await import('../../js/engine/people.js');
+  const hall = (per, extra = {}) => {
+    const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan Wells' }; st.page = 100; st.characters = {};
+    const names = Array.from({ length: 12 }, (_, i) => 'Guest ' + String.fromCharCode(65 + i) + ' Rowe');
+    for (const n of names) st.characters[n] = { core: n + ' keeps the hall\u2019s ledgers. ' + 'x'.repeat(Math.floor(per * 0.4)), state: n + ' stands by the fire, watching the door. ' + 'y'.repeat(Math.floor(per * 0.2)), arc: 'Between them: ' + 'z'.repeat(Math.floor(per * 0.4)), threads: [], updatedAtTurn: 99 };
+    st.present = names.map((name) => ({ name }));
+    st.place = { name: 'The Rowe hall' };
+    Object.assign(st, extra.state || {});
+    if (extra.characters) Object.assign(st.characters, extra.characters);
+    return st;
+  };
+  const r128 = peopleView(128000);
+  const short = renderPeopleTiers(hall(1500), { recentPages: [], view: r128, scenePages: [] });
+  eq(short.tiers.cards, 12, 'twelve in the hall with pages of ~1,500 characters: twelve cards on a 128k room (it was nine)');
+  const long = renderPeopleTiers(hall(3000), { recentPages: [], view: r128, scenePages: [] });
+  eq(long.tiers.cards + '+' + long.tiers.also, '7+5', 'with pages of ~3,000 on a 128k room: seven cards (it held five) and every other one on the line');
+  const lines = (long.text.split('Also here:')[1] || '').split('\n').filter((l) => l.startsWith('- '));
+  eq(lines.length, 12 - long.tiers.cards, 'one line for each present person without a card');
+  assert(lines.every((l) => /^- Guest [A-L] Rowe \u2014 Guest [A-L] Rowe keeps the hall\u2019s ledgers \u00b7 now: Guest [A-L] Rowe stands by the fire, watching the door$/.test(l)), 'and each says who they are and what they are doing: ' + lines[0]);
+  assert(long.text.length <= r128.budget, 'within the room: ' + long.text.length + ' of ' + r128.budget);
+  eq(renderPeopleTiers(hall(3000), { recentPages: [], view: peopleView(200000), scenePages: [] }).tiers.cards, 11, 'a 200k room: eleven (it was eight)');
+  eq(renderPeopleTiers(hall(3000), { recentPages: [], view: peopleView(500000), scenePages: [] }).tiers.cards, 12, 'a 500k room: all twelve');
+  /* the sister away is not starved by a crowded hall */
+  const withSister = hall(3000, {
+    state: { relationships: { 'Rias Wells': { p: 100, r: 100, s: 52, history: [] } }, offscreen: { 'Rias Wells': { location: 'home, in bed with a fever', activity: 'thinking about him', stance: 'waiting' } } },
+    characters: { 'Rias Wells': { core: 'Rias Wells \u2014 Jovan\u2019s older sister. ' + 'Fierce and tender. '.repeat(40), state: 'at home', arc: 'She would walk through fire for him. '.repeat(30), threads: [], updatedAtTurn: 90 } },
+  });
+  const crowded = renderPeopleTiers(withSister, { recentPages: [], view: r128, scenePages: [] });
+  assert(/Away, and much on the story\u2019s mind:\nRias Wells \u2014 Rias Wells \u2014 Jovan\u2019s older sister\.[^\n]*\nNow: home, in bed with a fever, thinking about him/.test(crowded.text), 'with twelve long pages in the hall, the sister away (her page ~1,900 characters) still rides as a card');
+  assert(crowded.tiers.cards >= 3 && crowded.tiers.cards + crowded.tiers.also === 12 && crowded.text.length <= r128.budget, 'and the hall keeps a card or a line for each of the twelve: ' + JSON.stringify(crowded.tiers));
+  /* someone here with nothing written yet is named as such */
+  const fresh = hall(1500, { state: { present: [...hall(1500).present, { name: 'Nell Stranger' }] } });
+  assert(/- Nell Stranger \(nothing written of them yet\)/.test(renderPeopleTiers(fresh, { recentPages: [], view: r128, scenePages: [] }).text), 'a person here with no page yet is on the line, and says so');
+  const blank = hall(3000, { state: { present: [...hall(3000).present, { name: 'Odd Blank' }] }, characters: { 'Odd Blank': { core: '', state: '', arc: '', threads: [], updatedAtTurn: 99 } } });
+  const blankText = renderPeopleTiers(blank, { recentPages: [], view: r128, scenePages: [] }).text;
+  eq((blankText.match(/- Odd Blank/g) || []).length, 1, 'a page with nothing on it is named once, not twice');
 });

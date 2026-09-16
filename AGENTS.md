@@ -6144,3 +6144,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   4 deliberate harness breaks and the DOM break caught.
 - 545/545 harness + 47/47 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   (story, housekeeper) within budget + lint 0 errors. version.js -> m285-001.
+
+# M286 — twelve in the scene: the present take what the away do not need; no one here is a bare mention
+- THE WRITER: "So if 12 people are in the scene, it gives info on all 12?"
+- MEASURED BEFORE: twelve present, pages ~1,500 characters — 9 cards on a 128k room (3 on the "Also
+  here" line); pages ~3,000 — 5 cards on 128k (7 on the line), 8 on 200k, 12 on 500k. The line said
+  only the first clause of their state ("stands by the fire") — not who they are. And the present
+  were held to 70% of the room whatever the away needed (16k of 23k used in the 3,000 case).
+- FIXED (engine/people.js): who is away, recalled and weightiest is worked out first; with room,
+  a present card is taken while it, the lines the rest of the room still needs, the recalled cards,
+  the two weightiest away cards and the roster's lines all fit — never less than half the room, and
+  three cards always. A small room keeps its 70% share (what the away need is shed there anyway).
+  Everyone present without a card is a line: "- Name — who they are · now: what they are doing";
+  one with no page yet says so; a page with nothing on it is named once (it was named twice — the
+  overflow and the unwritten both took it).
+- MEASURED AFTER: pages ~1,500 — 12 cards on every room; ~3,000 — 7 cards + 5 lines on 128k (22,341
+  of 23,040), 11 + 1 on 200k, 12 on 500k. With the sister away (a ~1,900-character page) and twelve
+  long pages in the hall, she still rides as a card.
+- The first version reserved 330 characters a line (real lines run ~110): the slack hid a missing
+  reserve for the away. The budget now counts each line's real size; the break is caught.
+- Laws: M259-52 (the numbers above; one line each, saying who and what; within the room; the sister
+  in a crowded hall; no page yet; a blank page named once), M259-47 reads the new line. 6 breaks
+  caught.
+- 546/546 harness + 47/47 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  (story) within budget + lint 0 errors. version.js -> m286-001.

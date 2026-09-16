@@ -606,16 +606,65 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   const scene = { placeWords: placeWords(state), lately: Array.isArray(scenePages) && scenePages.length ? scenePages : recentPages };
   const weigh = new Map(keys.map((k) => [k, importanceOf(state, k, brief, turn, scene)]));
   const byWeight = (a, b) => (weigh.get(b) || 0) - (weigh.get(a) || 0);
+
+  /* Who is away, and who of them rides (worked out first: the present's share
+   * is what the away do not need). M130: a recalled person who has a seat is
+   * where the seat says — the scribe's older 'state' never rides beside the
+   * world agent's word. M281: whoever is on their way is recalled too. */
+  const offScene = keys.filter((k) => !presentKeys.includes(k) && !isMc(state, k));
+  const seatOf = (k) => { const key = Object.keys(state.offscreen || {}).find((o) => o.toLowerCase() === k.toLowerCase()); return key ? state.offscreen[key] : null; };
+  const named = offScene.filter((k) => namedIn(recentPages, k));
+  const coming = offScene.filter((k) => !named.includes(k) && ['toward', 'seeking'].includes(String((seatOf(k) || {}).stance || '')));
+  const recalled = named.concat(coming).slice(0, lim.recall);
+  const awayCard = (k) => {
+    const seat = seatOf(k);
+    const entry = seat ? { ...characters[k], state: [seat.location, seat.activity].filter(Boolean).join(', ') || characters[k].state, updatedAtTurn: turn } : characters[k];
+    return cardText(k, entry, turn, RECALL_CARD_CAP);
+  };
+  /* M284: with room, the roster says who each one is and where — a bare name told the storyteller nothing */
+  const shortLines = lim.budget >= PEOPLE_BUDGET * 4;
+
+  /* M286: THE PRESENT TAKE WHAT THE AWAY DO NOT NEED. They were held to 70% of
+   * the room whatever the away needed — twelve in a hall with long pages on a
+   * 128k room: five cards, and seven on a line that said only "stands by the
+   * fire". Now the away keep what they need (the recalled, the two who matter
+   * most, the roster's lines, a line for each present person without a card)
+   * and the present take the rest — never less than half. */
+  const recallNeed = recalled.reduce((n, k) => n + awayCard(k).length + 2, 0);
+  const topAway = offScene.filter((k) => !recalled.includes(k) && (weigh.get(k) || 0) >= IMPORTANT_AT).sort(byWeight).slice(0, 2);
+  const otherNeed = recallNeed + topAway.reduce((n, k) => n + awayCard(k).length + 2, 0)
+    + (shortLines ? Math.min(14000, 190 * Math.min(offScene.length - recalled.length, lim.roster)) : 1500)
+    + 60; /* the headings */
+  /* M286: everyone here without a card still says who they are and what they are doing */
+  const compactLine = (key) => {
+    const e = characters[key] || {};
+    const who = shortClause(e.core, 160);
+    const now = shortClause(e.state, 140);
+    return '- ' + key + (who ? ' \u2014 ' + who : '') + (now ? ' \u00b7 now: ' + now : '');
+  };
+  const lineSize = new Map(presentKeys.map((k) => [k, compactLine(k).length + 1]));
+  let linesLeft = [...lineSize.values()].reduce((a, b) => a + b, 0);
   const cardKeys = [];
   let cardRoom = 0;
   for (const key of presentKeys.slice().sort(byWeight)) {
     if (!keys.includes(key) || cardKeys.length >= lim.cards) continue;
     const size = cardText(key, characters[key], turn).length + 2;
-    if (cardKeys.length >= PRESENT_CARDS_MIN && cardRoom + size > lim.budget * 0.7) continue;
+    const linesAfter = linesLeft - (lineSize.get(key) || 0);
+    if (cardKeys.length >= PRESENT_CARDS_MIN) {
+      /* a small room keeps its old share (what the away would need is shed there anyway); a larger
+       * one gives the present every character the away and the others' lines do not need —
+       * never less than half of it */
+      const fits = shortLines
+        ? (cardRoom + size <= lim.budget * 0.5 || cardRoom + size + linesAfter + otherNeed <= lim.budget)
+        : cardRoom + size <= lim.budget * 0.7;
+      if (!fits) continue;
+    }
     cardKeys.push(key);
     cardRoom += size;
+    linesLeft = linesAfter;
   }
-  const overflow = presentKeys.filter((k) => !cardKeys.includes(k));
+  /* a page with nothing written yet rides once, as the unwritten, never also as an overflow line */
+  const overflow = presentKeys.filter((k) => !cardKeys.includes(k) && keys.includes(k)).sort(byWeight);
   const unwritten = present.filter((name) => {
     const key = findPersonKey(characters, name) || name;
     return !keys.includes(key);
@@ -625,36 +674,17 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     sections.push({ shed: 0, text: cardText(key, characters[key], turn) });
     tiers.cards += 1;
   }
-  const also = overflow
-    .map((key) => {
-      const e = characters[key];
-      const where = e && e.state ? ' — ' + e.state.split(/[.!?]/)[0] : '';
-      return key + where;
-    })
-    .concat(unwritten);
+  const also = overflow.map(compactLine)
+    .concat(unwritten.map((name) => '- ' + name + ' (nothing written of them yet)'));
   if (also.length) {
-    sections.push({ shed: 1, text: 'Also here: ' + also.join(', ') + '.' });
+    sections.push({ shed: 1, text: 'Also here:\n' + also.join('\n') });
     tiers.also = also.length;
   }
 
   /* Tier 3: mention-recall — off the scene, but their name was spoken in
-   * the last three messages. */
-  const offScene = keys.filter((k) => !presentKeys.includes(k) && !isMc(state, k));
-  /* M130: a recalled person who has a seat is where the seat says — the
-   * scribe's older 'state' never rides beside the world agent's word */
-  const seatOf = (k) => { const key = Object.keys(state.offscreen || {}).find((o) => o.toLowerCase() === k.toLowerCase()); return key ? state.offscreen[key] : null; };
-  /* M281: and whoever is on their way to the main character is recalled too —
-   * the storyteller may bring them in on this very page (named ones first) */
-  const named = offScene.filter((k) => namedIn(recentPages, k));
-  const coming = offScene.filter((k) => !named.includes(k) && ['toward', 'seeking'].includes(String((seatOf(k) || {}).stance || '')));
-  const recalled = named.concat(coming).slice(0, lim.recall);
+   * the last three messages (or they are on their way). */
   if (recalled.length) {
-    const cards = recalled.map((k) => {
-      const seat = seatOf(k);
-      if (!seat) return cardText(k, characters[k], turn, RECALL_CARD_CAP);
-      const entry = { ...characters[k], state: [seat.location, seat.activity].filter(Boolean).join(', ') || characters[k].state, updatedAtTurn: turn };
-      return cardText(k, entry, turn, RECALL_CARD_CAP);
-    });
+    const cards = recalled.map(awayCard);
     sections.push({
       shed: 2,
       text: 'Named, though not in the scene right now:\n' + cards.join('\n\n'),
@@ -665,8 +695,6 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   /* Tier 3b (M282): the absent who matter most, in the room that is left —
    * most important first, each card to the recall size, seats honoured. */
   const important = [];
-  /* M284: with room, the roster says who each one is and where — a bare name told the storyteller nothing */
-  const shortLines = lim.budget >= PEOPLE_BUDGET * 4;
   {
     const used = sections.reduce((n, x) => n + x.text.length + 2, 0);
     /* M284: the short lines of everyone without a card keep their room */
@@ -676,9 +704,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     const pool = offScene.filter((k) => !recalled.includes(k) && (weigh.get(k) || 0) >= IMPORTANT_AT).sort(byWeight);
     const cards = [];
     for (const k of pool) {
-      const seat = seatOf(k);
-      const entry = seat ? { ...characters[k], state: [seat.location, seat.activity].filter(Boolean).join(', ') || characters[k].state, updatedAtTurn: turn } : characters[k];
-      const card = cardText(k, entry, turn, RECALL_CARD_CAP);
+      const card = awayCard(k);
       if (card.length + 2 > room) continue;
       cards.push(card);
       important.push(k);
