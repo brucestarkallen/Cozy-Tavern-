@@ -2694,6 +2694,21 @@ export function sessionWireOf(session) {
 /* One conversation turn with the housekeeper, fetch-rounds included.
  * `call` is injectable for the harness; the default rides callModel.
  * Never throws. Returns {ok, raw, parsed, fetchRounds, thinking, error?}. */
+/* M270: why the housekeeper was asked again, in words that finish
+ * "The housekeeper is …" */
+export function roundWhy(content) {
+  const t = String(content || '');
+  if (/^What you asked for, whole/.test(t)) return 'reading what it looked up';
+  if (/^\[ANSWER NOW\]/.test(t)) return 'answering after its thinking ran long';
+  if (/^\[CUT SHORT\]/.test(t)) return 'sending its answer again, whole';
+  if (/^\[BLIND EDIT\]/.test(t)) return 'reading the pages it means to change';
+  if (/^\[ANCHOR CHECK\]/.test(t)) return 'fixing where its changes land';
+  if (/^\[UNREADABLE BLOCK\]/.test(t)) return 'rewriting a block it wrote unclearly';
+  if (/^\[THE BRIEF\]/.test(t)) return 'adding the change to the brief';
+  if (/^Your <fetch> block could not be read/.test(t)) return 'asking for its pages again';
+  return 'answering again';
+}
+
 export async function runConversation({
   connection, story, messages, state, modules, lore, memory, directorText, editorText,
   session, writerText, contextPages, call, signal, onToken,
@@ -2740,14 +2755,27 @@ export async function runConversation({
     ];
 
     let round = 0;
+    /* M270: EVERY ROUND STREAMS. Only the first call was handed the writer's
+     * live view — so when the housekeeper looked something up and was asked
+     * again, the second round streamed into nothing: the panel stood still, the
+     * silence watch counted a working model as a dead wire, and past its limit
+     * it cut a live answer ("sometimes it works, sometimes it hangs"). Every
+     * call streams now, and a new call says why it was made. */
+    let calls = 0;
+    const tell = (tok) => { try { onToken(tok); } catch (err) { /* the view is not the work */ } };
     for (;;) {
+      if (calls > 0 && typeof onToken === 'function') {
+        const last = wire[wire.length - 1];
+        tell({ channel: 'round', text: '', round: calls + 1, why: roundWhy(last && last.content) });
+      }
       const answer = await caller({
         system: withFictionFrame(SYSTEM_PROMPT),
         messages: wire,
         maxTokens: pot,
         signal,
-        onToken: round === 0 ? onToken : undefined,
+        onToken: typeof onToken === 'function' ? tell : undefined,
       });
+      calls += 1;
       if (answer && answer.error) return { ok: false, error: answer.error };
       const raw = answer && typeof answer.text === 'string' ? answer.text : '';
       const thinking = answer && typeof answer.thinking === 'string' ? answer.thinking : '';

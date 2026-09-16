@@ -5648,3 +5648,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   service worker blocked so its update reload cannot land mid-measure); it exits 1 past its
   budget (a 250 ms frame, 3 s of long tasks at 6x). Run it before any change to a streaming view.
 - 528/528 harness + 43/43 walk + 8/8 play + both streaming measurements within budget. version.js -> m269-001.
+
+# M270 — every housekeeper round streams; the question stands at once
+- THE WRITER (two screenshots): "sometimes it works, sometimes it hangs … and doesn't respond".
+  The status line read "109s · 2378 chars (+14652 thinking) · gives up after 223s of silence",
+  then "114s · 2378 chars · 218s" — the answer had stopped growing and the silence watch was
+  counting down. The answer on screen ended with a look-up ("every page holding 'seventeen'").
+- THE CAUSE: runConversation handed the writer's live view to the FIRST call only
+  (onToken: round === 0 ? onToken : undefined). After a look-up, the second round streamed into
+  nothing: the panel stood still, and the silence watch (M83) — fed only by that view — counted a
+  working model as a dead wire and, past its limit, cut the live answer. A short second round
+  finished in time ("sometimes it works"); a long one was cut ("sometimes it hangs").
+- FIXED: every call streams to the view, and a new call first says why it was made (roundWhy:
+  "reading what it looked up", "fixing where its changes land", …) — the status line reads "The
+  housekeeper is reading what it looked up (round 2)", the answer bubble starts fresh, the
+  thinking fold marks "— asked again —". The watch now hears every round.
+- ALSO FROM THE SCREENSHOT: while it worked, the thread said "Nothing asked yet" and the
+  writer's own question was not in it (it waited for the answer). The question stands the
+  moment it is asked, and the empty note goes.
+- THE TEST: tests/housekeeper_rounds.py — a real Chromium, a fake model whose first answer looks
+  something up and whose second round thinks for ten seconds against a six-second silence
+  watch. On the old code: 4 of 6 checks fail (the question missing, round 2 unseen, the live
+  round cut, no answer). Now: all green. Law M259-35 runs the same in the harness.
+- DOM-11b waited for "two bubbles" as its sign the answer had come; with the question standing
+  at once that came too early — it waits for the pending bubble to be gone.
+- 529/529 harness + 43/43 walk + 8/8 play + housekeeper_rounds all green + perf within budget.
+  version.js -> m270-001.

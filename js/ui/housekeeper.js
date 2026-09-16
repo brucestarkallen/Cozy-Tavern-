@@ -581,7 +581,7 @@ export function initHousekeeper(ctx) {
     }
     if (!session.turns.length) {
       const note = document.createElement('p');
-      note.className = 'quiet';
+      note.className = 'quiet hk-empty';
       note.textContent = 'Nothing asked yet. The housekeeper has already read the house.';
       thread.append(note);
     }
@@ -771,6 +771,10 @@ export function initHousekeeper(ctx) {
 
     setBusy(true, 'The housekeeper is looking…');
     input.value = '';
+    /* M270: the question stands in the thread the moment it is asked — it
+     * waited for the answer, and "Nothing asked yet" stood there meanwhile */
+    for (const empty of thread.querySelectorAll('.hk-empty')) empty.remove();
+    thread.append(bubble('writer', raw));
     const pendingBubble = bubble('housekeeper', '…');
     pendingBubble.classList.add('hk-pending');
     thread.append(pendingBubble);
@@ -847,10 +851,13 @@ export function initHousekeeper(ctx) {
     const stallSec = Number.isFinite(Number(await db.settings.get('hkStallSec'))) ? Number(await db.settings.get('hkStallSec')) : 300;
     let lastBeat = Date.now();
     let stalled = false;
+    let roundNo = 1;
+    let roundWhy = '';
     const tick = () => {
       const since = Math.floor((Date.now() - lastBeat) / 1000);
       if (stallSec > 0 && since >= stallSec && workerCtl && !stalled) { stalled = true; try { workerCtl.abort(); } catch (err) { /* the wire is gone either way */ } }
-      statusLine.textContent = 'The housekeeper is ' + (thinkChars && !answerChars ? 'weighing it' : 'looking') + ' · ' + Math.floor((Date.now() - t0) / 1000) + 's' + (answerChars ? ' · ' + answerChars + ' chars' : '') + (thinkChars ? ' (+' + thinkChars + ' thinking)' : '') + (!answerChars && !thinkChars ? ' · waiting for the first word…' : '') + (stallSec > 0 ? ' · gives up after ' + Math.max(0, stallSec - since) + 's of silence' : '');
+      const doing = roundNo > 1 ? roundWhy + ' (round ' + roundNo + ')' : (thinkChars && !answerChars ? 'weighing it' : 'looking');
+      statusLine.textContent = 'The housekeeper is ' + doing + ' · ' + Math.floor((Date.now() - t0) / 1000) + 's' + (answerChars ? ' · ' + answerChars + ' chars' : '') + (thinkChars ? ' (+' + thinkChars + ' thinking)' : '') + (!answerChars && !thinkChars ? ' · waiting for the first word…' : '') + (stallSec > 0 ? ' · gives up after ' + Math.max(0, stallSec - since) + 's of silence' : '');
     };
     const ticker = setInterval(tick, 1000);
 
@@ -876,6 +883,19 @@ export function initHousekeeper(ctx) {
            * seconds to show, the screen frozen for 139 of them. A piece is kept
            * in a string now; once a frame, what came is appended as new text. */
           lastBeat = Date.now();
+          /* M270: a new round — the heartbeat, and a fresh answer on its way */
+          if (tok && tok.channel === 'round') {
+            roundNo = Number.isFinite(tok.round) ? tok.round : roundNo + 1;
+            roundWhy = tok.why || 'answering again';
+            waitingProse = '';
+            proseBegun = false;
+            answerChars = 0;
+            pendingBubble.textContent = '…';
+            if (liveThinking) liveThinking += '\n\n— asked again —\n\n';
+            if (thinkFold) { thinkFold.open = true; thinkFold.querySelector('summary').textContent = 'How it’s weighing it…'; }
+            tick();
+            return;
+          }
           if (!tok || typeof tok.text !== 'string' || !tok.text) return;
           if (tok.channel === 'thinking') {
             thinkChars += tok.text.length;

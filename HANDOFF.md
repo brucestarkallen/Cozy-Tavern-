@@ -1,17 +1,18 @@
-# Cozy Tavern — handoff for the next session (state at m269-001)
+# Cozy Tavern — handoff for the next session (state at m270-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M269). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M270). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 528 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 529 checks on the engines, assembler, workers, laws.
 - `cd tests/dom && node run.mjs` — the walk: 43 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
 - Real-browser frame timing (Playwright, CPU 6×): `python3 tests/perf_housekeeper.py` measures the
   housekeeper streaming (SCENARIO=story: the storyteller) against a fake streaming model; it exits 1
-  past its budget. Run it before any change to a streaming view. (M145's drawer/settings check was
+  past its budget. Run it before any change to a streaming view. `python3 tests/housekeeper_rounds.py`
+  proves a housekeeper round after a look-up streams and is never cut by the silence watch. (M145's drawer/settings check was
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)

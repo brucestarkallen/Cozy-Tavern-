@@ -1230,3 +1230,37 @@ test('M259-34: a page mended by mistake is put back by the house, and its record
   eq(nodes, 'node-other', 'the record line over the restored page is let go, to be folded again');
   eq((await putBackMistakenMends(sid)).length, 0, 'and nothing is put back twice');
 });
+
+test('M259-35: every housekeeper round streams to the writer\u2019s view, and a new round says why', async () => {
+  const { runConversation, roundWhy } = await import('../../js/agents/housekeeper.js');
+  eq(roundWhy('What you asked for, whole:\n\n…'), 'reading what it looked up', 'a look-up round is named');
+  eq(roundWhy('[ANCHOR CHECK] These finds…'), 'fixing where its changes land', 'and a correction round');
+  let n = 0;
+  const call = async (req) => {
+    n += 1;
+    if (n === 1) {
+      if (req.onToken) req.onToken({ channel: 'prose', text: 'Looking. ' });
+      return { text: 'Looking. <fetch>["find: seventeen"]</fetch>' };
+    }
+    if (req.onToken) {
+      req.onToken({ channel: 'thinking', text: 'ROUND-TWO-THINKING' });
+      req.onToken({ channel: 'prose', text: 'ROUND-TWO-WORDS' });
+    }
+    return { text: 'Nothing on those pages needs changing.' };
+  };
+  const seen = [];
+  const r = await runConversation({
+    connection: CONN, story: { id: 'm259-rounds', title: 't', brief: 'Jovan is sixteen.' },
+    messages: [{ id: 'aaaa01', role: 'assistant', text: 'Jovan, seventeen, came home.' }],
+    state: emptyState(), modules: [], lore: [], memory: null, session: { turns: [] },
+    writerText: 'Jovan is 16 — fix the page that says seventeen', contextPages: 12, call,
+    onToken: (tok) => seen.push(tok),
+  });
+  assert(n >= 2, 'it looked something up and was asked again (a change asked for with no block asks once more: ' + n + ' calls)');
+  const roundAt = seen.findIndex((t) => t.channel === 'round');
+  assert(roundAt > 0, 'a round notice came between the rounds');
+  eq(seen[roundAt].round, 2, 'naming round two');
+  eq(seen[roundAt].why, 'reading what it looked up', 'and why');
+  assert(seen.slice(roundAt).some((t) => t.text === 'ROUND-TWO-THINKING') && seen.slice(roundAt).some((t) => t.text === 'ROUND-TWO-WORDS'), 'the second round streams to the view — it streamed into nothing');
+  assert(r && r.ok !== false, 'and the turn is answered');
+});

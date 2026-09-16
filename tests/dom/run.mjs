@@ -422,7 +422,8 @@ test('DOM-11b the housekeeper: fullscreen (Esc leaves it), a draggable top bar, 
   house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'Answer one.' : priorAnswer(body, sys));
   type(q('#hk-input'), 'is anything wrong?');
   submit(q('#hk-form'));
-  await until(() => qa('#hk-thread .hk-bubble').length >= 2, 'the first answer', 10000);
+  /* M270: the question stands at once now, so two bubbles are not yet an answer — the pending one must be gone */
+  await until(() => qa('#hk-thread .hk-bubble').length >= 2 && !q('#hk-thread .hk-pending'), 'the first answer', 10000);
   const sid = await storyId();
   const active = (root) => root.sessions.find((x) => x.id === root.activeId);
   const sess1 = active(await db.settings.get('hk:' + sid));
