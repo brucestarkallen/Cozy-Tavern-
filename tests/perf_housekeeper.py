@@ -179,7 +179,16 @@ def main():
                     print('  %7.1f  %s' % (v, k))
             cdp = cdp0
             page.evaluate('''() => {
-              window.__perf = { frames: [], long: [], on: true, t0: performance.now() };
+              window.__perf = { frames: [], long: [], on: true, t0: performance.now(), firstWords: null };
+              /* M279: while it streams, once the thinking is long, is its FIRST line still there to read? */
+              const look = setInterval(() => {
+                if (!window.__perf.on) { clearInterval(look); return; }
+                const live = document.querySelector('#hk-thread .hk-pending') ? document.querySelector('#hk-thread .hk-thinking > div')
+                  : document.querySelector('.msg.pending .thinking-body');
+                const t = live ? live.textContent : '';
+                /* once the box shows a piece past the thousandth, are the first words still in it? */
+                if (window.__perf.firstWords === null && /thinking step 0[1-9]\d{3}/.test(t)) window.__perf.firstWords = t.includes('thinking step 00000');
+              }, 300);
               try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__perf.long.push(e.duration); }).observe({ type: 'longtask' }); } catch (e) {}
               let last = performance.now();
               const loop = (t) => { window.__perf.frames.push(t - last); last = t; if (window.__perf.on) requestAnimationFrame(loop); };
@@ -206,6 +215,7 @@ def main():
                 worst_frame_ms: Math.round(sorted[sorted.length - 1] || 0),
                 p95_frame_ms: Math.round(pct(0.95)),
                 frames_over_100ms: f.filter((x) => x > 100).length,
+                first_words_while_streaming: window.__perf.firstWords,
                 long_tasks: window.__perf.long.length,
                 long_task_total_ms: Math.round(window.__perf.long.reduce((a, b) => a + b, 0)),
                 thinking_chars: await (async () => {
@@ -228,7 +238,7 @@ def main():
         srv.terminate()
         fake.shutdown()
     print(json.dumps(result, indent=1))
-    ok = result.get('worst_frame_ms', 1e9) <= BUDGET['worst_frame_ms'] and result.get('long_task_total_ms', 1e9) <= BUDGET['long_task_total_ms'] and not result.get('page_errors')
+    ok = result.get('worst_frame_ms', 1e9) <= BUDGET['worst_frame_ms'] and result.get('long_task_total_ms', 1e9) <= BUDGET['long_task_total_ms'] and not result.get('page_errors') and (result.get('first_words_while_streaming') is True or THINK_DELTAS < 1500)
     print(SCENARIO + ' streaming: ' + ('within budget' if ok else 'OVER BUDGET ' + json.dumps(BUDGET)))
     sys.exit(0 if ok else 1)
 

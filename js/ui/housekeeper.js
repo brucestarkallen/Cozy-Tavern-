@@ -14,6 +14,7 @@
  * Undo (take back the newest batch that still stands).
  */
 
+import { streamText } from './streamtext.js'; /* M279 */
 import { db } from '../store.js';
 import {
   housekeeperTurn, loadSession, saveSession,
@@ -845,8 +846,7 @@ export function initHousekeeper(ctx) {
     let proseBegun = false;
     const atBottom = () => thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80;
     let streamDone = false;
-    let thinkTail = null;
-    const LIVE_THINKING_TAIL = 4000;
+    let thinkTail = null; /* M279: the live thinking's line-by-line drawing */
     const drawStream = () => {
       drawQueued = false;
       if (streamDone) return;
@@ -863,14 +863,9 @@ export function initHousekeeper(ctx) {
           thinkFold.append(sum, thinkBody);
           pendingBubble.before(thinkFold);
         }
-        /* while it thinks, the newest of it — a hundred thousand characters laid
-         * out again every frame is what a phone cannot do; the whole of it is
-         * kept on the turn and shown, folded, when the answer is in */
-        if (!thinkTail) {
-          thinkTail = document.createTextNode('');
-          thinkBody.appendChild(thinkTail);
-        }
-        thinkTail.data = liveThinking.length > LIVE_THINKING_TAIL ? '…' + liveThinking.slice(-LIVE_THINKING_TAIL) : liveThinking;
+        /* M279: the whole thinking, line by line, readable from its first word */
+        if (!thinkTail) thinkTail = streamText(thinkBody);
+        thinkTail.append(waitingThink);
         waitingThink = '';
       }
       if (waitingProse) {
@@ -949,7 +944,7 @@ export function initHousekeeper(ctx) {
             proseBegun = false;
             answerChars = 0;
             pendingBubble.textContent = '(' + roundWhy + '…)';
-            if (liveThinking) liveThinking += '\n\n— asked again —\n\n';
+            if (liveThinking) { liveThinking += '\n\n— asked again —\n\n'; waitingThink += '\n\n— asked again —\n\n'; }
             if (thinkFold) { thinkFold.open = true; thinkFold.querySelector('summary').textContent = 'How it’s weighing it…'; }
             tick();
             return;

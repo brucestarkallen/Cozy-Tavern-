@@ -40,6 +40,7 @@
  *    fresh (referee.refereeStep).
  */
 
+import { streamText } from './streamtext.js'; /* M279 */
 import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { buildRequest, pageText, windowPlan } from '../assemble/stack.js';
@@ -3345,7 +3346,7 @@ export function initChat(ctx) {
       pending.appendChild(pendingLabel);
       let thinkDetails = null;
       let thinkPaintQueued = false; /* M269 */
-      const LIVE_THINKING_TAIL = 4000;
+      let thinkLines = null; /* M279: the live thinking, drawn line by line */
       let thinkBody = null;
       const body = document.createElement('div');
       body.className = 'msg-body';
@@ -3452,13 +3453,15 @@ export function initChat(ctx) {
                   pending.insertBefore(thinkDetails, body);
                   if (!sawProse) thinkDetails.open = true;
                 }
-                /* M269: the thinking is drawn once a frame, and while it streams only
-                 * its newest part — it was rewritten whole on every piece */
+                /* M269: the thinking is drawn once a frame (it was rewritten whole on
+                 * every piece); M279: line by line, the whole of it, from its first word */
                 if (!thinkPaintQueued) {
                   thinkPaintQueued = true;
                   (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn) => setTimeout(fn, 16))(() => {
                     thinkPaintQueued = false;
-                    if (thinkBody) thinkBody.textContent = thinking.length > LIVE_THINKING_TAIL ? '…' + thinking.slice(-LIVE_THINKING_TAIL) : thinking;
+                    if (!thinkBody) return;
+                    if (!thinkLines) thinkLines = streamText(thinkBody);
+                    thinkLines.append(thinking.slice(thinkLines.length));
                   });
                 }
               }
@@ -3475,8 +3478,8 @@ export function initChat(ctx) {
           },
         });
         full = result.text;
-        /* M269: the whole thinking, once, now that it is done */
-        if (thinkBody) thinkBody.textContent = thinking;
+        /* M279: the last of the thinking, drawn where the reader is (the whole of it is already there) */
+        if (thinkBody) { if (!thinkLines) thinkLines = streamText(thinkBody); thinkLines.append(thinking.slice(thinkLines.length)); }
         /* M22: the provider's kind words (a refusal retried once, a
          * prefill that stayed home) reach the writer as toasts, and the
          * search's findings land on the page. */

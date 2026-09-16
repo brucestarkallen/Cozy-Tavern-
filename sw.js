@@ -63,6 +63,7 @@ const SHELL = [
   'js/ui/drawer.js',
   'js/ui/receiptview.js',
   'js/ui/housekeeper.js',
+  'js/ui/streamtext.js',
   'js/ui/welcome.js',
   'js/ui/workbanner.js',
   'js/ui/richhtml.js',

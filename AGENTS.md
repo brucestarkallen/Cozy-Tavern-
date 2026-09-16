@@ -5944,3 +5944,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   page earned (every cause "set — …"). M259-42 adds that shape (Maya: a start, then a bare line —
   let go), a beat then a bare line (Vanessa — stays) and a bare line then a bond about him (Tom —
   stays); both new rules broken and caught. 536/536 + 46/46 + 8/8.
+
+# M279 — the live thinking is read from its first word; "stands as the pages moved it" is no finding
+- THE WRITER: (1) "The streaming thinking block keeps moving down and the first of the thinking is
+  cut off — I can't see it while it streams." M269 had kept a phone from freezing by drawing only
+  the newest 4,000 characters of a live thinking; the start of it was gone until the page landed.
+  (2) An audit of "found 18 things, set 5 right … 13 seen, nothing to change".
+- (1) FIXED (js/ui/streamtext.js, one helper for the storyteller's fold and the housekeeper's): the
+  whole thinking is drawn, line by line — each line its own block, and a line that runs long ended
+  at its next sentence (past 500 characters; at its next space past 1,500), so a frame's new words
+  touch only a short block however long the whole grows; the box follows its own bottom only when
+  the reader is there. The housekeeper's thinking has its own scroll box now; both boxes are
+  contained. The finished thinking is drawn whole as before. Measured (6x CPU): housekeeper worst
+  50–117 ms, p95 17 ms; storyteller worst 100 ms, p95 33 ms; two rounds of 204,017 characters worst
+  200 ms, p95 33 ms — all within budget, the first words there throughout. The first draft (one
+  block a line) froze on a thinking with no line breaks: worst 233 ms, 3.4 s of long tasks.
+  tests/perf_housekeeper.py now fails a run whose live box, past its thousandth piece, lacks the
+  first words (the old tail view: false, OVER BUDGET).
+- (2) The five thread closings were real. The thirteen "Seen" lines said "stands as the pages moved
+  it" / "not the ledger's to zero" — all is well in other words; saysAllIsWell reads them now.
+  Maya, Eli and Mr. Sterling at 0/0/0 with the auditor calling them "moved by the pages": the page
+  reader follows the writer's own standing law (M53 — a standing moves only on a revelation; flat
+  is the default), so a side character at zero is that law, not a missed beat, as far as the code
+  shows; nothing was changed there.
+- Laws: M259-43 (every word drawn in order from the first; no line past 560 characters; a line break
+  and an empty line kept; the hard split at a space; following only from the bottom; the audit
+  lines). 4 deliberate breaks caught, and the browser check caught the old tail view.
+- 537/537 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  (housekeeper, story, bigfetch) within budget + lint 0 errors. version.js -> m279-001.

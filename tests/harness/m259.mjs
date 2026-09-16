@@ -1631,3 +1631,43 @@ test('M259-42: a standing is toward the main character — never one the brief s
   const kept = standingsHousekeeping(old, brief, '', 'Jovan', [{ name: 'Sophie Dale', p: 65, r: 0, s: 0 }]).filter((m) => m.type === 'rel.clear').map((m) => m.name);
   assert(!kept.includes('Sophie Dale'), 'one the house\u2019s own reading of the brief sets toward him stays');
 });
+
+test('M259-43: a streamed thinking is drawn line by line — whole from its first word, no line too long to lay out, followed only from the bottom', async () => {
+  const { streamText } = await import('../../js/ui/streamtext.js');
+  /* a small stand-in for a scroll box: blocks and text, and a height that grows with them */
+  const doc = {
+    createElement: () => ({ nodes: [], className: '', appendChild(n) { this.nodes.push(n); }, get text() { return this.nodes.map((n) => n.data).join(''); } }),
+    createTextNode: (data) => ({ data }),
+  };
+  const box = { ownerDocument: doc, lines: [], scrollTop: 0, clientHeight: 100, appendChild(l) { this.lines.push(l); }, get scrollHeight() { return this.lines.length * 20; } };
+  const s = streamText(box);
+  let sent = '';
+  for (let i = 0; i < 2000; i += 1) { const piece = 'thinking step ' + String(i).padStart(5, '0') + ', weighing it. '; sent += piece; s.append(piece); }
+  const drawn = box.lines.map((l) => l.text).join('');
+  eq(drawn, sent, 'every word is drawn, in order, from the first');
+  assert(box.lines[0].text.startsWith('thinking step 00000'), 'the first line is the first words');
+  assert(box.lines.every((l) => l.text.length <= 560), 'no line runs long enough to be laid out again and again: longest ' + Math.max(...box.lines.map((l) => l.text.length)));
+  assert(box.lines.length > 50, 'a long thinking with no line breaks is ended at its sentences: ' + box.lines.length + ' lines');
+  eq(s.length, sent.length, 'it knows how much it has drawn');
+  const b2 = { ...box, lines: [], appendChild(l) { this.lines.push(l); }, get scrollHeight() { return this.lines.length * 20; } };
+  const s2 = streamText(b2);
+  s2.append('first line\n\nthird line');
+  eq(b2.lines.map((l) => l.text).join('|'), 'first line||third line', 'a line break starts a line, and an empty line is kept');
+  const run = 'x'.repeat(1600) + ' tail words';
+  const b3 = { ...box, lines: [], appendChild(l) { this.lines.push(l); }, get scrollHeight() { return this.lines.length * 20; } };
+  const s3 = streamText(b3);
+  for (let i = 0; i < run.length; i += 40) s3.append(run.slice(i, i + 40));
+  assert(b3.lines.length === 2 && b3.lines[1].text === 'tail words', 'a line with no sentence is ended at a space past its hard length: ' + b3.lines.map((l) => l.text.length).join(','));
+  /* following: at the bottom it follows; scrolled up, it is left where it is */
+  const b4 = { ...box, lines: [], scrollTop: 0, appendChild(l) { this.lines.push(l); }, get scrollHeight() { return this.lines.length * 20; } };
+  const s4 = streamText(b4);
+  for (let i = 0; i < 20; i += 1) s4.append('line ' + i + '\n');
+  eq(b4.scrollTop, b4.scrollHeight, 'at the bottom, it follows');
+  b4.scrollTop = 0;
+  s4.append('one more\n');
+  eq(b4.scrollTop, 0, 'scrolled up to read, the reader is left where he is');
+
+  const { saysAllIsWell } = await import('../../js/agents/auditor.js');
+  eq(saysAllIsWell({ what: 'the ledger\u2019s standing for Caleb Thorne is P:0 R:-28 S:0, but the pages show his conduct; a standing the pages have moved is not the ledger\u2019s to zero', fix: 'Caleb Thorne\u2019s standing toward Jovan stands as the pages moved it' }), true, '"stands as the pages moved it" is no finding');
+  eq(saysAllIsWell({ what: 'the ledger\u2019s thread \u2018Maya\u2019s quiet archive\u2019 is still hot, but the pages show Maya sent Chloe four texts', fix: 'the thread is resolved' }), false, 'a thread the pages closed is one');
+});

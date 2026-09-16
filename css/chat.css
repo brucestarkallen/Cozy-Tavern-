@@ -484,6 +484,7 @@ body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-selec
 .thinking-body {
   max-height: 340px;
   overflow-y: auto;
+  contain: content; /* M279: a long thinking is laid out in its own box */
   padding: 0 12px 10px;
   font-size: 0.92rem;
   line-height: 1.6;
@@ -1137,3 +1138,7 @@ body.read-only .send-btn { opacity: 0.4; }
   .room-btn.has-trouble::after,
   .room-btn.is-working::after { animation: none; }
 }
+
+/* M279: a streamed text, one block a line — an empty line keeps its height */
+.stream-line { white-space: pre-wrap; overflow-wrap: break-word; }
+.stream-line:empty { min-height: 1.6em; }

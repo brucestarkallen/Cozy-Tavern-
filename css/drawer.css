@@ -413,6 +413,10 @@
   border-inline-start: 2px solid var(--border);
   padding-inline-start: 0.5rem;
   margin-block-start: 0.25rem;
+  /* M279: its own scroll, so a long thinking is read in place and laid out in its own box */
+  max-height: 40vh;
+  overflow-y: auto;
+  contain: content;
 }
 
 /* Proposal cards. */
