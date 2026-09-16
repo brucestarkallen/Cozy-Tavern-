@@ -1865,6 +1865,31 @@ test('DOM-28 the ember bar measures the room the house plans in — the connecti
   assert(Math.abs(got - want) < 0.01, 'the ember bar reads the page against the planned room: ' + got.toFixed(3) + '% (want ' + want.toFixed(3) + '%; a flat 200,000 would read ' + (withReceipt.receipt.totalTokens / 2000).toFixed(3) + '%)');
 });
 
+test('DOM-29 a long tale with a big brief never outgrows the model: the storyteller\u2019s request, counted at three characters a token, and its answer fit the room (M287)', async () => {
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the long tale' });
+  await db.stories.update(st.id, { brief: 'THE BRIEF. ' + 'The harbor town keeps its secrets under the tide line. '.repeat(2700) });
+  for (let i = 0; i < 24; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'On we go ' + i + '.' });
+    await db.messages.append(st.id, { role: 'assistant', text: 'Page ' + i + '. ' + 'The tide came in slowly. '.repeat(40) });
+  }
+  const node = (k, a, b) => ({ id: 'node-room' + k, span: [a, b], level: 1, text: 'ROOM-RECORD-' + k + ' ' + 'the town remembered everything, '.repeat(2500), at: k + 1, whole: true });
+  await saveMemory(st.id, { window: 20, nodes: [node(0, 0, 5), node(1, 6, 11), node(2, 12, 17), node(3, 18, 27)] });
+  const from = house.state.calls.length;
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  click(q('.msg-act[data-act="go on"]'));
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg.pending'), 'the page to land', 60000);
+  const told = house.state.calls.slice(from).filter((c) => !c.isWorker);
+  assert(told.length >= 1, 'the storyteller was asked');
+  const sent = JSON.stringify(told[told.length - 1].body);
+  const tokens = Math.ceil(sent.length / 3);
+  assert(sent.includes('THE BRIEF.') && sent.includes('ROOM-RECORD-3'), 'the brief and the newest record ride');
+  assert(tokens + 16000 <= 128000, 'the request (' + tokens + ' at three characters a token) and the answer\u2019s room fit 128,000');
+  await until(() => queuedCount(st.id) === 0, 'the house to settle', 60000);
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

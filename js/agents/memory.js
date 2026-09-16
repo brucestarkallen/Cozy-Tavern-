@@ -236,10 +236,33 @@ export function cleanSqueeze(value) {
  * with most of the room unused. The room is what the context leaves after the
  * word-for-word pages, the answer and a reserve for the rules and the ledger —
  * never less than the old 30,000. */
-export function recordRoom({ contextTokens, maxTokens, windowTokens } = {}) {
+/* M287: MEASURED, NOT GUESSED. The rest of the request was taken to fit a fixed
+ * 40,000-token reserve — and since the people's pages rode (M281), the cast
+ * notes and the lore grew to the room (M283), a big brief could take a long
+ * tale past a 128k model's room: the page refused outright. With fixedChars —
+ * the request built without the record, in characters — the record takes what
+ * is truly left: counted at three characters a token (dense text runs so; the
+ * receipt's four is the optimist's count), less the answer's room (an unset
+ * one is taken at 16,000 — a thinking model's answer is long) and a margin.
+ * Without it, the old estimate stands. */
+export const RECORD_MARGIN_TOKENS = 3000;
+export const ANSWER_ROOM_UNSET = 16000;
+export const RECORD_FLOOR_CHARS = 3000;
+export function recordRoom({ contextTokens, maxTokens, windowTokens, fixedChars } = {}) {
   const ctx = Number.isFinite(contextTokens) && contextTokens > 0 ? contextTokens : 200000;
+  if (Number.isFinite(fixedChars) && fixedChars > 0) {
+    const answer = Number(maxTokens) > 0 ? Number(maxTokens) : ANSWER_ROOM_UNSET;
+    const spare = ctx - Math.ceil(fixedChars / 3) - answer - RECORD_MARGIN_TOKENS;
+    return Math.max(RECORD_FLOOR_CHARS, Math.floor(spare * 3));
+  }
   const spare = ctx - Math.max(0, Number(windowTokens) || 0) - RECORD_RESERVE_TOKENS - Math.max(0, Number(maxTokens) || 0);
   return Math.max(SLOT_BUDGET, Math.floor(spare * 3));
+}
+/* the rest of a sent request, from its receipt: everything but the record, in characters */
+export function fixedCharsOf(receipt) {
+  if (!receipt || !Array.isArray(receipt.slots) || !(receipt.totalTokens > 0)) return 0;
+  const record = receipt.slots.filter((s) => s && s.name === 'What remains').reduce((n, s) => n + (Number(s.tokens) || 0), 0);
+  return Math.max(0, (receipt.totalTokens - record) * 4);
 }
 export function recordChars(mem) {
   return orderedLines(mem).map(lineWords).join('\n').length;

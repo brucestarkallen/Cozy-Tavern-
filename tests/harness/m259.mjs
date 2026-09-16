@@ -2080,3 +2080,74 @@ test('M259-52: twelve in the scene \u2014 the present take what the away do not 
   const blankText = renderPeopleTiers(blank, { recentPages: [], view: r128, scenePages: [] }).text;
   eq((blankText.match(/- Odd Blank/g) || []).length, 1, 'a page with nothing on it is named once, not twice');
 });
+
+test('M259-53: the record takes the room the rest of the request truly leaves — a long tale never outgrows the model', async () => {
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  const { recordRoom, fixedCharsOf, ANSWER_ROOM_UNSET, RECORD_MARGIN_TOKENS } = await import('../../js/agents/memory.js');
+  const para = (chars, tag) => (tag + ' ' + 'the lamp burned low over the ledger, '.repeat(Math.ceil(chars / 37))).slice(0, chars);
+  const tale = (briefC, castC, loreC) => {
+    const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan Wells' }; st.page = 200; st.characters = {};
+    for (let i = 0; i < 25; i += 1) st.characters['Person ' + i + ' Vale'] = { core: para(900, 'core'), state: para(300, 'state'), arc: para(900, 'arc'), threads: [], updatedAtTurn: 190 };
+    st.present = Object.keys(st.characters).slice(0, 6).map((name) => ({ name }));
+    const messages = [];
+    for (let i = 0; i < 30; i += 1) { messages.push({ id: 'u' + i, role: 'user', text: para(600, 'writer') }); messages.push({ id: 'a' + i, role: 'assistant', text: para(3000, 'page') }); }
+    return { story: { title: 't', brief: para(briefC, 'brief'), castNotes: para(castC, 'cast') }, messages, settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'Craft', text: para(12000, 'craft') }, reason: 'always' }], lore: para(loreC, 'lore'), loreFired: [{ name: 'L' }], window: { mode: 'keeper', window: 30, budgetTokens: 128000 }, directorNote: para(2000, 'director'), editorEye: para(1500, 'editor') };
+  };
+  const wireChars = (req) => JSON.stringify({ s: req.systemBlocks.map((b) => b.text), m: req.messages.map((m) => m.content) }).length;
+  for (const [label, b, c, l] of [['typical', 15000, 5000, 5000], ['a big cast', 40000, 20000, 20000], ['a brief twice that', 80000, 20000, 20000]]) {
+    const args = tale(b, c, l);
+    const probe = buildRequest({ ...args, memory: '' }).receipt;
+    const cap = recordRoom({ contextTokens: 128000, maxTokens: undefined, fixedChars: fixedCharsOf(probe) });
+    const record = para(cap, 'record');   /* a record that fills its whole room */
+    const req = buildRequest({ ...args, memory: record });
+    const realTokens = Math.ceil(wireChars(req) / 3);   /* dense text: three characters a token */
+    assert(realTokens + ANSWER_ROOM_UNSET <= 128000, label + ': the request at three characters a token and the answer\u2019s room fit 128,000 (' + realTokens + ' + ' + ANSWER_ROOM_UNSET + ')');
+    assert(realTokens + ANSWER_ROOM_UNSET >= 128000 - RECORD_MARGIN_TOKENS - 6000, label + ': and the room is used, not wasted (' + (realTokens + ANSWER_ROOM_UNSET) + ')');
+  }
+  /* the old guess took the big brief past the room */
+  const old = tale(80000, 20000, 20000);
+  const oldCap = recordRoom({ contextTokens: 128000, maxTokens: undefined, windowTokens: old.messages.reduce((n, m) => n + Math.ceil(m.text.length / 4), 0) });
+  const oldReq = buildRequest({ ...old, memory: para(oldCap, 'record') });
+  assert(Math.ceil(wireChars(oldReq) / 3) + 8000 > 128000, 'the old guess sends past a 128k room with a big brief (' + Math.ceil(wireChars(oldReq) / 3) + ' + an answer)');
+  /* a typical tale gets at least the room the old guess gave it */
+  const typ = tale(15000, 5000, 5000);
+  const newTyp = recordRoom({ contextTokens: 128000, fixedChars: fixedCharsOf(buildRequest({ ...typ, memory: '' }).receipt) });
+  const oldTyp = recordRoom({ contextTokens: 128000, windowTokens: typ.messages.reduce((n, m) => n + Math.ceil(m.text.length / 4), 0) });
+  assert(newTyp >= oldTyp * 0.9, 'a typical tale keeps its record room: ' + newTyp + ' (was ' + oldTyp + ')');
+  /* the writer's answer size is honoured; the receipt's record is not counted as the rest */
+  eq(recordRoom({ contextTokens: 128000, maxTokens: 4000, fixedChars: 300000 }), (128000 - 100000 - 4000 - RECORD_MARGIN_TOKENS) * 3, 'a set answer size is used as set');
+  eq(fixedCharsOf({ totalTokens: 50000, slots: [{ name: 'What remains', tokens: 20000 }, { name: 'The brief', tokens: 30000 }] }), 120000, 'the rest of a receipt is everything but the record');
+  eq(fixedCharsOf(null), 0, 'no receipt, no measure (the old estimate stands)');
+});
+
+test('M259-54: a ledger larger than the auditor\u2019s room is read lean, never refused — the ones here whole, the passed-through by name', async () => {
+  const au = await import('../../js/agents/auditor.js');
+  const { roomChars } = await import('../../js/engine/pagecut.js');
+  const para = (chars, tag) => (tag + ' ' + 'the lamp burned low over the ledger, '.repeat(Math.ceil(chars / 37))).slice(0, chars);
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan Wells' }; st.page = 800; st.characters = {};
+  for (let i = 0; i < 40; i += 1) st.characters['Person ' + i + ' Vale'] = { core: 'Person ' + i + ' Vale keeps a secret. ' + para(4000, 'core'), state: para(1500, 'state'), arc: para(4000, 'arc'), threads: [para(300, 't1')], updatedAtTurn: 790, ...(i >= 34 ? { retired: true } : {}) };
+  st.relationships = Object.fromEntries(Object.keys(st.characters).map((k, i) => [k, { p: i, r: i, s: 0, history: [] }]));
+  st.present = Object.keys(st.characters).slice(0, 4).map((name) => ({ name }));
+  const brief = para(40000, 'brief'), castNotes = para(20000, 'cast');
+  const conn = { ...CONN, contextSize: 128000 };
+  const room = au.auditRoomChars(conn);
+  const whole = au.buildAuditorMessages({ state: st, brief, castNotes, pages: [] });
+  assert(whole.system.length + whole.user.length > room, 'the whole ledger is larger than a 128k reading (' + (whole.system.length + whole.user.length) + ' of ' + room + ')');
+  const lean = au.buildAuditorMessages({ state: st, brief, castNotes, pages: [], room });
+  assert(lean.system.length + lean.user.length < room, 'read lean, it fits (' + (lean.system.length + lean.user.length) + ')');
+  assert(/the character pages — \(shown lean for this reading/.test(lean.user), 'and the reading is told so');
+  assert(lean.user.includes('Person 0 Vale — core: Person 0 Vale keeps a secret.') && /Person 0 Vale — core:[^\n]*\| arc: arc /.test(lean.user), 'the ones here keep their whole page');
+  assert(/\nPerson 35 Vale \(passed through\)\n/.test(lean.user), 'the passed-through are named, not read');
+  assert(/\nPerson 20 Vale — core: Person 20 Vale keeps a secret\.\n/.test(lean.user), 'those away keep who they are, at the least');
+  const roomy = au.buildAuditorMessages({ state: st, brief, castNotes, pages: [], room: 5000000 });
+  assert(/Person 35 Vale \(passed through — out of the story/.test(roomy.user) && !/shown lean/.test(roomy.user), 'a room that holds it all reads it all');
+  /* end to end: the reading sent on a 128k connection is within its room */
+  const sid = 'm259-lean-audit';
+  await saveState(sid, st);
+  for (let i = 0; i < 30; i += 1) { await db.messages.append(sid, { role: 'user', text: 'u' + i }); await db.messages.append(sid, { role: 'assistant', text: para(3000, 'page ' + i) }); }
+  const house = thinkingHouse({ answer: '{"issues":[]}' });
+  await withHouse(house, () => au.auditLedger({ connection: conn, storyId: sid, brief, castNotes, stale: () => false }));
+  const sent = house.calls[0] ? JSON.stringify(house.calls[0].body).length : 0;
+  assert(sent > 0 && sent <= roomChars(conn, 6000), 'the auditor\u2019s request fits its model (' + sent + ' of ' + roomChars(conn, 6000) + ')');
+  assert(JSON.stringify(house.calls[0].body).includes('page 20 the lamp'), 'and older unfolded pages are read beside the newest (the view is sized to the lean reading, not the whole one)');
+});

@@ -6168,3 +6168,34 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   caught.
 - 546/546 harness + 47/47 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   (story) within budget + lint 0 errors. version.js -> m286-001.
+
+# M287 — the final audit: no request outgrows its model
+- THE WRITER: "Check everything — the best quality and immersion, everything alive. Do a final deep audit;
+  I want to finally play; nothing that makes me angry."
+- THE WORST THING THAT COULD HAPPEN IN PLAY is a refused page. The audit measured what the house
+  sends against what the model holds, counting three characters a token (dense text runs so; the
+  receipt's four is the optimist's count):
+  1. THE STORYTELLER. The record took "the room left" after a GUESSED 40,000-token reserve for
+     everything else — set before the people's pages rode (M281) and the cast notes and lore grew to
+     the room (M283); an unset answer size reserved nothing. In the app (DOM-29), a long tale with a
+     150,000-character brief sent 157,215 tokens to a 128k model. FIXED: the request is built once
+     without the record and measured (fixedCharsOf); recordRoom gives the record what truly remains,
+     less the answer (16,000 when unset) and a margin; the keeper folds against the same measure
+     (the last page's receipt). A typical tale keeps its room (the test checks at least 90% of the
+     old); a big one no longer overflows.
+  2. THE WORKERS. Five fit a big ledger with room. THE AUDITOR did not: every character page ever
+     written, the passed-through too, rode whole — 578,907 characters for forty long pages, past its
+     360,000-character room: refused every time, the light amber for good. FIXED: read lean a step
+     at a time past 60% of its room (the passed-through by name; arcs and loose ends, then the
+     present state, only for those near — here, seated or bonded 20+; then those away by who they
+     are; then by the first clause of it); the ones here always whole; the reading told so. The heavy
+     case: 260,410 of 360,000. A realistic tale (35 people) never goes lean.
+- Laws: M259-53 (typical, big cast, a brief twice that — each at three characters a token with its
+  answer within 128,000 and the room used; the old guess overflowed; a typical tale keeps its room;
+  a set answer honoured; fixedCharsOf), M259-54 (the lean reading, the ones here whole, the passed-
+  through named, those away by who they are, a roomy reading whole, the audit's request within its
+  model, older pages read beside the newest), DOM-29 (the app's request fits; the old guess sent
+  157,215). 3 + 3 harness breaks and the DOM break caught; dropping the room from the audit's bare
+  build is not observable (its page view has a floor) — noted, not tested.
+- 548/548 harness + 48/48 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story,
+  housekeeper) within budget + lint 0 errors. version.js -> m287-001.

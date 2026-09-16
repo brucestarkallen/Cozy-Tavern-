@@ -57,7 +57,7 @@ import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
@@ -1438,7 +1438,10 @@ export function initChat(ctx) {
       const win = mem && Number.isFinite(mem.window) && mem.window > 0 ? mem.window : ((await db.settings.get('memoryWindow')) || 30);
       const pages = visiblePages(await db.messages.list(story.id));
       const windowTokens = pages.slice(-win).reduce((n, m) => n + estimateTokens(pageText(m)), 0);
-      return recordRoom({ contextTokens: contextOf(conn), maxTokens: conn && conn.maxTokens, windowTokens });
+      /* M287: the keeper folds against the same measured room the storyteller has — the last page's receipt */
+      const lastSent = [...(await db.messages.list(story.id))].reverse().find((m) => m && m.receipt && m.receipt.totalTokens > 0);
+      const fixedChars = fixedCharsOf(lastSent && lastSent.receipt);
+      return recordRoom({ contextTokens: contextOf(conn), maxTokens: conn && conn.maxTokens, windowTokens, fixedChars });
     } catch (err) { return undefined; }
   }
 
@@ -3261,24 +3264,6 @@ export function initChat(ctx) {
       const verbatimStart = keeperOn
         ? windowPlan({ pages: visiblePages(history), memory: { window: memWindow, nodes: windowInfo.nodes } }).resting
         : Math.max(0, visiblePages(history).length - memWindow);
-      /* M264: the record rides in the room the storyteller's context leaves it */
-      const recordCap = recordRoom({
-        contextTokens: contextOf(connection),
-        maxTokens: connection && connection.maxTokens,
-        windowTokens: visiblePages(history).slice(verbatimStart).reduce((n, m) => n + estimateTokens(pageText(m)), 0),
-      });
-      const memoryText = renderMemory(memoryForWindow(mem, verbatimStart), recordCap);
-      /* M265: A FULL ROOM IS SAID OUT LOUD. When the storyteller's room cannot
-       * hold the whole record (squeezing set to never, or a small context), the
-       * oldest lines rest outside this page — and the writer is told, once a
-       * session for each tale, instead of finding out by losing them. */
-      {
-        const full = /\((\d+) earlier lines? rest beyond the budget\.\)/.exec(memoryText);
-        if (full && !warnedRecordFull.has(story.id)) {
-          warnedRecordFull.add(story.id);
-          toast('The storyteller’s context is full: the oldest ' + full[1] + ' record ' + (full[1] === '1' ? 'line was' : 'lines were') + ' left out of this page. Squeezing “Only when the whole record would no longer fit” (Settings) folds them in instead.');
-        }
-      }
       /* M7: slot 4 — the story's invited cast. Slot 7 — the lore shelf's
        * answer for the latest pages, each entry scanning its own depth;
        * the receipt names which entries woke. */
@@ -3298,6 +3283,34 @@ export function initChat(ctx) {
         loadDirector(story.id),
         loadEditor(story.id),
       ]);
+      /* M287: the request is built once without the record and measured; the
+       * record takes what is truly left (recordRoom, fixedChars). */
+      const probeReceipt = buildRequest({
+        story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
+        cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,
+        directorNote: renderDirectorNote(directorState), editorEye: renderEditorNote(editorState),
+        houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
+        worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
+        pageFilter: (text, role) => applyRules(text, currentRules(), { on: role, mode: 'wire' }),
+      }).receipt;
+      /* M264: the record rides in the room the storyteller's context leaves it */
+      const recordCap = recordRoom({
+        contextTokens: contextOf(connection),
+        maxTokens: connection && connection.maxTokens,
+        fixedChars: fixedCharsOf(probeReceipt),
+      });
+      const memoryText = renderMemory(memoryForWindow(mem, verbatimStart), recordCap);
+      /* M265: A FULL ROOM IS SAID OUT LOUD. When the storyteller's room cannot
+       * hold the whole record (squeezing set to never, or a small context), the
+       * oldest lines rest outside this page — and the writer is told, once a
+       * session for each tale, instead of finding out by losing them. */
+      {
+        const full = /\((\d+) earlier lines? rest beyond the budget\.\)/.exec(memoryText);
+        if (full && !warnedRecordFull.has(story.id)) {
+          warnedRecordFull.add(story.id);
+          toast('The storyteller’s context is full: the oldest ' + full[1] + ' record ' + (full[1] === '1' ? 'line was' : 'lines were') + ' left out of this page. Squeezing “Only when the whole record would no longer fit” (Settings) folds them in instead.');
+        }
+      }
       const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({
         story,
         messages: history,
