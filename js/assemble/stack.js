@@ -93,7 +93,7 @@
 
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
-import { renderPeopleTiers } from '../engine/people.js';
+import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
 
@@ -494,14 +494,14 @@ export function buildRequest({
    * ledger has anything to say. Rotation derives from the page count, so
    * the roster steps once per turn with no writes of its own. --- */
   const recentPages = wireable(history).slice(-3).map((m) => m.content);
-  const people = renderPeopleTiers(state, { recentPages, rotation: history.length });
+  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: peopleView(windowInfo && windowInfo.budgetTokens) }); /* M281: in the room the storyteller has */
   const peopleText = people ? people.text : '';
   if (peopleText) {
     const t = people.tiers;
     const said = [];
     if (t.cards) said.push(t.cards + (t.cards === 1 ? ' card' : ' cards') + ' for who is here');
     if (t.also) said.push('the rest of the room in a line');
-    if (t.recall) said.push(t.recall + ' named, not in the scene');
+    if (t.recall) said.push(t.recall + ' named or on their way, not in the scene');
     if (t.roster) said.push('the roster of the absent');
     pushSlot('On their mind', peopleText, 'the character ledger', said.join('; '));
   }
@@ -541,6 +541,11 @@ export function buildRequest({
    * what to do with it. */
   const worldText = typeof worldBrief === 'string' ? worldBrief.trim() : '';
   const stateParts = [];
+  /* M281: THE PEOPLE RIDE. The character ledger's block was built, and counted
+   * on the receipt as "On their mind", since M12 — and never put in the
+   * request: the storyteller has told every page without the people's pages.
+   * It leads the story-state, just before the state of things. */
+  if (peopleText) stateParts.push('On their mind:\n' + peopleText);
   if (facts) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
   if (memoryText) stateParts.push('What remains of the older pages:\n' + memoryText);

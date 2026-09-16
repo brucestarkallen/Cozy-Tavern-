@@ -49,6 +49,24 @@ export const ROSTER_MAX = 12;
 export const FRESH_TURNS = 20;       /* past this, "now" ages into "last noted N turns ago" */
 export const PEOPLE_BUDGET = 4800;   /* chars for the whole tiered block (M29: doubled — the people are the world) */
 
+/* M281: THE PEOPLE FOLLOW THE ROOM. The block held to 4,800 characters and six
+ * cards on any context; once a card kept its notes whole (M266), six present
+ * cards filled it alone, and the people the writer had just named, and the
+ * roster of everyone else, were shed on most pages. With room, every present
+ * person keeps a card (to twelve), six are recalled, and the whole roster
+ * rides without rotating (to forty); a small context keeps the old tiers. */
+export function peopleView(budgetTokens) {
+  const tokens = Number.isFinite(budgetTokens) && budgetTokens > 0 ? budgetTokens : 0;
+  const budget = Math.max(PEOPLE_BUDGET, Math.min(48000, Math.floor(tokens * 3 * 0.06)));
+  const roomy = budget >= PEOPLE_BUDGET * 4;
+  return {
+    budget,
+    cards: roomy ? 12 : PRESENT_CARDS_MAX,
+    recall: roomy ? 6 : RECALL_MAX,
+    roster: roomy ? 40 : ROSTER_MAX,
+  };
+}
+
 export function emptyPerson() {
   return { core: '', state: '', arc: '', threads: [], updatedAtTurn: 0 };
 }
@@ -463,7 +481,8 @@ function namedIn(pages, name) {
  *
  *   renderPeopleTiers(state, { recentPages, rotation })
  *     -> { text, tiers:{cards, also, recall, roster} } | null */
-export function renderPeopleTiers(state, { recentPages = [], rotation = 0 } = {}) {
+export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view = null } = {}) {
+  const lim = view && typeof view === 'object' ? view : { budget: PEOPLE_BUDGET, cards: PRESENT_CARDS_MAX, recall: RECALL_MAX, roster: ROSTER_MAX };
   if (!state || typeof state !== 'object') return null;
   const characters = state.characters && typeof state.characters === 'object' ? state.characters : {};
   const keys = Object.keys(characters).filter((k) => {
@@ -492,8 +511,8 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0 } = {}
   /* Tier 1: full cards for the present, cap 6. Tier 2: whoever is present
    * beyond that (or present with nothing yet written) rides the compact
    * line. */
-  const cardKeys = presentKeys.slice(0, PRESENT_CARDS_MAX);
-  const overflow = presentKeys.slice(PRESENT_CARDS_MAX);
+  const cardKeys = presentKeys.slice(0, lim.cards);
+  const overflow = presentKeys.slice(lim.cards);
   const unwritten = present.filter((name) => {
     const key = findPersonKey(characters, name) || name;
     return !keys.includes(key);
@@ -518,11 +537,15 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0 } = {}
   /* Tier 3: mention-recall — off the scene, but their name was spoken in
    * the last three messages. */
   const offScene = keys.filter((k) => !presentKeys.includes(k) && !isMc(state, k));
-  const recalled = offScene.filter((k) => namedIn(recentPages, k)).slice(0, RECALL_MAX);
+  /* M130: a recalled person who has a seat is where the seat says — the
+   * scribe's older 'state' never rides beside the world agent's word */
+  const seatOf = (k) => { const key = Object.keys(state.offscreen || {}).find((o) => o.toLowerCase() === k.toLowerCase()); return key ? state.offscreen[key] : null; };
+  /* M281: and whoever is on their way to the main character is recalled too —
+   * the storyteller may bring them in on this very page (named ones first) */
+  const named = offScene.filter((k) => namedIn(recentPages, k));
+  const coming = offScene.filter((k) => !named.includes(k) && ['toward', 'seeking'].includes(String((seatOf(k) || {}).stance || '')));
+  const recalled = named.concat(coming).slice(0, lim.recall);
   if (recalled.length) {
-    /* M130: a recalled person who has a seat is where the seat says — the
-     * scribe's older 'state' never rides beside the world agent's word */
-    const seatOf = (k) => { const key = Object.keys(state.offscreen || {}).find((o) => o.toLowerCase() === k.toLowerCase()); return key ? state.offscreen[key] : null; };
     const cards = recalled.map((k) => {
       const seat = seatOf(k);
       if (!seat) return cardText(k, characters[k], turn, RECALL_CARD_CAP);
@@ -541,7 +564,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0 } = {}
   const rosterPool = offScene.filter((k) => !recalled.includes(k));
   if (rosterPool.length) {
     const step = ((Math.floor(rotation) % rosterPool.length) + rosterPool.length) % rosterPool.length;
-    const rotated = rosterPool.slice(step).concat(rosterPool.slice(0, step)).slice(0, ROSTER_MAX);
+    const rotated = rosterPool.length <= lim.roster ? rosterPool : rosterPool.slice(step).concat(rosterPool.slice(0, step)).slice(0, lim.roster);
     const line = rotated.map((k) => {
       const ago = ageWords(characters[k], turn);
       return k + (ago > 0 ? ' (last seen ' + ago + (ago === 1 ? ' turn' : ' turns') + ' ago)' : ' (with us just now)');
@@ -554,13 +577,18 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0 } = {}
    * always stay. */
   const kept = sections.slice();
   const join = () => kept.map((s) => s.text).join('\n\n');
-  while (join().length > PEOPLE_BUDGET && kept.some((s) => s.shed > 0)) {
+  while (join().length > lim.budget && kept.some((s) => s.shed > 0)) {
     let worst = 0;
     for (let i = 1; i < kept.length; i += 1) {
       if (kept[i].shed > kept[worst].shed) worst = i;
     }
     kept.splice(worst, 1);
   }
+  /* M281: a tier that was shed is not reported as sent */
+  const stayed = new Set(kept.map((s) => s.shed));
+  if (!stayed.has(1)) tiers.also = 0;
+  if (!stayed.has(2)) tiers.recall = 0;
+  if (!stayed.has(3)) tiers.roster = 0;
   const text = join();
   return text ? { text, tiers } : null;
 }

@@ -1715,3 +1715,69 @@ test('M259-44: the page reader decides every open thread against its page; the w
   const kept = await loadState(sid);
   assert(!kept.characters['Nora Stone'].retired && !kept.characters['Wendell Price'].retired && kept.characters['Cab Driver'].retired, 'the page-by-page upkeep keeps the brief\u2019s people and retires the passer-through');
 });
+
+test('M259-45: the people follow the room — every present person a card, the named and the coming recalled, the whole roster; a small room keeps the tiers', async () => {
+  const { renderPeopleTiers, peopleView, PEOPLE_BUDGET } = await import('../../js/engine/people.js');
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  eq(JSON.stringify(peopleView(0)), JSON.stringify({ budget: PEOPLE_BUDGET, cards: 6, recall: 3, roster: 12 }), 'an unknown room keeps the old tiers');
+  const big = peopleView(500000);
+  assert(big.cards === 12 && big.recall === 6 && big.roster === 40 && big.budget === 48000, 'a large room: ' + JSON.stringify(big));
+  /* a brief's cast of twenty-five, their notes kept whole */
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+  const names = Array.from({ length: 25 }, (_, i) => 'Person' + String.fromCharCode(65 + i) + ' Brook');
+  st.characters = {};
+  for (const n of names) st.characters[n] = { core: n + ' core line. ' + 'A whole note about who they are. '.repeat(20), state: 'somewhere doing something', arc: '', updatedAtTurn: 1 };
+  st.present = names.slice(0, 8).map((name) => ({ name }));
+  st.offscreen = { [names[12]]: { location: 'the lane', activity: 'walking over', stance: 'toward', etaMinutes: 5 } };
+  const recent = ['Jovan asked about ' + names[10] + ' and ' + names[11] + '.'];
+  const small = renderPeopleTiers(st, { recentPages: recent, rotation: 0 });
+  eq(small.tiers.cards, 6, 'the old tiers: six cards');
+  assert(small.text.length <= PEOPLE_BUDGET, 'held to the old budget');
+  eq(small.tiers.recall + small.tiers.roster, 0, 'with notes kept whole, the named and the roster were shed \u2014 and are no longer reported as sent');
+  assert(!small.text.includes(names[10]), 'what was shed is not in the text either');
+  const roomy = renderPeopleTiers(st, { recentPages: recent, rotation: 0, view: big });
+  eq(roomy.tiers.cards, 8, 'every present person keeps a card');
+  eq(roomy.tiers.recall, 3, 'the two named and the one on her way are recalled');
+  assert(/Named, though not in the scene right now:[\s\S]*PersonM Brook core line/.test(roomy.text), 'the one heading this way has her card');
+  eq(roomy.tiers.roster, 25 - 8 - 3, 'the whole roster rides');
+  eq(renderPeopleTiers(st, { recentPages: recent, rotation: 5, view: big }).text, roomy.text, 'nothing rotates when everyone fits');
+  const req = buildRequest({ story: { title: 't', brief: 'b' }, messages: [{ id: 'u1', role: 'user', text: recent[0] }], settings: {}, state: st, modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens: 500000 } });
+  const wire = JSON.stringify(req);
+  assert(names.every((n) => wire.includes(n)) && wire.includes('PersonK Brook core line') && wire.includes('PersonH Brook core line'), 'the storyteller\u2019s request carries all twenty-five, and the cards');
+});
+
+test('M259-46: every part the receipt lists is in the request — nothing counted and not sent (the people\u2019s pages were, since M12)', async () => {
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+  st.place = { name: 'PLACE-MARK kitchen' };
+  st.characters = { 'Zed Marker': { core: 'PEOPLE-MARK a whole note', state: 'by the door', arc: '', updatedAtTurn: 1 } };
+  st.present = [{ name: 'Zed Marker' }];
+  const req = buildRequest({
+    story: { title: 't', brief: 'BRIEF-MARK', castNotes: 'CASTNOTES-MARK' },
+    messages: [{ id: 'u1', role: 'user', text: 'HISTORY-MARK go on' }],
+    settings: { frameText: 'FRAME-MARK', noteText: 'NOTE-MARK' },
+    state: st,
+    modules: [{ mod: { id: 'core-craft', name: 'Craft', text: 'CRAFT-MARK' }, reason: 'always' }, { mod: { id: 'm1', name: 'Mod', text: 'MODULE-MARK' }, reason: 'r' }],
+    memory: 'MEMORY-MARK', lore: 'LORE-MARK', loreFired: [{ name: 'L' }],
+    cast: [{ name: 'Zed Marker', description: 'CAST-MARK', personality: '', scenario: '' }],
+    window: { mode: 'keeper', window: 30, budgetTokens: 200000 },
+    directive: 'DIRECTIVE-MARK', directorNote: 'DIRECTOR-MARK', editorEye: 'EDITOR-MARK', houseEye: 'EYE-MARK', ruling: 'RULING-MARK', worldBrief: 'WORLD-MARK',
+  });
+  const wire = JSON.stringify({ systemBlocks: req.systemBlocks, messages: req.messages });
+  const marks = {
+    'The frame': ['FRAME-MARK'], 'The craft': ['CRAFT-MARK'], 'The brief': ['BRIEF-MARK'],
+    'Who\u2019s here': ['CAST-MARK', 'CASTNOTES-MARK'], 'On their mind': ['PEOPLE-MARK'],
+    'The state of things': ['PLACE-MARK'], 'Active modules': ['MODULE-MARK'], 'What remains': ['MEMORY-MARK'],
+    'The lore shelf': ['LORE-MARK'], 'The world\u2019s word': ['WORLD-MARK'], 'The director\u2019s note': ['DIRECTOR-MARK'],
+    'The editor\u2019s eye': ['EDITOR-MARK'], 'The house\u2019s eye': ['EYE-MARK'], 'The house has ruled': ['RULING-MARK'],
+    'The story so far': ['HISTORY-MARK'], 'The note at the end': ['NOTE-MARK'], 'The house heard': ['DIRECTIVE-MARK'],
+  };
+  const listed = (req.receipt.slots || []).filter((s) => s.tokens > 0);
+  assert(listed.length >= 17, 'the request under test fills every part: ' + listed.length);
+  for (const slot of listed) {
+    assert(marks[slot.name], 'a part this law does not know yet \u2014 give it a mark: ' + slot.name);
+    for (const m of marks[slot.name]) assert(wire.includes(m), '\u201c' + slot.name + '\u201d is listed on the receipt and its words are in the request: ' + m);
+  }
+  const at = wire.indexOf('PEOPLE-MARK');
+  assert(at !== -1 && at < wire.indexOf('PLACE-MARK'), 'the people\u2019s pages lead the story-state, before the state of things');
+});

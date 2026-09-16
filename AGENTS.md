@@ -5997,3 +5997,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   keeps them). 6 deliberate breaks caught.
 - 538/538 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + lint 0
   errors. version.js -> m280-001.
+
+# M281 — the people's pages reach the storyteller; the people follow the room
+- THE WRITER: "Should we design a smart, foolproof system for brief characters? With twenty or more,
+  will the context grow and confuse the AI — should they rotate? Most of the time they matter."
+- THE DESIGN WAS THERE (M12): full cards for the present (6), a line for the rest of the room, up to
+  3 recalled cards for the absent named in the last three messages, a rotating roster (12, a step a
+  page), all held to PEOPLE_BUDGET (4,800) — and the brief rides every page whole.
+- BUT IT NEVER RODE. stack.js built the block and counted it on the receipt as "On their mind",
+  and the story-state message was assembled from everything else: since M12 (c9b9f1c) the
+  storyteller has told every page without the people's pages — who they are, where they stand, what
+  they are carrying — while the inspector said they were sent. Every people law tested the block
+  or the receipt, never the request. FIXED: it leads the story-state, before the state of things.
+- AND IT FOLLOWS THE ROOM (peopleView, like M266's stateView): with room, every present person keeps
+  a card (to 12), six are recalled, the whole roster rides unrotated (to 40), in a budget to 48,000
+  characters; a small context keeps the old tiers and rotation. With notes kept whole (M266), six
+  present cards had filled 4,800 alone and shed the named and the roster on most pages.
+- Recall also takes whoever is on their way to the main character (a seat "toward" or "seeking") —
+  the storyteller may bring them in on this page; named ones first.
+- A tier that was shed is no longer reported as sent.
+- Laws: M259-45 (the view's numbers; a cast of twenty-five — the old tiers shed and now say so; the
+  room keeps eight cards, three recalled incl. the one on her way, the whole roster, no rotation;
+  the request carries all twenty-five and the cards), M259-46 (every part the receipt lists — all
+  seventeen, each with its own mark — is in the request; a part the law does not know fails it; the
+  people lead the story-state). 6 deliberate breaks caught, the M12 omission among them.
+- 540/540 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  (story) within budget + lint 0 errors. version.js -> m281-001.
