@@ -647,7 +647,8 @@ test('M123-1 the moment is not the auditor\'s nor the second reader\'s: posture,
   assert(/NOT YOUR JOB — THE MOMENT: posture, position/.test(a.system) && /a reading with fifteen is a reading of the/.test(a.system), 'the auditor keeps to what lasts');
   const { buildContinuityMessages } = await import('../../js/agents/continuity.js');
   const c = buildContinuityMessages({ state: emptyState(), assistantText: 'x' });
-  assert(/THE SCENE LEDGER IS THE MOMENT BEFORE/.test(c.system) && /BEFORE this page \(the moment as it stood/.test(c.user), 'the second reader reads the scene as the moment before the page');
+  /* M267: the second reader is shown only what lasts — the moment is not in its view to report */
+  assert(/THE SCENE LEDGER IS THE MOMENT BEFORE/.test(c.system) && /What the ledgers hold that LASTS/.test(c.user), 'the second reader reads what lasts, never the moment');
 });
 
 test('M124-1 record handles are unique per line — the id\'s tail, never its constant head; a card lands on the line its anchor is in', async () => {

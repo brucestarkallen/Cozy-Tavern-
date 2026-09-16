@@ -5570,3 +5570,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   storyteller's request carries it). M236, M166 and M85-6 test the guards at their new sizes and
   say so. 9 deliberate breaks caught.
 - 525/525 harness + 42/42 walk + 8/8 play. version.js -> m266-001.
+
+# M267 — the report says only what is wrong; the second reader never sees the moment
+- THE WRITER pasted a drawer that looked like fourteen mistakes under a green light. The light
+  is the workers' health (every worker that ran, ran well), not "the story has no findings".
+  Of the auditor's fourteen lines, three changed anything; the rest were the auditor listing
+  checks that found nothing ("the thread stands as written", "the locks match the brief").
+- FIXED, each found in that report:
+  1. A CHECK THAT FOUND NOTHING IS NOT A FINDING: the law says so; a line with no change that says
+     all is well of itself (saysAllIsWell) is dropped, and the run words count only real ones.
+  2. FINDINGS WHOLE: the auditor's what/fix were cut at 300 ("the latest page has Jovan, Mi-");
+     the keeper's verifier issues too; a retired person's old nature at 80 in the drawer.
+  3. THE SECOND READER NEVER SEES THE MOMENT: told that posture and footwear are the story moving,
+     it reported them anyway and the mender wrote the page back to the ledger's older moment
+     ("Rias's arms are uncrossed"). It is shown who is here by name, where the absent are, and
+     what is locked — never positions, dress or the mood.
+  4. A SUMMARY'S ERROR IS THE SUMMARY'S: "Snippet says Jovan is sixteen, but the passage says
+     seventeen" came labelled "source" and sent the mender to the pages. An issue that says the
+     snippet is wrong goes to the snippet, whatever its label (snippetIsWrong).
+  5. THE WHOLE BRIEF, EVERYWHERE: the second reader had its first 4,000 characters; the standings
+     rebuild 12,000; the founder 12,000 (and its standings reader 14,000); card descriptions
+     3,000, personality and scenario 1,200; the lore shelf 12,000; the extractor and the world
+     agent 12,000. Each reads up to 40,000 now (cast notes 20,000).
+- Not the ledger's: "Drifted" lines are the house's eye catching the storyteller's own style slips
+  (asterisks, bold, dead phrases), recoloured on the next page.
+- Laws: M259-32; M85's second-reader check follows. 5 deliberate breaks caught.
+- 526/526 harness + 42/42 walk + 8/8 play. version.js -> m267-001.

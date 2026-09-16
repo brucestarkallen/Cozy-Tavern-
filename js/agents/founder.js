@@ -201,8 +201,8 @@ export function buildStatedStandingsMessages({ brief = '', castNotes = '', mc = 
     'NOT toward the main character, so leave it out. "CORE:", "ARC:", "NOTES:" are section labels, never',
     'people. A family, a school, a faction is not a person. Output ONLY stances toward the main character.',
     '',
-    'THE BRIEF:', String(brief || '').slice(0, 14000) || '(none)',
-    '', 'THE CAST NOTES:', String(castNotes || '').slice(0, 8000) || '(none)',
+    'THE BRIEF:', String(brief || '').slice(0, 40000) || '(none)',
+    '', 'THE CAST NOTES:', String(castNotes || '').slice(0, 20000) || '(none)',
     '',
     'Answer with JSON ONLY: {"standings":[{"name":"NAME SURNAME","p":65,"r":30,"s":5}]} — the person\'s full',
     'name as the brief writes it; an empty list if the writer states none.',
@@ -263,25 +263,25 @@ export function buildFounderMessages({ state, brief = '', castNotes = '', cast =
   const mc = known && known !== 'the player' ? known : '';
   const cards = (Array.isArray(cast) ? cast : []).map((c) => {
     const bits = [];
-    if (c.description) bits.push(String(c.description).slice(0, 3000));
-    if (c.personality) bits.push('Personality: ' + String(c.personality).slice(0, 1200));
-    if (c.scenario) bits.push('Scenario: ' + String(c.scenario).slice(0, 1200));
+    if (c.description) bits.push(String(c.description).slice(0, 12000)); /* M267: whole cards, brief and shelf */
+    if (c.personality) bits.push('Personality: ' + String(c.personality).slice(0, 6000));
+    if (c.scenario) bits.push('Scenario: ' + String(c.scenario).slice(0, 6000));
     return '## ' + c.name + '\n' + bits.join('\n');
   }).join('\n\n');
   const shelf = (Array.isArray(lore) ? lore : []).filter((e) => e && e.enabled !== false).map((e) => '- ' + (e.name || (e.keys || [])[0] || 'an entry') + ' [' + (e.keys || []).join(', ') + ']: ' + String(e.content || '').slice(0, 800)).join('\n');
   const facts = renderWholeLedger(state) || 'Nothing is written in the ledger yet.';
   const user = [
     'THE BRIEF (the writer\'s own words):',
-    FENCE, String(brief || '').trim().slice(0, 12000) || '(none written)', FENCE,
+    FENCE, String(brief || '').trim().slice(0, 40000) || '(none written)', FENCE,
     '',
     'THE CAST NOTES (the writer\'s own words):',
-    FENCE, String(castNotes || '').trim().slice(0, 6000) || '(none written)', FENCE,
+    FENCE, String(castNotes || '').trim().slice(0, 20000) || '(none written)', FENCE,
     '',
     'THE CHARACTER CARDS INVITED TO THIS STORY:',
     FENCE, cards || '(none)', FENCE,
     '',
     'THE LORE SHELF:',
-    FENCE, shelf.slice(0, 12000) || '(empty)', FENCE,
+    FENCE, shelf.slice(0, 40000) || '(empty)', FENCE,
     '',
     'WHAT THE LEDGER ALREADY SAYS (found once before; write only what it lacks or gets wrong):',
     facts,

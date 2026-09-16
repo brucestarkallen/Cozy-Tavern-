@@ -709,15 +709,26 @@ export function parseVerifyAnswer(raw) {
     return list
       .filter((e) => e && typeof e === 'object' && typeof e.issue === 'string' && e.issue.trim())
       .map((e) => ({
-        issue: e.issue.trim().slice(0, 300),
-        fix: typeof e.fix === 'string' ? e.fix.trim().slice(0, 300) : '',
+        issue: e.issue.trim().slice(0, 4000), /* M267: whole — it was cut at 300 */
+        fix: typeof e.fix === 'string' ? e.fix.trim().slice(0, 4000) : '',
         kind: e.kind === 'continuity' ? 'continuity' : 'drift',
-        where: e.where === 'source' ? 'source' : 'snippet',
+        /* M267: AN ERROR IN THE LINE IS THE LINE'S. "Snippet says Jovan is sixteen,
+         * but the passage says he is seventeen" came labelled "source" — and the
+         * mender went to change the PAGES, which were right. An issue that says
+         * the snippet is wrong and the passage right is the snippet's, whatever
+         * its label. */
+        where: e.where === 'source' && !snippetIsWrong(e.issue) ? 'source' : 'snippet',
       }))
       .slice(0, 6);
   } catch (err) {
     return [];
   }
+}
+
+export function snippetIsWrong(issue) {
+  const t = String(issue || '');
+  return /^\s*(?:the\s+)?snippet\s+(?:says|states|claims|reads|has|puts|gives|calls)\b/i.test(t)
+    || /\bsnippet\b[^.]*\bbut the passage\b/i.test(t);
 }
 
 async function verify(connection, storyId, node, passage, record, playerName, signal, onSourceIssue) {

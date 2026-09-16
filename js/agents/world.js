@@ -315,8 +315,8 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     spokenVoices(voicesBefore) || 'None yet.',
     '',
     ...(cores ? ['THE PEOPLE, AS THE LEDGER KNOWS THEM:', cores, ''] : []),
-    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 12000), FENCE, ...(String(brief).trim().length > 12000 ? ['(the brief goes on — fetch "brief" for all of it)'] : []), ''] : []),
-    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 8000), FENCE, ...(String(castNotes).trim().length > 8000 ? ['(the cast notes go on — fetch "cast" for all of it)'] : []), ''] : []),
+    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 40000), FENCE, ...(String(brief).trim().length > 40000 ? ['(the brief goes on — fetch "brief" for all of it)'] : []), ''] : []),
+    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 20000), FENCE, ...(String(castNotes).trim().length > 20000 ? ['(the cast notes go on — fetch "cast" for all of it)'] : []), ''] : []),
     ...(before.length ? (() => {
       /* M261: the story so far, whole, newest first, into the room */
       const w = windowOfPages(before, contextBudget);

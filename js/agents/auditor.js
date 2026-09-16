@@ -138,6 +138,10 @@ function law({ mc }) {
     '',
     'THE MAIN CHARACTER HAS NO CHARACTER PAGE, by design — the writer plays them. Never report it',
     'missing, never write one.',
+    'REPORT ONLY WHAT IS WRONG. A check that found nothing wrong is not a finding: never write a',
+    'line that says a thread, a lock, a standing or a knowledge line "stands as written" or "is',
+    'complete" — say nothing about it. An empty issues list is the best answer there is.',
+    '',
     'NOT YOUR JOB — THE MOMENT: posture, position, dress, the mood board, what a hand is doing, a sip taken, a knee on the',
     'vinyl, clothing of the moment, an absent person\'s activity this hour, a thread\'s next small',
     'step, a character page\'s "now" line. The extractor, the world agent and the scribe rewrite',
@@ -254,8 +258,8 @@ export function parseAuditorAnswer(raw) {
     const issues = parsed.issues
       .filter((i) => i && typeof i === 'object' && typeof i.what === 'string' && i.what.trim())
       .map((i) => ({
-        what: i.what.trim().slice(0, 300),
-        fix: typeof i.fix === 'string' ? i.fix.trim().slice(0, 300) : '',
+        what: i.what.trim().slice(0, 4000), /* M267: whole — it was cut at 300, mid-word */
+        fix: typeof i.fix === 'string' ? i.fix.trim().slice(0, 4000) : '',
         /* M90: the pages are wrong and the brief wins — the house mends them */
         pages: i.pages === true,
         mutations: Array.isArray(i.mutations) ? i.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string') : [],
@@ -379,6 +383,12 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const latestStory = [...all].reverse().find((m) => m && m.role === 'assistant' && !m.ooc);
   const header = latestStory ? headerMutations(pageText(latestStory)) : [];
   read.issues = auditorScope(read.issues, fresh, { header }); /* M128: the moment never lands from an audit */
+  /* M267: A CHECK THAT FOUND NOTHING IS NOT A FINDING. The writer counted
+   * fourteen "mistakes" in a reading that changed three things: the rest were
+   * the auditor listing what it had checked and found right ("the thread
+   * stands as written", "the locks match the brief"). Told not to, it did; a
+   * line with no change that says so of itself is dropped here. */
+  read.issues = read.issues.filter((i) => i.mutations.length || (i.pages && i.fix) || !saysAllIsWell(i));
   /* M48: the auditor may not take a standing away on judgment. A rel.set
    * that lowers a standing is refused when that standing has ANY on-page
    * history (a cause the extractor wrote from a page) or when the person is
@@ -562,6 +572,11 @@ export const AUDITOR_TYPES = new Set([
   'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add',
   'faction.set', 'people.set', 'people.note', 'people.forget',
 ]);
+const ALL_IS_WELL = /\b(stands? as written|left as written|as the story has it|(?:is|are) (?:live and )?(?:correct|correctly \w+|complete|consistent|accurate|fine)|none is wrongly|nothing (?:is )?(?:wrong|stale|missing)|match(?:es)? the (?:brief|pages)|no canon contradicts|no (?:change|fix) (?:is )?needed)\b/i;
+export function saysAllIsWell(issue) {
+  return ALL_IS_WELL.test(String((issue && issue.fix) || '')) || ALL_IS_WELL.test(String((issue && issue.what) || '')) && !/\bbut\b/i.test(String((issue && issue.what) || ''));
+}
+
 export function auditorScope(issues, state, { header = [] } = {}) {
   const mc = String((state && state.sheet && state.sheet.playerName) || '').trim().toLowerCase();
   const said = Array.isArray(header) ? header : [];
@@ -754,7 +769,7 @@ export function buildRebuildMessages({ state, brief, castNotes, record, pages, m
     'is 0/0/0 and needs no line. Standings exist ONLY toward the main character — feelings between other',
     'people are not standings and must not appear.',
     '',
-    'THE BRIEF (the first authority):', Q, String(brief || '').slice(0, 12000) || '(none)', Q,
+    'THE BRIEF (the first authority):', Q, String(brief || '').slice(0, 40000) || '(none)' /* M267: whole */, Q,
     'THE CAST NOTES:', Q, String(castNotes || '').slice(0, 6000) || '(none)', Q,
     'THE RECORD (what the pages established, oldest to newest):', Q, String(record || '') || '(nothing yet)' /* M265: the caller gives it in its room */, Q,
     'THE LATEST PAGES:', Q, (pages || []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(p.text, 12000)).join('\n\n'), Q,

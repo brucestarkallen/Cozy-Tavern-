@@ -1612,7 +1612,7 @@ function peoplePanel(ctx) {
         row.className = 'log-row';
         const words = document.createElement('span');
         /* M96: the row says what it is — a tombstone read as a living page was the writer's confusion */
-        words.textContent = name + ' — passed through' + (chars[name].core ? ' (was: ' + String(chars[name].core).slice(0, 80) + ')' : '') + ' ';
+        words.textContent = name + ' — passed through' + (chars[name].core ? ' (was: ' + String(chars[name].core) + ')' : '') /* M267: whole */ + ' ';
         const wake = document.createElement('button');
         wake.type = 'button';
         wake.className = 'text-btn';

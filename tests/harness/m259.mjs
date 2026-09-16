@@ -1122,3 +1122,50 @@ test('M259-31: the storyteller is shown the whole state of things when its conte
   const wire = JSON.stringify(req);
   assert(NAMES.every((n) => wire.includes(n)) && wire.includes('Thread number 8 about') && wire.includes('distinct fact number 0 '), 'and the storyteller\u2019s request carries all of it');
 });
+
+test('M259-32: a report of what went right is not a finding; the second reader never sees the moment; a summary\u2019s error is the summary\u2019s', async () => {
+  const { parseAuditorAnswer, saysAllIsWell } = await import('../../js/agents/auditor.js');
+  const longWhat = 'the ledger\u2019s presence list still has Rias Wells at the stove counter and Chloe Maxwell inside the kitchen, but the pages show Rias and Vanessa walking out to the Sterling driveway and Chloe arriving there on foot; the latest page has Jovan, Mi-na Song, Rias, Vanessa and Chloe on the Sterling driveway with Aurora on the porch steps and Mr. Sterling mid-driveway, and nobody left in the kitchen at all.';
+  const read = parseAuditorAnswer(JSON.stringify({ issues: [{ what: longWhat, fix: 'x', pages: false, mutations: [] }] }));
+  eq(read.issues[0].what, longWhat, 'a finding is kept whole — it was cut at 300, mid-word');
+  eq(saysAllIsWell({ what: 'the ledger\u2019s thread X is live and correctly hot', fix: 'the thread stands as written' }), true, '"stands as written" is no finding');
+  eq(saysAllIsWell({ what: 'the ledger\u2019s locks match the brief and the pages; no canon contradicts the brief', fix: 'the locks stand as written' }), true, 'nor "the locks match"');
+  eq(saysAllIsWell({ what: 'the thread is still open but the pages closed it', fix: 'close it' }), false, 'a real finding is one');
+
+  const storyId = 'm259-allwell';
+  let st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+  st = applyMutations(st, [{ type: 'presence.enter', name: 'Rias Wells' }]).state;
+  await saveState(storyId, st);
+  await db.messages.append(storyId, { role: 'user', text: 'u' });
+  await db.messages.append(storyId, { role: 'assistant', text: 'Rias heard Jovan say he is leaving on Sunday.' });
+  const house = scriptedHouse([issuesAnswer([
+    { what: 'the ledger\u2019s thread "Vanessa\u2019s party" is live and correctly hot', fix: 'the thread stands as written', pages: false, mutations: [] },
+    { what: 'the ledger\u2019s standings are all written and none is wrongly zero', fix: 'the standings stand as written', pages: false, mutations: [] },
+    { what: 'Rias heard Jovan is leaving on Sunday and has no line for it', fix: 'add it', pages: false, mutations: [{ type: 'knowledge.add', name: 'Rias Wells', fact: 'that Jovan leaves on Sunday' }] },
+  ])]);
+  const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, stale: () => false }));
+  eq(r.issues.length, 1, 'only the real finding is reported');
+  const { auditRunWords } = await import('../../js/agents/auditor.js');
+  assert(/^found 1 thing/.test(auditRunWords(r)), 'and counted: ' + auditRunWords(r));
+
+  const { buildContinuityMessages } = await import('../../js/agents/continuity.js');
+  let scene = applyMutations(emptyState(), [
+    { type: 'presence.enter', name: 'Rias Wells', position: 'at the stove counter, arms uncrossed', attire: 'flip-flops kicked off' },
+    { type: 'mode.snapshot', flags: ['intimate'] },
+    { type: 'offscreen.set', name: 'Caleb Thorne', location: 'Lakeshore Drive', activity: 'driving away', stance: 'busy' },
+    { type: 'canon.lock', name: 'Rias Wells', key: 'age', value: 'seventeen' },
+  ]).state;
+  const c = buildContinuityMessages({ state: scene, assistantText: 'Rias crossed her arms.' }).user;
+  assert(c.includes('Rias Wells') && c.includes('Lakeshore Drive') && c.includes('seventeen'), 'who is here, where the absent are, what is locked');
+  assert(!/arms uncrossed|flip-flops|stove counter|intimate/i.test(c), 'never where anyone stands, what they wear, or the mood');
+  const longBrief = 'The brief opens. ' + 'b'.repeat(9000) + ' BRIEF-END: Rias is seventeen.';
+  assert(buildContinuityMessages({ state: scene, assistantText: 'x', brief: longBrief }).user.includes('BRIEF-END'), 'and the whole brief — it was cut at 4,000');
+
+  const { parseVerifyAnswer } = await import('../../js/agents/memory.js');
+  const v = parseVerifyAnswer(JSON.stringify([
+    { issue: 'Snippet says Jovan is sixteen, but the passage says he is seventeen', fix: 'Jovan is seventeen', kind: 'drift', where: 'source' },
+    { issue: 'The passage itself puts Alexia on the train, but the record establishes she never left the academy', fix: 'Alexia is at the academy', kind: 'continuity', where: 'source' },
+  ]));
+  eq(v[0].where, 'snippet', 'a summary\u2019s own error goes to the summary, whatever its label');
+  eq(v[1].where, 'source', 'a page that truly contradicts the record still goes to the mender');
+});

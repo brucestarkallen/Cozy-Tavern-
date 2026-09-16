@@ -90,7 +90,16 @@ const SYSTEM_PROMPT = [
  * The check reads ALL canon (not only who's present — a locked truth about
  * someone off-page still binds the page that speaks of them). */
 export function buildContinuityMessages({ state, assistantText, brief = '' }) {
-  const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
+  /* M267: THE SECOND READER IS SHOWN WHAT LASTS. Told that posture, position
+   * and what is on a foot are the story moving, it still reported them — and
+   * the mender wrote the page back to the ledger's older moment ("Rias's arms
+   * are uncrossed"). It is not shown the moment at all now: who is here by
+   * name, and where the absent are; never where anyone stands, what they wear,
+   * or the mood. */
+  const lasting = state && typeof state === 'object'
+    ? { ...state, present: (Array.isArray(state.present) ? state.present : []).map((p) => (p && p.name ? { name: p.name } : p)), mode: {} }
+    : state;
+  const facts = renderStateFacts(lasting) || 'Nothing is written in the ledger yet.';
   const canon = state && state.canon && typeof state.canon === 'object'
     ? renderCanon(state.canon, Object.keys(state.canon))
     : '';
@@ -98,8 +107,8 @@ export function buildContinuityMessages({ state, assistantText, brief = '' }) {
     'What is locked true of them:',
     canon || 'Nothing is locked yet.',
     '',
-    ...(String(brief || '').trim() ? ['The writer\'s brief — what the writer set down; it COUNTS AS WRITTEN (a kinship, a home, an age here needs no lock):', String(brief).trim().slice(0, 4000), ''] : []),
-    'What the ledgers said of the scene BEFORE this page (the moment as it stood; a body this',
+    ...(String(brief || '').trim() ? ['The writer\'s brief — what the writer set down; it COUNTS AS WRITTEN (a kinship, a home, an age here needs no lock):', String(brief).trim().slice(0, 40000), ''] : []), /* M267: the whole brief — it was cut at 4,000 */
+    'What the ledgers hold that LASTS — who is here by name, where the absent are, what is locked (never where anyone stands or what they wear: those are the page\'s to move; a body this',
     'page moves, a posture it changes, a thing it takes off or picks up, is the story moving —',
     'never drift):',
     facts,
