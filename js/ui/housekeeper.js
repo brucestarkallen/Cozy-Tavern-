@@ -14,6 +14,7 @@
  * Undo (take back the newest batch that still stands).
  */
 
+import { roomChars } from '../engine/pagecut.js'; /* M288 */
 import { streamText } from './streamtext.js'; /* M279 */
 import { db } from '../store.js';
 import {
@@ -22,7 +23,7 @@ import {
   cleanContextPages, DEFAULT_CONTEXT_PAGES,
   listSessions, switchSession, newSession, branchSession, renameSession, deleteSession, clearSession, deleteLastExchange,
   editTurnAt, deleteTurnAt, truncateForRetry, keepVersions, walkVersion, versionsOf, /* M73: the bubble row */
-  expandCommand, COMMANDS, buildHousekeeperContext, callModel, answerAsWritten } from '../agents/housekeeper.js';
+  expandCommand, COMMANDS, buildHousekeeperContext, callModel, answerAsWritten, HK_MAX_TOKENS } from '../agents/housekeeper.js';
 import { loadState, renderStateFacts } from '../engine/state.js';
 import { loadMemory, wholeRecord } from '../agents/memory.js';
 import { loadLore } from '../import/lorebook.js';
@@ -1302,7 +1303,7 @@ export function initHousekeeper(ctx) {
     if (act === 'ask-p') { const who = window.prompt('Whose psychology? (leave empty for the most present person)', ''); if (who === null) return; await send('#p ' + who.trim()); return; }
     if (act === 'context') {
       const [messages, state, modules, lore, mem] = await Promise.all([db.messages.list(story.id), loadState(story.id), listModules(), loadLore(story.id), loadMemory(story.id)]);
-      const text = buildHousekeeperContext({ story, messages, state, modules, lore, memory: mem, session, contextPages: await db.settings.get('hkContextPages') });
+      const text = buildHousekeeperContext({ story, messages, state, modules, lore, memory: mem, session, contextPages: await db.settings.get('hkContextPages'), room: roomChars(await resolveWorkerConnection(story), HK_MAX_TOKENS) }); /* M288: as it is sent */
       viewer('The full context the housekeeper reads — ' + text.length.toLocaleString() + ' chars ≈ ' + Math.round(text.length / 3.6).toLocaleString() + ' tokens (its rules and this talk ride on top)', text);
     } else if (act === 'raw') {
       const [state, mem] = await Promise.all([loadState(story.id), loadMemory(story.id)]);

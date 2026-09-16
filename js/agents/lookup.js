@@ -16,6 +16,7 @@
 import { callWorker } from './call.js';
 import { db } from '../store.js';
 import { loadMemory } from './memory.js';
+import { loadState } from '../engine/state.js'; /* M288 */
 import { parseFetchRefs, serveFetch } from './housekeeper.js';
 import { wholePage as wholePageLocal, roomChars } from '../engine/pagecut.js';
 
@@ -88,17 +89,17 @@ export function fetchLaw({ rounds = WORKER_FETCH_ROUNDS, when = '' } = {}) {
     'YOU CAN LOOK. What you are shown is not all there is: every page of the story, the writer\'s whole',
     'brief and cast notes, and every page that holds some words can be served to you whole. To ask,',
     'answer with ONLY a fetch block and nothing else:',
-    '  <fetch>["12", "find: Caleb", "brief"]</fetch>',
+    '  <fetch>["12", "find: Caleb", "brief", "person: Caleb"]</fetch>',
     '  "12" (or a page\'s #code) — that page, first word to last; "find: WORDS" — every page that holds',
     '  those words, newest first, with the numbers to fetch them by; "brief" / "cast" — the writer\'s',
-    '  own words, whole.',
+    '  own words, whole; "person: NAME" — that person\'s character page, whole.',
     when || 'Look when something you must judge rests on a page or a passage you were not shown whole.',
     'You may look ' + (rounds === 1 ? 'once' : 'up to ' + rounds + ' times') + '; then answer in the form asked for.',
   ].join('\n');
 }
 
 /* What the server needs, read only when a look is asked for. */
-function lazySource({ storyId = '', messages = null, memory = null, story = null } = {}) {
+function lazySource({ storyId = '', messages = null, memory = null, story = null, state = null } = {}) {
   let held = null;
   return async () => {
     if (held) return held;
@@ -108,7 +109,9 @@ function lazySource({ storyId = '', messages = null, memory = null, story = null
     if (!mem && storyId) { try { mem = await loadMemory(storyId); } catch (err) { mem = null; } }
     let tale = story;
     if (!tale && storyId) { try { tale = await db.stories.get(storyId); } catch (err) { tale = null; } }
-    held = { messages: msgs, memory: mem, story: tale };
+    let ledger = state; /* M288: the people's pages, for "person: NAME" */
+    if (!ledger && storyId) { try { ledger = await loadState(storyId); } catch (err) { ledger = null; } }
+    held = { messages: msgs, memory: mem, story: tale, state: ledger };
     return held;
   };
 }
@@ -140,11 +143,11 @@ export async function askWithFetch(connection, {
     if (!refs.length) {
       if (toldUnreadable) return { ...res, looked, rounds: served };
       toldUnreadable = true;
-      convo.push({ role: 'user', content: 'Your <fetch> block could not be read. It holds page numbers or #codes, "find: WORDS", "brief" or "cast" only — like <fetch>["12", "find: Caleb"]</fetch>. Ask again that way, or answer in the form asked for.' });
+      convo.push({ role: 'user', content: 'Your <fetch> block could not be read. It holds page numbers or #codes, "find: WORDS", "person: NAME", "brief" or "cast" only — like <fetch>["12", "find: Caleb"]</fetch>. Ask again that way, or answer in the form asked for.' });
       continue;
     }
-    const { messages, memory, story } = await load();
-    const shown = serveFetch(refs, messages, { memory, story, room: Math.max(4000, (Number.isFinite(room) ? room : Infinity) - size) });
+    const { messages, memory, story, state } = await load();
+    const shown = serveFetch(refs, messages, { memory, story, state, room: Math.max(4000, (Number.isFinite(room) ? room : Infinity) - size) });
     looked.push(...refs);
     served += 1;
     if (served >= rounds) {

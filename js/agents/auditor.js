@@ -19,7 +19,7 @@
  *     -> {applied, rejected, issues, note} | null
  */
 
-import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
+import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -194,31 +194,19 @@ const FENCE = '"""';
  * reading was refused (an amber light for good). level 1: the passed-through
  * by name; 2: arcs and loose ends only for those near the story (here, seated
  * or with a standing); 3: what they are doing now, likewise. */
-function firstClause(text) {
-  const first = String(text || '').trim().split(/(?<=[.;!?])\s/)[0];
-  return first.length <= 200 ? first : first.slice(0, first.lastIndexOf(' ', 200) > 100 ? first.lastIndexOf(' ', 200) : 200) + '\u2026';
-}
 function characterPages(state, level = 0) {
   const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
-  const lower = (x) => String(x || '').trim().toLowerCase();
-  const here = new Set(((state && state.present) || []).map((p) => lower(p && p.name)));
-  const rels = (state && state.relationships) || {};
-  const near = new Set([
-    ...here,
-    ...Object.keys((state && state.offscreen) || {}).map(lower),
-    ...Object.keys(rels).filter((k) => { const r = rels[k] || {}; return Math.abs(r.p || 0) + Math.abs(r.r || 0) + Math.abs(r.s || 0) >= 20; }).map(lower),
-  ]);
+  const names = nearNames(state);
   const lines = [];
   for (const [name, c] of Object.entries(chars)) {
     if (!c || typeof c !== 'object') continue;
-    if (c.retired && level >= 1) { lines.push(name + ' (passed through)'); continue; }
-    const inScene = here.has(lower(name));
-    const close = inScene || (near.has(lower(name)) && level < 4); /* 4: those away keep who they are */
+    const p = leanPage(names, name, c, level);
+    if (!p) { lines.push(name + ' (passed through)'); continue; }
     const bits = [];
-    if (c.core) bits.push('core: ' + (level >= 5 && !inScene ? firstClause(c.core) : c.core)); /* 5: its first clause */
-    if (c.state && (level < 3 || close)) bits.push('now: ' + c.state);
-    if (c.arc && (level < 2 || close)) bits.push('arc: ' + c.arc);
-    if (Array.isArray(c.threads) && c.threads.length && (level < 2 || close)) bits.push('loose ends: ' + c.threads.map((t) => (typeof t === 'string' ? t : t && t.text)).filter(Boolean).join('; '));
+    if (p.core) bits.push('core: ' + p.core);
+    if (p.state) bits.push('now: ' + p.state);
+    if (p.arc) bits.push('arc: ' + p.arc);
+    if (p.threads.length) bits.push('loose ends: ' + p.threads.join('; '));
     lines.push(name + (c.retired ? ' (passed through — out of the story until a page names them)' : '') + ' — ' + bits.join(' | '));
   }
   return lines.join('\n');
@@ -229,7 +217,7 @@ export function buildAuditorMessages(args) {
   /* M287: shown lean, a step at a time, while the reading would take more than 60% of its room */
   const room = Number.isFinite(args && args.room) && args.room > 0 ? args.room : Infinity;
   let built = buildAuditorAt(args, 0);
-  for (let level = 1; level <= 5 && built.system.length + built.user.length > room * 0.6; level += 1) built = buildAuditorAt(args, level);
+  for (let level = 1; level <= LEAN_STEPS && built.system.length + built.user.length > room * 0.6; level += 1) built = buildAuditorAt(args, level);
   return built;
 }
 function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages = [], index = [], pageCount = 0 }, lean = 0) {
@@ -267,7 +255,7 @@ function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages 
     ...(pageCount ? ['The story has ' + pageCount + ' pages; any of them, folded or not, is served whole by its number.', ''] : []),
     'THE LEDGER, ALL OF IT (as it stood before the latest page):',
     whole,
-    '— the character pages —' + (lean ? ' (shown lean for this reading: the ledger is larger than its room \u2014 the pages of those away are shortened; the ones here are whole)' : ''), people || '(none)',
+    '— the character pages —' + (lean ? ' (shown lean for this reading: the ledger is larger than its room \u2014 the pages of those away are shortened; the ones here are whole; fetch "person: NAME" for any page whole)' : ''), people || '(none)',
     '',
     'Hold the ledger against the brief, the pages and the record. JSON only.',
   ].join('\n');
@@ -394,7 +382,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       system: prompt.system, user, maxTokens: MAX_TOKENS, signal, renew,
       leash: leashFor,
       isAnswer: (t) => parseAuditorAnswer(t).note === 'ok',
-      source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes } },
+      source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes }, state }, /* M288: "person: NAME" */
       room,
       rounds: attempt === 0 ? undefined : 1, /* a second ask looks once at most */
     });

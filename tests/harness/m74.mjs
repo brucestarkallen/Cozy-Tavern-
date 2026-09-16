@@ -114,12 +114,17 @@ test('M74-5 a ledger card is measured against the slice it touches — a page tu
   void r2;
 });
 
-test('M74-6 fetch serves a rule or a lore entry by name; the ripple sweeps the brief and the cast notes', () => {
+test('M74-6 fetch serves a rule or a lore entry by name; the ripple sweeps the brief and the cast notes', async () => {
   const src = hk();
-  assert(/\/\^\(rule\|lore\):\\s\*\\S\/i\.test\(t\)/.test(src), 'fetch refs accept rule: and lore:');
+  /* M288: read as behaviour, not as the source's words (the pattern now holds person: too) */
+  const { parseFetchRefs } = await import('../../js/agents/housekeeper.js');
+  eq(JSON.stringify(parseFetchRefs('["rule: The Prose", "lore: Aurora"]')), JSON.stringify(['rule: The Prose', 'lore: Aurora']), 'fetch refs accept rule: and lore:');
   /* M259: and the story (its brief) and the reader's room — the workers look through it too */
   assert(/function serveFetch\(refs, messages, \{ modules = \[\], lore = \[\], memory = null[^}]*\} = \{\}\)/.test(src), 'serveFetch takes the rulebook, the shelf and the record (M124)');
-  assert(/serveFetch\(parsed\.fetch, messages, \{ modules, lore, memory(, story)? \}\)/.test(src), 'and is handed them, the record too');
+  assert(/serveFetch\(parsed\.fetch, messages, \{ modules, lore, memory(, story)?(, state)?(, room: fetchRoom\(\))? \}\)/.test(src), 'and is handed them, the record too (M288: the ledger and the room left)');
+  const { serveFetch } = await import('../../js/agents/housekeeper.js');
+  const served = serveFetch(['rule: The Prose', 'lore: Aurora'], [], { modules: [{ id: 'm', name: 'The Prose', text: 'PROSE-RULE-TEXT' }], lore: [{ name: 'Aurora', keys: ['aurora'], content: 'AURORA-LORE-TEXT' }] });
+  assert(served.includes('PROSE-RULE-TEXT'), 'a rule asked for by name is served: ' + served.slice(0, 80));
   const where = rippleScan([{ id: '#x', find: 'Kris is the mother', replace: 'Kim is the mother' }], { messages: [], memory: { nodes: [] }, state: emptyState(), lore: [], story: { brief: 'Kris is the mother of Kendall.', castNotes: 'Kris is the mother.' } });
   assert(where.length === 1 && where[0].where.includes('the brief') && where[0].where.includes('the cast notes'), JSON.stringify(where));
 });

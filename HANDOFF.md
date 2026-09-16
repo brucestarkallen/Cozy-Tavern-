@@ -1,10 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m287-001)
+# Cozy Tavern — handoff for the next session (state at m288-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M287). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M288). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 548 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 549 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 48 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -37,6 +37,8 @@ Full history of every law and fix: AGENTS.md (M1 … M287). SPEC.md holds the fo
 - Nothing goes stale by itself (M261): the ground moving lets positions go; one place under two
   spellings is one place; an untouched thread cools after 15 pages; the code upkeep (retire,
   sweep, clear seats) runs on every page, audited or not (ledgerUpkeep).
+- Lean readings (M288): engine/whole.js leanPage — the auditor and the housekeeper show the people's
+  pages lean past 60% of their room; "person: NAME" fetches any page whole.
 - Room (M287): the record is sized to the MEASURED request (fixedCharsOf, recordRoom fixedChars; an unset
   answer is 16,000); the auditor reads a ledger lean when it would outgrow its room.
 - The present (M286): cards take what the away do not need (exact sizes); the rest of the room is

@@ -47,6 +47,8 @@
  *   {kind:'ledger', before, afterHash, words} ]}
  */
 
+import { nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M288: the lean steps */
+import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
 import { db } from '../store.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations, undoEntry } from '../engine/apply.js';
@@ -548,7 +550,7 @@ export function parseFetchRefs(body) {
   const isRef = (t) => /^#?[0-9a-f]{3,12}$/i.test(t)
     || /^#r[0-9a-z]{2,16}$/i.test(t)
     || /^\d{1,5}$/.test(t)
-    || /^(rule|lore):\s*\S/i.test(t)
+    || /^(rule|lore|person):\s*\S/i.test(t) /* M288: a person's page, whole */
     /* M259: a search, and the writer's own words — for the workers and the housekeeper alike */
     || /^find:\s*\S/i.test(t)
     || /^(brief|cast)$/i.test(t);
@@ -674,9 +676,18 @@ export function cleanContextPages(value) {
 /* The whole served picture, as one document: the brief, the page index,
  * the last N visible pages in full, the ledger summary, the rulebook's
  * names, and the showrunners' blocks when they have something to say. */
-export function buildHousekeeperContext({
+/* M288: the housekeeper's context in its model's room — the people's pages lean, a step at a
+ * time, while it would take more than 60% of the room (it was sent whole, and a long tale of many
+ * faces was refused); every page can still be fetched whole ("person: NAME"). */
+export function buildHousekeeperContext(args = {}) {
+  const room = Number.isFinite(args && args.room) && args.room > 0 ? args.room : Infinity;
+  let doc = buildHousekeeperContextAt(args, 0);
+  for (let level = 1; level <= LEAN_STEPS && doc.length > room * 0.6; level += 1) doc = buildHousekeeperContextAt(args, level);
+  return doc;
+}
+function buildHousekeeperContextAt({
   story, messages, state, modules, lore, memory, session, directorText, editorText, contextPages,
-} = {}) {
+} = {}, lean = 0) {
   const visible = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
   const n = cleanContextPages(contextPages);
   const indexStart = Math.max(0, visible.length - INDEX_CAP);
@@ -719,8 +730,14 @@ export function buildHousekeeperContext({
    * them and could not see them */
   const people = Object.entries((state && state.characters) || {}).filter(([, c]) => c && typeof c === 'object');
   if (people.length) {
-    parts.push('THE PAGES OF THE PEOPLE (the character ledger the scribe keeps; change a field with <ledits> people.set, add or close one loose end with people.note):\n'
-      + people.map(([name, c]) => '[' + name + (c.retired ? ' — passed through' : '') + ']\n  CORE: ' + (c.core || '(empty)') + '\n  STATE: ' + (c.state || '(empty)') + '\n  ARC: ' + (c.arc || '(empty)') + '\n  THREADS: ' + ((c.threads || []).length ? (c.threads || []).map((t) => '“' + t + '”').join('; ') : '(none)')).join('\n'));
+    const names = nearNames(state);
+    parts.push('THE PAGES OF THE PEOPLE (the character ledger the scribe keeps; change a field with <ledits> people.set, add or close one loose end with people.note)'
+      + (lean ? ' \u2014 SHOWN LEAN: the ledger is larger than this reading\u2019s room; the pages of those away are shortened (a field not shown is not empty) \u2014 fetch "person: NAME" for any page whole before you change it' : '') + ':\n'
+      + people.map(([name, c]) => {
+        const p = leanPage(names, name, c, lean);
+        if (!p) return '[' + name + ' \u2014 passed through] (page not shown \u2014 fetch "person: ' + name + '")';
+        return personBlock(name, c, p);
+      }).join('\n'));
   } else {
     parts.push('THE PAGES OF THE PEOPLE: none written yet.');
   }
@@ -877,7 +894,7 @@ const SYSTEM_PROMPT = [
   '  {"entry":"NAME","remove":true,"reason":"why"}',
   '  "entry" is the entry’s name or its first key. Content is the truth the',
   '  storyteller should carry when the key is spoken — facts, not prose.',
-  '<fetch>["#a1b2c3", "#r7k2p9x", "rule: The Prose", "lore: NAME", "find: WORDS", "brief"]</fetch> — ask to be served (a page by its #handle, a record line by its #r… mark, a rule or a lore entry by name, every page that holds some words, the brief or the cast notes whole)',
+  '<fetch>["#a1b2c3", "#r7k2p9x", "rule: The Prose", "lore: NAME", "person: NAME", "find: WORDS", "brief"]</fetch> — ask to be served (a page by its #handle, a record line by its #r… mark, a rule or a lore entry by name, a person\'s whole page, every page that holds some words, the brief or the cast notes whole)',
   '  whole: pages you only have one-line previews of, a rulebook rule’s text, a lore',
   '  entry cut short above. You may ask up to three times in a turn.',
   '<supersede>label, label</supersede> — retire still-pending cards from your',
@@ -2775,7 +2792,7 @@ export function findInPages(messages, words, cap = FETCH_REF_CAP) {
 /* The pages a <fetch> asked for, served whole (capped). M259: also a search
  * ("find: …") and the writer's own words ("brief", "cast"); `room` stops a
  * round before it overflows the reader's context — what is left is named. */
-export function serveFetch(refs, messages, { modules = [], lore = [], memory = null, story = null, room = Infinity } = {}) {
+export function serveFetch(refs, messages, { modules = [], lore = [], memory = null, story = null, room = Infinity, state: serveState = null } = {}) {
   const lines = [];
   const unserved = [];
   let used = 0;
@@ -2788,6 +2805,15 @@ export function serveFetch(refs, messages, { modules = [], lore = [], memory = n
     const said = String(ref).trim();
     const find = /^find:\s*(.+)$/i.exec(said);
     if (find) { push(ref, findInPages(messages, find[1])); continue; }
+    /* M288: one person's page, whole */
+    const person = /^person:\s*(.+)$/i.exec(said);
+    if (person) {
+      const chars = (serveState && serveState.characters) || {};
+      const key = Object.keys(chars).find((k) => k.toLowerCase() === person[1].trim().toLowerCase())
+        || Object.keys(chars).find((k) => k.toLowerCase().split(/\s+/)[0] === person[1].trim().toLowerCase().split(/\s+/)[0]);
+      push(ref, key ? '[the page of ' + key + '] (COMPLETE)' + personBlock(key, chars[key], leanPage(nearNames({}), key, chars[key], 0)).replace(/^\[[^\]]*\]/, '') : 'No page is written for \u201c' + person[1].trim() + '\u201d.');
+      continue;
+    }
     if (/^(brief|cast)$/i.test(said)) {
       const which = said.toLowerCase();
       const words = which === 'brief' ? (story && story.brief) : (story && story.castNotes);
@@ -2945,6 +2971,17 @@ export function roundWhy(content) {
   return 'answering again';
 }
 
+/* M288: one person's page, as the housekeeper reads it (a shortened field is marked, never shown as empty) */
+function personBlock(name, c, p) {
+  const field = (label, whole, shown) => '\n  ' + label + ': ' + (shown ? shown : whole ? '(not shown this reading)' : '(empty)');
+  const threads = (c.threads || []).length
+    ? (p.threads.length ? p.threads.map((t) => '\u201c' + t + '\u201d').join('; ') : '(not shown this reading)')
+    : '(none)';
+  return '[' + name + (c.retired ? ' \u2014 passed through' : '') + ']'
+    + field('CORE', c.core, p.core) + field('STATE', c.state, p.state) + field('ARC', c.arc, p.arc)
+    + '\n  THREADS: ' + threads;
+}
+
 export async function runConversation({
   connection, story, messages, state, modules, lore, memory, directorText, editorText,
   session, writerText, contextPages, call, signal, onToken,
@@ -2953,8 +2990,11 @@ export async function runConversation({
     const caller = typeof call === 'function'
       ? call
       : (req) => callModel(connection, req);
+    /* M288: what a fetch may still add — the room less everything the conversation already holds */
+    const fetchRoom = () => Math.max(4000, roomChars(connection, HK_MAX_TOKENS) - (typeof wire !== 'undefined' && Array.isArray(wire) ? wire.reduce((n, m) => n + String((m && m.content) || '').length, 0) : 0));
     const contextDoc = buildHousekeeperContext({
       story, messages, state, modules, lore, memory, session, directorText, editorText, contextPages,
+      room: roomChars(connection, HK_MAX_TOKENS), /* M288: its own answer's room */
     });
     /* M61: which pages the model holds WHOLE — the served window plus every
      * fetched page. An edit to any other page is blind (v2.76/v2.80). */
@@ -3049,7 +3089,7 @@ export async function runConversation({
         wire.push({ role: 'assistant', content: raw });
         wire.push({
           role: 'user',
-          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory, story })
+          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory, story, state, room: fetchRoom() })
             + '\n\nThat is everything you may fetch this turn. Answer now with the blocks the writer asked for — no more <fetch>.',
         });
         continue;
@@ -3060,7 +3100,7 @@ export async function runConversation({
         wire.push({ role: 'assistant', content: raw });
         wire.push({
           role: 'user',
-          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory, story }),
+          content: 'What you asked for, whole:\n\n' + serveFetch(parsed.fetch, messages, { modules, lore, memory, story, state, room: fetchRoom() }),
         });
         continue;
       }

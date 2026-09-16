@@ -44,7 +44,7 @@ import { withFictionFrame } from './voice.js'; /* M21: the workers never break t
 const KEY_PREFIX = 'director:';
 export const EPISODE_MARK = '[EPISODE_END]';
 const RECENT_PAGES = 12;
-const PAGE_CAP = 3000;
+const RECENT_PAGE_ROOM = 12000; /* M288: a recent page, read whole to this (the middle stated past it) */
 
 /* ---------- the mark ---------- */
 
@@ -171,8 +171,7 @@ function recentPagesText(messages) {
   const visible = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
   return visible.slice(-RECENT_PAGES).map((m) => {
     const speaker = m.role === 'assistant' ? 'the storyteller' : 'the writer';
-    let text = pageText(m);
-    if (text.length > PAGE_CAP) text = text.slice(0, PAGE_CAP - 1).trimEnd() + '…';
+    const text = wholePage(pageText(m), RECENT_PAGE_ROOM); /* M288: read whole to 12,000 — it was cut at 3,000 mid-word */
     return speaker.toUpperCase() + ':\n' + text;
   }).join('\n\n');
 }
@@ -182,7 +181,7 @@ export function buildDirectorBrief({ story, messages, state, prev, mode, seedTex
   const parts = [];
   parts.push('The story is “' + ((story && story.title) || 'an untitled tale') + '”.');
   const brief = story && typeof story.brief === 'string' ? story.brief.trim() : '';
-  if (brief) parts.push('Its brief:\n' + brief);
+  if (brief) parts.push('Its brief:\n' + writerText(brief, BRIEF_ROOM, 'brief')); /* M288: to the workers' room, a stated cut past it */
   const ledger = renderStateFacts(state);
   if (ledger) parts.push('What the ledger says:\n' + ledger);
   const pages = recentPagesText(messages);

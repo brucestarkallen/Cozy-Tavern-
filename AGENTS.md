@@ -6199,3 +6199,35 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   build is not observable (its page view has a floor) — noted, not tested.
 - 548/548 harness + 48/48 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story,
   housekeeper) within budget + lint 0 errors. version.js -> m287-001.
+
+# M288 — the audit continued: the housekeeper fits its model; every page can be fetched whole
+- THE WRITER: "Continue" — the final audit, carried on through the readers M287 did not measure.
+- MEASURED (a heavy tale: sixty people, forty-thousand-character brief, 128k models, three
+  characters a token): the director and editor fit; the world agent fits (84% of its room).
+  THE HOUSEKEEPER did not: 845,628 characters against a 360,000-character room — every person's page
+  sent whole, the passed-through too; the writer's own assistant refused on a long tale.
+- FOUND ON THE WAY: the director and the editor read each recent page CUT AT 3,000 CHARACTERS
+  MID-WORD (a page often runs past it — they planned from half-pages); and both sent the brief whole,
+  outside the workers' room (M283's sweep looked for cuts, not for none).
+- FIXED:
+  1. engine/whole.js leanPage/nearNames/LEAN_STEPS — one set of lean steps for every reader that
+     shows the pages whole (the auditor moved onto it): the passed-through by name; arcs and loose
+     ends, then the present state, only for those near (here, seated, bonded 20+); then those away by
+     who they are; then its first clause. Whoever is here keeps the whole page.
+  2. The housekeeper's context is built in its model's room (roomChars with its own answer size),
+     lean past 60% of it, and says so; a shortened field reads "(not shown this reading)", never
+     "(empty)"; the panel's context viewer shows it as sent. Its fetches add only what the room
+     still holds.
+  3. "person: NAME" — any person's page served whole, to the housekeeper and every worker that looks
+     (parseFetchRefs, serveFetch, the workers' lazy source loads the ledger); both teachings name it.
+  4. The director and the editor read recent pages through wholePage (to 12,000, the middle stated)
+     and the brief through writerText.
+- The heavy tale's housekeeper: 325,055 of 360,000; its first request in the real conversation fits.
+- Laws: M259-55 (whole is larger than the room; lean fits and says so; the ones here whole; a
+  shortened field marked; the passed-through named with the way to their page; a roomy reading whole;
+  the conversation's first request within its model; person refs parsed and served, an unknown name
+  said so; a worker that asks is served; director and editor read a 9,000-character page to its end
+  and hold a 150,000-character brief to the room). M74-6 reads behaviour where it read source (the
+  refs; a served rule). 8 deliberate breaks caught.
+- 549/549 harness + 48/48 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  (housekeeper, bigfetch) within budget + lint 0 errors. version.js -> m288-001.

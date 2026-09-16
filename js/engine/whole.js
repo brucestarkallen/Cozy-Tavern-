@@ -172,3 +172,47 @@ export function writerText(text, room, label, canFetch = false) {
   return cut + '\n(the ' + label + ' continue' + (/s$/.test(label) ? '' : 's') + ' \u2014 ' + (t.length - cut.length) + ' more characters'
     + (canFetch ? '; fetch "' + key + '" for all of it' : ' not shown here') + ')';
 }
+
+/* M288: HOW MUCH OF A PERSON'S PAGE A READING HOLDS — one rule for every reader
+ * that shows the character pages whole (the auditor, the housekeeper). A ledger
+ * of many faces outgrew their model's room and every reading was refused; past
+ * its room a reading takes these steps, one at a time:
+ *   1  the passed-through: their name only;
+ *   2  arcs and loose ends only for those near the story (here, seated, or
+ *      bonded 20 or more);
+ *   3  what they are doing now, likewise;
+ *   4  those away: who they are, only;
+ *   5  those away: the first clause of it.
+ * Whoever is here keeps the whole page. null = the name only. */
+export function firstClause(text, max = 200) {
+  const first = String(text || '').trim().split(/(?<=[.;!?])\s/)[0];
+  if (first.length <= max) return first;
+  const sp = first.lastIndexOf(' ', max);
+  return first.slice(0, sp > max / 2 ? sp : max) + '\u2026';
+}
+export function nearNames(state) {
+  const lower = (x) => String(x || '').trim().toLowerCase();
+  const here = new Set(((state && state.present) || []).map((p) => lower(p && p.name)));
+  const rels = (state && state.relationships) || {};
+  const near = new Set([
+    ...here,
+    ...Object.keys((state && state.offscreen) || {}).map(lower),
+    ...Object.keys(rels).filter((k) => { const r = rels[k] || {}; return Math.abs(r.p || 0) + Math.abs(r.r || 0) + Math.abs(r.s || 0) >= 20; }).map(lower),
+  ]);
+  return { here, near, lower };
+}
+export function leanPage(names, name, c, level) {
+  if (!c || typeof c !== 'object') return null;
+  if (c.retired && level >= 1) return null;
+  const inScene = names.here.has(names.lower(name));
+  const close = inScene || (names.near.has(names.lower(name)) && level < 4);
+  const threads = Array.isArray(c.threads) ? c.threads.map((t) => (typeof t === 'string' ? t : t && t.text)).filter(Boolean) : [];
+  return {
+    core: c.core ? (level >= 5 && !inScene ? firstClause(c.core) : c.core) : '',
+    state: c.state && (level < 3 || close) ? c.state : '',
+    arc: c.arc && (level < 2 || close) ? c.arc : '',
+    threads: level < 2 || close ? threads : [],
+    shortened: level > 0 && !inScene,
+  };
+}
+export const LEAN_STEPS = 5;

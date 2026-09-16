@@ -19,6 +19,8 @@
  * critique = {northStar, notes:[...], at, turn}
  */
 
+import { wholePage } from '../engine/pagecut.js'; /* M288 */
+import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M288 */
 import { db } from '../store.js';
 import { storyTurn } from '../engine/apply.js';
 import { loadState, renderStateFacts } from '../engine/state.js';
@@ -29,7 +31,7 @@ import { withFictionFrame } from './voice.js'; /* M21: the workers never break t
 const KEY_PREFIX = 'editor:';
 const DEFAULT_EVERY_N = 8;
 const RECENT_PAGES = 12;
-const PAGE_CAP = 3000;
+const RECENT_PAGE_ROOM = 12000; /* M288: a recent page, read whole to this (the middle stated past it) */
 
 /* ---------- the state ---------- */
 
@@ -152,14 +154,13 @@ export function buildEditorMessages({ story, messages, state, prev } = {}) {
   const parts = [];
   parts.push('The story is “' + ((story && story.title) || 'an untitled tale') + '”.');
   const brief = story && typeof story.brief === 'string' ? story.brief.trim() : '';
-  if (brief) parts.push('Its brief:\n' + brief);
+  if (brief) parts.push('Its brief:\n' + writerText(brief, BRIEF_ROOM, 'brief')); /* M288 */
   const ledger = renderStateFacts(state);
   if (ledger) parts.push('What the ledger says:\n' + ledger);
   const visible = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
   const pages = visible.slice(-RECENT_PAGES).map((m) => {
     const speaker = m.role === 'assistant' ? 'THE STORYTELLER' : 'THE WRITER';
-    let text = pageText(m);
-    if (text.length > PAGE_CAP) text = text.slice(0, PAGE_CAP - 1).trimEnd() + '…';
+    const text = wholePage(pageText(m), RECENT_PAGE_ROOM); /* M288: read whole to 12,000 — it was cut at 3,000 mid-word */
     return speaker + ':\n' + text;
   }).join('\n\n');
   if (pages) parts.push('The latest pages:\n' + pages);

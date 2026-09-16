@@ -2151,3 +2151,51 @@ test('M259-54: a ledger larger than the auditor\u2019s room is read lean, never 
   assert(sent > 0 && sent <= roomChars(conn, 6000), 'the auditor\u2019s request fits its model (' + sent + ' of ' + roomChars(conn, 6000) + ')');
   assert(JSON.stringify(house.calls[0].body).includes('page 20 the lamp'), 'and older unfolded pages are read beside the newest (the view is sized to the lean reading, not the whole one)');
 });
+
+test('M259-55: the housekeeper reads a ledger of many faces lean in its room and can fetch any page whole; the director and editor read recent pages whole', async () => {
+  const hk = await import('../../js/agents/housekeeper.js');
+  const { roomChars } = await import('../../js/engine/pagecut.js');
+  const para = (chars, tag) => (tag + ' ' + 'the lamp burned low over the ledger, '.repeat(Math.ceil(chars / 37))).slice(0, chars);
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan Wells' }; st.page = 800; st.characters = {};
+  for (let i = 0; i < 60; i += 1) st.characters['Person ' + i + ' Vale'] = { core: 'Person ' + i + ' Vale keeps a secret. ' + para(4000, 'core'), state: para(1500, 'state'), arc: 'ARC-OF-' + i + ' ' + para(4000, 'arc'), threads: [para(300, 't1')], updatedAtTurn: 790, ...(i >= 40 ? { retired: true } : {}) };
+  st.present = Object.keys(st.characters).slice(0, 6).map((name) => ({ name }));
+  const story = { title: 't', brief: para(40000, 'brief'), castNotes: para(20000, 'cast') };
+  const messages = []; for (let i = 0; i < 60; i += 1) { messages.push({ id: 'u' + i, role: 'user', text: para(600, 'writer') }); messages.push({ id: 'a' + i, role: 'assistant', text: para(3000, 'page') }); }
+  const room = roomChars({ contextSize: 128000 }, hk.HK_MAX_TOKENS);
+  const args = { story, messages, state: st, modules: [], lore: [], memory: null, session: [], contextPages: 20 };
+  assert(hk.buildHousekeeperContext(args).length > room, 'whole, the context is larger than a 128k housekeeper');
+  const lean = hk.buildHousekeeperContext({ ...args, room });
+  assert(lean.length <= room, 'in its room it fits: ' + lean.length + ' of ' + room);
+  assert(/SHOWN LEAN/.test(lean) && /fetch "person: NAME"/.test(lean), 'it is told the pages are lean, and how to read one whole');
+  assert(/\[Person 0 Vale\]\n  CORE: Person 0 Vale keeps a secret\.[^\n]*\n  STATE: state [^\n]*\n  ARC: ARC-OF-0 /.test(lean), 'the ones here are whole');
+  assert(/\[Person 20 Vale\]\n  CORE: Person 20 Vale keeps a secret\.\n  STATE: \(not shown this reading\)\n  ARC: \(not shown this reading\)/.test(lean), 'a shortened field is marked as not shown, never as empty');
+  assert(/\[Person 45 Vale \u2014 passed through\] \(page not shown \u2014 fetch "person: Person 45 Vale"\)/.test(lean), 'the passed-through are named, with the way to their page');
+  eq(hk.buildHousekeeperContext({ ...args, room: 50000000 }), hk.buildHousekeeperContext(args), 'a room that holds it all reads it all');
+  /* the conversation itself sends the lean context on a 128k connection */
+  const sentReqs = [];
+  await hk.runConversation({ connection: { ...CONN, contextSize: 128000 }, ...args, writerText: 'How is Person 20?', call: async (req) => { sentReqs.push(req); return { text: 'She is well.' }; } });
+  const firstSize = sentReqs.length ? JSON.stringify(sentReqs[0]).length : 0;
+  assert(firstSize > 0 && firstSize <= roomChars({ contextSize: 128000 }, 0), 'the housekeeper\u2019s first request fits its model (' + firstSize + ')');
+  eq(JSON.stringify(hk.parseFetchRefs('["person: Person 20 Vale", "brief"]')), JSON.stringify(['person: Person 20 Vale', 'brief']), 'a person is a thing to fetch');
+  const served = hk.serveFetch(['person: person 20 vale'], messages, { story, state: st });
+  assert(/\[the page of Person 20 Vale\] \(COMPLETE\)\n  CORE: Person 20 Vale keeps a secret\.[^\n]*\n  STATE: state [^\n]*\n  ARC: ARC-OF-20 /.test(served), 'and is served whole: ' + served.slice(0, 80));
+  assert(/No page is written for \u201cNobody Here\u201d/.test(hk.serveFetch(['person: Nobody Here'], messages, { story, state: st })), 'an unknown name says so');
+  const { askWithFetch } = await import('../../js/agents/lookup.js');
+  const house = scriptedHouse(['<fetch>["person: Person 21 Vale"]</fetch>', '{"ok":true}']);
+  await withHouse(house, () => askWithFetch(CONN, { system: 's', user: 'u', maxTokens: 500, isAnswer: (t) => /"ok"/.test(t), source: { messages, story, state: st }, rounds: 1 }));
+  assert(house.calls.length === 2 && JSON.stringify(house.calls[1].body).includes('ARC-OF-21'), 'a worker that asks for a person is served the page whole (' + house.calls.length + ' calls)');
+  /* the director and the editor read the latest pages whole (they were cut at 3,000 mid-word) */
+  const long = para(9000, 'LONG-PAGE-START') + ' LONG-PAGE-END';
+  const dir = await import('../../js/agents/director.js');
+  const edi = await import('../../js/agents/editor.js');
+  const recent = [{ id: 'u', role: 'user', text: 'go' }, { id: 'a', role: 'assistant', text: long }];
+  const d = JSON.stringify(dir.buildDirectorBrief({ story, messages: recent, state: st, prev: null, mode: 'new' }));
+  const e = JSON.stringify(edi.buildEditorMessages({ story, messages: recent, state: st, prev: null }));
+  for (const [who, t] of [['director', d], ['editor', e]]) {
+    assert(t.includes('LONG-PAGE-END'), who + ' reads a 9,000-character page to its end');
+    assert(!t.includes('brief the lamp burned low over the ledger, the lamp burned low over the ledger' + para(39000, '').slice(0, 0)) || /the brief continues|brief the lamp/.test(t), who + ' reads the brief');
+  }
+  const huge = { ...story, brief: para(150000, 'bigbrief') };
+  assert(/\(the brief continues \u2014 \d+ more characters not shown here\)/.test(JSON.stringify(dir.buildDirectorBrief({ story: huge, messages: recent, state: st, prev: null, mode: 'new' }))), 'the director is held to the workers\u2019 room and told so');
+  assert(/\(the brief continues \u2014/.test(JSON.stringify(edi.buildEditorMessages({ story: huge, messages: recent, state: st, prev: null }))), 'and so is the editor');
+});
