@@ -5912,3 +5912,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   main-character standing still let go by the rebuild). 6 deliberate breaks caught.
 - 535/535 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   within budget + lint 0 errors. version.js -> m277-001.
+
+# M278 — a standing is toward the main character: never one the brief set toward someone else
+- THE WRITER (the audit right after M277): "found 5 things, set 6 right: Sophie Dale stands
+  devoted (P+65) — set: the brief says · Mrs. Sterling stands neutral all through … left 10
+  standing changes to the page reader, 10 refused."
+- WHAT WAS WRONG: (1) the brief gave Sophie P:65 TOWARD EMILIA (an arrow line), and the auditor
+  wrote it as her standing toward Jovan on a bare "the brief says" — M277 let a brief-named person
+  and a reason quoting the brief through without asking toward WHOM; (2) four "neutral all
+  through" standings were written for bystanders — a zero standing for someone with none is no
+  change; (3) the ten refusals were counted twice.
+- FIXED: the auditor starts no standing on a bare "the brief says" (it names nothing of the bond)
+  nor on a reason or finding that says "toward" someone other than the main character ("the brief
+  says Mira is his sister" is about him, and may); rel.set at zero for someone with no standing
+  writes nothing (same:true — not reported); refused standing moves are counted once ("left N …"),
+  never again as "refused"; the teaching says so.
+- THE HOUSE MENDS WHAT AN OLDER AUDITOR WROTE (standingsHousekeeping): a standing whose every cause
+  is a bare brief line, or a brief line said to be toward someone else — not the writer's own, not
+  one the house's own reading of the brief sets toward him — is let go at the next audit. Sophie's
+  P:65 and the four empty ones go; one about him, one the pages moved, and the writer's stay.
+- Laws: M259-42 (Sophie toward Emilia refused, bare or pointed elsewhere; a bare reason for a
+  brief-named person refused; a zero bystander not written; a bond toward him restored; one finding;
+  three counted once; the cleanup — what goes and what stays), M259-41 names him in its restore;
+  M49-3 and M50-2 seed their zero standings as an older ledger would hold them. 8 deliberate breaks
+  caught (one found the bare rule untested alone — a case was added).
+- 536/536 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  within budget + lint 0 errors. version.js -> m278-001.

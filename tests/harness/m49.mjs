@@ -45,7 +45,7 @@ test('M49-3 any entry can be taken back; a later touch of the same thing refuses
   let s = emptyState();
   s = applyMutations(s, [{ type: 'place.set', name: 'the porch' }]).state;              // 0
   s = applyMutations(s, [{ type: 'presence.enter', name: 'Rias' }]).state;             // 1
-  s = applyMutations(s, [{ type: 'rel.set', name: 'Aurora', p: 0, r: 0, s: 0, cause: 'the auditor' }]).state; // 2
+  s = applyMutations(s, [{ type: 'rel.set', name: 'Aurora', p: 10, r: 0, s: 0, cause: 'the auditor' }]).state; // 2 (M278: a zero standing for someone with none is no change — so a real one)
   s = applyMutations(s, [{ type: 'place.set', name: 'the kitchen' }]).state;           // 3
   const r = undoEntry(s, 2);
   assert(r && r.state, 'the middle entry is taken back on its own');

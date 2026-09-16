@@ -33,10 +33,11 @@ test('M50-2 housekeeping in code: junk keys go, duplicates merge to the fuller n
     { type: 'rel.set', name: '→ Jovan', p: 65, r: 30, s: 5, cause: 'x' },
     { type: 'rel.set', name: '→ Vanessa Reynolds', p: 70, r: 0, s: 0, cause: 'x' },
     { type: 'rel.set', name: 'Rias', p: 50, r: 60, s: 25, cause: 'x' },
-    { type: 'rel.set', name: 'Rias Wells', p: 0, r: 0, s: 0, cause: 'x' },
-    { type: 'rel.set', name: 'Aurora Sterling', p: 0, r: 0, s: 0, cause: 'the auditor' },
     { type: 'rel.set', name: 'Sophie Dale', p: 12, r: 0, s: 0, cause: 'the page' },
   ]).state;
+  /* M278: the engine writes no zero standing for someone with none — an older ledger may hold these */
+  s.relationships['Rias Wells'] = { p: 0, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set — x' }] };
+  s.relationships['Aurora Sterling'] = { p: 0, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set — the auditor' }] };
   const fixes = standingsHousekeeping(s, BRIEF, '', 'Jovan');
   const after = applyMutations(s, fixes).state;
   const keys = Object.keys(after.relationships);

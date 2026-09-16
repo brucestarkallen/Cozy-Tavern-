@@ -61,7 +61,8 @@ const VOCABULARY = [
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — only when the ledger has no main character',
   'body.injure {"type":"body.injure","name":"NAME","what":"…","sev":1-3} / body.heal {"type":"body.heal","name":"NAME","what":"…"}',
   'rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"} — only to restore a standing that is wrongly zero, or to zero one written for someone else',
-  '  (never to start or move a standing from a page — a beat is the page reader\'s, and the brief\'s digits are restored by the house; never one for the main character)',
+  '  (never to start or move a standing from a page — a beat is the page reader\'s, and the brief\'s digits are restored by the house; never one for the main character;',
+  '  never one the brief sets toward someone else — the cause says what the brief sets toward the main character)',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"toward|seeking|tense|busy|waiting","etaMinutes":25} / offscreen.clear {"type":"offscreen.clear","name":"NAME"}',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black"} / canon.unlock {"type":"canon.unlock","name":"NAME","key":"hair"}',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} / thread.close {"type":"thread.close","title":"…"}',
@@ -400,7 +401,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
   const keptStandings = [];
   const guarded = [];
-  for (const m of read.issues.flatMap((i) => i.mutations)) {
+  const mcHere = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
+  for (const [m, issueWhat] of read.issues.flatMap((i) => i.mutations.map((mu) => [mu, i.what]))) {
     if (m && (m.type === 'rel.set' || m.type === 'rel.shift') && typeof m.name === 'string') {
       const key = Object.keys(fresh.relationships || {}).find((k) => k.trim().toLowerCase() === m.name.trim().toLowerCase());
       const rel = key ? fresh.relationships[key] : null;
@@ -410,7 +412,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       if (rel && lowering) {
         const inBrief = material.includes(m.name.trim().toLowerCase());
         if (earned || inBrief) {
-          keptStandings.push({ mutation: m, why: (earned ? 'the standing was earned on the pages' : 'the brief names ' + m.name) + ' — the auditor may not take it away' });
+          keptStandings.push({ mutation: m, why: (earned ? 'the standing was earned on the pages' : 'the brief names ' + m.name) + ' — the auditor may not take it away', standing: true });
           continue;
         }
       }
@@ -421,7 +423,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
        * pages had brought DOWN, erased what the story had earned. */
       const zero = !rel || (!(rel.p || 0) && !(rel.r || 0) && !(rel.s || 0));
       if (rel && !zero && earned && !lowering) {
-        keptStandings.push({ mutation: m, why: 'the pages moved this standing — the auditor restores only a standing that is zero' });
+        keptStandings.push({ mutation: m, why: 'the pages moved this standing — the auditor restores only a standing that is zero', standing: true });
         continue;
       }
       /* M277: NOR START ONE FROM A PAGE. A standing that is missing or zero
@@ -435,9 +437,18 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const setsAny = m.type === 'rel.set' && ['p', 'r', 's'].some((ax) => Number(m[ax]));
       if (zero && setsAny) {
         const named = material.includes(m.name.trim().toLowerCase());
-        const quotes = /\b(brief|cast notes?)\b/i.test(String(m.cause || ''));
-        if (!named || !quotes || isMc(fresh, m.name)) {
-          keptStandings.push({ mutation: m, why: 'a standing is started by the pages, not by the auditor' });
+        const cause = String(m.cause || '');
+        const quotes = /\b(brief|cast notes?)\b/i.test(cause);
+        /* M278: A STANDING IS TOWARD THE MAIN CHARACTER. The brief gave Sophie
+         * P:65 toward Emilia, and the auditor wrote it as her standing toward
+         * Jovan on a bare "the brief says". A reason that says nothing of the
+         * bond, or a reason or finding that says "toward" someone else, starts
+         * nothing ("the brief says Mira is his sister" is about him, and may). */
+        const bare = /^the (brief|cast notes?)(\s+(says|states|said))?\.?$/i.test(cause.trim());
+        const towardOther = [...(cause + ' ' + String(issueWhat || '')).matchAll(/\btowards?\s+([A-Z][\p{L}'’-]+)/gu)]
+          .some((x) => !mcHere || !samePersonLoose(x[1], mcHere));
+        if (!named || !quotes || bare || towardOther || isMc(fresh, m.name)) {
+          keptStandings.push({ mutation: m, why: 'a standing is started by the pages, not by the auditor', standing: true });
           continue;
         }
       }
@@ -460,7 +471,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const statedByModel = await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
   guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
-  const rejected = [...rejectedByApplier, ...keptStandings];
+  const rejected = [...rejectedByApplier.map((r) => (r && r.mutation && /^rel\./.test(r.mutation.type) && /holds no standing/.test(String(r.why || '')) ? { ...r, standing: true } : r)), ...keptStandings];
   /* M277: a standing move the auditor may not make is not a finding for the
    * writer — eleven such lines filled a reading that changed four things */
   const standingRefused = new Set([
@@ -773,11 +784,38 @@ export function standingsHousekeeping(state, brief, castNotes, mc, stated = null
       gone.add(drop);
     }
   }
+  const digits = Array.isArray(stated) ? stated : explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mc);
+  /* M278: A STANDING THE BRIEF NEVER SET TOWARD HIM. An auditor of M277 wrote
+   * standings "set — the brief says" for people whose brief lines were toward
+   * someone else (Sophie P:65 toward Emilia), and zero ones for bystanders.
+   * One whose every cause is such a brief line, none naming the main
+   * character, for someone the house's own reading of the brief does not set
+   * toward him — and not the writer's own — is let go. A standing the pages
+   * moved keeps its page causes and stays. */
+  if (mc) {
+    for (const k of live) {
+      if (gone.has(k)) continue;
+      const r = rels[k];
+      const hist = r && Array.isArray(r.history) ? r.history : [];
+      if (!hist.length || (r && r.hand)) continue;
+      const causes = hist.map((h) => String((h && h.cause) || '').trim());
+      /* only a BARE "the brief says" (it names no one) or a brief line said to be toward someone
+       * else — "the brief says Mira is his sister" is about him and stays */
+      const bare = (c) => /^set — the (brief|cast notes?)(\s+(says|states|said))?\.?$/i.test(c);
+      const elsewhere = (c) => /^set — the (brief|cast notes?)\b/i.test(c)
+        && [...c.matchAll(/\btowards?\s+([A-Z][\p{L}'’-]+)/gu)].some((x) => !samePersonLoose(x[1], mc));
+      const onlyBrief = causes.every((c) => bare(c) || elsewhere(c));
+      const setByBrief = digits.some((st) => samePersonLoose(st.name, k));
+      if (onlyBrief && !setByBrief) {
+        out.push({ type: 'rel.clear', name: k, cause: 'a standing the brief does not set toward ' + mc });
+        gone.add(k);
+      }
+    }
+  }
   /* the digits are judged against the ledger AS IT WILL STAND after the
    * junk is gone and the duplicates have merged — a merged standing that
    * carries numbers is not "zero" */
   const merged = out.length ? applyMutations(state, out).state.relationships : rels;
-  const digits = Array.isArray(stated) ? stated : explicitStandings(String(brief || '') + '\n' + String(castNotes || ''), mc);
   for (const st of digits) {
     const key = Object.keys(merged).find((k) => samePersonLoose(k, st.name));
     const rel = key ? merged[key] : null;
@@ -903,7 +941,7 @@ export function auditRunWords(result) {
   if (briefWins) bits.push(`${briefWins} the brief wins — ${result.mendedPages || 0} ${result.mendedPages === 1 ? 'page' : 'pages'} mended, the record corrected`);
   const seen = result.issues.filter((i) => !i.mutations.length && !(i.pages && i.fix)).length;
   if (seen) bits.push(`${seen} seen, nothing to change`);
-  const refusedN = result.rejected.filter((r) => !(r && r.same)).length; /* M259: "already so" is not a refusal */
+  const refusedN = result.rejected.filter((r) => !(r && r.same) && !(r && r.standing)).length; /* M259: "already so" is not a refusal; M278: a standing left to the page reader is counted once, below */
   if (refusedN) bits.push(`${refusedN} refused`);
   return bits.join(', ') + lookedWords(result.looked);
 }

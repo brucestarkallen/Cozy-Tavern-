@@ -633,6 +633,8 @@ const HANDLERS = {
     const before = found ? cloneMap({ [key]: found.rel })[key] : null;
     /* M259: a standing already at every number given is no change */
     if (found && Object.entries(given).every(([axis, value]) => (Number(found.rel[axis]) || 0) === value)) return { why: key + ' already stands so', same: true };
+    /* M278: "neutral all through" for someone with no standing writes nothing — none is kept at zero */
+    if (!found && Object.values(given).every((v) => v === 0)) return { why: key + ' has no standing, and none is kept at zero', same: true };
     if (!found) state.relationships[key] = { p: 0, r: 0, s: 0, history: [] };
     const rel = state.relationships[key];
     for (const [axis, value] of Object.entries(given)) rel[axis] = value;

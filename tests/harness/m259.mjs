@@ -1567,7 +1567,7 @@ test('M259-41: the main character holds no standing; the auditor starts a standi
     { what: 'The ledger has no standing for Jovan, but he opened the old folder', fix: 'moved by the folder', pages: false, mutations: [{ type: 'rel.set', name: 'Jovan', p: 10, cause: 'moved by the old folder' }] },
     { what: 'The ledger has no standing for Sophie Dale, but she counted eleven minutes on the latch', fix: 'moved by the evening', pages: false, mutations: [{ type: 'rel.set', name: 'Sophie Dale', p: 8, cause: 'moved by the evening\u2019s events' }] },
     { what: 'Rias\u2019s standing is P:65 but the page moves her', fix: 'P:70', pages: false, mutations: [{ type: 'rel.set', name: 'Rias Wells', p: 70, cause: 'the page moves her' }] },
-    { what: 'The ledger has no standing for Claire Stone though the brief makes her his oldest friend', fix: 'P:40', pages: false, mutations: [{ type: 'rel.set', name: 'Claire Stone', p: 40, cause: 'the brief says she is his oldest friend' }] },
+    { what: 'The ledger has no standing for Claire Stone though the brief makes her his oldest friend', fix: 'P:40', pages: false, mutations: [{ type: 'rel.set', name: 'Claire Stone', p: 40, cause: 'the brief says she is Jovan\u2019s oldest friend' }] },
     { what: 'The ledger has no standing for Maya Bell', fix: 'P:12', pages: false, mutations: [{ type: 'rel.set', name: 'Maya Bell', p: 12, cause: 'the brief says she keeps a folder on him' }] },
   ])]);
   const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief: 'Rias Wells is his sister. Claire Stone is his oldest friend.', stale: () => false }));
@@ -1580,4 +1580,48 @@ test('M259-41: the main character holds no standing; the auditor starts a standi
   eq(after.audit.issues.length, 1, 'only the restore is reported: ' + JSON.stringify(after.audit.issues.map((i) => i.what.slice(0, 40))));
   eq(after.audit.leftStandings, 4, 'the four standing moves it may not make are counted');
   assert(/left 4 standing changes to the page reader/.test(auditRunWords(r)), 'and the workers line says so: ' + auditRunWords(r));
+});
+
+test('M259-42: a standing is toward the main character — never one the brief set toward someone else; a zero one is no change; the house lets go of what an older auditor wrote so', async () => {
+  const { auditRunWords, standingsHousekeeping } = await import('../../js/agents/auditor.js');
+  const base = emptyState(); base.sheet = { actors: {}, playerName: 'Jovan' };
+  const z = applyMutations(base, [{ type: 'rel.set', name: 'Gerald', p: 0, r: 0, s: 0, cause: 'the brief says' }]);
+  assert(!z.state.relationships.Gerald && z.rejected.length === 1 && z.rejected[0].same, 'a zero standing for someone with none is no change');
+
+  const storyId = 'm259-toward-mc';
+  await saveState(storyId, applyMutations(base, [{ type: 'presence.enter', name: 'Jovan' }]).state);
+  await db.messages.append(storyId, { role: 'user', text: 'u' });
+  await db.messages.append(storyId, { role: 'assistant', text: 'a page' });
+  /* the writer's shape: a heading, and an arrow line toward someone else (M50-1) */
+  const brief = 'Sophie Dale \u2014 Emilia\u2019s shadow.\n\u2192 Emilia (P:65 R:0 S:0)\nClaire Stone is Jovan\u2019s oldest friend.\nGerald is a farmer at the Bluebird counter.\nNora Stone runs the bakery.';
+  const house = scriptedHouse([issuesAnswer([
+    { what: 'The ledger\u2019s standing for Sophie Dale is P:0, but the brief establishes her toward Emilia as P:65', fix: 'restored to the brief\u2019s digits', pages: false, mutations: [{ type: 'rel.set', name: 'Sophie Dale', p: 65, r: 0, s: 0, cause: 'the brief says' }] },
+    { what: 'Sophie has no standing', fix: 'P:65', pages: false, mutations: [{ type: 'rel.set', name: 'Sophie Dale', p: 65, cause: 'the brief says Sophie is devoted toward Emilia, and Jovan knows her' }] },
+    { what: 'Gerald has no standing', fix: 'neutral', pages: false, mutations: [{ type: 'rel.set', name: 'Gerald', p: 0, r: 0, s: 0, cause: 'the brief says he is a farmer' }] },
+    { what: 'Nora Stone has no standing', fix: 'P:20', pages: false, mutations: [{ type: 'rel.set', name: 'Nora Stone', p: 20, cause: 'the brief says' }] },
+    { what: 'Claire has no standing though the brief makes her Jovan\u2019s oldest friend', fix: 'P:40', pages: false, mutations: [{ type: 'rel.set', name: 'Claire Stone', p: 40, cause: 'the brief says she is Jovan\u2019s oldest friend' }] },
+  ])]);
+  const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief, stale: () => false }));
+  const after = await loadState(storyId);
+  assert(!after.relationships['Sophie Dale'], 'a standing the brief set toward Emilia is not written toward Jovan');
+  assert(!after.relationships.Gerald, 'a zero standing is not written for a bystander');
+  assert(!after.relationships['Nora Stone'], 'nor one on a bare \u201cthe brief says\u201d, for someone the brief names but sets toward no one');
+  eq(after.relationships['Claire Stone'].p, 40, 'a bond the brief sets toward him is restored');
+  eq(after.audit.issues.length, 1, 'one finding: ' + JSON.stringify(after.audit.issues.map((i) => i.what.slice(0, 30))));
+  const words = auditRunWords(r);
+  assert(/left 3 standing changes to the page reader/.test(words) && !/refused/.test(words), 'the refusals are counted once: ' + words);
+
+  const old = { ...base, relationships: {
+    'Sophie Dale': { p: 65, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says' }] },
+    'Mrs. Sterling': { p: 0, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says' }] },
+    'Rias Wells': { p: 60, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says she is Jovan\u2019s devoted sister' }] },
+    'Claire Stone': { p: 30, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says' }, { axis: 'p', delta: 5, cause: 'she laughed at his joke' }] },
+    'Emilia Vanderbilt': { p: 20, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says' }], hand: true },
+    'Mira': { p: 30, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says Mira is his sister' }] },
+    'Eli Sterling': { p: 15, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says he is devoted toward Aurora' }] },
+  } };
+  const clears = standingsHousekeeping(old, brief, '', 'Jovan', []).filter((m) => m.type === 'rel.clear').map((m) => m.name).sort();
+  eq(clears.join(','), 'Eli Sterling,Mrs. Sterling,Sophie Dale', 'the house lets go of bare brief standings and ones said to be toward someone else \u2014 never one about him (\u201chis sister\u201d), one the pages moved, or the writer\u2019s own');
+  const kept = standingsHousekeeping(old, brief, '', 'Jovan', [{ name: 'Sophie Dale', p: 65, r: 0, s: 0 }]).filter((m) => m.type === 'rel.clear').map((m) => m.name);
+  assert(!kept.includes('Sophie Dale'), 'one the house\u2019s own reading of the brief sets toward him stays');
 });
