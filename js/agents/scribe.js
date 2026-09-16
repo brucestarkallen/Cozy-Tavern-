@@ -20,9 +20,9 @@
  */
 
 import { balancedCandidates, parseLenient } from './jsonutil.js';
-import { wholePage } from '../engine/whole.js'; /* M259: the page read to its end */
+import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
 import { loadState, saveState, notify } from '../engine/state.js';
-import { renderPeopleTiers } from '../engine/people.js';
+import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { applyMutations } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
@@ -109,7 +109,14 @@ const SYSTEM_PROMPT = [
 ].join('\n');
 
 /* Exported for the harness: the two messages any provider flavor receives. */
-export function buildScribeMessages({ state, userText, assistantText }) {
+/* M283: THE SCRIBE WROTE WHO PEOPLE ARE WITHOUT THE BRIEF. Its law says to
+ * write only the names "the ledger, the brief and the pages use" — and the
+ * brief was never handed to it; nor the cast notes. And it saw the pages it
+ * keeps through the storyteller's smallest view (4,800 characters): with the
+ * notes kept whole, a few present cards filled it, and the off-scene people
+ * this very page names (M227) were shed before it could read them. */
+export const SCRIBE_VIEW_TOKENS = 200000;
+export function buildScribeMessages({ state, userText, assistantText, brief = '', castNotes = '' }) {
   /* M227: THE SCRIBE COULD NOT SEE THE LOOSE ENDS IT WAS MEANT TO CLOSE.
    * renderPeopleTiers only gives a full page — Loose ends included — to
    * people on scene, and recalls an OFF-scene person only when these pages
@@ -120,8 +127,11 @@ export function buildScribeMessages({ state, userText, assistantText }) {
    * Aurora's answered question, Ms June's, Vanessa's hunted photo, all of
    * them piling up for the housekeeper to find. The pages of this very turn
    * are what it is reading; they are what decides who is recalled. */
-  const ledger = renderPeopleTiers(state, { recentPages: [String(userText || ''), String(assistantText || '')] });
+  const material = String(brief || '') + '\n' + String(castNotes || '');
+  const ledger = renderPeopleTiers(state, { recentPages: [String(userText || ''), String(assistantText || '')], view: peopleView(SCRIBE_VIEW_TOKENS), brief: material });
   const user = [
+    ...(String(brief || '').trim() ? ['The writer\u2019s brief \u2014 who these people are; it outranks every page:', '"""', writerText(brief, BRIEF_ROOM, 'brief'), '"""', ''] : []),
+    ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
     'Here is what the character pages currently say:',
     ledger && ledger.text ? ledger.text : 'Nothing is written on the character pages yet.',
     '',
@@ -191,13 +201,13 @@ function nameFromWords(words, fallback) {
   return at > 0 ? words.slice(0, at) : String(fallback || '').trim();
 }
 
-export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale, renew } = {}) {
+export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale, renew, brief = '', castNotes = '' } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
 
   const before = await loadState(storyId);
-  const prompt = buildScribeMessages({ state: before, userText, assistantText });
+  const prompt = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes });
   /* M28: the one wire path — thinking off per house, temperature 0; a
    * transport failure throws (with retryAfterMs when the house named a wait)
    * and the queue retries. */

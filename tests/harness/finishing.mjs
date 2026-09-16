@@ -108,8 +108,9 @@ test('M12 tiers: full cards cap at 6, mention-recall at 3, the roster at 12', ()
   eq(out.tiers.roster, 12, 'the roster caps at twelve');
   assert(out.text.includes('Named, though not in the scene'), 'recall framed as not in the scene');
   assert(!out.text.includes('should never be injected'), 'the MC record is never injected');
-  const rotated = renderPeopleTiers(state, { recentPages, rotation: 1 });
-  assert(rotated.text !== out.text || out.tiers.roster < 15, 'the roster turns one step');
+  /* M283: the roster names the nearest to the story first and counts the rest — no wheel */
+  assert(/Elsewhere in the tale: Mentioned4 [^\n]*, and 5 more the ledger knows\./.test(out.text), 'the roster names the lately-named first and counts the ones it does not name');
+  eq(renderPeopleTiers(state, { recentPages, rotation: 1 }).text, out.text, 'and does not turn from page to page');
 });
 
 test('M12 aging: “now” becomes “last noted N turns ago” past twenty turns', () => {

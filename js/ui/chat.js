@@ -2562,6 +2562,8 @@ export function initChat(ctx) {
         signal,
         stale,
         renew,
+        brief: story.brief || '', /* M283: the brief outranks every page — the scribe reads it */
+        castNotes: story.castNotes || '',
       });
       /* M259: the scribe says what it did, like every other minder */
       if (!kept) return { silent: true };

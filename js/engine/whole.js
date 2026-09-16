@@ -153,3 +153,22 @@ export function renderWholeLedger(state) {
 }
 
 export { wholePage, PAGE_CAP } from './pagecut.js'; /* M259: a page is read to its end */
+
+/* M283: THE WRITER'S OWN MATERIAL, TO THE WORKERS. The brief was cut at 40,000
+ * characters and the cast notes at 20,000 in seven workers — five of them in
+ * silence, and wherever the count fell. The storyteller reads them whole; a
+ * worker reads them to the same room, and past it the cut falls at a line and
+ * says so (with the way to the rest, for a worker that can fetch). */
+export const BRIEF_ROOM = 40000;   /* the room the workers have always had — a larger one starves a smaller context's pages and fetches */
+export const CAST_ROOM = 20000;
+export function writerText(text, room, label, canFetch = false) {
+  const t = String(text || '').trim();
+  if (!t || t.length <= room) return t;
+  const head = t.slice(0, room);
+  const nl = head.lastIndexOf('\n');
+  const sp = head.lastIndexOf(' ');
+  const cut = (nl > room * 0.6 ? head.slice(0, nl) : sp > 0 ? head.slice(0, sp) : head).trimEnd();
+  const key = /cast/i.test(label) ? 'cast' : 'brief';
+  return cut + '\n(the ' + label + ' continue' + (/s$/.test(label) ? '' : 's') + ' \u2014 ' + (t.length - cut.length) + ' more characters'
+    + (canFetch ? '; fetch "' + key + '" for all of it' : ' not shown here') + ')';
+}

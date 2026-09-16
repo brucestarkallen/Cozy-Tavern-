@@ -19,6 +19,7 @@
  *     -> {applied, rejected, issues, note} | null
  */
 
+import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -213,10 +214,8 @@ export function buildAuditorMessages({ state, brief = '', castNotes = '', record
   const people = characterPages(state);
   const user = [
     'THE BRIEF (the writer\'s own words):',
-    FENCE, String(brief || '').trim().slice(0, BRIEF_CAP) || '(none written)', FENCE,
-    ...(String(brief || '').trim().length > BRIEF_CAP ? ['(the brief goes on — fetch "brief" for all of it)'] : []),
-    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT (the writer\'s own words):', FENCE, String(castNotes).trim().slice(0, CAST_CAP), FENCE] : []),
-    ...(String(castNotes || '').trim().length > CAST_CAP ? ['(the cast notes go on — fetch "cast" for all of it)'] : []),
+    FENCE, writerText(brief, BRIEF_ROOM, 'brief', true) || '(none written)', FENCE, /* M283: to its room, a stated cut past it */
+    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT (the writer\'s own words):', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE] : []),
     '',
     /* M259: what changes least comes first, the ledger (which changes every
      * page) last — so the house can reuse what it already read of the brief,
@@ -860,8 +859,8 @@ export function buildRebuildMessages({ state, brief, castNotes, record, pages, m
     'is 0/0/0 and needs no line. Standings exist ONLY toward the main character — feelings between other',
     'people are not standings and must not appear.',
     '',
-    'THE BRIEF (the first authority):', Q, String(brief || '').slice(0, 40000) || '(none)' /* M267: whole */, Q,
-    'THE CAST NOTES:', Q, String(castNotes || '').slice(0, 20000) || '(none)' /* M274: as the founder reads them */, Q,
+    'THE BRIEF (the first authority):', Q, writerText(brief, BRIEF_ROOM, 'brief', true) || '(none)' /* M267/M283: whole */, Q,
+    'THE CAST NOTES:', Q, writerText(castNotes, CAST_ROOM, 'cast notes', true) || '(none)' /* M274/M283 */, Q,
     'THE RECORD (what the pages established, oldest to newest):', Q, String(record || '') || '(nothing yet)' /* M265: the caller gives it in its room */, Q,
     'THE LATEST PAGES:', Q, (pages || []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(p.text, 12000)).join('\n\n'), Q,
     '',

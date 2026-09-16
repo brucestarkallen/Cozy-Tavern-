@@ -34,6 +34,7 @@
  * The M3 names (noteExtraction / pendingExtraction) remain as aliases —
  * they were the published contract. */
 
+import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
@@ -264,10 +265,10 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     'Moods on the board right now: ' + (onNow.length ? onNow.join(', ') : 'none') + ' — restate the whole board with mode.snapshot.',
     '',
     ...(brief && String(brief).trim()
-      ? ['What this story is about, in the writer\'s words:', FENCE, String(brief).trim().slice(0, 40000), FENCE, ...(String(brief).trim().length > 40000 ? ['(the brief goes on — fetch "brief" for all of it)'] : []), '']
+      ? ['What this story is about, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] /* M283 */
       : []),
     ...(castNotes && String(castNotes).trim()
-      ? ['Who is in it, in the writer\'s words:', FENCE, String(castNotes).trim().slice(0, 20000), FENCE, ...(String(castNotes).trim().length > 20000 ? ['(the cast notes go on — fetch "cast" for all of it)'] : []), '']
+      ? ['Who is in it, in the writer\'s words:', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE, ''] /* M283 */
       : []),
     /* M226: THE STORY BEFORE THE PAGES IT CAN SEE. The extractor writes the
      * ledger from the newest page and the four before it — eight on a deep

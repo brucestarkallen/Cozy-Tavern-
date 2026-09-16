@@ -20,6 +20,7 @@
  * for it never pays for it.
  */
 
+import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M283 */
 import { renderStateFacts } from '../engine/state.js';
 import { renderCanon } from '../engine/canon.js';
 /* M9 (B16): the tolerant JSON-finder is shared by every agent —
@@ -107,7 +108,7 @@ export function buildContinuityMessages({ state, assistantText, brief = '' }) {
     'What is locked true of them:',
     canon || 'Nothing is locked yet.',
     '',
-    ...(String(brief || '').trim() ? ['The writer\'s brief — what the writer set down; it COUNTS AS WRITTEN (a kinship, a home, an age here needs no lock):', String(brief).trim().slice(0, 40000), ''] : []), /* M267: the whole brief — it was cut at 4,000 */
+    ...(String(brief || '').trim() ? ['The writer\'s brief — what the writer set down; it COUNTS AS WRITTEN (a kinship, a home, an age here needs no lock):', writerText(brief, BRIEF_ROOM, 'brief'), ''] : []), /* M267/M283: the whole brief */
     'What the ledgers hold that LASTS — who is here by name, where the absent are, what is locked (never where anyone stands or what they wear: those are the page\'s to move; a body this',
     'page moves, a posture it changes, a thing it takes off or picks up, is the story moving —',
     'never drift):',

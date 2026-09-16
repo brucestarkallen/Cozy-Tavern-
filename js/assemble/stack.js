@@ -138,6 +138,21 @@ const STATE_MARKER = '[story-state]';
  * less about a present person than the writer had written. Rules shrink;
  * the world the storyteller sees does not. */
 const SLOT4_BUDGET = 9000;
+/* M283: the characters a slot may hold in the storyteller's room (a twelfth of
+ * it, as characters); 0 when the room is unknown. */
+function roomChars(windowInfo) {
+  const t = windowInfo && Number.isFinite(windowInfo.budgetTokens) && windowInfo.budgetTokens > 0 ? windowInfo.budgetTokens : 0;
+  return Math.floor(t * 3 / 12);
+}
+/* a text held to a length, let go at the end of its last whole line (a word, if no line fits) */
+function atLine(text, max) {
+  const s = String(text || '');
+  if (s.length <= max) return s;
+  const head = s.slice(0, Math.max(0, max - 1));
+  const nl = head.lastIndexOf('\n');
+  const cut = nl > max * 0.5 ? head.slice(0, nl) : head.slice(0, Math.max(head.lastIndexOf(' '), 0) || head.length);
+  return cut.trimEnd() + '…';
+}
 const SLOT4_CARD_DESCRIPTION = 2400;
 const SLOT4_CARD_DETAIL = 900;
 
@@ -361,8 +376,9 @@ export function buildRequest({
   {
     /* M34: the record rides whole (SLOT_BUDGET is the keeper's own); the
      * lore shelf keeps a room of its own beside it, never squeezed out. */
-    const room = Math.max(LORE_BUDGET, SLOT7_BUDGET - memoryText.length);
-    if (loreText.length > room) loreText = loreText.slice(0, room - 1).trimEnd() + '…';
+    /* M283: and it follows the storyteller's room too, cut only at a line */
+    const room = Math.max(LORE_BUDGET, SLOT7_BUDGET - memoryText.length, Math.min(60000, roomChars(windowInfo)));
+    if (loreText.length > room) loreText = atLine(loreText, room);
   }
   /* M9: the lore receipt names the entries that fired (their keys). */
   const firedNames = (Array.isArray(loreFired) ? loreFired : [])
@@ -444,16 +460,18 @@ export function buildRequest({
     if (scenario) cardLines.push(scenario);
     invitedNames.push(cardName);
   }
+  /* M283: THE WRITER'S CAST NOTES WHOLE WHEN THE ROOM ALLOWS. They were cut at
+   * 9,000 characters mid-word on any context; now the slot follows the room,
+   * and a cut, if one must be made, falls at the end of a line. */
+  const slot4Room = Math.max(SLOT4_BUDGET, Math.min(80000, roomChars(windowInfo)));
   let whosHere = [
     castNotes,
     presentNames.length ? 'Here right now: ' + presentNames.join(', ') + '.' : '',
   ].filter(Boolean).join('\n\n');
-  if (whosHere.length > SLOT4_BUDGET) {
-    whosHere = whosHere.slice(0, SLOT4_BUDGET - 1).trimEnd() + '…';
-  }
+  if (whosHere.length > slot4Room) whosHere = atLine(whosHere, slot4Room);
   for (const line of cardLines) {
     const candidate = whosHere ? whosHere + '\n' + line : line;
-    if (candidate.length > SLOT4_BUDGET) continue; // left on the shelf this turn
+    if (candidate.length > slot4Room) continue; // left on the shelf this turn
     whosHere = candidate;
   }
   pushSlot(
@@ -494,7 +512,8 @@ export function buildRequest({
    * ledger has anything to say. Rotation derives from the page count, so
    * the roster steps once per turn with no writes of its own. --- */
   const recentPages = wireable(history).slice(-3).map((m) => m.content);
-  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || '') }); /* M281: in the room the storyteller has; M282: the brief weighs who matters */
+  const scenePages = wireable(history).slice(-10).map((m) => m.content); /* M283: who the story keeps naming */
+  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages }); /* M281: in the room the storyteller has; M282: the brief weighs who matters */
   const peopleText = people ? people.text : '';
   if (peopleText) {
     const t = people.tiers;

@@ -6055,3 +6055,41 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the receipt says why); M259-45 reads the new small-room count. 8 deliberate breaks caught.
 - 541/541 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
   (story) within budget + lint 0 errors. version.js -> m282-001.
+
+# M283 — the scribe reads the brief; the writer's material rides whole; the story's ground brings people forward
+- THE WRITER: "How did the people block go unsent since M12? Is there anything else like it? Will it
+  stay smart over 800 pages — minor characters should come forward when the story reaches them, not
+  on a wheel. MAKE SURE NO BUGS." A sweep for the same pattern (a thing built, or promised to a
+  worker, and not delivered) found:
+  1. THE SCRIBE NEVER HAD THE BRIEF. Its law says to write only the names "the ledger, the brief and
+     the pages use"; buildScribeMessages took state and the page only. It wrote who people ARE without
+     the writer's word. It now receives the brief and the cast notes (to the workers' room, a stated
+     cut past it), and reads the pages it keeps through a large view (peopleView(200k)) — through the
+     storyteller's smallest view, a few long present cards had shed the off-scene people the page
+     names (the M227 recall) before it could read them.
+  2. THE STORYTELLER'S CAST NOTES WERE CUT AT 9,000 CHARACTERS MID-WORD, and the lore shelf at 3,000
+     (once the record was long). Both follow the room now (80k / 60k at most), cut only at a line.
+  3. FIVE WORKERS CUT THE BRIEF (40,000) AND THE CAST NOTES (20,000) IN SILENCE — keeper, director,
+     continuity, auditor's rebuild, founder — and all seven cut wherever the count fell.
+     engine/whole.js writerText: the same room, the cut at a whole line, and a line that says so ("the
+     brief continues — N more characters"; with the way to fetch it, for a worker that can). A larger
+     room was tried (120k) and set back: on a smaller worker context it starved the pages and the
+     fetch of the whole brief (M259-18 caught it).
+  4. RELEVANCE, NOT A WHEEL. importanceOf: what lasts (bond, threads, the brief, locks) wanes with the
+     time away, never below nothing; what is NOW does not wane — +25 for a page or seat at the ground
+     the scene stands on (placeWords: the proper names of the place, never the main character's own,
+     never a plain room word), +10 for a name the last ten pages keep saying. The roster names the
+     nearest first and counts the rest ("and N more the ledger knows"); it no longer turns page by
+     page. A very large room (400k+) holds 16 present cards, a 72k block and a 60-name roster.
+- Found in my own work before release: a quoting slip that would have sent the scribe the literal
+  text ", String(brief).trim(), " instead of the brief (M259-48 caught it); place words that made
+  everyone "near" in "Jovan's room" and anyone with "kitchen" in their notes near the Wells kitchen;
+  a mid-line cut that a test passed by coincidence (checked now at four rooms).
+- Laws: M259-48 (the scribe's brief, cast notes and recalled page; the request carries them; cast
+  notes and lore whole in the room, cut at a line without it; the ground by its names; Ms. June near at
+  the diner and back on the roster at home; the lately-named before a stranger whatever the ledger's
+  order), M259-49 (writerText whole, the stated cut at a whole line at four rooms, the no-fetch
+  wording; six workers read a long brief and cast notes to their end; the scribe is held and told),
+  M12 tiers and M259-45 read the relevance roster and the larger room. 13 deliberate breaks caught.
+- 543/543 harness + 46/46 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story,
+  housekeeper) within budget + lint 0 errors. version.js -> m283-001.

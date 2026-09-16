@@ -22,6 +22,7 @@
  *     -> {applied, rejected, note} | null when there is nothing to found from
  */
 
+import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -201,8 +202,8 @@ export function buildStatedStandingsMessages({ brief = '', castNotes = '', mc = 
     'NOT toward the main character, so leave it out. "CORE:", "ARC:", "NOTES:" are section labels, never',
     'people. A family, a school, a faction is not a person. Output ONLY stances toward the main character.',
     '',
-    'THE BRIEF:', String(brief || '').slice(0, 40000) || '(none)',
-    '', 'THE CAST NOTES:', String(castNotes || '').slice(0, 20000) || '(none)',
+    'THE BRIEF:', writerText(brief, BRIEF_ROOM, 'brief') || '(none)', /* M283 */
+    '', 'THE CAST NOTES:', writerText(castNotes, CAST_ROOM, 'cast notes') || '(none)',
     '',
     'Answer with JSON ONLY: {"standings":[{"name":"NAME SURNAME","p":65,"r":30,"s":5}]} — the person\'s full',
     'name as the brief writes it; an empty list if the writer states none.',
@@ -272,10 +273,10 @@ export function buildFounderMessages({ state, brief = '', castNotes = '', cast =
   const facts = renderWholeLedger(state) || 'Nothing is written in the ledger yet.';
   const user = [
     'THE BRIEF (the writer\'s own words):',
-    FENCE, String(brief || '').trim().slice(0, 40000) || '(none written)', FENCE,
+    FENCE, writerText(brief, BRIEF_ROOM, 'brief') || '(none written)', FENCE, /* M283 */
     '',
     'THE CAST NOTES (the writer\'s own words):',
-    FENCE, String(castNotes || '').trim().slice(0, 20000) || '(none written)', FENCE,
+    FENCE, writerText(castNotes, CAST_ROOM, 'cast notes') || '(none written)', FENCE, /* M283 */
     '',
     'THE CHARACTER CARDS INVITED TO THIS STORY:',
     FENCE, cards || '(none)', FENCE,

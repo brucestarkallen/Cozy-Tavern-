@@ -57,13 +57,14 @@ export const PEOPLE_BUDGET = 4800;   /* chars for the whole tiered block (M29: d
  * rides without rotating (to forty); a small context keeps the old tiers. */
 export function peopleView(budgetTokens) {
   const tokens = Number.isFinite(budgetTokens) && budgetTokens > 0 ? budgetTokens : 0;
-  const budget = Math.max(PEOPLE_BUDGET, Math.min(48000, Math.floor(tokens * 3 * 0.06)));
+  const vast = tokens >= 400000; /* M283: a very large room holds a larger cast whole */
+  const budget = Math.max(PEOPLE_BUDGET, Math.min(vast ? 72000 : 48000, Math.floor(tokens * 3 * 0.06)));
   const roomy = budget >= PEOPLE_BUDGET * 4;
   return {
     budget,
-    cards: roomy ? 12 : PRESENT_CARDS_MAX,
+    cards: vast ? 16 : roomy ? 12 : PRESENT_CARDS_MAX,
     recall: roomy ? 6 : RECALL_MAX,
-    roster: roomy ? 40 : ROSTER_MAX,
+    roster: vast ? 60 : roomy ? 40 : ROSTER_MAX,
   };
 }
 
@@ -486,7 +487,21 @@ function namedIn(pages, name) {
  * stand toward the main character, the threads they carry, whether the brief
  * or the cast notes name them, a truth locked about them — less a little for
  * every page they have been away. */
-export function importanceOf(state, name, briefText = '', turn = 0) {
+/* M283: the scene's own ground, in the words that name it (a family name is
+ * a place's too — "the Sterling house" is where the Sterlings are). */
+const PLACE_STOP = new Set(['the', 'and', 'with', 'from', 'near', 'into', 'onto', 'over', 'under', 'house', 'room', 'street', 'road', 'lane', 'side', 'front', 'back', 'inside', 'outside', 'upstairs', 'downstairs']);
+export function placeWords(state) {
+  const name = String((state && state.place && state.place.name) || '');
+  /* the main character's own name says nothing of who is near — "Jovan's room"
+   * would make everyone whose page mentions him "at the ground" */
+  const mc = mcName(state);
+  const mine = new Set(mc && mc !== 'the player' ? mc.toLowerCase().split(/\s+/).map((w) => w.replace(/['’]s$/, '')) : []);
+  /* only the names in it — "the counter", "the kitchen" name nothing of whose ground it is */
+  return [...new Set(name.split(/[^\p{L}\p{N}'’-]+/u)
+    .map((w) => w.replace(/['’]s$/i, ''))
+    .filter((w) => /^\p{Lu}/u.test(w) && w.replace(/[^\p{L}]/gu, '').length >= 4 && !PLACE_STOP.has(w.toLowerCase()) && !mine.has(w.toLowerCase())))];
+}
+export function importanceOf(state, name, briefText = '', turn = 0, scene = {}) {
   const k = String(name || '').trim().toLowerCase();
   if (!k) return 0;
   const first = spokenNames(name).slice(1).map((f) => f.toLowerCase());
@@ -497,7 +512,7 @@ export function importanceOf(state, name, briefText = '', turn = 0) {
   const rels = state && state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
   const relKey = Object.keys(rels).find(same);
   const rel = relKey ? rels[relKey] : null;
-  let score = rel ? Math.abs(rel.p || 0) + Math.abs(rel.r || 0) + Math.abs(rel.s || 0) : 0;
+  let score = rel ? Math.abs(rel.p || 0) + Math.abs(rel.r || 0) + Math.abs(rel.s || 0) : 0; /* what lasts: the bond, the threads, the brief, the locks */
   for (const t of (state && Array.isArray(state.threads) ? state.threads : [])) {
     if (t && same(t.owner)) score += t.heat === 'cold' ? 15 : 40;
   }
@@ -505,9 +520,22 @@ export function importanceOf(state, name, briefText = '', turn = 0) {
   if (material.trim() && spokenNames(name).some((n) => wordRe(n).test(material))) score += 30;
   if (state && state.canon && typeof state.canon === 'object' && Object.keys(state.canon).some(same)) score += 20;
   const entry = state && state.characters ? state.characters[name] : null;
+  /* what lasts wanes a little for every page away — never below nothing */
   const last = entry && Number.isFinite(entry.updatedAtTurn) ? entry.updatedAtTurn : turn;
-  score -= Math.min(30, Math.max(0, turn - last) * 0.5);
-  return score;
+  score = Math.max(0, score - Math.min(30, Math.max(0, turn - last) * 0.5));
+  /* M283: WHERE THE STORY IS NOW. Someone whose page or seat is at the ground
+   * the scene stands on is near the story, whatever their bond (the diner's
+   * waitress, at the diner); someone the last pages keep naming is too. When
+   * the main character moves on, they step back of themselves. */
+  const words = Array.isArray(scene.placeWords) ? scene.placeWords : [];
+  if (words.length) {
+    const seatKey = Object.keys((state && state.offscreen) || {}).find(same);
+    const seat = seatKey ? state.offscreen[seatKey] : null;
+    const hay = [entry && entry.core, entry && entry.state, entry && entry.arc, seat && seat.location].filter(Boolean).join(' ');
+    if (hay && words.some((w) => wordRe(w).test(hay))) score += 25;
+  }
+  if (Array.isArray(scene.lately) && scene.lately.length && namedIn(scene.lately, name)) score += 10;
+  return score; /* the scene's nearness is now, and does not wane with the absence */
 }
 export const IMPORTANT_AT = 20;       /* the least an absent person weighs to ride as a card */
 export const PRESENT_CARDS_MIN = 3;   /* the present who always keep their card, whatever the room */
@@ -525,7 +553,7 @@ export const PRESENT_CARDS_MIN = 3;   /* the present who always keep their card,
  *
  *   renderPeopleTiers(state, { recentPages, rotation })
  *     -> { text, tiers:{cards, also, recall, roster} } | null */
-export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view = null, brief = '' } = {}) {
+export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view = null, brief = '', scenePages = [] } = {}) {
   const lim = view && typeof view === 'object' ? view : { budget: PEOPLE_BUDGET, cards: PRESENT_CARDS_MAX, recall: RECALL_MAX, roster: ROSTER_MAX };
   if (!state || typeof state !== 'object') return null;
   const characters = state.characters && typeof state.characters === 'object' ? state.characters : {};
@@ -556,7 +584,8 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
    * beyond that (or present with nothing yet written) rides the compact
    * line. */
   /* M282: the most important present first; a card past the room rides the line instead */
-  const weigh = new Map(keys.map((k) => [k, importanceOf(state, k, brief, turn)]));
+  const scene = { placeWords: placeWords(state), lately: Array.isArray(scenePages) && scenePages.length ? scenePages : recentPages };
+  const weigh = new Map(keys.map((k) => [k, importanceOf(state, k, brief, turn, scene)]));
   const byWeight = (a, b) => (weigh.get(b) || 0) - (weigh.get(a) || 0);
   const cardKeys = [];
   let cardRoom = 0;
@@ -639,15 +668,20 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
 
   /* Tier 4: the rotating roster — everyone else the ledger knows, one step
    * around the shelf each turn, each with how long since they were seen. */
-  const rosterPool = offScene.filter((k) => !recalled.includes(k) && !important.includes(k));
+  /* M283: THE ROSTER BY RELEVANCE, NOT BY A TURNING WHEEL. It stepped round a
+   * fixed shelf a place a page — who was named had nothing to do with where the
+   * story stood. Now the nearest to the story are named first, and the rest
+   * are counted, not hidden. (rotation is kept in the signature, unused.) */
+  void rotation;
+  const rosterPool = offScene.filter((k) => !recalled.includes(k) && !important.includes(k)).sort(byWeight);
   if (rosterPool.length) {
-    const step = ((Math.floor(rotation) % rosterPool.length) + rosterPool.length) % rosterPool.length;
-    const rotated = rosterPool.length <= lim.roster ? rosterPool : rosterPool.slice(step).concat(rosterPool.slice(0, step)).slice(0, lim.roster);
-    const line = rotated.map((k) => {
+    const shown = rosterPool.slice(0, lim.roster);
+    const line = shown.map((k) => {
       const ago = ageWords(characters[k], turn);
       return k + (ago > 0 ? ' (last seen ' + ago + (ago === 1 ? ' turn' : ' turns') + ' ago)' : ' (with us just now)');
     });
-    sections.push({ shed: 3, text: 'Elsewhere in the tale: ' + line.join(', ') + '.' });
+    const more = rosterPool.length - shown.length;
+    sections.push({ shed: 3, text: 'Elsewhere in the tale: ' + line.join(', ') + (more > 0 ? ', and ' + more + ' more the ledger knows' : '') + '.' });
     tiers.roster = line.length;
   }
 

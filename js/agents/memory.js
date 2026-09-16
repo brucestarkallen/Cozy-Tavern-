@@ -37,6 +37,7 @@
  * for next time.
  */
 
+import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker as sharedCall } from './call.js'; /* M28: the one wire path for workers */
@@ -747,7 +748,7 @@ export async function canonRecord(storyId, record) {
   try { const story = await db.stories.get(storyId); brief = String((story && story.brief) || '').trim(); } catch (err) { brief = ''; }
   try { const st = await loadState(storyId); locks = st && st.canon && typeof st.canon === 'object' ? renderCanon(st.canon, Object.keys(st.canon), Infinity) : ''; } catch (err) { locks = ''; }
   const parts = [];
-  if (brief) parts.push('THE WRITER\'S BRIEF (it outranks every page):\n' + brief.slice(0, 40000));
+  if (brief) parts.push('THE WRITER\'S BRIEF (it outranks every page):\n' + writerText(brief, BRIEF_ROOM, 'brief'));
   if (locks) parts.push('LOCKED TRUTHS:\n' + locks);
   parts.push('THE STORY SO FAR:\n' + (String(record || '').trim() || '(nothing recorded yet)'));
   return parts.join('\n\n');

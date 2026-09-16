@@ -1721,7 +1721,9 @@ test('M259-45: the people follow the room — every present person a card, the n
   const { buildRequest } = await import('../../js/assemble/stack.js');
   eq(JSON.stringify(peopleView(0)), JSON.stringify({ budget: PEOPLE_BUDGET, cards: 6, recall: 3, roster: 12 }), 'an unknown room keeps the old tiers');
   const big = peopleView(500000);
-  assert(big.cards === 12 && big.recall === 6 && big.roster === 40 && big.budget === 48000, 'a large room: ' + JSON.stringify(big));
+  assert(big.cards === 16 && big.recall === 6 && big.roster === 60 && big.budget === 72000, 'a very large room (M283): ' + JSON.stringify(big));
+  const roomy200 = peopleView(200000);
+  assert(roomy200.cards === 12 && roomy200.recall === 6 && roomy200.roster === 40 && roomy200.budget === 36000, 'a large room: ' + JSON.stringify(roomy200));
   /* a brief's cast of twenty-five, their notes kept whole */
   const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
   const names = Array.from({ length: 25 }, (_, i) => 'Person' + String.fromCharCode(65 + i) + ' Brook');
@@ -1845,4 +1847,93 @@ test('M259-47: who matters rides without a pin \u2014 a first name recalls, the 
   const req = buildRequest({ story: { title: 't', brief }, messages: [{ id: 'u1', role: 'user', text: 'Jovan looks at the door.' }], settings: {}, state: st, modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens: 500000 } });
   const wire = JSON.stringify(req);
   assert(wire.includes('Rias Wells core line') && wire.includes('away who matter most'), 'the request carries her page, and the receipt says why');
+});
+
+test('M259-48: the scribe reads the brief and every page it keeps; the writer\u2019s cast notes and the lore ride whole; the story\u2019s ground and its latest names bring people forward', async () => {
+  const sc = await import('../../js/agents/scribe.js');
+  const { renderPeopleTiers, peopleView, importanceOf, placeWords } = await import('../../js/engine/people.js');
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+  const long = (n) => ({ core: n + ' core. ' + 'y'.repeat(3000), state: n + ' state', arc: n + ' arc. ' + 'z'.repeat(3000), updatedAtTurn: 50 });
+  st.characters = { 'Chloe Maxwell': long('Chloe Maxwell'), 'Vanessa Reynolds': long('Vanessa Reynolds'), 'Maya Bell': long('Maya Bell'), 'Claire Stone': long('Claire Stone'), 'Aurora Sterling': { core: 'AURORA-PAGE the girl next door', state: 'at her window', arc: '', updatedAtTurn: 50 } };
+  st.present = ['Chloe Maxwell', 'Vanessa Reynolds', 'Maya Bell', 'Claire Stone'].map((name) => ({ name }));
+  st.page = 50;
+  /* the scribe: the brief and the cast notes ride; an off-scene person the page names is read whole beside four long present pages */
+  const m = sc.buildScribeMessages({ state: st, userText: 'u', assistantText: 'Across the lane, Aurora closed her notes.', brief: 'BRIEF-FOR-SCRIBE Aurora Sterling is the girl next door.', castNotes: 'CAST-FOR-SCRIBE' });
+  assert(m.user.includes('BRIEF-FOR-SCRIBE') && m.user.includes('CAST-FOR-SCRIBE'), 'the scribe is handed the brief and the cast notes');
+  assert(m.user.includes('AURORA-PAGE'), 'and Aurora\u2019s page, named on this page, is not shed by the present');
+  const house = thinkingHouse({ answer: '{"deltas":[]}' });
+  const sid = 'm259-scribe-brief';
+  await saveState(sid, st);
+  await withHouse(house, () => sc.scribeTurn({ connection: CONN, storyId: sid, userText: 'u', assistantText: 'Aurora waved.', brief: 'BRIEF-ON-THE-WIRE', castNotes: 'CAST-ON-THE-WIRE' }));
+  const sent = JSON.stringify(house.calls || house.state?.calls || house.requests || house);
+  assert(sent.includes('BRIEF-ON-THE-WIRE') && sent.includes('CAST-ON-THE-WIRE'), 'and its request carries them');
+
+  /* the writer's cast notes and the lore: whole in the room, cut at a line without it */
+  const cast = Array.from({ length: 300 }, (_, i) => 'Cast line ' + i + ' \u2014 ' + 'w'.repeat(50)).join('\n') + '\nLAST-CAST-LINE';
+  const lore = Array.from({ length: 200 }, (_, i) => 'Lore line ' + i + ' ' + 'v'.repeat(60)).join('\n') + '\nLAST-LORE-LINE';
+  const ask = (budgetTokens) => JSON.stringify(buildRequest({ story: { title: 't', brief: 'b', castNotes: cast }, messages: [{ id: 'u1', role: 'user', text: 'go' }], settings: {}, state: emptyState(), modules: [], memory: 'm'.repeat(29000), lore, loreFired: [{ name: 'L' }], window: { mode: 'keeper', window: 30, budgetTokens } }));
+  const roomy = ask(500000);
+  assert(roomy.includes('LAST-CAST-LINE') && roomy.includes('LAST-LORE-LINE'), 'a large room carries the cast notes and the lore whole (' + cast.length + ' and ' + lore.length + ' characters)');
+  const tight = ask(0);
+  assert(!tight.includes('LAST-CAST-LINE') && /Cast line \d+ \\u2014 w+\u2026|Cast line \d+ \u2014 w+\u2026/.test(tight), 'an unknown room still cuts \u2014 at the end of a whole line');
+  assert(!/w{1,49}\u2026/.test(tight.replace(/w{50}\u2026/g, '')), 'never mid-word');
+
+  /* the story's ground and its latest names */
+  const town = emptyState(); town.sheet = { actors: {}, playerName: 'Jovan' }; town.page = 80;
+  town.characters = { 'Ms. June': { core: 'the Bluebird waitress, refills without asking', state: 'wiping the counter', arc: '', updatedAtTurn: 60 }, 'Gerald Pike': { core: 'a farmer at the feed store', state: 'loading sacks', arc: '', updatedAtTurn: 60 }, 'Tess Ward': { core: 'a cousin', state: 'far away', arc: '', updatedAtTurn: 60 } };
+  town.place = { name: 'The Bluebird Diner \u2014 the counter' };
+  eq(placeWords(town).join(','), 'Bluebird,Diner', 'the ground by its names (\u201cthe counter\u201d names nothing)');
+  const pw = (place) => placeWords({ sheet: { actors: {}, playerName: 'Jovan Wells' }, place: { name: place } }).join(',');
+  eq(pw('Jovan\u2019s room') + '|' + pw('The Wells kitchen') + '|' + pw('Aurora\u2019s porch'), '||Aurora', 'the main character\u2019s own name and a plain room say nothing of who is near');
+  const scene = { placeWords: placeWords(town), lately: ['Jovan asked after Tess Ward.'] };
+  assert(importanceOf(town, 'Ms. June', '', 81, scene) >= 20, 'the diner\u2019s waitress, at the diner, is near the story: ' + importanceOf(town, 'Ms. June', '', 81, scene));
+  assert(importanceOf(town, 'Gerald Pike', '', 81, scene) < importanceOf(town, 'Tess Ward', '', 81, scene), 'a name the last pages keep saying weighs more than a stranger to the scene');
+  const atDiner = renderPeopleTiers(town, { recentPages: [], view: peopleView(200000), scenePages: scene.lately });
+  assert(/Away, and much on the story\u2019s mind:\nMs\. June/.test(atDiner.text), 'at the diner, Ms. June rides as a card');
+  assert(/Elsewhere in the tale: Tess Ward[^\n]*Gerald Pike/.test(atDiner.text), 'the roster names the lately-named before a stranger to the scene, whatever order the ledger holds them in');
+  const moved = { ...town, place: { name: 'The Wells kitchen' } };
+  const atHome = renderPeopleTiers(moved, { recentPages: [], view: peopleView(200000), scenePages: [] });
+  assert(!/Ms\. June \u2014/.test(atHome.text) && /Elsewhere in the tale: [^\n]*Ms\. June/.test(atHome.text), 'at home, she steps back to the roster of herself');
+});
+
+test('M259-49: every worker reads the writer\u2019s brief and cast notes whole to a large room, and a cut past it is a line that says so', async () => {
+  const { writerText, BRIEF_ROOM } = await import('../../js/engine/whole.js');
+  const big = Array.from({ length: 600 }, (_, i) => 'Brief line ' + i + ' ' + 'b'.repeat(40)).join('\n') + '\nEND-OF-BRIEF';
+  assert(big.length > 30000 && big.length < BRIEF_ROOM, 'a long brief within the room: ' + big.length);
+  eq(writerText(big, BRIEF_ROOM, 'brief'), big, 'whole within the room');
+  const huge = big.repeat(3);
+  const cut = writerText(huge, BRIEF_ROOM, 'brief', true);
+  assert(cut.length <= BRIEF_ROOM + 120 && /\nBrief line \d+ b{40}\n\(the brief continues \u2014 \d+ more characters; fetch "brief" for all of it\)$/.test(cut), 'past the room: a whole line, and it says so: ' + cut.slice(-90));
+  assert(/\(the cast notes continue \u2014 \d+ more characters not shown here\)$/.test(writerText(huge, 50000, 'cast notes')), 'a worker that cannot fetch is told what it is not shown');
+  for (const room of [39990, 40000, 40017, 50003]) {
+    const got = writerText(huge, room, 'brief');
+    const kept = got.slice(0, got.lastIndexOf('\n(the brief continues'));
+    assert(huge.startsWith(kept) && huge[kept.length] === '\n' && kept.length <= room, 'at ' + room + ' the cut falls at the end of a whole line (kept ' + kept.length + ')');
+  }
+  /* the workers' own prompts carry a brief past the old cut to its end */
+  const st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+  const ex = await import('../../js/agents/extractor.js');
+  const wo = await import('../../js/agents/world.js');
+  const co = await import('../../js/agents/continuity.js');
+  const au = await import('../../js/agents/auditor.js');
+  const fo = await import('../../js/agents/founder.js');
+  const sc = await import('../../js/agents/scribe.js');
+  const castNotes = Array.from({ length: 330 }, (_, i) => 'Cast line ' + i + ' ' + 'c'.repeat(40)).join('\n') + '\nEND-OF-CAST';
+  assert(castNotes.length > 15000 && castNotes.length < 20000, 'long cast notes within the room: ' + castNotes.length);
+  const texts = {
+    extractor: JSON.stringify(ex.buildExtractorMessages({ state: st, userText: 'u', assistantText: 'a', founding: false, brief: big, castNotes })),
+    founder: JSON.stringify(fo.buildFounderMessages({ state: st, brief: big, castNotes })),
+    scribe: JSON.stringify(sc.buildScribeMessages({ state: st, userText: 'u', assistantText: 'a', brief: big, castNotes })),
+  };
+  if (typeof wo.buildWorldMessages === 'function') texts.world = JSON.stringify(wo.buildWorldMessages({ state: st, brief: big, castNotes, pages: [{ role: 'assistant', text: 'a' }] }));
+  if (typeof au.buildAuditorMessages === 'function') texts.auditor = JSON.stringify(au.buildAuditorMessages({ state: st, pages: [{ role: 'assistant', text: 'a' }], brief: big, castNotes }));
+  if (typeof co.buildContinuityMessages === 'function') texts.continuity = JSON.stringify(co.buildContinuityMessages({ state: st, brief: big, page: 'a', pages: [] }));
+  for (const [who, t] of Object.entries(texts)) {
+    assert(t.includes('END-OF-BRIEF'), who + ' reads the brief to its end');
+    if (who !== 'continuity') assert(t.includes('END-OF-CAST'), who + ' reads the cast notes to their end');
+  }
+  assert(Object.keys(texts).length >= 5, 'the workers under test: ' + Object.keys(texts).join(', '));
+  const past = sc.buildScribeMessages({ state: st, userText: 'u', assistantText: 'a', brief: huge, castNotes: huge });
+  assert(/\(the brief continues \u2014 \d+ more characters not shown here\)/.test(past.user) && /\(the cast notes continue \u2014/.test(past.user), 'the scribe, too, is held to the room and told so');
 });
