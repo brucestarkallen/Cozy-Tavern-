@@ -1695,6 +1695,109 @@ test('DOM-25 a card shows the problem it is one part of (M273)', async () => {
   await until(() => q('#hk-sheet').hidden, 'the sheet to close', 5000);
 });
 
+test('DOM-26 a gap in the record is folded by the house itself and the light comes back green; a fill that folds nothing waits (M275)', async () => {
+  const { noteWorkerRun, loadWorkerStatus } = await import('../../js/agents/status.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const windowWas = await db.settings.get('memoryWindow');
+  const btn = q('#btn-ledger');
+  const lamp = () => (btn.classList.contains('is-working') ? 'blue' : btn.classList.contains('has-trouble') ? 'amber' : btn.classList.contains('all-well') ? 'green' : 'dark');
+  const seed = async (title, nodes, pairs = 16) => {
+    const st = await db.stories.create({ title });
+    for (let i = 0; i < pairs; i += 1) {
+      await db.messages.append(st.id, { role: 'user', text: 'on ' + i });
+      await db.messages.append(st.id, { role: 'assistant', text: 'The scene turns, page ' + i + '.' });
+    }
+    await saveState(st.id, { ...emptyState(), page: pairs - 1 });
+    await saveMemory(st.id, { window: 20, nodes });
+    for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
+    return st;
+  };
+  const keeperAsks = () => house.state.calls.filter((c) => c.isWorker && /narrative-state tracker/i.test(JSON.stringify(c.body))).length;
+  const secondLine = (tag) => ({ id: 'node-gap-' + tag, span: [6, 11], level: 1, text: 'The scene turned on and on.', at: 2, whole: true });
+  await db.settings.set('memoryWindow', 20);
+  try {
+    /* 1. a keeper that cannot fold: the gap stays, the light says so, and it is not sent again at once */
+    const bad = await seed('the gap that will not fold', [secondLine('bad')]);
+    house.state.workerAnswer = (body, sys) => (/narrative-state tracker/i.test(sys) ? '' : walkDefaultWorker(body, sys));
+    const asksBefore = keeperAsks();
+    env.window.__cozy.setActiveStoryId(bad.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => keeperAsks() > asksBefore, 'the house to send the keeper to the gap', 20000);
+    await until(() => queuedCount(bad.id) === 0 && lamp() === 'amber', 'the light to say it stopped partway: ' + lamp(), 20000);
+    const asksAfter = keeperAsks();
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await tick(1500);
+    eq(keeperAsks(), asksAfter, 'a fill that folded nothing is not tried again at once');
+    /* and it waits longer each time: a minute on, still waiting (two after a fill that folded nothing) — past two, it tries */
+    const realNow = Date.now;
+    try {
+      Date.now = () => realNow() + 61000;
+      await env.window.__cozy.chat.renderThread({ structural: true });
+      await tick(1500);
+      eq(keeperAsks(), asksAfter, 'a minute later it still waits');
+      Date.now = () => realNow() + 125000;
+      await env.window.__cozy.chat.renderThread({ structural: true });
+      await until(() => keeperAsks() > asksAfter, 'past two minutes, it tries again', 10000);
+      await until(() => queuedCount(bad.id) === 0 && !btn.classList.contains('is-working'), 'the second try to settle', 10000);
+    } finally { Date.now = realNow; }
+    house.state.workerAnswer = walkDefaultWorker;
+
+    /* 2. a keeper that can: the gap is folded with no page written, and the light is green again */
+    const good = await seed('the gap the house fills', [secondLine('good')]);
+    env.window.__cozy.setActiveStoryId(good.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(async () => (await loadMemory(good.id)).nodes.some((n) => n.span[0] === 0), 'the house to fold the gap itself', 20000);
+    await until(() => queuedCount(good.id) === 0 && lamp() === 'green', 'the light to come back green: ' + lamp(), 20000);
+    const shelfGood = (await loadWorkerStatus(good.id)) || {};
+    assert(/folded a gap in the record/.test((shelfGood.keeper || {}).detail || ''), 'and the workers line says what it did: ' + JSON.stringify(shelfGood.keeper));
+
+    /* 3. a mistaken mend put back during a page's chain: the chain's own keeper folds the gap it leaves */
+    const mended = await seed('the mend put back', [{ id: 'node-mend-a', span: [0, 5], level: 1, text: 'The scene turned early.', at: 1, whole: true }, secondLine('mend')]);
+    const pages = await db.messages.list(mended.id);
+    const pg = pages[3];
+    await db.messages.update(mended.id, pg.id, { text: 'The scene turns, page 1, MENDED WRONGLY.', mended: { before: pg.text, why: 'Snippet says the scene turns, but the passage says it does not', at: 1 } });
+    env.window.__cozy.setActiveStoryId(mended.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
+    click(q('.msg-act[data-act="go on"]'));
+    await until(async () => { const m = (await db.messages.list(mended.id)).find((x) => x.id === pg.id); return m && !m.mended; }, 'the mend to be put back', 40000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(mended.id) === 0 && !q('.msg.pending'), 'the chain to finish', 40000);
+    assert((await loadMemory(mended.id)).nodes.some((n) => n.span[0] <= 3 && n.span[1] >= 3), 'the page put back is on the record again, folded from its own words');
+    const detail = (((await loadWorkerStatus(mended.id)) || {}).keeper || {}).detail || '';
+    assert(!/folded a gap/.test(detail), 'folded by the chain\u2019s keeper in its first pass — the put-back comes before the fold: ' + detail);
+    await until(() => lamp() === 'green' || lamp() === 'dark' || lamp() === 'amber', 'the light to settle', 5000);
+
+    /* 4. a page mended while the keeper folds its LAST batch of the run: the gap it leaves is folded in the same job */
+    const late = await seed('the mend in the last batch', [], 19);
+    const latePages = await db.messages.list(late.id);
+    await db.messages.update(late.id, latePages[15].id, { text: 'Kim is the mother here, the page says.' });
+    /* a worker marked stumbling keeps the light from folding the backlog before the page's own chain does */
+    await noteWorkerRun(late.id, 'world', { ok: false, why: 'held for the scenario' });
+    house.state.workerAnswer = (body, sys) => {
+      const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+      if (/Check for exactly two things/.test(JSON.stringify(body)) && /Kim is the mother/.test(user)) {
+        return JSON.stringify([{ issue: 'The passage names Kim as the mother, but the record establishes Kris', fix: 'Kris is the mother', kind: 'continuity', where: 'source' }]);
+      }
+      return walkDefaultWorker(body, sys);
+    };
+    env.window.__cozy.setActiveStoryId(late.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
+    click(q('.msg-act[data-act="go on"]'));
+    await until(async () => /Kris is the mother/.test(((await db.messages.list(late.id)).find((m) => m.id === latePages[15].id) || {}).text || ''), 'the page to be mended while its batch is folded', 40000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(late.id) === 0 && !q('.msg.pending'), 'the chain to finish', 40000);
+    const lateMem = await loadMemory(late.id);
+    assert(lateMem.nodes.some((n) => n.span[0] <= 15 && n.span[1] >= 15), 'the mended page is on the record again');
+    const lateDetail = (((await loadWorkerStatus(late.id)) || {}).keeper || {}).detail || '';
+    assert(/^wrote .*· folded a gap in the record/.test(lateDetail), 'folded by the chain\u2019s own keeper, in the same job: ' + lateDetail);
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+    await db.settings.set('memoryWindow', windowWas);
+  }
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

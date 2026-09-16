@@ -601,7 +601,8 @@ test('M254: green means read, folded and waiting on nothing — and a third coat
     'and knows when the house is still at work');
   assert(/onWorkerChange\(\(\) => \{/.test(chat), 'the light follows the work, not the redraw');
   assert(/const ledgerBehind = told > 0 && readTo < told - 1;/.test(chat), 'the ledger must have read every page told');
-  assert(/const recordBehind = Boolean\(dueRange\(pages\.length, window, mem\.nodes, batch\)\);/.test(chat),
+  /* M275: declared beside `behind` so the light can send the keeper to a gap it sees */
+  assert(/recordBehind = Boolean\(dueRange\(pages\.length, window, mem\.nodes, batch\)\);/.test(chat) && /if \(recordBehind && !busy && !trouble\) fillRecordGap\(storyId\);/.test(chat),
     'and the record must have nothing due');
   assert(/catch \(err\) \{ behind = true; \}/.test(chat), 'and if it cannot be checked, it is NOT green');
   assert(/everything is read and folded\. Nothing is waiting\. Write on\./.test(chat), 'and it says so plainly');

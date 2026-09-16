@@ -172,8 +172,7 @@ async function runJob(job) {
       /* M207: a job that works in rounds renews its leash each round */
       const value = await job.run({ signal, stale: isStale, renew });
       done();
-      markWorkerRunning(storyId, name, false);
-      if (isStale()) return { ok: false, stale: true, why: 'left behind' };
+      if (isStale()) { markWorkerRunning(storyId, name, false); return { ok: false, stale: true, why: 'left behind' }; }
       /* The job may ask for silence (a switch was off, nothing to note);
        * every honest run is otherwise written on the workers line. */
       if (!value || value.silent !== true) {
@@ -186,6 +185,10 @@ async function runJob(job) {
           resume: value && value.resume,
         });
       }
+      /* M275: SETTLED AFTER THE RESULT IS WRITTEN. It was marked settled first,
+       * and the light, which looks the moment a worker settles, read the result
+       * before this one — green for an instant after a job that stopped partway. */
+      markWorkerRunning(storyId, name, false);
       stopping.delete(storyId);
       return { ok: true, value };
     } catch (err) {

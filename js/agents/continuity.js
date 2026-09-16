@@ -325,5 +325,18 @@ export function editDistanceRatio(a, b) {
   let same = 0;
   for (const line of lb) if (set.has(line)) same += 1;
   const total = Math.max(la.length, lb.length, 1);
-  return 1 - same / total;
+  const byLines = 1 - same / total;
+  /* M275: A PAGE OF ONE PARAGRAPH IS ONE LINE, and by lines any mend of it —
+   * one word — read as a whole rewrite and was dropped without a word: a
+   * one-paragraph page could never be mended. By words for a page of one
+   * line; a page of several lines keeps the stricter of the two, as strict as
+   * it ever was. */
+  const words = (t) => String(t || '').toLowerCase().split(/\s+/).filter(Boolean);
+  const wa = words(a); const wb = words(b);
+  const pool = new Map();
+  for (const w of wb) pool.set(w, (pool.get(w) || 0) + 1);
+  let kept = 0;
+  for (const w of wa) { const c = pool.get(w) || 0; if (c > 0) { kept += 1; pool.set(w, c - 1); } }
+  const byWords = 1 - kept / Math.max(wa.length, wb.length, 1);
+  return Math.max(la.length, lb.length) <= 1 ? byWords : Math.max(byLines, byWords);
 }

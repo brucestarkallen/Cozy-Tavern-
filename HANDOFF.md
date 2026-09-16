@@ -1,12 +1,12 @@
-# Cozy Tavern — handoff for the next session (state at m274-001)
+# Cozy Tavern — handoff for the next session (state at m275-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M274). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M275). SPEC.md holds the founding design.
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 532 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 533 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 44 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 45 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -37,6 +37,8 @@ Full history of every law and fix: AGENTS.md (M1 … M274). SPEC.md holds the fo
 - Nothing goes stale by itself (M261): the ground moving lets positions go; one place under two
   spellings is one place; an untouched thread cools after 15 pages; the code upkeep (retire,
   sweep, clear seats) runs on every page, audited or not (ledgerUpkeep).
+- The light repairs what it sees (M275): a record gap seen while idle sends the keeper (backing off
+  when it folds nothing); a job is settled only after its result is written.
 - Card groups (M273): cards that fix one problem share a group (named by the housekeeper, or joined by
   the house on the same reason or the same change); a withdrawal takes the whole group ("only:" one).
 - The housekeeper's cards (M272): every card name is unique in its session (withdrawal is by name);

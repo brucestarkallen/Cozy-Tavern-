@@ -1484,3 +1484,23 @@ test('M259-38: the last quiet cuts — a correction, the director\u2019s brief a
   const cut = why(huge);
   assert(cut.length <= 600 && cut.endsWith('…') && !/\s…$/.test(cut) && huge.startsWith(cut.slice(0, -1)), 'a runaway reason is cut on a word, visibly: ' + cut.slice(-40));
 });
+
+test('M259-39: a job is settled only after its result is written — the light never reads the result before it', async () => {
+  const { enqueueWork } = await import('../../js/agents/queue.js');
+  const { onWorkerChange, runningWorkers, loadWorkerStatus, noteWorkerRun } = await import('../../js/agents/status.js');
+  const sid = 'm259-settle-order';
+  await noteWorkerRun(sid, 'keeper', { ok: true, detail: 'THE-OLD-RESULT' });
+  const seenAtSettle = [];
+  let started = false;
+  const off = onWorkerChange(() => {
+    if (!started || runningWorkers(sid).includes('keeper')) return;
+    /* the light's own look: the moment the keeper is no longer running */
+    seenAtSettle.push(loadWorkerStatus(sid).then((shelf) => (shelf.keeper || {}).detail));
+  });
+  try {
+    await enqueueWork(sid, { name: 'keeper', run: async () => { started = true; await new Promise((r) => setTimeout(r, 5)); return { silent: false, detail: 'THE-NEW-RESULT', unfinished: true }; } });
+    const details = await Promise.all(seenAtSettle);
+    assert(details.length > 0, 'the light looked when the job settled');
+    eq(details[0], 'THE-NEW-RESULT', 'and its first look already found this job\u2019s result, not the one before');
+  } finally { off(); }
+});

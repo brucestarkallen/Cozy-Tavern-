@@ -55,7 +55,7 @@ import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
@@ -1706,6 +1706,7 @@ export function initChat(ctx) {
        * Anything short of all four and it is not green. A light that lies once
        * is worse than no light. */
       let behind = false;
+      let recordBehind = false;
       let told = 0;
       try {
         const pages = visiblePages(await db.messages.list(storyId));
@@ -1717,7 +1718,7 @@ export function initChat(ctx) {
         const mem = await loadMemory(storyId);
         const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
         const batch = cleanBatch(await db.settings.get('memoryBatch'));
-        const recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
+        recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
         behind = ledgerBehind || recordBehind;
       } catch (err) { behind = true; }   /* if it cannot be checked, it is not green */
 
@@ -1743,7 +1744,61 @@ export function initChat(ctx) {
           : allWell ? 'The ledger — everything is read and folded. Nothing is waiting. Write on.'
             : 'The ledger — the house’s memory of the scene and the world');
       ledgerMark = busy ? 'working' : trouble ? 'trouble' : partly ? 'partly' : allWell ? 'well' : null;
+      /* M275: THE HOUSE FILLS WHAT THE LIGHT SEES. A gap in the record (a line
+       * let go by a mend, an edit or a delete of an old page) kept the light
+       * dark until the writer's next page — detection without repair. Seen
+       * while the house is idle and no worker is failing, the keeper is sent to
+       * fold it, once a minute at most for each tale. */
+      if (recordBehind && !busy && !trouble) fillRecordGap(storyId);
     } catch (err) { /* a mark is never worth a thrown turn */ }
+  }
+
+  const gapFilledAt = new Map();
+  const gapTries = new Map(); /* fills in a row that folded nothing — each waits twice as long */
+  async function recordGap(storyId) {
+    const mem = await loadMemory(storyId);
+    const pages = visiblePages(await db.messages.list(storyId));
+    const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
+    const batch = cleanBatch(await db.settings.get('memoryBatch'));
+    return Boolean(dueRange(pages.length, window, mem.nodes, batch));
+  }
+  const coveredCount = async (storyId) => coveredSet((await loadMemory(storyId)).nodes).size;
+  async function fillRecordGap(storyId) {
+    try {
+      const tries = gapTries.get(storyId) || 0;
+      /* a fill that folds nothing is not tried again every minute for ever:
+       * one minute, two, four … thirty at most */
+      if (Date.now() - (gapFilledAt.get(storyId) || 0) < Math.min(30 * 60000, 60000 * 2 ** tries)) return;
+      if (workIsRunning(storyId) || queuedCount(storyId) > 0) return;
+      const story = await db.stories.get(storyId);
+      if (!story || story.keeper === false) return;
+      if (story.keeper !== true && (await db.settings.get('memoryKeeper')) === false) return;
+      const connection = await resolveWorkerConnection(story, 'keeper');
+      if (!connection) return;
+      gapFilledAt.set(storyId, Date.now());
+      const promise = enqueueWork(storyId, { name: 'keeper', run: async ({ signal, stale, renew }) => {
+        if (!(await recordGap(storyId))) { gapTries.delete(storyId); return { silent: true }; }
+        const before = await coveredCount(storyId);
+        /* a line's passage that contradicts the record is mended here too, as in the page's own chain */
+        const onSourceIssue = async ({ issue, fix, span }) => {
+          const all = await db.messages.list(storyId);
+          const ids = all.slice(span[0], span[1] + 1).map((m) => m.id);
+          await mendAround(story, connection, ids, issue + (fix ? '. It should read: ' + fix : ''), signal);
+        };
+        await maybeSummarize({ connection, storyId, signal, stale, renew, recordRoomChars: await recordRoomFor(story), onSourceIssue });
+        const moved = (await coveredCount(storyId)) > before;
+        const still = await recordGap(storyId);
+        if (!still) gapTries.delete(storyId);
+        else if (moved) gapTries.set(storyId, 0); /* a backlog folding on: soon again */
+        else gapTries.set(storyId, tries + 1);
+        return {
+          silent: false,
+          detail: !still ? 'folded a gap in the record' : moved ? 'folded part of a gap in the record — the rest follows' : 'could not fold a gap in the record yet — it tries again later',
+          unfinished: still,
+        };
+      } });
+      noteWork(storyId, promise);
+    } catch (err) { /* the next look tries again */ }
   }
 
 
@@ -2471,21 +2526,9 @@ export function initChat(ctx) {
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
       const beforeCount = (await loadMemory(story.id)).nodes.length;
-      const mem = await maybeSummarize({
-        connection,
-        storyId: story.id,
-        signal,
-        renew, /* M259: every call gets its own minute (M213) — the chain never handed it over */
-        recordRoomChars: await recordRoomFor(story), /* M264: squeeze only when it would not fit */
-        stale, /* M72: a keeper whose ledger was rewound under it writes nothing */
-        /* M35: a line's passage contradicts the record → mend those pages */
-        onSourceIssue: async ({ issue, fix, span }) => {
-          const all = await db.messages.list(story.id);
-          const ids = all.slice(span[0], span[1] + 1).map((m) => m.id);
-          await mendAround(story, connection, ids, issue + (fix ? '. It should read: ' + fix : ''), signal);
-        },
-      });
-      /* M268: a mend that should never have been is put back first, by the house */
+      /* M268: a mend that should never have been is put back FIRST — M275: it
+       * lets go of the record line over that page, and put back after the fold
+       * the gap stood until the next page, and the green light with it */
       let putBack = [];
       /* once a session for each tale — M268 keeps new ones from being made, and
        * the look reads every page */
@@ -2495,6 +2538,21 @@ export function initChat(ctx) {
       }
       for (const id of putBack) { try { await rerenderMessage(story.id, id); } catch (err) { /* the next render shows it */ } }
       if (putBack.length) toast('The house put back ' + putBack.length + (putBack.length === 1 ? ' page it had' : ' pages it had') + ' mended by mistake — the storyteller’s own words are back.');
+      /* M35: a line's passage contradicts the record → mend those pages */
+      const onSourceIssue = async ({ issue, fix, span }) => {
+        const all = await db.messages.list(story.id);
+        const ids = all.slice(span[0], span[1] + 1).map((m) => m.id);
+        await mendAround(story, connection, ids, issue + (fix ? '. It should read: ' + fix : ''), signal);
+      };
+      let mem = await maybeSummarize({
+        connection,
+        storyId: story.id,
+        signal,
+        renew, /* M259: every call gets its own minute (M213) — the chain never handed it over */
+        recordRoomChars: await recordRoomFor(story), /* M264: squeeze only when it would not fit */
+        stale, /* M72: a keeper whose ledger was rewound under it writes nothing */
+        onSourceIssue,
+      });
       /* M262: THE LINES THE OLD KEEPER READ IN PART are read again, two a page,
        * from whole pages — each line swaps whole, so the record is never
        * missing a line while it heals; a line that will not come back after
@@ -2520,7 +2578,18 @@ export function initChat(ctx) {
           }
         }
       } catch (err) { /* the next page carries on */ }
-      const healed = reread ? ` · read ${reread} older ${reread === 1 ? 'line' : 'lines'} again from whole pages` : '';
+      /* M275: A GAP THIS JOB OPENED IS FILLED IN THIS JOB. A page mended while
+       * its batch was folded lets its new line go again; the record stood with a
+       * hole until the next page, and the light stayed dark meanwhile. */
+      let filled = false;
+      try {
+        if (!stale() && (await recordGap(story.id))) {
+          const again = await maybeSummarize({ connection, storyId: story.id, signal, renew, recordRoomChars: await recordRoomFor(story), stale, onSourceIssue });
+          if (again) { mem = again; filled = true; }
+        }
+      } catch (err) { /* the light asks again when the house is idle */ }
+      const healed = (reread ? ` · read ${reread} older ${reread === 1 ? 'line' : 'lines'} again from whole pages` : '')
+        + (filled ? ' · folded a gap in the record' : '');
       if (!mem) return { silent: false, detail: 'nothing due yet' + healed };
       const lines = mem.nodes.filter((n) => !n.empty).length;
       const added = mem.nodes.length - beforeCount;

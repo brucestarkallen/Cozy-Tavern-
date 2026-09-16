@@ -5810,3 +5810,37 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   own call. 6 deliberate breaks caught.
 - Every suite, each run alone: 532/532 harness, 44/44 walk, 8/8 play, two-browser 11/11,
   housekeeper_rounds 16/16, perf (housekeeper, story) within budget. version.js -> m274-001.
+
+# M275 — the green light comes back by itself: a gap the house opens, the house folds
+- THE WRITER (a screenshot, no light on the ledger button): "Explain why the green neon is gone!"
+  The light is green only when every minder ran well, none stopped partway, the ledger has read
+  every page and the RECORD HAS NO GAP; short of that and not working or troubled, it is dark.
+- THE CAUSE, MINE (M268): putting back a mistaken mend lets go of the record line over that page
+  (so the keeper folds it again from the storyteller's own words) — and the keeper job did it
+  AFTER its fold. The gap stood until the writer's next page, and the light stayed dark. His
+  story held such a mend ("Jovan is seventeen"), so the first page after updating opened it.
+- FIXED, AND MADE TO REPAIR ITSELF:
+  1. the put-back comes BEFORE the fold, in the same job;
+  2. a keeper job ends by folding any gap it opened (a page mended while its LAST batch of the run
+     was folded lets that line go after the loop has finished);
+  3. THE HOUSE FILLS WHAT THE LIGHT SEES (fillRecordGap): a gap seen while the house is idle and
+     no worker is failing sends the keeper — a mend, an edit or a delete of an old page leaves one
+     too. A fill that folds nothing waits twice as long each time (1, 2, 4 … 30 minutes — never a
+     model call a minute for ever); one that folds part of a backlog comes back in a minute; a gap
+     that remains is said as amber ("stopped partway; it will carry on by itself"). The idle fill
+     hands a contradiction to the mender as the page's own chain does.
+  4. SETTLED AFTER THE RESULT IS WRITTEN (queue.js): a job was marked settled before its result
+     was written, and the light, which looks the moment a worker settles, read the result before
+     it — green for an instant after a job that stopped partway.
+- AND AN OLDER BUG THE TEST FOUND: the mender refuses a change larger than half a page, and
+  measured it BY LINES — a page of one paragraph is one line, so any mend of it (one word) read as
+  a whole rewrite and was dropped without a word. A one-line page is measured by words now; a page
+  of several lines keeps the stricter of the two, as strict as it was.
+- Laws: M259-39 (the settle order — the old order fails it), M35-3 (the measure), M254 and M35-4
+  read the new wiring; DOM-26 in four parts (a keeper that cannot fold: amber, no retry at once, a
+  minute on still waiting, past two it tries — the clock moved; a keeper that can: the gap folded
+  with no page written and the light green; a mistaken mend put back during a page's chain: folded
+  in the chain's first pass; a page mended in the last batch of the run: folded in the same job).
+- 5 deliberate breaks of DOM-26 caught (each fix undone in a copy); the settle order's too.
+- 533/533 harness + 45/45 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf
+  within budget + lint 0 errors. version.js -> m275-001.

@@ -55,6 +55,11 @@ test('M35-3 the mend: the smallest edit to a storyteller page only; a rewrite is
   const m = buildMendMessages({ record: 'R', contradiction: 'C', pages: [{ role: 'user', text: 'u' }, { role: 'assistant', text: 'a' }], playerName: 'Jovan' });
   assert(m.user.includes('[0] (PLAYER) u') && m.user.includes('[1] (STORY) a') && /Never edit a \(PLAYER\) page/.test(m.user));
   eq(editDistanceRatio('a\nb\nc', 'a\nb\nc'), 0); eq(editDistanceRatio('a\nb', 'x\ny'), 1);
+  /* M275: a one-paragraph page, one word mended, is a small change — it read as a whole rewrite */
+  assert(editDistanceRatio('Kim is the mother here, the page says.', 'Kris is the mother here, the page says.') < 0.2, 'one word of a one-line page is a small change');
+  assert(editDistanceRatio('Kim is the mother here, the page says.', 'A storm rolls over the harbor tonight.') > 0.5, 'a new sentence is still a rewrite');
+  assert(editDistanceRatio('the first line\nthe second line\nthe third line', 'the first line\nthe other line\nthe third line') >= 1 / 3 - 1e-9, 'a page of several lines is measured as strictly as before (one line of three changed is a third)');
+  eq(editDistanceRatio('a b\nc d', 'x y\nz w'), 1, 'and a page changed through and through is a rewrite');
   const applied = [];
   const answer = JSON.stringify([
     { index: 0, text: 'PLAYER EDITED' },
@@ -82,7 +87,8 @@ test('M35-4 the second reader’s findings carry a fix on a warn; the house mend
   assert(/async function mendAround/.test(chat) && /async function unmend/.test(chat));
   assert(/act === 'unmend'/.test(chat), 'the chip is routed');
   assert(/\(await db\.settings\.get\('continuityCheck'\)\) !== false/.test(chat), 'the second reader is on unless switched off');
-  assert(/onSourceIssue: async \(\{ issue, fix, span \}\)/.test(chat), 'the keeper hands source issues to the mender');
+  /* M275: the handler is named once and handed to both of the keeper job's folds */
+  assert(/const onSourceIssue = async \(\{ issue, fix, span \}\) => \{[\s\S]{0,300}await mendAround\(/.test(chat) && (chat.match(/stale,[^\n]*\n?\s*onSourceIssue,?\s*\}\)|stale, onSourceIssue \}\)/g) || []).length >= 2, 'the keeper hands source issues to the mender, in both folds');
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
   assert(html.includes('id="mend-pages"'));
   const settings = readFileSync(new URL('../../js/ui/settings.js', import.meta.url), 'utf8');
