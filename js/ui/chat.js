@@ -3214,6 +3214,8 @@ export function initChat(ctx) {
       pendingLabel.textContent = 'the storyteller';
       pending.appendChild(pendingLabel);
       let thinkDetails = null;
+      let thinkPaintQueued = false; /* M269 */
+      const LIVE_THINKING_TAIL = 4000;
       let thinkBody = null;
       const body = document.createElement('div');
       body.className = 'msg-body';
@@ -3318,9 +3320,17 @@ export function initChat(ctx) {
                   thinkDetails = thinkingNode('', 1);
                   thinkBody = thinkDetails.querySelector('.thinking-body');
                   pending.insertBefore(thinkDetails, body);
+                  if (!sawProse) thinkDetails.open = true;
                 }
-                thinkBody.textContent = thinking;
-                if (!sawProse) thinkDetails.open = true;
+                /* M269: the thinking is drawn once a frame, and while it streams only
+                 * its newest part — it was rewritten whole on every piece */
+                if (!thinkPaintQueued) {
+                  thinkPaintQueued = true;
+                  (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn) => setTimeout(fn, 16))(() => {
+                    thinkPaintQueued = false;
+                    if (thinkBody) thinkBody.textContent = thinking.length > LIVE_THINKING_TAIL ? '…' + thinking.slice(-LIVE_THINKING_TAIL) : thinking;
+                  });
+                }
               }
             } else if (channel === 'prose') {
               if (!sawProse) {
@@ -3335,6 +3345,8 @@ export function initChat(ctx) {
           },
         });
         full = result.text;
+        /* M269: the whole thinking, once, now that it is done */
+        if (thinkBody) thinkBody.textContent = thinking;
         /* M22: the provider's kind words (a refusal retried once, a
          * prefill that stayed home) reach the writer as toasts, and the
          * search's findings land on the page. */

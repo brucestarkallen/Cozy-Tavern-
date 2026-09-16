@@ -785,6 +785,62 @@ export function initHousekeeper(ctx) {
     let liveThinking = ''; /* M80: what streamed, kept here too — never lost to a round or a wire that returned it empty */
     let thinkFold = null;
     let thinkBody = null;
+    /* M269: what streamed since the last frame, drawn once a frame */
+    let waitingThink = '';
+    let waitingProse = '';
+    let drawQueued = false;
+    let proseBegun = false;
+    const atBottom = () => thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80;
+    let streamDone = false;
+    let thinkTail = null;
+    const LIVE_THINKING_TAIL = 4000;
+    const drawStream = () => {
+      drawQueued = false;
+      if (streamDone) return;
+      const follow = atBottom();
+      if (waitingThink) {
+        if (!thinkFold) {
+          thinkFold = document.createElement('details');
+          thinkFold.className = 'hk-thinking';
+          thinkFold.open = true;
+          const sum = document.createElement('summary');
+          sum.textContent = 'How it’s weighing it…';
+          thinkBody = document.createElement('div');
+          thinkBody.className = 'hk-thinking-body';
+          thinkFold.append(sum, thinkBody);
+          pendingBubble.before(thinkFold);
+        }
+        /* while it thinks, the newest of it — a hundred thousand characters laid
+         * out again every frame is what a phone cannot do; the whole of it is
+         * kept on the turn and shown, folded, when the answer is in */
+        if (!thinkTail) {
+          thinkTail = document.createTextNode('');
+          thinkBody.appendChild(thinkTail);
+        }
+        thinkTail.data = liveThinking.length > LIVE_THINKING_TAIL ? '…' + liveThinking.slice(-LIVE_THINKING_TAIL) : liveThinking;
+        waitingThink = '';
+      }
+      if (waitingProse) {
+        if (!proseBegun) {
+          proseBegun = true;
+          pendingBubble.textContent = '';
+          if (thinkFold) {
+            thinkFold.open = false;
+            thinkFold.querySelector('summary').textContent = 'How it weighed it';
+            if (!thinkFold.querySelector('.thinking-copy')) {
+              const copy = document.createElement('button');
+              copy.type = 'button'; copy.className = 'text-btn thinking-copy'; copy.textContent = 'Copy the thinking';
+              copy.addEventListener('click', async (e) => { e.preventDefault(); try { await navigator.clipboard.writeText(liveThinking); copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy the thinking'; }, 1500); } catch (err) { copy.textContent = 'Couldn’t copy'; } });
+              thinkFold.appendChild(copy);
+            }
+          }
+        }
+        pendingBubble.appendChild(document.createTextNode(waitingProse));
+        waitingProse = '';
+      }
+      tick();
+      if (follow) thread.scrollTop = thread.scrollHeight;
+    };
     /* M83: Chat Assistant's stall watchdog — a wire that goes silent for
      * hkStallSec (default 300; 0 = off) is cut with a loud word, never left
      * holding the housekeeper forever */
@@ -812,42 +868,32 @@ export function initHousekeeper(ctx) {
         directorText: renderDirectorNote(director),
         editorText: renderEditorNote(editor),
         onToken: (tok) => {
+          /* M269: A PIECE OF THE STREAM COSTS NOTHING. Every piece rewrote the
+           * whole thinking and the whole answer (textContent +=, which reads and
+           * rewrites all of it), redrew the status line and forced a layout by
+           * scrolling — thousands of times, each dearer than the last: measured
+           * in a real browser at a phone's speed, a five-second stream took 158
+           * seconds to show, the screen frozen for 139 of them. A piece is kept
+           * in a string now; once a frame, what came is appended as new text. */
           lastBeat = Date.now();
-          if (tok && tok.channel === 'thinking' && typeof tok.text === 'string') {
+          if (!tok || typeof tok.text !== 'string' || !tok.text) return;
+          if (tok.channel === 'thinking') {
             thinkChars += tok.text.length;
             liveThinking += tok.text;
-            if (!thinkFold) {
-              thinkFold = document.createElement('details');
-              thinkFold.className = 'hk-thinking';
-              thinkFold.open = true;
-              const sum = document.createElement('summary');
-              sum.textContent = 'How it’s weighing it…';
-              thinkBody = document.createElement('div');
-              thinkBody.className = 'hk-thinking-body';
-              thinkFold.append(sum, thinkBody);
-              pendingBubble.before(thinkFold);
-            }
-            thinkBody.textContent += tok.text;
-            tick();
-            thread.scrollTop = thread.scrollHeight;
-          } else if (tok && tok.channel === 'prose' && typeof tok.text === 'string') {
-            if (!answerChars && thinkFold) {
-              thinkFold.open = false; thinkFold.querySelector('summary').textContent = 'How it weighed it';
-              if (!thinkFold.querySelector('.thinking-copy')) {
-                const copy = document.createElement('button');
-                copy.type = 'button'; copy.className = 'text-btn thinking-copy'; copy.textContent = 'Copy the thinking';
-                copy.addEventListener('click', async (e) => { e.preventDefault(); try { await navigator.clipboard.writeText(liveThinking); copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy the thinking'; }, 1500); } catch (err) { copy.textContent = 'Couldn’t copy'; } });
-                thinkFold.appendChild(copy);
-              }
-            }
+            waitingThink += tok.text;
+          } else if (tok.channel === 'prose') {
             answerChars += tok.text.length;
-            pendingBubble.textContent += tok.text;
-            pendingBubble.textContent = pendingBubble.textContent.replace(/^…/, '');
-            tick();
-            thread.scrollTop = thread.scrollHeight;
+            waitingProse += tok.text;
+          } else {
+            return;
           }
+          if (!drawQueued) { drawQueued = true; (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn) => setTimeout(fn, 16))(drawStream); }
         },
       });
+      /* M269: the last pieces are drawn before the answer is read; a frame
+       * that comes later draws nothing into a bubble that is gone */
+      if (drawQueued || waitingThink || waitingProse) drawStream();
+      streamDone = true;
       await noteWorkerRun(story.id, 'housekeeper', {
         ok: result.ok === true,
         why: result.error || '',
@@ -913,6 +959,7 @@ export function initHousekeeper(ctx) {
       statusLine.textContent = 'It stumbled: ' + ((err && err.message) || 'unknown') + '. Nothing was changed.';
     } finally {
       clearInterval(ticker);
+      streamDone = true; /* M269: a stumbled or cut turn draws nothing later either */
       if (thinkFold && thinkFold.isConnected) thinkFold.remove(); /* render() draws the kept thinking from the turn */
       workerCtl = null;
       setBusy(false);

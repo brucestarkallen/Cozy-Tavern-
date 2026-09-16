@@ -5621,3 +5621,30 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   no-change lines), M259-34 (the put-back, a right mend kept, the line let go, never twice),
   DOM-24 (in the real chain, by itself, said out loud). 7 deliberate breaks caught.
 - 528/528 harness + 43/43 walk + 8/8 play. version.js -> m268-001.
+
+# M269 — a streamed piece costs nothing: the housekeeper never freezes the screen
+- THE WRITER: "SillyTavern is smooth; the housekeeper, while it thinks, lags and freezes the
+  whole screen." Measured, not guessed: tests/perf_housekeeper.py — a real Chromium on a
+  phone's viewport, the CPU slowed 6x, the real serve.py, and a fake model streaming a long
+  thinking and an answer in small pieces the way DeepSeek does.
+- THE CAUSE: for every piece, the housekeeper rewrote the WHOLE thinking and the WHOLE answer
+  (textContent +=, which reads all of it and writes all of it back — the answer twice),
+  redrew the status line, and forced a layout by scrolling to the bottom. Thousands of pieces,
+  each dearer than the last. At 1,500 thinking pieces and 300 answer pieces (a five-second
+  stream): 157.6 seconds to show, the screen frozen for 139,361 ms, 56 frames in all, 156,458 ms
+  of long tasks.
+- FIXED: a piece goes into a string; once a frame what came is drawn — the answer appended as
+  new text, the status line once, the scroll only when the writer is already at the bottom;
+  while it thinks, the fold shows the newest 4,000 characters (a hundred thousand laid out
+  every frame is what a phone cannot do) and the whole thinking is kept on the turn and shown
+  when the answer is in; the last pieces are drawn when the turn ends and a late frame draws
+  nothing. Same stream after: 6.7 s, worst frame 83 ms, p95 33 ms, 154 ms of long tasks. Twice
+  the size (102,033 characters of thinking): worst 83 ms, p95 17 ms, 95 ms of long tasks.
+- THE STORYTELLER'S OWN STREAM had the same fault in its thinking fold (rewritten whole on each
+  piece; the prose was already paced by its paint cost): at the half size, 204 frames, p95 67
+  ms, 898 ms of long tasks → 352 frames, p95 33 ms, 0 ms. The whole thinking is written once
+  when the page is in.
+- THE TEST: `python3 tests/perf_housekeeper.py` (SCENARIO=story for the storyteller; the
+  service worker blocked so its update reload cannot land mid-measure); it exits 1 past its
+  budget (a 250 ms frame, 3 s of long tasks at 6x). Run it before any change to a streaming view.
+- 528/528 harness + 43/43 walk + 8/8 play + both streaming measurements within budget. version.js -> m269-001.
