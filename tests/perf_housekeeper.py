@@ -24,7 +24,10 @@ THINK_DELTAS = int(os.environ.get('THINK_DELTAS', '3000'))
 ANSWER_DELTAS = int(os.environ.get('ANSWER_DELTAS', '600'))
 GAP = float(os.environ.get('GAP', '0.003'))
 THROTTLE = float(os.environ.get('THROTTLE', '6'))
-SCENARIO = os.environ.get('SCENARIO', 'housekeeper')  # or 'story': the storyteller's own stream
+SCENARIO = os.environ.get('SCENARIO', 'housekeeper')  # or 'story': the storyteller's own stream; 'bigfetch': two big rounds with a look-up
+PAGES = int(os.environ.get('PAGES', '150' if os.environ.get('SCENARIO') == 'bigfetch' else '60'))
+HISTORY_TURNS = int(os.environ.get('HISTORY_TURNS', '0'))  # past turns already in the session, each with a big thinking
+PAGE_WORDS = int(os.environ.get('PAGE_WORDS', '260' if os.environ.get('SCENARIO') == 'bigfetch' else '120'))
 # the budget: at a 6x throttle, no frame may stall the screen
 BUDGET = {'worst_frame_ms': 250, 'long_task_total_ms': 3000}
 
@@ -59,6 +62,8 @@ class Fake(BaseHTTPRequestHandler):
         n = int(self.headers.get('Content-Length', '0'))
         body = json.loads(self.rfile.read(n) or b'{}')
         answer = ' '.join('word%04d' % i for i in range(ANSWER_DELTAS))
+        second = 'What you asked for, whole' in json.dumps(body.get('messages', []))
+        lookup = SCENARIO == 'bigfetch' and not second
         if not body.get('stream'):
             out = json.dumps({'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': answer}, 'finish_reason': 'stop'}]}).encode()
             self.send_response(200)
@@ -85,6 +90,9 @@ class Fake(BaseHTTPRequestHandler):
             for i in range(ANSWER_DELTAS):
                 send({'choices': [{'index': 0, 'delta': {'content': 'word%04d ' % i}}]})
                 time.sleep(GAP)
+            if lookup:
+                refs = ['%d' % k for k in range(2, 26, 2)] + ['find: kitchen', 'find: the words of', 'find: long page']
+                send({'choices': [{'index': 0, 'delta': {'content': ' <fetch>' + json.dumps(refs) + '</fetch>'}}]})
             send({'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}]})
             self.wfile.write(b'data: [DONE]\n\n')
             self.wfile.flush()
@@ -117,19 +125,34 @@ def main():
             page.on('pageerror', lambda e: errors.append(str(e)))
             page.goto(f'http://127.0.0.1:{PORT}/')
             page.wait_for_function('window.__cozy && window.__cozy.chat', timeout=30000)
-            page.evaluate('''async (fake) => {
+            page.evaluate('''async ([fake, pages, words, history]) => {
               const { db } = await import('/js/store.js');
               const conn = await db.connections.add({ label: 'fake', type: 'openai', baseUrl: fake, apiKey: 'x', model: 'fake', contextSize: 300000 });
               await db.settings.set('activeConnectionId', conn.id);
               const st = await db.stories.create({ title: 'perf' });
               await db.stories.update(st.id, { brief: 'A long story. '.repeat(300) });
-              for (let i = 0; i < 60; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i + ' ' + 'the words of a long page go on. '.repeat(120) });
+              for (let i = 0; i < pages; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i + ' in the kitchen ' + 'the words of a long page go on. '.repeat(words) });
               await db.settings.set('activeStoryId', st.id);
               await db.settings.set('welcomeSeen', true); /* a returning writer, past the first-run welcome */
-            }''', f'http://127.0.0.1:{FAKE}')
+              if (history > 0) {
+                const turns = [];
+                for (let k = 0; k < history; k += 1) {
+                  turns.push({ role: 'writer', text: 'old question ' + k, ts: k });
+                  turns.push({ role: 'housekeeper', text: 'old answer ' + k + ' '.padEnd(400, 'a'), ts: k, thinking: ('old thinking ' + k + ' ').repeat(6000), raw: 'raw '.repeat(6000) });
+                }
+                await db.settings.set('hk:' + st.id, { sessions: [{ id: 1, name: 'Session 1', turns }], activeId: 1, batches: [] });
+              }
+            }''', [f'http://127.0.0.1:{FAKE}', PAGES, PAGE_WORDS, HISTORY_TURNS])
             page.reload()
             page.wait_for_function('window.__cozy && window.__cozy.chat', timeout=30000)
-            if SCENARIO == 'housekeeper':
+            time.sleep(3.0)  # the app's own first drawing of the story is not the housekeeper's
+            cdp0 = ctx.new_cdp_session(page)
+            cdp0.send('Emulation.setCPUThrottlingRate', {'rate': THROTTLE})
+            if os.environ.get('PROFILE_OPEN'):
+                cdp0.send('Profiler.enable'); cdp0.send('Profiler.setSamplingInterval', {'interval': 200}); cdp0.send('Profiler.start')
+            page.evaluate('''() => { window.__openLong = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__openLong.push(e.duration); }).observe({ type: 'longtask' }); } catch (e) {} }''')
+            open_t0 = time.time()
+            if SCENARIO in ('housekeeper', 'bigfetch'):
                 # the housekeeper wires itself a moment after the chat does: knock until it opens
                 for _ in range(40):
                     if page.evaluate("!document.getElementById('hk-sheet').hidden"):
@@ -137,9 +160,24 @@ def main():
                     page.click('#btn-housekeeper')
                     time.sleep(0.5)
                 page.wait_for_selector('#hk-sheet:not([hidden])', timeout=10000)
+            page.wait_for_function("document.querySelectorAll('#hk-thread .hk-bubble').length >= " + str(HISTORY_TURNS * 2), timeout=120000) if HISTORY_TURNS and SCENARIO != 'story' else None
+            open_seconds = round(time.time() - open_t0, 2)
             time.sleep(1.0)
-            cdp = ctx.new_cdp_session(page)
-            cdp.send('Emulation.setCPUThrottlingRate', {'rate': THROTTLE})
+            open_long = page.evaluate('window.__openLong.reduce((a, b) => a + b, 0)')
+            if os.environ.get('PROFILE_OPEN'):
+                prof = cdp0.send('Profiler.stop')['profile']
+                nodes = {n['id']: n for n in prof['nodes']}
+                self_ms = {}
+                deltas = prof.get('timeDeltas', [])
+                for sid, dt in zip(prof.get('samples', []), deltas):
+                    fn = nodes[sid]['callFrame']
+                    key = (fn.get('functionName') or '(anon)') + ' ' + fn.get('url', '').split('/')[-1] + ':' + str(fn.get('lineNumber', 0) + 1)
+                    self_ms[key] = self_ms.get(key, 0) + dt / 1000
+                top = sorted(self_ms.items(), key=lambda kv: -kv[1])[:14]
+                print('OPEN PROFILE (self ms):')
+                for k, v in top:
+                    print('  %7.1f  %s' % (v, k))
+            cdp = cdp0
             page.evaluate('''() => {
               window.__perf = { frames: [], long: [], on: true, t0: performance.now() };
               try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__perf.long.push(e.duration); }).observe({ type: 'longtask' }); } catch (e) {}
@@ -147,7 +185,7 @@ def main():
               const loop = (t) => { window.__perf.frames.push(t - last); last = t; if (window.__perf.on) requestAnimationFrame(loop); };
               requestAnimationFrame(loop);
             }''')
-            if SCENARIO == 'housekeeper':
+            if SCENARIO in ('housekeeper', 'bigfetch'):
                 page.fill('#hk-input', 'How is the story going?')
                 page.click('#hk-send')
                 page.wait_for_selector('#hk-thread .hk-pending', timeout=20000)
@@ -157,7 +195,7 @@ def main():
                 page.evaluate("document.getElementById('composer').requestSubmit()")
                 page.wait_for_selector('.msg.pending', timeout=20000)
                 page.wait_for_function('!document.querySelector(".msg.pending")', timeout=600000, polling=500)
-            stats = page.evaluate('''() => {
+            stats = page.evaluate('''async () => {
               window.__perf.on = false;
               const f = window.__perf.frames.slice(2);
               const sorted = f.slice().sort((a, b) => a - b);
@@ -170,11 +208,21 @@ def main():
                 frames_over_100ms: f.filter((x) => x > 100).length,
                 long_tasks: window.__perf.long.length,
                 long_task_total_ms: Math.round(window.__perf.long.reduce((a, b) => a + b, 0)),
-                thinking_chars: Math.max(...[...document.querySelectorAll('#hk-thread .hk-thinking, .thinking-body')].map((n) => n.textContent.length), 0),
+                thinking_chars: await (async () => {
+                  /* what was kept: the housekeeper's stored turn, or the storyteller's live fold */
+                  const { db } = await import('/js/store.js');
+                  const sid = await db.settings.get('activeStoryId');
+                  const root = await db.settings.get('hk:' + sid);
+                  const turns = root && root.sessions ? root.sessions.flatMap((x) => x.turns || []) : [];
+                  const last = turns.filter((t) => t.role === 'housekeeper').pop();
+                  const kept = last && typeof last.thinking === 'string' ? last.thinking.length : 0;
+                  const fold = Math.max(0, ...[...document.querySelectorAll('.thinking-body')].map((n) => n.textContent.length));
+                  return Math.max(kept, fold);
+                })(),
               };
             }''')
             cdp.send('Emulation.setCPUThrottlingRate', {'rate': 1})
-            result = {'scenario': SCENARIO, 'throttle': THROTTLE, 'think_deltas': THINK_DELTAS, 'answer_deltas': ANSWER_DELTAS, **stats, 'page_errors': errors[:3]}
+            result = {'scenario': SCENARIO, 'history_turns': HISTORY_TURNS, 'open_seconds': open_seconds, 'open_long_task_ms': round(open_long), 'throttle': THROTTLE, 'think_deltas': THINK_DELTAS, 'answer_deltas': ANSWER_DELTAS, **stats, 'page_errors': errors[:3]}
             browser.close()
     finally:
         srv.terminate()

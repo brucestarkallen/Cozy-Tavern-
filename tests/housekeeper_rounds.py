@@ -132,6 +132,51 @@ def main():
             checks.append(('the second round streamed and was named', any('reading what it looked up (round 2)' in s for s in out['said'])))
             checks.append(('the watch never cut the live round', not any('went silent' in s for s in out['said'] + [out['status']])))
             checks.append(('the second round\u2019s answer arrived', 'THE-SECOND-ROUND-ANSWER' in out['answer']))
+            # --- M271: the housekeeper works on behind a closed sheet, and its history stays ---
+            page.evaluate('''() => { window.__toasts = []; const real = window.__cozy.toast; window.__cozy.toast = (w) => { window.__toasts.push(String(w)); return real ? real(w) : undefined; }; }''')
+            page.fill('#hk-input', 'SECOND-QUESTION: is Rias at home?')
+            page.click('#hk-send')
+            time.sleep(1.5)
+            page.click('#btn-hk-close')
+            time.sleep(0.5)
+            checks.append(('closing the sheet leaves it working (the lamp is lit)', page.evaluate("document.getElementById('btn-housekeeper').classList.contains('is-working')")))
+            time.sleep(1.5)
+            page.click('#btn-housekeeper')
+            page.wait_for_selector('#hk-sheet:not([hidden])', timeout=10000)
+            time.sleep(0.5)
+            mid = page.evaluate('''() => ({
+              question: [...document.querySelectorAll('#hk-thread .hk-writer')].some((b) => /SECOND-QUESTION/.test(b.textContent)),
+              pending: !!document.querySelector('#hk-thread .hk-pending'),
+            })''')
+            checks.append(('reopened mid-answer, the question is still there', mid['question']))
+            checks.append(('and the answer is still coming', mid['pending']))
+            page.click('#btn-hk-close')
+            page.wait_for_function("!document.getElementById('btn-housekeeper').classList.contains('is-working')", timeout=120000, polling=250)
+            checks.append(('it finished behind the closed sheet and said so', page.evaluate("window.__toasts.some((w) => /housekeeper answered/.test(w))")))
+            page.click('#btn-housekeeper')
+            page.wait_for_selector('#hk-sheet:not([hidden])', timeout=10000)
+            time.sleep(0.5)
+            hist = page.evaluate('''() => ({
+              writers: [...document.querySelectorAll('#hk-thread .hk-writer')].map((b) => b.textContent).join(' | '),
+              answers: [...document.querySelectorAll('#hk-thread .hk-housekeeper')].length,
+              pending: !!document.querySelector('#hk-thread .hk-pending'),
+            })''')
+            checks.append(('the history holds both questions', 'fix the page that says seventeen' in hist['writers'] and 'SECOND-QUESTION' in hist['writers']))
+            checks.append(('and both answers, nothing left pending', hist['answers'] >= 2 and not hist['pending']))
+            # a reload mid-ask puts the question back in the box
+            page.fill('#hk-input', 'THIRD-QUESTION: what did Chloe post?')
+            page.click('#hk-send')
+            time.sleep(1.0)
+            page.reload()
+            page.wait_for_function('window.__cozy && window.__cozy.chat', timeout=30000)
+            for _ in range(40):
+                if page.evaluate("!document.getElementById('hk-sheet').hidden"):
+                    break
+                page.click('#btn-housekeeper'); time.sleep(0.5)
+            time.sleep(0.8)
+            back = page.evaluate("({ box: document.getElementById('hk-input').value, status: document.getElementById('hk-status').textContent })")
+            checks.append(('after a reload mid-ask, the question is back in the box', 'THIRD-QUESTION' in back['box']))
+            checks.append(('and the house says so', 'back in the box' in back['status']))
             checks.append(('no page errors', not errors))
             browser.close()
     finally:

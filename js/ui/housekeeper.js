@@ -115,6 +115,14 @@ export function initHousekeeper(ctx) {
     return db.stories.get(id);
   }
 
+  /* M271: THE ASK IN FLIGHT, KEPT. Closing the sheet stopped the housekeeper
+   * (it aborted the call) and a redraw dropped the live question, thinking and
+   * answer — so a writer who looked elsewhere came back to nothing, and an ask
+   * cut that way saved nothing either. The live nodes are kept here and drawn
+   * again under the session's turns whenever the sheet is drawn. */
+  let live = null;
+  const DRAFT_PREFIX = 'hkDraft:';
+
   async function ensureSession() {
     const story = await activeStory();
     if (!story) return null;
@@ -333,13 +341,25 @@ export function initHousekeeper(ctx) {
     if (act === 'branch-at') toast('Branched — the new session is its own; the original stands.');
   }
 
+  /* M271: a fold's words are written the first time it is opened */
+  function fillWhenOpened(det, fill) {
+    let filled = false;
+    const run = () => { if (!filled && det.open) { filled = true; fill(); } };
+    det.addEventListener('toggle', run);
+    queueMicrotask(run); /* one already drawn open is filled at once */
+  }
+
   function thinkingFold(text) {
     const det = document.createElement('details');
     det.className = 'hk-thinking';
     const sum = document.createElement('summary');
     sum.textContent = 'How it weighed it';
     const body = document.createElement('div');
-    body.textContent = text;
+    /* M271: FILLED WHEN OPENED. Every past turn's whole thinking was laid into
+     * the thread on every redraw, folded or not — forty long turns blocked the
+     * screen for most of a second each time the housekeeper opened. The words
+     * go in the first time the fold is opened. */
+    fillWhenOpened(det, () => { body.textContent = text; });
     /* M105: the thought can be taken away in one tap */
     const copy = document.createElement('button');
     copy.type = 'button';
@@ -579,7 +599,8 @@ export function initHousekeeper(ctx) {
       thread.append(note);
       return;
     }
-    if (!session.turns.length) {
+    const liveHere = live && live.storyId === sessionStoryId && (!Number.isFinite(live.sessionId) || !session || live.sessionId === session.id);
+    if (!session.turns.length && !liveHere) {
       const note = document.createElement('p');
       note.className = 'quiet hk-empty';
       note.textContent = 'Nothing asked yet. The housekeeper has already read the house.';
@@ -596,7 +617,8 @@ export function initHousekeeper(ctx) {
         sum.textContent = 'What it said, whole — ' + turn.raw.length.toLocaleString() + ' chars' + (turn.thinking ? ', thought ' + turn.thinking.length.toLocaleString() + ' chars first' : ', no thinking came back on the wire') + (turn.rounds ? ' (' + turn.rounds + (turn.rounds === 1 ? ' round' : ' rounds') + ' of back-and-forth)' : '');
         const pre = document.createElement('pre');
         pre.className = 'hk-viewer';
-        pre.textContent = turn.raw;
+        const rawText = turn.raw;
+        fillWhenOpened(det, () => { pre.textContent = rawText; }); /* M271 */
         det.append(sum, pre);
         thread.append(det);
       }
@@ -611,6 +633,11 @@ export function initHousekeeper(ctx) {
     });
     renderCardsBox();
     thread.scrollTop = thread.scrollHeight;
+    /* M271: the ask still in flight, drawn where it belongs */
+    if (liveHere) {
+      for (const node of live.nodes()) thread.append(node);
+      thread.scrollTop = thread.scrollHeight;
+    }
   }
   let cardsFolded = false;
   const cardsBox = document.getElementById('hk-cards');
@@ -635,6 +662,8 @@ export function initHousekeeper(ctx) {
   }
 
   function setBusy(next, words) {
+    /* M271: the housekeeper's button lights the house's own working lamp (the ledger's blue one) while it works */
+    { const btn = document.getElementById('btn-housekeeper'); if (btn) btn.classList.toggle('is-working', Boolean(next)); }
     busy = next;
     sendBtn.disabled = next;
     input.disabled = next;
@@ -774,10 +803,14 @@ export function initHousekeeper(ctx) {
     /* M270: the question stands in the thread the moment it is asked — it
      * waited for the answer, and "Nothing asked yet" stood there meanwhile */
     for (const empty of thread.querySelectorAll('.hk-empty')) empty.remove();
-    thread.append(bubble('writer', raw));
+    const writerBubble = bubble('writer', raw);
+    thread.append(writerBubble);
     const pendingBubble = bubble('housekeeper', '…');
     pendingBubble.classList.add('hk-pending');
     thread.append(pendingBubble);
+    /* M271: the question is kept as a draft until it is answered — a reload or a
+     * stumble puts it back in the box instead of losing it */
+    try { await db.settings.set(DRAFT_PREFIX + story.id, raw); } catch (err) { /* the box still holds it on a stumble */ }
     thread.scrollTop = thread.scrollHeight;
     /* M76: the thinking, live — Chat Assistant's ticker (elapsed, answer chars,
      * thinking chars) on the status line, and the reasoning itself in a fold
@@ -789,6 +822,7 @@ export function initHousekeeper(ctx) {
     let liveThinking = ''; /* M80: what streamed, kept here too — never lost to a round or a wire that returned it empty */
     let thinkFold = null;
     let thinkBody = null;
+    live = { storyId: story.id, sessionId: session && session.id, nodes: () => [writerBubble, thinkFold, pendingBubble].filter(Boolean) };
     /* M269: what streamed since the last frame, drawn once a frame */
     let waitingThink = '';
     let waitingProse = '';
@@ -919,7 +953,9 @@ export function initHousekeeper(ctx) {
         why: result.error || '',
       });
       if (!result.ok) {
+        live = null;
         pendingBubble.remove();
+        if (!open) toast('The housekeeper could not answer — your question is back in its box.');
         statusLine.textContent = stalled
           ? 'The wire went silent for ' + stallSec + ' seconds, so the ask was cut. Your words are still in the box — ask again when you like.'
           : result.error
@@ -933,6 +969,8 @@ export function initHousekeeper(ctx) {
        * writer moved to another story or session while it worked, the store
        * already holds it there (housekeeperTurn saved it by storyId); this view
        * must not draw it into the room the writer is in now. */
+      live = null;
+      try { await db.settings.set(DRAFT_PREFIX + story.id, ''); } catch (err) { /* nothing to put back */ }
       if (sessionStoryId !== story.id || (session && Number.isFinite(session.id) && Number.isFinite(result.session.id) && session.id !== result.session.id)) {
         toast('The housekeeper answered in the session that asked — open it to read.');
         return true;
@@ -972,14 +1010,17 @@ export function initHousekeeper(ctx) {
       render();
       statusLine.textContent = '';
       await refreshStatusLine();
+      if (!open) toast('The housekeeper answered — open it to read.');
       return true;
     } catch (err) {
+      live = null;
       pendingBubble.remove();
       input.value = text;
       statusLine.textContent = 'It stumbled: ' + ((err && err.message) || 'unknown') + '. Nothing was changed.';
     } finally {
       clearInterval(ticker);
       streamDone = true; /* M269: a stumbled or cut turn draws nothing later either */
+      live = null;
       if (thinkFold && thinkFold.isConnected) thinkFold.remove(); /* render() draws the kept thinking from the turn */
       workerCtl = null;
       setBusy(false);
@@ -1326,6 +1367,17 @@ export function initHousekeeper(ctx) {
     await renderSessions();
     render();
     await Promise.all([loadRules(), refreshStatusLine()]);
+    if (!live && !busy && !input.value.trim()) {
+      try {
+        const story = await activeStory();
+        const draft = story ? await db.settings.get(DRAFT_PREFIX + story.id) : '';
+        if (typeof draft === 'string' && draft.trim()) {
+          input.value = draft;
+          await db.settings.set(DRAFT_PREFIX + story.id, '');
+          statusLine.textContent = 'Your last question was not answered — it is back in the box. Ask again when you like.';
+        }
+      } catch (err) { /* the box stays empty */ }
+    }
     input.focus();
   }
 
@@ -1333,7 +1385,8 @@ export function initHousekeeper(ctx) {
   function closeSheet() {
     if (!open) return;
     open = false;
-    if (workerCtl) { try { workerCtl.abort(); } catch (err) { /* still */ } }
+    /* M271: closing the sheet never stops the housekeeper — ⏹ Stop does. It
+     * works on while the writer looks elsewhere; the button shows it working. */
     sheet.classList.remove('open');
     scrim.hidden = true;
     /* M62: an open that comes before the close's timer fires must win —

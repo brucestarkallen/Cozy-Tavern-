@@ -985,7 +985,11 @@ test('DOM-11e the housekeeper’s thinking stays under the reply after the answe
     await tick(150);
     const folds = qa('#hk-thread details.hk-thinking');
     assert(folds.length === 1, 'one thinking fold stays under the reply: ' + folds.length + ' — ' + qa('#hk-thread .hk-bubble').map((b) => b.textContent.slice(0, 40)).join(' / '));
-    assert(/weigh the room/.test(folds[0].textContent), 'and it holds the reasoning');
+    /* M271: a fold's words are written when it is opened — open it, as the writer does */
+    folds[0].open = true;
+    folds[0].dispatchEvent(new env.window.Event('toggle'));
+    await tick(20);
+    assert(/weigh the room/.test(folds[0].textContent), 'and it holds the reasoning, whole, when opened');
     const sid = await storyId();
     const root = await db.settings.get('hk:' + sid);
     const active = root.sessions.find((x) => x.id === root.activeId);

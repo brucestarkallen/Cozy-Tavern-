@@ -5674,3 +5674,34 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   at once that came too early — it waits for the pending bubble to be gone.
 - 529/529 harness + 43/43 walk + 8/8 play + housekeeper_rounds all green + perf within budget.
   version.js -> m270-001.
+
+# M271 — the housekeeper works on behind a closed sheet; its history stays; a heavy history opens fast
+- THE WRITER: (1) "When it thinks big and fetches many pages it lags — Chat Assistant does the
+  same and stays smooth." (2) "When I close the housekeeper, processing or not, the history is
+  gone, or the process doesn't go on in the background. I should be able to explore."
+- (2) THE CAUSE: closing the sheet ABORTED the running call (closeSheet → workerCtl.abort()),
+  and a turn is saved only with its answer — so an ask the writer walked away from left nothing,
+  and a redraw dropped the live question, thinking and answer. FIXED: closing never stops the
+  housekeeper (⏹ Stop does); the ask in flight is kept (live nodes redrawn under the session's
+  turns whenever the sheet is drawn); the housekeeper's button lights the house's blue working
+  lamp while it works and a toast says when it answered with the sheet shut; the question is kept
+  as a draft until it is answered, so a reload or a stumble puts it back in the box and says so.
+  tests/housekeeper_rounds.py adds eight checks (the lamp, reopened mid-answer, finished behind
+  a shut sheet, both questions and answers in the history, a reload puts the question back):
+  the previous panel code fails all eight; now all fourteen are green.
+- (1) MEASURED: tests/perf_housekeeper.py SCENARIO=bigfetch — 150 long pages, a first round of
+  ~100,000 characters of thinking that looks up 12 pages and 3 searches, a second round of
+  another ~100,000: worst frame 133 ms, p95 33 ms, 286 ms of long tasks, all 204,017 characters of
+  thinking kept. The per-piece redraw (M269) and the unstreamed round (M270) were the lag; with
+  them gone the big turn is smooth.
+- AND THE COST THAT GREW WITH HISTORY (HISTORY_TURNS=40, each turn ~100,000 characters of
+  thinking): every redraw wrote every past turn's whole thinking and whole answer into its
+  folds, open or shut — opening took 2.52 s with 896 ms blocked. A fold's words are written the
+  first time it is opened now: 0.91 s, 466 ms blocked. What remains is reading and drawing forty
+  large turns (the session row is ~4.7 MB; reading it costs ~53 ms at 6x).
+- DOM-11e opens the thinking fold before reading it (its words are written when opened).
+- The speed test lets the app settle before measuring (the app's own first drawing of the story
+  had been counted as the housekeeper's), can profile an opening (PROFILE_OPEN=1), and reads the
+  thinking kept from the store.
+- 529/529 harness + 43/43 walk + 8/8 play + housekeeper_rounds 14/14 + perf (plain, bigfetch,
+  history) within budget. version.js -> m271-001.
