@@ -1531,7 +1531,19 @@ function peoplePanel(ctx) {
       const mine = isMc(state, name);
       const addLine = (text) => { const p = document.createElement('div'); p.className = 'quiet'; p.textContent = text; li.appendChild(p); };
       if (typeof c.core === 'string' && c.core.trim()) addLine('Who they are: ' + c.core.trim());
-      if (seatNow) addLine('Now (elsewhere): ' + seatNow);
+      /* M299: THE MAIN CHARACTER'S NOW IS THE SCENE'S — ONE WRITER PER FACT. The
+       * writer's own page had a "Now:" only the scribe could write, and the
+       * scribe (which keeps the OTHER people) writes it seldom, so it aged into
+       * "Last noted 13 pages ago" while the ledger knew exactly where he stood.
+       * His now is written in code from the ledger the page reader keeps every
+       * page — where he is in the room, the ground, the hour; the scribe's note
+       * rides beneath it only while it is fresh, and is never shown stale. */
+      const seat = mine ? (state.present || []).find((p) => p && String(p.name || '').toLowerCase() === name.toLowerCase()) : null;
+      if (mine && (seat || (state.place && state.place.name))) {
+        const bits = [seat && seat.position ? String(seat.position).trim() : '', state.place && state.place.name ? 'at ' + String(state.place.name).trim() : '', state.clock ? renderClock(state.clock) : ''].filter(Boolean);
+        addLine('Now: ' + bits.join(' — '));
+        if (typeof c.state === 'string' && c.state.trim() && ago <= 2) addLine('Doing: ' + c.state.trim());
+      } else if (seatNow) addLine('Now (elsewhere): ' + seatNow);
       /* M294: a note older than a couple of pages says so for everyone — the one here and the
        * main character too; "Now:" over a thirty-page-old line hid a page that was not being kept */
       else if (typeof c.state === 'string' && c.state.trim()) addLine((ago > 2 ? (isHere || mine ? 'Last noted ' : 'Last seen ') + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ' : 'Now: ') + c.state.trim());

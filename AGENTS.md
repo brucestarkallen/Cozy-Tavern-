@@ -6534,3 +6534,18 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   position: fixed through) — cosmetic, the page's words untouched; the drawer's calendar naming is
   written direct and unjournaled by design.
 - 558/558 harness + 56/56 walk + 8/8 play + lint 0 errors (96 warnings). version.js -> m298-001.
+
+# M299 — the main character's now is the scene's: one writer per fact
+- THE WRITER: after M294 his page read "Last noted 13 pages ago" and stayed so — was it deliberately
+  stale? No: the number is how long since the scribe last wrote his page, and the scribe (whose work
+  is the OTHER people) writes his seldom, shown his record or not. M294 made the age honest; it did
+  not make the page current.
+- File js/ui/drawer.js, The people. ROOT CAUSE: the writer's own "Now:" had one writer — the scribe's
+  free-text note — while the ledger the page reader keeps every page already knew exactly where he
+  stood: his seat in the room (presence.update position), the ground, the hour. Two writers for one
+  fact, and the seldom one on the writer's own page. CHANGE: the main character's Now is written in
+  code from the ledger — his position, the place, the hour — and is therefore never older than the
+  last page read; the scribe's note rides beneath as "Doing:" only while it is fresh (two pages) and is
+  never shown stale. Everyone else keeps M294's honest age. VALIDATION: DOM-35 red → green ("Now: at
+  the table — at The Wells kitchen", the thirteen-page-old note not shown).
+- 558/558 harness + 56/56 walk + lint 0 errors (96 warnings). version.js -> m299-001.

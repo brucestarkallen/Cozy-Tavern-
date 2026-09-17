@@ -1,7 +1,7 @@
-# Cozy Tavern — handoff for the next session (state at m298-001)
+# Cozy Tavern — handoff for the next session (state at m299-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M298). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M299). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)

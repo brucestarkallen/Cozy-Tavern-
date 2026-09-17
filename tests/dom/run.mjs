@@ -2062,12 +2062,12 @@ test('DOM-34 a Stop pressed while a replay\u2019s tail still waits lets the gate
   }
 });
 
-test('DOM-35 a page not kept says how old it is — the main character’s and the one here too, never a “Now:” over a thirty-page-old line (M294)', async () => {
+test('DOM-35 a page not kept says how old it is for the one here; the main character’s now is the scene’s, in code (M294, M299)', async () => {
   const { saveState, emptyState } = await import('../../js/engine/state.js');
   const st = await db.stories.create({ title: 'the stale page' });
   await db.messages.append(st.id, { role: 'user', text: 'Morning.' });
   await db.messages.append(st.id, { role: 'assistant', text: 'The kitchen was already loud.' });
-  await saveState(st.id, { ...emptyState(), page: 60, tidiedGen: 999, place: { name: 'The Wells kitchen' }, present: [{ name: 'Jovan' }, { name: 'Mi-na' }, { name: 'Vanessa' }],
+  await saveState(st.id, { ...emptyState(), page: 60, tidiedGen: 999, place: { name: 'The Wells kitchen' }, present: [{ name: 'Jovan', position: 'at the table' }, { name: 'Mi-na' }, { name: 'Vanessa' }],
     sheet: { ...emptyState().sheet, playerName: 'Jovan' },
     characters: {
       'Jovan': { core: '', state: 'At the kitchen window seat, rice finished, sneakers on', arc: '', threads: [], updatedAtTurn: 30 },
@@ -2080,7 +2080,8 @@ test('DOM-35 a page not kept says how old it is — the main character’s and t
   const rowOf = (name) => [...qa('#drawer .people-row')].find((li) => li.firstChild && (li.firstChild.textContent === name || li.firstChild.textContent.startsWith(name + ' \u2014 ')));
   await until(() => rowOf('Jovan') && rowOf('Mi-na'), 'the pages to draw', 10000);
   const text = (name) => [...rowOf(name).querySelectorAll('.quiet')].map((x) => x.textContent).join(' | ');
-  assert(/Last noted 31 pages ago: At the kitchen window seat/.test(text('Jovan')), 'the main character’s old note says its age — ' + text('Jovan'));
+  /* M299: the main character's now is the scene's — from the ledger, never the scribe's stale note */
+  assert(/Now: at the table — at The Wells kitchen/.test(text('Jovan')) && !/kitchen window seat/.test(text('Jovan')), 'the main character’s now is the scene’s, in code; the stale note is not shown — ' + text('Jovan'));
   assert(/Now: across the table/.test(text('Mi-na')), 'a note kept this page is now — ' + text('Mi-na'));
   assert(/Last noted 6 pages ago: sliding the screenshot/.test(text('Vanessa')), 'one here whose note is six pages old says so — ' + text('Vanessa'));
   click(q('#btn-ledger')); await tick(300);
