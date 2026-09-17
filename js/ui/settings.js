@@ -19,7 +19,7 @@ import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '..
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
 import { learnContext } from '../providers/detect.js'; /* M289 */
 import { byName } from '../providers/order.js'; /* M301: every list of names the writer picks from, A to Z */
-import { EFFORT_RANK, effortFor, reasonStyle } from '../providers/effort.js';
+import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
@@ -60,6 +60,7 @@ export function initSettings(ctx) {
     urlhintText: document.getElementById('conn-urlhint-text'),
     addv1: document.getElementById('conn-addv1'),
     modelHint: document.getElementById('conn-model-hint'),
+    reasoningHint: document.getElementById('conn-reasoning-hint'),
     apiKey: document.getElementById('conn-apikey'),
     model: document.getElementById('conn-model'),
     searchRow: document.getElementById('conn-search-row'),
@@ -284,12 +285,17 @@ export function initSettings(ctx) {
       /* M22-A: what the thinking level is actually SPOKEN as on this wire
        * (the alias-down made visible) — only when it's on. */
       const effort = conn.reasoning && typeof conn.reasoning.effort === 'string' ? conn.reasoning.effort : 'off';
-      if (effort !== 'off') {
+      /* M303: a house that cannot be told "off" (Kimi K3 always thinks) says
+       * what Off is spoken as, too — the writer who chose Off was getting max
+       * and the card said nothing; and a refusal of a spelling this
+       * connection no longer speaks is not shown as standing. */
+      const style = reasonStyle(conn);
+      if (effort !== 'off' || style === 'kimi') {
         const spoken = document.createElement('span');
         spoken.className = 'connection-kind';
-        const said = conn.reasoningDownAt
+        const said = reasoningIsDown(conn, style)
           ? 'unsent — the wire refused it once'
-          : `spoken as “${effortFor(reasonStyle(conn), effort)}”`;
+          : `spoken as ${spokenAs(conn, effort)}`;
         spoken.textContent = `thinking: ${effort} — ${said}`;
         top.appendChild(spoken);
       }
@@ -413,7 +419,19 @@ export function initSettings(ctx) {
    * everywhere else the hint says "Usually ends in /v1", and when the
    * typed address is a known house missing its version segment, the
    * one-tap "add /v1" offers itself. */
+  /* M303: the standing word under the thinking dial, for a house that has one
+   * (Kimi K3 cannot be told "off"; its temperature and top-p are fixed) — read
+   * from what the form holds NOW, so it follows the model as it is typed */
+  function refreshReasoningHint() {
+    if (!els.reasoningHint) return;
+    const p = presetById(els.preset.value);
+    const words = thinkingHint({ type: p.type, preset: els.preset.value, baseUrl: els.baseUrl.value.trim() || p.baseUrl || '', model: els.model.value.trim() || p.model || '' });
+    els.reasoningHint.textContent = words;
+    els.reasoningHint.hidden = !words;
+  }
+
   function refreshAddressHint() {
+    refreshReasoningHint();
     if (!els.urlhintText) return;
     const p = presetById(els.preset.value);
     if (p.type === 'anthropic') {
@@ -504,7 +522,7 @@ export function initSettings(ctx) {
       /* The refusal memories speak plainly while they stand. */
       if (els.downNote) {
         const bits = [];
-        if (conn.reasoningDownAt) bits.push('it once refused the thinking settings, so they ride unsent');
+        if (reasoningIsDown(conn, reasonStyle(conn))) bits.push('it once refused the thinking settings, so they ride unsent');
         if (conn.prefillDownAt) bits.push('it once refused a started reply, so the prefill rides unsent');
         els.downNote.hidden = !bits.length;
         els.downNote.textContent = bits.length
@@ -576,7 +594,9 @@ export function initSettings(ctx) {
 
   els.modelsPick.addEventListener('change', () => {
     if (els.modelsPick.value) els.model.value = els.modelsPick.value;
+    refreshReasoningHint();
   });
+  els.model.addEventListener('input', refreshReasoningHint);
 
   /* M22-D: "Test it" — the prefill probe. Sends a tiny exchange with the
    * prefill applied per this house's rules and reports plainly: took it,
@@ -707,6 +727,7 @@ export function initSettings(ctx) {
       const stored = await db.connections.list().then((all) => all.find((c) => c.id === editingId));
       if (stored && (stored.model !== fields.model || stored.baseUrl !== fields.baseUrl)) {
         patch.reasoningDownAt = null;
+        patch.reasoningDownShape = null;
         patch.prefillDownAt = null;
       }
       await db.connections.update(editingId, patch);

@@ -33,8 +33,10 @@
  */
 
 import { createProvider } from '../providers/index.js';
+import { reasonStyle } from '../providers/effort.js';
 
 export const WORKER_MAX_TOKENS = 1200;
+export const ALWAYS_THINKS_FLOOR = 16000; /* M303 */
 
 /* The connection as a worker holds it: the writer's key, address, model and
  * refusal memory — never the storyteller's dials. The prefill and the web
@@ -63,6 +65,17 @@ export function workerConnection(connection, { maxTokens, effort, temperature } 
   else if (!Number.isFinite(c.temperature)) delete c.temperature;
   const room = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.round(maxTokens) : WORKER_MAX_TOKENS;
   c.maxTokens = Math.max(room, Number.isFinite(c.maxTokens) ? Math.round(c.maxTokens) : 0) || room;
+  /* M303: A HOUSE THAT CANNOT STOP THINKING NEEDS ROOM TO THINK AND ANSWER.
+   * The workers ask for 400 to 4,000 tokens, and on every other house a
+   * worker's thinking can be switched off so the room is all answer. Kimi K3
+   * always thinks, and its thinking is counted in the same room — a worker
+   * riding it would think its 400 tokens away and answer with nothing (the
+   * fault M-early fixed for the houses that CAN be told off). The floor is
+   * Moonshot's own number for its thinking models ("set max_tokens >= 16000
+   * to ensure the full reasoning_content and content can be returned"). It is
+   * a ceiling on the reply, never a cost, and the only thing set here that
+   * the connection did not say: the floor that keeps an answer whole. */
+  if (reasonStyle(c) === 'kimi') c.maxTokens = Math.max(c.maxTokens, ALWAYS_THINKS_FLOOR);
   /* M233: THINKING IS THE WRITER'S TO DECIDE, LIKE EVERYTHING ELSE. Every
    * worker used to ask for effort:'off' outright, and I called that "a worker
    * choosing about its own job" — which was the same paternalism I had just

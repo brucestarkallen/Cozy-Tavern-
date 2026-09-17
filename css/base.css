@@ -148,7 +148,7 @@ html[data-theme='deep'] {
 
 /* M301: MAGMA — the fourth coat, in the register the writer pointed at: a
  * near-black teal room with magma showing at its foot, prose in a warm
- * off-white, speech lit teal, ember kept for the things that act.
+ * off-white, speech in a soft orange (M303), ember kept for the things that act.
  * M302: DARKER, AND EASIER ON THE EYE. The first cut glowed at rgb(130,42,21)
  * in the MIDDLE of the foot — four times the light of anything in the room
  * the writer had pointed at, whose red lives in the two bottom corners and a
@@ -176,7 +176,15 @@ html[data-theme='magma'] {
   --ember: #f0673c;
   --ember-hot: #ff8a5c;
   --ember-dim: #6e2a1a;
-  --spoken: #56cfc0;
+  /* M303: SPEECH IS A SOFT ORANGE. The writer asked for the spoken lines in
+   * "orange — what matters is that it is good for the eyes". Speech is most of
+   * a page, so it is an apricot and not the ember: hue 28 (the ember is 14,
+   * the amber of a warning 38), saturation 73% (the ember's is 86% — long
+   * runs of a loud orange on near-black leave after-images), and 9.6:1 on the
+   * ground — under the body's 13.7 so a line of speech never out-shines the
+   * prose around it, where the teal it replaces stood at 10.4.
+   * tests/paint_magma.py reads the colour off a real page and holds all four. */
+  --spoken: #e9a871;
   --thought: #a3b1e0;
   --user-tint: #0d2a30;
   --danger: #f2695d;

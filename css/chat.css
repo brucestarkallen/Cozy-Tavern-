@@ -1176,8 +1176,10 @@ html[data-theme='magma'] .topbar { box-shadow: 0 1px 0 rgba(86, 207, 192, 0.10);
 html[data-theme='magma'] .send-btn { box-shadow: 0 0 14px -4px rgba(240, 103, 60, 0.55); }
 html[data-theme='magma'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 18px -8px rgba(240, 103, 60, 0.5); }
 html[data-theme='magma'] .ember-fill { box-shadow: 0 0 8px 0 rgba(240, 103, 60, 0.4); }
-/* the writer's own words: the teal wash with its lit underline */
+/* the writer's own words: the teal wash with its lit underline. M303: the
+ * spine is named here — it borrowed --spoken, and would have turned orange on
+ * a teal wash the day speech did. */
 html[data-theme='magma'] .msg-user .msg-body {
-  border-left-color: var(--spoken);
+  border-left-color: #56cfc0;
   box-shadow: inset 0 -1px 0 rgba(86, 207, 192, 0.32);
 }

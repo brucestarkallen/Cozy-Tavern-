@@ -21,7 +21,7 @@ import { withImagePart, transportError } from './wire.js';
  * rejection memory) and the storyteller prefill live in effort.js. */
 import {
   reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
-  applyPrefill, markConnectionDown,
+  applyPrefill, markConnectionDown, reasoningIsDown, healStaleRefusal,
 } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
@@ -165,7 +165,7 @@ function requestBody(connection, wireMessages, opts = {}) {
   const style = reasonStyle(connection);
   const r = (connection && connection.reasoning) || {};
   const wanted = r && typeof r.effort === 'string' ? r.effort : 'off';
-  const suppressed = opts.suppressReasoning || Boolean(connection && connection.reasoningDownAt);
+  const suppressed = opts.suppressReasoning || reasoningIsDown(connection, style); /* M303: a refusal of another spelling is not a refusal of this one */
   const effort = suppressed ? 'off' : effortFor(style, wanted);
   if (style === 'none') {
     /* the model decides on its own — nothing extra is ever sent */
@@ -187,6 +187,17 @@ function requestBody(connection, wireMessages, opts = {}) {
     if (effort !== 'off') {
       body.model_options = { ...(body.model_options || {}), reasoning: { enabled: true, effort } };
     }
+  } else if (style === 'kimi') {
+    /* M303: Kimi K3, in Moonshot's own words — "configure its reasoning
+     * effort with the top-level reasoning_effort request field, which
+     * supports low / high / max"; "does not support the thinking parameter".
+     * effortFor never says "off" here: K3 cannot stop thinking, and unsaid
+     * means max. */
+    if (effort !== 'off') body.reasoning_effort = effort;
+  } else if (style === 'kimi2') {
+    /* M303: K2.x on Moonshot's address — the switch, and no reasoning_effort
+     * ("Not supported") */
+    body.thinking = { type: effort === 'off' ? 'disabled' : 'enabled' };
   } else if (style === 'deepseek') {
     /* M37: the writer's provider, verbatim — thinking on by default at high;
      * off is thinking:{type:'disabled'}; effort rides reasoning_effort. */
@@ -271,6 +282,9 @@ export function createOpenAIProvider(connection) {
      * changes. */
     let res = null;
     let opts = {};
+    /* M303: a refusal remembered for a spelling this connection no longer
+     * speaks is let go before the turn — the house repairs what it can see */
+    await healStaleRefusal(connection, reasonStyle(connection));
     for (let attempt = 0; attempt < 2 && !res; attempt += 1) {
       const { body, prefill } = requestBody(connection, wire, opts);
       let out;
@@ -301,7 +315,7 @@ export function createOpenAIProvider(connection) {
         || 'enable_thinking' in body || (body.model_options && body.model_options.reasoning)
       );
       if (fourHundred && !opts.suppressReasoning && sentReasoning && REASONING_REFUSAL.test(detail)) {
-        await markConnectionDown(connection, 'reasoningDownAt');
+        await markConnectionDown(connection, 'reasoningDownAt', reasonStyle(connection));
         notes.push('The thinking settings weren’t accepted, so this turn went without them — it won’t be asked again until the model changes.');
         opts = { ...opts, suppressReasoning: true };
         continue;

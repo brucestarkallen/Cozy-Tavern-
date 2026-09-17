@@ -185,7 +185,8 @@
                 <option value="max">Max — everything it has</option>
               </select>
             </label>
-            <p class="quiet">A level this address can't name is spoken as the nearest one below it — never a name the endpoint rejects. If the wire ever refuses the thinking settings, the turn is sent again without them and the connection remembers until the model changes.</p>
+            <p class="quiet">A level this address can't name is spoken as the nearest one it can — never a name the endpoint rejects. If the wire ever refuses the thinking settings, the turn is sent again without them and the connection remembers until the model changes.</p>
+            <p id="conn-reasoning-hint" class="quiet" hidden></p>
             <label>Thinking room, in tokens (optional)
               <input id="conn-budget" type="number" min="512" step="512" placeholder="Leave empty to follow the effort" autocomplete="off">
             </label>
@@ -609,7 +610,7 @@
             <label class="radio-row"><input type="radio" name="theme" value="light"> Daylight</label>
             <label class="radio-row"><input type="radio" name="theme" value="dark"> Lamplight</label>
             <label class="radio-row"><input type="radio" name="theme" value="deep"> The deep — near-black, prose lit teal, ember for what acts</label>
-            <label class="radio-row"><input type="radio" name="theme" value="magma"> Magma — a teal-black room over a bed of glowing magma, neon teal for speech, neon ember for what acts</label>
+            <label class="radio-row"><input type="radio" name="theme" value="magma"> Magma — a near-black room with magma in its corners, speech in a soft orange, ember for what acts</label>
           </fieldset>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="colour-speech"> Colour the spoken lines and the thoughts</label>

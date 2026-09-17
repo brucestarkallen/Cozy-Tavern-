@@ -245,7 +245,7 @@ export function createAnthropicProvider(connection) {
       const sentReasoning = Boolean(body.thinking || body.output_config);
       const sentPrefill = prefill.applied;
       if (fourHundred && !opts.suppressReasoning && sentReasoning && REASONING_REFUSAL.test(detail)) {
-        await markConnectionDown(connection, 'reasoningDownAt');
+        await markConnectionDown(connection, 'reasoningDownAt', 'anthropic');
         notes.push('Claude wouldn’t take the thinking settings, so this turn went without them — it won’t be asked again until the model changes.');
         opts = { ...opts, suppressReasoning: true };
         continue;

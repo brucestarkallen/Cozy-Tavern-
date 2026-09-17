@@ -6687,3 +6687,67 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   `cp` chain broke before any mutation was applied, and 65 green was the unmutated tree. Check that
   a mutation landed before reading its result.)
 - version.js -> m302-001.
+
+# M303 — speech in a soft orange (magma); the Kimi family speaks its own spelling, and a refusal is remembered for the spelling refused
+- THE WRITER: "change the dialogue colour for the theme — orange; what matters is that it is good for the
+  eyes", and another session's finding, asked about: kimi-k3 on a Moonshot address is sent the K2.x
+  `thinking` block, "off"/"medium" are not K3 levels, and a 400 naming the block pins the connection
+  to silence — which for K3 is max.
+- SPEECH. css/base.css magma `--spoken: #e9a871`. Speech is most of a page, so it is an apricot and
+  not the ember: hue 28 (the ember 14, a warning's amber 38), saturation 73% (the ember 86%), 9.6:1
+  on the ground — under the prose's 13.7 so a spoken line never out-shines the prose round it (the
+  teal it replaces was 10.4); 7.4:1 on the writer's tint, 8.8:1 on a surface. The writer's own words
+  keep their teal wash: the spine had borrowed --spoken and would have turned orange on teal — it is
+  named now. tests/paint_magma.py reads the colour off a real spoken line and fails if it is not
+  orange (hue 20-36), is as loud as the ember, leaves 8-11.5:1, out-shines the prose, or cannot be
+  told from the things that act; and if the spine stops being teal.
+- KIMI: THE OTHER SESSION WAS RIGHT, and it is reproduced here through the real provider with a
+  recording fetch, before and after:
+    098d61c  moonshot kimi-k3  off {"thinking":{"type":"disabled"}} · low {"reasoning_effort":"low",
+             "thinking":{"type":"enabled"}} · medium {"reasoning_effort":"medium",…}
+    m303     off {"reasoning_effort":"low"} · low "low" · medium "high" · high "high" · max "max" —
+             never a `thinking` key. OpenRouter's shape is untouched (reasoning:{effort}).
+  THE RECORD (platform.kimi.ai, read Sep 18 2026 — "Thinking Models", "Kimi K3", "Thinking Effort",
+  "Model Parameter Reference"): kimi-k3 "always reasons and does not support the thinking parameter";
+  its one dial is the top-level reasoning_effort, "low" / "high" / "max", max when omitted; "remove
+  the K2.x thinking configuration"; it cannot be turned off ("You can't — K3 always thinks… set
+  reasoning_effort to low"); temperature 1.0, top_p 0.95, n, the penalties are FIXED ("omit them from
+  requests"); switching effort levels invalidates the prefix cache; K2.x: kimi-k2.6 takes
+  thinking:{type} and reasoning_effort is "Not supported"; kimi-k2.7-code always thinks ("disabled"
+  errors) and may be sent nothing. NOT VERIFIED (no Moonshot key here): whether the live API answers
+  the `thinking` block on K3 with a 400 or ignores it (a third party, promptfoo's docs, says it
+  rejects it). Either way the block is no longer sent.
+  ROOT CAUSE: providers/effort.js reasonStyle() had no Kimi spelling, so a Moonshot address fell to the
+  generic openai shape. CHANGE: style `kimi` — K3 (and k4…) by the model's NAME on any openai-shaped
+  address except OpenRouter's (which maps the ladder itself) — levels low/high/max, alias off→low
+  (unsaid would be max: minutes of thinking for a writer who asked for none), medium→high, xhigh→max;
+  the wire carries reasoning_effort only. Style `kimi2` — K2.x on Moonshot's own address: the switch
+  thinking:{type}, never reasoning_effort; kimi-k2.7-code → `none` (nothing sent). A K2.x name on an
+  unknown address keeps the generic shape (its fields are not known there).
+- A REFUSAL IS REMEMBERED FOR THE SPELLING REFUSED. reasoningDownAt silenced a connection "until the
+  model changes" — so a K3 connection refused because THE HOUSE spelled it wrong would have stayed
+  silent (= max) after the house learned the spelling. markConnectionDown keeps reasoningDownShape;
+  reasoningIsDown(conn, style) honours a mark only for the spelling it was made under (a mark from
+  before shapes were kept belongs to the connection's own style — or to `openai` for the styles this
+  release introduced); healStaleRefusal lets a mark that no longer applies go from the store before
+  the turn, so Settings and the other browser stop saying "unsent". Every other house's mark stands
+  exactly as M22 promised (M303-3 holds all three cases, the third with a real 400 and a real retry).
+- SETTINGS TELLS IT. The card says what Off is spoken as on a house that cannot be told off ("thinking:
+  off — spoken as “low” — Kimi K3 always thinks; this is the least it can"); a switch is called a
+  switch (kimi2, qwen — the card said “high” for a boolean); under the thinking dial a standing word
+  follows the model AS IT IS TYPED (thinkingHint): K3's levels, and that Moonshot fixes temperature
+  and top-p — leave them empty. The house does NOT strip a temperature the writer set (his settings
+  are sent exactly; a provider's 400 is loud, a silent override is not) — it says so where he sets it.
+- A FLOOR THAT KEEPS AN ANSWER WHOLE (agents/call.js): the workers ask for 400-4,000 tokens because on
+  every other house their thinking can be switched off. K3's cannot, and its thinking is counted in
+  the same room: a worker riding it would think its room away and answer with nothing. For style
+  `kimi` the worker's max_tokens is never under 16,000 — Moonshot's own number for its thinking
+  models. A ceiling, never a cost; a connection that already says more keeps what it says (M303-5).
+- NOT DONE, ON PURPOSE: Moonshot says K3 "requires" every past assistant message to be passed back
+  with its reasoning_content. The tavern never puts a page's thinking on the wire — the storyteller
+  is handed the ledger's facts, and thirty pages of thinking would undo the flat context the house is
+  built on. What the API does without it is not verified here.
+- MUTATION-CHECKED (each applied and confirmed applied): the kimi wire branch, reasoningIsDown's test,
+  the worker floor, the card's Off line and --spoken each removed → M303-1, M303-3, M303-5, DOM-48
+  and paint_magma's speech law fail, one for one.
+- version.js -> m303-001.

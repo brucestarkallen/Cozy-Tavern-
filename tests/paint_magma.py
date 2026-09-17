@@ -33,7 +33,7 @@ SEED = """async () => {
   const st = await db.stories.create({ title: 'the magma room' });
   const para = 'The rain kept on against the shutters, and nobody said the thing they meant. "You knew," she said, and did not look up. ';
   for (let i = 0; i < 60; i += 1) {
-    await db.messages.append(st.id, { role: 'user', text: 'I wait, and watch the door. (' + i + ')' });
+    await db.messages.append(st.id, { role: 'user', text: 'I wait, and watch the door. "Anyone?" I ask. (' + i + ')' });
     await db.messages.append(st.id, { role: 'assistant', text: '[The Wayward Lantern — Tuesday, March 4, 2026 | 21:14 | rain | a grey coat | by the door]\\n\\n' + para.repeat(6) + '\\n\\n' + para.repeat(5) });
   }
   window.__cozy.setActiveStoryId(st.id);
@@ -171,6 +171,58 @@ try:
             if r < w['need']:
                 fails.append('%.1f:1 (needs %.1f) %s %dpx "%s"' % (r, w['need'], w['where'], w['px'], w['text']))
         print('words standing on the glow: %d measured; the lowest is %.1f:1 — %s "%s"' % (len(words), worst[0], worst[1]['where'], worst[1]['text']))
+
+        # 2b. M303: speech is a soft orange — read off a real spoken line on a real page
+        ink = page.evaluate("""() => {
+          const rgb = (c) => { const m = String(c).match(/rgba?\\((\\d+), (\\d+), (\\d+)/); return m ? [+m[1], +m[2], +m[3]] : null; };
+          const s = document.querySelector('#thread .msg-assistant .spoken');
+          const p = document.querySelector('#thread .msg-assistant .msg-body');
+          const u = document.querySelector('#thread .msg-user .msg-body');
+          const a = document.getElementById('btn-send');
+          return { spoken: s && rgb(getComputedStyle(s).color), body: p && rgb(getComputedStyle(p).color),
+                   spine: u && rgb(getComputedStyle(u).borderLeftColor), ember: a && rgb(getComputedStyle(a).backgroundColor) };
+        }""")
+        import colorsys
+        def hsl(c):
+            h, l, s_ = colorsys.rgb_to_hls(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0)
+            return h * 360.0, s_ * 100.0, l * 100.0
+        sp = ink['spoken']
+        if not sp:
+            fails.append('no spoken line was found on the page to read the colour from')
+        else:
+            h, sat, light = hsl(sp)
+            eh, esat, _ = hsl(ink['ember'])
+            on_ground = ratio(sp, head)
+            body_on_ground = ratio(ink['body'], head)
+            print('speech rgb%s: hue %.0f, saturation %.0f%%, %.1f:1 on the ground (the prose %.1f:1; the ember is hue %.0f, saturation %.0f%%); the writer\u2019s spine rgb%s'
+                  % (tuple(sp), h, sat, on_ground, body_on_ground, eh, esat, tuple(ink['spine'])))
+            if not (20 <= h <= 36):
+                fails.append('speech is not orange: hue %.0f' % h)
+            if sat > 80 or sat > esat - 8:
+                fails.append('speech is as loud as the ember (saturation %.0f%%, the ember %.0f%%) — a page of it would tire the eye' % (sat, esat))
+            if not (8.0 <= on_ground <= 11.5):
+                fails.append('speech is %.1f:1 on the ground — wanted readable (8) but never brighter than it need be (11.5)' % on_ground)
+            if on_ground >= body_on_ground:
+                fails.append('speech out-shines the prose around it (%.1f against %.1f)' % (on_ground, body_on_ground))
+            if abs(h - eh) < 10:
+                fails.append('speech cannot be told from the things that act: hue %.0f against the ember\u2019s %.0f' % (h, eh))
+            # the same ink where it stands on the writer's own tint (contrast.py boots an empty room and never sees a spoken line)
+            on_tint = page.evaluate("""() => {
+              const rgb = (c) => { const m = String(c).match(/rgba?\\((\\d+), (\\d+), (\\d+)/); return m ? [+m[1], +m[2], +m[3]] : null; };
+              const s = document.querySelector('#thread .msg-user .msg-body .spoken');
+              const b = document.querySelector('#thread .msg-user .msg-body');
+              return s && b ? { ink: rgb(getComputedStyle(s).color), ground: rgb(getComputedStyle(b).backgroundColor) } : null;
+            }""")
+            if on_tint:
+                rt = ratio(on_tint['ink'], on_tint['ground'])
+                print('speech inside the writer\u2019s own words: %.1f:1 on the tint rgb%s' % (rt, tuple(on_tint['ground'])))
+                if rt < 4.5:
+                    fails.append('speech on the writer\u2019s tint is under AA: %.1f:1' % rt)
+            else:
+                print('the writer\u2019s own pages do not colour speech — nothing to measure there')
+            spine = ink['spine']
+            if not (spine and spine[1] > spine[0] + 60 and spine[2] > spine[0] + 60):
+                fails.append('the spine of the writer\u2019s own words is no longer teal on its teal wash: %s' % (spine,))
 
         # Settings and the ledger in the same coat, for the eye
         page.evaluate("() => { location.hash = '#/settings'; }")

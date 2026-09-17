@@ -2650,6 +2650,41 @@ test('DOM-47 a new version stopped while the storyteller thinks gives the ledger
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-48 Settings tells the truth about Kimi K3: Off says what it is spoken as, a refusal of the old spelling is not shown as standing, and the form’s standing word follows the model as it is typed (M303)', async () => {
+  const before = errors.length;
+  const activeBefore = await db.settings.get('activeConnectionId');
+  const k3 = await db.connections.add({ label: 'AAA kimi k3', type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', apiKey: 'k', model: 'kimi-k3' });
+  await db.connections.update(k3.id, { reasoningDownAt: 1700000000000 }); /* silenced under the generic spelling, before M303 */
+  try {
+    await openSettings();
+    click(q('[data-room="storyteller"]'));
+    await until(() => q('#connection-pick') && [...q('#connection-pick').options].some((o) => o.value === k3.id), 'the picker', 10000);
+    const pick = q('#connection-pick');
+    pick.value = k3.id;
+    pick.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(() => q('#connection-list .connection-name') && q('#connection-list .connection-name').textContent === 'AAA kimi k3', 'its card', 10000);
+    const card = q('#connection-list .connection-card').textContent;
+    assert(/thinking: off — spoken as “low”/.test(card) && /always thinks/.test(card), 'Off is said as what it becomes: ' + card);
+    assert(!/unsent/.test(card), 'the old spelling’s refusal is not held against it');
+    /* the form: the standing word is there for K3, goes when the model is another, comes back */
+    click(qa('#connection-list .connection-card .row button').find((b) => /^Change$/.test(b.textContent.trim())));
+    await until(() => !q('#connection-form').hidden, 'the form', 10000);
+    assert(!q('#conn-reasoning-hint').hidden && /cannot be told not to/.test(q('#conn-reasoning-hint').textContent), 'the standing word: ' + q('#conn-reasoning-hint').textContent);
+    assert(/temperature/.test(q('#conn-reasoning-hint').textContent), 'and it names the two fixed dials');
+    assert(q('#conn-down-note').hidden, 'no note of a refusal that does not stand');
+    type(q('#conn-model'), 'some-other-model');
+    assert(q('#conn-reasoning-hint').hidden, 'another model: nothing to say');
+    type(q('#conn-model'), 'kimi-k3');
+    assert(!q('#conn-reasoning-hint').hidden, 'and back as it is typed');
+    click(q('#btn-conn-cancel'));
+  } finally {
+    await db.connections.remove(k3.id);
+    await db.settings.set('activeConnectionId', activeBefore);
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

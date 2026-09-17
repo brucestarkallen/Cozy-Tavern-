@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m302-001)
+# Cozy Tavern — handoff for the next session (state at m303-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M302). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M303). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 564 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 569 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 66 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 67 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,15 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- A house's spelling of "think" (M303): providers/effort.js reasonStyle → one branch in openai.js
+  requestBody. Kimi K3 (`kimi`): reasoning_effort low|high|max ONLY — never `thinking`, never off
+  (off→low), never medium; K2.x on Moonshot (`kimi2`): the thinking:{type} switch only. Before adding
+  or changing a house, read its own docs and run the wire (tests/harness/m303.mjs shows how: the real
+  provider, a recording fetch). A refusal (reasoningDownAt) is honoured only for the spelling it was
+  made under (reasoningDownShape); change a house's spelling and its old marks heal themselves.
+  The writer's sampling dials are never stripped — a house with fixed dials gets a standing word in
+  the form (thinkingHint), not a silent override. A worker's room has a 16,000 floor on a house that
+  cannot stop thinking.
 - Asking again (M302): "Try again" is the NEWEST turn read from the store (the storyteller's page is
   written anew; the writer's unanswered page is asked again, nothing let go) and is hidden only while a
   telling streams; the note's "Ask again" goes back through the door that failed (a version stays a

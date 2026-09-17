@@ -27,6 +27,14 @@ export const EFFORT_LEVELS = {
   /* M37: DeepSeek's current API — thinking:{type:enabled|disabled} plus
    * reasoning_effort low|high|max; medium and xhigh alias down/up. */
   deepseek: ['off', 'low', 'high', 'max'],
+  /* M303: Kimi K3 (platform.kimi.ai → "Thinking Effort", "Model Parameter
+   * Reference"): it ALWAYS thinks — there is no off — and its one dial is the
+   * top-level reasoning_effort, low | high | max, max when omitted. */
+  kimi: ['low', 'high', 'max'],
+  /* M303: the K2.x models on Moonshot's own address: thinking is a switch
+   * (thinking:{type}) and reasoning_effort is "Not supported". Every level
+   * above off is the same "on". */
+  kimi2: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],
   none: ['off', 'low', 'medium', 'high'],
 };
 
@@ -34,7 +42,14 @@ export const EFFORT_LEVELS = {
  * puts it, or on the nearest level below: GLM maps xhigh to max and medium
  * to high on its own side, so saying so here changes nothing it would have
  * done — while sending it "xhigh" verbatim is a request it rejects. */
-export const EFFORT_ALIAS = { zai: { medium: 'high', xhigh: 'max' }, deepseek: { medium: 'high', xhigh: 'max' } };
+export const EFFORT_ALIAS = {
+  zai: { medium: 'high', xhigh: 'max' },
+  deepseek: { medium: 'high', xhigh: 'max' },
+  /* M303: K3 cannot be told not to think, so "off" is the LEAST it can do —
+   * sending nothing would be its default, max: minutes of thinking for a
+   * writer who asked for none. */
+  kimi: { off: 'low', medium: 'high', xhigh: 'max' },
+};
 
 export function effortLabel(l) {
   return l === 'off' ? 'Off' : l === 'xhigh' ? 'XHigh' : l.charAt(0).toUpperCase() + l.slice(1);
@@ -50,6 +65,19 @@ export function reasonStyle(conn) {
   const model = String(c.model || '').toLowerCase();
   if (c.preset === 'hermes' || model === 'hermes-agent') return 'hermes';
   if (c.preset === 'openrouter' || url.includes('openrouter.ai')) return 'openrouter';
+  /* M303: THE KIMI FAMILY HAD NO SPELLING OF ITS OWN. A Moonshot address fell
+   * to the generic shape, so every request to kimi-k3 carried the K2.x
+   * `thinking` block — a field Moonshot's docs say K3 "does not support"
+   * ("remove the K2.x thinking configuration") — beside a reasoning_effort
+   * that could be "medium" or "xhigh", which are not K3 levels; and a 400
+   * that named the block set the refusal memory, after which NOTHING was
+   * sent and K3 fell to its default, max, whatever the writer had chosen.
+   * K3 (and whatever follows it) is read off the model's name on any
+   * openai-shaped address but OpenRouter's, which maps its own; the K2.x
+   * switch only on Moonshot's own address, where its fields are known. */
+  const kimiHost = url.includes('moonshot') || /(^|[/.])kimi\.(ai|com)([/:]|$)/.test(url);
+  if (/kimi[-_.]?k[3-9]/.test(model) || (kimiHost && /^k[3-9]\b/.test(model))) return 'kimi';
+  if (kimiHost && /^kimi/.test(model)) return /k2\.?7-code/.test(model) ? 'none' : 'kimi2';
   if (c.preset === 'zai' || url.includes('api.z.ai') || /\bglm\b|^glm|glm-/.test(model)) return 'zai';
   if (/qwen/.test(model)) return 'qwen';
   /* M37: DeepSeek thinks by default (at high) and is told not to with
@@ -102,14 +130,62 @@ export const PREFILL_REFUSAL = /assistant message prefill|must end with a user m
  * already decided by the retry, the memory is a courtesy. */
 import { db } from '../store.js';
 
-export async function markConnectionDown(conn, field) {
+export async function markConnectionDown(conn, field, shape) {
   if (!conn || !conn.id) return false;
   const first = !conn[field];
   conn[field] = Date.now();
+  const patch = { [field]: conn[field] };
+  /* M303: the thinking refusal remembers WHICH spelling was refused */
+  if (field === 'reasoningDownAt' && typeof shape === 'string' && shape) { conn.reasoningDownShape = shape; patch.reasoningDownShape = shape; }
   try {
-    await db.connections.update(conn.id, { [field]: conn[field] });
+    await db.connections.update(conn.id, patch);
   } catch (err) { /* a memory that won't persist is no reason to fail */ }
   return first;
+}
+
+/* M303: A REFUSAL IS REMEMBERED FOR THE SPELLING THAT WAS REFUSED. The mark
+ * used to silence a connection's thinking settings "until the model
+ * changes" — so a connection the wire refused because THE HOUSE spelled it
+ * wrong (Kimi K3, sent the K2.x `thinking` block) stayed silenced after the
+ * house learned the right spelling, and silence is max for K3. A mark made
+ * before shapes were kept belongs to the spelling the connection had then:
+ * its own, unless this release gave it a new one (the Kimi family spoke the
+ * generic shape). */
+export function reasoningIsDown(conn, style) {
+  if (!conn || !conn.reasoningDownAt) return false;
+  const was = typeof conn.reasoningDownShape === 'string' && conn.reasoningDownShape
+    ? conn.reasoningDownShape
+    : (style === 'kimi' || style === 'kimi2' ? 'openai' : style);
+  return was === style;
+}
+/* a mark that no longer applies is let go for good — the card in Settings and
+ * every other browser stop saying "unsent". Never throws. */
+export async function healStaleRefusal(conn, style) {
+  if (!conn || !conn.reasoningDownAt || reasoningIsDown(conn, style)) return false;
+  delete conn.reasoningDownAt;
+  delete conn.reasoningDownShape;
+  if (conn.id) { try { await db.connections.update(conn.id, { reasoningDownAt: null, reasoningDownShape: null }); } catch (err) { /* let go in hand; tried again next turn */ } }
+  return true;
+}
+
+/* M303: what the chosen level is SPOKEN as on this connection's wire, in
+ * words — for the connection's card and its form. Pure. */
+export function spokenAs(conn, effort) {
+  const style = reasonStyle(conn);
+  const want = EFFORT_RANK.includes(effort) ? effort : 'off';
+  if (style === 'none') return 'nothing is sent — this model decides for itself';
+  if (style === 'kimi2' || style === 'qwen') return want === 'off' ? 'thinking switched off' : 'thinking switched on (this model has no levels)';
+  const said = effortFor(style, want);
+  if (style === 'kimi' && want === 'off') return `“${said}” — Kimi K3 always thinks; this is the least it can`;
+  return said === 'off' ? 'off' : `“${said}”`;
+}
+/* the standing word under the form's thinking dial, when the house has one */
+export function thinkingHint(conn) {
+  const style = reasonStyle(conn);
+  if (style === 'kimi') return 'Kimi K3 always thinks — it cannot be told not to. Off and Low are spoken as “low”, Medium and High as “high”, XHigh and Max as “max”; left unsaid it would think at max. Moonshot fixes its temperature (1.0) and top-p (0.95) and asks that they be left out — leave those two dials empty for this connection.';
+  if (style === 'kimi2') return 'This Kimi model’s thinking is a switch: Off turns it off, every other level turns it on. Moonshot fixes its temperature and top-p — leave those two dials empty.';
+  if (style === 'none' && /kimi/i.test(String(conn && conn.model || ''))) return 'This Kimi model always thinks and takes no thinking setting — nothing is sent for it.';
+  return '';
 }
 
 /* ---------- the storyteller prefill (M22-D) ----------
