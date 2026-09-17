@@ -457,8 +457,14 @@ function cardText(name, entry, turn, cap) {
   const head = name + (entry.core ? ' — ' + entry.core : '');
   const now = entry.state ? stateLabel(entry, turn) + entry.state : '';
   let arc = entry.arc ? 'Between you: ' + entry.arc : '';
-  const threads = (entry.threads || []).slice(0, 3);
-  let ends = threads.length ? 'Loose ends: ' + threads.join('; ') : '';
+  /* M306: THE CARD SHOWED THE THREE OLDEST LOOSE ENDS, NEVER THE NEWEST. The list
+   * is kept oldest first (a new one is pushed on the end, and a full list lets
+   * the oldest go — M134: "never the newest"), and this took slice(0, 3): with
+   * five open, the storyteller was told of the three stalest and never of the
+   * two that had just come up. The newest three, newest first; the rest counted. */
+  const allEnds = Array.isArray(entry.threads) ? entry.threads : [];
+  const threads = allEnds.slice(-3).reverse();
+  let ends = threads.length ? 'Loose ends: ' + threads.join('; ') + (allEnds.length > 3 ? ' (and ' + (allEnds.length - 3) + ' older)' : '') : '';
   const build = () => [head, now, arc, ends].filter(Boolean).join('\n');
   /* M266: WHOLE LINES, NEVER A CUT MID-SENTENCE. The card was chopped at its
    * cap wherever that fell. Now a card past its room lets go of whole lines —

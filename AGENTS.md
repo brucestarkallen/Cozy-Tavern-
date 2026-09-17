@@ -6874,3 +6874,34 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - PROBE ERRORS OF MINE: buildRequest takes `messages`, not `history`; eleven thread titles that share
   their words are ONE thread to the ledger (sameThreadTitle), as near-names are one person.
 - version.js -> m305-001.
+
+# M306 — the rest of the whole-ledger check: the card showed the OLDEST loose ends; the record's last silent cutter
+- THE WRITER's mandate (M304): "check the whole ledger — the scene, the people, the world, the book." Every
+  book was read for the one fault M304 and M305 had in common: a cap, a first-N or a cut that quietly
+  loses the wrong end.
+- FOUND, FIXED.
+  · THE PEOPLE (engine/people.js cardText). Loose ends are kept oldest first (a new one is pushed on the
+    end; a full list lets the OLDEST go — M134: "never the newest") and the card took `slice(0, 3)`:
+    with five open, the storyteller was told the three stalest and never the two that had just come
+    up. Now the newest three, newest first, the rest counted "(and 2 older)". M306-2 renders the
+    storyteller's own people block and reads the line.
+  · THE BOOK (agents/memory.js wholeRecord). renderMemory, recordFor and recordWithPages each say how
+    many earlier lines they did not show (NO SILENT CUT, M265); wholeRecord — read by the rebuild of
+    the standings and of the people — let the oldest lines go without a word. It says its cut now;
+    every line is either shown or counted (M306-1).
+- READ AND FOUND SOUND (no change):
+  · STANDINGS (engine/relationships.js): the numbers p/r/s ARE the memory and are never aged; only the
+    list of causes is kept to thirty, which the drawer and the once-only beat check read.
+  · THE SCENE: the hour and the ground are the header line's, in code, every page (M128); who is here
+    and where in the room is the page reader's, every page; the mood is stated whole every page
+    (M92); the ground moving lets positions go (M261); wounds age on the clock (M162).
+  · THE BOOK's other three readers already say their cuts; the storyteller's record rides in the
+    room its context leaves, never under 30,000 chars (M264).
+  · THE STORYTELLER'S VIEWS: the people block is sized to the room (M282-286); at a 500k room the
+    state of things is `whole`.
+  · LEFT AS DESIGNED: a person's loose ends are kept to eight, the oldest going (M134 — a full list
+    had frozen pages twenty turns behind); windows already opened remember the last six; weariness
+    keeps twelve entries. None of these loses something a long tale still needs.
+- MUTATION-CHECKED: slice(0, 3) back and the note silenced → M306-1 and M306-2 fail; both files
+  restored and `cmp`-proven.
+- version.js -> m306-001.

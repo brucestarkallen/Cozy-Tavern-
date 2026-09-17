@@ -207,9 +207,16 @@ export function wholeRecord(mem, cap = SLOT_BUDGET) {
   /* M216: with the detail, for the same reason — this is what the auditor,
    * the rebuild, the mender and the housekeeper read. */
   const lines = orderedLines(mem).map(lineWords).filter(Boolean);
-  let kept = lines.slice();
-  while (kept.length > 1 && kept.join('\n').length > cap) kept.shift();
-  return kept.join('\n');
+  const kept = lines.slice();
+  /* M306: THE ONE CUTTER OF THE RECORD THAT DID NOT SAY ITS CUT. renderMemory,
+   * recordFor and recordWithPages each tell their reader how many earlier
+   * lines they were not shown (NO SILENT CUT, M265); this one — read by the
+   * rebuild of the standings and of the people — let the OLDEST lines go
+   * without a word, so a rebuild of a very long tale would have judged its
+   * people as if the opening chapters never happened. */
+  let dropped = 0;
+  while (kept.length > 1 && kept.join('\n').length > cap) { kept.shift(); dropped += 1; }
+  return (dropped ? '(' + dropped + ' earlier ' + (dropped === 1 ? 'line' : 'lines') + ' of the record not shown — no room; what they established still stands)\n' : '') + kept.join('\n');
 }
 
 /* M261: THE STORY SO FAR, for a reader of one page. Every page the record
