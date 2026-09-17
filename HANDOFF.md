@@ -1,7 +1,7 @@
-# Cozy Tavern — handoff for the next session (state at m309-001)
+# Cozy Tavern — handoff for the next session (state at m310-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M309). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M310). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
@@ -20,6 +20,11 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- The device keeps its own safety copies (M310): serve.py zips the data folder at every start (once a
+  day), on demand at /api/backup/now, newest five kept, each verified readable; "Take a copy" downloads
+  that zip. `python3 tests/backup.py` holds it. NEVER make the browser fold the whole store for a
+  backup again. OPEN, the writer's standing order: storage like SillyTavern's — the server owns the
+  files, the browser holds only the open tale; today every browser holds every tale and pulls all at open.
 - The thinking room (M308): a token budget exists only on Claude (floor 1,024) and, through OpenRouter, on
   anthropic/ and google/ models; every other house has LEVELS only and is sent the writer's level
   (effort.js budgetFor decides, and gives the form and the card their words). A dial a house cannot hear

@@ -406,6 +406,38 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         if path == '/api/books/list':
             self._send_bytes(self._manifest())
             return
+        if path == '/api/backup/now' or path == '/api/backup/list':
+            # M310: a safety copy made by the DEVICE, from the files — whatever the library's size
+            r = make_backup(force=False) if path.endswith('/now') else {'ok': True}
+            r = dict(r)
+            r['folder'] = BACKUPS_DIR
+            r['copies'] = [{'name': os.path.basename(b), 'bytes': os.path.getsize(b)} for b in _backups()]
+            if 'path' in r:
+                r['name'] = os.path.basename(r.pop('path'))
+            self._send_bytes(json.dumps(r).encode('utf-8'))
+            return
+        if path == '/api/backup/file':
+            have = _backups()
+            if not have:
+                self.send_response(404); self.end_headers(); return
+            newest = have[-1]
+            try:
+                size = os.path.getsize(newest)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/zip')
+                self.send_header('Content-Length', str(size))
+                self.send_header('Content-Disposition', 'attachment; filename="%s"' % os.path.basename(newest))
+                self.send_header('Cache-Control', 'no-store')
+                self.end_headers()
+                with open(newest, 'rb') as f:
+                    while True:
+                        chunk = f.read(1024 * 256)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+            except (OSError, ConnectionError):
+                pass
+            return
         if path.startswith('/api/books/one/'):
             bp = self._book_path(path[len('/api/books/one/'):])
             if bp is None:
@@ -664,8 +696,112 @@ def _watch_self():
     threading.Thread(target=loop, daemon=True).start()
 
 
+# M310: THE DEVICE KEEPS ITS OWN SAFETY COPIES — NO BROWSER INVOLVED. "Take a copy" asked the
+# BROWSER to fold the whole store into one JSON string (every tale, every page, every checkpoint);
+# on a library of thousands of pages a phone's browser cannot hold that string, the button did
+# nothing, and the writer had no way to back up the stories he could not afford to lose. The books
+# are FILES here; copying files needs no browser at all. At every start, and at most once a day,
+# serve.py zips the whole data folder into <data>/backups/ (the newest BACKUPS_KEPT are kept, and an
+# unchanged library is not zipped twice); /api/backup/now makes one on demand and /api/backup/file
+# hands the newest to the browser as an ordinary download, streamed from disk.
+BACKUPS_DIR = os.path.join(DATA_DIR, 'backups')
+BACKUPS_KEPT = 5
+
+
+def _library_files():
+    out = []
+    for root, dirs, files in os.walk(DATA_DIR):
+        if os.path.abspath(root).startswith(os.path.abspath(BACKUPS_DIR)):
+            continue
+        for name in files:
+            if name.endswith('.tmp'):
+                continue
+            out.append(os.path.join(root, name))
+    return sorted(out)
+
+
+def _library_stamp(files):
+    newest = 0.0
+    total = 0
+    for f in files:
+        try:
+            st = os.stat(f)
+            newest = max(newest, st.st_mtime)
+            total += st.st_size
+        except OSError:
+            pass
+    return '%d-%d-%d' % (len(files), total, int(newest))
+
+
+def _backups():
+    try:
+        names = sorted(n for n in os.listdir(BACKUPS_DIR) if n.startswith('cozytavern-') and n.endswith('.zip'))
+    except OSError:
+        names = []
+    return [os.path.join(BACKUPS_DIR, n) for n in names]
+
+
+def make_backup(force=False):
+    """Zip the whole library. Returns {ok, path, bytes, files, made} — made False when the newest
+    copy already holds exactly this library. Never raises: a backup that cannot be made says why."""
+    import zipfile
+    try:
+        files = _library_files()
+        if not files:
+            return {'ok': False, 'why': 'there are no books on this device yet'}
+        os.makedirs(BACKUPS_DIR, exist_ok=True)
+        stamp = _library_stamp(files)
+        mark = os.path.join(BACKUPS_DIR, 'last.stamp')
+        have = _backups()
+        try:
+            last = open(mark).read().strip()
+        except OSError:
+            last = ''
+        if have and last == stamp and not force:
+            return {'ok': True, 'made': False, 'path': have[-1], 'bytes': os.path.getsize(have[-1]), 'files': len(files)}
+        name = 'cozytavern-%s.zip' % time.strftime('%Y%m%d-%H%M%S')
+        final = os.path.join(BACKUPS_DIR, name)
+        tmp = final + '.part'
+        with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as z:
+            for f in files:
+                try:
+                    z.write(f, os.path.relpath(f, DATA_DIR))
+                except OSError:
+                    pass
+        # a copy is kept only if it can be read back, whole
+        with zipfile.ZipFile(tmp) as z:
+            bad = z.testzip()
+            if bad is not None:
+                os.remove(tmp)
+                return {'ok': False, 'why': 'the copy could not be read back (%s)' % bad}
+            count = len(z.namelist())
+        os.replace(tmp, final)
+        with open(mark, 'w') as f:
+            f.write(stamp)
+        for old in _backups()[:-BACKUPS_KEPT]:
+            try:
+                os.remove(old)
+            except OSError:
+                pass
+        return {'ok': True, 'made': True, 'path': final, 'bytes': os.path.getsize(final), 'files': count}
+    except Exception as err:  # never take the server down for a backup
+        return {'ok': False, 'why': str(err)}
+
+
+def _daily_backup():
+    have = _backups()
+    today = 'cozytavern-' + time.strftime('%Y%m%d')
+    if have and os.path.basename(have[-1]).startswith(today):
+        return
+    make_backup()
+
+
 if __name__ == '__main__':
     _watch_self()
+    try:
+        threading.Thread(target=_daily_backup, daemon=True).start()  # M310: a safety copy at every start, once a day
+    except Exception:
+        pass
     # Bind AND print 127.0.0.1 (M13): on some Android setups "localhost"
     # resolves to ::1 while the server sits on IPv4 — the printed URL must
     # be the deterministic one.

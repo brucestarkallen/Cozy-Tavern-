@@ -7006,3 +7006,37 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   MUTATION-CHECKED (the strip at send time and the name rule removed → M309-1 and M309-3 fail);
   both files restored and `cmp`-proven.
 - version.js -> m309-001.
+
+# M310 — the device keeps its own safety copies (the writer could not back up a library of ~3,000 pages)
+- THE WRITER, in distress: Chrome crashed on opening and showed nothing; everything lags and is unusable
+  "after 3000 pages total from all chats"; "the import/backup button is not functional — how can I
+  back up now, my precious story is there"; and: why is there browser sync at all when SillyTavern
+  needs none. His order: SAVE THE BACKUP FIRST, then redesign the storage.
+- THE BACKUP — ROOT CAUSE. "Take a copy" asked the BROWSER to fold the whole store into one JSON string
+  (db.exportAll: every tale, every page, every checkpoint — up to 120 whole ledgers a tale). On a
+  library that size a phone's browser cannot hold the string; the handler had no try/catch, so the
+  button did nothing and said nothing. The books are FILES on the device (~/.cozytavern/books/, one
+  per tale, each with a .bak1 of its last version); copying files needs no browser at all.
+- CHANGE (serve.py): make_backup() zips the whole data folder (never the backups themselves) into
+  <data>/backups/cozytavern-YYYYMMDD-HHMMSS.zip, verifies the zip reads back whole before keeping it,
+  skips an unchanged library, keeps the newest five. It runs by itself at every start (at most once a
+  day); /api/backup/now makes one on demand, /api/backup/list says what is kept and where,
+  /api/backup/file streams the newest to the browser as an ordinary download. settings.js "Take a
+  copy" uses the device's zip whenever serve.py is there, says the size, the file count and the
+  folder; with no server it folds its own as before — and a failure is now SAID.
+- TESTS: tests/backup.py against the real serve.py — twelve books, 3,000 pages: a copy at start with no
+  browser open; byte-for-byte contents; no copy of an unchanged library; a new one when it changes;
+  only five kept; the newest reads back whole. The data-loss guards re-run on this server: wipe.py
+  ("nothing was lost"), guard.py ("the guard holds"), append.py, twobrowsers.py.
+- A TEST THAT FLAKED, NAMED: twobrowsers' M295 check ("one whole book, not one per page… no second
+  whole push has landed YET") is a race against a fixed 3.5 s wait; it failed twice when run straight
+  after other heavy browser suites, then passed — with this change, without its startup thread, and
+  on the committed tree alike. The thread cannot reach it (it ends in milliseconds on an empty
+  folder). Left as it is; run it alone.
+- NOT DONE HERE, AND THE REAL COMPLAINT: the storage design. The browser holds a full working copy of
+  EVERY tale (IndexedDB + a read cache) and a fresh browser pulls every book at open — cost grows
+  with the whole library, not the open tale, which is what a phone cannot carry at ~3,000 pages.
+  SillyTavern's shape is the server owning the files and the browser holding only what is open.
+  tests/perf_rooms.py (new, this session) measures the ledger and Settings on ONE heavy tale and
+  does not reproduce the lag — the library's size is the variable it does not have yet.
+- version.js -> m310-001.

@@ -2236,7 +2236,41 @@ export function initSettings(ctx) {
     if (!(r && r.ok)) toast('The books could not be read: ' + ((r && r.why) || 'the server did not answer') + '.');
   });
   els.btnExport.addEventListener('click', async () => {
-    const json = await db.exportAll();
+    /* M310: THE DEVICE MAKES THE COPY, FROM ITS OWN FILES. This button folded the WHOLE store into one
+     * JSON string inside the browser — every tale, every page, every checkpoint. On a library of
+     * thousands of pages a phone cannot hold that string: the button did nothing, said nothing, and
+     * the writer could not back up. With serve.py there, the server zips its books folder (no browser
+     * memory at all) and hands the zip over as an ordinary download; the copy also stays on the
+     * device, in the backups folder. Only with no server does the browser fold its own — and a
+     * failure is SAID, never swallowed. */
+    els.backupNote.hidden = false;
+    els.backupNote.textContent = 'Making a copy…';
+    try {
+      const res = await fetch(new URL('api/backup/now', document.baseURI), { cache: 'no-store' });
+      if (res.ok) {
+        const r = await res.json();
+        if (r && r.ok) {
+          const a = document.createElement('a');
+          a.href = new URL('api/backup/file', document.baseURI).href;
+          a.download = r.name || 'cozytavern-backup.zip';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          const mb = (Number(r.bytes || 0) / 1048576).toFixed(1);
+          els.backupNote.textContent = `A copy of every book on this device (${r.files} files, ${mb} MB) is in your downloads as ${r.name} — and kept on the device in ${r.folder}. The device also makes one by itself every day it is started, and keeps the newest ${Array.isArray(r.copies) ? Math.max(r.copies.length, 1) : 1}.`;
+          toast('A copy of every book is in your downloads.');
+          return;
+        }
+        if (r && r.why) { els.backupNote.textContent = 'The device could not make a copy: ' + r.why + '.'; return; }
+      }
+    } catch (err) { /* no server here — the browser folds its own, below */ }
+    let json = '';
+    try {
+      json = await db.exportAll();
+    } catch (err) {
+      els.backupNote.textContent = 'This browser could not fold its stories into one file (' + ((err && err.message) || 'it ran out of room') + '). Start the tavern with serve.py — the device then makes the copy from its own files, whatever the size.';
+      return;
+    }
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
