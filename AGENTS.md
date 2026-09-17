@@ -6331,3 +6331,88 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   breaks caught.
 - 552/552 harness + 52/52 walk + 8/8 play + two-browser 11/11 + housekeeper_rounds 16/16 + perf (story)
   within budget + lint 0 errors. version.js -> m292-001.
+
+# M293 — the audit: what the device syncs is let go where it was let go; a stream that dropped is caught up on; two hands on one tale; a Stop that settles
+- THE PASS: a total audit of the tree as it stood at m292-001 (720ac60), run without subagents,
+  serially — server and persistence, sync and the worker, launcher, the turn pipeline, the queue,
+  journal and checkpoints (M180's fuzz stands), then the diff read as a stranger's. Findings came
+  from tracing, not from complaints; nothing changed without a check that was red before it.
+- File js/agents/queue.js, stopWork. PROBLEM: the writer's Stop emptied the queue (`list.length = 0`)
+  and the promises of the jobs in it were never resolved. EVIDENCE: M293-1 — three jobs, one in
+  flight; stop; the two dropped promises hung for ever. ROOT CAUSE: a purge without a settle (a story
+  switch always settled what it purged). CONSEQUENCE, traced: the first dropped promise sat at the
+  head of extractor.js inFlight for the rest of the session, so every pendingWork() waited its whole
+  ceiling — five seconds before every send, eight before every branch (which then read the chain as
+  still running and re-read its last page), two minutes before every replay and every last-page
+  delete, ten before an audit's banner — and a replay's tail that was dropped never ran its finally,
+  so `replaying` stayed set and every edit, swipe, delete, branch and retry waited five minutes and
+  was then refused with "try once more in a moment", for the whole session. CHANGE: the dropped jobs
+  are settled {ok:false, stopped:true}; ui/chat.js replayFrom lets the gate go when its tail settles
+  without running. WHY NECESSARY: a Stop is a control the writer was given (M208); it must not cost
+  him the rest of his session. AFFECTED: every caller of pendingWork; waitForRebuild's gate; M208's
+  source law reads the new drop. VALIDATION: M293-1 (harness) red → green; DOM-34 (edit an older
+  page with the reader held, Stop, the gate lets go, the next edit opens) red → green.
+- File js/sync.js ask, js/sync-worker.js. PROBLEM: an answer was matched to its question by KIND
+  alone, and the worker answers questions side by side. EVIDENCE: M293-2 — two fetchStory asks; the
+  second answered first; the first resolved on it ("got true, wanted false"). ROOT CAUSE: no
+  correlation. CONSEQUENCE, traced: two pulls in flight (a page announced beside the house — every
+  whole push announces both; a tale opened beside a live pull; the re-inks after a page, several in
+  seconds) both resolved on the first `pulledOne`: the room painted a tale whose pages had not landed,
+  the pull that then landed painted nothing, fetchStory said true for a tale not fetched, and a
+  worker's error settled whatever else waited (a page push failing beside the boot read as "no books
+  reached this browser"). CHANGE: every ask carries a request id; the worker echoes it on every
+  reply; only that reply resolves the ask. VALIDATION: M293-2 red → green; twobrowsers 21/21.
+- File js/store.js importHouse/importStory, js/sync-worker.js pullBooks, js/sync.js. PROBLEM: a pull
+  PUT every row the book carried and never let go of a local row the book lacked. EVIDENCE:
+  twobrowsers — a connection and a cast card let go in A stayed in B, rode B's next push to the
+  device and came home to A (four checks red). ROOT CAUSE: deletions had no representation in a
+  whole-book pull. CONSEQUENCE: a connection removed, a cast member let go, the settings reset, a
+  director switched off — never propagated; resurrected. Against the law "data identical in every
+  browser". CHANGE: with `dropMissing` a pull lets go of the rows in its scope the book does not hold
+  (a tale's own rows; the house's — no tale's suffix, no tale-shaped prefix, never bookStamp:), and
+  the rows this browser changed since its last push of that book (`keep`, from sync.js mineFor:
+  per-key write moments against per-book push moments) it neither writes over nor lets go. The
+  house's own probe of a model's room (providers/detect.js writes detectTried*/detected*) no longer
+  marks the house dirty or claims the row — it rides the next push. A REGRESSION CAUGHT READING THE
+  DIFF: the worker shadowed the `own` map with the stamp string and `keep` was always empty; renamed,
+  and a deliberate break of that line turns two checks red. VALIDATION: M293-3 (store: let go, kept,
+  not written over) red → green; twobrowsers: the let-go rows go and do not come home to A or the
+  device; a connection made in B before its push survives A's push and reaches A on B's own.
+- File serve.py _announce/_events, js/sync.js listen. PROBLEM: a listener whose queue overflowed was
+  dropped from the list while its stream stayed open (keep-alives for ever, never a change); and a
+  stream that dropped (a phone dozing) reconnected with nothing replayed. EVIDENCE: twobrowsers —
+  serve.py killed, a page appended to the log on disk, serve.py back: B stayed at 3 pages. ROOT
+  CAUSE: reconnection with no catch-up. CHANGE: the server ends a stuck listener's stream; the room
+  runs a boot-style catch-up (the manifest's stamps against ours) when the stream returns after a
+  drop and whenever the page comes back into view (once per five seconds at most), and paints what
+  moved in place. VALIDATION: the same run, 4 pages, drawn. Against the law "updates land with no
+  manual refresh".
+- File js/ui/chat.js fillLedgerGap/fillRecordGap/resumeUnfinishedChain, js/sync.js. PROBLEM: a second
+  browser holding the same tale open was handed the first browser's page at once (M182), and its
+  light — a ledger a page behind — sent ITS readers at the page while the first browser's were still
+  out; a reload ran its resume on the same page. EVIDENCE: tests/twohands.py against a fake model
+  holding the extractor six seconds: B called extractor, extractor, world, three workers, extractor.
+  ROOT CAUSE: an idle repair had no notion of another hand. CONSEQUENCE: two readers on one page (a
+  standing moved twice), and each browser's whole-book push laying its ledger over the other's
+  mid-chain. CHANGE: sync.js marks a tale another hand wrote — every live announcement from another
+  browser, and a pull that found the book moved on the device within ten minutes unless this browser
+  wrote it within ten minutes (its own killed tab catching up is not another hand) — in localStorage,
+  this browser's alone, through the reload a boot pull makes; the idle repairs and the resume keep
+  off such a tale for ten minutes from the last mark and look again when the window passes; the
+  chain for pages written here is untouched. VALIDATION: twohands 10/10 — B never calls its model, A
+  reads once, Mara's standing P:10 in both browsers; and A's own killed tab still reads its unfinished
+  page on open (M127 stands). KNOWN LIMIT: the writer playing the same tale in both browsers at once
+  is still last-push-wins on the ledger; the marks defer only the idle repairs.
+- Concerns recorded, unchanged (short of the bar): serve.py's whole-book POST has a window between
+  the snapshot's replace and the log's removal in which a process kill lets _merge_log resurrect a
+  page the pusher had deleted until that browser's next whole push (a tombstone per page would close
+  it); a branch of a long tale issues a handful of whole-book pushes at once before the first snapshot
+  lands (self-correcting; costly); retryUserMessage claims `busy` after several awaits (a second tap
+  in that window could start two turns); HANDOFF.md and this log name a SPEC.md that has never
+  existed in the repo's history.
+- Measured at 6× CPU throttle, two runs each, before → after: drawer open 33 → 33 ms, first scroll
+  17 → 17, close 17 → 17, Settings open 33 (one run 50) → 33, close 17 → 17. No render path changed.
+- 555/555 harness (3 new laws; idb-shim gained the real index.getAllKeys the import path uses) +
+  53/53 walk (DOM-34) + 8/8 play + two-browser 21/21 (10 new) + twohands 10/10 (new) + append 24/24
+  + guard 13/13 + wipe 11/11 + housekeeper_rounds all green + housekeeper perf within budget + lint
+  0 errors (96 warnings, as before). version.js -> m293-001.

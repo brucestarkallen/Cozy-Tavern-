@@ -1,12 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m292-001)
+# Cozy Tavern — handoff for the next session (state at m293-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M292). SPEC.md holds the founding design.
+Full history of every law and fix: AGENTS.md (M1 … M293). (There is no SPEC.md in the repo — the
+founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 552 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 555 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 52 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 53 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -141,11 +142,19 @@ Full history of every law and fix: AGENTS.md (M1 … M292). SPEC.md holds the fo
   and serve.py re-execs itself when its file changes (M157) — no manual restart, ever. The
   worker's fetches must use api(path) (a relative fetch in a worker resolves against /js/).
 - Two-browser proof: tests/twobrowsers.py (Playwright, two contexts, the real
-  serve.py) — eleven checks: B holds A's story/pages/ledger/connection; B reads the DEVICE's
+  serve.py) — twenty-one checks: B holds A's story/pages/ledger/connection; B reads the DEVICE's
   manifest, never a kept copy; a page written after B first booted still reaches B; a tale let
-  go in A stays gone in B and is never pushed back; the worker caches no api answer. Run it
-  (`python3 tests/twobrowsers.py`; the browsers are in /opt/pw-browsers) before any commit that
-  touches sync, sw.js, serve.py or store.js.
+  go in A stays gone in B and is never pushed back; the worker caches no api answer; a connection
+  and a cast card let go in A go in B live and never come home to A or the device (M293); a row
+  made in B before its push survives A's push; a page that landed while B's stream was down reaches
+  B when the stream returns, painted (M293). Run it (`python3 tests/twobrowsers.py`; the browsers
+  are in /opt/pw-browsers) before any commit that touches sync, sw.js, serve.py or store.js.
+- Two hands on one tale: tests/twohands.py (Playwright, two contexts, the real serve.py, a fake
+  model that holds the extractor) — ten checks: B, handed A's page live, never sends its own readers
+  at it (no idle repair, no resume on reload) while A's are out; A reads it once; the standing moves
+  once and both browsers hold it; A's own killed tab still resumes its unfinished page on open (M127).
+  Run it with twobrowsers.py; the marks it relies on live in localStorage (cozy.elsewhere:<tale>,
+  cozy.wrote:<tale>), this browser's alone.
 
 ## Known limits (not bugs)
 - The prose of the model the writer points at it. The house hands it the truth and catches
@@ -154,3 +163,6 @@ Full history of every law and fix: AGENTS.md (M1 … M292). SPEC.md holds the fo
   deep re-read path (a toast says so).
 - The preset's own copies of Voices/TWB/Contested Resolution on an already-imported shelf are
   never sent and shadow nothing; deleting them is optional.
+- Playing the same tale in two browsers at the same time is last-push-wins on its ledger (M293
+  keeps only the idle repairs and the resume of the second browser off a tale another hand wrote
+  within the last ten minutes; the pages themselves merge by id and are never lost).
