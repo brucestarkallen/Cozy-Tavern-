@@ -56,11 +56,73 @@ export async function initSync(ctx) {
   const dirty = new Set();
   let timer = null;
   let running = null;
+  let knownIds = new Set(); /* the tales this browser holds — filled once the books have settled */
+  /* M293: AN ASK WAITS FOR ITS OWN ANSWER. It took the first answer of the
+   * right KIND, and the worker answers questions side by side — so two pulls
+   * in flight (a page announced beside the house, a tale opened beside a live
+   * pull) both resolved on the first `pulledOne` back: the room painted a tale
+   * whose pages had not landed, the pull that then landed painted nothing,
+   * and a worker's error settled whatever else was waiting. Every question
+   * carries an id the worker echoes; only that answer resolves it. */
+  let askSeq = 0;
   const ask = (msg) => new Promise((resolve) => {
-    const onmsg = (e) => { if (e.data && (e.data.kind === msg.expect || e.data.kind === 'error')) { worker.removeEventListener('message', onmsg); resolve(e.data); } };
+    const rid = ++askSeq;
+    const onmsg = (e) => { if (e.data && e.data.rid === rid && (e.data.kind === msg.expect || e.data.kind === 'error')) { worker.removeEventListener('message', onmsg); resolve(e.data); } };
     worker.addEventListener('message', onmsg);
-    worker.postMessage(msg);
+    worker.postMessage({ ...msg, rid });
   });
+  const storyOfKey = (key) => { const at = String(key).lastIndexOf(':'); return at > 0 ? String(key).slice(at + 1) : ''; };
+  /* M182: this browser's own name, for the life of the tab. */
+  const clientId = 'tab-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  /* M293: ANOTHER HAND AT A TALE. When a tale changed under this browser —
+   * another browser announced a write to it, or a pull found it moved on the
+   * device within the last minutes — that browser's readers may still be
+   * writing its ledger. The room's idle repairs (a ledger gap read, a record
+   * gap folded, an unfinished last page resumed) keep off such a tale for a
+   * while, or two browsers read the same page and write the same beat twice
+   * (ui/chat.js otherHandAt). A tale's own writes here never mark it. */
+  /* The marks live in localStorage — this browser's alone, never in the
+   * house book (a mark that rode the book would tell both browsers the same
+   * thing), and kept through the reload a boot pull makes. In memory when the
+   * browser has none. */
+  const marks = new Map();
+  const markGet = (key) => { try { const v = Number(localStorage.getItem(key)); if (v) return v; } catch (err) { /* no store */ } return marks.get(key) || 0; };
+  const markSet = (key, at) => { marks.set(key, at); try { localStorage.setItem(key, String(at)); } catch (err) { /* memory holds it */ } };
+  const RECENT_MS = 10 * 60000;
+  /* a tale this browser wrote within the window is this browser's own — a
+   * boot pull that finds it moved is its own killed tab catching up, not
+   * another hand (a live announcement from another browser is always theirs) */
+  const wroteHereAt = (id) => markGet('cozy.wrote:' + id);
+  const noteWroteHere = (id) => { if (id && id !== '_house') markSet('cozy.wrote:' + id, Date.now()); };
+  const noteElsewhere = (ids, { unlessMine = false } = {}) => {
+    for (const id of Array.isArray(ids) ? ids : [ids]) {
+      if (!id || id === '_house') continue;
+      if (unlessMine && Date.now() - wroteHereAt(id) < RECENT_MS) continue;
+      markSet('cozy.elsewhere:' + id, Date.now());
+    }
+  };
+  status.wroteElsewhereAt = (id) => markGet('cozy.elsewhere:' + id);
+  /* M293: WHAT IS THIS BROWSER'S. Every settings key and connection this
+   * browser writes is remembered with the moment; a push that lands records
+   * the moment for its book. A row changed here since the book's last push
+   * is this browser's own — a pull neither writes over it nor lets it go
+   * (store.js keep) — while every other row is the book's, so a row let go
+   * elsewhere is let go here. */
+  const wroteKeyAt = new Map();      /* 'key' or 'conn:' + id -> when */
+  const pushedAt = new Map();        /* bookId -> when its last push landed */
+  const noteKey = (key) => { if (key) wroteKeyAt.set(key, Date.now()); };
+  const mineFor = (bookId) => {
+    const since = pushedAt.get(bookId) || 0;
+    const out = [];
+    for (const [key, at] of wroteKeyAt) {
+      if (at <= since) continue;
+      const conn = key.startsWith('conn:');
+      const owner = conn ? '_house' : (storyOfKey(key) && knownIds.has(storyOfKey(key)) ? storyOfKey(key) : '_house');
+      if (owner === bookId) out.push(conn ? key.slice(5) : key);
+    }
+    return out;
+  };
+
   /* M181: A PUSH ASKED FOR WHILE ONE RUNS IS NOT A PUSH REFUSED. The old
    * guard returned at once when a push was in flight, so anything marked
    * during it fell to a fresh twenty-second timer — and "push everything
@@ -79,14 +141,16 @@ export async function initSync(ctx) {
         while (dirty.size) {
           const ids = [...dirty];
           dirty.clear();
-          await ask({ kind: 'push', ids, expect: 'pushed' });
+          const began = Date.now();
+          const r = await ask({ kind: 'push', ids, expect: 'pushed' });
+          for (const id of (r && Array.isArray(r.ids)) ? r.ids : []) pushedAt.set(id, began);
         }
       } finally { running = null; }
     })();
     return running;
   };
   const schedule = () => { clearTimeout(timer); timer = setTimeout(pushNow, 20000); };
-  const mark = (id) => { if (id) { dirty.add(id); schedule(); } };
+  const mark = (id) => { if (id) { dirty.add(id); schedule(); noteWroteHere(id); } };
   /* M181: PROSE GOES TO THE DEVICE AT ONCE. Every write waited on the same
    * twenty-second debounce, so a page the writer had just read sat only in
    * the browser for twenty seconds — and a browser whose data is cleared in
@@ -101,13 +165,10 @@ export async function initSync(ctx) {
   const markNow = (id) => {
     if (!id) return;
     dirty.add(id);
+    noteWroteHere(id);
     clearTimeout(timer);
     Promise.resolve().then(pushNow);
   };
-  const storyOfKey = (key) => { const at = String(key).lastIndexOf(':'); return at > 0 ? String(key).slice(at + 1) : ''; };
-
-  /* M182: this browser's own name, for the life of the tab. */
-  const clientId = 'tab-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 
   /* boot: with a three-second grace; a longer pull finishes behind a toast and reloads once */
   const boot = ask({ kind: 'boot', clientId, expect: 'boot' });
@@ -115,6 +176,7 @@ export async function initSync(ctx) {
   const settle = async (b) => {
     if (b && b.kind === 'boot' && b.reachable) {
       status.backed = true; status.words = 'on this device, in files — one book per tale';
+      noteElsewhere(b.recent, { unlessMine: true });
       if (b.pulled > 0) { dropCaches(); location.reload(); return true; }
     } else if (b && b.kind === 'boot' && !b.reachable && !localHasStories && ctx.toast) {
       /* M156: say which of the two it is — an old server answers 404 to the books' list */
@@ -130,14 +192,14 @@ export async function initSync(ctx) {
   } else if (await settle(first)) return status;
 
   /* the live mirror: what changed, and only that */
-  const knownIds = new Set((await ctx.db.stories.list()).map((s) => s.id));
+  knownIds = new Set((await ctx.db.stories.list()).map((s) => s.id));
   const wrap = (obj, name, pick) => {
     if (!obj || typeof obj[name] !== 'function') return;
     const orig = obj[name].bind(obj);
     obj[name] = (...args) => { const out = orig(...args); try { pick(args, out); } catch (err) { /* fine */ } return out; };
   };
-  wrap(ctx.db.settings, 'set', ([key]) => { if (/^bookStamp:/.test(key) || key === 'booksStamp') return; const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
-  wrap(ctx.db.settings, 'delete', ([key]) => { const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
+  wrap(ctx.db.settings, 'set', ([key]) => { if (/^bookStamp:/.test(key) || key === 'booksStamp') return; noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
+  wrap(ctx.db.settings, 'delete', ([key]) => { noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
   wrap(ctx.db.stories, 'create', (args, out) => { Promise.resolve(out).then((st) => { if (st && st.id) { knownIds.add(st.id); mark(st.id); mark('_house'); } }); });
   wrap(ctx.db.stories, 'update', ([id]) => { mark(id); mark('_house'); });
   wrap(ctx.db.stories, 'remove', ([id]) => { knownIds.delete(id); mark('_house'); try { ctx.db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } try { fetch('api/books/drop/' + encodeURIComponent(id), { method: 'POST' }).catch(() => {}); } catch (err) { /* fine */ } });
@@ -154,15 +216,20 @@ export async function initSync(ctx) {
     if (!id || !row || !row.id) { markNow(id); return; }
     dirty.add(id);              /* the whole book still owes a push for its ledger */
     schedule();
+    noteWroteHere(id);
     ask({ kind: 'page', id, row, expect: 'paged' });
   };
   wrap(ctx.db.messages, 'append', ([id], out) => { Promise.resolve(out).then((row) => pageNow(id, row)).catch(() => markNow(id)); });
   wrap(ctx.db.messages, 'update', ([id], out) => { Promise.resolve(out).then((row) => pageNow(id, row)).catch(() => markNow(id)); });
   wrap(ctx.db.messages, 'remove', ([id]) => markNow(id)); /* M181: prose, at once */
   wrap(ctx.db.messages, 'deleteFrom', ([id]) => markNow(id)); /* M181: prose, at once */
-  wrap(ctx.db.connections, 'add', () => mark('_house'));
-  wrap(ctx.db.connections, 'update', () => mark('_house'));
-  wrap(ctx.db.connections, 'remove', () => mark('_house'));
+  wrap(ctx.db.connections, 'add', ([conn]) => { if (conn && conn.id) noteKey('conn:' + conn.id); mark('_house'); });
+  /* M293: the house's own probe of a model's room (providers/detect.js) is
+   * bookkeeping, not the writer's hand — it never marks the house dirty and
+   * never makes the row this browser's; it rides the next push that comes. */
+  const PROBE_ONLY = /^(?:detectedContext|detectedFor|detectTriedFor|detectTriedAt)$/;
+  wrap(ctx.db.connections, 'update', ([id, patch]) => { if (patch && typeof patch === 'object' && Object.keys(patch).length && Object.keys(patch).every((k) => PROBE_ONLY.test(k))) return; noteKey('conn:' + id); mark('_house'); });
+  wrap(ctx.db.connections, 'remove', ([id]) => { noteKey('conn:' + id); mark('_house'); });
   wrap(ctx.db, 'importAll', () => { for (const id of knownIds) mark(id); mark('_house'); });
   /* M182: THE BOOKS ANNOUNCE THEMSELVES, AND THE ROOM LISTENS. serve.py holds
    * the one copy every browser shares and streams a line when a book changes;
@@ -179,8 +246,13 @@ export async function initSync(ctx) {
    * for the turn to finish. */
   let refreshOwed = null;
   const busyNow = () => Boolean(ctx.chat && typeof ctx.chat.isBusy === 'function' && ctx.chat.isBusy());
+  /* M293: a pull lets go of the local rows the book does not hold — except
+   * the rows this browser changed since its last push of that book (mineFor),
+   * which it neither writes over nor lets go: a row written here a moment ago
+   * is never taken by another browser's push. */
   const liveRefresh = async (bookId) => {
-    const answer = await ask({ kind: 'pullOne', id: bookId, expect: 'pulledOne' });
+    noteElsewhere(bookId); /* M293: announced by another browser */
+    const answer = await ask({ kind: 'pullOne', id: bookId, expect: 'pulledOne', replace: true, mine: { [bookId]: mineFor(bookId) } });
     if (!answer || !answer.pulled) return;
     if (busyNow()) {
       refreshOwed = bookId;
@@ -219,6 +291,24 @@ export async function initSync(ctx) {
     if (busyNow()) { refreshOwed = bookId; return; }
     paint(bookId).catch(() => {});
   };
+  let catchingUp = null;
+  let caughtUpAt = 0;
+  const catchUp = () => {
+    if (catchingUp) return catchingUp;
+    if (Date.now() - caughtUpAt < 5000) return Promise.resolve();
+    catchingUp = (async () => {
+      try {
+        const mine = {};
+        for (const id of [...knownIds, '_house']) { const m = mineFor(id); if (m.length) mine[id] = m; }
+        const b = await ask({ kind: 'boot', clientId, expect: 'boot', mine });
+        caughtUpAt = Date.now();
+        if (b && b.kind === 'boot' && b.reachable) noteElsewhere(b.recent, { unlessMine: true });
+        if (b && b.kind === 'boot' && b.reachable && b.pulled > 0) liveRepaint(ctx.getActiveStoryId() || '_house');
+      } catch (err) { /* the next event or open looks again */ } finally { catchingUp = null; }
+    })();
+    return catchingUp;
+  };
+  status.catchUp = catchUp;
   const listen = () => {
     if (typeof EventSource !== 'function' || live) return;
     try { live = new EventSource('api/events'); } catch (err) { live = null; return; }
@@ -231,9 +321,20 @@ export async function initSync(ctx) {
     };
     /* the browser reconnects an EventSource on its own; a stream that will
      * not open at all simply leaves the house on its boot-time pull */
-    live.onerror = () => {};
+    /* M293: A STREAM THAT DROPPED IS CAUGHT UP ON. A phone in the background
+     * loses the stream (the network is put to sleep; a proxy reaps it), the
+     * browser quietly reconnects — and every change the other browser made
+     * in between was announced to nobody: this room stayed as it was until
+     * the next change happened to come, or a reload. On the stream's return,
+     * and whenever the page comes back into view, the books are looked over
+     * as at boot (the manifest's stamps against ours — a few kilobytes) and
+     * what moved is painted in place. */
+    let dropped = false;
+    live.onerror = () => { dropped = true; };
+    live.onopen = () => { if (dropped) { dropped = false; catchUp(); } };
   };
   listen();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') catchUp(); });
   window.addEventListener('pagehide', () => { if (live) { try { live.close(); } catch (err) { /* fine */ } live = null; } });
 
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && dirty.size) { clearTimeout(timer); pushNow(); } });
@@ -249,8 +350,8 @@ export async function initSync(ctx) {
   /* M189: fetch one tale's pages, on demand, when the reader opens it. */
   status.fetchStory = async (id) => {
     if (!id) return false;
-    const answer = await ask({ kind: 'pullOne', id, expect: 'pulledOne' });
-    if (answer && answer.pulled) dropCaches();
+    const answer = await ask({ kind: 'pullOne', id, expect: 'pulledOne', replace: true, mine: { [id]: mineFor(id) } });
+    if (answer && answer.pulled) { dropCaches(); noteElsewhere(answer.recent, { unlessMine: true }); }
     return Boolean(answer && answer.pulled);
   };
   status.pushAll = async () => {

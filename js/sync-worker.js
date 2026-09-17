@@ -115,7 +115,7 @@ async function pushIds(ids) {
     /* the browser is the one that is wrong here — take the device's copy */
     for (const id of refused) { try { await db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } }
     const books = await manifest();
-    if (books) await pullBooks(books.filter((b) => refused.includes(b.id)), { all: true });
+    if (books) await pullBooks(books.filter((b) => refused.includes(b.id)), { all: true, replace: true });
     /* M190: and TELL THE ROOM. The pages land in the store from this worker,
      * but the main thread is still holding its own cached (empty) list for
      * that tale — so the reader saw a tale with no pages at all until the
@@ -125,7 +125,17 @@ async function pushIds(ids) {
   return done;
 }
 
-async function pullBooks(books, { all = false } = {}) {
+/* M293: `replace` — a pull also lets go of the local rows the book does not
+ * hold (store.js dropMissing), so a row let go in another browser is let go
+ * here; the rows in `own` are the exception. */
+/* M293: `recent` — an array the caller passes to learn which pulled books
+ * moved on the device within the last ten minutes: another hand is at them
+ * (or was, a moment ago), and the room keeps its idle repairs off such a
+ * tale while that hand's readers may still be writing it. `own` — per book,
+ * the rows this browser changed since its last push (store.js keep): a pull
+ * neither writes over them nor lets them go. */
+const RECENT_MS = 10 * 60000;
+async function pullBooks(books, { all = false, replace = false, recent = null, own = null } = {}) {
   const stamps = await localStamps();
   let count = 0;
   /* the house first, then the tales */
@@ -135,27 +145,37 @@ async function pullBooks(books, { all = false } = {}) {
     if (!all && mine && (Date.parse(mine) || 0) >= (Date.parse(b.exportedAt) || 0)) continue;
     const json = await getBook(b.id);
     if (!json) continue;
-    if (b.id === HOUSE) await db.importHouse(json); else await db.importStory(json);
+    const keep = own && Array.isArray(own[b.id]) ? own[b.id] : [];
+    if (b.id === HOUSE) await db.importHouse(json, { dropMissing: replace, keep }); else await db.importStory(json, { dropMissing: replace, keep });
     await db.settings.set('bookStamp:' + b.id, stampOf(json));
     count += 1;
+    if (Array.isArray(recent) && b.id !== HOUSE && Date.now() - (Date.parse(b.exportedAt) || 0) < RECENT_MS) recent.push(b.id);
   }
   return count;
 }
 
 self.onmessage = async (e) => {
   const msg = e.data || {};
+  /* M293: EVERY ANSWER NAMES ITS QUESTION. The room matched an answer to a
+   * question by its kind alone, and this worker answers questions as they
+   * come, side by side — so two pulls in flight both took the first
+   * `pulledOne` that came back: the room painted a tale whose pages had not
+   * landed, and the pull that then landed painted nothing. An answer carries
+   * the question's id back (rid), and the room waits for its own. */
+  const rid = msg.rid;
+  const reply = (m) => self.postMessage(rid === undefined ? m : { ...m, rid });
   try {
     if (msg.kind === 'push') {
       const ids = await pushIds(Array.isArray(msg.ids) ? msg.ids : []);
-      self.postMessage({ kind: 'pushed', ok: true, ids });
+      reply({ kind: 'pushed', ok: true, ids });
       return;
     }
     if (msg.kind === 'pull') {
       const books = await manifest();
-      if (!books) { self.postMessage({ kind: 'pulled', ok: false, why: 'the server did not answer' }); return; }
-      if (!books.length) { self.postMessage({ kind: 'pulled', ok: false, why: 'the device holds no books yet — play a turn in the browser that has them, and wait a moment for the save' }); return; }
-      const count = await pullBooks(books, { all: true });
-      self.postMessage({ kind: 'pulled', ok: true, count });
+      if (!books) { reply({ kind: 'pulled', ok: false, why: 'the server did not answer' }); return; }
+      if (!books.length) { reply({ kind: 'pulled', ok: false, why: 'the device holds no books yet — play a turn in the browser that has them, and wait a moment for the save' }); return; }
+      const count = await pullBooks(books, { all: true, replace: true });
+      reply({ kind: 'pulled', ok: true, count });
       return;
     }
     /* M182: one book, because the device said it changed. The stamp still
@@ -169,30 +189,31 @@ self.onmessage = async (e) => {
         const json = await db.exportStory(msg.id);
         if (json && await putBook(msg.id, json)) await db.settings.set('bookStamp:' + msg.id, stampOf(json));
       }
-      self.postMessage({ kind: 'paged', ok });
+      reply({ kind: 'paged', ok });
       return;
     }
 
     if (msg.kind === 'pullOne') {
       const books = await manifest();
-      if (!books) { self.postMessage({ kind: 'pulledOne', pulled: 0 }); return; }
+      if (!books) { reply({ kind: 'pulledOne', pulled: 0 }); return; }
       const want = books.filter((b) => b && b.id === msg.id);
       const buried = new Set(lastGone);
       if (buried.has(msg.id)) {
         const st = (await db.stories.list()).find((x) => x && x.id === msg.id);
-        if (st) { await db.stories.remove(msg.id); await db.settings.delete('bookStamp:' + msg.id); self.postMessage({ kind: 'pulledOne', pulled: 1, gone: true }); return; }
+        if (st) { await db.stories.remove(msg.id); await db.settings.delete('bookStamp:' + msg.id); reply({ kind: 'pulledOne', pulled: 1, gone: true }); return; }
       }
-      const pulled = want.length ? await pullBooks(want, { all: true }) : 0;
+      const recent = [];
+      const pulled = want.length ? await pullBooks(want, { all: true, replace: msg.replace === true, recent, own: msg.mine || null }) : 0;
       /* M189: its pages are here now — it may be pushed like any other */
       if (pulled) { const st = await db.stories.get(msg.id); if (st && st.shallow) await db.stories.update(msg.id, { shallow: false }); }
-      self.postMessage({ kind: 'pulledOne', pulled });
+      reply({ kind: 'pulledOne', pulled, recent });
       return;
     }
 
     if (msg.kind === 'boot') {
       if (typeof msg.clientId === 'string' && msg.clientId) CLIENT_ID = msg.clientId;
       const books = await manifest();
-      if (!books) { self.postMessage({ kind: 'boot', reachable: false, status: lastManifestStatus }); return; }
+      if (!books) { reply({ kind: 'boot', reachable: false, status: lastManifestStatus }); return; }
       /* M189: THE SHELF, NOT EVERY TALE. Boot pulled every book, so opening a
        * browser copied the writer's whole shelf into it — at ten thousand
        * tales that is gigabytes per browser, and a browser is not where a
@@ -202,7 +223,8 @@ self.onmessage = async (e) => {
        * kept up to date at boot, so nothing it has can go stale. */
       const known = new Set((await db.stories.list()).filter((x) => x && !x.shallow).map((x) => x.id));
       const wanted = books.filter((b) => b && (b.id === HOUSE || known.has(b.id)));
-      const pulled = await pullBooks(wanted);
+      const recent = [];
+      const pulled = await pullBooks(wanted, { replace: true, recent, own: msg.mine || null });
       /* M160: a tale the device has buried is let go here too — before this,
        * boot saw the book missing from the manifest and PUSHED the local copy
        * back up, so a tale deleted in one browser was resurrected by the next
@@ -223,10 +245,10 @@ self.onmessage = async (e) => {
       const toPush = local.filter((st) => !have.has(st.id) && !buried.has(st.id)).map((st) => st.id);
       if (!have.has(HOUSE) && (local.length || (await db.connections.list()).length)) toPush.push(HOUSE);
       const pushed = toPush.length ? await pushIds(toPush) : [];
-      self.postMessage({ kind: 'boot', reachable: true, pulled: pulled + dropped, pushed: pushed.length });
+      reply({ kind: 'boot', reachable: true, pulled: pulled + dropped, pushed: pushed.length, recent });
       return;
     }
   } catch (err) {
-    self.postMessage({ kind: 'error', words: String(err && err.message || err) });
+    reply({ kind: 'error', words: String(err && err.message || err) });
   }
 };

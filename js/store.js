@@ -722,13 +722,32 @@ function mergeStoryRow(incoming, local) {
   return { ...incoming, ...local };
 }
 
-async function importStory(json) {
+/* M293: A ROW LET GO ELSEWHERE IS LET GO HERE. A pull PUT every row the book
+ * carried and never removed a local row the book lacked — so a connection
+ * removed in one browser, a cast member let go, the settings reset, a
+ * director switched off: each stayed in the other browser, rode its next
+ * push back to the device, and came home to the browser that had let it go.
+ * Deletions never propagated; they resurrected. With dropMissing, a pull
+ * also lets go of the rows in its scope that the book does not hold — a
+ * tale's own rows for a tale, the house's rows for the house. `keep` names
+ * the rows this browser changed since its last push of that book (sync.js
+ * mineFor): those it neither writes over nor lets go, so a row written here
+ * a moment ago is never taken by a pull. The sync's own stamps (bookStamp:)
+ * are never in scope. */
+async function importStory(json, { dropMissing = false, keep = [] } = {}) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || data.kind !== 'story' || !data.story || !data.story.id) throw new Error('not a story book');
   const id = data.story.id;
   const d = await openDB();
   /* M190: read the local row BEFORE the write, so the newer one wins. */
   const localRow = await run('stories', 'readonly', (s) => s.get(id));
+  /* M293: a row this browser changed since its last push is this browser's —
+   * the book does not speak for it: neither written over nor let go. */
+  const mine = new Set(Array.isArray(keep) ? keep : []);
+  const incoming = new Set((data.settings || []).filter((r) => r && typeof r.key === 'string').map((r) => r.key));
+  const gone = dropMissing
+    ? (await storyKeys(id)).filter((k) => !incoming.has(k) && !mine.has(k) && !k.startsWith('bookStamp:'))
+    : [];
   await new Promise((resolve, reject) => {
     const t = d.transaction(['stories', 'messages', 'settings'], 'readwrite');
     /* the pages are here now, so it is no longer a tale we only know of */
@@ -740,25 +759,46 @@ async function importStory(json) {
     const req = idx.getAllKeys(id);
     req.onsuccess = () => { for (const k of req.result || []) ms.delete(k); for (const m of (data.messages || [])) ms.put(m); };
     const ss = t.objectStore('settings');
-    for (const r of (data.settings || [])) if (r && typeof r.key === 'string') ss.put(r);
+    for (const r of (data.settings || [])) if (r && typeof r.key === 'string' && !mine.has(r.key)) ss.put(r);
+    for (const k of gone) ss.delete(k);
     t.oncomplete = () => resolve(); t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
   });
   dropCaches();
   return id;
 }
-async function importHouse(json) {
+async function importHouse(json, { dropMissing = false, keep = [] } = {}) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || data.kind !== 'house') throw new Error('not the house book');
   const d = await openDB();
+  /* M293: rows this browser changed since its last push — settings keys and
+   * connection ids — are this browser's; the book does not speak for them. */
+  const mine = new Set(Array.isArray(keep) ? keep : []);
   /* M189: which tales this browser already holds, read BEFORE the write —
    * a get-then-put nested inside the transaction never landed. */
   const held = new Set((await run('stories', 'readonly', (s) => s.getAllKeys())) || []);
+  /* M293: the house's own rows this browser holds and the book does not —
+   * a row is the house's when it wears no tale's suffix (a tale known here or
+   * named by the book) and no tale-shaped prefix; the sync's stamps stay. */
+  let goneKeys = [];
+  let goneConnections = [];
+  if (dropMissing) {
+    const ids = new Set([...held, ...((data.stories || []).map((x) => x && x.id).filter(Boolean))]);
+    const incoming = new Set((data.settings || []).filter((r) => r && typeof r.key === 'string').map((r) => r.key));
+    const keys = (await run('settings', 'readonly', (s) => s.getAllKeys())) || [];
+    goneKeys = keys.filter((k) => typeof k === 'string' && !incoming.has(k) && !STORY_ROW(k, ids) && !STORY_PREFIXED.test(k) && k !== 'booksStamp');
+    const have = new Set((data.connections || []).map((c) => c && c.id).filter(Boolean));
+    goneConnections = ((await run('connections', 'readonly', (s) => s.getAllKeys())) || []).filter((cid) => !have.has(cid));
+  }
+  goneKeys = goneKeys.filter((k) => !mine.has(k));
+  goneConnections = goneConnections.filter((cid) => !mine.has(cid));
   await new Promise((resolve, reject) => {
     const t = d.transaction(['connections', 'settings', 'stories'], 'readwrite');
     const cs = t.objectStore('connections');
-    for (const c of (data.connections || [])) cs.put(c);
+    for (const c of (data.connections || [])) if (c && c.id && !mine.has(c.id)) cs.put(c);
+    for (const cid of goneConnections) cs.delete(cid);
     const ss = t.objectStore('settings');
-    for (const r of (data.settings || [])) if (r && typeof r.key === 'string') ss.put(r);
+    for (const r of (data.settings || [])) if (r && typeof r.key === 'string' && !mine.has(r.key)) ss.put(r);
+    for (const k of goneKeys) ss.delete(k);
     /* M189: THE HOUSE BOOK CARRIES THE SHELF, AND IT WAS BEING THROWN AWAY.
      * exportHouse has always written the story list — id, title, when it was
      * made, which shelf it sits on — and the `stories` store was even named

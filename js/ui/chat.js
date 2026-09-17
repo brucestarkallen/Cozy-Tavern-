@@ -1765,6 +1765,30 @@ export function initChat(ctx) {
     } catch (err) { /* a mark is never worth a thrown turn */ }
   }
 
+  /* M293: ANOTHER HAND AT THIS TALE. A second browser holding the same tale
+   * open pulled the first browser's new page the moment it landed — and its
+   * light, seeing a ledger a page behind (the first browser's readers were
+   * still out), sent its OWN readers at the page: two extractors on one page,
+   * a standing moved twice, and each browser's whole-book push laying its
+   * ledger over the other's mid-chain. The same for a record gap, and for the
+   * resume on open of a last page whose readers had not finished elsewhere.
+   * While another browser wrote a tale within the last ten minutes (sync.js
+   * wroteElsewhereAt: a live announcement, or a pull that found the book just
+   * moved), this room's idle repairs keep off it and look again when the
+   * window has passed; the page chain for pages written HERE is untouched. */
+  const OTHER_HAND_MS = 10 * 60000;
+  const otherHandLook = new Map();
+  function otherHandAt(storyId) {
+    const at = ctx.booksStatus && typeof ctx.booksStatus.wroteElsewhereAt === 'function' ? ctx.booksStatus.wroteElsewhereAt(storyId) : 0;
+    const left = at ? OTHER_HAND_MS - (Date.now() - at) : 0;
+    if (left <= 0) return false;
+    if (!otherHandLook.has(storyId)) {
+      /* look again when the window has passed — for the tale on stage only; the light is its */
+      otherHandLook.set(storyId, setTimeout(() => { otherHandLook.delete(storyId); if (ctx.getActiveStoryId() === storyId) markLedgerTrouble(storyId); }, left + 1000));
+    }
+    return true;
+  }
+
   /* M251/M276: one page the ledger missed, read and marked. A read that finds
    * nothing to change still counts — a quiet page is a read page (it did not,
    * and the mark never passed it). */
@@ -1797,6 +1821,7 @@ export function initChat(ctx) {
   const ledgerTries = new Map();
   async function fillLedgerGap(storyId) {
     try {
+      if (otherHandAt(storyId)) return; /* M293: another browser's readers may still be at it */
       const tries = ledgerTries.get(storyId) || 0;
       if (Date.now() - (ledgerFilledAt.get(storyId) || 0) < Math.min(30 * 60000, 60000 * 2 ** tries)) return;
       if (workIsRunning(storyId) || queuedCount(storyId) > 0) return;
@@ -1844,6 +1869,7 @@ export function initChat(ctx) {
   const coveredCount = async (storyId) => coveredSet((await loadMemory(storyId)).nodes).size;
   async function fillRecordGap(storyId) {
     try {
+      if (otherHandAt(storyId)) return; /* M293: another browser's keeper may still be folding it */
       const tries = gapTries.get(storyId) || 0;
       /* a fill that folds nothing is not tried again every minute for ever:
        * one minute, two, four … thirty at most */
@@ -3062,6 +3088,9 @@ export function initChat(ctx) {
     if (await versionStateFor(story.id, last.id, idx)) return false;
     /* a chain still running in THIS session is not unfinished */
     if (queuedCount(story.id) > 0) return false;
+    /* M293: nor is one another browser's readers are still finishing — its
+     * checkpoint comes with that browser's next whole-book push */
+    if (otherHandAt(story.id)) return false;
     await rereadPage(last.id, { quiet: true });
     toast('The readers had not finished the last page — reading it now.');
     return true;

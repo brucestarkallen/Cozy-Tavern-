@@ -71,6 +71,11 @@ def _announce(book_id, by_client):
             except Exception:
                 dead.append(q)
         for q in dead:
+            # M293: a listener that cannot keep up is not merely forgotten — its
+            # stream is ended, so the browser reconnects and looks the books
+            # over (sync.js catchUp). Left open, it went on receiving the
+            # keep-alives and never another change, and never knew.
+            q.dead = True
             try:
                 _listeners.remove(q)
             except ValueError:
@@ -355,6 +360,8 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(b': the tavern is listening\n\n')
             self.wfile.flush()
             while True:
+                if getattr(q, 'dead', False):
+                    break  # M293: the browser is told the stream ended; it reconnects and catches up
                 try:
                     line = q.get(timeout=20)
                 except queue.Empty:

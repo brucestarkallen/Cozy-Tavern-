@@ -38,6 +38,8 @@ class FakeStore {
       getAll: (v) => makeReq([...stores[storeName].values()].filter((r) => r && r[keyPath] === v).map((x) => structuredClone(x))),
       /* M14: the shelf's page counts ride this. */
       count: (v) => makeReq([...stores[storeName].values()].filter((r) => r && r[keyPath] === v).length),
+      /* M293: importStory replaces a tale's pages by their keys. */
+      getAllKeys: (v) => makeReq([...stores[storeName].entries()].filter(([, r]) => r && r[keyPath] === v).map(([k]) => k)),
     };
   }
 }

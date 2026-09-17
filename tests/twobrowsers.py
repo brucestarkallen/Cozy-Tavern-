@@ -159,6 +159,81 @@ try:
         }""")
         check('the service worker caches no api answer', cached == [], str(cached))
 
+        # --- M293: A ROW LET GO IN A IS LET GO IN B, AND NEVER COMES HOME -------
+        a.evaluate("""async () => {
+          const db = window.__cozy.db;
+          await db.connections.add({ id: 'conn-keep', label: 'the house choice', type: 'openai', baseUrl: 'https://api.example/v1', apiKey: 'k', model: 'm' });
+          await db.connections.add({ id: 'conn-gone', label: 'a spare', type: 'openai', baseUrl: 'https://spare.example/v1', apiKey: 'k', model: 'm' });
+          await db.settings.set('cast:card-gone', { id: 'card-gone', name: 'A card let go' });
+        }""")
+        push_now(a)
+        b.wait_for_timeout(2000)
+        conns_b = b.evaluate("async () => (await window.__cozy.db.connections.list()).map(c => c.id)")
+        check('B receives both connections live', sorted(conns_b) == ['conn-gone', 'conn-keep'], str(conns_b))
+        a.evaluate("""async () => {
+          const db = window.__cozy.db;
+          await db.connections.remove('conn-gone');
+          await db.settings.delete('cast:card-gone');
+        }""")
+        push_now(a)
+        gone_in_b = False
+        for _ in range(40):
+            b.wait_for_timeout(200)
+            ids = b.evaluate("async () => (await window.__cozy.db.connections.list()).map(c => c.id)")
+            if 'conn-gone' not in ids:
+                gone_in_b = True
+                break
+        check('a connection let go in A is let go in B, live', gone_in_b, str(ids))
+        check('and so is a cast card', b.evaluate("async () => (await window.__cozy.db.settings.get('cast:card-gone')) === undefined"))
+        check('while the connection that stands, stands', 'conn-keep' in ids, str(ids))
+        # B writes to the house and pushes: the dead row must not ride back up
+        b.evaluate("async () => { await window.__cozy.db.settings.set('theme', 'deep'); }")
+        push_now(b)
+        a.wait_for_timeout(2500)
+        ids_a = a.evaluate("async () => (await window.__cozy.db.connections.list()).map(c => c.id)")
+        check('B’s next push does not bring the let-go connection home to A', ids_a == ['conn-keep'], str(ids_a))
+        on_disk = json.load(open(os.path.join(DATA, 'books', '_house.json')))
+        check('nor to the device', [c['id'] for c in on_disk['connections']] == ['conn-keep'], str([c['id'] for c in on_disk['connections']]))
+
+        # --- M293: a row made HERE and not yet pushed survives the other's push ----
+        b.evaluate("""async () => {
+          await window.__cozy.db.connections.add({ id: 'conn-new-in-b', label: 'made in B just now', type: 'openai', baseUrl: 'https://new.example/v1', apiKey: 'k', model: 'm' });
+        }""")
+        a.evaluate("async () => { await window.__cozy.db.settings.set('theme', 'light'); }")
+        push_now(a)                              # A's house book has no idea of B's new connection
+        b.wait_for_timeout(2500)                 # B pulls it live
+        ids_b = b.evaluate("async () => (await window.__cozy.db.connections.list()).map(c => c.id)")
+        check('a connection made in B, not yet pushed, survives A’s push of a house that lacks it', 'conn-new-in-b' in ids_b, str(ids_b))
+        push_now(b)
+        a.wait_for_timeout(2500)
+        ids_a = a.evaluate("async () => (await window.__cozy.db.connections.list()).map(c => c.id)")
+        check('and reaches A on B’s own push', 'conn-new-in-b' in ids_a, str(ids_a))
+
+        # --- M293: A STREAM THAT DROPPED IS CAUGHT UP ON ----------------------
+        # the server goes down; while it is down another hand appends a page to the
+        # log on the device; the server comes back; B's stream reconnects and B
+        # must learn of the page with no reload and no further event.
+        srv.terminate(); srv.wait()
+        rid = a.evaluate("async () => (await window.__cozy.db.stories.list()).find(s => s.title === 'Ravenwood').id")
+        log_path = os.path.join(DATA, 'books', rid + '.log')
+        stamp = time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime()) + '.000Z'
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({'m': {'id': 'ghost-page', 'storyId': rid, 'role': 'assistant', 'text': 'a page written while the stream was down', 'ts': int(time.time() * 1000)},
+                                'by': 'ghost-browser', 'at': stamp}) + '\n')
+        time.sleep(1.0)
+        srv = subprocess.Popen([sys.executable, os.path.join(REPO, 'serve.py')], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        caught = False
+        for _ in range(60):                       # the browser reconnects in a few seconds; then the catch-up
+            b.wait_for_timeout(500)
+            got = pages_of(b, 'Ravenwood') or []
+            if 'a page written while the stream was down' in got:
+                caught = True
+                break
+        check('a page that landed while B’s stream was down reaches B when the stream returns — no reload, no event', caught,
+              '%d pages' % len(pages_of(b, 'Ravenwood') or []))
+        shown = b.evaluate("() => Array.from(document.querySelectorAll('#thread .msg-body')).map(n => n.textContent)")
+        check('and it is painted in the room', any('while the stream was down' in t for t in shown), '%d pages drawn' % len(shown))
+
         browser.close()
 finally:
     srv.terminate()
