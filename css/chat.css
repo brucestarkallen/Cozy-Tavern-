@@ -1150,27 +1150,34 @@ body.read-only .send-btn { opacity: 0.4; }
  * The glow is painted ONCE, on the column that holds the thread and the
  * composer and never scrolls; the thread and the composer's zone are clear
  * over it. Nothing is repainted as the story scrolls (measured in
- * tests/paint_magma.py against the deep coat). The hot part of the glow stays
- * under the composer's own opaque box; the small words beneath it are lifted
- * a step so they hold AA over the warmest pixels (measured there too). */
+ * tests/paint_magma.py against the deep coat).
+ * M302: the magma shows where it does in the room the writer pointed at — in
+ * the two bottom corners and as a thin seam along the foot — and the middle,
+ * where the words are, stays dark all the way down. No pixel of the room is
+ * brighter than that room's own hottest one, and the bottom quarter's mean
+ * light is held under a cap (paint_magma.py fails otherwise). */
 html[data-theme='magma'] .thread-wrap {
   background:
-    radial-gradient(90% 24% at 50% 100%, rgba(255, 104, 48, 0.22), transparent 74%),
-    radial-gradient(170% 58% at 50% 108%, rgba(176, 36, 16, 0.38), transparent 72%),
-    linear-gradient(180deg, #0a1216 0%, #0b161b 40%, #0f171a 60%, #171413 78%, #24110d 92%, #2e120c 100%);
+    linear-gradient(0deg, rgba(150, 36, 8, 0.18) 0, rgba(150, 36, 8, 0) 2.2%),
+    radial-gradient(60% 34% at 0% 100%, rgba(110, 24, 8, 0.30), transparent 72%),
+    radial-gradient(60% 34% at 100% 100%, rgba(110, 24, 8, 0.30), transparent 72%),
+    linear-gradient(180deg, #070c0e 0%, #080e11 55%, #0c0e0f 78%, #130d0b 100%);
 }
 html[data-theme='magma'] .thread,
 html[data-theme='magma'] .composer-zone { background: transparent; }
 html[data-theme='magma'] .composer-meta,
 html[data-theme='magma'] .composer-meta button { color: var(--text-2); }
 html[data-theme='magma'] .composer-meta .hot { color: var(--ember-hot); }
-html[data-theme='magma'] .topbar { box-shadow: 0 1px 0 rgba(88, 230, 212, 0.14), 0 6px 18px -12px rgba(88, 230, 212, 0.35); }
-/* neon, kept to the things that act */
-html[data-theme='magma'] .send-btn { box-shadow: 0 0 16px -3px rgba(255, 107, 61, 0.75); }
-html[data-theme='magma'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 22px -6px rgba(255, 107, 61, 0.6); }
-html[data-theme='magma'] .ember-fill { box-shadow: 0 0 10px 0 rgba(255, 107, 61, 0.55); }
+/* M302: the lift above outranked `.meta-links button:hover`, so in this coat
+ * alone the three links under the composer never lit under a pointer */
+html[data-theme='magma'] .composer-meta button:hover { color: var(--ember); }
+html[data-theme='magma'] .topbar { box-shadow: 0 1px 0 rgba(86, 207, 192, 0.10); }
+/* neon, kept to the things that act — and kept low: a glow is light in a dark room */
+html[data-theme='magma'] .send-btn { box-shadow: 0 0 14px -4px rgba(240, 103, 60, 0.55); }
+html[data-theme='magma'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 18px -8px rgba(240, 103, 60, 0.5); }
+html[data-theme='magma'] .ember-fill { box-shadow: 0 0 8px 0 rgba(240, 103, 60, 0.4); }
 /* the writer's own words: the teal wash with its lit underline */
 html[data-theme='magma'] .msg-user .msg-body {
   border-left-color: var(--spoken);
-  box-shadow: inset 0 -1px 0 rgba(88, 230, 212, 0.4);
+  box-shadow: inset 0 -1px 0 rgba(86, 207, 192, 0.32);
 }

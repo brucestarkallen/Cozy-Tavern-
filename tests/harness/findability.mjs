@@ -113,7 +113,12 @@ test('M25 the visible retry law: Try again is wired and answers busy', () => {
   assert(html.includes('id="btn-retry"'), 'the button exists in the page');
   assert(chat.includes("getElementById('btn-retry')"), 'wired in chat.js');
   assert(chat.includes('refreshRetry'), 'visibility law exists');
-  assert(chat.includes("regenerateFrom(lastAssistant.dataset.id)"), 'it regenerates the latest page');
+  /* M302: this line pinned the very words of the fault — "the last storyteller
+   * page on the screen" — which, after a telling that left no page, was the
+   * WRONG page (it let the writer's unanswered words go with it). What the
+   * button does is behaviour, and is held where it can be run: the walk's
+   * DOM-43 presses it with the storyteller's page newest and with the
+   * writer's unanswered page newest. */
   assert(!html.includes('save a starter'), 'the loud chip label is gone');
 });
 

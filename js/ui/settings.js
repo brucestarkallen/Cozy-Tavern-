@@ -255,7 +255,9 @@ export function initSettings(ctx) {
       for (const conn of all) {
         const opt = document.createElement('option');
         opt.value = conn.id;
-        opt.textContent = conn.label + (conn.model ? ' — ' + conn.model : '') + (conn.id === activeId ? '  ·  in use' : '');
+        /* the mark leads: a closed drop-down on a phone cuts a long line at its END,
+         * which is where "in use" stood (seen in Chromium at 412px: "…model-7 · in") */
+        opt.textContent = (conn.id === activeId ? '✓ ' : '') + conn.label + (conn.model ? ' — ' + conn.model : '');
         els.connPick.appendChild(opt);
       }
       if (shown) els.connPick.value = shown.id;

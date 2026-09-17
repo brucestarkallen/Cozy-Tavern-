@@ -22,7 +22,7 @@ import {
   applyProposal, applyAllPending, undoLatest,
   cleanContextPages, DEFAULT_CONTEXT_PAGES,
   listSessions, switchSession, newSession, branchSession, renameSession, deleteSession, clearSession, deleteLastExchange,
-  editTurnAt, deleteTurnAt, truncateForRetry, keepVersions, walkVersion, versionsOf, /* M73: the bubble row */
+  editTurnAt, deleteTurnAt, truncateForRetry, restoreAfterRetry, keepVersions, walkVersion, versionsOf, /* M73: the bubble row */
   expandCommand, COMMANDS, buildHousekeeperContext, callModel, answerAsWritten, HK_MAX_TOKENS } from '../agents/housekeeper.js';
 import { loadState, renderStateFacts } from '../engine/state.js';
 import { loadMemory, wholeRecord } from '../agents/memory.js';
@@ -289,6 +289,19 @@ export function initHousekeeper(ctx) {
       if (landed && wasLast) {
         const at = lastAnswerIndex(session.turns);
         if (at !== -1) { const kept = await keepVersions(story.id, at, r.dropped); if (kept) { session = kept; render(); } }
+      }
+      /* M302: a retry that never landed (stopped, cut, dropped) takes nothing —
+       * the answer the writer had goes back where it was, and the question is
+       * not left in the box as though it had never been asked */
+      if (!landed) {
+        const back = await restoreAfterRetry(story.id, r.undo);
+        if (back) {
+          session = back;
+          if (input.value.trim() === String(r.question || '').trim()) input.value = '';
+          try { await db.settings.set(DRAFT_PREFIX + story.id, ''); } catch (err) { /* the box is already empty */ }
+          render();
+          statusLine.textContent = 'The new ask was cut — the answer you had is back as it was.';
+        }
       }
     }
   }

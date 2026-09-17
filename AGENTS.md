@@ -6623,3 +6623,67 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - 562/562 harness + 61/61 walk + 8/8 play + lint 0 errors; twobrowsers 26, twohands, foldcrash,
   perf_housekeeper (both scenarios), housekeeper_rounds, contrast, coat, paint_magma: all green.
   version.js -> m301-001.
+
+# M302 — the magma room, darker and measured against the room the writer pointed at; "Try again" and "Ask again" mean the turn they say; a retry that never lands takes nothing
+- THE WRITER: "the magma gradient below is too bright; I prefer a darker background — make sure the
+  darker colour is good for the eyes and the text; make sure your latest updates have no regressions."
+- MAGMA. ROOT CAUSE: M301's glow was tuned by eye and never measured against his screenshots. Read
+  cell by cell (the 20th-percentile pixel of each cell, so type is ignored), the room he pointed at
+  keeps its MIDDLE dark all the way down — rgb(15-22, 21-30, 17-30) — and its red lives in the two
+  bottom corners (hottest cell's median rgb(58,17,13), L 0.0133) and a seam on the last rows (up to
+  rgb(79,15,2), L 0.0201). M301 peaked at rgb(130,42,21), L 0.058, in the middle of the foot: four
+  times the light of anything in the reference, and in the wrong place. CHANGE (css/chat.css): two
+  corner radials + a 2.2% seam over a near-black linear; corner rgb(53,16,9) L 0.0115, hottest pixel
+  rgb(63,19,11) L 0.0155 (3.7x less light), middle at 80% rgb(12,14,14), bottom-quarter mean L 0.0056.
+  The ground is #070c0e — NOT #000: an OLED switches a pure-black pixel off, and switching it on again
+  under scrolling type is the smear; bright type on true black also halates. The inks came down WITH
+  the ground so contrast did not climb: body 13.7:1 (lamplight 15.1, the deep 16.7), text-2 9.6,
+  muted 6.6, speech 10.4, thought 9.3, ember 6.3, danger 6.5; all ten inks on all five grounds (bg,
+  bg-2, surface, surface-2, user-tint) computed — lowest 4.8:1 (ember on the writer's tint), none
+  under AA. The neon shadows came down too. tests/paint_magma.py holds the caps: no pixel brighter
+  than the reference seam, the corner no brighter than the reference corner, the middle dark, the
+  bottom quarter's mean under 0.0065, every word on the glow AA against the pixels really behind it
+  (lowest 6.5:1), and the scroll no slower than the deep coat (16.6 ms vs 16.7 ms median, 6x CPU).
+  The phone bar's colour (app.js COATS.magma) follows the ground.
+- FOUND IN M301 BY READING, FIXED: (1) css — `html[data-theme='magma'] .composer-meta button`
+  outranked `.meta-links button:hover`, so in this coat alone the three links under the composer
+  never lit under a pointer; (2) the closed connections drop-down cut a long line at its END on a
+  412px screen, which is where "· in use" stood ("…model-7 · in") — the mark leads now ("✓ ").
+- FOUND IN THE FLOWS M301 OPENED (each reproduced before it was touched; each run in the walk now):
+  (3) DATA LOSS — "Try again" under the composer was shown or hidden only when the thread was drawn,
+  and its tap went to "the last storyteller page on the screen". After a telling that left no page
+  (a Stop mid-thought, a dropped wire) it let go of the PREVIOUS page and the writer's unanswered
+  words with it and rewrote the wrong turn (three pages became two). It is read from the store now:
+  the newest visible page is the turn; hidden while the storyteller writes (only the telling hides
+  it — `abort`, never `busy`, which a replay could leave true with nothing due to show it again).
+  DOM-43. M25's harness line pinned the faulty source text letter for letter; it is run instead.
+  (4) the note's "Ask again" always ran a plain turn, so after a failed NEW VERSION (▸) it wrote a
+  second storyteller page under the first. It asks again through the door that failed
+  (swipeRegenerate); the note leaves when it is answered. DOM-44.
+  (5) DATA LOSS — the housekeeper's ↻ lets the old answer go BEFORE asking (truncateForRetry) and
+  only a landed answer kept it (keepVersions): a retry stopped, cut or dropped left the session
+  EMPTY — the answer, its cards and versions gone. truncateForRetry returns what it cut;
+  restoreAfterRetry puts it back exactly, unless the session has moved on (M302-1/2, DOM-45). The
+  button's title said "the last answer… let go", untrue on success since M73; it says what happens.
+  (6) every way of asking again called generate() bare, so an OUT-OF-CHARACTER turn (`(( … ))`,
+  `// …`) asked again landed as a page of the STORY and the ledger's reader was sent to learn from
+  it. turnArgsBefore() reads the turn's own words for their command at all four doors (the page's
+  try again, the composer's, ▸, the note's Ask again); a hidden page ("Go on") carries none. DOM-46.
+  (7) M40-1 ("a cancelled swipe gives the ledger back") was only ever READ from the source; it is
+  RUN now — DOM-47: a new version stopped mid-thought, the ledger at the boundary while it is asked
+  for, given back whole after the Stop. Its regex no longer pins generate()'s argument list.
+- PROVEN IN A REAL BROWSER (new, tests/cutthinking.py — the real serve.py, a fake model that thinks
+  slowly over SSE, two browser contexts, the real clipboard; 26 checks): the live copy button holds
+  what has streamed; Stop keeps the thinking open, whole, after the page it followed; its copy is the
+  whole thinking; a reload keeps it; THE OTHER BROWSER RECEIVES IT with the tale's book and loses it
+  live when the page lands (claimed in M301, unproven until now); the housekeeper likewise. Two
+  first-run failures were the probe's, not the code's: a fresh browser holds a tale shallow until a
+  reader opens it (M189 — use chat.openStory), and Enter does not send in the housekeeper (Ctrl+Enter).
+- CHECKED, NOT A BUG: a branch copies named rows only (never cutThinking); the per-story export is
+  pages only; `.ember-bar.hot .ember-fill` still outranks the coat's resting shadow.
+- MUTATION-CHECKED: with the store-read of Try again, the swipe door of Ask again, turnArgsBefore,
+  the swipe's saveState(leaving), the UI's restore and restoreAfterRetry's guard each removed —
+  DOM-43, 44, 46, 47, 45 and M302-2 fail, one for one. (A first mutation run proved nothing: its
+  `cp` chain broke before any mutation was applied, and 65 green was the unmutated tree. Check that
+  a mutation landed before reading its result.)
+- version.js -> m302-001.

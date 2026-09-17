@@ -98,13 +98,39 @@ try:
         bare = Image.open(io.BytesIO(page.screenshot())).convert('RGB')
         page.evaluate("() => document.documentElement.classList.remove('measure-bare')")
         box = page.evaluate("() => { const r = document.querySelector('.thread-wrap').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }")
-        head = bare.getpixel((int(box['x'] + box['w'] / 2), int(box['y'] + 12)))
-        foot = bare.getpixel((int(box['x'] + box['w'] / 2), int(box['y'] + box['h'] - 3)))
-        print('the room: head rgb%s, foot rgb%s' % (head, foot))
-        if not (head[2] >= head[0] and max(head) < 40):
-            fails.append('the head of the room is not teal-black: %s' % (head,))
-        if not (foot[0] > foot[2] + 40 and foot[0] > foot[1] + 30):
-            fails.append('the foot of the room does not glow red: %s' % (foot,))
+        # M302: the room's light, read pixel by pixel. The writer found the first cut
+        # too bright at the foot (its hottest pixel was rgb(130,42,21), L 0.058, in the
+        # MIDDLE of the foot). The room he had pointed at was read from his two
+        # screenshots cell by cell (the 20th-percentile pixel of each cell, so type is
+        # ignored): the middle stays dark all the way down, rgb(15-22, 21-30, 17-30);
+        # the red lives in the two bottom corners — the hottest cell's median
+        # rgb(58,17,13), L 0.0133 — and in a seam on the last rows, up to
+        # rgb(79,15,2), L 0.0201. Those two readings are the caps.
+        x0, y0, w0, h0 = int(box['x']), int(box['y']), int(box['w']), int(box['h'])
+        grid = [(x, y, bare.getpixel((x, y))) for y in range(y0 + 2, y0 + h0 - 1, 6) for x in range(x0 + 1, x0 + w0 - 1, 8)]
+        grid += [(x, y0 + h0 - 1, bare.getpixel((x, y0 + h0 - 1))) for x in range(x0 + 1, x0 + w0 - 1, 8)]
+        head = bare.getpixel((x0 + w0 // 2, y0 + 12))
+        hottest = max(grid, key=lambda g: lum(g[2]))
+        low = [g for g in grid if g[1] >= y0 + h0 * 0.75]
+        low_mean = sum(lum(g[2]) for g in low) / len(low)
+        mid = bare.getpixel((x0 + w0 // 2, y0 + int(h0 * 0.80)))
+        corner = bare.getpixel((x0 + 3, y0 + h0 - 6))
+        REF_SEAM = lum((79, 15, 2))     # the brightest the reference room's bottom seam gets
+        REF_CORNER = lum((58, 17, 13))  # the median of its hottest corner cell
+        print('the room: head rgb%s · middle at 80%% rgb%s · bottom corner rgb%s (L %.4f; the reference corner %.4f) · hottest pixel rgb%s (L %.4f; the reference seam %.4f) · mean light of the bottom quarter %.4f'
+              % (head, mid, corner, lum(corner), REF_CORNER, hottest[2], lum(hottest[2]), REF_SEAM, low_mean))
+        if max(head) > 20 or head[0] > head[2]:
+            fails.append('the head of the room is not near-black teal: %s' % (head,))
+        if max(mid) > 26:
+            fails.append('the middle of the room, where the words are, is lit: %s' % (mid,))
+        if lum(hottest[2]) > REF_SEAM:
+            fails.append('a pixel of the room is brighter than the reference room\u2019s seam: %s' % (hottest[2],))
+        if lum(corner) > REF_CORNER:
+            fails.append('the corner is brighter than the reference room\u2019s corner: %s' % (corner,))
+        if low_mean > 0.0065:
+            fails.append('the bottom quarter is too bright on the whole: mean L %.4f' % low_mean)
+        if not (corner[0] >= 40 and corner[0] >= corner[1] + 20 and corner[0] >= corner[2] + 25):
+            fails.append('the magma does not show in the corner: %s' % (corner,))
 
         # 2. every word over the glow, against the pixels behind it
         words = page.evaluate("""() => {

@@ -1233,9 +1233,28 @@ export async function truncateForRetry(storyId, index) {
   if (w < 0) return null;
   const question = String(cur.turns[w].text || '');
   const dropped = JSON.parse(JSON.stringify(turn));
+  /* M302: what the retry lets go, whole — the question, the answer and every
+   * turn after them — so a retry that never lands can put them back */
+  const undo = { sessionId: cur.id, at: w, turns: JSON.parse(JSON.stringify(cur.turns.slice(w))) };
   cur.turns = cur.turns.slice(0, w);
   await saveSessionRoot(storyId, root);
-  return { session: await loadSession(storyId), question, dropped };
+  return { session: await loadSession(storyId), question, dropped, undo };
+}
+/* M302: A RETRY THAT NEVER LANDED TAKES NOTHING. truncateForRetry lets the old
+ * answer go BEFORE the new one is asked for; a new answer that lands keeps the
+ * old one as a version (keepVersions) — but an ask that was stopped, cut by
+ * the silence watch or dropped by the wire kept nothing, and the answer the
+ * writer had (its cards, its versions) was simply gone, with the question
+ * back in the box as if it had never been answered. The turns go back exactly
+ * where they were, as long as the session still ends where the retry cut it. */
+export async function restoreAfterRetry(storyId, undo) {
+  if (!storyId || !undo || !Array.isArray(undo.turns) || !undo.turns.length) return null;
+  const root = await loadSessionRoot(storyId);
+  const cur = root.sessions.find((x) => x.id === undo.sessionId);
+  if (!cur || cur.turns.length !== undo.at) return null; /* something was said since: the session as it stands is the truth */
+  cur.turns = [...cur.turns, ...undo.turns];
+  await saveSessionRoot(storyId, root);
+  return root.activeId === cur.id ? loadSession(storyId) : null;
 }
 /* M73: versions of an answer (the story's swipes, on the housekeeper's last
  * answer). versionsOf reads a turn's versions — an answer with none is its

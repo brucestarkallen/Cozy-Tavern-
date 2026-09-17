@@ -147,68 +147,79 @@ html[data-theme='deep'] {
 }
 
 /* M301: MAGMA — the fourth coat, in the register the writer pointed at: a
- * teal-black room with a bed of magma glowing under it, prose in a warm
- * off-white that does not glare, speech lit neon teal, and neon ember kept
- * for the things that act. Every token the other coats define is defined
- * here (M168's lesson, held by beauty.mjs for every coat). The glow itself is
- * painted once, on the column that does not scroll (chat.css). */
+ * near-black teal room with magma showing at its foot, prose in a warm
+ * off-white, speech lit teal, ember kept for the things that act.
+ * M302: DARKER, AND EASIER ON THE EYE. The first cut glowed at rgb(130,42,21)
+ * in the MIDDLE of the foot — four times the light of anything in the room
+ * the writer had pointed at, whose red lives in the two bottom corners and a
+ * seam on the last rows while the middle stays dark all the way down (read
+ * from his screenshots cell by cell; the numbers are in paint_magma.py).
+ * The ground is darker now — #070c0e, and NOT #000: a pure-black pixel on an
+ * OLED is switched off, and switching it back on as the page scrolls is the
+ * purple smear behind moving type; bright type on true black also halates.
+ * The inks came down WITH the ground so the contrast did not climb: body
+ * 13.7:1 (lamplight is 15.1, the deep 16.7), speech 10.4:1; every ink is
+ * 4.8:1 or better on every ground it can stand on (the table is in AGENTS.md
+ * M302; tests/contrast.py and paint_magma.py measure the real pixels).
+ * Every token the other coats define is defined here (M168's lesson, held by
+ * beauty.mjs for every coat). */
 html[data-theme='magma'] {
-  --bg: #0a1216;
-  --bg-2: #0e191e;
-  --surface: #12232a;
-  --surface-2: #193039;
-  --border: #2b4a54;
-  --border-soft: #1c353d;
-  --text: #ece7dc;
-  --text-2: #b7c6c4;
-  --muted: #86a3a1;
-  --ember: #ff6b3d;
-  --ember-hot: #ff8c5a;
-  --ember-dim: #7d2f1c;
-  --spoken: #58e6d4;
-  --thought: #a9b9ee;
-  --user-tint: #10333a;
-  --danger: #ff6a5e;
-  --ok: #4fd18b;
-  --warn: #f0b64d;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-  --on-ember: #1a0a05;
-  --scrim: rgba(4, 8, 10, 0.74);
+  --bg: #070c0e;
+  --bg-2: #0a1114;
+  --surface: #0e181c;
+  --surface-2: #142329;
+  --border: #24393f;
+  --border-soft: #16272c;
+  --text: #dcd7cc;
+  --text-2: #a9b8b6;
+  --muted: #7f9b99;
+  --ember: #f0673c;
+  --ember-hot: #ff8a5c;
+  --ember-dim: #6e2a1a;
+  --spoken: #56cfc0;
+  --thought: #a3b1e0;
+  --user-tint: #0d2a30;
+  --danger: #f2695d;
+  --ok: #4cc584;
+  --warn: #e6ae4a;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+  --on-ember: #180905;
+  --scrim: rgba(2, 5, 6, 0.78);
 
   /* the 🎨 display pack, in this coat's register (M167/M254) */
-  --pk-card-1: #11212a;
-  --pk-card-2: #14222d;
-  --pk-card-3: #11262b;
-  --pk-chip-bg: #122229;
-  --pk-box-bg: #0d181f;
-  --pk-box-edge: #2b4a54;
-  --pk-rule: #1c353d;
-  --pk-place: #f3eee2;
-  --pk-body: #e6e0d4;
-  --pk-body-2: #e6e0d4;
-  --pk-body-3: #ece7dc;
-  --pk-body-4: #dcd5c8;
-  --pk-quiet: #b7c6c4;
-  --pk-quiet-2: #c0b8a0;
-  --pk-quiet-3: #a9bcb9;
-  --pk-quiet-4: #8fa9a6;
-  --pk-quiet-5: #86a3a1;
-  --pk-quiet-6: #7f9fae;
-  --pk-quiet-7: #6f8f9c;
-  --pk-quiet-8: #7d9690;
-  --pk-gold: #e0a64e;
-  --pk-gold-2: #e0a64e;
-  --pk-gold-dim: #a5803f;
-  --pk-red: #ff6a5e;
-  --pk-red-2: #ff8570;
-  --pk-red-dim: #b04a3c;
-  --pk-amber: #ff8c5a;
-  --pk-sky: #5cb8e6;
-  --pk-rose: #e08fa3;
-  --pk-violet: #a9b9ee;
-  --pk-violet-2: #b4c2f0;
-  --pk-violet-3: #6f7fd0;
-  --pk-teal: #58e6d4;
+  --pk-card-1: #0d191e;
+  --pk-card-2: #0f1a21;
+  --pk-card-3: #0d1c20;
+  --pk-chip-bg: #0e1a1f;
+  --pk-box-bg: #0a1216;
+  --pk-box-edge: #24393f;
+  --pk-rule: #16272c;
+  --pk-place: #e6e1d6;
+  --pk-body: #d6d1c6;
+  --pk-body-2: #d6d1c6;
+  --pk-body-3: #dcd7cc;
+  --pk-body-4: #ccc6ba;
+  --pk-quiet: #a9b8b6;
+  --pk-quiet-2: #b3ab94;
+  --pk-quiet-3: #9cafac;
+  --pk-quiet-4: #879f9c;
+  --pk-quiet-5: #7f9b99;
+  --pk-quiet-6: #7896a5;
+  --pk-quiet-7: #6b8a97;
+  --pk-quiet-8: #78918b;
+  --pk-gold: #d39c4a;
+  --pk-gold-2: #d39c4a;
+  --pk-gold-dim: #9a783c;
+  --pk-red: #f2695d;
+  --pk-red-2: #f48370;
+  --pk-red-dim: #a5473a;
+  --pk-amber: #f0875a;
+  --pk-sky: #58abd6;
+  --pk-rose: #d48a9d;
+  --pk-violet: #a3b1e0;
+  --pk-violet-2: #aebbe4;
+  --pk-violet-3: #6b7ac6;
+  --pk-teal: #56cfc0;
 }
 
 html[data-theme='light'] {

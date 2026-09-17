@@ -2341,7 +2341,7 @@ test('DOM-41 the connections are one drop-down, A to Z, with one card under it; 
     await openSettings();
     click(q('[data-room="storyteller"]'));
     await until(() => q('#connection-pick') && q('#connection-pick').options.length === had.length + 5, 'the picker to hold them all', 10000);
-    const names = [...q('#connection-pick').options].map((o) => o.textContent.split(' — ')[0]);
+    const names = [...q('#connection-pick').options].map((o) => o.textContent.replace(/^✓ /, '').split(' — ')[0]);
     const mine = names.filter((n) => ['zephyr 10', 'Alpha', 'zephyr 9', 'émile', 'beta'].includes(n));
     eq(mine.join(' | '), 'Alpha | beta | émile | zephyr 9 | zephyr 10', 'A to Z: case and accents ignored, 9 before 10');
     const sorted = [...names].sort(new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare);
@@ -2355,7 +2355,8 @@ test('DOM-41 the connections are one drop-down, A to Z, with one card under it; 
     if (!had.some((c) => c.id === activeBefore)) eq(activeNow, had[0].id, 'a stale id became the first one made — the one that was telling the story all along');
     else eq(activeNow, activeBefore, 'a good id is left alone');
     assert(q('#connection-list .connection-name').textContent === active.label, 'the card under it is the one in use: ' + q('#connection-list .connection-name').textContent);
-    assert(/in use/.test(q('#connection-pick').selectedOptions[0].textContent), 'and the picker marks it');
+    assert(/^✓ /.test(q('#connection-pick').selectedOptions[0].textContent), 'and the picker marks it, at the front where a narrow screen does not cut it');
+    eq([...q('#connection-pick').options].filter((o) => /^✓ /.test(o.textContent)).length, 1, 'one mark');
     /* pick another: its card, its buttons — and picking changes nothing about who tells the story */
     const pick = q('#connection-pick');
     pick.value = made[1].id;
@@ -2375,7 +2376,7 @@ test('DOM-41 the connections are one drop-down, A to Z, with one card under it; 
     /* Use this one → it is in use, and still the one shown */
     click(qa('#connection-list .connection-card .row button').find((b) => /Use this one/.test(b.textContent)));
     await until(async () => (await db.settings.get('activeConnectionId')) === made[1].id, 'Alpha in use', 10000);
-    await until(() => /in use/.test(q('#connection-pick').selectedOptions[0].textContent) && q('#connection-pick').value === made[1].id, 'marked in the picker');
+    await until(() => /^✓ /.test(q('#connection-pick').selectedOptions[0].textContent) && q('#connection-pick').value === made[1].id, 'marked in the picker');
     /* Copy → the copy is the one shown, its form open */
     click(qa('#connection-list .connection-card .row button').find((b) => /^Copy$/.test(b.textContent.trim())));
     await until(() => !q('#connection-form').hidden && /Alpha \(copy\)/.test(q('#connection-form-title').textContent), 'the copy’s form', 10000);
@@ -2434,6 +2435,217 @@ test('DOM-42 every coat in Settings is worn when chosen: the room, the phone’s
     radio.dispatchEvent(new env.window.Event('change', { bubbles: true }));
     await until(async () => (await db.settings.get('theme')) === back, 'the coat put back');
     await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-43 “Try again” means the newest turn: after a Stop that left no page it asks that turn again and lets nothing go; it is hidden while the storyteller writes (M302)', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'try again, after a stop' });
+  await db.stories.update(st.id, { extraction: false, keeper: false, continuity: false });
+  await db.messages.append(st.id, { role: 'user', text: 'We sit by the lake.' });
+  const standing = await db.messages.append(st.id, { role: 'assistant', text: 'The lake was flat and grey, and nobody spoke for a while.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  assert(!q('#btn-retry').hidden, 'with the storyteller’s page newest, Try again is offered');
+  /* the storyteller's page newest: Try again writes THAT page anew (M25's law, run instead of read) */
+  click(q('#btn-retry'));
+  await until(async () => { const a = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant'); return a.length === 1 && a[0].id !== standing.id && !env.ctx.chat.isBusy(); }, 'the newest page written anew', 15000);
+  await settled();
+  eq((await db.messages.list(st.id)).filter((m) => !m.hidden).map((m) => m.role).join(' '), 'user assistant', 'one page for one turn');
+  const rewritten = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+  house.state.thinkHang = 'hang';
+  try {
+    type(q('#composer-input'), 'Does she say anything?');
+    submit(q('#composer'));
+    await until(() => q('.msg.pending details.thinking'), 'the live thinking', 10000);
+    assert(q('#btn-retry').hidden, 'no Try again while the storyteller writes');
+    click(q('#btn-stop'));
+    await until(() => !env.ctx.chat.isBusy() && !q('#btn-retry').hidden, 'Try again back after the stop', 10000);
+    house.state.thinkHang = null;
+    click(q('#btn-retry'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the unanswered turn answered', 15000);
+    await settled();
+    const pages = (await db.messages.list(st.id)).filter((m) => !m.hidden);
+    eq(pages.map((m) => m.role).join(' '), 'user assistant user assistant', 'nothing was let go — it used to delete the standing page and the writer’s newest words');
+    assert(pages.some((m) => m.id === rewritten.id && m.text === rewritten.text), 'the standing page stands');
+    eq(pages[2].text, 'Does she say anything?', 'the writer’s words stand');
+    assert(!q('.kept-thinking'), 'and the kept thinking went with the landing');
+  } finally {
+    house.state.thinkHang = null;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-44 “Ask again” after a failed new version asks for a version: one storyteller page with two versions, never a second page under the first; the note goes when it is answered (M302)', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'a failed version' });
+  await db.stories.update(st.id, { extraction: false, keeper: false, continuity: false });
+  await db.messages.append(st.id, { role: 'user', text: 'We sit by the lake.' });
+  const page = await db.messages.append(st.id, { role: 'assistant', text: 'The lake was flat and grey, and nobody spoke for a while.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    house.state.fail = 500;
+    click(q('.msg[data-id="' + page.id + '"] .msg-act[data-act="swipe-next"]'));
+    await until(() => !env.ctx.chat.isBusy() && q('.msg-note .msg-act.retry'), 'the failure’s note', 10000);
+    eq(qa('#thread .msg-note').length, 1, 'one word from the house for one failure (there were two)');
+    house.state.fail = null;
+    click(q('.msg-note .msg-act.retry'));
+    await until(async () => { const m = (await db.messages.list(st.id)).find((x) => x.id === page.id); return m && Array.isArray(m.swipes) && m.swipes.length === 2 && !env.ctx.chat.isBusy(); }, 'a second version of the same page', 15000);
+    await settled();
+    const all = (await db.messages.list(st.id)).filter((m) => !m.hidden);
+    eq(all.map((m) => m.role).join(' '), 'user assistant', 'still one storyteller page — it used to write a second page under the first');
+    assert(!q('#thread .msg-note'), 'the note went when it was answered');
+  } finally {
+    house.state.fail = null;
+  }
+  /* the expected 500 is the only error this scenario may log */
+  const stray = errorsSince(before).filter((e) => !/500|busy/i.test(e));
+  eq(stray.length, 0, stray.join(' | '));
+});
+
+test('DOM-45 a housekeeper retry that is stopped takes nothing: the answer the writer had is back as it was, the question is not left in the box, and what it had thought is kept (M302)', async () => {
+  const before = errors.length;
+  const { loadSession } = await import('../../js/agents/housekeeper.js');
+  const st = await db.stories.create({ title: 'the housekeeper’s retry, cut' });
+  await db.messages.append(st.id, { role: 'user', text: 'We reach the pier.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The pier was empty and the tide was out.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorAnswer = house.state.workerAnswer;
+  try {
+    house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'FIRST ANSWER: the tide is right.' : priorAnswer(body, sys));
+    click(q('#btn-housekeeper'));
+    await until(() => !q('#hk-sheet').hidden && !q('#hk-send').disabled, 'the housekeeper', 10000);
+    type(q('#hk-input'), 'is the tide right?');
+    submit(q('#hk-form'));
+    await until(() => qa('#hk-thread .hk-bubble').some((b) => /FIRST ANSWER/.test(b.textContent)) && !q('#hk-send').disabled, 'the first answer', 10000);
+    house.state.hkThinkHang = 'hang';
+    click(q('#hk-retry'));
+    await until(() => q('#hk-thread details.hk-thinking'), 'the retry thinking', 10000);
+    click(q('#hk-stop'));
+    await until(() => !q('#hk-send').disabled, 'the stop to land', 10000);
+    await until(async () => (await loadSession(st.id)).turns.length === 2, 'the turns put back', 10000);
+    const turns = (await loadSession(st.id)).turns;
+    eq(turns.map((t) => t.role).join(' '), 'writer housekeeper', 'the question and the answer are back (the session was left empty before)');
+    assert(/FIRST ANSWER/.test(turns[1].text), 'the answer as it was');
+    assert(qa('#hk-thread .hk-bubble').some((b) => /FIRST ANSWER/.test(b.textContent)), 'and on the sheet');
+    eq(q('#hk-input').value, '', 'the question is not left in the box as though it had never been asked');
+    assert(q('#hk-thread details.hk-cut'), 'what the retry had thought is kept under it');
+    /* and a retry that LANDS still keeps the old answer a swipe away */
+    house.state.hkThinkHang = null;
+    house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'SECOND ANSWER: it is.' : priorAnswer(body, sys));
+    click(q('#hk-retry'));
+    await until(() => qa('#hk-thread .hk-bubble').some((b) => /SECOND ANSWER/.test(b.textContent)) && !q('#hk-send').disabled, 'the second answer', 10000);
+    await until(async () => { const t = (await loadSession(st.id)).turns; return t.length === 2 && Array.isArray(t[1].swipes) && t[1].swipes.length === 2; }, 'both versions kept', 10000);
+    assert(!q('#hk-thread details.hk-cut'), 'the cut thinking went with the landed answer');
+    click(q('#btn-housekeeper')); await tick(300);
+  } finally {
+    house.state.hkThinkHang = null;
+    house.state.workerAnswer = priorAnswer;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-46 a turn asked again is asked as it was asked: an out-of-character question answered again — by Try again, by ▸, by the note’s Ask again — stays out of character, and no reader takes it for story (M302)', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'out of character, asked again' });
+  await db.messages.append(st.id, { role: 'user', text: 'We sit by the lake.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The lake was flat and grey, and nobody spoke for a while.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer;
+  const oocAsked = (c) => !c.isWorker && /speaking out of character/i.test(JSON.stringify(c.body));
+  const readerCalls = () => house.state.calls.filter((c) => c.isWorker && /keep the ledger/i.test(JSON.stringify(c.body)) && /OUT-OF-CHARACTER-ANSWER/.test(JSON.stringify(c.body))).length;
+  try {
+    house.state.storyAnswer = () => 'OUT-OF-CHARACTER-ANSWER: we could go to the boathouse next.';
+    /* the first ask: the wire fails, so the turn stands unanswered with its note */
+    house.state.fail = 500;
+    type(q('#composer-input'), '((where could the scene go next?))'); /* the house's own out-of-character mark: (( … )) or // … */
+    submit(q('#composer'));
+    await until(() => !env.ctx.chat.isBusy() && q('.msg-note .msg-act.retry'), 'the failure’s note', 10000);
+    house.state.fail = null;
+    /* 1. the note's Ask again */
+    let from = house.state.calls.length;
+    click(q('.msg-note .msg-act.retry'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the answer', 15000);
+    await settled();
+    let answer = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(house.state.calls.slice(from).some(oocAsked), 'Ask again carried the out-of-character word to the storyteller');
+    eq(answer.ooc, true, 'and its answer is kept as out of character (it landed as a page of the story before)');
+    /* 2. a new version by ▸ */
+    from = house.state.calls.length;
+    click(q('.msg[data-id="' + answer.id + '"] .msg-act[data-act="swipe-next"]'));
+    await until(async () => { const m = (await db.messages.list(st.id)).find((x) => x.id === answer.id); return m && Array.isArray(m.swipes) && m.swipes.length === 2 && !env.ctx.chat.isBusy(); }, 'a second version', 15000);
+    await settled();
+    assert(house.state.calls.slice(from).some(oocAsked), 'the new version was asked for out of character');
+    eq((await db.messages.list(st.id)).find((x) => x.id === answer.id).ooc, true, 'and is still out of character');
+    /* 3. Try again (the composer's): the answer written anew */
+    from = house.state.calls.length;
+    click(q('#btn-retry'));
+    await until(async () => { const a = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant'); return a.length === 2 && a[1].id !== answer.id && !env.ctx.chat.isBusy(); }, 'the answer written anew', 15000);
+    await settled();
+    answer = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(house.state.calls.slice(from).some(oocAsked), 'Try again asked out of character');
+    eq(answer.ooc, true, 'and the answer is out of character');
+    await tick(800);
+    eq(readerCalls(), 0, 'no reader of the ledger was ever sent to learn from an out-of-character answer');
+    /* an ordinary turn asked again carries no such word */
+    from = house.state.calls.length;
+    house.state.storyAnswer = priorStory;
+    type(q('#composer-input'), 'I skip a stone.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 3 && !env.ctx.chat.isBusy(), 'an ordinary page', 15000);
+    await settled();
+    click(q('#btn-retry'));
+    await until(async () => { const a = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant'); return a.length === 3 && !env.ctx.chat.isBusy() && !q('.msg.pending'); }, 'written anew', 15000);
+    await settled();
+    assert(!house.state.calls.slice(from).some(oocAsked), 'an ordinary turn is asked again as an ordinary turn');
+    assert(!(await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop().ooc, 'and lands as story');
+  } finally {
+    house.state.fail = null;
+    house.state.storyAnswer = priorStory;
+  }
+  const stray = errorsSince(before).filter((e) => !/500|busy/i.test(e));
+  eq(stray.length, 0, stray.join(' | '));
+});
+
+test('DOM-47 a new version stopped while the storyteller thinks gives the ledger back: what the page had taught is there again, the page and its one version stand (M40’s law, run)', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  house.state.workerAnswer = walkDefaultWorker;
+  const st = await db.stories.create({ title: 'a version, stopped' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    type(q('#composer-input'), 'We go and eat.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    const here = (state) => (state.present || []).map((p) => p.name).sort().join(', ');
+    await until(async () => queuedCount(st.id) === 0 && /Liara/.test(here(await loadState(st.id))), 'the ledger to learn the page', 30000);
+    await settled();
+    const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    const learned = await loadState(st.id);
+    eq(here(learned), 'Jovan, Liara', 'the page taught the ledger who is here');
+    eq((learned.place || {}).name, 'Lakeside Park', 'and the ground, from the page’s own header line');
+    house.state.thinkHang = 'hang';
+    click(q('.msg[data-id="' + page.id + '"] .msg-act[data-act="swipe-next"]'));
+    await until(() => q('.msg.pending details.thinking'), 'the new version’s thinking', 15000);
+    const during = await loadState(st.id);
+    eq(here(during), '', 'while the new version is asked for, the ledger stands at the turn’s boundary — nobody here yet (so the giving-back below is real)');
+    click(q('#btn-stop'));
+    await until(() => !env.ctx.chat.isBusy(), 'the stop to land', 15000);
+    await settled();
+    const after = await loadState(st.id);
+    eq(here(after), 'Jovan, Liara', 'the people are given back');
+    eq((after.place || {}).name, 'Lakeside Park', 'and the ground');
+    const still = (await db.messages.list(st.id)).find((m) => m.id === page.id);
+    assert(still && still.text === page.text && !(Array.isArray(still.swipes) && still.swipes.length > 1), 'the page stands as it was, with no empty version added');
+    assert(q('.kept-thinking'), 'and what the storyteller had thought is kept (M301)');
+  } finally {
+    house.state.thinkHang = null;
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

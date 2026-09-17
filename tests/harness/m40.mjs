@@ -10,7 +10,11 @@ const chat = () => readFileSync(new URL('../../js/ui/chat.js', import.meta.url),
 
 test('M40-1 a cancelled swipe gives the ledger back; every version keeps the ledger it earned', () => {
   const c = chat();
-  assert(/const leaving = await loadState\(story\.id\);[\s\S]*const landed = await generate\(\{ swipeTarget: msg, replayAfter: !lastPage \}\);[\s\S]*if \(!landed && lastPage\) \{[\s\S]*await saveState\(story\.id, leaving\);/.test(c), 'the swipe keeps the ledger it left and gives it back on a cancel (the last page, M67)');
+  /* M302: the call now also carries the turn's own command (turnArgsBefore), so
+   * its argument list is no longer pinned letter for letter. The law itself is
+   * RUN in the walk now (DOM-47: a new version stopped mid-thought — the
+   * ledger rewound for the asking is the ledger given back). */
+  assert(/const leaving = await loadState\(story\.id\);[\s\S]*const landed = await generate\(\{[^}]*swipeTarget: msg, replayAfter: !lastPage \}\);[\s\S]*if \(!landed && lastPage\) \{[\s\S]*await saveState\(story\.id, leaving\);/.test(c), 'the swipe keeps the ledger it left and gives it back on a cancel (the last page, M67)');
   assert(/enqueue\('checkpoint'/.test(c) && /saveVersionState\(story\.id, msg\.id, idx, await loadState\(story\.id\)\)/.test(c), 'a checkpoint per version after the readers finish');
   assert(/const known = await versionStateFor\(story\.id, msg\.id, next\);[\s\S]*if \(known\) \{[\s\S]*await saveState\(story\.id, known\);/.test(c), 'walking to a version restores its ledger');
   assert(/return landed;/.test(c), 'generate says whether a page landed');

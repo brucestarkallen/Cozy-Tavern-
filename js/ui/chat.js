@@ -1258,7 +1258,9 @@ export function initChat(ctx) {
     btn.type = 'button';
     btn.className = 'msg-act retry';
     btn.textContent = 'Ask again';
-    btn.addEventListener('click', retry);
+    /* M302: the note has said its piece once it is answered — it used to stay
+     * on the page, between the writer's words and the answer that then came */
+    btn.addEventListener('click', () => { if (busy) return; article.remove(); retry(); });
     article.appendChild(btn);
     return article;
   }
@@ -3484,6 +3486,7 @@ export function initChat(ctx) {
       abort = new AbortController();
       els.btnStop.hidden = false;
       els.btnSend.hidden = true;
+      refreshRetry(null, true); /* M302: no "Try again" while the storyteller writes */
       /* M15: the ember breathes while the storyteller writes. */
       if (els.emberBar) els.emberBar.classList.add('live');
 
@@ -3809,9 +3812,19 @@ export function initChat(ctx) {
          * (an error's thinking was kept, and emptied, where the error was caught) */
         if (thinking.trim()) await keepCutThinking(story, pending, { text: thinking, ms: thinkMs, why: 'quiet', showThinking });
         pending.remove();
+        /* M302: "ASK AGAIN" ASKS FOR THE SAME THING. It always ran a plain new
+         * turn — so after a failed NEW VERSION of a standing page (the swipe ▸)
+         * it wrote a second storyteller page under the first, the storyteller
+         * answering itself (reproduced: user / assistant became user /
+         * assistant / assistant). A failed version is asked for again as a
+         * version, through the same door the ▸ uses. */
         els.thread.appendChild(retryNoteNode(
           failedWords || 'The storyteller went quiet — nothing came back. Say the word and I’ll ask again.',
-          () => retryAsk()
+          async () => {
+            if (!swipeTarget) { retryAsk(); return; }
+            const standing = (await db.messages.list(story.id)).find((m) => m.id === swipeTarget.id);
+            if (standing) swipeRegenerate(standing); else retryAsk();
+          }
         ));
         scrollToBottom();
       } else if (thinking.trim()) {
@@ -3828,8 +3841,31 @@ export function initChat(ctx) {
       els.btnSend.hidden = false;
       if (els.emberBar) els.emberBar.classList.remove('live');
       focusComposerIfDesktop();
+      refreshRetryFromStore(); /* M302: what "Try again" means now, read from the store */
     }
     return landed;
+  }
+
+  /* M302: A TURN ASKED AGAIN IS ASKED AS IT WAS ASKED. The first ask reads the
+   * writer's words for a house command — "(ooc: …)" above all: an
+   * out-of-character turn runs no referee, its answer is saved as out of
+   * character, and no reader takes it for story. Every way of asking again
+   * (the page's own "try again", the composer's, a new version by ▸, the
+   * note's "Ask again") called generate() bare, so the second answer to an
+   * out-of-character question landed as a page of the STORY and the ledger's
+   * reader was sent to learn from it. The turn's own words are read again,
+   * here, for every one of those doors. `at` is where the answer stands (or
+   * would stand) in `history`; a hidden page ("Go on", the house's nudges)
+   * carries no command of its own. */
+  function turnArgsBefore(history, at) {
+    for (let i = Math.min(at, history.length) - 1; i >= 0; i -= 1) {
+      const m = history[i];
+      if (!m || m.role !== 'user') continue;
+      if (m.hidden) return {};
+      const again = parseCommand(String(m.text || ''));
+      return { directive: again.directive || '', ooc: again.ooc === true || m.ooc === true };
+    }
+    return {};
   }
 
   /* B9's retry: re-ask the same turn (the user's words are still last). */
@@ -3837,7 +3873,13 @@ export function initChat(ctx) {
     if (busy) return;
     busy = true;
   refreshRetry(null, true);
-    await generate();
+    let args = {};
+    try {
+      const story = await activeStory();
+      const history = story ? await db.messages.list(story.id) : [];
+      args = turnArgsBefore(history, history.length);
+    } catch (err) { /* asked plainly — and the house is never left claimed by a read that failed */ }
+    await generate(args);
     stories = await db.stories.list();
     renderStoryList();
     refreshEmber();
@@ -3957,19 +3999,40 @@ export function initChat(ctx) {
   /* ---------- regenerate ("rewrite from here") ---------- */
 
   /* The visible retry (user law: regeneration must be findable — not only in
-   * the long-press menu). Shows when the latest page is the storyteller's. */
+   * the long-press menu).
+   * M302: "TRY AGAIN" MEANS THE NEWEST TURN, ALWAYS. It was shown or hidden
+   * only when the thread was drawn, and its tap went to "the last storyteller
+   * page on the screen". So after a telling that left no page — a Stop while it
+   * thought, a dropped wire — the button still stood there from before the
+   * send, and pressing it let go of the PREVIOUS page and of the writer's own
+   * unanswered words with it, and rewrote the wrong turn (reproduced: three
+   * pages in the store became two, the writer's newest words gone). Now the
+   * button is read from the store: the newest visible page is the turn — the
+   * storyteller's is written anew, the writer's unanswered one is asked again
+   * with nothing let go (the same door as that page's own "try again"). It is
+   * hidden while the storyteller writes, and re-read when it stops. */
   function refreshRetry(msgs, busyNow = false) {
     if (!els.btnRetry) return;
     const last = msgs && msgs[msgs.length - 1];
-    els.btnRetry.hidden = !(last && last.role === 'assistant' && !busyNow);
+    els.btnRetry.hidden = !(last && (last.role === 'assistant' || last.role === 'user') && !busyNow);
+  }
+  /* read when a telling ends. Only the telling itself hides the button: a
+   * replay or a reader still at work does not (the tap waits for those in
+   * regenerateFrom) — reading `busy` here could leave it hidden with nothing
+   * due to show it again. */
+  async function refreshRetryFromStore() {
+    try {
+      const story = await activeStory();
+      refreshRetry(story ? (await db.messages.list(story.id)).filter((m) => m && !m.hidden) : null, Boolean(abort));
+    } catch (err) { /* the next draw of the thread reads it again */ }
   }
   if (els.btnRetry) {
-    els.btnRetry.addEventListener('click', () => {
-      const nodes = [...els.thread.querySelectorAll('.msg[data-id]')];
-      /* The page's class is msg-assistant (msg-<role>) — looking for a bare
-       * "assistant" class found nothing, and the tap died silently. */
-      const lastAssistant = [...nodes].reverse().find((n) => n.classList.contains('msg-assistant'));
-      if (lastAssistant) regenerateFrom(lastAssistant.dataset.id);
+    els.btnRetry.addEventListener('click', async () => {
+      const story = await activeStory();
+      if (!story) return;
+      const visible = (await db.messages.list(story.id)).filter((m) => m && !m.hidden);
+      const last = visible[visible.length - 1];
+      if (last) regenerateFrom(last.id);
     });
   }
 
@@ -4116,7 +4179,8 @@ export function initChat(ctx) {
       }
       await refreshPreview(story.id); // M21: the shelf re-reads what's left
       await renderThread({ structural: true, opening: true });
-      await generate();
+      /* M302: asked again as it was asked — the turn's own words, read for their command */
+      await generate(turnArgsBefore(history, target.role === 'assistant' ? at : at + 1));
       stories = await db.stories.list();
       renderStoryList();
     } finally {
@@ -4231,7 +4295,7 @@ export function initChat(ctx) {
       }
       /* M44: a swiped page's record line is let go (a hole, refilled) */
       { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
-      const landed = await generate({ swipeTarget: msg, replayAfter: !lastPage });
+      const landed = await generate({ ...turnArgsBefore(historyNow, historyNow.findIndex((m) => m.id === msg.id)), swipeTarget: msg, replayAfter: !lastPage }); /* M302: a new version of an out-of-character answer is out of character */
       /* M72: a new version on an OLDER page is history changed at that page —
        * fold back, read the new words once, re-apply the rest (it used to be
        * read on top of the latest ledger and left to the auditor). M73-002:
