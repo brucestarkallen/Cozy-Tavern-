@@ -180,10 +180,54 @@ export function spokenAs(conn, effort) {
   if (style === 'kimi' && want === 'off') return `“${said}” — Kimi K3 always thinks; this is the least it can`;
   return said === 'off' ? 'off' : `“${said}”`;
 }
+/* M308: THE THINKING ROOM IS A NUMBER ONLY TWO HOUSES CAN HEAR. "Thinking room, in
+ * tokens" was read in exactly two places — Claude (thinking.budget_tokens) and
+ * OpenRouter (reasoning.max_tokens) — and silently dropped everywhere else, so
+ * the writer typed 512 on a Kimi connection, watched it think as long as ever,
+ * and had no way to know the number had gone nowhere: Moonshot, DeepSeek, Z.ai
+ * and the rest have LEVELS and no budget at all. And on OpenRouter the number
+ * REPLACED his level ("one of the following, not both") for every model —
+ * though OpenRouter's own docs give a real budget only to Anthropic and
+ * Gemini models and say that for the rest "the max_tokens value will be used
+ * to determine the effort level": the level he chose was thrown away for one
+ * of OpenRouter's choosing. Now: a budget is sent only where a house can
+ * hear it; everywhere else his LEVEL is sent, and the form says which.
+ *   budgetFor(conn) → { sent, tokens, words }   (pure) */
+export const CLAUDE_BUDGET_FLOOR = 1024; /* Anthropic refuses less — and that 400 names "budget_tokens", which the refusal memory would read as "this house takes no thinking" and switch it off */
+export function budgetFor(conn) {
+  const c = conn || {};
+  const r = c.reasoning && typeof c.reasoning === 'object' ? c.reasoning : {};
+  const asked = typeof r.budgetTokens === 'number' && r.budgetTokens > 0 ? Math.round(r.budgetTokens) : 0;
+  const model = String(c.model || '').toLowerCase();
+  const url = String(c.baseUrl || '').toLowerCase();
+  if (c.type === 'anthropic') {
+    if (/deepseek/.test(url + ' ' + model)) return { sent: false, tokens: 0, words: 'DeepSeek has thinking LEVELS and no thinking room — a number here is never sent; the level above is.' };
+    const tokens = asked ? Math.max(CLAUDE_BUDGET_FLOOR, asked) : 0;
+    return { sent: Boolean(tokens), tokens, words: 'Claude takes a thinking room (no less than 1,024 tokens — a smaller number is sent as 1,024). Set, it replaces the level above; empty, the level decides.' };
+  }
+  if (reasonStyle(c) === 'openrouter') {
+    const takes = /^(anthropic|google)\//.test(model);
+    if (takes) return { sent: Boolean(asked), tokens: asked, words: 'Through OpenRouter this model takes a thinking room (OpenRouter keeps it between 1,024 and 32,000). Set, it replaces the level above; empty, the level decides.' };
+    return { sent: false, tokens: 0, words: 'Through OpenRouter only Claude and Gemini models take a thinking room. For this model a number here is never sent — OpenRouter would only turn it into a level of its own choosing in place of yours; the level above is what is sent.' };
+  }
+  return { sent: false, tokens: 0, words: 'This address has thinking LEVELS and no thinking room — a number here is never sent; the level above is what decides how long it thinks.' };
+}
+
+/* M308: which thinking voice speaks this turn — the story's own level, when it has
+ * one, over the connection's; the connection's thinking ROOM rides either way
+ * (a story's level used to drop it). Pure; chat.js asks it. */
+export function effectiveReasoningOf(connection, story) {
+  const r = connection && connection.reasoning && typeof connection.reasoning === 'object' ? connection.reasoning : null;
+  const override = story && typeof story.reasoningEffort === 'string' ? story.reasoningEffort : '';
+  if (EFFORT_RANK.includes(override)) return { ...(r && typeof r.budgetTokens === 'number' ? { budgetTokens: r.budgetTokens } : {}), effort: override };
+  if (r && EFFORT_RANK.includes(r.effort)) return r;
+  return { effort: 'off' };
+}
+
 /* the standing word under the form's thinking dial, when the house has one */
 export function thinkingHint(conn) {
   const style = reasonStyle(conn);
-  if (style === 'kimi') return 'Kimi K3 always thinks — it cannot be told not to. Off and Low are spoken as “low”, Medium and High as “high”, XHigh and Max as “max”; left unsaid it would think at max. Moonshot fixes its temperature (1.0) and top-p (0.95) and asks that they be left out — leave those two dials empty for this connection.';
+  if (style === 'kimi') return 'Kimi K3 always thinks — it cannot be told not to — and has three levels only. Off and Low are spoken as “low”, Medium and High as “high”, XHigh and Max as “max”; left unsaid it would think at max. At “low” K3 often answers almost at once, with little or no thinking shown: that is the model’s own lightest setting, and there is nothing between it and “high”. Moonshot fixes its temperature (1.0) and top-p (0.95) and asks that they be left out — leave those two dials empty for this connection.';
   if (style === 'kimi2') return 'This Kimi model’s thinking is a switch: Off turns it off, every other level turns it on. Moonshot fixes its temperature and top-p — leave those two dials empty.';
   if (style === 'none' && /kimi/i.test(String(conn && conn.model || ''))) return 'This Kimi model always thinks and takes no thinking setting — nothing is sent for it.';
   return '';

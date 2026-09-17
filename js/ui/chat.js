@@ -83,7 +83,7 @@ import { loadRules, currentRules, applyRules } from '../regex.js'; /* M30: the r
 import { renderHtmlProse, looksHtml } from './richhtml.js'; /* M31: display rules may dress the page in HTML */
 import { download } from './download.js';
 import { storyToMarkdown, storyToJsonl, storyExportBasename } from './storyexport.js';
-import { EFFORT_RANK } from '../providers/effort.js';
+import { EFFORT_RANK, effectiveReasoningOf } from '../providers/effort.js';
 /* M10's showrunners ride the send path too (the episode mark is stripped
  * from the prose before the page is saved, and their standing texts join
  * the assembled tail). M15 audit found these names used below but never
@@ -2909,11 +2909,7 @@ export function initChat(ctx) {
    * off. The full ladder is valid here — what the wire can actually SAY
    * is resolved per house inside the provider (effortFor in effort.js). */
   function effectiveReasoning(connection, story) {
-    const override = story && typeof story.reasoningEffort === 'string' ? story.reasoningEffort : '';
-    if (EFFORT_RANK.includes(override)) return { effort: override };
-    const r = connection && connection.reasoning;
-    if (r && EFFORT_RANK.includes(r.effort)) return r;
-    return { effort: 'off' };
+    return effectiveReasoningOf(connection, story); /* M308: pure, in effort.js — the story's level no longer drops the connection's thinking room */
   }
 
   /* The kind inline note under the composer (M8): says what the tavern

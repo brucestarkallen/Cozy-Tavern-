@@ -2793,6 +2793,39 @@ test('DOM-50 a page begun with a prefill lands WITH its first words: the header 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-51 the thinking room says whether this address can hear it: a number kept on a Kimi connection is shown as NOT sent, the form says why as the model is typed, and the box stays his to clear (M308)', async () => {
+  const before = errors.length;
+  const activeBefore = await db.settings.get('activeConnectionId');
+  const k3 = await db.connections.add({ label: 'AAB kimi with a room', type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', apiKey: 'k', model: 'kimi-k3', reasoning: { effort: 'low', budgetTokens: 512 } });
+  try {
+    await openSettings();
+    click(q('[data-room="storyteller"]'));
+    await until(() => q('#connection-pick') && [...q('#connection-pick').options].some((o) => o.value === k3.id), 'the picker', 10000);
+    const pick = q('#connection-pick');
+    pick.value = k3.id;
+    pick.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(() => q('#connection-list .connection-name') && q('#connection-list .connection-name').textContent === 'AAB kimi with a room', 'its card', 10000);
+    const card = q('#connection-list .connection-card').textContent;
+    assert(/thinking room: 512 tokens — NOT sent/.test(card), 'the card says the number goes nowhere: ' + card);
+    assert(/thinking: low — spoken as “low”/.test(card), 'and what IS sent');
+    click(qa('#connection-list .connection-card .row button').find((b) => /^Change$/.test(b.textContent.trim())));
+    await until(() => !q('#connection-form').hidden, 'the form', 10000);
+    eq(q('#conn-budget').value, '512', 'his number is kept');
+    assert(!q('#conn-budget').disabled, 'and stays his to clear');
+    assert(/LEVELS and no thinking room/.test(q('#conn-budget-hint').textContent), 'the form says why: ' + q('#conn-budget-hint').textContent);
+    /* another house, as it is typed */
+    q('#conn-preset').value = 'claude'; q('#conn-preset').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    type(q('#conn-baseurl'), 'https://api.anthropic.com'); type(q('#conn-model'), 'claude-sonnet-4-5');
+    assert(/Claude takes a thinking room/.test(q('#conn-budget-hint').textContent), 'Claude can hear one: ' + q('#conn-budget-hint').textContent);
+    click(q('#btn-conn-cancel'));
+  } finally {
+    await db.connections.remove(k3.id);
+    await db.settings.set('activeConnectionId', activeBefore);
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

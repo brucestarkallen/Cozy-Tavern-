@@ -6947,3 +6947,37 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the ledger's ground is read from the header. MUTATION-CHECKED in two short runs (the lead not put
   back + no beta address; the host-only rule), each restored and `cmp`-proven.
 - version.js -> m307-001.
+
+# M308 — the thinking room is a number only two houses can hear; on Kimi K3 "low" barely thinks because that is K3's low
+- THE WRITER: "does the thinking budget work? I put 512 tokens and it still thinks long. And on Kimi K3, set to
+  low, it chooses not to think — it only thinks from medium."
+- THE BUDGET. ROOT CAUSE, read in the code: "Thinking room, in tokens" is read in exactly two places — Claude
+  (thinking.budget_tokens) and OpenRouter (reasoning.max_tokens) — and silently dropped everywhere else.
+  Moonshot, DeepSeek, Z.ai and every generic address have thinking LEVELS and no budget at all, so 512
+  on a Kimi or DeepSeek connection went nowhere and nothing said so. WORSE ON OPENROUTER: the number
+  REPLACED the level for every model ("one of the following, not both"), though OpenRouter's docs
+  give a real budget only to Anthropic and Gemini models (and keep it between 1,024 and 32,000) and
+  say that for the rest "the max_tokens value will be used to determine the effort level" — his
+  level was thrown away for one of OpenRouter's choosing. AND ON CLAUDE the form offered 512, under
+  Anthropic's floor of 1,024: a 400 that names budget_tokens, which the refusal memory reads as "this
+  house takes no thinking" and switches it off.
+  CHANGE (providers/effort.js budgetFor — pure; openai.js, anthropic.js ask it): a room is sent only
+  where a house can hear it (Claude direct, never under 1,024; through OpenRouter for anthropic/ and
+  google/ models); everywhere else the writer's LEVEL is what is sent. The form says, for the address
+  and model as they are typed, whether the number can be sent and why; the card says "thinking room:
+  512 tokens — NOT sent: this address has levels only". The box is never disabled (a number kept
+  there stays his to clear) and takes any whole number — it had asked the browser for multiples of
+  512 from 512, so 2,000 could not be saved at all. A story with its own level keeps the connection's
+  room (effectiveReasoningOf, pure; chat.js's copy dropped it).
+- KIMI K3 AT "LOW" — NOT A FAULT OF THE HOUSE. Since M303 Low is sent as reasoning_effort:"low", Medium
+  and High as "high" (K3 has no medium), XHigh/Max as "max" — so "it only thinks from medium" is K3's
+  own ladder: there is nothing between its low and its high. That K3 may answer with no thinking
+  shown is the model's: SGLang's K3 parser fix (#33995) exists because "Kimi K3 answers without
+  entering the think channel". The form's standing word for K3 now says so. NOT VERIFIED on the
+  writer's own account (no Moonshot key here).
+- TESTS: tests/harness/m308.mjs — four laws through the real providers (no 512 anywhere on Kimi's or
+  DeepSeek's wire and the level sent; OpenRouter: Kimi/DeepSeek get the level, Claude/Gemini the room;
+  Claude's floor with the reply's own room beyond it; the story's level keeps the room). DOM-51 walks
+  the card and the form. MUTATION-CHECKED: the model test, the floor and the kept room each removed →
+  M308-2, M308-3, M308-4 fail; restored and `cmp`-proven.
+- version.js -> m308-001.

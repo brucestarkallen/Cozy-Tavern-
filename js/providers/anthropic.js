@@ -26,7 +26,7 @@ import { withImagePart, transportError } from './wire.js';
  * storyteller prefill — the mechanics live in providers/effort.js. */
 import {
   effortFor, EFFORT_BUDGETS, REASONING_REFUSAL, PREFILL_REFUSAL,
-  applyPrefill, markConnectionDown, prefillLead, prefillGap,
+  applyPrefill, markConnectionDown, prefillLead, prefillGap, budgetFor,
 } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.anthropic.com';
@@ -119,9 +119,7 @@ function requestBody(connection, blocks, legacySystem, messages, opts = {}) {
     ? 'off'
     : effortFor('anthropic', wanted);
   const thinkingOn = effort !== 'off';
-  const budget = thinkingOn && typeof r.budgetTokens === 'number' && r.budgetTokens > 0
-    ? Math.round(r.budgetTokens)
-    : 0;
+  const budget = thinkingOn ? budgetFor(connection).tokens : 0; /* M308: never under Claude's own floor of 1,024 (a smaller one is a 400 that would switch the thinking off) */
   /* M22-D: the prefill runs on the finished list, and nowhere else. */
   const pf = opts.suppressPrefill
     ? { messages, applied: false }

@@ -19,7 +19,7 @@ import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '..
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
 import { learnContext } from '../providers/detect.js'; /* M289 */
 import { byName } from '../providers/order.js'; /* M301: every list of names the writer picks from, A to Z */
-import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown } from '../providers/effort.js';
+import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
@@ -61,6 +61,7 @@ export function initSettings(ctx) {
     addv1: document.getElementById('conn-addv1'),
     modelHint: document.getElementById('conn-model-hint'),
     reasoningHint: document.getElementById('conn-reasoning-hint'),
+    budgetHint: document.getElementById('conn-budget-hint'),
     apiKey: document.getElementById('conn-apikey'),
     model: document.getElementById('conn-model'),
     searchRow: document.getElementById('conn-search-row'),
@@ -299,6 +300,16 @@ export function initSettings(ctx) {
         spoken.textContent = `thinking: ${effort} — ${said}`;
         top.appendChild(spoken);
       }
+      /* M308: a thinking room that is set says whether it is sent */
+      if (conn.reasoning && typeof conn.reasoning.budgetTokens === 'number' && conn.reasoning.budgetTokens > 0 && effort !== 'off') {
+        const b = budgetFor(conn);
+        const room = document.createElement('span');
+        room.className = 'connection-kind';
+        room.textContent = b.sent
+          ? `thinking room: ${b.tokens.toLocaleString()} tokens — sent in place of the level`
+          : `thinking room: ${conn.reasoning.budgetTokens.toLocaleString()} tokens — NOT sent: this address has levels only`;
+        top.appendChild(room);
+      }
       top.append(name, kind);
       if (conn.id === activeId) {
         const tag = document.createElement('span');
@@ -428,6 +439,16 @@ export function initSettings(ctx) {
     const words = thinkingHint({ type: p.type, preset: els.preset.value, baseUrl: els.baseUrl.value.trim() || p.baseUrl || '', model: els.model.value.trim() || p.model || '' });
     els.reasoningHint.textContent = words;
     els.reasoningHint.hidden = !words;
+    /* M308: the thinking room says, for THIS address and model, whether the number can be sent at all —
+     * it was taken in silence on houses that have no such thing, and did nothing */
+    if (els.budgetHint && els.connBudget) {
+      const draft = { type: p.type, preset: els.preset.value, baseUrl: els.baseUrl.value.trim() || p.baseUrl || '', model: els.model.value.trim() || p.model || '', reasoning: { effort: 'high', budgetTokens: 2048 } };
+      const b = budgetFor(draft);
+      els.budgetHint.textContent = b.words;
+      /* never disabled: a number already kept there must stay his to clear. (The box also asked the
+       * browser for multiples of 512 from 512 — so 2,000 could not be saved at all; any whole number now.) */
+      els.connBudget.placeholder = b.sent ? 'Leave empty to follow the level' : 'Not used by this address';
+    }
   }
 
   function refreshAddressHint() {

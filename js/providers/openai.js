@@ -21,7 +21,7 @@ import { withImagePart, transportError } from './wire.js';
  * rejection memory) and the storyteller prefill live in effort.js. */
 import {
   reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
-  applyPrefill, markConnectionDown, reasoningIsDown, healStaleRefusal, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal,
+  applyPrefill, markConnectionDown, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal,
 } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
@@ -172,9 +172,7 @@ function requestBody(connection, wireMessages, opts = {}) {
   } else if (suppressed) {
     /* the wire refused these params once — nothing is spent on them again */
   } else if (style === 'openrouter') {
-    const budget = typeof r.budgetTokens === 'number' && r.budgetTokens > 0
-      ? Math.round(r.budgetTokens)
-      : 0;
+    const budget = budgetFor(connection).tokens; /* M308: only for a model that can hear one — for the rest the writer's LEVEL is what is sent */
     body.reasoning = effort === 'off'
       ? { enabled: false }
       : (budget ? { max_tokens: budget } : { effort });
