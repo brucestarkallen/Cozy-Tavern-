@@ -732,10 +732,16 @@ export function initHousekeeper(ctx) {
 
   /* M100: every landed page edit ripples — the rest of the story is made to
    * agree with it in code and through the mender (chat.js rippleAfterEdit). */
-  function rippleEdits(story, edited) {
+  /* M296: and first, what any re-ink earns — the record line over the page let
+   * go, the page read again (chat.js pageReinked) — the housekeeper's re-inks
+   * skipped it, so the record went on summarizing words the page no longer held. */
+  async function rippleEdits(story, edited, { ripple = true } = {}) {
     if (!story || !Array.isArray(edited) || !edited.length) return;
-    if (!(ctx.chat && typeof ctx.chat.rippleAfterEdit === 'function')) return;
-    for (const e of edited) ctx.chat.rippleAfterEdit(story, e.messageId, e.before, e.after, { who: 'the housekeeper' });
+    if (!ctx.chat) return;
+    for (const e of edited) {
+      if (typeof ctx.chat.pageReinked === 'function') { try { await ctx.chat.pageReinked(story, e.messageId); } catch (err) { /* the light asks again */ } }
+      if (ripple && typeof ctx.chat.rippleAfterEdit === 'function') ctx.chat.rippleAfterEdit(story, e.messageId, e.before, e.after, { who: 'the housekeeper' });
+    }
   }
 
   async function applyAll() {
@@ -772,6 +778,8 @@ export function initHousekeeper(ctx) {
       await persistSession();
       toast(result.words || (result.ok ? 'Taken back.' : 'Nothing was taken back.'));
       if (result.ok) refreshStoryFloor({ messages: true });
+      /* M296: a page put back is a page re-inked — read again, its record line let go; no name ripple (M191) */
+      if (result.ok) rippleEdits(story, result.edited, { ripple: false });
       render();
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t come back — nothing was touched.');

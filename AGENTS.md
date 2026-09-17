@@ -6475,3 +6475,20 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - 556/556 harness + 55/55 walk (DOM-36) + 8/8 play + twobrowsers 26/26 + twohands 10/10 + foldcrash
   12/12 (new) + append 24/24 + guard 13/13 + wipe 11/11 + lint 0 errors (96 warnings). version.js ->
   m295-001.
+
+# M296 — the housekeeper's re-ink is a re-ink: the record line let go, the page read again; its take-back too
+- THE PASS, CONTINUED: engine/apply.js (the handlers, the journal, the take-back), agents/memory.js
+  (coverage, dueRange, the record's slides and holes), agents/housekeeper.js (staging, the apply engine,
+  undoLatest) and ui/housekeeper.js read line by line against the laws.
+- File js/ui/housekeeper.js rippleEdits, js/agents/housekeeper.js undoLatest, js/ui/chat.js. PROBLEM:
+  the writer's own edit of a page lets the record line over it go (M44) and reads the page again — the
+  last one from its boundary, an older one by replay (M68) — but a page the housekeeper re-inked
+  (an <edits> card) earned only the name ripple (M100), and a page its Undo put back earned nothing:
+  the record went on summarizing words the page no longer held, and the ledger kept the old words'
+  consequences. EVIDENCE: DOM-37 — after a card re-inked "the tide was out" to "THE TIDE WAS HIGH",
+  the record line over the page stood and no reader was sent. ROOT CAUSE: two doors for one act.
+  CHANGE: chat.js pageReinked — the edit's follow-up, one door; the writer's edit passes through it,
+  and so do the housekeeper's landed edits (before the name ripple) and its take-backs (undoLatest now
+  returns the pages it put back; no name ripple on a take-back, per M191). VALIDATION: DOM-37 red →
+  green (the line let go, the page read again; the take-back likewise); M44-6 reads the one door.
+- 556/556 harness + 56/56 walk + lint 0 errors (96 warnings). version.js -> m296-001.

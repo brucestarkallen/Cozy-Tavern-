@@ -2635,6 +2635,7 @@ export async function undoLatest(session, storyId) {
   }
 
   const all = await db.messages.list(storyId);
+  const edited = []; /* M296: the pages put back, for the room to read again */
   for (const item of batch.items) {
     if (item.kind === 'message') {
       const msg = all.find((m) => m && m.id === item.messageId);
@@ -2685,7 +2686,9 @@ export async function undoLatest(session, storyId) {
 
   for (const item of batch.items) {
     if (item.kind === 'message') {
+      const was = all.find((m) => m && m.id === item.messageId);
       await db.messages.update(storyId, item.messageId, item.before);
+      if (was && typeof item.before.text === 'string' && was.text !== item.before.text) edited.push({ messageId: item.messageId, before: was.text, after: item.before.text }); /* M296 */
     } else if (item.kind === 'module') {
       if (item.beforeRow) await saveModule(item.beforeRow);
       else await removeModule(item.moduleId); // lifts the fork; a builtin returns
@@ -2716,7 +2719,7 @@ export async function undoLatest(session, storyId) {
     }
   }
   batch.undone = true;
-  return { ok: true, words: 'Taken back — ' + batch.label + '.' };
+  return { ok: true, words: 'Taken back — ' + batch.label + '.', edited };
 }
 
 /* ---------- the model call (worker connection, off the story path) ---------- */

@@ -4180,6 +4180,35 @@ export function initChat(ctx) {
 
   /* ---------- edit (M9) ---------- */
 
+  /* M296: WHAT FOLLOWS A RE-INKED PAGE, WHOEVER RE-INKED IT. The writer's own
+   * edit let the record line over the page go and read the page again (the
+   * last one from its boundary; an older one by replay) — the housekeeper's
+   * re-inks and its take-backs did neither: the record kept summarizing words
+   * the page no longer held, and the ledger kept the old words' consequences.
+   * Every re-ink passes through here now. */
+  async function pageReinked(story, pageId) {
+    if (!story || !pageId) return false;
+    const history = await db.messages.list(story.id);
+    const msg = history.find((m) => m && m.id === pageId);
+    if (!msg) return false;
+    { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
+    if (msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
+      const before = history.slice(0, history.indexOf(msg));
+      const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
+      const isLast = !history.slice(history.indexOf(msg) + 1).some((m) => m && m.role === 'assistant' && !m.hidden);
+      if (isLast) {
+        const boundary = boundaryFor(history, msg.id);
+        if (boundary) await rewindTo(story, history, boundary.id);
+        startBackgroundWork(story, msg, lastUser ? pageText(lastUser) : '');
+      } else {
+        replayFrom(story, msg.id, { changed: true });
+      }
+    } else if (msg.role === 'user') {
+      pendingAudit.add(story.id);
+    }
+    return true;
+  }
+
   async function beginEdit(messageId) {
     if (busy) return;
     if (!(await waitForRebuild())) return;
@@ -4239,22 +4268,9 @@ export function initChat(ctx) {
          * turn (the old version's consequences must not stand); an older
          * page's edit is replayed from there (M68/M69). M72: the ledger work
          * is claimed before any rendering, so nothing finds the house idle
-         * in between. */
-        { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
-        if (updated && msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
-          const before = history.slice(0, history.indexOf(msg));
-          const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
-          const isLast = !history.slice(history.indexOf(msg) + 1).some((m) => m && m.role === 'assistant' && !m.hidden);
-          if (isLast) {
-            const boundary = boundaryFor(history, msg.id);
-            if (boundary) await rewindTo(story, history, boundary.id);
-            startBackgroundWork(story, updated, lastUser ? pageText(lastUser) : '');
-          } else {
-            replayFrom(story, updated.id, { changed: true });
-          }
-        } else if (updated && msg.role === 'user') {
-          pendingAudit.add(story.id);
-        }
+         * in between. M296: one door for every re-ink (pageReinked) — the
+         * housekeeper's re-inks and take-backs pass through it too. */
+        if (updated) await pageReinked(story, msg.id);
         /* M100: the ripple — one fact changed here is made true everywhere.
          * Queued AFTER the re-reading above, so the rename lands on the ledger
          * the re-read produced and is never rewound away. */
@@ -5167,6 +5183,7 @@ export function initChat(ctx) {
     rescanLedger,
     auditNow,
     rippleAfterEdit,
+    pageReinked, /* M296 */
     resumeUnfinishedChain,
     foundNow,
     rebuildStandingsNow,

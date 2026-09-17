@@ -2105,6 +2105,61 @@ test('DOM-36 two quick taps on “try again” run one turn, not two — the hou
   eq(pages.length, 1, 'and one answer on the page');
 });
 
+test('DOM-37 a housekeeper re-ink is a re-ink: the record line over the page is let go and the page is read again — and the take-back likewise (M296)', async () => {
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { loadMemory, saveMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the housekeeper’s re-ink' });
+  await db.settings.set('hkAutoApply', false);
+  await db.messages.append(st.id, { role: 'user', text: 'We reach the pier.' });
+  const first = await db.messages.append(st.id, { role: 'assistant', text: 'The pier was empty and the tide was out.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'Nobody came. The gulls kept their distance.' });
+  await saveState(st.id, { ...emptyState(), page: 1, place: { name: 'The pier' }, present: [{ name: 'Jovan' }] });
+  await saveMemory(st.id, { ...(await loadMemory(st.id)), window: 1, nodes: [{ id: 'n-pier', level: 1, span: [0, 1], text: 'They reached the empty pier at low tide.' }] });
+  let reads = 0;
+  const priorAnswer = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => {
+    const said = JSON.stringify(body);
+    if (/housekeeper of a cozy tavern/i.test(sys)) {
+      return 'One fix.\n<edits>[{"id":"#' + first.id.slice(0, 6) + '","find":"the tide was out","replace":"THE TIDE WAS HIGH","reason":"a test"}]</edits>';
+    }
+    if (/keep the ledger/i.test(sys) && /TIDE WAS HIGH|tide was out/.test(said)) reads += 1;
+    return priorAnswer(body, sys);
+  };
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    click(q('#btn-housekeeper'));
+    await until(() => !q('#hk-sheet').hidden, 'the housekeeper');
+    await until(() => !q('#hk-send').disabled, 'the housekeeper free to be asked', 10000);
+    type(q('#hk-input'), 'the tide was high, fix it');
+    submit(q('#hk-form'));
+    await until(() => qa('#hk-cards button').find((b) => /^Apply$/i.test(b.textContent.trim())), 'an Apply button', 10000);
+    await until(() => !q('#hk-send').disabled, 'the answer to finish', 10000);
+    await tick(200);
+    const apply = qa('#hk-cards button').find((b) => /^Apply$/i.test(b.textContent.trim()));
+    const readsBefore = reads;
+    click(apply);
+    await until(async () => /TIDE WAS HIGH/.test((await db.messages.list(st.id)).find((m) => m.id === first.id).text), 'the page changed', 10000);
+    await until(async () => !(await loadMemory(st.id)).nodes.some((n) => n.id === 'n-pier'), 'the record line over the re-inked page is let go (it used to stand, summarizing words the page no longer held)', 10000);
+    await until(() => reads > readsBefore, 'the re-inked page is read again by the ledger’s reader', 20000);
+    await until(() => queuedCount(st.id) === 0 && !env.ctx.chat.isReplaying(), 'the house to settle', 60000);
+    /* and the take-back */
+    await saveMemory(st.id, { ...(await loadMemory(st.id)), nodes: [{ id: 'n-pier-2', level: 1, span: [0, 1], text: 'The tide was high at the pier.' }] });
+    const readsMid = reads;
+    click(q('#hk-undo'));
+    await until(async () => !/TIDE WAS HIGH/.test((await db.messages.list(st.id)).find((m) => m.id === first.id).text), 'undo took it back', 10000);
+    await until(async () => !(await loadMemory(st.id)).nodes.some((n) => n.id === 'n-pier-2'), 'the record line over the put-back page is let go too', 10000);
+    await until(() => reads > readsMid, 'and the put-back page is read again', 20000);
+    await until(() => queuedCount(st.id) === 0 && !env.ctx.chat.isReplaying(), 'the house to settle again', 60000);
+    click(q('#btn-housekeeper')); await tick(300);
+  } finally {
+    house.state.workerAnswer = priorAnswer;
+    await db.settings.delete('hkAutoApply');
+  }
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
