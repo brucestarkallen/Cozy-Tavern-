@@ -6511,3 +6511,26 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - Read and found clean: knowledge is rendered to the storyteller for the people PRESENT only (nobody
   is handed what an absent person knows); every hand write in the drawer is journaled and reversible.
 - 557/557 harness + lint 0 errors (96 warnings). version.js -> m297-001.
+
+# M298 — a ruling on a "Go on." turn stands; the pass completed
+- THE PASS, COMPLETED IN THIS ENTRY: ui/settings.js (the connection form — an empty dial is unset,
+  stored as null, and the wire sends only a number the writer set: the writer's law holds end to end),
+  agents/referee.js (the committed fate, the prune, the edit rewind), agents/auditor.js (the standing
+  guards M48/M259/M277/M278), agents/rebuild.js (the stall rounds, the backup that is not overwritten),
+  ui/richhtml.js (the allowlist: no handler, href, src or id survives; a style that reaches out is
+  dropped), commands.js (only "continue" is a hidden page), import/cards.js and lorebook.js (every
+  file read inside a try, the writer told plainly), and the tree swept for unawaited writes and
+  unawaited async maps (none).
+- File js/agents/referee.js refereeStep. PROBLEM: the timeline prune counted only VISIBLE writer's
+  pages as present. The "Go on." nudge (continueTurn; the composer's continue command) is a hidden
+  writer's page, and the referee rules on it like any other — in a fight the gate is bypassed, so it
+  always does. On the very next turn the nudge's own commit read as "deleted or branched away", the
+  world was rewound to before it and the entry cut: every fight that carried a "go on" lost that
+  turn's ruling and fight state a turn later. EVIDENCE: M298-1 — two commits (u1, the hidden u2)
+  before the next turn, one after. ROOT CAUSE: hidden mistaken for gone. CHANGE: every writer's page
+  in the store counts as present, hidden or shown (a branch still drops the nudges it does not carry,
+  M72). VALIDATION: M298-1 red (got 1, wanted 2) → green; referee laws unchanged; 8/8 play.
+- Not changed, by reading: a display-mode style may paint a fixed box over the room (richhtml lets
+  position: fixed through) — cosmetic, the page's words untouched; the drawer's calendar naming is
+  written direct and unjournaled by design.
+- 558/558 harness + 56/56 walk + 8/8 play + lint 0 errors (96 warnings). version.js -> m298-001.

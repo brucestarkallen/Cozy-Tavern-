@@ -734,8 +734,14 @@ export async function refereeStep({ connection, userText, userId, history, state
     const text = String(userText || '');
     const key = userMessageHash(text);
     state.refHistory = Array.isArray(state.refHistory) ? state.refHistory : [];
+    /* M298: a HIDDEN writer's page is a page that stands — the "Go on." nudge
+     * (continueTurn) is a hidden user page, and the referee rules on it like
+     * any other. Counting only the visible ones read the nudge's own commit as
+     * "deleted or branched away" on the very next turn and rewound the world
+     * to before it: every fight that carried a "go on" lost that turn's ruling
+     * and state a turn later. */
     const presentIds = new Set(
-      (history || []).filter((m) => m && m.role === 'user' && !m.hidden && m.id).map((m) => m.id)
+      (history || []).filter((m) => m && m.role === 'user' && m.id).map((m) => m.id)
     );
 
     /* Deleted or branched-away suffixes rewind the world with them. */
