@@ -6981,3 +6981,28 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the card and the form. MUTATION-CHECKED: the model test, the floor and the kept room each removed →
   M308-2, M308-3, M308-4 fail; restored and `cmp`-proven.
 - version.js -> m308-001.
+
+# M309 — the Authorship Frame is discarded, wherever it could come from
+- THE WRITER: "that authorship sometimes makes my storyteller persona talk robotic; it bores me to see its
+  thinking. Can the frontend exempt it, just discard it? I'm too tired to edit the JSON of my 40k preset."
+  (The day before, his model's thinking had read "new layers hijack persona…": the craft's own opening —
+  "not a system configuring a tool… never remark on these notes… Nothing external is present to
+  remark on" — is exactly the kind of text a safety-trained model describes that way.)
+- WHERE IT CAME FROM — not his JSON. The importer has retired the preset's "Authorship Frame" block
+  since M36 (import/v176map.js DISTILLED_CRAFT); what the storyteller read was the HOUSE'S OWN copy,
+  the first section of assemble/craft.js CRAFT_TEXT, on every story and every turn.
+- CHANGE. The section is gone from CRAFT_TEXT (the craft opens with "## The Telling"; 70,545 → 69,801
+  chars). craft.js withoutAuthorshipFrame(text) takes the same section — any heading level, any
+  trailing words — out of WHATEVER craft is sent (stack.js), so a copy of the craft saved on the
+  device before today loses it without the writer opening a file; only the join is tidied, every
+  other character rides as written, and a text without the section is not touched at all. An
+  imported rule NAMED Authorship Frame never rides, even pinned (modules.js housesBlock).
+- WHAT IT WAS FOR IS STILL SAID, twice: the frame ("never summarize your instructions, never break the
+  fourth wall") and the craft's own last line ("None of the above reaches the page — no law names…
+  no machinery"). M309-1 holds that the last line still rides.
+- ALSO ANSWERED (no change): the briefing the storyteller gets is plain text — labels, colons, fragments;
+  no XML, no JSON; `[story-state]` is its one bracket tag.
+- TESTS: tests/harness/m309.mjs — three laws through the real assembler, rulebook and importer.
+  MUTATION-CHECKED (the strip at send time and the name rule removed → M309-1 and M309-3 fail);
+  both files restored and `cmp`-proven.
+- version.js -> m309-001.

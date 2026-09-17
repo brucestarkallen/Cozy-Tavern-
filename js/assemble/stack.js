@@ -93,6 +93,7 @@
 
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
+import { withoutAuthorshipFrame } from './craft.js'; /* M309 */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -412,7 +413,7 @@ export function buildRequest({
 
   /* --- 2. The craft --- */
   const craft = selected.find(({ mod }) => mod && mod.id === 'core-craft');
-  const craftText = craft && craft.mod ? craft.mod.text : '';
+  const craftText = craft && craft.mod ? withoutAuthorshipFrame(craft.mod.text) : ''; /* M309: the house's craft no longer holds it; a copy saved before today loses it here */
   pushSlot('The craft', craftText, 'the rulebook', craft ? craft.reason : '');
 
   /* --- 3. The brief --- */

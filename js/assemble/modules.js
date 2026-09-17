@@ -386,6 +386,8 @@ export function housesBlock(mod) {
   const name = String((mod && mod.name) || '');
   const n = name.trim().toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim();
   if (/^voices block$/.test(n)) return true;
+  /* M309: an imported rule that IS the preset's Authorship Frame never rides — by the writer's word */
+  if (/^authorship frame\b/.test(n)) return true;
   /* M133: an imported preset's own window and contest laws shadow the house's
    * (M36) — but the house's carry the referee's ruling and the once-only
    * window; the old ones taught the storyteller to roll its own dice and
