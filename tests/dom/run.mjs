@@ -2062,6 +2062,30 @@ test('DOM-34 a Stop pressed while a replay\u2019s tail still waits lets the gate
   }
 });
 
+test('DOM-35 a page not kept says how old it is — the main character’s and the one here too, never a “Now:” over a thirty-page-old line (M294)', async () => {
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const st = await db.stories.create({ title: 'the stale page' });
+  await db.messages.append(st.id, { role: 'user', text: 'Morning.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The kitchen was already loud.' });
+  await saveState(st.id, { ...emptyState(), page: 60, tidiedGen: 999, place: { name: 'The Wells kitchen' }, present: [{ name: 'Jovan' }, { name: 'Mi-na' }, { name: 'Vanessa' }],
+    sheet: { ...emptyState().sheet, playerName: 'Jovan' },
+    characters: {
+      'Jovan': { core: '', state: 'At the kitchen window seat, rice finished, sneakers on', arc: '', threads: [], updatedAtTurn: 30 },
+      'Mi-na': { core: 'Sharp, quiet.', state: 'across the table, phone face down', arc: '', threads: [], updatedAtTurn: 60 },
+      'Vanessa': { core: 'Loud, fond.', state: 'sliding the screenshot across', arc: '', threads: [], updatedAtTurn: 55 },
+    } });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await env.ctx.drawer.renderAllRooms(); await tick(350);
+  const rowOf = (name) => [...qa('#drawer .people-row')].find((li) => li.firstChild && (li.firstChild.textContent === name || li.firstChild.textContent.startsWith(name + ' \u2014 ')));
+  await until(() => rowOf('Jovan') && rowOf('Mi-na'), 'the pages to draw', 10000);
+  const text = (name) => [...rowOf(name).querySelectorAll('.quiet')].map((x) => x.textContent).join(' | ');
+  assert(/Last noted 31 pages ago: At the kitchen window seat/.test(text('Jovan')), 'the main character’s old note says its age — ' + text('Jovan'));
+  assert(/Now: across the table/.test(text('Mi-na')), 'a note kept this page is now — ' + text('Mi-na'));
+  assert(/Last noted 6 pages ago: sliding the screenshot/.test(text('Vanessa')), 'one here whose note is six pages old says so — ' + text('Vanessa'));
+  click(q('#btn-ledger')); await tick(300);
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

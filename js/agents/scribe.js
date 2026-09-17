@@ -22,7 +22,7 @@
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
 import { loadState, saveState, notify } from '../engine/state.js';
-import { renderPeopleTiers, peopleView } from '../engine/people.js';
+import { renderPeopleTiers, peopleView, mcKey, findPersonKey } from '../engine/people.js';
 import { applyMutations } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
@@ -131,11 +131,32 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
    * are what it is reading; they are what decides who is recalled. */
   const material = String(brief || '') + '\n' + String(castNotes || '');
   const ledger = renderPeopleTiers(state, { recentPages: [String(userText || ''), String(assistantText || '')], view: peopleView(SCRIBE_VIEW_TOKENS), brief: material });
+  /* M294: THE MAIN CHARACTER'S RECORD WAS NEVER SHOWN TO THE SCRIBE. The
+   * pages it reads are the storyteller's view (renderPeopleTiers), which
+   * leaves the main character out by design — the writer plays them. So the
+   * scribe was told to keep their state and loose ends and never once saw
+   * what they said: every other page moved with the story and the main
+   * character's stood, "Now:" thirty pages old, with nothing to prompt a
+   * fresh note. Their record rides here — state and loose ends, as the law
+   * allows — so a note that no longer holds is seen and written again. */
+  const mcRecord = (() => {
+    const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+    const name = mcKey(state);
+    if (!name || name === 'the player') return '';
+    const key = findPersonKey(chars, name);
+    const c = key ? chars[key] : null;
+    const lines = [];
+    if (c && typeof c.state === 'string' && c.state.trim()) lines.push('Now: ' + c.state.trim());
+    if (c && Array.isArray(c.threads) && c.threads.length) lines.push('Loose ends: ' + c.threads.join('; '));
+    return 'The main character\u2019s record \u2014 ' + (key || name) + ' (only their state and loose ends are ever written; keep them current):\n'
+      + (lines.length ? lines.join('\n') : 'Nothing written yet.');
+  })();
   const user = [
     ...(String(brief || '').trim() ? ['The writer\u2019s brief \u2014 who these people are; it outranks every page:', '"""', writerText(brief, BRIEF_ROOM, 'brief'), '"""', ''] : []),
     ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
     'Here is what the character pages currently say:',
     ledger && ledger.text ? ledger.text : 'Nothing is written on the character pages yet.',
+    ...(mcRecord ? ['', mcRecord] : []),
     '',
     'The writer just wrote:',
     '"""',

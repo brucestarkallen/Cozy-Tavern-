@@ -6416,3 +6416,25 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   53/53 walk (DOM-34) + 8/8 play + two-browser 21/21 (10 new) + twohands 10/10 (new) + append 24/24
   + guard 13/13 + wipe 11/11 + housekeeper_rounds all green + housekeeper perf within budget + lint
   0 errors (96 warnings, as before). version.js -> m293-001.
+
+# M294 — the main character's page was never kept: the scribe never saw it
+- THE WRITER: "why is my mc's page in The people stale (many pages ago) while the others are updated?"
+  His row read "Jovan — here / Now: At the kitchen window seat, rice finished, sneakers on…" thirty pages
+  on. A symptom, not the task: the label and the page were traced separately.
+- File js/agents/scribe.js buildScribeMessages. PROBLEM: "what the character pages currently say" is
+  renderPeopleTiers — the storyteller's view, which leaves the main character out by design (present
+  and off-scene alike: the writer plays them). The scribe is told "the main character is record-only:
+  only their state and threads are ever written" and never once shown that record — so with nothing
+  in front of it saying the note was old, it kept every other page and left the main character's
+  standing (mergeDeltas accepts the MC's state; the merge was never the fault). ROOT CAUSE: the page
+  to keep was not in the request. CHANGE: the main character's record — their state and loose ends,
+  what the law allows — rides after the pages, named as theirs, "Nothing written yet" when empty, and
+  nothing when the house does not know who the writer plays. WHY NECESSARY: a worker told to keep
+  something it never receives does not keep it. VALIDATION: M294-1 red ("the record is named") → green.
+- File js/ui/drawer.js, The people. PROBLEM: a present person's note — and the main character's always
+  — was labelled "Now:" whatever its age; only an absent person's aged ("Last seen N pages ago"). So a
+  thirty-page-old line wore "Now:" and the page not being kept was invisible. CHANGE: a note older than
+  two pages says so for everyone — "Last noted N pages ago:" for the one here and the main character,
+  "Last seen" for the absent; a fresh note is still "Now:". VALIDATION: DOM-35 red → green (the main
+  character's 31-page-old note, one here at six pages, a fresh one still "Now:"); DOM-32 unchanged.
+- 556/556 harness + 54/54 walk + lint 0 errors (96 warnings, as before). version.js -> m294-001.

@@ -1532,7 +1532,9 @@ function peoplePanel(ctx) {
       const addLine = (text) => { const p = document.createElement('div'); p.className = 'quiet'; p.textContent = text; li.appendChild(p); };
       if (typeof c.core === 'string' && c.core.trim()) addLine('Who they are: ' + c.core.trim());
       if (seatNow) addLine('Now (elsewhere): ' + seatNow);
-      else if (typeof c.state === 'string' && c.state.trim()) addLine((!isHere && !mine && ago > 2 ? 'Last seen ' + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ' : 'Now: ') + c.state.trim());
+      /* M294: a note older than a couple of pages says so for everyone — the one here and the
+       * main character too; "Now:" over a thirty-page-old line hid a page that was not being kept */
+      else if (typeof c.state === 'string' && c.state.trim()) addLine((ago > 2 ? (isHere || mine ? 'Last noted ' : 'Last seen ') + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ' : 'Now: ') + c.state.trim());
       if (typeof c.arc === 'string' && c.arc.trim()) addLine('Between you: ' + c.arc.trim());
       if (Array.isArray(c.threads) && c.threads.length) {
         /* M131: a loose end that repeats a world thread this person owns is shown once — as the thread */
