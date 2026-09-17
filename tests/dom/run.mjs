@@ -2086,6 +2086,25 @@ test('DOM-35 a page not kept says how old it is — the main character’s and t
   click(q('#btn-ledger')); await tick(300);
 });
 
+test('DOM-36 two quick taps on “try again” run one turn, not two — the house is claimed at once (M295)', async () => {
+  const st = await db.stories.create({ title: 'the double tap' });
+  const mine = await db.messages.append(st.id, { role: 'user', text: 'I knock on the door.' });
+  const before = house.state.calls.filter((c) => !c.isWorker).length;
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const btn = q('.msg[data-id="' + mine.id + '"] .msg-act[data-act="try again"]');
+  assert(btn, 'the writer’s page offers try again');
+  click(btn);
+  await tick(0); /* one beat later — inside the old window, after the first tap has begun */
+  click(btn);
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg.pending'), 'the turn to land', 30000);
+  await tick(1500);
+  const told = house.state.calls.filter((c) => !c.isWorker).length - before;
+  eq(told, 1, 'exactly one storyteller call for two taps');
+  const pages = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant');
+  eq(pages.length, 1, 'and one answer on the page');
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

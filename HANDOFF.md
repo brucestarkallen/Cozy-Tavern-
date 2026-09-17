@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m294-001)
+# Cozy Tavern — handoff for the next session (state at m295-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M294). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M295). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
 - `node tests/harness/run.mjs` — 556 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 54 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 55 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -142,13 +142,16 @@ founding design lives in AGENTS.md's first entries.)
   and serve.py re-execs itself when its file changes (M157) — no manual restart, ever. The
   worker's fetches must use api(path) (a relative fetch in a worker resolves against /js/).
 - Two-browser proof: tests/twobrowsers.py (Playwright, two contexts, the real
-  serve.py) — twenty-one checks: B holds A's story/pages/ledger/connection; B reads the DEVICE's
+  serve.py) — twenty-six checks: B holds A's story/pages/ledger/connection; B reads the DEVICE's
   manifest, never a kept copy; a page written after B first booted still reaches B; a tale let
   go in A stays gone in B and is never pushed back; the worker caches no api answer; a connection
   and a cast card let go in A go in B live and never come home to A or the device (M293); a row
   made in B before its push survives A's push; a page that landed while B's stream was down reaches
-  B when the stream returns, painted (M293). Run it (`python3 tests/twobrowsers.py`; the browsers
+  B when the stream returns, painted (M293); a branch of a sixty-turn tale sends one whole book and appends the rest (M295). Run it (`python3 tests/twobrowsers.py`; the browsers
   are in /opt/pw-browsers) before any commit that touches sync, sw.js, serve.py or store.js.
+- The device's fold: tests/foldcrash.py (HTTP only, the real serve.py) — twelve checks: a page the
+  pusher let go stays gone even with the old log left beside the new snapshot (a kill mid-write),
+  another browser's page is never lost, the pusher's own later appends are read (M295).
 - Two hands on one tale: tests/twohands.py (Playwright, two contexts, the real serve.py, a fake
   model that holds the extractor) — ten checks: B, handed A's page live, never sends its own readers
   at it (no idle repair, no resume on reload) while A's are out; A reads it once; the standing moves

@@ -209,6 +209,35 @@ try:
         ids_a = a.evaluate("async () => (await window.__cozy.db.connections.list()).map(c => c.id)")
         check('and reaches A on B’s own push', 'conn-new-in-b' in ids_a, str(ids_a))
 
+        # --- M295: A BRANCH OF A LONG TALE SENDS ONE WHOLE BOOK, NOT ONE PER PAGE ---
+        long_id = a.evaluate("""async () => {
+          const db = window.__cozy.db;
+          const st = await db.stories.create({ title: 'A long tale' });
+          for (let i = 0; i < 60; i++) {
+            await db.messages.append(st.id, { role: 'user', text: 'turn ' + i });
+            await db.messages.append(st.id, { role: 'assistant', text: 'The evening drew on, page ' + i + '. ' + 'Words. '.repeat(200) });
+          }
+          await window.__cozy.chat.openStory(st.id);
+          return st.id;
+        }""")
+        push_now(a)
+        a.wait_for_timeout(1500)
+        a.evaluate("""async (id) => {
+          const last = (await window.__cozy.db.messages.list(id)).pop();
+          document.querySelector('.msg[data-id="' + last.id + '"] .msg-act[data-act="branch"]').click();
+        }""", long_id)
+        a.wait_for_timeout(3500)
+        branch_id = a.evaluate("async () => { const s = (await window.__cozy.db.stories.list()).find(x => /a branch/.test(x.title)); return s ? s.id : null; }")
+        check('the branch stands in A', bool(branch_id))
+        bfile = os.path.join(DATA, 'books', str(branch_id) + '.json')
+        blog = bfile[:-5] + '.log'
+        check('its book reached the device', os.path.exists(bfile))
+        lines = open(blog, encoding='utf-8').read().count('\n') if os.path.exists(blog) else 0
+        check('the pages behind the first whole push append as pages do (the log carries them)', lines >= 20, '%d log lines' % lines)
+        check('one whole book, not one per page (no second whole push has landed yet)', not os.path.exists(bfile + '.bak1'))
+        on_device = json.loads(a.evaluate("async (id) => JSON.stringify(await (await fetch('api/books/one/' + id)).json())", branch_id))
+        check('and every carried page is on the device', len(on_device['messages']) == 120, '%d pages' % len(on_device['messages']))
+
         # --- M293: A STREAM THAT DROPPED IS CAUGHT UP ON ----------------------
         # the server goes down; while it is down another hand appends a page to the
         # log on the device; the server comes back; B's stream reconnects and B

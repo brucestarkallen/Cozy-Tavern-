@@ -154,6 +154,7 @@ async function pullBooks(books, { all = false, replace = false, recent = null, o
   return count;
 }
 
+const wholeInFlight = new Map(); /* M295: tale id -> the whole-book push a page fell back to */
 self.onmessage = async (e) => {
   const msg = e.data || {};
   /* M293: EVERY ANSWER NAMES ITS QUESTION. The room matched an answer to a
@@ -184,10 +185,34 @@ self.onmessage = async (e) => {
     /* M183: a page landed. One line to the device — and if it will not take
      * it, the whole book, exactly as before. */
     if (msg.kind === 'page') {
-      const ok = await putPage(msg.id, { at: new Date().toISOString(), m: msg.row });
+      let ok = await putPage(msg.id, { at: new Date().toISOString(), m: msg.row });
       if (!ok) {
-        const json = await db.exportStory(msg.id);
-        if (json && await putBook(msg.id, json)) await db.settings.set('bookStamp:' + msg.id, stampOf(json));
+        /* M295: ONE WHOLE BOOK FOR A TALE THE DEVICE HAS NOT MET, NOT ONE PER
+         * PAGE. A page of a tale with no book on the device fell back to a
+         * whole-book push — and a branch of a long tale appends every carried
+         * page at once, so a three-hundred-page branch sent three hundred
+         * whole books of a growing megabyte each, every one fsynced, before
+         * the first had landed (they were all in flight together). The first
+         * such page pushes the whole book; the pages behind it wait for that
+         * push and then append as pages do. */
+        const inFlight = wholeInFlight.get(msg.id);
+        if (inFlight) await inFlight;
+        /* asked again either way: a refusal sent before the book landed may
+         * arrive after it has (the pages of a branch are all in flight at
+         * once), and the book is there now */
+        ok = await putPage(msg.id, { at: new Date().toISOString(), m: msg.row });
+        if (!ok) {
+          const again = wholeInFlight.get(msg.id);
+          if (again) { await again; ok = await putPage(msg.id, { at: new Date().toISOString(), m: msg.row }); }
+        }
+        if (!ok) {
+          const whole = (async () => {
+            const json = await db.exportStory(msg.id);
+            if (json && await putBook(msg.id, json)) await db.settings.set('bookStamp:' + msg.id, stampOf(json));
+          })().finally(() => { if (wholeInFlight.get(msg.id) === whole) wholeInFlight.delete(msg.id); });
+          wholeInFlight.set(msg.id, whole);
+          await whole;
+        }
       }
       reply({ kind: 'paged', ok });
       return;

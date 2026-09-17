@@ -6438,3 +6438,40 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   "Last seen" for the absent; a fresh note is still "Now:". VALIDATION: DOM-35 red → green (the main
   character's 31-page-old note, one here at six pages, a fresh one still "Now:"); DOM-32 unchanged.
 - 556/556 harness + 54/54 walk + lint 0 errors (96 warnings, as before). version.js -> m294-001.
+
+# M295 — the audit's concerns, taken up: the fold is idempotent; a branch sends one book; a double tap runs one turn
+- THE WRITER: "why, if it's a problem, didn't you fix it?" Three of M293's recorded concerns were short
+  of the bar for want of a reproduction. Each was reproduced; each is fixed with a check red before it.
+- File serve.py _fold_missing/_merge_log. PROBLEM: a read that found a log beside the snapshot folded
+  every line in, last one wins — so a kill between the snapshot's replace and the log's removal (or
+  the fold a two-megabyte log earns) put back a page the pusher had let go, until that browser's next
+  whole push. EVIDENCE: tests/foldcrash.py — A's let-go page p2 read back as ['p1','p3','p2'] with the
+  old log left beside the new snapshot. ROOT CAUSE: the read did not know the rule the snapshot was
+  folded by. CHANGE: the snapshot records who pushed it, what it had seen (X-Cozy-Base) and when
+  (pushedBy/pushedBase/pushedAt); the read folds by the same rule — a line the pusher wrote before its
+  push, or one it had already seen, absent from its book, is let go; every other line (another
+  browser's, or the pusher's own later appends) is folded in. VALIDATION: foldcrash.py 12/12, red 3
+  before; append 24/24, guard 13/13, wipe 11/11, twobrowsers unchanged.
+- File js/sync-worker.js, the page handler. PROBLEM: a page of a tale the device has no book for fell
+  back to a whole-book push — and a branch appends every carried page at once, all in flight
+  together, so a sixty-turn branch sent dozens of whole books of a growing size, each fsynced, and the
+  last to land was not the fullest. EVIDENCE: twobrowsers — with the old worker the device read back
+  117 of 120 carried pages three seconds after the branch, and its .bak1 showed whole books landing
+  one after another. ROOT CAUSE: no coalescing of the fallback; refusals sent before the book landed
+  arriving after it. CHANGE: the first such page pushes the whole book; every other page waits for
+  that push (or simply asks again — the book may have landed meanwhile) and appends as pages do.
+  VALIDATION: twobrowsers 26/26 (5 new): one whole book, 119 log lines, 120 pages on the device.
+- File js/ui/chat.js retryUserMessage. PROBLEM: the house was claimed only after the story, the pages
+  and a delete had been awaited; a second tap in that window ran a second turn on the same page.
+  CHANGE: claimed at once, as regenerateFrom does; the answer-follows path hands the claim to
+  regenerateFrom in the same breath. VALIDATION: DOM-36 red (two storyteller calls) → green (one).
+- The read of providers/openai.js requestBody against the writer's law: temperature and top_p ride
+  only when he set a number, max_tokens only when set, reasoning per the connection's style and effort,
+  nothing when 'off' or when the wire refused them once — as M37 recorded. No change.
+- Design limit, unchanged and now said in HANDOFF: playing the same tale in two browsers AT ONCE is
+  last-push-wins on its ledger — two writers, one ledger, no merge of a ledger exists; the pages
+  themselves merge by id and are never lost. Fixing it would mean merge semantics for every ledger
+  fact, which is not a fix but a different design.
+- 556/556 harness + 55/55 walk (DOM-36) + 8/8 play + twobrowsers 26/26 + twohands 10/10 + foldcrash
+  12/12 (new) + append 24/24 + guard 13/13 + wipe 11/11 + lint 0 errors (96 warnings). version.js ->
+  m295-001.

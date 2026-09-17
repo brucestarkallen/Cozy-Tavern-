@@ -3968,27 +3968,33 @@ export function initChat(ctx) {
     if (busy) return;
     if (!(await waitForRebuild())) return;
     if (busy) return;
-    const story = await activeStory();
-    if (!story) return;
-    const msgs = await db.messages.list(story.id);
-    /* M33: the store lists pages in telling order. The old `m.id > messageId`
-     * compared UUID strings — meaningless — so the retry landed on an
-     * arbitrary later page, or fell through and answered the tail instead
-     * of this page. The first storyteller page AFTER this one, by order. */
-    const at = msgs.findIndex((m) => m.id === messageId);
-    if (at === -1) return;
-    const after = msgs.slice(at + 1).find((m) => m.role === 'assistant' && !m.hidden);
-    if (after) {
-      await regenerateFrom(after.id);
-      return;
-    }
-    /* no answer followed — the page is the tail: answer it anew. Anything
-     * hidden after it (a stale nudge) goes first, so the answer is to
-     * THIS page. */
-    const trailing = msgs.slice(at + 1);
-    if (trailing.length) { await db.messages.deleteFrom(story.id, trailing[0].id); await forgetCheckpoints(story.id, trailing.map((m) => m.id)); }
+    /* M295: CLAIMED AT ONCE. The house was claimed only after the story, the
+     * pages and a delete had been awaited — a second tap in that window found
+     * it idle and two turns ran on one page. Claimed here, as regenerateFrom
+     * does; the answer-follows path hands the claim to regenerateFrom in the
+     * same breath (no await between), which claims it again itself. */
     busy = true;
     try {
+      const story = await activeStory();
+      if (!story) return;
+      const msgs = await db.messages.list(story.id);
+      /* M33: the store lists pages in telling order. The old `m.id > messageId`
+       * compared UUID strings — meaningless — so the retry landed on an
+       * arbitrary later page, or fell through and answered the tail instead
+       * of this page. The first storyteller page AFTER this one, by order. */
+      const at = msgs.findIndex((m) => m.id === messageId);
+      if (at === -1) return;
+      const after = msgs.slice(at + 1).find((m) => m.role === 'assistant' && !m.hidden);
+      if (after) {
+        busy = false;
+        await regenerateFrom(after.id);
+        return;
+      }
+      /* no answer followed — the page is the tail: answer it anew. Anything
+       * hidden after it (a stale nudge) goes first, so the answer is to
+       * THIS page. */
+      const trailing = msgs.slice(at + 1);
+      if (trailing.length) { await db.messages.deleteFrom(story.id, trailing[0].id); await forgetCheckpoints(story.id, trailing.map((m) => m.id)); }
       await renderThread({ structural: true, opening: true });
       await generate();
       stories = await db.stories.list();

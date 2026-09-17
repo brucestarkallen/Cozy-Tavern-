@@ -136,6 +136,12 @@ def _merge_log(book_bytes, log_path):
         if mid not in by_id:
             order.append(mid)
         by_id[mid] = m
+    # M295: a page the snapshot lacks is folded in by the rule the snapshot was
+    # pushed under (_fold_missing): a line the pusher wrote, or one it had
+    # already seen, is a page it let go — not one to put back.
+    pushed_by = str(book.get('pushedBy') or '')
+    pushed_base = str(book.get('pushedBase') or '')
+    pushed_at = str(book.get('pushedAt') or '')  # a line the pusher wrote AFTER its push is a new page, not one let go
     newest = _log_stamp(log_path)
     try:
         with open(log_path, 'r', encoding='utf-8') as f:
@@ -152,6 +158,11 @@ def _merge_log(book_bytes, log_path):
                     continue
                 mid = m['id']
                 if mid not in by_id:
+                    stamped = row.get('at') if isinstance(row.get('at'), str) else ''
+                    if pushed_by and row.get('by') == pushed_by and pushed_at and stamped <= pushed_at:
+                        continue  # the pusher's own line, older than its push, absent from its book: let go
+                    if pushed_base and stamped and stamped <= pushed_base:
+                        continue  # a line it had already seen and left out: let go
                     order.append(mid)
                 by_id[mid] = m
     except OSError:
@@ -226,8 +237,14 @@ def _fold_missing(book_bytes, log_path, by_client='', base=''):
                 added += 1
     except OSError:
         return book_bytes
-    if not added:
-        return book_bytes
+    # M295: THE SNAPSHOT REMEMBERS THE RULE IT WAS FOLDED BY. Who pushed it and
+    # what they had seen are written into it, so a read that still finds a
+    # log beside it — a kill between the replace and the log's removal, or
+    # the fold a big log earns — folds by the same rule instead of by "last
+    # line wins", which put back the pages the pusher had let go.
+    book['pushedBy'] = mine
+    book['pushedBase'] = seen_upto
+    book['pushedAt'] = _now_stamp()
     book['messages'] = msgs
     return json.dumps(book).encode('utf-8')
 
