@@ -20,10 +20,15 @@ THROTTLE = float(os.environ.get('THROTTLE', '6'))
 PAGES = int(os.environ.get('PAGES', '300'))
 PEOPLE = int(os.environ.get('PEOPLE', '80'))
 FACTS = int(os.environ.get('FACTS', '60'))
-BUDGET = {'action_ms': 1200, 'load_state_ms': 120}
+# M312: THE LIBRARY. One heavy tale never showed the writer's lag — his came "after 3000 pages total from
+# all chats". These are the OTHER tales on the shelf: each with the checkpoints a long tale really
+# carries (whole copies of its ledger), LIB_MB of them a tale. Nothing here is ever opened.
+LIB_TALES = int(os.environ.get('LIB_TALES', '12'))
+LIB_MB = float(os.environ.get('LIB_MB', '12'))
+BUDGET = {'action_ms': 1200, 'load_state_ms': 120, 'keys_ms': 150, 'house_ms': 400, 'open_during_push_ms': 1500}
 
 SEED = """
-async ({ pages, people, facts }) => {
+async ({ pages, people, facts, lib }) => {
   const { db } = await import('/js/store.js');
   const { saveState, emptyState } = await import('/js/engine/state.js');
   const names = [];
@@ -52,6 +57,15 @@ async ({ pages, people, facts }) => {
   st.log = Array.from({ length: 200 }, (_, i) => ({ ts: Date.now() - i * 1000, words: names[i % names.length] + ' — now by the stove.', undone: false, jid: 1500 - i }));
   await saveState(story.id, st);
   await db.settings.set('activeStoryId', story.id);
+  await db.settings.set('cast:card1', { id: 'card1', name: 'Rias Gremory', description: 'heir of her house', importedAt: 1 });
+  /* the rest of the library: tales never opened in this run, each carrying its checkpoints */
+  const chunk = 'x'.repeat(256 * 1024);
+  for (let t = 0; t < lib.tales; t += 1) {
+    const other = await db.stories.create({ title: 'another tale ' + t });
+    const snaps = [];
+    for (let k = 0; k < Math.max(1, Math.round(lib.mb * 4)); k += 1) snaps.push({ id: 'turn' + k, snap: { page: k, journal: [], filler: chunk + k } });
+    await db.settings.set('snapshots:' + other.id, snaps);
+  }
   return { id: story.id, stateBytes: JSON.stringify(st).length };
 }
 """
@@ -95,15 +109,38 @@ def main():
             page.on('pageerror', lambda e: errors.append(str(e)))
             page.goto('http://127.0.0.1:%s/' % PORT)
             page.wait_for_selector('#composer-input', timeout=30000)
-            seeded = page.evaluate(SEED, {'pages': PAGES, 'people': PEOPLE, 'facts': FACTS})
+            page.wait_for_timeout(5000)  # the first open may reload itself once when its books arrive; seed after it has settled
+            page.wait_for_selector('#composer-input', timeout=30000)
+            seeded = page.evaluate(SEED, {'pages': PAGES, 'people': PEOPLE, 'facts': FACTS, 'lib': {'tales': LIB_TALES, 'mb': LIB_MB}})
+            out['library_mb'] = round(LIB_TALES * LIB_MB)
             out['state_bytes'] = seeded['stateBytes']
+            page.wait_for_timeout(4000)   # let the seeded books reach the device (the push follows the writes)
             page.reload()
             page.wait_for_selector('#composer-input', timeout=30000)
-            page.wait_for_timeout(2500)
+            page.wait_for_timeout(15000)  # a boot whose books arrive late reloads the page ONCE by itself; measure after it
+            page.wait_for_selector('#composer-input', timeout=30000)
             cdp = ctx.new_cdp_session(page)
             cdp.send('Emulation.setCPUThrottlingRate', {'rate': THROTTLE})
             # one read of the ledger, alone
             out['load_state_ms'] = page.evaluate("""async (id) => { const { loadState } = await import('/js/engine/state.js'); const t = []; for (let i = 0; i < 5; i += 1) { const a = performance.now(); await loadState(id); t.push(performance.now() - a); } t.sort((x, y) => x - y); return Math.round(t[2]); }""", seeded['id'])
+            # M312: the two reads that touched EVERY row of EVERY tale, timed alone
+            out['keys_ms'] = page.evaluate("async () => { const { db } = await import('/js/store.js'); const a = performance.now(); const k = await db.settings.keys(); return Math.round(performance.now() - a); }")
+            out['house_ms'] = page.evaluate("async () => { const { db } = await import('/js/store.js'); const a = performance.now(); const j = await db.exportHouse(); return Math.round(performance.now() - a); }")
+            out['house_bytes'] = page.evaluate("async () => { const { db } = await import('/js/store.js'); return (await db.exportHouse()).length; }")
+            # and the ledger opened WHILE the house book is being folded for a push, as it is after every page
+            out['open_during_push_ms'] = page.evaluate("""async () => {
+              const { db } = await import('/js/store.js');
+              const busy = db.exportHouse();
+              const t0 = performance.now();
+              document.querySelector('#btn-ledger').click();
+              const until = performance.now() + 60000;
+              while (performance.now() < until) { if (!document.querySelector('#drawer').hidden && document.querySelectorAll('#drawer-panels .ledger-panel').length > 0) break; await new Promise((r) => setTimeout(r, 16)); }
+              const ms = Math.round(performance.now() - t0);
+              await busy;
+              document.querySelector('#btn-ledger').click();
+              await new Promise((r) => setTimeout(r, 400));
+              return ms;
+            }""")
             runs = {}
             for name, opener, closer, shown in [
                 ('ledger', "document.querySelector('#btn-ledger').click()", "document.querySelector('#btn-ledger').click()", "!document.querySelector('#drawer').hidden && document.querySelectorAll('#drawer-panels .ledger-panel').length > 0"),
@@ -126,7 +163,8 @@ def main():
             srv.kill()
     print(json.dumps(out, indent=1))
     worst = max(max(r['open_ms'] + r['long_close_ms'] for r in rs) for rs in out['runs'].values())
-    ok = worst <= BUDGET['action_ms'] and out['load_state_ms'] <= BUDGET['load_state_ms'] and not out['page_errors']
+    ok = (worst <= BUDGET['action_ms'] and out['load_state_ms'] <= BUDGET['load_state_ms'] and out['keys_ms'] <= BUDGET['keys_ms']
+          and out['house_ms'] <= BUDGET['house_ms'] and out['open_during_push_ms'] <= BUDGET['open_during_push_ms'] and not out['page_errors'])
     print('the rooms on a heavy story: ' + ('within budget' if ok else 'OVER BUDGET'))
     sys.exit(0 if ok else 1)
 

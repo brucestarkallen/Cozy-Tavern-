@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m311-001)
+# Cozy Tavern — handoff for the next session (state at m312-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M311). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M312). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 597 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 598 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 70 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,10 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- NEVER getAll() the settings table (M312): it holds every checkpoint of every tale — over a gigabyte on
+  the writer's phone. Keys by getAllKeys(), rows by key. `python3 tests/perf_rooms.py` measures the
+  ledger and Settings with a LIBRARY on the shelf and holds the budgets; a change to store.js, sync or
+  a room's first draw is measured there before it ships. One heavy tale proves nothing about his lag.
 - The house book (M311): a browser speaks only for the rows it changed — before every push the worker
   holds its house against the device's and carries every row it lacks and did not itself let go
   (store.js keepWhatWasNeverLetGo). Shelves heal from the tales' own projectId (projects.heal), names

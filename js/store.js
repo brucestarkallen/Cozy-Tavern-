@@ -232,8 +232,14 @@ const settings = {
   /* Additive helpers (M7, see header): list every key (the cast library
    * lists its `cast:` shelf this way), and let a key go for good. */
   async keys() {
-    const rows = await run('settings', 'readonly', (s) => s.getAll());
-    return rows.map((row) => row.key);
+    /* M312: THE KEYS, NOT EVERY ROW OF EVERY TALE. This asked the store for getAll() — every settings
+     * row WHOLE, which is every checkpoint of every tale on the shelf (the writer's library: over a
+     * gigabyte) — to hand back their names. The cast library lists itself through here, so the
+     * ledger's cast panel and Settings' people room each read the whole library off the disk to
+     * show a handful of cards; measured at a 144 MB library, 6x CPU: 1,440 ms, growing with every
+     * page ever written in ANY tale. getAllKeys() reads no values at all. */
+    const keys = await run('settings', 'readonly', (s) => s.getAllKeys());
+    return (keys || []).filter((k) => typeof k === 'string');
   },
   async delete(key) {
     await run('settings', 'readwrite', (s) => s.delete(key));
@@ -734,10 +740,21 @@ async function sweepOrphans() {
 async function exportHouse() {
   const all = await run('stories', 'readonly', (s) => s.getAll());
   const ids = new Set(all.map((x) => x.id));
-  const rows = await run('settings', 'readonly', (s) => s.getAll());
+  /* M312: THE HOUSE'S OWN ROWS, BY KEY. The house book is a few kilobytes — connections, the shelf, the
+   * house settings — and it is folded after EVERY page (a tale's update marks it). This read getAll()
+   * first: every checkpoint of every tale, loaded to be thrown away by the filter below. Measured
+   * at a 144 MB library, 6x CPU: 1,978 ms to write 33 KB, holding the store the rooms read from
+   * (IndexedDB serializes transactions across threads) — the ledger and Settings waited behind it.
+   * The keys are read alone, and only the house's rows are fetched. */
+  const allKeys = (await run('settings', 'readonly', (s) => s.getAllKeys())) || [];
   /* M160: a tale-shaped row whose tale is gone is nobody's — never the
    * house's. Before this, every orphan rode _house.json on every push. */
-  const house = rows.filter((r) => r && typeof r.key === 'string' && !STORY_ROW(r.key, ids) && !STORY_PREFIXED.test(r.key) && r.key !== 'booksStamp');
+  const houseKeys = allKeys.filter((k) => typeof k === 'string' && !STORY_ROW(k, ids) && !STORY_PREFIXED.test(k) && k !== 'booksStamp');
+  const house = [];
+  for (const key of houseKeys) {
+    const row = await run('settings', 'readonly', (s) => s.get(key));
+    if (row && typeof row.key === 'string') house.push(row);
+  }
   return JSON.stringify({ namespace: NAMESPACE, kind: 'house', exportedAt: new Date().toISOString(), settings: house, connections: await run('connections', 'readonly', (s) => s.getAll()), stories: all.map((x) => ({ id: x.id, title: x.title, createdAt: x.createdAt, updatedAt: x.updatedAt, projectId: x.projectId })) });
 }
 /* M311: A BROWSER SPEAKS ONLY FOR THE ROWS IT CHANGED. The house book was pushed WHOLE from whatever

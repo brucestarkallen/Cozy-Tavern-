@@ -7075,3 +7075,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - STILL OPEN, his standing order: storage like SillyTavern's (the server owns the files, the browser
   holds only the open tale).
 - version.js -> m311-001.
+
+# M312 — the rooms lagged with the size of the WHOLE library: two reads loaded every checkpoint of every tale
+- THE WRITER: "fix the hideous performance, especially when I open the ledger and Settings" — unusable "after
+  3000 pages total from all chats"; his backup of the data folder is 319 MB COMPRESSED.
+- REPRODUCED (tests/perf_rooms.py, now with a LIBRARY on the shelf: 12 other tales × 12 MB of checkpoints
+  = 144 MB, a tenth of his; real Chromium, phone viewport, CPU 6x). One heavy tale alone never showed it.
+- ROOT CAUSE — two reads in js/store.js that asked IndexedDB for getAll() on the settings table, i.e. every
+  row WHOLE, which is every checkpoint of every tale:
+  · settings.keys() — to return the NAMES. The cast library lists itself through it (import/cards.js
+    listCast), and the ledger's cast panel and Settings' people room call that: each opening read the
+    whole library off the disk to show a handful of cards. 1,440 ms.
+  · exportHouse() — to fold a 33 KB book, after EVERY page (a tale's update marks the house), in the
+    sync worker — and IndexedDB serializes transactions across threads, so the rooms waited behind
+    it. 1,978 ms; one ledger open in three took 1,624 ms.
+  Both grow with every page ever written in ANY tale; at his library's size that is tens of seconds,
+  or the tab's death.
+- CHANGE: keys() reads getAllKeys() (no values); exportHouse() reads the keys, keeps the house's, and
+  fetches only those rows. The same book comes out (M312-1; 33,275 bytes before and after).
+- MEASURED, same library, same throttle:   keys 1,440 → 4 ms · house book 1,978 → 22 ms ·
+  ledger open 165–193 ms (worst was 1,624) · opened WHILE the house book folds: 182 ms · Settings 78–123 ms.
+  tests/perf_rooms.py holds budgets on all of them (keys ≤150, house ≤400, any open ≤1,200).
+- SEEN WHILE MEASURING, NOT YET CHANGED: a boot whose books arrive later than three seconds reloads the
+  page by itself (sync.js settle → location.reload) — with a large library that is every open; and a
+  browser keeps every tale it ever opened, whole, and refreshes all of them at boot. Both belong to
+  the storage redesign the writer ordered (the device owns the files; the browser holds the open tale).
+- version.js -> m312-001.
