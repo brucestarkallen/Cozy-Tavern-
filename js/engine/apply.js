@@ -305,6 +305,13 @@ const HANDLERS = {
      * all, re-set one the ledger already held and called it a fix.
      * M261: "The Wells Residence" and "Wells Residence" are one place. */
     if (typeof before === 'string' && samePlace(before, name)) return { ok: false, why: 'the scene already stands in ' + before, same: true };
+    /* M304: the ground the scene stood on when THIS PAGE began — whoever leaves on
+     * a page that also moved the ground was certainly there, and only perhaps
+     * at the new one (presence.leave reads this for where they were last seen).
+     * Stamped with the page, so it means nothing on any later page; the first
+     * move of a page is the one kept. */
+    const groundWasBefore = state.groundWas && typeof state.groundWas === 'object' ? { ...state.groundWas } : null;
+    if (typeof before === 'string' && before && !(groundWasBefore && groundWasBefore.page === state.page)) state.groundWas = { name: before, page: Number.isInteger(state.page) ? state.page : -1 };
     state.place = { name };
     /* M261: WHERE EACH STOOD BELONGS TO THE OLD GROUND. "By the stove" went on
      * being read to the storyteller after the scene had moved to the garden.
@@ -336,7 +343,7 @@ const HANDLERS = {
     return {
       ok: true,
       words: 'The scene now stands in ' + name + '.',
-      undo: { kind: 'place', before, positions, mcState },
+      undo: { kind: 'place', before, positions, mcState, groundWas: groundWasBefore },
     };
   },
 
@@ -436,9 +443,23 @@ const HANDLERS = {
     if (at === -1) return { why: 'no one here answers to ' + name };
     const before = { ...state.present[at] };
     state.present.splice(at, 1);
+    /* M304: SOMEONE WHO LEAVES THE PAGE IS NEVER NOWHERE (see engine/offscreen.js).
+     * Walking in lets a seat go; walking out wrote nothing, so the people the
+     * main character had just been with were the ones the world had no
+     * whereabouts for. The house keeps what it knows for certain — where they
+     * were last seen and when — unless a seat already says (the prose named
+     * where they went, earlier in this batch). The main character is never
+     * seated. A take-back of the leaving takes this with it. */
+    let seatAdded = null;
+    if (!findSeat(state.offscreen, before.name) && !isMc(state, before.name)) {
+      const moved = state.groundWas && typeof state.groundWas === 'object' && state.groundWas.page === state.page && typeof state.groundWas.name === 'string' && state.groundWas.name.trim();
+      const ground = moved ? state.groundWas.name.trim() : (state.place && typeof state.place.name === 'string' ? state.place.name.trim() : '');
+      state.offscreen = seat(state.offscreen, before.name, { location: ground || 'where the scene stood', activity: '', lastSeen: true }, clockMinutesOf(state), storyTurn(state));
+      seatAdded = before.name;
+    }
     return {
       words: before.name + ' stepped out of the scene.',
-      undo: { kind: 'presence.restore', before, index: at },
+      undo: { kind: 'presence.restore', before, index: at, ...(seatAdded ? { seatAdded } : {}) },
     };
   },
 
@@ -1144,7 +1165,26 @@ export function applyMutations(state, mutations) {
    * story, marked before any handler asks for it. */
   next.turn = turnOf(next) + 1;
 
-  const list = Array.isArray(mutations) ? mutations : [];
+  /* M304: THE SEAT CAME BEFORE THE LEAVING, AND WAS REFUSED. A page that shows
+   * someone going somewhere earns two changes — they left, and where they
+   * went — and a reader writes them in either order. M257 refuses a seat for
+   * anyone standing in the room, so "offscreen.set Kim, presence.leave Kim"
+   * lost the seat and kept the leaving: Kim, whose destination the prose had
+   * just named, was nowhere. Within one batch the leaving goes first. */
+  const list = (() => {
+    const raw = Array.isArray(mutations) ? mutations.slice() : [];
+    const nameOf = (m) => (m && typeof m === 'object' && typeof m.name === 'string' ? m.name.trim().toLowerCase() : '');
+    for (let i = 0; i < raw.length; i += 1) {
+      const m = raw[i];
+      if (!m || m.type !== 'offscreen.set' || !nameOf(m)) continue;
+      const j = raw.findIndex((x, k) => k > i && x && x.type === 'presence.leave' && nameOf(x) === nameOf(m));
+      if (j === -1) continue;
+      const [leave] = raw.splice(j, 1);
+      raw.splice(i, 0, leave);
+      i += 1;
+    }
+    return raw;
+  })();
   for (const mutation of list) {
     if (!mutation || typeof mutation !== 'object' || typeof mutation.type !== 'string') {
       rejected.push({ mutation, why: 'it isn’t shaped like a mutation at all' });
@@ -1259,6 +1299,7 @@ function applyUndo(next, undo) {
       ok = true;
     } else if (undo.kind === 'place') {
       next.place = undo.before ? { name: undo.before } : null;
+      if ('groundWas' in undo) next.groundWas = undo.groundWas ? { ...undo.groundWas } : null; /* M304 */
       if (undo.mcState && next.characters && next.characters[undo.mcState.key] && !next.characters[undo.mcState.key].state) {
         next.characters = { ...next.characters, [undo.mcState.key]: { ...next.characters[undo.mcState.key], state: undo.mcState.state } };
       }
@@ -1295,6 +1336,11 @@ function applyUndo(next, undo) {
       const at = findPresent(next, (undo.before && undo.before.name) || '');
       if (at !== -1) next.present[at] = { ...undo.before };
       else next.present.splice(Math.min(undo.index ?? next.present.length, next.present.length), 0, { ...undo.before });
+      /* M304: back in the scene, the house's own sighting goes — only while it is still the house's */
+      if (undo.seatAdded) {
+        const seated = findSeat(next.offscreen, undo.seatAdded);
+        if (seated && seated.entry && seated.entry.lastSeen === true) { next.offscreen = { ...next.offscreen }; delete next.offscreen[seated.key]; }
+      }
       ok = true;
     } else if (undo.kind === 'mode') {
       next.mode[undo.flag] = Boolean(undo.before);

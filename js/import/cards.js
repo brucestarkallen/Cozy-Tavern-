@@ -289,3 +289,10 @@ export async function castForStory(story) {
   }
   return cards;
 }
+
+/* M304: the names on the cards the writer invited into this tale — the laws
+ * that ask "is this one of the writer's own people" read the brief and the
+ * cast notes, and never knew a card. Never throws: no cards, no names. */
+export async function castNamesFor(story) {
+  try { return (await castForStory(story)).map((c) => String((c && c.name) || '').trim()).filter(Boolean); } catch (err) { return []; }
+}

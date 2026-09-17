@@ -68,6 +68,7 @@ const RELATIONSHIPS_TOP = 6;
 export const emptyState = () => ({
   clock: null,              // {calendar, minutes, label, monthNames?, dayNames?} | null
   place: null,               // {name} — where the scene stands (M26)
+  groundWas: null,           // M304: {name, page} — the ground the scene stood on when that page began, kept only when the page moved it
   present: [],              // [{name, position?, attire?}]
   mode: { combat: false, intimate: false, travel: false, socialField: false, isolation: false, group: false },
   log: [],                  // [{ts, words, undone, undo?}] — what changed and why (M3)
@@ -320,6 +321,7 @@ function normalize(saved) {
   next.bodies = migrateBodies(saved.bodies);
   next.relationships = migrateRelationships(saved.relationships);
   next.offscreen = migrateOffscreen(saved.offscreen);
+  next.groundWas = saved.groundWas && typeof saved.groundWas === 'object' && typeof saved.groundWas.name === 'string' && Number.isInteger(saved.groundWas.page) ? { name: saved.groundWas.name, page: saved.groundWas.page } : null; /* M304 */
   next.factions = saved.factions && typeof saved.factions === 'object' ? saved.factions : {};
   /* M29 (v7): knowledge and the world brief — no-loss; legacy string
    * threads keep rendering (renderStateFacts tolerates both shapes). */

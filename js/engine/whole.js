@@ -16,8 +16,9 @@
  * moved — and found the same things again the next turn.
  *
  * Nothing here is trimmed by a budget. The books are capped where they are
- * kept (eight threads, twelve facts a person, twelve seats), so the whole is
- * bounded by the ledger itself.
+ * kept (eight threads, twelve facts a person; seats: everyone the story
+ * carries, forty as a runaway guard since M304), so the whole is bounded by
+ * the ledger itself.
  */
 
 import { renderClock } from './clock.js';

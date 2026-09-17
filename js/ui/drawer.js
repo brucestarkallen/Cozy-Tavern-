@@ -42,9 +42,9 @@ import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
 import { isMc } from '../engine/people.js';
-import { seatAgeWords } from '../engine/offscreen.js'; /* M300 */
+import { seatLine, seatOrder, seatNowWords } from '../engine/offscreen.js'; /* M300; M304: one line, one order and one wording for a seat */
 import { storyTurn as storyTurnOf } from '../engine/apply.js'; /* M291: how long ago a page was last written */
-import { listCast, attachToStory, detachFromStory } from '../import/cards.js';
+import { listCast, attachToStory, detachFromStory, castNamesFor } from '../import/cards.js';
 import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '../agents/status.js';
 import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices */
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
@@ -1001,24 +1001,24 @@ function elsewherePanel(ctx) {
     form.hidden = false;
     const state = await loadState(story.id);
     const offscreen = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
-    const names = Object.keys(offscreen).filter((n) => offscreen[n] && typeof offscreen[n] === 'object');
+    /* M304: THE SAME LIST THE STORYTELLER IS READ, IN THE SAME ORDER AND THE SAME
+     * WORDS. This room kept its own copy of a seat's words — so it never
+     * learned to say a seat's age (M300 taught every other reader) — and
+     * listed the absent in the order they were first written, where the
+     * storyteller hears who can reach the scene first. One line, from the
+     * engine (seatLine); one order (seatOrder). */
+    const clockNow = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
+    const here = new Set((Array.isArray(state.present) ? state.present : []).map((p) => String((p && p.name) || '').trim().toLowerCase()));
+    const names = seatOrder(offscreen, clockNow).filter((n) => !here.has(n.trim().toLowerCase()));
     note.textContent = names.length
-      ? 'Where the absent have gone. Coming back into the scene lets the note go on its own.'
-      : 'No one is written elsewhere yet. When someone leaves the page for a known place, it lands here.';
+      ? 'Where the absent are, as last known — whoever can reach the scene soonest first. Someone who leaves the page is kept where they were last seen until the world moves them on; coming back into the scene lets the note go on its own.'
+      : 'No one is written elsewhere yet. When someone leaves the page, where they were last seen lands here.';
     for (const name of names) {
       const entry = offscreen[name];
       const li = document.createElement('li');
       li.className = 'present-row mind-row';
       const words = document.createElement('span');
-      let text = name + ' — '
-        + [entry.location, entry.activity].filter((s) => typeof s === 'string' && s.trim()).join(', ');
-      if (typeof entry.agenda === 'string' && entry.agenda.trim()) {
-        text += ' (meaning to ' + entry.agenda.trim().replace(/\.+$/, '') + ')';
-      }
-      /* M29: the stance and the arrival on the clock */
-      const approach = renderArrival(entry, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null);
-      if (approach) text += ' — ' + approach;
-      words.textContent = text;
+      words.textContent = seatLine(name, entry, clockNow);
       const clearBtn = document.createElement('button');
       clearBtn.type = 'button';
       clearBtn.className = 'text-btn';
@@ -1507,6 +1507,7 @@ function peoplePanel(ctx) {
     /* M104: why each person is carried, in the house's own words — information
      * for the writer, never a decision for a model */
     const recent = (await db.messages.list(story.id)).filter((m) => !m.hidden).map((m) => ({ role: m.role, text: pageText(m) }));
+    const castNames = await castNamesFor(story); /* M304: an invited card is the writer's own person */
     for (const name of names) {
       const c = chars[name];
       const li = document.createElement('li');
@@ -1514,7 +1515,7 @@ function peoplePanel(ctx) {
       const head = document.createElement('strong');
       head.textContent = name + (present.has(name.toLowerCase()) ? ' — here' : (state.offscreen && Object.keys(state.offscreen).some((k) => k.toLowerCase() === name.toLowerCase()) ? ' — elsewhere' : ''));
       li.appendChild(head);
-      const why = carriedBy(state, name, { brief: story.brief || '', castNotes: story.castNotes || '', pages: recent });
+      const why = carriedBy(state, name, { brief: story.brief || '', castNotes: story.castNotes || '', pages: recent, castNames });
       const carry = document.createElement('div');
       carry.className = 'quiet carry-line';
       carry.textContent = why ? 'Carried by: ' + why + '.' : 'Nothing carries them yet — no bond, no thread, not on the way, not named in the last ' + SEAT_MENTION_PAGES + ' pages; a passer-through unless the story returns to them.';
@@ -1523,7 +1524,7 @@ function peoplePanel(ctx) {
        * (the world agent's word); the scribe's older state line is not shown
        * beside it */
       const seatKey = state.offscreen && Object.keys(state.offscreen).find((k) => k.toLowerCase() === name.toLowerCase());
-      const seatNow = seatKey && !present.has(name.toLowerCase()) ? (() => { const sn = state.offscreen[seatKey] || {}; const age = seatAgeWords(sn, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null); /* M300 */ return [sn.location, sn.activity].filter(Boolean).join(', ') + (sn.agenda ? ' (meaning to ' + sn.agenda + ')' : '') + (age ? ' (' + age + ')' : ''); })() : '';
+      const seatNow = seatKey && !present.has(name.toLowerCase()) ? seatNowWords(state.offscreen[seatKey] || {}, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null, { agenda: true }) : ''; /* M300: its age; M304: the engine's own words */
       /* M291/M292: the now alive — the one here says what they are doing; the absent, where the
        * world has them; a note from a scene long gone, how old it is */
       const turnNow = storyTurnOf(state);

@@ -2685,6 +2685,79 @@ test('DOM-48 Settings tells the truth about Kimi K3: Off says what it is spoken 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-49 nobody who leaves the page is nowhere: played through the real readers, the ledger’s “elsewhere” holds the one who left — last seen where the page began — in the storyteller’s order and words, until the world agent moves her on (M304)', async () => {
+  const before = errors.length;
+  const { loadState, saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'nobody is nowhere' });
+  await db.stories.update(st.id, { brief: 'Jovan is home for the summer. Ms. June runs the Bluebird diner. Old Tom is the landlord.' });
+  await db.messages.append(st.id, { role: 'user', text: 'We eat at the Bluebird.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The Bluebird — Friday, March 14, 2025 | 20:00 | clear | gray hoodie | in the booth]\n\nMs. June brought the plates herself, and Liara stole a fry.' });
+  const seeded = applyMutations({ ...emptyState(), page: 0 }, [
+    { type: 'mc.set', name: 'Jovan' }, { type: 'clock.set', year: 2025, month: 3, day: 14, hour: 20, minute: 0 }, { type: 'place.set', name: 'The Bluebird' },
+    { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Ms. June' }, { type: 'presence.enter', name: 'Liara' },
+    { type: 'people.set', name: 'Ms. June', field: 'core', text: 'runs the Bluebird; fifties; has fed Jovan since he was nine' },
+    { type: 'people.set', name: 'Liara', field: 'core', text: 'his oldest friend' },
+    /* written FIRST, and the least able to reach the scene — the order they were written in is not the order they are read in */
+    { type: 'offscreen.set', name: 'Old Tom', location: 'his office', activity: 'counting rent', stance: 'waiting' },
+    { type: 'offscreen.set', name: 'Kim', location: 'the 6:10 bus', activity: 'riding in', agenda: 'find Jovan', stance: 'toward', etaMinutes: 30 },
+  ]).state;
+  await saveState(st.id, { ...seeded, page: 0, readTo: 0, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorWorker = house.state.workerAnswer;
+  const priorStory = house.state.storyAnswer;
+  let worldSaw = '';
+  try {
+    /* the page: they walk home; Ms. June stays behind. The page reader says she left — and nothing of where (a cheap reader often does not) */
+    house.state.storyAnswer = () => '[The Wells house — Friday, March 14, 2025 | 20:40 | clear | gray hoodie | on the porch]\n\nMs. June waved them off from the diner door. Liara walked him home, and they sat on the porch steps.';
+    house.state.workerAnswer = (body, sys) => {
+      if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'presence.leave', name: 'Ms. June' }, { type: 'presence.update', name: 'Liara', position: 'on the porch steps' }] });
+      if (/world beyond the page/i.test(sys)) { worldSaw = String((body.messages || []).slice(-1)[0].content || ''); return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [] } }); }
+      return priorWorker(body, sys);
+    };
+    type(q('#composer-input'), 'We walk home.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(async () => queuedCount(st.id) === 0 && !(await loadState(st.id)).present.some((p) => p.name === 'Ms. June'), 'the readers to finish', 40000);
+    await settled();
+    const after = await loadState(st.id);
+    const june = after.offscreen['Ms. June'];
+    assert(june && june.lastSeen === true, 'Ms. June has a whereabouts though no reader wrote one: ' + JSON.stringify(after.offscreen));
+    eq(june.location, 'The Bluebird', 'where the page BEGAN — the header had already moved the ground to the Wells house');
+    assert(/Ms\. June — last seen at The Bluebird/.test(worldSaw), 'and the world agent was shown exactly that, to move her on from: ' + worldSaw.slice(worldSaw.indexOf('EVERYONE WRITTEN ELSEWHERE'), worldSaw.indexOf('EVERYONE WRITTEN ELSEWHERE') + 260));
+    /* the ledger's room: the storyteller's order (Kim, on her way, first) and the engine's own words */
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await env.ctx.drawer.renderAllRooms(); await tick(350);
+    const rows = () => qa('#drawer .offscreen-editor .present-row span').map((x) => x.textContent);
+    await until(() => rows().length === 3, 'all three of the absent listed: ' + JSON.stringify(rows()), 10000);
+    assert(/^Kim — the 6:10 bus, riding in \(meaning to find Jovan\)/.test(rows()[0]), 'whoever can reach the scene soonest leads, though she was written second: ' + JSON.stringify(rows()));
+    assert(/^Old Tom — his office, counting rent/.test(rows()[1]), 'then the waiting: ' + rows()[1]);
+    assert(/^Ms\. June — last seen at The Bluebird/.test(rows()[2]), 'a bare sighting says least and comes last, in the engine’s words: ' + rows()[2]);
+    const juneRow = [...qa('#drawer .people-row')].find((li) => li.firstChild && /^Ms\. June/.test(li.firstChild.textContent));
+    assert(juneRow && /Now \(elsewhere\): last seen at The Bluebird/.test(juneRow.textContent), 'and her page says the same: ' + (juneRow && juneRow.textContent.slice(0, 200)));
+    click(q('#btn-ledger')); await tick(300);
+    /* the next page: the world agent moves her on, and the sighting is replaced whole */
+    house.state.storyAnswer = () => '[The Wells house — Friday, March 14, 2025 | 22:30 | clear | gray hoodie | on the porch]\n\nThey talked until the street went quiet.';
+    house.state.workerAnswer = (body, sys) => {
+      if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [] });
+      if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Ms. June', location: 'her flat over the diner', activity: 'soaking her feet', stance: 'busy' }], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
+      return priorWorker(body, sys);
+    };
+    type(q('#composer-input'), 'We talk.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 3 && !env.ctx.chat.isBusy(), 'the next page', 15000);
+    await until(async () => queuedCount(st.id) === 0 && ((await loadState(st.id)).offscreen['Ms. June'] || {}).location === 'her flat over the diner', 'the world agent to move her on', 40000);
+    const moved = (await loadState(st.id)).offscreen['Ms. June'];
+    assert(moved.lastSeen !== true, 'a real seat now, not a sighting');
+    assert((await loadState(st.id)).offscreen['Ms. June'] && !(await loadState(st.id)).characters['Ms. June'].retired, 'and the upkeep kept her: the brief names her');
+  } finally {
+    house.state.workerAnswer = priorWorker;
+    house.state.storyAnswer = priorStory;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

@@ -36,7 +36,7 @@ import { renderWholeLedger, wholePage, PAGE_CAP } from '../engine/whole.js';
 import { askWithFetch, fetchLaw, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259: it looks for what it was not shown */
 import { messageIndexLine, refOf } from './housekeeper.js';
 import { mcName } from '../engine/duels.js';
-import { isMc } from '../engine/people.js'; /* M277: the main character holds no standing */
+import { isMc, namedInText, findPersonKey } from '../engine/people.js'; /* M277: the main character holds no standing; M304: one matcher for "the writer's material names them" */
 import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
@@ -346,7 +346,7 @@ export function auditView(list, foldedTo, budget = AUDIT_VIEW_CHARS) {
   return { shown, index };
 }
 
-export async function auditLedger({ connection, storyId, brief = '', castNotes = '', signal, stale, renew } = {}) {
+export async function auditLedger({ connection, storyId, brief = '', castNotes = '', castNames = [], signal, stale, renew } = {}) {
   if (!connection || typeof connection !== 'object' || !storyId) return null;
   const state = await loadState(storyId);
   const mem = await loadMemory(storyId);
@@ -472,14 +472,15 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   }
   /* M57: passers-through retire in code — no bond, no seat, no thread, no
    * lock, not present, and thirty turns since their page last moved. */
-  guarded.push(...peopleHousekeeping(fresh, brief, castNotes));
+  guarded.push(...wakeHousekeeping(fresh, { brief, castNotes, castNames })); /* M304 */
+  guarded.push(...peopleHousekeeping(fresh, brief, castNotes, castNames));
   /* M95: the house's own example names, echoed into a ledger by a worker of an
    * older coat, are swept out unless the brief or the cast notes name them. */
   guarded.push(...exampleLeakHousekeeping(fresh, brief, castNotes));
   /* M103: seats have a life, in code — a passer-through the world agent kept
    * seated (a cab driver with "one clean fare") is cleared and retired the
    * moment the story stops carrying them; the pool is capped. */
-  guarded.push(...seatHousekeeping(fresh, { brief, castNotes, pages: all.map((m) => ({ role: m.role, text: pageText(m) })) }));
+  guarded.push(...seatHousekeeping(fresh, { brief, castNotes, castNames, pages: all.map((m) => ({ role: m.role, text: pageText(m) })) }));
   /* M50: the standings, kept clean in code — no judgment anywhere here. */
   const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
   if (typeof renew === 'function') renew(); /* a fresh minute for the brief's digits */
@@ -528,14 +529,15 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
  * Switch the auditor off, or read every fifth page, and the ledger stopped
  * being kept. This is the same upkeep, alone, for a page the auditor does not
  * read; every change is journaled like any other, with its take-back. */
-export async function ledgerUpkeep({ storyId, brief = '', castNotes = '', stale } = {}) {
+export async function ledgerUpkeep({ storyId, brief = '', castNotes = '', castNames = [], stale } = {}) {
   if (!storyId) return null;
   const fresh = await loadState(storyId);
   const all = answeredOnly((await db.messages.list(storyId)).filter((m) => !m.hidden));
   const list = [
-    ...peopleHousekeeping(fresh, brief, castNotes),
+    ...wakeHousekeeping(fresh, { brief, castNotes, castNames }), /* M304 */
+    ...peopleHousekeeping(fresh, brief, castNotes, castNames),
     ...exampleLeakHousekeeping(fresh, brief, castNotes),
-    ...seatHousekeeping(fresh, { brief, castNotes, pages: all.map((m) => ({ role: m.role, text: pageText(m) })) }),
+    ...seatHousekeeping(fresh, { brief, castNotes, castNames, pages: all.map((m) => ({ role: m.role, text: pageText(m) })) }),
   ];
   if (!list.length) return { applied: [], rejected: [] };
   if (stale && stale()) return null;
@@ -552,7 +554,7 @@ export async function ledgerUpkeep({ storyId, brief = '', castNotes = '', stale 
  * nothing locked true of them; not the main character; and their page has
  * not moved for RETIRE_AFTER turns. Woken by any page or entrance. */
 export const RETIRE_AFTER = 30;
-export function peopleHousekeeping(state, brief = '', castNotes = '') {
+export function peopleHousekeeping(state, brief = '', castNotes = '', castNames = []) {
   const out = [];
   /* M280: THE WRITER'S OWN PEOPLE ARE NEVER RETIRED FOR BEING AWAY. A character
    * added to the brief at page 200 for page 240 had no bond, no seat and no
@@ -586,6 +588,8 @@ export function peopleHousekeeping(state, brief = '', castNotes = '') {
     if (mc && samePersonLoose(name, mc)) continue;
     if (present.has(k) || seated.has(k) || locked.has(k)) continue;
     if (inBrief(name)) continue; /* M280 */
+    if ((Array.isArray(castNames) ? castNames : []).some((n) => samePersonLoose(n, name))) continue; /* M304: an invited card is the writer's own person too */
+    if (c.hand && typeof c.hand === 'object' && Object.keys(c.hand).length) continue; /* M304: a page the writer wrote on by hand is never let go for being quiet */
     if (Array.isArray(c.threads) && c.threads.length) continue;
     const relKey = Object.keys(rels).find((r) => samePersonLoose(r, name));
     const rel = relKey ? rels[relKey] : null;
@@ -720,15 +724,29 @@ export function auditLineWords(i) {
  * again). Above SEAT_CAP seats, the least reachable go first. */
 export const SEAT_MENTION_PAGES = 12;
 export const SEAT_FRESH_TURNS = 6;
-export const SEAT_CAP = 12;
+/* M304: A RUNAWAY GUARD, NOT A SIZE A REAL CAST REACHES (M266's law, applied
+ * here at last). It was 12 — and a story with twenty people who matter lost
+ * eight of their whereabouts to it on every page, the least reachable first,
+ * which in a long tale is most of the family. What the STORYTELLER is told
+ * of is still ranked by who can reach the scene; what the LEDGER keeps is
+ * everyone the story carries. */
+export const SEAT_CAP = 40;
+/* M304: the writer's own people — named in the brief or the cast notes (by
+ * their whole name or the one they are spoken by: the law read
+ * material.includes("rias gremory") and a brief that says "Rias" carried no
+ * one), or holding an invited cast card. */
+function writersOwn(name, material, castNames) {
+  if (namedInText(material, name)) return true;
+  return (Array.isArray(castNames) ? castNames : []).some((c) => samePersonLoose(c, name));
+}
 /* What carries a person, in words — '' when nothing does. The drawer reads
  * this beside every character page (M104) so the writer can see the pool
  * the way the house does. */
-export function carriedBy(state, name, { brief = '', castNotes = '', pages = [] } = {}) {
+export function carriedBy(state, name, { brief = '', castNotes = '', pages = [], castNames = [] } = {}) {
   const seats = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
   /* M163: pages, like the seat's own atTurn stamp. */
   const turn = storyTurn(state);
-  const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
+  const material = String(brief || '') + '\n' + String(castNotes || '');
   const recent = (Array.isArray(pages) ? pages : []).slice(-SEAT_MENTION_PAGES).map((p) => String((p && p.text) || '').toLowerCase()).join('\n');
   const rels = state.relationships || {};
   const threads = Array.isArray(state.threads) ? state.threads : [];
@@ -736,7 +754,7 @@ export function carriedBy(state, name, { brief = '', castNotes = '', pages = [] 
   if (!n) return '';
   const present = (state.present || []).some((p) => p && String(p.name || '').trim().toLowerCase() === n);
   if (present) return 'in the scene';
-  if (material.includes(n)) return 'the brief names them';
+  if (writersOwn(name, material, castNames)) return 'the brief names them';
   const relKey = Object.keys(rels).find((r) => samePersonLoose(r, name));
   const rel = relKey ? rels[relKey] : null;
   if (rel && ((rel.p || 0) || (rel.r || 0) || (rel.s || 0))) return 'a standing toward the main character';
@@ -744,6 +762,21 @@ export function carriedBy(state, name, { brief = '', castNotes = '', pages = [] 
   const seatKey = Object.keys(seats).find((k) => samePersonLoose(k, name));
   const seat = seatKey ? seats[seatKey] : null;
   if (seat && (seat.stance === 'toward' || seat.stance === 'seeking')) return 'on the way to the main character';
+  /* M304: THE SEAT LAW FORGOT WHAT THE PEOPLE LAW KNOWS. M57 never retires
+   * someone with a truth locked about them or a loose end on their page, and
+   * M263 keeps what the writer wrote by hand — but this law, which clears a
+   * seat AND retires its person at once, asked about none of the three. So a
+   * sister with a locked fact and a promise still open, unnamed for twelve
+   * pages, lost her whereabouts and her card together. */
+  if (Object.keys(state.canon || {}).some((k) => samePersonLoose(k, name) && state.canon[k] && Array.isArray(state.canon[k].facts) && state.canon[k].facts.length)) return 'something locked true of them';
+  const pageKey = findPersonKey(state.characters || {}, name);
+  const page = pageKey ? state.characters[pageKey] : null;
+  if (page && Array.isArray(page.threads) && page.threads.length) return 'a loose end on their page';
+  if (page && page.hand && typeof page.hand === 'object' && Object.keys(page.hand).length) return 'the writer’s own hand on their page';
+  /* a history with the main character that is still fresh: the scribe wrote how
+   * they stand with him (the arc), and their page has moved within the span
+   * M57 itself waits before it lets anyone go */
+  if (page && !page.retired && typeof page.arc === 'string' && page.arc.trim() && Number.isFinite(page.updatedAtTurn) && turn - page.updatedAtTurn < RETIRE_AFTER) return 'a history with the main character';
   const first = n.split(/\s+/)[0];
   const mentioned = recent.includes(n) || (first.length >= 3 && new RegExp('(?<![\\p{L}\\p{N}])' + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}\\p{N}])', 'u').test(recent));
   if (mentioned) return 'named on a recent page';
@@ -751,13 +784,13 @@ export function carriedBy(state, name, { brief = '', castNotes = '', pages = [] 
   return '';
 }
 
-export function seatHousekeeping(state, { brief = '', castNotes = '', pages = [] } = {}) {
+export function seatHousekeeping(state, { brief = '', castNotes = '', pages = [], castNames = [] } = {}) {
   const out = [];
   const seats = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
   const names = Object.keys(seats);
   if (!names.length) return out;
-  const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
-  const carried = (name) => carriedBy(state, name, { brief, castNotes, pages });
+  const material = String(brief || '') + '\n' + String(castNotes || '');
+  const carried = (name) => carriedBy(state, name, { brief, castNotes, pages, castNames });
   const kept = [];
   for (const name of names) {
     const why = carried(name);
@@ -772,9 +805,29 @@ export function seatHousekeeping(state, { brief = '', castNotes = '', pages = []
     const at = (name) => (Number.isFinite((seats[name] || {}).atTurn) ? seats[name].atTurn : -1);
     const ordered = kept.slice().sort((a, b) => (rank(b) - rank(a)) || (at(a) - at(b)));
     for (const name of ordered.slice(0, kept.length - SEAT_CAP)) {
-      if (material.includes(String(name).trim().toLowerCase())) continue; /* the brief's people are never capped out */
+      if (writersOwn(name, material, castNames)) continue; /* the brief's people are never capped out */
       out.push({ type: 'offscreen.clear', name });
     }
+  }
+  return out;
+}
+
+/* M304: WHOEVER THE STORY STILL CARRIES IS NOT A PASSER-THROUGH. The seat law
+ * retired people "at once" on reasons it had forgotten to ask about (above);
+ * a story played under it holds people who matter out of the storyteller's
+ * sight, where nothing wakes them but an entrance. A retired person a LASTING
+ * reason carries — the writer's own material, a standing, an open thread, a
+ * locked truth, a loose end, the writer's hand — is brought back. A mention or
+ * a fresh seat is not lasting and wakes no one by itself (an entrance or a
+ * written page already does). */
+const LASTING = new Set(['the brief names them', 'a standing toward the main character', 'an open thread', 'something locked true of them', 'a loose end on their page', 'the writer’s own hand on their page']);
+export function wakeHousekeeping(state, { brief = '', castNotes = '', castNames = [] } = {}) {
+  const out = [];
+  const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  for (const [name, c] of Object.entries(chars)) {
+    if (!c || typeof c !== 'object' || !c.retired || isMc(state, name)) continue;
+    const why = carriedBy(state, name, { brief, castNotes, pages: [], castNames });
+    if (LASTING.has(why)) out.push({ type: 'people.wake', name, cause: 'the story still carries them — ' + why });
   }
   return out;
 }

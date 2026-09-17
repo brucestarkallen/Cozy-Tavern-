@@ -6751,3 +6751,82 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the worker floor, the card's Off line and --spoken each removed → M303-1, M303-3, M303-5, DOM-48
   and paint_magma's speech law fail, one for one.
 - version.js -> m303-001.
+
+# M304 — nobody who leaves the page is nowhere: "what's happening elsewhere" had drained to one or two people
+- THE WRITER: "why does what's happening elsewhere suddenly only have one or two characters while there
+  are many important NPCs? Check the whole ledger — the scene, the people, the world, the book."
+- NOT ONE BAD VERSION — FIVE CAUSES THAT TOGETHER DRAIN THE ROOM AS A TALE GROWS, each read from the code:
+  1. LEAVING WROTE NOTHING (engine/apply.js). presence.enter lets a seat go (M4, right); presence.leave
+     only took the person out of `present`. So the people the main character is WITH most — seat
+     deleted on every entrance — were the ones the world held no whereabouts for.
+  2. A SEAT WRITTEN BEFORE ITS LEAVING WAS REFUSED. A page that shows someone going somewhere earns
+     two changes, in either order; M257 refuses a seat for anyone standing in the room, so
+     [offscreen.set Kim, presence.leave Kim] kept the leaving and lost the seat the prose had named.
+  3. THE WORLD AGENT WAS SHOWN THE FIRST TWENTY PEOPLE EVER WRITTEN (agents/world.js characterCores:
+     `if (lines.length >= 20) break`, in insertion order, the retired among them). In a long tale
+     that is the opening chapters; it cannot seat someone it was never shown. NO SILENT CUT (M265)
+     had never been applied there.
+  4. THE SEAT LAW (M103) HAD FORGOTTEN WHAT THE PEOPLE LAW (M57/M280/M263) KNOWS — and it clears the
+     seat AND retires the person at once, on every page since M261: it matched the brief by WHOLE
+     name only (`material.includes("rias gremory")` — a brief that says "Rias" carried no one), and
+     never asked about a locked truth, a loose end, the writer's hand or an invited cast card.
+  5. THE AGENT'S OWN LAW TOLD IT TO BE SPARING: "if you cannot name the want, leave them unseated";
+     "keeps at most twelve seats… leave the rest to the world" — and code held the twelve, evicting
+     the least reachable first, which in a long tale is most of the family.
+- CHANGE.
+  · presence.leave keeps the one thing the ledger knows for certain — WHERE THEY WERE LAST SEEN, AND
+    WHEN — as a seat marked `lastSeen` (no doing, no want, no stance: nothing invented). It reads
+    "Ms. June — last seen at The Bluebird (as of 40 minutes ago)". On a page that also moved the
+    ground it is the ground the page BEGAN on (state.groundWas {name, page}, written by place.set,
+    stamped with the page so it holds across the header's own batch and the reader's, and in a
+    fold of the journal alike); the main character is never seated; a take-back of the leaving
+    takes the sighting with it; a worker's seat replaces it whole; walking back in lets it go.
+  · within one batch a person's leaving is applied before their seat.
+  · carriedBy: the writer's own people by whole OR spoken name (people.js namedInText, one matcher)
+    or an invited card (cards.js castNamesFor, threaded to the upkeep, the audit, the world agent
+    and the drawer); a locked truth; a loose end; the writer's hand; a history with the main
+    character still fresh (an arc on a page that moved within M57's own thirty pages). SEAT_CAP is a
+    runaway guard (40). wakeHousekeeping brings back anyone a LASTING reason carries whom the old
+    law retired. peopleHousekeeping never retires an invited card or a hand-written page.
+  · the world agent is shown EVERYONE the story carries, most important first (importanceOf — the
+    storyteller's own weighing), whole while the room holds and lean after, the cut SAID with the
+    names it left out; whoever matters and has no whereabouts is marked "[NO SEAT — seat them]" and
+    listed to be seated in that answer. Its law: a missing want leaves out the AGENDA, never the
+    person; no limit on seats; a "last seen" line is the house's sighting, to be moved on by the
+    clock. The people list has a room of its own (a fifth of the connection's), the same in both
+    builds of the prompt.
+  · ONE WORDING AND ONE ORDER FOR A SEAT (offscreen.js seatNowWords / seatLine / seatOrder). The
+    drawer's Elsewhere room and the people room each kept a copy of a seat's words — so the
+    Elsewhere room never learned to say a seat's age (M300 had taught every other reader) — and
+    listed the absent in the order first written. They read the engine's line, in the
+    storyteller's order (who can reach the scene soonest; a bare sighting last).
+- TESTS. tests/harness/m304.mjs, eight laws that run the engine: the sighting and its take-back; the
+  ground the page began on — either order, one batch or two, live and FOLDED; seat-before-leaving;
+  save/load; every carry reason (red before: Rias Gremory, named "Rias" in the brief, was cleared
+  and retired); twenty-five carried seats stay; the wrongly retired wake, a mention alone wakes no
+  one; the world agent's list (the thirty-first person written, who matters most, is first and
+  marked NO SEAT; a small room says its cut and every person is either shown or named). DOM-49
+  plays the life through the real readers: the header moves the ground in its own batch, the
+  reader says only "she left", the ledger holds her at the Bluebird, the world agent is shown that
+  line, the drawer lists her in the storyteller's order and words, the next page moves her on.
+  M131-1's pin followed the law that replaced the heading it named.
+- MUTATION-CHECKED, and one weak test caught by it: with the sighting, the reorder, the name matcher,
+  the cap, the wake and the importance order removed, all eight harness laws fail. DOM-49 did NOT
+  catch the drawer's order removed — its seats happened to be written in the order they are read
+  in, so it passed with the feature deleted. A seat written first and read second was added; it
+  fails now. The four mutated files were restored and proven byte-identical (cmp) before anything
+  else ran.
+- PROBE ERRORS OF MINE, fixed in the tests not the app: near-names are ONE person to the ledger
+  (findPersonKey) — "Villager01…30" was one page; people.note needs field:'thread'; a comma in my
+  own cut line broke my count. One real bug found by that count: peopleForWorld's `shown` counted
+  its own "N more did not fit" note as a person.
+- FOUND IN THE WIDER CHECK, NOT YET CHANGED: the same fault as the old seat cap lives in two more
+  books — engine/world.js KNOWLEDGE_PER_NAME = 12 (`list.slice(-12)`: a secret learned on page 30 is
+  pushed out by twelve newer trifles, and the storyteller then writes her as if she never knew) and
+  THREADS_MAX = 8 (a ninth thread silently deletes the coldest, oldest — a rival's dormant plan).
+  engine/whole.js leans on both ("the books are capped where they are kept"), and every reader is
+  sent these lists whole on every page, so a bigger number is the wrong repair: keep everything,
+  show each reader the newest plus what bears on the scene. CHECKED AND SOUND: the storyteller's
+  people block is sized to its room (M282-286); at a 500k room the state of things is `whole`
+  (every seat, standing, thread).
+- version.js -> m304-001.

@@ -766,7 +766,11 @@ test('M131-1 OWNERSHIP OF THE LEDGER: every fact has one writer; every second wr
   /* standings — earned on the page; the auditor may restore, never lower on judgment */
   assert(/Lowering is what you may not do/.test(aud), 'the standings guard');
   /* who keeps a seat — code (M103); the world agent is told the same */
-  assert(/export function seatHousekeeping/.test(aud) && /A SEAT IS FOR SOMEONE THE SCENE COULD STILL MEET/.test(world), 'seats have a life in code and in law');
+  /* M304: the heading this pinned told the world agent to keep twelve seats and to leave anyone
+   * without a nameable want unseated — two of the five causes of an empty "elsewhere". The law
+   * that replaced it still says who is NOT seated (the passer-through), which is what this guard
+   * is for; what the agent is actually sent is run in M304-8. */
+  assert(/export function seatHousekeeping/.test(aud) && /WHO IS SEATED/.test(world) && /A passer-through[^\n]*is not seated at all/.test(world), 'seats have a life in code and in law');
   /* the record — the keeper writes; verifier, detail auditor, hard tokens, housekeeper, ripple edit in place */
   const mem = read('memory');
   assert(/export function hardTokens/.test(mem) && /export function addCorrection/.test(mem), 'the record’s guards');

@@ -32,7 +32,7 @@
 import { isMcAlias, mcName } from './duels.js';
 import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
-import { seatAgeWords } from './offscreen.js'; /* M300 */
+import { seatNowWords } from './offscreen.js'; /* M300: a seat says its age; M304: one wording for every reader */
 
 /* Field caps — the ledger holds brushstrokes, not chapters. */
 /* M266: A NOTE IS KEPT WHOLE. These were 300, 240, 240 and 140 — so a "now"
@@ -487,6 +487,14 @@ function namedIn(pages, name) {
   const res = spokenNames(name).map(wordRe);
   return (pages || []).some((p) => res.some((re) => re.test(String(p || ''))));
 }
+/* M304: is this person named in a text — by their whole name or the name they
+ * are spoken by ("Rias" for "Rias Gremory"), as a word of its own. One matcher
+ * for every law that asks whether the writer's own material names someone. */
+export function namedInText(text, name) {
+  const hay = String(text || '');
+  if (!hay.trim()) return false;
+  return spokenNames(name).some((n) => wordRe(n).test(hay));
+}
 
 /* M282: WHO MATTERS, WITHOUT A PIN. The writer will not pin anyone, and an
  * absent person who matters was a name on the roster — their page never rode
@@ -628,10 +636,9 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     const seat = seatOf(k);
     if (!seat) return null;
     if (seatsInState) return 'away \u2014 where they are now is under Elsewhere';
-    const words = [seat.location, seat.activity].filter(Boolean).join(', ');
-    if (!words) return null;
-    const age = seatAgeWords(seat, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null); /* M300 */
-    return age ? words + ' (' + age + ')' : words;
+    if (![seat.location, seat.activity].filter(Boolean).length) return null;
+    /* M300: a seat says its age; M304: and a sighting says it is one — the same words every reader gets */
+    return seatNowWords(seat, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null);
   };
   const awayCard = (k) => {
     const now = awayNow(k);

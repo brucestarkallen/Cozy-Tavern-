@@ -48,7 +48,8 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
-import { findPersonKey } from '../engine/people.js';
+import { findPersonKey, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
+import { storyTurn } from '../engine/apply.js';
 import { applyMutations } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
 import { renderClock } from '../engine/clock.js';
@@ -135,17 +136,22 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     '(role, family, known history and traits). Never rename a real person, never give them a made-up',
     'relative where the record has one; invent only where the record is silent. For each absent person the ledger',
     'or the pages know: where are they RIGHT NOW at this hour, what are they doing, what do they WANT next. An agenda',
-    'is a want, never a status — "resting" is not an agenda; if you cannot name the want, leave them',
-    'unseated. The clock governs availability: at small hours most people sleep, and whoever is up is up',
+    'is a want, never a status — "resting" is not an agenda; when you cannot name the want, leave the AGENDA',
+    'out, never the person: a seat with a place and a doing is whole. The clock governs availability: at small hours most people sleep, and whoever is up is up',
     'for a reason. Someone moving toward the main character gets stance "toward" and an ETA; before the',
     'ETA they are on the road, never early. A change from what the ledger says needs a cause — a silent',
     'flip is an error, not variety. Someone the page shows arriving is the extractor\'s to seat; you clear',
     'their elsewhere note.',
     '',
-    'A SEAT IS FOR SOMEONE THE SCENE COULD STILL MEET. A passer-through — a driver, a waiter, a clerk',
-    'with one errand and no bond — is not seated at all; the house clears any seat nobody carries (no',
-    'standing, no thread, not on the way, not named for twelve pages) and keeps at most twelve seats.',
-    'Seat the people who matter to the main character, and leave the rest to the world.',
+    'WHO IS SEATED (M304). EVERYONE WHO MATTERS TO THE STORY HAS A WHEREABOUTS AT EVERY HOUR — family,',
+    'friends, rivals, lovers, the writer’s own people, anyone with a standing, a thread, a locked truth or a',
+    'history with the main character. The people list below marks whoever matters and has none',
+    '("[NO SEAT — seat them]"): seat every one of them in this answer. A line reading "last seen at …" is',
+    'the HOUSE’S OWN NOTE of where someone stepped off the page — a sighting, not a life: the first time',
+    'you see one, move that person on from it by the clock (the shift ended, she went home, he is asleep)',
+    'with a real offscreen.set. There is no limit on how many people you may seat in one answer.',
+    'A passer-through — a driver, a waiter, a clerk with one errand and no bond — is not seated at all;',
+    'the house clears any seat nothing carries and lets its person pass out of the story.',
     '',
     'THREADS. Two or three hot threads at most — someone\'s agenda pushing toward the main character.',
     'Cold threads sleep until agendas cross again. Name what each thread\'s owner will do NEXT.',
@@ -242,18 +248,57 @@ function shownWindows(state) {
   }).join('\n');
 }
 
-function characterCores(state) {
+/* M304: THE WORLD AGENT WAS SHOWN THE FIRST TWENTY PEOPLE EVER WRITTEN. The one
+ * worker that decides where the absent are read "the people, as the ledger
+ * knows them" from a loop that stopped at twenty, in the order the pages were
+ * first made — so in a long tale it knew the people of the opening chapters,
+ * passers-through and the retired among them, and nobody who came after:
+ * it could not seat a person it was never shown. (NO SILENT CUT, M265, was
+ * never applied here.) Now: everyone the story still carries, the most
+ * important first (the same weighing the storyteller's people block uses),
+ * whole while the room holds them and lean after, the cut SAID; and whoever
+ * matters and has no whereabouts is marked, so the agent seats them. */
+export const WORLD_PEOPLE_ROOM = 60000;
+export function peopleForWorld(state, { material = '', castNames = [], room = WORLD_PEOPLE_ROOM } = {}) {
   const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
-  const lines = [];
+  const turn = storyTurn(state || {});
+  const scene = { placeWords: placeWords(state), lately: [] };
+  const lower = (x) => String(x || '').trim().toLowerCase();
+  const present = new Set((Array.isArray(state && state.present) ? state.present : []).map((p) => lower(p && p.name)));
+  const seated = new Set(Object.keys((state && state.offscreen) || {}).map(lower));
+  const own = (name) => namedInText(material, name) || (Array.isArray(castNames) ? castNames : []).some((c) => lower(c) === lower(name) || lower(c).split(/\s+/)[0] === lower(name).split(/\s+/)[0]);
+  const rows = [];
   for (const [name, c] of Object.entries(chars)) {
-    if (!c || typeof c !== 'object') continue;
+    if (!c || typeof c !== 'object' || c.retired || isMc(state, name)) continue;
     const core = typeof c.core === 'string' ? c.core.trim() : '';
-    const st = typeof c.state === 'string' ? c.state.trim() : '';
-    if (!core && !st) continue;
-    lines.push(name + ' — ' + [core, st ? 'now: ' + st : ''].filter(Boolean).join(' | '));
-    if (lines.length >= 20) break;
+    const now = typeof c.state === 'string' ? c.state.trim() : '';
+    const arc = typeof c.arc === 'string' ? c.arc.trim() : '';
+    if (!core && !now && !arc) continue;
+    const weight = importanceOf(state, name, material, turn, scene) + (own(name) ? 30 : 0);
+    const here = present.has(lower(name));
+    const noSeat = !here && !seated.has(lower(name)) && (weight >= IMPORTANT_AT || own(name));
+    rows.push({ name, core, now, weight, here, noSeat });
   }
-  return lines.join('\n');
+  rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
+  const mark = (r) => (r.here ? ' [in the scene]' : r.noSeat ? ' [NO SEAT — seat them]' : '');
+  const whole = (r) => r.name + mark(r) + ' — ' + [r.core, r.now && !seated.has(lower(r.name)) ? 'last noted: ' + r.now : ''].filter(Boolean).join(' | ');
+  const lean = (r) => { const first = (r.core || r.now).split(/(?<=[.!?])\s+/)[0] || ''; return r.name + mark(r) + ' — ' + (first.length > 240 ? first.slice(0, first.lastIndexOf(' ', 240)) + '…' : first); };
+  const lines = [];
+  let used = 0;
+  let cutAt = -1;
+  for (let i = 0; i < rows.length; i += 1) {
+    let line = whole(rows[i]);
+    if (used + line.length + 1 > room * 0.7) line = lean(rows[i]);
+    if (used + line.length + 1 > room) { cutAt = i; break; }
+    lines.push(line);
+    used += line.length + 1;
+  }
+  const shown = lines.length; /* people, not lines — the note below is not a person */
+  if (cutAt !== -1) {
+    const rest = rows.slice(cutAt);
+    lines.push('(' + rest.length + ' more the ledger knows did not fit, the least important: ' + rest.map((r) => r.name + (r.noSeat ? ' [NO SEAT]' : '')).join(', ') + ' — fetch any with "person: NAME".)');
+  }
+  return { text: lines.join('\n'), unseated: rows.filter((r) => r.noSeat).map((r) => r.name), shown, total: rows.length };
 }
 
 /* Exported for the harness: the two messages the worker receives. */
@@ -266,7 +311,7 @@ function spokenVoices(voicesBefore) {
 }
 
 export const WORLD_LOOKS = 2;
-export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity }) {
+export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity, peopleRoom = WORLD_PEOPLE_ROOM }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
   const known = mcName(state);
@@ -287,7 +332,8 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
   const threads = renderAllThreads(state.threads);
   const knowledge = renderAllKnowledge(state.knowledge, present);
   const factions = renderAllFactions(state.factions);
-  const cores = characterCores(state);
+  const people = peopleForWorld(state, { material: String(brief || '') + '\n' + String(castNotes || ''), castNames, room: peopleRoom }); /* M304 */
+  const cores = people.text;
   const user = [
     /* M249: the story, before the ledger's bare facts — so a life beyond the
      * scene is filled from what has actually happened, as the brief demands */
@@ -315,7 +361,8 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     'VOICES ALREADY SPOKEN (rotate speakers, channels and topics; the same vendor every turn is a template):',
     spokenVoices(voicesBefore) || 'None yet.',
     '',
-    ...(cores ? ['THE PEOPLE, AS THE LEDGER KNOWS THEM:', cores, ''] : []),
+    ...(cores ? ['THE PEOPLE THE STORY CARRIES, THE MOST IMPORTANT FIRST (M304 — everyone; "[NO SEAT — seat them]" marks someone who matters and has no whereabouts at all):', cores, '',
+      ...(people.unseated.length ? ['WITH NO WHEREABOUTS RIGHT NOW — seat EVERY ONE of these in this answer (offscreen.set: where they are at this hour and what they are doing, from their page, the story so far and the clock; the want only if you can name it): ' + people.unseated.join(', '), ''] : [])] : []),
     ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] : []), /* M283 */
     ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE, ''] : []), /* M283 */
     ...(before.length ? (() => {
@@ -376,7 +423,7 @@ export function parseWorldAnswer(raw) {
 
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
-export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0 } = {}) {
+export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0 } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
@@ -384,9 +431,11 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   const state = await loadState(storyId);
   /* M259: THE RECORD RIDES. chat.js has handed it over since M249; this line
    * dropped it on arrival. */
-  const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, voicesBefore, jumpedMinutes, record, pageNumber });
+  /* M304: the people list has a room of its own — a fifth of the connection's, the same in both builds, so the pages' window is measured against the list it will really ride beside */
+  const peopleRoom = Math.max(12000, Math.floor(roomChars(connection, MAX_TOKENS) * 0.2));
+  const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, peopleRoom });
   const contextBudget = viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length);
-  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, voicesBefore, jumpedMinutes, record, pageNumber, contextBudget });
+  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, contextBudget, peopleRoom });
   /* M31: an answer we can't use earns ONE second ask with a sharper word;
    * the raw answer rides out so the drawer can show it. */
   let read = null;

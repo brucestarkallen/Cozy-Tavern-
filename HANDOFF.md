@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m303-001)
+# Cozy Tavern — handoff for the next session (state at m304-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M303). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M304). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 569 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 577 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 67 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 68 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,15 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- Nobody is nowhere (M304): presence.leave keeps a `lastSeen` seat at the ground the page BEGAN on
+  (state.groundWas); a leaving is applied before its seat within a batch; ONE definition of who is
+  carried (auditor.js carriedBy — the brief by whole or spoken name, an invited card, a standing, a
+  thread, on the way, a locked truth, a loose end, the writer's hand, a fresh history) serves the seat
+  law, the wake and the drawer; SEAT_CAP (40) is a runaway guard. The world agent is shown everyone the
+  story carries by importance with the cut SAID (peopleForWorld) and told who has NO SEAT. A seat has
+  one wording and one order (offscreen.js seatNowWords/seatLine/seatOrder) — never word a seat by hand.
+  Test names in fixtures must be DIFFERENT people: near-names are one person (findPersonKey).
+  After a mutation run, `cmp` every mutated file against its copy before running anything else.
 - A house's spelling of "think" (M303): providers/effort.js reasonStyle → one branch in openai.js
   requestBody. Kimi K3 (`kimi`): reasoning_effort low|high|max ONLY — never `thinking`, never off
   (off→low), never medium; K2.x on Moonshot (`kimi2`): the thinking:{type} switch only. Before adding

@@ -21,6 +21,17 @@
  * Entries carry an additive atTurn (the log's length when seated, like M3's
  * undo payload) so "recency" stays true even when the story clock isn't set.
  * Pure functions: fresh copies out.
+ *
+ * M304: SOMEONE WHO LEAVES THE PAGE IS NEVER NOWHERE. Walking into the scene
+ * lets a seat go, and walking out wrote nothing — so everyone the main
+ * character had recently been WITH was the one group the world held no
+ * whereabouts for, and "What's happening elsewhere" thinned to whoever a
+ * worker had happened to seat that page. presence.leave (engine/apply.js) now
+ * keeps the one thing the ledger knows for certain — where they were last
+ * seen, and when — as a seat marked `lastSeen`. It invents nothing: it reads
+ * "last seen at the Bluebird (as of 40 minutes ago)", and the world agent,
+ * shown exactly those words, moves them on by the clock. A seat the prose or
+ * the world agent writes replaces it whole.
  */
 
 import { renderArrival } from './world.js'; /* M29: stance and arrival on the clock */
@@ -43,7 +54,7 @@ function copyOffscreen(offscreen) {
 
 /* ---------- the contract ---------- */
 
-export function seat(offscreen, name, { location, activity, agenda, stance, etaMinutes } = {}, clockMinutes, atTurn) {
+export function seat(offscreen, name, { location, activity, agenda, stance, etaMinutes, lastSeen } = {}, clockMinutes, atTurn) {
   const next = copyOffscreen(offscreen);
   const who = cleanText(name);
   if (!who) return next;
@@ -56,6 +67,7 @@ export function seat(offscreen, name, { location, activity, agenda, stance, etaM
   };
   const what = cleanText(agenda);
   if (what) entry.agenda = what;
+  if (lastSeen === true) entry.lastSeen = true; /* M304: the house's own bookkeeping, not a worker's word */
   /* M29: a stance toward the main character, and an arrival on the clock.
    * etaMinutes is "from now"; with a clock set it becomes an absolute
    * arrivesAtMinutes (so the clock moving forward makes them nearer, never
@@ -113,17 +125,30 @@ export function seatAgeWords(entry, clockMinutes) {
   return 'as of ' + span + ' ago' + (ago >= 180 ? '; likely elsewhere by now' : '');
 }
 
+/* M304: one line for a seat, wherever it is read — the storyteller's state of
+ * things, the world agent's list, the drawer. (The drawer had its own copy of
+ * these words and never learned to say a seat's age.) */
+export function seatLine(name, entry, clockMinutes) { return seatWords(name, entry || {}, clockMinutes); }
+
+/* where and what, as one reads it of a person: "the Bluebird, closing up",
+ * or — for the house's own sighting — "last seen at the Bluebird"; then the
+ * want, the approach and the age, each when asked for and when there is one. */
+export function seatNowWords(entry, clockMinutes, { agenda = false, arrival = false } = {}) {
+  const e = entry && typeof entry === 'object' ? entry : {};
+  const where = cleanText(e.location);
+  const what = cleanText(e.activity);
+  let words = e.lastSeen === true
+    ? 'last seen ' + (where ? 'at ' + where.replace(/^(at|in|on)\s+/i, '') : 'where the scene stood') + (what ? ', ' + what : '')
+    : ([where, what].filter(Boolean).join(', ') || 'somewhere out of sight');
+  if (agenda && cleanText(e.agenda)) words += ' (meaning to ' + cleanText(e.agenda).replace(/\.+$/, '') + ')';
+  if (arrival) { const approach = renderArrival(e, clockMinutes); if (approach) words += ' — ' + approach; }
+  const age = seatAgeWords(e, clockMinutes);
+  if (age) words += ' (' + age + ')';
+  return words;
+}
+
 function seatWords(name, entry, clockMinutes) {
-  const parts = [];
-  if (cleanText(entry.location)) parts.push(cleanText(entry.location));
-  if (cleanText(entry.activity)) parts.push(cleanText(entry.activity));
-  let line = name + ' — ' + (parts.join(', ') || 'somewhere out of sight');
-  if (cleanText(entry.agenda)) line += ' (meaning to ' + cleanText(entry.agenda).replace(/\.+$/, '') + ')';
-  const approach = renderArrival(entry, clockMinutes);
-  if (approach) line += ' — ' + approach;
-  const age = seatAgeWords(entry, clockMinutes);
-  if (age) line += ' (' + age + ')';
-  return line;
+  return name + ' — ' + seatNowWords(entry, clockMinutes, { agenda: true, arrival: true });
 }
 
 /* The six most recently seated who are NOT in the scene right now.
@@ -150,12 +175,23 @@ export function renderOffscreen(offscreen, present, clockMinutes, top = RENDER_T
   return rows.slice(0, top).map((r) => r.line).join('\n');
 }
 
+/* M304: the same order, as names — the drawer lists the absent the way the
+ * storyteller is told of them */
+export function seatOrder(offscreen, clockMinutes) {
+  const safe = offscreen && typeof offscreen === 'object' ? offscreen : {};
+  return Object.keys(safe)
+    .filter((name) => safe[name] && typeof safe[name] === 'object')
+    .map((name) => ({ name, recency: recencyKey(safe[name]), rank: stanceRank(safe[name], clockMinutes) }))
+    .sort((a, b) => (a.rank - b.rank) || (b.recency - a.recency))
+    .map((r) => r.name);
+}
+
 /* Lower is nearer the scene. `toward` and `seeking` carry their arrival: due
  * or overdue first, then by how soon; a stance with no clock sits behind
  * one with a clock. */
 function stanceRank(entry, clockMinutes) {
   const st = typeof entry.stance === 'string' ? entry.stance : '';
-  const base = st === 'toward' ? 0 : st === 'seeking' ? 100 : st === 'tense' ? 200 : st === 'busy' ? 300 : st === 'waiting' ? 400 : 500;
+  const base = st === 'toward' ? 0 : st === 'seeking' ? 100 : st === 'tense' ? 200 : st === 'busy' ? 300 : st === 'waiting' ? 400 : entry.lastSeen === true ? 600 : 500; /* M304: a bare sighting says least about who can reach the scene */
   if (st === 'toward' || st === 'seeking') {
     if (Number.isFinite(entry.arrivesAtMinutes) && Number.isFinite(clockMinutes)) {
       const left = entry.arrivesAtMinutes - clockMinutes;

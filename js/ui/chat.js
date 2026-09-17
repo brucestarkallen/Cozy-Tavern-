@@ -71,7 +71,7 @@ import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildReco
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
 import { renderWorldBrief, threadHousekeeping } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
-import { castForStory } from '../import/cards.js';
+import { castForStory, castNamesFor } from '../import/cards.js';
 import { loadLore, matchLoreDetailed, saveLore } from '../import/lorebook.js';
 import { parseCommand, commandChip } from '../commands.js';
 import { openReceipt } from './receiptview.js';
@@ -2251,7 +2251,7 @@ export function initChat(ctx) {
     const connection = await resolveWorkerConnection(story, 'auditor');
     if (!connection) { banner.failed('The auditor needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale, renew }) => {
-      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew });
       if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     } });
@@ -2620,6 +2620,7 @@ export function initChat(ctx) {
         record: worldRecord,   /* M249: the folded story, as the extractor gets it */
         brief: story.brief || '',
         castNotes: story.castNotes || '',
+        castNames: await castNamesFor(story), /* M304: an invited card is one of the writer's own people */
         voicesBefore,
         effort: await worldEffort(),
         signal,
@@ -2798,7 +2799,7 @@ export function initChat(ctx) {
       /* M261: a page the auditor does not read is still kept — in code, logged
        * with its take-back; the workers line stays quiet, as the auditor did */
       const upkeepOnly = async () => {
-        try { await ledgerUpkeep({ storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', stale }); } catch (err) { /* the next page keeps it */ }
+        try { await ledgerUpkeep({ storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), stale }); } catch (err) { /* the next page keeps it */ }
         return { silent: true };
       };
       if (!(await auditOn(story))) return upkeepOnly();
@@ -2812,7 +2813,7 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'auditor');
       if (!connection) return upkeepOnly();
       if (stale()) return { silent: true };
-      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew });
       if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     });
