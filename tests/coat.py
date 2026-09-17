@@ -39,7 +39,7 @@ fails = []
 try:
     with sync_playwright() as p:
         browser = p.chromium.launch(args=['--no-sandbox'])
-        for coat in ('dark', 'light'):
+        for coat in ('dark', 'light', 'deep', 'magma'):
             ctx = browser.new_context()
             page = ctx.new_page()
             page.goto(BASE, wait_until='load')

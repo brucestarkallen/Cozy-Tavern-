@@ -18,6 +18,7 @@ import { db } from '../store.js';
 import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '../providers/index.js';
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
 import { learnContext } from '../providers/detect.js'; /* M289 */
+import { byName } from '../providers/order.js'; /* M301: every list of names the writer picks from, A to Z */
 import { EFFORT_RANK, effortFor, reasonStyle } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
@@ -44,6 +45,8 @@ let workerRowsGeneration = 0;
 export function initSettings(ctx) {
   const els = {
     connList: document.getElementById('connection-list'),
+    connPick: document.getElementById('connection-pick'),
+    connPickLabel: document.getElementById('connection-pick-label'),
     connEmpty: document.getElementById('connection-list-empty'),
     btnAdd: document.getElementById('btn-add-connection'),
     form: document.getElementById('connection-form'),
@@ -220,15 +223,53 @@ export function initSettings(ctx) {
     return db.settings.get('activeConnectionId');
   }
 
+  /* M301: ONE PICKER, ONE CARD. Every connection used to stand here as a whole
+   * card with its five buttons, in the order they were made — a dozen
+   * connections was a wall to scroll and nothing in it could be found. The
+   * room is a drop-down now, A to Z, the one in use marked, and under it the
+   * one card of the connection picked. `shownConnId` is only which card is
+   * under the eye; it changes nothing about who tells the story. */
+  let shownConnId = null;
+  let connRenderGeneration = 0;
   async function renderConnections() {
-    const all = await db.connections.list();
-    const activeId = await activeConnectionId();
+    const mine = ++connRenderGeneration;
+    const made = await db.connections.list();
+    const all = byName(made);
+    let activeId = await activeConnectionId();
+    /* M301: THE ONE MARKED "IN USE" IS THE ONE IN USE. With the kept id naming
+     * no connection (let go in another browser, a brought-back copy), every
+     * resolver falls to the first one made — and this room marked none of
+     * them, so the writer could not see who was telling the story. The room
+     * keeps what the resolvers already do; nobody's storyteller changes. */
+    if (made.length && !made.some((c) => c.id === activeId)) {
+      activeId = made[0].id;
+      await db.settings.set('activeConnectionId', activeId);
+    }
+    if (mine !== connRenderGeneration) return; /* a newer render has the room (M245's race) */
     els.connList.textContent = '';
     els.connEmpty.hidden = all.length > 0;
+    const shown = all.find((c) => c.id === shownConnId) || all.find((c) => c.id === activeId) || all[0] || null;
+    shownConnId = shown ? shown.id : null;
+    if (els.connPick) {
+      els.connPick.textContent = '';
+      for (const conn of all) {
+        const opt = document.createElement('option');
+        opt.value = conn.id;
+        opt.textContent = conn.label + (conn.model ? ' — ' + conn.model : '') + (conn.id === activeId ? '  ·  in use' : '');
+        els.connPick.appendChild(opt);
+      }
+      if (shown) els.connPick.value = shown.id;
+      els.connPick.hidden = all.length === 0;
+      if (els.connPickLabel) {
+        els.connPickLabel.hidden = all.length === 0;
+        els.connPickLabel.textContent = all.length === 1 ? 'Your connection' : 'Your ' + all.length + ' connections, A to Z';
+      }
+    }
 
-    for (const conn of all) {
+    for (const conn of (shown ? [shown] : [])) {
       const li = document.createElement('li');
       li.className = 'connection-card' + (conn.id === activeId ? ' active' : '');
+      li.dataset.id = conn.id;
 
       const top = document.createElement('div');
       top.className = 'connection-top';
@@ -309,6 +350,7 @@ export function initSettings(ctx) {
       copyBtn.addEventListener('click', async () => {
         const { id, createdAt, ...rest } = conn;
         const copy = await db.connections.add({ ...rest, label: conn.label + ' (copy)' });
+        shownConnId = copy.id; /* M301: the copy is the one under the eye */
         await renderConnections();
         const fresh = (await db.connections.list()).find((c) => c.id === copy.id) || copy;
         openForm(fresh);
@@ -322,6 +364,7 @@ export function initSettings(ctx) {
         const sure = window.confirm(`Let go of “${conn.label}”? The key on this device goes with it.`);
         if (!sure) return;
         await db.connections.remove(conn.id);
+        shownConnId = null; /* M301: back to the one in use */
         if ((await activeConnectionId()) === conn.id) {
           const rest = await db.connections.list();
           await db.settings.set('activeConnectionId', rest.length ? rest[0].id : null);
@@ -336,6 +379,9 @@ export function initSettings(ctx) {
 
     /* keep the workers' picker in step with who's available */
     renderWorkers();
+  }
+  if (els.connPick) {
+    els.connPick.addEventListener('change', () => { shownConnId = els.connPick.value || null; renderConnections(); });
   }
 
   function fillFromPreset() {
@@ -512,7 +558,7 @@ export function initSettings(ctx) {
       placeholder.value = '';
       placeholder.textContent = 'Choose one…';
       els.modelsPick.appendChild(placeholder);
-      for (const m of models) {
+      for (const m of byName(models, (x) => (x && (x.label || x.id)))) { /* M301: hundreds on offer, A to Z */
         const opt = document.createElement('option');
         opt.value = m.id;
         opt.textContent = m.label === m.id ? m.id : `${m.label} (${m.id})`;
@@ -666,6 +712,7 @@ export function initSettings(ctx) {
       db.connections.list().then((all) => { const c = all.find((x) => x.id === editingId); if (c) learnContext(c).catch(() => {}); }).catch(() => {});
     } else {
       const saved = await db.connections.add(fields);
+      shownConnId = saved.id; /* M301: the new one is the one under the eye */
       learnContext(saved).catch(() => {}); /* M289: its room, asked of the provider */
       if (!(await activeConnectionId())) {
         await db.settings.set('activeConnectionId', saved.id);
@@ -978,7 +1025,7 @@ export function initSettings(ctx) {
    * telling the story". The per-story toggle defaults on; a story with
    * extraction:false keeps its ledger by hand alone. */
   async function renderWorkers() {
-    const all = await db.connections.list();
+    const all = byName(await db.connections.list()); /* M301: every picker reads A to Z */
     const wanted = await db.settings.get('workerConnectionId');
     els.workerConn.textContent = '';
     const same = document.createElement('option');

@@ -910,7 +910,11 @@ export function initChat(ctx) {
     return sec < 60 ? Math.round(sec) + 's' : Math.floor(sec / 60) + 'm ' + Math.round(sec % 60) + 's';
   }
 
+  /* M301: `text` may be a function — the live block hands one over so "Copy the
+   * thinking" takes what has streamed SO FAR. The live block was made with ''
+   * and its button copied that '' for as long as the page was being written. */
   function thinkingNode(text, ms) {
+    const wordsNow = () => String((typeof text === 'function' ? text() : text) || '');
     const details = document.createElement('details');
     details.className = 'thinking';
     const summary = document.createElement('summary');
@@ -919,7 +923,7 @@ export function initChat(ctx) {
     summary.innerHTML = '<span class="thinking-arrow" aria-hidden="true">▸</span> what the storyteller weighed' + (took ? ' — thought for <span class="thinking-took">' + took + '</span>' : '');
     const body = document.createElement('div');
     body.className = 'thinking-body';
-    body.textContent = text;
+    body.textContent = typeof text === 'function' ? '' : text;
     /* M105: the thought can be taken away in one tap */
     const copy = document.createElement('button');
     copy.type = 'button';
@@ -927,10 +931,60 @@ export function initChat(ctx) {
     copy.textContent = 'Copy the thinking';
     copy.addEventListener('click', async (e) => {
       e.preventDefault();
-      try { await navigator.clipboard.writeText(String(text || '')); copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy the thinking'; }, 1500); } catch (err) { copy.textContent = 'Couldn’t copy'; }
+      try { await navigator.clipboard.writeText(wordsNow()); copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy the thinking'; }, 1500); } catch (err) { copy.textContent = 'Couldn’t copy'; }
     });
     details.append(summary, body, copy);
     return details;
+  }
+
+  /* M301: THE THINKING OF A TELLING THAT LEFT NO PAGE IS KEPT. A telling
+   * stopped by hand while the storyteller was still thinking (or one the wire
+   * dropped there) had no prose, so nothing was saved and the pending node —
+   * the thinking with it — was taken off the page. It is kept now: one row a
+   * tale (`cutThinking:<tale>` — it rides the tale's book and goes with the
+   * tale), drawn where it was being written, whole, with its copy button, and
+   * let go when the next page lands (that page carries its own thinking).
+   * It is not a page: no reader, no history, no request ever holds it. */
+  const CUT_KEY = 'cutThinking:';
+  function cutThinkingNode(cut, open) {
+    const article = document.createElement('article');
+    article.className = 'msg msg-note kept-thinking';
+    article.dataset.cut = String(cut.ts);
+    const label = document.createElement('div');
+    label.className = 'msg-label lbl';
+    label.textContent = 'the storyteller — ' + (cut.why === 'stopped' ? 'stopped while thinking'
+      : cut.why === 'dropped' ? 'the wire dropped while it was thinking' : 'it thought and wrote nothing') + '; no page was written';
+    const details = thinkingNode(cut.text, cut.ms);
+    details.open = open === true;
+    article.append(label, details);
+    return article;
+  }
+  /* where it belongs: after the page it followed; at the tail when that page
+   * has gone; nowhere when that page is above the drawn window (M136) */
+  function placeCutThinking(cut, { showThinking, visible, open = false }) {
+    const old = els.thread.querySelector('.kept-thinking');
+    if (!cut || typeof cut.text !== 'string' || !cut.text.trim() || showThinking === false) { if (old) old.remove(); return; }
+    if (old && old.dataset.cut === String(cut.ts)) return;
+    if (old) old.remove();
+    const node = cutThinkingNode(cut, open);
+    const anchor = cut.afterId ? [...els.thread.querySelectorAll('.msg[data-id]')].find((n) => n.dataset.id === String(cut.afterId)) || null : null;
+    if (anchor) { anchor.after(node); return; }
+    if (cut.afterId && Array.isArray(visible) && visible.some((m) => m.id === cut.afterId)) return;
+    els.thread.appendChild(node);
+  }
+  async function keepCutThinking(story, pending, { text, ms, why, showThinking }) {
+    const visible = (await db.messages.list(story.id)).filter((m) => m && !m.hidden);
+    const cut = { text, ms: Number.isFinite(ms) && ms > 0 ? ms : undefined, why, ts: Date.now(), afterId: visible.length ? visible[visible.length - 1].id : null };
+    await db.settings.set(CUT_KEY + story.id, cut);
+    if (pending && pending.isConnected) pending.remove();
+    const now = await activeStory();
+    if (now && now.id === story.id) placeCutThinking(cut, { showThinking, visible, open: true });
+  }
+  async function clearCutThinking(storyId) {
+    if ((await db.settings.get(CUT_KEY + storyId)) !== undefined) await db.settings.delete(CUT_KEY + storyId);
+    const now = await activeStory();
+    const node = els.thread.querySelector('.kept-thinking');
+    if (node && now && now.id === storyId) node.remove();
   }
 
   /* M22-C: the folded sources block — where the storyteller looked things
@@ -1256,6 +1310,7 @@ export function initChat(ctx) {
     const turnsShownSetting = Number(await db.settings.get('turnsShown')); /* M136 */
     const mastheadOn = (await db.settings.get('masthead')) !== false;
     const connections = els.noConnection ? await db.connections.list() : [];
+    const cutThinking = story ? await db.settings.get(CUT_KEY + story.id) : null; /* M301 */
     if (!story) {
       els.thread.textContent = '';
       lastRender = { storyId: null, ids: [] };
@@ -1336,6 +1391,7 @@ export function initChat(ctx) {
       }
     }
     lastRender = { storyId: story.id, ids, showThinking };
+    placeCutThinking(cutThinking, { showThinking, visible }); /* M301: the thinking of a telling that left no page */
     /* M22-E3: opening a story lands at the latest page; a quiet append while
      * you're reading above the tail never drags you down — the jump pill
      * offers the way back instead.
@@ -3486,6 +3542,7 @@ export function initChat(ctx) {
         if (paintRaf) { cancelAnimationFrame(paintRaf); paintRaf = 0; }
       };
       let stoppedByHand = false;
+      let failedWords = ''; /* M301: the wire's own word for why no page came */
       let finishReason = null;
       let streamSources = null; // M22-C: the search's findings
       try {
@@ -3519,7 +3576,7 @@ export function initChat(ctx) {
               }
               if (showThinking) {
                 if (!thinkDetails) {
-                  thinkDetails = thinkingNode('', 1);
+                  thinkDetails = thinkingNode(() => thinking, 1); /* M301: its copy button takes what has streamed so far */
                   thinkBody = thinkDetails.querySelector('.thinking-body');
                   pending.insertBefore(thinkDetails, body);
                   if (!sawProse) thinkDetails.open = true;
@@ -3603,7 +3660,13 @@ export function initChat(ctx) {
         if (err && err.name === 'AbortError') {
           stoppedByHand = true;
         } else {
-          pending.replaceWith(noteNode(err.message || 'The storyteller went quiet. Try again in a moment.'));
+          /* M301: ONE word from the house, with its way to ask again. The wire's
+           * own words used to stand as one note and "the storyteller went quiet"
+           * as a second under it — two notes for one failure, the button on the
+           * one that said less. */
+          failedWords = err.message || 'The storyteller went quiet. Try again in a moment.';
+          /* M301: what it had thought before the wire dropped is kept */
+          if (thinking.trim()) await keepCutThinking(story, null, { text: thinking, ms: thinkMs, why: 'dropped', showThinking });
           full = '';
           thinking = '';
         }
@@ -3676,6 +3739,7 @@ export function initChat(ctx) {
             stopped: stoppedByHand || undefined,
           });
           pending.remove();
+          await clearCutThinking(story.id); /* M301: a page landed — it carries its own thinking */
           await rerenderMessage(story.id, target.id);
           /* The walker's ids still hold: the page was re-inked in place,
            * no page came or went. Emptying ids here used to make the next
@@ -3711,6 +3775,7 @@ export function initChat(ctx) {
           sources: streamSources || undefined,
         });
         pending.replaceWith(msgNode(saved, showThinking, { isLastAssistant: true, mastheadOn: (await db.settings.get('masthead')) !== false }));
+        await clearCutThinking(story.id); /* M301: a page landed — it carries its own thinking */
         /* The pending node was never in the walker's ids; the saved page
          * takes its place at the tail. Record the id — do NOT clear the
          * list: an empty walker passes the append check and the next
@@ -3739,13 +3804,20 @@ export function initChat(ctx) {
           startShowrunnerWork(story, { episodeEnded });
         }
       } else if (!stoppedByHand) {
-        /* B9: nothing came back — named kindly, with a way to ask again. */
+        /* B9: nothing came back — named kindly, with a way to ask again.
+         * M301: what it thought before writing nothing is kept all the same
+         * (an error's thinking was kept, and emptied, where the error was caught) */
+        if (thinking.trim()) await keepCutThinking(story, pending, { text: thinking, ms: thinkMs, why: 'quiet', showThinking });
         pending.remove();
         els.thread.appendChild(retryNoteNode(
-          'The storyteller went quiet — nothing came back. Say the word and I’ll ask again.',
+          failedWords || 'The storyteller went quiet — nothing came back. Say the word and I’ll ask again.',
           () => retryAsk()
         ));
         scrollToBottom();
+      } else if (thinking.trim()) {
+        /* M301: stopped while it was still thinking — the thinking stays on the
+         * page, whole and copyable, until the next page lands */
+        await keepCutThinking(story, pending, { text: thinking, ms: thinkMs, why: 'stopped', showThinking });
       } else {
         pending.remove();
       }

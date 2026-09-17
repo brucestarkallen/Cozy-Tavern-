@@ -123,6 +123,15 @@ export function initHousekeeper(ctx) {
    * again under the session's turns whenever the sheet is drawn. */
   let liveAsk = null;
   const DRAFT_PREFIX = 'hkDraft:';
+  /* M301: THE THINKING OF AN ASK THAT GOT NO ANSWER IS KEPT. An ask stopped by
+   * hand (or cut by the silence watch, or dropped by the wire) while the
+   * housekeeper was still thinking left no turn, and the live fold was taken
+   * off the sheet with everything it had thought. One row a tale holds it now
+   * (`hkCut:<tale>`), drawn under the session that asked, with its copy
+   * button, until that tale's next answer lands. It is never a turn: nothing
+   * sent to the housekeeper holds it. */
+  const CUT_PREFIX = 'hkCut:';
+  let cutThought = null;
 
   async function ensureSession() {
     const story = await activeStory();
@@ -130,8 +139,29 @@ export function initHousekeeper(ctx) {
     if (sessionStoryId !== story.id) {
       session = await loadSession(story.id);
       sessionStoryId = story.id;
+      try { cutThought = (await db.settings.get(CUT_PREFIX + story.id)) || null; } catch (err) { cutThought = null; }
     }
     return story;
+  }
+  const cutHere = () => Boolean(cutThought && typeof cutThought.text === 'string' && cutThought.text.trim()
+    && cutThought.storyId === sessionStoryId
+    && (!Number.isFinite(cutThought.sessionId) || !session || !Number.isFinite(session.id) || cutThought.sessionId === session.id));
+  function cutFold(open) {
+    const det = thinkingFold(cutThought.text);
+    det.classList.add('hk-cut');
+    det.querySelector('summary').textContent = 'How it was weighing it — cut before it answered';
+    if (open) det.open = true;
+    return det;
+  }
+  async function keepCut(storyId, sessionId, text) {
+    const cut = { text, ts: Date.now(), storyId, sessionId: Number.isFinite(sessionId) ? sessionId : undefined };
+    await db.settings.set(CUT_PREFIX + storyId, cut);
+    if (sessionStoryId === storyId) cutThought = cut;
+    return cut;
+  }
+  async function clearCut(storyId) {
+    if ((await db.settings.get(CUT_PREFIX + storyId)) !== undefined) await db.settings.delete(CUT_PREFIX + storyId);
+    if (cutThought && cutThought.storyId === storyId) cutThought = null;
   }
 
   /* ---------- rendering ---------- */
@@ -328,6 +358,7 @@ export function initHousekeeper(ctx) {
     if (busy) { toast('Wait for the housekeeper to finish.'); return; }
     const story = await ensureSession();
     if (!story) return;
+    const wasSessionId = session && session.id;
     if (act === 'switch') session = await switchSession(story.id, arg);
     else if (act === 'new') session = await newSession(story.id);
     else if (act === 'branch') session = await branchSession(story.id);
@@ -336,6 +367,8 @@ export function initHousekeeper(ctx) {
     else if (act === 'delete') { if (!window.confirm('Delete this session? The story and every applied change stay.')) return; session = await deleteSession(story.id); }
     else if (act === 'clear') { if (!window.confirm('Clear this session’s talk? Applied changes stay.')) return; session = await clearSession(story.id); }
     else if (act === 'del-last') session = await deleteLastExchange(story.id);
+    /* M301: a session deleted or cleared takes its cut thinking with it — a new session may be given its number */
+    if ((act === 'delete' || act === 'clear') && cutThought && cutThought.sessionId === wasSessionId) await clearCut(story.id);
     await renderSessions();
     render();
     if (act === 'branch') toast('Copied — the new session is its own; the original stands.');
@@ -615,7 +648,7 @@ export function initHousekeeper(ctx) {
       return;
     }
     const liveHere = liveAsk && liveAsk.storyId === sessionStoryId && (!Number.isFinite(liveAsk.sessionId) || !session || liveAsk.sessionId === session.id);
-    if (!session.turns.length && !liveHere) {
+    if (!session.turns.length && !liveHere && !cutHere()) {
       const note = document.createElement('p');
       note.className = 'quiet hk-empty';
       note.textContent = 'Nothing asked yet. The housekeeper has already read the house.';
@@ -646,6 +679,7 @@ export function initHousekeeper(ctx) {
         thread.append(r);
       }
     });
+    if (cutHere()) thread.append(cutFold(false)); /* M301 */
     renderCardsBox();
     thread.scrollTop = thread.scrollHeight;
     /* M271: the ask still in flight, drawn where it belongs */
@@ -845,7 +879,8 @@ export function initHousekeeper(ctx) {
     let liveThinking = ''; /* M80: what streamed, kept here too — never lost to a round or a wire that returned it empty */
     let thinkFold = null;
     let thinkBody = null;
-    liveAsk = { storyId: story.id, sessionId: session && session.id, nodes: () => [writerBubble, thinkFold, pendingBubble].filter(Boolean) };
+    const askSessionId = session && session.id; /* M301: the session that asked, whatever the writer opens meanwhile */
+    liveAsk = { storyId: story.id, sessionId: askSessionId, nodes: () => [writerBubble, thinkFold, pendingBubble].filter(Boolean) };
     /* M269: what streamed since the last frame, drawn once a frame */
     let waitingThink = '';
     let waitingProse = '';
@@ -856,6 +891,14 @@ export function initHousekeeper(ctx) {
     const atBottom = () => thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80;
     let streamDone = false;
     let thinkTail = null; /* M279: the live thinking's line-by-line drawing */
+    const liveCopyButton = () => {
+      const copy = document.createElement('button');
+      copy.type = 'button'; copy.className = 'text-btn thinking-copy'; copy.textContent = 'Copy the thinking';
+      copy.addEventListener('click', async (e) => { e.preventDefault(); try { await navigator.clipboard.writeText(liveThinking); copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy the thinking'; }, 1500); } catch (err) { copy.textContent = 'Couldn’t copy'; } });
+      return copy;
+    };
+    let cutKept = false; /* M301 */
+    let answered = false; /* M301: once an answer has landed, its thinking is the turn's — never a cut */
     const drawStream = () => {
       drawQueued = false;
       if (streamDone) return;
@@ -869,7 +912,7 @@ export function initHousekeeper(ctx) {
           sum.textContent = 'How it’s weighing it…';
           thinkBody = document.createElement('div');
           thinkBody.className = 'hk-thinking-body';
-          thinkFold.append(sum, thinkBody);
+          thinkFold.append(sum, thinkBody, liveCopyButton()); /* M301: copyable while it is still thinking */
           pendingBubble.before(thinkFold);
         }
         /* M279: the whole thinking, line by line, readable from its first word */
@@ -884,12 +927,6 @@ export function initHousekeeper(ctx) {
           if (thinkFold) {
             thinkFold.open = false;
             thinkFold.querySelector('summary').textContent = 'How it weighed it';
-            if (!thinkFold.querySelector('.thinking-copy')) {
-              const copy = document.createElement('button');
-              copy.type = 'button'; copy.className = 'text-btn thinking-copy'; copy.textContent = 'Copy the thinking';
-              copy.addEventListener('click', async (e) => { e.preventDefault(); try { await navigator.clipboard.writeText(liveThinking); copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy the thinking'; }, 1500); } catch (err) { copy.textContent = 'Couldn’t copy'; } });
-              thinkFold.appendChild(copy);
-            }
           }
         }
         /* M272: the answer as it will read — the blocks it is writing become a quiet note.
@@ -982,6 +1019,8 @@ export function initHousekeeper(ctx) {
       });
       if (!result.ok) {
         liveAsk = null;
+        /* M301: what it had thought before the ask was cut stays on the sheet */
+        if (liveThinking.trim()) { await keepCut(story.id, askSessionId, liveThinking.trim()); cutKept = true; }
         pendingBubble.remove();
         if (!open) toast('The housekeeper could not answer — your question is back in its box.');
         statusLine.textContent = stalled
@@ -998,7 +1037,9 @@ export function initHousekeeper(ctx) {
        * already holds it there (housekeeperTurn saved it by storyId); this view
        * must not draw it into the room the writer is in now. */
       liveAsk = null;
+      answered = true;
       try { await db.settings.set(DRAFT_PREFIX + story.id, ''); } catch (err) { /* nothing to put back */ }
+      try { await clearCut(story.id); } catch (err) { /* it goes with the next answer */ } /* M301: an answer landed — it carries its own thinking */
       if (sessionStoryId !== story.id || (session && Number.isFinite(session.id) && Number.isFinite(result.session.id) && session.id !== result.session.id)) {
         toast('The housekeeper answered in the session that asked — open it to read.');
         return true;
@@ -1042,6 +1083,7 @@ export function initHousekeeper(ctx) {
       return true;
     } catch (err) {
       liveAsk = null;
+      if (!cutKept && !answered && liveThinking.trim()) { try { await keepCut(story.id, askSessionId, liveThinking.trim()); cutKept = true; } catch (e) { /* the stumble is still said below */ } }
       pendingBubble.remove();
       input.value = text;
       statusLine.textContent = 'It stumbled: ' + ((err && err.message) || 'unknown') + '. Nothing was changed.';
@@ -1049,7 +1091,8 @@ export function initHousekeeper(ctx) {
       clearInterval(ticker);
       streamDone = true; /* M269: a stumbled or cut turn draws nothing later either */
       liveAsk = null;
-      if (thinkFold && thinkFold.isConnected) thinkFold.remove(); /* render() draws the kept thinking from the turn */
+      /* render() draws the kept thinking from the turn; M301: a cut ask's thinking stays where it was */
+      if (thinkFold && thinkFold.isConnected) { if (cutKept && cutHere()) thinkFold.replaceWith(cutFold(true)); else thinkFold.remove(); }
       workerCtl = null;
       setBusy(false);
     }

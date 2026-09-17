@@ -6573,3 +6573,53 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   page missed is read by the house while it is idle (M276); the main character's now comes from the
   ledger. Rebuild people remains for the one case it was made for (M262's old readers) and runs itself.
 - version.js -> m300-001.
+
+# M301 — the thinking of a telling that left no page is kept; the connections are one drop-down, A to Z; the magma coat
+- THE WRITER: "if I stop while the thinking is happening, the thinking is not gone but still there so I
+  can still copy it"; "make the connections an alphabetical drop-down — it's so cluttered"; "a new
+  theme like AI Dungeon — red magma gradient, neon, teal-black, good for the eyes."
+- THINKING. File js/ui/chat.js generate(). ROOT CAUSE: only a page with prose is saved, and a telling
+  with none fell to `pending.remove()` — the pending node carried the thinking, so it went with it.
+  The same fault stood in four places, all fixed: Stop while thinking; the wire dropping there (the
+  catch emptied `thinking`); a reply that thought and wrote nothing; and the housekeeper (its
+  `finally` removed the live fold on a stopped or failed ask). CHANGE: one row a tale —
+  `cutThinking:<tale>` (the storyteller), `hkCut:<tale>` (the housekeeper, with the session that
+  asked) — drawn after the page it followed, whole, open, with its copy button; it survives a redraw
+  and a reload, rides the tale's book to the other browser, goes with the tale (both in
+  STORY_PREFIXES, with `hkDraft`, which was missing), and is let go when the next page/answer lands,
+  or with a deleted/cleared housekeeper session. It is never a page or a turn: no reader, history or
+  request holds it (DOM-38/40 read every request body sent afterwards).
+  FOUND BY READING, FIXED: the live block was made with `thinkingNode('', 1)`, so "Copy the thinking"
+  copied '' for as long as the page streamed (thinkingNode takes a function now); the housekeeper's
+  live fold had no copy button until prose began; an error left TWO notes for one failure, the "Ask
+  again" on the one that said less — one note now, the wire's own words with the button.
+  NOT A BUG: "Try again" lets the page go and writes it anew (SillyTavern's Regenerate); the swipe ▸
+  keeps every version. A Stop mid-thought on a swipe keeps the page and the thinking (DOM-39).
+  jsdom has no `CSS.escape` — the anchor is found by dataset, not by a built selector.
+- CONNECTIONS. Files js/providers/order.js (new; in sw.js's shell), js/ui/settings.js, index.html.
+  byName() is the DISPLAY order only — case and accents ignored, numbers in number order, ties as
+  made. db.connections.list() is untouched (M301-2): three resolvers fall back to "the first one
+  made" (chat.js resolveConnection, housekeeper.js, settings.js Let go) and must not move with a
+  name. The Connections room is one drop-down (the one in use marked) over ONE card with the same
+  five buttons; the house worker picker, every per-worker picker, the story's own storyteller, the
+  models on offer and "Start from" (Custom last) read in the same order. `shownConnId` is only which
+  card is under the eye. FOUND, FIXED: with activeConnectionId naming no connection, every resolver
+  silently used the first one made and the room marked none "in use" — the room now keeps that same
+  connection as the id (nobody's storyteller changes). The cards carry data-id, so M-era
+  returnToPlace's row lookup, which never matched, does.
+- MAGMA. Files css/base.css (the coat's tokens, the whole pack), css/chat.css (the room), js/app.js.
+  app.js named the three coats by hand four times — a fourth chosen in Settings would have resolved
+  to "follow the sky"; one COATS map now (name → the phone bar's colour). The glow is painted once on
+  `.thread-wrap`, which never scrolls; `.thread` and `.composer-zone` are clear over it. Measured in
+  Chromium 412×915 (tests/paint_magma.py, exits 1 on failure): head rgb(9,18,22), foot rgb(122,41,20);
+  17 text surfaces standing on the glow against the pixels actually behind them, lowest 6.5:1;
+  scrolling sixty pages at 6× CPU throttle — deep 16.6 ms median / 22.2 p95, magma 16.6 / 22.8.
+  contrast.py and coat.py hold magma (0 surfaces under AA in all four coats). The coat laws
+  (beauty.mjs, m100.mjs) name EVERY coat now, and two source-text asserts on app.js became DOM-42,
+  which chooses each radio and reads the room, the bar and the kept choice.
+- MUTATION-CHECKED: with keepCut, the landing's clear, byName's sort and magma's COATS entry each
+  removed, DOM-38, DOM-40, DOM-41, DOM-42 and M301-1 fail; DOM-38/39 failed on their own while
+  CSS.escape had the feature dead.
+- 562/562 harness + 61/61 walk + 8/8 play + lint 0 errors; twobrowsers 26, twohands, foldcrash,
+  perf_housekeeper (both scenarios), housekeeper_rounds, contrast, coat, paint_magma: all green.
+  version.js -> m301-001.

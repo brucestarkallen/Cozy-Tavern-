@@ -309,6 +309,12 @@ test('M167: the 🎨 pack paints in tokens, so it follows the coat', async () =>
     assert(root.includes(token + ':'), token + ' has a lamplight value');
     assert(light.includes(token + ':'), token + ' has a daylight value');
   }
+  /* M301: and in every other coat there is — a coat without the pack wears
+   * lamplight's near-black cards in its own room (the fault M167 fixed) */
+  for (const m of css.matchAll(/html\[data-theme='([a-z]+)'\]\s*\{/g)) {
+    const block = css.slice(m.index, css.indexOf('\n}', m.index));
+    for (const token of used) assert(block.includes(token + ':'), token + ' has a value in the ' + m[1] + ' coat');
+  }
 });
 
 /* M168: B19 darkened the light coat's --ember to #8a5205 so it would read as

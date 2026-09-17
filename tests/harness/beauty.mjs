@@ -622,14 +622,18 @@ test('M254: green means read, folded and waiting on nothing — and a third coat
     return at === -1 ? '' : base.slice(at, base.indexOf('}', at));
   };
   const root = blockOf(':root');
-  const deep = blockOf("html[data-theme='deep']");
-  assert(deep, 'the deep coat exists');
   const colourTokens = [...new Set([...root.matchAll(/(--[a-z0-9-]+):\s*#/g)].map((m) => m[1]))];
   assert(colourTokens.length >= 15, 'the house has a full palette (' + colourTokens.length + ')');
-  for (const t of colourTokens) assert(deep.includes(t + ':'), 'the deep coat defines ' + t);
-
-  assert(/value="deep"/.test(html), 'and the writer can choose it');
-  const app = fs.readFileSync(path.join(here, '../../js/app.js'), 'utf8');
-  assert(/themeMode === 'deep'/.test(app), 'the house resolves it');
-  assert(/now === 'deep' \? '#0a0f12'/.test(app), 'and the phone’s own bar matches it');
+  /* M301: EVERY coat, however many there are — the law named the deep alone,
+   * so a fourth coat could have shipped half-dressed and passed. (That the
+   * house resolves a chosen coat is behaviour, and is held where behaviour
+   * can be run: the walk, DOM-42.) */
+  const coats = [...new Set([...base.matchAll(/html\[data-theme='([a-z]+)'\]\s*\{/g)].map((m) => m[1]))];
+  assert(coats.includes('deep') && coats.includes('magma') && coats.includes('light'), 'the coats: ' + coats.join(', '));
+  for (const coat of coats) {
+    const block = blockOf("html[data-theme='" + coat + "'] {");
+    assert(block, 'the ' + coat + ' coat exists');
+    for (const t of colourTokens) assert(block.includes(t + ':'), 'the ' + coat + ' coat defines ' + t);
+    assert(new RegExp('name="theme" value="' + coat + '"').test(html), 'and the writer can choose ' + coat);
+  }
 });

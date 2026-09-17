@@ -78,6 +78,8 @@ const settled = async () => {
   await tick(120);
 };
 const storyId = async () => (await db.settings.get('activeStoryId'));
+const { byName: byNameOrder } = await import('../../js/providers/order.js');
+const byNameLabels = (rows) => byNameOrder(rows).map((c) => c.label);
 
 test('DOM-1 the app boots with no errors and no connection prompts a kind note on send', async () => {
   eq(errors.length, 0, errors.join(' | '));
@@ -2159,6 +2161,281 @@ test('DOM-37 a housekeeper re-ink is a re-ink: the record line over the page is 
     house.state.workerAnswer = priorAnswer;
     await db.settings.delete('hkAutoApply');
   }
+});
+
+/* M301: the thinking of a telling that left no page */
+const clipboardSpy = () => {
+  const taken = [];
+  const prior = env.window.navigator.clipboard.writeText;
+  env.window.navigator.clipboard.writeText = async (t) => { taken.push(String(t)); };
+  return { taken, restore: () => { env.window.navigator.clipboard.writeText = prior; } };
+};
+test('DOM-38 Stop while the storyteller is still thinking: the thinking stays on the page, whole and copyable, through a redraw, and goes when the next page lands — never into a request (M301)', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'stopped mid-thought' });
+  await db.messages.append(st.id, { role: 'user', text: 'We sit by the lake.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The lake was flat and grey, and nobody spoke for a while.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const clip = clipboardSpy();
+  house.state.thinkHang = 'hang';
+  try {
+    const pagesBefore = (await db.messages.list(st.id)).length;
+    type(q('#composer-input'), 'Does she say anything?');
+    submit(q('#composer'));
+    await until(() => q('.msg.pending details.thinking') && /rain has not stopped/.test(q('.msg.pending .thinking-body').textContent), 'the live thinking on the page', 10000);
+    /* the live block's own copy button takes what has streamed so far (it copied '' before) */
+    click(q('.msg.pending .thinking-copy'));
+    await until(() => clip.taken.length === 1, 'the live copy');
+    assert(/Let me weigh the room\. Liara is guarded, and the rain has not stopped\./.test(clip.taken[0]), 'the live copy holds the thinking so far: ' + JSON.stringify(clip.taken[0]));
+    click(q('#btn-stop'));
+    await until(() => !env.ctx.chat.isBusy(), 'the stop to land', 10000);
+    const kept = q('.kept-thinking');
+    assert(kept, 'the thinking is still on the page after Stop');
+    assert(!q('.msg.pending'), 'and the pending page is gone');
+    assert(/Let me weigh the room\. Liara is guarded, and the rain has not stopped\./.test(kept.querySelector('.thinking-body').textContent), 'whole: ' + kept.textContent);
+    assert(kept.querySelector('details.thinking').open, 'open, as it was while it streamed');
+    assert(/stopped while thinking/.test(kept.querySelector('.msg-label').textContent), 'and it says why there is no page');
+    click(kept.querySelector('.thinking-copy'));
+    await until(() => clip.taken.length === 2, 'the kept copy');
+    assert(/rain has not stopped/.test(clip.taken[1]), 'its copy button takes the whole thinking');
+    eq((await db.messages.list(st.id)).length, pagesBefore + 1, 'only the writer’s page was added — the thinking is not a page');
+    const row = await db.settings.get('cutThinking:' + st.id);
+    assert(row && /rain has not stopped/.test(row.text) && row.why === 'stopped', 'kept in the tale’s own row');
+    /* a redraw from the store (a reload, a pull from the other browser) draws it again, after the page it followed */
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const again = q('.kept-thinking');
+    assert(again && /rain has not stopped/.test(again.querySelector('.thinking-body').textContent), 'a rebuilt thread still holds it');
+    const lastUser = userPages().pop();
+    assert(lastUser.nextElementSibling === again, 'right after the page it followed');
+    eq(qa('.kept-thinking').length, 1, 'once');
+    /* the thinking voice switched off: not drawn, not lost */
+    await db.settings.set('showThinking', false);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    assert(!q('.kept-thinking'), 'hidden with the thinking voice off');
+    await db.settings.set('showThinking', true);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    assert(q('.kept-thinking'), 'and back with it');
+    /* the next page lands: it goes, and no request ever held it */
+    house.state.thinkHang = null;
+    const callsBefore = house.state.calls.length;
+    type(q('#composer-input'), 'I ask her again.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2, 'the next page', 10000);
+    await settled();
+    assert(!q('.kept-thinking'), 'the kept thinking goes when a page lands');
+    eq(await db.settings.get('cutThinking:' + st.id), undefined, 'and its row with it');
+    const sent = house.state.calls.slice(callsBefore).map((c) => JSON.stringify(c.body)).join('\n');
+    assert(!/rain has not stopped/.test(sent), 'no request — storyteller or reader — ever held the cut thinking');
+  } finally {
+    house.state.thinkHang = null;
+    clip.restore();
+    await db.settings.delete('showThinking');
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-39 the wire dropping while the storyteller thinks keeps the thinking too, above the word about the wire; a Stop on a retry of a standing page keeps it and the page (M301)', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'dropped mid-thought' });
+  await db.messages.append(st.id, { role: 'user', text: 'We sit by the lake.' });
+  const page = await db.messages.append(st.id, { role: 'assistant', text: 'The lake was flat and grey, and nobody spoke for a while.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    house.state.thinkHang = 'drop';
+    type(q('#composer-input'), 'Does she say anything?');
+    submit(q('#composer'));
+    await until(() => !env.ctx.chat.isBusy() && q('.kept-thinking'), 'the drop to land with the thinking kept', 10000);
+    const kept = q('.kept-thinking');
+    assert(/rain has not stopped/.test(kept.querySelector('.thinking-body').textContent), 'the thinking before the drop is kept');
+    assert(/wire dropped/.test(kept.querySelector('.msg-label').textContent), 'named for what happened');
+    assert(kept.nextElementSibling && kept.nextElementSibling.classList.contains('msg-note'), 'the house’s word about the wire stands under it');
+    eq((await db.settings.get('cutThinking:' + st.id)).why, 'dropped');
+    /* a new version of the standing page (the swipe bar's ▸), stopped while thinking */
+    await db.messages.remove(st.id, (await db.messages.list(st.id)).pop().id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    house.state.thinkHang = 'hang';
+    click(q('.msg[data-id="' + page.id + '"] .msg-act[data-act="swipe-next"]'));
+    await until(() => q('.msg.pending details.thinking'), 'the retry thinking', 10000);
+    click(q('#btn-stop'));
+    await until(() => !env.ctx.chat.isBusy(), 'the stop to land', 10000);
+    await settled();
+    const row = await db.settings.get('cutThinking:' + st.id);
+    assert(row && row.why === 'stopped', 'the newer cut replaced the older one: ' + JSON.stringify(row && row.why));
+    eq(qa('.kept-thinking').length, 1, 'one block');
+    const still = (await db.messages.list(st.id)).find((m) => m.id === page.id);
+    assert(still && /flat and grey/.test(still.text), 'the standing page is untouched');
+  } finally {
+    house.state.thinkHang = null;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-40 the housekeeper stopped while it is still thinking: what it thought stays on the sheet, copyable, through a redraw, and goes with the next answer (M301)', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'the housekeeper, cut' });
+  await db.messages.append(st.id, { role: 'user', text: 'We reach the pier.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The pier was empty and the tide was out.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const clip = clipboardSpy();
+  const priorAnswer = house.state.workerAnswer;
+  try {
+    click(q('#btn-housekeeper'));
+    await until(() => !q('#hk-sheet').hidden, 'the housekeeper');
+    await until(() => !q('#hk-send').disabled, 'the housekeeper free to be asked', 10000);
+    house.state.hkThinkHang = 'hang';
+    type(q('#hk-input'), 'is the tide right?');
+    submit(q('#hk-form'));
+    await until(() => q('#hk-thread details.hk-thinking') && /rain has not stopped/.test(q('#hk-thread details.hk-thinking').textContent), 'the live thinking', 10000);
+    click(q('#hk-thread details.hk-thinking .thinking-copy'));
+    await until(() => clip.taken.length === 1, 'the live copy');
+    assert(/rain has not stopped/.test(clip.taken[0]), 'copyable while it is still thinking');
+    click(q('#hk-stop'));
+    await until(() => !q('#hk-send').disabled, 'the stop to land', 10000);
+    const cut = q('#hk-thread details.hk-cut');
+    assert(cut, 'the thinking is still on the sheet after Stop');
+    await tick(20);
+    assert(/rain has not stopped/.test(cut.textContent), 'whole: ' + cut.textContent);
+    eq(q('#hk-input').value, 'is the tide right?', 'and the question is back in its box, as before');
+    const row = await db.settings.get('hkCut:' + st.id);
+    assert(row && /rain has not stopped/.test(row.text), 'kept in the tale’s own row');
+    /* closed and opened again: drawn from the row */
+    click(q('#btn-housekeeper')); await tick(200);
+    click(q('#btn-housekeeper'));
+    await until(() => !q('#hk-sheet').hidden, 'the housekeeper again');
+    await until(() => q('#hk-thread details.hk-cut'), 'the cut thinking, redrawn', 10000);
+    eq(qa('#hk-thread details.hk-cut').length, 1, 'once');
+    /* the next answer lands: it goes, and the housekeeper was never sent it */
+    house.state.hkThinkHang = null;
+    house.state.workerAnswer = (body, sys) => (/housekeeper of a cozy tavern/i.test(sys) ? 'The tide is right.' : priorAnswer(body, sys));
+    const callsBefore = house.state.calls.length;
+    type(q('#hk-input'), 'is the tide right?');
+    submit(q('#hk-form'));
+    await until(() => qa('#hk-thread .hk-bubble').some((b) => /The tide is right/.test(b.textContent)), 'the answer', 10000);
+    await until(() => !q('#hk-send').disabled, 'the answer to finish', 10000);
+    assert(!q('#hk-thread details.hk-cut'), 'the cut thinking goes when an answer lands');
+    eq(await db.settings.get('hkCut:' + st.id), undefined, 'and its row with it');
+    const sent = house.state.calls.slice(callsBefore).map((c) => JSON.stringify(c.body)).join('\n');
+    assert(!/rain has not stopped/.test(sent), 'nothing sent to the housekeeper held the cut thinking');
+    click(q('#btn-housekeeper')); await tick(300);
+  } finally {
+    house.state.hkThinkHang = null;
+    house.state.workerAnswer = priorAnswer;
+    clip.restore();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-41 the connections are one drop-down, A to Z, with one card under it; every picker reads in the same order; who tells the story never changes with the order (M301)', async () => {
+  const before = errors.length;
+  const had = await db.connections.list();
+  const activeBefore = await db.settings.get('activeConnectionId');
+  const made = [];
+  try {
+    for (const label of ['zephyr 10', 'Alpha', 'zephyr 9', 'émile', 'beta']) {
+      made.push(await db.connections.add({ label, type: 'openai', baseUrl: 'https://x.example/v1', apiKey: 'k', model: 'm-' + label }));
+      await tick(3);
+    }
+    await openSettings();
+    click(q('[data-room="storyteller"]'));
+    await until(() => q('#connection-pick') && q('#connection-pick').options.length === had.length + 5, 'the picker to hold them all', 10000);
+    const names = [...q('#connection-pick').options].map((o) => o.textContent.split(' — ')[0]);
+    const mine = names.filter((n) => ['zephyr 10', 'Alpha', 'zephyr 9', 'émile', 'beta'].includes(n));
+    eq(mine.join(' | '), 'Alpha | beta | émile | zephyr 9 | zephyr 10', 'A to Z: case and accents ignored, 9 before 10');
+    const sorted = [...names].sort(new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare);
+    eq(names.join(' | '), sorted.join(' | '), 'the whole list is in order, the older connections with the new');
+    eq(qa('#connection-list > .connection-card').length, 1, 'one card, not one for each');
+    /* the one marked in use is the one the resolvers use: a kept id that names
+     * no connection is repaired to the first one made (what they fall back to) */
+    const activeNow = await db.settings.get('activeConnectionId');
+    const active = (await db.connections.list()).find((c) => c.id === activeNow);
+    assert(active, 'the kept id names a real connection');
+    if (!had.some((c) => c.id === activeBefore)) eq(activeNow, had[0].id, 'a stale id became the first one made — the one that was telling the story all along');
+    else eq(activeNow, activeBefore, 'a good id is left alone');
+    assert(q('#connection-list .connection-name').textContent === active.label, 'the card under it is the one in use: ' + q('#connection-list .connection-name').textContent);
+    assert(/in use/.test(q('#connection-pick').selectedOptions[0].textContent), 'and the picker marks it');
+    /* pick another: its card, its buttons — and picking changes nothing about who tells the story */
+    const pick = q('#connection-pick');
+    pick.value = made[1].id;
+    pick.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(() => q('#connection-list .connection-name') && q('#connection-list .connection-name').textContent === 'Alpha', 'Alpha’s card', 10000);
+    eq(await db.settings.get('activeConnectionId'), activeNow, 'looking at a connection does not start using it');
+    const buttons = qa('#connection-list .connection-card .row button').map((b) => b.textContent.trim());
+    eq(buttons.join(' | '), 'Use this one | Test | Change | Copy | Let go', 'the same five, named as they were');
+    /* every other picker of connections, the same order */
+    const orderOf = (sel) => [...sel.options].filter((o) => o.value).map((o) => o.textContent);
+    const want = byNameLabels(await db.connections.list());
+    await until(() => q('#worker-assignments select') && orderOf(q('#worker-assignments select')).length === want.length, 'the workers’ pickers', 10000);
+    for (const sel of [q('#worker-connection'), q('#story-connection'), ...qa('#worker-assignments select[data-worker]')]) {
+      assert(sel, 'a picker the room has');
+      eq(orderOf(sel).join(' | '), want.join(' | '), 'in the same order: ' + (sel.id || sel.dataset.worker));
+    }
+    /* Use this one → it is in use, and still the one shown */
+    click(qa('#connection-list .connection-card .row button').find((b) => /Use this one/.test(b.textContent)));
+    await until(async () => (await db.settings.get('activeConnectionId')) === made[1].id, 'Alpha in use', 10000);
+    await until(() => /in use/.test(q('#connection-pick').selectedOptions[0].textContent) && q('#connection-pick').value === made[1].id, 'marked in the picker');
+    /* Copy → the copy is the one shown, its form open */
+    click(qa('#connection-list .connection-card .row button').find((b) => /^Copy$/.test(b.textContent.trim())));
+    await until(() => !q('#connection-form').hidden && /Alpha \(copy\)/.test(q('#connection-form-title').textContent), 'the copy’s form', 10000);
+    const copy = (await db.connections.list()).find((c) => c.label === 'Alpha (copy)');
+    made.push(copy);
+    eq(q('#connection-pick').value, copy.id, 'the copy is the one under the eye');
+    click(q('#btn-conn-cancel'));
+    /* Let go → the card goes back to the one in use */
+    click(qa('#connection-list .connection-card .row button').find((b) => /Let go/.test(b.textContent)));
+    await until(() => q('#connection-pick').value === made[1].id, 'back to the one in use', 10000);
+    assert(![...q('#connection-pick').options].some((o) => /Alpha \(copy\)/.test(o.textContent)), 'the copy is gone from the picker');
+    /* the presets a connection starts from read A to Z, Custom last */
+    eq([...q('#conn-preset').options].map((o) => o.textContent).join(' | '), 'Claude | DeepSeek | Gemini | Hermes Agent | OpenAI | OpenRouter | Z.ai GLM | Custom');
+    /* what's on offer, A to Z */
+    house.state.models = [{ id: 'zeta-1' }, { id: 'Alpha-2' }, { id: 'beta-10' }, { id: 'beta-9' }];
+    click(q('#btn-add-connection'));
+    await until(() => !q('#connection-form').hidden, 'the form');
+    q('#conn-preset').value = 'openai'; q('#conn-preset').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    type(q('#conn-apikey'), 'k');
+    click(q('#btn-fetch-models'));
+    await until(() => !q('#conn-models-label').hidden, 'the offer', 10000);
+    eq([...q('#conn-models').options].filter((o) => o.value).map((o) => o.value).join(' | '), 'Alpha-2 | beta-9 | beta-10 | zeta-1', 'the models on offer read A to Z');
+    click(q('#btn-conn-cancel'));
+  } finally {
+    house.state.models = null;
+    for (const c of made) { try { await db.connections.remove(c.id); } catch (err) { /* already let go */ } }
+    await db.settings.set('activeConnectionId', had.some((c) => c.id === activeBefore) ? activeBefore : (had[0] ? had[0].id : null));
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-42 every coat in Settings is worn when chosen: the room, the phone’s own bar, and the choice kept (M301)', async () => {
+  const before = errors.length;
+  const prior = await db.settings.get('theme');
+  try {
+    await openSettings();
+    click(q('[data-room="house"]'));
+    await until(() => q('input[name="theme"][value="magma"]'), 'the coats');
+    const bars = new Set();
+    for (const radio of qa('input[name="theme"]').filter((r) => r.value !== 'system')) {
+      radio.checked = true;
+      radio.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+      await until(async () => (await db.settings.get('theme')) === radio.value, 'the choice kept: ' + radio.value);
+      eq(document.documentElement.dataset.theme, radio.value, 'the room wears ' + radio.value);
+      const bar = q('meta[name="theme-color"]').getAttribute('content');
+      assert(/^#[0-9a-f]{6}$/.test(bar), 'the phone’s bar has a colour for ' + radio.value + ': ' + bar);
+      bars.add(bar);
+    }
+    eq(bars.size, qa('input[name="theme"]').length - 1, 'each coat has its own bar colour');
+    assert(document.documentElement.dataset.theme === 'magma' || qa('input[name="theme"]').pop().value !== 'magma', 'magma is one of them');
+  } finally {
+    const back = prior || 'dark';
+    const radio = q('input[name="theme"][value="' + back + '"]');
+    radio.checked = true;
+    radio.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('theme')) === back, 'the coat put back');
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
 console.log('Cozy Tavern — the dom walk');

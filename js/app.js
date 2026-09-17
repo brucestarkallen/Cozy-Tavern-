@@ -20,21 +20,27 @@ import { initSync } from './sync.js';
 const sky = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 let themeMode = 'dark';
 
+/* M301: the coats, and the colour the phone's own bar wears with each. A coat
+ * is a name here, a token block in base.css and a radio in Settings — the
+ * three names were written out four times in this file, so a fourth coat
+ * would have been chosen in Settings and resolved to "follow the sky". */
+const COATS = { dark: '#16120f', light: '#f5efe4', deep: '#0a0f12', magma: '#0a1216' };
+
 function resolveTheme() {
-  if (themeMode === 'dark' || themeMode === 'light' || themeMode === 'deep') return themeMode;
+  if (Object.prototype.hasOwnProperty.call(COATS, themeMode)) return themeMode;
   /* system mode: follow the sky, hearth when the sky is silent */
   return sky && sky.matches ? 'light' : 'dark';
 }
 
 function applyTheme() {
-  document.documentElement.dataset.theme = resolveTheme();
-  const meta = document.querySelector('meta[name="theme-color"]');
   const now = resolveTheme();
-  if (meta) meta.setAttribute('content', now === 'deep' ? '#0a0f12' : now === 'dark' ? '#16120f' : '#f5efe4');
+  document.documentElement.dataset.theme = now;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', COATS[now]);
 }
 
 function setTheme(mode) {
-  themeMode = mode === 'dark' || mode === 'light' || mode === 'deep' ? mode : 'system';
+  themeMode = Object.prototype.hasOwnProperty.call(COATS, mode) ? mode : 'system';
   applyTheme();
 }
 

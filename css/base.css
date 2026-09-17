@@ -146,6 +146,71 @@ html[data-theme='deep'] {
   --pk-teal: #35a59e;
 }
 
+/* M301: MAGMA — the fourth coat, in the register the writer pointed at: a
+ * teal-black room with a bed of magma glowing under it, prose in a warm
+ * off-white that does not glare, speech lit neon teal, and neon ember kept
+ * for the things that act. Every token the other coats define is defined
+ * here (M168's lesson, held by beauty.mjs for every coat). The glow itself is
+ * painted once, on the column that does not scroll (chat.css). */
+html[data-theme='magma'] {
+  --bg: #0a1216;
+  --bg-2: #0e191e;
+  --surface: #12232a;
+  --surface-2: #193039;
+  --border: #2b4a54;
+  --border-soft: #1c353d;
+  --text: #ece7dc;
+  --text-2: #b7c6c4;
+  --muted: #86a3a1;
+  --ember: #ff6b3d;
+  --ember-hot: #ff8c5a;
+  --ember-dim: #7d2f1c;
+  --spoken: #58e6d4;
+  --thought: #a9b9ee;
+  --user-tint: #10333a;
+  --danger: #ff6a5e;
+  --ok: #4fd18b;
+  --warn: #f0b64d;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  --on-ember: #1a0a05;
+  --scrim: rgba(4, 8, 10, 0.74);
+
+  /* the 🎨 display pack, in this coat's register (M167/M254) */
+  --pk-card-1: #11212a;
+  --pk-card-2: #14222d;
+  --pk-card-3: #11262b;
+  --pk-chip-bg: #122229;
+  --pk-box-bg: #0d181f;
+  --pk-box-edge: #2b4a54;
+  --pk-rule: #1c353d;
+  --pk-place: #f3eee2;
+  --pk-body: #e6e0d4;
+  --pk-body-2: #e6e0d4;
+  --pk-body-3: #ece7dc;
+  --pk-body-4: #dcd5c8;
+  --pk-quiet: #b7c6c4;
+  --pk-quiet-2: #c0b8a0;
+  --pk-quiet-3: #a9bcb9;
+  --pk-quiet-4: #8fa9a6;
+  --pk-quiet-5: #86a3a1;
+  --pk-quiet-6: #7f9fae;
+  --pk-quiet-7: #6f8f9c;
+  --pk-quiet-8: #7d9690;
+  --pk-gold: #e0a64e;
+  --pk-gold-2: #e0a64e;
+  --pk-gold-dim: #a5803f;
+  --pk-red: #ff6a5e;
+  --pk-red-2: #ff8570;
+  --pk-red-dim: #b04a3c;
+  --pk-amber: #ff8c5a;
+  --pk-sky: #5cb8e6;
+  --pk-rose: #e08fa3;
+  --pk-violet: #a9b9ee;
+  --pk-violet-2: #b4c2f0;
+  --pk-violet-3: #6f7fd0;
+  --pk-teal: #58e6d4;
+}
+
 html[data-theme='light'] {
   /* Parchment (light) */
   --bg: #f5efe4;

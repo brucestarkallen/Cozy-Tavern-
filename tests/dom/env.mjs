@@ -57,6 +57,23 @@ export function makeHouse() {
         'event: message_delta\ndata: ' + JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' } }) + '\n\n',
       ]);
     }
+    /* M301: a storyteller (or housekeeper) that thinks and never reaches the
+     * page — the stream stays open until the caller aborts it ('hang'), or the
+     * wire drops under it ('drop') */
+    const hkCall = /housekeeper of a cozy tavern/i.test(sys);
+    const hangMode = (!isWorker && state.thinkHang) || (hkCall && state.hkThinkHang) || null;
+    if (hangMode) {
+      const enc = new TextEncoder();
+      const piece = (t) => enc.encode('data: ' + JSON.stringify({ choices: [{ delta: { reasoning_content: t } }] }) + '\n\n');
+      const body = new ReadableStream({ start(c) {
+        c.enqueue(piece('Let me weigh the room. '));
+        c.enqueue(piece('Liara is guarded, and the rain has not stopped.'));
+        if (hangMode === 'drop') { setTimeout(() => { try { c.error(new Error('the wire dropped')); } catch (err) { /* closed */ } }, 40); return; }
+        const gone = () => { const e = new Error('The operation was aborted.'); e.name = 'AbortError'; try { c.error(e); } catch (err) { /* closed */ } };
+        if (opts.signal) { if (opts.signal.aborted) gone(); else opts.signal.addEventListener('abort', gone); }
+      } });
+      return { ok: true, status: 200, headers: new Headers(), body, clone() { return this; }, async json() { return {}; }, async text() { return ''; } };
+    }
     /* M46: a thinking storyteller — reasoning_content first, then prose, when asked.
      * M77: the housekeeper too, when the walk asks (state.hkThink). */
     if ((!isWorker && state.thinkFirst) || (state.hkThink && /housekeeper of a cozy tavern/i.test(sys))) {

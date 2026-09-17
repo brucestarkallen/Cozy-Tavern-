@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m300-001)
+# Cozy Tavern — handoff for the next session (state at m301-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M300). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M301). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 559 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 562 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 56 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 61 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,13 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- Thinking with no page (M301): a telling stopped, dropped or empty while the storyteller thought keeps
+  its thinking in `cutThinking:<tale>` (the housekeeper's in `hkCut:<tale>`) until the next page/answer
+  lands; never a page, never in a request. Connections read A to Z through providers/order.js byName —
+  DISPLAY only; db.connections.list() stays as made (the resolvers' fallback). A coat is a COATS entry
+  in app.js + a token block in base.css + a radio; tests/paint_magma.py measures the magma room (the
+  glow, the words over it against real pixels, the scroll against the deep coat) — run it before any
+  change to a coat that paints a gradient, because contrast.py cannot see one.
 - Every reader that writes or checks the ledger sees ALL of it (engine/whole.js), never the
   storyteller's trimmed copy; every page is read to its END (engine/pagecut.js — a page past its
   cap loses its middle); the auditor reads every page the record has not folded plus the whole

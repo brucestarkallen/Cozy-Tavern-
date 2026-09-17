@@ -813,6 +813,9 @@ body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-selec
 
 /* ---------- connections ---------- */
 
+/* M301: one drop-down, A to Z, and the one card of the connection picked */
+.connection-pick { margin: 0.15rem 0 0.6rem; }
+
 .connection-list {
   list-style: none;
   margin: 0;
@@ -1142,3 +1145,32 @@ body.read-only .send-btn { opacity: 0.4; }
 /* M279: a streamed text, one block a line — an empty line keeps its height */
 .stream-line { white-space: pre-wrap; overflow-wrap: break-word; }
 .stream-line:empty { min-height: 1.6em; }
+
+/* ---------- M301: the magma coat's room ----------
+ * The glow is painted ONCE, on the column that holds the thread and the
+ * composer and never scrolls; the thread and the composer's zone are clear
+ * over it. Nothing is repainted as the story scrolls (measured in
+ * tests/paint_magma.py against the deep coat). The hot part of the glow stays
+ * under the composer's own opaque box; the small words beneath it are lifted
+ * a step so they hold AA over the warmest pixels (measured there too). */
+html[data-theme='magma'] .thread-wrap {
+  background:
+    radial-gradient(90% 24% at 50% 100%, rgba(255, 104, 48, 0.22), transparent 74%),
+    radial-gradient(170% 58% at 50% 108%, rgba(176, 36, 16, 0.38), transparent 72%),
+    linear-gradient(180deg, #0a1216 0%, #0b161b 40%, #0f171a 60%, #171413 78%, #24110d 92%, #2e120c 100%);
+}
+html[data-theme='magma'] .thread,
+html[data-theme='magma'] .composer-zone { background: transparent; }
+html[data-theme='magma'] .composer-meta,
+html[data-theme='magma'] .composer-meta button { color: var(--text-2); }
+html[data-theme='magma'] .composer-meta .hot { color: var(--ember-hot); }
+html[data-theme='magma'] .topbar { box-shadow: 0 1px 0 rgba(88, 230, 212, 0.14), 0 6px 18px -12px rgba(88, 230, 212, 0.35); }
+/* neon, kept to the things that act */
+html[data-theme='magma'] .send-btn { box-shadow: 0 0 16px -3px rgba(255, 107, 61, 0.75); }
+html[data-theme='magma'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 22px -6px rgba(255, 107, 61, 0.6); }
+html[data-theme='magma'] .ember-fill { box-shadow: 0 0 10px 0 rgba(255, 107, 61, 0.55); }
+/* the writer's own words: the teal wash with its lit underline */
+html[data-theme='magma'] .msg-user .msg-body {
+  border-left-color: var(--spoken);
+  box-shadow: inset 0 -1px 0 rgba(88, 230, 212, 0.4);
+}

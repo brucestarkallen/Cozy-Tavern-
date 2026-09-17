@@ -660,7 +660,7 @@ async function exportStory(storyId) {
  * twice: the house book refuses them for a tale that no longer stands, and
  * the boot sweep lets those orphans go for good. `cast:` is NOT here — the
  * cast library is app-wide and its suffix is a card's id, not a tale's. */
-const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'versionState', 'hk', 'director', 'editor', 'memoryBackup', 'peopleBackup', 'bookStamp'];
+const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'versionState', 'hk', 'director', 'editor', 'memoryBackup', 'peopleBackup', 'bookStamp', 'cutThinking', 'hkCut', 'hkDraft'];
 const STORY_PREFIXED = new RegExp('^(?:' + STORY_PREFIXES.join('|') + '):.+$');
 
 /* M160: every tale-shaped row whose tale is gone, let go for good. Stores
