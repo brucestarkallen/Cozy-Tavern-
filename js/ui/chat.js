@@ -3012,6 +3012,11 @@ export function initChat(ctx) {
         }
       } });
       noteWork(story.id, tail);
+      /* M293: a tail that never RUNS (dropped by the writer's Stop, or left
+       * behind by a story switch) settles without its finally — the gate is
+       * let go here, or every history change waits five minutes and is then
+       * refused for the rest of the session. */
+      tail.then((r) => { if (!r || r.ok !== true) setReplaying(false); }, () => setReplaying(false));
       return true;
     } finally {
       if (!tailQueued) setReplaying(false);

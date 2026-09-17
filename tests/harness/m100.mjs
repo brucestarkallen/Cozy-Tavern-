@@ -981,7 +981,9 @@ test('M208: no token dumps in the record, and the writer may stop what they star
 
   const queue = readFileSync(new URL('../../js/agents/queue.js', import.meta.url), 'utf8');
   assert(/export function stopWork\(storyId\)/.test(queue), 'the queue can be stopped');
-  assert(/if \(list\) list\.length = 0;/.test(queue), 'everything still queued for that story is dropped');
+  /* M293: what is dropped is settled too (its promise resolves as stopped) — M293-1 runs it */
+  assert(/const dropped = list\.splice\(0, list\.length\);/.test(queue), 'everything still queued for that story is dropped');
+  assert(/for \(const job of dropped\) \{\s*\n\s*try \{ job\.resolve\(\{ ok: false, stopped: true, why: 'stopped by hand' \}\); \}/.test(queue), 'and settled as stopped, never left hanging (M293)');
   assert(/return \{ ok: false, stopped: true, why: 'stopped by hand' \};/.test(queue), 'a stop is a stop, not a failure');
   assert(!/if \(stoppedByHand\)[\s\S]{0,200}attempt/.test(queue), 'and is never retried');
 

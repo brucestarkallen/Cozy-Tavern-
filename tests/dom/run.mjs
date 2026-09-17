@@ -2018,6 +2018,50 @@ test('DOM-33 a story whose pages hold who they are in "now" is tidied once by th
   }
 });
 
+test('DOM-34 a Stop pressed while a replay\u2019s tail still waits lets the gate go: history changes are not refused for the rest of the session (M293)', async () => {
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { queuedCount, stopWork } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the stopped replay' });
+  await db.messages.append(st.id, { role: 'user', text: 'We walk to the pier.' });
+  const first = await db.messages.append(st.id, { role: 'assistant', text: 'The pier creaked under them.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I look at the water.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The water was black and still.' });
+  await saveState(st.id, { ...emptyState(), page: 1, place: { name: 'The pier' }, present: [{ name: 'Jovan' }] });
+  let release = null;
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys) && JSON.stringify(body).includes('EDITED-PAGE')) {
+      /* the reader of the edited page is held — the replay's tail waits behind it */
+      return new Promise((resolve) => { release = () => resolve('{"mutations":[{"type":"mode.snapshot","flags":[]}],"resolved":[]}'); });
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    /* edit the OLDER storyteller page: history changed there, the ledger replays */
+    click(q('.msg[data-id="' + first.id + '"] .msg-act[data-act="edit"]'));
+    const box = await until(() => q('.msg[data-id="' + first.id + '"] .edit-box'), 'the editor', 5000);
+    type(box, 'EDITED-PAGE: the pier groaned under them.');
+    click([...qa('.msg[data-id="' + first.id + '"] .edit-row button')].find((b) => /Keep/.test(b.textContent)));
+    await until(() => env.ctx.chat.isReplaying(), 'the replay to be claimed', 5000);
+    await until(() => release !== null, 'the held reader to be out', 15000);
+    await until(() => queuedCount(st.id) > 0, 'the tail to be queued behind the chain', 5000);
+    /* the writer's Stop (the banner's) drops what is queued — the tail with it */
+    stopWork(st.id);
+    await until(() => !env.ctx.chat.isReplaying(), 'the gate to let go after the stop (it used to stay shut for the rest of the session)', 4000);
+    release();
+    await until(() => queuedCount(st.id) === 0, 'the house to settle', 30000);
+    /* and the next history change is not refused */
+    const last = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    click(q('.msg[data-id="' + last.id + '"] .msg-act[data-act="edit"]'));
+    await until(() => q('.msg[data-id="' + last.id + '"] .edit-box'), 'the editor to open again, ungated', 5000);
+    click([...qa('.msg[data-id="' + last.id + '"] .edit-row button')].find((b) => /Never mind/.test(b.textContent)));
+    await tick(200);
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

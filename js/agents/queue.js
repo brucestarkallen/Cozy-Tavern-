@@ -42,7 +42,20 @@ export function stopWork(storyId) {
   if (!storyId) return false;
   const list = queues.get(storyId);
   const queued = list ? list.length : 0;
-  if (list) list.length = 0;                    /* nothing more of this run starts */
+  /* M293: A DROPPED JOB IS SETTLED, NEVER LEFT HANGING. The queue was emptied
+   * and the promises of the jobs in it were never resolved — so every
+   * pendingWork() for that tale waited its whole ceiling on the first of them
+   * for the rest of the session (five seconds before every send, two minutes
+   * before every replay), and a replay's tail that was dropped never let go
+   * of `replaying`, which gated every edit, swipe, delete and branch behind
+   * "try once more in a moment". A purge settles what it drops (as a story
+   * switch always has). */
+  if (list) {
+    const dropped = list.splice(0, list.length);   /* nothing more of this run starts */
+    for (const job of dropped) {
+      try { job.resolve({ ok: false, stopped: true, why: 'stopped by hand' }); } catch (err) { /* a resolver that can't settle is no one's trouble */ }
+    }
+  }
   const live = stopping.get(storyId);
   if (live && typeof live.abort === 'function') { try { live.abort(); } catch (err) { /* fine */ } }
   return Boolean(live) || queued > 0;
