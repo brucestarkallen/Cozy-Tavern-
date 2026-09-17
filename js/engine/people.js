@@ -32,6 +32,7 @@
 import { isMcAlias, mcName } from './duels.js';
 import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
+import { seatAgeWords } from './offscreen.js'; /* M300 */
 
 /* Field caps — the ledger holds brushstrokes, not chapters. */
 /* M266: A NOTE IS KEPT WHOLE. These were 300, 240, 240 and 140 — so a "now"
@@ -627,7 +628,10 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     const seat = seatOf(k);
     if (!seat) return null;
     if (seatsInState) return 'away \u2014 where they are now is under Elsewhere';
-    return [seat.location, seat.activity].filter(Boolean).join(', ') || null;
+    const words = [seat.location, seat.activity].filter(Boolean).join(', ');
+    if (!words) return null;
+    const age = seatAgeWords(seat, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null); /* M300 */
+    return age ? words + ' (' + age + ')' : words;
   };
   const awayCard = (k) => {
     const now = awayNow(k);

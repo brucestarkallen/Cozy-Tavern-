@@ -6549,3 +6549,27 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   never shown stale. Everyone else keeps M294's honest age. VALIDATION: DOM-35 red → green ("Now: at
   the table — at The Wells kitchen", the thirteen-page-old note not shown).
 - 558/558 harness + 56/56 walk + lint 0 errors (96 warnings). version.js -> m299-001.
+
+# M300 — a seat says how old it is: the living world is not read as the present when it is the past
+- THE WRITER: "audit the scene, the people, the world, the book — alive, updating, not stale." The
+  state of things was traced fact by fact for a current writer and an honest age: the hour (the
+  header line, every page), the ground (the same), who is here and where in the room (the page
+  reader's presence entries, every page), the wounds (aged on the clock, M162), the standings
+  (cumulative, a beat once), what each present person knows (present only), the threads (cooling,
+  M261), the mood (a whole snapshot each page, M92), the people's pages (the scribe, aged since M12;
+  the main character's now from the ledger since M299), the record (folded holes-first).
+- File js/engine/offscreen.js seatWords, js/engine/people.js awayNow, js/ui/drawer.js. PROBLEM: a seat
+  — where an absent person is and what they are doing — was written with the story clock and then
+  read as NOW for as long as nobody re-seated its person: "Ms. June — the Bluebird, closing up" at
+  two the next afternoon, to the storyteller (Elsewhere), to the world agent (the same words), to the
+  people block (the recalled card stamped the seat fresh on purpose) and to the drawer. The hour's
+  law re-seats on a clock jump (M134) only where the world agent chooses to. ROOT CAUSE: the seat kept
+  its time (sinceMinutes) and nothing spoke it. CHANGE: past half an hour of story time a seat says
+  "as of N minutes/hours/days ago"; past three hours, "likely elsewhere by now" — in every reading of
+  it, so the storyteller does not write a person where they were, and the world agent, shown the same
+  words, re-seats them. A fresh seat reads plain. VALIDATION: M300-1 (offscreen, the people block);
+  DOM-32's seat without a clock reads as before. 559/559 harness, 56/56 walk, 8/8 play, lint 0 errors.
+- Asked and answered: no Rebuild is needed — the next page is read by the chain as every page is; a
+  page missed is read by the house while it is idle (M276); the main character's now comes from the
+  ledger. Rebuild people remains for the one case it was made for (M262's old readers) and runs itself.
+- version.js -> m300-001.

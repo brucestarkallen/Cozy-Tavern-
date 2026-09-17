@@ -96,6 +96,23 @@ function recencyKey(entry) {
   return -Infinity;
 }
 
+/* M300: A SEAT SAYS HOW OLD IT IS. A seat is written with the story clock
+ * (sinceMinutes) and then stood as "now" for as long as nobody re-seated its
+ * person — "the Bluebird, closing up" at two the next afternoon, read as the
+ * present by the storyteller, the world agent and the drawer alike. Past
+ * half an hour of story time the seat says its age; past three hours it says
+ * the person has likely moved on — so the storyteller does not write them
+ * where they were, and the world agent, shown the same words, re-seats them. */
+export function seatAgeWords(entry, clockMinutes) {
+  if (!entry || !Number.isFinite(entry.sinceMinutes) || !Number.isFinite(clockMinutes)) return '';
+  const ago = Math.round(clockMinutes - entry.sinceMinutes);
+  if (ago < 30) return '';
+  const span = ago < 60 ? ago + ' minutes'
+    : ago < 24 * 60 ? 'about ' + Math.round(ago / 60) + (Math.round(ago / 60) === 1 ? ' hour' : ' hours')
+      : Math.round(ago / (24 * 60)) + (Math.round(ago / (24 * 60)) === 1 ? ' day' : ' days');
+  return 'as of ' + span + ' ago' + (ago >= 180 ? '; likely elsewhere by now' : '');
+}
+
 function seatWords(name, entry, clockMinutes) {
   const parts = [];
   if (cleanText(entry.location)) parts.push(cleanText(entry.location));
@@ -104,6 +121,8 @@ function seatWords(name, entry, clockMinutes) {
   if (cleanText(entry.agenda)) line += ' (meaning to ' + cleanText(entry.agenda).replace(/\.+$/, '') + ')';
   const approach = renderArrival(entry, clockMinutes);
   if (approach) line += ' — ' + approach;
+  const age = seatAgeWords(entry, clockMinutes);
+  if (age) line += ' (' + age + ')';
   return line;
 }
 

@@ -42,6 +42,7 @@ import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
 import { isMc } from '../engine/people.js';
+import { seatAgeWords } from '../engine/offscreen.js'; /* M300 */
 import { storyTurn as storyTurnOf } from '../engine/apply.js'; /* M291: how long ago a page was last written */
 import { listCast, attachToStory, detachFromStory } from '../import/cards.js';
 import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '../agents/status.js';
@@ -1522,7 +1523,7 @@ function peoplePanel(ctx) {
        * (the world agent's word); the scribe's older state line is not shown
        * beside it */
       const seatKey = state.offscreen && Object.keys(state.offscreen).find((k) => k.toLowerCase() === name.toLowerCase());
-      const seatNow = seatKey && !present.has(name.toLowerCase()) ? (() => { const sn = state.offscreen[seatKey] || {}; return [sn.location, sn.activity].filter(Boolean).join(', ') + (sn.agenda ? ' (meaning to ' + sn.agenda + ')' : ''); })() : '';
+      const seatNow = seatKey && !present.has(name.toLowerCase()) ? (() => { const sn = state.offscreen[seatKey] || {}; const age = seatAgeWords(sn, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null); /* M300 */ return [sn.location, sn.activity].filter(Boolean).join(', ') + (sn.agenda ? ' (meaning to ' + sn.agenda + ')' : '') + (age ? ' (' + age + ')' : ''); })() : '';
       /* M291/M292: the now alive — the one here says what they are doing; the absent, where the
        * world has them; a note from a scene long gone, how old it is */
       const turnNow = storyTurnOf(state);
