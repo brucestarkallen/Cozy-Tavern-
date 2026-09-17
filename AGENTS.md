@@ -6830,3 +6830,47 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   people block is sized to its room (M282-286); at a 500k room the state of things is `whole`
   (every seat, standing, thread).
 - version.js -> m304-001.
+
+# M305 — the books no longer forget: who-knows-what and the threads were caps that deleted the OLDEST
+- THE WRITER (the same mandate as M304): "check the whole ledger… I want everything perfect in one pass."
+  Found while reading for M304, the same fault as the old seat cap, in two more books.
+- engine/world.js. ROOT CAUSE: KNOWLEDGE_PER_NAME = 12 (`next[key] = list.slice(-12)`) and THREADS_MAX = 8
+  (past it "the coldest, oldest thread is let go") were sizes for a small prompt. In a long tale a
+  constant companion learns twelve things in a handful of pages, so what she learned on page 30 —
+  that she saw him summon fire — is pushed out by twelve trifles and the storyteller writes her as if
+  she never knew; a ninth small thread silently deletes a rival's dormant plan. A cap is a runaway
+  guard, never a size a real story reaches (M266).
+- CHANGE. The ledger keeps: sixty facts a person (KNOWLEDGE_GUARD), forty threads. What each READER is
+  shown does not grow with the tale:
+  · the storyteller (renderKnowledge): for each person HERE, the newest twelve (four in a small room)
+    AND the older facts that bear on the scene the last three pages tell — two content words in
+    common, the main character's and the knower's own names aside (his name is in every fact), the
+    most telling first, twelve at most (two in a small room); the rest are COUNTED on the line
+    ("and 9 older things they know, kept in the ledger"), never silently dropped. The assembler
+    hands the scene over (stack.js → renderStateFacts scenePages).
+  · the readers of the whole ledger (whole.js renderAllKnowledge): every fact while the list fits
+    its room (60,000 chars); past it every person keeps their newest — never fewer than twelve —
+    and the rest are counted "already known; never write them again" (M259's lesson: a reader that
+    cannot see a fact re-writes it in new words).
+- WHY SIXTY AND NOT SIX HUNDRED — measured, after I had first written 200: every snapshot and every
+  version's ledger is a WHOLE copy of the state (state.js keeps up to 120), and they ride every push
+  of the tale's book. Ten constant companions: who-knows-what is 12.7 KB a copy at twelve facts,
+  63.6 KB at sixty, 214 KB at two hundred — 1.5 MB, 7.6 MB and 25.7 MB across the snapshots. Sixty
+  is five times the memory at a cost the book can carry. What must outlast that — a secret that
+  defines how someone stands with the main character — is the scribe's, on their page (arc),
+  which is never aged out.
+- TESTS (tests/harness/m305.mjs, each RUNS the feature): the secret of page one is there after twenty
+  trifles, through a save and a load, and the guard holds; a scene of fire in the clubroom calls it
+  back, a scene about the weather does not, his name alone calls nothing back, the rest are counted;
+  THE REQUEST ITSELF carries it (buildRequest, the send path's own call); the whole-ledger view is
+  whole while it fits and says its cut when it does not; twelve threads are twelve threads and the
+  rival's is still shown to the world agent. M29-1 and M29-2 read "capped at 8" and "capped at 12,
+  newest kept" — the faults themselves, pinned as laws; they hold the guard now, with the reason.
+- MUTATION-CHECKED (each applied, then every file restored and `cmp`-proven): the storage slice back to
+  12, THREADS_MAX back to 8, the assembler not handing over the scene, the whole view ignoring its
+  room → M305-1…5, M29-1 and M29-2 fail. A first attempt ran three full harness passes in one
+  command and hit the 300-second wall mid-mutation; the files were restored and compared before
+  anything else, and the check was redone with only the two law files it concerns.
+- PROBE ERRORS OF MINE: buildRequest takes `messages`, not `history`; eleven thread titles that share
+  their words are ONE thread to the ledger (sameThreadTitle), as near-names are one person.
+- version.js -> m305-001.

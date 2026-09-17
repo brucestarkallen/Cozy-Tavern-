@@ -41,10 +41,27 @@ export const STANCE_WORDS = {
   waiting: 'holding — the want still stands',
 };
 
-const THREADS_MAX = 8;
+/* M305: THE BOOKS FORGOT, AND CALLED IT A CAP. Eight threads and twelve facts a
+ * person were sizes for a small prompt; in a long tale they are reached in a
+ * few pages, and what fell off the end was the OLDEST — a rival's dormant
+ * plan deleted by a ninth small thread, a secret learned on page 30 pushed out
+ * by twelve newer trifles, after which the storyteller writes her as if she
+ * never knew. A cap is a runaway guard, never a size a real story reaches
+ * (M266). The ledger keeps everything; what each READER is shown is the
+ * newest plus what bears on the scene (renderKnowledge), so nothing grows on
+ * the wire with the length of the tale. */
+const THREADS_MAX = 40;
 const THREADS_RENDER = 5;
-const KNOWLEDGE_PER_NAME = 12;
-const KNOWLEDGE_RENDER = 4;
+/* Sixty, not six hundred: every snapshot and every version's ledger is a WHOLE
+ * copy of this (state.js keeps up to 120), so each fact kept is kept a hundred
+ * times over and rides every push of the tale's book. Sixty facts a person is
+ * five times the memory at about 5 KB a person a copy; what must outlast that
+ * — a secret that defines how someone stands with the main character — is
+ * the scribe's to write on their page (arc), which is never aged out. */
+export const KNOWLEDGE_GUARD = 60;    /* a person's facts, kept (was the newest 12) */
+const KNOWLEDGE_RENDER = 4;           /* a small room: the newest few */
+export const KNOWLEDGE_RECENT = 12;   /* a whole view: the newest shown for each person here */
+export const KNOWLEDGE_RECALL = 12;   /* and at most this many OLDER facts that bear on the scene */
 const FACTIONS_RENDER = 4;
 const BRIEF_LINES = 4;
 
@@ -253,8 +270,8 @@ export function findKnowledgeKey(knowledge, name) {
 }
 
 /* Add one fact to one person. The same fact twice (case-insensitive) is a
- * no-op that returns the same copy; the list keeps its newest
- * KNOWLEDGE_PER_NAME. */
+ * no-op that returns the same copy; the list keeps everything, up to the
+ * runaway guard (M305). */
 export function addKnowledge(knowledge, name, fact, atTurn) {
   const next = copyKnowledge(knowledge);
   const who = cleanText(name, 120);
@@ -272,7 +289,7 @@ export function addKnowledge(knowledge, name, fact, atTurn) {
     return next;
   }
   list.push({ fact: what, atTurn: Number.isFinite(atTurn) ? atTurn : null });
-  next[key] = list.slice(-KNOWLEDGE_PER_NAME);
+  next[key] = list.slice(-KNOWLEDGE_GUARD);
   return next;
 }
 
@@ -329,17 +346,69 @@ export function dedupeKnowledge(knowledge) {
 /* What the present know — newest facts first, a few each. `present` is
  * state.present ([{name}] — plain strings tolerated). Omit anyone with
  * nothing written. */
-export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER) {
+/* M305: the words of the scene — what the last pages are about — for calling
+ * back an OLDER fact that bears on them. Content words only; `ignore` holds
+ * names that are in every fact (the main character's, the knower's own). */
+const SCENE_STOP = new Set(('about above after again against almost along already also although always among another around because been before behind being below between both could does doing down during each either else enough even ever every from further have having here herself himself into itself just more most much must myself never next none nothing once only other ours over same shall should since some such than that their theirs them then there these they this those though through thus together under until upon very were what when where which while whom whose will with within without would your yours yourself said says like back still went come came them looked look looks took take takes made make makes knew know knows thing things something anything where').split(' '));
+export function sceneWordsOf(pages) {
+  const out = new Set();
+  for (const p of (Array.isArray(pages) ? pages : [])) {
+    for (const w of String(p || '').toLowerCase().split(/[^\p{L}\p{N}'’-]+/u)) {
+      const word = w.replace(/['’]s$/, '').replace(/^['’-]+|['’-]+$/g, '');
+      if (word.length >= 4 && !SCENE_STOP.has(word)) out.add(word);
+    }
+  }
+  return out;
+}
+function factScore(fact, sceneWords, ignore) {
+  let score = 0;
+  const seen = new Set();
+  for (const w of String(fact || '').toLowerCase().split(/[^\p{L}\p{N}'’-]+/u)) {
+    const word = w.replace(/['’]s$/, '').replace(/^['’-]+|['’-]+$/g, '');
+    if (word.length < 4 || seen.has(word) || ignore.has(word) || SCENE_STOP.has(word)) continue;
+    seen.add(word);
+    if (sceneWords.has(word)) score += 1;
+  }
+  return score;
+}
+
+/* M305: the newest `per` for each person here, and — since the ledger now keeps
+ * what it used to forget — the OLDER facts that bear on the scene the last
+ * pages are telling (two content words in common, the main character's and
+ * the knower's own names aside), the most telling first; what is left is
+ * COUNTED, never silently dropped. `scene` = { pages, ignore:[names] }. */
+export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scene = null) {
   const safe = copyKnowledge(knowledge);
   const names = (Array.isArray(present) ? present : [])
     .map((p) => (typeof p === 'string' ? p : p && p.name))
     .filter((n) => typeof n === 'string' && n.trim());
+  const recent = Number.isFinite(per) ? per : KNOWLEDGE_RECENT;
+  const recallMax = Number.isFinite(per) ? Math.min(2, per) : KNOWLEDGE_RECALL;
+  const sceneWords = scene && Array.isArray(scene.pages) && scene.pages.length ? sceneWordsOf(scene.pages) : null;
+  const ignoreBase = new Set();
+  for (const n of (scene && Array.isArray(scene.ignore) ? scene.ignore : [])) for (const w of String(n || '').toLowerCase().split(/\s+/)) if (w) ignoreBase.add(w.replace(/['’]s$/, ''));
   const lines = [];
   for (const name of names) {
     const key = findKnowledgeKey(safe, name);
     if (!key || !safe[key].length) continue;
-    const facts = safe[key].slice(Number.isFinite(per) ? -per : 0).reverse().map((k) => k.fact.replace(/\.+$/, ''));
-    lines.push(key + ' knows: ' + facts.join('; ') + '.');
+    const list = safe[key];
+    const newest = list.slice(-recent).reverse().map((k) => k.fact.replace(/\.+$/, ''));
+    const older = list.slice(0, Math.max(0, list.length - recent));
+    let recalled = [];
+    if (older.length && sceneWords && sceneWords.size) {
+      const ignore = new Set(ignoreBase);
+      for (const w of key.toLowerCase().split(/\s+/)) if (w) ignore.add(w);
+      recalled = older
+        .map((k, i) => ({ k, i, score: factScore(k.fact, sceneWords, ignore) }))
+        .filter((x) => x.score >= 2)
+        .sort((a, b) => (b.score - a.score) || (b.i - a.i))
+        .slice(0, recallMax)
+        .map((x) => x.k.fact.replace(/\.+$/, ''));
+    }
+    const rest = older.length - recalled.length;
+    lines.push(key + ' knows: ' + newest.join('; ') + '.'
+      + (recalled.length ? ' From earlier, bearing on this: ' + recalled.join('; ') + '.' : '')
+      + (rest > 0 ? ' (and ' + rest + ' older ' + (rest === 1 ? 'thing' : 'things') + ' they know, kept in the ledger)' : ''));
   }
   return lines.join('\n');
 }

@@ -31,9 +31,14 @@ test('M29-1 threads: set, update in place, hot before cold, cap, close', () => {
   assert(words.indexOf('Aurora and the letter') < words.indexOf('(cold)'), 'hot renders before cold');
   assert(/Aurora means to wait outside/.test(words), 'owner + next spoken');
   for (let i = 0; i < 12; i += 1) t = setThread(t, { title: 'thread ' + i, heat: i % 2 ? 'cold' : 'hot' }, 10 + i);
-  assert(t.length <= 8, 'capped at 8');
-  assert(t.some((x) => x.title === 'thread 11'), 'the newest survives the cap');
-  eq(closeThread(t, 'THREAD 11').length, t.length - 1, 'close by title, case-insensitive');
+  /* M305: this law read "capped at 8" — a size a long tale reaches in a few pages, and what it
+   * deleted was the coldest, OLDEST thread: the rival's dormant plan. The cap is a runaway guard
+   * now (M266's law); fourteen threads are fourteen threads, and the guard still holds far out. */
+  eq(t.length, 14, 'every thread is kept');
+  for (let i = 12; i < 60; i += 1) t = setThread(t, { title: 'thread ' + i, heat: i % 2 ? 'cold' : 'hot' }, 10 + i);
+  assert(t.length <= 40, 'the runaway guard holds: ' + t.length);
+  assert(t.some((x) => x.title === 'thread 59'), 'the newest survives the guard');
+  eq(closeThread(t, 'THREAD 59').length, t.length - 1, 'close by title, case-insensitive');
 });
 
 test('M29-2 knowledge: per person, deduped, capped, present-only render', () => {
@@ -41,7 +46,11 @@ test('M29-2 knowledge: per person, deduped, capped, present-only render', () => 
   k = addKnowledge(k, 'liara', 'Saw Jovan leave the letter unread.', 3);
   eq(k.Liara.length, 1, 'the same fact twice is one fact');
   for (let i = 0; i < 20; i += 1) k = addKnowledge(k, 'Liara', 'fact ' + i, 4 + i);
-  eq(k.Liara.length, 12, 'capped at 12, newest kept');
+  /* M305: this law read "capped at 12, newest kept" — so what a person learned long ago was pushed
+   * out by twelve newer trifles and the storyteller wrote her as if she never knew. The ledger
+   * keeps every fact (a runaway guard far out, held in M305-1); what a reader is SHOWN is the
+   * newest plus what bears on the scene. */
+  eq(k.Liara.length, 21, 'every fact is kept');
   k = addKnowledge(k, 'Aurora', 'read the letter on the train', 9);
   const r = renderKnowledge(k, [{ name: 'Liara' }]);
   assert(r.startsWith('Liara knows: fact 19; fact 18'), 'newest first, four at most: ' + r);

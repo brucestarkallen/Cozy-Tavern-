@@ -15,10 +15,11 @@
  * another fact out of view), a standing "restored" over one the pages had
  * moved — and found the same things again the next turn.
  *
- * Nothing here is trimmed by a budget. The books are capped where they are
- * kept (eight threads, twelve facts a person; seats: everyone the story
- * carries, forty as a runaway guard since M304), so the whole is bounded by
- * the ledger itself.
+ * The books' caps are runaway guards now, not sizes a real story reaches
+ * (seats forty since M304; threads forty and two hundred facts a person since
+ * M305) — so who-knows-what, the one list that grows with the length of the
+ * tale, has a room of its own (renderAllKnowledge) and says what it leaves
+ * out; the rest is whole.
  */
 
 import { renderClock } from './clock.js';
@@ -77,22 +78,41 @@ export function renderAllThreads(threads) {
 /* Every line of who knows what, for everyone — the people in the scene
  * first, marked. A reader that writes knowledge must see all of it, or it
  * writes the same fact again in other words. */
-export function renderAllKnowledge(knowledge, present = []) {
+/* M305: the ledger keeps every fact now (it kept the newest twelve), so this
+ * list is no longer "bounded by the ledger itself". It is whole while it fits
+ * its room; past that every person keeps their newest facts — as many as the
+ * room allows, never fewer than twelve — and the rest are COUNTED on their
+ * line, with the word that they are already known (a reader that cannot see a
+ * fact must not write it again in new words — M259's lesson). */
+export const ALL_KNOWLEDGE_ROOM = 60000;
+export function renderAllKnowledge(knowledge, present = [], room = ALL_KNOWLEDGE_ROOM) {
   const safe = knowledge && typeof knowledge === 'object' ? knowledge : {};
   const hereKeys = new Set((Array.isArray(present) ? present : [])
     .map((p) => (typeof p === 'string' ? p : p && p.name))
     .filter((n) => typeof n === 'string' && n.trim())
     .map((n) => findKnowledgeKey(safe, n))
     .filter(Boolean));
-  const rows = [];
+  const people = [];
   for (const [name, list] of Object.entries(safe)) {
     if (!Array.isArray(list)) continue;
     const facts = list.filter((k) => k && typeof k.fact === 'string' && k.fact.trim()).map((k) => clean(k.fact).replace(/\.+$/, ''));
     if (!facts.length) continue;
-    rows.push({ here: hereKeys.has(name), text: name + (hereKeys.has(name) ? ' (in the scene)' : '') + ' knows: ' + facts.join('; ') + '.' });
+    people.push({ name, here: hereKeys.has(name), facts });
   }
-  rows.sort((a, b) => Number(b.here) - Number(a.here));
-  return rows.map((r) => r.text).join('\n');
+  people.sort((a, b) => Number(b.here) - Number(a.here));
+  const build = (cap) => people.map((p) => {
+    const shown = Number.isFinite(cap) ? p.facts.slice(-cap) : p.facts;
+    const left = p.facts.length - shown.length;
+    return p.name + (p.here ? ' (in the scene)' : '') + ' knows: ' + shown.join('; ') + '.'
+      + (left > 0 ? ' (and ' + left + ' older ' + (left === 1 ? 'thing' : 'things') + ' — already known; never write them again)' : '');
+  }).join('\n');
+  let text = build(Infinity);
+  if (Number.isFinite(room) && text.length > room) {
+    const most = people.reduce((n, p) => Math.max(n, p.facts.length), 0);
+    let cap = most;
+    while (cap > 12 && text.length > room) { cap = Math.max(12, Math.floor(cap * 0.8)); text = build(cap); }
+  }
+  return text;
 }
 
 /* Every faction, newest move first. */

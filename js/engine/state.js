@@ -495,7 +495,7 @@ export function stateView(budgetTokens) {
   return { budget, whole: budget >= STATE_BUDGET * 4 };
 }
 
-export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false } = {}) {
+export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [] } = {}) {
   if (!state || typeof state !== 'object') return '';
 
   const clockMinutes = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
@@ -577,7 +577,8 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false }
 
   /* M29: who knows what — the present only, so the storyteller never has
    * to search the transcript for whether Liara was in the room. */
-  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined);
+  /* M305: the newest, and the older facts that bear on the scene the last pages tell */
+  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined, { pages: scenePages, ignore: [mcName(state)] });
   if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'Who knows what: ' });
 
   /* M86: the living world is not the first thing the budget drops — who is

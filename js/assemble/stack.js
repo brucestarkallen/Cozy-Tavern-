@@ -527,7 +527,7 @@ export function buildRequest({
   }
 
   /* --- 5. The state of things --- */
-  const facts = renderStateFacts(state, stateView(windowInfo && windowInfo.budgetTokens)); /* M266: in the room the storyteller has */
+  const facts = renderStateFacts(state, { ...stateView(windowInfo && windowInfo.budgetTokens), scenePages: recentPages }); /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
   pushSlot('The state of things', facts);
 
   /* --- 6. Active modules (everything selected that isn't the craft) --- */

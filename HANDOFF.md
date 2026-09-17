@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m304-001)
+# Cozy Tavern — handoff for the next session (state at m305-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M304). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M305). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 577 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 582 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 68 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,12 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- The books do not forget (M305): sixty facts a person and forty threads are RUNAWAY GUARDS; a reader
+  is shown the newest plus the older facts that bear on the scene (world.js renderKnowledge, fed the
+  last pages by stack.js), and whatever is not shown is counted on the line. Before raising ANY
+  storage cap, measure it times the snapshots — every snapshot is a whole ledger (state.js, up to
+  120), and the tale's book carries them all. A mutation run is one harness pass per command: the
+  tool's wall is 300 seconds, and a run cut short leaves mutated files behind — restore and `cmp` first.
 - Nobody is nowhere (M304): presence.leave keeps a `lastSeen` seat at the ground the page BEGAN on
   (state.groundWas); a leaving is applied before its seat within a batch; ONE definition of who is
   carried (auditor.js carriedBy — the brief by whole or spoken name, an invited card, a standing, a
