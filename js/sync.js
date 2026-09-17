@@ -142,7 +142,7 @@ export async function initSync(ctx) {
           const ids = [...dirty];
           dirty.clear();
           const began = Date.now();
-          const r = await ask({ kind: 'push', ids, expect: 'pushed' });
+          const r = await ask({ kind: 'push', ids, expect: 'pushed', mine: { _house: mineFor('_house') } }); /* M311: what this browser itself let go — everything else the device holds is kept */
           for (const id of (r && Array.isArray(r.ids)) ? r.ids : []) pushedAt.set(id, began);
         }
       } finally { running = null; }

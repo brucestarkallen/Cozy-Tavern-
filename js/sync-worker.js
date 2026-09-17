@@ -9,7 +9,7 @@
  *   { kind: 'push', ids: [...] }     -> { kind: 'pushed', ok, ids }
  *   { kind: 'pull' }                 -> { kind: 'pulled', ok, count }
  */
-import { db } from './store.js';
+import { db, keepWhatWasNeverLetGo } from './store.js'; /* M311 */
 
 const HOUSE = '_house';
 const LEASH = 120000;
@@ -101,12 +101,30 @@ async function wouldEmptyTheBook(id, json) {
   } catch (err) { return true; }                     /* cannot tell: refuse, and keep the pages */
 }
 
-async function pushIds(ids) {
+/* M311: the house is pushed only after it is held against the device's — every row the device holds
+ * that this browser lacks and did not itself let go rides as the device has it (store.js
+ * keepWhatWasNeverLetGo), and is taken in here. No device copy, or one that cannot be read: the
+ * book goes as it is, as before. */
+async function houseForPush(json, mine) {
+  try {
+    const res = await fetch(api('api/books/one/' + HOUSE), { signal: AbortSignal.timeout(LEASH), cache: 'no-store' });
+    if (!res.ok) return json;
+    const kept = keepWhatWasNeverLetGo(json, await res.text(), mine);
+    if (kept.adopt.settings.length || kept.adopt.connections.length) {
+      await db.adoptHouseRows(kept.adopt);
+      self.postMessage({ kind: 'healed', ids: [HOUSE] });
+    }
+    return kept.json;
+  } catch (err) { return json; }
+}
+
+async function pushIds(ids, mine = {}) {
   const done = [];
   const refused = [];
   for (const id of ids) {
-    const json = id === HOUSE ? await db.exportHouse() : await db.exportStory(id);
+    let json = id === HOUSE ? await db.exportHouse() : await db.exportStory(id);
     if (!json) continue;
+    if (id === HOUSE) json = await houseForPush(json, (mine && mine[HOUSE]) || []);
     if (id !== HOUSE && await wouldEmptyTheBook(id, json)) { refused.push(id); continue; }
     const base = id === HOUSE ? '' : await db.settings.get('bookStamp:' + id);
     if (await putBook(id, json, base)) { await db.settings.set('bookStamp:' + id, stampOf(json)); done.push(id); }
@@ -167,7 +185,7 @@ self.onmessage = async (e) => {
   const reply = (m) => self.postMessage(rid === undefined ? m : { ...m, rid });
   try {
     if (msg.kind === 'push') {
-      const ids = await pushIds(Array.isArray(msg.ids) ? msg.ids : []);
+      const ids = await pushIds(Array.isArray(msg.ids) ? msg.ids : [], msg.mine || {});
       reply({ kind: 'pushed', ok: true, ids });
       return;
     }
@@ -269,7 +287,7 @@ self.onmessage = async (e) => {
       const local = await db.stories.list();
       const toPush = local.filter((st) => !have.has(st.id) && !buried.has(st.id)).map((st) => st.id);
       if (!have.has(HOUSE) && (local.length || (await db.connections.list()).length)) toPush.push(HOUSE);
-      const pushed = toPush.length ? await pushIds(toPush) : [];
+      const pushed = toPush.length ? await pushIds(toPush, msg.mine || {}) : [];
       reply({ kind: 'boot', reachable: true, pulled: pulled + dropped, pushed: pushed.length, recent });
       return;
     }

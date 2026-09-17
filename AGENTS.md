@@ -7040,3 +7040,38 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   tests/perf_rooms.py (new, this session) measures the ledger and Settings on ONE heavy tale and
   does not reproduce the lag — the library's size is the variable it does not have yet.
 - version.js -> m310-001.
+
+# M311 — the shelves came back by themselves; a browser speaks only for the rows it changed
+- THE WRITER, furious and right: "my project all gone suddenly — the chats are still there but I need to put
+  them into projects one by one."
+- ROOT CAUSE, read in the code. The list of shelves is ONE settings row ("projects") in the HOUSE book; each
+  tale carries its shelf's id (projectId). The house book was pushed WHOLE from whatever a browser
+  held, and since M293 a pull lets go of every house row the device's book lacks. So a browser
+  holding only part of the house (Chrome, which crashed while first filling) pushed a book without
+  "projects", and every other browser's next pull deleted it: every tale "stood loose" at once. A
+  tale has had this guard since M188 (an empty tale never overwrites a full one); the house had
+  none — and the cast library, the rulebook and the connections stood in the same line.
+- CHANGE.
+  · THE SHELVES COME BACK BY THEMSELVES (store.js projects.heal; chat.js refreshStories runs it before the
+    shelf is drawn): for every shelf id a tale names that the list lacks, the shelf is written back
+    under that SAME id — no tale is touched, not even its date. The name comes from what the device
+    can still find (serve.py /api/recover/projects reads, read-only, the house book and its .bak1,
+    the old single-file books.json/.bak1/.bak2 and the safety zips; the newest name wins) or reads
+    "Recovered shelf N" — one rename a shelf, never one move a tale.
+  · A BROWSER SPEAKS ONLY FOR THE ROWS IT CHANGED (store.js keepWhatWasNeverLetGo — pure; the sync
+    worker holds the house against the device's before every push): every settings row and connection
+    the device holds that this browser lacks rides the push as the device has it, and is taken in
+    here — unless this browser itself let it go (`mine`, which sync.js now sends with a push). A real
+    deletion still travels (twobrowsers' M293 checks, 26/26).
+- TESTS: tests/harness/m311.mjs (the loss exactly as it happens — the one row deleted — and every tale
+  back on its shelf, untouched, idempotent, with and without names; the guard: a partial house keeps
+  the shelves, the cast card and the rulebook, a row it holds is its own, what it let go stays let
+  go, an unreadable device copy changes nothing). tests/recover.py against the real serve.py (three
+  files, the newer name wins, nothing written). twobrowsers 26/26 and the wipe test on this tree.
+- NOT VERIFIED: that this is what happened on the writer's phone — it is the one path in the code that
+  deletes that row, and it fits what he saw (Chrome crashed on opening; every browser lost the
+  shelves; the tales kept their pages). If his tales had their projectId cleared (only "take the
+  shelf down" does that), the heal finds nothing to go on.
+- STILL OPEN, his standing order: storage like SillyTavern's (the server owns the files, the browser
+  holds only the open tale).
+- version.js -> m311-001.

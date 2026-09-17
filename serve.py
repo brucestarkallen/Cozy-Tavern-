@@ -406,6 +406,10 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         if path == '/api/books/list':
             self._send_bytes(self._manifest())
             return
+        if path == '/api/recover/projects':
+            # M311: the names of shelves, wherever this device still holds them
+            self._send_bytes(json.dumps({'ok': True, 'projects': recover_projects()}).encode('utf-8'))
+            return
         if path == '/api/backup/now' or path == '/api/backup/list':
             # M310: a safety copy made by the DEVICE, from the files — whatever the library's size
             r = make_backup(force=False) if path.endswith('/now') else {'ok': True}
@@ -786,6 +790,50 @@ def make_backup(force=False):
         return {'ok': True, 'made': True, 'path': final, 'bytes': os.path.getsize(final), 'files': count}
     except Exception as err:  # never take the server down for a backup
         return {'ok': False, 'why': str(err)}
+
+
+def recover_projects():
+    """M311: every shelf row ({id, name, createdAt}) this device can still find, by id — read from the
+    house book and its safety copy, the old single-file books (books.json and its .bak1/.bak2, from
+    before one-file-per-tale) and the safety zips. Older files are read first, so a newer name wins.
+    Read-only; never raises."""
+    import zipfile
+    found = {}
+
+    def take(doc):
+        try:
+            rows = doc.get('settings') if isinstance(doc, dict) else None
+            for row in rows or []:
+                if isinstance(row, dict) and row.get('key') == 'projects' and isinstance(row.get('value'), list):
+                    for pr in row['value']:
+                        if isinstance(pr, dict) and isinstance(pr.get('id'), str) and isinstance(pr.get('name'), str) and pr['name'].strip():
+                            found[pr['id']] = {'name': pr['name'].strip(), 'createdAt': pr.get('createdAt')}
+        except Exception:
+            pass
+
+    def read(path):
+        try:
+            if os.path.getsize(path) > MAX_BOOK_BYTES * 4:
+                return
+            with open(path, 'rb') as f:
+                take(json.loads(f.read().decode('utf-8', 'ignore')))
+        except Exception:
+            pass
+
+    for old in (BOOKS + '.bak2', BOOKS + '.bak1', BOOKS):
+        read(old)
+    for z in _backups():
+        try:
+            with zipfile.ZipFile(z) as zf:
+                for n in zf.namelist():
+                    if n.endswith('_house.json') or n.endswith('_house.json.bak1') or n.endswith('books.json'):
+                        take(json.loads(zf.read(n).decode('utf-8', 'ignore')))
+        except Exception:
+            pass
+    house = os.path.join(DATA_DIR, 'books', '_house.json')
+    read(house + '.bak1')
+    read(house)
+    return found
 
 
 def _daily_backup():

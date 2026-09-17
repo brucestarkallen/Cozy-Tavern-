@@ -436,6 +436,20 @@ export function initChat(ctx) {
 
   async function refreshStories(keepActive) {
     stories = await db.stories.list();
+    /* M311: a shelf whose row was lost is put back before the shelf is drawn — the tales still name it.
+     * The device is asked once for the names it can find in its older files; without it, "Recovered shelf N". */
+    try {
+      const known = new Set((await db.projects.list()).map((p) => p.id));
+      if (stories.some((st) => st && st.projectId && !known.has(st.projectId))) {
+        let names = {};
+        try {
+          const res = await fetch(new URL('api/recover/projects', document.baseURI), { cache: 'no-store' });
+          if (res.ok) { const r = await res.json(); if (r && r.projects && typeof r.projects === 'object') names = r.projects; }
+        } catch (err) { /* no server: the shelves come back unnamed */ }
+        const back = await db.projects.heal(names);
+        if (back.length) toast(back.length === 1 ? 'A shelf that had gone missing is back: ' + back[0].name + '.' : back.length + ' shelves that had gone missing are back, every tale where it stood.');
+      }
+    } catch (err) { /* the shelf still draws */ }
     /* M16: the shelves gather alongside their tales. */
     projects = await db.projects.list();
     shelfCollapsed = (await db.settings.get(SHELF_COLLAPSED_KEY)) || {};

@@ -586,6 +586,39 @@ const projects = {
     await settings.set(PROJECTS_KEY, rows.map((p) => (p.id === id ? { ...p, name: next } : p)));
     return { ...row, name: next };
   },
+  /* M311: A SHELF THAT LOST ITS ROW IS PUT BACK — THE TALES STILL KNOW WHERE THEY STOOD. The
+   * whole list of shelves is ONE settings row ("projects"), and every tale carries the id of its
+   * shelf (projectId). When that one row was lost — a browser that did not hold it pushed a house
+   * book without it, and every other browser's pull then let it go (M293) — every tale "stood
+   * loose", forty of them, and the writer was left to re-shelve each by hand. Nothing was
+   * actually lost: the ids are on the tales. For every shelf id a tale names that the list does
+   * not hold, the shelf is written back under that SAME id (so no tale is touched); its name
+   * comes from `names` (what the device could find in its older files) or reads "Recovered
+   * shelf N" for the writer to rename — once per shelf, never once per tale. Returns the rows
+   * it put back. Pure of side effects when nothing is orphaned. */
+  async heal(names = {}) {
+    const rows = await projects.list();
+    const known = new Set(rows.map((p) => p.id));
+    const all = await stories.list();
+    const orphaned = new Map(); /* shelf id -> the oldest tale's birth, to keep shelf order steady */
+    for (const st of all) {
+      const pid = st && typeof st.projectId === 'string' ? st.projectId : '';
+      if (!pid || known.has(pid)) continue;
+      const born = Number(st.createdAt) || Date.now();
+      orphaned.set(pid, Math.min(orphaned.get(pid) || born, born));
+    }
+    if (!orphaned.size) return [];
+    const back = [];
+    let n = 0;
+    for (const [id, born] of [...orphaned.entries()].sort((a, b) => a[1] - b[1])) {
+      n += 1;
+      const found = names && typeof names === 'object' ? names[id] : null;
+      const name = found && typeof found.name === 'string' && found.name.trim() ? found.name.trim() : 'Recovered shelf ' + n;
+      back.push({ id, name, createdAt: found && Number(found.createdAt) ? Number(found.createdAt) : born - 1, recovered: true });
+    }
+    await settings.set(PROJECTS_KEY, [...rows, ...back]);
+    return back;
+  },
   /* Taking a shelf down NEVER deletes a tale — every story it held simply
    * stands loose again (projectId let go). */
   async remove(id) {
@@ -707,6 +740,57 @@ async function exportHouse() {
   const house = rows.filter((r) => r && typeof r.key === 'string' && !STORY_ROW(r.key, ids) && !STORY_PREFIXED.test(r.key) && r.key !== 'booksStamp');
   return JSON.stringify({ namespace: NAMESPACE, kind: 'house', exportedAt: new Date().toISOString(), settings: house, connections: await run('connections', 'readonly', (s) => s.getAll()), stories: all.map((x) => ({ id: x.id, title: x.title, createdAt: x.createdAt, updatedAt: x.updatedAt, projectId: x.projectId })) });
 }
+/* M311: A BROWSER SPEAKS ONLY FOR THE ROWS IT CHANGED. The house book was pushed WHOLE from whatever
+ * this browser happened to hold — so a browser holding only part of the house (one that crashed
+ * while it was first filling, a store the phone had half-evicted) pushed a book WITHOUT the rows it
+ * lacked, and every other browser's next pull let those rows go (M293: "a row the book does not
+ * hold is let go here"). That is how one settings row — the list of shelves — vanished from every
+ * browser at once; the cast library, the rulebook and the connections stood in the same line. A
+ * tale has had this guard since M188 (an empty tale never overwrites a full one); the house had none.
+ *   keepWhatWasNeverLetGo(localJson, deviceJson, mine) -> { json, adopt: {settings, connections} }
+ * Every settings row and connection the DEVICE holds and this browser lacks rides the push as the
+ * device has it — unless this browser itself let it go (`mine`: the keys and connection ids it
+ * wrote or deleted since its last push). `adopt` is what this browser was missing, for it to take
+ * in. Tale-shaped rows are never the house's and are left out as before. Pure. */
+export function keepWhatWasNeverLetGo(localJson, deviceJson, mine = []) {
+  const local = typeof localJson === 'string' ? JSON.parse(localJson) : localJson;
+  let device = null;
+  try { device = typeof deviceJson === 'string' ? JSON.parse(deviceJson) : deviceJson; } catch (err) { device = null; }
+  const adopt = { settings: [], connections: [] };
+  if (!local || local.kind !== 'house' || !device || device.kind !== 'house') return { json: typeof localJson === 'string' ? localJson : JSON.stringify(local), adopt };
+  const spoke = new Set(Array.isArray(mine) ? mine : []);
+  const ids = new Set([...(local.stories || []), ...(device.stories || [])].map((x) => x && x.id).filter(Boolean));
+  const haveKeys = new Set((local.settings || []).map((r) => r && r.key));
+  for (const row of (device.settings || [])) {
+    if (!row || typeof row.key !== 'string' || haveKeys.has(row.key) || spoke.has(row.key)) continue;
+    if (STORY_ROW(row.key, ids) || STORY_PREFIXED.test(row.key) || row.key === 'booksStamp') continue;
+    adopt.settings.push(row);
+  }
+  const haveConn = new Set((local.connections || []).map((c) => c && c.id));
+  for (const c of (device.connections || [])) {
+    if (!c || typeof c.id !== 'string' || haveConn.has(c.id) || spoke.has(c.id)) continue;
+    adopt.connections.push(c);
+  }
+  if (!adopt.settings.length && !adopt.connections.length) return { json: typeof localJson === 'string' ? localJson : JSON.stringify(local), adopt };
+  const merged = { ...local, settings: [...(local.settings || []), ...adopt.settings], connections: [...(local.connections || []), ...adopt.connections] };
+  return { json: JSON.stringify(merged), adopt };
+}
+/* what this browser was missing, taken in — never over a row it holds */
+async function adoptHouseRows({ settings: rows = [], connections: conns = [] } = {}) {
+  if (!rows.length && !conns.length) return 0;
+  const d = await openDB();
+  await new Promise((resolve, reject) => {
+    const t = d.transaction(['connections', 'settings'], 'readwrite');
+    const ss = t.objectStore('settings');
+    for (const r of rows) if (r && typeof r.key === 'string') ss.put(r);
+    const cs = t.objectStore('connections');
+    for (const c of conns) if (c && c.id) cs.put(c);
+    t.oncomplete = () => resolve(); t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
+  });
+  dropCaches();
+  return rows.length + conns.length;
+}
+
 /* M190: A TALE'S BOOK MUST NOT UNDO WHAT THE SHELF KNOWS. importStory wrote
  * `data.story` over the local row wholesale — so a title changed in this
  * browser was silently reverted the moment that tale's book was fetched (the
@@ -883,6 +967,7 @@ export const db = {
   exportHouse,
   importStory,
   importHouse,
+  adoptHouseRows, /* M311 */
   sweepOrphans,
   onStorageWarning,
 };
