@@ -54,6 +54,7 @@ export function parseSTChat(jsonlText) {
   }
 
   const messages = [];
+  let lastTs = 0; /* M297 */
   for (let i = firstMessageLine; i < lines.length; i += 1) {
     const lineNo = i + 1;
     let row;
@@ -71,9 +72,18 @@ export function parseSTChat(jsonlText) {
       throw new Error(`Line ${lineNo} of that export has no words in it. Nothing was brought over.`);
     }
     /* The send date keeps the pages honest; when a line lacks one, fall
-     * back to a steady sequence so the order still holds. */
-    const parsed = Date.parse(row.send_date);
-    const ts = Number.isFinite(parsed) ? parsed : Date.now() + i;
+     * back to a steady sequence so the order still holds.
+     * M297: AND THE ORDER IS THE FILE'S. SillyTavern's send_date has minute
+     * resolution — a question and its answer in the same minute shared a
+     * stamp, and the store sorts pages by stamp, so the pair came up in
+     * whichever order their ids fell: the answer before the question. And a
+     * line with no date landed at "now", after every dated page. Every page
+     * is stamped strictly after the one before it; a date only moves a page
+     * forward, never back. */
+    const raw = typeof row.send_date === 'number' ? row.send_date : Date.parse(row.send_date);
+    let ts = Number.isFinite(raw) ? raw : (lastTs ? lastTs + 1 : Date.now());
+    if (ts <= lastTs) ts = lastTs + 1;
+    lastTs = ts;
     messages.push({
       role: row.is_user === true ? 'user' : 'assistant',
       text: mes,

@@ -6492,3 +6492,22 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   returns the pages it put back; no name ripple on a take-back, per M191). VALIDATION: DOM-37 red →
   green (the line let go, the page read again; the take-back likewise); M44-6 reads the one door.
 - 556/556 harness + 56/56 walk + lint 0 errors (96 warnings). version.js -> m296-001.
+
+# M297 — a brought-over chat keeps the file's order
+- THE PASS, CONTINUED: ui/drawer.js (the hand's writes — every one through the mutation door and the
+  journal, the take-back's target rule, the calendar's naming written direct and unjournaled by
+  design), engine/world.js (threads, knowledge, factions, seats), agents/world.js (the seat guard, the
+  apply-time reload every worker does before it writes — world, auditor, founder, scribe all re-read
+  the ledger after the model answers), assemble/stack.js's slot law, import/chats.js.
+- File js/import/chats.js parseSTChat. PROBLEM: a page's stamp was its send_date when one parsed and
+  "now + i" when none did. The store lists pages by stamp, so two pages in the same minute (a question
+  and its answer; any export with minute resolution) came up in whichever order their ids fell — the
+  answer before the question — a page with no date landed after every dated one, and a date set back
+  moved a page up the story. EVIDENCE: M297-1 — stamps 1717626180000, 1717626180000, 1789628556717,
+  …, 1717626000000 for five pages in file order. ROOT CAUSE: the order of the file was never made the
+  order of the stamps. CHANGE: every page is stamped strictly after the one before it; a date moves a
+  page forward, never back; a numeric send_date (SillyTavern's newer exports) is read as the number
+  it is. VALIDATION: M297-1 red → green — the store lists ONE TWO THREE FOUR FIVE.
+- Read and found clean: knowledge is rendered to the storyteller for the people PRESENT only (nobody
+  is handed what an absent person knows); every hand write in the drawer is journaled and reversible.
+- 557/557 harness + lint 0 errors (96 warnings). version.js -> m297-001.
