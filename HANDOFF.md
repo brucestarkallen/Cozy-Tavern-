@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m306-001)
+# Cozy Tavern — handoff for the next session (state at m307-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M306). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M307). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 584 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 588 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 68 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 69 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,11 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- The prefill (M307): the first words of the REPLY, put back on the page at the reply's first word
+  (effort.js prefillLead/prefillGap) because every house answers only with what follows it; DeepSeek's
+  own host takes a started reply ONLY at /beta (the turn and "Test it" both go there, with a fallback
+  that still brings the page); a refusal is remembered with the address that said it. To see what any
+  house is really sent, run the provider with a recording fetch (tests/harness/m307.mjs `tell`).
 - The books do not forget (M305): sixty facts a person and forty threads are RUNAWAY GUARDS; a reader
   is shown the newest plus the older facts that bear on the scene (world.js renderKnowledge, fed the
   last pages by stack.js), and whatever is not shown is counted on the line. Before raising ANY

@@ -137,6 +137,7 @@ export async function markConnectionDown(conn, field, shape) {
   const patch = { [field]: conn[field] };
   /* M303: the thinking refusal remembers WHICH spelling was refused */
   if (field === 'reasoningDownAt' && typeof shape === 'string' && shape) { conn.reasoningDownShape = shape; patch.reasoningDownShape = shape; }
+  if (field === 'prefillDownAt' && typeof shape === 'string' && shape) { conn.prefillDownShape = shape; patch.prefillDownShape = shape; } /* M307: which address refused it */
   try {
     await db.connections.update(conn.id, patch);
   } catch (err) { /* a memory that won't persist is no reason to fail */ }
@@ -215,6 +216,65 @@ export function prefillProfile(conn) {
 
 const THINK_SPAN = /^\s*<think>([\s\S]*?)<\/think>\s*/;
 
+/* M307: THE WORDS THE REPLY WAS STARTED WITH ARE PART OF THE REPLY. Every house
+ * that takes a prefill answers with what comes AFTER it (Moonshot's own docs:
+ * "prepend that prefix when displaying the final result") — and nothing here
+ * ever put it back, so a page begun with "[The Bluebird —" landed as
+ * " Friday | 20:00] She looked up.": a page that starts mid-line, whose header
+ * the house can no longer read for the ground and the hour, and a worker
+ * begun with "{" answered with JSON missing its first brace. What is put back
+ * is what the reader should see: the prefill as sent (its trailing space
+ * trimmed, as the wire trims it), less a leading <think>…</think> span, which
+ * is thinking and never the page. */
+export function prefillLead(conn) {
+  const text = String(conn && conn.prefill != null ? conn.prefill : '').replace(/\s+$/, '');
+  if (!text.trim()) return '';
+  return text.replace(THINK_SPAN, '');
+}
+/* the space the writer ended his prefill with. The wire trims it (some houses
+ * refuse a trailing space), and a model usually begins its continuation with
+ * one — but not always: "[The Wells house —" + "Friday, March 14…" read as one
+ * word to the header's own parser, which took the whole of it for the ground
+ * (seen in the walk, DOM-50). It goes back only when the continuation brought
+ * none of its own. */
+export function prefillGap(conn) {
+  const raw = String(conn && conn.prefill != null ? conn.prefill : '');
+  if (!raw.trim()) return '';
+  const m = raw.match(/\s+$/);
+  return m ? m[0] : '';
+}
+
+/* M307: DEEPSEEK TAKES A STARTED REPLY ONLY AT ITS BETA ADDRESS (its docs, "Chat
+ * Prefix Completion (Beta)": "the user needs to set
+ * base_url=https://api.deepseek.com/beta"). The house sent prefix:true to the
+ * ordinary address, which refuses it — and the refusal memory then switched
+ * the prefill off for the connection, so on DeepSeek a prefill never once
+ * worked. Only DeepSeek's own host is sent there; a proxy that merely has
+ * "deepseek" in its name keeps its own path. */
+/* M307: a refusal of a started reply is remembered for the ADDRESS that refused
+ * it. On DeepSeek's own host every refusal before now came from the ordinary
+ * address, which never takes one — it says nothing about the beta address
+ * that does. Such a mark is not honoured, and is let go before the turn. */
+export function prefillIsDown(conn) {
+  if (!conn || !conn.prefillDownAt) return false;
+  /* only where the beta address is the one asked: DeepSeek's own host in the openai shape. Its
+   * Anthropic-shaped address (api.deepseek.com/anthropic) takes a started reply natively and is
+   * never sent to /beta — a no from it is a real no, and forgetting it would ask twice every turn. */
+  if (prefillProfile(conn) === 'deepseek' && deepseekBetaBase(conn.baseUrl) && conn.prefillDownShape !== 'deepseek-beta') return false;
+  return true;
+}
+export async function healStalePrefillRefusal(conn) {
+  if (!conn || !conn.prefillDownAt || prefillIsDown(conn)) return false;
+  delete conn.prefillDownAt;
+  delete conn.prefillDownShape;
+  if (conn.id) { try { await db.connections.update(conn.id, { prefillDownAt: null, prefillDownShape: null }); } catch (err) { /* let go in hand; tried again next turn */ } }
+  return true;
+}
+export function deepseekBetaBase(baseUrl) {
+  const m = String(baseUrl || '').trim().match(/^(https?:\/\/api\.deepseek\.com)(?:\/|$)/i);
+  return m ? m[1] + '/beta' : '';
+}
+
 /* Apply the prefill to a FINISHED wire message list (a copy — the caller's
  * list is never touched). Returns {messages, applied, note?}: applied=false
  * means the request goes out exactly as assembled, with `note` saying why
@@ -223,7 +283,7 @@ export function applyPrefill(messages, conn) {
   const list = (Array.isArray(messages) ? messages : []).map((m) => ({ ...m }));
   const text = String(conn && conn.prefill != null ? conn.prefill : '');
   if (!text.trim()) return { messages: list, applied: false };
-  if (conn && conn.prefillDownAt) {
+  if (prefillIsDown(conn)) {
     return {
       messages: list,
       applied: false,

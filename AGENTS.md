@@ -6905,3 +6905,45 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - MUTATION-CHECKED: slice(0, 3) back and the note silenced → M306-1 and M306-2 fail; both files
   restored and `cmp`-proven.
 - version.js -> m306-001.
+
+# M307 — the prefill: the words a reply was started with are part of the reply; DeepSeek takes one only at its beta address
+- THE WRITER asked what the connection's prefill is ("is this prefill inside thinking?"). Answering it from the
+  real provider (a recording fetch, every house) found two faults in the feature itself.
+- WHAT IT IS: the first words of the REPLY, never the thinking — a trailing assistant message the model
+  continues (Claude natively; Moonshot `partial:true`; DeepSeek `prefix:true`); on any other
+  openai-shaped address a plain prefill stays home with a word said, and only a `<think>…</think>`
+  prefill rides, as reasoning_content. A worker riding the connection gets it too (M231).
+- FAULT 1 — THE PREFILL'S OWN WORDS NEVER REACHED THE PAGE. Every house answers with what comes AFTER
+  it (Moonshot's docs: "prepend that prefix when displaying the final result") and nothing put it
+  back: a page begun with "[The Bluebird —" landed as " Friday | 20:00] She looked up." — a page that
+  starts mid-line, whose header the house can no longer read for the ground and the hour; a worker
+  begun with "{" answered with JSON missing its first brace. CHANGE (providers/openai.js,
+  anthropic.js; effort.js prefillLead/prefillGap): what was sent — less a leading <think> span — is
+  put back AT THE REPLY'S FIRST WORD, never before (ahead of the thinking it would have read as prose
+  begun, folding the live thinking and stopping its clock); a house that echoes the prefill is not
+  doubled; no word of prose, no page. The wire trims the prefill's trailing space (some houses refuse
+  one): the writer's own space goes back only when the continuation brought none — found in the
+  walk, where "[The Wells house —" + "Friday, March…" read as one word and the header's parser took
+  all of it for the ground.
+- FAULT 2 — ON DEEPSEEK A PREFILL COULD NEVER WORK. DeepSeek's docs ("Chat Prefix Completion (Beta)"):
+  "the user needs to set base_url=https://api.deepseek.com/beta". The house sent prefix:true to the
+  ordinary address, was refused, and the refusal memory switched the prefill OFF for the connection;
+  the form's "Test it" asked the same address and did the same. CHANGE: a started reply — and the
+  probe — go to `{api.deepseek.com}/beta/chat/completions` (DeepSeek's own host only; a proxy keeps
+  its path; its Anthropic-shaped address is native and never sent there). Whatever the beta address
+  says no to, the page still comes: once more without the prefill at the ordinary address, nothing
+  remembered — unless the no cites the prefix, which is remembered WITH the address that said it
+  (prefillDownShape). A mark made against the ordinary address is stale: not honoured, and let go
+  from the store before the turn (prefillIsDown / healStalePrefillRefusal), so Settings stops saying
+  "rides unsent". NOT VERIFIED (no DeepSeek key here): the live beta address's behaviour; the docs
+  are followed exactly and the fallback covers a no.
+- FOUND RE-READING MY OWN DIFF, before any run: the stale-mark rule matched DeepSeek by HOST alone, so
+  api.deepseek.com/anthropic — never sent to /beta — would have had its real refusals forgotten and
+  been asked twice every turn. It asks the prefill profile too; M307-4 holds it (red with the
+  host-only rule).
+- TESTS: tests/harness/m307.mjs — four laws through the real providers (Kimi, DeepSeek, Claude's own
+  stream, a worker's JSON, the probe, the beta fallback, stale and real marks). DOM-50 plays it in
+  the app: the wire carries Kimi's partial message, the saved page begins with its first words, and
+  the ledger's ground is read from the header. MUTATION-CHECKED in two short runs (the lead not put
+  back + no beta address; the host-only rule), each restored and `cmp`-proven.
+- version.js -> m307-001.

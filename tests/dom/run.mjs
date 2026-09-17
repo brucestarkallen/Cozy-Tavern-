@@ -2758,6 +2758,41 @@ test('DOM-49 nobody who leaves the page is nowhere: played through the real read
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-50 a page begun with a prefill lands WITH its first words: the header line is whole, and the house reads the ground from it (M307)', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const conn = await db.connections.add({ label: 'ZZZ kimi with a prefill', type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', apiKey: 'k', model: 'kimi-k2.6', prefill: '[The Wells house — ' });
+  const st = await db.stories.create({ title: 'begun for it' });
+  await db.stories.update(st.id, { connectionId: conn.id });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer;
+  const priorWorker = house.state.workerAnswer;
+  try {
+    /* what a house that takes a started reply answers with: only what comes AFTER it */
+    house.state.storyAnswer = () => 'Friday, March 14, 2025 | 21:00 | clear | gray hoodie | on the porch]\n\nThey sat on the steps until the street went quiet.';
+    house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [] }) : priorWorker(body, sys));
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'We sit outside.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(() => queuedCount(st.id) === 0, 'the readers', 40000);
+    await settled();
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker);
+    const last = told.body.messages[told.body.messages.length - 1];
+    assert(last.role === 'assistant' && last.partial === true && last.content === '[The Wells house —', 'the reply was started for it, in Kimi’s own way: ' + JSON.stringify(last));
+    const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    assert(page.text.startsWith('[The Wells house — Friday, March 14, 2025 | 21:00'), 'the saved page begins with the words it was started with, the writer’s own space between (it began "Friday, March 14…"): ' + page.text.slice(0, 60));
+    eq(((await loadState(st.id)).place || {}).name, 'The Wells house', 'and the house reads the ground from the header line, which is whole again');
+  } finally {
+    house.state.storyAnswer = priorStory;
+    house.state.workerAnswer = priorWorker;
+    await db.connections.remove(conn.id);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

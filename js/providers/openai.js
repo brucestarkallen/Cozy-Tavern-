@@ -21,7 +21,7 @@ import { withImagePart, transportError } from './wire.js';
  * rejection memory) and the storyteller prefill live in effort.js. */
 import {
   reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
-  applyPrefill, markConnectionDown, reasoningIsDown, healStaleRefusal,
+  applyPrefill, markConnectionDown, reasoningIsDown, healStaleRefusal, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal,
 } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
@@ -285,11 +285,15 @@ export function createOpenAIProvider(connection) {
     /* M303: a refusal remembered for a spelling this connection no longer
      * speaks is let go before the turn — the house repairs what it can see */
     await healStaleRefusal(connection, reasonStyle(connection));
+    await healStalePrefillRefusal(connection); /* M307 */
+    let lead = ''; /* M307: the words the reply was started with, put back at its first word */
     for (let attempt = 0; attempt < 2 && !res; attempt += 1) {
       const { body, prefill } = requestBody(connection, wire, opts);
+      /* M307: a started reply goes to DeepSeek's beta address, the only one that takes it */
+      const beta = prefill.applied && prefillProfile(connection) === 'deepseek' ? deepseekBetaBase(connection.baseUrl) : '';
       let out;
       try {
-        out = await fetch(`${base}/v1/chat/completions`, {
+        out = await fetch(beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`, {
           method: 'POST',
           headers: headersOf(connection),
           signal,
@@ -301,6 +305,7 @@ export function createOpenAIProvider(connection) {
       }
       if (out.ok) {
         if (prefill.note) notes.push(prefill.note);
+        lead = prefill.applied ? prefillLead(connection) : '';
         res = out;
         break;
       }
@@ -321,8 +326,16 @@ export function createOpenAIProvider(connection) {
         continue;
       }
       if (fourHundred && !opts.suppressPrefill && prefill.applied && PREFILL_REFUSAL.test(detail)) {
-        await markConnectionDown(connection, 'prefillDownAt');
+        await markConnectionDown(connection, 'prefillDownAt', beta ? 'deepseek-beta' : '');
         notes.push('A reply that starts before the storyteller wasn’t accepted — the prefill is off for this connection until the model changes.');
+        opts = { ...opts, suppressPrefill: true };
+        continue;
+      }
+      /* M307: the beta address is DeepSeek's to change. Whatever it says no to, the
+       * page still comes — this once without the prefill, at the ordinary address,
+       * and nothing is remembered against the connection for it. */
+      if (beta && !opts.suppressPrefill && (fourHundred || out.status === 404)) {
+        notes.push('DeepSeek’s beta address would not take this turn (' + out.status + '), so it went without the prefill this once.');
         opts = { ...opts, suppressPrefill: true };
         continue;
       }
@@ -344,6 +357,13 @@ export function createOpenAIProvider(connection) {
         thinking += text;
       } else {
         if (ttftMs === null) ttftMs = Date.now() - startedAt;
+        /* M307: at the reply's FIRST word, never before — put back ahead of the
+         * thinking it would have read as prose already begun, and stopped the
+         * thinking's clock; a house that echoes the prefill itself is not doubled */
+        if (lead) {
+          const put = lead; lead = '';
+          if (!text.startsWith(put)) { const back = put + (/^\s/.test(text) ? '' : prefillGap(connection)); full += back; if (onToken) onToken({ channel, text: back }); }
+        }
         full += text;
       }
       if (onToken) onToken({ channel, text });
@@ -424,9 +444,13 @@ export function createOpenAIProvider(connection) {
     if (!body.messages.length || body.messages[body.messages.length - 1].role !== 'assistant') {
       return { ok: false, detail: 'This address has no known way to start the reply for it — nothing was sent.' };
     }
+    /* M307: THE PROBE GOES WHERE THE TURN GOES. It asked DeepSeek's ordinary
+     * address, which never takes a started reply — so "Test it" answered
+     * "won't take a prefill" and switched the prefill OFF for the connection. */
+    const beta = prefillProfile(connection) === 'deepseek' ? deepseekBetaBase(connection.baseUrl) : '';
     let res;
     try {
-      res = await fetch(`${base}/v1/chat/completions`, {
+      res = await fetch(beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`, {
         method: 'POST',
         headers: headersOf(connection),
         body: JSON.stringify(body),
@@ -441,7 +465,7 @@ export function createOpenAIProvider(connection) {
       detail = (j && j.error && j.error.message) || '';
     } catch (err) { /* the status speaks for itself */ }
     if ((res.status === 400 || res.status === 422) && PREFILL_REFUSAL.test(detail)) {
-      await markConnectionDown(connection, 'prefillDownAt');
+      await markConnectionDown(connection, 'prefillDownAt', beta ? 'deepseek-beta' : '');
       return { ok: false, detail: 'Won’t take a prefill — sent without it from here on, until the model changes.' };
     }
     return { ok: false, detail: await explain(res, name) };

@@ -19,7 +19,7 @@ import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '..
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
 import { learnContext } from '../providers/detect.js'; /* M289 */
 import { byName } from '../providers/order.js'; /* M301: every list of names the writer picks from, A to Z */
-import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint } from '../providers/effort.js';
+import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
@@ -523,7 +523,7 @@ export function initSettings(ctx) {
       if (els.downNote) {
         const bits = [];
         if (reasoningIsDown(conn, reasonStyle(conn))) bits.push('it once refused the thinking settings, so they ride unsent');
-        if (conn.prefillDownAt) bits.push('it once refused a started reply, so the prefill rides unsent');
+        if (prefillIsDown(conn)) bits.push('it once refused a started reply, so the prefill rides unsent'); /* M307: only a refusal from an address that can take one */
         els.downNote.hidden = !bits.length;
         els.downNote.textContent = bits.length
           ? `A note from the wire: ${bits.join('; and ')} — until the model changes. Saving with a new model tries again.`
@@ -728,6 +728,7 @@ export function initSettings(ctx) {
       if (stored && (stored.model !== fields.model || stored.baseUrl !== fields.baseUrl)) {
         patch.reasoningDownAt = null;
         patch.reasoningDownShape = null;
+        patch.prefillDownShape = null;
         patch.prefillDownAt = null;
       }
       await db.connections.update(editingId, patch);

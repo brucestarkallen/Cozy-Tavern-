@@ -26,7 +26,7 @@ import { withImagePart, transportError } from './wire.js';
  * storyteller prefill — the mechanics live in providers/effort.js. */
 import {
   effortFor, EFFORT_BUDGETS, REASONING_REFUSAL, PREFILL_REFUSAL,
-  applyPrefill, markConnectionDown,
+  applyPrefill, markConnectionDown, prefillLead, prefillGap,
 } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.anthropic.com';
@@ -215,7 +215,7 @@ export function createAnthropicProvider(connection) {
    * the connection and the turn goes out ONE more time without them —
    * then never again until the model field changes. Returns {res, notes}
    * or throws the kind error. */
-  async function sendOnce({ blocks, system, messages, signal, notes }) {
+  async function sendOnce({ blocks, system, messages, signal, notes, sent = {} }) {
     let opts = {};
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const { body, prefill } = requestBody(connection, blocks, system, messages, opts);
@@ -233,6 +233,7 @@ export function createAnthropicProvider(connection) {
       }
       if (res.ok) {
         if (prefill.note) notes.push(prefill.note);
+        sent.lead = prefill.applied ? prefillLead(connection) : ''; /* M307: what the reply was started with */
         return res;
       }
       /* Read the refusal's own words before deciding. */
@@ -264,7 +265,9 @@ export function createAnthropicProvider(connection) {
   async function streamChat({ systemBlocks: blocks, system, messages, signal, onToken }) {
     const startedAt = Date.now();
     const notes = [];
-    const res = await sendOnce({ blocks, system, messages, signal, notes });
+    const sent = {};
+    const res = await sendOnce({ blocks, system, messages, signal, notes, sent });
+    let lead = sent.lead || ''; /* M307: put back at the reply's first word (see openai.js) */
 
     let full = '';
     let thinking = '';
@@ -295,6 +298,10 @@ export function createAnthropicProvider(connection) {
       } else if (data.type === 'content_block_delta' && data.delta) {
         if (data.delta.type === 'text_delta' && typeof data.delta.text === 'string') {
           if (ttftMs === null) ttftMs = Date.now() - startedAt;
+          if (lead) {
+            const put = lead; lead = '';
+            if (!data.delta.text.startsWith(put)) { const back = put + (/^\s/.test(data.delta.text) ? '' : prefillGap(connection)); full += back; if (onToken) onToken({ channel: 'prose', text: back }); }
+          }
           full += data.delta.text;
           if (onToken) onToken({ channel: 'prose', text: data.delta.text });
         } else if (data.delta.type === 'thinking_delta' && typeof data.delta.thinking === 'string') {
