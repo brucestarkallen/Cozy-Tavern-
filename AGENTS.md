@@ -7507,3 +7507,36 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the code shows a long lead and then no header. If his connection's "max reply tokens" is small, a
   long plan will hit it on most pages and every such page costs a second ask.
 - version.js -> m323-001.
+
+# M324 — the writer's screenshot: the whole plan shown as the page ("Planning: … Beat: …"), the house's masthead above it
+- THE WRITER, with a screenshot, after M323: "still the same — at first it's inside the thinking block, then the thinking
+  block is gone, then it becomes outside. And please, I'm not stupid: I use 50,000 max tokens." M323's third fault
+  (the reply running out of room) was a real fault and NOT his — a fourth guess. The screenshot settled it.
+- READ OFF THE SCREENSHOT, not guessed: above the plan stands the house's own MASTHEAD ("RIM ROAD, INLAND STRETCH —
+  FRIDAY, AUGUST 21, 2026 — 13:08 · HERE: …"). msgNode draws that only when a page does NOT open with a header
+  (parseScene's first part is not a 'head'). So the saved page began with "Planning:" — the gate had found NO
+  header in that reply, and handed the whole of it back as the page at the end of the stream: exactly "in the
+  thinking block, then gone, then outside". Either the reply had no header at all, or one the gate's rule
+  (a "|" AND a clock time) did not know.
+- CHANGE (ui/headergate.js) — two signs of where the page begins, not one:
+  · a header is a line that is one bracket pair with a "|" OR a clock time (13:08 or 13.08), dressed in **, >, #
+    or backticks or not. Only whole lines are judged while the words arrive.
+  · with NO header: a plan that names itself gives the page away — paragraphs opening with a planning label
+    ("Planning:", "Plan:", "Beat:", "Last look:", "Thinking:", "Notes:"… and the Pass's own letters "B:" "L:" "S:"
+    "C:" "W:") are the plan; the page begins at the first paragraph that does not (and is not opening a
+    bracket — that may be the header). A page that merely opens with a plain paragraph is left alone.
+  · planOnly(): a reply that is nothing but labelled plan holds no page whatever its finish reason — chat.js
+    asks for the page once, the plan handed back (the same repair M323 gave a reply that ran out of room).
+  · chat.js SCENE_HEAD_RE took a header only up to 120 characters; the craft's own five-field header runs past
+    that, so a long header was drawn as prose with the house's masthead hung above it. 400 now.
+- TESTS: m322.mjs M324-1..3 — his screen's words: plan, plan, page with no header → the page is the page, the plan the
+  thinking, streamed 1, 5 and 60 characters at a time with nothing shown and then taken back; the Pass's
+  letters; a plain first paragraph untouched; five spellings of a header, four things that are not one; a
+  plan then a header is cut at the HEADER; an all-plan reply says so and is handed back whole. DOM-57 parts
+  4 and 5 play both through the real app, streamed.
+- A TEST FAULT OF MINE: DOM-57 counted a worker's call as the storyteller's (timing) — workers are now told by the
+  fiction frame every worker's system opens with.
+- NOT VERIFIED: what his model's reply actually held after "Beat: …" (the screenshot ends there). Whichever it
+  was — a page with no header, a header of another shape, or nothing at all — each now ends with the plan
+  out of the page.
+- version.js -> m324-001.

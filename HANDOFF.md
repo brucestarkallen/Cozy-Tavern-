@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m323-001)
+# Cozy Tavern — handoff for the next session (state at m324-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M323). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M324). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 617 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 620 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 76 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,9 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- A SCREENSHOT IS EVIDENCE — READ ALL OF IT (M324): the house's masthead above a page means that page did NOT open
+  with a header; that one line said what four guesses had not. Where the page begins has two signs
+  (ui/headergate.js): a header line, or the end of a plan that names itself.
 - TEST A STREAM AS A MODEL STREAMS (M323): the walk's house answers in ONE piece with finish "stop"; anything that
   touches the storyteller's stream needs a scenario that sends a few characters at a time and one that
   ends on finish "length" (DOM-57 shows how: a fetch of its own, workers passed through). And a probe

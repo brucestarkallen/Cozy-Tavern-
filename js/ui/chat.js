@@ -64,7 +64,7 @@ import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
-import { makeHeaderGate, splitAtHeader, headerIndex } from './headergate.js'; /* M322 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
+import { makeHeaderGate, splitAtHeader, headerIndex, planOnly } from './headergate.js'; /* M322, M324 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -161,7 +161,9 @@ export function buildHearth({ hasStories = false, onSeed } = {}) {
  * assistant prose — [The Wayward Lantern — a wet evening] — is lifted out
  * of the flow and set in the whisper voice above the paragraph it opens.
  * Pure and exported so the harness can hold it to account. */
-export const SCENE_HEAD_RE = /^\[[^\[\]\n]{2,120}\]$/;
+/* M324: up to 400 — the craft's own header carries five fields and runs past 120 characters; a long header was
+ * drawn as prose, and the house hung its own masthead above a page that already had one */
+export const SCENE_HEAD_RE = /^\[[^\[\]\n]{2,400}\]$/;
 
 export function parseScene(text) {
   const lines = String(text == null ? '' : text).split('\n');
@@ -3787,15 +3789,18 @@ export function initChat(ctx) {
        * the header are being kept as thinking, the reply was cut for length, and no header came — in a tale
        * whose pages open with one — the plan is kept as this page's thinking and the page itself is asked
        * for ONCE, the plan handed back so it is not planned again. A second cut lands as it always did. */
-      if (cutLead && cutShort && !generateArgs.planCarried && full.trim() && headerIndex(full) === -1) {
+      /* M324: …OR IT IS NOTHING BUT A PLAN. A reply made only of self-labelled planning ("Planning: … Beat: …") and
+       * then nothing holds no page whatever its finish reason: the same one re-ask, the plan handed back. */
+      const allPlan = cutLead && planOnly(full);
+      if (cutLead && !generateArgs.planCarried && full.trim() && (allPlan || (cutShort && headerIndex(full) === -1))) {
         let usesHeaders = true;
         try {
           const prior = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id)).pop();
           if (prior) usesHeaders = headerIndex(String(pageText(prior) || '').trimStart()) === 0;
         } catch (err) { usesHeaders = false; }
-        if (usesHeaders) {
+        if (usesHeaders || allPlan) {
           pending.remove();
-          toast('The reply ran out of room while it was still planning — asking for the page itself.');
+          toast(allPlan && !cutShort ? 'The reply was all planning and no page — asking for the page itself.' : 'The reply ran out of room while it was still planning — asking for the page itself.');
           return generate({ ...generateArgs, planCarried: full.trim() });
         }
       }

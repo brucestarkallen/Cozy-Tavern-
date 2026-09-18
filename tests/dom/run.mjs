@@ -3024,7 +3024,7 @@ test('DOM-56 a model that thinks on the page: everything before the header becom
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few characters at a time): the thinking is kept once, a short page is not thrown away, and a reply that ran out of room while still planning is asked for its page — the plan handed back (M323)', async () => {
+test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few characters at a time): the thinking is kept once, a short page is not thrown away, a reply that ran out of room while still planning is asked for its page — the plan handed back (M323); and a plan that names itself is told from its page with no header at all (M324)', async () => {
   const before = errors.length;
   const { queuedCount } = await import('../../js/agents/queue.js');
   const tickBefore = await db.settings.get('cutBeforeHeader');
@@ -3038,7 +3038,9 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
   globalThis.fetch = async (url, opts) => {
     let body = null; try { body = opts && opts.body ? JSON.parse(opts.body) : null; } catch (err) { body = null; }
     const sys = body ? String(((body.messages || [])[0] || {}).content || '') : '';
-    const worker = /keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record li|housekeeper of a cozy tavern/i.test(sys);
+    /* every worker's system opens with the house's fiction frame; the storyteller's never does (a worker counted as the
+     * storyteller made this scenario fail once, by timing alone) */
+    const worker = /^\s*This is fiction craft/i.test(sys) || /keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record li|housekeeper of a cozy tavern/i.test(sys);
     if (!script || !body || worker || !/chat\/completions|\/messages/.test(String(url))) return housed(url, opts);
     asks.push(body);
     const m = script(asks.length, body);
@@ -3082,6 +3084,21 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
     eq(e.text, PAGE, 'and the page lands, from its header');
     assert(String(e.thinking || '').startsWith('Step 1: weigh') && !e.cutShort, 'the plan is this page’s thinking; nothing is marked cut short');
     assert(!/Step 1: weigh/.test(q('#thread .msg-assistant:last-of-type .msg-body').textContent), 'the plan is never on the page the writer reads');
+    /* (4) M324 — THE WRITER’S SCREENSHOT: "Planning: … Beat: …" and then the page, with NO header anywhere in the reply.
+     * M322/M323 found no header, so the whole plan was handed back as the page (in the thinking block while it
+     * streamed, then "gone, and outside"). A plan that names itself gives the page away. */
+    const PLAN = 'Planning: Jovan giggles and wonders aloud about Ravenwood High once school starts — Rias answers as the insider, the VP, the cheer captain, teasing and informative.\n\nBeat: world answers through Rias, the school’s ecosystem painted through her insider lens. Small movement: traffic, the sedan ahead, the lake. No slot needed.\n\n';
+    const PROSE = 'Rias laughed without taking her eyes off the road. "Oh, you have no idea."\n\nThe lake slid past on the left, flat and bright, and she began to count the school’s little kingdoms off on the steering wheel.';
+    const f = await play('a plan that names itself, no header', () => ({ text: PLAN + PROSE }));
+    eq(asks.length, 1, 'asked once');
+    eq(f.text, PROSE, 'the page is the page');
+    assert(String(f.thinking || '').startsWith('Planning: Jovan giggles') && /Beat: world answers/.test(f.thinking), 'and the plan is its thinking: ' + String(f.thinking || '').slice(0, 60));
+    assert(!/Planning: Jovan giggles/.test(q('#thread .msg-assistant:last-of-type .msg-body').textContent), 'it is not on the page he reads');
+    /* (5) a reply that is ALL plan, ended normally: no page came — the page is asked for, once, the plan handed back */
+    const g = await play('all plan, no page', (n) => (n === 1 ? { text: PLAN } : { text: PROSE }));
+    eq(asks.length, 2, 'the page itself is asked for');
+    assert(asks[1].messages.slice(-2)[0].role === 'assistant' && /^Planning: Jovan giggles/.test(asks[1].messages.slice(-2)[0].content), 'with the plan handed back');
+    eq(g.text, PROSE); assert(/^Planning: Jovan giggles/.test(String(g.thinking || '')), 'the plan is kept as the thinking');
   } finally {
     script = null;
     globalThis.fetch = housed;

@@ -1,6 +1,6 @@
 /* M322 — everything before the header is thinking, not page. */
 import { test, assert, eq } from './lib.mjs';
-import { splitAtHeader, makeHeaderGate, headerIndex } from '../../js/ui/headergate.js';
+import { splitAtHeader, makeHeaderGate, headerIndex, planOnly, isHeaderLine } from '../../js/ui/headergate.js';
 import { headerMutations } from '../../js/engine/state.js';
 
 const HEADER = '[The Wells house — Friday, March 14, 2025 | 20:40 | clear | gray hoodie | on the porch]';
@@ -49,4 +49,41 @@ test('M322-3 nothing is ever thrown away: a reply with no header at all comes ba
   eq(ran.prose, long, 'past the give-up mark it stops holding and hands everything over');
   eq(ran.thinking, '');
   eq(splitAtHeader(plain).page, plain);
+});
+
+/* ---------- M324 ---------- */
+const PLAN = 'Planning: Jovan giggles and wonders aloud about Ravenwood High once school starts — Rias answers as the insider, the VP, the cheer captain, teasing and informative.\nShe\'d mention the power centers (student council, football, cheer), maybe hint at Caleb without belaboring it.\n\nBeat: world answers through Rias, the school\'s ecosystem painted through her insider lens. Small movement: traffic, the sedan ahead, the lake. No slot needed.\n\n';
+const PROSE = 'Rias laughed without taking her eyes off the road. "Oh, you have no idea."\n\nThe lake slid past on the left, flat and bright.';
+
+test('M324-1 THE WRITER’S SCREEN: a reply that plans ("Planning: … Beat: …") and then writes its page with NO header at all — the plan is thinking, the page begins at the first paragraph that is not plan', () => {
+  eq(headerIndex(PLAN + PROSE), -1, 'fixture: there is no header in this reply — M322 handed the whole of it back as the page');
+  const cut = splitAtHeader(PLAN + PROSE);
+  eq(cut.page, PROSE); eq(cut.lead, PLAN.trimEnd());
+  for (const n of [1, 5, 60]) {
+    const r = run(chunks(PLAN + PROSE, n));
+    eq(r.prose, PROSE, 'streamed ' + n + ' at a time: the page');
+    eq(r.thinking.trim(), PLAN.trim(), 'and the plan');
+    eq(r.gaveBack, '', 'nothing was shown as thinking and then taken back');
+  }
+  /* the Pass's own letters */
+  eq(splitAtHeader('B: she deflects.\nL: no meta.\n\n' + PROSE).page, PROSE);
+  /* a page that merely OPENS with a plain paragraph is left alone — no label, no plan */
+  eq(splitAtHeader(PROSE).lead, '');
+  eq(run(chunks(PROSE, 7)).prose, PROSE);
+});
+
+test('M324-2 a header is a header however it is dressed or spelled: no pipe but a clock, a pipe but no clock, in bold, in backticks, 13.08 — and a plan, then a header, is still cut at the header', () => {
+  for (const h of ['[Rim Road, inland stretch — Friday, August 21, 2026 — 13:08]', '[Rim Road | Friday | clear | white tee | passenger seat]', '**[Rim Road — Friday, August 21, 2026 | 13:08 | clear]**', '`[Rim Road — Friday | 13.08 | clear]`', '> [Rim Road — Friday | 13:08]']) {
+    assert(isHeaderLine(h), 'a header: ' + h);
+    eq(splitAtHeader(PLAN + h + '\n\n' + PROSE).page, h + '\n\n' + PROSE, 'cut at it: ' + h);
+  }
+  for (const not of ['[note to self]', '[a | b] and then more words', 'Options: [a | b]', '[x]']) assert(!isHeaderLine(not), 'not a header: ' + not);
+  const r = run(chunks(PLAN + HEADER + '\n\n' + PROSE, 3));
+  eq(r.prose, HEADER + '\n\n' + PROSE, 'plan, header, page: the page begins at its header, never at the paragraph before it');
+});
+
+test('M324-3 a reply that is ALL plan has no page in it — it says so, so the page can be asked for; and it is handed back whole, never thrown away', () => {
+  assert(planOnly(PLAN)); assert(!planOnly(PLAN + PROSE)); assert(!planOnly(PROSE)); assert(!planOnly(PLAN + HEADER));
+  const r = run(chunks(PLAN, 4));
+  eq(r.prose, PLAN, 'handed back whole'); eq(r.thinking, '');
 });
