@@ -631,7 +631,10 @@ test('M120-1 a page written inside the thinking is asked again once with the pla
   const src = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/thoughtRetried: true/.test(src) && /WRITE THE PAGE AS YOUR ANSWER/.test(src), 'the re-ask and its line');
   assert(/const salvaged = at !== -1 \? lines\.slice\(at\)\.join/.test(src), 'the salvage from the last header line');
-  assert(src.indexOf('const wireMessages = generateArgs.thoughtRetried') < src.indexOf('messages: wireMessages'), 'the nudged messages ride the wire');
+  /* M323: the wire is `planWire` now — wireMessages itself, with the carried plan's two messages after it only on the one
+   * re-ask a reply that ran out of room earns; the nudged messages still ride it */
+  assert(/: wireMessages;\n/.test(src.slice(src.indexOf('const planWire = generateArgs.planCarried'), src.indexOf('const planWire = generateArgs.planCarried') + 700)), 'the plan’s wire IS the nudged wire when no plan is carried');
+  assert(src.indexOf('const wireMessages = generateArgs.thoughtRetried') < src.indexOf('messages: planWire'), 'the nudged messages ride the wire');
 });
 
 test('M121-1 the second reader knows a lie from a slip and a language from a glitch; the eye notes a short foreign run for it', async () => {

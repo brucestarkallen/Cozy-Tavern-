@@ -3024,6 +3024,72 @@ test('DOM-56 a model that thinks on the page: everything before the header becom
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few characters at a time): the thinking is kept once, a short page is not thrown away, and a reply that ran out of room while still planning is asked for its page — the plan handed back (M323)', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const tickBefore = await db.settings.get('cutBeforeHeader');
+  await db.settings.delete('cutBeforeHeader');
+  const HEADER = '[The Bluebird — Friday, March 14, 2025 | 12:30 | clear | gray hoodie | in the booth]';
+  const PAGE = HEADER + '\n\n' + 'Vanessa slid the menu across without looking at it. '.repeat(12);
+  const plan = (n) => Array.from({ length: n }, (_, i) => 'Step ' + (i + 1) + ': weigh what she wants here, what he knows, and what the room allows; keep it grounded.\n').join('') + '\n';
+  const enc = new TextEncoder();
+  const housed = globalThis.fetch;
+  let script = null; let asks = [];
+  globalThis.fetch = async (url, opts) => {
+    let body = null; try { body = opts && opts.body ? JSON.parse(opts.body) : null; } catch (err) { body = null; }
+    const sys = body ? String(((body.messages || [])[0] || {}).content || '') : '';
+    const worker = /keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record li|housekeeper of a cozy tavern/i.test(sys);
+    if (!script || !body || worker || !/chat\/completions|\/messages/.test(String(url))) return housed(url, opts);
+    asks.push(body);
+    const m = script(asks.length, body);
+    const events = [];
+    for (let i = 0; i < m.text.length; i += 4) events.push('data: ' + JSON.stringify({ choices: [{ delta: { content: m.text.slice(i, i + 4) } }] }) + '\n\n');
+    events.push('data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: m.finish || 'stop' }] }) + '\n\n', 'data: [DONE]\n\n');
+    let k = 0;
+    return { ok: true, status: 200, headers: new Headers(), clone() { return this; }, async json() { return {}; }, async text() { return events.join(''); },
+      body: new ReadableStream({ async pull(c) { if (k >= events.length) { c.close(); return; } c.enqueue(enc.encode(events.slice(k, k + 40).join(''))); k += 40; await new Promise((r) => setTimeout(r, 0)); } }) };
+  };
+  const play = async (title, fn, withPrior) => {
+    const st = await db.stories.create({ title });
+    await db.stories.update(st.id, { extraction: false, keeper: false });
+    if (withPrior) { await db.messages.append(st.id, { role: 'user', text: 'Earlier.' }); await db.messages.append(st.id, { role: 'assistant', text: PAGE }); }
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    asks = []; script = fn;
+    const want = withPrior ? 2 : 1;
+    type(q('#composer-input'), 'We have lunch.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= want && !env.ctx.chat.isBusy(), title, 30000);
+    await until(() => queuedCount(st.id) === 0, title + ' — the readers', 40000);
+    script = null;
+    return (await db.messages.list(st.id)).filter((m) => m.role === 'assistant')[want - 1];
+  };
+  try {
+    /* (1) the thinking is kept ONCE (the whole reply came back as result.text and the lead was appended a second time) */
+    const lead = plan(30);
+    const a = await play('streamed, thinking aloud', () => ({ text: lead + PAGE }));
+    eq(a.text, PAGE, 'the page begins at its header');
+    eq(String(a.thinking || '').length, lead.trimEnd().length, 'the lead is the page’s thinking — once (it was saved twice: ' + lead.trimEnd().length * 2 + ')');
+    /* (2) a SHORT page after a long plan is a page — it was taken for "the page is inside the thinking", thrown away and asked for again */
+    const d = await play('a nod', () => ({ text: plan(60) + HEADER + '\n\nShe nodded once.' }));
+    eq(asks.length, 1, 'asked once');
+    eq(d.text, HEADER + '\n\nShe nodded once.');
+    /* (3) the writer’s report: the reply ran out of room while still planning — no header, no page */
+    const long = plan(60);
+    const e = await play('ran out of room', (n) => (n === 1 ? { text: long, finish: 'length' } : { text: PAGE }), true);
+    eq(asks.length, 2, 'the page itself is asked for, once');
+    const tail = asks[1].messages.slice(-2);
+    assert(tail[0].role === 'assistant' && tail[0].content.startsWith('Step 1: weigh') && tail[1].role === 'user' && /do not plan again/.test(tail[1].content) && /beginning with its header line/.test(tail[1].content), 'with the plan handed back as the model’s own turn: ' + JSON.stringify(tail.map((m) => m.role)));
+    eq(e.text, PAGE, 'and the page lands, from its header');
+    assert(String(e.thinking || '').startsWith('Step 1: weigh') && !e.cutShort, 'the plan is this page’s thinking; nothing is marked cut short');
+    assert(!/Step 1: weigh/.test(q('#thread .msg-assistant:last-of-type .msg-body').textContent), 'the plan is never on the page the writer reads');
+  } finally {
+    script = null;
+    globalThis.fetch = housed;
+    if (tickBefore == null) await db.settings.delete('cutBeforeHeader'); else await db.settings.set('cutBeforeHeader', tickBefore);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

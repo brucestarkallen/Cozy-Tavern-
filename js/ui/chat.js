@@ -64,7 +64,7 @@ import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
-import { makeHeaderGate, splitAtHeader } from './headergate.js'; /* M322 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
+import { makeHeaderGate, splitAtHeader, headerIndex } from './headergate.js'; /* M322 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -3627,6 +3627,11 @@ export function initChat(ctx) {
             ? { ...m, content: (typeof m.content === 'string' ? m.content : String(m.content || '')) + '\n\n[The house: your last attempt put the whole page inside your thinking and answered with nothing. Think briefly if you must, then WRITE THE PAGE AS YOUR ANSWER — the header line and the prose — outside the thinking.]' }
             : m))
           : messages;
+      /* M323: the one re-ask after a reply that ran out of room while still planning — the plan is handed back as the
+       * model's own turn, so it writes the page and does not plan again */
+      const planWire = generateArgs.planCarried
+        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.planCarried) }, { role: 'user', content: 'You ran out of room while you were still planning. The plan above is yours — do not plan again and do not repeat it. Write the page itself now, beginning with its header line.' }]
+        : wireMessages;
       takeThinking = function (text) {
               thinking += text;
               if (!thinkStart) {
@@ -3667,7 +3672,7 @@ export function initChat(ctx) {
         };
         const result = await provider.streamChat({
           systemBlocks,
-          messages: wireMessages,
+          messages: planWire,
           signal: abort.signal,
           onToken({ channel, text }) {
             /* M22-C: the note channel — a provider's live word ("Searching
@@ -3688,6 +3693,13 @@ export function initChat(ctx) {
         });
         if (gate) gate.end(); /* a reply with no header at all is handed back whole, as the page */
         full = result.text;
+        /* M323: THE FINISHED TEXT IS SPLIT ONCE, HERE. `result.text` is the WHOLE reply — the words before the header
+         * included — so it put back what the gate had just moved out of the page, and M322's "last look"
+         * further down then found that lead a second time and APPENDED it: every page that thought aloud
+         * carried its thinking twice (measured: a 2,842-character lead saved as 5,683). The gate is for
+         * the eye while the words arrive; what is kept is decided here, from the finished text. */
+        if (cutLead) { const cut = splitAtHeader(full); leadThinking = cut.lead; full = cut.page; }
+        if (generateArgs.planCarried) leadThinking = String(generateArgs.planCarried) + (leadThinking ? '\n\n' + leadThinking : '');
         /* M279: the last of the thinking, drawn where the reader is (the whole of it is already there) */
         if (thinkBody) { if (!thinkLines) thinkLines = streamText(thinkBody); thinkLines.append(thinking.slice(thinkLines.length)); }
         /* M22: the provider's kind words (a refusal retried once, a
@@ -3723,7 +3735,9 @@ export function initChat(ctx) {
         /* M322: the provider's own thinking, then whatever the reply said before its header. And a last look at
          * the finished text — a header the stream's gate could not see (a rule on the regex shelf moved it,
          * a page recovered whole from elsewhere) is still where the page begins. */
-        if (cutLead) { const cut = splitAtHeader(full); if (cut.lead) { leadThinking += (leadThinking ? '\n' : '') + cut.lead; full = cut.page; } }
+        /* (a rule on the regex shelf may have moved the header: whatever now stands before it is thinking too) */
+        if (cutLead) { const cut = splitAtHeader(full); if (cut.lead) { leadThinking += (leadThinking ? '\n\n' : '') + cut.lead; full = cut.page; } }
+        provThinking = result.thinking || provThinking; /* M323: the provider's own thinking, whole — what M120 below asks about */
         thinking = (result.thinking || provThinking) + (leadThinking ? ((result.thinking || provThinking) ? '\n\n' : '') + leadThinking : '');
         if (!showThinking && String(thinking || '').trim()) sayOnce('hidden', 'The storyteller DID think on this page — it is hidden because “Show what the storyteller weighed” is unticked (Settings → The thinking voice).'); /* M319 */
         stopThinkClock();
@@ -3766,6 +3780,26 @@ export function initChat(ctx) {
         && typeof finishReason === 'string'
         && /max_tokens|length/i.test(finishReason);
 
+      /* M323: THE REPLY RAN OUT OF ROOM WHILE IT WAS STILL PLANNING — "it just stops and doesn't give the header and
+       * the rest" (the writer). With thinking Off the plan is written in the reply's own room; a long plan
+       * uses it up, the provider cuts the reply (finish: length) before the header ever comes, and the
+       * house showed the plan as a "page cut short". Detected, so repaired (his rule): when the words before
+       * the header are being kept as thinking, the reply was cut for length, and no header came — in a tale
+       * whose pages open with one — the plan is kept as this page's thinking and the page itself is asked
+       * for ONCE, the plan handed back so it is not planned again. A second cut lands as it always did. */
+      if (cutLead && cutShort && !generateArgs.planCarried && full.trim() && headerIndex(full) === -1) {
+        let usesHeaders = true;
+        try {
+          const prior = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id)).pop();
+          if (prior) usesHeaders = headerIndex(String(pageText(prior) || '').trimStart()) === 0;
+        } catch (err) { usesHeaders = false; }
+        if (usesHeaders) {
+          pending.remove();
+          toast('The reply ran out of room while it was still planning — asking for the page itself.');
+          return generate({ ...generateArgs, planCarried: full.trim() });
+        }
+      }
+
       /* M117: a page the leak left near-empty is answered again once, by the
        * house — the same prompt, a fresh stream — before anything is saved.
        * A second leak lands what came before it, with a note on the page. */
@@ -3781,13 +3815,18 @@ export function initChat(ctx) {
        * the plain line. Twice: salvage the page-shaped tail of the thinking
        * (from its last header line) so the story goes on, and say so. */
       const bodyLen = full.replace(/^\[[^\]\n]*\]\s*/, '').trim().length;
-      if (!stoppedByHand && !cutShort && bodyLen < 160 && thinking && thinking.trim().length > 400) {
+      /* M323: …the PROVIDER's thinking. Since M322 `thinking` also holds what the reply said before its header — so a
+       * short page after a long plan (a nod, one line of dialogue) was taken for "the page is inside the
+       * thinking", thrown away, and asked for again with a line telling the model it had answered with
+       * nothing. A plan on the page is not a page hidden in the thinking. */
+      const modelThought = String(provThinking || '');
+      if (!stoppedByHand && !cutShort && bodyLen < 160 && modelThought.trim().length > 400) {
         if (!generateArgs.thoughtRetried) {
           pending.remove();
           toast('Asking again.');
           return generate({ ...generateArgs, thoughtRetried: true });
         }
-        const lines = thinking.split('\n');
+        const lines = modelThought.split('\n');
         let at = -1;
         for (let i = lines.length - 1; i >= 0; i -= 1) if (/^\s*\[[^\]\n]{6,}\]\s*$/.test(lines[i])) { at = i; break; }
         const salvaged = at !== -1 ? lines.slice(at).join('\n').trim() : '';

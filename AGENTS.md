@@ -7473,3 +7473,37 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   after the awaited stream, inside its block — the gate, made in the outer scope, could not have reached
   them. They are closures declared beside the stream's variables and given bodies before the stream starts.
 - version.js -> m322-001.
+
+# M323 — "when the output put into the thinking is long it just stops and never gives the header and the rest": three faults in M322, found by streaming it as a model streams
+- THE WRITER, a day after M322: with a long lead, the reply "just stops and doesn't give the full output (header and
+  the rest)".
+- WHY M322'S OWN TEST MISSED THEM: DOM-56 (and every walk scenario) hands the storyteller's answer over in ONE piece,
+  and ends with finish "stop". A real model sends a few characters at a time and can run out of room.
+  A first probe of mine "reproduced" it in all five cases — and was wrong: it had no connection, so
+  nothing was ever sent (the thread still showed the welcome screen). Run again with one, the real path
+  showed three faults, all mine:
+  1. THE LEAD WAS SAVED TWICE. After the stream chat.js sets `full = result.text` — the WHOLE reply, lead and
+     all — undoing what the gate had moved out, and M322's "last look" then found the lead again and
+     APPENDED it. Measured: a 2,842-character lead kept as 5,683. The finished text is split ONCE, at that
+     line; the gate is only for the eye while the words arrive.
+  2. A SHORT PAGE WAS THROWN AWAY. M120 ("the page came back inside the thinking": body under 160 characters
+     and thinking over 400 → ask again, telling the model it answered with nothing) read `thinking`, which
+     since M322 holds the lead too — so a nod after a long plan was discarded and asked for again. It
+     asks about the PROVIDER's thinking only.
+  3. HIS REPORT — THE REPLY RAN OUT OF ROOM WHILE STILL PLANNING. With thinking Off the plan is written in the
+     reply's own room (DeepSeek's non-thinking default is 8K tokens when the connection sets none); a
+     long plan uses it up, the provider cuts the reply (finish: length) before the header ever comes, and
+     the house showed the plan as a "page cut short". Detected, so repaired: words-before-the-header
+     being kept, cut for length, no header, in a tale whose last page opens with one → the plan is kept
+     as this page's thinking and the page itself is asked for ONCE, the plan handed back as the model's
+     own turn ("do not plan again… Write the page itself now, beginning with its header line"). A second
+     cut lands as it always did.
+- TESTS: DOM-57 streams four characters at a time through a fetch of its own (workers pass to the walk's house):
+  the lead kept once; a nod asked for once and kept; the ran-out-of-room reply asked twice, the second
+  ask ending assistant(plan) + user(the instruction), the page from its header, the plan as its thinking,
+  nothing marked cut short. MUTATION-CHECKED in the app: the single split and the repair removed →
+  DOM-57 fails ("got 5684, wanted 2840"); restored and `cmp`-proven.
+- NOT VERIFIED: that the token limit is what stopped HIS reply (his phone is not visible) — it is the one way
+  the code shows a long lead and then no header. If his connection's "max reply tokens" is small, a
+  long plan will hit it on most pages and every such page costs a second ask.
+- version.js -> m323-001.
