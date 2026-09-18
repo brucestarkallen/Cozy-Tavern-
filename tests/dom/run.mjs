@@ -2927,6 +2927,48 @@ test('DOM-54 a prefill that would switch the thinking off says so — on the car
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-55 what stops the thinking for EVERY model says so on the turn it bites: the tale’s own level, and the hidden-thinking tick (M319)', async () => {
+  const before = errors.length;
+  const activeBefore = await db.settings.get('activeConnectionId');
+  const shownBefore = await db.settings.get('showThinking');
+  const conn = await db.connections.add({ label: 'ZZY deepseek, thinking high', type: 'openai', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'k', model: 'deepseek-v4-pro', reasoning: { effort: 'high' } });
+  const toasts = () => (q('#toasts') ? q('#toasts').textContent : '');
+  const priorThink = house.state.thinkFirst;
+  try {
+    house.state.thinkFirst = true;
+    /* (1) the connection says High, the TALE says Off */
+    const a = await db.stories.create({ title: 'its own level' });
+    await db.stories.update(a.id, { connectionId: conn.id, extraction: false, keeper: false, reasoningEffort: 'off' });
+    env.window.__cozy.setActiveStoryId(a.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    let from = house.state.calls.length;
+    type(q('#composer-input'), 'Hello.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(a.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    const wire = house.state.calls.slice(from).find((c) => !c.isWorker).body;
+    eq(JSON.stringify(wire.thinking), '{"type":"disabled"}', 'fixture: the tale’s Off is what reached the wire, whatever the connection’s dial says');
+    await until(() => /has its OWN thinking level, and it says Off/.test(toasts()), 'the house says why there is no thinking: ' + toasts(), 5000);
+    /* (2) thinking asked for and kept — and hidden by the tick */
+    await db.settings.set('showThinking', false);
+    const b = await db.stories.create({ title: 'hidden thinking' });
+    await db.stories.update(b.id, { connectionId: conn.id, extraction: false, keeper: false });
+    env.window.__cozy.setActiveStoryId(b.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    from = house.state.calls.length;
+    type(q('#composer-input'), 'Hello.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(b.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    const wire2 = house.state.calls.slice(from).find((c) => !c.isWorker).body;
+    eq(wire2.reasoning_effort, 'high', 'fixture: thinking was asked for');
+    assert(((await db.messages.list(b.id)).find((m) => m.role === 'assistant') || {}).thinking, 'and kept on the page');
+    await until(() => /DID think on this page — it is hidden/.test(toasts()), 'the house says the thinking is there, and hidden: ' + toasts(), 5000);
+  } finally {
+    house.state.thinkFirst = priorThink;
+    if (shownBefore == null) await db.settings.delete('showThinking'); else await db.settings.set('showThinking', shownBefore);
+    await db.settings.set('activeConnectionId', activeBefore);
+    await db.connections.remove(conn.id);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

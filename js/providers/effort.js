@@ -152,8 +152,15 @@ export async function markConnectionDown(conn, field, shape) {
  * before shapes were kept belongs to the spelling the connection had then:
  * its own, unless this release gave it a new one (the Kimi family spoke the
  * generic shape). */
+/* M319: A REFUSAL IS REMEMBERED FOR A DAY, NOT FOR EVER. "Until the model changes" meant a single 400 whose words
+ * happened to hold "effort", "thinking" or "reasoning" silenced a connection's thinking at every level
+ * for as long as the writer kept that model — with one quiet line on a card to show for it. A house
+ * that truly refuses says so again on the next ask (one extra request a day); one that refused once
+ * for some passing reason gets its thinking back by itself. */
+export const REFUSAL_MEMORY_MS = 24 * 60 * 60 * 1000;
 export function reasoningIsDown(conn, style) {
   if (!conn || !conn.reasoningDownAt) return false;
+  if (Number.isFinite(conn.reasoningDownAt) && Date.now() - conn.reasoningDownAt > REFUSAL_MEMORY_MS) return false;
   const was = typeof conn.reasoningDownShape === 'string' && conn.reasoningDownShape
     ? conn.reasoningDownShape
     : (style === 'kimi' || style === 'kimi2' ? 'openai' : style);

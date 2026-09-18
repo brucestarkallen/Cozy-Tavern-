@@ -3,7 +3,7 @@ import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { db } from '../../js/store.js';
 import { createProvider } from '../../js/providers/index.js';
-import { prefillSilencesThinking } from '../../js/providers/effort.js';
+import { prefillSilencesThinking, reasoningIsDown, REFUSAL_MEMORY_MS } from '../../js/providers/effort.js';
 
 const enc = (t) => new TextEncoder().encode(t);
 const okSSE = (text) => { const t = 'data: ' + JSON.stringify({ choices: [{ delta: { reasoning_content: 'thinking… ' } }] }) + '\n\ndata: ' + JSON.stringify({ choices: [{ delta: { content: text } }] }) + '\n\ndata: [DONE]\n\n'; return { ok: true, status: 200, headers: new Headers(), body: new ReadableStream({ start(c) { c.enqueue(enc(t)); c.close(); } }), clone() { return this; }, async json() { return {}; }, async text() { return t; } }; };
@@ -52,4 +52,10 @@ test('M318-2 a no from DeepSeek’s BETA address is never remembered as "this ho
   assert(healed.calls[0].body.thinking && healed.calls[0].body.thinking.type === 'enabled', 'thinking is sent again at once: ' + JSON.stringify(healed.calls[0].body.thinking));
   assert(!(await live()).reasoningDownAt, 'the mark is gone from the store');
   await db.connections.remove(stored.id);
+});
+
+test('M319-1 a refusal of the thinking settings is remembered for a day, not for ever: a minute old it stands, a day old the connection is asked again by itself', () => {
+  const conn = { type: 'openai', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-v4-pro', reasoningDownShape: 'deepseek' };
+  assert(reasoningIsDown({ ...conn, reasoningDownAt: Date.now() - 60000 }, 'deepseek'), 'a minute ago: thinking rides unsent');
+  assert(!reasoningIsDown({ ...conn, reasoningDownAt: Date.now() - REFUSAL_MEMORY_MS - 1000 }, 'deepseek'), 'more than a day ago: asked again');
 });

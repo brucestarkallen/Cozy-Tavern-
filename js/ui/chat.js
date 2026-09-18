@@ -83,7 +83,7 @@ import { loadRules, currentRules, applyRules } from '../regex.js'; /* M30: the r
 import { renderHtmlProse, looksHtml } from './richhtml.js'; /* M31: display rules may dress the page in HTML */
 import { download } from './download.js';
 import { storyToMarkdown, storyToJsonl, storyExportBasename } from './storyexport.js';
-import { EFFORT_RANK, effectiveReasoningOf } from '../providers/effort.js';
+import { EFFORT_RANK, effectiveReasoningOf, reasoningIsDown, reasonStyle } from '../providers/effort.js';
 /* M10's showrunners ride the send path too (the episode mark is stripped
  * from the prose before the page is saved, and their standing texts join
  * the assembled tail). M15 audit found these names used below but never
@@ -2945,6 +2945,8 @@ export function initChat(ctx) {
    * choice wins; otherwise the connection's; otherwise the voice stays
    * off. The full ladder is valid here — what the wire can actually SAY
    * is resolved per house inside the provider (effortFor in effort.js). */
+  const saidOnce = new Set();
+  function sayOnce(key, words) { if (saidOnce.has(key)) return; saidOnce.add(key); toast(words); }
   function effectiveReasoning(connection, story) {
     return effectiveReasoningOf(connection, story); /* M308: pure, in effort.js — the story's level no longer drops the connection's thinking room */
   }
@@ -3499,6 +3501,21 @@ export function initChat(ctx) {
       const reasoning = effectiveReasoning(connection, story);
       const provider = createProvider({ ...connection, reasoning });
       const showThinking = (await db.settings.get('showThinking')) !== false;
+      /* M319: THE THREE SWITCHES THAT STOP THE THINKING FOR EVERY MODEL AT ONCE SAY SO, WHEN THEY DO. The writer:
+       * "all my models — DeepSeek, Kimi, everything — can't think", at low, medium, high, xhigh, max. The
+       * send path was run in the real app: on this code DeepSeek and Kimi ARE asked to think, and the
+       * thinking is kept and shown. Only three things in the house silence it whatever the connection
+       * says — and none of them said a word where he was looking: (1) the tale's OWN level ("Just for
+       * this story" in Settings → The thinking voice) overrides every connection's dial for that tale;
+       * (2) "Show what the storyteller weighed" unticked hides thinking that was asked for and kept;
+       * (3) a connection that once answered 400 to its thinking settings rides without them. Each now
+       * says so on the turn it bites — once for each cause, never a nag. */
+      try {
+        const connLevel = connection && connection.reasoning && typeof connection.reasoning.effort === 'string' ? connection.reasoning.effort : '';
+        const taleLevel = story && typeof story.reasoningEffort === 'string' && EFFORT_RANK.includes(story.reasoningEffort) ? story.reasoningEffort : '';
+        if (taleLevel === 'off' && connLevel && connLevel !== 'off') sayOnce('tale-off:' + story.id, 'This story has its OWN thinking level, and it says Off — so the connection’s “' + connLevel + '” is not used here. Settings → The thinking voice → “Just for this story” → Follow the connection.');
+        else if (reasoning.effort !== 'off' && reasoningIsDown(connection, reasonStyle(connection))) sayOnce('refused:' + connection.id, 'This connection once refused its thinking settings, so they ride unsent. It is asked again by itself a day after that refusal — or now, if you re-save the connection.');
+      } catch (err) { /* a word of explanation is never worth a thrown turn */ }
 
       const pending = document.createElement('article');
       pending.className = 'msg msg-assistant pending';
@@ -3675,6 +3692,7 @@ export function initChat(ctx) {
          * history, and every worker's reading. */
         full = applyRules(full, currentRules(), { on: 'storyteller', mode: 'page' });
         thinking = result.thinking || thinking;
+        if (!showThinking && String(thinking || '').trim()) sayOnce('hidden', 'The storyteller DID think on this page — it is hidden because “Show what the storyteller weighed” is unticked (Settings → The thinking voice).'); /* M319 */
         stopThinkClock();
         finishReason = result.finishReason || null;
         receipt = finalizeReceipt(receiptDraft, {

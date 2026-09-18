@@ -71,7 +71,7 @@ test('M303-3 a refusal is remembered for the spelling refused: a K3 connection s
 
   /* a generic house's old mark still stands — nothing about it changed */
   const other = await db.connections.add({ label: 'a house that refused', type: 'openai', baseUrl: 'https://wafer.example/v1', apiKey: 'k', model: 'some-model', reasoning: { effort: 'high' } });
-  await db.connections.update(other.id, { reasoningDownAt: 1700000000000 });
+  await db.connections.update(other.id, { reasoningDownAt: Date.now() - 60000 }); /* M319: a refusal is remembered for a day — this one is a minute old (it was a fixed date in 2023, which now reads as long lapsed) */
   const otherStored = (await db.connections.list()).find((c) => c.id === other.id);
   eq(reasoningIsDown(otherStored, reasonStyle(otherStored)), true);
   const [quiet] = await told(otherStored);

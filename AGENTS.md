@@ -7337,3 +7337,34 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   the prefill box was two days before this report; and DeepSeek's live behaviour (no key here) — the
   docs and the paper are followed.
 - version.js -> m318-001.
+
+# M319 — "prefill is OFF! all my models — DeepSeek, Kimi, everything — can't think": the house-wide switches say so now
+- THE WRITER, after M318: "Are you stupid!!! Prefill is off!! Whatever happens all my models can't think!" M318's cause
+  (a prefill) was not his — the THIRD cause shipped on a guess in a row (M315 thinking workers, M316 a
+  blank page, M318 a prefill), each a real repair for the setup it fits, none of them his. Guessing
+  stopped here.
+- WHAT WAS DONE INSTEAD: the real send path was RUN in the real app (the walk's environment, a recording
+  house) for his providers. On this code: DeepSeek at High → {"thinking":{"type":"enabled"},
+  "reasoning_effort":"high"}, Max → "max"; Kimi K3 at High → {"reasoning_effort":"high"}; in each the
+  thinking comes back, is kept on the page and is shown. The code asks every model to think.
+- SO IT IS STATE, NOT CODE — and exactly three things in the house stop the thinking for EVERY model at once,
+  whatever a connection's dial says. Two were reproduced in the same run:
+  1. the tale's OWN level — Settings → The thinking voice → "Just for this story". Set to Off, the wire
+     carries {"thinking":{"type":"disabled"}} for DeepSeek however the connection is set: low, medium,
+     high, xhigh, max on the connection change NOTHING. Hidden state that overrides a visible dial.
+  2. "Show what the storyteller weighed" unticked — thinking is asked for, returned and KEPT, and not
+     shown, for every model.
+  3. the refusal memory — one 400 whose words held "effort", "thinking" or "reasoning" silenced a
+     connection's thinking "until the model changes".
+- CHANGE. Each says so on the turn it bites, once for each cause (chat.js sayOnce): the tale's Off against a
+  connection that asks for thinking names the setting and where it is; hidden thinking says the model
+  DID think and which tick hides it; a refused connection says so. And the refusal memory lasts a DAY
+  (effort.js REFUSAL_MEMORY_MS), not for ever — a house that truly refuses says so again on the next
+  ask; one that refused once in passing gets its thinking back by itself.
+- TESTS: DOM-55 in the real app — the tale says Off, the connection High: the wire carries "disabled" and the
+  house says why; thinking asked for and kept with the tick off: the house says it is there, and
+  hidden. The probe that settled it is in this note; the walk is 74/74.
+- NOT VERIFIED: which of the three it is on his phone. After this update the house names it on his next page.
+- A possible cause of (2) that is MINE, unproven: M311 lets a browser take in house rows the device holds and it
+  lacks — a "showThinking: false" left on the device by another browser would have been taken in.
+- version.js -> m319-001.
