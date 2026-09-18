@@ -1,6 +1,6 @@
 /* M322 — everything before the header is thinking, not page. */
 import { test, assert, eq } from './lib.mjs';
-import { splitAtHeader, makeHeaderGate, headerIndex, planOnly, isHeaderLine, opensWithPlan } from '../../js/ui/headergate.js';
+import { splitAtHeader, splitReply, pageOnly, makeHeaderGate, headerIndex, planOnly, isHeaderLine, opensWithPlan, headerKey } from '../../js/ui/headergate.js';
 import { headerMutations } from '../../js/engine/state.js';
 
 const HEADER = '[The Wells house — Friday, March 14, 2025 | 20:40 | clear | gray hoodie | on the porch]';
@@ -94,4 +94,50 @@ test('M325-1 a reply that opens with a plan is known as one whatever follows it 
   assert(!planOnly(trailing), 'fixture: by labels alone its last paragraph would have been taken for the page');
   assert(opensWithPlan('Planning: one paragraph only,\nover two lines, ending in a full stop.'), 'a single paragraph');
   assert(!opensWithPlan(PROSE) && !opensWithPlan(HEADER + '\n\n' + PROSE) && !opensWithPlan(''), 'a page does not');
+});
+
+/* ---------- M326: the writer's five screenshots of one reply ---------- */
+const H1 = '[Rim road, moving between overlooks — Friday, August 21, 2026 | 13:11 | sun strobing through the tree line, AC on the lowest setting, lake gold in the windshield | gray tee, dark jeans | passenger seat, basket on his lap]';
+const H2 = '[Rim road, moving between overlooks — Friday, August 21, 2026 | 13:11 | sun strobing through the tree line, AC on low, lake gold in the windshield | gray tee, dark jeans | passenger seat, basket on his lap]';
+const THOUGHT = 'Okay. #p — one beat. Rias just said something she regrets; keep her silent.\n\n';
+const DRAFT1 = H1 + '\n\nThirty seconds had gone. The turnout was behind them. The lake slid on past the driver\'s side window in a long ribbon of white-gold glitter.\n\nRias\'s right hand tightened on the wheel — a slow flex — and then let go.\n\n';
+const CRIT1 = 'That\'s solid. Let me check:\n- MC silence ✓ (he literally has an action completion — eating — invented? Hmm. He was eating in the last turn when he said the line.\n\n---\n\n';
+const DRAFT2 = H2 + '\n\nThirty seconds had gone. The turnout was behind them.\n\nRias\'s right hand tightened on the wheel — a slow flex, controlled — then let go.\n\nGood lord, what did I just say?\n\nShe glanced sideways at him.\n\n';
+const CRIT2 = 'Good — ends on image, quiet, no MC invention. Let me reconstruct final:\n\n---\n\n';
+const FINAL = H2 + '\n\nThirty seconds had gone. The turnout was behind them.\n\nRias\'s right hand tightened on the wheel — a slow, controlled flex — then let go.\n\nGood lord, what did I just say?\n\nShe glanced sideways at him. Jovan was finishing the fry he\'d been chewing, and the lake went by.';
+const CHECKS = '\n\nThought tag: one. ✓\n\nNo window beyond the page — #p wants exactly ONE beat, a window would be a second scene. Skip.\n\nDialogue ratio: 0% this turn (Rias silent). "NPC spoken dialogue 20-50% of the output" — for a #p one-beat turn that ratio bends; the brief says Length Follows The Scene. Fine.\n\nPost-send checks: no banned words ✓ (jaw, breath, husky, velvet — no) ✓ / no markdown in prose ✓ / header as single line ✓\n\nShip it.';
+const REPLY = THOUGHT + DRAFT1 + CRIT1 + DRAFT2 + CRIT2 + FINAL + CHECKS;
+
+test('M326-1 THE WRITER’S FIVE SCREENSHOTS: a plan, three drafts under the same header with critiques between them, and a checklist after — the page is the LAST draft and nothing else; every other word of the reply is its thinking', () => {
+  eq(headerKey(H1), headerKey(H2), 'the same header, though the model reworded the weather between drafts');
+  const cut = splitReply(REPLY);
+  eq(cut.page, FINAL, 'the page he was never given');
+  assert(cut.lead.startsWith('Okay. #p') && /That's solid\. Let me check/.test(cut.lead) && /Let me reconstruct final/.test(cut.lead) && cut.lead.includes('a slow flex — and then let go'), 'plan, drafts and critiques are the lead');
+  assert(cut.tail.startsWith('Thought tag: one.') && cut.tail.endsWith('Ship it.'), 'the checklist is the tail: ' + cut.tail.slice(0, 40));
+  eq(pageOnly(REPLY), FINAL, 'and a later turn is sent the page alone');
+  const both = splitAtHeader(REPLY);
+  assert(both.lead.includes('Okay. #p') && both.lead.includes('Ship it.') && !both.lead.includes('a slow, controlled flex'), 'all the thinking, none of the page');
+  assert(!/✓|Let me|Ship it|That's solid/.test(cut.page), 'not one word of the model talking to itself is left on the page');
+});
+
+test('M326-2 as it streams: each draft is shown while it is the newest, taken away when the header comes again, and the checklist never reaches the page', () => {
+  for (const n of [1, 4, 37]) {
+    let page = ''; let thinking = ''; let restarts = 0;
+    const gate = makeHeaderGate({ onThinking: (t) => { thinking += t; }, onProse: (t) => { page += t; }, onGiveBack: () => {}, onRestart: () => { thinking += page; page = ''; restarts += 1; } });
+    for (const piece of chunks(REPLY, n)) gate.feed(piece);
+    gate.end();
+    eq(restarts, 2, n + ' at a time: the page was started again twice');
+    eq(page.trim(), FINAL.trim(), n + ' at a time: what stands on the page at the end is the final draft');
+    assert(thinking.includes('Ship it.') && thinking.includes('That\'s solid') && !page.includes('✓'), 'the rest went to the thinking');
+  }
+});
+
+test('M326-3 what must NOT be cut: a window beyond the page (another place) stays in the page; a page with one header and no checks is whole; prose that merely says "good" or holds a colon is prose', () => {
+  const windowed = H1 + '\n\nThe lake slid past.\n\n[Ravenwood High, east lot — Friday, August 21, 2026 | 13:11]\n\nEmilia checked her phone again.';
+  eq(splitReply(windowed).page, windowed, 'a different place is a window, not a draft');
+  const plain = H1 + '\n\n"Good — you made it," she said.\n\nHe read the sign: CLOSED UNTIL MONDAY.\n\nThe note said: back at five.';
+  eq(splitReply(plain).page, plain); eq(splitReply(plain).tail, '');
+  const r = run(chunks(plain, 5)); eq(r.prose, plain, 'and it streams through untouched'); eq(r.thinking, '');
+  const headerOnly = H1 + '\n\nLet me check: nothing written yet.';
+  eq(splitReply(headerOnly).page, headerOnly, 'a header with nothing under it is never cut down to a bare header');
 });

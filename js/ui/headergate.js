@@ -20,6 +20,17 @@
  * planning label ("Planning:", "Beat:", "Last look:", the Pass's own letters "B:" "L:"…) are the plan, and
  * the page begins at the first paragraph that does not. A reply that is ALL plan has no page (planOnly) —
  * the caller asks for the page once, the plan handed back.
+ *
+ * M326: A MODEL WITH NO THINKING CHANNEL DRAFTS ON THE PAGE. The writer's five screenshots of ONE reply: a plan; the
+ * header and a first draft; "That's solid. Let me check: …"; "---", the SAME header and a second draft;
+ * "Good — … Let me reconstruct final:"; the SAME header and the final draft; then "Thought tag: one. ✓ …
+ * Post-send checks: … ✓ … Ship it." — and the reply ends. M322–M325 cut at the FIRST header, so the page
+ * he was given was all three drafts with the critiques between them and the checklist after: "it makes
+ * thinking and planning but never gives the real output". The real output is in there — it is the LAST
+ * draft. So: when a reply repeats its own header (same place, date and hour — a "window beyond the page"
+ * is a different place and is left alone), the page begins at the LAST of them; and the page ENDS where
+ * the model starts checking its own work (a paragraph that opens with a checking label or phrase, or
+ * carries a tick mark). Everything else — plan, earlier drafts, critiques, checklist — is the thinking.
  */
 
 const DRESS = '[ \\t>*_#`]*';
@@ -33,6 +44,68 @@ export function isHeaderLine(line) {
   return s.includes('|') || HAS_TIME.test(s);
 }
 export function isPlanLabel(line) { return LABEL.test(String(line || '')); }
+
+/* M326: where a model starts talking to itself about the page it has just written */
+const CHECK = new RegExp('^' + DRESS + '(?:' + [
+  '(?:thought tags?|dialogue ratio|post-?send checks?|pre-?send checks?|final checks?|self-?checks?|checks?|checklist|word count|length check|banned words?|pov check|continuity check|header check|last look|verdict|revision|revised|draft(?: \\d+)?|final(?: draft| version)?|critique|review|audit)[ \\t*_`]*(?::|\\s[—–-]\\s)',
+  'that[\'’]?s (?:solid|good|fine|better|clean)\\b',
+  'let me (?:check|reconstruct|revise|rewrite|re-?write|adjust|fix|tighten|re-?read|re-?do|verify|audit|trim)\\b',
+  'good\\s[—–-]\\s', 'ok(?:ay)?\\s[—–-]\\s',
+  'now (?:let me|the final|for the final)\\b',
+  'ship it\\b', 'shipping\\b', 'done\\.?$',
+].join('|') + ')', 'i');
+const TICK = /[✓✔☑✅]/;
+export function isCheckStart(paragraph) {
+  const text = String(paragraph || '');
+  const first = text.split('\n')[0];
+  return CHECK.test(first) || isPlanLabel(first) || TICK.test(text);
+}
+
+/* what makes two header lines the SAME header: the place-and-date part (before the first "|") and the hour */
+export function headerKey(line) {
+  const inner = String(line || '').replace(/^[ \t>*_#`]*\[/, '').replace(/\][ \t*_`]*$/, '');
+  const head = inner.split('|')[0].toLowerCase().replace(/\s+/g, ' ').trim();
+  const time = (inner.match(HAS_TIME) || [''])[0].replace('.', ':');
+  return head.replace(HAS_TIME, '').replace(/[\s—–-]+$/, '').trim() + '@' + time;
+}
+/* every header line in the text: [{ at, key }] */
+export function headersIn(text) {
+  const s = String(text || '');
+  const out = [];
+  let at = 0;
+  while (at <= s.length) {
+    const end = s.indexOf('\n', at);
+    const line = end === -1 ? s.slice(at) : s.slice(at, end);
+    if (isHeaderLine(line)) out.push({ at, key: headerKey(line) });
+    if (end === -1) break;
+    at = end + 1;
+  }
+  return out;
+}
+/* where the page begins when there are headers: the LAST line that repeats the first header (drafts), else the first */
+function pageStart(s) {
+  const hs = headersIn(s);
+  if (!hs.length) return -1;
+  let at = hs[0].at;
+  for (const h of hs) if (h.key === hs[0].key) at = h.at;
+  return at;
+}
+/* where the page ends: the first paragraph after its header paragraph that starts a check; -1 = it runs to the end */
+function checkStart(s, from) {
+  const ps = paragraphs(s.slice(from)).map((p) => ({ at: p.at + from, text: p.text }));
+  for (let i = 0; i < ps.length; i += 1) {
+    if (i === 0 && isHeaderLine(ps[0].text.split('\n')[0])) {
+      /* the header's own paragraph may run straight into prose; only its later lines are judged */
+      const rest = ps[0].text.split('\n').slice(1).join('\n');
+      if (rest.trim() && isCheckStart(rest)) return ps[0].at + ps[0].text.indexOf('\n') + 1;
+      continue;
+    }
+    /* a rule line ("---") between the page and the checks belongs to the checks */
+    if (/^[ \t]*[-*_]{3,}[ \t]*$/.test(ps[i].text) && ps[i + 1] && isCheckStart(ps[i + 1].text)) return ps[i].at;
+    if (isCheckStart(ps[i].text)) return ps[i].at;
+  }
+  return -1;
+}
 
 /* the index at which the first header line begins, or -1 */
 export function headerIndex(text) {
@@ -65,15 +138,51 @@ function planEnd(s) {
   return s.length;
 }
 
-/* the finished text, split: { lead, page }. Nothing to tell apart → lead '' and page the whole text. */
-export function splitAtHeader(text) {
+/* the finished text, in three: what came before the page, the page, and what the model said to itself after it */
+export function splitReply(text) {
   const s = String(text || '');
-  let at = headerIndex(s);
-  if (at === -1) { const p = planEnd(s); at = p > 0 && p < s.length ? p : -1; }
-  if (at <= 0) return { lead: '', page: s };
-  const lead = s.slice(0, at);
-  if (!lead.trim()) return { lead: '', page: s.slice(at) };
-  return { lead: lead.replace(/\s+$/, ''), page: s.slice(at) };
+  let at = pageStart(s);
+  const headed = at !== -1;
+  if (!headed) { const p = planEnd(s); at = p > 0 && p < s.length ? p : -1; }
+  if (at < 0) return { lead: '', page: s, tail: '' };
+  const lead = s.slice(0, at).trim() ? s.slice(0, at).replace(/\s+$/, '') : '';
+  let page = s.slice(at);
+  let tail = '';
+  if (headed) {
+    const c = checkStart(s, at);
+    if (c > at) {
+      const kept = s.slice(at, c).replace(/(?:\n[ \t]*[-*_]{3,}[ \t]*)?\s+$/, '');
+      /* never cut a page down to its header alone: a header with nothing under it is not a page worth the cut */
+      if (kept.split('\n').slice(1).join('\n').trim()) { page = kept; tail = s.slice(c).trim(); }
+    }
+  }
+  return { lead, page, tail };
+}
+/* { lead, page } — the lead being ALL the thinking the reply held, before the page and after it */
+export function splitAtHeader(text) {
+  const cut = splitReply(text);
+  return { lead: [cut.lead, cut.tail].filter(Boolean).join('\n\n'), page: cut.page };
+}
+/* only the page — what a LATER turn is sent of a page that was saved before any of this existed.
+ * It runs over EVERY earlier page on every send, so a clean page must cost next to nothing: measured in a real
+ * browser on a long tale, splitting every page added 67 ms to the worst frame (100 → 167). A page that opens
+ * with its header and holds no second header line, no tick and no checking or planning phrase at the head of a
+ * line IS its own page part; and an answer once worked out is remembered. */
+const MAYBE_DIRTY = /[✓✔☑✅]|^[ \t>*_#`]*(?:planning|plan|beat|last look|thinking|thoughts|reasoning|analysis|approach|outline|notes?|checks?|checklist|thought tags?|dialogue ratio|post-?send|pre-?send|final|self-?check|word count|banned words?|verdict|revis|draft|critique|review|audit|that[\'’]?s |let me |good\s[—–-]|ok(?:ay)?\s[—–-]|now |ship|done|[blscw][ \t]*:)/im;
+const pageOnlyMemo = new Map();
+export function pageOnly(text) {
+  const s = String(text || '');
+  if (!s) return s;
+  const known = pageOnlyMemo.get(s);
+  if (known !== undefined) return known;
+  let out = s;
+  const firstLine = s.slice(0, s.indexOf('\n') === -1 ? s.length : s.indexOf('\n'));
+  const headerFirst = isHeaderLine(firstLine) || isHeaderLine(s.trimStart().split('\n')[0]);
+  const moreHeaders = headerFirst && (s.match(/^[ \t>*_#`]*\[[^\[\]\n]*\|[^\[\]\n]*\]/gm) || []).length > 1;
+  if (!headerFirst || moreHeaders || MAYBE_DIRTY.test(s)) out = splitReply(s).page;
+  if (pageOnlyMemo.size > 800) pageOnlyMemo.clear();
+  pageOnlyMemo.set(s, out);
+  return out;
 }
 /* M325: the reply OPENS with a plan that names itself (whatever follows) */
 export function opensWithPlan(text) {
@@ -88,10 +197,59 @@ export function planOnly(text) {
 
 /* the same, as the words arrive. onThinking(text) and onProse(text) are called in order; onGiveBack(text) hands
  * back words that were shown as thinking when the reply turns out to hold no page that can be told apart. */
-export function makeHeaderGate({ onThinking, onProse, onGiveBack, giveUpAt = 12000 } = {}) {
+export function makeHeaderGate({ onThinking, onProse, onGiveBack, onRestart, giveUpAt = 12000 } = {}) {
   let open = false;
   let buf = '';
   let shown = 0; /* how much of buf has been handed over as thinking */
+  /* M326, once the page is open: its header's key, whether the model has begun checking its work, and the line in hand */
+  let openKey = '';
+  let checking = false;
+  let line = '';
+  let lineOut = 0;      /* how much of `line` has already been handed on */
+  let pageHasProse = false;
+  let paraStart = true; /* the line in hand begins a paragraph */
+  const HOLD = 56;      /* a line is held this long (or to its end, if it opens a bracket) before it is judged */
+  const hand = (t) => { if (!t) return; if (checking) onThinking(t); else { onProse(t); } };
+  const judge = (whole) => {
+    /* called once per line, when enough of it is known (whole = the line is complete) */
+    const text = line.replace(/\n$/, ''); /* the line in hand, without the break that ended it */
+    if (whole && isHeaderLine(text) && headerKey(text) === openKey && (pageHasProse || checking)) {
+      /* the model is writing the page AGAIN: what stood as the page is a draft — the caller takes it to the thinking */
+      if (onRestart) onRestart();
+      checking = false; pageHasProse = false;
+      return;
+    }
+    if (!checking && paraStart && pageHasProse && (CHECK.test(text) || isPlanLabel(text))) checking = true;
+  };
+  /* handed on in runs, never a character at a time: once a line has been judged, the rest of it (to its line break)
+   * goes on in one piece — the first version called the painter for every character (worst frame 50 → 150 ms) */
+  const feedOpen = (t) => {
+    let i = 0;
+    while (i < t.length) {
+      const nl = t.indexOf('\n', i);
+      if (lineOut > 0) {
+        /* already judged: pass the run through */
+        const upTo = nl === -1 ? t.length : nl;
+        if (upTo > i) { const run = t.slice(i, upTo); line += run; hand(run); lineOut = line.length; i = upTo; }
+        if (nl === -1) break;
+      } else {
+        /* not judged yet: take what is needed to judge it — to the line break, or to HOLD characters */
+        const bracket = /^[ \t>*_#`]*\[/.test(line + t.slice(i, i + 8));
+        const room = bracket ? Infinity : Math.max(0, HOLD - line.length);
+        const upTo = Math.min(nl === -1 ? t.length : nl, i + room);
+        line += t.slice(i, upTo); i = upTo;
+        if (i < t.length && t[i] !== '\n') { judge(false); hand(line); lineOut = line.length; continue; }
+        if (i >= t.length) { if (!bracket && line.length >= HOLD) { judge(false); hand(line); lineOut = line.length; } break; }
+      }
+      /* t[i] is the line break */
+      line += '\n'; i += 1;
+      if (lineOut === 0) judge(true);
+      hand(line.slice(lineOut));
+      if (!checking && line.trim() && !isHeaderLine(line.replace(/\n$/, ''))) pageHasProse = true;
+      paraStart = !line.trim();
+      line = ''; lineOut = 0;
+    }
+  };
   const flushLead = (upTo) => {
     if (upTo > shown) { const piece = buf.slice(shown, upTo); shown = upTo; if (piece) onThinking(piece); }
   };
@@ -99,7 +257,9 @@ export function makeHeaderGate({ onThinking, onProse, onGiveBack, giveUpAt = 120
     if (buf.slice(0, at).trim()) flushLead(at); /* leading blank lines are nobody's thinking */
     const page = buf.slice(at);
     open = true; buf = ''; shown = 0;
-    if (page) onProse(page);
+    const first = page.split('\n')[0];
+    openKey = isHeaderLine(first) ? headerKey(first) : '';
+    if (page) feedOpen(page);
   };
   const giveBack = () => {
     const held = buf; const was = buf.slice(0, shown);
@@ -111,7 +271,7 @@ export function makeHeaderGate({ onThinking, onProse, onGiveBack, giveUpAt = 120
     feed(text) {
       const t = String(text || '');
       if (!t) return;
-      if (open) { onProse(t); return; }
+      if (open) { feedOpen(t); return; }
       buf += t;
       /* only WHOLE lines are judged: the last, unfinished line may yet turn out to be the header */
       const lastBreak = buf.lastIndexOf('\n');
@@ -127,7 +287,7 @@ export function makeHeaderGate({ onThinking, onProse, onGiveBack, giveUpAt = 120
     },
     /* the stream is over: the finished text decides */
     end() {
-      if (open) return;
+      if (open) { if (line.slice(lineOut)) { if (lineOut === 0) judge(true); hand(line.slice(lineOut)); line = ''; lineOut = 0; } return; }
       const cut = splitAtHeader(buf);
       if (cut.lead) { openAt(buf.length - cut.page.length); return; }
       giveBack();

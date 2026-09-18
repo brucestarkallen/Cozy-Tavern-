@@ -93,7 +93,8 @@ test('M30-6 the house applies the shelf at the three moments (source law)', () =
   assert(chat.indexOf("full = applyRules(full, currentRules(), { on: 'storyteller', mode: 'page' })") < chat.indexOf("role: 'assistant',\n          text: full,"), 'before the page is saved');
   assert(/applyRules\(parsed\.clean, currentRules\(\), \{ on: 'writer', mode: 'page' \}\)/.test(chat), 'page-mode on the writer’s words');
   assert(/applyRules\(pageText\(msg\), currentRules\(\), \{ on: msg\.role, mode: 'display' \}\)/.test(chat), 'display-mode in the thread');
-  assert(/pageFilter: \(text, role\) => applyRules\(text, currentRules\(\), \{ on: role, mode: 'wire' \}\)/.test(chat), 'wire-mode reaches buildRequest');
+  /* M326: the shelf's wire-mode rules still run first; what they hand on is then cut to the page part (sentPage) */
+  assert(/pageFilter: \(text, role\) => sentPage\(applyRules\(text, currentRules\(\), \{ on: role, mode: 'wire' \}\), role\)/.test(chat), 'wire-mode reaches buildRequest');
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
   for (const id of ['regex-list', 'regex-form', 'regex-find', 'btn-regex-try', 'btn-regex-clean', 'btn-regex-add']) assert(html.includes(`id="${id}"`), 'the shelf has ' + id);
   const sw = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');

@@ -7558,3 +7558,49 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: his model's second answer — a model that plans again after being handed its plan would land
   that plan as a page cut at its header if it writes one, or as it came if it does not (one re-ask only).
 - version.js -> m325-001.
+
+# M326 — "it makes thinking and planning but never gives the real output": a model with no thinking channel DRAFTS on the page
+- THE WRITER, with five screenshots of ONE reply: a folded "what the storyteller weighed — thought for 1m 4s" (the lead,
+  caught by the gate); the header and a first draft; "That's solid. Let me check: - MC silence ✓ …"; "---", the
+  SAME header and a second draft; "Good — ends on image… Let me reconstruct final:"; "---", the SAME header and
+  the final draft; then "Thought tag: one. ✓ … Dialogue ratio: … Post-send checks: … ✓ … Ship it." — and the end.
+  "Many versions ago it was good, the only problem was before the header; now the thinking never wants to give
+  the real output."
+- READ OFF THE SCREENSHOTS: the real output IS in the reply — it is the LAST draft. M322–M325 opened the page at the
+  FIRST header, so the page he was given was three drafts, the critiques between them and the checklist
+  after. And WHY the model drafts more than it used to: every earlier page saved with a plan or a draft in it
+  was sent back as "the story so far" — each one teaching the model that a page is where it drafts.
+- CHANGE (ui/headergate.js):
+  · when a reply repeats its own header — same place-and-date part and same hour (headerKey; the model rewords the
+    weather between drafts) — the page begins at the LAST of them. A "window beyond the page" names another
+    place and is left in the page.
+  · the page ENDS where the model starts checking its own work (isCheckStart): a paragraph opening with a
+    checking label ("Thought tag:", "Dialogue ratio:", "Post-send checks:", "Final check:"…), a checking phrase
+    ("That's solid", "Let me check / reconstruct / revise…", "Good —", "Ship it"), a planning label, or
+    carrying a tick mark. A rule line ("---") before it goes with it. A page is never cut down to a bare
+    header. splitReply → { lead, page, tail }; splitAtHeader's lead is all the thinking, before and after.
+  · as it streams: each draft shows while it is the newest; when the same header comes again the gate calls
+    onRestart and chat.js moves what stood as the page into the thinking and starts the page clean; once the
+    model starts checking, its words go to the thinking. Lines are judged whole (a bracket line) or at 56
+    characters, so ordinary prose still arrives word by word. The finished text decides what is kept.
+  · chat.js sentPage/pageOnly: what a LATER turn is sent of an EARLIER page is its page part alone — the saved
+    page is never touched, but the drafts and plans in pages saved before all this stop riding the wire.
+- TESTS: m322.mjs M326-1..3 rebuild the reply from the screenshots (plan, three drafts under one header reworded,
+  two critiques, the checklist): the page is the final draft to the letter, the rest is lead and tail; streamed
+  1, 4 and 37 characters at a time the page is restarted exactly twice and ends as the final draft with no
+  tick on it; a window to another place, a plain page, dialogue that opens "Good —", a sign with a colon and a
+  bare header are all left whole. DOM-57 part 7 plays it through the real app, streamed, with a dirty old
+  page in the history: the saved page is the final draft, the page he reads has no "Let me check", and the
+  request carried the old page's final draft and none of its drafts. MUTATION-CHECKED: the page beginning at
+  the first header → M326-1 fails (the streaming restart is its own path, and was seen red before it was
+  fixed: "got 0, wanted 2"); restored and `cmp`-proven. M30-6's source pin follows the wire filter's new shape.
+- MEASURED IN A REAL BROWSER (tests/perf_housekeeper.py, SCENARIO=story), worst frame while a long page streams: m325
+  100 ms; M326 first cut 150–167 ms — the gate called the painter for every CHARACTER, and pageOnly split every
+  earlier page on every send. Prose is handed on in runs now, and a clean earlier page takes a fast path and is
+  remembered: 117–150 ms over two runs, long tasks 1–2 (m325: 2). Inside the 250 ms budget; not back to 100.
+- A FAULT OF MINE CAUGHT BY ITS OWN TEST: the live judge looked at a line with its line break still on it, so a
+  repeated header never matched while streaming (the page was never restarted: "got 0, wanted 2").
+- NOT VERIFIED: his model's other ways of talking to itself — the check phrases are the ones on his screen plus
+  their near kin; a new one shows as the end of a page until it is added. And the model still spends the time
+  to write three drafts: with thinking Off that is its choice; the house only keeps the last.
+- version.js -> m326-001.

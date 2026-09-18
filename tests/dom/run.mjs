@@ -3109,6 +3109,22 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
     assert(/end on her question\.$/.test(asks[1].messages.slice(-2)[0].content), 'the WHOLE plan handed back, its unlabelled end included');
     eq(h.text, PAGE, 'and the page that lands begins at its header');
     assert(/^Planning: Jovan giggles/.test(String(h.thinking || '')) && /end on her question/.test(h.thinking), 'the whole plan is its thinking');
+    /* (7) M326 — THE WRITER’S FIVE SCREENSHOTS of one reply: a plan, the header and a draft, "That’s solid. Let me check: …",
+     * the SAME header and a second draft, "Let me reconstruct final:", the SAME header and the final draft, then a
+     * checklist ending "Ship it." The page he is given is the LAST draft; and the turn AFTER is sent no draft of it. */
+    const H = '[Rim road, moving between overlooks — Friday, August 21, 2026 | 13:11 | sun strobing, AC on low | gray tee, dark jeans | passenger seat, basket on his lap]';
+    const FINAL = H + '\n\nThirty seconds had gone. The turnout was behind them.\n\nRias’s right hand tightened on the wheel — a slow, controlled flex — then let go.\n\nShe glanced sideways at him. Jovan was finishing the fry he’d been chewing, and the lake went by.';
+    const DRAFTS = 'Okay. #p — one beat. Keep her silent.\n\n' + H + '\n\nThirty seconds had gone. The lake slid on past the driver’s side window in a long ribbon of white-gold glitter.\n\nThat’s solid. Let me check:\n- MC silence ✓ (he literally has an action completion — eating — invented? Hmm.\n\n---\n\n' + H + '\n\nThirty seconds had gone. The turnout was behind them. A slow flex, controlled.\n\nGood — ends on image, quiet, no MC invention. Let me reconstruct final:\n\n---\n\n';
+    const CHECKS = '\n\nThought tag: one. ✓\n\nDialogue ratio: 0% this turn (Rias silent). Fine.\n\nPost-send checks: no banned words ✓ / header as single line ✓\n\nShip it.';
+    const dirtyOld = DRAFTS + FINAL + CHECKS; /* a page saved the way m325 and before saved it */
+    const i7 = await play('three drafts and a checklist', () => ({ text: DRAFTS + FINAL + CHECKS }), dirtyOld);
+    eq(asks.length, 1, 'asked once');
+    eq(i7.text, FINAL, 'the page is the final draft — no plan, no earlier draft, no critique, no checklist');
+    assert(/That’s solid\. Let me check/.test(i7.thinking) && /Ship it\./.test(i7.thinking) && /white-gold glitter/.test(i7.thinking), 'all of which are its thinking');
+    const bodyShown = q('#thread .msg-assistant:last-of-type .msg-body').textContent;
+    assert(!/Let me check|Ship it|✓|white-gold glitter/.test(bodyShown) && /slow, controlled flex/.test(bodyShown), 'and the page he reads is the page');
+    const sentNow = JSON.stringify(asks[0].messages);
+    assert(/slow, controlled flex/.test(sentNow) && !/Let me reconstruct final|Ship it|white-gold glitter/.test(sentNow), 'the OLD page in the story so far was sent as its page alone — the drafts in it teach nothing any more');
   } finally {
     script = null;
     globalThis.fetch = housed;

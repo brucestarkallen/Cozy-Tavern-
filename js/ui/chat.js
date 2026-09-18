@@ -64,7 +64,7 @@ import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
-import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan } from './headergate.js'; /* M322, M324, M325 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
+import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan, pageOnly } from './headergate.js'; /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -2948,6 +2948,13 @@ export function initChat(ctx) {
    * choice wins; otherwise the connection's; otherwise the voice stays
    * off. The full ladder is valid here — what the wire can actually SAY
    * is resolved per house inside the provider (effortFor in effort.js). */
+  /* M326: WHAT A LATER TURN IS SENT OF AN EARLIER PAGE IS THE PAGE. Pages saved before the header gate existed (or while
+   * it was unticked) still hold the model's plans, drafts and checklists — and every one of them, sent back as
+   * "the story so far", teaches the model that a page is where it drafts. The saved page is never touched; what
+   * rides the wire is its page part alone. */
+  let cutOldPages = true;
+  db.settings.get('cutBeforeHeader').then((v) => { cutOldPages = v !== false; }).catch(() => {});
+  const sentPage = (text, role) => (role === 'assistant' && cutOldPages ? pageOnly(text) : text);
   const saidOnce = new Set();
   function sayOnce(key, words) { if (saidOnce.has(key)) return; saidOnce.add(key); toast(words); }
   function effectiveReasoning(connection, story) {
@@ -3446,7 +3453,7 @@ export function initChat(ctx) {
         directorNote: renderDirectorNote(directorState), editorEye: renderEditorNote(editorState),
         houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
         worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
-        pageFilter: (text, role) => applyRules(text, currentRules(), { on: role, mode: 'wire' }),
+        pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
       /* M264: the record rides in the room the storyteller's context leaves it */
       const recordCap = recordRoom({
@@ -3488,7 +3495,7 @@ export function initChat(ctx) {
         /* M29: the world agent's word for this turn. */
         worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
-        pageFilter: (text, role) => applyRules(text, currentRules(), { on: role, mode: 'wire' }),
+        pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       });
 
       /* M6 consume-and-clear: the ruling rode into this turn's stack as a
@@ -3553,9 +3560,20 @@ export function initChat(ctx) {
       let leadThinking = '';
       let wholeReply = '';
       const cutLead = !ooc && (await db.settings.get('cutBeforeHeader')) !== false;
+      cutOldPages = (await db.settings.get('cutBeforeHeader')) !== false;
       const gate = cutLead ? makeHeaderGate({
         onThinking: (t) => { leadThinking += t; takeThinking(t); },
         onProse: (t) => takeProse(t),
+        /* M326: the model has begun the page AGAIN (the same header) — what stood as the page was a draft: it goes to the
+         * thinking, and the page starts clean from the new header */
+        onRestart: () => {
+          if (!full) return;
+          const draft = full;
+          full = '';
+          leadThinking += (leadThinking && !/\n$/.test(leadThinking) ? '\n' : '') + draft;
+          takeThinking((thinking && !/\n$/.test(thinking) ? '\n' : '') + draft);
+          paintLive();
+        },
         onGiveBack: (t) => {
           /* no header came: those words are the page after all — take them back out of the thinking */
           leadThinking = leadThinking.slice(0, Math.max(0, leadThinking.length - t.length));
