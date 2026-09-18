@@ -472,6 +472,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   }
   /* M57: passers-through retire in code — no bond, no seat, no thread, no
    * lock, not present, and thirty turns since their page last moved. */
+  guarded.push(...seatIdentityHousekeeping(fresh)); /* M320 */
   guarded.push(...wakeHousekeeping(fresh, { brief, castNotes, castNames })); /* M304 */
   guarded.push(...peopleHousekeeping(fresh, brief, castNotes, castNames));
   /* M95: the house's own example names, echoed into a ledger by a worker of an
@@ -534,6 +535,7 @@ export async function ledgerUpkeep({ storyId, brief = '', castNotes = '', castNa
   const fresh = await loadState(storyId);
   const all = answeredOnly((await db.messages.list(storyId)).filter((m) => !m.hidden));
   const list = [
+    ...seatIdentityHousekeeping(fresh), /* M320: first — the rest of the upkeep then sees each person's one seat */
     ...wakeHousekeeping(fresh, { brief, castNotes, castNames }), /* M304 */
     ...peopleHousekeeping(fresh, brief, castNotes, castNames),
     ...exampleLeakHousekeeping(fresh, brief, castNotes),
@@ -808,6 +810,19 @@ export function seatHousekeeping(state, { brief = '', castNotes = '', pages = []
       if (writersOwn(name, material, castNames)) continue; /* the brief's people are never capped out */
       out.push({ type: 'offscreen.clear', name });
     }
+  }
+  return out;
+}
+
+/* M320: a seat written under another form of its person's name (before seats were found the way pages are) is
+ * put under the name their page stands under — so "elsewhere" and "the people" speak of one person. */
+export function seatIdentityHousekeeping(state) {
+  const out = [];
+  const seats = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
+  const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  for (const k of Object.keys(seats)) {
+    const page = findPersonKey(chars, k);
+    if (page && page.trim().toLowerCase() !== k.trim().toLowerCase()) out.push({ type: 'offscreen.rekey', from: k, to: page, cause: 'one person, one name' });
   }
   return out;
 }

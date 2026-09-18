@@ -48,7 +48,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
-import { findPersonKey, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
+import { findPersonKey, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
 import { storyTurn } from '../engine/apply.js';
 import { applyMutations } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
@@ -276,12 +276,13 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
     if (!core && !now && !arc) continue;
     const weight = importanceOf(state, name, material, turn, scene) + (own(name) ? 30 : 0);
     const here = present.has(lower(name));
-    const noSeat = !here && !seated.has(lower(name)) && (weight >= IMPORTANT_AT || own(name));
+    const hasSeat = seated.has(lower(name)) || Boolean(seatForPerson(state, name)); /* M320: "Rias" seated IS "Rias Gremory" seated */
+    const noSeat = !here && !hasSeat && (weight >= IMPORTANT_AT || own(name));
     rows.push({ name, core, now, weight, here, noSeat });
   }
   rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
   const mark = (r) => (r.here ? ' [in the scene]' : r.noSeat ? ' [NO SEAT — seat them]' : '');
-  const whole = (r) => r.name + mark(r) + ' — ' + [r.core, r.now && !seated.has(lower(r.name)) ? 'last noted: ' + r.now : ''].filter(Boolean).join(' | ');
+  const whole = (r) => r.name + mark(r) + ' — ' + [r.core, r.now && !seated.has(lower(r.name)) && !seatForPerson(state, r.name) ? 'last noted: ' + r.now : ''].filter(Boolean).join(' | ');
   const lean = (r) => { const first = (r.core || r.now).split(/(?<=[.!?])\s+/)[0] || ''; return r.name + mark(r) + ' — ' + (first.length > 240 ? first.slice(0, first.lastIndexOf(' ', 240)) + '…' : first); };
   const lines = [];
   let used = 0;

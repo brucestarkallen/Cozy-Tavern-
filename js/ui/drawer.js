@@ -41,7 +41,7 @@ import { applyMutations, undoLast, undoEntry, MODE_WORDS } from '../engine/apply
 import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
-import { isMc } from '../engine/people.js';
+import { isMc, seatForPerson } from '../engine/people.js';
 import { seatLine, seatOrder, seatNowWords } from '../engine/offscreen.js'; /* M300; M304: one line, one order and one wording for a seat */
 import { storyTurn as storyTurnOf } from '../engine/apply.js'; /* M291: how long ago a page was last written */
 import { listCast, attachToStory, detachFromStory, castNamesFor } from '../import/cards.js';
@@ -1523,7 +1523,8 @@ function peoplePanel(ctx) {
       /* M130: one now per person — a seated absent person's "Now" is the seat
        * (the world agent's word); the scribe's older state line is not shown
        * beside it */
-      const seatKey = state.offscreen && Object.keys(state.offscreen).find((k) => k.toLowerCase() === name.toLowerCase());
+      const seatFound = seatForPerson(state, name); /* M320: found the way a page is — "Rias" is "Rias Gremory" */
+      const seatKey = seatFound ? seatFound.key : '';
       const seatNow = seatKey && !present.has(name.toLowerCase()) ? seatNowWords(state.offscreen[seatKey] || {}, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null, { agenda: true }) : ''; /* M300: its age; M304: the engine's own words */
       /* M291/M292: the now alive — the one here says what they are doing; the absent, where the
        * world has them; a note from a scene long gone, how old it is */

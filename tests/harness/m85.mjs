@@ -502,13 +502,16 @@ test('M103-1 seats have a life in code: a passer-through the world agent kept se
   /* the cap: many carried seats, the least reachable go first, never the brief's people */
   let big = { ...emptyState(), turn: 40 };
   const muts = [{ type: 'mc.set', name: 'Jovan' }];
-  for (let i = 0; i < SEAT_CAP + 3; i += 1) muts.push({ type: 'offscreen.set', name: 'Guest' + i, location: 'town', activity: 'waiting', agenda: 'x', stance: i < 2 ? 'toward' : 'waiting', etaMinutes: i < 2 ? 15 : undefined });
+  /* M320: DIFFERENT people — a seat is found the way a page is now, and "Guest1"/"Guest12" are one name a slip apart
+   * (the same rule that has merged such PAGES since M164); forty-three names no rule could take for each other */
+  const GUESTS = ['Abel', 'Bruna', 'Cedric', 'Dalia', 'Emeric', 'Fenna', 'Goran', 'Hedda', 'Ivo', 'Jorun', 'Kasimir', 'Lotte', 'Marek', 'Nives', 'Osric', 'Petra', 'Quillon', 'Rosalind', 'Stellan', 'Tamsin', 'Ulric', 'Vesna', 'Wystan', 'Xanthe', 'Yorick', 'Zelda', 'Anselm', 'Beatrix', 'Caspian', 'Delphine', 'Evander', 'Florentyna', 'Gwendolyn', 'Hyacinth', 'Isambard', 'Jacinta', 'Klementyna', 'Leopold', 'Mordecai', 'Nicodemus', 'Ottoline', 'Persephone', 'Quentin', 'Rutherford', 'Seraphina', 'Thaddeus'];
+  for (let i = 0; i < SEAT_CAP + 3; i += 1) muts.push({ type: 'offscreen.set', name: GUESTS[i], location: 'town', activity: 'waiting', agenda: 'x', stance: i < 2 ? 'toward' : 'waiting', etaMinutes: i < 2 ? 15 : undefined });
   big = applyMutations(big, muts).state;
   for (const k of Object.keys(big.offscreen)) big.offscreen[k].atTurn = 39; /* all fresh — all carried */
-  const capped = seatHousekeeping(big, { brief: 'Guest14 is the landlord.', pages: [] });
+  const capped = seatHousekeeping(big, { brief: GUESTS[14] + ' is the landlord.', pages: [] });
   eq(capped.filter((m) => m.type === 'offscreen.clear').length, 3, 'three over the cap go');
-  assert(!capped.some((m) => m.name === 'Guest0' || m.name === 'Guest1'), 'the ones on the clock stay');
-  assert(!capped.some((m) => m.name === 'Guest14'), 'the brief’s person is never capped out');
+  assert(!capped.some((m) => m.name === GUESTS[0] || m.name === GUESTS[1]), 'the ones on the clock stay');
+  assert(!capped.some((m) => m.name === GUESTS[14]), 'the brief’s person is never capped out');
   eq(SEAT_MENTION_PAGES, 12);
 });
 

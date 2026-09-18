@@ -44,7 +44,7 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
-import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc } from './people.js';
+import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson } from './people.js';
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
@@ -421,7 +421,7 @@ const HANDLERS = {
     words += '.';
     /* M4: walking back into the scene lets go of the elsewhere note —
      * presence.enter auto-unseats (and the undo puts the seat back). */
-    const seated = findSeat(state.offscreen, name);
+    const seated = seatForPerson(state, name); /* M320 */
     if (seated) {
       delete state.offscreen[seated.key];
       words += ' The elsewhere note let go of ' + entry.name + '.';
@@ -451,7 +451,7 @@ const HANDLERS = {
      * where they went, earlier in this batch). The main character is never
      * seated. A take-back of the leaving takes this with it. */
     let seatAdded = null;
-    if (!findSeat(state.offscreen, before.name) && !isMc(state, before.name)) {
+    if (!seatForPerson(state, before.name) && !isMc(state, before.name)) { /* M320 */
       const moved = state.groundWas && typeof state.groundWas === 'object' && state.groundWas.page === state.page && typeof state.groundWas.name === 'string' && state.groundWas.name.trim();
       const ground = moved ? state.groundWas.name.trim() : (state.place && typeof state.place.name === 'string' ? state.place.name.trim() : '');
       state.offscreen = seat(state.offscreen, before.name, { location: ground || 'where the scene stood', activity: '', lastSeen: true }, clockMinutesOf(state), storyTurn(state));
@@ -701,12 +701,18 @@ const HANDLERS = {
      * kitchen AND on the road to it, "overdue by about 2 minutes", and the
      * auditor cleared them by hand every few turns. A guard at the door costs
      * nothing and ends it. */
-    if (findPresent(state, name) !== -1) {
-      return { why: name + ' is in the scene — they cannot be written elsewhere' };
+    /* M320: THE SEAT IS WRITTEN UNDER THE PERSON'S OWN NAME — the name their page stands under, when they have
+     * one ("Rias" is seated as "Rias Gremory"); a seat they already hold under another form of their name is
+     * taken over, never left beside the new one. */
+    const pageKey = findPersonKey(state.characters || {}, name);
+    if (findPresent(state, name) !== -1 || (pageKey && findPresent(state, pageKey) !== -1)) {
+      return { why: (pageKey || name) + ' is in the scene — they cannot be written elsewhere' };
     }
-    const seated = findSeat(state.offscreen, name);
-    const key = seated ? seated.key : name;
-    const before = seated ? { ...seated.entry } : null;
+    const seated = seatForPerson(state, pageKey || name) || seatForPerson(state, name);
+    const key = pageKey || (seated ? seated.key : name);
+    const before = seated && seated.key === key ? { ...seated.entry } : null;
+    const moved = seated && seated.key !== key ? { name: seated.key, entry: { ...seated.entry } } : null;
+    if (moved) { state.offscreen = { ...state.offscreen }; delete state.offscreen[moved.name]; }
     /* M29: a stance toward the main character and an arrival on the clock
      * may ride the seat. An unknown stance is dropped, never a reason to
      * refuse the seat. */
@@ -723,13 +729,32 @@ const HANDLERS = {
     if (stance === 'toward' || stance === 'seeking') words += ' — ' + (stance === 'toward' ? 'heading this way' : 'looking for ' + mcName(state));
     if (Number.isFinite(etaMinutes)) words += ', about ' + etaMinutes + ' minutes out';
     words += '.';
-    return { words, undo: { kind: 'offscreen.restore', name: key, before } };
+    return { words, undo: { kind: 'offscreen.restore', name: key, before, ...(moved ? { moved } : {}) } };
+  },
+
+  /* M320: a seat standing under another form of its person's name is put under the name their page stands
+   * under (the house's own upkeep asks for this; nothing about the seat itself changes). Two seats for one
+   * person: the fresher stays. */
+  'offscreen.rekey'(state, m) {
+    const from = normalizeName(m.from); const to = normalizeName(m.to);
+    const seats = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
+    const fromKey = Object.keys(seats).find((k) => k.trim().toLowerCase() === from.toLowerCase());
+    if (!from || !to || !fromKey || from.toLowerCase() === to.toLowerCase()) return { why: 'no such seat to rename', same: true };
+    const toKey = Object.keys(seats).find((k) => k.trim().toLowerCase() === to.toLowerCase());
+    const a = { ...seats[fromKey] }; const b = toKey ? { ...seats[toKey] } : null;
+    const fresher = (x, y) => ((Number(x.sinceMinutes) || 0) - (Number(y.sinceMinutes) || 0)) || ((Number(x.atTurn) || 0) - (Number(y.atTurn) || 0));
+    const keep = b && fresher(b, a) >= 0 ? b : a;
+    state.offscreen = { ...seats };
+    delete state.offscreen[fromKey];
+    if (toKey) delete state.offscreen[toKey];
+    state.offscreen[to] = keep;
+    return { words: 'Elsewhere: ' + fromKey + ' is ' + to + ' — one seat, under the name their page stands under.', undo: { kind: 'offscreen.rekey', from: fromKey, fromEntry: a, to, toKey: toKey || null, toEntry: b } };
   },
 
   'offscreen.clear'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const seated = findSeat(state.offscreen, name);
+    const seated = seatForPerson(state, name); /* M320 */
     if (!seated) return { why: 'the ledger has no elsewhere note for ' + name };
     delete state.offscreen[seated.key];
     return {
@@ -1361,6 +1386,13 @@ function applyUndo(next, undo) {
       const key = seated ? seated.key : undo.name;
       if (undo.before) next.offscreen[key] = { ...undo.before };
       else delete next.offscreen[key];
+      if (undo.moved && undo.moved.name) next.offscreen[undo.moved.name] = { ...undo.moved.entry }; /* M320: the seat that was taken over comes back under its own name */
+      ok = true;
+    } else if (undo.kind === 'offscreen.rekey') {
+      next.offscreen = { ...(next.offscreen || {}) };
+      delete next.offscreen[undo.to];
+      if (undo.toKey && undo.toEntry) next.offscreen[undo.toKey] = { ...undo.toEntry };
+      if (undo.from && undo.fromEntry) next.offscreen[undo.from] = { ...undo.fromEntry };
       ok = true;
     } else if (undo.kind === 'combat.restore') {
       const b = undo.before || {};

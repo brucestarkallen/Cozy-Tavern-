@@ -92,11 +92,22 @@ export function unseat(offscreen, name) {
 }
 
 /* Find a seat by name, case-insensitive. Returns {key, entry} | null. */
+/* M320: ONE PERSON, ONE NAME, IN EVERY BOOK. A seat was found by its EXACT name and written under whatever
+ * name a worker used — while the people's pages have known since M238 that "Vanessa" IS "Vanessa Reynolds"
+ * (findPersonKey: a first or last name, a name cut short, a slip of spelling — and only when exactly one
+ * person answers). So the world agent seated "Rias" while her page stood as "Rias Gremory", and the two
+ * never met: "What's happening elsewhere" said where she was this hour; her page in "The people" read
+ * "Last seen 14 pages ago", her card told the storyteller nothing of her seat, and the world agent was
+ * told she had NO SEAT and wrote another. The seat is found the way a page is. The resolver is handed in
+ * by engine/people.js (which already reads this file — no circle of imports). */
+let nearName = null;
+export function setSeatResolver(fn) { nearName = typeof fn === 'function' ? fn : null; }
 export function findSeat(offscreen, name) {
   const wanted = cleanText(name).toLowerCase();
   if (!wanted) return null;
   const safe = offscreen && typeof offscreen === 'object' ? offscreen : {};
-  const key = Object.keys(safe).find((k) => k.trim().toLowerCase() === wanted);
+  let key = Object.keys(safe).find((k) => k.trim().toLowerCase() === wanted);
+  if (!key && nearName) { try { key = nearName(safe, cleanText(name)) || undefined; } catch (err) { key = undefined; } }
   return key ? { key, entry: safe[key] } : null;
 }
 

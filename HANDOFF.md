@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m319-001)
+# Cozy Tavern — handoff for the next session (state at m320-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M319). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M320). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 611 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 614 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 74 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,10 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- ONE PERSON, ONE NAME, IN EVERY BOOK (M320): never look a person up in ANY ledger book by exact key — pages
+  by findPersonKey, seats by people.js seatForPerson (this person's seat and nobody else's). A seat is
+  written under the name the person's page stands under. When two books describe one person and
+  disagree, suspect the KEY before the content.
 - WHEN THE WRITER SAYS "IT STOPPED WORKING", RUN HIS PATH BEFORE NAMING A CAUSE (M319): three causes in a row
   were shipped on reading alone and none was his. Probe the real send path in the walk's environment
   (boot() from tests/dom/env.mjs, a connection shaped like his, house.state.calls for the wire); if

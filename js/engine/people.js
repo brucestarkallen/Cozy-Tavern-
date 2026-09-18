@@ -32,7 +32,7 @@
 import { isMcAlias, mcName } from './duels.js';
 import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
-import { seatNowWords } from './offscreen.js'; /* M300: a seat says its age; M304: one wording for every reader */
+import { seatNowWords, findSeat, setSeatResolver } from './offscreen.js'; /* M300: a seat says its age; M304: one wording for every reader; M320: a seat is found the way a page is */
 
 /* Field caps — the ledger holds brushstrokes, not chapters. */
 /* M266: A NOTE IS KEPT WHOLE. These were 300, 240, 240 and 140 — so a "now"
@@ -550,8 +550,8 @@ export function importanceOf(state, name, briefText = '', turn = 0, scene = {}) 
    * the main character moves on, they step back of themselves. */
   const words = Array.isArray(scene.placeWords) ? scene.placeWords : [];
   if (words.length) {
-    const seatKey = Object.keys((state && state.offscreen) || {}).find(same);
-    const seat = seatKey ? state.offscreen[seatKey] : null;
+    const seatFound = seatForPerson(state, name); /* M320 */
+    const seat = seatFound ? seatFound.entry : null;
     const hay = [entry && entry.core, entry && entry.state, entry && entry.arc, seat && seat.location].filter(Boolean).join(' ');
     if (hay && words.some((w) => wordRe(w).test(hay))) score += 25;
   }
@@ -632,7 +632,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
    * where the seat says — the scribe's older 'state' never rides beside the
    * world agent's word. M281: whoever is on their way is recalled too. */
   const offScene = keys.filter((k) => !presentKeys.includes(k) && !isMc(state, k));
-  const seatOf = (k) => { const key = Object.keys(state.offscreen || {}).find((o) => o.toLowerCase() === k.toLowerCase()); return key ? state.offscreen[key] : null; };
+  const seatOf = (k) => { const found = seatForPerson(state, k); return found ? found.entry : null; }; /* M320 */
   const named = offScene.filter((k) => namedIn(recentPages, k));
   const coming = offScene.filter((k) => !named.includes(k) && ['toward', 'seeking'].includes(String((seatOf(k) || {}).stance || '')));
   const recalled = named.concat(coming).slice(0, lim.recall);
@@ -796,4 +796,21 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   if (!stayed.has(4)) tiers.important = 0;
   const text = join();
   return text ? { text, tiers } : null;
+}
+
+/* M320: the seats are found by the same rule the pages are */
+setSeatResolver((map, name) => findPersonKey(map, name));
+
+/* M320: THIS PERSON'S seat — and nobody else's. A seat under another form of the name counts only when that
+ * form answers to exactly this person among the people the ledger knows: with a Vanessa Reynolds and a
+ * Vanessa Cole, a seat written as plain "Vanessa" is neither's in particular, and is shown as nobody's. */
+export function seatForPerson(state, name) {
+  const found = findSeat((state && state.offscreen) || {}, name);
+  if (!found) return null;
+  if (found.key.trim().toLowerCase() === String(name || '').trim().toLowerCase()) return found;
+  const chars = (state && state.characters) || {};
+  if (!Object.keys(chars).length) return found;
+  const owner = findPersonKey(chars, found.key);
+  const asked = findPersonKey(chars, name) || String(name || '').trim();
+  return owner && owner.toLowerCase() === asked.toLowerCase() ? found : null;
 }

@@ -7368,3 +7368,38 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - A possible cause of (2) that is MINE, unproven: M311 lets a browser take in house rows the device holds and it
   lacks — a "showThinking: false" left on the device by another browser would have been taken in.
 - version.js -> m319-001.
+
+# M320 — "people who are literally in the world, yet their page in The people is stale": one person, one name, in every book
+- THE WRITER: "Is 'The people' injected into the story or not? Why are some people who are literally on the world
+  [What's happening elsewhere] yet the people 'now' is stale?"
+- IS IT SENT? Yes — as the storyteller's "On their mind" block, every turn: a whole card for everyone in the scene;
+  cards for the absent who matter most, as many as the room allows (importanceOf); a line for each of the
+  rest; and a count of any not shown. Retired passers-through are not sent. For someone ABSENT the "now"
+  on a card is their SEAT ("elsewhere", with its age) — the page's own note rides only when there is no
+  seat, and says how old it is. (Read from a real request, M309's analysis.)
+- ROOT CAUSE OF THE STALE PAGE. A seat was found by its EXACT name and written under whatever name a worker used —
+  while the people's pages have known since M238 that "Vanessa" IS "Vanessa Reynolds" (findPersonKey).
+  So the world agent seated "Rias" while her page stood as "Rias Gremory", and the two never met:
+  "elsewhere" said where she was this hour; her page read "Last seen 14 pages ago: …"; her card told the
+  storyteller nothing of her seat; walking in under her full name did not clear the short-named seat
+  (in the room AND elsewhere); and since M304 the world agent was told she had NO SEAT and wrote another.
+- CHANGE.
+  · offscreen.js findSeat finds a seat the way a page is found (the resolver is handed in by people.js — no
+    circle of imports). people.js seatForPerson(state, name) is THIS person's seat and nobody else's:
+    another form of the name counts only when exactly one person answers to it (a Vanessa Reynolds and
+    a Vanessa Cole: a seat "Vanessa" is neither's, and is not cleared when one of them walks in).
+    Asked by every reader: the people room, the storyteller's cards and lines, importance, the tidy,
+    the world agent's list, walking in, leaving, writing a seat.
+  · offscreen.set writes the seat under the name the person's PAGE stands under, and takes over a seat
+    they hold under another form of it (the take-back puts it back).
+  · the upkeep heals ledgers already split (auditor.js seatIdentityHousekeeping → offscreen.rekey): the
+    seat moves under the page's name with its age kept; two seats for one person — the fresher stays.
+- TESTS: tests/harness/m320.mjs — "Rias" seated while the page is "Rias Gremory": one seat, under her page's
+  name, found by either form, the world agent not told NO SEAT, taken back whole; a ledger already
+  split: her card tells the storyteller where she IS (not the old note), the heal moves the seat with
+  its age, idempotent, undoable, the fresher of two kept; walking in clears it whichever form it
+  stands under; two Vanessas are never taken for one.
+- NOT VERIFIED: that a name split is what his stale pages are — it is the one way the code shows "elsewhere"
+  current and a page stale for the same person. A person with NO seat at all reads "Last seen N pages
+  ago" by design, until the world agent seats them (M304 tells it to).
+- version.js -> m320-001.

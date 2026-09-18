@@ -12,6 +12,7 @@
  * each line where it belongs. The standings are not touched; a field the
  * writer wrote by hand is never rewritten; a core is never shortened; every
  * change is journaled and can be taken back. */
+import { seatForPerson } from '../engine/people.js'; /* M320 */
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
@@ -156,7 +157,7 @@ export async function tidyPeople({ connection, storyId, brief = '', castNotes = 
     const kin = list.filter(([n]) => !names.has(n) && TITLED.test(n) && batch.some(([b]) => TITLED.test(b) && surname(b) === surname(n)));
     const seats = {};
     for (const [n] of [...batch, ...kin]) {
-      const k = Object.keys(state.offscreen || {}).find((o) => o.toLowerCase() === n.toLowerCase());
+      const k = (seatForPerson(state, n) || {}).key; /* M320 */
       if (k) seats[n] = state.offscreen[k];
     }
     const prompt = buildTidyMessages({ brief, castNotes, batch, kin, seats, recent, mc });
