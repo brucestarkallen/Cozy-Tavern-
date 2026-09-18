@@ -64,7 +64,7 @@ import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
-import { makeHeaderGate, splitAtHeader, headerIndex, planOnly } from './headergate.js'; /* M322, M324 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
+import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan } from './headergate.js'; /* M322, M324, M325 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -3551,6 +3551,7 @@ export function initChat(ctx) {
       /* M322: what the provider sent as thinking, and what the reply itself said before its header */
       let provThinking = '';
       let leadThinking = '';
+      let wholeReply = '';
       const cutLead = !ooc && (await db.settings.get('cutBeforeHeader')) !== false;
       const gate = cutLead ? makeHeaderGate({
         onThinking: (t) => { leadThinking += t; takeThinking(t); },
@@ -3695,6 +3696,7 @@ export function initChat(ctx) {
         });
         if (gate) gate.end(); /* a reply with no header at all is handed back whole, as the page */
         full = result.text;
+        wholeReply = String(result.text || ''); /* M325: the reply as it came — what the repair below judges and hands back */
         /* M323: THE FINISHED TEXT IS SPLIT ONCE, HERE. `result.text` is the WHOLE reply — the words before the header
          * included — so it put back what the gate had just moved out of the page, and M322's "last look"
          * further down then found that lead a second time and APPENDED it: every page that thought aloud
@@ -3791,17 +3793,24 @@ export function initChat(ctx) {
        * for ONCE, the plan handed back so it is not planned again. A second cut lands as it always did. */
       /* M324: …OR IT IS NOTHING BUT A PLAN. A reply made only of self-labelled planning ("Planning: … Beat: …") and
        * then nothing holds no page whatever its finish reason: the same one re-ask, the plan handed back. */
-      const allPlan = cutLead && planOnly(full);
-      if (cutLead && !generateArgs.planCarried && full.trim() && (allPlan || (cutShort && headerIndex(full) === -1))) {
-        let usesHeaders = true;
+      /* M325: THE WRITER, of his own screenshot: "it doesn't have a header — the text just ends with '.', planning."
+       * M324 told a plan from a page by its LABELS alone, so a plan whose last paragraph carried no label
+       * ("I should keep it light and end on her question.") would have had that paragraph taken for the
+       * page. In a tale whose pages open with a header there is a surer sign: a reply that opens with a
+       * self-labelled plan and holds NO header has no page in it, however its paragraphs are labelled.
+       * The whole reply is the plan; the page is asked for, once. */
+      const reply = wholeReply || full;
+      let usesHeaders = true;
+      if (cutLead && !generateArgs.planCarried && reply.trim() && headerIndex(reply) === -1) {
         try {
           const prior = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id)).pop();
           if (prior) usesHeaders = headerIndex(String(pageText(prior) || '').trimStart()) === 0;
         } catch (err) { usesHeaders = false; }
-        if (usesHeaders || allPlan) {
+        const allPlan = planOnly(reply) || (usesHeaders && opensWithPlan(reply));
+        if (allPlan || (cutShort && usesHeaders)) {
           pending.remove();
           toast(allPlan && !cutShort ? 'The reply was all planning and no page — asking for the page itself.' : 'The reply ran out of room while it was still planning — asking for the page itself.');
-          return generate({ ...generateArgs, planCarried: full.trim() });
+          return generate({ ...generateArgs, planCarried: reply.trim() });
         }
       }
 

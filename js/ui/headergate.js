@@ -75,6 +75,11 @@ export function splitAtHeader(text) {
   if (!lead.trim()) return { lead: '', page: s.slice(at) };
   return { lead: lead.replace(/\s+$/, ''), page: s.slice(at) };
 }
+/* M325: the reply OPENS with a plan that names itself (whatever follows) */
+export function opensWithPlan(text) {
+  const ps = paragraphs(String(text || ''));
+  return Boolean(ps.length) && isPlanLabel(ps[0].text.split('\n')[0]);
+}
 /* a reply that is nothing but a self-labelled plan: no header, no page */
 export function planOnly(text) {
   const s = String(text || '');

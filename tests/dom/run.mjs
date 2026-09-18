@@ -3054,7 +3054,8 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
   const play = async (title, fn, withPrior) => {
     const st = await db.stories.create({ title });
     await db.stories.update(st.id, { extraction: false, keeper: false });
-    if (withPrior) { await db.messages.append(st.id, { role: 'user', text: 'Earlier.' }); await db.messages.append(st.id, { role: 'assistant', text: PAGE }); }
+    /* a tale's earlier page: one that opens with its header (true), or one with no header at all (a string) */
+    if (withPrior) { await db.messages.append(st.id, { role: 'user', text: 'Earlier.' }); await db.messages.append(st.id, { role: 'assistant', text: typeof withPrior === 'string' ? withPrior : PAGE }); }
     env.window.__cozy.setActiveStoryId(st.id);
     await env.window.__cozy.chat.renderThread({ structural: true });
     asks = []; script = fn;
@@ -3089,7 +3090,8 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
      * streamed, then "gone, and outside"). A plan that names itself gives the page away. */
     const PLAN = 'Planning: Jovan giggles and wonders aloud about Ravenwood High once school starts — Rias answers as the insider, the VP, the cheer captain, teasing and informative.\n\nBeat: world answers through Rias, the school’s ecosystem painted through her insider lens. Small movement: traffic, the sedan ahead, the lake. No slot needed.\n\n';
     const PROSE = 'Rias laughed without taking her eyes off the road. "Oh, you have no idea."\n\nThe lake slid past on the left, flat and bright, and she began to count the school’s little kingdoms off on the steering wheel.';
-    const f = await play('a plan that names itself, no header', () => ({ text: PLAN + PROSE }));
+    /* (in a tale whose pages carry NO header — where a header cannot be the sign; in one whose pages do, see part 6) */
+    const f = await play('a plan that names itself, no header', () => ({ text: PLAN + PROSE }), 'They had driven out past the rim road that morning, the four of them, windows down.');
     eq(asks.length, 1, 'asked once');
     eq(f.text, PROSE, 'the page is the page');
     assert(String(f.thinking || '').startsWith('Planning: Jovan giggles') && /Beat: world answers/.test(f.thinking), 'and the plan is its thinking: ' + String(f.thinking || '').slice(0, 60));
@@ -3099,6 +3101,14 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
     eq(asks.length, 2, 'the page itself is asked for');
     assert(asks[1].messages.slice(-2)[0].role === 'assistant' && /^Planning: Jovan giggles/.test(asks[1].messages.slice(-2)[0].content), 'with the plan handed back');
     eq(g.text, PROSE); assert(/^Planning: Jovan giggles/.test(String(g.thinking || '')), 'the plan is kept as the thinking');
+    /* (6) M325 — the writer of his screenshot: "no header — the text just ends with '.', planning". In a tale whose pages
+     * open with a header, a reply that opens with a plan and holds no header has no page in it, even when its
+     * LAST paragraph carries no label (by labels alone that paragraph would have been taken for the page) */
+    const h = await play('a plan whose last paragraph has no label', (n) => (n === 1 ? { text: PLAN + 'I should keep it light and end on her question.' } : { text: PAGE }), true);
+    eq(asks.length, 2, 'the page itself is asked for');
+    assert(/end on her question\.$/.test(asks[1].messages.slice(-2)[0].content), 'the WHOLE plan handed back, its unlabelled end included');
+    eq(h.text, PAGE, 'and the page that lands begins at its header');
+    assert(/^Planning: Jovan giggles/.test(String(h.thinking || '')) && /end on her question/.test(h.thinking), 'the whole plan is its thinking');
   } finally {
     script = null;
     globalThis.fetch = housed;

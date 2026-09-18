@@ -1,6 +1,6 @@
 /* M322 — everything before the header is thinking, not page. */
 import { test, assert, eq } from './lib.mjs';
-import { splitAtHeader, makeHeaderGate, headerIndex, planOnly, isHeaderLine } from '../../js/ui/headergate.js';
+import { splitAtHeader, makeHeaderGate, headerIndex, planOnly, isHeaderLine, opensWithPlan } from '../../js/ui/headergate.js';
 import { headerMutations } from '../../js/engine/state.js';
 
 const HEADER = '[The Wells house — Friday, March 14, 2025 | 20:40 | clear | gray hoodie | on the porch]';
@@ -86,4 +86,12 @@ test('M324-3 a reply that is ALL plan has no page in it — it says so, so the p
   assert(planOnly(PLAN)); assert(!planOnly(PLAN + PROSE)); assert(!planOnly(PROSE)); assert(!planOnly(PLAN + HEADER));
   const r = run(chunks(PLAN, 4));
   eq(r.prose, PLAN, 'handed back whole'); eq(r.thinking, '');
+});
+
+test('M325-1 a reply that opens with a plan is known as one whatever follows it — the sign chat.js uses, in a tale whose pages open with a header, to know that a reply with NO header holds no page', () => {
+  const trailing = PLAN + 'I should keep it light and end on her question.';
+  assert(opensWithPlan(trailing) && headerIndex(trailing) === -1, 'opens with a plan, no header');
+  assert(!planOnly(trailing), 'fixture: by labels alone its last paragraph would have been taken for the page');
+  assert(opensWithPlan('Planning: one paragraph only,\nover two lines, ending in a full stop.'), 'a single paragraph');
+  assert(!opensWithPlan(PROSE) && !opensWithPlan(HEADER + '\n\n' + PROSE) && !opensWithPlan(''), 'a page does not');
 });

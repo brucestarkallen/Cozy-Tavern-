@@ -7540,3 +7540,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   was — a page with no header, a header of another shape, or nothing at all — each now ends with the plan
   out of the page.
 - version.js -> m324-001.
+
+# M325 — "it doesn't have a header — the text just ends with '.', planning": a reply that is all plan, however it is labelled
+- THE WRITER, of his screenshot: the reply held no header and no page — it was planning to its last full stop.
+- M324 already asked for the page when a reply was ALL self-labelled plan (planOnly) — but it told plan from page by
+  LABELS alone, so a plan whose last paragraph carried no label ("I should keep it light and end on her
+  question.") would have had that paragraph taken for the page. In a tale whose pages open with a header there is
+  a surer sign, and chat.js uses it: a reply that OPENS with a self-labelled plan (headergate opensWithPlan) and
+  holds NO header has no page in it. The WHOLE reply (kept as `wholeReply`, since `full` is only the page part
+  after the split) is the plan: it becomes the page's thinking, and the page is asked for once, the plan handed
+  back ("…Write the page itself now, beginning with its header line"). A tale with no earlier page counts as
+  one that uses headers (the craft's law); a tale whose last page has no header keeps M324's label split.
+- TESTS: m322.mjs M325-1 (opens with a plan whatever follows; a page does not); DOM-57 part 6, streamed, in a tale
+  whose earlier page opens with a header: asked twice, the whole plan — unlabelled end included — handed
+  back and kept as the thinking, the page landing from its header. Part 4 (the label split) now plays in a
+  tale WITHOUT headers, where labels are the only sign.
+- NOT VERIFIED: his model's second answer — a model that plans again after being handed its plan would land
+  that plan as a page cut at its header if it writes one, or as it came if it does not (one re-ask only).
+- version.js -> m325-001.
