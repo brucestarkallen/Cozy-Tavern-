@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m321-001)
+# Cozy Tavern — handoff for the next session (state at m322-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M321). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M322). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 614 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 617 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 74 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 75 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,9 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- EVERYTHING BEFORE THE HEADER IS THINKING (M322, ui/headergate.js): a story page begins at its header line; what a
+  reply says before it goes to the page's thinking (never the page, never the wire). Never delete — a reply
+  with no header comes back whole. A new js file must be added to sw.js's shell list.
 - ONE VOICE ON THE WIRE (M321): one system message (stable prefix first), one briefing that opens in plain words
   (stack.js STATE_MARKER — never a literal, never a bracket tag), one closing message with the note
   last. A header sent to the storyteller is written as one person briefing another, and the craft's

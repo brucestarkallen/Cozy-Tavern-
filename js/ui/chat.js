@@ -63,7 +63,8 @@ import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWin
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
-import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
+import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
+import { makeHeaderGate, splitAtHeader } from './headergate.js'; /* M322 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -3541,6 +3542,25 @@ export function initChat(ctx) {
       if (els.emberBar) els.emberBar.classList.add('live');
 
       let full = '';
+      /* M322: the two things a streamed piece can be — declared here so the header gate (below) and the stream's
+       * own handler reach the same ones; given their bodies once the live block's variables exist */
+      let takeThinking = () => {};
+      let takeProse = () => {};
+      /* M322: what the provider sent as thinking, and what the reply itself said before its header */
+      let provThinking = '';
+      let leadThinking = '';
+      const cutLead = !ooc && (await db.settings.get('cutBeforeHeader')) !== false;
+      const gate = cutLead ? makeHeaderGate({
+        onThinking: (t) => { leadThinking += t; takeThinking(t); },
+        onProse: (t) => takeProse(t),
+        onGiveBack: (t) => {
+          /* no header came: those words are the page after all — take them back out of the thinking */
+          leadThinking = leadThinking.slice(0, Math.max(0, leadThinking.length - t.length));
+          thinking = thinking.slice(0, Math.max(0, thinking.length - t.length));
+          if (thinkBody) { thinkBody.textContent = ''; thinkLines = null; }
+          if (!thinking.trim() && thinkDetails) { thinkDetails.remove(); thinkDetails = null; thinkBody = null; thinkLines = null; stopThinkClock(); thinkStart = 0; }
+        },
+      }) : null;
       let thinking = '';
       let sawProse = false;
       /* M40: the thinking clock — starts at the first thought, stops at the
@@ -3607,18 +3627,7 @@ export function initChat(ctx) {
             ? { ...m, content: (typeof m.content === 'string' ? m.content : String(m.content || '')) + '\n\n[The house: your last attempt put the whole page inside your thinking and answered with nothing. Think briefly if you must, then WRITE THE PAGE AS YOUR ANSWER — the header line and the prose — outside the thinking.]' }
             : m))
           : messages;
-        const result = await provider.streamChat({
-          systemBlocks,
-          messages: wireMessages,
-          signal: abort.signal,
-          onToken({ channel, text }) {
-            /* M22-C: the note channel — a provider's live word ("Searching
-             * the web…"), toasted, never part of the prose. */
-            if (channel === 'note') {
-              toast(text);
-              return;
-            }
-            if (channel === 'thinking') {
+      takeThinking = function (text) {
               thinking += text;
               if (!thinkStart) {
                 thinkStart = Date.now();
@@ -3646,7 +3655,8 @@ export function initChat(ctx) {
                   });
                 }
               }
-            } else if (channel === 'prose') {
+        };
+      takeProse = function (text) {
               if (!sawProse) {
                 sawProse = true;
                 stopThinkClock();
@@ -3654,10 +3664,29 @@ export function initChat(ctx) {
               }
               full += text;
               paintLive();
+        };
+        const result = await provider.streamChat({
+          systemBlocks,
+          messages: wireMessages,
+          signal: abort.signal,
+          onToken({ channel, text }) {
+            /* M22-C: the note channel — a provider's live word ("Searching
+             * the web…"), toasted, never part of the prose. */
+            if (channel === 'note') {
+              toast(text);
+              return;
+            }
+            if (channel === 'thinking') {
+              provThinking += text;
+              takeThinking(text);
+            } else if (channel === 'prose') {
+              /* M322: everything before the header is thinking, not page (ui/headergate.js) */
+              if (gate) gate.feed(text); else takeProse(text);
             }
             followTail();
           },
         });
+        if (gate) gate.end(); /* a reply with no header at all is handed back whole, as the page */
         full = result.text;
         /* M279: the last of the thinking, drawn where the reader is (the whole of it is already there) */
         if (thinkBody) { if (!thinkLines) thinkLines = streamText(thinkBody); thinkLines.append(thinking.slice(thinkLines.length)); }
@@ -3691,7 +3720,11 @@ export function initChat(ctx) {
          * BEFORE it is saved — what they remove is gone from the story, the
          * history, and every worker's reading. */
         full = applyRules(full, currentRules(), { on: 'storyteller', mode: 'page' });
-        thinking = result.thinking || thinking;
+        /* M322: the provider's own thinking, then whatever the reply said before its header. And a last look at
+         * the finished text — a header the stream's gate could not see (a rule on the regex shelf moved it,
+         * a page recovered whole from elsewhere) is still where the page begins. */
+        if (cutLead) { const cut = splitAtHeader(full); if (cut.lead) { leadThinking += (leadThinking ? '\n' : '') + cut.lead; full = cut.page; } }
+        thinking = (result.thinking || provThinking) + (leadThinking ? ((result.thinking || provThinking) ? '\n\n' : '') + leadThinking : '');
         if (!showThinking && String(thinking || '').trim()) sayOnce('hidden', 'The storyteller DID think on this page — it is hidden because “Show what the storyteller weighed” is unticked (Settings → The thinking voice).'); /* M319 */
         stopThinkClock();
         finishReason = result.finishReason || null;

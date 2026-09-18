@@ -63,6 +63,7 @@ const SHELL = [
   'js/import/lorebook.js',
   'js/import/chats.js',
   'js/ui/chat.js',
+  'js/ui/headergate.js',
   'js/ui/settings.js',
   'js/ui/drawer.js',
   'js/ui/receiptview.js',

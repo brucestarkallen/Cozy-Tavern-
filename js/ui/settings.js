@@ -198,6 +198,7 @@ export function initSettings(ctx) {
     thinkingStory: document.getElementById('thinking-story'),
     thinkingStoryName: document.getElementById('thinking-story-name'),
     showThinking: document.getElementById('show-thinking'),
+    cutBeforeHeader: document.getElementById('cut-before-header'),
     turnsShown: document.getElementById('turns-shown'), /* M136 */
     /* M16: the version line, and the shelf a story sits on. */
     versionLine: document.getElementById('settings-version'),
@@ -2172,6 +2173,7 @@ export function initSettings(ctx) {
       : '';
     els.thinkingStory.disabled = !story;
     els.showThinking.checked = (await db.settings.get('showThinking')) !== false;
+    if (els.cutBeforeHeader) els.cutBeforeHeader.checked = (await db.settings.get('cutBeforeHeader')) !== false; /* M322: on unless the writer says otherwise */
     if (els.turnsShown) { const ts = Number(await db.settings.get('turnsShown')); els.turnsShown.value = String(Number.isFinite(ts) && ts > 0 ? ts : 30); }
   }
 
@@ -2179,6 +2181,10 @@ export function initSettings(ctx) {
     const story = await activeStory();
     if (!story) return;
     await db.stories.update(story.id, { reasoningEffort: els.thinkingStory.value });
+  });
+
+  if (els.cutBeforeHeader) els.cutBeforeHeader.addEventListener('change', async () => {
+    await db.settings.set('cutBeforeHeader', els.cutBeforeHeader.checked);
   });
 
   els.showThinking.addEventListener('change', async () => {

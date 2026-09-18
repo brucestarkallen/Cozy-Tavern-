@@ -7441,3 +7441,35 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT DONE: the craft itself (69,801 chars of "Name = rule" shorthand) is the writer's preset's own language
   and was left alone; whether his storyteller's thinking is smoother can only be seen on his models.
 - version.js -> m321-001.
+
+# M322 — everything before the header is thinking, not page (thinking Off, and a model that thinks on the page anyway)
+- THE WRITER: he will not wait for a frontier model's long thinking, so he runs thinking OFF — and then "sometimes the
+  thinking leaks into the prose". He asked for two things: (1) let the model think in its OUTPUT, deleted so he
+  never sees it and it is not in the tokens — "if it depends on my preset then no need"; (2) what matters: delete
+  anything before the header.
+- (1) NEEDS NOTHING FROM THE HOUSE: his craft's own Pass already has the model plan before it writes; with thinking
+  off, that plan is exactly the leak. Nothing was added to any prompt.
+- (2) WHAT THE LEAK COST, read in the code: the planning paragraph was saved as part of the PAGE, rode back as context
+  on every later turn, and pushed the header off the first line — the only place the house reads the ground
+  and the hour from (state.js headerMutations takes the FIRST non-empty line), so that page set neither.
+- CHANGE. ui/headergate.js (new, in the app shell): a header is a bracketed line holding a "|" and a clock time
+  (dressed in ** or > or not). As the reply streams, whatever comes before that line is handed to the page's
+  THINKING (the same fold, the same "Show what the storyteller weighed" tick — so he never sees it if he
+  does not want to), the page begins at its header, and thinking is never sent back. The last unfinished
+  line is always held (it may be the header); a page that opens with its header is not delayed or touched.
+  NOTHING IS THROWN AWAY: a reply with no header at all — or one that runs 12,000 characters without one —
+  is handed back whole as the page; an out-of-character answer is not gated. chat.js keeps the provider's
+  thinking and the reply's lead apart (the provider's result used to overwrite the live one) and takes one
+  last look at the finished text. Settings → The thinking voice: "Anything written before the header is
+  thinking, not page" — on unless unticked.
+- TESTS: tests/harness/m322.mjs — the split whole and streamed in pieces of 1, 3, 7, 40 and 500 characters (the
+  same split, no word of the page before the thinking is done); with the leak in front headerMutations reads
+  NOTHING, cut at the header it reads the ground and the hour; a header-first page untouched; a bold header;
+  a bracket with no clock is not a header; no header → the whole reply is the page, ended or run long.
+  DOM-56 in the real app: the saved page begins at its header, the lead is the page's thinking and not on the
+  page, the ledger's ground is The Bluebird, the NEXT request carries the page and not the lead; unticked,
+  the reply is left as it came. MUTATION-CHECKED: a header never found → the m322 laws fail; restored, `cmp`.
+- A SCOPING TRAP CAUGHT RE-READING MY OWN DIFF: the two stream handlers were first written as function declarations
+  after the awaited stream, inside its block — the gate, made in the outer scope, could not have reached
+  them. They are closures declared beside the stream's variables and given bodies before the stream starts.
+- version.js -> m322-001.

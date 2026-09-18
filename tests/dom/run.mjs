@@ -2974,6 +2974,56 @@ test('DOM-55 what stops the thinking for EVERY model says so on the turn it bite
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-56 a model that thinks on the page: everything before the header becomes the page’s thinking — the page begins at its header, the house reads the ground from it, and none of it rides a later turn; unticked, the reply is left as it came (M322)', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const tickBefore = await db.settings.get('cutBeforeHeader');
+  const priorStory = house.state.storyAnswer;
+  const priorWorker = house.state.workerAnswer;
+  const LEAK = 'Okay — quiet lunch beat. Vanessa is his friend; keep the slow undertone, nothing new.\nB: she deflects. L: header first, no meta.';
+  const PAGE = '[The Bluebird — Friday, March 14, 2025 | 12:30 | clear | gray hoodie | in the booth]\n\nVanessa slid the menu across without looking at it.';
+  try {
+    house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [] }) : priorWorker(body, sys));
+    house.state.storyAnswer = () => LEAK + '\n\n' + PAGE;
+    await db.settings.delete('cutBeforeHeader'); /* the default: on */
+    const st = await db.stories.create({ title: 'thinks on the page' });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    type(q('#composer-input'), 'We have lunch.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(() => queuedCount(st.id) === 0, 'the readers', 40000);
+    const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    eq(page.text, PAGE, 'the saved page begins at its header');
+    assert(String(page.thinking || '').includes('quiet lunch beat') && String(page.thinking || '').includes('header first, no meta'), 'and what came before it is kept as the page’s thinking: ' + JSON.stringify(page.thinking));
+    assert(!/quiet lunch beat/.test(q('#thread .msg-assistant .msg-body').textContent), 'it is not on the page the writer reads');
+    eq(((await loadState(st.id)).place || {}).name, 'The Bluebird', 'the house reads the ground from the header, which is first again');
+    /* the next turn: the leak rides nowhere */
+    const from = house.state.calls.length;
+    house.state.storyAnswer = () => '[The Bluebird — Friday, March 14, 2025 | 12:45 | clear | gray hoodie | in the booth]\n\nShe ordered for both of them.';
+    type(q('#composer-input'), 'I let her order.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the next page', 15000);
+    await until(() => queuedCount(st.id) === 0, 'the readers again', 40000);
+    const sent = JSON.stringify(house.state.calls.slice(from).find((c) => !c.isWorker).body);
+    assert(/Vanessa slid the menu/.test(sent) && !/quiet lunch beat/.test(sent), 'the storyteller is sent the page, never the thinking that came before it');
+    /* unticked: the reply is left exactly as it came */
+    await db.settings.set('cutBeforeHeader', false);
+    const raw = await db.stories.create({ title: 'left as it came' });
+    env.window.__cozy.setActiveStoryId(raw.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    house.state.storyAnswer = () => LEAK + '\n\n' + PAGE;
+    type(q('#composer-input'), 'We have lunch.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(raw.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the raw page', 15000);
+    await until(() => queuedCount(raw.id) === 0, 'its readers', 40000);
+    assert(((await db.messages.list(raw.id)).find((m) => m.role === 'assistant').text || '').startsWith('Okay — quiet lunch beat'), 'unticked, nothing is moved');
+  } finally {
+    house.state.storyAnswer = priorStory;
+    house.state.workerAnswer = priorWorker;
+    if (tickBefore == null) await db.settings.delete('cutBeforeHeader'); else await db.settings.set('cutBeforeHeader', tickBefore);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
