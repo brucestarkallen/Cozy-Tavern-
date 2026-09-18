@@ -7151,3 +7151,58 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   of the library's gigabyte on the DEVICE and make a long tale slow to open; the browser's own
   IndexedDB shrinks only as tales are let go, one every 45 s.
 - version.js -> m313-001.
+
+# M314 — a checkpoint no longer carries its own copy of the journal and the log (the library's gigabyte)
+- THE WRITER: "continue — I want everything perfect, final and done." What was left after M313: the
+  checkpoints themselves — most of his library's size on the device, in every backup (319 MB zipped),
+  in every tale's open, rewritten into the store after every page.
+- MEASURED on a 200-page tale built through the real engine: one ledger copy is 46% its change log (the last
+  200 changes, each with its undo), 42% its journal (up to 1,500 applied changes) — 88% bookkeeping,
+  12% ledger (knowledge 19 KB, standings 17 KB, the people 3 KB…). A tale keeps its boundary
+  checkpoints and up to sixty version ledgers, every one with nearly the same two lists: 30.6 MB.
+- CHANGE (engine/state.js). Each journal entry and each log entry is kept ONCE per tale, in a bank
+  (ckptBank:<tale>, a tale-scoped row: it rides the tale's book, is let go with it, is swept with
+  it) under a key made from its own CONTENT; a checkpoint is stored as its ledger plus two lists of
+  keys (for the log, with whether each entry stood undone at that moment) and handed back WHOLE by
+  the loaders (loadSnapshots, wholeVersions) — the rewind, the branch, the fold and the version walk
+  see exactly the ledger they always did; no call site changed but the four writes of the version
+  row (saveVersionStates). One writer at a time per tale (withBank): the two rows share the bank.
+  Past BANK_CAP entries, what no stored checkpoint names is let go (both rows asked). A checkpoint
+  stored whole by an older version reads as it is and is banked at its next write.
+  RESULT, same tale: 30.6 MB -> 6.5 MB (checkpoints 5.8 + bank 0.7) — 79% smaller.
+- A WRONG TURN, CAUGHT BEFORE IT SHIPPED. The first version rebuilt a checkpoint's journal from the
+  CURRENT journal "up to its journalSeq". Green on 601 laws — and wrong: two versions of one page are
+  SIBLING timelines whose entries share ids and differ in substance, so a version's ledger would
+  have come back with its sibling's entries, and a branch folded through that page would have
+  replayed the wrong changes. No test covered it; re-reading the design found it. Keys are content
+  now, and M314-3 builds exactly that case (same ids, Liara's entries against Kim's).
+- A HOLE IS NEVER HANDED OVER: if the bank lacks one entry of a checkpoint's journal, the journal comes
+  back EMPTY — the fold then declines (M91) and the nearest checkpoint or the re-read serve — rather
+  than a journal that silently skips a change. A missing log entry is skipped (the list shortens).
+- A REAL RACE IN THE SHIPPED APP, EXPOSED BY THIS WORK AND FIXED WITH IT. The first banked build re-hashed every
+  checkpoint on every save; saves got slow, and the walk failed 8 scenarios (DOM-8c first: after a swipe of
+  the last page the ledger still held the person of the version that was replaced). Instrumented, not
+  guessed: every saveState during the swipe was logged with its caller. The swipe rewinds the ledger to
+  the page before (so the last page reads as "unread") and only THEN writes the new version — and the
+  light's repair (fillLedgerGap, M275), asked for when nothing was busy but QUEUED and run later, read the
+  page's OLD words in that gap and put back the consequences of a version that no longer stood. Slow
+  saves only widened a window that a slow phone opens by itself. The repair now breaks off whenever the
+  storyteller is busy or a replay runs (a page being written, swiped or replayed is read by its own
+  chain). PROVEN APART FROM TIMING: with the key-reuse below switched off (saves slow again) and the
+  guard ON the walk is 71/0; without the guard it was 63/8.
+- AN UNTOUCHED CHECKPOINT IS NOT HASHED AGAIN: a checkpoint handed back whole remembers the keys it was
+  built from (a WeakMap, by object identity of its two lists); saved again unchanged — forty old
+  checkpoints and one new one, after every page — it is stored by those keys, provided every key is
+  in the bank being written (a branch saves its parent's checkpoints into its OWN bank, which does
+  not hold them yet, and hashes them once).
+- tests/harness/lib.mjs: ONLY='regex' runs the scenarios whose names match — for finding a fault (scenarios
+  depend on the ones before them; a gate runs them all).
+- SEEN, LEFT AS IT IS: pruneSnapshots is applied to a list already pruned, so the "sparse older"
+  checkpoints decay to about one — forty dense checkpoints are what a tale really keeps; older
+  rewinds and branches ride the journal's fold (its reach ~250 turns), as the laws allow.
+- TESTS: tests/harness/m314.mjs — stored with no journal and no log; every checkpoint handed back the
+  ledger it was, canonically equal, undone marks per moment; a rewind restores that moment's journal
+  AND log and a fold still rebuilds page 2; sibling versions; an old whole row reads and is banked;
+  a holed bank gives an empty journal and a whole ledger. M43-2's text pin follows the helper the
+  version row is now written through.
+- version.js -> m314-001.

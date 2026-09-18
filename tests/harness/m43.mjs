@@ -24,7 +24,9 @@ test('M43-2 a branch carries its checkpoint: the ledger after the branch page, t
   assert(/startBackgroundWork\(branchStory, last, lastUser \? pageText\(lastUser\) : '', \{ deep: true, audit: true \}\)/.test(b), 'an inexact carry is re-read at once');
   assert(/const carriedNow = JSON\.parse\(JSON\.stringify\(carried\)\);[\s\S]*msgId: idMap\[e\.msgId\][\s\S]*await saveState\(branch\.id, carriedNow\);/.test(b), 'written to the branch, the referee’s timeline re-keyed (M72)');
   assert(/saveSnapshots\(branch\.id, snaps\)/.test(b) && /idMap\[e\.id\]/.test(b), 'snapshots carried, re-keyed');
-  assert(/versionState:' \+ branch\.id/.test(b), 'versions carried, re-keyed');
+  /* M314: the row is written through writeVersionStates now (stored without each ledger's own journal); what is
+   * carried and re-keyed is the same — the walk's branch scenarios run it */
+  assert(/writeVersionStates\(branch\.id, branchVersions\)/.test(b), 'versions carried, re-keyed');
   assert(/mem\.nodes\.filter\(\(n\) => n\.span\[1\] < visibleCount\)/.test(b), 'only the record lines that cover carried pages');
   assert(/saveLore\(branch\.id/.test(b), 'the lore shelf carried');
   assert(!/The ledger starts clean for the new telling/.test(b), 'the old law is gone');

@@ -383,10 +383,111 @@ const deepCopy = (v) => (typeof structuredClone === 'function'
   ? structuredClone(v)
   : JSON.parse(JSON.stringify(v)));
 
+/* M314: A CHECKPOINT DOES NOT CARRY ITS OWN COPY OF THE JOURNAL AND THE LOG. Every checkpoint was a WHOLE
+ * ledger — and measured on a 200-page tale built through the engine, a ledger copy is 46% its change
+ * log (the last 200 changes, each with what it would take to undo it) and 42% its journal (the replay
+ * log, up to 1,500 applied changes): 88% bookkeeping, 12% ledger. A long tale keeps its boundary
+ * checkpoints and up to sixty version ledgers, every one carrying nearly the SAME two lists — most
+ * of the writer's gigabyte, rewritten into the store after every page, pushed to the device, zipped
+ * into every backup. Now each journal entry and each log entry is kept ONCE per tale, in a bank
+ * (ckptBank:<tale>) under a key made from its own content; a checkpoint is stored as its ledger
+ * plus the two lists of KEYS (and, for the log, whether each entry stood undone at that moment), and
+ * is handed back WHOLE to every reader — the rewind, the branch, the fold, the version walk — exactly
+ * as before. Keys are content, never ids: two versions of one page are sibling timelines whose
+ * entries share ids and differ in substance. (A first attempt rebuilt a checkpoint's journal from
+ * the current journal "up to its journalSeq"; re-reading it found it would have handed a version's
+ * ledger its SIBLING's entries. It never shipped.) If the bank lacks an entry of a checkpoint's
+ * journal, that journal is handed back EMPTY rather than with a hole — a fold over a holed journal
+ * would silently skip changes, while an empty one makes the fold decline (M91) and the nearest
+ * checkpoint or the re-read serve, as they already do. A checkpoint stored whole by an older version
+ * reads as it is and is banked the next time its row is written. */
+const BANK_PREFIX = 'ckptBank:';
+export const BANK_CAP = 8000;
+function contentKey(obj) {
+  const text = JSON.stringify(obj);
+  let a = 0x811c9dc5; let b = 5381;
+  for (let i = 0; i < text.length; i += 1) { const c = text.charCodeAt(i); a = Math.imul(a ^ c, 0x01000193) >>> 0; b = (Math.imul(b, 33) + c) >>> 0; }
+  return a.toString(36) + '.' + b.toString(36) + '.' + text.length.toString(36);
+}
+function emptyBank() { return { j: {}, l: {} }; }
+async function loadBank(storyId) {
+  const row = await db.settings.get(BANK_PREFIX + storyId);
+  return row && typeof row === 'object' && row.j && row.l ? { j: { ...row.j }, l: { ...row.l } } : emptyBank();
+}
+/* a checkpoint handed back whole remembers the keys it was built from: saved again with the same two
+ * lists (the usual case — forty old checkpoints and one new one, after every page) it is not hashed
+ * again. Only while every key is in the bank being written: a branch saves its parent's checkpoints
+ * into its OWN bank, which does not hold them yet. */
+const BUILT_FROM = new WeakMap();
+function bankInto(bank, state) {
+  if (!state || typeof state !== 'object' || state.slim === 2) return state;
+  const { journal, log, ...rest } = state;
+  const was = BUILT_FROM.get(state);
+  if (was && was.journal === journal && was.log === log && was.jk.every((k) => bank.j[k]) && was.lk.every((p) => bank.l[p[0]])) return { ...rest, slim: 2, jk: was.jk, lk: was.lk };
+  const jk = [];
+  for (const e of Array.isArray(journal) ? journal : []) { const k = contentKey(e); if (!bank.j[k]) bank.j[k] = e; jk.push(k); }
+  const lk = [];
+  for (const e of Array.isArray(log) ? log : []) {
+    if (!e || typeof e !== 'object') continue;
+    const { undone, ...core } = e;
+    const k = contentKey(core);
+    if (!bank.l[k]) bank.l[k] = core;
+    lk.push([k, undone === true]);
+  }
+  return { ...rest, slim: 2, jk, lk };
+}
+function wholeFromBank(bank, snap) {
+  if (!snap || typeof snap !== 'object' || snap.slim !== 2) return snap;
+  const { slim, jk, lk, ...rest } = snap;
+  let journal = [];
+  for (const k of Array.isArray(jk) ? jk : []) { const e = bank.j[k]; if (!e) { journal = []; break; } journal.push(e); }
+  if (journal.length !== (Array.isArray(jk) ? jk.length : 0)) journal = [];
+  const log = [];
+  for (const pair of Array.isArray(lk) ? lk : []) {
+    const e = bank.l[pair[0]];
+    if (!e) continue;
+    /* the order appendLog writes them in: ts, words, undone, then the rest */
+    const { ts, words, ...more } = e;
+    log.push({ ts, words, undone: pair[1] === true, ...more });
+  }
+  const whole = { ...rest, journal, log };
+  /* only a checkpoint rebuilt with nothing missing may be saved again by its keys */
+  if (journal.length === (Array.isArray(jk) ? jk.length : 0) && log.length === (Array.isArray(lk) ? lk.length : 0)) BUILT_FROM.set(whole, { jk, lk, journal, log });
+  return whole;
+}
+/* one writer at a time per tale: the boundary checkpoints and the version ledgers share the bank */
+const bankTurn = new Map();
+function withBank(storyId, fn) {
+  const prev = bankTurn.get(storyId) || Promise.resolve();
+  const next = prev.catch(() => {}).then(fn);
+  bankTurn.set(storyId, next.catch(() => {}));
+  return next;
+}
+const SNAP_ROW = (storyId) => 'snapshots:' + storyId;
+const VERSION_ROW = (storyId) => 'versionState:' + storyId;
+function keysUsedBy(row) {
+  const used = { j: new Set(), l: new Set() };
+  const each = Array.isArray(row) ? row.map((e) => e && e.snap) : (row && typeof row === 'object' ? Object.values(row) : []);
+  for (const c of each) { if (!c || c.slim !== 2) continue; for (const k of c.jk || []) used.j.add(k); for (const p of c.lk || []) used.l.add(p[0]); }
+  return used;
+}
+async function saveBank(storyId, bank, fresh, otherRowKey) {
+  if (Object.keys(bank.j).length + Object.keys(bank.l).length > BANK_CAP) {
+    /* let go of what no stored checkpoint names any more (both rows are asked) */
+    const mine = keysUsedBy(fresh); const theirs = keysUsedBy(await db.settings.get(otherRowKey));
+    for (const k of Object.keys(bank.j)) if (!mine.j.has(k) && !theirs.j.has(k)) delete bank.j[k];
+    for (const k of Object.keys(bank.l)) if (!mine.l.has(k) && !theirs.l.has(k)) delete bank.l[k];
+  }
+  await db.settings.set(BANK_PREFIX + storyId, bank);
+}
+
 export async function loadSnapshots(storyId) {
   const saved = await db.settings.get(SNAP_PREFIX + storyId);
-  return (Array.isArray(saved) ? saved : [])
+  const list = (Array.isArray(saved) ? saved : [])
     .filter((e) => e && typeof e === 'object' && typeof e.id === 'string' && e.snap && typeof e.snap === 'object');
+  if (!list.some((e) => e.snap.slim === 2)) return list;
+  const bank = await loadBank(storyId);
+  return list.map((e) => (e.snap.slim === 2 ? { ...e, snap: wholeFromBank(bank, e.snap) } : e));
 }
 
 /* M44: sparse retention — the newest SNAP_DENSE stay dense, every
@@ -403,7 +504,30 @@ export function pruneSnapshots(list) {
   return [...kept, ...all.slice(all.length - SNAP_DENSE)].slice(-SNAP_CAP);
 }
 export async function saveSnapshots(storyId, list) {
-  await db.settings.set(SNAP_PREFIX + storyId, pruneSnapshots(list));
+  await withBank(storyId, async () => {
+    const bank = await loadBank(storyId);
+    const fresh = pruneSnapshots(list).map((e) => (e && e.snap ? { ...e, snap: bankInto(bank, e.snap) } : e));
+    await saveBank(storyId, bank, fresh, VERSION_ROW(storyId));
+    await db.settings.set(SNAP_PREFIX + storyId, fresh);
+  });
+}
+/* M314: the version ledgers (one per version of a page, up to sixty a tale) are checkpoints too */
+export async function saveVersionStates(storyId, all) {
+  await withBank(storyId, async () => {
+    const bank = await loadBank(storyId);
+    const fresh = {};
+    for (const [k, v] of Object.entries(all && typeof all === 'object' ? all : {})) fresh[k] = bankInto(bank, v);
+    await saveBank(storyId, bank, fresh, SNAP_ROW(storyId));
+    await db.settings.set(VERSION_ROW(storyId), fresh);
+  });
+}
+export async function wholeVersions(storyId, all) {
+  const map = all && typeof all === 'object' ? all : {};
+  if (!Object.values(map).some((v) => v && v.slim === 2)) return map;
+  const bank = await loadBank(storyId);
+  const out = {};
+  for (const [k, v] of Object.entries(map)) out[k] = wholeFromBank(bank, v);
+  return out;
 }
 
 /* M44: the nearest checkpoint at or before a turn, when the exact one was

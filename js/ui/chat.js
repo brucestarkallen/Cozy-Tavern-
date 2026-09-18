@@ -51,7 +51,7 @@ import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the hous
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
@@ -1911,6 +1911,13 @@ export function initChat(ctx) {
         const told = visiblePages(await db.messages.list(storyId)).filter((m) => m.role === 'assistant');
         let read = 0;
         for (let i = 0; i < 3 && !stale(); i += 1) {
+          /* M314: NEVER WHILE THE STORYTELLER IS AT WORK. The light asks for this when nothing is busy — but the
+           * job is queued, and runs later. A swipe of the last page rewinds the ledger to the page before
+           * it (so that page reads as "unread") and only THEN writes the new version: a repair that ran
+           * in between read the page's OLD words and put back the consequences of a version that no
+           * longer stood (seen in the walk: Person4 back in the room after the swipe that replaced her).
+           * A page being written, swiped or replayed is read by its own chain; the repair waits. */
+          if (busy || replaying) break;
           const k = oldestUnread(await loadState(storyId), told.length);
           if (k === -1) break;
           if (!(await readMissedPage(story, connection, told[k], k, { signal, renew, stale }))) break;
@@ -2087,7 +2094,7 @@ export function initChat(ctx) {
         if (last) {
           const idx = Number.isFinite(last.swipeIdx) ? last.swipeIdx : 0;
           const all = await loadVersionStates(story.id);
-          if (all[last.id + ':' + idx]) { all[last.id + ':' + idx].characters = JSON.parse(JSON.stringify(rebuilt.characters || {})); await db.settings.set('versionState:' + story.id, all); }
+          if (all[last.id + ':' + idx]) { all[last.id + ':' + idx].characters = JSON.parse(JSON.stringify(rebuilt.characters || {})); await writeVersionStates(story.id, all); }
         }
       } catch (err) { /* the ledger itself is rebuilt; the checkpoints follow when they can */ }
       /* M214: a stalled run is not a rebuilt one — the record rebuild has
@@ -3064,7 +3071,7 @@ export function initChat(ctx) {
       await foldTo(story, k - 1);
       const gen = chainGen.get(story.id) || 0;
       await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), at));
-      { const all = await loadVersionStates(story.id); const staleIds = new Set(vis.slice(at).map((m) => m.id)); for (const key of Object.keys(all)) if (staleIds.has(key.split(':')[0])) delete all[key]; await db.settings.set('versionState:' + story.id, all); }
+      { const all = await loadVersionStates(story.id); const staleIds = new Set(vis.slice(at).map((m) => m.id)); for (const key of Object.keys(all)) if (staleIds.has(key.split(':')[0])) delete all[key]; await writeVersionStates(story.id, all); }
       /* 2. one reading for the page whose words changed */
       let pages = 0;
       if (changed && vis[at] && vis[at].role === 'assistant' && !vis[at].ooc) {
@@ -3199,7 +3206,7 @@ export function initChat(ctx) {
       const all = await loadVersionStates(storyId);
       let touched = false;
       for (const key of Object.keys(all)) if (gone.has(key.split(':')[0])) { delete all[key]; touched = true; }
-      if (touched) await db.settings.set('versionState:' + storyId, all);
+      if (touched) await writeVersionStates(storyId, all);
       const snaps = await loadSnapshots(storyId);
       if (snaps.some((e) => e && gone.has(e.id))) await saveSnapshots(storyId, snaps.filter((e) => !(e && gone.has(e.id))));
     } catch (err) { /* best-effort housekeeping */ }
@@ -3207,14 +3214,15 @@ export function initChat(ctx) {
 
   async function loadVersionStates(storyId) {
     const saved = await db.settings.get('versionState:' + storyId);
-    return saved && typeof saved === 'object' ? saved : {};
+    return wholeVersions(storyId, saved && typeof saved === 'object' ? saved : {}); /* M314: handed back whole, stored without their journals */
   }
+  const writeVersionStates = (storyId, all) => saveVersionStates(storyId, all); /* M314: stored as ledgers plus keys into the tale's bank */
   async function saveVersionState(storyId, messageId, swipeIdx, state) {
     const all = await loadVersionStates(storyId);
     all[messageId + ':' + swipeIdx] = JSON.parse(JSON.stringify(state));
     const keys = Object.keys(all);
     if (keys.length > 60) for (const k of keys.slice(0, keys.length - 60)) delete all[k];
-    await db.settings.set('versionState:' + storyId, all);
+    await writeVersionStates(storyId, all);
   }
   async function versionStateFor(storyId, messageId, swipeIdx) {
     const all = await loadVersionStates(storyId);
@@ -4610,7 +4618,7 @@ export function initChat(ctx) {
         branchVersions[bid + ':' + idx] = JSON.parse(JSON.stringify(carried));
       }
     }
-    if (Object.keys(branchVersions).length) await db.settings.set('versionState:' + branch.id, branchVersions);
+    if (Object.keys(branchVersions).length) await writeVersionStates(branch.id, branchVersions);
     const mem = await loadMemory(story.id);
     const visibleCount = pages.length;
     const nodes = mem.nodes.filter((n) => n.span[1] < visibleCount);
@@ -4850,7 +4858,7 @@ export function initChat(ctx) {
             await foldTo(story, goneK - 1);
             const all = await loadVersionStates(story.id);
             for (const key of Object.keys(all)) if (key.split(':')[0] === id) delete all[key];
-            await db.settings.set('versionState:' + story.id, all);
+            await writeVersionStates(story.id, all);
             pendingAudit.delete(story.id);
           } finally { setReplaying(false); }
         })();

@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m313-001)
+# Cozy Tavern — handoff for the next session (state at m314-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M313). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M314). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 598 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 602 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 71 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,13 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- THE LIGHT'S REPAIR NEVER READS WHILE THE STORYTELLER IS AT WORK (M314): a queued job runs later than the
+  moment it was asked for — re-check `busy`/`replaying` INSIDE any queued reader. A slow save is a test:
+  switch the checkpoint key-reuse off (state.js BUILT_FROM) and run the walk to see what a slow phone sees.
+- CHECKPOINTS ARE LEDGER + KEYS (M314): journal and log entries live once per tale in ckptBank:<tale>, keyed
+  by CONTENT (never by id — versions of a page are sibling timelines that share ids); loadSnapshots /
+  wholeVersions hand checkpoints back whole, saveSnapshots / saveVersionStates bank them. Never write
+  `snapshots:` or `versionState:` rows directly. A holed journal is handed back EMPTY, never partial.
 - THE BROWSER HOLDS THE OPEN TALE; THE DEVICE HOLDS THE LIBRARY (M313). A tale not open is let go from
   the browser ONLY when store.js provenOnDevice finds every local row and page on the device, value for
   value; otherwise it is pushed. Boot pulls the house and the open tale. `python3 tests/holdsone.py`
