@@ -7716,3 +7716,49 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: a live model. "Thought on from it" means thinking came back on a turn that carried the seed; whether
   it reads as a continuation of his words is his to judge — "Test it" quotes the first words for that.
 - version.js -> m329-001.
+
+# M330 — "[Correction] 'sixteen' is now 'seventeen'": the house leaves NO comment in the record, and the brief outranks a value changed on a page
+- THE WRITER: his storyteller's thinking read "the ledger had corrections: [Correction] 'sixteen' is now 'seventeen'… Jovan was
+  listed 16 in the plot essentials; the mended page correction from the housekeeper changed sixteen to seventeen. So
+  Jovan is 17 per the notebook's correction… the ledger is canon over the brief per the correction mechanics." He
+  asked: (A) why a correction and not a direct edit; (B) it broke his teller — "there should be no corrections,
+  everything should be edited already, directly, not just given a comment"; (C) the brief says 16, why 17; (D) audit
+  it all. And what the page-mender is for.
+- WHAT HAPPENED, read in the code. The housekeeper's cards land BY THEMSELVES (hkAutoApply is on unless unticked). One
+  of its page edits turned "sixteen" into "seventeen". Every landed page edit RIPPLES (M100: one changed fact is made
+  true everywhere): a name is changed in code everywhere; any other fact went to the mender for the other pages AND
+  wrote into the record "[Correction] “sixteen” is now “seventeen” (the housekeeper's edit); what said otherwise
+  before is in error." — with NO LOOK AT THE BRIEF, no subject in the sentence, read last on every later turn, under
+  a craft that says a [Correction] supersedes. M90 wrote the same kind of note for the brief-wins audit.
+- CHANGE.
+  (A/B) NO COMMENT IS WRITTEN ANY MORE (chat.js). The direct edit already existed: a mended page lets its record line
+    go and the keeper folds it again from the corrected words (applyMend, M90); the edited page's line goes the same
+    way (pageReinked, M296); the auditor relocks the ledger on the next page. The two addCorrection calls are gone.
+  (C) THE BRIEF OUTRANKS A VALUE CHANGED ON A PAGE (agents/ripple.js againstTheBrief/valueForms): a value the brief or
+    the cast notes state — "sixteen" or "16" — whose replacement they do not, is the writer's canon. The
+    housekeeper's change away from it is NOT carried to the rest of the story, nothing is mended toward it, and
+    the auditor is sent to hold that page to the brief (M90 mends it back). The writer's OWN hand still ripples —
+    his newest word — and he is told his brief still says the old one.
+  (heal) a record that already holds the house's notes loses them the moment the tale is opened (takeBackHouseNotes:
+    the two sentences the house composed, known by their closing words; a retcon the KEEPER wrote inside a line of
+    the story stays) and the auditor is sent — which is how pages the ripple wrongly mended go back to the brief.
+  (D, the same fault, MINE, found by looking for it) M316's marker for a page the keeper's model gives no line for was
+    WORDS IN THE RECORD: "(no line from the keeper for this page… “Summarize now” on this line asks the keeper
+    again)" — the house naming its own buttons inside what the storyteller reads as the story so far. The mark is a
+    wordless cover now (empty, byHouse); old ones are unworded on open; the ledger's record room tells the WRITER.
+- WHAT THE MENDER IS (his question): the second reader holds each new page against what is WRITTEN — the brief, the
+  ledger's locked facts, the standing seats; where a page contradicts one, the mender makes the smallest edit that
+  makes the page agree, keeps the earlier words one tap away, and lets that page's record line be folded again. It
+  is only as right as the truth it is handed — which is exactly what failed here: the ripple handed it "seventeen".
+- TESTS: tests/harness/m330.mjs (his report: sixteen→seventeen against "16", "sixteen", the cast notes; what is NOT
+  against the brief: unstated, both stated, no brief, 1600/2016, whole words). DOM-60: a record holding the house's
+  two notes and a keeper's retcon — opened, the two are gone and the retcon stays; the housekeeper's edit against
+  the brief: the ripple stands down and says why, the other page still says sixteen, no note is written. DOM-13c:
+  a value the brief does not settle still goes to the mender — and leaves no comment. M316-1: the marker is wordless
+  and nothing of it rides the wire.
+- AUDITED THIS TURN (grep + read): every place the house writes its own sentences INTO story data the storyteller
+  reads — the record (the two notes, M316's marker: fixed), the ledger (mutation "cause" words are data the workers
+  wrote, shown in the drawer, not sent as prose). NOT audited: the rest of the house.
+- NOT VERIFIED: why the housekeeper made that edit on his page (his conversation with it is on his phone). Its cards
+  still land by themselves — that is his setting (Housekeeper → auto-apply).
+- version.js -> m330-001.

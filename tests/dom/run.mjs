@@ -1113,7 +1113,7 @@ test('DOM-13a a rewritten brief is held against the ledger at once — saving it
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-13c THE RIPPLE: a name changed by hand on one page is changed everywhere — the other pages, the ledger, the record, the brief — with no hand on it; a value goes to the mender and the record', async () => {
+test('DOM-13c THE RIPPLE: a name changed by hand on one page is changed everywhere — the other pages, the ledger, the record, the brief — with no hand on it; a value goes to the mender, and no comment is left in the record (M330)', async () => {
   const before = errors.length;
   const sid = await storyId();
   await settled();
@@ -1189,7 +1189,10 @@ test('DOM-13c THE RIPPLE: a name changed by hand on one page is changed everywhe
   const rip = await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.ripple && /black/.test(w.ripple.detail || w.ripple.why || '') ? w.ripple : null; }, 'the ripple ran on the value', 20000);
   const { pageText: pt } = await import('../../js/assemble/stack.js');
   await until(async () => /silver hair was tied/.test(pt((await db.messages.list(sid)).find((m) => m.id === p1.id))), 'the mender made the other page agree: ' + JSON.stringify(rip), 20000);
-  await until(async () => (await db.settings.get('memory:' + sid)).nodes.some((n) => n.correction && /“black” is now “silver”/.test(n.text)), 'the record carries the correction', 15000);
+  /* M330: and NO comment is left in the record — it used to gain "[Correction] “black” is now “silver” (the writer's edit);
+   * what said otherwise before is in error." The pages carry the fact; the keeper folds the mended pages again. */
+  await tick(800);
+  assert(!((await db.settings.get('memory:' + sid)) || { nodes: [] }).nodes.some((n) => n.correction), 'the record holds no note from the house');
   house.state.workerAnswer = priorAnswer;
   house.state.storyAnswer = null;
   { const problems = await checkStoreConsistency(db, await storyId()); eq(problems.length, 0, 'the store agrees with itself: ' + problems.join(' | ')); }
@@ -3249,6 +3252,43 @@ test('DOM-59 the thinking prefill, through the house: typed into a connection’
     await db.connections.remove(conn.id);
     await closeSettings();
   }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-60 THE WRITER’S REPORT: the brief says 16 and the housekeeper turned "sixteen" into "seventeen" on a page — that is NOT carried through the story and no note is written; and a record that already holds the house’s notes loses them the moment the tale is opened (M330)', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { saveMemory, loadMemory, addCorrection } = await import('../../js/agents/memory.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const H = '[The Wells house — Friday, August 21, 2026 | 13:08 | clear | gray tee | the porch]\n\n';
+  const st = await db.stories.create({ title: 'sixteen' });
+  await db.stories.update(st.id, { brief: 'Jovan Wells, 16, new in Ravenwood. Rias Wells is his cousin.', extraction: false, keeper: false });
+  await db.messages.append(st.id, { role: 'user', text: 'Morning.' });
+  const p1 = await db.messages.append(st.id, { role: 'assistant', text: H + 'Jovan had turned sixteen in March, and still nobody let him drive.' });
+  await db.messages.append(st.id, { role: 'user', text: 'Later.' });
+  const p2 = await db.messages.append(st.id, { role: 'assistant', text: H + 'At sixteen he was the youngest at the table.' });
+  await saveState(st.id, { ...emptyState(), page: 1, readTo: 1, tidiedGen: 999 });
+  /* a record as m329 and before left it: a real line with the keeper's own retcon in it, and the house's two kinds of note */
+  let mem = { window: 30, nodes: [{ id: 'n1', span: [0, 1], text: 'Morning at the Wells house; Jovan is sixteen. [Correction] Rias is his cousin, not his sister — she said so herself.', level: 1, at: 1, whole: true }] };
+  mem = addCorrection(mem, '“sixteen” is now “seventeen” (the housekeeper’s edit); what said otherwise before is in error.');
+  mem = addCorrection(mem, 'Jovan lives with his aunt (the brief establishes it; the pages that said otherwise were in error).');
+  await saveMemory(st.id, mem);
+  eq((await loadMemory(st.id)).nodes.filter((n) => n.correction).length, 2, 'fixture: two notes of the house’s');
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(async () => !(await loadMemory(st.id)).nodes.some((n) => n.correction), 'the house’s notes are taken out on open, with no hand on it', 10000);
+  const healed = await loadMemory(st.id);
+  eq(healed.nodes.length, 1, 'only the house’s own two are gone');
+  assert(/\[Correction\] Rias is his cousin/.test(healed.nodes[0].text), 'a retcon the KEEPER wrote into a line of the story is the story’s, and stays');
+  /* the housekeeper’s edit lands on page 2 */
+  const after = H + 'At seventeen he was the youngest at the table.';
+  await db.messages.update(st.id, p2.id, { text: after });
+  env.ctx.chat.rippleAfterEdit(await db.stories.get(st.id), p2.id, p2.text, after, { who: 'the housekeeper' });
+  const rip = await until(async () => { const w = (await db.settings.get('workers:' + st.id)) || {}; return w.ripple && /NOT carried/.test(w.ripple.detail || '') ? w.ripple : null; }, 'the ripple stands down and says why', 15000);
+  assert(/the brief says “sixteen”/.test(rip.detail), rip.detail);
+  await until(() => queuedCount(st.id) === 0, 'settled', 20000);
+  eq((await db.messages.list(st.id)).find((m) => m.id === p1.id).text, p1.text, 'the OTHER page still says sixteen — nothing was mended toward the wrong value');
+  assert(!(await loadMemory(st.id)).nodes.some((n) => n.correction), 'and no note was written');
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

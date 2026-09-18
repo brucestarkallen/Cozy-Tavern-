@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m329-001)
+# Cozy Tavern — handoff for the next session (state at m330-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M329). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M330). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 634 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 636 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 78 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 79 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,10 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- THE HOUSE NEVER WRITES A REMARK INTO STORY DATA (M330): the record, the ledger and the pages hold the story's facts,
+  never a sentence ABOUT the house, its edits or its buttons — the storyteller reads all of it as story, every turn.
+  A fact is made true by EDITING (mend the page → its record line refolds → the auditor relocks), never by a note.
+  And THE BRIEF WINS everywhere: anything that would spread a changed value asks agents/ripple.js againstTheBrief first.
 - THE PREFILL HAS ONE PLAN (M328, providers/effort.js prefillPlan): the turn, "Test it", the card and the form's live line
   all read it — never decide prefill behaviour anywhere else. <think> first = a thinking SEED (reasoning field,
   empty content, flagged); after </think> = a started reply. Seeds keep the thinking open; started replies

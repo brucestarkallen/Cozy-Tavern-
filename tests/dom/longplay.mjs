@@ -352,13 +352,16 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   assert(report.some((i) => /house number/.test(i.what) && i.fixable === false), 'the unfixable one is reported as such');
   const workers = await db.settings.get('workers:' + sid);
   const detail = await until(async () => { const w = await db.settings.get('workers:' + sid); const d = w && w.auditor && w.auditor.detail; return d && /found 3 things/.test(d) ? d : null; }, 'the armed run on the workers’ line', 30000);
-  assert(/found 3 things/.test(detail) && /set 2 right/.test(detail) && /1 the brief wins — 1 page mended, the record corrected/.test(detail) && /1 seen, nothing to change/.test(detail) && /left 1 standing change to the page reader/.test(detail), 'the workers’ line names the run: ' + detail);
+  assert(/found 3 things/.test(detail) && /set 2 right/.test(detail) && /1 the brief wins — 1 page mended, their record lines folded again/.test(detail) && /1 seen, nothing to change/.test(detail) && /left 1 standing change to the page reader/.test(detail), 'the workers’ line names the run: ' + detail);
   /* M90: THE BRIEF WINS, with no hand on it — the page mended, the earlier words kept, the record corrected, the truth locked */
   const pages2 = (await db.messages.list(sid)).filter((m) => m.role === 'assistant');
   const mendedPage = pages2.find((m) => m.mended && /Aurora Vance/.test(m.mended.before));
   assert(mendedPage && /Aurora Vane/.test(mendedPage.text) && !/Aurora Vance/.test(mendedPage.text), 'the page was mended by the smallest edit and remembers its earlier words');
   const mem = await db.settings.get('memory:' + sid);
-  assert(mem.nodes.some((n) => n.correction && /Aurora Vane/.test(n.text)), 'the record carries the correction');
+  /* M330: no "[Correction] …" note is written into the record — the mended page's own line was let go, to be folded again
+   * from the corrected words; the brief rides every turn and the ledger holds the lock */
+  assert(!mem.nodes.some((n) => n.correction), 'the house left no comment in the record');
+  { const { visiblePages } = await import('../../js/agents/memory.js'); const k = visiblePages(await db.messages.list(sid)).findIndex((m) => m.id === mendedPage.id); assert(!mem.nodes.some((n) => !n.correction && n.span[0] <= k && k <= n.span[1] && /Vance/.test(n.text || '')), 'and no line of the record still narrates the old words of the mended page'); }
   assert(after.canon && after.canon.Aurora && after.canon.Aurora.facts.some((f) => f.key === 'surname' && f.value === 'Vane'), 'the truth is locked in the ledger');
   assert(after.audit.issues.find((i) => /Vance/.test(i.what)).fixable === true, 'the report calls it fixed, not noted');
   /* M199: the button says what it is doing and then says it is done, so the

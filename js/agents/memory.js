@@ -1294,7 +1294,12 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       }
       pages = pages.slice(0, 1);
       range[1] = range[0] + 1;
-      text = houseLineFor(pages[0], playerName);
+      /* M330: THE MARK IS NOT A LINE OF THE RECORD. M316 wrote "(no line from the keeper for this page — …; “Summarize now”
+       * on this line asks the keeper again)" INTO the record — the house talking about its own buttons, inside what
+       * the storyteller reads as the story so far, on every turn. The same fault as the "[Correction]" notes. The
+       * page is marked covered with NO words (an empty line, as "(no new state)" is); the ledger's record room says
+       * what happened, to the writer, where it belongs. */
+      text = '';
       byHouse = true;
       lastKeeperTrouble = 'the keeper’s model gave no line for page ' + (range[0] + 1) + ', twice, though it answers other questions — the house marked that one page in the record so everything after it can be folded; “Summarize now” on that line asks the keeper again';
     }

@@ -200,3 +200,40 @@ export function renameInState(state, from, to) {
   }
   return { state: next, count: n };
 }
+
+
+/* M330: THE BRIEF OUTRANKS A VALUE SOMEBODY CHANGED ON A PAGE.
+ * The writer's brief said Jovan is 16. The housekeeper (its cards land by themselves unless that is unticked)
+ * changed "sixteen" to "seventeen" on one page — and the ripple, which exists to make ONE changed fact true
+ * everywhere, never looked at the brief: it sent the mender through the other pages and wrote into the record
+ * "[Correction] 'sixteen' is now 'seventeen' (the housekeeper's edit); what said otherwise before is in error" —
+ * a line with no subject, read on every later turn, which the storyteller took for Jovan's age and set above
+ * the brief ("the ledger is canon over the brief per the correction mechanics").
+ * A value the brief or the cast notes state — in words or in figures — and whose replacement they do not, is
+ * the writer's own canon: a change away from it is not rippled. */
+const SMALL = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+function numberWord(n) {
+  if (n < 20) return SMALL[n];
+  const t = TENS[Math.floor(n / 10)]; const u = n % 10;
+  return u ? t + '-' + SMALL[u] : t;
+}
+/* every way the same value is written: "sixteen" ↔ "16", "twenty-one" ↔ "twenty one" ↔ "21" */
+export function valueForms(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (!v) return [];
+  const forms = new Set([v]);
+  if (/^\d{1,2}$/.test(v)) { const w = numberWord(Number(v)); forms.add(w); forms.add(w.replace('-', ' ')); }
+  else {
+    const plain = v.replace(/\s+/g, '-');
+    for (let n = 0; n < 100; n += 1) if (numberWord(n) === plain) { forms.add(String(n)); forms.add(numberWord(n)); forms.add(numberWord(n).replace('-', ' ')); }
+  }
+  return [...forms];
+}
+const holds = (text, value) => valueForms(value).some((f) => new RegExp('(^|[^\\p{L}\\p{N}])' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\p{N}])', 'iu').test(String(text || '')));
+/* true when what the writer set down holds the OLD value and not the new one */
+export function againstTheBrief(written, removed, added) {
+  const text = Array.isArray(written) ? written.filter(Boolean).join('\n') : String(written || '');
+  if (!text.trim()) return false;
+  return holds(text, removed) && !holds(text, added);
+}

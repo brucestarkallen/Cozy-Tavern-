@@ -62,7 +62,7 @@ import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
 import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
-import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
+import { factChange, isNameLike, hasWord, replaceWord, againstTheBrief } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
 import { voiceOf, askAgain } from '../assemble/voice.js'; /* M327: the two names */
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
@@ -1435,6 +1435,8 @@ export function initChat(ctx) {
     updateJump();
     refreshEmber();
     markLedgerTrouble(story.id);   /* M250 */
+    /* M330: once for each tale a session: the house's own notes are taken back out of its record (nobody's hand needed) */
+    if (!healedNotes.has(story.id)) { healedNotes.add(story.id); takeBackHouseNotes(story); }
   }
 
   /* Re-render one page in place (an edit, a swipe, a worker's write-back). */
@@ -2195,10 +2197,8 @@ export function initChat(ctx) {
           mendedPages += changed.length;
         } catch (err) { /* a mend that fails leaves the correction to carry the truth */ }
       }
-      try {
-        const mem = await loadMemory(story.id);
-        await saveMemory(story.id, addCorrection(mem, issue.fix + ' (the brief establishes it; the pages that said otherwise were in error).'));
-      } catch (err) { /* the record is best-effort; the ledger already holds the lock */ }
+      /* M330: no "[Correction] … (the brief establishes it…)" is written any more — the brief itself rides every turn,
+       * the mended pages let their record lines go to be folded again, and the ledger holds the lock */
     }
     return { ...result, mendedPages };
   }
@@ -2211,6 +2211,30 @@ export function initChat(ctx) {
    * the mender page by page where the old words stand, with a [Correction] in
    * the record; the auditor relocks the canon on the next page. Off the send
    * path, in the workers' queue, never on the writer's hand. */
+  /* M330: THE HOUSE'S OWN NOTES ARE TAKEN BACK OUT OF THE RECORD. A record written before today may hold them — the two
+   * sentences the house itself composed, recognised by their own closing words (a keeper's line that tags a retcon
+   * in the STORY is the story's, and stays). Removed the moment the tale is opened; the auditor is sent to hold the
+   * pages and the ledger to the brief, which is how a page the ripple wrongly mended goes back. */
+  const healedNotes = new Set();
+  const HOUSE_NOTE = /(?:\((?:the writer|the housekeeper)[’']s edit\); what said otherwise before is in error\.|\(the brief establishes it; the pages that said otherwise were in error\)\.)\s*$/;
+  async function takeBackHouseNotes(story) {
+    try {
+      if (!story) return 0;
+      const mem = await loadMemory(story.id);
+      let kept = mem.nodes.filter((n) => !(n && n.correction === true && HOUSE_NOTE.test(String(n.text || ''))));
+      const gone = mem.nodes.length - kept.length;
+      /* …and M316's marker: the page stays covered, its words ("(no line from the keeper… “Summarize now”…)") go */
+      let unworded = 0;
+      kept = kept.map((n) => (n && n.byHouse === true && String(n.text || '').trim() ? (unworded += 1, { ...n, text: '', empty: true }) : n));
+      if (!gone && !unworded) return 0;
+      await saveMemory(story.id, { ...mem, nodes: kept });
+      if (!gone) return 0;
+      pendingAudit.add(story.id);
+      toast(gone + (gone === 1 ? ' note' : ' notes') + ' the house had left in this story’s record ' + (gone === 1 ? 'was' : 'were') + ' taken out — the pages, the record and the ledger carry the facts themselves, and the auditor will hold them to your brief.');
+      return gone;
+    } catch (err) { return 0; }
+  }
+
   async function rippleAfterEdit(story, pageId, before, after, { who = 'the writer' } = {}) {
     const change = factChange(before, after);
     if (!change) return;
@@ -2266,7 +2290,20 @@ export function initChat(ctx) {
         if (pages) words.push(pages + ' other ' + (pages === 1 ? 'page' : 'pages'));
         return { silent: false, detail: '“' + removed + '” is “' + added + '” everywhere now' + (words.length ? ' — ' + words.join(', ') : '') };
       }
-      /* a fact that is not a name: the mender, page by page, and a correction in the record */
+      /* M330: THE BRIEF WINS, HERE TOO. A value the brief or the cast notes state (in words or figures) and whose
+       * replacement they do not is the writer's own canon. The housekeeper's change away from it is NOT carried to
+       * the rest of the story: the auditor is sent to hold that page to the brief (M90 mends it back). The
+       * writer's own hand is his newest word and ripples — and he is told his brief still says the old one. */
+      const freshStory = await db.stories.get(story.id);
+      const setDown = [freshStory && freshStory.brief, freshStory && freshStory.castNotes];
+      if (againstTheBrief(setDown, removed, added)) {
+        if (who !== 'the writer') {
+          pendingAudit.add(story.id);
+          return { silent: false, detail: '“' + removed + '” → “' + added + '” was NOT carried to the rest of the story: the brief says “' + removed + '”. The auditor will hold that page to the brief.' };
+        }
+        toast('Your brief still says “' + removed + '”. The pages now say “' + added + '” — change the brief too, or the auditor will hold the pages to it.');
+      }
+      /* a fact that is not a name: the mender, page by page. M330: and NO "[Correction]" in the record — see below */
       const connection = await resolveWorkerConnection(story, 'continuity');
       let mended = 0;
       if (connection && others.length) {
@@ -2276,12 +2313,15 @@ export function initChat(ctx) {
           mended = changed.length;
         } catch (err) { /* the correction below carries the truth forward */ }
       }
-      try {
-        const mem = await loadMemory(story.id);
-        await saveMemory(story.id, addCorrection(mem, '“' + removed + '” is now “' + added + '” (' + who + '’s edit); what said otherwise before is in error.'));
-      } catch (err) { /* best-effort */ }
+      /* M330: NO COMMENT IS LEFT IN THE RECORD. This wrote "[Correction] “sixteen” is now “seventeen” (the housekeeper's
+       * edit); what said otherwise before is in error." — a note ABOUT the story, in the story's own record, read by
+       * the storyteller on every turn for ever. The writer: "there should be no corrections — everything should be
+       * edited already, directly, not just given a comment." It already is: a mended page lets its record line go and
+       * the keeper folds it again from the corrected words (applyMend, M90); the edited page's own line goes the
+       * same way (pageReinked, M296); the auditor relocks the ledger on the next page. The facts live in the pages,
+       * the record and the ledger — nowhere as a remark. */
       pendingAudit.add(story.id); /* the auditor relocks the canon on the next page */
-      return { silent: false, detail: '“' + removed + '” → “' + added + '”' + (mended ? ' — ' + mended + ' other ' + (mended === 1 ? 'page' : 'pages') + ' mended' : others.length ? ' — the other pages will be held to it' : '') + ', the record corrected' };
+      return { silent: false, detail: '“' + removed + '” → “' + added + '”' + (mended ? ' — ' + mended + ' other ' + (mended === 1 ? 'page' : 'pages') + ' mended' : others.length ? ' — the other pages will be held to it' : '') };
     } });
     noteWork(story.id, promise);
   }

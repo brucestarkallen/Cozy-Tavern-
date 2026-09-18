@@ -1039,7 +1039,7 @@ export function auditRunWords(result) {
   /* M277: standing moves it may not make, counted — not listed */
   if (result.leftStandings) bits.push(`left ${result.leftStandings} standing ${result.leftStandings === 1 ? 'change' : 'changes'} to the page reader`);
   const briefWins = result.issues.filter((i) => i.pages && i.fix).length;
-  if (briefWins) bits.push(`${briefWins} the brief wins — ${result.mendedPages || 0} ${result.mendedPages === 1 ? 'page' : 'pages'} mended, the record corrected`);
+  if (briefWins) bits.push(`${briefWins} the brief wins — ${result.mendedPages || 0} ${result.mendedPages === 1 ? 'page' : 'pages'} mended, their record lines folded again`); /* M330: no note is written into the record any more */
   const seen = result.issues.filter((i) => !i.mutations.length && !(i.pages && i.fix)).length;
   if (seen) bits.push(`${seen} seen, nothing to change`);
   const refusedN = result.rejected.filter((r) => !(r && r.same) && !(r && r.standing)).length; /* M259: "already so" is not a refusal; M278: a standing left to the page reader is counted once, below */

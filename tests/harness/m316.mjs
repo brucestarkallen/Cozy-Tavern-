@@ -46,8 +46,11 @@ test('M316-1 THE WRITER’S YELLOW LIGHT, thinking OFF: one page the keeper’s 
     mem = await loadMemory(st.id);
     const houseNode = mem.nodes.find((n) => n.span[0] === 1);
     assert(houseNode && houseNode.byHouse === true && houseNode.span[1] === 1, 'one page only, marked as the house’s: ' + JSON.stringify(houseNode && houseNode.span));
-    assert(/^\(no line from the keeper for this page — The Wells house — Friday, 20:40;/.test(houseNode.text), 'a plain marker: where and when, from the page’s own header: ' + houseNode.text.slice(0, 120));
-    assert(!/FORBIDDEN|porch that night/.test(houseNode.text), 'and NOT the page’s words — they would ride every later request to the keeper and blank those too');
+    /* M330: the mark carries NO words — M316 wrote "(no line from the keeper… “Summarize now” on this line…)" into the record,
+     * the house talking about its own buttons inside what the storyteller reads as the story so far */
+    eq(houseNode.text, '', 'a wordless cover'); assert(houseNode.empty === true);
+    const { recordFor } = await import('../../js/agents/memory.js');
+    assert(!/keeper|Summarize|no line/i.test(recordFor(mem, 1, 100000)), 'and nothing of it rides to the storyteller: ' + recordFor(mem, 1, 100000).slice(0, 200));
     assert(h.asked.some((u) => /single word: ready/.test(u)), 'only after the keeper proved it answers at all');
     assert(mem.nodes.some((n) => n.span[0] === 2 && !n.byHouse), 'and the SAME run went on to fold the pages after it: ' + JSON.stringify(mem.nodes.map((n) => n.span)));
     assert(!mem.stuck, 'nothing is stuck any more');

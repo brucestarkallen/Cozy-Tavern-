@@ -1893,6 +1893,10 @@ function recordPanel(ctx) {
     const folded = lines.filter((n) => !n.correction).length;
     const corr = lines.length - folded;
     note.textContent = folded + (folded === 1 ? ' line' : ' lines') + ' of the record' + (corr ? ', ' + corr + (corr === 1 ? ' correction' : ' corrections') : '') + ' — oldest to newest, each folding the pages it names. The storyteller reads these in place of the pages that rest.';
+    /* M330: a page the keeper's model gave no line for is covered without words (nothing of it rides to the storyteller);
+     * the WRITER is told here, where it belongs */
+    { const silent = (mem.nodes || []).filter((n) => n && n.byHouse === true).map((n) => n.span[0] + 1);
+      if (silent.length) note.textContent += ' The keeper’s model gave no line for page' + (silent.length === 1 ? ' ' : 's ') + silent.join(', ') + ' (it answers other pages): ' + (silent.length === 1 ? 'that page stands' : 'those pages stand') + ' in the story as written, and the record moved on past ' + (silent.length === 1 ? 'it' : 'them') + '.'; }
     for (const n of lines) {
       const li = document.createElement('li');
       li.className = 'present-row mind-row record-row';
