@@ -7234,3 +7234,34 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   model that never answers leaves the reason said. MUTATION-CHECKED: both fixes removed → all three fail.
 - NOT VERIFIED: that this is the ending his keeper hit — after the update the note itself says which.
 - version.js -> m315-001.
+
+# M316 — "My setting is non thinking!": the record can never stay stuck on a page
+- THE WRITER, after M315: "My setting is non thinking!" — so M315's cause (a worker thinking its answer room away) was
+  not his. M315 stands for the connections it fits; it was shipped as the likely cause without his
+  configuration known, and said so ("NOT VERIFIED").
+- WHAT IS TRUE WHATEVER THE CAUSE, read in memory.js: a keeper run that gets NO usable answer for the oldest
+  due pages broke off ("these pages wait for next time") and the next run asked the SAME pages the SAME
+  way. If the model will not write a line for one page — with thinking off, the usual reason is a
+  provider's filter or a refusal that comes back blank — the record stopped there for ever: yellow after
+  every scene, on a connection that tests fine. And by the coverage law (M12) every page after the first
+  uncovered one rides the wire word for word, so the request grew with every turn. Detection with no
+  repair (his rule 15).
+- CHANGE (agents/memory.js maybeSummarize): nothing usable → (1) the oldest page is asked ALONE; (2) still
+  nothing: remembered in the record row (stuck {at, tries}), the note names the page; (3) the same page
+  fails on a SECOND separate run: the keeper's model is asked one harmless word — no answer means the
+  keeper is not answering at all: nothing is written, the note says so, the record waits (a dead keeper
+  is never papered over); an answer means it is THIS PAGE — the house writes a marker line for that one
+  page (byHouse), the run goes on to the pages after it, and the note says what it did. "Summarize
+  now" on the line asks the keeper again.
+- THE HOUSE'S LINE NEVER QUOTES THE PAGE. The first version kept the page's opening words; its own test showed
+  the NEXT batch going blank too — every fold hands the keeper the record so far, so the words that
+  blanked the model would have ridden every request after. The line says where and when (from the page's
+  header) and that the page stands in the story as written.
+- TESTS: tests/harness/m316.mjs, thinking OFF — twenty pages, one the model answers with nothing: run 1 folds
+  the page before it (asked alone) and remembers the silent one; run 2 proves the keeper alive, marks the
+  one page, and folds on past it in the same run; a few runs later no gap is left (green) and exactly
+  one line is the house's. A keeper that answers nothing at all: four runs, not one line written, the
+  note says the keeper is not answering. MUTATION-CHECKED: with the house never stepping in, M316-1 fails.
+- NOT VERIFIED: what his keeper's model actually returns for those pages — the note now says which page
+  and which ending.
+- version.js -> m316-001.

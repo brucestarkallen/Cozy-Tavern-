@@ -52,6 +52,24 @@ const MAX_TOKENS = 1600; /* one dense line, or one merged line — the ANSWER's 
  * yet" for four different endings and named none of them. */
 let lastKeeperTrouble = '';
 export function keeperTrouble() { return lastKeeperTrouble; }
+export const STUCK_TRIES = 2; /* M316: separate runs a page may fail before the house steps in */
+async function keeperAlive(connection, signal) {
+  try {
+    const { text } = await sharedCall(connection, { system: 'You answer in one word.', user: 'Answer with the single word: ready', maxTokens: 64, signal });
+    return Boolean(String(text || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').trim());
+  } catch (err) { return false; }
+}
+/* The house's line for a page the keeper's model will not write one for. It does NOT quote the page: every
+ * later fold hands the keeper the record so far, and whatever made the model go blank on the page
+ * (a provider's filter, most likely) would then sit in every request after it — one page's trouble
+ * would become the whole record's (the first version quoted the page's opening words; its own test
+ * showed the next batch going blank too). It says where and when, from the page's own header, and
+ * that the page stands in the story as written. */
+export function houseLineFor(page) {
+  const head = String((page && page.text) || '').match(/^\s*\[([^\]\n]{3,200})\]/);
+  const where = head ? head[1].split('|').slice(0, 2).map((x) => x.trim()).filter(Boolean).join(', ') : '';
+  return '(no line from the keeper for this page' + (where ? ' — ' + where : '') + '; it stands in the story as written — “Summarize now” on this line asks the keeper again)';
+}
 
 /* The laws of the ledger. */
 export const DEFAULT_WINDOW = 30;      /* pages kept word for word */
@@ -1221,10 +1239,49 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * mid-run and the rebuild returned nothing at all: the writer saw it stop
      * dead at batch 3 of 16 and read "nothing to rebuild". */
     if (typeof renew === 'function' && !renew()) { lastKeeperTrouble = 'its turn was over before it could ask'; break; }
-    const pages = history.slice(range[0], range[1]);
+    let pages = history.slice(range[0], range[1]);
     const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal);
     let text = parseMemoryAnswer(raw);
-    if (!text) { lastKeeperTrouble = lastKeeperWasTruncated ? 'the keeper’s model spent its whole answer on thinking and wrote no line' : 'the keeper’s model answered with nothing it could use'; break; } /* the worker went quiet — these pages wait for next time */
+    let byHouse = false;
+    /* M316: THE RECORD CAN NEVER STAY STUCK ON A PAGE. A keeper that answered with nothing was read as "went
+     * quiet — these pages wait for next time", and next time it asked the very same pages the very same
+     * way: a page its model will not write a line for (a provider's filter, a refusal that comes back
+     * blank) held the record there FOR EVER — the light yellow after every scene on a connection that
+     * tests fine — and, by the coverage law (M12), every page after it rode the wire word for word, the
+     * request growing with every turn. Now: (1) the oldest page is asked ALONE (fewer pages, never a
+     * shorter line — M244's way); (2) still nothing, and the same page has now failed on two separate
+     * runs: the keeper's model is asked one harmless word to prove it is alive — if it is not, nothing
+     * is written and the note says the keeper is not answering at all; (3) alive, so it is THIS PAGE it
+     * will not summarise: the house writes a plain marker line for that one page (byHouse; where and when,
+     * never the page's words — see houseLineFor), said in the note, so the record moves on. "Summarize now" on that line asks the
+     * keeper again whenever the writer likes. */
+    if (!text && pages.length > 1) {
+      try {
+        if (typeof renew === 'function') renew();
+        const alone = parseMemoryAnswer(await callKeeper(connection, buildMemoryMessages(pages.slice(0, 1), { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal));
+        if (alone) { text = alone; pages = pages.slice(0, 1); range[1] = range[0] + 1; }
+      } catch (err) { /* counted as one more silence below */ }
+    }
+    if (!text) {
+      const why = lastKeeperWasTruncated ? 'the keeper’s model spent its whole answer on thinking and wrote no line' : 'the keeper’s model answered with nothing it could use';
+      const before = await loadMemory(storyId);
+      const tries = (before.stuck && before.stuck.at === range[0] ? Number(before.stuck.tries) || 0 : 0) + 1;
+      if (tries < STUCK_TRIES) {
+        await saveMemory(storyId, { ...before, stuck: { at: range[0], tries } });
+        lastKeeperTrouble = why + ' for page ' + (range[0] + 1);
+        break;
+      }
+      if (gone()) return changed ? mem : null;
+      if (!(await keeperAlive(connection, signal))) {
+        lastKeeperTrouble = 'the keeper’s model is not answering at all — not even a one-word question; the record waits for it (the workers’ connection or its model)';
+        break;
+      }
+      pages = pages.slice(0, 1);
+      range[1] = range[0] + 1;
+      text = houseLineFor(pages[0], playerName);
+      byHouse = true;
+      lastKeeperTrouble = 'the keeper’s model gave no line for page ' + (range[0] + 1) + ', twice, though it answers other questions — the house marked that one page in the record so everything after it can be folded; “Summarize now” on that line asks the keeper again';
+    }
     /* M242: A LINE THAT OVERRAN IS NOT A LINE. It was stored cut — five of the
      * writer's sixteen ended in an ellipsis with their tails gone, and the
      * only way to know was to read each one and count. Asked again, once,
@@ -1274,9 +1331,9 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
         }
       } catch (err) { /* the cut line stands only when even half will not come */ }
     }
-    const node = text === '(no new state)'
-      ? { id: nodeId(), span: [range[0], range[1] - 1], text: '', level: 1, at: Date.now(), empty: true, whole: true }
-      : { id: nodeId(), span: [range[0], range[1] - 1], text, level: 1, at: Date.now(), whole: true }; /* M262: folded from whole pages */
+    const node = text === '(no new state)' || !text
+      ? { id: nodeId(), span: [range[0], range[1] - 1], text: '', level: 1, at: Date.now(), empty: true, whole: true, ...(byHouse ? { byHouse: true } : {}) }
+      : { id: nodeId(), span: [range[0], range[1] - 1], text, level: 1, at: Date.now(), whole: true, ...(byHouse ? { byHouse: true } : {}) }; /* M262: folded from whole pages */
     /* M72: THE RECORD IS RE-READ BEFORE IT IS WRITTEN. The call above is slow;
      * while it ran, a hand or a rewind may have moved the record (a hole
      * punched for an edited page, lines let go after a retry, the
@@ -1296,10 +1353,11 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     mem = now;
     mem.window = window;
     mem.nodes.push(node);
+    if (mem.stuck) delete mem.stuck; /* M316: the record moved */
     changed = true;
       if (typeof onBatch === 'function') onBatch({ span: node.span, pages: node.span[1] - node.span[0] + 1 });
     await saveMemory(storyId, mem);
-    if (!node.empty) {
+    if (!node.empty && !node.byHouse) { /* M316: the house's own line is the page's words — nothing to verify against them */
       const passage = passageOf(pages, playerName);
       const recordBefore = recordFor({ nodes: mem.nodes.filter((n) => n.id !== node.id) }, 1, keeperRecordCap(connection));
       await verify(connection, storyId, node, passage, recordBefore, playerName, signal, onSourceIssue);

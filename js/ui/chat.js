@@ -1981,7 +1981,7 @@ export function initChat(ctx) {
         else gapTries.set(storyId, tries + 1);
         return {
           silent: false,
-          detail: !still ? 'folded a gap in the record' : moved ? 'folded part of a gap in the record — the rest follows' : 'could not fold a gap in the record yet' + (keeperTrouble() ? ' (' + keeperTrouble() + ')' : '') + ' — it tries again later', /* M315: the reason, said */
+          detail: (!still ? 'folded a gap in the record' : moved ? 'folded part of a gap in the record — the rest follows' : 'could not fold a gap in the record yet') + (keeperTrouble() ? ' (' + keeperTrouble() + ')' : '') + (!still || moved ? '' : ' — it tries again later'), /* M315: the reason, said; M316: also when the house had to step in */
           unfinished: still,
         };
       } });

@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m315-001)
+# Cozy Tavern — handoff for the next session (state at m316-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M315). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M316). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 605 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 607 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 71 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,10 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- THE RECORD NEVER STAYS STUCK ON A PAGE (M316): no usable answer → the oldest page alone → on a second run a
+  one-word proof of life → a byHouse marker line for that ONE page (never quoting it: the record rides
+  every later keeper request). A dead keeper writes nothing and says so. Ask the writer's configuration
+  before shipping a cause — M315 fixed a thinking setup he does not use.
 - A WORKER THAT THINKS HAS ROOM TO ANSWER (M315): thinking is counted inside max_tokens on most houses; a
   worker's room is its ANSWER's. call.js floors the room at 16,000 when the connection is set to think,
   and asks again once when an answer comes back empty with thinking (a model that thinks by default).
