@@ -236,6 +236,19 @@ self.onmessage = async (e) => {
       return;
     }
 
+    if (msg.kind === 'evict') {
+      /* M313: let a tale go from this browser — only when the device is PROVEN to hold all of it */
+      const books = await manifest();
+      const onDevice = books && books.some((b) => b && b.id === msg.id) && !lastGone.includes(msg.id);
+      if (!onDevice) { reply({ kind: 'evicted', ok: false, ahead: Boolean(books), why: books ? 'the device has no book for it' : 'the device did not answer' }); return; }
+      const json = await getBook(msg.id);
+      if (!json) { reply({ kind: 'evicted', ok: false, why: 'the book could not be read' }); return; }
+      const proof = await db.provenOnDevice(msg.id, json);
+      if (!proof.ok) { reply({ kind: 'evicted', ok: false, ahead: proof.ahead === true, why: proof.why }); return; }
+      const pages = await db.evictStory(msg.id);
+      reply({ kind: 'evicted', ok: true, pages });
+      return;
+    }
     if (msg.kind === 'pullOne') {
       const books = await manifest();
       if (!books) { reply({ kind: 'pulledOne', pulled: 0 }); return; }
@@ -246,7 +259,8 @@ self.onmessage = async (e) => {
         if (st) { await db.stories.remove(msg.id); await db.settings.delete('bookStamp:' + msg.id); reply({ kind: 'pulledOne', pulled: 1, gone: true }); return; }
       }
       const recent = [];
-      const pulled = want.length ? await pullBooks(want, { all: true, replace: msg.replace === true, recent, own: msg.mine || null }) : 0;
+      /* M313: `ifNewer` — a tale held here is only taken again when the device's copy has moved past it */
+      const pulled = want.length ? await pullBooks(want, { all: msg.ifNewer !== true, replace: msg.replace === true, recent, own: msg.mine || null }) : 0;
       /* M189: its pages are here now — it may be pushed like any other */
       if (pulled) { const st = await db.stories.get(msg.id); if (st && st.shallow) await db.stories.update(msg.id, { shallow: false }); }
       reply({ kind: 'pulledOne', pulled, recent });
@@ -264,8 +278,11 @@ self.onmessage = async (e) => {
        * connections, the settings) in a few kilobytes; a tale's pages come
        * when the reader opens it. Tales this browser ALREADY holds are still
        * kept up to date at boot, so nothing it has can go stale. */
+      /* M313: THE HOUSE AND THE OPEN TALE. Every tale this browser held was refreshed here at every
+       * open — with a library, minutes of reading before the first tap. The tale that is open is kept
+       * current; any other is looked at when the reader opens it (pullOne, ifNewer). */
       const known = new Set((await db.stories.list()).filter((x) => x && !x.shallow).map((x) => x.id));
-      const wanted = books.filter((b) => b && (b.id === HOUSE || known.has(b.id)));
+      const wanted = books.filter((b) => b && (b.id === HOUSE || (known.has(b.id) && (!msg.active || b.id === msg.active))));
       const recent = [];
       const pulled = await pullBooks(wanted, { replace: true, recent, own: msg.mine || null });
       /* M160: a tale the device has buried is let go here too — before this,

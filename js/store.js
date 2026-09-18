@@ -755,7 +755,10 @@ async function exportHouse() {
     const row = await run('settings', 'readonly', (s) => s.get(key));
     if (row && typeof row.key === 'string') house.push(row);
   }
-  return JSON.stringify({ namespace: NAMESPACE, kind: 'house', exportedAt: new Date().toISOString(), settings: house, connections: await run('connections', 'readonly', (s) => s.getAll()), stories: all.map((x) => ({ id: x.id, title: x.title, createdAt: x.createdAt, updatedAt: x.updatedAt, projectId: x.projectId })) });
+  return JSON.stringify({ namespace: NAMESPACE, kind: 'house', exportedAt: new Date().toISOString(), settings: house, connections: await run('connections', 'readonly', (s) => s.getAll()), stories: await Promise.all(all.map(async (x) => ({ id: x.id, title: x.title, createdAt: x.createdAt, updatedAt: x.updatedAt, projectId: x.projectId,
+    /* M313: how many pages the tale has, so a shelf that holds only the open tale still says it truly */
+    pages: x.shallow && Number.isFinite(x.pages) ? x.pages : await run('messages', 'readonly', (st) => st.index('byStory').count(x.id)).catch(() => (Number.isFinite(x.pages) ? x.pages : 0)),
+    ...(typeof x.preview === 'string' && x.preview ? { preview: x.preview } : {}) }))) });
 }
 /* M311: A BROWSER SPEAKS ONLY FOR THE ROWS IT CHANGED. The house book was pushed WHOLE from whatever
  * this browser happened to hold — so a browser holding only part of the house (one that crashed
@@ -806,6 +809,66 @@ async function adoptHouseRows({ settings: rows = [], connections: conns = [] } =
   });
   dropCaches();
   return rows.length + conns.length;
+}
+
+/* M313: THE BROWSER HOLDS THE TALE THAT IS OPEN — THE DEVICE HOLDS THE LIBRARY. A browser kept, whole and
+ * for good, every tale it had ever opened: every page and every checkpoint, over a gigabyte on the
+ * writer's phone, refreshed at every open. SillyTavern's shape is the other way round — the files
+ * on the device ARE the library, and the browser holds what is being read. A tale that is not open
+ * is let go here, but ONLY once everything this browser holds of it is PROVEN to be on the device:
+ *   provenOnDevice(id, deviceBook) -> { ok, why }
+ * compares every local row of the tale (its ledger, its record, its checkpoints… — read one at a
+ * time, never folded into one string) and every local page against the device's book, value for
+ * value. A row the device lacks, or holds differently, is NOT proven — the tale stays, and the
+ * caller pushes it. The device holding MORE than this browser is fine: nothing is lost by letting go.
+ *   evictStory(id) -> pages let go
+ * then removes the tale's pages and rows from this browser and leaves its shelf row `shallow`, with
+ * its page count and preview kept — exactly the row M189 gives a browser that has never opened the
+ * tale, which fetches the book when the reader opens it, and which M188 will not let push. */
+async function provenOnDevice(storyId, deviceJson) {
+  let book = null;
+  try { book = typeof deviceJson === 'string' ? JSON.parse(deviceJson) : deviceJson; } catch (err) { return { ok: false, why: 'the device’s book could not be read' }; }
+  if (!book || book.kind !== 'story' || !book.story || book.story.id !== storyId) return { ok: false, why: 'the device’s book is not this tale’s' };
+  const theirRows = new Map((book.settings || []).filter((r) => r && typeof r.key === 'string').map((r) => [r.key, JSON.stringify(r.value)]));
+  const theirPages = new Map((book.messages || []).filter((m) => m && m.id).map((m) => [m.id, JSON.stringify(m)]));
+  const keys = await storyKeys(storyId);
+  for (const key of keys) {
+    if (key === 'bookStamp:' + storyId) continue; /* the sync's own mark, never part of the tale */
+    const row = await run('settings', 'readonly', (st) => st.get(key));
+    if (!row) continue;
+    if (!theirRows.has(key)) return { ok: false, ahead: true, why: 'the device does not hold ' + key };
+    if (theirRows.get(key) !== JSON.stringify(row.value)) return { ok: false, ahead: true, why: key + ' differs on the device' };
+  }
+  const mine = await run('messages', 'readonly', (st) => st.index('byStory').getAll(storyId));
+  for (const m of mine || []) {
+    if (!theirPages.has(m.id)) return { ok: false, ahead: true, why: 'a page here is not on the device' };
+    if (theirPages.get(m.id) !== JSON.stringify(m)) return { ok: false, ahead: true, why: 'a page differs on the device' };
+  }
+  return { ok: true, pages: (mine || []).length, rows: keys.length };
+}
+async function evictStory(storyId) {
+  const story = await run('stories', 'readonly', (st) => st.get(storyId));
+  if (!story || story.shallow) return 0;
+  const keys = await storyKeys(storyId);
+  const pages = await run('messages', 'readonly', (st) => st.index('byStory').getAll(storyId));
+  let preview = typeof story.preview === 'string' ? story.preview : '';
+  if (!preview) {
+    const last = [...(pages || [])].reverse().find((m) => m && !m.hidden && typeof m.text === 'string' && m.text.trim());
+    if (last) preview = last.text.trim().replace(/\s+/g, ' ').slice(0, 160);
+  }
+  const d = await openDB();
+  await new Promise((resolve, reject) => {
+    const t = d.transaction(['messages', 'settings', 'stories'], 'readwrite');
+    const ms = t.objectStore('messages');
+    for (const m of pages || []) ms.delete(m.id);
+    const ss = t.objectStore('settings');
+    for (const key of keys) ss.delete(key);
+    /* the shelf row stands, untouched but for the mark: no new date, so the shelf keeps its order */
+    t.objectStore('stories').put({ ...story, shallow: true, pages: (pages || []).length, ...(preview ? { preview } : {}) });
+    t.oncomplete = () => resolve(); t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
+  });
+  dropCaches();
+  return (pages || []).length;
 }
 
 /* M190: A TALE'S BOOK MUST NOT UNDO WHAT THE SHELF KNOWS. importStory wrote
@@ -877,6 +940,7 @@ async function importHouse(json, { dropMissing = false, keep = [] } = {}) {
   /* M189: which tales this browser already holds, read BEFORE the write —
    * a get-then-put nested inside the transaction never landed. */
   const held = new Set((await run('stories', 'readonly', (s) => s.getAllKeys())) || []);
+  const shallowHere = new Map(((await run('stories', 'readonly', (s) => s.getAll())) || []).filter((x) => x && x.shallow).map((x) => [x.id, x])); /* M313 */
   /* M293: the house's own rows this browser holds and the book does not —
    * a row is the house's when it wears no tale's suffix (a tale known here or
    * named by the book) and no tale-shaped prefix; the sync's stamps stay. */
@@ -912,7 +976,14 @@ async function importHouse(json, { dropMissing = false, keep = [] } = {}) {
      * A tale this browser already holds is left exactly as it stands. */
     const sts = t.objectStore('stories');
     for (const row of (data.stories || [])) {
-      if (!row || typeof row.id !== 'string' || held.has(row.id)) continue;
+      if (!row || typeof row.id !== 'string') continue;
+      if (held.has(row.id)) {
+        /* M313: a tale this browser holds only as a shelf row learns its title, shelf and page count
+         * from the house — it has no pages of its own to count. A tale it holds whole is left as it stands. */
+        const local = shallowHere.get(row.id);
+        if (local && !mine.has(row.id)) sts.put({ ...local, ...row, shallow: true });
+        continue;
+      }
       sts.put({ ...row, shallow: true });
     }
     t.oncomplete = () => resolve(); t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
@@ -985,6 +1056,7 @@ export const db = {
   importStory,
   importHouse,
   adoptHouseRows, /* M311 */
+  provenOnDevice, evictStory, /* M313 */
   sweepOrphans,
   onStorageWarning,
 };

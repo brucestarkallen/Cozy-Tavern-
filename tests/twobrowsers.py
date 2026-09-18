@@ -55,6 +55,16 @@ def pages_of(page, title):
     }""", title)
 
 
+def open_tale(page, title):
+    """M313: a browser holds the tale that is OPEN. A tale is read from the device when the reader opens
+    it — so a check about what a browser shows opens the tale first, as a reader would."""
+    page.evaluate("""async (title) => {
+      const st = (await window.__cozy.db.stories.list()).find(s => s.title === title);
+      if (st) await window.__cozy.chat.openStory(st.id);
+    }""", title)
+    page.wait_for_timeout(900)
+
+
 def push_now(page):
     page.evaluate("async () => { if (window.__cozy.booksStatus && window.__cozy.booksStatus.pushAll) await window.__cozy.booksStatus.pushAll(); }")
     page.wait_for_timeout(600)
@@ -102,6 +112,10 @@ try:
         b.close()
         b = boot(B)
         b.wait_for_timeout(1800)
+        # M313: this read B's store WITHOUT opening the tale — it held every tale whole, refreshed at every
+        # boot (the design the writer ordered out: a gigabyte per browser, and Chrome dead on opening).
+        # B now reads a tale from the device when it is opened, and the page must be there then.
+        open_tale(b, 'Ravenwood')
         got = pages_of(b, 'Ravenwood') or []
         check('a page written after B first booted still reaches B',
               'page two, written later' in got, str(got))
@@ -128,6 +142,8 @@ try:
 
 
         # --- M182: LIVE. A page written in A must reach B with no reload ----
+        # M313: …in the tale B has OPEN. A tale B is not showing is not B's business until it is opened.
+        open_tale(b, 'Ravenwood')
         b_pages_before = pages_of(b, 'Ravenwood') or []
         a.evaluate("""async () => {
           const st = (await window.__cozy.db.stories.list()).find(s => s.title === 'Ravenwood');

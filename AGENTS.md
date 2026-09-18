@@ -7101,3 +7101,53 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   browser keeps every tale it ever opened, whole, and refreshes all of them at boot. Both belong to
   the storage redesign the writer ordered (the device owns the files; the browser holds the open tale).
 - version.js -> m312-001.
+
+# M313 — the browser holds the tale that is open; the device holds the library (the writer's order: "like SillyTavern — no sync between browsers")
+- THE WRITER: "make this robust like SillyTavern or better. I don't want sync and sync between browsers — that
+  almost fucked me up. Check no regression, especially the ledger: the scene, the people, the world."
+- WHAT WAS WRONG WITH THE SHAPE. A browser kept, whole and for good, every tale it had ever opened — every
+  page and every checkpoint (over a gigabyte on his phone) — and refreshed ALL of them at every open;
+  a second browser did the same; an announcement from one made the other pull whole books it was not
+  showing. SillyTavern's shape is the other way round: the files on the device ARE the library, and
+  a browser holds what is being read.
+- CHANGE.
+  · LET GO ONLY WHEN PROVEN (store.js provenOnDevice / evictStory; sync-worker `evict`; sync.js
+    status.evictOne, one tale every 45 s while nothing is being written, nothing waits to be pushed
+    and no push is in flight). A tale that is not open is compared with the device's book — every
+    local row read one at a time (never folded into one string) and every local page, value for
+    value. All there → its pages and rows leave this browser and its shelf row stays `shallow` with
+    its page count and preview (the row M189 gives a browser that never opened it; M188 will not let
+    it push). Anything the device lacks or holds differently → NOT let go: pushed at once, looked at
+    again in half a minute. The device holding more than the browser is fine.
+  · BOOT PULLS THE HOUSE AND THE OPEN TALE (it refreshed every held tale — minutes of reading before
+    the first tap, and a self-reload when it ran past three seconds). Any other tale is looked at
+    when the reader opens it: shallow → fetched (M189); held → taken again only if the device's copy
+    moved on (pullOne ifNewer; status.freshen).
+  · AN ANNOUNCEMENT ABOUT A TALE NOT HELD HERE IS NOT THIS BROWSER'S BUSINESS (it pulled the whole book).
+    The tale that is OPEN still updates live.
+  · THE SHELF STAYS TRUE: the house book carries each tale's page count and preview; a shallow row
+    learns its title, shelf and count from the house; the shelf reads the row's count for a tale it
+    does not hold.
+- THE LEDGER, CHECKED AS HE ASKED — tests/holdsone.py (real Chromium, real serve.py, 17 checks): three
+  tales with a real ledger each (clock, ground, who is here and where, a character page, a standing,
+  a seat on the clock, a thread, what someone knows), a record and checkpoints. The open tale stays
+  whole; the other two are let go only once proven; the device's files are byte-identical before and
+  after; a let-go tale opens again with ten pages and THE SAME LEDGER value for value — compared with
+  the ledger held before, with the device's own row, and read field by field through the engine; a
+  tale with an unpushed row is PUSHED first and only then let go; a second browser opens with the
+  shelf alone — three tales named and counted, not one page pulled. MUTATION-CHECKED: with the row
+  comparison removed the test fails exactly where data would be lost (let go without the row on the
+  device); a first mutation was ineffective (a second check covered it) and was redone.
+- A FAULT OF MINE, FOUND BY THE GATE I HAD SKIPPED. M310, M311 and M312 shipped without the long play;
+  it fails on m312 (LONG-8, "the drawer opens"). Bisected to the committed tree, instrumented, read:
+  the ledger button's toggle() asked `drawer.hidden` whether the ledger was open — but a closing
+  drawer stays un-hidden for its 200 ms slide, so a tap inside that window "closed" it again, and
+  the next tap opened it when the writer meant to close. The play's two ledger scenarios began to
+  land inside that window once M312 made the store faster. The button now flips the writer's INTENT
+  (wantOpen), set by open() and cleared by close(). DOM-52 holds it; LONG-8 is green again.
+- twobrowsers.py: two checks read a browser's store for a tale it was not showing (the old shape,
+  which the writer ordered out); they open the tale first now, as a reader does. 26/26.
+- NOT DONE: the checkpoints themselves (up to 120 whole ledgers a tale, each with its journal) are most
+  of the library's gigabyte on the DEVICE and make a long tale slow to open; the browser's own
+  IndexedDB shrinks only as tales are let go, one every 45 s.
+- version.js -> m313-001.

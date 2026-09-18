@@ -54,6 +54,7 @@ export async function initSync(ctx) {
   const localHasStories = (await ctx.db.stories.list()).length > 0;
 
   const dirty = new Set();
+  const EVICT_EVERY_MS = Number(globalThis.__cozyEvictEveryMs) > 0 ? Number(globalThis.__cozyEvictEveryMs) : 45000; /* M313: one tale at a time */
   let timer = null;
   let running = null;
   let knownIds = new Set(); /* the tales this browser holds — filled once the books have settled */
@@ -171,7 +172,7 @@ export async function initSync(ctx) {
   };
 
   /* boot: with a three-second grace; a longer pull finishes behind a toast and reloads once */
-  const boot = ask({ kind: 'boot', clientId, expect: 'boot' });
+  const boot = ask({ kind: 'boot', clientId, expect: 'boot', active: ctx.getActiveStoryId() || (await ctx.db.settings.get('activeStoryId')) || null }); /* M313: the house and the open tale */
   const first = await Promise.race([boot, new Promise((r) => setTimeout(() => r({ late: true }), 3000))]);
   const settle = async (b) => {
     if (b && b.kind === 'boot' && b.reachable) {
@@ -252,6 +253,9 @@ export async function initSync(ctx) {
    * is never taken by another browser's push. */
   const liveRefresh = async (bookId) => {
     noteElsewhere(bookId); /* M293: announced by another browser */
+    /* M313: a tale held here only as a shelf row is read from the device when it is opened — an
+     * announcement must not bring the whole book back into this browser */
+    if (bookId !== '_house') { try { const row = await ctx.db.stories.get(bookId); if (!row || row.shallow) return; } catch (err) { return; } }
     const answer = await ask({ kind: 'pullOne', id: bookId, expect: 'pulledOne', replace: true, mine: { [bookId]: mineFor(bookId) } });
     if (!answer || !answer.pulled) return;
     if (busyNow()) {
@@ -300,7 +304,7 @@ export async function initSync(ctx) {
       try {
         const mine = {};
         for (const id of [...knownIds, '_house']) { const m = mineFor(id); if (m.length) mine[id] = m; }
-        const b = await ask({ kind: 'boot', clientId, expect: 'boot', mine });
+        const b = await ask({ kind: 'boot', clientId, expect: 'boot', mine, active: ctx.getActiveStoryId() || null }); /* M313 */
         caughtUpAt = Date.now();
         if (b && b.kind === 'boot' && b.reachable) noteElsewhere(b.recent, { unlessMine: true });
         if (b && b.kind === 'boot' && b.reachable && b.pulled > 0) liveRepaint(ctx.getActiveStoryId() || '_house');
@@ -354,6 +358,35 @@ export async function initSync(ctx) {
     if (answer && answer.pulled) { dropCaches(); noteElsewhere(answer.recent, { unlessMine: true }); }
     return Boolean(answer && answer.pulled);
   };
+  /* M313: a tale held here is looked at when the reader opens it — taken again only if the device's moved on */
+  status.freshen = async (id) => {
+    if (!id || dirty.has(id)) return false;
+    const answer = await ask({ kind: 'pullOne', id, expect: 'pulledOne', replace: true, ifNewer: true, mine: { [id]: mineFor(id) } });
+    if (answer && answer.pulled) { dropCaches(); noteElsewhere(answer.recent, { unlessMine: true }); }
+    return Boolean(answer && answer.pulled);
+  };
+  /* M313: THE BROWSER HOLDS THE OPEN TALE. One tale at a time, when nothing is being written and
+   * nothing waits to be pushed: a tale that is not open is let go from this browser once the device
+   * is proven to hold all of it (store.js provenOnDevice). A tale the device lacks something of is
+   * pushed instead, and looked at again later. */
+  status.evictOne = async () => {
+    if (!status.backed || busyNow() || dirty.size || running) return null; /* nothing being written, nothing waiting, no push in flight */
+    const active = ctx.getActiveStoryId();
+    const rows = await ctx.db.stories.list();
+    const next = rows.find((st) => st && !st.shallow && st.id !== active && !dirty.has(st.id) && !evictSkip.has(st.id));
+    if (!next) return null;
+    const answer = await ask({ kind: 'evict', id: next.id, expect: 'evicted' });
+    if (answer && answer.ok) { dropCaches(); if (ctx.chat && typeof ctx.chat.refreshStories === 'function') { try { await ctx.chat.refreshStories(true); } catch (err) { /* the shelf redraws on its next change */ } } return { id: next.id, ok: true, pages: answer.pages }; }
+    /* this browser holds something the device does not: it goes to the device NOW (not on the twenty-second
+     * wait), and the tale is looked at again in half a minute; any other no is asked again in ten */
+    const ahead = Boolean(answer && answer.ahead);
+    evictSkip.add(next.id);
+    setTimeout(() => evictSkip.delete(next.id), ahead ? 30000 : 10 * 60000);
+    if (ahead) { mark(next.id); clearTimeout(timer); pushNow(); }
+    return { id: next.id, ok: false, ahead, why: answer && answer.why };
+  };
+  const evictSkip = new Set();
+  setInterval(() => { status.evictOne().catch(() => {}); }, EVICT_EVERY_MS);
   status.pushAll = async () => {
     for (const id of knownIds) dirty.add(id);
     dirty.add('_house');

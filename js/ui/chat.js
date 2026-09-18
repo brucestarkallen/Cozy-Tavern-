@@ -455,7 +455,8 @@ export function initChat(ctx) {
     shelfCollapsed = (await db.settings.get(SHELF_COLLAPSED_KEY)) || {};
     /* M14: page counts ride the shelf rows; the byStory index counts
      * without reading a single page. */
-    const counts = await Promise.all(stories.map((s) => db.messages.count(s.id).catch(() => 0)));
+    /* M313: a tale held here only as a shelf row has no pages to count — its row carries the number */
+    const counts = await Promise.all(stories.map((s) => (s && s.shallow && Number.isFinite(s.pages) ? s.pages : db.messages.count(s.id).catch(() => 0))));
     pageCounts = new Map(stories.map((s, i) => [s.id, counts[i]]));
     /* M21 backfill: a row without a preview derives it from its last page
      * on load. In-memory only — persisting through stories.update would
@@ -891,6 +892,9 @@ export function initChat(ctx) {
     const known = await db.stories.get(id);
     if (known && known.shallow && ctx.booksStatus && typeof ctx.booksStatus.fetchStory === 'function') {
       try { await ctx.booksStatus.fetchStory(id); } catch (err) { /* the boot pull is still the backstop */ }
+    } else if (known && ctx.booksStatus && typeof ctx.booksStatus.freshen === 'function') {
+      /* M313: a tale held here is no longer refreshed at every open of the browser — it is looked at now */
+      try { await ctx.booksStatus.freshen(id); } catch (err) { /* it opens as it stands */ }
     }
     await renderThread({ structural: true, opening: true });
     closePanel();

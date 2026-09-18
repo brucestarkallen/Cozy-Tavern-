@@ -2244,6 +2244,7 @@ export function initDrawer(ctx) {
      * over content that is already there. */
     const openGeneration = ++closeGeneration;
     opening = true;
+    wantOpen = true;
     /* M150: the scene room's panels fill asynchronously (the clock's fields,
      * the standings, who's here); a fixed 140ms beat was not always the end
      * of it, and a first scroll that began while rows were still landing
@@ -2277,10 +2278,12 @@ export function initDrawer(ctx) {
    * the reopen. */
   let closeGeneration = 0;
   let opening = false; /* M144: a tap during the fill-beat closes, never opens twice */
+  let wantOpen = false; /* M313: what the writer last asked for */
 
   function close() {
     const generation = ++closeGeneration;
     opening = false;
+    wantOpen = false;
     document.body.classList.remove('drawer-open'); /* M141 */
     drawer.classList.remove('open');
     scrim.hidden = true;
@@ -2292,8 +2295,14 @@ export function initDrawer(ctx) {
     }, 200);
   }
 
+  /* M313: THE BUTTON FLIPS WHAT THE WRITER ASKED FOR, NOT WHAT THE ANIMATION HAS REACHED. toggle() read
+   * `drawer.hidden` to know whether the ledger was open — but a closing drawer stays un-hidden for
+   * its 200 ms slide, so a tap in that window "closed" it a second time and nothing opened (and the
+   * next tap, finding it hidden, opened it when the writer meant to close). Found by the long play,
+   * whose two ledger scenarios began to land inside that window once the store got faster (M312).
+   * The intent is kept on its own: open() sets it, close() clears it, the button flips it. */
   function toggle() {
-    if (drawer.hidden && !opening) open(); else close();
+    if (wantOpen) close(); else open();
   }
 
   btnClose.addEventListener('click', close);

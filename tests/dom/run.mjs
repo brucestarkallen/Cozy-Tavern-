@@ -2826,6 +2826,26 @@ test('DOM-51 the thinking room says whether this address can hear it: a number k
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-52 the ledger button does what was asked even inside the closing slide: close, then a tap at once, and the ledger OPENS (it closed a second time and stayed shut) (M313)', async () => {
+  const before = errors.length;
+  if (!q('#drawer').hidden) { click(q('#btn-ledger')); await tick(400); }
+  click(q('#btn-ledger'));
+  await until(() => !q('#drawer').hidden, 'the ledger opens');
+  click(q('#btn-ledger'));                 /* close — the drawer stays un-hidden for its 200 ms slide */
+  assert(!q('#drawer').hidden, 'fixture: still sliding shut');
+  click(q('#btn-ledger'));                 /* the writer taps again at once: he wants it open */
+  await tick(1000);
+  assert(!q('#drawer').hidden, 'it is open');
+  assert(q('#btn-ledger').classList.contains('current'), 'and the button says so');
+  click(q('#btn-ledger'));
+  await until(() => q('#drawer').hidden, 'and one tap closes it', 3000);
+  /* a tap during the fill-beat still closes, never opens twice (M144) */
+  click(q('#btn-ledger')); click(q('#btn-ledger'));
+  await tick(1000);
+  assert(q('#drawer').hidden, 'open then close at once: closed');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
