@@ -21,7 +21,7 @@ import { withImagePart, transportError } from './wire.js';
  * rejection memory) and the storyteller prefill live in effort.js. */
 import {
   reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
-  applyPrefill, markConnectionDown, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal,
+  applyPrefill, prefillPlan, markConnectionDown, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal, thinkingLead,
 } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
@@ -149,9 +149,12 @@ function makeThinkSplitter(emit) {
  * M22-C: OpenRouter connections with searchOn ride plugins:[{id:'web'}].
  * M22-D: the prefill joins per the house's profile (effort.js). */
 function requestBody(connection, wireMessages, opts = {}) {
+  /* M328: a retry that withholds the thinking params withholds the thinking SEED with them (a seed with no channel);
+   * what follows the seed — a started reply — still rides */
+  const asSent = opts.suppressReasoning && connection ? { ...connection, reasoningDownAt: Date.now(), reasoningDownShape: reasonStyle(connection) } : connection;
   const pf = opts.suppressPrefill
     ? { messages: wireMessages, applied: false }
-    : applyPrefill(wireMessages, connection);
+    : applyPrefill(wireMessages, asSent);
   const body = {
     model: connection.model || 'gpt-4o-mini',
     messages: pf.messages,
@@ -164,7 +167,14 @@ function requestBody(connection, wireMessages, opts = {}) {
   }
   const style = reasonStyle(connection);
   const r = (connection && connection.reasoning) || {};
-  const wanted = r && typeof r.effort === 'string' ? r.effort : 'off';
+  const set = r && typeof r.effort === 'string' ? r.effort : 'off';
+  /* M328: KEEP THE THINKING CHANNEL OPEN FOR A SEED. A thinking seed sent while the request itself says "do not
+   * think" lands nowhere — "the one failure that looks like success" (the extension's words). A turn that
+   * carries a seed asks for the lightest thinking when the dial says Off; only such turns, and only while the
+   * connection's "keep the thinking open" tick stands. A turn whose thinking params are being withheld
+   * (refused once, or this retry) carries no seed at all — prefillPlan and the retry below see to that. */
+  const opened = pf.applied && pf.keepThinkingOpen && set === 'off';
+  const wanted = opened ? 'low' : set;
   const suppressed = opts.suppressReasoning || reasoningIsDown(connection, style); /* M303: a refusal of another spelling is not a refusal of this one */
   const effort = suppressed ? 'off' : effortFor(style, wanted);
   if (style === 'none') {
@@ -216,7 +226,7 @@ function requestBody(connection, wireMessages, opts = {}) {
   if (connection && connection.searchOn && style === 'openrouter') {
     body.plugins = [{ id: 'web' }];
   }
-  return { body, prefill: pf };
+  return { body, prefill: opened && !suppressed ? { ...pf, note: [pf.note, 'Thinking was switched on (at its lightest) for this turn, so the thinking seed has a channel to land in.'].filter(Boolean).join(' ') } : pf };
 }
 
 export function createOpenAIProvider(connection) {
@@ -288,6 +298,7 @@ export function createOpenAIProvider(connection) {
     await healStaleRefusal(connection, reasonStyle(connection));
     await healStalePrefillRefusal(connection); /* M307 */
     let lead = ''; /* M307: the words the reply was started with, put back at its first word */
+    let thoughtLead = ''; /* M328: and the words the THOUGHT was started with, at its first word */
     for (let attempt = 0; attempt < 3 && !res; attempt += 1) { /* M318: three — the beta address may say no, and then the ordinary one may still refuse a dial */
       const { body, prefill } = requestBody(connection, wire, opts);
       /* M307: a started reply goes to DeepSeek's beta address, the only one that takes it */
@@ -307,6 +318,7 @@ export function createOpenAIProvider(connection) {
       if (out.ok) {
         if (prefill.note) notes.push(prefill.note);
         lead = prefill.applied ? prefillLead(connection) : '';
+        thoughtLead = prefill.applied && prefill.seed ? prefill.seed : '';
         res = out;
         break;
       }
@@ -363,6 +375,11 @@ export function createOpenAIProvider(connection) {
       if (!text) return;
       if (channel === 'thinking') {
         if (tfftMs === null) tfftMs = Date.now() - startedAt;
+        /* M328: the model continues the writer's seed — what it sends back is only what comes AFTER it */
+        if (thoughtLead) {
+          const put = thoughtLead; thoughtLead = '';
+          if (!text.startsWith(put)) { const back = put + (/^\s/.test(text) ? '' : ' '); thinking += back; if (onToken) onToken({ channel, text: back }); }
+        }
         thinking += text;
       } else {
         if (ttftMs === null) ttftMs = Date.now() - startedAt;
@@ -444,15 +461,23 @@ export function createOpenAIProvider(connection) {
     ]);
     body.stream = false;
     body.max_tokens = 8;
-    delete body.reasoning;
-    delete body.reasoning_effort;
-    delete body.thinking;
-    delete body.enable_thinking;
-    delete body.model_options;
-    delete body.plugins;
-    if (!body.messages.length || body.messages[body.messages.length - 1].role !== 'assistant') {
-      return { ok: false, detail: 'This address has no known way to start the reply for it — nothing was sent.' };
+    const started = body.messages.length ? body.messages[body.messages.length - 1] : null;
+    if (!started || started.role !== 'assistant') {
+      /* M328: the reason is the plan's own — the same words the turn would give */
+      const why = prefillPlan(connection).why;
+      return { ok: false, detail: why ? why + ' Nothing was sent.' : 'This address has no known way to start the reply for it — nothing was sent.' };
     }
+    /* M328: a probe that carries a thinking SEED keeps its thinking params — the seed needs the channel it is sent in;
+     * a plain started reply is probed without them, as before */
+    const seeded = Object.keys(started).some((k) => !['role', 'content', 'partial', 'prefix'].includes(k) && typeof started[k] === 'string');
+    if (!seeded) {
+      delete body.reasoning;
+      delete body.reasoning_effort;
+      delete body.thinking;
+      delete body.enable_thinking;
+      delete body.model_options;
+    }
+    delete body.plugins;
     /* M307: THE PROBE GOES WHERE THE TURN GOES. It asked DeepSeek's ordinary
      * address, which never takes a started reply — so "Test it" answered
      * "won't take a prefill" and switched the prefill OFF for the connection. */

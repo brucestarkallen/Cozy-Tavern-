@@ -53,8 +53,21 @@ export const ALWAYS_THINKS_FLOOR = 16000; /* M303 */
  * What remains here is only what a connection cannot say: a floor on the room
  * an answer needs, so a storyteller connection set to 200 tokens cannot cut a
  * worker's JSON in half. Everything the connection DOES say, it says. */
+/* M328: which connection the storyteller is riding — told by the chat when it sends a turn, and at boot */
+let tellerConnectionId = null;
+export function noteTellerConnection(id) { tellerConnectionId = typeof id === 'string' && id ? id : null; }
+
 export function workerConnection(connection, { maxTokens, effort, temperature } = {}) {
   const c = { ...connection };
+  /* M328: A STORY'S PREFILL IS NOT WELDED ONTO A WORKER. The extension's law for "utility generations", and its
+   * reason: a prefill written for the storyteller — "[The Bluebird —", or a thinking seed in the teller's
+   * voice — corrupts a summary or a ledger reading (since M307 the started words are put back at the head of
+   * the answer: a worker's JSON would begin with a page header). M231 handed workers everything the
+   * connection holds, the prefill with it — and that stands for a connection made FOR the workers (a "{" to
+   * begin their JSON is theirs, M307-3). Only when a worker rides THE STORYTELLER'S connection is its
+   * prefill the story's: then it stays home, unless the connection says "Workers riding this connection get
+   * it too". */
+  if (c.prefillForWorkers !== true && c.id && c.id === tellerConnectionId) delete c.prefill;
   /* M232: NOTHING SET MEANS THE PROVIDER'S DEFAULT, NOT THE HOUSE'S ZERO.
    * M231 stopped overriding a temperature the connection HAD and then still
    * imposed 0 on one that had none — which is the same overruling, only

@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m327-001)
+# Cozy Tavern — handoff for the next session (state at m328-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M327). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M328). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 627 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 632 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 77 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 78 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,11 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- THE PREFILL HAS ONE PLAN (M328, providers/effort.js prefillPlan): the turn, "Test it", the card and the form's live line
+  all read it — never decide prefill behaviour anywhere else. <think> first = a thinking SEED (reasoning field,
+  empty content, flagged); after </think> = a started reply. Seeds keep the thinking open; started replies
+  obey M318. A worker on the storyteller's connection gets none. `node --check` does NOT check these ES
+  modules — import the file.
 - THE TWO NAMES (M327, assemble/voice.js): any NEW sentence the house sends the storyteller in its own words must go
   through inVoice / toTeller / briefingOpening / askAgain — and must read naturally said by the writer to a
   named friend. Never route story text (pages, brief, ledger, record) through it. Never call the teller a

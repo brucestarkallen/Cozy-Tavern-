@@ -2922,7 +2922,8 @@ test('DOM-54 a prefill that would switch the thinking off says so — on the car
     assert(!q('#conn-prefill-hint').hidden && /skip its thinking entirely/.test(q('#conn-prefill-hint').textContent), 'the form says why: ' + q('#conn-prefill-hint').textContent);
     q('#conn-reasoning').value = 'off';
     q('#conn-reasoning').dispatchEvent(new env.window.Event('change', { bubbles: true }));
-    assert(q('#conn-prefill-hint').hidden, 'thinking Off: the prefill rides, and the hint goes');
+    /* M328: the hint no longer only warns — with thinking Off it says HOW the prefill rides */
+    assert(!q('#conn-prefill-hint').hidden && /^Sent as the reply started with “\[The Bluebird —”, flagged “prefix”\.$/.test(q('#conn-prefill-hint').textContent), 'thinking Off: the prefill rides, and the hint says how: ' + q('#conn-prefill-hint').textContent);
     click(q('#btn-conn-cancel'));
   } finally {
     await db.connections.remove(ds.id);
@@ -3179,6 +3180,68 @@ test('DOM-58 who tells, and who listens: two names typed in Settings → The fra
   } finally {
     if (tellerBefore == null) await db.settings.delete('tellerName'); else await db.settings.set('tellerName', tellerBefore);
     if (writerBefore == null) await db.settings.delete('writerName'); else await db.settings.set('writerName', writerBefore);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-59 the thinking prefill, through the house: typed into a connection’s form it says what will be sent and is kept; a page’s thinking begins with the seed; the workers on that connection and an out-of-character answer are sent none (M328)', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const activeBefore = await db.settings.get('activeConnectionId');
+  const priorThink = house.state.thinkFirst;
+  const conn = await db.connections.add({ label: 'AAB kimi, seeded', type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', apiKey: 'k', model: 'kimi-k3' });
+  try {
+    /* the form */
+    await openSettings();
+    click(q('[data-room="storyteller"]'));
+    await until(() => q('#connection-pick') && [...q('#connection-pick').options].some((o) => o.value === conn.id), 'the picker', 10000);
+    q('#connection-pick').value = conn.id;
+    q('#connection-pick').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(() => q('#connection-list .connection-name') && q('#connection-list .connection-name').textContent === 'AAB kimi, seeded', 'its card', 10000);
+    click(qa('#connection-list .connection-card .row button').find((b) => /^Change$/.test(b.textContent.trim())));
+    await until(() => !q('#connection-form').hidden, 'the form', 10000);
+    assert(q('#conn-prefill-keep-thinking').checked && !q('#conn-prefill-workers').checked, 'a connection starts out: keep the thinking open — on; workers get it too — off');
+    eq(q('#conn-prefill-flag').placeholder + ' / ' + q('#conn-prefill-reasoning').placeholder, 'partial / reasoning_content', 'this address’s own two fields, shown greyed');
+    type(q('#conn-prefill'), '<think>Right, where were we. Let me look at what Bruce just did —');
+    await until(() => !q('#conn-prefill-hint').hidden && /^Sent as a thinking seed in “reasoning_content”/.test(q('#conn-prefill-hint').textContent), 'the form says what will be sent: ' + q('#conn-prefill-hint').textContent, 5000);
+    type(q('#conn-prefill-flag'), 'content');
+    await until(() => /^NOT sent — The continuation flag: “content” is part of the message itself/.test(q('#conn-prefill-hint').textContent), 'a bad field name is refused as it is typed: ' + q('#conn-prefill-hint').textContent, 5000);
+    type(q('#conn-prefill-flag'), '');
+    submit(q('#connection-form'));
+    await until(async () => { const c = (await db.connections.list()).find((x) => x.id === conn.id); return c && /^<think>Right, where were we/.test(c.prefill || ''); }, 'kept', 10000);
+    const kept = (await db.connections.list()).find((x) => x.id === conn.id);
+    assert(kept.prefillFlagField == null && kept.prefillKeepThinking == null && kept.prefillForWorkers == null, 'nothing is stored for a dial left as it started');
+    await until(() => /prefill: a thinking seed in “reasoning_content”/.test(q('#connection-list .connection-card').textContent), 'the card says how it rides: ' + q('#connection-list .connection-card').textContent.slice(0, 200), 10000);
+    await closeSettings();
+    /* a page */
+    house.state.thinkFirst = true;
+    const st = await db.stories.create({ title: 'seeded thinking' });
+    await db.stories.update(st.id, { connectionId: conn.id });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    let from = house.state.calls.length;
+    type(q('#composer-input'), 'I sit down at the counter.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(() => queuedCount(st.id) === 0, 'the readers', 40000);
+    const calls = house.state.calls.slice(from);
+    const told = calls.find((c) => !c.isWorker).body.messages;
+    eq(JSON.stringify(told[told.length - 1]), JSON.stringify({ role: 'assistant', content: '', reasoning_content: 'Right, where were we. Let me look at what Bruce just did —', partial: true }), 'the storyteller was sent the seed, and an empty reply to fill');
+    const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    assert(String(page.thinking || '').startsWith('Right, where were we. Let me look at what Bruce just did — Let me weigh the room.'), 'the page’s thinking begins with his seed: ' + String(page.thinking || '').slice(0, 90));
+    assert(!/Right, where were we/.test(page.text), 'and none of it is on the page');
+    const crew = calls.filter((c) => c.isWorker);
+    assert(crew.length > 0 && crew.every((c) => c.body.messages[c.body.messages.length - 1].role === 'user'), 'the readers rode the same connection — and were sent no seed (' + crew.length + ' calls)');
+    /* out of character */
+    from = house.state.calls.length;
+    type(q('#composer-input'), '((what day is it in the story?))'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the answer', 15000);
+    const ooc = house.state.calls.slice(from).find((c) => !c.isWorker).body.messages;
+    eq(ooc[ooc.length - 1].role, 'user', 'an out-of-character answer is not a page: no seed');
+  } finally {
+    house.state.thinkFirst = priorThink;
+    await db.settings.set('activeConnectionId', activeBefore);
+    await db.connections.remove(conn.id);
+    await closeSettings();
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

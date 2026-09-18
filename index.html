@@ -218,7 +218,26 @@
             <label>Start the reply for it (optional — the prefill)
               <textarea id="conn-prefill" rows="2" spellcheck="false" placeholder="The reply opens with these words already written…"></textarea>
             </label>
+            <p class="quiet">Open it with <code>&lt;think&gt;</code> and it seeds the model’s THINKING instead of its reply — <code>&lt;think&gt;Right, where were we. Let me look at what Bruce just did…</code> — the model carries the thought on in your words, then writes the page itself. Anything after <code>&lt;/think&gt;</code> starts the reply, as before.</p>
             <p id="conn-prefill-hint" class="quiet" hidden></p>
+            <div class="row">
+              <label class="radio-row"><input type="checkbox" id="conn-prefill-keep-thinking"> Keep the thinking open when a seed is sent</label>
+            </div>
+            <div class="row">
+              <label class="radio-row"><input type="checkbox" id="conn-prefill-workers"> Workers riding this connection get it too</label>
+            </div>
+            <details class="quiet-details">
+              <summary>The two field names (only if your address needs others)</summary>
+              <div class="row names-row">
+                <label class="stack-label">Continuation flag
+                  <input type="text" id="conn-prefill-flag" maxlength="40" autocomplete="off" spellcheck="false">
+                </label>
+                <label class="stack-label">Thinking field
+                  <input type="text" id="conn-prefill-reasoning" maxlength="40" autocomplete="off" spellcheck="false">
+                </label>
+              </div>
+              <p class="quiet">Empty uses this address’s own (shown greyed); type <code>none</code> to send no such field.</p>
+            </details>
             <div class="row">
               <button type="button" id="btn-prefill-test" class="text-btn">Test it</button>
               <span id="conn-prefill-verdict" class="quiet" hidden></span>

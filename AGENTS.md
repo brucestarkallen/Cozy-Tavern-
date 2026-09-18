@@ -7641,3 +7641,55 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   ("On their mind", "The state of things").
 - NOT VERIFIED: that his teller's thinking reads better — that is only visible on his models.
 - version.js -> m327-001.
+
+# M328 — the thinking prefill: the writer's SillyTavern extension (Prefill Control 1.5.1) brought into the house
+- THE WRITER: "take the prefill extension from my SillyTavern extensions and integrate it into Cozy Tavern. Be careful. No
+  bugs, no regression. One pass. And explain how it works." Read first: github.com/brucestarkallen/St-Prefill-
+  (engine.js, README, AGENTS.md).
+- WHAT THE EXTENSION IS FOR. A reasoning model writes on two channels — the reply, and the scratchpad it thinks in. A
+  prefill that opens with <think> is a SEED FOR THE SCRATCHPAD: the text after the tag (to </think>, or to the
+  end when the tag is left open) goes in the provider's reasoning field with the reply left EMPTY and flagged
+  unfinished, and the model CONTINUES THE THOUGHT in the writer's words:
+    { "role":"assistant", "content":"", "reasoning_content":"I should continue the story.", "partial":true }
+  The extension's README: a thinking prefill is far lighter on the model than a content prefill — the reasoning
+  budget and the analysis stay whole; only the scratchpad's first sentence is nudged.
+- WHAT THE HOUSE HAD (M22-D, M307, M318): a started REPLY per connection (Moonshot partial, DeepSeek prefix at /beta,
+  Claude native), put back at the head of the page. It knew only a CLOSED <think>…</think>, and only on an
+  address with no other way in; on Moonshot and DeepSeek the tag itself was sent as the page's first words.
+- BROUGHT OVER (providers/effort.js, one decision in prefillPlan — the turn, the card, the form and "Test it" all read it):
+  · the split (splitPrefill): an open tag runs to the end; what follows </think> starts the reply as before.
+  · the field mapping table: Moonshot partial + reasoning_content; DeepSeek prefix + reasoning_content (beta
+    address); OpenRouter → a moonshotai/ model: Moonshot's fields, anything else: "reasoning", no flag; any other
+    address: reasoning_content, no flag; Claude: native, NO seed (there is no field for one).
+  · hand-typed field names (the form's "two field names"): trimmed (" partial " is a key nobody reads), "none" for no
+    field, RESERVED names refused ("content" would send content:true), the flag and the thinking field may not be
+    the same key (the flag would overwrite the seed). An unusable name sends NOTHING and says why.
+  · "keep the thinking open" (on unless unticked): a turn that carries a seed while the dial says Off asks for the
+    lightest thinking — "seeding a channel the request has switched off is the one failure that looks like
+    success". Only such turns. A connection whose thinking params were refused carries no seed at all, and a
+    retry that withholds the params withholds the seed with them.
+  · the words the THOUGHT was started with are part of the thought: the seed is put back at the head of the
+    thinking (M307's law, the other channel); a pure thinking prefill puts nothing in front of the page.
+  · M318 narrowed: only a started REPLY switches DeepSeek's thinking off — a seed IS the thinking and rides with
+    thinking on; the stay-home note now names that way through.
+  · "utility generations": a worker riding THE STORYTELLER'S connection is sent no prefill (call.js
+    noteTellerConnection; the chat tells it at boot and on every turn) unless the connection ticks "Workers
+    riding this connection get it too". A connection made FOR the workers keeps its own ("{" and its first
+    brace, M307-3) — M231 stands for everything else. An out-of-character answer carries no story prefill.
+- NOT BROUGHT OVER, and why: the merge guard, the generation types and the tools / JSON-schema guards exist because
+  SillyTavern's SERVER rewrites a finished prompt (merges same-role messages, keeps the earlier object). This
+  house sends what it assembles; the started message is always the last on the wire; it sends no tools with a
+  story turn. The decision log's job is done by the form's live line, the card and the turn's notes.
+- TESTS: tests/harness/m328.mjs through the real provider and the real worker call — the exact message on Moonshot,
+  DeepSeek (beta, thinking ON), OpenRouter, a Moonshot model on OpenRouter, a plain proxy; seed + reply both put
+  back; a plain started reply byte for byte as before; M318 still holds for a started reply; keep-open on, off,
+  no-seed, and a refused channel; field validation; Claude; the card's words; the three worker cases. DOM-59 types
+  it into the form (live line, a bad field refused as typed, defaults stored as nothing, the card), plays a page
+  (the wire's last message, the seed at the head of the kept thinking, none of it on the page), checks the
+  readers on that connection got none, and an out-of-character answer got none. M303/M307/M318's laws pass
+  unchanged; DOM-54 now expects the hint to SAY how a prefill rides where it used to vanish.
+- A FAULT OF MINE, CAUGHT BY THE WALK: a patch left a ternary's tail (": '';") in settings.js and `node --check` called it
+  fine — these files are ES modules and --check does not read them as such. A module is checked by IMPORTING it.
+- NOT VERIFIED: a live provider (no key here) — the message shapes are the extension's, which its own gate checks
+  against SillyTavern's server code, and the providers' docs quoted in M307/M318.
+- version.js -> m328-001.

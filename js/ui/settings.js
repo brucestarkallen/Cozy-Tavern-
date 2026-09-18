@@ -19,7 +19,7 @@ import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '..
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
 import { learnContext } from '../providers/detect.js'; /* M289 */
 import { byName } from '../providers/order.js'; /* M301: every list of names the writer picks from, A to Z */
-import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking } from '../providers/effort.js';
+import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking, describePrefill, prefillFields } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
 import { cleanName } from '../assemble/voice.js'; /* M327 */
@@ -64,6 +64,10 @@ export function initSettings(ctx) {
     reasoningHint: document.getElementById('conn-reasoning-hint'),
     budgetHint: document.getElementById('conn-budget-hint'),
     prefillHint: document.getElementById('conn-prefill-hint'),
+    prefillKeepThinking: document.getElementById('conn-prefill-keep-thinking'),
+    prefillWorkers: document.getElementById('conn-prefill-workers'),
+    prefillFlag: document.getElementById('conn-prefill-flag'),
+    prefillReasoning: document.getElementById('conn-prefill-reasoning'),
     apiKey: document.getElementById('conn-apikey'),
     model: document.getElementById('conn-model'),
     searchRow: document.getElementById('conn-search-row'),
@@ -305,11 +309,16 @@ export function initSettings(ctx) {
         spoken.textContent = `thinking: ${effort} — ${said}`;
         top.appendChild(spoken);
       }
-      /* M318: a prefill that will not ride says so */
+      /* M318: a prefill that will not ride says so; M328: and one that will says how */
       if (prefillSilencesThinking(conn)) {
         const pf = document.createElement('span');
         pf.className = 'connection-kind';
         pf.textContent = 'prefill: not sent while thinking is on (it would switch the thinking off)';
+        top.appendChild(pf);
+      } else if (describePrefill(conn)) {
+        const pf = document.createElement('span');
+        pf.className = 'connection-kind';
+        pf.textContent = 'prefill: ' + describePrefill(conn).replace(/^Sent as /, '').replace(/^NOT sent — /, 'NOT sent — ');
         top.appendChild(pf);
       }
       /* M308: a thinking room that is set says whether it is sent */
@@ -478,9 +487,15 @@ export function initSettings(ctx) {
      * so with thinking on, the thinking is what is sent */
     if (els.prefillHint && els.prefill && els.connReasoning) {
       const draft = { type: p.type, preset: els.preset.value, baseUrl: els.baseUrl.value.trim() || p.baseUrl || '', model: els.model.value.trim() || p.model || '', prefill: els.prefill.value, reasoning: { effort: els.connReasoning.value } };
+      /* M328: what WOULD be sent for the box as it stands — the turn, "Test it" and the card read the same plan */
+      if (els.prefillFlag) { draft.prefillFlagField = els.prefillFlag.value; draft.prefillReasoningField = els.prefillReasoning.value; draft.prefillKeepThinking = els.prefillKeepThinking.checked; }
+      const auto = prefillFields({ ...draft, prefillFlagField: '', prefillReasoningField: '' });
+      if (els.prefillFlag) { els.prefillFlag.placeholder = auto.flag || 'none'; els.prefillReasoning.placeholder = auto.reasoning || 'none'; }
       const clash = prefillSilencesThinking(draft);
-      els.prefillHint.hidden = !clash;
-      els.prefillHint.textContent = clash ? 'Not used while thinking is on: on this address a started reply makes the model skip its thinking entirely, so with thinking at “' + els.connReasoning.value + '” the thinking is sent and these words stay home. Set thinking to Off to use them.' : '';
+      const said = clash ? '' : describePrefill(draft);
+      els.prefillHint.hidden = !clash && !said;
+      if (!clash) els.prefillHint.textContent = said;
+      if (clash) els.prefillHint.textContent = 'Not used while thinking is on: on this address a started reply makes the model skip its thinking entirely, so with thinking at “' + els.connReasoning.value + '” the thinking is sent and these words stay home. Set thinking to Off to use them.';
     }
     const words = thinkingHint({ type: p.type, preset: els.preset.value, baseUrl: els.baseUrl.value.trim() || p.baseUrl || '', model: els.model.value.trim() || p.model || '' });
     els.reasoningHint.textContent = words;
@@ -586,6 +601,10 @@ export function initSettings(ctx) {
       els.search.checked = conn.searchOn === true;
       els.searchCount.value = typeof conn.searchMaxUses === 'number' ? String(conn.searchMaxUses) : '';
       els.prefill.value = typeof conn.prefill === 'string' ? conn.prefill : '';
+      if (els.prefillKeepThinking) els.prefillKeepThinking.checked = conn.prefillKeepThinking !== false;
+      if (els.prefillWorkers) els.prefillWorkers.checked = conn.prefillForWorkers === true;
+      if (els.prefillFlag) els.prefillFlag.value = typeof conn.prefillFlagField === 'string' ? conn.prefillFlagField : '';
+      if (els.prefillReasoning) els.prefillReasoning.value = typeof conn.prefillReasoningField === 'string' ? conn.prefillReasoningField : '';
       /* The refusal memories speak plainly while they stand. */
       if (els.downNote) {
         const bits = [];
@@ -610,6 +629,10 @@ export function initSettings(ctx) {
       els.search.checked = false;
       els.searchCount.value = '';
       els.prefill.value = '';
+      if (els.prefillKeepThinking) els.prefillKeepThinking.checked = true;
+      if (els.prefillWorkers) els.prefillWorkers.checked = false;
+      if (els.prefillFlag) els.prefillFlag.value = '';
+      if (els.prefillReasoning) els.prefillReasoning.value = '';
       if (els.downNote) els.downNote.hidden = true;
       fillFromPreset();
     }
@@ -665,6 +688,8 @@ export function initSettings(ctx) {
   });
   els.model.addEventListener('input', refreshReasoningHint);
   if (els.prefill) els.prefill.addEventListener('input', refreshReasoningHint); /* M318 */
+  for (const el of [els.prefillFlag, els.prefillReasoning]) if (el) el.addEventListener('input', refreshReasoningHint); /* M328 */
+  if (els.prefillKeepThinking) els.prefillKeepThinking.addEventListener('change', refreshReasoningHint);
   if (els.connReasoning) els.connReasoning.addEventListener('change', refreshReasoningHint);
 
   /* M22-D: "Test it" — the prefill probe. Sends a tiny exchange with the
@@ -683,6 +708,11 @@ export function initSettings(ctx) {
       apiKey: els.apiKey.value.trim(),
       model: els.model.value.trim(),
       prefill: els.prefill.value,
+      /* M328: the probe carries what the turn would — the thinking dial, the two field names, the keep-open tick */
+      reasoning: EFFORT_RANK.includes(els.connReasoning.value) && els.connReasoning.value !== 'off' ? { effort: els.connReasoning.value } : undefined,
+      prefillKeepThinking: els.prefillKeepThinking ? els.prefillKeepThinking.checked : true,
+      prefillFlagField: els.prefillFlag ? els.prefillFlag.value : '',
+      prefillReasoningField: els.prefillReasoning ? els.prefillReasoning.value : '',
     };
     els.btnPrefillTest.disabled = true;
     els.prefillVerdict.hidden = false;
@@ -774,6 +804,11 @@ export function initSettings(ctx) {
     fields.searchOn = searchOffered() && els.search.checked ? true : undefined;
     fields.searchMaxUses = fields.searchOn ? numOrUnset(els.searchCount) : undefined;
     fields.prefill = els.prefill.value.trim() ? els.prefill.value : undefined;
+    /* M328: the prefill's own dials — kept only when they differ from how a connection starts out */
+    fields.prefillKeepThinking = els.prefillKeepThinking && !els.prefillKeepThinking.checked ? false : undefined;
+    fields.prefillForWorkers = els.prefillWorkers && els.prefillWorkers.checked ? true : undefined;
+    fields.prefillFlagField = els.prefillFlag && els.prefillFlag.value.trim() ? els.prefillFlag.value.trim() : undefined;
+    fields.prefillReasoningField = els.prefillReasoning && els.prefillReasoning.value.trim() ? els.prefillReasoning.value.trim() : undefined;
     /* M8.5/M22-A: the thinking voice — the full ladder, kept only when on.
      * What the wire can actually say is resolved per house at send time
      * (effort.js). */
@@ -788,7 +823,7 @@ export function initSettings(ctx) {
     if (editingId) {
       /* update() treats null as "let the dial go" (store.js, M8). */
       const patch = { ...fields };
-      for (const key of ['temperature', 'topP', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill']) {
+      for (const key of ['temperature', 'topP', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
         if (patch[key] === undefined) patch[key] = null;
       }
       /* M22-A/D: the refusal memories stand until the model field

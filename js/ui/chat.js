@@ -65,6 +65,7 @@ import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
 import { voiceOf, askAgain } from '../assemble/voice.js'; /* M327: the two names */
+import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan, pageOnly } from './headergate.js'; /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
@@ -2956,6 +2957,7 @@ export function initChat(ctx) {
    * it was unticked) still hold the model's plans, drafts and checklists — and every one of them, sent back as
    * "the story so far", teaches the model that a page is where it drafts. The saved page is never touched; what
    * rides the wire is its page part alone. */
+  db.settings.get('activeConnectionId').then((id) => noteTellerConnection(id)).catch(() => {}); /* M328: before any turn is sent, the house's choice is the storyteller's */
   let cutOldPages = true;
   db.settings.get('cutBeforeHeader').then((v) => { cutOldPages = v !== false; }).catch(() => {});
   const sentPage = (text, role) => (role === 'assistant' && cutOldPages ? pageOnly(text) : text);
@@ -3289,6 +3291,7 @@ export function initChat(ctx) {
       if (!story) return;
 
       let connection = await resolveConnection(story);
+      noteTellerConnection(connection && connection.id); /* M328: the workers are told whose prefill is the story's */
       /* M289: the provider's word on its room, waited for a moment on the first page */
       if (connection) connection = await learnContextWithin(connection, 1500);
       if (!connection) {
@@ -3514,7 +3517,9 @@ export function initChat(ctx) {
       const turnVoice = voiceOf(await gatherSettings()); /* M327 */
       /* M8.5: the thinking voice for this turn. */
       const reasoning = effectiveReasoning(connection, story);
-      const provider = createProvider({ ...connection, reasoning });
+      /* M328: an out-of-character answer is not a page of the story — the story's prefill (a header's first words, a
+       * thinking seed in the teller's voice) stays home for it */
+      const provider = createProvider({ ...connection, reasoning, ...(ooc ? { prefill: '' } : {}) });
       const showThinking = (await db.settings.get('showThinking')) !== false;
       /* M319: THE THREE SWITCHES THAT STOP THE THINKING FOR EVERY MODEL AT ONCE SAY SO, WHEN THEY DO. The writer:
        * "all my models — DeepSeek, Kimi, everything — can't think", at low, medium, high, xhigh, max. The

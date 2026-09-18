@@ -276,6 +276,105 @@ export function prefillProfile(conn) {
 
 const THINK_SPAN = /^\s*<think>([\s\S]*?)<\/think>\s*/;
 
+/* M328: THE THINKING PREFILL — the writer's own SillyTavern extension (Prefill Control 1.5.1), brought into the house.
+ *
+ * A reasoning model writes on two channels: the reply, and the scratchpad it thinks in. A prefill that opens with
+ * <think> is a SEED FOR THE SCRATCHPAD: what follows the tag (to </think>, or to the end when the tag is left
+ * open) is sent in the provider's reasoning field with the reply left empty, flagged as unfinished — and the
+ * model CONTINUES THE THOUGHT in the writer's words instead of starting one of its own:
+ *
+ *   { "role": "assistant", "content": "", "reasoning_content": "I should continue the story.", "partial": true }
+ *
+ * Anything after </think> is an ordinary started reply and rides in content as before. The house knew only a
+ * CLOSED <think>…</think> span, and only on an address it had no other way into; on Moonshot and DeepSeek the
+ * tag itself was sent as the first words of the page.
+ *
+ * What is NOT brought over is the extension's merge guard, its generation types and its tools/JSON-schema
+ * guards: they exist for SillyTavern's server, which rewrites a finished prompt. This house sends what it
+ * assembles; the started message is always the last one on the wire. */
+export const SEED_OPEN = '<think>';
+export const SEED_CLOSE = '</think>';
+const SEED_SPAN = /^\s*<think>([\s\S]*?)(?:<\/think>|$)/;
+/* { seed, content }: the scratchpad's first words, and the reply's. A trailing space is never sent (some houses refuse it). */
+export function splitPrefill(text) {
+  const raw = String(text == null ? '' : text).replace(/\s+$/, '');
+  const m = raw.match(SEED_SPAN);
+  if (!m) return { seed: '', content: raw };
+  return { seed: m[1].trim(), content: raw.slice(m[0].length).replace(/^\s+/, '') };
+}
+
+/* keys that are part of the message itself: a flag named "content" would send content:true and destroy the prefill with it */
+export const RESERVED_FIELDS = Object.freeze(['role', 'content', 'name', 'tool_calls', 'tool_call_id', 'refusal', '__proto__', 'constructor', 'prototype']);
+/* a field name typed by hand: trimmed (" partial " is a key no provider reads), "none" for no field, and refused when unusable */
+export function fieldName(raw) {
+  const name = String(raw == null ? '' : raw).trim();
+  if (!name) return { name: '', auto: true, valid: true, error: '' };
+  if (/^none$/i.test(name)) return { name: '', auto: false, valid: true, error: '' };
+  if (RESERVED_FIELDS.includes(name)) return { name, auto: false, valid: false, error: '“' + name + '” is part of the message itself' };
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return { name, auto: false, valid: false, error: '“' + name + '” is not a field name' };
+  return { name, auto: false, valid: true, error: '' };
+}
+/* the two fields for this connection: the provider's own (the extension's mapping table), unless the writer typed others */
+export function prefillFields(conn) {
+  const c = conn || {};
+  const profile = prefillProfile(c);
+  const url = String(c.baseUrl || '').toLowerCase();
+  const model = String(c.model || '').toLowerCase();
+  let flag = PREFILL_PROFILES[profile].flagField;
+  let reasoning = profile === 'anthropic' ? '' : 'reasoning_content';
+  if (profile === 'generic' && url.includes('openrouter')) {
+    /* OpenRouter hands a Moonshot model Moonshot's own fields; everything else reads its reasoning in "reasoning" */
+    if (/^moonshotai\//.test(model)) { flag = 'partial'; reasoning = 'reasoning_content'; } else { flag = ''; reasoning = 'reasoning'; }
+  }
+  if (profile === 'anthropic') return { flag: '', reasoning: '', error: '' };
+  const f = fieldName(c.prefillFlagField); const r = fieldName(c.prefillReasoningField);
+  if (!f.valid) return { flag, reasoning, error: 'The continuation flag: ' + f.error + '.' };
+  if (!r.valid) return { flag, reasoning, error: 'The thinking field: ' + r.error + '.' };
+  if (!f.auto) flag = f.name;
+  if (!r.auto) reasoning = r.name;
+  if (flag && flag === reasoning) return { flag, reasoning, error: 'The continuation flag and the thinking field are both “' + flag + '” — the flag would overwrite the seed.' };
+  return { flag, reasoning, error: '' };
+}
+/* what WOULD be sent for this connection, decided in one place: the turn, the card, the form and "Test it" all ask here */
+export function prefillPlan(conn) {
+  const text = String(conn && conn.prefill != null ? conn.prefill : '');
+  if (!text.trim()) return { send: false, why: '' };
+  const profile = prefillProfile(conn);
+  const { seed, content } = splitPrefill(text);
+  const fields = prefillFields(conn);
+  const effort = conn && conn.reasoning && typeof conn.reasoning.effort === 'string' ? conn.reasoning.effort : '';
+  const thinkingRefused = reasoningIsDown(conn, reasonStyle(conn));
+  if (fields.error) return { send: false, why: fields.error + ' Nothing is sent until it is put right.' };
+  if (profile === 'anthropic') {
+    if (!content) return { send: false, why: 'Claude takes no thinking seed — there is no field for one — and nothing follows the seed, so nothing is sent.' };
+    if (effort && effort !== 'off' && !thinkingRefused) return { send: false, why: 'The reply was not started for it: on this address a started reply makes the model skip its thinking, and thinking is set to ' + effort + '. Set thinking to Off to use the prefill.' };
+    return { send: true, seed: '', content, flag: '', reasoning: '', dropped: seed ? 'Claude takes no thinking seed; only the words after it were sent.' : '' };
+  }
+  /* a seed needs a field to ride in and a thinking channel that is not refused */
+  const seedRides = Boolean(seed) && Boolean(fields.reasoning) && !thinkingRefused;
+  const dropped = seed && !seedRides ? (thinkingRefused ? 'This connection once refused its thinking settings, so the thinking seed stayed home.' : 'No thinking field is set, so the thinking seed stayed home.') : '';
+  if (!seedRides && !content) return { send: false, why: dropped || '' };
+  /* M318, narrowed: only a started REPLY switches DeepSeek's thinking off — a seed is the thinking */
+  if (profile === 'deepseek' && content && !seedRides && effort && effort !== 'off' && !thinkingRefused) {
+    return { send: false, why: 'The reply was not started for it: on this address a started reply makes the model skip its thinking, and thinking is set to ' + effort + '. Set thinking to Off to use the prefill — or open it with <think> to seed the thinking instead.' };
+  }
+  if (!fields.flag && !seedRides) return { send: false, why: 'This address has no known way to start the reply for it — the prefill stayed home. (Open it with <think> and it rides as a thinking seed.)' };
+  return { send: true, seed: seedRides ? seed : '', content, flag: fields.flag, reasoning: seedRides ? fields.reasoning : '', dropped,
+    /* the channel must be open for a seed to mean anything: "seeding a channel the request has switched off is the one failure that looks like success" */
+    keepThinkingOpen: seedRides && (!conn || conn.prefillKeepThinking !== false) };
+}
+/* …and in words, for the card, the form and the turn's receipt */
+export function describePrefill(conn) {
+  const plan = prefillPlan(conn);
+  if (!String(conn && conn.prefill != null ? conn.prefill : '').trim()) return '';
+  if (prefillIsDown(conn)) return 'NOT sent — this connection once refused a started reply.';
+  if (!plan.send) return 'NOT sent — ' + (plan.why || 'nothing to send.');
+  const parts = [];
+  if (plan.seed) parts.push('a thinking seed in “' + plan.reasoning + '” (' + plan.seed.length + ' characters) — the model continues the thought');
+  if (plan.content) parts.push('the reply started with “' + (plan.content.length > 40 ? plan.content.slice(0, 40) + '…' : plan.content) + '”');
+  return 'Sent as ' + parts.join(', and ') + (plan.flag ? ', flagged “' + plan.flag + '”' : ', no flag') + '.' + (plan.dropped ? ' ' + plan.dropped : '');
+}
+
 /* M307: THE WORDS THE REPLY WAS STARTED WITH ARE PART OF THE REPLY. Every house
  * that takes a prefill answers with what comes AFTER it (Moonshot's own docs:
  * "prepend that prefix when displaying the final result") — and nothing here
@@ -293,13 +392,21 @@ export function prefillSilencesThinking(conn) {
   if (!effort || effort === 'off') return false;
   if (reasoningIsDown(conn, reasonStyle(conn))) return false; /* thinking is not being sent anyway */
   const profile = prefillProfile(conn);
-  return profile === 'deepseek' || profile === 'anthropic';
+  if (profile !== 'deepseek' && profile !== 'anthropic') return false;
+  /* M328: a thinking SEED does not silence the thinking — it is the thinking. Only a started reply does. */
+  const plan = prefillPlan(conn);
+  return !plan.send && /skip its thinking/.test(plan.why || '');
 }
 
 export function prefillLead(conn) {
   const text = String(conn && conn.prefill != null ? conn.prefill : '').replace(/\s+$/, '');
   if (!text.trim()) return '';
-  return text.replace(THINK_SPAN, '');
+  return splitPrefill(text).content; /* M328: whatever follows the seed — nothing at all for a pure thinking prefill */
+}
+/* M328: …and the words the THOUGHT was started with are part of the thought (the same law, the other channel) */
+export function thinkingLead(conn) {
+  const plan = prefillPlan(conn);
+  return plan.send && plan.seed ? plan.seed : '';
 }
 /* the space the writer ended his prefill with. The wire trims it (some houses
  * refuse a trailing space), and a model usually begins its continuation with
@@ -361,49 +468,16 @@ export function applyPrefill(messages, conn) {
     };
   }
   if (!list.length) return { messages: list, applied: false };
-  const profile = prefillProfile(conn);
-  /* M318: A STARTED REPLY SWITCHES THE THINKING OFF — so when thinking is ON, the thinking is what is sent.
-   * DeepSeek's docs make a prefix's reasoning an INPUT ("the input for the CoT in the last assistant
-   * message"): the model continues the writer's words at once and thinks nothing — people use exactly
-   * that to skip its reasoning. Claude refuses a prefill while extended thinking is on. M307 made the
-   * prefill really reach DeepSeek (before it, the ordinary address refused it and it was switched
-   * off) — and the writer's storyteller "suddenly stopped thinking at low, medium, high, xhigh, max",
-   * with nothing on the screen to say the little prefill box had done it. The thinking dial decides:
-   * any level but Off, and the prefill stays home with a word said; Off, and the prefill rides. */
-  if (prefillSilencesThinking(conn)) {
-    return { messages: list, applied: false, note: 'The reply was not started for it: on this address a started reply makes the model skip its thinking, and thinking is set to ' + conn.reasoning.effort + '. Set thinking to Off to use the prefill.' };
-  }
-  const trimmed = text.replace(/\s+$/, ''); // a trailing space is refused by some houses
-  if (profile === 'anthropic') {
-    list.push({ role: 'assistant', content: trimmed });
-    return { messages: list, applied: true };
-  }
-  const flag = PREFILL_PROFILES[profile].flagField;
-  if (flag) {
-    const msg = { role: 'assistant', content: trimmed };
-    msg[flag] = true;
-    list.push(msg);
-    return { messages: list, applied: true };
-  }
-  /* generic: the prefill rides as reasoning_content only when it already
-   * carries reasoning; otherwise it stays home, with a kind note. */
-  const think = trimmed.match(THINK_SPAN);
-  if (think) {
-    const msg = { role: 'assistant', content: trimmed.slice(think[0].length) };
-    msg.reasoning_content = think[1];
-    list.push(msg);
-    return { messages: list, applied: true };
-  }
-  return {
-    messages: list,
-    applied: false,
-    note: 'This address has no known way to start the reply for it — the prefill stayed home. (A <think>…</think> prefill rides as reasoning.)',
-  };
+  /* M328: one decision, made in prefillPlan (the card, the form and "Test it" read the same one) */
+  const plan = prefillPlan(conn);
+  if (!plan.send) return { messages: list, applied: false, ...(plan.why ? { note: plan.why } : {}) };
+  const msg = { role: 'assistant', content: plan.content };
+  if (plan.seed) msg[plan.reasoning] = plan.seed;
+  if (plan.flag) msg[plan.flag] = true;
+  list.push(msg);
+  return { messages: list, applied: true, seed: plan.seed, content: plan.content, keepThinkingOpen: Boolean(plan.keepThinkingOpen), ...(plan.dropped ? { note: plan.dropped } : {}) };
 }
 
-/* M37: real OpenAI never takes a `thinking` block; every other openai-shaped
- * house either honors it or ignores it (a 400 that names it marks the
- * connection down and the turn is retried without, as before). */
 export function hostIsOpenAI(baseUrl) {
   return /(^|\/\/)api\.openai\.com(\/|$)/i.test(String(baseUrl || ''));
 }
