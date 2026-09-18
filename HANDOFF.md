@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m314-001)
+# Cozy Tavern — handoff for the next session (state at m315-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M314). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M315). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 602 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 605 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 71 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,10 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- A WORKER THAT THINKS HAS ROOM TO ANSWER (M315): thinking is counted inside max_tokens on most houses; a
+  worker's room is its ANSWER's. call.js floors the room at 16,000 when the connection is set to think,
+  and asks again once when an answer comes back empty with thinking (a model that thinks by default).
+  A reader that treats an empty answer as "went quiet" must say so where the writer can read it.
 - THE LIGHT'S REPAIR NEVER READS WHILE THE STORYTELLER IS AT WORK (M314): a queued job runs later than the
   moment it was asked for — re-check `busy`/`replaying` INSIDE any queued reader. A slow save is a test:
   switch the checkpoint key-reuse off (state.js BUILT_FROM) and run the walk to see what a slow phone sees.

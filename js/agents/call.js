@@ -85,6 +85,14 @@ export function workerConnection(connection, { maxTokens, effort, temperature } 
    * stands, and a connection that says nothing sends nothing. */
   if (typeof effort === 'string' && effort) c.reasoning = { ...(c.reasoning || {}), effort };
   else if (!c.reasoning || typeof c.reasoning.effort !== 'string') delete c.reasoning;
+  /* M315: A WORKER TOLD TO THINK NEEDS ROOM TO THINK AND ANSWER — ON EVERY HOUSE, NOT ONLY KIMI. Since M233 a
+   * worker thinks when the connection it rides says so ("thinking is the writer's to decide"), but its
+   * room stayed the few hundred tokens of an answer — and on DeepSeek, Z.ai, Qwen, OpenRouter and the
+   * rest, thinking is counted inside that same room. The keeper asks for 1,600: a connection set to
+   * think spends them all thinking and answers with nothing, the keeper reads nothing as "the worker
+   * went quiet", and the light says "could not fold a gap in the record yet" after every page, for
+   * ever, on a connection that tests perfectly. The same floor as M303's, for the same reason. */
+  if (c.reasoning && typeof c.reasoning.effort === 'string' && c.reasoning.effort !== 'off') c.maxTokens = Math.max(c.maxTokens, ALWAYS_THINKS_FLOOR);
   return c;
 }
 
@@ -95,12 +103,23 @@ export async function callWorker(connection, { system, user, messages, maxTokens
   const list = Array.isArray(messages) && messages.length
     ? messages
     : [{ role: 'user', content: String(user || '') }];
-  const result = await provider.streamChat({
+  const ask = (p) => p.streamChat({
     system: String(system || ''),
     messages: list,
     signal,
     onToken() { /* a worker's words are read whole, never streamed to a page */ },
   });
+  let result = await ask(provider);
+  /* M315: …AND A HOUSE THAT THINKS WITHOUT BEING ASKED. A connection that says nothing about thinking sends
+   * nothing (M232/M233) — and some models then think by default. The sign is unmistakable: the answer
+   * is EMPTY while thinking came back, or the reply was cut for length with nothing in it. Asked again,
+   * once, with room to finish thinking and answer; the second answer stands whatever it is. */
+  const said = typeof result.text === 'string' ? result.text.replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').trim() : '';
+  const thoughtItAway = !said && ((typeof result.thinking === 'string' && result.thinking.trim()) || String(result.finishReason || '').toLowerCase() === 'length');
+  if (thoughtItAway && conn.maxTokens < ALWAYS_THINKS_FLOOR && !(signal && signal.aborted)) {
+    const roomier = await ask(createProvider({ ...conn, maxTokens: ALWAYS_THINKS_FLOOR }));
+    result = { ...roomier, notes: [...(Array.isArray(result.notes) ? result.notes : []), ...(Array.isArray(roomier.notes) ? roomier.notes : []), 'the first answer was all thinking and no words — asked again with room to answer'] };
+  }
   return {
     text: typeof result.text === 'string' ? result.text : '',
     thinking: typeof result.thinking === 'string' ? result.thinking : '',

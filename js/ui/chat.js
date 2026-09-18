@@ -63,7 +63,7 @@ import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWin
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
-import { wholeRecord } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon */
+import { wholeRecord, keeperTrouble } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -1981,7 +1981,7 @@ export function initChat(ctx) {
         else gapTries.set(storyId, tries + 1);
         return {
           silent: false,
-          detail: !still ? 'folded a gap in the record' : moved ? 'folded part of a gap in the record — the rest follows' : 'could not fold a gap in the record yet — it tries again later',
+          detail: !still ? 'folded a gap in the record' : moved ? 'folded part of a gap in the record — the rest follows' : 'could not fold a gap in the record yet' + (keeperTrouble() ? ' (' + keeperTrouble() + ')' : '') + ' — it tries again later', /* M315: the reason, said */
           unfinished: still,
         };
       } });

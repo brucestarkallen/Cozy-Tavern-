@@ -7206,3 +7206,31 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   a holed bank gives an empty journal and a whole ledger. M43-2's text pin follows the helper the
   version row is now written through.
 - version.js -> m314-001.
+
+# M315 — the light stayed yellow after every page: "the keeper… could not fold a gap in the record yet" on a connection that tests fine
+- THE WRITER: "It's still yellow on the next scene and pages… my connection is fine, I've already tested it. wtf is this."
+- ROOT CAUSE, read in the code (his phone's data is not visible from here; this is the path that gives exactly his
+  note on a healthy connection). Since M233 a worker THINKS when the connection it rides says so, and since
+  M232 a connection that says nothing sends nothing — so the model's own default applies, which for many
+  models is thinking ON. But a worker's room stayed the size of its ANSWER (the keeper: 1,600 tokens), and
+  on DeepSeek, Z.ai, Qwen, OpenRouter and the rest thinking is counted inside that same room. The model
+  spends the room thinking and returns NO words; memory.js read that as "the worker went quiet — these
+  pages wait for next time" and broke off — after every page and every retry, for ever, with a note that
+  named none of its four possible endings. M303 had given Kimi K3 this floor and no other house. The
+  comment on the keeper's room still said "thinking is off on the wire (M28)" — untrue since M233.
+- CHANGE (agents/call.js — every worker, not only the keeper):
+  · a connection SET to think gives its worker room to think and answer from the first ask (16,000, the
+    floor M303 took from Moonshot's own docs; a ceiling on a reply, never a cost).
+  · a model that thinks WITHOUT being asked is recognised by its answer — empty, with thinking returned or the
+    reply cut for length — and asked again ONCE with that room; the second answer stands, and the call's
+    notes say it happened. A connection that answers is never given more than it asked for.
+  · memory.js keeperTrouble(): when a run folds nothing it says which ending it was (all thinking and no
+    line / nothing usable / the pages or the record moved / its turn ran out), and the light's note
+    carries it.
+- TESTS: tests/harness/m315.mjs through the real callWorker and the real keeper against a house that thinks
+  inside the reply's room: asked twice (1,600 then 16,000) and the line comes; a connection set to High asks
+  once at 16,000 with his level sent; thinking Off keeps 1,600; THE YELLOW LIGHT reproduced — sixteen
+  pages, a gap, and the keeper folds it from the oldest uncovered page (it folded nothing, for ever); a
+  model that never answers leaves the reason said. MUTATION-CHECKED: both fixes removed → all three fail.
+- NOT VERIFIED: that this is the ending his keeper hit — after the update the note itself says which.
+- version.js -> m315-001.

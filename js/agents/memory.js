@@ -47,7 +47,11 @@ import { wholePage, roomChars } from '../engine/pagecut.js';
 import { renderCanon } from '../engine/canon.js'; /* M268: the brief and the locks for the checker */ /* M259: every page of a batch, read to its end; M265: the room */
 
 const KEY_PREFIX = 'memory:';
-const MAX_TOKENS = 1600; /* one dense line, or one merged line; thinking is off on the wire (M28) */
+const MAX_TOKENS = 1600; /* one dense line, or one merged line — the ANSWER's room; a connection that thinks is given room for that beside it (agents/call.js, M315) */
+/* M315: WHY A RUN FOLDED NOTHING — said, not guessed. The light's note read "could not fold a gap in the record
+ * yet" for four different endings and named none of them. */
+let lastKeeperTrouble = '';
+export function keeperTrouble() { return lastKeeperTrouble; }
 
 /* The laws of the ledger. */
 export const DEFAULT_WINDOW = 30;      /* pages kept word for word */
@@ -1207,6 +1211,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
   let changed = false;
 
   /* 1. the lines that are due, at the catch-up pace */
+  lastKeeperTrouble = '';
   for (let n = 0; n < BATCHES_PER_RUN; n += 1) {
     const range = dueRange(history.length, window, mem.nodes, batch);
     if (!range) break;
@@ -1215,11 +1220,11 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * calls on a slow model pass sixty seconds easily, so the signal aborted
      * mid-run and the rebuild returned nothing at all: the writer saw it stop
      * dead at batch 3 of 16 and read "nothing to rebuild". */
-    if (typeof renew === 'function' && !renew()) break;
+    if (typeof renew === 'function' && !renew()) { lastKeeperTrouble = 'its turn was over before it could ask'; break; }
     const pages = history.slice(range[0], range[1]);
     const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal);
     let text = parseMemoryAnswer(raw);
-    if (!text) break; /* the worker went quiet — these pages wait for next time */
+    if (!text) { lastKeeperTrouble = lastKeeperWasTruncated ? 'the keeper’s model spent its whole answer on thinking and wrote no line' : 'the keeper’s model answered with nothing it could use'; break; } /* the worker went quiet — these pages wait for next time */
     /* M242: A LINE THAT OVERRAN IS NOT A LINE. It was stored cut — five of the
      * writer's sixteen ended in an ellipsis with their tails gone, and the
      * only way to know was to read each one and count. Asked again, once,
@@ -1287,7 +1292,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const stillDue = nowHistory.length >= range[1]
       && pages.every((pg, i) => nowHistory[range[0] + i] && nowHistory[range[0] + i].id === pg.id && String(nowHistory[range[0] + i].text || '') === String(pg.text || ''))
       && !now.nodes.some((n) => n && Array.isArray(n.span) && n.span[0] <= range[1] - 1 && range[0] <= n.span[1]);
-    if (!stillDue) break;
+    if (!stillDue) { lastKeeperTrouble = 'the pages or the record moved while it was reading'; break; }
     mem = now;
     mem.window = window;
     mem.nodes.push(node);
