@@ -78,10 +78,12 @@ test('M21-B: switched off, the frame stands alone; a cleared line stays cleared'
 
 test('M21-B: the echo repeats the whole frame just before the note', () => {
   const r = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words', noteText: 'the note', frameEcho: true } });
-  const echoAt = r.messages.findIndex((m) => m.content.includes('frame words') && m.content.includes(FRAME_PURPOSE));
-  const noteAt = r.messages.findIndex((m) => m.content === 'the note');
-  assert(echoAt !== -1 && noteAt !== -1, 'both ride the wire');
-  eq(noteAt - echoAt, 1, 'the mirror sits immediately before the note at the end');
+  /* M321: the wrapping is one closing message now (the storyteller's own thinking spent a turn sorting the old stack of them); what is held is unchanged — the order */ 
+  const closing = r.messages[r.messages.length - 1].content;
+  const echoAt = closing.indexOf('frame words');
+  const noteAt = closing.lastIndexOf('the note');
+  assert(echoAt !== -1 && closing.includes(FRAME_PURPOSE) && noteAt !== -1, 'both ride the wire');
+  assert(echoAt < noteAt && closing.endsWith('the note'), 'the mirror sits immediately before the note, which is still the last word');
   const echoRow = r.receipt.slots.find((s) => s.name === 'The frame, said again');
   assert(echoRow && echoRow.tokens > 0, 'the receipt names the echo');
   const noteRowIdx = r.receipt.slots.findIndex((s) => s.name === 'The note at the end');

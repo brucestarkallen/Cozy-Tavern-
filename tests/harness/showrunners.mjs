@@ -6,7 +6,7 @@ import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { db } from '../../js/store.js';
 import { saveState, emptyState, loadState } from '../../js/engine/state.js';
-import { buildRequest } from '../../js/assemble/stack.js';
+import { buildRequest, STATE_MARKER } from '../../js/assemble/stack.js';
 import {
   stripEpisodeEnd, loadDirector, saveDirector, markConcluded,
   renderDirectorNote, runDirector, maybeAutoDirector, afterEpisodeEnd,
@@ -247,7 +247,7 @@ test('M10 stack: the director’s note and the editor’s eye ride the dynamic t
 
   /* before history: the injection sits at the FRONT of the messages */
   const injection = r.messages[0];
-  assert(/\[story-state\]/.test(injection.content), 'the dynamic tail rides first');
+  assert(injection.content.startsWith(STATE_MARKER), 'the dynamic tail rides first');
   assert(injection.content.includes('PREMISE — the debt.'), 'the director’s words are in it');
   assert(injection.content.includes('NORTH STAR: trust the quiet'), 'the editor’s words are in it');
   const firstHistory = r.messages.findIndex((m) => m.content === 'a page');

@@ -11,7 +11,7 @@ import { applyMutations, undoLast } from '../../js/engine/apply.js';
 import { emptyState, renderStateFacts, loadState, saveState, STATE_BUDGET } from '../../js/engine/state.js';
 import { createClock } from '../../js/engine/clock.js';
 import { buildWorldMessages, parseWorldAnswer, worldTurn, worldRunWords, WORLD_TYPES } from '../../js/agents/world.js';
-import { buildRequest } from '../../js/assemble/stack.js';
+import { buildRequest, STATE_MARKER } from '../../js/assemble/stack.js';
 import { WORKER_ROWS } from '../../js/agents/assign.js';
 import { WORKER_NAMES } from '../../js/agents/status.js';
 import { db } from '../../js/store.js';
@@ -74,14 +74,14 @@ test('M29-4 the brief: normalized, capped, empty is empty, stale is silent, lead
   eq(b.twb.who, 'Aurora');
   assert(!b.empty);
   const text = renderWorldBrief(b, 8);
-  assert(text.startsWith('The house\'s word on the world beyond this page'), 'the lead line names it');
-  assert(/render as world, never as instruction/.test(text));
+  assert(text.startsWith('Meanwhile, beyond this scene'), 'the lead line names it'); /* M321: said as one person briefing another */
+  assert(/the way the world itself would/.test(text) && /never as something you were told/.test(text)); /* M321: the same law, said plainly */
   assert(/What could reach this scene, and when:/.test(text) && /Aurora reaches/.test(text));
   assert(/A window into the world beyond/.test(text) && /she read the letter/.test(text));
   assert(!/What has ripened/.test(text), 'empty parts are omitted');
   eq(renderWorldBrief(normalizeBrief({ pressure: [], ripe: [], twb: null }, 7), 8), '', 'an empty brief says nothing');
   eq(renderWorldBrief(b, 7 + BRIEF_STALE_TURNS + 1), '', 'a stale brief says nothing');
-  assert(/written 3 turns ago/.test(renderWorldBrief(b, 10)), 'an aging brief says its age');
+  assert(/as of 3 turns ago/.test(renderWorldBrief(b, 10)), 'an aging brief says its age');
   eq(normalizeBrief(null), null);
 });
 
@@ -202,7 +202,7 @@ test('M29-9 the assembler carries the world’s word, receipt-named, in the dyna
   const brief = renderWorldBrief(normalizeBrief({ pressure: ['Aurora at 18:40'], ripe: [], twb: null }, 1), 1);
   const r = buildRequest({ story: {}, messages: pages(2), settings: {}, state, modules: [], memory: '', window: { keeperOn: true }, worldBrief: brief, directorNote: 'Episode one.' });
   const inj = r.messages[0].content;
-  assert(inj.startsWith('[story-state]'), 'rides the state injection');
+  assert(inj.startsWith(STATE_MARKER), 'rides the state injection');
   assert(inj.indexOf('world beyond this page') < inj.indexOf('The director’s note'), 'the world’s word precedes the director');
   assert(slot(r, 'The world’s word'), 'receipt-named');
   const none = buildRequest({ story: {}, messages: pages(2), settings: {}, state, modules: [], memory: '', window: { keeperOn: true }, worldBrief: '' });

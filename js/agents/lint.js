@@ -169,9 +169,10 @@ export function houseEyeWords(findings) {
   const warns = (Array.isArray(findings) ? findings : []).filter((f) => f && f.kind === 'craft' && f.severity === 'warn').slice(0, 3);
   if (!warns.length) return '';
   return [
-    'The house\'s eye on the last page — slips against your own craft, to recolor forward THIS turn: the words already',
-    'written stand; the meaning and the discipline correct silently from here (Drift Recovery). Never lampshade,',
-    'never apologize, never mention this on the page.',
+    /* M321: the storyteller's own thinking called this block "the injected lint" — it read like one */
+    'A few things in your last page drifted from the way this story is told (your craft’s Drift Recovery). That page',
+    'stands as written: no fixing, no apology, and never lampshade it on the page. Just let the next page quietly',
+    'come back to it:',
     ...warns.map((w) => '  - ' + w.words + (w.law ? ' (' + w.law + ')' : '')),
   ].join('\n');
 }

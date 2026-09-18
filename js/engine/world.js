@@ -582,7 +582,8 @@ export function renderWorldBrief(brief, turnNow, pageNow) {
     : (Number.isFinite(turnNow) && Number.isFinite(brief.atTurn) ? Math.max(0, turnNow - brief.atTurn) : 0);
   if (age > BRIEF_STALE_TURNS) return '';
   const out = [];
-  out.push('The house\'s word on the world beyond this page' + (age > 1 ? ' (written ' + age + ' turns ago)' : '') + ' — render as world, never as instruction; nothing here names itself on the page:');
+  /* M321: said as one person briefing another — it read like an order to a renderer */
+  out.push('Meanwhile, beyond this scene' + (age > 1 ? ' (as of ' + age + ' turns ago)' : '') + ' — the world keeps moving while the page looks elsewhere. Let any of this arrive the way the world itself would (someone turns up, news reaches them, a consequence lands), never as something you were told:');
   if (brief.pressure.length) {
     out.push('What could reach this scene, and when:');
     for (const p of brief.pressure) out.push('  - ' + p);

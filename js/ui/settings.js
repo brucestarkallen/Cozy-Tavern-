@@ -333,6 +333,15 @@ export function initSettings(ctx) {
       const row = document.createElement('div');
       row.className = 'row';
 
+      /* M321: a card that is NOT the one telling the stories says so where the eye lands */
+      let notInUse = null;
+      if (conn.id !== activeId) {
+        const inUse = all.find((c) => c.id === activeId);
+        const warn = document.createElement('p');
+        warn.className = 'quiet connection-not-in-use';
+        warn.textContent = 'NOT in use — stories are being told with “' + ((inUse && inUse.label) || 'another connection') + '”. “Use this one” switches to this.';
+        notInUse = warn; /* placed under the card's top line, below */
+      }
       const useBtn = document.createElement('button');
       useBtn.type = 'button';
       useBtn.className = 'text-btn';
@@ -400,7 +409,7 @@ export function initSettings(ctx) {
       });
 
       row.append(useBtn, testBtn, editBtn, copyBtn, removeBtn);
-      li.append(top, result, row);
+      li.append(top, ...(notInUse ? [notInUse] : []), result, row);
       els.connList.appendChild(li);
     }
 
@@ -408,7 +417,24 @@ export function initSettings(ctx) {
     renderWorkers();
   }
   if (els.connPick) {
-    els.connPick.addEventListener('change', () => { shownConnId = els.connPick.value || null; renderConnections(); });
+    /* M321: PICKING IT IS USING IT. M301 made this picker a viewer — "looking at a connection does not start using
+     * it" — with the choosing left to a small "Use this one" on the card. The writer picked his model
+     * here, as every picker he has ever used works, wrote on for a day with the OLD connection still
+     * telling the story, and took the missing thinking for a fault of the house. The picker chooses.
+     * (A card shown by the house itself — a fresh copy, a new connection — is not put in use by that;
+     * it says so plainly and keeps its "Use this one".) */
+    els.connPick.addEventListener('change', async () => {
+      shownConnId = els.connPick.value || null;
+      if (shownConnId) {
+        const was = await db.settings.get('activeConnectionId');
+        if (was !== shownConnId) {
+          await db.settings.set('activeConnectionId', shownConnId);
+          const picked = (await db.connections.list()).find((c) => c.id === shownConnId);
+          toast('Stories are now told with “' + ((picked && picked.label) || 'this connection') + '”.');
+        }
+      }
+      renderConnections();
+    });
   }
 
   function fillFromPreset() {

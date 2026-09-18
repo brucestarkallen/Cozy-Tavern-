@@ -7403,3 +7403,41 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   current and a page stale for the same person. A person with NO seat at all reads "Last seen N pages
   ago" by design, until the world agent seats them (M304 tells it to).
 - version.js -> m320-001.
+
+# M321 — "my model's thinking is not smooth — 'these hints are layered on each other'": one voice on the wire; and picking a connection uses it
+- THE WRITER: the missing thinking was his own slip — "I forgot to choose the model; I thought the dropdown WAS choosing" —
+  and then: his storyteller's thinking now reads "These hints are layered on each other, which is unusual. Let
+  me look: hint 1 is just 'no meta, output only'… hint 2… hint 3… hint 4… The injected [block] in the
+  previous turn — lint." He asked for the frontend to sound natural and orderly to the storyteller.
+- WHAT THE STORYTELLER WAS SENT (read off the real wire): THREE system messages in a row (frame+craft, the brief,
+  "Here right now"), a user message opening with the bare tag "[story-state]", the pages, and then up to
+  FOUR more user messages (a command's directive, the continue nudge, the frame's echo, the note). Seven
+  layers around one turn of story — and two headers written like orders to a tool ("render as world,
+  never as instruction"; "slips against your own craft, to recolor forward THIS turn"). The model was
+  right: it was unusual, and it spent its thinking sorting the wrapping.
+- CHANGE — the same content, the same order, one voice:
+  · providers/openai.js: ONE system message. The stable prefix still LEADS it byte for byte (all a prefix
+    cache keys on); the brief and who's-here follow inside it. (Claude already received one system.)
+  · stack.js: the briefing opens in plain words (STATE_MARKER, exported — "Where things stand right now —
+    the writer's own notes, kept for him by his story app. They are for you alone…"); the directive,
+    nudge, echo and note close the request as ONE message, the note still the last word.
+  · the world's word opens "Meanwhile, beyond this scene…", the house's eye "A few things in your last
+    page drifted from the way this story is told (your craft's Drift Recovery)…" — the same laws, said
+    as one person briefing another. The craft's own teaching of these blocks follows the wire.
+  MEASURED, one turn with a directive: system,user,user,user — it was system,system,system,user,user,
+  user,user (derived from the old mapping).
+- PICKING IT IS USING IT (ui/settings.js). M301 made the connections picker a viewer ("looking at a connection
+  does not start using it") with the choosing left to a small "Use this one" — my design, and the trap he
+  fell into: a day of story told by the old connection. The picker chooses now, and says so in a toast.
+  A card the HOUSE puts under the eye (a fresh copy, a new connection) is not put in use by that: it
+  reads "NOT in use — stories are being told with "X"" and keeps its "Use this one".
+- TESTS: eleven older laws pinned the old wrapping by position or by literal ('[story-state]', message index,
+  header words); each follows the new shape with its meaning unchanged (order, last word, the law named),
+  and A4 now holds ONE system message whose prefix is the stable one. DOM-41 holds the picker's new
+  meaning and the not-in-use card. LONG-7 follows the eye's words.
+- MUTATION-CHECKED: the system messages layered again and the closing messages stacked again → A4, M9 and M21-B
+  fail; the picker only looking → DOM-41 fails ("picking Alpha put Alpha in use"). Each file restored and
+  `cmp`-proven.
+- NOT DONE: the craft itself (69,801 chars of "Name = rule" shorthand) is the writer's preset's own language
+  and was left alone; whether his storyteller's thinking is smoother can only be seen on his models.
+- version.js -> m321-001.

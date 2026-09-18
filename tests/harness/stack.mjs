@@ -38,7 +38,7 @@ test('A1: hidden pages never join the wire but still fire the nudge', () => {
   msgs.push({ role: 'user', text: 'continue', hidden: true, id: 'h1' });
   const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: true } });
   assert(!r.messages.some((m) => m.content === 'continue'), 'hidden page excluded from history');
-  assert(r.messages.some((m) => m.content === 'Go on.'), 'the nudge fires from the hidden page');
+  assert(r.messages.some((m) => /(^|\n\n)Go on\.(\n\n|$)/.test(m.content)), 'the nudge fires from the hidden page'); /* M321: inside the one closing message */
   assert(wireable(msgs).length === 6, 'wireable strips hidden');
 });
 
@@ -58,8 +58,10 @@ test('A4: cache breakpoint sits at the END of slot 2, slots 3-4 non-cached', () 
 
 test('M9: a house command rides just before the note, named on the receipt', () => {
   const r = buildRequest({ story: {}, messages: pages(3), settings: {}, state: {}, modules: [], memory: '', directive: 'Write a single beat only.', window: { keeperOn: true } });
-  const idx = r.messages.findIndex((m) => m.content === 'Write a single beat only.');
-  assert(idx === r.messages.length - 2, 'directive sits before the note');
+  /* M321: the wrapping is one closing message now (the storyteller's own thinking spent a turn sorting the old stack of them); what is held is unchanged — the order */ 
+  const closing = r.messages[r.messages.length - 1].content;
+  const idx = closing.indexOf('Write a single beat only.');
+  assert(idx === 0 && closing.length > 'Write a single beat only.'.length, 'directive sits before the note');
   assert(slot(r, 'The house heard'), 'receipt names the command');
 });
 

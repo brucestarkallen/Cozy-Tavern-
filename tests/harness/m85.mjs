@@ -2,6 +2,7 @@
  * always on, the command table, the voices, the marks a page may carry, the
  * window's format, readable media, and the laws the old reasoning pass
  * alone had carried. */
+import { STATE_MARKER } from '../../js/assemble/stack.js'; /* M321 */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { CRAFT_TEXT, looksLikeImportedCraft } from '../../js/assemble/craft.js';
@@ -268,7 +269,7 @@ test('M88-1 the house’s eye: the craft’s mechanical laws checked in code —
   const ooc = lintPage({ mc: 'Jovan', userText: '#question why?', assistantText: 'Because she saw him leave.', ooc: true });
   eq(ooc.findings.length, 0, 'an OOC answer is not a page');
   const eye = houseEyeWords(ghost.findings);
-  assert(/recolor forward THIS turn/.test(eye) && /Ghost Dialogue/.test(eye) && /Never lampshade/.test(eye), 'the eye’s words carry the preset’s callout law');
+  assert(/quietly\s+come back/.test(eye) && /Drift Recovery/.test(eye) && /Ghost Dialogue/.test(eye) && /never lampshade/i.test(eye), 'the eye’s words carry the preset’s callout law'); /* M321: the same law, said plainly */
   eq(houseEyeWords(sound.findings), '', 'a clean page says nothing');
   eq(houseEyeWords([{ words: 'x', severity: 'note', kind: 'craft' }]), '', 'a note never nags');
 });
@@ -282,7 +283,7 @@ test('M88-2 the eye rides the storyteller’s next turn as its own receipt-named
   const withEye = buildRequest({ ...base, houseEye: 'The house\'s eye on the last page — slips: ghost dialogue.' });
   const slot = withEye.receipt.slots.find((s) => s.name === 'The house’s eye');
   assert(slot && slot.tokens > 0, 'the slot rides');
-  const injected = withEye.messages.find((m) => m.role === 'user' && /\[story-state\]/.test(m.content));
+  const injected = withEye.messages.find((m) => m.role === 'user' && String(m.content).startsWith(STATE_MARKER));
   assert(injected && /The house's eye on the last page/.test(injected.content), 'it rides the dynamic tail, never the cached prefix');
   assert(!withEye.systemBlocks.some((b) => /house's eye on the last page/.test(b.text)), 'not in the system blocks');
   const without = buildRequest({ ...base, houseEye: '' });

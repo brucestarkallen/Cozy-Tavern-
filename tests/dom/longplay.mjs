@@ -48,7 +48,7 @@ let scriptMinutes = 0;
 
 house.state.storyAnswer = (body) => {
   const msgs = Array.isArray(body.messages) ? body.messages : [];
-  const stateMsg = [...msgs].reverse().find((m) => m.role === 'user' && /\[story-state\]/.test(String(m.content)));
+  const stateMsg = [...msgs].reverse().find((m) => m.role === 'user' && String(m.content).startsWith('Where things stand right now'));
   const stateText = stateMsg ? String(stateMsg.content) : '';
   const tail = msgs.slice(-3).map((m) => String(m.content)).join('\n');
   const fromLedger = ledgerMinutes(stateText);
@@ -323,7 +323,7 @@ test('LONG-7 the house’s eye: the slipped page carries its findings, the next 
   const after = receipts.find((r) => r.turn === 22).slots.find((s) => s.name === 'The house’s eye');
   assert(!after, 'and not the turn after');
   const call = house.state.calls.filter((c) => !c.isWorker)[21];
-  assert(/Sure, whatever you say/.test(JSON.stringify(call.body)) && /recolor forward THIS turn/.test(JSON.stringify(call.body)), 'the storyteller read the slip and the law');
+  assert(/Sure, whatever you say/.test(JSON.stringify(call.body)) && /quietly[\s\\n]+come back to it/.test(JSON.stringify(call.body)) && /Drift Recovery/.test(JSON.stringify(call.body)), 'the storyteller read the slip and the law');
 });
 
 test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same reader — a fixable issue lands, a standing earned on the page is refused, the unfixable is reported, the workers’ line says so', async () => {

@@ -1,7 +1,7 @@
-# Cozy Tavern — handoff for the next session (state at m320-001)
+# Cozy Tavern — handoff for the next session (state at m321-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M320). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M321). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
@@ -20,6 +20,10 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- ONE VOICE ON THE WIRE (M321): one system message (stable prefix first), one briefing that opens in plain words
+  (stack.js STATE_MARKER — never a literal, never a bracket tag), one closing message with the note
+  last. A header sent to the storyteller is written as one person briefing another, and the craft's
+  teaching of a block must match the words that block really opens with. A picker CHOOSES (settings.js).
 - ONE PERSON, ONE NAME, IN EVERY BOOK (M320): never look a person up in ANY ledger book by exact key — pages
   by findPersonKey, seats by people.js seatForPerson (this person's seat and nobody else's). A seat is
   written under the name the person's page stands under. When two books describe one person and

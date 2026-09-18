@@ -2362,9 +2362,13 @@ test('DOM-41 the connections are one drop-down, A to Z, with one card under it; 
     pick.value = made[1].id;
     pick.dispatchEvent(new env.window.Event('change', { bubbles: true }));
     await until(() => q('#connection-list .connection-name') && q('#connection-list .connection-name').textContent === 'Alpha', 'Alpha’s card', 10000);
-    eq(await db.settings.get('activeConnectionId'), activeNow, 'looking at a connection does not start using it');
+    /* M321: PICKING IT IS USING IT. M301 held "looking at a connection does not start using it" — and the writer, who
+     * picked his model here as every picker works, told a day of story with the old one. */
+    await until(async () => (await db.settings.get('activeConnectionId')) === made[1].id, 'picking Alpha put Alpha in use', 10000);
+    await until(() => qa('#connection-list .connection-card .row button').some((b) => /^In use$/.test(b.textContent.trim())), 'the card says so', 10000);
     const buttons = qa('#connection-list .connection-card .row button').map((b) => b.textContent.trim());
-    eq(buttons.join(' | '), 'Use this one | Test | Change | Copy | Let go', 'the same five, named as they were');
+    eq(buttons.join(' | '), 'In use | Test | Change | Copy | Let go', 'the same five, named as they were');
+    assert(!q('#connection-list .connection-not-in-use'), 'and no warning on the one in use');
     /* every other picker of connections, the same order */
     const orderOf = (sel) => [...sel.options].filter((o) => o.value).map((o) => o.textContent);
     const want = byNameLabels(await db.connections.list());
@@ -2373,9 +2377,6 @@ test('DOM-41 the connections are one drop-down, A to Z, with one card under it; 
       assert(sel, 'a picker the room has');
       eq(orderOf(sel).join(' | '), want.join(' | '), 'in the same order: ' + (sel.id || sel.dataset.worker));
     }
-    /* Use this one → it is in use, and still the one shown */
-    click(qa('#connection-list .connection-card .row button').find((b) => /Use this one/.test(b.textContent)));
-    await until(async () => (await db.settings.get('activeConnectionId')) === made[1].id, 'Alpha in use', 10000);
     await until(() => /^✓ /.test(q('#connection-pick').selectedOptions[0].textContent) && q('#connection-pick').value === made[1].id, 'marked in the picker');
     /* Copy → the copy is the one shown, its form open */
     click(qa('#connection-list .connection-card .row button').find((b) => /^Copy$/.test(b.textContent.trim())));
@@ -2384,6 +2385,10 @@ test('DOM-41 the connections are one drop-down, A to Z, with one card under it; 
     made.push(copy);
     eq(q('#connection-pick').value, copy.id, 'the copy is the one under the eye');
     click(q('#btn-conn-cancel'));
+    /* M321: a card the HOUSE put under the eye is not put in use by that — and says so, with the way to switch */
+    eq(await db.settings.get('activeConnectionId'), made[1].id, 'a copy is not suddenly telling the stories');
+    await until(() => q('#connection-list .connection-not-in-use') && /NOT in use/.test(q('#connection-list .connection-not-in-use').textContent) && /Alpha/.test(q('#connection-list .connection-not-in-use').textContent), 'the card says it is not in use, and what is', 10000);
+    assert(qa('#connection-list .connection-card .row button').some((b) => /^Use this one$/.test(b.textContent.trim())), 'and offers to switch');
     /* Let go → the card goes back to the one in use */
     click(qa('#connection-list .connection-card .row button').find((b) => /Let go/.test(b.textContent)));
     await until(() => q('#connection-pick').value === made[1].id, 'back to the one in use', 10000);

@@ -260,12 +260,15 @@ export function createOpenAIProvider(connection) {
         .filter((b) => b && b.cache && typeof b.text === 'string' && b.text.length)
         .map((b) => b.text)
         .join('\n\n');
-      if (stable) wire.push({ role: 'system', content: stable });
-      for (const b of blocks) {
-        if (b && !b.cache && typeof b.text === 'string' && b.text.length) {
-          wire.push({ role: 'system', content: b.text });
-        }
-      }
+      /* M321: ONE SYSTEM MESSAGE, NOT A STACK OF THEM. The brief and "Here right now" rode as their own system
+       * messages after the prefix — three system messages in a row, and the storyteller's own thinking
+       * said so: "These hints are layered on each other, which is unusual. Let me look: hint 1… hint 2…
+       * hint 3…" — a turn's thinking spent sorting the house's wrapping instead of the scene. They follow
+       * the stable prefix inside the SAME message, in the same order: a provider's prefix cache keys on
+       * the leading bytes, which are unchanged (the frame and the craft still lead, byte for byte). */
+      const rest = blocks.filter((b) => b && !b.cache && typeof b.text === 'string' && b.text.length).map((b) => b.text);
+      const whole = [stable, ...rest].filter(Boolean).join('\n\n');
+      if (whole) wire.push({ role: 'system', content: whole });
     } else {
       const systemText = Array.isArray(system) ? system.join('\n\n') : system;
       if (systemText) wire.push({ role: 'system', content: systemText });

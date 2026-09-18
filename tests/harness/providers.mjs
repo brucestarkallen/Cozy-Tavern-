@@ -37,7 +37,7 @@ test('B9: openai-compatible surfaces finish_reason ("length" = cut short)', asyn
   eq(body.messages[0].role, 'system', 'leading system message');
 });
 
-test('A4: openai mapping keeps non-cached blocks as separate system messages', async () => {
+test('A4: openai mapping sends ONE system message, the stable prefix leading it and the scene’s blocks following in order (M321)', async () => {
   const { calls, restore } = withFetch(() => sseResponse('data: [DONE]\n\n'));
   const p = createProvider({ type: 'openai', baseUrl: 'https://x', apiKey: 'k', model: 'm' });
   await p.streamChat({
@@ -46,9 +46,12 @@ test('A4: openai mapping keeps non-cached blocks as separate system messages', a
   });
   restore();
   const body = JSON.parse(calls[0].opts.body);
-  eq(body.messages[0].content, 'frame\n\ncraft', 'stable prefix concatenated');
-  eq(body.messages[1].content, 'brief', 'slot 3 rides separately');
-  eq(body.messages[2].content, 'whos here', 'slot 4 rides separately');
+  /* M321: ONE system message — three in a row read to the storyteller as "hints layered on each other". The stable
+   * prefix still LEADS it byte for byte, which is all a provider's prefix cache keys on. */
+  eq(body.messages[0].content, 'frame\n\ncraft\n\nbrief\n\nwhos here', 'one system message');
+  assert(body.messages[0].content.startsWith('frame\n\ncraft'), 'the stable prefix leads it');
+  eq(body.messages.filter((m) => m.role === 'system').length, 1, 'and there is only one');
+  assert(body.messages[0].content.indexOf('brief') < body.messages[0].content.indexOf('whos here'), 'slots 3 and 4 follow, in order');
 });
 
 test('B9 + A4: anthropic surfaces stop_reason and caches only through slot 2', async () => {

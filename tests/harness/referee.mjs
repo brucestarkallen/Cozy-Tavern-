@@ -17,7 +17,7 @@ import {
 } from '../../js/agents/referee.js';
 import { applyMutations } from '../../js/engine/apply.js';
 import { emptyState, renderStateFacts } from '../../js/engine/state.js';
-import { buildRequest } from '../../js/assemble/stack.js';
+import { buildRequest, STATE_MARKER } from '../../js/assemble/stack.js';
 
 /* ---------- shared fakes ---------- */
 
@@ -389,7 +389,7 @@ test('M11 injection: the ruling rides the dynamic tail as the receipt-named "The
   const slot = (receipt.slots || []).find((s) => s.name === 'The house has ruled');
   assert(slot, 'the receipt names the slot');
   assert(slot.tokens > 0, 'the slot carries the ruling');
-  const tail = messages.find((msg) => typeof msg.content === 'string' && msg.content.includes('[story-state]'));
+  const tail = messages.find((msg) => typeof msg.content === 'string' && msg.content.startsWith(STATE_MARKER));
   assert(tail && tail.content.includes(directive), 'the ruling is in the dynamic tail');
   /* and when nothing was ruled, there is no slot at all */
   const quiet = buildRequest({

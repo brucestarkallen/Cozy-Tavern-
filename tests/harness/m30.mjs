@@ -3,7 +3,7 @@ import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { readFileSync } from 'node:fs';
 import { applyRules, tryRule, compileRule, loadRules, saveRules, currentRules, BUILTIN_RULES, REGEX_KEY } from '../../js/regex.js';
-import { buildRequest } from '../../js/assemble/stack.js';
+import { buildRequest, STATE_MARKER } from '../../js/assemble/stack.js';
 import { parsePreset, decompose } from '../../js/import/sillytavern.js';
 import { db } from '../../js/store.js';
 
@@ -81,7 +81,7 @@ test('M30-5 wire mode shapes only what the storyteller is sent', () => {
     story: {}, messages: pages, settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: true },
     pageFilter: (t, role) => (role === 'assistant' ? t.replace(/Jovan/g, 'J.') : t),
   });
-  const hist = r.messages.filter((m) => !/^\[story-state\]/.test(m.content));
+  const hist = r.messages.filter((m) => !String(m.content).startsWith(STATE_MARKER));
   assert(hist.some((m) => m.content === 'Liara watches J..'), 'the storyteller’s page is shaped on the wire');
   assert(hist.some((m) => m.content === 'Jovan sits.'), 'the writer’s page is not');
   eq(pages[1].text, 'Liara watches Jovan.', 'the stored page keeps its words');
