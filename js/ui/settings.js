@@ -19,7 +19,7 @@ import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '..
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
 import { learnContext } from '../providers/detect.js'; /* M289 */
 import { byName } from '../providers/order.js'; /* M301: every list of names the writer picks from, A to Z */
-import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor } from '../providers/effort.js';
+import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
@@ -62,6 +62,7 @@ export function initSettings(ctx) {
     modelHint: document.getElementById('conn-model-hint'),
     reasoningHint: document.getElementById('conn-reasoning-hint'),
     budgetHint: document.getElementById('conn-budget-hint'),
+    prefillHint: document.getElementById('conn-prefill-hint'),
     apiKey: document.getElementById('conn-apikey'),
     model: document.getElementById('conn-model'),
     searchRow: document.getElementById('conn-search-row'),
@@ -300,6 +301,13 @@ export function initSettings(ctx) {
         spoken.textContent = `thinking: ${effort} — ${said}`;
         top.appendChild(spoken);
       }
+      /* M318: a prefill that will not ride says so */
+      if (prefillSilencesThinking(conn)) {
+        const pf = document.createElement('span');
+        pf.className = 'connection-kind';
+        pf.textContent = 'prefill: not sent while thinking is on (it would switch the thinking off)';
+        top.appendChild(pf);
+      }
       /* M308: a thinking room that is set says whether it is sent */
       if (conn.reasoning && typeof conn.reasoning.budgetTokens === 'number' && conn.reasoning.budgetTokens > 0 && effort !== 'off') {
         const b = budgetFor(conn);
@@ -436,6 +444,14 @@ export function initSettings(ctx) {
   function refreshReasoningHint() {
     if (!els.reasoningHint) return;
     const p = presetById(els.preset.value);
+    /* M318: the prefill box says when it will NOT be used — a started reply makes these houses skip their thinking,
+     * so with thinking on, the thinking is what is sent */
+    if (els.prefillHint && els.prefill && els.connReasoning) {
+      const draft = { type: p.type, preset: els.preset.value, baseUrl: els.baseUrl.value.trim() || p.baseUrl || '', model: els.model.value.trim() || p.model || '', prefill: els.prefill.value, reasoning: { effort: els.connReasoning.value } };
+      const clash = prefillSilencesThinking(draft);
+      els.prefillHint.hidden = !clash;
+      els.prefillHint.textContent = clash ? 'Not used while thinking is on: on this address a started reply makes the model skip its thinking entirely, so with thinking at “' + els.connReasoning.value + '” the thinking is sent and these words stay home. Set thinking to Off to use them.' : '';
+    }
     const words = thinkingHint({ type: p.type, preset: els.preset.value, baseUrl: els.baseUrl.value.trim() || p.baseUrl || '', model: els.model.value.trim() || p.model || '' });
     els.reasoningHint.textContent = words;
     els.reasoningHint.hidden = !words;
@@ -618,6 +634,8 @@ export function initSettings(ctx) {
     refreshReasoningHint();
   });
   els.model.addEventListener('input', refreshReasoningHint);
+  if (els.prefill) els.prefill.addEventListener('input', refreshReasoningHint); /* M318 */
+  if (els.connReasoning) els.connReasoning.addEventListener('change', refreshReasoningHint);
 
   /* M22-D: "Test it" — the prefill probe. Sends a tiny exchange with the
    * prefill applied per this house's rules and reports plainly: took it,

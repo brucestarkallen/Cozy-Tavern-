@@ -7300,3 +7300,40 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - PROBE ERROR OF MINE: I expected 18 pages folded under a window of 4 — the slider has a fence (its minimum),
   so 12 was right and the light was green; the scenario now asks the house's own dueRange.
 - version.js -> m317-001.
+
+# M318 — "my model suddenly is not thinking at low, medium, high, xhigh, max": a prefill switches the thinking off
+- THE WRITER: "Why is my model suddenly not thinking — low, medium, high, xhigh, max! It suddenly thinks nothing."
+- ROOT CAUSE — mine, from M307. A started reply is answered WITHOUT thinking on DeepSeek: its docs make a
+  prefix's reasoning an INPUT ("the input for the CoT in the last assistant message"), and a published
+  paper uses exactly this beta feature "to bypass its reasoning process". Until M307 the house sent
+  DeepSeek's prefix to the ordinary address, which refused it, and switched the prefill off — so a
+  prefill in the box did nothing and the model thought. M307 sent it to the beta address, where it
+  WORKS: from that update on, a connection with anything in the prefill box had every turn continued
+  at once, with no thinking at any level — and nothing on the screen connected the little prefill box
+  to the missing thinking. (Claude refuses a prefill outright while extended thinking is on.)
+  A second way, found reading the retry loop: a no from the BETA address was read FIRST by the
+  reasoning-refusal handler — a beta 400 whose words named "thinking" was remembered as "this house
+  refuses thinking" and silenced the connection's thinking at every level until the model changed.
+- CHANGE.
+  · THE THINKING DIAL DECIDES (effort.js prefillSilencesThinking / applyPrefill): on DeepSeek and on Claude,
+    with thinking at any level but Off the thinking is sent and the prefill stays home, with a word
+    said on the turn; with thinking Off the prefill rides as before. A connection that says nothing
+    about thinking keeps its prefill (his one explicit word). Kimi is left as it was — not known to
+    clash.
+  · the form says so under the prefill box as the dial is turned, and the card reads "prefill: not sent
+    while thinking is on (it would switch the thinking off)".
+  · openai.js: the beta address is asked FIRST about itself — whatever it refuses, the turn goes again at
+    the ordinary address without the prefill; only a no that names the prefix is remembered, and only
+    against the prefill. Three attempts, so the ordinary address may still refuse a dial after that.
+  · a "no thinking" mark on DeepSeek's own host, made while a prefill was set, is let go once
+    (healStaleRefusal): the ordinary address takes thinking; a real refusal is simply remembered again.
+- TESTS: tests/harness/m318.mjs through the real provider — at low, medium, high, xhigh and max: no started
+  reply on the wire, the ordinary address, thinking asked for, the model's thinking returned, the note
+  said; thinking Off: the prefix rides to /beta and the page begins with it; a beta 400 that names
+  "thinking": the turn goes again with his thinking setting still on the wire and nothing remembered;
+  a connection already silenced thinks again at once and the mark leaves the store. DOM-54: the card and
+  the form. MUTATION-CHECKED: the rule removed → M318-1 fails; restored and `cmp`-proven.
+- NOT VERIFIED: that his connection has a prefill set (his phone is not visible from here) — he asked what
+  the prefill box was two days before this report; and DeepSeek's live behaviour (no key here) — the
+  docs and the paper are followed.
+- version.js -> m318-001.

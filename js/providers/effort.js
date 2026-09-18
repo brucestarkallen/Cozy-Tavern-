@@ -162,6 +162,15 @@ export function reasoningIsDown(conn, style) {
 /* a mark that no longer applies is let go for good — the card in Settings and
  * every other browser stop saying "unsent". Never throws. */
 export async function healStaleRefusal(conn, style) {
+  /* M318: a "no thinking here" remembered on DeepSeek's own host while a prefill was set is not to be trusted —
+   * between M307 and M318 such turns went to the BETA address, and a no from there was read (first in
+   * line) as the house refusing thinking, silencing it at every level until the model changed. DeepSeek's
+   * ordinary address takes thinking. Let go once; a real refusal there is simply remembered again. */
+  if (conn && conn.reasoningDownAt && !conn.reasoningDownRechecked && String(conn.prefill == null ? '' : conn.prefill).trim() && prefillProfile(conn) === 'deepseek' && deepseekBetaBase(conn.baseUrl)) {
+    delete conn.reasoningDownAt; delete conn.reasoningDownShape; conn.reasoningDownRechecked = true;
+    if (conn.id) { try { await db.connections.update(conn.id, { reasoningDownAt: null, reasoningDownShape: null, reasoningDownRechecked: true }); } catch (err) { /* tried again next turn */ } }
+    return true;
+  }
   if (!conn || !conn.reasoningDownAt || reasoningIsDown(conn, style)) return false;
   delete conn.reasoningDownAt;
   delete conn.reasoningDownShape;
@@ -270,6 +279,16 @@ const THINK_SPAN = /^\s*<think>([\s\S]*?)<\/think>\s*/;
  * is what the reader should see: the prefill as sent (its trailing space
  * trimmed, as the wire trims it), less a leading <think>…</think> span, which
  * is thinking and never the page. */
+/* M318: true when this connection has a prefill AND asks for thinking on a house where the two cannot go together */
+export function prefillSilencesThinking(conn) {
+  if (!conn || !String(conn.prefill == null ? '' : conn.prefill).trim()) return false;
+  const effort = conn.reasoning && typeof conn.reasoning.effort === 'string' ? conn.reasoning.effort : '';
+  if (!effort || effort === 'off') return false;
+  if (reasoningIsDown(conn, reasonStyle(conn))) return false; /* thinking is not being sent anyway */
+  const profile = prefillProfile(conn);
+  return profile === 'deepseek' || profile === 'anthropic';
+}
+
 export function prefillLead(conn) {
   const text = String(conn && conn.prefill != null ? conn.prefill : '').replace(/\s+$/, '');
   if (!text.trim()) return '';
@@ -336,6 +355,17 @@ export function applyPrefill(messages, conn) {
   }
   if (!list.length) return { messages: list, applied: false };
   const profile = prefillProfile(conn);
+  /* M318: A STARTED REPLY SWITCHES THE THINKING OFF — so when thinking is ON, the thinking is what is sent.
+   * DeepSeek's docs make a prefix's reasoning an INPUT ("the input for the CoT in the last assistant
+   * message"): the model continues the writer's words at once and thinks nothing — people use exactly
+   * that to skip its reasoning. Claude refuses a prefill while extended thinking is on. M307 made the
+   * prefill really reach DeepSeek (before it, the ordinary address refused it and it was switched
+   * off) — and the writer's storyteller "suddenly stopped thinking at low, medium, high, xhigh, max",
+   * with nothing on the screen to say the little prefill box had done it. The thinking dial decides:
+   * any level but Off, and the prefill stays home with a word said; Off, and the prefill rides. */
+  if (prefillSilencesThinking(conn)) {
+    return { messages: list, applied: false, note: 'The reply was not started for it: on this address a started reply makes the model skip its thinking, and thinking is set to ' + conn.reasoning.effort + '. Set thinking to Off to use the prefill.' };
+  }
   const trimmed = text.replace(/\s+$/, ''); // a trailing space is refused by some houses
   if (profile === 'anthropic') {
     list.push({ role: 'assistant', content: trimmed });

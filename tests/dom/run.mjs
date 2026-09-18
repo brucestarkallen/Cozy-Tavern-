@@ -2899,6 +2899,34 @@ test('DOM-53 the light heals the record BY ITSELF and ends green: a tale folded 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-54 a prefill that would switch the thinking off says so — on the card, and in the form as the dial is turned (M318)', async () => {
+  const before = errors.length;
+  const activeBefore = await db.settings.get('activeConnectionId');
+  const ds = await db.connections.add({ label: 'AAC deepseek, prefill and thinking', type: 'openai', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'k', model: 'deepseek-v4-pro', prefill: '[The Bluebird —', reasoning: { effort: 'high' } });
+  try {
+    await openSettings();
+    click(q('[data-room="storyteller"]'));
+    await until(() => q('#connection-pick') && [...q('#connection-pick').options].some((o) => o.value === ds.id), 'the picker', 10000);
+    q('#connection-pick').value = ds.id;
+    q('#connection-pick').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(() => q('#connection-list .connection-name') && q('#connection-list .connection-name').textContent === 'AAC deepseek, prefill and thinking', 'its card', 10000);
+    assert(/prefill: not sent while thinking is on/.test(q('#connection-list .connection-card').textContent), 'the card says it: ' + q('#connection-list .connection-card').textContent);
+    click(qa('#connection-list .connection-card .row button').find((b) => /^Change$/.test(b.textContent.trim())));
+    await until(() => !q('#connection-form').hidden, 'the form', 10000);
+    await tick(100);
+    assert(!q('#conn-prefill-hint').hidden && /skip its thinking entirely/.test(q('#conn-prefill-hint').textContent), 'the form says why: ' + q('#conn-prefill-hint').textContent);
+    q('#conn-reasoning').value = 'off';
+    q('#conn-reasoning').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    assert(q('#conn-prefill-hint').hidden, 'thinking Off: the prefill rides, and the hint goes');
+    click(q('#btn-conn-cancel'));
+  } finally {
+    await db.connections.remove(ds.id);
+    await db.settings.set('activeConnectionId', activeBefore);
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

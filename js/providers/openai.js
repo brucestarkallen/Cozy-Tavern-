@@ -285,7 +285,7 @@ export function createOpenAIProvider(connection) {
     await healStaleRefusal(connection, reasonStyle(connection));
     await healStalePrefillRefusal(connection); /* M307 */
     let lead = ''; /* M307: the words the reply was started with, put back at its first word */
-    for (let attempt = 0; attempt < 2 && !res; attempt += 1) {
+    for (let attempt = 0; attempt < 3 && !res; attempt += 1) { /* M318: three — the beta address may say no, and then the ordinary one may still refuse a dial */
       const { body, prefill } = requestBody(connection, wire, opts);
       /* M307: a started reply goes to DeepSeek's beta address, the only one that takes it */
       const beta = prefill.applied && prefillProfile(connection) === 'deepseek' ? deepseekBetaBase(connection.baseUrl) : '';
@@ -317,6 +317,22 @@ export function createOpenAIProvider(connection) {
         body.reasoning_effort || body.reasoning || body.thinking
         || 'enable_thinking' in body || (body.model_options && body.model_options.reasoning)
       );
+      /* M318: THE BETA ADDRESS IS ASKED FIRST ABOUT ITSELF. This block stood LAST — so a no from DeepSeek's beta
+       * address was first read by the block below as "this house refuses thinking" and REMEMBERED: the
+       * connection's thinking silenced at every level until the model changed, for something the ordinary
+       * address takes without complaint. Whatever the beta address says no to, the turn goes again at the
+       * ordinary address without the prefill; only a no that names the prefix is remembered, and only
+       * against the prefill. */
+      if (beta && !opts.suppressPrefill && (fourHundred || out.status === 404)) {
+        if (fourHundred && PREFILL_REFUSAL.test(detail)) {
+          await markConnectionDown(connection, 'prefillDownAt', 'deepseek-beta');
+          notes.push('A reply that starts before the storyteller wasn’t accepted — the prefill is off for this connection until the model changes.');
+        } else {
+          notes.push('DeepSeek’s beta address would not take this turn (' + out.status + '), so it went without the prefill this once.');
+        }
+        opts = { ...opts, suppressPrefill: true };
+        continue;
+      }
       if (fourHundred && !opts.suppressReasoning && sentReasoning && REASONING_REFUSAL.test(detail)) {
         await markConnectionDown(connection, 'reasoningDownAt', reasonStyle(connection));
         notes.push('The thinking settings weren’t accepted, so this turn went without them — it won’t be asked again until the model changes.');
@@ -326,14 +342,6 @@ export function createOpenAIProvider(connection) {
       if (fourHundred && !opts.suppressPrefill && prefill.applied && PREFILL_REFUSAL.test(detail)) {
         await markConnectionDown(connection, 'prefillDownAt', beta ? 'deepseek-beta' : '');
         notes.push('A reply that starts before the storyteller wasn’t accepted — the prefill is off for this connection until the model changes.');
-        opts = { ...opts, suppressPrefill: true };
-        continue;
-      }
-      /* M307: the beta address is DeepSeek's to change. Whatever it says no to, the
-       * page still comes — this once without the prefill, at the ordinary address,
-       * and nothing is remembered against the connection for it. */
-      if (beta && !opts.suppressPrefill && (fourHundred || out.status === 404)) {
-        notes.push('DeepSeek’s beta address would not take this turn (' + out.status + '), so it went without the prefill this once.');
         opts = { ...opts, suppressPrefill: true };
         continue;
       }
