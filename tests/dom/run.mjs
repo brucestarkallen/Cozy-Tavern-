@@ -3133,6 +3133,56 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-58 who tells, and who listens: two names typed in Settings → The frame, and the very next page is asked of Tony, as Bruce; change the name and it is Steve; clear them and every word is as it was (M327)', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const tellerBefore = await db.settings.get('tellerName'); const writerBefore = await db.settings.get('writerName');
+  const setName = async (id, value) => {
+    await openSettings();
+    if (q('[data-room="story"]')) click(q('[data-room="story"]'));
+    await until(() => q('#' + id), 'the box', 10000);
+    q('#' + id).value = value;
+    q('#' + id).dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await tick(200);
+    await closeSettings();
+  };
+  try {
+    const st = await db.stories.create({ title: 'told by name' });
+    await db.stories.update(st.id, { extraction: false, keeper: false });
+    await saveState(st.id, applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The Bluebird' }, { type: 'presence.enter', name: 'Jovan' }]).state);
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const send = async (words) => {
+      const from = house.state.calls.length;
+      const pagesBefore = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+      type(q('#composer-input'), words); submit(q('#composer'));
+      await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > pagesBefore && !env.ctx.chat.isBusy(), 'the page', 15000);
+      await until(() => queuedCount(st.id) === 0, 'the readers', 40000);
+      return house.state.calls.slice(from).find((c) => !c.isWorker).body.messages;
+    };
+    await setName('teller-name', '  Tony [Stark]  '); await setName('writer-name', 'Bruce');
+    eq(await db.settings.get('tellerName'), 'Tony Stark', 'kept as a plain name, the moment the box is left');
+    const tony = await send('We sit down.');
+    const briefing = tony.find((m) => m.role === 'user' && /^Tony Stark — Bruce here\./.test(m.content));
+    assert(briefing, 'the briefing greets Tony, as Bruce: ' + JSON.stringify(tony.filter((m) => m.role === 'user').map((m) => String(m.content).slice(0, 40))));
+    assert(/Tony Stark, that is how Bruce wants this story told/.test(tony[0].content) && /Bruce authors the fiction/.test(tony[0].content), 'the frame’s purpose and the craft say his name');
+    assert(!/\bthe writer\b|\bthe house\b|\bpersona\b/i.test(tony[0].content + briefing.content.split('\n\n')[0]), 'and none of the form-speak');
+    await setName('teller-name', 'Steve');
+    const steve = await send('I look around.');
+    assert(steve.some((m) => m.role === 'user' && /^Steve — Bruce here\./.test(m.content)) && !/Tony Stark/.test(steve[0].content), 'the next page is asked of Steve');
+    await setName('teller-name', ''); await setName('writer-name', '');
+    eq(await db.settings.get('tellerName'), undefined, 'a cleared box is no name at all');
+    const plain = await send('I wait.');
+    assert(plain.some((m) => m.role === 'user' && /^Where things stand right now — the writer’s own notes/.test(m.content)) && /the writer authors the fiction/.test(plain[0].content), 'and every word is as it was');
+  } finally {
+    if (tellerBefore == null) await db.settings.delete('tellerName'); else await db.settings.set('tellerName', tellerBefore);
+    if (writerBefore == null) await db.settings.delete('writerName'); else await db.settings.set('writerName', writerBefore);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

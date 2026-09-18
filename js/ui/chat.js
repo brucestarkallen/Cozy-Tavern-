@@ -64,6 +64,7 @@ import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
+import { voiceOf, askAgain } from '../assemble/voice.js'; /* M327: the two names */
 import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan, pageOnly } from './headergate.js'; /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
@@ -2930,6 +2931,9 @@ export function initChat(ctx) {
       framePurpose: await db.settings.get('framePurpose'),
       framePurposeOn: (await db.settings.get('framePurposeOn')) !== false,
       frameEcho: (await db.settings.get('frameEcho')) === true,
+      /* M327: who tells, and who listens (Settings → The frame) */
+      tellerName: await db.settings.get('tellerName'),
+      writerName: await db.settings.get('writerName'),
     };
   }
 
@@ -3507,6 +3511,7 @@ export function initChat(ctx) {
         } catch (err) { /* the turn is already assembled; never mind */ }
       }
 
+      const turnVoice = voiceOf(await gatherSettings()); /* M327 */
       /* M8.5: the thinking voice for this turn. */
       const reasoning = effectiveReasoning(connection, story);
       const provider = createProvider({ ...connection, reasoning });
@@ -3645,13 +3650,13 @@ export function initChat(ctx) {
          * message — the page is the answer, the thinking is not the page. */
         const wireMessages = generateArgs.thoughtRetried && messages.length
           ? messages.map((m, i) => (i === messages.length - 1 && m.role === 'user'
-            ? { ...m, content: (typeof m.content === 'string' ? m.content : String(m.content || '')) + '\n\n[The house: your last attempt put the whole page inside your thinking and answered with nothing. Think briefly if you must, then WRITE THE PAGE AS YOUR ANSWER — the header line and the prose — outside the thinking.]' }
+            ? { ...m, content: (typeof m.content === 'string' ? m.content : String(m.content || '')) + '\n\n' + askAgain('thought', turnVoice) } /* M327: said to the teller by name, where there is one */
             : m))
           : messages;
       /* M323: the one re-ask after a reply that ran out of room while still planning — the plan is handed back as the
        * model's own turn, so it writes the page and does not plan again */
       const planWire = generateArgs.planCarried
-        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.planCarried) }, { role: 'user', content: 'You ran out of room while you were still planning. The plan above is yours — do not plan again and do not repeat it. Write the page itself now, beginning with its header line.' }]
+        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.planCarried) }, { role: 'user', content: askAgain('plan', turnVoice) }]
         : wireMessages;
       takeThinking = function (text) {
               thinking += text;

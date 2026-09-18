@@ -94,6 +94,7 @@
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { withoutAuthorshipFrame } from './craft.js'; /* M309 */
+import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine } from './voice.js'; /* M327: the two names */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -399,16 +400,20 @@ export function buildRequest({
     slots.push({ name, tokens: estimateTokens(text), source: source || '', reason: reason || '' });
   };
 
+  /* M327: who tells, and who listens — the names the house's own words are said in (assemble/voice.js) */
+  const voice = voiceOf(safeSettings);
+
   /* --- 1. The frame --- */
-  const frame = pickText(safeStory.frameOverride, safeSettings.frameText, STARTER_FRAME);
+  const framePicked = pickText(safeStory.frameOverride, safeSettings.frameText, STARTER_FRAME);
+  const frame = { ...framePicked, text: inVoice(framePicked.text, voice) };
   /* M21: its purpose, spoken after it — on unless the writer switched it
    * off; the words are the writer's own once they've rewritten the line. */
   const purposeOn = safeSettings.framePurposeOn !== false;
   /* An untouched line falls back to the shipped default; a line the writer
    * cleared to nothing stays cleared (the same law as the note). */
   const purposeText = typeof safeSettings.framePurpose === 'string'
-    ? safeSettings.framePurpose.trim()
-    : FRAME_PURPOSE;
+    ? inVoice(safeSettings.framePurpose.trim(), voice)
+    : purposeLine(FRAME_PURPOSE, voice);
   const frameText = purposeOn && purposeText ? frame.text + '\n\n' + purposeText : frame.text;
   pushSlot('The frame', frameText, frame.source, purposeOn && purposeText ? 'its purpose spoken after it' : '');
   /* M21: "say it again at the end" — the whole frame repeats at the tail,
@@ -418,7 +423,7 @@ export function buildRequest({
 
   /* --- 2. The craft --- */
   const craft = selected.find(({ mod }) => mod && mod.id === 'core-craft');
-  const craftText = craft && craft.mod ? withoutAuthorshipFrame(craft.mod.text) : ''; /* M309: the house's craft no longer holds it; a copy saved before today loses it here */
+  const craftText = craft && craft.mod ? inVoice(withoutAuthorshipFrame(craft.mod.text), voice) : ''; /* M327: in the writer's name; M309: the house's craft no longer holds it; a copy saved before today loses it here */
   pushSlot('The craft', craftText, 'the rulebook', craft ? craft.reason : '');
 
   /* --- 3. The brief --- */
@@ -539,7 +544,7 @@ export function buildRequest({
   /* --- 6. Active modules (everything selected that isn't the craft) --- */
   const active = selected.filter(({ mod }) => mod && mod.id !== 'core-craft');
   const activeText = active
-    .map(({ mod }) => mod.name + '\n\n' + mod.text)
+    .map(({ mod }) => mod.name + '\n\n' + inVoice(mod.text, voice)) /* M327: a woken rule speaks in the same names as the craft */
     .filter((s) => s.trim())
     .join('\n\n---\n\n');
   pushSlot(
@@ -579,10 +584,10 @@ export function buildRequest({
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name */
   if (directorText) stateParts.push('The director’s note:\n' + directorText);
   if (editorText) stateParts.push('The editor’s eye:\n' + editorText);
-  if (eyeText) stateParts.push(eyeText); /* the eye speaks its own name */
-  if (rulingText) stateParts.push(rulingText); /* the directive already speaks its name */
+  if (eyeText) stateParts.push(toTeller(eyeText, voice)); /* the eye speaks its own name — M327: and the teller's */
+  if (rulingText) stateParts.push(inVoice(rulingText, voice)); /* the directive already speaks its name (M327: "the house has ruled" is the notebook's word, where the writer is named) */
   const stateInjection = stateParts.length
-    ? { role: 'user', content: STATE_MARKER + '\n\n' + stateParts.join('\n\n') }
+    ? { role: 'user', content: briefingOpening(voice) + '\n\n' + stateParts.join('\n\n') }
     : null;
 
   /* --- 7. What remains (M6) — the newest memory nodes; then (M7) the lore
@@ -620,7 +625,8 @@ export function buildRequest({
 
   /* --- 9. The note at the end --- (resolved before slot 8 so the window
    * law's keeper-off budget can count what the prefix already spent) */
-  const note = resolveNote(safeStory.noteOverride, safeSettings.noteText);
+  const notePicked = resolveNote(safeStory.noteOverride, safeSettings.noteText);
+  const note = { ...notePicked, text: inVoice(notePicked.text, voice) }; /* M327: "the other writer" is the writer, by name */
   const hasNote = Boolean(note.text && note.text.trim());
 
   /* --- 10. The continue nudge + M9 house commands --- */

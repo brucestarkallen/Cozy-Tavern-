@@ -629,7 +629,12 @@ test('M119-1 the eye names a glitch character from another script; a loose ancho
 
 test('M120-1 a page written inside the thinking is asked again once with the plain line, then salvaged from the thinking’s last header', async () => {
   const src = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/thoughtRetried: true/.test(src) && /WRITE THE PAGE AS YOUR ANSWER/.test(src), 'the re-ask and its line');
+  /* M327: the line's words live in assemble/voice.js now (said to the teller by name, where there is one); unnamed, it is
+   * the same line to the letter */
+  const voiceSrc = (await import('node:fs')).readFileSync(new URL('../../js/assemble/voice.js', import.meta.url), 'utf8');
+  const { askAgain } = await import('../../js/assemble/voice.js');
+  assert(/thoughtRetried: true/.test(src) && /askAgain\('thought', turnVoice\)/.test(src) && /WRITE THE PAGE AS YOUR ANSWER/.test(voiceSrc), 'the re-ask and its line');
+  eq(askAgain('thought', {}), '[The house: your last attempt put the whole page inside your thinking and answered with nothing. Think briefly if you must, then WRITE THE PAGE AS YOUR ANSWER — the header line and the prose — outside the thinking.]', 'unnamed: the line as it always was');
   assert(/const salvaged = at !== -1 \? lines\.slice\(at\)\.join/.test(src), 'the salvage from the last header line');
   /* M323: the wire is `planWire` now — wireMessages itself, with the carried plan's two messages after it only on the one
    * re-ask a reply that ran out of room earns; the nudged messages still ride it */

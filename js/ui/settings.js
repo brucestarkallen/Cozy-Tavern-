@@ -22,6 +22,7 @@ import { byName } from '../providers/order.js'; /* M301: every list of names the
 import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
+import { cleanName } from '../assemble/voice.js'; /* M327 */
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
 import { parsePreset, decompose, applyPlan, summaryWords } from '../import/sillytavern.js';
 import { parseCard, listCast, saveCastMember, removeCastMember } from '../import/cards.js';
@@ -86,6 +87,8 @@ export function initSettings(ctx) {
     connContextSize: document.getElementById('conn-contextsize'),
     btnCancel: document.getElementById('btn-conn-cancel'),
     frameGlobal: document.getElementById('frame-global'),
+    tellerName: document.getElementById('teller-name'),
+    writerName: document.getElementById('writer-name'),
     frameStory: document.getElementById('frame-story'),
     frameStoryName: document.getElementById('frame-story-name'),
     /* M21: the frame's purpose line and its end-of-request echo. */
@@ -821,7 +824,18 @@ export function initSettings(ctx) {
     return id ? db.stories.get(id) : undefined;
   }
 
+  /* M327: who tells, and who listens — kept the moment a box is left (no button to forget) */
+  const keepName = async (key, el) => {
+    const v = cleanName(el.value);
+    el.value = v;
+    if (v) await db.settings.set(key, v); else await db.settings.delete(key);
+  };
+  if (els.tellerName) els.tellerName.addEventListener('change', () => keepName('tellerName', els.tellerName));
+  if (els.writerName) els.writerName.addEventListener('change', () => keepName('writerName', els.writerName));
+
   async function loadPromptSlots() {
+    if (els.tellerName) els.tellerName.value = cleanName(await db.settings.get('tellerName'));
+    if (els.writerName) els.writerName.value = cleanName(await db.settings.get('writerName'));
     els.frameGlobal.value = (await db.settings.get('frameText')) ?? STARTER_FRAME;
     els.noteGlobal.value = (await db.settings.get('noteText')) ?? STARTER_NOTE;
     /* M21: the frame's purpose line (?? — a cleared line stays cleared) and

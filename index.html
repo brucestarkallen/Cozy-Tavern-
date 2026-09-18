@@ -234,6 +234,16 @@
         <section class="settings-section" id="section-frame">
           <h3>The frame</h3>
           <p class="quiet">The standing word given to the storyteller before anything else. It shapes every tale.</p>
+          <!-- M327: who tells, and who listens -->
+          <div class="row names-row">
+            <label class="stack-label">Who is telling
+              <input type="text" id="teller-name" maxlength="40" autocomplete="off" spellcheck="false" placeholder="e.g. Tony Stark — empty for no name">
+            </label>
+            <label class="stack-label">Your name
+              <input type="text" id="writer-name" maxlength="40" autocomplete="off" spellcheck="false" placeholder="e.g. Bruce">
+            </label>
+          </div>
+          <p class="quiet" id="names-note">With a name here the tavern stops talking like a form. Everything it says to the storyteller in its own words greets them by that name and speaks as you — “Tony — Bruce here. This is where things stand in our story…” — and wherever its rules said “the writer” they say your name. It only ever uses the name; who they are is yours to say in the frame below. Change a name and the next page already uses it.</p>
           <label class="stack-label" for="frame-global">For every story</label>
           <textarea id="frame-global" rows="8" spellcheck="false"></textarea>
           <div class="row"><button id="btn-save-frame" class="btn" type="button">Keep it</button><span id="frame-saved" class="quiet" hidden>Kept.</span></div>

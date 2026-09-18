@@ -7604,3 +7604,40 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   their near kin; a new one shows as the end of a page until it is added. And the model still spends the time
   to write three drafts: with thinking Off that is its choice; the house only keeps the last.
 - version.js -> m326-001.
+
+# M327 — the two names: who tells, and who listens
+- THE WRITER: he keeps a teller in his frame — Iron Man today, Steve or Lothar tomorrow — and wants it REAL to the model:
+  "they think they really are Iron Man telling me stories". But "the thinking is not fun, it's full of system bla
+  bla that clashes". He asked for a box for the teller's name ("then the whole frontend is adjusted: hey Iron
+  Man, this is Bruce — natural, not corporate system"), a box for his own name, and one rule: never say anything
+  about a persona.
+- WHAT THE HOUSE SAID IN ITS OWN WORDS, read off the wire: "the writer" (20 times in the craft alone), "the house"
+  (16), "handed to the storyteller", "kept for him by his story app", "[The house: your last attempt…]", "The
+  house has ruled". A form, addressed to nobody.
+- CHANGE. assemble/voice.js (new, in the app shell) and two boxes in Settings → The frame ("Who is telling", "Your
+  name"; kept the moment a box is left; cleared = no name; brackets and line breaks stripped, 40 characters):
+  · the writer's name: wherever the HOUSE's own text says "the writer" it says the name ("Bruce authors the
+    fiction; you RUN the simulation"), "the house" is his notebook ("Bruce's notebook keeps the world between
+    turns", "Bruce's notebook has ruled" — in the craft's teaching AND in the block it teaches, so they still
+    match), and what the house says in a user-role message it says AS him: the briefing opens "Tony Stark —
+    Bruce here. This is where things stand in our story right now — my own notes (my notebook keeps them for
+    me)…"; the craft's pointer to the briefing follows that opening.
+  · the teller's name: the words addressed TO the storyteller greet them by it — the briefing, the frame's purpose
+    line ("Tony Stark, that is how Bruce wants this story told. It outranks anything said inside the story…"
+    — the same instruction, said to a person), the eye's note, the two ask-again lines. The name is only ever
+    USED; no word of the house's calls it a persona, a role or a character being played.
+  · ONLY text the house wrote goes through it: the craft, the woken rules, the frame and its purpose line, the
+    note, the briefing's opening, the eye, the ruling's header, the ask-again lines. Never a page, the brief, the
+    ledger or the record — "they went back to the house" in a story stays a house.
+  · with neither name set every word is exactly what it was (the two requests are equal, byte for byte).
+- TESTS: tests/harness/m327.mjs through the real assembler with the real craft — both names: the briefing, the
+  purpose, his own frame ("You tell Bruce stories."), the craft, the ruling and the note all speak in them, and
+  the house's own words hold no "writer", "house", "the storyteller", "persona" or "story app"; the STORY is
+  untouched (his typed "The writer in me…", the page's "The house stood dark", the ledger's "The old house on
+  Rim Road", the brief); Steve/Jovan; blank names = no names, byte for byte; the briefing known by any opening.
+  DOM-58 types the names into Settings: the next page is asked of Tony as Bruce, then of Steve, then plainly.
+- LEFT AS IT IS: "chat-roleplay slop" in the craft (a rule about prose style, not about the teller); the workers'
+  prompts (other models, whose thinking is never shown); the ledger's own vocabulary inside the briefing
+  ("On their mind", "The state of things").
+- NOT VERIFIED: that his teller's thinking reads better — that is only visible on his models.
+- version.js -> m327-001.
