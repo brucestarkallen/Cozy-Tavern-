@@ -49,7 +49,7 @@ import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '
 import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices */
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
-import { loadMemory, saveMemory, orderedLines, visiblePages } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
+import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
 import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
 import { pageText } from '../assemble/stack.js';
 import { db } from '../store.js';
@@ -1888,7 +1888,7 @@ function recordPanel(ctx) {
     const mem = await loadMemory(story.id);
     const lines = orderedLines(mem);
     const pages = visiblePages(await db.messages.list(story.id));
-    if (!lines.length) { note.textContent = 'Nothing folded yet — the keeper writes a line for every few pages that fall below the verbatim window (' + (mem.window || 30) + ' pages).'; return; }
+    if (!lines.length) { note.textContent = 'Nothing folded yet — the keeper writes a line for every few pages that fall below the verbatim window (' + windowFor(mem, await db.settings.get('memoryWindow')) + ' pages).'; return; } /* M317: the window the keeper really folds by */
     const folded = lines.filter((n) => !n.correction).length;
     const corr = lines.length - folded;
     note.textContent = folded + (folded === 1 ? ' line' : ' lines') + ' of the record' + (corr ? ', ' + corr + (corr === 1 ? ' correction' : ' corrections') : '') + ' — oldest to newest, each folding the pages it names. The storyteller reads these in place of the pages that rest.';

@@ -7265,3 +7265,38 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: what his keeper's model actually returns for those pages — the note now says which page
   and which ending.
 - version.js -> m316-001.
+
+# M317 — the yellow light, found: the light and the keeper measured the gap with two different windows
+- THE WRITER: "My story is SFW — why would there be a filter or a blank refusal? Have you checked that it always
+  retries? If you tell me to press Summarize now, why did I make everything autonomous — green must mean
+  'no need to worry, Jovan, everything is perfect'." Two guesses had shipped (M315: a worker thinking its
+  room away — he runs non-thinking; M316: a page the model blanks on — his story is tame). Both are real
+  repairs for the setups they fit; neither was HIS cause, and M316's note still pointed him at a button.
+- ROOT CAUSE, reproduced exactly (tests/harness/m317.mjs; DOM-53 shows his very note under the old rule). The
+  keeper — the only thing that folds — read the writer's Settings ("memory window"). The LIGHT, "Summarize
+  now", the ledger's record room and the storyteller's own window read the number STAMPED ON THE TALE the
+  last time it was folded (mem.window), falling back to Settings only when there was none. Raise the
+  slider after a tale has been folded and they disagree: by the old, smaller stamp there is a gap; by the
+  setting nothing is due. The light sends the keeper; the keeper makes NOT ONE model call, folds
+  nothing and has no reason to give; the note reads "the keeper ran just now and stopped partway — could
+  not fold a gap in the record yet — it tries again later" after every page, for about twenty pages, on
+  a healthy connection, thinking off, any story. Nothing was ever wrong with the record.
+- CHANGE. agents/memory.js windowFor(mem, setting): the writer's CURRENT setting is the window; the tale's
+  stamp stands in only when Settings has none. Asked by everyone: the keeper, catchUpRecord, the light
+  (three places in chat.js), "Summarize now", the storyteller's window, the ledger's record room.
+- "IT TRIES AGAIN LATER" — BY ITSELF. Checked, as he asked: the light looked again only when a worker started
+  or settled (M255) — with the tavern open and nothing being written, "later" meant "at your next page".
+  A repair that ends unfinished now books the next look for the moment its own wait is over (one
+  minute, two, four… thirty at most), for the tale that is open. And his other question — does one
+  yellow agent stop the others, since they start in order? No: the chain's queue runs each job and goes
+  on whatever the one before returned (agents/queue.js); an unfinished keeper never holds the readers.
+- TESTS. m317.mjs: the tale stamped 10, the slider at 30 — by the old measure a gap, the keeper asks its model
+  ZERO times and gives no reason (his yellow, exactly); by windowFor both see nothing due; the slider
+  LOWERED: both see the gap and it is folded. DOM-53, in the real app: that tale is NOT yellow and the
+  keeper is not sent; and a keeper that stumbles is sent again with no page written and no button
+  pressed until no range is due and the light reads "everything is read and folded… Write on."
+  MUTATION-CHECKED in the app: with the old window rule and no booked look DOM-53 fails showing the
+  writer's own words — "keeper stopped partway; it will carry on by itself".
+- PROBE ERROR OF MINE: I expected 18 pages folded under a window of 4 — the slider has a fence (its minimum),
+  so 12 was right and the light was green; the scenario now asks the house's own dueRange.
+- version.js -> m317-001.

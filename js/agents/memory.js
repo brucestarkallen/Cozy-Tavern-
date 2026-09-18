@@ -130,6 +130,22 @@ export async function saveMemory(storyId, mem) {
   await db.settings.set(KEY_PREFIX + storyId, mem);
 }
 
+/* M317: ONE WINDOW FOR A TALE, THE SAME FOR EVERYONE WHO ASKS. The keeper — the only thing that folds — read
+ * the writer's Settings ("memory window"); the LIGHT, "Summarize now", the ledger's record room and the
+ * storyteller's own window read the number STAMPED ON THE TALE the last time it was folded (mem.window),
+ * and only fell back to Settings when there was none. Raise the slider after a tale has been folded
+ * and the two disagree: the light measures the gap with the old, smaller window and finds pages due;
+ * the keeper measures with the new one and finds nothing to do — so the light sends the keeper, the
+ * keeper folds nothing, and the note says "could not fold a gap in the record yet — it tries again
+ * later" after every page, on a healthy connection, with thinking off and a story as tame as you like,
+ * until some twenty more pages have been written. The writer's CURRENT setting is the window; the
+ * tale's stamp only stands in when Settings has none. */
+export function windowFor(mem, setting) {
+  const chosen = Number(setting);
+  if (Number.isFinite(chosen) && chosen > 0) return cleanWindow(chosen);
+  return cleanWindow(mem && Number.isFinite(mem.window) && mem.window > 0 ? mem.window : undefined);
+}
+
 /* The sliders' words: honest numbers inside their fences. */
 export function cleanWindow(value) {
   const n = Math.round(Number(value));
@@ -1216,11 +1232,11 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
   const gone = () => Boolean(stale && stale());
   const keeperOn = await db.settings.get('memoryKeeper');
   if (keeperOn === false) return null;
-  const window = cleanWindow(await db.settings.get('memoryWindow'));
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
 
   const history = visiblePages(await db.messages.list(storyId));
   let mem = await loadMemory(storyId);
+  const window = windowFor(mem, await db.settings.get('memoryWindow')); /* M317 */
   mem.window = window;
   const state = await loadState(storyId);
   const known = mcName(state);
@@ -1547,7 +1563,7 @@ export async function catchUpRecord({ connection, storyId, onProgress, onRetry, 
   if (!connection || !storyId) return null;
   const mem = await loadMemory(storyId);
   const history = visiblePages(await db.messages.list(storyId));
-  const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
+  const window = windowFor(mem, await db.settings.get('memoryWindow')); /* M317 */
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
   if (!dueRange(history.length, window, mem.nodes, batch)) {
     return { ok: true, nothingDue: true, folded: 0, batches: 0 };

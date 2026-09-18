@@ -63,7 +63,7 @@ import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWin
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord } from '../agents/ripple.js'; /* M100: the ripple */
-import { wholeRecord, keeperTrouble } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
+import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js'; /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -1517,7 +1517,7 @@ export function initChat(ctx) {
     try {
       const conn = await resolveConnection(story);
       const mem = await loadMemory(story.id);
-      const win = mem && Number.isFinite(mem.window) && mem.window > 0 ? mem.window : ((await db.settings.get('memoryWindow')) || 30);
+      const win = windowFor(mem, await db.settings.get('memoryWindow')); /* M317 */
       const pages = visiblePages(await db.messages.list(story.id));
       const windowTokens = pages.slice(-win).reduce((n, m) => n + estimateTokens(pageText(m)), 0);
       /* M287: the keeper folds against the same measured room the storyteller has — the last page's receipt */
@@ -1802,7 +1802,7 @@ export function initChat(ctx) {
         const readTo = readMark(st); /* M276: how far the ledger has READ, not the turn's stamp */
         ledgerBehind = told > 0 && readTo < told - 1;
         const mem = await loadMemory(storyId);
-        const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
+        const window = windowFor(mem, await db.settings.get('memoryWindow')); /* M317: the same window the keeper folds by */
         const batch = cleanBatch(await db.settings.get('memoryBatch'));
         recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
         behind = ledgerBehind || recordBehind;
@@ -1945,18 +1945,21 @@ export function initChat(ctx) {
   async function recordGap(storyId) {
     const mem = await loadMemory(storyId);
     const pages = visiblePages(await db.messages.list(storyId));
-    const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
+    const window = windowFor(mem, await db.settings.get('memoryWindow')); /* M317: the same window the keeper folds by */
     const batch = cleanBatch(await db.settings.get('memoryBatch'));
     return Boolean(dueRange(pages.length, window, mem.nodes, batch));
   }
   const coveredCount = async (storyId) => coveredSet((await loadMemory(storyId)).nodes).size;
+  /* one minute, two, four… thirty at most (read when used, so a test may shorten it for one scenario) */
+  const gapBackoffMs = () => (Number(globalThis.__cozyGapBackoffMs) > 0 ? Number(globalThis.__cozyGapBackoffMs) : 60000);
+  const gapLookAgain = new Map();
   async function fillRecordGap(storyId) {
     try {
       if (otherHandAt(storyId)) return; /* M293: another browser's keeper may still be folding it */
       const tries = gapTries.get(storyId) || 0;
       /* a fill that folds nothing is not tried again every minute for ever:
        * one minute, two, four … thirty at most */
-      if (Date.now() - (gapFilledAt.get(storyId) || 0) < Math.min(30 * 60000, 60000 * 2 ** tries)) return;
+      if (Date.now() - (gapFilledAt.get(storyId) || 0) < Math.min(30 * 60000, gapBackoffMs() * 2 ** tries)) return;
       if (workIsRunning(storyId) || queuedCount(storyId) > 0) return;
       const story = await db.stories.get(storyId);
       if (!story || story.keeper === false) return;
@@ -1979,6 +1982,15 @@ export function initChat(ctx) {
         if (!still) gapTries.delete(storyId);
         else if (moved) gapTries.set(storyId, 0); /* a backlog folding on: soon again */
         else gapTries.set(storyId, tries + 1);
+        /* M317: "IT TRIES AGAIN LATER" — BY ITSELF. The light only ever looked again when a worker started or
+         * settled: with the tavern open and nothing being written, no look ever came and "later" meant
+         * "when you write the next page". A repair that ends unfinished now books the next look for the
+         * moment its own wait is over. */
+        if (still) {
+          const wait = Math.min(30 * 60000, gapBackoffMs() * 2 ** (gapTries.get(storyId) || 0));
+          clearTimeout(gapLookAgain.get(storyId));
+          gapLookAgain.set(storyId, setTimeout(() => { gapLookAgain.delete(storyId); if (ctx.getActiveStoryId() === storyId) markLedgerTrouble(storyId); }, wait + 500));
+        }
         return {
           silent: false,
           detail: (!still ? 'folded a gap in the record' : moved ? 'folded part of a gap in the record — the rest follows' : 'could not fold a gap in the record yet') + (keeperTrouble() ? ' (' + keeperTrouble() + ')' : '') + (!still || moved ? '' : ' — it tries again later'), /* M315: the reason, said; M316: also when the house had to step in */
@@ -2015,7 +2027,7 @@ export function initChat(ctx) {
     }
     const mem = await loadMemory(story.id);
     const pages = (await db.messages.list(story.id)).filter((m) => m && !m.hidden);
-    const window = cleanWindow(mem.window || (await db.settings.get('memoryWindow')));
+    const window = windowFor(mem, await db.settings.get('memoryWindow')); /* M317: the same window the keeper folds by */
     const batch = cleanBatch(await db.settings.get('memoryBatch'));
     if (!dueRange(pages.length, window, mem.nodes, batch)) {
       banner.done('Nothing is due — every page is either word for word or already folded');
@@ -3377,9 +3389,7 @@ export function initChat(ctx) {
       const keeperOn = story.keeper === true
         ? true
         : story.keeper === false ? false : (await db.settings.get('memoryKeeper')) !== false;
-      const memWindow = mem && Number.isFinite(mem.window) && mem.window > 0
-        ? mem.window
-        : ((await db.settings.get('memoryWindow')) || 30);
+      const memWindow = windowFor(mem, await db.settings.get('memoryWindow')); /* M317: the writer's current setting, as the keeper reads it */
       /* M162: THE COVERAGE LAW WAS DEAD ON THE WIRE. M12 said slot 8 may never
        * let a page fall that no record line holds — and windowPlan only
        * applies it when it is handed the nodes. The window built here never

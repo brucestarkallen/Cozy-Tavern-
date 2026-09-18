@@ -2846,6 +2846,59 @@ test('DOM-52 the ledger button does what was asked even inside the closing slide
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-53 the light heals the record BY ITSELF and ends green: a tale folded under another window is not yellow at all, and a keeper that stumbles once is sent again with no page written and no button pressed (M317)', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const windowBefore = await db.settings.get('memoryWindow'); const batchBefore = await db.settings.get('memoryBatch');
+  const priorWorker = house.state.workerAnswer;
+  const mark = () => q('#btn-ledger');
+  try {
+    /* (1) folded under a window of 10; the Settings slider has since been raised to 30 */
+    const a = await db.stories.create({ title: 'folded under another window' });
+    for (let i = 0; i < 40; i += 1) await db.messages.append(a.id, { role: i % 2 ? 'assistant' : 'user', text: 'Page ' + i + ': they talked on the porch about the letter and the fair.' });
+    await saveState(a.id, { ...emptyState(), page: 19, readTo: 19, tidiedGen: 999 });
+    await saveMemory(a.id, { window: 10, nodes: [0, 6, 12, 18].map((from, i) => ({ id: 'w' + i, span: [from, from + 5], text: 'Pages ' + (from + 1) + '-' + (from + 6) + ': they talked.', level: 1, at: 1, whole: true })) });
+    await db.settings.set('memoryWindow', 30); await db.settings.set('memoryBatch', 6);
+    let keeperCalls = 0;
+    house.state.workerAnswer = (body, sys) => { if (/memory keeper|narrative-state tracker/i.test(sys)) { keeperCalls += 1; return 'They talked on the porch about the letter and the fair; nothing else changed.'; } return priorWorker(body, sys); };
+    env.window.__cozy.setActiveStoryId(a.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await tick(1500);
+    eq(keeperCalls, 0, 'nothing is due by the window the keeper folds by — it is not sent on an errand it cannot do');
+    assert(!mark().classList.contains('has-trouble'), 'and the light is NOT yellow: ' + mark().className + ' — ' + mark().getAttribute('title'));
+    /* (2) a real gap, and a keeper whose first answers are nothing: it is sent again by itself */
+    await db.settings.set('memoryWindow', 4);
+    const b = await db.stories.create({ title: 'a stumble, then a line' });
+    for (let i = 0; i < 24; i += 1) await db.messages.append(b.id, { role: i % 2 ? 'assistant' : 'user', text: 'Page ' + i + ': they talked on the porch about the letter and the fair.' });
+    await saveState(b.id, { ...emptyState(), page: 11, readTo: 11, tidiedGen: 999 });
+    let asks = 0;
+    house.state.workerAnswer = (body, sys) => { if (/memory keeper|narrative-state tracker/i.test(sys)) { asks += 1; return asks <= 2 ? '' : 'They talked on the porch about the letter and the fair; nothing else changed.'; } return priorWorker(body, sys); };
+    globalThis.__cozyGapBackoffMs = 700;
+    env.window.__cozy.setActiveStoryId(b.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(async () => asks >= 2 && queuedCount(b.id) === 0, 'the first repair, which folds nothing', 15000);
+    eq((await loadMemory(b.id)).nodes.length, 0, 'fixture: the first run folded nothing');
+    /* from here NOTHING is pressed and no page is written */
+    await until(async () => (await loadMemory(b.id)).nodes.length > 0, 'the keeper sent again by itself', 20000);
+    /* the measure is the house's own: no range is due any more (the slider's fence, not my arithmetic, says how many pages that is) */
+    const { dueRange, windowFor, cleanBatch, visiblePages } = await import('../../js/agents/memory.js');
+    const gapLeft = async () => { const m = await loadMemory(b.id); return dueRange(visiblePages(await db.messages.list(b.id)).length, windowFor(m, await db.settings.get('memoryWindow')), m.nodes, cleanBatch(await db.settings.get('memoryBatch'))); };
+    await until(async () => !(await gapLeft()) && queuedCount(b.id) === 0, 'every due page folded, with no hand on it', 30000);
+    assert((await loadMemory(b.id)).nodes.length >= 2, 'more than one line: it carried on past the first');
+    await tick(600);
+    assert(!mark().classList.contains('has-trouble'), 'and the light is not yellow any more: ' + mark().className + ' — ' + mark().getAttribute('title'));
+    assert(/everything is read and folded/.test(mark().getAttribute('title') || ''), 'it says what the writer wants to read: ' + mark().getAttribute('title'));
+  } finally {
+    delete globalThis.__cozyGapBackoffMs;
+    house.state.workerAnswer = priorWorker;
+    if (windowBefore == null) await db.settings.delete('memoryWindow'); else await db.settings.set('memoryWindow', windowBefore);
+    if (batchBefore == null) await db.settings.delete('memoryBatch'); else await db.settings.set('memoryBatch', batchBefore);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
