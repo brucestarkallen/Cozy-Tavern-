@@ -3292,6 +3292,38 @@ test('DOM-60 THE WRITER’S REPORT: the brief says 16 and the housekeeper turned
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-61 what was ALREADY changed away from the brief is put back by the house, to the letter, the moment the tale is opened — a page the mender changed and a page the housekeeper edited; a change the brief does not settle, and a page edited again since, are left alone (M331)', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { saveSessionRoot, loadSessionRoot } = await import('../../js/agents/housekeeper.js');
+  const H = '[The Wells house — Friday, August 21, 2026 | 13:08 | clear | gray tee | the porch]\n\n';
+  const st = await db.stories.create({ title: 'seventeen' });
+  await db.stories.update(st.id, { brief: 'Jovan Wells, 16, new in Ravenwood.', extraction: false, keeper: false });
+  const mk = async (text, extra = {}) => { await db.messages.append(st.id, { role: 'user', text: 'Next.' }); return db.messages.append(st.id, { role: 'assistant', text: H + text, ...extra }); };
+  const wasA = H + 'Jovan had turned sixteen in March, and still nobody let him drive.';
+  const a = await mk('Jovan had turned seventeen in March, and still nobody let him drive.', { mended: { before: wasA, why: 'age brought in line with the correction', at: 1 } }); /* the mender, sent by the ripple */
+  const wasB = H + 'At sixteen he was the youngest at the table.';
+  const b = await mk('At seventeen he was the youngest at the table.'); /* the housekeeper's own edit — its earlier words are on its undo shelf */
+  const wasC = H + 'Rias wore the black jacket.';
+  const c = await mk('Rias wore the silver jacket.', { mended: { before: wasC, why: 'jacket colour', at: 1 } }); /* the brief says nothing of jackets */
+  const wasD = H + 'He was sixteen and tired.';
+  const d = await mk('He was seventeen and tired, and the rain had started again over the lake.', { mended: { before: wasD, why: 'age', at: 1 } }); /* edited again since: more than one fact differs */
+  const root = await loadSessionRoot(st.id);
+  root.batches.push({ id: 'b1', at: 1, items: [{ kind: 'message', messageId: b.id, before: { text: wasB, hidden: false }, afterHash: 'x' }] });
+  await saveSessionRoot(st.id, root);
+  await saveState(st.id, { ...emptyState(), page: 3, readTo: 3, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const textOf = async (m) => (await db.messages.list(st.id)).find((x) => x.id === m.id);
+  await until(async () => (await textOf(a)).text === wasA && (await textOf(b)).text === wasB, 'both are put back with no hand on them', 15000);
+  assert(!(await textOf(a)).mended, 'the mend is gone with its wrong words');
+  eq((await textOf(c)).text, H + 'Rias wore the silver jacket.', 'a change the brief does not settle is left alone');
+  assert(/seventeen and tired, and the rain/.test((await textOf(d)).text), 'a page edited again since is left alone (the auditor holds it to the brief)');
+  await until(() => /had been changed AWAY from your brief — put back, to the letter/.test(q('#toasts') ? q('#toasts').textContent : ''), 'and he is told, once: ' + (q('#toasts') ? q('#toasts').textContent.slice(-200) : ''), 5000);
+  assert(/sixteen in March/.test(q('#thread').textContent) && !/seventeen in March/.test(q('#thread').textContent), 'the page he reads says sixteen again');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

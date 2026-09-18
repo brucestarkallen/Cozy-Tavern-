@@ -7762,3 +7762,30 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: why the housekeeper made that edit on his page (his conversation with it is on his phone). Its cards
   still land by themselves — that is his setting (Housekeeper → auto-apply).
 - version.js -> m330-001.
+
+# M331 — "should I manually edit 17 back to 16, or just continue?" — neither: the house puts it back
+- THE WRITER, after M330: what should HE do about the pages that already say seventeen. Under his standing rule (if the
+  house can detect a problem, the house repairs it) the answer has to be: nothing.
+- M330 stopped NEW damage and sent the auditor; but the auditor is a model reading pages against the brief — likely to
+  catch it, not certain, and only within its reach. What was already changed can be put back EXACTLY, in code:
+  · a MEND keeps its earlier words on the page (mended.before); a HOUSEKEEPER edit keeps them on its undo shelf
+    (hk session batches[].items[kind:'message'].before).
+  · chat.js putBackAgainstBrief, once per tale per session on open (after the notes are taken out): for each such
+    page, factChange(earlier words, the page now) — and when that ONE fact goes against the brief (M330's
+    againstTheBrief: the brief or cast notes state the old value, in words or figures, and not the new) the
+    earlier words go back to the letter, the mend mark goes, the record line over the page is let go to be folded
+    again, the auditor is sent, and he is told once ("… put back, to the letter… Nothing for you to do").
+  · left alone: a change the brief does not settle (a jacket's colour), and a page edited again since (more than
+    that one fact differs) — the auditor holds those to the brief, as before. No model is asked for any of it.
+- TESTS: DOM-61 builds his story as it stands — a page the mender changed sixteen→seventeen, a page the housekeeper
+  edited (earlier words on its undo shelf), a mend the brief says nothing about, a page edited again since — opens
+  the tale, and the first two read "sixteen" again to the letter with no hand on them, the other two untouched,
+  the toast said. The walk is 80/80.
+- THE WORDS, AUDITED RATHER THAN CLAIMED (his question: "no weird system or comment or corporate language left?"): a real
+  request was built with a filled ledger and both names, and every line the HOUSE wrote was listed: the briefing
+  opens as him speaking to the teller; its labels are plain ("On their mind", "The hour", "The ground", "Here
+  now", "True of them", "Who knows what", "Elsewhere", "Our story so far, oldest to newest…"); the closing word is
+  his note. What is still rule-shaped is the craft — his own preset's shorthand — left as it is.
+- NOT VERIFIED: his own pages (on his phone). Pages the STORYTELLER itself wrote with "seventeen" while the note stood
+  carry no earlier words to go back to: those are the auditor's to hold to the brief.
+- version.js -> m331-001.

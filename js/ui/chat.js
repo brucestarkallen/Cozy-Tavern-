@@ -64,6 +64,7 @@ import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord, againstTheBrief } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
+import { loadSessionRoot } from '../agents/housekeeper.js'; /* M331 */
 import { voiceOf, askAgain } from '../assemble/voice.js'; /* M327: the two names */
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan, pageOnly } from './headergate.js'; /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
@@ -1436,7 +1437,7 @@ export function initChat(ctx) {
     refreshEmber();
     markLedgerTrouble(story.id);   /* M250 */
     /* M330: once for each tale a session: the house's own notes are taken back out of its record (nobody's hand needed) */
-    if (!healedNotes.has(story.id)) { healedNotes.add(story.id); takeBackHouseNotes(story); }
+    if (!healedNotes.has(story.id)) { healedNotes.add(story.id); takeBackHouseNotes(story).then(() => putBackAgainstBrief(story)); }
   }
 
   /* Re-render one page in place (an edit, a swipe, a worker's write-back). */
@@ -2232,6 +2233,46 @@ export function initChat(ctx) {
       pendingAudit.add(story.id);
       toast(gone + (gone === 1 ? ' note' : ' notes') + ' the house had left in this story’s record ' + (gone === 1 ? 'was' : 'were') + ' taken out — the pages, the record and the ledger carry the facts themselves, and the auditor will hold them to your brief.');
       return gone;
+    } catch (err) { return 0; }
+  }
+
+  /* M331: WHAT WAS ALREADY CHANGED AWAY FROM THE BRIEF IS PUT BACK — EXACTLY, IN CODE. The writer, after M330: "so should I
+   * manually edit 17 back to 16, or just continue?" Neither should be his to do. Two kinds of change keep their
+   * earlier words: a MEND (page.mended.before) and a HOUSEKEEPER edit (its undo shelf: batches[].items[kind:'message']
+   * .before). For each, the one fact that differs between the earlier words and the page as it stands now is read
+   * (factChange) — and when that change goes AGAINST the brief (the brief or cast notes state the old value, in words
+   * or figures, and not the new one) the earlier words go back, to the letter. No model is asked. A page edited
+   * again since (more than that one fact differs) is left alone; so is any change the brief does not settle. The
+   * record line over a restored page is let go to be folded again, and the auditor is sent. */
+  async function putBackAgainstBrief(story) {
+    try {
+      const fresh = await db.stories.get(story.id);
+      const setDown = [fresh && fresh.brief, fresh && fresh.castNotes];
+      if (!setDown.some((t) => String(t || '').trim())) return 0;
+      const earlier = new Map(); /* page id → its earlier text, the OLDEST earlier words winning */
+      const root = await loadSessionRoot(story.id);
+      for (const b of (root.batches || [])) for (const it of (b.items || [])) if (it && it.kind === 'message' && it.before && typeof it.before.text === 'string' && !earlier.has(it.messageId)) earlier.set(it.messageId, it.before.text);
+      const all = await db.messages.list(story.id);
+      for (const m of all) if (m && m.mended && typeof m.mended.before === 'string' && !earlier.has(m.id)) earlier.set(m.id, m.mended.before);
+      let back = 0; let said = '';
+      for (const m of all) {
+        if (!m || m.role !== 'assistant' || !earlier.has(m.id)) continue;
+        const before = earlier.get(m.id); const now = pageText(m);
+        const change = factChange(before, now);
+        if (!change || !againstTheBrief(setDown, change.removed, change.added)) continue;
+        const patch = { text: before, mended: null };
+        if (Array.isArray(m.swipes) && m.swipes.length) {
+          const idx = Number.isFinite(m.swipeIdx) ? Math.min(m.swipes.length - 1, Math.max(0, m.swipeIdx)) : m.swipes.length - 1;
+          const swipes = m.swipes.slice(); swipes[idx] = { ...swipes[idx], text: before }; patch.swipes = swipes;
+        }
+        await db.messages.update(story.id, m.id, patch);
+        /* (M44-6 counts the four moments a page's line is let go by their literal; this fifth is named apart) */
+        try { const vis = visiblePages(await db.messages.list(story.id)); const holeAt = vis.findIndex((x) => x.id === m.id); if (holeAt !== -1) { const record = await loadMemory(story.id); await saveMemory(story.id, memoryWithoutPage(record, holeAt)); } } catch (err) { /* the keeper's next pass covers it */ }
+        await rerenderMessage(story.id, m.id);
+        back += 1; said = '“' + change.added + '” back to “' + change.removed + '”';
+      }
+      if (back) { pendingAudit.add(story.id); toast(back + (back === 1 ? ' page' : ' pages') + ' had been changed AWAY from your brief — put back, to the letter (' + said + '). Nothing for you to do.'); }
+      return back;
     } catch (err) { return 0; }
   }
 
