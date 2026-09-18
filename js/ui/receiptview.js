@@ -153,6 +153,7 @@ export function openReceipt(receipt, extraction, findings) {
   if (receipt.effort) parts.push('thinking ' + receipt.effort);
   if (typeof receipt.durationMs === 'number') parts.push(fmtSeconds(receipt.durationMs) + ' all told');
   if (typeof receipt.totalTokens === 'number') parts.push('~' + receipt.totalTokens + ' tokens sent');
+  if (receipt.prefill) parts.push(receipt.prefill); /* M329: did the prefill work, on this turn */
   footer.textContent = parts.join(' · ');
 
   closeGeneration += 1; // B8: any pending close-timer stands down

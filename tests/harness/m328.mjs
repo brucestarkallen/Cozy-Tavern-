@@ -92,3 +92,34 @@ test('M328-5 a story’s prefill is not welded onto a worker: riding the STORYTE
   noteTellerConnection(null);
   await db.connections.remove(teller.id); await db.connections.remove(crew.id);
 });
+
+/* ---------- M329: is it WORKING, for this model? ---------- */
+const probe = async (conn, message) => {
+  const calls = []; const prior = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => { calls.push({ url: String(url), body: JSON.parse(opts.body) }); return { ok: true, status: 200, headers: new Headers(), async json() { return { choices: [{ message }] }; }, async text() { return ''; }, clone() { return this; } }; };
+  try { return { verdict: await createProvider(conn).testPrefill(), calls }; } finally { globalThis.fetch = prior; }
+};
+
+test('M329-1 "Test it" reads the probe’s reply and says what it SAW: a seed the model thought on from; a seed a model ignored; a started reply and what came after it', async () => {
+  const worked = await probe({ ...KIMI, prefill: SEED }, { content: '', reasoning_content: 'he ordered the coffee black, so she will notice.' });
+  assert(worked.verdict.ok && /^Working — the model took your seed and thought on from it: “…he ordered the coffee black/.test(worked.verdict.detail), worked.verdict.detail);
+  eq(JSON.stringify(worked.calls[0].body.messages.slice(-1)[0]), JSON.stringify({ role: 'assistant', content: '', reasoning_content: 'Right, where were we. Let me look at what Bruce just did —', partial: true }), 'the probe carries exactly what a turn would');
+  assert(worked.calls[0].body.max_tokens === 96 && worked.calls[0].body.reasoning_effort, 'with room to think a few words, and its thinking params kept');
+  const ignored = await probe({ ...KIMI, prefill: SEED }, { content: 'She looked up.' });
+  assert(!ignored.verdict.ok && /^Accepted, but NO thinking came back — this model answered straight away \(“She looked up\.”\)/.test(ignored.verdict.detail), 'a 200 is not "working": ' + ignored.verdict.detail);
+  const started = await probe({ ...KIMI, prefill: '[The Bluebird —' }, { content: ' Friday, March 14 | 20:40]' });
+  assert(started.verdict.ok && /^Working — the reply went on from your words: “\[The Bluebird —” → “Friday, March 14 \| 20:40\]”$/.test(started.verdict.detail), started.verdict.detail);
+  const orSeed = await probe({ ...OR, prefill: SEED }, { content: '', reasoning: 'so the scene opens on him.' });
+  assert(orSeed.verdict.ok && /thought on from it/.test(orSeed.verdict.detail), 'OpenRouter’s "reasoning" is read too');
+});
+
+test('M329-2 every turn says what the prefill did: the model thought on from the seed — or the seed was sent and no thinking came back', async () => {
+  const ok = await tell({ ...KIMI, prefill: SEED });
+  assert(ok.out.prefill.working === true && /^The prefill: the thinking seed was sent and the model thought on from it \(\d+ characters of its own thinking came back\)\.$/.test(ok.out.prefill.words), ok.out.prefill.words);
+  const mute = await tell({ ...KIMI, prefill: SEED }, () => sse([{ choices: [{ delta: { content: '[The Bluebird — Friday | 20:40]\n\nShe looked up.' } }] }]));
+  assert(mute.out.prefill.working === false && /NO thinking came back/.test(mute.out.prefill.words), 'the house’s own putting-back of the seed is not counted as the model thinking: ' + mute.out.prefill.words);
+  eq(mute.out.thinking, '', 'and no thinking is shown that the model never did');
+  const home = await tell({ ...DS, prefill: '[The Bluebird —', reasoning: { effort: 'high' } });
+  assert(home.out.prefill.applied === false && /^The prefill was NOT sent — /.test(home.out.prefill.words));
+  eq((await tell({ ...KIMI })).out.prefill, null, 'a connection with no prefill says nothing');
+});

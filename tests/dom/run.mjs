@@ -3229,6 +3229,12 @@ test('DOM-59 the thinking prefill, through the house: typed into a connection’
     const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
     assert(String(page.thinking || '').startsWith('Right, where were we. Let me look at what Bruce just did — Let me weigh the room.'), 'the page’s thinking begins with his seed: ' + String(page.thinking || '').slice(0, 90));
     assert(!/Right, where were we/.test(page.text), 'and none of it is on the page');
+    /* M329: the page's own receipt says whether it WORKED on this turn — and the sheet shows it */
+    assert(/^The prefill: the thinking seed was sent and the model thought on from it \(\d+ characters of its own thinking came back\)\.$/.test((page.receipt || {}).prefill || ''), 'the receipt: ' + JSON.stringify((page.receipt || {}).prefill));
+    click(qa('#thread .msg-assistant .msg-receipt').slice(-1)[0]);
+    await until(() => q('#receipt-sheet') && !q('#receipt-sheet').hidden && /the model thought on from it/.test(q('#receipt-sheet').textContent), '“What the storyteller saw” says so', 10000);
+    click(q('#btn-receipt-close'));
+    await tick(400);
     const crew = calls.filter((c) => c.isWorker);
     assert(crew.length > 0 && crew.every((c) => c.body.messages[c.body.messages.length - 1].role === 'user'), 'the readers rode the same connection — and were sent no seed (' + crew.length + ' calls)');
     /* out of character */

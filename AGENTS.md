@@ -7693,3 +7693,26 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: a live provider (no key here) — the message shapes are the extension's, which its own gate checks
   against SillyTavern's server code, and the providers' docs quoted in M307/M318.
 - version.js -> m328-001.
+
+# M329 — "does it have a test or indicator that the prefill is working for that model?"
+- HONEST ANSWER TO THE WRITER'S QUESTION, read in the code: there was a "Test it" button — and it said "Took it — the reply
+  picked up where the prefill left off" for ANY 200, without one look at the reply. And seeing his seed at the head
+  of a page's thinking proved nothing either: the HOUSE puts it there (M328). Nothing told him whether a model
+  had actually used the seed.
+- CHANGE.
+  · "Test it" reads the probe's reply (providers/openai.js testPrefill). A seed: 96 tokens of room, thinking params
+    kept, and the verdict is what came back — "Working — the model took your seed and thought on from it: “…”",
+    or "Accepted, but NO thinking came back — this model answered straight away (“…”), so a seed steers nothing
+    here", or that the short probe cannot tell. A started reply: "the reply went on from your words: “…” → “…”",
+    or that the address echoes them. reasoning_content, reasoning and a hand-named field are all read.
+  · every turn: the provider counts the thinking the MODEL sent (the seed the house puts back is not counted) and
+    returns prefill.words; the page's receipt keeps it and "What the storyteller saw" shows it — the seed was
+    sent and the model thought on from it (N characters) / sent, but NO thinking came back / NOT sent, and why.
+  · a seed that steered nothing is also said once per connection as a toast.
+- TESTS: m328.mjs M329-1 (the four probe verdicts, the probe's exact last message and room), M329-2 (the turn's
+  report when the model thought, when it did not — and then NO thinking is shown that the model never did —
+  when the prefill stayed home, and nothing at all for a connection without one). DOM-59 reads the saved page's
+  receipt and opens the sheet.
+- NOT VERIFIED: a live model. "Thought on from it" means thinking came back on a turn that carried the seed; whether
+  it reads as a continuation of his words is his to judge — "Test it" quotes the first words for that.
+- version.js -> m329-001.

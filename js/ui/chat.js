@@ -3780,7 +3780,10 @@ export function initChat(ctx) {
           durationMs: result.durationMs,
           model: connection.model || '',
           effort: reasoning.effort === 'off' ? '' : reasoning.effort,
+          prefill: result.prefill && result.prefill.words ? result.prefill.words : '',
         });
+        /* M329: a seed that steered nothing is said once for that connection — the receipt says it every turn */
+        if (result.prefill && result.prefill.seeded && result.prefill.working === false) sayOnce('seed-nothing:' + (connection.id || ''), 'Your thinking seed was sent, but no thinking came back from this model — a seed steers nothing here. (“What the storyteller saw” on a page says what the prefill did on that turn.)');
       } catch (err) {
         stopPainting(); /* M164: no frame lands into a page that is gone */
         /* M160: the thinking clock used to be stopped only when the writer

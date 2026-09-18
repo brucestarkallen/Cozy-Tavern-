@@ -229,6 +229,22 @@ function requestBody(connection, wireMessages, opts = {}) {
   return { body, prefill: opened && !suppressed ? { ...pf, note: [pf.note, 'Thinking was switched on (at its lightest) for this turn, so the thinking seed has a channel to land in.'].filter(Boolean).join(' ') } : pf };
 }
 
+/* M329: what the prefill did on this turn, in words — kept on the page's receipt ("What the storyteller saw") */
+function prefillReport(connection, sent, modelThought, full) {
+  if (!String(connection && connection.prefill != null ? connection.prefill : '').trim()) return null;
+  if (!sent) return null;
+  if (sent.stayedHome !== undefined) return { applied: false, words: 'The prefill was NOT sent' + (sent.stayedHome ? ' — ' + sent.stayedHome : '.') };
+  const bits = [];
+  let working = true;
+  if (sent.seed) {
+    if (modelThought > 0) bits.push('the thinking seed was sent and the model thought on from it (' + modelThought + ' characters of its own thinking came back)');
+    else { working = false; bits.push('the thinking seed was sent, but NO thinking came back — on this turn the model did not think, so the seed steered nothing'); }
+  }
+  if (sent.content) bits.push('the reply was started with “' + (sent.content.length > 40 ? sent.content.slice(0, 40) + '…' : sent.content) + '”');
+  const words = bits.join('; ');
+  return { applied: true, working, seeded: Boolean(sent.seed), words: 'The prefill: ' + words + '.' };
+}
+
 export function createOpenAIProvider(connection) {
   const base = baseOf(connection);
   const name = nameOf(connection);
@@ -299,6 +315,9 @@ export function createOpenAIProvider(connection) {
     await healStalePrefillRefusal(connection); /* M307 */
     let lead = ''; /* M307: the words the reply was started with, put back at its first word */
     let thoughtLead = ''; /* M328: and the words the THOUGHT was started with, at its first word */
+    /* M329: DID IT WORK, ON THIS MODEL, ON THIS TURN? What was really sent, and what the model did with it */
+    let sentPrefill = null;
+    let modelThought = 0; /* characters of thinking the MODEL sent — the seed the house puts back is not counted */
     for (let attempt = 0; attempt < 3 && !res; attempt += 1) { /* M318: three — the beta address may say no, and then the ordinary one may still refuse a dial */
       const { body, prefill } = requestBody(connection, wire, opts);
       /* M307: a started reply goes to DeepSeek's beta address, the only one that takes it */
@@ -319,6 +338,7 @@ export function createOpenAIProvider(connection) {
         if (prefill.note) notes.push(prefill.note);
         lead = prefill.applied ? prefillLead(connection) : '';
         thoughtLead = prefill.applied && prefill.seed ? prefill.seed : '';
+        sentPrefill = prefill.applied ? { seed: prefill.seed || '', content: prefill.content || '' } : { stayedHome: prefill.note || '' };
         res = out;
         break;
       }
@@ -375,6 +395,7 @@ export function createOpenAIProvider(connection) {
       if (!text) return;
       if (channel === 'thinking') {
         if (tfftMs === null) tfftMs = Date.now() - startedAt;
+        modelThought += text.length;
         /* M328: the model continues the writer's seed — what it sends back is only what comes AFTER it */
         if (thoughtLead) {
           const put = thoughtLead; thoughtLead = '';
@@ -441,6 +462,7 @@ export function createOpenAIProvider(connection) {
       thinking,
       finishReason,
       notes,
+      prefill: prefillReport(connection, sentPrefill, modelThought, full),
       sources: [],
       ttftMs: ttftMs === null ? durationMs : ttftMs,
       tfftMs,
@@ -469,7 +491,9 @@ export function createOpenAIProvider(connection) {
     }
     /* M328: a probe that carries a thinking SEED keeps its thinking params — the seed needs the channel it is sent in;
      * a plain started reply is probed without them, as before */
-    const seeded = Object.keys(started).some((k) => !['role', 'content', 'partial', 'prefix'].includes(k) && typeof started[k] === 'string');
+    const seededField = Object.keys(started).find((k) => !['role', 'content', 'partial', 'prefix'].includes(k) && typeof started[k] === 'string') || '';
+    const seeded = Boolean(seededField);
+    if (seeded) body.max_tokens = 96; /* M329: room for a first few words of thinking to come back and be seen */
     if (!seeded) {
       delete body.reasoning;
       delete body.reasoning_effort;
@@ -492,7 +516,24 @@ export function createOpenAIProvider(connection) {
     } catch (err) {
       return { ok: false, detail: `Couldn’t reach ${name} — check the connection and try again.` };
     }
-    if (res.ok) return { ok: true, detail: 'Took it — the reply picked up where the prefill left off.' };
+    if (res.ok) {
+      /* M329: "TOOK IT" SAID MORE THAN IT KNEW. Any 200 was reported as "the reply picked up where the prefill left
+       * off" — without one look at the reply. The probe is read now: for a seed, did the model THINK ON from
+       * it; for a started reply, what came after the writer's words. */
+      let msg = null;
+      try { const j = await res.json(); msg = j && j.choices && j.choices[0] && j.choices[0].message; } catch (err) { msg = null; }
+      const thought = String((msg && (msg.reasoning_content || msg.reasoning || (seededField && msg[seededField]))) || '').trim();
+      const saidBack = String((msg && msg.content) || '').trim();
+      const clip = (t) => (t.length > 70 ? t.slice(0, 70) + '…' : t);
+      if (seeded) {
+        if (thought) return { ok: true, detail: 'Working — the model took your seed and thought on from it: “…' + clip(thought) + '”' };
+        if (saidBack) return { ok: false, detail: 'Accepted, but NO thinking came back — this model answered straight away (“' + clip(saidBack) + '”), so a seed steers nothing here. It may not think, or this address drops the thinking field.' };
+        return { ok: false, detail: 'Accepted, but nothing came back in this short probe — it cannot tell whether the seed was used.' };
+      }
+      const started = String(body.messages[body.messages.length - 1].content || '');
+      if (saidBack && started && saidBack.startsWith(started)) return { ok: true, detail: 'Took it — this address echoes your words back before going on (the house never doubles them).' };
+      return { ok: true, detail: saidBack ? 'Working — the reply went on from your words: “' + clip(started) + '” → “' + clip(saidBack) + '”' : 'Took it — the address accepted a started reply (nothing came back in this short probe to show).' };
+    }
     let detail = '';
     try {
       const j = await res.json();

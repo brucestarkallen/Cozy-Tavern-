@@ -22,7 +22,7 @@ export function estimateTokens(text) {
 }
 
 export function finalizeReceipt(draft, timings) {
-  const { ttftMs, tfftMs, durationMs, model, effort } = timings || {};
+  const { ttftMs, tfftMs, durationMs, model, effort, prefill } = timings || {};
   const safe = draft && typeof draft === 'object' ? draft : {};
   const slots = Array.isArray(safe.slots) ? safe.slots : [];
   return {
@@ -44,6 +44,8 @@ export function finalizeReceipt(draft, timings) {
     durationMs: typeof durationMs === 'number' ? Math.round(durationMs) : null,
     model: model || '',
     effort: typeof effort === 'string' ? effort : '',
+    /* M329: what the prefill did on this turn, in words ('' when the connection has none) */
+    prefill: typeof prefill === 'string' ? prefill : '',
     stateSummary: typeof safe.stateSummary === 'string' ? safe.stateSummary : '',
   };
 }
