@@ -7895,3 +7895,35 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: that this cures his teller's "I'm an assistant" thinking — only his models can show it. A rule he imports
   or writes himself goes through the same transformer unread by me.
 - version.js -> m334-001.
+
+# M335 — the teller's thinking read like an auditor's: it had been ORDERED to
+- THE WRITER pasted his teller's thinking and asked what makes it unnatural: "Bruce's ledger — backup checks out… canon check…
+  the lane group merged record confirms… Ledger Mi-na knows:… the notebook's 'On their mind' says… That's a hanging slot…
+  Turn economy… Window beyond: none required this turn… GFX: no… Header: 13:19-ish".
+- ANALYSED, word by word, against what the teller is sent. The WORK in that thinking is good — it caught three real
+  contradictions (Rias IS the VP; the truck never stopped; Jovan is inventing his cover story). The VOICE is an auditor's
+  because the craft's own Pass orders it: "read the ledger, the record, and the world's word before anything else… Your
+  notes cover two things, IN SHORTHAND, NEVER IN PROSE: B — BEAT… L — LAST LOOK…". Every odd word traces to a name the
+  teller was handed: ledger / record / world's word (the craft's section teaching the blocks), "On their mind" and the
+  knowledge lines (the briefing's headings), slot / turn economy / window / GFX / header / canon / drift / recolor (the
+  craft's rule names), "drift… recolor" again from the eye's note ("your craft's Drift Recovery"). A mind told to think
+  in shorthand about named machinery thinks in shorthand about named machinery. ("Game State" and "backup checks out"
+  are the model's own words; nothing sends them.)
+- CHANGE (assemble/voice.js naturalThinking, eyeWithoutRuleNames; stack.js) — for a teller with a SELF (a name in either box,
+  or a frame in the first person): the Pass's order for shorthand is replaced by a request to turn the scene over the
+  way one would before telling it to a friend — briefly, in one's own voice, in plain sentences about the people; never
+  naming a rule, a heading or where a fact is written, with his own two examples; "no labels, no checklist, no inventory
+  of what you are not doing this turn". THE CHECKS THEMSELVES (B — BEAT, L — LAST LOOK, "none of the above reaches the
+  page") ARE UNTOUCHED — they are what caught the contradictions. A craft of the writer's own wording gets the request
+  at its end. The eye's note loses the rule's name ("(your craft's Drift Recovery)"). It all goes through the names and
+  the person like the rest of the craft ("…in my own voice… while I think").
+  No teller to speak of (no name, a "You" frame): every word as it was.
+- TESTS: tests/harness/m335.mjs — the order gone, the request in, the checks and the closing line intact; first person reads
+  right and the quoted examples are untouched; no self → byte for byte; a forked craft → appended, his words untouched;
+  the eye's note to a named teller says what drifted and names no rule.
+- NOT DONE, AND WHY: the craft's hundred rule NAMES ("Turn Economy", "Swap Test", "GFX"…) are his preset's own shorthand and
+  stay — the request not to think in them is the lever; renaming them would be rewriting his preset. The briefing's
+  headings ("On their mind", "Who knows what") are already plain words.
+- NOT VERIFIED: that his model's thinking now reads in the teller's voice — only his models can show it. A thinking seed in
+  the teller's voice (M328) pulls the same way and is the stronger lever.
+- version.js -> m335-001.

@@ -94,7 +94,7 @@
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { withoutAuthorshipFrame } from './craft.js'; /* M309 */
-import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
+import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -427,7 +427,7 @@ export function buildRequest({
 
   /* --- 2. The craft --- */
   const craft = selected.find(({ mod }) => mod && mod.id === 'core-craft');
-  const craftText = craft && craft.mod ? inPerson(inVoice(withoutAuthorshipFrame(craft.mod.text), voice), person) : ''; /* M327: in the writer's name; M309: the house's craft no longer holds it; a copy saved before today loses it here */
+  const craftText = craft && craft.mod ? inPerson(inVoice(naturalThinking(withoutAuthorshipFrame(craft.mod.text), voice, person), voice), person) : ''; /* M335: a teller with a self thinks in its own voice */ /* M327: in the writer's name; M309: the house's craft no longer holds it; a copy saved before today loses it here */
   pushSlot('The craft', craftText, 'the rulebook', craft ? craft.reason : '');
 
   /* --- 3. The brief --- */
@@ -588,7 +588,7 @@ export function buildRequest({
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name */
   if (directorText) stateParts.push('The director’s note:\n' + directorText);
   if (editorText) stateParts.push('The editor’s eye:\n' + editorText);
-  if (eyeText) stateParts.push(toTeller(eyeText, voice)); /* the eye speaks its own name — M327: and the teller's */
+  if (eyeText) stateParts.push(toTeller(eyeWithoutRuleNames(eyeText, voice, person), voice)); /* the eye speaks its own name — M327: and the teller's */
   if (rulingText) stateParts.push(inVoice(rulingText, voice)); /* the directive already speaks its name (M327: "the house has ruled" is the notebook's word, where the writer is named) */
   const stateInjection = stateParts.length
     ? { role: 'user', content: briefingOpening(voice) + '\n\n' + stateParts.join('\n\n') }

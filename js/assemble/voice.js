@@ -59,7 +59,7 @@ export function toTeller(text, voice) {
   const t = voice && voice.teller;
   const s = String(text == null ? '' : text);
   if (!t || !s.trim()) return s;
-  const body = /^[A-Z][a-z]/.test(s) && !/^I\b/.test(s) ? s[0].toLowerCase() + s.slice(1) : s;
+  const body = (/^[A-Z][a-z]/.test(s) || /^A /.test(s)) && !/^I\b/.test(s) ? s[0].toLowerCase() + s.slice(1) : s; /* ("A few things…" too) */
   return t + ' — ' + body;
 }
 
@@ -158,4 +158,33 @@ export function inPerson(text, person) {
   const phraseList = (line) => (line.match(/,/g) || []).length >= 12 && (line.match(/,/g) || []).length * 28 >= line.length;
   return s.split('\n').map((line) => (phraseList(line) ? line
     : line.split(/("[^"\n]{0,400}"|“[^”\n]{0,400}”)/).map((part, i) => (i % 2 ? part : firstPersonOutsideQuotes(part))).join(''))).join('\n');
+}
+
+
+/* M335: THE TELLER'S THINKING WAS ORDERED TO BE A CHECKLIST. The writer pasted his teller's thinking: "Bruce's ledger — backup
+ * checks out… canon check… the lane group merged record confirms… Ledger Mi-na knows:… That's a hanging slot… Turn
+ * economy… Window beyond: none required… GFX: no… Header: 13:19-ish" — good work (it caught three contradictions) in
+ * the voice of an auditor. It was obeying the craft's own Pass, to the letter: "read the ledger, the record, and the
+ * world's word before anything else… Your notes cover two things, IN SHORTHAND, NEVER IN PROSE: B — BEAT… L — LAST
+ * LOOK…". A mind told to think in shorthand about named machinery thinks in shorthand about named machinery.
+ * For a teller with a self (a name set, or a frame in the first person) the Pass asks for THE SAME CHECKS, thought
+ * the way a person turns a scene over before telling it: briefly, in their own voice, about the people — and never
+ * naming a rule, a heading, or where a fact is written. The checks themselves (B and L) are untouched. */
+const PASS_SHORTHAND = 'Your notes cover two things, in shorthand, never in prose:';
+const PASS_NATURAL = 'Before the page, turn the scene over in your head the way you would before telling it to a friend: briefly, in your own voice, in plain sentences about these people — what each of them wants right now, what each of them actually saw or was told, what it will cost. Never name a rule, a heading, or where a fact is written while you think: say “she can’t know that yet — she only saw the truck go by”, never “the knowledge lines say…”; say “that isn’t what happened earlier — the truck never stopped”, never “canon check” or “the record confirms”. No labels, no checklist, no inventory of what you are not doing this turn. Two things to settle:';
+/* a name in either box, or a frame in the first person: the writer is telling stories WITH someone, not operating a tool */
+export function tellerHasSelf(voice, person) { return Boolean(hasVoice(voice) || person === 'first'); }
+export function naturalThinking(craftText, voice, person) {
+  const s = String(craftText == null ? '' : craftText);
+  if (!s || !tellerHasSelf(voice, person)) return s;
+  if (s.includes(PASS_SHORTHAND)) return s.replace(PASS_SHORTHAND, PASS_NATURAL);
+  /* a craft of the writer's own that words its Pass differently: the same request, at its end */
+  return s.replace(/\s*$/, '') + '\n\n' + PASS_NATURAL.replace(/ Two things to settle:$/, '');
+}
+/* the eye's note names the craft's rule for the cure ("your craft’s Drift Recovery") — which the teller then thinks aloud
+ * ("my earlier drift… recolor"). For a teller with a self the note says what happened and nothing about rules. */
+export function eyeWithoutRuleNames(text, voice, person) {
+  const s = String(text == null ? '' : text);
+  if (!s || !tellerHasSelf(voice, person)) return s;
+  return s.replace(/ \(your craft[’']s Drift Recovery\)/, '');
 }
