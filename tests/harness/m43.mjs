@@ -13,7 +13,7 @@ test('M43-1 no chip on a mended page; the take-back lives in the drawer', () => 
 
 test('M43-2 a branch carries its checkpoint: the ledger after the branch page, the snapshots, the versions, the record’s lines, the lore', () => {
   const c = chat();
-  const b = c.slice(c.indexOf('async function branchFrom('), c.indexOf('async function branchFrom(') + 12000) /* M72, M91, M127: the window grew */;
+  const b = c.slice(c.indexOf('async function branchFrom('), c.indexOf('async function branchFrom(') + 15000) /* M72, M91, M127, M332: the window grew */;
   assert(/carried = await versionStateFor\(story\.id, target\.id, idx\);/.test(b), 'the version checkpoint first');
   assert(/const hit = snaps\.find\(\(e\) => e\.id === nextUser\.id\);/.test(b), 'else the next turn’s boundary');
   /* M66: never a LATER state — the nearest earlier checkpoint, else a clean ledger plus a re-reading */
@@ -34,8 +34,8 @@ test('M43-2 a branch carries its checkpoint: the ledger after the branch page, t
 
 test('M112-1 a branch taken while the readers are still on the newest page re-reads that page itself; an origin\'s chain is never touched', () => {
   const c = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  const b = c.slice(c.indexOf('async function branchFrom('), c.indexOf('async function branchFrom(') + 12000);
-  assert(/const chainStillRunning = \(await pendingWork\(story\.id, 8000\)\) === false;/.test(b), 'the wait says whether the chain settled');
+  const b = c.slice(c.indexOf('async function branchFrom('), c.indexOf('async function branchFrom(') + 15000); /* M332: the function grew */
+  assert(/chainStillRunning = \(await pendingWork\(story\.id, 8000\)\) === false;/ /* M332: declared above the branch's try, assigned here */.test(b), 'the wait says whether the chain settled');
   assert(/if \(fromTheTail\) \{\s*carried = nowState;\s*exact = !chainStillRunning;/.test(b), 'the newest page is exact only once the readers landed');
   assert(/if \(fromTheTail && chainStillRunning\) \{\s*startBackgroundWork\(branchStory, last, lastUser \? pageText\(lastUser\) : '', \{ deep: false, audit: true \}\)/.test(b), 'a light re-read of the last page, not the deep one');
 });

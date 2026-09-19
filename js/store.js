@@ -312,7 +312,7 @@ const stories = {
   async get(id) {
     return run('stories', 'readonly', (s) => s.get(id));
   },
-  async create({ title, projectId } = {}) {
+  async create({ title, projectId, building } = {}) {
     const now = Date.now();
     const row = {
       id: uid(),
@@ -320,6 +320,9 @@ const stories = {
       createdAt: now,
       updatedAt: now,
     };
+    /* M332: a tale that is still being MADE (a branch) says so from its very first write — there is no moment at which
+     * it stands in the store looking finished */
+    if (building && typeof building === 'object') row.building = building;
     /* M16: a tale may begin already resting on a shelf. */
     if (typeof projectId === 'string' && projectId) row.projectId = projectId;
     await run('stories', 'readwrite', (s) => s.put(row));
@@ -749,7 +752,7 @@ async function exportHouse() {
   const allKeys = (await run('settings', 'readonly', (s) => s.getAllKeys())) || [];
   /* M160: a tale-shaped row whose tale is gone is nobody's — never the
    * house's. Before this, every orphan rode _house.json on every push. */
-  const houseKeys = allKeys.filter((k) => typeof k === 'string' && !STORY_ROW(k, ids) && !STORY_PREFIXED.test(k) && k !== 'booksStamp');
+  const houseKeys = allKeys.filter((k) => typeof k === 'string' && !STORY_ROW(k, ids) && !STORY_PREFIXED.test(k) && k !== 'booksStamp' && k !== 'booksPushing');
   const house = [];
   for (const key of houseKeys) {
     const row = await run('settings', 'readonly', (s) => s.get(key));
@@ -783,7 +786,7 @@ export function keepWhatWasNeverLetGo(localJson, deviceJson, mine = []) {
   const haveKeys = new Set((local.settings || []).map((r) => r && r.key));
   for (const row of (device.settings || [])) {
     if (!row || typeof row.key !== 'string' || haveKeys.has(row.key) || spoke.has(row.key)) continue;
-    if (STORY_ROW(row.key, ids) || STORY_PREFIXED.test(row.key) || row.key === 'booksStamp') continue;
+    if (STORY_ROW(row.key, ids) || STORY_PREFIXED.test(row.key) || row.key === 'booksStamp' || row.key === 'booksPushing') continue;
     adopt.settings.push(row);
   }
   const haveConn = new Set((local.connections || []).map((c) => c && c.id));
@@ -950,7 +953,7 @@ async function importHouse(json, { dropMissing = false, keep = [] } = {}) {
     const ids = new Set([...held, ...((data.stories || []).map((x) => x && x.id).filter(Boolean))]);
     const incoming = new Set((data.settings || []).filter((r) => r && typeof r.key === 'string').map((r) => r.key));
     const keys = (await run('settings', 'readonly', (s) => s.getAllKeys())) || [];
-    goneKeys = keys.filter((k) => typeof k === 'string' && !incoming.has(k) && !STORY_ROW(k, ids) && !STORY_PREFIXED.test(k) && k !== 'booksStamp');
+    goneKeys = keys.filter((k) => typeof k === 'string' && !incoming.has(k) && !STORY_ROW(k, ids) && !STORY_PREFIXED.test(k) && k !== 'booksStamp' && k !== 'booksPushing');
     const have = new Set((data.connections || []).map((c) => c && c.id).filter(Boolean));
     goneConnections = ((await run('connections', 'readonly', (s) => s.getAllKeys())) || []).filter((cid) => !have.has(cid));
   }

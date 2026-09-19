@@ -118,16 +118,37 @@ async function houseForPush(json, mine) {
   } catch (err) { return json; }
 }
 
+/* M332: A PUSH THAT LANDED IS KNOWN AS THIS BROWSER'S OWN — EVEN IF THE PAGE DIED BEFORE IT COULD SAY SO.
+ * Every session ends with a push (pagehide). The device takes the book; the page is gone before the worker can
+ * write the book's stamp. So at the NEXT open the device's book looked NEWER than anything this browser had
+ * taken in — its own push — and boot pulled the whole tale back (tens of megabytes on the writer's phone),
+ * and then RELOADED THE PAGE under his hands: the "sudden refresh" that cut a branch in half. The stamp a push
+ * is ABOUT to carry is noted first (one small row, never part of any book); a device book wearing exactly that
+ * stamp is this browser's own work come home, and is not pulled. */
+const PUSHING = 'booksPushing';
+async function notePushing(id, stamp) {
+  try {
+    const m = { ...((await db.settings.get(PUSHING)) || {}) };
+    if (stamp) m[id] = stamp; else delete m[id];
+    await db.settings.set(PUSHING, m);
+  } catch (err) { /* bookkeeping only */ }
+}
+
 async function pushIds(ids, mine = {}) {
   const done = [];
   const refused = [];
   for (const id of ids) {
+    /* M332: a branch still being made is nobody's book yet (chat.js branchFrom marks it `building` until its last row is in) */
+    if (id !== HOUSE) { const row = await db.stories.get(id); if (row && row.building && typeof row.building === 'object') continue; }
     let json = id === HOUSE ? await db.exportHouse() : await db.exportStory(id);
     if (!json) continue;
     if (id === HOUSE) json = await houseForPush(json, (mine && mine[HOUSE]) || []);
     if (id !== HOUSE && await wouldEmptyTheBook(id, json)) { refused.push(id); continue; }
     const base = id === HOUSE ? '' : await db.settings.get('bookStamp:' + id);
-    if (await putBook(id, json, base)) { await db.settings.set('bookStamp:' + id, stampOf(json)); done.push(id); }
+    await notePushing(id, stampOf(json));
+    const landed = await putBook(id, json, base);
+    if (landed) { await db.settings.set('bookStamp:' + id, stampOf(json)); done.push(id); }
+    await notePushing(id, null); /* settled either way: the stamp says so now, or the push did not land */
   }
   if (refused.length) {
     /* the browser is the one that is wrong here — take the device's copy */
@@ -158,14 +179,18 @@ async function pullBooks(books, { all = false, replace = false, recent = null, o
   let count = 0;
   /* the house first, then the tales */
   const ordered = [...books].sort((a, b) => (a.id === HOUSE ? -1 : b.id === HOUSE ? 1 : 0));
+  const pushing = (await db.settings.get(PUSHING)) || {};
   for (const b of ordered) {
     const mine = stamps[b.id] || '';
     if (!all && mine && (Date.parse(mine) || 0) >= (Date.parse(b.exportedAt) || 0)) continue;
+    /* M332: the device's "newer" book is this browser's own last push, landed after the page had gone */
+    if (!all && pushing[b.id] && pushing[b.id] === b.exportedAt) { await db.settings.set('bookStamp:' + b.id, pushing[b.id]); await notePushing(b.id, null); continue; }
     const json = await getBook(b.id);
     if (!json) continue;
     const keep = own && Array.isArray(own[b.id]) ? own[b.id] : [];
     if (b.id === HOUSE) await db.importHouse(json, { dropMissing: replace, keep }); else await db.importStory(json, { dropMissing: replace, keep });
     await db.settings.set('bookStamp:' + b.id, stampOf(json));
+    if (pushing[b.id]) await notePushing(b.id, null); /* M332: a note of a push that never landed (the device moved on past it) is let go with the pull */
     count += 1;
     if (Array.isArray(recent) && b.id !== HOUSE && Date.now() - (Date.parse(b.exportedAt) || 0) < RECENT_MS) recent.push(b.id);
   }

@@ -7789,3 +7789,50 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: his own pages (on his phone). Pages the STORYTELLER itself wrote with "seventeen" while the note stood
   carry no earlier words to go back to: those are the auditor's to hold to the brief.
 - version.js -> m331-001.
+
+# M332 — "I branch, the page suddenly refreshes, and all the memory records are gone"; "I change a setting and must refresh for it to apply"
+- THE WRITER: "there's something wrong with the app's syncing and refresh… I asked for SillyTavern: always active and applied
+  without refresh. Do you even know how SillyTavern works?"
+- REPRODUCED in a real browser against the real device server (tests/branchrefresh.py, before any fix): branch from a page,
+  refresh while it is being made → a tale on the shelf with some of its pages, NO ledger and NO record — for good.
+- ROOT CAUSES, read in the code:
+  1. A BRANCH WAS MADE IN THE OPEN (chat.js branchFrom): the row first (on the shelf, marked for a push), its pages one
+     by one, then a wait of up to eight seconds for the readers, THEN its ledger, checkpoints, RECORD and lore. Any
+     reload in that time left a half-made tale that looked finished. Nothing marked it, nothing finished it.
+  2. THE HOUSE RELOADED THE PAGE UNDER HIS HANDS (sync.js). Boot waits three seconds for the device; past that it opened
+     the tavern anyway and, when the pull finished, laid the device's copy over whatever he had done meanwhile (a
+     boot pull is asked before the page has written anything — it protects nothing) and called location.reload().
+     A setting changed in those seconds was gone after the reload — "I need to refresh for it to apply".
+  3. WHY BOOT HAD SOMETHING TO PULL AT ALL, at almost every open: every session ends with a push (pagehide). The device
+     takes the book; the page is gone before the worker can write the book's stamp. So the next open saw its OWN
+     push as "newer than anything I have", pulled the whole tale back (tens of megabytes on his phone — well past
+     three seconds) and reloaded.
+- CHANGE.
+  · sync-worker.js: the stamp a push is ABOUT to carry is noted first (`booksPushing`, this browser's own bookkeeping,
+    kept out of every book: store.js, sync.js); a device book wearing exactly that stamp is this browser's own
+    work come home — the stamp is adopted, nothing is pulled, nothing reloads.
+  · sync.js: a boot that is still pulling after three seconds keeps the tavern CLOSED behind a plain veil ("Reading this
+    device's newer copy of your books…") until it is in — as SillyTavern does not let you type into a chat it is
+    still loading. Nothing can be written under a pull; no reload ever happens under his hands. The veil lifts by
+    itself after two minutes with no answer.
+  · chat.js + store.js: a branch carries `building {from, at}` from the very first write of its row (stories.create
+    dropped unknown fields — the first attempt lost the mark) until its last row is in. A building tale is not on
+    the shelf and is never pushed (sync-worker pushIds). A branch that throws is removed, not left. One found at
+    the next load was cut off: it is cleared away and the branch is MADE AGAIN from the tale and page it names
+    (healInterruptedBranches), with no hand on it.
+- TESTS: tests/branchrefresh.py (real Chromium, real serve.py): each copied page is slowed so the refresh lands mid-branch
+  for certain (3 of 12 pages, no record, no ledger) → after the refresh a NEW tale stands with all twelve pages, the
+  record's two lines and its ledger; the half-made one is gone; the DEVICE holds the whole branch, record and all,
+  and never held the half; a browser's own landed push is recognised at the next open (stamp adopted, nothing
+  pulled, no veil left). Two browsers 26/26, the-open-tale proof 17/17, the wipe test: nothing lost.
+- MUTATION-CHECKED IN THE REAL BROWSER: the `building` mark taken out of stories.create → tests/branchrefresh.py fails five
+  checks (the half-made tale stays, no record, the device holds a book with no record row) — his bug, exactly;
+  restored and `cmp`-proven. The long play on this tree: 8/8.
+- FAULTS OF MINE ON THE WAY: `stories.create` silently dropped the `building` mark (caught by the real-browser test);
+  wrapping the branch in a try{} put three names out of scope ("exact is not defined" — caught by the same test's
+  page-error check); and the test's own waits were no-ops (wait_for_function took an async predicate's PROMISE for
+  a yes) — it polls through evaluate now.
+- NOT VERIFIED: the veil under a genuinely slow pull (no slow device here) — its code path is a plain await; and his
+  existing half-made branch (made before today) carries no mark: it cannot be told from a finished tale, so it
+  is not touched — the tale it came from is whole; branch again and let the broken one go.
+- version.js -> m332-001.

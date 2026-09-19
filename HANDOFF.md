@@ -1,7 +1,7 @@
-# Cozy Tavern — handoff for the next session (state at m331-001)
+# Cozy Tavern — handoff for the next session (state at m332-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M331). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M332). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
@@ -20,6 +20,11 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- NOTHING IS MADE IN THE OPEN, AND THE PAGE IS NEVER RELOADED UNDER THE WRITER'S HANDS (M332). A multi-step creation (a
+  branch) marks its row `building` from its first write, stays off the shelf and off the device until whole, and
+  is remade at the next load if cut off. A boot pull still running keeps the tavern closed (sync.js veil); a push
+  notes its stamp BEFORE it goes (booksPushing) so its own work is never pulled back. tests/branchrefresh.py.
+  In Playwright, poll with page.evaluate — wait_for_function does not await an async predicate.
 - THE HOUSE NEVER WRITES A REMARK INTO STORY DATA (M330): the record, the ledger and the pages hold the story's facts,
   never a sentence ABOUT the house, its edits or its buttons — the storyteller reads all of it as story, every turn.
   A fact is made true by EDITING (mend the page → its record line refolds → the auditor relocks), never by a note.

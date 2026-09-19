@@ -188,8 +188,29 @@ export async function initSync(ctx) {
     return false;
   };
   if (first.late) {
-    if (!localHasStories && ctx.toast) ctx.toast('Reading the device’s books — the tavern will open again when they are in.');
-    boot.then(settle);
+    /* M332: THE TAVERN STAYS CLOSED WHILE THE BOOT IS STILL PULLING. After three seconds the house used to open anyway,
+     * let the writer work — and, when the pull finished, lay the device's copy over whatever he had done meanwhile
+     * (a boot pull protects nothing: it is asked before the page has written anything) and RELOAD THE PAGE under
+     * his hands. A setting changed in those seconds was gone after the reload ("I need to refresh for it to
+     * apply"); a branch being made was cut in half ("all the record gone"). SillyTavern does not let you type
+     * into a chat it is still loading; neither does this. The wait is said, and it ends by itself. */
+    const veil = document.createElement('div');
+    veil.id = 'boot-veil';
+    veil.setAttribute('role', 'status');
+    veil.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;background:var(--bg, #0b0f12);color:var(--ink, #d8d2c4);font:1.05rem/1.5 Georgia, serif;';
+    veil.textContent = 'Reading this device’s newer copy of your books — the tavern opens the moment it is in. Nothing is lost.';
+    document.body.appendChild(veil);
+    /* …and it never stays closed for ever: the worker answers when the pull is done; two minutes with no answer is a
+     * worker that will not — the tavern opens on what this browser holds, and says so */
+    const late = await Promise.race([boot.catch(() => null), new Promise((r) => setTimeout(() => r({ gaveUp: true }), 120000))]);
+    if (late && late.gaveUp) {
+      veil.remove();
+      if (ctx.toast) ctx.toast('The device’s books took too long to read — the tavern opened on what this browser holds. Nothing here was changed.');
+    } else {
+      const reloaded = await settle(late);
+      if (reloaded) return status;
+      veil.remove();
+    }
   } else if (await settle(first)) return status;
 
   /* the live mirror: what changed, and only that */
@@ -199,7 +220,7 @@ export async function initSync(ctx) {
     const orig = obj[name].bind(obj);
     obj[name] = (...args) => { const out = orig(...args); try { pick(args, out); } catch (err) { /* fine */ } return out; };
   };
-  wrap(ctx.db.settings, 'set', ([key]) => { if (/^bookStamp:/.test(key) || key === 'booksStamp') return; noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
+  wrap(ctx.db.settings, 'set', ([key]) => { if (/^bookStamp:/.test(key) || key === 'booksStamp' || key === 'booksPushing') return; noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
   wrap(ctx.db.settings, 'delete', ([key]) => { noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
   wrap(ctx.db.stories, 'create', (args, out) => { Promise.resolve(out).then((st) => { if (st && st.id) { knownIds.add(st.id); mark(st.id); mark('_house'); } }); });
   wrap(ctx.db.stories, 'update', ([id]) => { mark(id); mark('_house'); });

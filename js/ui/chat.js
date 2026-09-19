@@ -441,7 +441,7 @@ export function initChat(ctx) {
   const SHELF_COLLAPSED_KEY = 'shelfCollapsed';
 
   async function refreshStories(keepActive) {
-    stories = await db.stories.list();
+    stories = (await db.stories.list()).filter((st) => !(st && st.building && typeof st.building === 'object')); /* M332: a branch still being made is not on the shelf */
     /* M311: a shelf whose row was lost is put back before the shelf is drawn — the tales still name it.
      * The device is asked once for the names it can find in its older files; without it, "Recovered shelf N". */
     try {
@@ -1438,6 +1438,7 @@ export function initChat(ctx) {
     markLedgerTrouble(story.id);   /* M250 */
     /* M330: once for each tale a session: the house's own notes are taken back out of its record (nobody's hand needed) */
     if (!healedNotes.has(story.id)) { healedNotes.add(story.id); takeBackHouseNotes(story).then(() => putBackAgainstBrief(story)); }
+    healInterruptedBranches(); /* M332: once per load */
   }
 
   /* Re-render one page in place (an edit, a swipe, a worker's write-back). */
@@ -2234,6 +2235,29 @@ export function initChat(ctx) {
       toast(gone + (gone === 1 ? ' note' : ' notes') + ' the house had left in this story’s record ' + (gone === 1 ? 'was' : 'were') + ' taken out — the pages, the record and the ledger carry the facts themselves, and the auditor will hold them to your brief.');
       return gone;
     } catch (err) { return 0; }
+  }
+
+  /* M332: A BRANCH THAT WAS INTERRUPTED IS MADE AGAIN, WHOLE. Nothing can be `building` when a page loads — anything found
+   * so was cut off by a refresh. The half-made tale is cleared away (it was never on the shelf and never pushed) and
+   * the branch is taken again from the tale and the page it names; if those are gone, he is told. Once per load. */
+  let healedBranches = false;
+  async function healInterruptedBranches() {
+    if (healedBranches) return; healedBranches = true;
+    try {
+      const cut = (await db.stories.list()).filter((st) => st && st.building && typeof st.building === 'object');
+      for (const half of cut) {
+        const { from, at } = half.building;
+        try { await db.stories.remove(half.id); } catch (err) { /* swept at the next open */ }
+        const parent = from ? await db.stories.get(from) : null;
+        const page = parent ? (await db.messages.list(from)).find((m) => m.id === at) : null;
+        if (!parent || !page || parent.shallow) { toast('A branch was cut off before it was finished and has been cleared away. The tale it was taken from is untouched' + (parent && parent.shallow ? ' — open it and branch again.' : '.')); continue; }
+        ctx.setActiveStoryId(from);
+        await refreshStories(true);
+        await renderThread({ structural: true, opening: true });
+        toast('A branch was cut off before it was finished (the page was refreshed) — the house is making it again, whole.');
+        await branchFrom(at);
+      }
+    } catch (err) { /* never a reason to fail the open */ }
   }
 
   /* M331: WHAT WAS ALREADY CHANGED AWAY FROM THE BRIEF IS PUT BACK — EXACTLY, IN CODE. The writer, after M330: "so should I
@@ -4706,7 +4730,20 @@ export function initChat(ctx) {
     const taken = new Set((await db.stories.list()).map((x) => String(x.title || '')));
     let title = stem + ' — a branch';
     for (let n = 2; taken.has(title); n += 1) title = stem + ' — a branch ' + n;
-    const branch = await db.stories.create({ title });
+    /* M332: A BRANCH IS MADE WHOLE OR NOT AT ALL. It was made in the open: the row first (on the shelf, marked for a
+     * push), then its pages one by one, then — after waiting up to eight seconds for the readers — its ledger, its
+     * checkpoints, its RECORD and its lore. A refresh in that time (the writer's own, Android putting the tab to
+     * sleep, or the house's own late-boot reload) left a tale with some of its pages, no ledger and no record,
+     * looking like any other: "I branch, the page refreshes, and all the memory records are gone."
+     * The row is marked `building` — with what it is being made from — until its last row is in: a building tale is
+     * not shown on the shelf, is never pushed, and one found at the next open was interrupted: it is cleared away
+     * and the branch is made again from the tale and page it names (healInterruptedBranches). */
+    const branch = await db.stories.create({ title, building: { from: story.id, at: messageId, startedAt: Date.now() } });
+    /* (what the catch-up after the branch needs is declared out here: the block below is a `try`) */
+    let exact = false;
+    let chainStillRunning = false;
+    let fromTheTail = false;
+    try {
     const carry = {};
     for (const key of BRANCH_CARRY) {
       if (story[key] !== undefined && story[key] !== null) carry[key] = story[key];
@@ -4731,7 +4768,7 @@ export function initChat(ctx) {
      * old telling's later turns crosses over. */
     const target = history[at];
     let carried = null;
-    let exact = false;
+    exact = false;
     /* M70: with a journal, ONE rule for any page: the branch's ledger is the
      * fold up to the last storyteller page the branch actually contains — for
      * a writer's first message that is none (k = -1): empty but for what the
@@ -4742,10 +4779,10 @@ export function initChat(ctx) {
      * still running — the ledger copied now would lack that page's reads,
      * so the branch re-reads its last page itself (a light read, not the
      * deep one). The origin's own chain finishes in the origin, untouched. */
-    const chainStillRunning = (await pendingWork(story.id, 8000)) === false;
+    chainStillRunning = (await pendingWork(story.id, 8000)) === false;
     const nowState = await loadState(story.id);
     const kBranch = pages.filter((m) => m.role === 'assistant').length - 1;
-    const fromTheTail = isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden);
+    fromTheTail = isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden);
     /* M91: THE NEWEST PAGE CARRIES THE LEDGER AS IT STANDS — exact by
      * definition once the readers have landed, and never a re-derivation.
      * M70's fold came first here and, on a store from before the journal
@@ -4851,6 +4888,14 @@ export function initChat(ctx) {
     await saveMemory(branch.id, { ...mem, nodes });
     const lore = await loadLore(story.id);
     if (lore.length) await saveLore(branch.id, lore.map((e) => ({ ...e })));
+    await db.stories.update(branch.id, { building: false }); /* M332: whole — from here it is a tale like any other (and this write sends it to the device) */
+    } catch (err) {
+      /* M332: a branch that could not be finished is not left half-made */
+      try { await db.stories.remove(branch.id); } catch (e2) { /* the next open clears it */ }
+      toast('The branch could not be made (' + String((err && err.message) || err).slice(0, 120) + ') — nothing was left half-done; the tale it was taken from is untouched.');
+      await refreshStories(true);
+      return;
+    }
     ctx.setActiveStoryId(branch.id);
     await refreshStories(true);
     await renderThread({ structural: true, opening: true });
