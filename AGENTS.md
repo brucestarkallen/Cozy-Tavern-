@@ -8096,3 +8096,21 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   (isHeaderLine, brackets only) → M340-1 and M340-2 fail. Both files restored and `cmp`-proven. The long play on this tree: 8/8.
 - NOT VERIFIED: that his non-thinking models obey the skeleton (no key here) — which is why (2) and (3) do not depend on it.
 - version.js -> m340-001.
+
+# M341 — "your fix suddenly, on the first turn, breaks my persona": M340's skeleton was a form in a manual's voice
+- THE WRITER, right after M340: "your fix suddenly on first turn breaks my persona — what exactly do you do, as example or something?"
+- WHAT IT DID, printed from a real request: as the LAST thing the storyteller read on page one (the most heeded spot in the whole
+  request) stood a nine-line block — a heading ("The shape of the page — exactly this, every time:"), the header form, and DUMMY
+  PROSE ("A paragraph of the scene." / "Speech opens its own paragraph," she said.) — in nobody's voice, with no name. A form
+  to fill in; and a teller handed a form becomes a clerk. It broke the house's own law (M327, M335): what the house says to
+  the teller is said in the writer's voice, briefly, never like a manual.
+- CHANGE (ui/pageshape.js shapeReminder, stack.js): ONE sentence, led by the teller's name when there is one — "Tony Stark — open
+  the page with its header, in exactly this form — [Place, the exact spot — Weekday, Month D, YYYY | HH:MM | weather and light
+  | what Jovan wears | where Jovan is] — then a blank line, and a blank line between every two paragraphs." No heading, no
+  sample prose (paragraphs are mended in code whether or not the model heeds it). When the think-on-page line rides too, it
+  comes first and carries the name; the header's form follows without repeating it. Everything else of M340 is unchanged.
+- TESTS: m340.mjs M340-3 now holds the broken law — one line, under 260 characters, no sample prose, no heading, by name under a
+  named teller. DOM-66 follows the words.
+- NOT VERIFIED: that this is ALL of what his teller reacted to — only his models can show it; the block was the only thing M340
+  added to what the storyteller reads.
+- version.js -> m341-001.

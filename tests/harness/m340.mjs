@@ -49,11 +49,18 @@ test('M340-3 THE SHAPE IS SHOWN, not told: while a tale is young, or its last pa
   assert(needsShapeReminder([GOOD, GOOD, GOOD, HIS]), 'the last page came out of shape: shown again, by itself');
   const build = (settings, craft = CRAFT_TEXT) => buildRequest({ story: {}, messages: [{ id: 'u', role: 'user', text: 'I pour the coffee.' }], settings: { noteText: STARTER_NOTE, ...settings }, state: { ...emptyState(), page: 0, sheet: { playerName: 'Jovan' } }, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: craft }, reason: 'always' }], memory: '', window: { keeperOn: true, budgetTokens: 500000 } });
   const on = build({ pageShapeNow: true }); const last = on.messages[on.messages.length - 1].content;
-  assert(/The shape of the page — exactly this, every time:\n\n\[Place, the exact spot — Weekday, Month D, YYYY \| HH:MM \| weather and light, 2-5 words \| what Jovan wears \| where Jovan is, what he is doing\]\n\nA paragraph of the scene\.\n\n"Speech opens its own paragraph," she said\.\n\n/.test(last), last.slice(0, 300));
-  assert(last.trimEnd().endsWith(STARTER_NOTE.trim()) && last.indexOf('The shape of the page') < last.indexOf(STARTER_NOTE.trim()), 'before the note, which keeps the last word');
+  assert(/^Open the page with its header, in exactly this form — \[Place, the exact spot — Weekday, Month D, YYYY \| HH:MM \| weather and light \| what Jovan wears \| where Jovan is\] — then a blank line, and a blank line between every two paragraphs\.\n\n/.test(last), last.slice(0, 300));
+  /* M341: THE WRITER — "your fix suddenly, on the first turn, breaks my persona". M340 said this as a nine-line form with dummy prose */
+  const shape = last.slice(0, last.indexOf('\n\n'));
+  eq(shape.split('\n').length, 1, 'ONE sentence — never a block');
+  assert(!/A paragraph of the scene|Speech opens its own paragraph|exactly this, every time|she said/.test(last), 'no sample prose, no heading: a teller handed a form becomes a clerk');
+  assert(shape.length < 260, 'and short: ' + shape.length);
+  const named = build({ pageShapeNow: true, tellerName: 'Tony Stark', writerName: 'Bruce', frameText: 'I am Tony Stark.' });
+  assert(/^Tony Stark — open the page with its header, in exactly this form — \[Place/.test(named.messages[named.messages.length - 1].content), 'said to the teller by name, as the writer speaks: ' + named.messages[named.messages.length - 1].content.slice(0, 80));
+  assert(last.trimEnd().endsWith(STARTER_NOTE.trim()) && last.indexOf('Open the page with its header') < last.indexOf(STARTER_NOTE.trim()), 'before the note, which keeps the last word');
   eq(JSON.stringify(build({})), JSON.stringify(build({ pageShapeNow: false })), 'not needed: not one byte');
-  assert(!/The shape of the page/.test(JSON.stringify(build({}))));
-  assert(!/The shape of the page/.test(JSON.stringify(build({ pageShapeNow: true }, '## My own craft\nEvery page opens with a line of verse.'))), 'a craft of the writer’s own with another header is never told this one');
+  assert(!/pen the page with its header/.test(JSON.stringify(build({}))));
+  assert(!/pen the page with its header/.test(JSON.stringify(build({ pageShapeNow: true }, '## My own craft\nEvery page opens with a line of verse.'))), 'a craft of the writer’s own with another header is never told this one');
   assert(/what the main character wears/.test(shapeReminder({})) && /what the main character wears/.test(shapeReminder({ mc: 'the player' })), 'no name known: no placeholder name');
 });
 

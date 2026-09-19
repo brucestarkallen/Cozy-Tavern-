@@ -715,8 +715,8 @@ export function buildRequest({
   const thinkLine = safeSettings.thinkOnPageNow === true ? thinkOnPageLine(voice) : '';
   /* M340: the page's skeleton, SHOWN — while a tale is young or its last page came out of shape (chat.js decides), and only
    * under a craft that keeps the Header Protocol (a writer's own craft with another header is never told this one) */
-  const shapeLine = safeSettings.pageShapeNow === true && /Header Protocol/.test(craftText) ? shapeReminder({ mc: mcName(state) }) : '';
-  const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', shapeLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  const shapeLine = safeSettings.pageShapeNow === true && /Header Protocol/.test(craftText) ? shapeReminder({ mc: mcName(state), teller: thinkLine ? '' : (voice && voice.teller) }) : ''; /* M341: one sentence, in the writer's voice; the name is said once — by the think-line when both ride */
+  const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', thinkLine, shapeLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';

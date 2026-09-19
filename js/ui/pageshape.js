@@ -82,21 +82,20 @@ export function tidyPage(text, { place = '' } = {}) {
   return { text: out, did };
 }
 
-/* the skeleton, shown — the writer speaking (a user-role line) */
-export function shapeReminder({ mc = '' } = {}) {
+/* the header's form, shown — the WRITER speaking to his teller (a user-role line).
+ * M341: M340 put a nine-line block here in a manual's voice — a heading ("The shape of the page — exactly this, every time:"),
+ * the header form, and DUMMY PROSE ("A paragraph of the scene." / "Speech opens its own paragraph," she said.) — as the last
+ * thing the storyteller read on page one, the most heeded spot in the whole request. The writer: "your fix suddenly, on the
+ * first turn, breaks my persona." It read like a form to fill in, and a teller handed a form becomes a clerk. It broke the
+ * house's own law (M327, M335): what the house says to the teller is said in the writer's voice, briefly, never like a
+ * manual. ONE sentence now, led by the teller's name when there is one, with the header's form inside it and no sample
+ * prose at all (paragraphs are mended in code — tidyPage — whether or not the model heeds this). */
+export function shapeReminder({ mc = '', teller = '' } = {}) {
   const given = String(mc || '').trim();
   const who = given && given.toLowerCase() !== 'the player' ? given : 'the main character';
-  return [
-    'The shape of the page — exactly this, every time:',
-    '',
-    '[Place, the exact spot — Weekday, Month D, YYYY | HH:MM | weather and light, 2-5 words | what ' + who + ' wears | where ' + who + ' is, what he is doing]',
-    '',
-    'A paragraph of the scene.',
-    '',
-    '"Speech opens its own paragraph," she said.',
-    '',
-    'Another paragraph. The header is ONE line in square brackets and always opens with the place; a blank line stands between every two paragraphs.',
-  ].join('\n');
+  const line = 'pen the page with its header, in exactly this form — [Place, the exact spot — Weekday, Month D, YYYY | HH:MM | weather and light | what ' + who + ' wears | where ' + who + ' is] — then a blank line, and a blank line between every two paragraphs.';
+  const name = String(teller || '').trim();
+  return name ? name + ' — o' + line : 'O' + line;
 }
 
 /* does this turn need the skeleton? `pages` = the tale's storyteller pages so far (their kept text), oldest first */
