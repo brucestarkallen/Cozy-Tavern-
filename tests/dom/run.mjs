@@ -3392,6 +3392,56 @@ test('DOM-63 THE WRITER’S REPORT: a tale whose ledger holds a line from pages 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-64 THE WRITER’S REPORT, the whole loop in the app: the storyteller is handed what Claire was never shown learning BEFORE it writes; it writes her false "You gave me the schedule yesterday" anyway; the second reader — shown the same list — finds it, and the page is mended to the true way with no hand on it, the earlier words a tap away (M338)', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const H = '[Lakeside path — Friday, August 21, 2026 | 16:04 | gold light | gray tee, dark jeans | walking the path]\n\n';
+  const st = await db.stories.create({ title: 'who could know' });
+  await db.stories.update(st.id, { keeper: false });
+  await db.messages.append(st.id, { role: 'user', text: 'We walk.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'They walked the lakeside path, Claire three paces behind.' });
+  let ledger = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Lakeside path' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Aurora Sterling' }, { type: 'presence.enter', name: 'Claire Maxwell' },
+    { type: 'knowledge.add', name: 'Aurora Sterling', fact: 'Jovan agreed by text to walk with her at four o’clock from her driveway' }]).state;
+  await saveState(st.id, { ...ledger, page: 0, readTo: 0, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  const FALSE_LINE = '"You gave me the schedule yesterday," Claire said, level. "It was in the hallway after the audit."';
+  const TRUE_LINE = '"Aurora told me the time," Claire said, level. "She has held her four o’clock like a museum piece."';
+  let readerSaw = ''; let tellerSaw = '';
+  house.state.storyAnswer = (body) => { tellerSaw = String((body.messages.find((m) => m.role === 'user') || {}).content || ''); return H + '"How did you find us?" Jovan asked.\n\n' + FALSE_LINE + '\n\nAurora’s hand did not let go.'; };
+  house.state.workerAnswer = (body, sys) => {
+    const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+    if (/continuity reader/i.test(sys)) {
+      readerSaw = user;
+      /* a reader that can only find it if the house SHOWED it the list and gave it the duty */
+      const shown = /UNTOLD KNOWLEDGE/.test(sys) && /Claire Maxwell has not been shown learning: Jovan agreed by text/.test(user) && /You gave me the schedule yesterday/.test(user);
+      return shown ? JSON.stringify({ findings: [{ words: 'Claire says Jovan gave her the schedule yesterday; no page shows her learning the four o’clock — Aurora knows it.', severity: 'warn', fix: 'Aurora told her the time' }] }) : '{"findings":[]}';
+    }
+    if (/mend a story/i.test(sys) || /<contradiction>/.test(user)) {
+      const blocks = [...user.matchAll(/\[(\d+)\] \((STORY|PLAYER)\) ([\s\S]*?)(?=\n\n\[\d+\] \(|\n<\/passage>)/g)];
+      const hit = blocks.find((b) => b[2] === 'STORY' && b[3].includes('You gave me the schedule yesterday'));
+      return hit && /Aurora told her the time/.test(user) ? JSON.stringify([{ index: Number(hit[1]), text: hit[3].replace(FALSE_LINE, TRUE_LINE) }]) : '[]';
+    }
+    if (/keep the ledger/i.test(sys)) return '{"mutations":[]}';
+    return priorWorker(body, sys);
+  };
+  try {
+    type(q('#composer-input'), 'I smile back at her. "How did you find us?"'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 15000);
+    assert(/Claire Maxwell has not been shown learning: Jovan agreed by text to walk with her at four o’clock/.test(tellerSaw), 'BEFORE the page: the storyteller was handed her blind spot: ' + tellerSaw.slice(tellerSaw.indexOf('Who does NOT'), tellerSaw.indexOf('Who does NOT') + 200));
+    await until(() => queuedCount(st.id) === 0, 'the readers', 60000);
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant')[1];
+    assert(/Aurora told me the time/.test(page.text) && !/You gave me the schedule yesterday/.test(page.text), 'AFTER the page: mended to the true way, with no hand on it: ' + page.text.slice(-200));
+    assert(page.mended && /You gave me the schedule yesterday/.test(page.mended.before), 'the earlier words are a tap away');
+    assert(/has not been shown learning/.test(readerSaw), 'the second reader was shown the list');
+    assert(/Aurora told me the time/.test(q('#thread').textContent), 'and the page he reads says so');
+  } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

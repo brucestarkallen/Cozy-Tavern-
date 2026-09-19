@@ -82,6 +82,18 @@ const SYSTEM_PROMPT = [
   'words the sentence meant in the page\'s own language (or "remove" when they were',
   'noise).',
   '',
+  'UNTOLD KNOWLEDGE — the one case where what is NOT written counts (M338). The ledger lists, for the',
+  'people here, what each HAS learned ("knows:") and what no page has shown them learning ("has not',
+  'been shown learning:"). When a character on this page STATES or ACTS ON one of the things they have',
+  'not been shown learning — or claims a telling the ledger gives no sign of ("you told me yesterday",',
+  '"you gave me the schedule") — and the page itself shows no true way they came to know it (told on',
+  'this page, seen on this page, a guess said AS a guess), that is a warn: name who, and what they',
+  'could not know. `fix` is the nearest TRUE way, in a short phrase: the person the ledger says knows',
+  'it told them ("Aurora told her the time"), or, when nothing supports their knowing, that they do not',
+  'know it and ask, guess or find out on the page instead. Never a finding: a character lying or',
+  'bluffing on purpose with the scene giving a reason; common knowledge of the setting; anything said or',
+  'done in front of them on this page; the main character, whose knowledge is the writer\'s.',
+  '',
   'If nothing disagrees, return {"findings":[]} — an empty list is a good and honest',
   'answer, and the most common one. No commentary, no markdown fences: the JSON object',
   'only.',
@@ -100,7 +112,8 @@ export function buildContinuityMessages({ state, assistantText, brief = '' }) {
   const lasting = state && typeof state === 'object'
     ? { ...state, present: (Array.isArray(state.present) ? state.present : []).map((p) => (p && p.name ? { name: p.name } : p)), mode: {} }
     : state;
-  const facts = renderStateFacts(lasting) || 'Nothing is written in the ledger yet.';
+  /* M338: the blind spots are keyed to the page being read — what bears on it, and what is recent */
+  const facts = renderStateFacts(lasting, { scenePages: [String(assistantText || '')] }) || 'Nothing is written in the ledger yet.';
   const canon = state && state.canon && typeof state.canon === 'object'
     ? renderCanon(state.canon, Object.keys(state.canon))
     : '';

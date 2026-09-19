@@ -7979,3 +7979,37 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT COVERED: standings, seats, presence and people pages carry no page date — a later value of THOSE cannot be told from
   the ledger alone (the fold is what keeps them exact).
 - version.js -> m337-001.
+
+# M338 — WHO COULD KNOW THIS? The blind spots of the people in the scene — before the page in code, after the page by the second reader
+- THE WRITER: "design something sophisticated, autonomous and smart: each latest page, an analysis of what the people in the current
+  scene DON'T know — to stop the LLM making every NPC know what MC did privately." His case: Jovan asks Claire how she found
+  them; Claire answers "You gave me the schedule yesterday… in the hallway after the audit" — a telling that never happened
+  (the four o'clock was set between Jovan and Aurora, by text). He had to ask the housekeeper to find it.
+- WHAT EXISTED: the ledger's "Who knows what" says only what people HAVE learned; the craft asks for a trace; the second reader
+  was told "ABSENCE IS NEVER DRIFT" — so a character citing a telling that never happened contradicted nothing written.
+- HALF ONE — BEFORE THE PAGE, IN CODE, NO MODEL (engine/world.js blindSpots/renderBlindSpots; state.js). For each person in the
+  scene (never the main character): every fact somebody ELSE holds that they have no line for — not the same fact in other
+  words (sameFact, or 60% of the content words), not a fact with their own name in it (they were there). Kept: what bears
+  on the scene's words, or was learned in the last 60 pages; four a person, nearest first. It rides the briefing under
+  "Who does NOT know what — no page shows them learning these. One of them may still guess, suspect, or be told on this
+  page; but if they SPEAK of it or ACT on it, the page must show how they came to know, truly… and never claim a telling
+  that did not happen: Claire Maxwell has not been shown learning: … (Aurora Sterling knows)". Not "cannot know": a ledger
+  can miss a line, and the words say what the list IS.
+- HALF TWO — AFTER THE PAGE, THE SECOND READER (agents/continuity.js): a new duty, UNTOLD KNOWLEDGE — the one case where what is
+  NOT written counts. It is shown the same list, keyed to the page it reads; a character who states or acts on what they
+  were never shown learning, or claims a telling the ledger gives no sign of, with no true way shown on the page, is a
+  warn, and `fix` is the nearest TRUE way ("Aurora told her the time") or their not knowing. Never: a deliberate lie or
+  bluff, common knowledge, what happened in front of them on this page, the main character. A warn with a fix already
+  goes to the mender, which edits the page by the smallest change and keeps the earlier words a tap away — so the loop
+  closes with no hand on it.
+- TESTS: tests/harness/m338.mjs — his scene: Claire lacks the four o'clock (Aurora knows) and what MC did out of her sight; what
+  is about her, and what she holds in other words, are left out; MC never listed; it reaches the storyteller's request
+  and the second reader's, with the duty and its limits; quiet when all hold the same, nobody is here, or a trifle is 300
+  pages off. DOM-64, the whole loop in the app: the storyteller is handed the list BEFORE it writes, writes the false line
+  anyway, the reader (answering only if it was SHOWN the list and the duty) finds it, the page is mended to "Aurora told
+  me the time", the earlier words kept. The walk is 83/83.
+- LIMITS, SAID: the list is only as good as the ledger's knowledge lines — a private deed of MC's that NO ONE learned has no line
+  to compare against (the craft's trace is all that guards it); a line the page reader failed to write makes a person look
+  blind to something they know (hence "not shown learning", never "cannot know"); the after-page check is a model's
+  judgment and costs nothing extra (it is the same call).
+- version.js -> m338-001.

@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m337-001)
+# Cozy Tavern — handoff for the next session (state at m338-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M337). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M338). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 647 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 650 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 82 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 83 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,10 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- WHO COULD KNOW THIS (M338): before every page the briefing lists, per person in the scene, what no page has shown them
+  learning (engine/world.js blindSpots — code, from the knowledge lines); after every page the second reader holds the page
+  to that list (UNTOLD KNOWLEDGE) and the mender fixes a false telling by itself. Anything new that teaches the ledger
+  who learned what must keep writing knowledge lines — they are what both halves stand on.
 - A FACT SAYS WHEN (M336): anything old that is put in front of the storyteller carries its age, and nothing the house
   recalls by matching WORDS is ever labelled as relevant — the storyteller builds scenes on what it is told matters.
   Before blaming the branch/fold for a "memory from nowhere", run the two probes in AGENTS M336: they are exact.

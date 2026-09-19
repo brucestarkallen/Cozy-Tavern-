@@ -611,3 +611,64 @@ export function renderWorldBrief(brief, turnNow, pageNow) {
   }
   return out.join('\n');
 }
+
+
+/* M338: WHO COULD KNOW THIS? — the blind spots of the people in the scene.
+ * The writer: Jovan asks Claire how she found them, and Claire answers "You gave me the schedule yesterday… in the hallway
+ * after the audit" — a meeting that never happened; the four o'clock was set between Jovan and Aurora, by text. "Design
+ * something sophisticated, autonomous and smart: each latest page, an analysis of what the people in the current scene
+ * DON'T know — to stop every NPC knowing what MC did privately."
+ * The ledger already holds what each person HAS learned, line by line, with the page. So what a person has NOT been
+ * shown learning is computable, with no model: every fact somebody ELSE holds that this person has no line for — not
+ * the same fact in other words, not a fact about themselves (their own name in it: they were there). Those nearest
+ * the scene (its words, then the newest) are put in front of the storyteller BEFORE it writes, as what they are: not
+ * "she cannot know" (a ledger can miss a line) but "no page shows her learning it — if she speaks of it, the page
+ * must show how she came to know". The second reader holds the finished page to the same list (agents/continuity.js). */
+export const BLIND_PER_PERSON = 4;
+export const BLIND_RECENT_PAGES = 60;
+const factWords = (fact, ignore) => {
+  const out = new Set();
+  for (const w of String(fact || '').toLowerCase().split(/[^\p{L}\p{N}'’-]+/u)) {
+    const word = w.replace(/['’]s$/, '').replace(/^['’-]+|['’-]+$/g, '');
+    if (word.length >= 4 && !SCENE_STOP.has(word) && !(ignore && ignore.has(word))) out.add(word);
+  }
+  return out;
+};
+const overlap = (a, b) => { if (!a.size || !b.size) return 0; let n = 0; for (const w of a) if (b.has(w)) n += 1; return n / Math.min(a.size, b.size); };
+export function blindSpots(knowledge, present, { scenePages = [], turn = null, mc = '', per = BLIND_PER_PERSON } = {}) {
+  const safe = copyKnowledge(knowledge);
+  const names = (Array.isArray(present) ? present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => typeof n === 'string' && n.trim());
+  const mcKey = String(mc || '').trim().toLowerCase();
+  const sceneWords = sceneWordsOf(scenePages);
+  const out = [];
+  for (const name of names) {
+    if (name.trim().toLowerCase() === mcKey) continue; /* the main character is the writer's */
+    const mineKey = findKnowledgeKey(safe, name);
+    const mine = (mineKey ? safe[mineKey] : []).map((k) => ({ fact: k.fact, words: factWords(k.fact) }));
+    const selfWords = new Set(name.toLowerCase().split(/\s+/).filter((w) => w.length >= 3));
+    const found = [];
+    for (const [other, list] of Object.entries(safe)) {
+      if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase()) continue;
+      for (const k of (Array.isArray(list) ? list : [])) {
+        const fact = String(k.fact || '').trim();
+        if (!fact) continue;
+        const age = Number.isFinite(turn) && Number.isFinite(k.atTurn) ? turn - k.atTurn : null;
+        const words = factWords(fact);
+        const score = sceneWords.size ? [...words].filter((w) => sceneWords.has(w)).length : 0;
+        if (!(score >= 2 || (age != null && age <= BLIND_RECENT_PAGES))) continue;             /* near the scene, or recent */
+        if ([...selfWords].some((w) => new RegExp('(^|[^\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'iu').test(fact))) continue; /* about them: they were there */
+        if (mine.some((m) => sameFact(m.fact, fact) || overlap(m.words, words) >= 0.6)) continue; /* they hold it, in these words or others */
+        if (found.some((f) => sameFact(f.fact, fact) || overlap(f.words, words) >= 0.6)) continue; /* once is enough */
+        found.push({ fact: fact.replace(/\.+$/, ''), from: other, age, score, words });
+      }
+    }
+    found.sort((a, b) => (b.score - a.score) || ((a.age == null ? 1e9 : a.age) - (b.age == null ? 1e9 : b.age)));
+    if (found.length) out.push({ name, lacks: found.slice(0, per).map(({ fact, from, age }) => ({ fact, from, age })) });
+  }
+  return out;
+}
+export function renderBlindSpots(spots) {
+  const list = (Array.isArray(spots) ? spots : []).filter((s) => s && Array.isArray(s.lacks) && s.lacks.length);
+  if (!list.length) return '';
+  return list.map((s) => s.name + ' has not been shown learning: ' + s.lacks.map((l) => l.fact + ' (' + l.from + ' knows)').join('; ') + '.').join('\n');
+}

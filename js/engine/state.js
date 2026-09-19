@@ -44,7 +44,7 @@ import { renderClock } from './clock.js';
 import { renderBodies } from './bodies.js';
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen } from './offscreen.js';
-import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge } from './world.js'; /* M29: the world beyond the page */
+import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindSpots, renderBlindSpots } from './world.js'; /* M29: the world beyond the page */
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters } from './people.js';
@@ -619,6 +619,8 @@ export function stateView(budgetTokens) {
   return { budget, whole: budget >= STATE_BUDGET * 4 };
 }
 
+/* M338: the words the blind spots are handed over in — what they are, and what to do with them */
+export const BLIND_HEAD = 'Who does NOT know what — no page shows them learning these. One of them may still guess, suspect, or be told on this page; but if they SPEAK of it or ACT on it, the page must show how they came to know, truly (who told them, what they saw). Otherwise they do not know it, and never claim a telling that did not happen: ';
 export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [] } = {}) {
   if (!state || typeof state !== 'object') return '';
 
@@ -704,6 +706,9 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M305: the newest, and the older facts that bear on the scene the last pages tell */
   const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined, { pages: scenePages, ignore: [mcName(state)], turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null }); /* M336: the present page, so an old fact can say its age */
   if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'Who knows what: ' });
+  /* M338: and what each person here has NOT been shown learning — computed from the same lines, no model */
+  const blind = renderBlindSpots(blindSpots(state.knowledge, present, { scenePages, turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, mc: mcName(state) }));
+  if (blind) sections.push({ shed: 2, text: BLIND_HEAD + blind, trimTo: whole ? Infinity : 8, head: BLIND_HEAD });
 
   /* M86: the living world is not the first thing the budget drops — who is
    * moving toward the scene stands with the body ledger (shed 3); the
