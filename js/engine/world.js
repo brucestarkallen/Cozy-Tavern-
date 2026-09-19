@@ -377,6 +377,7 @@ function factScore(fact, sceneWords, ignore) {
  * pages are telling (two content words in common, the main character's and
  * the knower's own names aside), the most telling first; what is left is
  * COUNTED, never silently dropped. `scene` = { pages, ignore:[names] }. */
+export const KNOWLEDGE_OLD_AFTER = 6; /* pages: older than this, a fact says its age */
 export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scene = null) {
   const safe = copyKnowledge(knowledge);
   const names = (Array.isArray(present) ? present : [])
@@ -385,6 +386,18 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   const recent = Number.isFinite(per) ? per : KNOWLEDGE_RECENT;
   const recallMax = Number.isFinite(per) ? Math.min(2, per) : KNOWLEDGE_RECALL;
   const sceneWords = scene && Array.isArray(scene.pages) && scene.pages.length ? sceneWordsOf(scene.pages) : null;
+  /* M336: A FACT SAYS WHEN IT WAS LEARNED. The writer's teller read "Rias called the twelve-minute walk a six-to-ten-minute
+   * intercept window and said the town would ambush him if he walked" — true, and ten scenes old, about ANOTHER
+   * walk — under M305's own words "From earlier, bearing on this:", and built the present scene on it ("she offered
+   * to drive him to Aurora's… maybe jokingly"): something that never happened. A match of two words is not
+   * "bearing on this", and a fact with no date reads as now. Every fact older than a few pages says how old it is,
+   * and what is called back from long ago is handed over as what it is: about its own moment. */
+  const nowTurn = scene && Number.isFinite(scene.turn) ? scene.turn : null;
+  const aged = (k) => {
+    const fact = k.fact.replace(/\.+$/, '');
+    const age = nowTurn != null && Number.isFinite(k.atTurn) ? nowTurn - k.atTurn : 0;
+    return age >= KNOWLEDGE_OLD_AFTER ? fact + ' (learned about ' + age + ' pages ago)' : fact;
+  };
   const ignoreBase = new Set();
   for (const n of (scene && Array.isArray(scene.ignore) ? scene.ignore : [])) for (const w of String(n || '').toLowerCase().split(/\s+/)) if (w) ignoreBase.add(w.replace(/['’]s$/, ''));
   const lines = [];
@@ -392,7 +405,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     const key = findKnowledgeKey(safe, name);
     if (!key || !safe[key].length) continue;
     const list = safe[key];
-    const newest = list.slice(-recent).reverse().map((k) => k.fact.replace(/\.+$/, ''));
+    const newest = list.slice(-recent).reverse().map(aged);
     const older = list.slice(0, Math.max(0, list.length - recent));
     let recalled = [];
     if (older.length && sceneWords && sceneWords.size) {
@@ -403,11 +416,11 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
         .filter((x) => x.score >= 2)
         .sort((a, b) => (b.score - a.score) || (b.i - a.i))
         .slice(0, recallMax)
-        .map((x) => x.k.fact.replace(/\.+$/, ''));
+        .map((x) => aged(x.k));
     }
     const rest = older.length - recalled.length;
     lines.push(key + ' knows: ' + newest.join('; ') + '.'
-      + (recalled.length ? ' From earlier, bearing on this: ' + recalled.join('; ') + '.' : '')
+      + (recalled.length ? ' From much earlier — each is about ITS OWN moment, not this scene; use one only where it truly fits: ' + recalled.join('; ') + '.' : '')
       + (rest > 0 ? ' (and ' + rest + ' older ' + (rest === 1 ? 'thing' : 'things') + ' they know, kept in the ledger)' : ''));
   }
   return lines.join('\n');

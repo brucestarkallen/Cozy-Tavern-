@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m335-001)
+# Cozy Tavern — handoff for the next session (state at m336-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M335). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M336). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 643 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 645 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 81 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,9 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- A FACT SAYS WHEN (M336): anything old that is put in front of the storyteller carries its age, and nothing the house
+  recalls by matching WORDS is ever labelled as relevant — the storyteller builds scenes on what it is told matters.
+  Before blaming the branch/fold for a "memory from nowhere", run the two probes in AGENTS M336: they are exact.
 - THE PERSON THE TELLER THINKS IN (M334, assemble/voice.js): SYSTEM-side words the house wrote go through inVoice (names)
   then inPerson (I / You); USER-role words are the writer speaking and always say "you"; the frame, quoted examples,
   phrase lists and story data are never transformed. Any new rule text must read right in BOTH persons — print it.

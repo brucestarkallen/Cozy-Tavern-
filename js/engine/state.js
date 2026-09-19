@@ -702,7 +702,7 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M29: who knows what — the present only, so the storyteller never has
    * to search the transcript for whether Liara was in the room. */
   /* M305: the newest, and the older facts that bear on the scene the last pages tell */
-  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined, { pages: scenePages, ignore: [mcName(state)] });
+  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined, { pages: scenePages, ignore: [mcName(state)], turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null }); /* M336: the present page, so an old fact can say its age */
   if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'Who knows what: ' });
 
   /* M86: the living world is not the first thing the budget drops — who is

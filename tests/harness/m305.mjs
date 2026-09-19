@@ -39,7 +39,7 @@ test('M305-2 the storyteller is shown the newest — and the old fact comes back
   assert(!/summon fire/.test(quiet), 'a scene about the weather does not call it back');
   assert(new RegExp('and ' + (21 - KNOWLEDGE_RECENT) + ' older things they know, kept in the ledger').test(quiet), 'and the rest are counted, not dropped: ' + quiet.slice(-120));
   const hot = renderKnowledge(st.knowledge, st.present, Infinity, { pages: ['"Show me," she said. A small fire woke in his palm, there in the empty clubroom.'], ignore: ['Jovan'] });
-  assert(/From earlier, bearing on this: saw Jovan summon fire in the clubroom/.test(hot), 'a scene of fire in the clubroom calls back what she saw there: ' + hot.slice(-260));
+  assert(/From much earlier — each is about ITS OWN moment, not this scene; use one only where it truly fits: saw Jovan summon fire in the clubroom/.test(hot), 'a scene of fire in the clubroom calls back what she saw there: ' + hot.slice(-260));
   /* the main character's name is in every fact — alone it calls nothing back */
   const nameOnly = renderKnowledge(st.knowledge, st.present, Infinity, { pages: ['Jovan. Jovan! Jovan, Jovan.'], ignore: ['Jovan'] });
   assert(!/From earlier/.test(nameOnly), 'his name alone is not a scene');
@@ -51,7 +51,7 @@ test('M305-2 the storyteller is shown the newest — and the old fact comes back
 test('M305-3 the change reaches the wire: the storyteller’s own request carries the fact called back by the page just told', async () => {
   const st = ledgerWithSecret();
   const facts = renderStateFacts(st, { ...stateView(500000), scenePages: ['A small fire woke in his palm, there in the empty clubroom.'] });
-  assert(/From earlier, bearing on this: saw Jovan summon fire/.test(facts), 'through renderStateFacts');
+  assert(/From much earlier — each is about ITS OWN moment[^:]*: saw Jovan summon fire/.test(facts), 'through renderStateFacts');
   /* and through the assembler, as the send path calls it */
   const story = { id: 'm305-wire', title: 't', brief: '', castNotes: '' };
   const history = [
@@ -61,7 +61,7 @@ test('M305-3 the change reaches the wire: the storyteller’s own request carrie
   ];
   const built = buildRequest({ story, messages: history, settings: {}, state: st, modules: [], memory: '', cast: [], lore: '', window: { keeperOn: true, budgetTokens: 500000 } }); /* the send path's own call: `messages`, not `history` */
   const sent = JSON.stringify(built);
-  assert(/bearing on this: saw Jovan summon fire in the clubroom/.test(sent), 'the request itself holds it');
+  assert(/use one only where it truly fits: saw Jovan summon fire in the clubroom/.test(sent), 'the request itself holds it');
 });
 
 test('M305-4 a reader of the whole ledger is shown every fact while it fits, and told what it is not shown when it does not', () => {

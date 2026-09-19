@@ -7927,3 +7927,30 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: that his model's thinking now reads in the teller's voice — only his models can show it. A thinking seed in
   the teller's voice (M328) pulls the same way and is the stronger lever.
 - version.js -> m335-001.
+
+# M336 — "the thinking said something that never happened": a fact must say WHEN it was learned
+- THE WRITER: in a branch his teller thought "Rias wants to drive him (she offered earlier… she offered to drive him to Aurora's)…
+  the knowledge line: 'Rias called the twelve-minute walk a six-to-ten-minute intercept window and said the town would
+  ambush him if he walked.' Hmm, that seems odd since Aurora lives next door… maybe jokingly." Rias DID say that — about ten
+  scenes earlier, before the branch point, about another walk. She never offered to drive him to Aurora's; the
+  housekeeper, asked, said so. "What does the storyteller actually see? This is stupid."
+- FIRST SUSPECT, TESTED AND CLEARED: a branch carrying a LATER ledger. (1) The fold, through the real engine and the real
+  banked checkpoints: sixty pages, a fact each, folded to every reachable page — 40 folds, none holds a later page's
+  fact, none misses an earlier one. (2) The real app: ten pages each adding a fact; a branch from page 4 holds facts
+  0–4 and no other, from page 7 facts 0–7. The branch is exact. (A first probe timed out — it answered the workers with
+  junk; the walk's default answers fixed it.)
+- ROOT CAUSE — MINE, M305. The line is real and OLD. M305 calls back older facts whose words match the scene's (two content
+  words) and handed them over under the words "From earlier, bearing on this:". Two matching words ("walk", "town") are
+  not "bearing on this"; and NO fact, new or old, said when it was learned — so a line about another day's walk read
+  as being about this one, and the teller built the scene on it.
+- CHANGE (engine/world.js renderKnowledge; state.js hands it the present page): every fact older than six pages says its age
+  ("… (learned about 42 pages ago)"), whether it stands among the newest or is called back; and what is called back
+  is handed over as what it is — "From much earlier — each is about ITS OWN moment, not this scene; use one only where
+  it truly fits: …". With no present page given, a line is as it always was.
+- TESTS: tests/harness/m336.mjs — his case rebuilt (the twelve-minute-walk line learned on page 5, forty trifles since, the
+  present scene about Aurora's four o'clock next door): the fresh fact plain, the old one dated and labelled, the words
+  "bearing on this" gone; a person whose newest fact is old dates it too; no page → no age. M305's three pins follow
+  the new label.
+- NOT CHANGED: the fact's own wording ("the twelve-minute walk" — which walk, it does not say) is the page reader's, written
+  long ago. The housekeeper's "no" was right about Aurora's; it reads the last pages whole and the rest by its index.
+- version.js -> m336-001.
