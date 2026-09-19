@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m332-001)
+# Cozy Tavern — handoff for the next session (state at m333-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M332). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M333). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 636 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 637 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 80 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).

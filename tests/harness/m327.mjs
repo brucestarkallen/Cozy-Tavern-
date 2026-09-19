@@ -51,3 +51,14 @@ test('M327-3 change the name and the next request is for Steve; clear both and e
   eq(cleanName('  Tony\n[Stark] {x}  '), 'Tony Stark x', 'a name is a name: no brackets, no line breaks');
   eq(inVoice('the writer’s own; The writer; the house’s word', { writer: 'Rias' }), 'Rias’ own; Rias; Rias’ notebook’s word');
 });
+
+test('M333-1 one "You are": with a teller named, the only identity the storyteller is handed is the one in the writer’s frame — the craft’s cinematographer is a manner, its rule unchanged; with no teller named the craft is the craft', () => {
+  const named = build({ tellerName: 'Tony Stark', writerName: 'Bruce' });
+  const sys = named.systemBlocks.map((b) => b.text).join('\n');
+  eq((sys.match(/\bYou are\b/g) || []).length, 1, 'one "You are" — his: ' + JSON.stringify((sys.match(/\bYou are\b[^.\n]{0,40}/g) || [])));
+  assert(/^You are Tony Stark\./.test(named.systemBlocks[0].text), 'and it is the frame’s');
+  assert(/You tell it the way an unbiased cinematographer would\. Prose is grounded, concrete, literal\./.test(sys), 'the craft’s rule is still there, as a manner');
+  const tellerOnly = build({ tellerName: 'Steve' });
+  assert(/the way an unbiased cinematographer would/.test(tellerOnly.systemBlocks[1].text) && /the writer authors the fiction/.test(tellerOnly.systemBlocks[1].text), 'a teller’s name alone is enough for it (the writer’s words untouched)');
+  assert(/You are an unbiased cinematographer\./.test(build({}).systemBlocks[1].text) && /You are an unbiased cinematographer\./.test(build({ writerName: 'Bruce' }).systemBlocks[1].text), 'no teller named: the craft as it was');
+});

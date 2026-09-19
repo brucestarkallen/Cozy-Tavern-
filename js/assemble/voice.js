@@ -32,6 +32,11 @@ const possessive = (name) => name + (/s$/i.test(name) ? '’' : '’s');
 /* the house's own third-person text (the craft, the frame, a block's header), with the names in it */
 export function inVoice(text, voice) {
   let out = String(text == null ? '' : text);
+  /* M333: ONE "YOU ARE". The writer's frame says who the teller IS ("You are Tony Stark…"); two lines later the craft
+   * said "You are an unbiased cinematographer." — a second identity in the same message, and the plainer of the two.
+   * With a teller named, the craft's line is a MANNER, not a self: the rule it carries (the camera's eye, no
+   * favourites) is unchanged. */
+  if (voice && voice.teller && out) out = out.replace(/\bYou are an unbiased cinematographer\./g, 'You tell it the way an unbiased cinematographer would.');
   const w = voice && voice.writer;
   if (!w || !out) return out;
   const pw = possessive(w);

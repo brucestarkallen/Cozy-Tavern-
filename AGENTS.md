@@ -7836,3 +7836,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   existing half-made branch (made before today) carries no mark: it cannot be told from a finished tale, so it
   is not touched — the tale it came from is whole; branch again and let the broken one go.
 - version.js -> m332-001.
+
+# M333 — "after this update my model keeps thinking it's an assistant instead of the persona": one "You are"
+- THE WRITER asked it beside two questions about the prefill boxes. CHECKED, not guessed: a request was built with a teller in
+  the frame, with and without the two names, and everything the storyteller is sent was searched — no "assistant",
+  "AI", "language model", "the model", "chatbot" or "the user" anywhere in the house's words or the craft. Nothing
+  the house sends calls it an assistant.
+- WHAT WAS FOUND: exactly ONE other identity. His frame opens the message ("You are Tony Stark…"); two lines later the
+  craft's first rule says "You are an unbiased cinematographer." — a second "You are", the plainer of the two, in
+  the same message. (It was always there; with M321's single message and M327's names it is the only line left
+  that tells the teller it is somebody else.)
+- CHANGE (assemble/voice.js inVoice): with a teller named, that one sentence reads "You tell it the way an unbiased
+  cinematographer would." — the rule it carries is unchanged; it is a manner, not a self. No teller named: the
+  craft as it was. "Role = you handle narration, GM decisions, and every NPC" is a job, not an identity: left.
+- TEST: m327.mjs M333-1 — with a teller named the system words hold ONE "You are" and it is the frame's; the craft's rule
+  stands as a manner; a teller's name alone is enough; none named → the craft untouched.
+- NOT VERIFIED — AND SAID TO HIM: whether this is what his model was reacting to. Nothing in the last updates tells it it
+  is an assistant; one thing they DID change is that a teller's own words before the header (M322, at his order) no
+  longer stand on the page or ride later turns, so earlier pages show less of the teller's voice. A screenshot of
+  that thinking would show what it is reacting to, as the "[Correction]" one did.
+- version.js -> m333-001.
