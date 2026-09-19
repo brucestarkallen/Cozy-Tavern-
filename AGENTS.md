@@ -7856,3 +7856,42 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   longer stand on the page or ride later turns, so earlier pages show less of the teller's voice. A screenshot of
   that thinking would show what it is reacting to, as the "[Correction]" one did.
 - version.js -> m333-001.
+
+# M334 — first person or second: the person the teller thinks in
+- THE WRITER: "I need a setting with a dropdown — first person if I use 'I', second person 'you' — that will adjust everything.
+  Probably this will help the persona problem. You know better; problem-solve this, though I don't know how it will
+  sync with 'who is telling' and 'your name'."
+- WHY IT MATTERS: a teller written as "I" ("I am Tony Stark. I tell Bruce stories…") and then handed seventy thousand
+  characters of "You maintain… you render… your craft" holds two voices in one head: its own, and somebody instructing
+  it. The second is the voice an assistant hears.
+- CHANGE (assemble/voice.js personOf / framePerson / inPerson; stack.js; Settings → The frame: "The teller thinks as"):
+  · three choices: Follow my frame (the default — read off the frame's own opening words, and the note under the box
+    says what it read), I, You.
+  · in FIRST person the house's SYSTEM-side words become the teller's notes to itself — the frame's purpose line ("That
+    is who I am, and how Bruce wants this story told…"), the craft, the woken rules: you → I or me (an object "you"
+    follows its verb or preposition on the same line), your → my, you are → I am. Imperatives stay. The craft holds
+    28 "you" and 10 "your" outside its examples: every changed sentence was printed and read.
+  · NEVER touched: the writer's FRAME; anything inside quotation marks (examples of story text); a line that is a LIST
+    OF PHRASES ("Banned Words = …, ruin you, don't you dare…" — the first cut made it "don't I dare"); the word "you"
+    itself in a list of pronouns ("you/I/he/she"); the brief, the pages, the ledger, the record.
+  · HOW IT FITS THE TWO NAMES (his question): what is said in a USER-role message — the briefing's opening, the note,
+    the eye, the ask-again lines — is the WRITER speaking to the teller ("Tony — Bruce here… for your eyes only"),
+    and a person says "you" to a friend whichever way that friend thinks of himself. Those stay in the second person.
+    The names change WHO is spoken of; the person changes whose voice the rules are in.
+  · M333's law holds here too: in first person the craft never says "I am an unbiased cinematographer".
+  · "You" chosen (or a "You" frame followed) is every word as it was, byte for byte.
+- TWO WRONG TURNS CAUGHT BY PRINTING THE OUTPUT: "## The Telling\nYou maintain" came out "me maintain" (the heading's
+  "Telling" + newline was read as "telling you": an object needs its verb on the SAME line, and a capital "You" is a
+  subject); and the pronoun list became "(I/I/he/she)".
+- TESTS: tests/harness/m334.mjs through the real assembler with the real craft — an "I" frame followed: the frame untouched,
+  the purpose line, the craft's opening, subject/object/possessive each right, no "you" left speaking to the teller,
+  the banned-phrases line, the pronoun list and every quoted example intact; the writer's own words (briefing, page,
+  brief, note) still "you"; the dropdown by hand both ways; "You" byte for byte; said twice = said once. DOM-62: a
+  frame written as "I" → the very next page's request is in the first person; the note says what it read; set to
+  You by hand → the next page is in the second. The walk is 81/81.
+- THE WOKEN RULES WERE READ TOO (five of them, nine sentences changed): one came out "Writing both halves requires I to hold
+  both" — an object after a verb the list did not know. The verb list grew, and "you to <verb>" is an object
+  whatever the verb; a scan of the craft and every woken rule for such leftovers finds none.
+- NOT VERIFIED: that this cures his teller's "I'm an assistant" thinking — only his models can show it. A rule he imports
+  or writes himself goes through the same transformer unread by me.
+- version.js -> m334-001.

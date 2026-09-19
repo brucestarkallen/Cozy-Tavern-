@@ -3040,6 +3040,7 @@ export function initChat(ctx) {
       /* M327: who tells, and who listens (Settings → The frame) */
       tellerName: await db.settings.get('tellerName'),
       writerName: await db.settings.get('writerName'),
+      tellerPerson: await db.settings.get('tellerPerson'), /* M334: 'first' | 'second' | unset = follow the frame */
     };
   }
 

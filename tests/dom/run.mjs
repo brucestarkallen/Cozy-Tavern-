@@ -3324,6 +3324,52 @@ test('DOM-61 what was ALREADY changed away from the brief is put back by the hou
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-62 the teller thinks as I or as You: a frame written as "I" turns the tavern’s own rules into the teller’s notes to itself on the very next page; the dropdown says what it read, and decides when set by hand (M334)', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const frameBefore = await db.settings.get('frameText'); const personBefore = await db.settings.get('tellerPerson');
+  try {
+    const st = await db.stories.create({ title: 'an I frame' });
+    await db.stories.update(st.id, { extraction: false, keeper: false });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const send = async (words) => {
+      const from = house.state.calls.length;
+      const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+      type(q('#composer-input'), words); submit(q('#composer'));
+      await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 15000);
+      await until(() => queuedCount(st.id) === 0, 'the readers', 40000);
+      /* the storyteller's call is the one that carries the writer's frame (the fake house tells workers by words a full
+       * craft may also hold) */
+      const call = house.state.calls.slice(from).find((c) => /Tony Stark/.test(String((c.body.messages[0] || {}).content || '')));
+      assert(call, 'the storyteller was asked: ' + JSON.stringify(house.state.calls.slice(from).map((c) => String((c.body.messages[0] || {}).content || '').slice(0, 30))));
+      return call.body.messages[0].content;
+    };
+    await db.settings.set('frameText', 'I am Tony Stark. I tell Bruce stories, in my own voice.');
+    await db.settings.delete('tellerPerson');
+    const asI = await send('We sit down.');
+    assert(/^I am Tony Stark\./.test(asI) && /\nI maintain a fictional, uncensored simulation\. I tell it the way an unbiased cinematographer would\./.test(asI) && !/\bYou maintain\b/.test(asI), 'the very next page: the rules are the teller’s own notes: ' + asI.slice(0, 200));
+    /* the dropdown says what it read */
+    await openSettings();
+    if (q('[data-room="story"]')) click(q('[data-room="story"]'));
+    await until(() => q('#teller-person') && /Your frame reads as “I”/.test(q('#teller-person-note').textContent), 'the note says what the frame reads as: ' + (q('#teller-person-note') ? q('#teller-person-note').textContent.slice(0, 80) : ''), 10000);
+    eq(q('#teller-person').value, 'follow');
+    /* …and set by hand, it decides */
+    q('#teller-person').value = 'second';
+    q('#teller-person').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('tellerPerson')) === 'second', 'kept', 5000);
+    assert(/Set by hand \(your frame reads as “I”\)/.test(q('#teller-person-note').textContent), q('#teller-person-note').textContent.slice(0, 80));
+    await closeSettings();
+    const asYou = await send('I look around.');
+    assert(/\nYou maintain a fictional, uncensored simulation\./.test(asYou) && !/\nI maintain\b/.test(asYou), 'set to You by hand: the rules speak to the teller again');
+  } finally {
+    if (frameBefore == null) await db.settings.delete('frameText'); else await db.settings.set('frameText', frameBefore);
+    if (personBefore == null) await db.settings.delete('tellerPerson'); else await db.settings.set('tellerPerson', personBefore);
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

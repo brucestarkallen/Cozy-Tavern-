@@ -94,7 +94,7 @@
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { withoutAuthorshipFrame } from './craft.js'; /* M309 */
-import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine } from './voice.js'; /* M327: the two names */
+import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -406,14 +406,18 @@ export function buildRequest({
   /* --- 1. The frame --- */
   const framePicked = pickText(safeStory.frameOverride, safeSettings.frameText, STARTER_FRAME);
   const frame = { ...framePicked, text: inVoice(framePicked.text, voice) };
+  /* M334: first person or second — the writer's choice, or read off his frame's own opening words. It turns the SYSTEM-side
+   * words the house wrote (purpose line, craft, woken rules); never the frame; never what is said to the teller in a
+   * user-role message, which is the writer speaking. */
+  const person = personOf(safeSettings, framePicked.text);
   /* M21: its purpose, spoken after it — on unless the writer switched it
    * off; the words are the writer's own once they've rewritten the line. */
   const purposeOn = safeSettings.framePurposeOn !== false;
   /* An untouched line falls back to the shipped default; a line the writer
    * cleared to nothing stays cleared (the same law as the note). */
   const purposeText = typeof safeSettings.framePurpose === 'string'
-    ? inVoice(safeSettings.framePurpose.trim(), voice)
-    : purposeLine(FRAME_PURPOSE, voice);
+    ? inPerson(inVoice(safeSettings.framePurpose.trim(), voice), person)
+    : purposeLine(FRAME_PURPOSE, voice, person);
   const frameText = purposeOn && purposeText ? frame.text + '\n\n' + purposeText : frame.text;
   pushSlot('The frame', frameText, frame.source, purposeOn && purposeText ? 'its purpose spoken after it' : '');
   /* M21: "say it again at the end" — the whole frame repeats at the tail,
@@ -423,7 +427,7 @@ export function buildRequest({
 
   /* --- 2. The craft --- */
   const craft = selected.find(({ mod }) => mod && mod.id === 'core-craft');
-  const craftText = craft && craft.mod ? inVoice(withoutAuthorshipFrame(craft.mod.text), voice) : ''; /* M327: in the writer's name; M309: the house's craft no longer holds it; a copy saved before today loses it here */
+  const craftText = craft && craft.mod ? inPerson(inVoice(withoutAuthorshipFrame(craft.mod.text), voice), person) : ''; /* M327: in the writer's name; M309: the house's craft no longer holds it; a copy saved before today loses it here */
   pushSlot('The craft', craftText, 'the rulebook', craft ? craft.reason : '');
 
   /* --- 3. The brief --- */
@@ -544,7 +548,7 @@ export function buildRequest({
   /* --- 6. Active modules (everything selected that isn't the craft) --- */
   const active = selected.filter(({ mod }) => mod && mod.id !== 'core-craft');
   const activeText = active
-    .map(({ mod }) => mod.name + '\n\n' + inVoice(mod.text, voice)) /* M327: a woken rule speaks in the same names as the craft */
+    .map(({ mod }) => mod.name + '\n\n' + inPerson(inVoice(mod.text, voice), person)) /* M327: a woken rule speaks in the same names as the craft */
     .filter((s) => s.trim())
     .join('\n\n---\n\n');
   pushSlot(

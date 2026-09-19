@@ -262,6 +262,14 @@
               <input type="text" id="writer-name" maxlength="40" autocomplete="off" spellcheck="false" placeholder="e.g. Bruce">
             </label>
           </div>
+          <label class="stack-label" for="teller-person">The teller thinks as
+            <select id="teller-person">
+              <option value="follow">Follow my frame</option>
+              <option value="first">I — “I am Tony Stark. I tell Bruce stories…”</option>
+              <option value="second">You — “You are Tony Stark. You tell Bruce stories…”</option>
+            </select>
+          </label>
+          <p class="quiet" id="teller-person-note"></p>
           <p class="quiet" id="names-note">With a name here the tavern stops talking like a form. Everything it says to the storyteller in its own words greets them by that name and speaks as you — “Tony — Bruce here. This is where things stand in our story…” — and wherever its rules said “the writer” they say your name. It only ever uses the name; who they are is yours to say in the frame below. Change a name and the next page already uses it.</p>
           <label class="stack-label" for="frame-global">For every story</label>
           <textarea id="frame-global" rows="8" spellcheck="false"></textarea>

@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m333-001)
+# Cozy Tavern — handoff for the next session (state at m334-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M333). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M334). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 637 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 640 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 80 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 81 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,9 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- THE PERSON THE TELLER THINKS IN (M334, assemble/voice.js): SYSTEM-side words the house wrote go through inVoice (names)
+  then inPerson (I / You); USER-role words are the writer speaking and always say "you"; the frame, quoted examples,
+  phrase lists and story data are never transformed. Any new rule text must read right in BOTH persons — print it.
 - NOTHING IS MADE IN THE OPEN, AND THE PAGE IS NEVER RELOADED UNDER THE WRITER'S HANDS (M332). A multi-step creation (a
   branch) marks its row `building` from its first write, stays off the shelf and off the device until whole, and
   is remade at the next load if cut off. A boot pull still running keeps the tavern closed (sync.js veil); a push

@@ -22,7 +22,7 @@ import { byName } from '../providers/order.js'; /* M301: every list of names the
 import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking, describePrefill, prefillFields } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
-import { cleanName } from '../assemble/voice.js'; /* M327 */
+import { cleanName, framePerson } from '../assemble/voice.js'; /* M327, M334 */
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
 import { parsePreset, decompose, applyPlan, summaryWords } from '../import/sillytavern.js';
 import { parseCard, listCast, saveCastMember, removeCastMember } from '../import/cards.js';
@@ -92,6 +92,8 @@ export function initSettings(ctx) {
     btnCancel: document.getElementById('btn-conn-cancel'),
     frameGlobal: document.getElementById('frame-global'),
     tellerName: document.getElementById('teller-name'),
+    tellerPerson: document.getElementById('teller-person'),
+    tellerPersonNote: document.getElementById('teller-person-note'),
     writerName: document.getElementById('writer-name'),
     frameStory: document.getElementById('frame-story'),
     frameStoryName: document.getElementById('frame-story-name'),
@@ -867,10 +869,28 @@ export function initSettings(ctx) {
   };
   if (els.tellerName) els.tellerName.addEventListener('change', () => keepName('tellerName', els.tellerName));
   if (els.writerName) els.writerName.addEventListener('change', () => keepName('writerName', els.writerName));
+  /* M334: first person or second. "Follow my frame" reads it off the frame's own opening words, and says what it read. */
+  const sayPerson = async () => {
+    if (!els.tellerPersonNote || !els.tellerPerson) return;
+    const story = await activeStory();
+    const frame = (story && typeof story.frameOverride === 'string' && story.frameOverride.trim()) ? story.frameOverride : (els.frameGlobal ? els.frameGlobal.value : '');
+    const read = framePerson(frame) === 'first' ? 'I' : 'You';
+    const chosen = els.tellerPerson.value;
+    els.tellerPersonNote.textContent = (chosen === 'follow' ? 'Your frame reads as “' + read + '” — so the tavern’s own rules are written that way too. ' : 'Set by hand (your frame reads as “' + read + '”). ')
+      + (((chosen === 'follow' ? (read === 'I' ? 'first' : 'second') : chosen) === 'first') ? 'The craft and the rules become the teller’s own notes to itself: “I maintain… I render it… my craft.”' : 'The craft and the rules speak to the teller: “You maintain… you render it… your craft.”')
+      + ' What YOU say to the teller — the briefing, your note — always says “you”, the way you would to a friend.';
+  };
+  if (els.tellerPerson) els.tellerPerson.addEventListener('change', async () => {
+    const v = els.tellerPerson.value;
+    if (v === 'first' || v === 'second') await db.settings.set('tellerPerson', v); else await db.settings.delete('tellerPerson');
+    sayPerson();
+  });
+  if (els.frameGlobal) els.frameGlobal.addEventListener('input', () => sayPerson());
 
   async function loadPromptSlots() {
     if (els.tellerName) els.tellerName.value = cleanName(await db.settings.get('tellerName'));
     if (els.writerName) els.writerName.value = cleanName(await db.settings.get('writerName'));
+    if (els.tellerPerson) { const p = await db.settings.get('tellerPerson'); els.tellerPerson.value = p === 'first' || p === 'second' ? p : 'follow'; }
     els.frameGlobal.value = (await db.settings.get('frameText')) ?? STARTER_FRAME;
     els.noteGlobal.value = (await db.settings.get('noteText')) ?? STARTER_NOTE;
     /* M21: the frame's purpose line (?? — a cleared line stays cleared) and
@@ -919,6 +939,7 @@ export function initSettings(ctx) {
     document.getElementById('btn-save-note-story').disabled = !hasStory;
     document.getElementById('btn-save-brief').disabled = !hasStory;
     document.getElementById('btn-save-cast').disabled = !hasStory;
+    sayPerson(); /* M334 */
   }
 
   document.getElementById('btn-save-frame').addEventListener('click', async () => {
