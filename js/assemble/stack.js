@@ -93,6 +93,7 @@
 
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
+import { sceneAnchor } from './anchor.js'; /* M343 */
 import { withoutAuthorshipFrame } from './craft.js'; /* M309 */
 import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
@@ -716,7 +717,9 @@ export function buildRequest({
    * just normal as ever: my system instruction, then all normal, no persona-breaking words, then my first message." He is
    * right, and the repair IS the house's doing: ui/pageshape.js makes the page whole AFTER it arrives (brackets, the ledger's
    * ground, blank lines) and a header with no place wears its card — none of which needs one word in the request. */
-  const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  /* M343: the older-model switch — the scene said once more, LAST (assemble/anchor.js). Only when chat.js says the switch is on. */
+  const anchorLine = safeSettings.olderModelNow === true ? sceneAnchor(state, { scenePages: recentPages, voice }) : '';
+  const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';

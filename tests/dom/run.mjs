@@ -3562,6 +3562,56 @@ test('DOM-66 THE WRITER’S TWO SCREENSHOTS: a brand-new tale and a model that d
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-67 THE OLDER-MODEL SWITCH in the app: it ships OFF and the request says nothing new; turned ON in Settings, the next page’s request ends with the scene in one breath before his note, a long tale’s request is held to the smaller room (oldest pages leave, the newest stay whole) and the line under the composer says the same room; OFF again and all of it is gone (M343)', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = (n) => '[Lakeside path — Friday, August 21, 2026 | 16:' + String(n % 60).padStart(2, '0') + ' | gold light | gray tee | walking]\n\n';
+  const st = await db.stories.create({ title: 'the older model' });
+  await db.stories.update(st.id, { extraction: false, keeper: false });
+  /* a long tale: 60 pages of ~2,300 tokens each — far more than 64,000 tokens */
+  const filler = 'They walked the lakeside path and the water went gold between the hedge gaps. '.repeat(115);
+  for (let i = 0; i < 60; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'turn ' + i }); await db.messages.append(st.id, { role: 'assistant', text: H(i) + 'PAGE-' + i + '. ' + filler }); }
+  const ledger = applyMutations({ ...emptyState(), page: 59 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'clock.set', year: 2026, month: 8, day: 21, hour: 16, minute: 59 }, { type: 'place.set', name: 'Lakeside path' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Claire Maxwell', position: 'three paces behind' }]).state;
+  await saveState(st.id, { ...ledger, page: 59, readTo: 59, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer;
+  house.state.storyAnswer = () => H(7) + 'She looked up.';
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return house.state.calls.slice(from).find((c) => !c.isWorker).body; };
+  const sizeOf = (body) => Math.round(JSON.stringify(body.messages).length / 4);
+  const pagesIn = (body) => (JSON.stringify(body.messages).match(/PAGE-\d+\./g) || []).length;
+  const setSwitch = async (on) => { await openSettings(); if (q('[data-room="story"]')) click(q('[data-room="story"]')); const box = await until(() => q('#older-model'), 'the switch is in Settings', 10000); if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); } await until(async () => ((await db.settings.get('olderModel')) === true) === on, 'kept', 5000); await closeSettings(); };
+  const was = await db.settings.get('olderModel');
+  try {
+    await openSettings(); if (q('[data-room="story"]')) click(q('[data-room="story"]'));
+    eq((await until(() => q('#older-model'), 'the switch', 10000)).checked, false, 'it ships OFF'); await closeSettings();
+    const off = await send('I look at her.');
+    assert(!/right now, so it is in front of you/.test(JSON.stringify(off.messages)), 'OFF: nothing new is said');
+    const offPages = pagesIn(off);
+    /* ON */
+    await setSwitch(true);
+    const on = await send('I ask her.');
+    const last = on.messages[on.messages.length - 1].content;
+    assert(/right now, so it is in front of you — The hour: /i.test(last) && /The ground: Lakeside path\./.test(last) && /Here now: /.test(last), 'ON: the scene, last: ' + last.slice(0, 160));
+    assert(sizeOf(on) <= 66000, 'the request is held to the smaller room: ~' + sizeOf(on) + ' tokens (it was ~' + sizeOf(off) + ')');
+    assert(pagesIn(on) < offPages && pagesIn(on) >= 8, 'the OLDEST pages left it (' + offPages + ' → ' + pagesIn(on) + ')');
+    assert(/PAGE-59\./.test(JSON.stringify(on.messages)) && !/PAGE-0\./.test(JSON.stringify(on.messages)), 'and the newest stay whole');
+    await until(() => /of ~64[.,]000 tokens in the room/.test(document.body.textContent), 'the line under the composer says the same room: ' + (document.body.textContent.match(/~[\d.,]+ of ~[\d.,]+ tokens in the room/) || [''])[0], 8000);
+    /* OFF again */
+    await setSwitch(false);
+    const back = await send('We walk on.');
+    assert(!/right now, so it is in front of you/.test(JSON.stringify(back.messages)) && pagesIn(back) > pagesIn(on), 'OFF again: the words are gone and the room is the provider’s');
+  } finally {
+    house.state.storyAnswer = priorStory;
+    if (was === true) await db.settings.set('olderModel', true); else await db.settings.delete('olderModel');
+    if (env.ctx.chat.noteOlderModel) await env.ctx.chat.noteOlderModel();
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

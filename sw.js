@@ -25,6 +25,7 @@ const SHELL = [
   'js/providers/openai.js',
   'js/assemble/stack.js',
   'js/assemble/voice.js',
+  'js/assemble/anchor.js',
   'js/assemble/modules.js',
   'js/assemble/craft.js',
   'js/assemble/receipt.js',

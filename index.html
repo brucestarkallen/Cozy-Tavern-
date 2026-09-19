@@ -645,6 +645,12 @@
             <label class="radio-row"><input type="checkbox" id="think-on-page"> Let a model with its thinking off think on its page first</label>
 
             <p class="quiet" id="think-on-page-note">Off: nothing is asked and nothing changes. On: when the connection in use has its thinking Off, the storyteller is asked to think first inside &lt;think&gt; … &lt;/think&gt;, in its own voice, and then write the page. You see that thinking folded above the page like any other; only what follows it is the page, and it is never sent back. A connection that thinks by itself is left alone.</p>
+
+
+            <label class="radio-row"><input type="checkbox" id="older-model"> Derestricted / older model (GLM 4.6 and the like): help it keep the thread</label>
+
+
+            <p class="quiet" id="older-model-note">Off: nothing changes — not one byte of any request. On, for story pages: the request is kept to about 64,000 tokens however much room the provider claims (the oldest pages leave first; the record already tells them), and the last thing the storyteller reads before your note is the scene in one breath — the hour, the ground, who is here, and what each of them was never shown learning — in your voice, in the ledger’s own words. Made for a model that loses the middle of a long request. Leave it off for a frontier model.</p>
           </div>
           <p class="quiet">With thinking Off a model often thinks on the page anyway — a plan, then the header, then the story. Ticked, whatever comes before the header line is moved to “what the storyteller weighed” (shown or hidden by the tick above), the page begins at its header, and none of it is sent back on later turns. A reply with no header is left exactly as it came.</p>
         </section>

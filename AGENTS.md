@@ -8134,3 +8134,35 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - A NOTE ON WHAT HE SAW: a page kept BEFORE the update keeps its words (tidyPage runs when a page is kept, not on old pages); what
   changed on it is the header's dress. Its paragraphs change only if it is written again (retry/swipe).
 - version.js -> m342-001.
+
+# M343 — the older-model switch ("derestricted / older model"): a smaller, sharper request, and the scene said once more, last
+- THE WRITER: frontier models ($150 a month) now refuse and preach at times, and each time costs him anxiety; an older derestricted
+  open model (GLM 4.6, 200k of room, ~$30 unlimited) does neither and its prose read well, but he cannot tell whether it keeps
+  the thread. If I recommend it: "design something that makes this ancient model smarter… good context retention", behind a
+  switch — OFF: everything back to normal; ON: whatever helps, even if it would not suit a frontier model. His last ask of the
+  session: one pass, no regression.
+- WHAT AN OLDER MODEL LOSES FIRST is the middle of a long request, long before its stated room is full; and the house already
+  carries most of what such a model lacks (the ledger, the record, who-knows-what and who-does-NOT, the second reader and the
+  mender, the page made whole in code). So the switch does the two cheapest, surest things and nothing clever:
+  1. A SMALLER REQUEST (chat.js roomOf, OLDER_MODEL_ROOM = 64,000 tokens): with the switch on the storyteller's room is never
+     more than that, whatever the provider claims — the oldest pages leave first (the record already tells them), the newest
+     stay whole. ONE truth for the request, the record's room and the "tokens in the room" line, so the line never lies.
+  2. THE SCENE, SAID ONCE MORE, LAST (assemble/anchor.js sceneAnchor → the closing message, before the think-line and the
+     note): the hour, the ground, who is here, and up to three people's blind spots — the LEDGER'S OWN LINES to the letter
+     (no second wording to drift), in the writer's voice ("Tony Stark — right now, so it is in front of you — …"), one
+     breath, facts and never orders, story pages only. Every word of it is already in the briefing at the front; this puts
+     it where an older model looks hardest.
+  OFF (as it ships): not one byte of any request changes — held by a law.
+- SETTINGS: "Derestricted / older model (GLM 4.6 and the like): help it keep the thread", under the think-on-page switch, with a
+  note saying exactly what ON does; the thread is told the moment it moves (noteOlderModel) and reads it at first look.
+- TESTS: tests/harness/m343.mjs (OFF byte for byte, only a true `true`; ON: by name, the ledger's lines to the letter, the blind
+  spot, one line under 900 characters, no order-words, never in the rules, said once, the note last; empty ledger → nothing;
+  no teller → plain; with think-on-page both ride in order). DOM-67, a sixty-page tale in the real app: ships OFF and says
+  nothing; ON through the real Settings box → the anchor closes the request, the request falls to ≤ ~66k tokens with the
+  oldest pages gone and the newest whole, the room line reads "of ~64.000"; OFF again → all of it gone. Walk 86/86.
+- DELIBERATELY NOT DONE: cutting his craft down for a weaker model (it is his preset — seventy thousand characters of it is the
+  heaviest thing an older model carries, and the next lever if this is not enough); touching samplers (rule: his connection's
+  settings are sent exactly); changing the keeper's window.
+- NOT VERIFIED: GLM 4.6 itself — no key here. The cap and the anchor are proven to be SENT; how much they help that model only
+  his play can show.
+- version.js -> m343-001.

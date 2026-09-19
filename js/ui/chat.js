@@ -1440,6 +1440,7 @@ export function initChat(ctx) {
     /* M330: once for each tale a session: the house's own notes are taken back out of its record (nobody's hand needed) */
     if (!healedNotes.has(story.id)) { healedNotes.add(story.id); takeBackHouseNotes(story).then(() => putBackAgainstBrief(story)); }
     healInterruptedBranches(); /* M332: once per load */
+    if (!olderModelRead) { olderModelRead = true; noteOlderModel(); } /* M343: the room line is true from the first look */
     if (!healedFuture.has(story.id)) { healedFuture.add(story.id); takeOutTheFuture(story); } /* M337 */
   }
 
@@ -1488,7 +1489,7 @@ export function initChat(ctx) {
       receipt = last ? last.receipt : null;
     }
     const connection = await resolveConnection(story);
-    const size = contextOf(connection); /* M285: the provider's room when none is set */
+    const size = roomOf(connection); /* M343; M285: the provider's room when none is set */
     const total = receipt ? receipt.totalTokens : 0;
     const pct = total ? Math.min(100, Math.max(1, (total / size) * 100)) : 0;
     els.emberFill.style.width = pct + '%';
@@ -1534,7 +1535,7 @@ export function initChat(ctx) {
       /* M287: the keeper folds against the same measured room the storyteller has — the last page's receipt */
       const lastSent = [...(await db.messages.list(story.id))].reverse().find((m) => m && m.receipt && m.receipt.totalTokens > 0);
       const fixedChars = fixedCharsOf(lastSent && lastSent.receipt);
-      return recordRoom({ contextTokens: contextOf(conn), maxTokens: conn && conn.maxTokens, windowTokens, fixedChars });
+      return recordRoom({ contextTokens: roomOf(conn), maxTokens: conn && conn.maxTokens, windowTokens, fixedChars });
     } catch (err) { return undefined; }
   }
 
@@ -2237,6 +2238,22 @@ export function initChat(ctx) {
       toast(gone + (gone === 1 ? ' note' : ' notes') + ' the house had left in this story’s record ' + (gone === 1 ? 'was' : 'were') + ' taken out — the pages, the record and the ledger carry the facts themselves, and the auditor will hold them to your brief.');
       return gone;
     } catch (err) { return 0; }
+  }
+
+  /* M343: THE OLDER-MODEL SWITCH, part two — A SMALLER, SHARPER REQUEST. An older model's hold on a long request weakens long
+   * before its stated room (200k for GLM 4.6) is full. With the switch ON the storyteller's room is never more than
+   * OLDER_MODEL_ROOM tokens, whatever the provider claims: the oldest pages leave the request first — the record already
+   * tells them — and the newest, which the scene stands on, stay whole. ONE truth (roomOf) for the request, the record's
+   * room and the "tokens in the room" line under the composer, so the line never says more than is sent. OFF: contextOf,
+   * as ever. */
+  const OLDER_MODEL_ROOM = 64000;
+  let olderModelOn = false;
+  let olderModelRead = false;
+  async function noteOlderModel() { try { olderModelOn = (await db.settings.get('olderModel')) === true; } catch (err) { olderModelOn = false; } refreshEmber(); return olderModelOn; }
+  function roomOf(connection) {
+    const size = contextOf(connection);
+    if (!olderModelOn) return size;
+    return Number.isFinite(size) && size > 0 ? Math.min(size, OLDER_MODEL_ROOM) : OLDER_MODEL_ROOM;
   }
 
   /* M337: a ledger holding lines dated after its tale's last page is healed on open — never while a page is being written or
@@ -3447,6 +3464,7 @@ export function initChat(ctx) {
        * changes. ON: on a turn whose connection has its thinking OFF (a story page, never an out-of-character answer) the
        * closing message asks the teller to think first inside a think-tag and then write the page. A connection that
        * thinks natively is left alone — it already has somewhere to think. */
+      settingsValues.olderModelNow = !ooc && (await noteOlderModel()); /* M343: the scene said once more, last — story pages only */
       const thinkingOffNow = String((effectiveReasoning(connection, story) || {}).effort || 'off') === 'off';
       settingsValues.thinkOnPageNow = !ooc && thinkingOffNow && (await db.settings.get('thinkOnPage')) === true;
       /* M3 (the latency law): if the workers are still reading the previous
@@ -3558,7 +3576,7 @@ export function initChat(ctx) {
          * speaks — the help text under it is now true (M9, §1). */
         window: memWindow,
         nodes: mem && Array.isArray(mem.nodes) ? mem.nodes : undefined,
-        budgetTokens: contextOf(connection), /* M285: the provider's room when none is set */
+        budgetTokens: roomOf(connection), /* M343; M285: the provider's room when none is set */
       };
       /* M44: a line and the page it summarizes never ride together — measured
        * against the window that will ACTUALLY be sent, coverage law included. */
@@ -3596,7 +3614,7 @@ export function initChat(ctx) {
       }).receipt;
       /* M264: the record rides in the room the storyteller's context leaves it */
       const recordCap = recordRoom({
-        contextTokens: contextOf(connection),
+        contextTokens: roomOf(connection),
         maxTokens: connection && connection.maxTokens,
         fixedChars: fixedCharsOf(probeReceipt),
       });
@@ -5665,6 +5683,7 @@ export function initChat(ctx) {
     rescanLedger,
     auditNow,
     rippleAfterEdit,
+    noteOlderModel, /* M343: Settings tells the thread the moment the switch moves */
     pageReinked, /* M296 */
     resumeUnfinishedChain,
     foundNow,
