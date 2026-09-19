@@ -8054,3 +8054,45 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: how each of his models takes the tag instruction (no key here). If one ignores the tag and thinks bare, the
   header gate and change (1) still hold the page clean.
 - version.js -> m339-001.
+
+# M340 — the first pages of a tale, for a model that does not think: the shape is SHOWN, the page is made whole before it is kept
+- THE WRITER, two screenshots: the header he loves (a card: 📍 place, date and hour, the light, what MC wears, where he stands) and
+  what a non-thinking model gave him on a tale's FIRST page — "Saturday, June 14, 2025 | 08:12 | ☀️ sun… | joggers, t-shirt |
+  leaning at the counter": five fields, NO PLACE, no card; and the prose with no paragraphs. "A non-thinking model is only good
+  in the middle of a story. At the start it breaks so many things… if we can solve this I can start doing gym and be happy."
+- WHY THE MIDDLE IS FINE AND THE START IS NOT. In the middle, every earlier page in front of the model IS the shape, and a model
+  that does not reason copies what it sees. On page one there is nothing to copy: the shape exists only as one sentence
+  (Header Protocol) inside ~70k of rules. A thinking model works it out; the other has to be SHOWN. And two facts of the
+  house made it worse: ALL his header rules want six fields (a header with no place wears nothing), and the header gate
+  knew a header only by its BRACKETS — so a bare header was "no header": the house drew its own masthead over it, and after
+  M339 such a page would have been taken for the teller thinking and asked for again.
+- CHANGE — no setting; it works only where it is needed and stops by itself (ui/pageshape.js, pure):
+  1. THE SHAPE, SHOWN (shapeReminder → stack.js closing message, before the think-line and the note): while the tale has
+     fewer than three storyteller pages, or its LAST page had to be mended, the writer's closing word carries the skeleton,
+     literally — "[Place, the exact spot — Weekday, Month D, YYYY | HH:MM | weather and light | what <MC> wears | where <MC>
+     is…]", a blank line, a paragraph, speech opening its own paragraph. Only under a craft that keeps the Header Protocol.
+  2. THE PAGE IS MADE WHOLE BEFORE IT IS KEPT (tidyPage → chat.js, story pages only): brackets round a header that lost
+     them; the LEDGER'S GROUND in front of a header that lost its place (never invented: no ground known, no place); blank
+     lines between paragraphs that came with single newlines; one unbroken block parted where speech begins. Never a word;
+     a page with nothing of substance to mend is kept to the letter (white space alone is nobody's business); a page
+     holding a readable object or a tracker block keeps its own line breaks. What is kept is what he reads AND what the
+     next turn copies. The page's receipt remembers it was mended (receipt.shape), so the skeleton comes back next turn.
+  3. A HEADER WITH NO PLACE STILL WEARS THE CARD (regex-styles.js style-header-no-place, built FROM the six-field card so
+     they cannot drift; seeded into his shelf on load like any built-in it lacks) — for the one page where nobody knows
+     the place yet.
+  +  headergate.js isHeaderLine: one line of three or more "|" carrying a clock time is a header, bracketed or not
+     (a labelled plan, prose with a time in it and a table row are not).
+- TESTS: tests/harness/m340.mjs (his exact page: read as broken, mended with not one word changed, idempotent, a place never
+  replaced or invented, good/headerless/GFX pages untouched; the block split; the skeleton, when it rides and when not, byte
+  for byte without it, never under a foreign craft; the no-place card built, filled, ordered, and the six-field header still
+  dressed by its own rules). DOM-66 in the real app: page one is SHOWN the shape; the broken reply is kept with brackets and
+  paragraphs and WEARS THE CARD; with the ground known the place stands in front; after three sound pages the skeleton
+  stops; after a mended page it is back. The walk is 85/85.
+- FAULTS OF MINE ON THE WAY: tidyPage first normalised white space on every page (DOM-57 caught it: a sound page must be
+  kept to the letter); two walk assertions used ":last-of-type" on a class (it matched nothing — M339's "never reads the
+  thinking as story" had been passing on air; it reads the real node now); the walk's own shelf carries other scenarios'
+  test rules, so DOM-66 runs on the shelf as shipped.
+- MUTATION-CHECKED: the repair switched off (tidyPage reads no header) → M340-1 and M340-2 fail; a bare header not recognised
+  (isHeaderLine, brackets only) → M340-1 and M340-2 fail. Both files restored and `cmp`-proven. The long play on this tree: 8/8.
+- NOT VERIFIED: that his non-thinking models obey the skeleton (no key here) — which is why (2) and (3) do not depend on it.
+- version.js -> m340-001.

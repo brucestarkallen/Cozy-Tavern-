@@ -3473,7 +3473,7 @@ test('DOM-65 THE WRITER’S TWO SCREENSHOTS: with thinking off the teller though
     assert(page.text.startsWith('[Lakeside path, west-bench bend') && /"Plus one," Aurora said/.test(page.text) && !/delicious/.test(page.text), 'the page is the page: ' + page.text.slice(0, 80));
     assert(/Oh this is delicious/.test(String(page.thinking || '')) && /Let me write the walk/.test(String(page.thinking || '')), 'what it thought is kept where thinking is kept');
     eq((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length, 2, 'one page, not two');
-    assert(!/Oh this is delicious/.test(q('#thread .msg-assistant:last-of-type .msg-body') ? q('#thread .msg-assistant:last-of-type .msg-body').textContent : ''), 'and he never reads the thinking as story');
+    { const shown = qa('#thread .msg-assistant').slice(-1)[0]; const body = [...shown.querySelectorAll('p')].filter((el) => !el.closest('details')).map((el) => el.textContent).join(' '); assert(/Plus one/.test(shown.textContent) && !/Oh this is delicious/.test(body), 'and he never reads the thinking as story (M340: the selector this used matched nothing)'); }
     /* 2. the switch OFF: nothing is asked */
     house.state.storyAnswer = () => H2 + 'They walked on.';
     from = await send('We walk on.');
@@ -3511,6 +3511,62 @@ test('DOM-65 THE WRITER’S TWO SCREENSHOTS: with thinking off the teller though
     if (switchBefore === true) await db.settings.set('thinkOnPage', true); else await db.settings.delete('thinkOnPage');
     await closeSettings();
   }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-66 THE WRITER’S TWO SCREENSHOTS: a brand-new tale and a model that does not think — it is SHOWN the page’s shape on the first pages; when it still drops the brackets, the place and the paragraphs, the page is made whole before it is kept and wears the card; once the tale’s own pages carry the shape the skeleton stops, and comes back by itself after a broken page (M340)', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  /* (earlier scenarios leave test rules of their own on this walk's shelf, and one of them eats a bracketed header before the
+   * style pack sees it; this scenario is about the card, so it runs on the shelf as shipped and puts the walk's shelf back) */
+  const rx = await import('../../js/regex.js');
+  const shelfBefore = await rx.loadRules();
+  await rx.saveRules(rx.BUILTIN_RULES.map((r) => ({ ...r }))); /* the shelf as a fresh coat ships it — earlier scenarios leave rules of their own on it */
+  const st = await db.stories.create({ title: 'page one' });
+  await db.stories.update(st.id, { extraction: false, keeper: false });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer;
+  const closingOf = (from) => { const c = house.state.calls.slice(from).find((x) => !x.isWorker); return String(c.body.messages[c.body.messages.length - 1].content); };
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 20000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return from; };
+  const lastPage = async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+  const BARE = 'Saturday, June 14, 2025 | 08:12 | ☀️ sun through the glass doors, salt-faint breeze | joggers, t-shirt | leaning at the counter, coffee in hand';
+  const good = (n) => '[Arden kitchen, East Hampton — Saturday, June 14, 2025 | 08:' + (20 + n) + ' | sun through the glass doors | joggers, t-shirt | at the counter]\n\nParagraph one of page ' + n + '.\n\n"Speech," she said.';
+  try {
+    /* page one: nothing to copy — the skeleton is shown; the model breaks the shape anyway */
+    house.state.storyAnswer = () => BARE + '\nThe kitchen was quiet.\n"Morning," Emilia said, not looking up.\nHe set the cup down.';
+    let from = await send('I pour the coffee.');
+    assert(/The shape of the page — exactly this, every time:/.test(closingOf(from)) && /\[Place, the exact spot — Weekday, Month D, YYYY \| HH:MM/.test(closingOf(from)), 'page one: the shape is SHOWN: ' + closingOf(from).slice(0, 120));
+    let page = await lastPage();
+    eq(page.text.split('\n')[0], '[' + BARE + ']', 'the header got its brackets back (nobody knows the place yet — it is never invented)');
+    eq(page.text.split('\n\n').length, 4, 'and the paragraphs a blank line between them');
+    await tick(1200);
+    { const live = rx.currentRules(); const mine = live.find((r) => r.id === 'style-header-no-place'); const node = qa('#thread .msg-assistant').slice(-1)[0];
+      assert(/linear-gradient/.test(node.innerHTML), 'the header wears the card — live rules ' + live.length + ', mine ' + JSON.stringify(mine && { enabled: mine.enabled, mode: mine.mode, on: mine.on }) + ', engine dresses kept text: ' + /linear-gradient/.test(rx.applyRules(page.text, live, { on: 'storyteller', mode: 'display' })) + ', display off? ' + JSON.stringify(await db.settings.get('regexDisplayOff')) + ' | html: ' + node.innerHTML.slice(0, 260)); }
+    { const shown = qa('#thread .msg-assistant').slice(-1)[0]; assert(/08:12/.test(shown.textContent) && !/2025 \| 08:12 \|/.test(shown.textContent), 'and it wears the card — not a line of pipes: ' + shown.textContent.slice(0, 120)); }
+    /* page two: the ledger knows the ground now; the model drops the place again */
+    const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Arden kitchen, East Hampton' }, { type: 'presence.enter', name: 'Jovan' }]).state;
+    await saveState(st.id, { ...ledger, page: 1, readTo: 0, tidiedGen: 999 });
+    house.state.storyAnswer = () => BARE.replace('08:12', '08:15') + '\nShe looked up.\n"Coffee?"\nHe nodded.';
+    from = await send('I look at her.');
+    assert(/The shape of the page/.test(closingOf(from)), 'still young: still shown');
+    page = await lastPage();
+    assert(page.text.startsWith('[Arden kitchen, East Hampton — Saturday, June 14, 2025 | 08:15 |'), 'the ledger’s ground stands in front of a header that lost its place: ' + page.text.slice(0, 70));
+    /* the model gets it right; after three pages the tale’s own pages are the example */
+    let n = 0; house.state.storyAnswer = () => { n += 1; return good(n); };
+    await send('We talk.');
+    from = await send('We talk on.');
+    assert(!/The shape of the page/.test(closingOf(from)), 'three pages in and the last one sound: the skeleton has stopped by itself');
+    eq((await lastPage()).text, good(2), 'and a sound page is kept exactly as it came');
+    /* …and it comes back by itself after a page that broke */
+    house.state.storyAnswer = () => BARE.replace('08:12', '08:40') + '\nOne.\nTwo.\nThree.';
+    await send('More.');
+    house.state.storyAnswer = () => good(9);
+    from = await send('And more.');
+    assert(/The shape of the page/.test(closingOf(from)), 'the last page came out of shape: shown again, with no hand on it');
+  } finally { house.state.storyAnswer = priorStory; await rx.saveRules(shelfBefore); }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

@@ -38,10 +38,18 @@ const HEADER_LINE = new RegExp('^' + DRESS + '\\[[^\\[\\]\\n]{6,400}\\]' + '[ \\
 const HAS_TIME = /\b\d{1,2}[:.]\d{2}\b/;
 const LABEL = new RegExp('^' + DRESS + '(?:planning|plan|beat|last look|the pass|pass|thinking|thoughts|reasoning|analysis|approach|outline|notes?|check|[blscw])' + '[ \\t*_`]*(?::|\\s[—–-]\\s)', 'i');
 
+/* M340: A HEADER THAT LOST ITS BRACKETS IS STILL THE HEADER. A model that does not think wrote, on a tale's first page,
+ * "Saturday, June 14, 2025 | 08:12 | ☀️ sun through the glass doors… | joggers, t-shirt | leaning at the counter" — no
+ * brackets, no place. This gate knew a header only by its brackets, so that page had "no header": before M339 the
+ * house drew its own masthead over it; after M339 it would have been taken for the teller THINKING and asked for
+ * again. One line of at least three "|" that carries a clock time is a header, dressed in brackets or not (ui/
+ * pageshape.js puts the brackets back before the page is kept). */
+const BARE_HEADER = new RegExp('^' + DRESS + '[^\\[\\]\\n]{6,400}' + '[ \\t*_`]*$');
 export function isHeaderLine(line) {
   const s = String(line || '');
-  if (!HEADER_LINE.test(s.trim() ? s : '')) return false;
-  return s.includes('|') || HAS_TIME.test(s);
+  if (!s.trim()) return false;
+  if (HEADER_LINE.test(s)) return s.includes('|') || HAS_TIME.test(s);
+  return BARE_HEADER.test(s) && (s.match(/\|/g) || []).length >= 3 && HAS_TIME.test(s) && !LABEL.test(s);
 }
 export function isPlanLabel(line) { return LABEL.test(String(line || '')); }
 

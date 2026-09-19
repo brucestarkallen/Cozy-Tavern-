@@ -333,3 +333,33 @@ export const STYLE_PACK = [
     "note": "M85: the craft asks the storyteller to render readable media (a phone screen, a letter, a sign, a terminal) as an object between GFX marks; this rule unwraps the marks so the thread draws it through the allowlist (no scripts, no links, no images — ever). Off, and the raw markup shows as text."
   }
 ];
+
+
+/* M340: a header with NO PLACE — "[Saturday, June 14, 2025 | 08:12 | weather | attire | position]" — five fields opening on a
+ * date. Every header rule above wants six fields, so this one stood undressed. It wears the same card without the place
+ * line. (ui/pageshape.js puts the place in before a page is kept whenever the ledger knows the ground; this rule is for
+ * the page where it does not yet.) Built from the six-field card so the two can never drift apart; seeded into a
+ * writer's shelf on load like any built-in the shelf lacks. */
+{
+  const six = STYLE_PACK.find((r) => r.id === 'style-header-6-pipe');
+  if (six && !STYLE_PACK.some((r) => r.id === 'style-header-no-place')) {
+    const card = String(six.replace)
+      .replace(/<div style="color:var\(--pk-place[^"]*">[^<]*\$1<\/div>/, '')
+      .replace(/margin-top:4px;flex-wrap:wrap;/, 'margin-top:0;flex-wrap:wrap;')
+      .replace(/\$2/g, '$1').replace(/\$3/g, '$2').replace(/\$4/g, '$3').replace(/\$5/g, '$4').replace(/\$6/g, '$5');
+    const DAY = '(?:\\p{Extended_Pictographic}\\s*)?(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\\b[^\\[\\]|\\n]*?';
+    STYLE_PACK.splice(STYLE_PACK.indexOf(six), 0, {
+      id: 'style-header-no-place',
+      name: '🎨 Header (no place: Date | Time | Weather | Attire | Position)',
+      find: '^\\[?(' + DAY + ')\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\s*\\|\\s*([^\\[\\]|\\n]+?)\\]?$',
+      flags: 'gmu',
+      replace: card,
+      on: 'storyteller',
+      mode: 'display',
+      enabled: true,
+      builtin: true,
+      pack: 'styles',
+      note: 'M340: a model that does not think sometimes drops the place from a tale’s first header. The same card, without the place line.',
+    });
+  }
+}

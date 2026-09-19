@@ -65,6 +65,7 @@ const SHELL = [
   'js/import/chats.js',
   'js/ui/chat.js',
   'js/ui/headergate.js',
+  'js/ui/pageshape.js',
   'js/ui/settings.js',
   'js/ui/drawer.js',
   'js/ui/receiptview.js',
