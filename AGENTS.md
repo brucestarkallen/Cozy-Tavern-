@@ -7954,3 +7954,28 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT CHANGED: the fact's own wording ("the twelve-minute walk" — which walk, it does not say) is the page reader's, written
   long ago. The housekeeper's "no" was right about Aurora's; it reads the last pages whole and the rest by its index.
 - version.js -> m336-001.
+
+# M337 — "that fact should never happen since I branched and that thing never happens": nothing in a ledger may be dated after its tale's last page
+- THE WRITER, after M336 (which I had explained as "the line is old, from before the branch"): no — in his branch that thing NEVER
+  happened; it belongs to the pages of the OTHER timeline. I had read his first message the other way. So his branch's
+  ledger holds a line from pages the branch does not have.
+- WHAT IS KNOWN: the fold (40 folds) and the branch in the real app (from pages 4 and 7 of ten) are exact — M336's probes. ONE door
+  lets a later ledger in BY DESIGN: M91's near-the-tail carry (the journal does not reach, the branch page is among the
+  last three) hands the branch the ledger AS IT STANDS, and the catch-up that follows only ever ADDS. WHICH door it was
+  for him is NOT found — his ledger is on his phone.
+- SO THE LEDGER ITSELF IS MADE TO TELL, AND TO HEAL (engine/state.js dropTheFuture, pure): what people know, the threads and
+  the factions each carry the page they were written on (atTurn = page + 1), every journal line its page. With N
+  storyteller pages in a tale, anything dated past N came from somewhere else: it is taken out of the ledger AND of
+  the journal (so no later fold brings it back). Undated lines are never guessed at; a sound ledger is handed back the
+  very same object.
+  · chat.js branchFrom: applied to the carried ledger whatever path chose it — M91's door included.
+  · chat.js takeOutTheFuture: once per tale per session on open, never while a page is being written or read (the stamp
+    runs one ahead then); it SAYS how many lines and names the first — which also tells him, for certain, whether his
+    line was from the other timeline (a toast naming it) or from his branch's own past (no toast; M336 dates it).
+- TESTS: tests/harness/m337.mjs (a twelve-page ledger handed to a branch at page 5: only its six pages' facts remain, the
+  thread and faction of page 8 go, the journal holds no later line, a later fold cannot bring them back, the parent
+  untouched; sound/undated/junk → the same object). DOM-63: a three-page tale whose ledger holds the walk line "learned
+  on page 13" — opened: the line goes, its own fact stays, the journal is clean, the toast names the line. Walk 82/82.
+- NOT COVERED: standings, seats, presence and people pages carry no page date — a later value of THOSE cannot be told from
+  the ledger alone (the fold is what keeps them exact).
+- version.js -> m337-001.

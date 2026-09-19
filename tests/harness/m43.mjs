@@ -22,7 +22,8 @@ test('M43-2 a branch carries its checkpoint: the ledger after the branch page, t
   assert(/carriedOrder\[i\]/.test(b) && /foldJournal\(now, snaps, k === -1 \? -1 : k, applyMutations\)/.test(b) && /journalReaches\(now, snaps/.test(b), 'nearest earlier checkpoint, else the FOLD of the journal (M69), gated by reach (M91)');
   assert(/if \(fromTheTail\) \{\s*carried = nowState;\s*exact = !chainStillRunning;/.test(b), 'the newest page carries the ledger as it stands, first, exact once the readers landed (M91, M112)');
   assert(/startBackgroundWork\(branchStory, last, lastUser \? pageText\(lastUser\) : '', \{ deep: true, audit: true \}\)/.test(b), 'an inexact carry is re-read at once');
-  assert(/const carriedNow = JSON\.parse\(JSON\.stringify\(carried\)\);[\s\S]*msgId: idMap\[e\.msgId\][\s\S]*await saveState\(branch\.id, carriedNow\);/.test(b), 'written to the branch, the referee’s timeline re-keyed (M72)');
+  /* M337: the carried ledger passes through dropTheFuture on its way — nothing dated past the branch page rides along */
+  assert(/const carriedNow = dropTheFuture\(JSON\.parse\(JSON\.stringify\(carried\)\), kBranch \+ 1\)\.state;[\s\S]*msgId: idMap\[e\.msgId\][\s\S]*await saveState\(branch\.id, carriedNow\);/.test(b), 'written to the branch, the referee’s timeline re-keyed (M72)');
   assert(/saveSnapshots\(branch\.id, snaps\)/.test(b) && /idMap\[e\.id\]/.test(b), 'snapshots carried, re-keyed');
   /* M314: the row is written through writeVersionStates now (stored without each ledger's own journal); what is
    * carried and re-keyed is the same — the walk's branch scenarios run it */

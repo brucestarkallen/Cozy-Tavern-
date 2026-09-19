@@ -51,7 +51,7 @@ import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the hous
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
@@ -1439,6 +1439,7 @@ export function initChat(ctx) {
     /* M330: once for each tale a session: the house's own notes are taken back out of its record (nobody's hand needed) */
     if (!healedNotes.has(story.id)) { healedNotes.add(story.id); takeBackHouseNotes(story).then(() => putBackAgainstBrief(story)); }
     healInterruptedBranches(); /* M332: once per load */
+    if (!healedFuture.has(story.id)) { healedFuture.add(story.id); takeOutTheFuture(story); } /* M337 */
   }
 
   /* Re-render one page in place (an edit, a swipe, a worker's write-back). */
@@ -2234,6 +2235,24 @@ export function initChat(ctx) {
       pendingAudit.add(story.id);
       toast(gone + (gone === 1 ? ' note' : ' notes') + ' the house had left in this story’s record ' + (gone === 1 ? 'was' : 'were') + ' taken out — the pages, the record and the ledger carry the facts themselves, and the auditor will hold them to your brief.');
       return gone;
+    } catch (err) { return 0; }
+  }
+
+  /* M337: a ledger holding lines dated after its tale's last page is healed on open — never while a page is being written or
+   * read (the stamp runs one ahead of the store then), and it says what it took out */
+  const healedFuture = new Set();
+  async function takeOutTheFuture(story) {
+    try {
+      /* (a plain look at the queue — never a wait) */
+      if (!story || busy || replaying || workIsRunning(story.id) || queuedCount(story.id) > 0) { healedFuture.delete(story && story.id); return 0; }
+      const pagesNow = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden).length;
+      const r = dropTheFuture(await loadState(story.id), pagesNow);
+      const n = r.facts.length + r.threads + r.factions;
+      if (!n && !r.journal) return 0;
+      await saveState(story.id, r.state);
+      notify(story.id);
+      if (n) toast(n + (n === 1 ? ' line' : ' lines') + ' in this tale’s ledger ' + (n === 1 ? 'was' : 'were') + ' dated AFTER its last page — from pages this tale does not have (another branch’s future). Taken out' + (r.facts.length ? ': “' + r.facts[0] + '”' + (r.facts.length > 1 ? ' and ' + (r.facts.length - 1) + ' more' : '') : '') + '.');
+      return n;
     } catch (err) { return 0; }
   }
 
@@ -4856,7 +4875,9 @@ export function initChat(ctx) {
      * remapped; the rest (later turns) are let go. Unmapped, every entry
      * was foreign to the branch and the referee pruned its whole timeline on
      * the next turn, rewinding the fight state up to twelve turns. */
-    const carriedNow = JSON.parse(JSON.stringify(carried));
+    /* M337: whichever door chose this ledger (the newest page, the fold, a checkpoint, M91's as-it-stands), nothing in it
+     * may be dated after the branch page */
+    const carriedNow = dropTheFuture(JSON.parse(JSON.stringify(carried)), kBranch + 1).state;
     carriedNow.refHistory = (Array.isArray(carriedNow.refHistory) ? carriedNow.refHistory : [])
       .filter((e) => e && (!e.msgId || idMap[e.msgId]))
       .map((e) => (e.msgId ? { ...e, msgId: idMap[e.msgId] } : e));

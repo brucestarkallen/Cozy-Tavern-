@@ -3370,6 +3370,28 @@ test('DOM-62 the teller thinks as I or as You: a frame written as "I" turns the 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-63 THE WRITER’S REPORT: a tale whose ledger holds a line from pages it does not have (another branch’s future) is healed the moment it is opened — the line is taken out and he is told which; what its own pages taught stays (M337)', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = '[The Wells house — Friday, August 21, 2026 | 13:08 | clear | gray tee | the porch]\n\n';
+  const st = await db.stories.create({ title: 'the other timeline' });
+  await db.stories.update(st.id, { extraction: false, keeper: false });
+  for (let i = 0; i < 3; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'turn ' + i }); await db.messages.append(st.id, { role: 'assistant', text: H + 'Page ' + i + '.' }); }
+  let ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias Wells' }, { type: 'knowledge.add', name: 'Rias Wells', fact: 'Jovan came home on the late bus' }]).state;
+  /* …and a line learned on page 13 of a tale that has three pages */
+  ledger = applyMutations({ ...ledger, page: 12 }, [{ type: 'knowledge.add', name: 'Rias Wells', fact: 'Rias called the twelve-minute walk a six-to-ten-minute intercept window and said the town would ambush him if he walked' }]).state;
+  await saveState(st.id, { ...ledger, page: 2, readTo: 2, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(async () => !/intercept window/.test(JSON.stringify((await loadState(st.id)).knowledge)), 'the line from the other timeline is taken out, with no hand on it', 10000);
+  const healed = await loadState(st.id);
+  assert(/Jovan came home on the late bus/.test(JSON.stringify(healed.knowledge)), 'what this tale’s own pages taught stays');
+  assert(healed.journal.every((e) => e.p <= 2), 'and the journal can never fold it back');
+  await until(() => /dated AFTER its last page/.test(q('#toasts') ? q('#toasts').textContent : '') && /intercept window/.test(q('#toasts').textContent), 'and he is told which line: ' + (q('#toasts') ? q('#toasts').textContent.slice(-220) : ''), 5000);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

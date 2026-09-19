@@ -953,3 +953,37 @@ export function oldestUnread(state, before) {
   for (let k = page + 1; k < before; k += 1) if (!ahead.has(k)) return k;
   return -1;
 }
+
+
+/* M337: NOTHING IN A LEDGER MAY BE DATED AFTER ITS TALE'S LAST PAGE.
+ * The writer, of a branch: "that fact should never happen since I branched and that thing never happens" — a line in the
+ * branch's ledger that belongs to pages the branch does not have. The fold and the branch were tested exact (M336's
+ * two probes), and still he holds such a line; one door is known to let it in by design — M91's near-the-tail carry
+ * hands a branch the ledger AS IT STANDS — and whatever other door there is, the ledger itself can tell: what people
+ * know, the open threads and the factions each carry the page they were written on (atTurn = page + 1), and every
+ * journal line carries its page. With `pages` storyteller pages in the tale, anything dated past them came from
+ * somewhere else. It is taken out — of the ledger and of the journal, so no later fold brings it back. Pure. */
+export function dropTheFuture(state, pages) {
+  const out = { state, facts: [], threads: 0, factions: 0, journal: 0 };
+  if (!state || typeof state !== 'object' || !Number.isInteger(pages) || pages < 0) return out;
+  const late = (at) => Number.isFinite(at) && at > pages;
+  const next = { ...state };
+  if (state.knowledge && typeof state.knowledge === 'object') {
+    const k = {};
+    for (const [name, list] of Object.entries(state.knowledge)) {
+      const kept = (Array.isArray(list) ? list : []).filter((f) => { if (f && late(f.atTurn)) { out.facts.push(name + ': ' + String(f.fact || '').slice(0, 120)); return false; } return true; });
+      if (kept.length) k[name] = kept;
+    }
+    next.knowledge = k;
+  }
+  if (Array.isArray(state.threads)) { next.threads = state.threads.filter((t) => !(t && late(t.atTurn))); out.threads = state.threads.length - next.threads.length; }
+  if (state.factions && typeof state.factions === 'object') {
+    const f = {};
+    for (const [name, v] of Object.entries(state.factions)) { if (v && late(v.atTurn)) out.factions += 1; else f[name] = v; }
+    next.factions = f;
+  }
+  if (Array.isArray(state.journal)) { next.journal = state.journal.filter((e) => !(e && Number.isInteger(e.p) && e.p > pages - 1)); out.journal = state.journal.length - next.journal.length; }
+  const found = out.facts.length + out.threads + out.factions + out.journal;
+  out.state = found ? next : state;
+  return out;
+}
