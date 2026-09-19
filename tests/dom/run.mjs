@@ -3562,7 +3562,7 @@ test('DOM-66 THE WRITER’S TWO SCREENSHOTS: a brand-new tale and a model that d
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-67 THE OLDER-MODEL SWITCH in the app: it ships OFF and the request says nothing new; turned ON in Settings, the next page’s request ends with the scene in one breath before his note, a long tale’s request is held to the smaller room (oldest pages leave, the newest stay whole) and the line under the composer says the same room; OFF again and all of it is gone (M343)', async () => {
+test('DOM-67 THE OLDER-MODEL SWITCH in the app: it ships OFF and the request says nothing new; turned ON in Settings, the next page’s request ends with the scene in one breath before his note — and NOTHING LEAVES THE REQUEST (M344: every page that rode still rides, the room is the provider’s); OFF again and the words are gone (M343)', async () => {
   const before = errors.length;
   const { queuedCount } = await import('../../js/agents/queue.js');
   const { saveState, emptyState } = await import('../../js/engine/state.js');
@@ -3595,14 +3595,19 @@ test('DOM-67 THE OLDER-MODEL SWITCH in the app: it ships OFF and the request say
     const on = await send('I ask her.');
     const last = on.messages[on.messages.length - 1].content;
     assert(/right now, so it is in front of you — The hour: /i.test(last) && /The ground: Lakeside path\./.test(last) && /Here now: /.test(last), 'ON: the scene, last: ' + last.slice(0, 160));
-    assert(sizeOf(on) <= 66000, 'the request is held to the smaller room: ~' + sizeOf(on) + ' tokens (it was ~' + sizeOf(off) + ')');
-    assert(pagesIn(on) < offPages && pagesIn(on) >= 8, 'the OLDEST pages left it (' + offPages + ' → ' + pagesIn(on) + ')');
-    assert(/PAGE-59\./.test(JSON.stringify(on.messages)) && !/PAGE-0\./.test(JSON.stringify(on.messages)), 'and the newest stay whole');
-    await until(() => /of ~64[.,]000 tokens in the room/.test(document.body.textContent), 'the line under the composer says the same room: ' + (document.body.textContent.match(/~[\d.,]+ of ~[\d.,]+ tokens in the room/) || [''])[0], 8000);
+    /* M344: THE WRITER — "never drop… I asked to make it smart, not to remove details of the story" */
+    /* (this walk's provider has a small room that is already full — ~48 of the 60 pages fit — so each new page pushes the oldest one
+     * out, switch or no switch; what must hold is that the SWITCH takes nothing: the same pages ride on as off, give or take
+     * the one the new page displaced, where M343's cap took a third of them) */
+    const oldestIn = (body) => Math.min(...(JSON.stringify(body.messages).match(/PAGE-(\d+)\./g) || ['PAGE-999.']).map((x) => Number(x.match(/\d+/)[0])));
+    assert(Math.abs(pagesIn(on) - offPages) <= 1, 'as many pages ride with the switch on as off: ' + offPages + ' → ' + pagesIn(on));
+    assert(oldestIn(on) - oldestIn(off) <= 2, 'and they reach as far back: the oldest page sent was ' + oldestIn(off) + ', now ' + oldestIn(on));
+    assert(/PAGE-59\./.test(JSON.stringify(on.messages)), 'the newest whole');
+    assert(!/of ~64[.,]000 tokens in the room/.test(document.body.textContent), 'and the room under the composer is the provider’s, not a smaller one');
     /* OFF again */
     await setSwitch(false);
     const back = await send('We walk on.');
-    assert(!/right now, so it is in front of you/.test(JSON.stringify(back.messages)) && pagesIn(back) > pagesIn(on), 'OFF again: the words are gone and the room is the provider’s');
+    assert(!/right now, so it is in front of you/.test(JSON.stringify(back.messages)) && Math.abs(pagesIn(back) - pagesIn(on)) <= 1, 'OFF again: the words are gone, and the same pages ride');
   } finally {
     house.state.storyAnswer = priorStory;
     if (was === true) await db.settings.set('olderModel', true); else await db.settings.delete('olderModel');

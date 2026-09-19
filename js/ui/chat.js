@@ -2240,21 +2240,15 @@ export function initChat(ctx) {
     } catch (err) { return 0; }
   }
 
-  /* M343: THE OLDER-MODEL SWITCH, part two — A SMALLER, SHARPER REQUEST. An older model's hold on a long request weakens long
-   * before its stated room (200k for GLM 4.6) is full. With the switch ON the storyteller's room is never more than
-   * OLDER_MODEL_ROOM tokens, whatever the provider claims: the oldest pages leave the request first — the record already
-   * tells them — and the newest, which the scene stands on, stay whole. ONE truth (roomOf) for the request, the record's
-   * room and the "tokens in the room" line under the composer, so the line never says more than is sent. OFF: contextOf,
-   * as ever. */
-  const OLDER_MODEL_ROOM = 64000;
+  /* M344: THE OLDER-MODEL SWITCH NEVER REMOVES ANYTHING. M343 also held the request to 64,000 tokens (the oldest pages left first).
+   * The writer: "never drop the notes or the summary — that is the most important thing. I asked to make it SMART, not to
+   * remove details of the story; it has 200k of room and I rarely reach 150k." He is right: a page out of the request is
+   * a detail the model cannot have, whatever it would have done with it. The cap is gone — the room is the provider's, as
+   * ever (roomOf is contextOf). What the switch does now is only ever ADD, at the end (assemble/anchor.js). */
   let olderModelOn = false;
   let olderModelRead = false;
-  async function noteOlderModel() { try { olderModelOn = (await db.settings.get('olderModel')) === true; } catch (err) { olderModelOn = false; } refreshEmber(); return olderModelOn; }
-  function roomOf(connection) {
-    const size = contextOf(connection);
-    if (!olderModelOn) return size;
-    return Number.isFinite(size) && size > 0 ? Math.min(size, OLDER_MODEL_ROOM) : OLDER_MODEL_ROOM;
-  }
+  async function noteOlderModel() { try { olderModelOn = (await db.settings.get('olderModel')) === true; } catch (err) { olderModelOn = false; } return olderModelOn; }
+  const roomOf = (connection) => contextOf(connection);
 
   /* M337: a ledger holding lines dated after its tale's last page is healed on open — never while a page is being written or
    * read (the stamp runs one ahead of the store then), and it says what it took out */

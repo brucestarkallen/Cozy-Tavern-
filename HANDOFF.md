@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m343-001)
+# Cozy Tavern — handoff for the next session (state at m344-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M343). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M344). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 660 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 663 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 86 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -22,7 +22,7 @@ founding design lives in AGENTS.md's first entries.)
 ## The laws that matter most (all enforced in code and held by tests)
 - THREE OPT-IN SWITCHES, EACH "OFF = NOT ONE BYTE" AND HELD BY A BYTE-FOR-BYTE LAW: think-on-page (M339), older model (M343), and the
   cut-before-header tick. Anything that adds words to what the storyteller reads goes behind a switch like these, in the
-  writer's voice, one line — or it does not go in (M341/M342). The storyteller's room is read through chat.js roomOf ONLY.
+  writer's voice, one line — or it does not go in (M341/M342). The storyteller's room is read through chat.js roomOf ONLY, and roomOf is the provider's room: NO switch may ever take a page, the note or the record out of a request (M344) — help a weaker model by ADDING what is far (assemble/anchor.js), never by removing.
 - WHATEVER THE HOUSE SAYS TO THE TELLER IS ONE SHORT SENTENCE IN THE WRITER'S VOICE (M341) — never a block, a heading, a template
   with sample prose, or a manual's tone, and least of all in the closing message, the most heeded spot. Print the closing
   message and READ it as the teller would before shipping anything that adds to it.

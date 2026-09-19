@@ -8166,3 +8166,29 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: GLM 4.6 itself — no key here. The cap and the anchor are proven to be SENT; how much they help that model only
   his play can show.
 - version.js -> m343-001.
+
+# M344 — "never drop… I asked to make it SMART, not to remove details": the older-model switch removes NOTHING; it calls the record's far lines back
+- THE WRITER, of M343: "never dropped the notes or summary, that's the most important thing. I asked to make it smart, not removing
+  details in the story — besides it has 200k of context and I rarely get to 150k. The job is to make the frontend smart so the
+  model can remember, and raise its context retention." And: he feared another Claude had edited the repo; and wants to be
+  sure nothing in the frontend is broken.
+- ON THE FIRST: M343's cap never touched his note or the record (only the oldest verbatim pages left) — but he is right all the
+  same: a page out of the request is a detail the model cannot have. THE CAP IS GONE (chat.js roomOf = contextOf; the room
+  line is the provider's again). The switch now only ever ADDS.
+- THE SMART PART (assemble/anchor.js recallFromRecord / recallLine, inside the one-breath anchor before his note): every line of
+  the record is scored against the scene's own words — the last pages AND what he just wrote — a word counting for more the
+  fewer lines hold it (so "Jovan" counts for nothing and "fence" for a lot); the names of the people present and of MC never
+  score (a hyphenated name is read as the scorer reads it); at least two real words must match; the record's newest two lines
+  (near the pages already) and the house's own notes are never called; up to three lines, told in the story's own order, each
+  under ITS OWN PAGES — "And from our story so far, each from its own time — (pages 1–6) [Aug 19] Jovan fenced with a stick…".
+  M336's law holds: dated, never vouched for. The record itself still rides whole, where it always did. No model is asked.
+- THE REPO, CHECKED: GitHub main == my HEAD (70d8869 before this push), no commit I lack, none I did not make; the last sixteen
+  commits are this session's M328–M343 in order; the authors across history are the names these sessions have pushed under.
+  Nobody else has edited it.
+- TESTS: m343.mjs M344-1 (forty pages: with the switch on every page, the rules, the brief, the record and every message but the
+  last are byte-identical to off; the last only grew and ends on his note), M344-2 (the fence scene calls the fence line under
+  pages 1–6; names alone call nothing; newest lines, house notes and a short record never; another scene calls another line;
+  story order; no word of "bearing"), M344-3 (one breath, before the note). DOM-67 now holds that NOTHING leaves: the oldest
+  and the newest page both ride, the request only grew, the room line is not a smaller one.
+- NOT VERIFIED: GLM 4.6 itself — no key here. What is sent is proven; how much it lifts that model only his play can show.
+- version.js -> m344-001.

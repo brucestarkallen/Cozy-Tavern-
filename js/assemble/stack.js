@@ -93,7 +93,8 @@
 
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
-import { sceneAnchor } from './anchor.js'; /* M343 */
+import { sceneAnchor, recallFromRecord, recallLine } from './anchor.js'; /* M343, M344 */
+import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame } from './craft.js'; /* M309 */
 import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
@@ -718,7 +719,15 @@ export function buildRequest({
    * right, and the repair IS the house's doing: ui/pageshape.js makes the page whole AFTER it arrives (brackets, the ledger's
    * ground, blank lines) and a header with no place wears its card — none of which needs one word in the request. */
   /* M343: the older-model switch — the scene said once more, LAST (assemble/anchor.js). Only when chat.js says the switch is on. */
-  const anchorLine = safeSettings.olderModelNow === true ? sceneAnchor(state, { scenePages: recentPages, voice }) : '';
+  let anchorLine = '';
+  if (safeSettings.olderModelNow === true) {
+    /* M344: the scene's words = the last pages AND what the writer just wrote; the record's lines come from the window's nodes */
+    const lastUser = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
+    const sceneNow = [...recentPages, lastUser ? String(lastUser.text || '') : ''].filter(Boolean);
+    const presentNames = [...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : []), mcNameOf(state)].filter(Boolean);
+    const recall = recallLine(recallFromRecord(windowInfo && windowInfo.nodes, sceneNow, { ignore: presentNames }));
+    anchorLine = sceneAnchor(state, { scenePages: recentPages, voice, recall });
+  }
   const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 
