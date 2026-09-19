@@ -94,8 +94,6 @@
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { withoutAuthorshipFrame } from './craft.js'; /* M309 */
-import { shapeReminder } from '../ui/pageshape.js'; /* M340 */
-import { mcName } from '../engine/duels.js'; /* M340: the skeleton names the main character */
 import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
@@ -713,10 +711,12 @@ export function buildRequest({
   out.push(...wire);
   /* M339: the switch's line — only when chat.js says this turn needs it (the switch ON and the connection's thinking off) */
   const thinkLine = safeSettings.thinkOnPageNow === true ? thinkOnPageLine(voice) : '';
-  /* M340: the page's skeleton, SHOWN — while a tale is young or its last page came out of shape (chat.js decides), and only
-   * under a craft that keeps the Header Protocol (a writer's own craft with another header is never told this one) */
-  const shapeLine = safeSettings.pageShapeNow === true && /Header Protocol/.test(craftText) ? shapeReminder({ mc: mcName(state), teller: thinkLine ? '' : (voice && voice.teller) }) : ''; /* M341: one sentence, in the writer's voice; the name is said once — by the think-line when both ride */
-  const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', thinkLine, shapeLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  /* M342: NOTHING ABOUT THE PAGE'S SHAPE IS SAID TO THE STORYTELLER. M340 showed a young tale a skeleton (a nine-line form; M341 cut it
+   * to one sentence). The writer: "it breaks my persona. If the repair is your doing then we don't need any format or example —
+   * just normal as ever: my system instruction, then all normal, no persona-breaking words, then my first message." He is
+   * right, and the repair IS the house's doing: ui/pageshape.js makes the page whole AFTER it arrives (brackets, the ledger's
+   * ground, blank lines) and a header with no place wears its card — none of which needs one word in the request. */
+  const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';

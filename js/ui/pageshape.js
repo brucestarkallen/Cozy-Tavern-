@@ -11,9 +11,8 @@
  * a model that does not reason copies what it sees. On page one there is nothing to copy; the shape exists only as a
  * sentence inside seventy thousand characters of rules. A thinking model works that sentence out. The other needs to
  * be SHOWN. Three things, none of them a setting:
- *   1. shapeReminder — while a tale is young (fewer than three storyteller pages) or its LAST page came out of shape,
- *      the closing message carries the page's skeleton, literally: the bracketed six-field header, a blank line, and
- *      paragraphs with a blank line between them. It stops by itself once the tale's own pages carry the shape.
+ *   1. (M342: REMOVED. M340 also SHOWED a young tale the page's skeleton in the closing message. It broke the writer's persona,
+ *      and the two things below make it unnecessary: not one word about the page's shape is said to the storyteller.)
  *   2. tidyPage — before a page is KEPT (so it is what he reads AND what the next turn copies): a header with no
  *      brackets gets them; a header with no place gets the ledger's ground when it has one; a body whose paragraphs
  *      are parted by single newlines gets blank lines; one unbroken block is parted where speech begins. Words are
@@ -80,28 +79,4 @@ export function tidyPage(text, { place = '' } = {}) {
   if (!did.length) return { text: src, did };
   const out = h.lead + '[' + inner + ']' + (body.trim() ? '\n\n' + body.replace(/\s+$/, '') : '');
   return { text: out, did };
-}
-
-/* the header's form, shown — the WRITER speaking to his teller (a user-role line).
- * M341: M340 put a nine-line block here in a manual's voice — a heading ("The shape of the page — exactly this, every time:"),
- * the header form, and DUMMY PROSE ("A paragraph of the scene." / "Speech opens its own paragraph," she said.) — as the last
- * thing the storyteller read on page one, the most heeded spot in the whole request. The writer: "your fix suddenly, on the
- * first turn, breaks my persona." It read like a form to fill in, and a teller handed a form becomes a clerk. It broke the
- * house's own law (M327, M335): what the house says to the teller is said in the writer's voice, briefly, never like a
- * manual. ONE sentence now, led by the teller's name when there is one, with the header's form inside it and no sample
- * prose at all (paragraphs are mended in code — tidyPage — whether or not the model heeds this). */
-export function shapeReminder({ mc = '', teller = '' } = {}) {
-  const given = String(mc || '').trim();
-  const who = given && given.toLowerCase() !== 'the player' ? given : 'the main character';
-  const line = 'pen the page with its header, in exactly this form — [Place, the exact spot — Weekday, Month D, YYYY | HH:MM | weather and light | what ' + who + ' wears | where ' + who + ' is] — then a blank line, and a blank line between every two paragraphs.';
-  const name = String(teller || '').trim();
-  return name ? name + ' — o' + line : 'O' + line;
-}
-
-/* does this turn need the skeleton? `pages` = the tale's storyteller pages so far (their kept text), oldest first */
-export const YOUNG_TALE_PAGES = 3;
-export function needsShapeReminder(pages) {
-  const list = (Array.isArray(pages) ? pages : []).filter((t) => typeof t === 'string' && t.trim());
-  if (list.length < YOUNG_TALE_PAGES) return true;
-  return !shapeOf(list[list.length - 1]).sound;
 }

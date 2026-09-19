@@ -1,7 +1,7 @@
-# Cozy Tavern — handoff for the next session (state at m341-001)
+# Cozy Tavern — handoff for the next session (state at m342-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M341). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M342). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
@@ -23,8 +23,9 @@ founding design lives in AGENTS.md's first entries.)
 - WHATEVER THE HOUSE SAYS TO THE TELLER IS ONE SHORT SENTENCE IN THE WRITER'S VOICE (M341) — never a block, a heading, a template
   with sample prose, or a manual's tone, and least of all in the closing message, the most heeded spot. Print the closing
   message and READ it as the teller would before shipping anything that adds to it.
-- A MODEL THAT DOES NOT THINK COPIES WHAT IT SEES (M340): format is taught by EXAMPLE, not by rule — the skeleton rides a young
-  tale's closing message, and every kept page is made whole (ui/pageshape.js) because kept pages ARE the example. Anything
+- A MODEL THAT DOES NOT THINK COPIES WHAT IT SEES (M340, M342): every kept page is made whole IN CODE (ui/pageshape.js) because kept
+  pages ARE the example — and NOTHING about format is ever said to the storyteller (M340's shown skeleton broke his persona
+  and was removed in M342: fix the page after it arrives, never lecture the teller before it writes). Anything
   that keeps a page must go through tidyPage; anything that detects a header must use headergate.isHeaderLine (bare or
   bracketed). In the walk, never select with ":last-of-type" on a class — take qa(...).slice(-1)[0].
 - A REPLY WITH NO HEADER, IN A TALE OF HEADERS, IS NOT A PAGE (M339) — never detect the teller's thinking by its LABELS again:

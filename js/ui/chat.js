@@ -68,7 +68,7 @@ import { loadSessionRoot } from '../agents/housekeeper.js'; /* M331 */
 import { voiceOf, askAgain } from '../assemble/voice.js'; /* M327: the two names */
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan, pageOnly } from './headergate.js';
-import { tidyPage, needsShapeReminder } from './pageshape.js'; /* M340 */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
+import { tidyPage } from './pageshape.js'; /* M340: the page made whole before it is kept */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName } from '../engine/duels.js';
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -3449,16 +3449,6 @@ export function initChat(ctx) {
        * thinks natively is left alone — it already has somewhere to think. */
       const thinkingOffNow = String((effectiveReasoning(connection, story) || {}).effort || 'off') === 'off';
       settingsValues.thinkOnPageNow = !ooc && thinkingOffNow && (await db.settings.get('thinkOnPage')) === true;
-      /* M340: the page's skeleton is shown while the tale is young, or when its last page came out of shape — and stops by itself */
-      if (!ooc) {
-        try {
-          const toldPages = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id));
-          const lastTold = toldPages[toldPages.length - 1];
-          const lastReceipt = lastTold ? (Array.isArray(lastTold.swipes) && lastTold.swipes.length ? (lastTold.swipes[Number.isFinite(lastTold.swipeIdx) ? lastTold.swipeIdx : lastTold.swipes.length - 1] || {}).receipt : lastTold.receipt) : null;
-          const lastWasMended = Boolean(lastReceipt && Array.isArray(lastReceipt.shape) && lastReceipt.shape.length);
-          settingsValues.pageShapeNow = lastWasMended || needsShapeReminder(toldPages.map((m) => pageOnly(pageText(m))));
-        } catch (err) { settingsValues.pageShapeNow = false; }
-      }
       /* M3 (the latency law): if the workers are still reading the previous
        * page, the send path waits for them — hard five-second ceiling on
        * each link of the chain, then we go on with last-good state — BEFORE
@@ -4043,8 +4033,7 @@ export function initChat(ctx) {
           const ground = state && state.place && typeof state.place.name === 'string' ? state.place.name : '';
           const tidied = tidyPage(full, { place: ground });
           full = tidied.text;
-          /* the page is kept whole, so the kept words cannot say the teller broke the shape — the receipt, kept with the page
-           * at every save site, remembers it, and the next turn shows the skeleton again */
+          /* the receipt, kept with the page, says what was mended (shown under "What the storyteller saw") */
           if (tidied.did.length && receipt && typeof receipt === 'object') receipt = { ...receipt, shape: tidied.did };
         } catch (err) { /* the page as it came */ }
       }

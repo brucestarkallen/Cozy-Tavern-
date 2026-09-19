@@ -3514,7 +3514,7 @@ test('DOM-65 THE WRITER’S TWO SCREENSHOTS: with thinking off the teller though
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-66 THE WRITER’S TWO SCREENSHOTS: a brand-new tale and a model that does not think — it is SHOWN the page’s shape on the first pages; when it still drops the brackets, the place and the paragraphs, the page is made whole before it is kept and wears the card; once the tale’s own pages carry the shape the skeleton stops, and comes back by itself after a broken page (M340)', async () => {
+test('DOM-66 THE WRITER’S TWO SCREENSHOTS: a brand-new tale and a model that does not think — NOT ONE WORD about the page’s shape is said to it (M342: it broke the writer’s persona); when it drops the brackets, the place and the paragraphs, the page is made whole before it is kept and wears the card (M340)', async () => {
   const before = errors.length;
   const { queuedCount } = await import('../../js/agents/queue.js');
   const { saveState, emptyState } = await import('../../js/engine/state.js');
@@ -3538,7 +3538,7 @@ test('DOM-66 THE WRITER’S TWO SCREENSHOTS: a brand-new tale and a model that d
     /* page one: nothing to copy — the skeleton is shown; the model breaks the shape anyway */
     house.state.storyAnswer = () => BARE + '\nThe kitchen was quiet.\n"Morning," Emilia said, not looking up.\nHe set the cup down.';
     let from = await send('I pour the coffee.');
-    assert(!/A paragraph of the scene/.test(closingOf(from)) && /pen the page with its header, in exactly this form/.test(closingOf(from)) && /\[Place, the exact spot — Weekday, Month D, YYYY \| HH:MM/.test(closingOf(from)), 'page one: the shape is SHOWN: ' + closingOf(from).slice(0, 120));
+    assert(!/in exactly this form|The shape of the page|blank line between|A paragraph of the scene/.test(closingOf(from)), 'page one: nothing about the page’s shape is said to the storyteller: ' + closingOf(from).slice(0, 120));
     let page = await lastPage();
     eq(page.text.split('\n')[0], '[' + BARE + ']', 'the header got its brackets back (nobody knows the place yet — it is never invented)');
     eq(page.text.split('\n\n').length, 4, 'and the paragraphs a blank line between them');
@@ -3551,21 +3551,13 @@ test('DOM-66 THE WRITER’S TWO SCREENSHOTS: a brand-new tale and a model that d
     await saveState(st.id, { ...ledger, page: 1, readTo: 0, tidiedGen: 999 });
     house.state.storyAnswer = () => BARE.replace('08:12', '08:15') + '\nShe looked up.\n"Coffee?"\nHe nodded.';
     from = await send('I look at her.');
-    assert(/pen the page with its header/.test(closingOf(from)), 'still young: still shown');
+    assert(!/in exactly this form/.test(closingOf(from)), 'nor on page two');
     page = await lastPage();
     assert(page.text.startsWith('[Arden kitchen, East Hampton — Saturday, June 14, 2025 | 08:15 |'), 'the ledger’s ground stands in front of a header that lost its place: ' + page.text.slice(0, 70));
-    /* the model gets it right; after three pages the tale’s own pages are the example */
+    /* a sound page is kept exactly as it came */
     let n = 0; house.state.storyAnswer = () => { n += 1; return good(n); };
     await send('We talk.');
-    from = await send('We talk on.');
-    assert(!/pen the page with its header/.test(closingOf(from)), 'three pages in and the last one sound: the skeleton has stopped by itself');
-    eq((await lastPage()).text, good(2), 'and a sound page is kept exactly as it came');
-    /* …and it comes back by itself after a page that broke */
-    house.state.storyAnswer = () => BARE.replace('08:12', '08:40') + '\nOne.\nTwo.\nThree.';
-    await send('More.');
-    house.state.storyAnswer = () => good(9);
-    from = await send('And more.');
-    assert(/pen the page with its header/.test(closingOf(from)), 'the last page came out of shape: shown again, with no hand on it');
+    eq((await lastPage()).text, good(1), 'a sound page is kept to the letter');
   } finally { house.state.storyAnswer = priorStory; await rx.saveRules(shelfBefore); }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

@@ -8114,3 +8114,23 @@ No user payload is ever committed, shipped, or quoted into shipped files.
 - NOT VERIFIED: that this is ALL of what his teller reacted to — only his models can show it; the block was the only thing M340
   added to what the storyteller reads.
 - version.js -> m341-001.
+
+# M342 — "just normal as ever": NOTHING about the page's shape is said to the storyteller
+- THE WRITER: he looked at the broken output again after updating and it had become normal, header card and paragraphs — "is this your
+  doing? If yes then we don't need any format or example, just normal as ever. It breaks my persona. I want it to be normal:
+  my system instruction, then all normal, no persona-breaking words, then my first message."
+- YES, IT IS THE HOUSE'S DOING, and none of it needs a word in the request: M340's display rule dresses a header with no place (that
+  is what changed an ALREADY KEPT page before his eyes), and tidyPage makes every NEW page whole after it arrives (brackets,
+  the ledger's ground, blank lines). He is right that the shown skeleton (M340, cut to one sentence in M341) is therefore
+  unnecessary — and it was the only part that touched what the storyteller reads.
+- CHANGE: the shape line is REMOVED — from the closing message (stack.js), from the per-turn decision (chat.js) and from the module
+  (pageshape.js: shapeReminder, needsShapeReminder, YOUNG_TALE_PAGES are gone, not merely unused). A tale's first turn closes
+  with his note and nothing else. Kept, all of it code-side: tidyPage before a page is kept, the no-place card, the bare
+  header recognised by the gate, the receipt noting what was mended.
+- TESTS: m340.mjs M342-1 — a first-turn request under a named "I" teller closes with his note alone; no form, no sample prose, no
+  word about blank lines anywhere the house speaks; his first message as he wrote it; the functions no longer exist. DOM-66:
+  pages one and two are sent no word about shape, and the broken reply is still kept whole and wears the card.
+- THE THINK-ON-PAGE SWITCH (M339) still adds its one line WHEN HE TURNS IT ON — that is his switch; off, the request is byte for byte.
+- A NOTE ON WHAT HE SAW: a page kept BEFORE the update keeps its words (tidyPage runs when a page is kept, not on old pages); what
+  changed on it is the header's dress. Its paragraphs change only if it is written again (retry/swipe).
+- version.js -> m342-001.
