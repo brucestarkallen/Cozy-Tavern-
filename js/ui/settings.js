@@ -208,6 +208,7 @@ export function initSettings(ctx) {
     thinkingStoryName: document.getElementById('thinking-story-name'),
     showThinking: document.getElementById('show-thinking'),
     cutBeforeHeader: document.getElementById('cut-before-header'),
+    thinkOnPage: document.getElementById('think-on-page'), /* M339 */
     turnsShown: document.getElementById('turns-shown'), /* M136 */
     /* M16: the version line, and the shelf a story sits on. */
     versionLine: document.getElementById('settings-version'),
@@ -2244,6 +2245,7 @@ export function initSettings(ctx) {
     els.thinkingStory.disabled = !story;
     els.showThinking.checked = (await db.settings.get('showThinking')) !== false;
     if (els.cutBeforeHeader) els.cutBeforeHeader.checked = (await db.settings.get('cutBeforeHeader')) !== false; /* M322: on unless the writer says otherwise */
+    if (els.thinkOnPage) els.thinkOnPage.checked = (await db.settings.get('thinkOnPage')) === true; /* M339: off unless he turns it on */
     if (els.turnsShown) { const ts = Number(await db.settings.get('turnsShown')); els.turnsShown.value = String(Number.isFinite(ts) && ts > 0 ? ts : 30); }
   }
 
@@ -2256,6 +2258,8 @@ export function initSettings(ctx) {
   if (els.cutBeforeHeader) els.cutBeforeHeader.addEventListener('change', async () => {
     await db.settings.set('cutBeforeHeader', els.cutBeforeHeader.checked);
   });
+  /* M339: the switch — off unless he turns it on; unset again when he turns it off */
+  if (els.thinkOnPage) els.thinkOnPage.addEventListener('change', async () => { if (els.thinkOnPage.checked) await db.settings.set('thinkOnPage', true); else await db.settings.delete('thinkOnPage'); });
 
   els.showThinking.addEventListener('change', async () => {
     await db.settings.set('showThinking', els.showThinking.checked);

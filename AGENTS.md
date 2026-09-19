@@ -8013,3 +8013,44 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   blind to something they know (hence "not shown learning", never "cannot know"); the after-page check is a model's
   judgment and costs nothing extra (it is the same call).
 - version.js -> m338-001.
+
+# M339 — a reply that is the teller THINKING is never a page; and the switch: "let a model with its thinking off think on its page first"
+- THE WRITER, two screenshots: under the house's own masthead (drawn only when a page has NO header) stood the teller thinking the
+  scene over in its own voice — "Oh this is delicious. Jovan's being sweet about it… Let me write the walk where Claire gets
+  included and nobody's heart breaks too much." — and there the reply ENDED. No header, no story, 1/1, saved as the page.
+  "Every time, without thinking, the thinking is in the output, and it stops and doesn't give the header and the rest of the
+  story." And: "design a switch. Off: everything normal, nothing changed. On: a smart solution for a non-thinking model so
+  the AI thinks on its page. Make sure no regression, especially my storyteller persona."
+- ROOT CAUSE OF (1) — A REGRESSION OF MINE. M324/M325 knew an all-plan reply by its LABELS ("Planning:", "Beat:") and asked
+  again for the page. M335 then asked the teller to think in plain words, with NO labels — which is what he wanted, and it
+  worked: the thinking in his screenshot is in the teller's voice — so its thinking stopped looking like a plan to that
+  check, and a reply that was only thinking was shown and saved as the page.
+- CHANGE (1), always on (chat.js): the surer sign needs no labels — in a tale whose last page opened with a header
+  (priorHadHeader: KNOWN, there is an earlier page and it does), a finished reply holding NO header anywhere has no page in
+  it. It is handed back as the teller's own thinking and the page is asked for, once, in words that fit ("That was you
+  thinking it over, and it stopped there. It is yours — do not think it over again… Write the page itself now, beginning
+  with its header line" — voice.js askAgain 'mulled'; never "you ran out of room", which it did not). The thinking is kept
+  at the head of the page's thinking; one page is saved. A tale's first page, or a tale that keeps no headers, is judged
+  by labels alone, as before.
+- CHANGE (2), THE SWITCH (Settings, beside "Anything written before the header is thinking, not page"): "Let a model with its
+  thinking off think on its page first" — ships OFF.
+  · OFF: not one byte of any request changes (held by a byte-for-byte law).
+  · ON: on a story turn whose connection has its thinking OFF, the closing message — just before the writer's note, which
+    keeps the last word — asks: "Think it through first, inside <think> and </think> — in your own voice, as briefly as the
+    scene needs. Then close the tag and write the page: its header line first… never stop before it." It is the WRITER
+    speaking (user-role), so it says "you" in either person and greets the teller by name. Every provider's reply is
+    already read for a leading think-tag (providers/openai.js makeThinkSplitter), so the split is EXACT, not guessed from
+    headers: the tag's content is the thinking block, what follows is the page, and it is never sent back. A reply that
+    stops inside or right after the tag falls to M120 / change (1): the page is asked for, once.
+    A connection that thinks by itself, and an out-of-character answer, are left alone.
+- A FAULT OF MINE, CAUGHT BY THE WALK: the script that added the switch's listener matched the first line of the OTHER tick's
+  multi-line handler and put mine INSIDE it — the switch saved nothing until the other tick was touched. It stands alone now.
+- TESTS: tests/harness/m339.mjs (OFF byte for byte, only a true `true` turns it on; ON: the line once, before the note, never
+  in the rules, by name, "you" under an "I" frame; the 'mulled' words). DOM-65 in the real app: his screenshots replayed —
+  the house asks again by itself once, handing the thinking back, one page saved, header first, the thinking kept as
+  thinking and never read as story; OFF: no word of think-tags; ON through the real Settings box: the line is in the
+  request, the tagged reply is split exactly, no second ask, the thinking is not sent back next turn; ON with a connection
+  that thinks: not asked. The walk is 84/84.
+- NOT VERIFIED: how each of his models takes the tag instruction (no key here). If one ignores the tag and thinks bare, the
+  header gate and change (1) still hold the page clean.
+- version.js -> m339-001.

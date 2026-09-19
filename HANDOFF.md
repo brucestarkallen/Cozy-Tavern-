@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m338-001)
+# Cozy Tavern — handoff for the next session (state at m339-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M338). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M339). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 650 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 653 checks on the engines, assembler, workers, laws.
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 83 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 84 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,9 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- A REPLY WITH NO HEADER, IN A TALE OF HEADERS, IS NOT A PAGE (M339) — never detect the teller's thinking by its LABELS again:
+  M335 made its thinking plain prose. And when patching a file by matching ONE line, check the line is not the opening of
+  a multi-line block (the switch's listener landed inside another handler).
 - WHO COULD KNOW THIS (M338): before every page the briefing lists, per person in the scene, what no page has shown them
   learning (engine/world.js blindSpots — code, from the knowledge lines); after every page the second reader holds the page
   to that list (UNTOLD KNOWLEDGE) and the mender fixes a false telling by itself. Anything new that teaches the ledger

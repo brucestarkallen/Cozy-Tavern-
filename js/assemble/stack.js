@@ -94,7 +94,7 @@
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { withoutAuthorshipFrame } from './craft.js'; /* M309 */
-import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
+import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -709,7 +709,9 @@ export function buildRequest({
   const out = [];
   if (stateInjection) out.push(stateInjection);
   out.push(...wire);
-  const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  /* M339: the switch's line — only when chat.js says this turn needs it (the switch ON and the connection's thinking off) */
+  const thinkLine = safeSettings.thinkOnPageNow === true ? thinkOnPageLine(voice) : '';
+  const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';

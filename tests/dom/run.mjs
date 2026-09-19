@@ -3442,6 +3442,78 @@ test('DOM-64 THE WRITER’S REPORT, the whole loop in the app: the storyteller i
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-65 THE WRITER’S TWO SCREENSHOTS: with thinking off the teller thought the scene over in its own voice ("Oh this is delicious… Let me write the walk…") and stopped — no header, no story, shown as the page. Now that reply is handed back as its thinking and the page is asked for, once, by the house; and THE SWITCH: off = nothing asked, on = asked to think inside a think-tag (only when the connection’s thinking is off), and the tag is split exactly (M339)', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const H1 = '[Lakeside path — Friday, August 21, 2026 | 16:02 | gold light | gray tee | walking]\n\n';
+  const H2 = '[Lakeside path, west-bench bend — Friday, August 21, 2026 | 16:04 | gold light | gray tee | walking]\n\n';
+  const MULL = 'Oh this is delicious. Jovan’s being sweet about it — "so… it seems we got plus one?" said while looking at Aurora, which is him asking if Claire’s allowed to stay.\n\nLet me write the walk where Claire gets included and nobody’s heart breaks too much.';
+  const st = await db.stories.create({ title: 'plus one' });
+  await db.stories.update(st.id, { extraction: false, keeper: false });
+  await db.messages.append(st.id, { role: 'user', text: 'We walk.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H1 + 'They walked the path.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer;
+  const tellerCalls = (from) => house.state.calls.slice(from).filter((c) => !c.isWorker);
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 20000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return from; };
+  const lastPage = async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+  const switchBefore = await db.settings.get('thinkOnPage');
+  try {
+    /* 1. his screenshots */
+    let n = 0;
+    house.state.storyAnswer = () => { n += 1; return n === 1 ? MULL : H2 + '"Plus one," Aurora said, and did not let go of his hand.'; };
+    let from = await send('You say so.. You look at Aurora… It seems we got plus one?');
+    let calls = tellerCalls(from);
+    eq(calls.length, 2, 'the house asked again by itself, once');
+    const again = calls[1].body.messages;
+    assert(again[again.length - 2].role === 'assistant' && /Oh this is delicious/.test(again[again.length - 2].content), 'handing the teller its own thinking back');
+    assert(/that was you thinking it over, and it stopped there/i.test(again[again.length - 1].content) && /beginning with its header line/.test(again[again.length - 1].content), 'and asking for the page: ' + again[again.length - 1].content.slice(0, 120));
+    let page = await lastPage();
+    assert(page.text.startsWith('[Lakeside path, west-bench bend') && /"Plus one," Aurora said/.test(page.text) && !/delicious/.test(page.text), 'the page is the page: ' + page.text.slice(0, 80));
+    assert(/Oh this is delicious/.test(String(page.thinking || '')) && /Let me write the walk/.test(String(page.thinking || '')), 'what it thought is kept where thinking is kept');
+    eq((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length, 2, 'one page, not two');
+    assert(!/Oh this is delicious/.test(q('#thread .msg-assistant:last-of-type .msg-body') ? q('#thread .msg-assistant:last-of-type .msg-body').textContent : ''), 'and he never reads the thinking as story');
+    /* 2. the switch OFF: nothing is asked */
+    house.state.storyAnswer = () => H2 + 'They walked on.';
+    from = await send('We walk on.');
+    assert(!/<think>/.test(JSON.stringify(tellerCalls(from)[0].body.messages)), 'OFF: no word of think-tags in the request');
+    /* 3. the switch ON, from Settings */
+    await openSettings();
+    if (q('[data-room="story"]')) click(q('[data-room="story"]'));
+    const box = await until(() => q('#think-on-page'), 'the switch is in Settings', 10000);
+    eq(box.checked, false, 'it ships OFF');
+    box.checked = true; box.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('thinkOnPage')) === true, 'kept', 5000);
+    await closeSettings();
+    house.state.storyAnswer = () => '<think>She’ll claim the walk or share it. Claire won’t help by being helpful. Keep it light.</think>\n' + H2 + 'Aurora squeezed his hand once.';
+    from = await send('I squeeze back.');
+    calls = tellerCalls(from);
+    const closing = calls[0].body.messages[calls[0].body.messages.length - 1].content;
+    assert(/Think it through first, inside <think> and <\/think>/i.test(closing), 'ON, thinking off: the teller is asked: ' + closing.slice(0, 140));
+    eq(calls.length, 1, 'and no second ask is needed');
+    page = await lastPage();
+    assert(page.text.startsWith('[Lakeside path, west-bench bend') && /Aurora squeezed his hand once/.test(page.text) && !/<think>|claim the walk/.test(page.text), 'the tag is split exactly: the page is the page: ' + page.text.slice(0, 80));
+    assert(/She’ll claim the walk or share it/.test(String(page.thinking || '')), 'and the thinking is the thinking');
+    /* the next turn never sends that thinking back */
+    from = await send('We keep walking.');
+    assert(!/claim the walk or share it/.test(JSON.stringify(tellerCalls(from)[0].body.messages)), 'what it thought is never sent back as story');
+    /* 4. ON, but the connection thinks by itself: left alone */
+    const conn = (await db.connections.list()).find((c) => c.id === (env.ctx.getActiveConnectionId ? env.ctx.getActiveConnectionId() : null)) || (await db.connections.list())[0];
+    const reasoningBefore = conn.reasoning;
+    await db.connections.update(conn.id, { reasoning: { effort: 'low' } });
+    house.state.storyAnswer = () => H2 + 'The lake went gold.';
+    from = await send('I look at the lake.');
+    assert(!/<think>/.test(JSON.stringify(tellerCalls(from)[0].body.messages)), 'a connection that thinks by itself is not asked to think on its page');
+    await db.connections.update(conn.id, { reasoning: reasoningBefore == null ? null : reasoningBefore });
+  } finally {
+    house.state.storyAnswer = priorStory;
+    if (switchBefore === true) await db.settings.set('thinkOnPage', true); else await db.settings.delete('thinkOnPage');
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

@@ -3442,6 +3442,12 @@ export function initChat(ctx) {
         history = fullHistory.slice(0, at);
       }
       const settingsValues = await gatherSettings();
+      /* M339: THE SWITCH — "let a model that cannot think, think on its page". OFF (as it ships): not one byte of any request
+       * changes. ON: on a turn whose connection has its thinking OFF (a story page, never an out-of-character answer) the
+       * closing message asks the teller to think first inside a think-tag and then write the page. A connection that
+       * thinks natively is left alone — it already has somewhere to think. */
+      const thinkingOffNow = String((effectiveReasoning(connection, story) || {}).effort || 'off') === 'off';
+      settingsValues.thinkOnPageNow = !ooc && thinkingOffNow && (await db.settings.get('thinkOnPage')) === true;
       /* M3 (the latency law): if the workers are still reading the previous
        * page, the send path waits for them — hard five-second ceiling on
        * each link of the chain, then we go on with last-good state — BEFORE
@@ -3786,7 +3792,7 @@ export function initChat(ctx) {
       /* M323: the one re-ask after a reply that ran out of room while still planning — the plan is handed back as the
        * model's own turn, so it writes the page and does not plan again */
       const planWire = generateArgs.planCarried
-        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.planCarried) }, { role: 'user', content: askAgain('plan', turnVoice) }]
+        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.planCarried) }, { role: 'user', content: askAgain(generateArgs.planKind === 'mulled' ? 'mulled' : 'plan', turnVoice) }]
         : wireMessages;
       takeThinking = function (text) {
               thinking += text;
@@ -3957,16 +3963,27 @@ export function initChat(ctx) {
        * The whole reply is the plan; the page is asked for, once. */
       const reply = wholeReply || full;
       let usesHeaders = true;
+      let priorHadHeader = false; /* M339: known, not assumed — there IS an earlier page and it opens with a header */
       if (cutLead && !generateArgs.planCarried && reply.trim() && headerIndex(reply) === -1) {
         try {
           const prior = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id)).pop();
-          if (prior) usesHeaders = headerIndex(String(pageText(prior) || '').trimStart()) === 0;
+          if (prior) { usesHeaders = headerIndex(String(pageOnly(pageText(prior)) || '').trimStart()) === 0; priorHadHeader = usesHeaders; }
         } catch (err) { usesHeaders = false; }
         const allPlan = planOnly(reply) || (usesHeaders && opensWithPlan(reply));
-        if (allPlan || (cutShort && usesHeaders)) {
+        /* M339: THE WRITER'S TWO SCREENSHOTS — under the house's own masthead (drawn only when a page has NO header) stood the
+         * teller thinking the scene over in its own voice: "Oh this is delicious. Jovan's being sweet about it… Let me
+         * write the walk where Claire gets included and nobody's heart breaks too much." — and there the reply ended.
+         * No header, no story; shown and saved as the page. M324/M325 knew a plan by its LABELS ("Planning:", "Beat:");
+         * M335 then asked the teller to think in plain words, with no labels — so its thinking stopped looking like
+         * a plan to this check. The surer sign needs no labels: in a tale whose last page opened with a header, a
+         * finished reply that holds NO header anywhere has no page in it. It is handed back as the teller's own
+         * thinking and the page is asked for, once. (A tale's first page, or a tale that keeps no headers, is
+         * judged by labels alone, as before.) */
+        const mulled = !allPlan && !cutShort && priorHadHeader;
+        if (allPlan || mulled || (cutShort && usesHeaders)) {
           pending.remove();
-          toast(allPlan && !cutShort ? 'The reply was all planning and no page — asking for the page itself.' : 'The reply ran out of room while it was still planning — asking for the page itself.');
-          return generate({ ...generateArgs, planCarried: reply.trim() });
+          toast(mulled ? 'The reply was the storyteller thinking it over, and no page — asking for the page itself.' : allPlan && !cutShort ? 'The reply was all planning and no page — asking for the page itself.' : 'The reply ran out of room while it was still planning — asking for the page itself.');
+          return generate({ ...generateArgs, planCarried: reply.trim(), planKind: mulled ? 'mulled' : 'plan' });
         }
       }
 
