@@ -546,9 +546,19 @@
           <p id="spend-line" class="quiet spend-line" hidden></p>
         </section>
 
+        <section class="settings-section" id="section-canon">
+          <h3>Canon verification</h3>
+          <p class="quiet">Keeps characters from a real series true to their source. Before the storyteller writes, it reads who is in the scene, looks each of them up once on the series’ wiki, keeps what it finds for this story, and hands the storyteller who they are and how they look — at the top of your notes (“What canon says” on the receipt). It finds the right wiki on its own from your brief; name one below only to be sure. Off: nothing is looked up and nothing of it is sent.</p>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="canon-on"> Canon verification</label>
+          </div>
+          <label class="stack-label" for="canon-wikis">The series’ wiki (optional)</label>
+          <input type="text" id="canon-wikis" maxlength="200" placeholder="e.g. bleach — from bleach.fandom.com; several with commas">
+        </section>
+
         <section class="settings-section" id="section-referee">
           <h3>The referee</h3>
-          <p class="quiet">When a chancy moment is risked — a swing, a sneak, a press against someone — the house rules on it first, before the storyteller writes, and the ruling rides into the page as fact ("The house has ruled" on the receipt). Fights become real duels and battles with their own economy. The math is the house's; the words are the storyteller's. If the referee can't be reached, the story simply goes on unruled.</p>
+          <p class="quiet">When a chancy moment is risked — a swing, a sneak, a press against someone — the house rules on it first, before the storyteller writes, and the ruling rides into the page as fact ("The house has ruled" on the receipt). Off: the storyteller decides every outcome itself, and nothing of the referee is sent. Fights become real duels and battles with their own economy. The math is the house's; the words are the storyteller's. If the referee can't be reached, the story simply goes on unruled.</p>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="referee-on"> The referee rules on chancy moments</label>
           </div>

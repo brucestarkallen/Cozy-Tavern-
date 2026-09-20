@@ -3693,6 +3693,71 @@ test('DOM-68 THE WRITER’S CAST SHEET AND THE REFEREE, IN THE APP: a sheet the 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it ships), the series’ wiki named, the storyteller’s briefing opens with what the wiki says of Rukia — the extension itself doing the work; switched off, nothing is looked up and nothing of it is sent (M346)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = '[Soul Society training ground — Monday, September 7, 2026 | 09:00 | clear | shihakusho | kneeling]\n\n';
+  const st = await db.stories.create({ title: 'Soul Society' });
+  await db.stories.update(st.id, { keeper: false, brief: 'A Bleach story. Jovan, a new Shinigami, trains under Rukia Kuchiki.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I kneel on the training ground.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'Rukia Kuchiki folded her arms. "Again."' });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'His instructor.', state: 'drilling him', threads: [] } };
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const wikiAsked = [];
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = (url, opts) => {
+    if (!/fandom\.com|wiki\.gg/.test(String(url))) return priorFetch(url, opts);
+    const u = new URL(String(url));
+    wikiAsked.push(u.hostname);
+    const ok = (obj) => Promise.resolve({ ok: true, status: 200, json: async () => obj, text: async () => JSON.stringify(obj) });
+    if (u.hostname !== 'bleach.fandom.com') return ok({});
+    const titles = u.searchParams.get('titles'); const page = u.searchParams.get('page'); const sr = u.searchParams.get('srsearch');
+    if (u.searchParams.get('list') === 'recentchanges') return ok({ query: { recentchanges: [{ timestamp: '2026-09-01T00:00:00Z' }] } });
+    if (sr) return ok({ query: { search: /rukia/i.test(sr) ? [{ title: 'Rukia Kuchiki' }] : [] } });
+    if (titles) return /rukia/i.test(titles) ? ok({ query: { pages: { 7: { pageid: 7, title: 'Rukia Kuchiki' } } } }) : ok({ query: { pages: { '-1': { title: titles, missing: '' } } } });
+    if (page && /rukia/i.test(page)) return ok({ parse: { title: 'Rukia Kuchiki', wikitext: { '*': "{{Infobox Character\n| name = Rukia Kuchiki\n| hair = Black, chin-length\n| eyes = Violet\n}}\n'''Rukia Kuchiki''' is a Shinigami.\n== Personality ==\nRukia is stern and proud." } } });
+    return ok({});
+  };
+  /* the storyteller's own request — the one that carries the briefing (the extension's own model calls, its parser and
+   * its dossier writer, speak in prompts this walk's house does not know as workers, so "not a worker" is not enough) */
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); const told = house.state.calls.slice(from).find((c) => Array.isArray(c.body.messages) && c.body.messages.some((m) => m.role === 'user' && /where things stand/i.test(String(m.content)))); assert(told, 'the storyteller was asked'); return told.body; };
+  const setCanon = async (on, wiki) => {
+    await openSettings();
+    const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
+    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    if (typeof wiki === 'string') { const w = q('#canon-wikis'); w.value = wiki; w.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn')) === true) === on, 'kept', 5000);
+    await closeSettings();
+  };
+  const was = await db.settings.get('canonOn');
+  try {
+    await openSettings();
+    eq((await until(() => q('#canon-on'), 'the switch', 10000)).checked, false, 'it ships OFF');
+    await closeSettings();
+    await setCanon(true, 'bleach');
+    const on = await send('I bow to Rukia and ask her to teach me kido.');
+    const briefing = on.messages.find((m) => m.role === 'user' && /where things stand/i.test(String(m.content)));
+    assert(briefing, 'the briefing rode: ' + on.messages.map((m) => m.role + ':' + String(m.content).slice(0, 80)).join(' || '));
+    assert(/Canon from this series' wiki/.test(briefing.content) && /Violet|Black, chin-length/.test(briefing.content), 'the briefing opens with what the wiki says of Rukia: ' + String(briefing.content).slice(0, 300));
+    assert(wikiAsked.includes('bleach.fandom.com'), 'the series’ wiki was asked');
+    await setCanon(false);
+    const asked = wikiAsked.length;
+    const off = await send('I try the incantation again.');
+    assert(!/Canon from this series' wiki|Violet|chin-length/.test(JSON.stringify(off.messages)), 'OFF: nothing of it is sent');
+    eq(wikiAsked.length, asked, 'OFF: nothing is looked up');
+  } finally {
+    globalThis.fetch = priorFetch;
+    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

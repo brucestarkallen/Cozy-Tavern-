@@ -8260,3 +8260,47 @@ everything), and every word natural — never corporate — so his teller's pers
   and raced under load (DOM-45 and DOM-65 each failed once in a full walk and passed alone) — they now wait for the render.
   GATES ON THE PUSHED TREE: harness 673/673, walk 87/87 (alone), longplay 8/8, lint clean.
 - version.js -> m345-001.
+
+# M346 — canon verification, whole, behind its own switch
+The writer: integrate his Canon Verification extension fully into the frontend, with its own on/off switch; improve it
+if possible; no bugs, no regression.
+- IT IS HIS EXTENSION, RUNNING AS ITSELF. Canon Grounding v0.63.0 (Sillytavern-Canon-Verification- @ a3030e6) is vendored
+  whole as js/canon/grounding.js by tools/vendor-canon.py: exactly three changes, each asserted to match once — its two
+  SillyTavern imports point at js/canon/host.js; jQuery, $ and toastr come from host.js; the boot no longer builds ST's
+  settings panel. Every stage of its pipeline is its own code — the scene parser, evidence, the cast auditor, the wiki lookup
+  (the MediaWiki API from the browser, origin=*, no server), the caches and their healing, the budget, the absence reports,
+  the dossiers, the composer, the arc judge. Its own gates prove the code Cozy runs: syntax (an .mjs copy), test/proof.js
+  579/579, test/sim.mjs 378/378.
+- host.js is the same stand-in its own simulation gives it: its settings (kept in the store under canonGroundingSettings),
+  getContext() = the story in hand, its events (CHAT_CHANGED when the story changes, MESSAGE_RECEIVED after a page), an inert
+  callable for its panel code, its toasts through Cozy's, and the note it injects kept PER STORY the way ST keeps an extension
+  prompt standing until it is set again.
+- bridge.js hands it what ST would: the story's pages as ST's chat (the SHOWN version of each page; a hidden page is a system
+  line it skips), the main character's story name as the player's, the story itself as the card (title, brief, cast notes —
+  what it discovers the wiki from), its per-story memory as chat metadata — ONE live object per story (its background work
+  saves the object it holds; a second copy would erase the other's finds), saved as soon as its interceptor returns too (a
+  phone that reloads would lose the 400 ms timer's save) — and generateRaw through the writer's worker connection.
+- BETTER HERE THAN IN ST: Cozy's people ledger is its cast list — the slot Summaryception's ledger fills in ST (useLedger, on
+  by default), lent each call and never stored as its own; and its model reads the scene (its recommended parser) from the
+  first run, because Cozy always has a worker to ask (set once; his own choice stands after).
+- WHERE ITS NOTE RIDES: at the top of the writer's briefing — the extension's own default in ST (depth 9999, the player's
+  voice: the top, before any recency). Its "<player>'s note —" label goes (here it is one part of his notes): "Canon from this
+  series' wiki, to keep our story accurate. You know this world; …". The receipt names it "What canon says".
+- THE SWITCH: Settings -> Canon verification. OFF as it ships (every story he has keeps exactly its requests): never loaded,
+  never called, nothing looked up, not one byte sent. The series' wiki can be named there (optional — it discovers it). It has
+  its own row in Settings -> The workers ("Canon verification"), so it can ride a model of its own.
+- Its interceptor runs beside the referee, not after it, and holds the turn only as long as its own windows allow (2 s; a
+  first meeting 12 s); after the page, the people the page brought in are looked up in the chain, for the next page.
+- The seeder (M345) now rides the referee's own hands (Arbiter: the seeder uses the adjudicator's profile) — 'seeder' had no row
+  in Settings -> The workers, so a model given to the referee never weighed the sheet.
+- TESTS: m346.mjs M346-1 runs the real extension on a fake Bleach wiki: Cozy's ledger is the cast list, the wiki is asked,
+  Rukia's hair and eyes land at the top of the briefing, what it found is kept with the story, the Settings list sees it and
+  forgets it, no note = nothing of it. DOM-69 walks it in the app: it ships off; switched on with the wiki named, the
+  storyteller's briefing opens with what the wiki says of Rukia; switched off, nothing is looked up and nothing is sent. (The
+  walk's house does not know the extension's own prompts as a worker's, so the storyteller's request is found by its briefing.)
+- NOT VERIFIED: a real fandom wiki from his phone — this container cannot reach fandom.com. What is asked and what is done
+  with the answer are proven against recorded shapes (the extension's own sim uses the same); the real wiki's pages are not.
+- GATES ON THE PUSHED TREE: harness 674/674, walk 88/88 (alone), longplay 8/8, lint clean; the extension's own on the source
+  it was vendored from: syntax (.mjs copy), proof 579/579, sim 378/378. tools/vendor-canon.py re-run reproduces grounding.js
+  byte for byte.
+- version.js -> m346-001.

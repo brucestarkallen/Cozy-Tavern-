@@ -384,7 +384,7 @@ export function refereeCraft(text, on) {
 
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
-  window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter,
+  window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '',
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -590,6 +590,11 @@ export function buildRequest({
    * what to do with it. */
   const worldText = typeof worldBrief === 'string' ? worldBrief.trim() : '';
   const stateParts = [];
+  /* M346: CANON VERIFICATION'S NOTE leads the briefing — where the extension itself puts it in SillyTavern (depth 9999,
+   * the player's voice: the top, before any recency), so who these canon people are is read before anything else.
+   * Its label goes: here it is one part of the writer's own notes. Empty (the switch off) = nothing. */
+  const canonText = typeof canonNote === 'string' && canonNote.trim() ? canonNote.trim().replace(/^[^\n]{0,42}'s note — /, '').replace(/^./, (c) => c.toUpperCase()) : '';
+  if (canonText) stateParts.push(canonText);
   /* M281: THE PEOPLE RIDE. The character ledger's block was built, and counted
    * on the receipt as "On their mind", since M12 — and never put in the
    * request: the storyteller has told every page without the people's pages.
@@ -624,6 +629,7 @@ export function buildRequest({
 
   /* --- M10: the showrunners' slots — their own receipt names, in the
    * dynamic tail before history; empty = omitted (the slot-7 law). --- */
+  if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
   if (worldText) {
     pushSlot('The world’s word', worldText, 'the world agent’s brief — what could reach this scene, what ripened out of sight');
   }

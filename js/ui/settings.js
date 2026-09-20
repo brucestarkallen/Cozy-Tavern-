@@ -14,6 +14,7 @@
  * and the real thinking control — no placeholders.
  */
 
+import { canonWikis, setCanonWikis } from '../canon/bridge.js'; /* M346 */
 import { db } from '../store.js';
 import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '../providers/index.js';
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
@@ -169,6 +170,8 @@ export function initSettings(ctx) {
     auditEveryValue: document.getElementById('audit-every-value'),
     worldEffort: document.getElementById('world-effort'),
     refereeOn: document.getElementById('referee-on'),
+    canonOn: document.getElementById('canon-on'), /* M346 */
+    canonWikis: document.getElementById('canon-wikis'),
     refereeSensitivity: document.getElementById('referee-sensitivity'),
     refereePreset: document.getElementById('referee-preset'),
     refereeFightStyle: document.getElementById('referee-fightstyle'),
@@ -1438,11 +1441,16 @@ export function initSettings(ctx) {
    * no listeners at all. Now they render and they write. */
   async function renderReferee() {
     els.refereeOn.checked = (await db.settings.get('refereeOn')) !== false;
+    /* M346: canon verification — its own switch (off as it ships) and, only to be sure, the series' wiki */
+    if (els.canonOn) els.canonOn.checked = (await db.settings.get('canonOn')) === true;
+    if (els.canonWikis) els.canonWikis.value = await canonWikis();
     els.refereeSensitivity.value = (await db.settings.get('refereeSensitivity')) || 'normal';
     els.refereePreset.value = (await db.settings.get('refereePreset')) || 'realistic';
     els.refereeFightStyle.value = (await db.settings.get('refereeFightStyle')) || 'tracked';
   }
 
+  if (els.canonOn) els.canonOn.addEventListener('change', async () => { await db.settings.set('canonOn', els.canonOn.checked); });
+  if (els.canonWikis) els.canonWikis.addEventListener('change', async () => { await setCanonWikis(els.canonWikis.value); });
   els.refereeOn.addEventListener('change', async () => {
     await db.settings.set('refereeOn', els.refereeOn.checked);
   });
@@ -2318,7 +2326,7 @@ export function initSettings(ctx) {
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
-    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle',
+    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn',
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
   ];

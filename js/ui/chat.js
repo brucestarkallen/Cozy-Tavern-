@@ -53,6 +53,8 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
+import { canonOn, canonBeforeSend, canonAfterPage } from '../canon/bridge.js'; /* M346: canon verification */
+import { onToast as onCanonToast } from '../canon/host.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
 import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../agents/queue.js';
@@ -3053,10 +3055,21 @@ export function initChat(ctx) {
         if (stale()) return { silent: true };
         /* M345: the sheet is the referee's — with the referee off it is not kept */
         if (!(await refereeSettings()).on) return { silent: true };
-        const connection = await resolveWorkerConnection(story, 'seeder');
+        const connection = await resolveWorkerConnection(story, 'referee'); /* M345: the sheet is weighed by the referee's own hands (Arbiter: the seeder rides the adjudicator's profile) */
         if (!connection) return { silent: true };
         await maybeSeedSheet({ connection, storyId: story.id, signal, renew, brief: story.brief || '', castNotes: story.castNotes || '' });
       } catch (err) { /* the seeder's trouble is its own */ }
+      return { silent: true };
+    });
+
+    /* 6. M346: canon verification after the page — ST's MESSAGE_RECEIVED: the people this page brought in are looked up
+     * now, so the next page has them. Only with its switch on. */
+    enqueue('canon', async ({ stale }) => {
+      try {
+        if (stale() || !(await canonOn())) return { silent: true };
+        const connection = await resolveWorkerConnection(story, 'canon');
+        await canonAfterPage({ story, state: await loadState(story.id), messages: visiblePages(await db.messages.list(story.id)), connection });
+      } catch (err) { /* its trouble is its own */ }
       return { silent: true };
     });
   }
@@ -3486,6 +3499,16 @@ export function initChat(ctx) {
        * nothing: no injection, and the story simply goes on. */
       const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
       const userText = lastUser ? pageText(lastUser) : '';
+      /* M346: CANON VERIFICATION runs as SillyTavern runs it — its interceptor before the page, holding the turn only as
+       * long as its own windows allow (it finishes in the background and the next page gets it). Beside the referee,
+       * not after it. OFF (as it ships) or an out-of-character turn: never called, not one byte. */
+      const canonPending = (!ooc && lastUser && (await canonOn()))
+        ? (async () => {
+          onCanonToast((words) => toast(words));
+          const canonConnection = await resolveWorkerConnection(story, 'canon');
+          return canonBeforeSend({ story, state, messages: history, connection: canonConnection, type: swipeTarget ? 'swipe' : 'normal' });
+        })().catch(() => '')
+        : null;
       /* M21: TRUE rollback — the boundary snapshot. Before the referee and
        * the worker chain commit anything for this turn, the state as it
        * stands is keyed by this turn's user-message id, so a later rewind
@@ -3614,6 +3637,7 @@ export function initChat(ctx) {
       ]);
       /* M287: the request is built once without the record and measured; the
        * record takes what is truly left (recordRoom, fixedChars). */
+      const canonNote = canonPending ? ((await canonPending) || '') : ''; /* M346: its windows have closed — whatever it holds rides */
       const probeReceipt = buildRequest({
         story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,
@@ -3621,6 +3645,7 @@ export function initChat(ctx) {
         houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
         worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
+        canonNote, /* M346 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
       /* M264: the record rides in the room the storyteller's context leaves it */
@@ -3665,6 +3690,7 @@ export function initChat(ctx) {
         /* M345: THE SETTLED OUTCOME REACHES THE STORYTELLER. Since M11 the referee ruled into the ledger and the drawer,
          * and this call never handed the ruling on — the storyteller never once read it. */
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
+        canonNote, /* M346: canon verification's note, at the top of the briefing */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       });

@@ -13,7 +13,8 @@ export const WORKER_ROWS = [
   ['keeper', 'The memory keeper — folds old pages into notes'],
   ['continuity', 'The second reader — quietly flags what drifts'],
   ['auditor', 'The auditor — every few turns, the whole ledger against the brief, the pages and the record'],
-  ['referee', 'The referee — rules on contested moments, fast and cold'],
+  ['referee', 'The referee — rules on contested moments, fast and cold, and weighs the cast it rules from'],
+  ['canon', 'Canon verification — reads who is in the scene and writes each canon person’s dossier from the series’ wiki'],
   ['showrunner', 'The showrunners — the director and the editor'],
   ['housekeeper', 'The housekeeper — the one you talk to, who tidies everything'],
 ];
