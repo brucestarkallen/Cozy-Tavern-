@@ -20,7 +20,7 @@ import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '..
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
 import { learnContext } from '../providers/detect.js'; /* M289 */
 import { byName } from '../providers/order.js'; /* M301: every list of names the writer picks from, A to Z */
-import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking, describePrefill, prefillFields, alwaysThinks } from '../providers/effort.js';
+import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking, describePrefill, prefillFields, alwaysThinks, learnedFacts } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
 import { cleanName, framePerson } from '../assemble/voice.js'; /* M327, M334 */
@@ -315,6 +315,18 @@ export function initSettings(ctx) {
           : `spoken as ${spokenAs(conn, effort)}`;
         spoken.textContent = `thinking: ${effort} — ${said}`;
         top.appendChild(spoken);
+      }
+      /* M350: what the model itself taught the house — said where the writer looks */
+      const taught = learnedFacts(conn);
+      if (taught && (taught.efforts || taught.drop.length || taught.offThinks)) {
+        const bits = [];
+        if (taught.efforts) bits.push('takes ' + taught.efforts.join(', '));
+        if (taught.drop.length) bits.push('does not take ' + taught.drop.map((f) => '“' + f + '”').join(', '));
+        if (taught.offThinks) bits.push('Off does not stop it, so Off asks for its least');
+        const learnedLine = document.createElement('span');
+        learnedLine.className = 'connection-kind';
+        learnedLine.textContent = 'learned from the model: ' + bits.join(' · ');
+        top.appendChild(learnedLine);
       }
       /* M318: a prefill that will not ride says so; M328: and one that will says how */
       if (prefillSilencesThinking(conn)) {

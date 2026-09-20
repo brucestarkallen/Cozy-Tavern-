@@ -22,7 +22,7 @@ import { withImagePart, transportError } from './wire.js';
 import {
   reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
   applyPrefill, prefillPlan, markConnectionDown, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal, thinkingLead,
- declaredEfforts, declaredWire, zaiWire, glmVersion } from './effort.js';
+ declaredEfforts, declaredWire, zaiWire, glmVersion, learnedFacts, learnFact, lessonFrom, fitEffort, alwaysThinks } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
 
@@ -226,13 +226,30 @@ function requestBody(connection, wireMessages, opts = {}) {
       body.thinking = { type: effort === 'off' ? 'disabled' : 'enabled' };
     }
   }
+  /* M350: WHAT THE MODEL ITSELF TAUGHT THE HOUSE, applied last, over any spelling (effort.js learnedFacts) */
+  const learned = suppressed || style === 'none' ? null : learnedFacts(connection);
+  if (learned) {
+    if (set === 'off' && !opened && learned.offThinks && style !== 'hermes') {
+      /* its Off did not stop it: ask for the least it takes, not its own default */
+      const least = learned.efforts ? fitEffort('low', learned.efforts) : 'low';
+      if ('thinking' in body) body.thinking = { type: 'enabled' };
+      if ('enable_thinking' in body) body.enable_thinking = true;
+      if (style === 'openrouter') body.reasoning = { effort: least };
+      else body.reasoning_effort = least;
+    }
+    for (const f of learned.drop) delete body[f];
+    if (learned.efforts) {
+      if (typeof body.reasoning_effort === 'string') body.reasoning_effort = fitEffort(body.reasoning_effort, learned.efforts, set === 'off' && !opened && !learned.offThinks);
+      if (body.reasoning && typeof body.reasoning.effort === 'string') body.reasoning.effort = fitEffort(body.reasoning.effort, learned.efforts);
+    }
+  }
   /* M22-C: "let it look things up" — OpenRouter's web plugin. Only the
    * openrouter host shape carries it; other openai-compatible addresses
    * hide the control in the form. */
   if (connection && connection.searchOn && style === 'openrouter') {
     body.plugins = [{ id: 'web' }];
   }
-  return { body, prefill: opened && !suppressed ? { ...pf, note: [pf.note, 'Thinking was switched on (at its lightest) for this turn, so the thinking seed has a channel to land in.'].filter(Boolean).join(' ') } : pf };
+  return { asked: { set, opened, suppressed }, body, prefill: opened && !suppressed ? { ...pf, note: [pf.note, 'Thinking was switched on (at its lightest) for this turn, so the thinking seed has a channel to land in.'].filter(Boolean).join(' ') } : pf };
 }
 
 /* M329: what the prefill did on this turn, in words — kept on the page's receipt ("What the storyteller saw") */
@@ -325,8 +342,9 @@ export function createOpenAIProvider(connection) {
     let sentPrefill = null;
     let modelThought = 0; /* characters of thinking the MODEL sent — the seed the house puts back is not counted */
     let sentWire = null; /* M347: the request exactly as the model took it (never the headers: the key stays home) */
-    for (let attempt = 0; attempt < 3 && !res; attempt += 1) { /* M318: three — the beta address may say no, and then the ordinary one may still refuse a dial */
-      const { body, prefill } = requestBody(connection, wire, opts);
+    let askedPlan = null; /* M350: what was asked of the model's thinking on the turn it took */
+    for (let attempt = 0; attempt < 5 && !res; attempt += 1) { /* M318: the beta address may say no, and the ordinary one may still refuse a dial; M350: a refusal may teach twice (values, a field) before the last resort */
+      const { body, prefill, asked } = requestBody(connection, wire, opts);
       /* M307: a started reply goes to DeepSeek's beta address, the only one that takes it */
       const beta = prefill.applied && prefillProfile(connection) === 'deepseek' ? deepseekBetaBase(connection.baseUrl) : '';
       const sentUrl = beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`; /* M347: outside the try — the answer's branch reads it */
@@ -344,6 +362,7 @@ export function createOpenAIProvider(connection) {
       }
       if (out.ok) {
         sentWire = { url: sentUrl, body };
+        askedPlan = asked;
         if (prefill.note) notes.push(prefill.note);
         lead = prefill.applied ? prefillLead(connection) : '';
         thoughtLead = prefill.applied && prefill.seed ? prefill.seed : '';
@@ -377,7 +396,26 @@ export function createOpenAIProvider(connection) {
         opts = { ...opts, suppressPrefill: true };
         continue;
       }
-      if (fourHundred && !opts.suppressReasoning && sentReasoning && REASONING_REFUSAL.test(detail)) {
+      /* M350: a refusal is about the thinking when it names a thinking field — or when it names the very level the house
+       * sent and offers others ("Invalid value: 'medium'. Supported values are: 'low', 'high', and 'max'." names no field
+       * at all: before, such a no was thrown at the writer as a failed page) */
+      const lesson = fourHundred && sentReasoning ? lessonFrom(detail, body) : null;
+      const sentLevel = typeof body.reasoning_effort === 'string' ? body.reasoning_effort : (body.reasoning && typeof body.reasoning.effort === 'string' ? body.reasoning.effort : '');
+      const namesItsLevel = Boolean(lesson && lesson.allowed && sentLevel && new RegExp('\\b' + sentLevel + '\\b', 'i').test(detail));
+      if (fourHundred && !opts.suppressReasoning && sentReasoning && (REASONING_REFUSAL.test(detail) || namesItsLevel)) {
+        /* M350: before the thinking is given up, the refusal is READ — it usually says what the model takes */
+        if (lesson.allowed && !opts.taughtValues) {
+          await learnFact(connection, { efforts: lesson.allowed });
+          notes.push('The model said which thinking levels it takes (' + lesson.allowed.join(', ') + '), so the turn went again at the nearest of them — and only those are sent from now on.');
+          opts = { ...opts, taughtValues: true };
+          continue;
+        }
+        if (lesson.badField && !opts.taughtField) {
+          await learnFact(connection, { drop: [lesson.badField] });
+          notes.push('This address does not take “' + lesson.badField + '”, so the turn went again without it — it is left out from now on, and the rest of the thinking settings still ride.');
+          opts = { ...opts, taughtField: true };
+          continue;
+        }
         await markConnectionDown(connection, 'reasoningDownAt', reasonStyle(connection));
         notes.push('The thinking settings weren’t accepted, so this turn went without them — it won’t be asked again until the model changes.');
         opts = { ...opts, suppressReasoning: true };
@@ -436,7 +474,14 @@ export function createOpenAIProvider(connection) {
         finishReason = piece.finish_reason;
       }
       if (delta) {
-        const thought = delta.reasoning_content ?? delta.reasoning;
+        let thought = delta.reasoning_content ?? delta.reasoning;
+        /* M350: a house that names its thinking channel differently (reasoning_text, thought, thinking…) is read too — a
+         * new provider's field is not a reason for the thinking to vanish */
+        if (thought == null) {
+          for (const [k, v] of Object.entries(delta)) {
+            if (k !== 'content' && k !== 'role' && k !== 'refusal' && typeof v === 'string' && v && /reason|think|thought/i.test(k)) { thought = v; break; }
+          }
+        }
         if (typeof thought === 'string' && thought) {
           nativeThoughts = true;
           emit('thinking', thought);
@@ -465,6 +510,16 @@ export function createOpenAIProvider(connection) {
       notes.push('The wire broke mid-page — the words before the break were kept. Say “go on” to carry the page forward.');
     }
     if (refusal && !full) throw new Error(refusal);
+    /* M350: AN OFF THAT DID NOT STOP THE THINKING IS NOTICED. The dial said Off (not opened for a seed), the request said
+     * so, and the model thought anyway: from now on Off asks it for the least it takes — never its own default, which for
+     * the models that cannot stop is their most. A model the house already knows cannot stop is not "taught" again. */
+    if (askedPlan && askedPlan.set === 'off' && !askedPlan.opened && !askedPlan.suppressed && modelThought > 0 && !alwaysThinks(connection)) {
+      const was = learnedFacts(connection);
+      if (!was || !was.offThinks) {
+        await learnFact(connection, { offThinks: true });
+        notes.push('Off did not stop this model thinking — from now on Off asks it for the least thinking it takes, rather than leaving it to its own default.');
+      }
+    }
     const durationMs = Date.now() - startedAt;
     return {
       text: full,

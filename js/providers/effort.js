@@ -227,6 +227,78 @@ export async function markConnectionDown(conn, field, shape) {
   return first;
 }
 
+/* M350: THE MODEL TEACHES THE HOUSE HOW IT THINKS. The house's family rules (Kimi, GLM, DeepSeek, Qwen…) are a head start
+ * for the models it knows; a model that comes out after them must not need a new release. So the house learns from the
+ * model's own answers, per model at its address, and uses what it learned over any rule:
+ *   - a refusal that says which values it takes ("Supported values are: 'low', 'high', 'max'") — those values, and only
+ *     those, from then on; the turn goes again at once at the nearest of them (it used to go without thinking at all, for
+ *     a day: the model's own default, often its most);
+ *   - a refusal that names one field it does not take ("Unrecognized request argument supplied: thinking") — that field
+ *     is left out from then on; the rest of the thinking request still rides;
+ *   - an Off that did not stop the thinking — Off then asks for the least it takes, instead of leaving it to a default
+ *     that is often the most.
+ * Kept 30 days, then learned again (a provider changes); let go at once when the model or the address changes. */
+export const LEARN_FOR_MS = 30 * 24 * 60 * 60 * 1000;
+export function learnedFacts(conn, now = Date.now()) {
+  const c = conn || {};
+  if (!c.learnedFor || c.learnedFor !== detectKey(c)) return null;
+  if (Number.isFinite(c.learnedAt) && now - c.learnedAt > LEARN_FOR_MS) return null;
+  return {
+    efforts: Array.isArray(c.learnedEfforts) && c.learnedEfforts.length ? c.learnedEfforts : null,
+    drop: Array.isArray(c.learnedDrop) ? c.learnedDrop : [],
+    offThinks: c.learnedOffThinks === true,
+  };
+}
+export async function learnFact(conn, fact = {}) {
+  if (!conn) return null;
+  const key = detectKey(conn);
+  const was = learnedFacts(conn);
+  const patch = {
+    learnedFor: key,
+    learnedAt: Date.now(),
+    learnedEfforts: Array.isArray(fact.efforts) && fact.efforts.length ? fact.efforts : (was && was.efforts) || null,
+    learnedDrop: [...new Set([...((was && was.drop) || []), ...(Array.isArray(fact.drop) ? fact.drop : [])])],
+    learnedOffThinks: fact.offThinks === true || Boolean(was && was.offThinks),
+  };
+  Object.assign(conn, patch);
+  if (conn.id) { try { await db.connections.update(conn.id, patch); } catch (err) { /* kept in hand this session */ } }
+  return patch;
+}
+const EFFORT_WORDS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+const OFFERS = /(supported values|allowed values|valid values|accepted values|possible values|available values|one of|must be|should be|expected|only supports?|options are|choose from|permitted values)/i;
+const NOT_TAKEN = '(?:unrecognized|unknown|unsupported|not supported|extra (?:inputs?|fields?|arguments?)|not permitted|not allowed|unexpected|invalid (?:parameter|field|argument|key)|no such|does not support|doesn.t support)';
+/* what a refusal teaches: the values it offers instead (never the one it refused), and a field it does not take */
+export function lessonFrom(detail, body) {
+  const text = String(detail || '');
+  const b = body && typeof body === 'object' ? body : {};
+  let allowed = null;
+  const m = OFFERS.exec(text);
+  if (m) {
+    const refused = [b.reasoning_effort, b.reasoning && b.reasoning.effort].filter((x) => typeof x === 'string');
+    const words = [...new Set((text.slice(m.index).toLowerCase().match(/[a-z]+/g) || []).filter((w) => EFFORT_WORDS.includes(w) && !refused.includes(w)))];
+    if (words.length) allowed = EFFORT_WORDS.filter((w) => words.includes(w));
+  }
+  let badField = null;
+  for (const f of ['thinking', 'enable_thinking', 'reasoning_effort', 'reasoning', 'chat_template_kwargs', 'model_options']) {
+    if (!(f in b)) continue;
+    const near = new RegExp(NOT_TAKEN + '[^.]{0,80}["\'`]?\\b' + f + '\\b(?!_)|\\b' + f + '\\b(?!_)["\'`]?[^.]{0,80}' + NOT_TAKEN, 'i');
+    if (near.test(text)) { badField = f; break; }
+  }
+  return { allowed, badField };
+}
+/* a level made to fit what the model said it takes: Off -> "none" where it takes none, else its least; any other level ->
+ * the nearest it takes at or below, else its least — never "none" for a level that asks for some thinking */
+export function fitEffort(value, allowed, isOff = false) {
+  if (!Array.isArray(allowed) || !allowed.length) return value;
+  const thinking = EFFORT_RANK.filter((l) => l !== 'off' && allowed.includes(l));
+  if (isOff || value === 'none' || value === 'off') return allowed.includes('none') ? 'none' : (thinking[0] || allowed[0]);
+  if (allowed.includes(value)) return value;
+  const r = EFFORT_RANK.indexOf(value);
+  let best = '';
+  for (const l of thinking) if (EFFORT_RANK.indexOf(l) <= r) best = l;
+  return best || thinking[0] || allowed.find((a) => a !== 'none') || value;
+}
+
 /* M303: A REFUSAL IS REMEMBERED FOR THE SPELLING THAT WAS REFUSED. The mark
  * used to silence a connection's thinking settings "until the model
  * changes" — so a connection the wire refused because THE HOUSE spelled it

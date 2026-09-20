@@ -8409,3 +8409,37 @@ levels. Two more of the same fault were found, and fixed with it:
   M349-3 (K3 on Together and OpenRouter), M349-4 (alwaysThinks everywhere, and the worker floor it earns through the real
   callWorker). M348's laws now read the style as 'declared' with the family kept (familyStyle).
 - version.js -> m349-001.
+
+# M350 — "why can't it learn the thinking from the provider, so a new model needs no update after my subscription ends?"
+Asked plainly: most providers publish nothing about thinking in their model lists (Synthetic lists each model's levels —
+read since M348/M349; OpenRouter says only whether a model reasons and translates the rest itself; Moonshot, DeepSeek,
+Z.ai and OpenAI list names only). So there is no single "fetch the thinking" — but every provider ANSWERS, and its answers
+say what it takes. The house now learns from them, per model at its address, and needs no release for a model it has
+never heard of:
+- A REFUSAL IS READ, NOT OBEYED BLINDLY. "Invalid value: 'medium'. Supported values are: 'low', 'high', and 'max'." (or the
+  vLLM/pydantic "Input should be 'low', 'medium' or 'high'", or "must be one of [none, high, max]") teaches the levels the
+  model takes: the SAME turn goes again at once at the nearest of them (Off -> "none" where offered, else the least; a level
+  that asks for some thinking is never sent as "none"), and only those are sent from then on. Before: a no that named no
+  field was thrown at the writer as a failed page, and one that did was answered by sending no thinking at all for a day —
+  the model's own default, often its most.
+- A REFUSAL OF ONE FIELD DROPS THAT FIELD ONLY. "Unrecognized request argument supplied: thinking" / "thinking: Extra inputs
+  are not permitted" — the turn goes again without that field, still asking for thinking with the rest; it is left out from
+  then on.
+- AN OFF THAT DID NOT STOP THE THINKING IS NOTICED: the dial said Off, the request said so, the model thought anyway -> from
+  then on Off asks for the least it takes instead of leaving it to its default. (A model already known to think always is
+  not "taught" again.)
+- THINKING UNDER A NEW NAME is still thinking: a stream field named like reason/think/thought is read when the known ones
+  are silent.
+- WHAT WAS LEARNED is kept on the connection for that model at that address, for 30 days (then learned again — a provider
+  changes), let go at once when the model or address changes, applied LAST over any spelling in requestBody, and shown on
+  the connection card ("learned from the model: takes low, high, max · does not take “thinking” · Off does not stop it").
+  Trust, in order: what the provider's listing declares > what the model taught > the family rules > the generic shape.
+- LIMIT, said plainly: a provider that silently IGNORES a setting — no refusal, no difference — cannot be detected by any
+  client. Then the model's own default applies, and the receipt says on every page whether thinking came back (M348).
+- TESTS: m350.mjs M350-1 (the lesson reader on the OpenAI, vLLM and list shapes and two field shapes; a refusal that says
+  neither teaches nothing), M350-2 (a model the house never heard of: refused Medium -> the same turn thinks at "low"; kept;
+  every later level first time), M350-3 (an address that refuses `thinking`: dropped, the level kept), M350-4 (an Off that
+  does not stop: noticed, then Off asks for the least; K3 not re-taught), M350-5 (thinking under a new name), M350-6 (per
+  model, per address, thirty days). All the provider and thinking suites (M22, M303, M307, M318, M328, M348, M349, the houses)
+  pass unchanged.
+- version.js -> m350-001.
