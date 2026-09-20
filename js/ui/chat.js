@@ -73,7 +73,7 @@ import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan, pageOnly } from './headergate.js';
 import { tidyPage } from './pageshape.js'; /* M340: the page made whole before it is kept */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName, isMcAlias } from '../engine/duels.js';
-import { mineLeak } from '../assemble/plain.js'; /* M354: did the page take his character? (derestricted only) */
+import { mineLeak, staleLeak } from '../assemble/plain.js'; /* M354/M355: did the page take his character, or say what was already said? (derestricted only) */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
@@ -3854,7 +3854,7 @@ export function initChat(ctx) {
        * model's own turn, so it writes the page and does not plan again */
       /* M354: the page that took his character is handed back and asked for again, once, with his side cut */
       const mineWire = generateArgs.mineCarried
-        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.mineCarried) }, { role: 'user', content: askAgain('mine', turnVoice) }]
+        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.mineCarried) }, { role: 'user', content: askAgain(generateArgs.mineAsk || 'mine', turnVoice, { phrases: generateArgs.minePhrases || [] }) }]
         : null;
       const planWire = generateArgs.planCarried
         ? [...wireMessages, { role: 'assistant', content: String(generateArgs.planCarried) }, { role: 'user', content: askAgain(generateArgs.planKind === 'mulled' ? 'mulled' : 'plan', turnVoice) }]
@@ -4078,7 +4078,15 @@ export function initChat(ctx) {
         if (took) {
           pending.remove();
           toast('That page ' + took + ' — asking again.');
-          return generate({ ...generateArgs, mineCarried: (wholeReply || full).trim(), mineRetried: true });
+          return generate({ ...generateArgs, mineCarried: (wholeReply || full).trim(), mineAsk: 'mine', mineRetried: true });
+        }
+        /* M355: or it said what has already been said — the same one ask, the phrases named */
+        const before = history.filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id)).slice(-6).map((m) => pageText(m));
+        const again = staleLeak(full, before, { writerText: userText, names: [mcName(state), ...alsoKnown, ...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : [])].filter(Boolean) });
+        if (again.length) {
+          pending.remove();
+          toast('That page said what we have already said — asking again.');
+          return generate({ ...generateArgs, mineCarried: (wholeReply || full).trim(), mineAsk: 'fresh', minePhrases: again, mineRetried: true });
         }
       }
 

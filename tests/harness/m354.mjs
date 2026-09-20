@@ -88,3 +88,42 @@ test('M354-5 WHAT EACH PERSON HERE IS IN THE MIDDLE OF IS SAID ONCE MORE AT THE 
   quiet.characters = { Kaelen: { core: 'x', state: '', threads: [] } };
   eq(JSON.stringify(peopleNow(quiet)), '[]', 'nothing is made up for someone the ledger says nothing about');
 });
+
+/* ---- M355: the same words again ---- */
+/* filler with no six-word run in common, and none inside itself — the detector is meant to catch a repeated frame, so
+ * the fixtures must not have one */
+const LINES = [
+  'Rain found the gutters first.', 'A dog barked twice somewhere past the wall.', 'Someone had left a bucket upturned by the well.',
+  'The bell in the tower was three minutes fast, as always.', 'Wool smoke hung low over the roofs of the lower town.',
+  'Two apprentices argued about a broken strap.', 'Salt crusted the step where the fish cart stood at dawn.',
+  'A shutter banged, then quieted.', 'The baker’s boy went by with his tray held high.', 'Somebody was singing badly, four streets off.',
+  'Ash drifted from a chimney that should have been cold.', 'An old woman counted coppers into her palm.',
+  'Pigeons lifted off the granary roof together.', 'A cart wheel had shed its iron rim near the fountain.',
+  'Chalk numbers climbed the wall beside the cooper’s door.', 'Nobody had swept the arcade since the feast.',
+  'A cat considered the fish cart from under a bench.', 'The well rope creaked in its bracket.',
+  'Someone’s laundry snapped like a flag above the lane.', 'Bees worked the vine over the south arch.',
+];
+const fresh = (n, from = 0) => LINES.slice(from, from + n).join(' ');
+
+test('M355-1 A PAGE THAT SAYS WHAT WAS ALREADY SAID IS SEEN, and the phrase it reused is named — his own words and the room’s names never count', async () => {
+  const { staleLeak, echoedPhrases } = await import('../../js/assemble/plain.js');
+  const before = ['The air was thick with the smell of wet stone, and Kaelen waited by the gate. ' + fresh(10, 10)];
+  const said = staleLeak('The air was thick with the smell of wet stone again, and he knew it. ' + fresh(10, 0), before, { names: ['Kaelen', 'Jovan'] });
+  eq(said.length, 1, 'one phrase, not the three overlapping ways to say it: ' + JSON.stringify(said));
+  assert(/air was thick with the smell of wet stone/.test(said[0]), 'named as it was written: ' + said[0]);
+  eq(staleLeak('Rain found the gutters first, and the practice swords went back on their rack. ' + fresh(10, 0), before, { names: ['Kaelen', 'Jovan'] }).length, 0, 'a page that says something new is left alone');
+  eq(staleLeak('The air was thick with the smell of wet stone.', before).length, 0, 'a short page is not judged for repeating itself');
+  const his = 'I step into the courtyard where the practice swords lay stacked.';
+  eq(echoedPhrases('He stepped into the courtyard where the practice swords lay stacked, and the rain went on. ' + fresh(10, 0), ['He stepped into the courtyard where the practice swords lay stacked by the wall.'], { writerText: his }).length, 0, 'the page giving HIS words back is not a repeat');
+  const twice = 'She turned the lamp down until the room was the colour of weak tea, and said nothing. ' + fresh(5, 0) + ' She turned the lamp down until the room was the colour of weak tea. ' + fresh(5, 10);
+  assert(echoedPhrases(twice, []).some((p) => /turned the lamp down until the room/.test(p)), 'and a page that repeats ITSELF is seen too: ' + JSON.stringify(echoedPhrases(twice, [])));
+});
+
+test('M355-2 THE ASK NAMES THE PHRASES AND ASKS FOR THE SAME BEAT — one sentence, in his voice, nothing about shape', () => {
+  const words = askAgain('fresh', { teller: 'Iron Man', writer: 'Bruce' }, { phrases: ['air was thick with the smell of wet stone', 'a long moment passed between them'] });
+  assert(/^Iron Man — that page says what we have already said — “air was thick/.test(words), 'led by the teller’s name, the phrase named: ' + words.slice(0, 80));
+  assert(words.includes('a long moment passed between them'), 'both of them');
+  assert(/Same beat, same moment, written fresh/.test(words), 'the same beat, told again');
+  assert(!/format|paragraph|template|word count|\d/.test(words), 'and nothing about the page’s shape');
+  eq(askAgain('fresh', {}, {}).startsWith('That page says what we have already said. Same beat'), true, 'with no phrase to name and no names set, it still reads plainly');
+});

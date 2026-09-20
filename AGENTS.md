@@ -8566,3 +8566,24 @@ moved for him, and a room that agrees with him.
   scene's part by name). M85's M120-1 reads the wire's name, which gained the carried page. The code was right all three times.
 - GATES ON THE PUSHED TREE: harness 709/709, walk 93/93 (alone), longplay 8/8, lint clean.
 - version.js -> m354-001.
+
+# M355 — the same words again: a page that repeats the last pages is asked for again, once
+The writer, on his 27B: the prose is good, and then it says the same thing again — the same simile, the same half
+sentence, the same opening beat, three pages running. It is not a thinking failure and no instruction after the fact
+fixes it; it is what a narrow model does when the scene, the ledger and the last pages say the same thing every turn.
+His samplers are his (M12), so the house does not touch them — it reads the page instead.
+- SEEN MECHANICALLY, NO MODEL AND NO WIRE (assemble/plain.js staleLeak/echoedPhrases): the finished page is cut into
+  six-word phrases and weighed against the last six pages AND against itself. A phrase counts only when it holds three
+  words that are not plain grammar (so dialogue tags and turns of syntax never fire), never when the WRITER's own message
+  said it (the page giving his words back is not a repeat), and never for the names of the people in the room. Overlapping
+  runs are merged into ONE named phrase, up to three; a page under 400 characters is not judged at all.
+- ASKED FOR AGAIN, ONCE, WITH THE PHRASES NAMED (voice.js askAgain('fresh')): "That page says what we have already said —
+  'air was thick with the smell of wet stone'. Same beat, same moment, written fresh: not one of those phrases again,
+  nothing repeated inside it either, and no line that opens the way the last pages opened." It shares M354's one ask per
+  page (a page is never asked for twice), and nothing is said about the page's shape (M342).
+- BEHIND THE DERESTRICTED SWITCH, like every other help for a small model (M354's law). OFF: the check never runs.
+- TESTS: m354.mjs M355-1 (the reused phrase named once, not three overlapping ways; a fresh page left alone; a short page
+  not judged; his own words given back not a repeat; a page that repeats ITSELF seen), M355-2 (the ask names the phrases,
+  asks for the same beat, says nothing about shape, and reads plainly with no names set).
+- GATES ON THE PUSHED TREE: harness 711/711, walk 93/93 (alone), longplay 8/8, lint clean.
+- version.js -> m355-001.

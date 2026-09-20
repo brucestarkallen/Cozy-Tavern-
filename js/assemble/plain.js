@@ -99,3 +99,60 @@ export function mineLeak(page, { mc = '', also = [], writerText = '' } = {}) {
   while ((hit = moves.exec(bare)) !== null) if (!echoesWriter(sentenceAround(bare, hit.index), writerText)) return 'moved him without me';
   return '';
 }
+
+/* M355: THE SAME WORDS AGAIN. A 27B tells a good page and then tells it again — the same simile, the same half-sentence,
+ * the same opening beat, three pages running. It is not a thinking failure and no instruction fixes it after the fact;
+ * it is what a narrow model does when the scene, the ledger and the last pages all say the same thing every turn. What
+ * the house CAN do is see it and ask once for the page again, naming the phrases it reused. Mechanical, no model, no
+ * sampler touched (his dials are his: M12) — and, like everything else here, only with the derestricted switch on. */
+const SHINGLE = 6;             /* a phrase this long, said twice, is a phrase reused — not a turn of grammar */
+const PLAIN_WORDS = new Set(['the', 'and', 'but', 'for', 'with', 'that', 'this', 'his', 'her', 'him', 'she', 'they', 'them', 'was', 'were', 'had', 'has', 'not', 'you', 'your', 'from', 'into', 'over', 'out', 'are', 'its', 'then', 'than', 'there', 'here', 'what', 'who', 'when', 'where', 'been', 'have', 'will', 'would', 'could', 'should', 'just', 'still', 'like', 'now', 'said', 'says', 'asked', 'asks', 'back', 'down', 'again', 'all', 'one', 'two', 'her', 'their', 'our', 'any', 'off', 'about']);
+const wordsOf = (t) => String(t || '').toLowerCase().match(/[a-z0-9’']+/g) || [];
+function shinglesOf(text, n = SHINGLE) {
+  const w = wordsOf(text);
+  const out = [];
+  for (let i = 0; i + n <= w.length; i += 1) out.push(w.slice(i, i + n));
+  return out;
+}
+const worthNaming = (shingle) => new Set(shingle.filter((w) => !PLAIN_WORDS.has(w) && w.length > 2)).size >= 3;
+
+/* the phrases this page says that the pages before it (or it itself) already said — his own words never count, and
+ * overlapping runs are one phrase, not three */
+export function echoedPhrases(page, before = [], { writerText = '', names = [] } = {}) {
+  const older = new Set();
+  for (const past of Array.isArray(before) ? before : []) for (const s of shinglesOf(past)) older.add(s.join(' '));
+  const mine = new Set(shinglesOf(writerText).map((s) => s.join(' ')));
+  const ownNames = new Set((Array.isArray(names) ? names : []).flatMap((n) => wordsOf(n)));
+  const shingles = shinglesOf(page);
+  const seen = new Set();
+  const found = [];
+  let i = 0;
+  while (i < shingles.length) {
+    const phrase = shingles[i].join(' ');
+    const worth = worthNaming(shingles[i].filter((w) => !ownNames.has(w)));
+    const again = worth && !mine.has(phrase) && (older.has(phrase) || seen.has(phrase));
+    seen.add(phrase);
+    if (!again) { i += 1; continue; }
+    /* one phrase, however many shingles the run covers */
+    const words = [...shingles[i]];
+    let j = i + 1;
+    while (j < shingles.length && words.length < 14) {
+      const next = shingles[j].join(' ');
+      if (!(older.has(next) || seen.has(next)) || mine.has(next)) break;
+      seen.add(next);
+      words.push(shingles[j][shingles[j].length - 1]);
+      j += 1;
+    }
+    found.push(words.join(' '));
+    if (found.length >= 3) break;
+    i = j + 1;
+  }
+  return found;
+}
+
+/* Did this page say what has already been said? '' when it did not, else the phrases it reused. */
+export function staleLeak(page, before = [], opts = {}) {
+  const text = String(page || '');
+  if (text.trim().length < 400) return [];               /* too short to judge; a brief page repeats nothing much */
+  return echoedPhrases(text, before, opts);
+}

@@ -92,7 +92,7 @@ export function purposeLine(neutral, voice, person = 'second') {
 }
 
 /* the two lines the house says when it must ask for a page again */
-export function askAgain(kind, voice) {
+export function askAgain(kind, voice, about = {}) {
   const v = voice || {};
   const named = hasVoice(v);
   if (kind === 'thought') {
@@ -104,6 +104,13 @@ export function askAgain(kind, voice) {
     /* M339: the reply was the teller thinking the scene over, in its own voice, and then it stopped — no header, no page */
     const mulled = 'That was you thinking it over, and it stopped there. It is yours — do not think it over again and do not repeat it. Write the page itself now, beginning with its header line.';
     return named ? toTeller(mulled, v) : mulled;
+  }
+  if (kind === 'fresh') {
+    /* M355: the page said what has already been said — the phrases are named, so there is nothing to guess */
+    const phrases = (Array.isArray(about.phrases) ? about.phrases : []).slice(0, 3).map((p) => '“' + String(p).trim() + '”').join(', ');
+    const fresh = 'That page says what we have already said' + (phrases ? ' — ' + phrases : '')
+      + '. Same beat, same moment, written fresh: not one of those phrases again, nothing repeated inside it either, and no line that opens the way the last pages opened.';
+    return named ? toTeller(fresh, v) : fresh;
   }
   if (kind === 'mine') {
     /* M354: the page took the writer's own character — his words, his thoughts, or a move he never made */

@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m354-001)
+# Cozy Tavern — handoff for the next session (state at m355-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M354). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M355). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 709 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 711 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 93 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -21,7 +21,8 @@ founding design lives in AGENTS.md's first entries.)
 
 ## The laws that matter most (all enforced in code and held by tests)
 - EVERY HELP FOR A SMALL MODEL LIVES BEHIND THE DERESTRICTED SWITCH, AND NOWHERE ELSE (M343, M344, M354). settings key
-  `olderModel`; chat.js reads it per story turn into `settingsValues.olderModelNow`. ON it adds — the scene said once more
+  `olderModel`; chat.js reads it per story turn into `settingsValues.olderModelNow`. ON it adds — a page that repeats the
+  last pages asked for again once, its reused phrases named (M355, plain.js staleLeak); the scene said once more
   at the end with what each person here is in the middle of (assemble/anchor.js), the record's far line called back
   (M344), the five plain lines (assemble/plain.js plainRules), and ONE re-ask of a page that took his character
   (plain.js mineLeak -> voice.js askAgain('mine')). OFF it adds NOTHING: the request is byte for byte what it was, and no
