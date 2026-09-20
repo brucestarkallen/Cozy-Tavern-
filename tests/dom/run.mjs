@@ -3858,6 +3858,69 @@ test('DOM-71 KIMI K3 BEHIND SYNTHETIC’S ALIAS, IN THE APP: “syn:large:vision
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-72 THINKING ASKED FOR AND NONE CAME BACK: the page says so once, and “Test” on the connection answers which it is — this level, this address, or a model whose words are kept from him (M351)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  /* its own connection: the house says this once per connection and level, and DOM-71 already spent the house one at “low” */
+  const conns = await db.connections.list();
+  const house0 = conns.find((c) => c && c.baseUrl && /mock\.example/.test(c.baseUrl)) || conns[0];
+  const wasActive = await db.settings.get('activeConnectionId');
+  const conn = await db.connections.add({ label: 'a quiet thinker', type: 'openai', baseUrl: house0.baseUrl, apiKey: house0.apiKey || 'k', model: 'syn:large:vision', reasoning: { effort: 'low' } });
+  await db.settings.set('activeConnectionId', conn.id);
+  const said = [];
+  const realToast = env.ctx.toast;
+  env.ctx.toast = (w) => { said.push(String(w)); return realToast ? realToast(w) : undefined; };
+  const priorFetch = globalThis.fetch;
+  const probes = [];
+  /* the house answers a page as always; a whole (non-streamed) question — what “Test” asks — is answered here: no
+   * thinking at "low", thinking at "max" */
+  globalThis.fetch = async (url, opts) => {
+    let body = null;
+    try { body = opts && opts.body ? JSON.parse(opts.body) : null; } catch (err) { body = null; }
+    if (!body || body.stream !== false || !/chat\/completions/.test(String(url))) return priorFetch(url, opts);
+    probes.push(body);
+    const thought = body.reasoning_effort === 'max' ? 'I turn it over. '.repeat(8) : '';
+    return { ok: true, status: 200, headers: new Headers(), async json() { return { choices: [{ message: { role: 'assistant', content: 'ready.', ...(thought ? { reasoning_content: thought } : {}) } }] }; }, async text() { return '{}'; }, clone() { return this; } };
+  };
+  try {
+    const st = await db.stories.create({ title: 'no thinking' });
+    await db.stories.update(st.id, { keeper: false, extraction: false });
+    await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[Kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\nThe kettle sang.' });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    type(q('#composer-input'), 'Do you think we can live on Mars?'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
+    assert(said.some((w) => /Thinking was asked for at “low” and none came back/.test(w)), 'the page says so: ' + said.join(' | '));
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    eq(page.receipt && page.receipt.noThought, true, 'and the receipt keeps it (M348)');
+    /* the one tap that answers which it is */
+    await openSettings();
+    /* the rooms of Settings are remembered between visits, and one card is shown at a time — the picker chooses it */
+    click(q('[data-room="storyteller"]'));
+    await until(() => q('#connection-pick') && [...q('#connection-pick').options].some((o) => o.value === conn.id), 'the picker', 10000);
+    q('#connection-pick').value = conn.id;
+    q('#connection-pick').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    const card = await until(() => { const el = q('#connection-list .connection-card'); return el && /syn:large:vision/.test(el.textContent) ? el : null; }, 'the connection card', 10000);
+    const testBtn = qa('button', card).find((b) => b.textContent.trim() === 'Test');
+    assert(testBtn, 'the Test is on the card');
+    click(testBtn);
+    const result = await until(() => { const r = card.querySelector('.test-result'); return r && !r.hidden && /Asked at/.test(r.textContent) ? r : null; }, 'the test answers', 15000);
+    assert(/NO thinking with it/.test(result.textContent) && /Asked again at “max”/.test(result.textContent) && /this LEVEL that gives none here/.test(result.textContent), 'it names which it is: ' + result.textContent);
+    eq(probes.length, 2, 'asked at the level set, then once at the top');
+    eq(probes[0].reasoning_effort, 'low', 'the level set');
+    await closeSettings();
+  } finally {
+    globalThis.fetch = priorFetch;
+    env.ctx.toast = realToast;
+    await db.settings.set('activeConnectionId', wasActive);
+    await db.connections.remove(conn.id);
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

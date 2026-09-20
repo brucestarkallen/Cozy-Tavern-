@@ -3963,6 +3963,12 @@ export function initChat(ctx) {
         provThinking = result.thinking || provThinking; /* M323: the provider's own thinking, whole — what M120 below asks about */
         thinking = (result.thinking || provThinking) + (leadThinking ? ((result.thinking || provThinking) ? '\n\n' : '') + leadThinking : '');
         if (!showThinking && String(thinking || '').trim()) sayOnce('hidden', 'The storyteller DID think on this page — it is hidden because “Show what the storyteller weighed” is unticked (Settings → The thinking voice).'); /* M319 */
+        /* M351: THE OTHER WAY ROUND — thinking was asked for and NONE came back. The writer set Low and saw a page with
+         * no thinking at all, and nothing in the house said a word about it: the receipt knew (M348) and the page did
+         * not. Said once per connection, never a nag, and it points at the one tap that answers which it is. */
+        if (showThinking && reasoning.effort !== 'off' && !String(thinking || '').trim()) {
+          sayOnce('nothought:' + (connection.id || '') + ':' + reasoning.effort, 'Thinking was asked for at “' + reasoning.effort + '” and none came back from the model. Settings → the connection → Test says whether this address gives any at all, or only at a higher level.');
+        }
         stopThinkClock();
         finishReason = result.finishReason || null;
         /* M347: what the storyteller was sent for this page, word for word — each part, and the request as the model took

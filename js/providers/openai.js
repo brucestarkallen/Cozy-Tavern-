@@ -272,24 +272,67 @@ export function createOpenAIProvider(connection) {
   const base = baseOf(connection);
   const name = nameOf(connection);
 
-  function payload(extra) {
-    return JSON.stringify({
-      model: connection.model || 'gpt-4o-mini',
-      max_tokens: 1,
-      messages: [{ role: 'user', content: 'Evening.' }],
-      ...extra,
-    });
+  /* M351: DOES IT ACTUALLY THINK, AT THE LEVEL THIS CONNECTION IS SET TO? "Test" said only that the line was good, so
+   * "low sends no thinking back" could only be answered by reading the provider's documents. It now sends exactly what a
+   * page sends for the thinking (requestBody, the same plan, the same fields), reads the answer for thinking in any
+   * channel and for the reasoning tokens the answer reports, and — when nothing came back — asks once more at the top
+   * level, so the writer is told which it is: this LEVEL gives none, this ADDRESS gives none, or the words are hidden
+   * though the model thought. A refusal teaches the house on the way (M350). */
+  async function askOnce(effort, opts = {}) {
+    const { body } = requestBody({ ...connection, reasoning: { effort } }, [{ role: 'user', content: 'Answer with one word: ready.' }], opts);
+    body.stream = false;
+    body.max_tokens = 2000; /* room for thinking to start and a word to follow */
+    delete body.plugins;
+    const asked = {};
+    for (const k of ['reasoning_effort', 'thinking', 'reasoning', 'enable_thinking', 'model_options']) if (k in body) asked[k] = body[k];
+    const res = await fetch(`${base}/v1/chat/completions`, { method: 'POST', headers: headersOf(connection), body: JSON.stringify(body) });
+    if (!res.ok) {
+      let detail = '';
+      try { const j = await res.clone().json(); detail = (j && j.error && j.error.message) || ''; } catch (err) { /* the status speaks */ }
+      return { ok: false, res, detail, body, asked };
+    }
+    let j = null;
+    try { j = await res.json(); } catch (err) { j = null; }
+    const msg = (j && j.choices && j.choices[0] && j.choices[0].message) || {};
+    let thought = msg.reasoning_content ?? msg.reasoning;
+    if (thought == null) {
+      for (const [k, v] of Object.entries(msg)) {
+        if (k !== 'content' && k !== 'role' && k !== 'refusal' && typeof v === 'string' && v && /reason|think|thought/i.test(k)) { thought = v; break; }
+      }
+    }
+    const usage = (j && j.usage) || {};
+    const tokens = Number((usage.completion_tokens_details && usage.completion_tokens_details.reasoning_tokens) ?? usage.reasoning_tokens);
+    return { ok: true, thought: typeof thought === 'string' ? thought.trim() : '', tokens: Number.isFinite(tokens) ? tokens : null, said: String(msg.content || '').trim(), asked };
   }
 
   async function test() {
+    const set = connection.reasoning && typeof connection.reasoning.effort === 'string' ? connection.reasoning.effort : 'off';
+    const words = (a) => (Object.keys(a).length ? Object.entries(a).map(([k, v]) => k + ': ' + (typeof v === 'string' ? '“' + v + '”' : JSON.stringify(v))).join(', ') : 'nothing about thinking');
     try {
-      const res = await fetch(`${base}/v1/chat/completions`, {
-        method: 'POST',
-        headers: headersOf(connection),
-        body: payload(),
-      });
-      if (!res.ok) return { ok: false, detail: await explain(res, name) };
-      return { ok: true, detail: 'They answered — the line is good.' };
+      let first = await askOnce(set);
+      if (!first.ok) {
+        /* M350: the refusal may teach — then the same question goes again, fitted to what it said */
+        const lesson = lessonFrom(first.detail, first.body);
+        if (lesson.allowed) { await learnFact(connection, { efforts: lesson.allowed }); first = await askOnce(set); }
+        else if (lesson.badField) { await learnFact(connection, { drop: [lesson.badField] }); first = await askOnce(set); }
+      }
+      if (!first.ok) return { ok: false, detail: await explain(first.res, name) };
+      const at = (a, t, n) => 'Asked at “' + set + '” (' + words(a) + ') — ' + (t ? n.toLocaleString() + ' characters of thinking came back.' : 'the answer came, but NO thinking with it.');
+      if (first.thought) {
+        /* an Off that thought anyway is learned here too, as on a page */
+        if (set === 'off' && !alwaysThinks(connection)) await learnFact(connection, { offThinks: true });
+        return { ok: true, detail: at(first.asked, true, first.thought.length) + ' Thinking works on this connection.' };
+      }
+      if (first.tokens) {
+        return { ok: true, detail: at(first.asked, false, 0) + ' It reported ' + first.tokens.toLocaleString() + ' thinking tokens, so the model DID think — this address keeps the words to itself.' };
+      }
+      if (set === 'max') return { ok: true, detail: at(first.asked, false, 0) + ' At the top level too, so this address sends no thinking back at all — the model may still think inside it.' };
+      const top = await askOnce('max');
+      if (!top.ok) return { ok: true, detail: at(first.asked, false, 0) + ' (The top level was refused, so it could not be compared.)' };
+      if (top.thought || top.tokens) {
+        return { ok: true, detail: at(first.asked, false, 0) + ' Asked again at “max” (' + words(top.asked) + ') — ' + (top.thought ? top.thought.length.toLocaleString() + ' characters came back' : top.tokens.toLocaleString() + ' thinking tokens were reported') + '. So it is this LEVEL that gives none here, not the address: choose a higher one.' };
+      }
+      return { ok: true, detail: at(first.asked, false, 0) + ' Nor at “max” — this address sends no thinking back at any level, though the model may still think inside it.' };
     } catch (err) {
       return { ok: false, detail: `Couldn’t reach ${name} — check the connection and try again.` };
     }

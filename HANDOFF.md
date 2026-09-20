@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m350-001)
+# Cozy Tavern — handoff for the next session (state at m351-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M350). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M351). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 693 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 698 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 90 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 91 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -25,6 +25,10 @@ founding design lives in AGENTS.md's first entries.)
   person says (no tier names, numbers, rounds, poise). The referee OFF = not one byte of it, no referee or seeder call, a standing
   fight let go. The cast sheet is seeded WITH the ledger in view (<player> names the MC; brief, people, bodies, record, pages), the
   MC first; a sheet without seedVersion 2 heals itself on the next page. Prove any referee change in the app (DOM-68).
+- “IT ISN'T THINKING” IS ANSWERED BY THE APP (M351): a page that asked for thinking and got none says so once per
+  connection and level, and the connection's Test sends what a page sends, reads any thinking channel and the reasoning
+  tokens, and — when none came back — asks once at the top, so the writer is told WHICH it is (this level / this address /
+  the words kept from him). Never diagnose a provider from here: this container reaches none of them.
 - THE MODEL TEACHES THE HOUSE HOW IT THINKS (M350) — so a new model needs no release: a refusal is READ (effort.js
   lessonFrom: the levels it offers instead, or the one field it does not take) and the SAME turn goes again fitted to it; an
   Off that did not stop the thinking is noticed and Off then asks for the least; thinking is read from any channel named

@@ -8443,3 +8443,34 @@ never heard of:
   model, per address, thirty days). All the provider and thinking suites (M22, M303, M307, M318, M328, M348, M349, the houses)
   pass unchanged.
 - version.js -> m350-001.
+
+# M351 — "low still isn't thinking at all, and on Discord everyone codes on low"
+Two screenshots: the connection card says thinking: low — spoken as “low” (so the level IS being sent, M348/M349), and the
+pages come back with no thinking at all. Nothing in this container can reach Synthetic, so the house was given what it
+needed to answer for itself, on his phone, in one tap:
+- THE PAGE SAYS SO. Thinking asked for at a level and none came back was known only to the receipt (M348). The page now
+  says it once per connection and level: “Thinking was asked for at “low” and none came back from the model. Settings →
+  the connection → Test says whether this address gives any at all, or only at a higher level.” (Never when the dial is
+  Off, never twice, and never when the thinking came back and is merely hidden — that word is M319's.)
+- “TEST” ANSWERS WHICH IT IS. It used to say only “They answered — the line is good.” It now sends exactly what a page
+  sends for the thinking (requestBody — the same plan, the same fields, whole rather than streamed), reads the answer for
+  thinking in ANY channel (reasoning_content, reasoning, any field named like reason/think/thought) and for the reasoning
+  tokens the answer reports, and says:
+    · “Asked at “low” (reasoning_effort: “low”) — 412 characters of thinking came back. Thinking works on this connection.”
+    · “…the answer came, but NO thinking with it. Asked again at “max” — 980 characters came back. So it is this LEVEL that
+      gives none here, not the address: choose a higher one.”
+    · “…It reported 310 thinking tokens, so the model DID think — this address keeps the words to itself.”
+    · “…Nor at “max” — this address sends no thinking back at any level, though the model may still think inside it.”
+  A refusal on the way teaches the house (M350: the levels it takes, or the field it does not) and the question goes again
+  fitted to it; an Off that thought anyway is learned from the test as from a page.
+- TESTS: m351.mjs M351-1..5 (it thinks, and what was sent for it; this level not this address; the words kept from him;
+  nothing at any level; a refusal taught mid-test; an Off that thinks). DOM-72 in the app: a page whose thinking never came
+  back says so once, its receipt keeps it, and the card's Test names which it is (asked at the level set, then once at the
+  top).
+- NOT VERIFIED, AND CANNOT BE FROM HERE: Synthetic's own behaviour. Whether Kimi K3 there thinks at “low” is now a question
+  his own app answers in one tap.
+- THE WALK'S OWN LESSON (twice, in one scenario): a word the house says ONCE per connection was already spent by DOM-71 on
+  the shared house connection, and Settings shows ONE connection card at a time (the picker chooses it) — DOM-72 now uses its
+  own connection and picks it, as the older connection scenarios do. Both failures were the test's, not the app's.
+- GATES ON THE PUSHED TREE: harness 698/698, walk 91/91 (alone), longplay 8/8, lint clean.
+- version.js -> m351-001.
