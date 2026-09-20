@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m346-001)
+# Cozy Tavern — handoff for the next session (state at m347-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M346). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M347). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 674 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 679 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 88 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 89 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -25,6 +25,11 @@ founding design lives in AGENTS.md's first entries.)
   person says (no tier names, numbers, rounds, poise). The referee OFF = not one byte of it, no referee or seeder call, a standing
   fight let go. The cast sheet is seeded WITH the ledger in view (<player> names the MC; brief, people, bodies, record, pages), the
   MC first; a sheet without seedVersion 2 heals itself on the next page. Prove any referee change in the app (DOM-68).
+- WHAT THE STORYTELLER SAW IS KEPT WORD FOR WORD (M347): each page's parts (Normal: tap, read, Copy) and the request as the
+  model took it (Raw: settings, then every message under its role; Copy all = the exact body) live in js/sent.js — ITS OWN
+  database (cozytavern.sent.v1), never in the receipt, a backup or the book sync; pieces cut at content-chosen paragraph
+  breaks, kept once per tale; the newest KEEP_PAGES (200) pages of a tale keep theirs. The receipt carries only sentId.
+  Providers return `sent: {url, body}` of the ACCEPTED request (never headers). Pages from before m347 cannot show words.
 - CANON VERIFICATION IS THE WRITER'S OWN EXTENSION, NOT A COPY OF ITS IDEAS (M346): js/canon/grounding.js is Canon Grounding's
   index.js made by tools/vendor-canon.py (three asserted changes: imports -> js/canon/host.js, its toasts and jQuery from host.js,
   no ST panel). NEVER edit grounding.js — change the extension, run its gates (node --check on an .mjs copy, test/proof.js,

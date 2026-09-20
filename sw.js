@@ -53,6 +53,7 @@ const SHELL = [
   'js/agents/rebuild.js',
   'js/agents/scribe.js',
   'js/agents/referee.js',
+  'js/sent.js',
   'js/canon/host.js',
   'js/canon/bridge.js',
   'js/canon/grounding.js',

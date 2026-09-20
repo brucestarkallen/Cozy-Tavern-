@@ -2340,7 +2340,9 @@ test('M259-58: a title\u2019s period does not end a sentence; where the absent a
   st.relationships = { 'Aurora Sterling': { p: 71, r: 67, s: 7, history: [] } };
   const small = renderPeopleTiers(st, { recentPages: [], view: peopleView(500000), brief: '', scenePages: [] }).text;
   assert(/- Ms\. June \u2014 Ms\. June is the Bluebird waitress in her fifties \u00b7 now: Mr\. Pike is at her counter/.test(small), 'her line says who she is and where, whole past the titles: ' + (small.match(/- Ms\. June[^\n]*/) || [''])[0]);
-  const wire = (budgetTokens) => JSON.stringify(buildRequest({ story: { title: 't', brief: 'b' }, messages: [{ id: 'u1', role: 'user', text: 'go' }], settings: {}, state: st, modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens } }));
+  /* M347: what is SENT — the system blocks and the messages. The receipt's draft now carries each part's words (for the page's
+   * Normal view), so serializing the whole return counted the seat line twice where the request says it once. */
+  const wire = (budgetTokens) => { const r = buildRequest({ story: { title: 't', brief: 'b' }, messages: [{ id: 'u1', role: 'user', text: 'go' }], settings: {}, state: st, modules: [], memory: '', window: { mode: 'keeper', window: 30, budgetTokens } }); return JSON.stringify({ systemBlocks: r.systemBlocks, messages: r.messages }); };
   const count = (w) => w.split('SEAT-AURORA').length - 1;
   const whole = wire(1000000);
   eq(count(whole), 1, 'a whole request says where Aurora is once');

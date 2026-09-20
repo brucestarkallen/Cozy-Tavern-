@@ -54,6 +54,7 @@ import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
 import { canonOn, canonBeforeSend, canonAfterPage } from '../canon/bridge.js'; /* M346: canon verification */
+import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
 import { onToast as onCanonToast } from '../canon/host.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
@@ -3964,7 +3965,17 @@ export function initChat(ctx) {
         if (!showThinking && String(thinking || '').trim()) sayOnce('hidden', 'The storyteller DID think on this page — it is hidden because “Show what the storyteller weighed” is unticked (Settings → The thinking voice).'); /* M319 */
         stopThinkClock();
         finishReason = result.finishReason || null;
+        /* M347: what the storyteller was sent for this page, word for word — each part, and the request as the model took
+         * it — kept beside the page (never in it: a request can be the size of the whole story). In the background:
+         * keeping it never holds the page. */
+        const sentId = newSentId();
+        keepSent({
+          id: sentId, storyId: story.id,
+          slots: (receiptDraft && Array.isArray(receiptDraft.slots) ? receiptDraft.slots : []).map((s) => ({ name: s.name, text: s.text || '' })),
+          requests: result.sent ? [result.sent] : [],
+        }).catch(() => false);
         receipt = finalizeReceipt(receiptDraft, {
+          sentId,
           ttftMs: result.ttftMs,
           tfftMs: result.tfftMs,
           durationMs: result.durationMs,

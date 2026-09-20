@@ -410,8 +410,10 @@ export function buildRequest({
     .map((s) => String(s).trim()).filter(Boolean);
 
   const slots = [];
+  /* M347: each part keeps its words on the draft — the page keeps them in js/sent.js; the receipt itself (finalizeReceipt)
+   * still keeps only names and sizes, so nothing heavy rides the page or the book sync */
   const pushSlot = (name, text, source, reason) => {
-    slots.push({ name, tokens: estimateTokens(text), source: source || '', reason: reason || '' });
+    slots.push({ name, tokens: estimateTokens(text), source: source || '', reason: reason || '', text: typeof text === 'string' ? text : '' });
   };
 
   /* M327: who tells, and who listens — the names the house's own words are said in (assemble/voice.js) */

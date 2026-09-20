@@ -318,13 +318,15 @@ export function createOpenAIProvider(connection) {
     /* M329: DID IT WORK, ON THIS MODEL, ON THIS TURN? What was really sent, and what the model did with it */
     let sentPrefill = null;
     let modelThought = 0; /* characters of thinking the MODEL sent — the seed the house puts back is not counted */
+    let sentWire = null; /* M347: the request exactly as the model took it (never the headers: the key stays home) */
     for (let attempt = 0; attempt < 3 && !res; attempt += 1) { /* M318: three — the beta address may say no, and then the ordinary one may still refuse a dial */
       const { body, prefill } = requestBody(connection, wire, opts);
       /* M307: a started reply goes to DeepSeek's beta address, the only one that takes it */
       const beta = prefill.applied && prefillProfile(connection) === 'deepseek' ? deepseekBetaBase(connection.baseUrl) : '';
+      const sentUrl = beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`; /* M347: outside the try — the answer's branch reads it */
       let out;
       try {
-        out = await fetch(beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`, {
+        out = await fetch(sentUrl, {
           method: 'POST',
           headers: headersOf(connection),
           signal,
@@ -335,6 +337,7 @@ export function createOpenAIProvider(connection) {
         throw new Error(`Couldn’t reach ${name} — check the connection and try again.`);
       }
       if (out.ok) {
+        sentWire = { url: sentUrl, body };
         if (prefill.note) notes.push(prefill.note);
         lead = prefill.applied ? prefillLead(connection) : '';
         thoughtLead = prefill.applied && prefill.seed ? prefill.seed : '';
@@ -463,6 +466,7 @@ export function createOpenAIProvider(connection) {
       finishReason,
       notes,
       prefill: prefillReport(connection, sentPrefill, modelThought, full),
+      sent: sentWire, /* M347 */
       sources: [],
       ttftMs: ttftMs === null ? durationMs : ttftMs,
       tfftMs,

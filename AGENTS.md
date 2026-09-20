@@ -8304,3 +8304,43 @@ if possible; no bugs, no regression.
   it was vendored from: syntax (.mjs copy), proof 579/579, sim 378/378. tools/vendor-canon.py re-run reproduces grounding.js
   byte for byte.
 - version.js -> m346-001.
+
+# M347 — "What the storyteller saw": tap a part to read what it said, Copy, and a Raw view of the request itself
+The writer: tap each section of "What the storyteller saw" (the frame and the others) to open what it sent, with a Copy
+button; a toolbar with Normal (the boxes, tap to open — the default) and Raw (what the model actually got: system, user
+and the rest); and can old pages still show what was inside?
+- OLD PAGES: NO. The receipt has only ever kept each part's name, its size in tokens and why it was there
+  (assemble/receipt.js finalizeReceipt) — never its words — and the request itself was never kept anywhere. Nothing that
+  was not stored can be shown, and a rebuild from today's ledger would not be what was sent then, so none is offered: an
+  old page's sheet says plainly that it was written before its words were kept (Normal and Raw both).
+- FROM NOW ON, EVERY PAGE KEEPS ITS WORDS (js/sent.js), in their own database (cozytavern.sent.v1) — never in the page's
+  receipt, a backup or the book sync, and never touching the main database's version: a request can be the size of the
+  whole story. Long texts are cut into pieces at paragraph breaks chosen by their own content (the same pages cut the same
+  way wherever they sit in a request) and each piece is kept once per tale — measured: a second page whose request shares
+  forty long pages with the first adds under 15% of its own size. The newest 200 pages of each tale keep their words; past
+  that the oldest go in a batch of twenty with every piece only they used. A tale that is gone takes its words at boot. A
+  sheet opened the moment a page lands waits for the words on their way instead of calling them missing.
+- WHAT IS KEPT: (1) each part's words exactly as the assembler made them (pushSlot now puts the text on the draft; the
+  receipt kept on the page still holds only names, sizes and the new sentId); (2) the request exactly as the model took it:
+  both providers hand back the ACCEPTED body — a refused attempt is not what the model saw — and its address, never the
+  headers (the key stays home). Both are read back byte for byte (M347-1, M347-5).
+- THE SHEET: a toolbar — Normal (the default, always first) and Raw. Normal: each part with words is a box; tap it and
+  its words open, with Copy. Raw: the request's settings (model, temperature, max tokens, thinking — every field that is
+  not a message), then every message in the order the model got it, each under its role (system, user, assistant), each
+  with Copy; "Copy all" copies the exact body. Raw and each part's words are drawn the first time they are opened (a long
+  tale's request is hundreds of messages). Copy falls back to the page's own copy when the clipboard API is not there (an
+  address that is not a secure page, e.g. the phone's LAN address over http).
+- TESTS: m347.mjs M347-1 (every part and the request back byte for byte; read while it is being kept), M347-2 (kept once:
+  the second page adds <15%), M347-3 (the newest 200 kept, the oldest gone with their pieces), M347-4 (the page carries
+  only the key), M347-5 (OpenAI-shaped and Claude: the body handed back is the body fetched, byte for byte, never the key;
+  Raw reads it as system then user). DOM-70 in the app: opens on Normal; tapping the frame opens the words the model got,
+  Copy takes exactly them; Raw lists settings then every message by role; Copy all equals the body the house received; an
+  old page says it was written before its words were kept.
+- NOT VERIFIED: the real phone — how long a 500k-token request takes to draw in Raw, and the copy fallback on a LAN
+  address, are not measured here (jsdom has neither a real layout nor a real clipboard).
+- Two older laws, decided out loud: M15 (no ghost calls) caught app.js reaching sweepSent through a dynamic import the
+  static check cannot see — it is imported at the top now (sent.js has no side effects). M259-58 serialized the WHOLE
+  return of buildRequest and counted the seat line twice once the receipt's draft carried each part's words; the request
+  still says it once — the law now measures what is sent (the system blocks and the messages). The code was right both times.
+- GATES ON THE PUSHED TREE: harness 679/679, walk 89/89 (alone), longplay 8/8, lint clean.
+- version.js -> m347-001.

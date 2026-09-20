@@ -3758,6 +3758,70 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-70 WHAT THE STORYTELLER SAW, WORD FOR WORD: the sheet opens on Normal; tapping a part (the frame) opens what it said, and Copy takes exactly that; Raw shows the request as the model took it — its settings, then system and user under their roles — and Copy all takes the very body the model received; a page from before its words were kept says so, plainly (M347)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the receipt' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  /* an old page: its receipt kept sizes only */
+  await db.messages.append(st.id, { role: 'user', text: 'An old line.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Lakeside — Monday, March 3, 2025 | 09:00 | clear | coat | bench]\n\nOld words.', receipt: { v: 1, ts: 1, slots: [{ name: 'The frame', tokens: 12, source: '', reason: '' }], totalTokens: 12, model: 'old' } });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const copied = [];
+  const clip = env.window.navigator.clipboard;
+  const priorWrite = clip.writeText;
+  clip.writeText = async (t) => { copied.push(String(t)); };
+  try {
+    const from = house.state.calls.length;
+    const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+    type(q('#composer-input'), 'I sit beside her.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker);
+    assert(told, 'the storyteller was asked');
+    /* open the newest page's receipt */
+    const btn = await until(() => { const b = qa('#thread .msg-assistant .msg-receipt'); return b.length >= 2 ? b[b.length - 1] : null; }, 'the receipt under the new page', 10000);
+    click(btn);
+    await until(() => !q('#receipt-sheet').hidden, 'the sheet opens', 5000);
+    eq(q('#receipt-tab-normal').getAttribute('aria-selected'), 'true', 'it opens on Normal');
+    const frameRow = await until(() => { const li = qa('#receipt-slots li.receipt-slot').find((x) => x.dataset.slot === 'The frame'); return li && li.querySelector('.receipt-slot-toggle') ? li : null; }, 'the frame can be tapped', 10000);
+    const body = frameRow.querySelector('.receipt-slot-body');
+    eq(body.hidden, true, 'closed until tapped');
+    click(frameRow.querySelector('.receipt-slot-toggle'));
+    eq(body.hidden, false, 'tapped: open');
+    const words = body.querySelector('.receipt-text').textContent;
+    const systemSent = (told.body.messages || []).filter((m) => m.role === 'system').map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n');
+    assert(words.length > 20 && systemSent.includes(words.slice(0, 200)), 'the frame’s words are the words sent: ' + words.slice(0, 80));
+    click(body.querySelector('.receipt-copy'));
+    await until(() => copied.length === 1, 'copied', 3000);
+    eq(copied[0], words, 'Copy takes exactly what the part said');
+    /* Raw */
+    click(q('#receipt-tab-raw'));
+    eq(q('#receipt-raw').hidden, false, 'Raw shows');
+    eq(q('#receipt-slots').hidden, true, 'and Normal steps aside');
+    const roles = qa('#receipt-raw .raw-role span').map((x) => x.textContent);
+    assert(roles[0] === 'settings' && roles.includes('system') && roles.includes('user'), 'its settings, then system and user: ' + roles.join(','));
+    eq(roles.filter((r) => r !== 'settings').length, (told.body.messages || []).length, 'every message the model got, one each');
+    click(qa('#receipt-raw .raw-head .receipt-copy')[0]);
+    await until(() => copied.length === 2, 'copied all', 3000);
+    eq(JSON.stringify(JSON.parse(copied[1])), JSON.stringify(told.body), 'Copy all is the very body the model received');
+    click(q('#btn-receipt-close'));
+    await until(() => q('#receipt-sheet').hidden, 'put away', 3000);
+    /* the old page */
+    click(qa('#thread .msg-assistant .msg-receipt')[0]);
+    await until(() => !q('#receipt-sheet').hidden, 'the old sheet opens', 5000);
+    assert(/written before its words were kept/.test(q('#receipt-words-note').textContent) && !q('#receipt-words-note').hidden, 'the old page says so, plainly');
+    assert(!q('#receipt-slots .receipt-slot-toggle'), 'and offers nothing to tap that is not there');
+    click(q('#receipt-tab-raw'));
+    assert(/written before its words were kept/.test(q('#receipt-raw').textContent), 'Raw says it too');
+    click(q('#btn-receipt-close'));
+  } finally {
+    clip.writeText = priorWrite;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

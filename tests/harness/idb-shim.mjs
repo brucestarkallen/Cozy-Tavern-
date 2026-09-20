@@ -2,7 +2,7 @@
  * onupgradeneeded, transactions, put/get/getAll/getAllKeys/delete/clear,
  * and the messages store's byStory index. Writes can be told to fail with
  * QuotaExceededError (the quota-guard harness). */
-const KEY_PATHS = { settings: 'key', connections: 'id', stories: 'id', messages: 'id' };
+const KEY_PATHS = { settings: 'key', connections: 'id', stories: 'id', messages: 'id', sentChunks: 'k', sentPages: 'id' }; /* M347: js/sent.js's own database */
 const INDEX_KEY_PATHS = { byStory: 'storyId' };
 const stores = {};
 for (const n of Object.keys(KEY_PATHS)) stores[n] = new Map();

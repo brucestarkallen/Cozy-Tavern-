@@ -232,6 +232,7 @@ export function createAnthropicProvider(connection) {
       if (res.ok) {
         if (prefill.note) notes.push(prefill.note);
         sent.lead = prefill.applied ? prefillLead(connection) : ''; /* M307: what the reply was started with */
+        sent.wire = { url: `${base}/v1/messages`, body }; /* M347: the request exactly as the model took it (never the headers) */
         return res;
       }
       /* Read the refusal's own words before deciding. */
@@ -334,6 +335,7 @@ export function createAnthropicProvider(connection) {
       finishReason,
       sources,
       notes,
+      sent: sent.wire || null, /* M347 */
       ttftMs: ttftMs === null ? durationMs : ttftMs,
       tfftMs,
       durationMs,

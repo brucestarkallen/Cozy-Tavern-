@@ -3,6 +3,7 @@
  * and the shared context handed to each UI module.
  */
 
+import { sweepSent } from './sent.js'; /* M347: a gone tale's kept words go with it */
 import { db } from './store.js';
 import { initChat } from './ui/chat.js';
 import { initSettings } from './ui/settings.js';
@@ -187,6 +188,8 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
    * push. Runs after the books have settled so a tale still arriving is
    * never mistaken for one that is gone; quiet, and never a reason to fail
    * the open. */
+  /* M347: a tale that is gone takes the words its pages were sent with it (js/sent.js keeps them in its own database) */
+  try { const tales = await db.stories.list(); sweepSent((tales || []).map((t) => t && t.id).filter(Boolean)).catch(() => 0); } catch (err) { /* never holds the boot */ }
   try { if (typeof db.sweepOrphans === 'function') await db.sweepOrphans(); } catch (err) { /* the shelf is no worse for it */ }
   await applyStoredTheme();
 

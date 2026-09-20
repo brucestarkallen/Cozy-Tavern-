@@ -882,7 +882,13 @@
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
     </div>
+    <div class="receipt-tabs" role="tablist" aria-label="How to read what was sent">
+      <button type="button" class="receipt-tab" id="receipt-tab-normal" role="tab" aria-selected="true">Normal</button>
+      <button type="button" class="receipt-tab" id="receipt-tab-raw" role="tab" aria-selected="false">Raw</button>
+    </div>
+    <p id="receipt-words-note" class="quiet receipt-words-note" hidden></p>
     <ol id="receipt-slots" class="receipt-slots"></ol>
+    <div id="receipt-raw" class="receipt-raw" hidden></div>
     <div id="receipt-after" class="receipt-after" hidden>
       <h3>After this turn</h3>
       <ul id="receipt-after-list" class="receipt-after-list"></ul>

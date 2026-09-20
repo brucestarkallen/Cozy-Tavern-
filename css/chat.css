@@ -1183,3 +1183,21 @@ html[data-theme='magma'] .msg-user .msg-body {
   border-left-color: #56cfc0;
   box-shadow: inset 0 -1px 0 rgba(86, 207, 192, 0.32);
 }
+
+/* M347: what was sent, word for word — Normal (tap a part to read it) and Raw (the request as the model took it) */
+.receipt-tabs { display: flex; gap: 6px; margin: 4px 0 10px; }
+.receipt-tab { flex: 1; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border-soft); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.receipt-tab[aria-selected="true"] { background: var(--bg-2); font-weight: 600; }
+.receipt-words-note { margin: 0 0 10px; }
+.receipt-slot-toggle { display: flex; width: 100%; justify-content: space-between; gap: 8px; background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.receipt-slot-toggle::after { content: '▸'; opacity: .6; }
+.receipt-slot-toggle[aria-expanded="true"]::after { content: '▾'; }
+.receipt-slot-body { margin-top: 8px; }
+.receipt-tools { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 6px; }
+.receipt-copy { padding: 4px 12px; border-radius: 8px; border: 1px solid var(--border-soft); background: transparent; color: inherit; font: inherit; font-size: .85em; cursor: pointer; }
+.receipt-text { margin: 0; padding: 10px; border-radius: 8px; background: var(--bg-2); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; font-family: var(--mono); font-size: .8em; line-height: 1.45; max-height: 60vh; overflow: auto; }
+.receipt-raw { display: flex; flex-direction: column; gap: 12px; }
+.raw-request { display: flex; flex-direction: column; gap: 10px; }
+.raw-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; }
+.raw-msg { border-left: 3px solid var(--border-soft); padding-left: 8px; }
+.raw-role { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; font-family: var(--mono); font-size: .85em; text-transform: lowercase; opacity: .85; }
