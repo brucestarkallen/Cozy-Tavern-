@@ -123,6 +123,7 @@ export function initSettings(ctx) {
     tellerPerson: document.getElementById('teller-person'),
     tellerPersonNote: document.getElementById('teller-person-note'),
     writerName: document.getElementById('writer-name'),
+    groundingPhrase: document.getElementById('grounding-phrase'), /* M358 */
     frameStory: document.getElementById('frame-story'),
     frameStoryName: document.getElementById('frame-story-name'),
     /* M21: the frame's purpose line and its end-of-request echo. */
@@ -933,6 +934,12 @@ export function initSettings(ctx) {
   };
   if (els.tellerName) els.tellerName.addEventListener('change', () => keepName('tellerName', els.tellerName));
   if (els.writerName) els.writerName.addEventListener('change', () => keepName('writerName', els.writerName));
+  /* M358: the grounding phrase is kept the same way — the moment the box is left, and forgotten when it is emptied */
+  if (els.groundingPhrase) els.groundingPhrase.addEventListener('change', async () => {
+    const v = String(els.groundingPhrase.value || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    els.groundingPhrase.value = v;
+    if (v) await db.settings.set('groundingPhrase', v); else await db.settings.delete('groundingPhrase');
+  });
   /* M334: first person or second. "Follow my frame" reads it off the frame's own opening words, and says what it read. */
   const sayPerson = async () => {
     if (!els.tellerPersonNote || !els.tellerPerson) return;
@@ -952,6 +959,7 @@ export function initSettings(ctx) {
   if (els.frameGlobal) els.frameGlobal.addEventListener('input', () => sayPerson());
 
   async function loadPromptSlots() {
+    if (els.groundingPhrase) els.groundingPhrase.value = String((await db.settings.get('groundingPhrase')) || ''); /* M358 */
     if (els.tellerName) els.tellerName.value = cleanName(await db.settings.get('tellerName'));
     if (els.writerName) els.writerName.value = cleanName(await db.settings.get('writerName'));
     if (els.tellerPerson) { const p = await db.settings.get('tellerPerson'); els.tellerPerson.value = p === 'first' || p === 'second' ? p : 'follow'; }
@@ -2394,7 +2402,7 @@ export function initSettings(ctx) {
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
-    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn', 'sensorsOn',
+    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn', 'sensorsOn', 'groundingPhrase',
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
   ];

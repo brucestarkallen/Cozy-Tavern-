@@ -229,9 +229,24 @@ export async function readSensors({ connection, storyId, brief = '', castNotes =
   }
 }
 
-/* what the storyteller is told this turn — once, then let go */
-export async function takeSensorWord(storyId) {
+/* M357: what the house SAW in the page it just kept (his character taken, the same words again) is a word for the next
+ * turn too — said before the next page, never by sending that one back. It goes first when both are due: it names
+ * something concrete about the page just read. */
+export async function keepPageWord(storyId, word) {
+  const said = String(word || '').trim();
+  if (!storyId || !said) return;
   const kept = await loadSensors(storyId);
+  await saveSensors(storyId, { ...kept, pageWord: said });
+}
+
+/* what the storyteller is told this turn — once, then let go */
+export async function takeWordForTurn(storyId) {
+  const kept = await loadSensors(storyId);
+  const page = typeof kept.pageWord === 'string' ? kept.pageWord : '';
+  if (page) {
+    await saveSensors(storyId, { ...kept, pageWord: '' });
+    return page;
+  }
   const word = typeof kept.word === 'string' ? kept.word : '';
   if (!word) return '';
   const spoken = { ...(kept.spoken || {}) };

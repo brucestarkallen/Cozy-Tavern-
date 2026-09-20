@@ -87,7 +87,7 @@ function sentenceAround(text, at) {
 export function mineLeak(page, { mc = '', also = [], writerText = '' } = {}) {
   const names = mineNames(mc, also);
   if (!names.length) return '';
-  const text = String(page || '');
+  const text = stripFurniture(page); /* M357: the header names his room, his coat and where he stands — never his doing */
   if (!text.trim()) return '';
   const who = '(?:' + names.map(escape).join('|') + ')';
   for (const line of hisLines(text, who)) if (!echoesWriter(line, writerText)) return 'gave him words of his own';
@@ -108,6 +108,10 @@ export function mineLeak(page, { mc = '', also = [], writerText = '' } = {}) {
 const SHINGLE = 6;             /* a phrase this long, said twice, is a phrase reused — not a turn of grammar */
 const PLAIN_WORDS = new Set(['the', 'and', 'but', 'for', 'with', 'that', 'this', 'his', 'her', 'him', 'she', 'they', 'them', 'was', 'were', 'had', 'has', 'not', 'you', 'your', 'from', 'into', 'over', 'out', 'are', 'its', 'then', 'than', 'there', 'here', 'what', 'who', 'when', 'where', 'been', 'have', 'will', 'would', 'could', 'should', 'just', 'still', 'like', 'now', 'said', 'says', 'asked', 'asks', 'back', 'down', 'again', 'all', 'one', 'two', 'her', 'their', 'our', 'any', 'off', 'about']);
 const wordsOf = (t) => String(t || '').toLowerCase().match(/[a-z0-9’']+/g) || [];
+/* M357: A PAGE'S FURNITURE IS NOT ITS PROSE. The header line ([the courtyard — Monday | 09:00 | clear | coat | by the
+ * gate]) and any bracketed row is the same shape on every page BY DESIGN — the writer: "why the repetition flagged
+ * header wtf". It is cut before anything here is counted, in both readings. */
+export const stripFurniture = (t) => String(t || '').split('\n').filter((line) => !/^\s*[[（(].*[\]）)]\s*$/.test(line)).join('\n');
 function shinglesOf(text, n = SHINGLE) {
   const w = wordsOf(text);
   const out = [];
@@ -118,9 +122,11 @@ const worthNaming = (shingle) => new Set(shingle.filter((w) => !PLAIN_WORDS.has(
 
 /* the phrases this page says that the pages before it (or it itself) already said — his own words never count, and
  * overlapping runs are one phrase, not three */
-export function echoedPhrases(page, before = [], { writerText = '', names = [] } = {}) {
+export function echoedPhrases(rawPage, rawBefore = [], { writerText = '', names = [] } = {}) {
+  const page = stripFurniture(rawPage);
+  const before = (Array.isArray(rawBefore) ? rawBefore : []).map(stripFurniture);
   const older = new Set();
-  for (const past of Array.isArray(before) ? before : []) for (const s of shinglesOf(past)) older.add(s.join(' '));
+  for (const past of before) for (const s of shinglesOf(past)) older.add(s.join(' '));
   const mine = new Set(shinglesOf(writerText).map((s) => s.join(' ')));
   const ownNames = new Set((Array.isArray(names) ? names : []).flatMap((n) => wordsOf(n)));
   const shingles = shinglesOf(page);
@@ -152,7 +158,23 @@ export function echoedPhrases(page, before = [], { writerText = '', names = [] }
 
 /* Did this page say what has already been said? '' when it did not, else the phrases it reused. */
 export function staleLeak(page, before = [], opts = {}) {
-  const text = String(page || '');
+  const text = stripFurniture(page);
   if (text.trim().length < 400) return [];               /* too short to judge; a brief page repeats nothing much */
   return echoedPhrases(text, before, opts);
+}
+
+/* M357: SAID BEFORE THE NEXT PAGE, NEVER BY SENDING THE PAGE BACK. The house used to hand a page that took his
+ * character (M354) or repeated itself (M355) straight back to the model and ask for it again — the writer: "why the
+ * repetition mode is basically make it resend the page again, why not giving it critique before it reply based on
+ * previous scene? That's breaking immersion." He is right: a page that has landed is the story. What the house saw is
+ * said ONCE at the end of the NEXT turn, in his voice, as a note between the two of them — and then let go. */
+export function mineWord(took, mc) {
+  if (!took) return '';
+  const who = mc && mc !== 'the player' ? mc : 'my character';
+  return 'That last page ' + took + ' — ' + who + ' is mine to play. Leave his words, his thoughts and his moves to me from here.';
+}
+export function staleWord(phrases = []) {
+  const said = (Array.isArray(phrases) ? phrases : []).slice(0, 3).filter(Boolean).map((p) => '“' + String(p).trim() + '”');
+  if (!said.length) return '';
+  return 'The last page said what we had already said — ' + said.join(', ') + '. Find other words for it this time, and don’t open the way the last pages opened.';
 }

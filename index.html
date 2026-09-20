@@ -262,6 +262,11 @@
               <input type="text" id="writer-name" maxlength="40" autocomplete="off" spellcheck="false" placeholder="e.g. Bruce">
             </label>
           </div>
+          <!-- M358: the grounding phrase — the first words of its own thinking, so the voice starts in character -->
+          <label class="stack-label" for="grounding-phrase">Grounding phrase
+            <input type="text" id="grounding-phrase" maxlength="80" autocomplete="off" spellcheck="false" placeholder="e.g. Autobots, roll out! — empty for none">
+          </label>
+          <p class="quiet">The first words of its thinking, every turn. A teller that opens its own scratchpad in character stays in character through it, instead of sliding into an assistant’s voice on the turns that are mostly instruction (a time skip, a house command). It is seeded into the thinking itself where the model takes a seed, and asked for in your voice where it does not. Empty: nothing is asked and nothing is sent.</p>
           <label class="stack-label" for="teller-person">The teller thinks as
             <select id="teller-person">
               <option value="follow">Follow my frame</option>

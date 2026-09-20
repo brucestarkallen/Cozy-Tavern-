@@ -3947,7 +3947,7 @@ test('DOM-73 EVERY ROOM OF SETTINGS HOLDS ITS OWN, AND NOTHING IS LOST IN THE GL
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-74 THE DERESTRICTED SWITCH, IN THE APP: on, the five plain lines ride at the end and a page that speaks for his character is asked for again ONCE (the second page is the one kept); off, neither happens and nothing of it is sent (M354)', async () => {
+test('DOM-74 THE DERESTRICTED SWITCH, IN THE APP: on, the five plain lines ride and a page that speaks for his character STANDS — what the house saw is said in his voice before the NEXT page, once (M354, M357); off, neither happens and nothing of it is sent', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   const { saveState, emptyState } = await import('../../js/engine/state.js');
@@ -3985,14 +3985,15 @@ test('DOM-74 THE DERESTRICTED SWITCH, IN THE APP: on, the five plain lines ride 
     await closeSettings();
     answers = 0;
     const onCalls = await send('I ask him what he wants.');
-    eq(onCalls.length, 2, 'ON: the page that took his character was asked for again, once');
+    eq(onCalls.length, 1, 'ON: the page that took his character is NOT sent back — it landed, so it is the story (M357)');
     assert(/while we tell this one, five things/i.test(closingOf(onCalls[0])), 'ON: the five lines rode: ' + closingOf(onCalls[0]).slice(0, 120));
     for (const law of ['Jovan is mine', 'stays set against him', 'Let the room talk', 'End where I can act']) assert(closingOf(onCalls[0]).includes(law), 'ON: ' + law);
-    const askedAgain = onCalls[1].body.messages;
-    assert(/Jovan said/.test(String(askedAgain[askedAgain.length - 2].content)), 'the page it wrote was handed back');
-    assert(/took my character/.test(String(askedAgain[askedAgain.length - 1].content)), 'with the writer’s own word for what to cut');
-    const kept = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
-    assert(/Kaelen raised the practice sword/.test(kept.text) && !/Jovan said/.test(kept.text), 'and the page kept is the one that leaves him to the writer: ' + kept.text.slice(0, 80));
+    const stood = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(/Jovan said/.test(stood.text), 'ON: and it stands as it came');
+    const nextCalls = await send('I wait for his answer.');
+    assert(/That last page gave him words of his own — Jovan is mine to play/.test(closingOf(nextCalls[0])), 'ON: what the house saw is said BEFORE the next page, in his voice: ' + closingOf(nextCalls[0]).slice(0, 200));
+    const after = await send('I let the silence run.');
+    assert(!/That last page gave him words of his own/.test(closingOf(after[0])), 'ON: and never twice');
   } finally {
     house.state.storyAnswer = priorStory;
     if (was === true) await db.settings.set('olderModel', true); else await db.settings.delete('olderModel');

@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m356-001)
+# Cozy Tavern — handoff for the next session (state at m358-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M356). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M358). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 716 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 719 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 94 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,15 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- A PAGE THAT HAS LANDED IS THE STORY (M357): nothing the house notices ABOUT a page ever sends that page back to the model.
+  What it saw (his character taken, the same words again) is said once at the end of the NEXT turn, in his voice
+  (plain.js mineWord/staleWord -> sensors.js keepPageWord -> takeWordForTurn -> stack.js sensorNote). The only re-asks left
+  are for a page that never arrived at all (M117's leak, M120/M339's thinking-with-no-page). Any future check follows this.
+- THE GROUNDING PHRASE (M358, Settings -> This story -> The frame, under the two names): the first words of the teller's own
+  thinking, seeded into the thinking where the model takes a seed (his own prefill always wins) and asked for in his voice
+  where it does not. Empty = not one byte. Persona work is what it protects — never make it a rule about the page.
+- SMALL-MODEL WORK IS ON HOLD (his word, at m358): he tells with his frontier model. M354/M355 stay behind the derestricted
+  switch, off; M356's sensors behind their own, off. Build nothing further for weak models unless he asks again.
 - THE SENSORS READ, THEY NEVER WRITE (M356, agents/sensors.js): after each page, narrow true/false questions about it,
   answered as numbers by a decisions model (Jev: {model, state, questions} -> {answers:{id:{noul}}}) or by any model as
   JSON — the same questions either way. Averages over the last four readings; when one falls under its floor the

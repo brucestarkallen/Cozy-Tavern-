@@ -23,7 +23,26 @@ export function cleanName(v) {
 }
 export function voiceOf(settings) {
   const s = settings && typeof settings === 'object' ? settings : {};
-  return { teller: cleanName(s.tellerName), writer: cleanName(s.writerName) };
+  return { teller: cleanName(s.tellerName), writer: cleanName(s.writerName), grounding: groundingOf(s) };
+}
+/* M358: THE GROUNDING PHRASE — the first words of the teller's own thinking. The writer: with a phrase of its own to
+ * open on ("Autobots, roll out!"), his teller keeps its voice through the thinking; without one, the turns that are
+ * mostly instruction (a time skip, a house command) slide into an assistant's voice, which is the thing he cannot
+ * stand. Empty: nothing here happens at all. */
+export function groundingOf(settings) {
+  const s = settings && typeof settings === 'object' ? settings : {};
+  return String(s.groundingPhrase == null ? '' : s.groundingPhrase).replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+export function groundingLine(voice) {
+  const phrase = voice && typeof voice.grounding === 'string' ? voice.grounding.trim() : '';
+  if (!phrase) return '';
+  const words = 'Open your thinking with “' + phrase + '”, the way you always do, and then think however you like.';
+  return hasVoice(voice) ? toTeller(words, voice) : words;
+}
+/* what the thinking itself is started with, where the model takes a seed (M328's thinking prefill) */
+export function groundingSeed(settings) {
+  const phrase = groundingOf(settings);
+  return phrase ? '<think>' + phrase + ' ' : '';
 }
 export function hasVoice(voice) { return Boolean(voice && (voice.teller || voice.writer)); }
 
@@ -105,18 +124,9 @@ export function askAgain(kind, voice, about = {}) {
     const mulled = 'That was you thinking it over, and it stopped there. It is yours — do not think it over again and do not repeat it. Write the page itself now, beginning with its header line.';
     return named ? toTeller(mulled, v) : mulled;
   }
-  if (kind === 'fresh') {
-    /* M355: the page said what has already been said — the phrases are named, so there is nothing to guess */
-    const phrases = (Array.isArray(about.phrases) ? about.phrases : []).slice(0, 3).map((p) => '“' + String(p).trim() + '”').join(', ');
-    const fresh = 'That page says what we have already said' + (phrases ? ' — ' + phrases : '')
-      + '. Same beat, same moment, written fresh: not one of those phrases again, nothing repeated inside it either, and no line that opens the way the last pages opened.';
-    return named ? toTeller(fresh, v) : fresh;
-  }
-  if (kind === 'mine') {
-    /* M354: the page took the writer's own character — his words, his thoughts, or a move he never made */
-    const mine = 'That page took my character — his words, or his thoughts, or a move I never made. He is mine to play. Same beat, same moment, write it again with every line and move of his cut out; everyone else does exactly what they did, and it ends where I can answer.';
-    return named ? toTeller(mine, v) : mine;
-  }
+  /* M357: the two asks that sent a page back (M354's 'mine', M355's 'fresh') are gone — what the house saw is said
+   * before the NEXT page instead (assemble/plain.js mineWord/staleWord), never by asking for that page again. What is
+   * left here is only the asks for a page that never arrived at all. */
   const plan = 'You ran out of room while you were still planning. The plan above is yours — do not plan again and do not repeat it. Write the page itself now, beginning with its header line.';
   return named ? toTeller(plan, v) : plan;
 }

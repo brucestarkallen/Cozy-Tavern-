@@ -8621,3 +8621,42 @@ fact about the story's drift that nobody has to notice by hand. Built, behind it
   once on the next turn and never twice.
 - GATES ON THE PUSHED TREE: harness 716/716, walk 94/94 (alone), longplay 8/8, lint clean.
 - version.js -> m356-001.
+
+# M357 — a page that has landed is the story: what the house saw is said BEFORE the next one
+The writer, on M354/M355: "why the repetition mode is basically make it resend the page again, why not giving it
+critique before it reply based on previous scene? That's breaking immersion." And: "the repetition why it flagged
+header wtf."
+- THE HEADER WAS BEING READ AS PROSE. Every page opens with the same bracketed row by design ([the courtyard — Monday |
+  09:00 | clear | coat | by the gate]), so the repetition reading found it said twice on every single page. plain.js
+  stripFurniture cuts every bracketed row before anything is counted — in the repetition reading AND in the reading of
+  whether his character was taken (a header names his room, his coat and where he stands; none of that is him acting).
+- NOTHING SENDS A LANDED PAGE BACK ANY MORE. The two re-asks (M354's 'mine', M355's 'fresh') are gone, with the wire that
+  carried the page (mineWire/mineCarried) and the two asks in voice.js. What the house saw is kept as ONE line
+  (plain.js mineWord/staleWord -> sensors.js keepPageWord) and said at the end of the NEXT turn in his voice, through the
+  same one-line-per-turn path the sensors use (takeWordForTurn), then let go. The only re-asks left in the house are for
+  a page that NEVER ARRIVED — M117's leak, M120/M339's reply that was all thinking — and those show nothing to the
+  writer because there is nothing to show. ANY future check follows this law: notice, say it next turn, never resend.
+- TESTS: m357.mjs M357-1 (the header not a repeat and not him acting, while real repeated prose still is), M357-2 (the
+  word kept with the story, taken once, riding the closing words in his voice; the source carries no mineWire/mineCarried
+  and the two asks are gone from his voice).
+
+# M358 — the grounding phrase: the first words of its own thinking
+The writer: his teller is funnier and more itself when its thinking OPENS in character ("Autobots, roll out!"); on the
+turns that are mostly instruction (a time skip, a house command) the thinking slides into an assistant's voice, which is
+the thing he cannot stand. So: a box under the two names, Settings -> This story -> The frame.
+- WHAT IT DOES, BOTH WAYS: the phrase is SEEDED into the thinking itself where the model takes a seed (M328's thinking
+  prefill: `<think>Autobots, roll out! ` rides as reasoning_content, unfinished, and the model continues the thought) —
+  his own prefill, if he has set one, always wins, and an out-of-character turn takes neither. And it is ASKED FOR in his
+  voice at the end, beside the thinking line ("Optimus Prime — open your thinking with “Autobots, roll out!”, the way you
+  always do, and then think however you like."), so it holds on a house that takes no seed at all.
+- EMPTY IS NOTHING AT ALL: no line, no seed, the turn exactly as it was.
+- It says nothing about the page, its shape, or what the teller is — M341/M342 stand; this is about the voice its own
+  thinking opens in, and nothing else.
+- TESTS: m357.mjs M358-1 (kept as typed and tidied; it rides with the two names; the line and the seed; empty is not one
+  word), M358-2 (his own prefill wins; an out-of-character turn takes neither).
+- ON HOLD, at his word: everything for small models. He tells with his frontier model — M354/M355 stay behind the
+  derestricted switch (off) and M356's sensors behind their own (off), and nothing further is built for weak models
+  unless he asks again.
+- GATES ON THE PUSHED TREE: harness 719/719, walk 94/94 (alone), longplay 8/8, lint clean. DOM-74 moved with the law: the
+  page that took his character now STANDS, and the word comes before the next one.
+- version.js -> m358-001.

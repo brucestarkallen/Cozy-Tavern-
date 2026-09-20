@@ -58,35 +58,16 @@ test('M354-3 AND WHAT IS NOT HIS IS LEFT ALONE: his name in the scene, in someon
   eq(echoesWriter('she draws a knife from her boot', 'I step back from the fire'), false, 'and one that is nothing like them');
 });
 
-test('M354-4 THE ASK IS ONE SENTENCE IN HIS VOICE, and says exactly what to cut', () => {
-  const words = askAgain('mine', { teller: 'Iron Man', writer: 'Bruce' });
-  assert(/^Iron Man — that page took my character/.test(words), 'led by the teller’s name: ' + words.slice(0, 70));
-  for (const bit of ['He is mine to play', 'Same beat', 'every line and move of his cut out', 'ends where I can answer']) assert(words.includes(bit), bit);
-  assert(!/format|template|example|paragraph|word count/i.test(words), 'and says nothing about the page’s shape');
+test('M354-4 (as M357 changed it) WHAT THE HOUSE SAW IS SAID BEFORE THE NEXT PAGE, in one sentence in his voice — the page that landed is never sent back', async () => {
+  const { mineWord } = await import('../../js/assemble/plain.js');
+  const words = mineWord('gave him words of his own', 'Jovan');
+  assert(/^That last page gave him words of his own — Jovan is mine to play\./.test(words), 'it names what it saw and whose he is: ' + words);
+  assert(/Leave his words, his thoughts and his moves to me from here\./.test(words), 'and what to do from here');
+  assert(!/again|rewrite|same beat/i.test(words), 'and never asks for that page back');
+  assert(!/format|template|example|paragraph|word count/i.test(words), 'nor says anything about shape');
+  eq(mineWord('', 'Jovan'), '', 'nothing seen, nothing said');
   const plain = plainRules('Jovan');
   assert(!/\d/.test(plain) && !/format|structure|template/i.test(plain), 'nor do the five lines');
-});
-
-test('M354-5 WHAT EACH PERSON HERE IS IN THE MIDDLE OF IS SAID ONCE MORE AT THE END (the switch’s own line) — the ledger’s words, the people in the scene, never his character’s, never more than a handful', async () => {
-  const { peopleNow, sceneAnchor, ANCHOR_MAX_WANTS } = await import('../../js/assemble/anchor.js');
-  const st = ledger();
-  st.characters = {
-    Kaelen: { core: 'The fourth seat.', state: 'furious that Jovan took his place, and waiting to say so', threads: [] },
-    Jovan: { core: 'him', state: 'tired', threads: [] },
-    Elsewhere: { core: 'not here', state: 'riding north', threads: [] },
-  };
-  eq(JSON.stringify(peopleNow(st)), JSON.stringify(['Kaelen is furious that Jovan took his place, and waiting to say so.']), 'the one who is here, as the ledger has her; not his character, not the absent');
-  assert(sceneAnchor(st, { scenePages: [] }).includes('Kaelen is furious'), 'and it rides in the line said last');
-  const crowd = ledger();
-  crowd.present = ['A', 'B', 'C', 'D', 'E', 'F'].map((name) => ({ name }));
-  crowd.characters = Object.fromEntries(['A', 'B', 'C', 'D', 'E', 'F'].map((name) => [name, { core: 'x', state: 'set against him, and not moving', threads: [] }]));
-  eq(peopleNow(crowd).length, ANCHOR_MAX_WANTS, 'a crowd is not the whole ledger said twice');
-  const long = ledger();
-  long.characters = { Kaelen: { core: 'x', state: 'a'.repeat(400), threads: [] } };
-  assert(peopleNow(long)[0].length < 170, 'and a long line is cut short: ' + peopleNow(long)[0].length);
-  const quiet = ledger();
-  quiet.characters = { Kaelen: { core: 'x', state: '', threads: [] } };
-  eq(JSON.stringify(peopleNow(quiet)), '[]', 'nothing is made up for someone the ledger says nothing about');
 });
 
 /* ---- M355: the same words again ---- */
@@ -119,11 +100,13 @@ test('M355-1 A PAGE THAT SAYS WHAT WAS ALREADY SAID IS SEEN, and the phrase it r
   assert(echoedPhrases(twice, []).some((p) => /turned the lamp down until the room/.test(p)), 'and a page that repeats ITSELF is seen too: ' + JSON.stringify(echoedPhrases(twice, [])));
 });
 
-test('M355-2 THE ASK NAMES THE PHRASES AND ASKS FOR THE SAME BEAT — one sentence, in his voice, nothing about shape', () => {
-  const words = askAgain('fresh', { teller: 'Iron Man', writer: 'Bruce' }, { phrases: ['air was thick with the smell of wet stone', 'a long moment passed between them'] });
-  assert(/^Iron Man — that page says what we have already said — “air was thick/.test(words), 'led by the teller’s name, the phrase named: ' + words.slice(0, 80));
+test('M355-2 (as M357 changed it) THE PHRASES ARE NAMED IN THE LINE SAID BEFORE THE NEXT PAGE — one sentence, his voice, nothing about shape', async () => {
+  const { staleWord } = await import('../../js/assemble/plain.js');
+  const words = staleWord(['air was thick with the smell of wet stone', 'a long moment passed between them']);
+  assert(/^The last page said what we had already said — “air was thick/.test(words), 'it names the phrase: ' + words.slice(0, 80));
   assert(words.includes('a long moment passed between them'), 'both of them');
-  assert(/Same beat, same moment, written fresh/.test(words), 'the same beat, told again');
+  assert(/Find other words for it this time/.test(words), 'and asks for other words next time');
+  assert(!/same beat|write it again/i.test(words), 'never for that page again');
   assert(!/format|paragraph|template|word count|\d/.test(words), 'and nothing about the page’s shape');
-  eq(askAgain('fresh', {}, {}).startsWith('That page says what we have already said. Same beat'), true, 'with no phrase to name and no names set, it still reads plainly');
+  eq(staleWord([]), '', 'nothing repeated, nothing said');
 });

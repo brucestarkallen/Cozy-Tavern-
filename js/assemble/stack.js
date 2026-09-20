@@ -97,7 +97,7 @@ import { sceneAnchor, recallFromRecord, recallLine } from './anchor.js'; /* M343
 import { plainRules } from './plain.js'; /* M354: the five plain lines, behind the derestricted switch */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
-import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
+import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingLine } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -758,7 +758,9 @@ export function buildRequest({
    * own word about his own move, said as a person says it, led by the teller's name; never through inVoice: its action
    * words are story text ("sneak into the house" is a house). With the referee off it is never here. */
   const rulingLine = rulingText && safeSettings.refereeOn !== false ? toTeller(rulingText, voice) : '';
-  const closing = [rulingLine, directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, plainLine, sensorLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  /* M358: the grounding phrase — the first words of its own thinking, asked for in his voice, right beside the thinking */
+  const groundLine = groundingLine(voice);
+  const closing = [rulingLine, directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, plainLine, sensorLine, groundLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';

@@ -6,7 +6,7 @@ import { test, assert, eq } from './lib.mjs';
 import { db } from '../../js/store.js';
 import {
   SENSORS, sensorShape, decisionsUrl, decisionsBody, chatAsk, readAnswers, sensorState,
-  foldReadings, averages, dueWord, stillSpoken, readSensors, takeSensorWord, loadSensors, sensorLine, SENSOR_WINDOW,
+  foldReadings, averages, dueWord, stillSpoken, readSensors, takeWordForTurn, loadSensors, sensorLine, SENSOR_WINDOW,
 } from '../../js/agents/sensors.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 
@@ -70,9 +70,9 @@ test('M356-4 THE WHOLE READING, THROUGH THE STORE: the answers are kept with the
   const kept = await loadSensors(st.id);
   eq(kept.readings.cost.length, 2, 'kept with the story');
   assert(/cost to him \.05/.test(sensorLine(kept)), 'and readable in a line: ' + sensorLine(kept));
-  const word = await takeSensorWord(st.id);
+  const word = await takeWordForTurn(st.id);
   eq(word, second.word, 'taken for this turn');
-  eq(await takeSensorWord(st.id), '', 'and never twice');
+  eq(await takeWordForTurn(st.id), '', 'and never twice');
   const r = buildRequest({ story: { brief: '' }, messages: [{ id: 'u1', role: 'user', text: 'I wait.' }], settings: { tellerName: 'Iron Man' }, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '', sensorNote: word });
   const closing = r.messages[r.messages.length - 1].content;
   assert(closing.startsWith('Iron Man — nothing has cost him anything'), 'in his voice, led by the teller’s name: ' + closing.slice(0, 80));

@@ -55,7 +55,7 @@ import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNe
 import { applyMutations, storyTurn } from '../engine/apply.js';
 import { canonOn, canonBeforeSend, canonAfterPage } from '../canon/bridge.js'; /* M346: canon verification */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
-import { readSensors, takeSensorWord, sensorLine } from '../agents/sensors.js'; /* M356: the readings, and the one line they earn */
+import { readSensors, takeWordForTurn, keepPageWord, sensorLine } from '../agents/sensors.js'; /* M356/M357: the readings, and the one line they earn */
 import { onToast as onCanonToast } from '../canon/host.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
@@ -69,12 +69,12 @@ import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's
 import { factChange, isNameLike, hasWord, replaceWord, againstTheBrief } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
 import { loadSessionRoot } from '../agents/housekeeper.js'; /* M331 */
-import { voiceOf, askAgain } from '../assemble/voice.js'; /* M327: the two names */
+import { voiceOf, askAgain, groundingSeed } from '../assemble/voice.js'; /* M327: the two names; M358: the grounding phrase */
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan, pageOnly } from './headergate.js';
 import { tidyPage } from './pageshape.js'; /* M340: the page made whole before it is kept */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName, isMcAlias } from '../engine/duels.js';
-import { mineLeak, staleLeak } from '../assemble/plain.js'; /* M354/M355: did the page take his character, or say what was already said? (derestricted only) */
+import { mineLeak, staleLeak, mineWord, staleWord } from '../assemble/plain.js'; /* M354/M355: did the page take his character, or say what was already said? (derestricted only) */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
@@ -3110,6 +3110,7 @@ export function initChat(ctx) {
       tellerName: await db.settings.get('tellerName'),
       writerName: await db.settings.get('writerName'),
       tellerPerson: await db.settings.get('tellerPerson'), /* M334: 'first' | 'second' | unset = follow the frame */
+      groundingPhrase: await db.settings.get('groundingPhrase'), /* M358: the first words of its thinking */
     };
   }
 
@@ -3662,7 +3663,7 @@ export function initChat(ctx) {
        * record takes what is truly left (recordRoom, fixedChars). */
       const canonNote = canonPending ? ((await canonPending) || '') : ''; /* M346: its windows have closed — whatever it holds rides */
       /* M356: what the sensors noticed, once — taken and let go, so it never rides twice */
-      const sensorNote = (!ooc && (await db.settings.get('sensorsOn')) === true) ? await takeSensorWord(story.id) : '';
+      const sensorNote = ooc ? '' : await takeWordForTurn(story.id); /* M356/M357: a reading's word, or what the house saw in the last page */
       const probeReceipt = buildRequest({
         story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,
@@ -3736,7 +3737,12 @@ export function initChat(ctx) {
       const reasoning = effectiveReasoning(connection, story);
       /* M328: an out-of-character answer is not a page of the story — the story's prefill (a header's first words, a
        * thinking seed in the teller's voice) stays home for it */
-      const provider = createProvider({ ...connection, reasoning, ...(ooc ? { prefill: '' } : {}) });
+      /* M358: the grounding phrase is SEEDED into the thinking itself where the model takes a seed (M328's thinking
+       * prefill) — his own prefill, if he has set one, always wins; an out-of-character turn is not a page and takes
+       * neither. */
+      const grounding = ooc ? '' : groundingSeed(settingsValues);
+      const seeded = grounding && !String(connection.prefill || '').trim() ? { prefill: grounding } : {};
+      const provider = createProvider({ ...connection, reasoning, ...seeded, ...(ooc ? { prefill: '' } : {}) });
       const showThinking = (await db.settings.get('showThinking')) !== false;
       /* M319: THE THREE SWITCHES THAT STOP THE THINKING FOR EVERY MODEL AT ONCE SAY SO, WHEN THEY DO. The writer:
        * "all my models — DeepSeek, Kimi, everything — can't think", at low, medium, high, xhigh, max. The
@@ -3877,10 +3883,6 @@ export function initChat(ctx) {
           : messages;
       /* M323: the one re-ask after a reply that ran out of room while still planning — the plan is handed back as the
        * model's own turn, so it writes the page and does not plan again */
-      /* M354: the page that took his character is handed back and asked for again, once, with his side cut */
-      const mineWire = generateArgs.mineCarried
-        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.mineCarried) }, { role: 'user', content: askAgain(generateArgs.mineAsk || 'mine', turnVoice, { phrases: generateArgs.minePhrases || [] }) }]
-        : null;
       const planWire = generateArgs.planCarried
         ? [...wireMessages, { role: 'assistant', content: String(generateArgs.planCarried) }, { role: 'user', content: askAgain(generateArgs.planKind === 'mulled' ? 'mulled' : 'plan', turnVoice) }]
         : wireMessages;
@@ -3924,7 +3926,7 @@ export function initChat(ctx) {
         };
         const result = await provider.streamChat({
           systemBlocks,
-          messages: mineWire || planWire,
+          messages: planWire,
           signal: abort.signal,
           onToken({ channel, text }) {
             /* M22-C: the note channel — a provider's live word ("Searching
@@ -4094,25 +4096,20 @@ export function initChat(ctx) {
         }
       }
 
-      /* M354: THE PAGE THAT TOOK HIS CHARACTER, asked for again — ONCE, and only with the derestricted switch on (a
-       * small model finishes the scene, which means speaking and moving for him; his frontier model never sees this
-       * check, this ask, or one byte of it). A second try that still takes him is kept: the story goes on. */
-      if (settingsValues.olderModelNow === true && !generateArgs.mineRetried && !stoppedByHand && full.trim()) {
-        const alsoKnown = Object.keys((state && state.characters) || {}).filter((n) => { try { return isMcAlias(state, n); } catch (err) { return false; } });
-        const took = mineLeak(full, { mc: mcName(state), also: alsoKnown, writerText: userText });
-        if (took) {
-          pending.remove();
-          toast('That page ' + took + ' — asking again.');
-          return generate({ ...generateArgs, mineCarried: (wholeReply || full).trim(), mineAsk: 'mine', mineRetried: true });
-        }
-        /* M355: or it said what has already been said — the same one ask, the phrases named */
-        const before = history.filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id)).slice(-6).map((m) => pageText(m));
-        const again = staleLeak(full, before, { writerText: userText, names: [mcName(state), ...alsoKnown, ...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : [])].filter(Boolean) });
-        if (again.length) {
-          pending.remove();
-          toast('That page said what we have already said — asking again.');
-          return generate({ ...generateArgs, mineCarried: (wholeReply || full).trim(), mineAsk: 'fresh', minePhrases: again, mineRetried: true });
-        }
+      /* M354/M355, as M357 changed them: WHAT THE HOUSE SAW IN THIS PAGE IS SAID BEFORE THE NEXT ONE, NOT BY SENDING
+       * THIS ONE BACK. A page that has landed is the story; handing it to the model again and waiting is a stutter the
+       * writer feels. So the page stands, and the house keeps ONE line — his character taken, or the same words again —
+       * for the end of the next turn, in his voice. Only with the derestricted switch on; his frontier model never
+       * has either check run. */
+      if (settingsValues.olderModelNow === true && !stoppedByHand && full.trim()) {
+        try {
+          const alsoKnown = Object.keys((state && state.characters) || {}).filter((n) => { try { return isMcAlias(state, n); } catch (err) { return false; } });
+          const took = mineLeak(full, { mc: mcName(state), also: alsoKnown, writerText: userText });
+          const before = history.filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id)).slice(-6).map((m) => pageText(m));
+          const again = took ? [] : staleLeak(full, before, { writerText: userText, names: [mcName(state), ...alsoKnown, ...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : [])].filter(Boolean) });
+          const word = took ? mineWord(took, mcName(state)) : staleWord(again);
+          if (word) await keepPageWord(story.id, word);
+        } catch (err) { /* a reading of the page is never worth the page */ }
       }
 
       /* M117: a page the leak left near-empty is answered again once, by the
