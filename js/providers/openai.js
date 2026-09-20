@@ -14,6 +14,7 @@
  * durationMs = fetch start to stream end.
  */
 
+import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { reportedContext, reportedIdentity } from './room.js'; /* M289; M348 */
 import { readSSE } from './sse.js';
 import { withImagePart, transportError } from './wire.js';
@@ -285,7 +286,7 @@ export function createOpenAIProvider(connection) {
     delete body.plugins;
     const asked = {};
     for (const k of ['reasoning_effort', 'thinking', 'reasoning', 'enable_thinking', 'model_options']) if (k in body) asked[k] = body[k];
-    const res = await fetch(`${base}/v1/chat/completions`, { method: 'POST', headers: headersOf(connection), body: JSON.stringify(body) });
+    const res = await houseFetch(`${base}/v1/chat/completions`, { method: 'POST', headers: headersOf(connection), body: JSON.stringify(body) }, connection);
     if (!res.ok) {
       let detail = '';
       try { const j = await res.clone().json(); detail = (j && j.error && j.error.message) || ''; } catch (err) { /* the status speaks */ }
@@ -385,6 +386,7 @@ export function createOpenAIProvider(connection) {
     let sentPrefill = null;
     let modelThought = 0; /* characters of thinking the MODEL sent — the seed the house puts back is not counted */
     let sentWire = null; /* M347: the request exactly as the model took it (never the headers: the key stays home) */
+    const wasRelay = Boolean(connection.viaRelay); /* M353: was the house already carrying this connection? */
     let askedPlan = null; /* M350: what was asked of the model's thinking on the turn it took */
     for (let attempt = 0; attempt < 5 && !res; attempt += 1) { /* M318: the beta address may say no, and the ordinary one may still refuse a dial; M350: a refusal may teach twice (values, a field) before the last resort */
       const { body, prefill, asked } = requestBody(connection, wire, opts);
@@ -393,12 +395,12 @@ export function createOpenAIProvider(connection) {
       const sentUrl = beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`; /* M347: outside the try — the answer's branch reads it */
       let out;
       try {
-        out = await fetch(sentUrl, {
+        out = await houseFetch(sentUrl, {
           method: 'POST',
           headers: headersOf(connection),
           signal,
           body: JSON.stringify(body),
-        });
+        }, connection);
       } catch (err) {
         if (err && err.name === 'AbortError') throw err;
         throw new Error(`Couldn’t reach ${name} — check the connection and try again.`);
@@ -552,6 +554,7 @@ export function createOpenAIProvider(connection) {
       finishReason = finishReason || 'length';
       notes.push('The wire broke mid-page — the words before the break were kept. Say “go on” to carry the page forward.');
     }
+    if (!wasRelay && connection.viaRelay) notes.push('This address refuses calls from a web page, so your own tavern server carried the turn — the key never left this phone. Every later turn on this connection goes the same way.'); /* M353 */
     if (refusal && !full) throw new Error(refusal);
     /* M350: AN OFF THAT DID NOT STOP THE THINKING IS NOTICED. The dial said Off (not opened for a seed), the request said
      * so, and the model thought anyway: from now on Off asks it for the least it takes — never its own default, which for
@@ -616,11 +619,11 @@ export function createOpenAIProvider(connection) {
     const beta = prefillProfile(connection) === 'deepseek' ? deepseekBetaBase(connection.baseUrl) : '';
     let res;
     try {
-      res = await fetch(beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`, {
+      res = await houseFetch(beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`, {
         method: 'POST',
         headers: headersOf(connection),
         body: JSON.stringify(body),
-      });
+      }, connection);
     } catch (err) {
       return { ok: false, detail: `Couldn’t reach ${name} — check the connection and try again.` };
     }
@@ -659,7 +662,7 @@ export function createOpenAIProvider(connection) {
   async function listModels() {
     let res;
     try {
-      res = await fetch(`${base}/v1/models`, { headers: headersOf(connection) });
+      res = await houseFetch(`${base}/v1/models`, { headers: headersOf(connection) }, connection);
     } catch (err) {
       throw new Error(`Couldn’t reach ${name} — check the connection and try again.`);
     }

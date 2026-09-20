@@ -19,6 +19,7 @@
  * prefill that stayed home). testPrefill() is the settings form's probe.
  */
 
+import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { reportedContext } from './room.js'; /* M289 */
 import { readSSE } from './sse.js';
 import { withImagePart, transportError } from './wire.js';
@@ -174,7 +175,7 @@ export function createAnthropicProvider(connection) {
 
   async function test() {
     try {
-      const res = await fetch(`${base}/v1/messages`, {
+      const res = await houseFetch(`${base}/v1/messages`, {
         method: 'POST',
         headers: headersOf(connection),
         body: JSON.stringify({
@@ -182,7 +183,7 @@ export function createAnthropicProvider(connection) {
           max_tokens: 1,
           messages: [{ role: 'user', content: 'Evening.' }],
         }),
-      });
+      }, connection);
       if (!res.ok) return { ok: false, detail: await explain(res) };
       return { ok: true, detail: 'Claude answered — the line is good.' };
     } catch (err) {
@@ -196,7 +197,7 @@ export function createAnthropicProvider(connection) {
   async function listModels() {
     let res;
     try {
-      res = await fetch(`${base}/v1/models`, { headers: headersOf(connection) });
+      res = await houseFetch(`${base}/v1/models`, { headers: headersOf(connection) }, connection);
     } catch (err) {
       throw new Error('Couldn’t reach Claude — check the connection and try again.');
     }
@@ -219,12 +220,12 @@ export function createAnthropicProvider(connection) {
       const { body, prefill } = requestBody(connection, blocks, system, messages, opts);
       let res;
       try {
-        res = await fetch(`${base}/v1/messages`, {
+        res = await houseFetch(`${base}/v1/messages`, {
           method: 'POST',
           headers: headersOf(connection),
           signal,
           body: JSON.stringify(body),
-        });
+        }, connection);
       } catch (err) {
         if (err && err.name === 'AbortError') throw err;
         throw new Error('Couldn’t reach Claude — check the connection and try again.');
@@ -265,7 +266,9 @@ export function createAnthropicProvider(connection) {
     const startedAt = Date.now();
     const notes = [];
     const sent = {};
+    const wasRelay = Boolean(connection.viaRelay); /* M353 */
     const res = await sendOnce({ blocks, system, messages, signal, notes, sent });
+    if (!wasRelay && connection.viaRelay) notes.push('This address refuses calls from a web page, so your own tavern server carried the turn — the key never left this phone. Every later turn on this connection goes the same way.');
     let lead = sent.lead || ''; /* M307: put back at the reply's first word (see openai.js) */
 
     let full = '';
@@ -362,11 +365,11 @@ export function createAnthropicProvider(connection) {
     };
     let res;
     try {
-      res = await fetch(`${base}/v1/messages`, {
+      res = await houseFetch(`${base}/v1/messages`, {
         method: 'POST',
         headers: headersOf(connection),
         body: JSON.stringify(probe),
-      });
+      }, connection);
     } catch (err) {
       return { ok: false, detail: 'Couldn’t reach Claude — check the connection and try again.' };
     }

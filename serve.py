@@ -4,14 +4,20 @@
 No dependencies beyond the standard library. Serves the app shell with the
 right MIME types so ES modules and the web manifest load cleanly.
 """
+import base64
 import http.server
+import ipaddress
 import json
 import os
 import queue
 import shutil
+import socket
 import socketserver
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 PORT = int(os.environ.get('PORT', 8080))
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -394,8 +400,100 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                 except ValueError:
                     pass
 
+    def _relay_allowed(self, target):
+        """M353: https only, and never a machine on his own network — this server carries the storyteller's post to a
+        provider, not a way into the phone or the router behind it. (The tests reach a local stand-in with
+        COZY_RELAY_TEST=1.)"""
+        bits = urllib.parse.urlparse(target)
+        testing = os.environ.get('COZY_RELAY_TEST') == '1'
+        if bits.scheme != 'https' and not (testing and bits.scheme == 'http'):
+            return 'the relay carries https only'
+        host = bits.hostname or ''
+        if not host:
+            return 'the relay needs an address'
+        try:
+            infos = socket.getaddrinfo(host, None)
+        except Exception:
+            return 'that address could not be found'
+        for info in infos:
+            try:
+                ip = ipaddress.ip_address(info[4][0])
+            except ValueError:
+                continue
+            if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast) and not testing:
+                return 'the relay does not carry to your own network'
+        return ''
+
+    def _relay(self):
+        """M353: THE PROVIDER THAT REFUSES A WEB PAGE. A page can only call an address that answers a browser with its
+        own permission (CORS); a provider that never meant to be called from a page refuses, and curl works where the
+        tavern does not. This server stands on the same phone as the tavern: it carries the post as it is, streams the
+        answer back as it comes, and keeps nothing — the key is in the headers of one request and is never written down."""
+        target = self.headers.get('X-Relay-Url', '')
+        why = self._relay_allowed(target)
+        if why:
+            self._send_bytes(json.dumps({'error': {'message': why}}).encode('utf-8'), 400)
+            return
+        length = int(self.headers.get('Content-Length') or 0)
+        body = self.rfile.read(length) if length > 0 else None
+        headers = {'Content-Type': 'application/json', 'Accept': self.headers.get('Accept', '*/*')}
+        packed = self.headers.get('X-Relay-Headers', '')
+        if packed:
+            try:
+                given = json.loads(base64.b64decode(packed).decode('utf-8'))
+                for key, value in given.items():
+                    if isinstance(key, str) and isinstance(value, str) and key.lower() not in ('host', 'content-length', 'origin', 'referer', 'cookie'):
+                        headers[key] = value
+            except Exception:
+                pass
+        method = (self.headers.get('X-Relay-Method', 'POST') or 'POST').upper()
+        if method not in ('POST', 'GET'):
+            self._send_bytes(json.dumps({'error': {'message': 'the relay carries a post or a get'}}).encode('utf-8'), 400)
+            return
+        req = urllib.request.Request(target, data=body if method == 'POST' else None, headers=headers, method=method)
+        try:
+            up = urllib.request.urlopen(req, timeout=900)
+        except urllib.error.HTTPError as err:  # the provider's own no, word for word, with its own number
+            said = b''
+            try:
+                said = err.read()
+            except Exception:
+                said = b''
+            self.send_response(err.code)
+            self.send_header('Content-Type', err.headers.get('Content-Type', 'application/json') if err.headers else 'application/json')
+            self.send_header('Content-Length', str(len(said)))
+            self.end_headers()
+            if said:
+                self.wfile.write(said)
+            return
+        except Exception as err:
+            self._send_bytes(json.dumps({'error': {'message': 'the relay could not reach the provider: ' + str(err)}}).encode('utf-8'), 502)
+            return
+        try:
+            self.send_response(up.status)
+            self.send_header('Content-Type', up.headers.get('Content-Type', 'application/json'))
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Accel-Buffering', 'no')
+            self.end_headers()
+            while True:
+                chunk = up.read1(8192) if hasattr(up, 'read1') else up.read(1)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                self.wfile.flush()
+        except Exception:
+            pass  # the page went away, or the provider did; that is how a stream ends
+        finally:
+            try:
+                up.close()
+            except Exception:
+                pass
+
     def do_GET(self):
         path = self.path.split('?')[0]
+        if path == '/api/relay':  # M353: the tavern asks once whether this house can carry a refused call
+            self._send_bytes(json.dumps({'relay': True}).encode('utf-8'))
+            return
         if path == '/api/events':
             self._events()
             return
@@ -495,6 +593,9 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split('?')[0]
+        if path == '/api/relay':  # M353
+            self._relay()
+            return
         if path.startswith('/api/books/one/'):
             bp = self._book_path(path[len('/api/books/one/'):])
             if bp is None:

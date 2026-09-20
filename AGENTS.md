@@ -8493,3 +8493,35 @@ and nothing said so.
   exported list now, and its intent lives in M352-1 besides. The code was right.
 - GATES ON THE PUSHED TREE: harness 700/700, walk 92/92 (alone), longplay 8/8, lint clean.
 - version.js -> m352-001.
+
+# M353 — "I can't connect it, it keeps having errors — but on Discord people can use it"
+The provider is real: Hemmingway (hemmingway.io), its own 27B model, OpenAI-compatible, `hemmingway-27b`, thinking on at
+its highest level unless less is asked. Its curl works; a tavern that is a PAGE is a different matter, and that is the
+oldest difference between a terminal and a browser: a page may only call an address that answers a browser with its own
+permission (CORS). A provider that never meant to be called from a page refuses before the request is made, and the
+browser reports nothing at all — the call just throws. Every client that works "on Discord" is curl, a desktop app, or a
+server (SillyTavern's own node server proxies every call, which is why nobody there ever meets this).
+- THE HOUSE CARRIES IT. The tavern is served by his own server on the same phone, and that server has no such rule. serve.py
+  now answers /api/relay: GET says it stands, POST carries one call — the provider's address in X-Relay-Url, its method in
+  X-Relay-Method, its headers packed in X-Relay-Headers, the body as it is — and streams the answer back as it comes
+  (read1, flushed per piece), passing the provider's own status and words through on a no. https only, and never an address
+  on his own network (no way into the phone or the router); the tests reach a local stand-in with COZY_RELAY_TEST=1. The key
+  rides in the headers of one request to his own phone and is never written down.
+- THE TAVERN TRIES THE DOOR FIRST, ALWAYS. providers/relay.js houseFetch: the direct call is made first, every time; only a
+  call that throws with NOTHING is tried again through the house, and only if the house says it can carry. If that works, it
+  was the page that was refused: the connection is marked viaRelay, every later call on it goes straight through the house,
+  and the turn says so once ("This address refuses calls from a web page, so your own tavern server carried the turn — the
+  key never left this phone"). A provider that answers a page is never relayed and never even asks. All eight provider calls
+  (both houses: pages, listings, tests, probes) go through it.
+- TESTS: tests/relay.py (11 checks: the house says it can carry; the post arrives at the provider's own path with the key
+  and the body word for word; the answer comes back whole AND in pieces as they come; a listing is carried as a get; the
+  provider's own 400 and its words pass through; a plain http address and an address on his own network are refused).
+  m353.mjs M353-1..4 (the turn lands through the house, the key goes only to his own server and never into the body, the
+  connection is marked and goes straight there next time, the word is said once; no relay = it fails as before and nothing
+  false is learned; a provider that answers a page is never relayed; a listing is carried as a get).
+- NOT VERIFIED: Hemmingway itself. This container cannot reach hemmingway.io (host_not_allowed) — the key he offered could
+  not be tried from here. What is proven is the carrying, against a stand-in provider behind the real serve.py.
+- GATES ON THE PUSHED TREE: harness 704/704, walk 92/92 (alone), longplay 8/8, lint clean, tests/relay.py 11/11.
+  tests/holdsone.py cannot run in this container at all (Playwright: "Execution context was destroyed") — it fails the same
+  way on the tree as pushed before this change, so it says nothing about serve.py's relay either way.
+- version.js -> m353-001.

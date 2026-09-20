@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m352-001)
+# Cozy Tavern — handoff for the next session (state at m353-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M352). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M353). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 700 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 704 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 92 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -25,6 +25,11 @@ founding design lives in AGENTS.md's first entries.)
   person says (no tier names, numbers, rounds, poise). The referee OFF = not one byte of it, no referee or seeder call, a standing
   fight let go. The cast sheet is seeded WITH the ledger in view (<player> names the MC; brief, people, bodies, record, pages), the
   MC first; a sheet without seedVersion 2 heals itself on the next page. Prove any referee change in the app (DOM-68).
+- A PROVIDER THAT REFUSES A WEB PAGE IS CARRIED BY HIS OWN SERVER (M353): every provider call goes through
+  providers/relay.js houseFetch — direct first, and only a call that throws with nothing (what a browser says when CORS
+  refuses it) is tried again through serve.py's /api/relay (https only, never a private address; COZY_RELAY_TEST=1 lets the
+  tests reach a local stand-in). A connection that needed it is marked viaRelay and goes that way from then on; the turn
+  says so once. Run `python3 tests/relay.py` when serve.py or relay.js is touched.
 - A NEW SETTINGS SECTION MUST BE LISTED IN A ROOM (M352, settings.js SETTINGS_ROOMS): canon verification was in none, and
   unlisted used to mean “the last room” — the glossary — so its switch was unfindable. Unlisted now shows beside its
   neighbours (roomForSection), and M352-1 + DOM-73 fail if a section is listed in none or in two.
