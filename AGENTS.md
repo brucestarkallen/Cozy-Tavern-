@@ -8587,3 +8587,37 @@ His samplers are his (M12), so the house does not touch them — it reads the pa
   asks for the same beat, says nothing about shape, and reads plainly with no names set).
 - GATES ON THE PUSHED TREE: harness 711/711, walk 93/93 (alone), longplay 8/8, lint clean.
 - version.js -> m355-001.
+
+# M356 — the sensors: the house reads its own story back, and says one thing about it
+From the writer, with the Reddit post on Jev: a model that writes no prose at all and only returns typed answers can be
+asked narrow questions about a page for a fraction of a penny in a fifth of a second — and the answers, averaged, are a
+fact about the story's drift that nobody has to notice by hand. Built, behind its own switch.
+- THE QUESTIONS ARE PROPOSITIONS, NEVER TASTE. Five, each true or false of the state: the page matches the tone and
+  themes the brief asks for; something genuinely went against the main character and was not undone in the same breath;
+  something is at stake; nothing contradicts what the story has established; his own words, thoughts and choices were
+  left to the writer. ("Is this any good" is the question that wastes a call — the Reddit post's own finding, and the
+  reason every sensor here is a statement about the state.)
+- TWO WIRES, ONE SET OF QUESTIONS (agents/sensors.js): a DECISIONS house — Jev on OpenRouter (typesafe/jev-1.13, POST
+  /api/alpha/decisions) or TypeSafe's own /v1/systemone — takes {model, state, questions:{id:{type:'noul',instructions}}}
+  and answers {answers:{id:{noul:0..1}}}; any ORDINARY model is asked the same statements as one worker call and answers
+  with JSON. sensorShape() picks by the address or the model name, and both answers are read the same way (clamped to
+  0..1; anything that is not a number is not a reading). The state is what a careful reader would look at: the brief, the
+  cast notes, the three pages before, the page that just landed, and who he plays.
+- WHAT A READING EARNS: the readings are kept per story (`sensors:<id>`), last four per sensor, averaged. Below its floor,
+  the sensor furthest under it earns ONE line — never a list, never a form — said in the writer's voice at the end of the
+  NEXT turn (stack.js sensorNote; "The sensors' word" on the receipt), taken once and let go, and that sensor is quiet
+  until its average climbs back over its floor. Two readings at least: one dip is not a drift.
+- WHERE IT RUNS: the seventh link of the background chain, after the page is kept, never on the way to one; its own
+  worker row ("The sensors") so Jev can sit behind it while everything else stays where it is; its readings show in
+  Settings -> The readers -> The sensors and on the drawer's line of workers. It never touches the page it read.
+- OFF AS IT SHIPS. With `sensorsOn` unset nothing is asked, nothing is sent, nothing is kept — the same law M354 set for
+  every other help: his frontier model's turn is what it was.
+- TESTS: m356.mjs M356-1 (the wire each model speaks, both addresses, the state, the same questions either way), M356-2
+  (both answers read the same way, nonsense dropped), M356-3 (the last few readings, the one line earned by the sensor
+  furthest under, quiet until it climbs back, one reading is not a drift), M356-4 (the whole reading through the store:
+  kept with the story, taken once, riding the closing words in his voice and named on the receipt; nothing said when
+  there is nothing to say), M356-5 (no connection, no page, a house that is down or says nothing — all of it no reading,
+  never a thrown turn). DOM-75 walks it in the app: off it is never asked; on, each page is read and the drift is said
+  once on the next turn and never twice.
+- GATES ON THE PUSHED TREE: harness 716/716, walk 94/94 (alone), longplay 8/8, lint clean.
+- version.js -> m356-001.

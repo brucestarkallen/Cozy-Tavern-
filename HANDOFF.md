@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m355-001)
+# Cozy Tavern — handoff for the next session (state at m356-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M355). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M356). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 711 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 716 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 93 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 94 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,12 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- THE SENSORS READ, THEY NEVER WRITE (M356, agents/sensors.js): after each page, narrow true/false questions about it,
+  answered as numbers by a decisions model (Jev: {model, state, questions} -> {answers:{id:{noul}}}) or by any model as
+  JSON — the same questions either way. Averages over the last four readings; when one falls under its floor the
+  storyteller is told ONE line on the NEXT turn, in the writer's voice, taken once and let go, and that sensor stays quiet
+  until its average climbs back. Never touches the page it read. Own switch (`sensorsOn`), OFF as it ships = nothing asked,
+  nothing sent, nothing kept.
 - EVERY HELP FOR A SMALL MODEL LIVES BEHIND THE DERESTRICTED SWITCH, AND NOWHERE ELSE (M343, M344, M354). settings key
   `olderModel`; chat.js reads it per story turn into `settingsValues.olderModelNow`. ON it adds — a page that repeats the
   last pages asked for again once, its reused phrases named (M355, plain.js staleLeak); the scene said once more

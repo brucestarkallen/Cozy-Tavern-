@@ -385,7 +385,7 @@ export function refereeCraft(text, on) {
 
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
-  window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '',
+  window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '', sensorNote = '',
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -596,6 +596,8 @@ export function buildRequest({
   /* M346: CANON VERIFICATION'S NOTE leads the briefing — where the extension itself puts it in SillyTavern (depth 9999,
    * the player's voice: the top, before any recency), so who these canon people are is read before anything else.
    * Its label goes: here it is one part of the writer's own notes. Empty (the switch off) = nothing. */
+  /* M356: the sensors' one line — what the readings noticed drifting, said as the writer would say it, once */
+  const sensorLine = typeof sensorNote === 'string' && sensorNote.trim() ? toTeller(sensorNote.trim(), voice) : '';
   const canonText = typeof canonNote === 'string' && canonNote.trim() ? canonNote.trim().replace(/^[^\n]{0,42}'s note — /, '').replace(/^./, (c) => c.toUpperCase()) : '';
   if (canonText) stateParts.push(canonText);
   /* M281: THE PEOPLE RIDE. The character ledger's block was built, and counted
@@ -633,6 +635,7 @@ export function buildRequest({
   /* --- M10: the showrunners' slots — their own receipt names, in the
    * dynamic tail before history; empty = omitted (the slot-7 law). --- */
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
+  if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */
   if (worldText) {
     pushSlot('The world’s word', worldText, 'the world agent’s brief — what could reach this scene, what ripened out of sight');
   }
@@ -755,7 +758,7 @@ export function buildRequest({
    * own word about his own move, said as a person says it, led by the teller's name; never through inVoice: its action
    * words are story text ("sneak into the house" is a house). With the referee off it is never here. */
   const rulingLine = rulingText && safeSettings.refereeOn !== false ? toTeller(rulingText, voice) : '';
-  const closing = [rulingLine, directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, plainLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  const closing = [rulingLine, directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, plainLine, sensorLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';

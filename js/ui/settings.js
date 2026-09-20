@@ -14,6 +14,7 @@
  * and the real thinking control — no placeholders.
  */
 
+import { loadSensors, sensorLine } from '../agents/sensors.js'; /* M356 */
 import { canonWikis, setCanonWikis } from '../canon/bridge.js'; /* M346 */
 import { db } from '../store.js';
 import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '../providers/index.js';
@@ -54,7 +55,7 @@ export const SETTINGS_ROOMS = [
   ['story', 'This story', ['section-brief', 'section-cast', 'section-frame', 'section-note', 'section-shelf']],
   ['craft', 'The craft', ['section-rulebook', 'section-engine', 'section-regex']],
   ['world', 'People & lore', ['section-people', 'section-lore', 'section-oldchats']],
-  ['readers', 'The readers', ['section-memory', 'section-referee', 'section-canon']],
+  ['readers', 'The readers', ['section-memory', 'section-referee', 'section-canon', 'section-sensors']], /* M356 */
   ['house', 'The house', ['section-appearance', 'section-welcome', 'section-backup']],
   ['help', 'The glossary', ['section-help']],
 ];
@@ -197,6 +198,8 @@ export function initSettings(ctx) {
     worldEffort: document.getElementById('world-effort'),
     refereeOn: document.getElementById('referee-on'),
     canonOn: document.getElementById('canon-on'), /* M346 */
+    sensorsOn: document.getElementById('sensors-on'), /* M356 */
+    sensorReadings: document.getElementById('sensors-readings'),
     canonWikis: document.getElementById('canon-wikis'),
     refereeSensitivity: document.getElementById('referee-sensitivity'),
     refereePreset: document.getElementById('referee-preset'),
@@ -1499,6 +1502,14 @@ export function initSettings(ctx) {
     els.refereeOn.checked = (await db.settings.get('refereeOn')) !== false;
     /* M346: canon verification — its own switch (off as it ships) and, only to be sure, the series' wiki */
     if (els.canonOn) els.canonOn.checked = (await db.settings.get('canonOn')) === true;
+    /* M356: the sensors — off as they ship, and what they have read so far, for the story in hand */
+    if (els.sensorsOn) els.sensorsOn.checked = (await db.settings.get('sensorsOn')) === true;
+    if (els.sensorReadings) {
+      const story = await activeStory();
+      const kept = story ? await loadSensors(story.id) : null;
+      const line = kept ? sensorLine(kept) : '';
+      els.sensorReadings.textContent = line ? 'This story so far — ' + line : 'No readings yet.';
+    }
     if (els.canonWikis) els.canonWikis.value = await canonWikis();
     els.refereeSensitivity.value = (await db.settings.get('refereeSensitivity')) || 'normal';
     els.refereePreset.value = (await db.settings.get('refereePreset')) || 'realistic';
@@ -1506,6 +1517,7 @@ export function initSettings(ctx) {
   }
 
   if (els.canonOn) els.canonOn.addEventListener('change', async () => { await db.settings.set('canonOn', els.canonOn.checked); });
+  if (els.sensorsOn) els.sensorsOn.addEventListener('change', async () => { await db.settings.set('sensorsOn', els.sensorsOn.checked); }); /* M356 */
   if (els.canonWikis) els.canonWikis.addEventListener('change', async () => { await setCanonWikis(els.canonWikis.value); });
   els.refereeOn.addEventListener('change', async () => {
     await db.settings.set('refereeOn', els.refereeOn.checked);
@@ -2382,7 +2394,7 @@ export function initSettings(ctx) {
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
-    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn',
+    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn', 'sensorsOn',
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
   ];

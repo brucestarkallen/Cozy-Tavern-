@@ -55,6 +55,7 @@ import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNe
 import { applyMutations, storyTurn } from '../engine/apply.js';
 import { canonOn, canonBeforeSend, canonAfterPage } from '../canon/bridge.js'; /* M346: canon verification */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
+import { readSensors, takeSensorWord, sensorLine } from '../agents/sensors.js'; /* M356: the readings, and the one line they earn */
 import { onToast as onCanonToast } from '../canon/host.js';
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
@@ -3064,6 +3065,26 @@ export function initChat(ctx) {
       return { silent: true };
     });
 
+    /* 7. M356: THE SENSORS — the page that just landed is read back (the tone the brief asks for, whether anything went
+     * against him, whether anything is at stake, whether the world held, whether his character was left to him). Nothing
+     * is written to the story; what it earns is at most one line on the NEXT turn. Only with its own switch on. */
+    enqueue('sensors', async ({ signal, stale }) => {
+      try {
+        if (stale() || (await db.settings.get('sensorsOn')) !== true) return { silent: true };
+        const connection = await resolveWorkerConnection(story, 'sensors');
+        if (!connection) return { silent: true };
+        const told = visiblePages(await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.ooc);
+        const newest = told.length ? pageText(told[told.length - 1]) : '';
+        const before = told.slice(-4, -1).map((m) => pageText(m));
+        const read = await readSensors({
+          connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '',
+          pages: before, newest, mc: mcName(await loadState(story.id)), signal,
+        });
+        if (read) return { detail: sensorLine({ readings: read.readings }) };
+      } catch (err) { /* a reading is never worth a thrown turn */ }
+      return { silent: true };
+    });
+
     /* 6. M346: canon verification after the page — ST's MESSAGE_RECEIVED: the people this page brought in are looked up
      * now, so the next page has them. Only with its switch on. */
     enqueue('canon', async ({ stale }) => {
@@ -3640,6 +3661,8 @@ export function initChat(ctx) {
       /* M287: the request is built once without the record and measured; the
        * record takes what is truly left (recordRoom, fixedChars). */
       const canonNote = canonPending ? ((await canonPending) || '') : ''; /* M346: its windows have closed — whatever it holds rides */
+      /* M356: what the sensors noticed, once — taken and let go, so it never rides twice */
+      const sensorNote = (!ooc && (await db.settings.get('sensorsOn')) === true) ? await takeSensorWord(story.id) : '';
       const probeReceipt = buildRequest({
         story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,
@@ -3648,6 +3671,7 @@ export function initChat(ctx) {
         worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
+        sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
       /* M264: the record rides in the room the storyteller's context leaves it */
@@ -3693,6 +3717,7 @@ export function initChat(ctx) {
          * and this call never handed the ruling on — the storyteller never once read it. */
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
+        sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       });

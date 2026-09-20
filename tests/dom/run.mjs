@@ -4001,6 +4001,55 @@ test('DOM-74 THE DERESTRICTED SWITCH, IN THE APP: on, the five plain lines ride 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-75 THE SENSORS IN THE APP: off as they ship; switched on, each page is read back and the drift they find is said to the storyteller ONCE on the next turn, in the writer’s voice, then let go (M356)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadSensors } = await import('../../js/agents/sensors.js');
+  const H = '[The courtyard — Monday, March 3, 2025 | 09:00 | clear | coat | by the gate]\n\n';
+  const st = await db.stories.create({ title: 'the sensors walk' });
+  await db.stories.update(st.id, { keeper: false, extraction: false, brief: 'A hard tale where things cost him.' });
+  await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'Kaelen waited by the gate.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer;
+  /* the house answers the sensors' own question with numbers, and every other ask with a page */
+  const sysOfBody = (body) => (Array.isArray(body && body.messages) ? body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : '');
+  house.state.storyAnswer = (body) => (/You judge a page of a story/.test(sysOfBody(body))
+    ? '{"tone": 0.9, "cost": 0.05, "tension": 0.8, "world": 0.9, "mine": 0.9}'
+    : H + 'The morning went on, and nobody gave an inch.');
+  const was = await db.settings.get('sensorsOn');
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000); return house.state.calls.slice(from); };
+  const closingOf = (calls) => { const told = calls.find((c) => /You are telling a story/i.test(sysOfBody(c.body))); return told ? String(told.body.messages[told.body.messages.length - 1].content || '') : ''; };
+  try {
+    await db.settings.delete('sensorsOn');
+    const offCalls = await send('I wait by the gate.');
+    assert(!offCalls.some((c) => /You judge a page of a story/.test(JSON.stringify(c.body))), 'OFF: nothing is asked of them');
+    eq(JSON.stringify((await loadSensors(st.id)).readings || {}), '{}', 'OFF: and nothing is kept');
+    await openSettings();
+    click(q('[data-room="readers"]'));
+    const box = await until(() => q('#sensors-on'), 'the switch is in The readers', 10000);
+    eq(box.checked, false, 'it ships off');
+    box.checked = true; box.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('sensorsOn')) === true, 'kept on', 5000);
+    await closeSettings();
+    await send('I ask him what it will cost.');
+    await send('I wait for his answer.');
+    const kept = await loadSensors(st.id);
+    assert(Array.isArray(kept.readings.cost) && kept.readings.cost.length >= 2, 'ON: each page is read back: ' + JSON.stringify(kept.readings.cost || null));
+    const third = await send('I hold his eye.');
+    const closing = closingOf(third);
+    assert(/nothing has cost him anything/i.test(closing), 'the drift is said to the storyteller, in the writer’s voice: ' + closing.slice(0, 140));
+    const fourth = await send('I let the silence run.');
+    assert(!/nothing has cost him anything/i.test(closingOf(fourth)), 'and never twice');
+  } finally {
+    house.state.storyAnswer = priorStory;
+    if (was === true) await db.settings.set('sensorsOn', true); else await db.settings.delete('sensorsOn');
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
