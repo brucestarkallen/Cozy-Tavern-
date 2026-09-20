@@ -26,12 +26,16 @@ test('M343-2 ON: the last thing the storyteller reads before the note is the sce
   const r = build({ olderModelNow: true });
   const last = r.messages[r.messages.length - 1].content;
   assert(last.trimEnd().endsWith('MY NOTE, AS I WROTE IT.'), 'the note keeps the last word');
-  const anchor = last.slice(0, last.lastIndexOf('MY NOTE')).trim();
+  /* M354: with the switch on, the closing words carry the five plain lines too — the scene is its own part, still one breath */
+  const anchor = last.split('\n\n').find((part) => /right now, so it is in front of you/.test(part)) || '';
   assert(/^Tony Stark — right now, so it is in front of you — The hour: /.test(anchor), anchor.slice(0, 120));
   const facts = renderStateFacts(lakeside(), { scenePages: ['How did you find us?'] }).split('\n');
   for (const head of ['The hour: ', 'The ground: ', 'Here now: ']) { const line = facts.find((l) => l.startsWith(head)); assert(line && anchor.includes(line), 'the ledger’s own line, to the letter: ' + head); }
   assert(/Claire Maxwell has not been shown learning: Jovan agreed by text to walk with her at four o’clock/.test(anchor), 'and her blind spot, where an older model looks hardest');
   eq(anchor.split('\n').length, 1, 'one breath — never a block');
+  const parts = last.split('\n\n');
+  assert(parts.indexOf(anchor) < parts.findIndex((p) => /five things/.test(p)), 'M354: the scene first, then the five plain lines');
+  assert(last.trimEnd().endsWith('MY NOTE, AS I WROTE IT.'), 'and his note still last of all');
   assert(anchor.length < 900, 'and short: ' + anchor.length);
   assert(!/\b(must|never|always|do not|don't|should|remember to)\b/i.test(anchor.replace(/has not been shown learning/g, '')), 'facts, not orders: ' + anchor);
   assert(!r.systemBlocks.some((b) => /right now, so it is in front of you/.test(b.text)), 'never in the rules');
@@ -93,5 +97,5 @@ test('M344-3 it rides inside the one breath, after the scene and before his note
   const r = buildRequest({ story: {}, messages: [{ id: 'u1', role: 'user', text: 'Tell me about the fence — the stick on the path looked like a movie.' }], settings: { noteText: 'MY NOTE.', olderModelNow: true, tellerName: 'Tony Stark' }, state: lakeside(), modules: [], memory: '', window: { keeperOn: false, budgetTokens: 200000, nodes: RECORD } });
   const last = r.messages[r.messages.length - 1].content;
   assert(/^Tony Stark — right now, so it is in front of you — The hour: /.test(last) && /And from our story so far, each from its own time — \(pages 1–6\) \[Aug 19\] Jovan fenced/.test(last) && last.endsWith('MY NOTE.'), last.slice(0, 400));
-  eq(last.slice(0, last.lastIndexOf('MY NOTE.')).trim().split('\n').length, 1, 'still one breath');
+  eq((last.split('\n\n').find((part) => /right now, so it is in front of you/.test(part)) || '').split('\n').length, 1, 'still one breath (M354: the five plain lines are their own part after it)');
 });

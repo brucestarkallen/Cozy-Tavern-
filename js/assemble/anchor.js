@@ -15,8 +15,29 @@
 import { renderStateFacts, BLIND_HEAD } from '../engine/state.js';
 import { toTeller } from './voice.js';
 import { sceneWordsOf } from '../engine/world.js';
+import { findPersonKey } from '../engine/people.js'; /* M354 */
+import { isMcAlias } from '../engine/duels.js'; /* M354 */
 
 export const ANCHOR_MAX_BLIND = 3;
+export const ANCHOR_MAX_WANTS = 4; /* M354 */
+
+/* what each person in the scene is in the middle of, in the ledger's own words — his character's own is his to say */
+export function peopleNow(state) {
+  const chars = (state && state.characters) || {};
+  const here = (Array.isArray(state && state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
+  const out = [];
+  for (const name of here) {
+    if (out.length >= ANCHOR_MAX_WANTS) break;
+    try { if (isMcAlias(state, name)) continue; } catch (err) { /* no main character named yet */ }
+    const key = findPersonKey(chars, name) || name;
+    const now = chars[key] && typeof chars[key].state === 'string' ? chars[key].state.trim().replace(/\s+/g, ' ') : '';
+    if (!now) continue;
+    const at = now.lastIndexOf(' ', 140);
+    const said = now.length > 140 ? now.slice(0, at > 40 ? at : 140) + '…' : now; /* a line with no spaces is cut all the same */
+    out.push(key + ' is ' + said.replace(/^is\s+/i, '').replace(/[.]+$/, '') + '.');
+  }
+  return out;
+}
 export function sceneAnchor(state, { scenePages = [], voice = null, recall = '' } = {}) {
   if (!state || typeof state !== 'object') return '';
   let facts = '';
@@ -26,7 +47,13 @@ export function sceneAnchor(state, { scenePages = [], voice = null, recall = '' 
   const hour = pick('The hour: '); const ground = pick('The ground: '); const here = pick('Here now: ');
   if (!hour && !ground && !here) return '';
   const blind = lines.map((l) => (l.startsWith(BLIND_HEAD) ? l.slice(BLIND_HEAD.length) : l)).filter((l) => / has not been shown learning: /.test(l)).slice(0, ANCHOR_MAX_BLIND);
-  const body = ['right now, so it is in front of you —', hour, ground, here, ...blind, recall].filter(Boolean).join(' ');
+  /* M354: AND WHAT EACH OF THEM IS IN THE MIDDLE OF. The 27B model's own card says it loses on HOSTILE storytelling —
+   * a model tuned to give people what they want softens whoever is set against the writer. The ledger already knows
+   * what each person here is doing and wanting; said once more at the end, where such a model looks hardest, it is the
+   * cheapest guard there is against the whole room quietly agreeing with him. Facts, in the ledger's own words, as
+   * every other line here is — never an instruction. */
+  const wants = peopleNow(state);
+  const body = ['right now, so it is in front of you —', hour, ground, here, ...wants, ...blind, recall].filter(Boolean).join(' ');
   const named = voice && voice.teller ? toTeller(body, voice) : body[0].toUpperCase() + body.slice(1);
   return named;
 }

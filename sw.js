@@ -55,6 +55,7 @@ const SHELL = [
   'js/agents/referee.js',
   'js/sent.js',
   'js/providers/relay.js',
+  'js/assemble/plain.js',
   'js/canon/host.js',
   'js/canon/bridge.js',
   'js/canon/grounding.js',

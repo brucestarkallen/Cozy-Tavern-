@@ -3947,6 +3947,60 @@ test('DOM-73 EVERY ROOM OF SETTINGS HOLDS ITS OWN, AND NOTHING IS LOST IN THE GL
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-74 THE DERESTRICTED SWITCH, IN THE APP: on, the five plain lines ride at the end and a page that speaks for his character is asked for again ONCE (the second page is the one kept); off, neither happens and nothing of it is sent (M354)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = '[The courtyard — Monday, March 3, 2025 | 09:00 | clear | coat | by the gate]\n\n';
+  const st = await db.stories.create({ title: 'his to play' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'Kaelen waited by the gate.' });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kaelen' }]).state;
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer;
+  let answers = 0;
+  house.state.storyAnswer = () => { answers += 1; return answers === 1 ? H + '"Fine," Jovan said, and he stepped back from the fire.' : H + 'Kaelen raised the practice sword and waited.'; };
+  const was = await db.settings.get('olderModel');
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000); return house.state.calls.slice(from).filter((c) => !c.isWorker); };
+  const closingOf = (call) => String(call.body.messages[call.body.messages.length - 1].content || '');
+  try {
+    /* OFF (as it ships): nothing of it, and a page that speaks for him is kept as it came */
+    await db.settings.delete('olderModel');
+    answers = 0;
+    const offCalls = await send('I walk to the gate.');
+    eq(offCalls.length, 1, 'OFF: asked once');
+    assert(!/five things|is mine\./.test(JSON.stringify(offCalls[0].body)), 'OFF: not one word of the five lines');
+    const offPage = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(/Jovan said/.test(offPage.text), 'OFF: the page that spoke for him stands, as it always did');
+    /* ON */
+    await openSettings();
+    click(q('[data-room="craft"]'));
+    const box = await until(() => q('#older-model'), 'the switch', 10000);
+    if (!box.checked) { box.checked = true; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => (await db.settings.get('olderModel')) === true, 'kept on', 5000);
+    await closeSettings();
+    answers = 0;
+    const onCalls = await send('I ask him what he wants.');
+    eq(onCalls.length, 2, 'ON: the page that took his character was asked for again, once');
+    assert(/while we tell this one, five things/i.test(closingOf(onCalls[0])), 'ON: the five lines rode: ' + closingOf(onCalls[0]).slice(0, 120));
+    for (const law of ['Jovan is mine', 'stays set against him', 'Let the room talk', 'End where I can act']) assert(closingOf(onCalls[0]).includes(law), 'ON: ' + law);
+    const askedAgain = onCalls[1].body.messages;
+    assert(/Jovan said/.test(String(askedAgain[askedAgain.length - 2].content)), 'the page it wrote was handed back');
+    assert(/took my character/.test(String(askedAgain[askedAgain.length - 1].content)), 'with the writer’s own word for what to cut');
+    const kept = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(/Kaelen raised the practice sword/.test(kept.text) && !/Jovan said/.test(kept.text), 'and the page kept is the one that leaves him to the writer: ' + kept.text.slice(0, 80));
+  } finally {
+    house.state.storyAnswer = priorStory;
+    if (was === true) await db.settings.set('olderModel', true); else await db.settings.delete('olderModel');
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

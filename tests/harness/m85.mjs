@@ -639,7 +639,7 @@ test('M120-1 a page written inside the thinking is asked again once with the pla
   /* M323: the wire is `planWire` now — wireMessages itself, with the carried plan's two messages after it only on the one
    * re-ask a reply that ran out of room earns; the nudged messages still ride it */
   assert(/: wireMessages;\n/.test(src.slice(src.indexOf('const planWire = generateArgs.planCarried'), src.indexOf('const planWire = generateArgs.planCarried') + 700)), 'the plan’s wire IS the nudged wire when no plan is carried');
-  assert(src.indexOf('const wireMessages = generateArgs.thoughtRetried') < src.indexOf('messages: planWire'), 'the nudged messages ride the wire');
+  assert(src.indexOf('const wireMessages = generateArgs.thoughtRetried') < src.indexOf('messages: mineWire || planWire'), 'the nudged messages ride the wire (M354: or the one carried back when a page took his character)');
 });
 
 test('M121-1 the second reader knows a lie from a slip and a language from a glitch; the eye notes a short foreign run for it', async () => {

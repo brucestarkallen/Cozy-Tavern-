@@ -105,6 +105,11 @@ export function askAgain(kind, voice) {
     const mulled = 'That was you thinking it over, and it stopped there. It is yours — do not think it over again and do not repeat it. Write the page itself now, beginning with its header line.';
     return named ? toTeller(mulled, v) : mulled;
   }
+  if (kind === 'mine') {
+    /* M354: the page took the writer's own character — his words, his thoughts, or a move he never made */
+    const mine = 'That page took my character — his words, or his thoughts, or a move I never made. He is mine to play. Same beat, same moment, write it again with every line and move of his cut out; everyone else does exactly what they did, and it ends where I can answer.';
+    return named ? toTeller(mine, v) : mine;
+  }
   const plan = 'You ran out of room while you were still planning. The plan above is yours — do not plan again and do not repeat it. Write the page itself now, beginning with its header line.';
   return named ? toTeller(plan, v) : plan;
 }

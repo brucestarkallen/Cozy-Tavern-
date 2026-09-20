@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m353-001)
+# Cozy Tavern — handoff for the next session (state at m354-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M353). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M354). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 704 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 709 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 92 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 93 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,13 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- EVERY HELP FOR A SMALL MODEL LIVES BEHIND THE DERESTRICTED SWITCH, AND NOWHERE ELSE (M343, M344, M354). settings key
+  `olderModel`; chat.js reads it per story turn into `settingsValues.olderModelNow`. ON it adds — the scene said once more
+  at the end with what each person here is in the middle of (assemble/anchor.js), the record's far line called back
+  (M344), the five plain lines (assemble/plain.js plainRules), and ONE re-ask of a page that took his character
+  (plain.js mineLeak -> voice.js askAgain('mine')). OFF it adds NOTHING: the request is byte for byte what it was, and no
+  check runs. ANY future help for a weak model goes behind this switch too — his frontier model's persona is the thing
+  that breaks first, and M340/M341/M342 are what that costs. M354-1 fails if one byte of it leaks into an OFF turn.
 - THE REFEREE'S OUTCOME REACHES THE STORYTELLER (M345) — it never did from M11 to M344: chat.js never passed `ruling:`. It rides
   FIRST IN THE CLOSING WORDS (toTeller, never inVoice), only for THIS page of the writer's (pendingVerdict.forUser), in words a
   person says (no tier names, numbers, rounds, poise). The referee OFF = not one byte of it, no referee or seeder call, a standing

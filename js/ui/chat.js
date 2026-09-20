@@ -72,7 +72,8 @@ import { voiceOf, askAgain } from '../assemble/voice.js'; /* M327: the two names
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan, pageOnly } from './headergate.js';
 import { tidyPage } from './pageshape.js'; /* M340: the page made whole before it is kept */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
-import { mcName } from '../engine/duels.js';
+import { mcName, isMcAlias } from '../engine/duels.js';
+import { mineLeak } from '../assemble/plain.js'; /* M354: did the page take his character? (derestricted only) */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
@@ -3851,6 +3852,10 @@ export function initChat(ctx) {
           : messages;
       /* M323: the one re-ask after a reply that ran out of room while still planning — the plan is handed back as the
        * model's own turn, so it writes the page and does not plan again */
+      /* M354: the page that took his character is handed back and asked for again, once, with his side cut */
+      const mineWire = generateArgs.mineCarried
+        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.mineCarried) }, { role: 'user', content: askAgain('mine', turnVoice) }]
+        : null;
       const planWire = generateArgs.planCarried
         ? [...wireMessages, { role: 'assistant', content: String(generateArgs.planCarried) }, { role: 'user', content: askAgain(generateArgs.planKind === 'mulled' ? 'mulled' : 'plan', turnVoice) }]
         : wireMessages;
@@ -3894,7 +3899,7 @@ export function initChat(ctx) {
         };
         const result = await provider.streamChat({
           systemBlocks,
-          messages: planWire,
+          messages: mineWire || planWire,
           signal: abort.signal,
           onToken({ channel, text }) {
             /* M22-C: the note channel — a provider's live word ("Searching
@@ -4061,6 +4066,19 @@ export function initChat(ctx) {
           pending.remove();
           toast(mulled ? 'The reply was the storyteller thinking it over, and no page — asking for the page itself.' : allPlan && !cutShort ? 'The reply was all planning and no page — asking for the page itself.' : 'The reply ran out of room while it was still planning — asking for the page itself.');
           return generate({ ...generateArgs, planCarried: reply.trim(), planKind: mulled ? 'mulled' : 'plan' });
+        }
+      }
+
+      /* M354: THE PAGE THAT TOOK HIS CHARACTER, asked for again — ONCE, and only with the derestricted switch on (a
+       * small model finishes the scene, which means speaking and moving for him; his frontier model never sees this
+       * check, this ask, or one byte of it). A second try that still takes him is kept: the story goes on. */
+      if (settingsValues.olderModelNow === true && !generateArgs.mineRetried && !stoppedByHand && full.trim()) {
+        const alsoKnown = Object.keys((state && state.characters) || {}).filter((n) => { try { return isMcAlias(state, n); } catch (err) { return false; } });
+        const took = mineLeak(full, { mc: mcName(state), also: alsoKnown, writerText: userText });
+        if (took) {
+          pending.remove();
+          toast('That page ' + took + ' — asking again.');
+          return generate({ ...generateArgs, mineCarried: (wholeReply || full).trim(), mineRetried: true });
         }
       }
 

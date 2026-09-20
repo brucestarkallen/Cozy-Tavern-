@@ -8525,3 +8525,44 @@ server (SillyTavern's own node server proxies every call, which is why nobody th
   tests/holdsone.py cannot run in this container at all (Playwright: "Execution context was destroyed") — it fails the same
   way on the tree as pushed before this change, so it says nothing about serve.py's relay either way.
 - version.js -> m353-001.
+
+# M354 — making the 27B punch above its weight, all of it behind the derestricted switch
+He is telling his story with Hemmingway-1 (Altworld, 27B, a Qwen3.8-27B finetune, Apache-2.0, 262k of room, served by
+hemmingway.io as `hemmingway-27b`). Its own card names where it loses: HOSTILE STORYTELLING and LONG STORY TURNS — and
+both are one thing. A model tuned to hand people the finished thing they asked for (its wins: everyday messages,
+sounding like a person, "hard asks", "talking someone round") will soften whoever is set against the writer, and on a
+long turn will FINISH the scene — which means speaking, thinking and moving his character for him, because a scene where
+nobody answers is not "finished". That is exactly what he sees: cringe words in his character's mouth, his character
+moved for him, and a room that agrees with him.
+- THE FIVE PLAIN LINES (assemble/plain.js plainRules), in his own voice, led by the teller's name, LAST in the closing
+  words where a small model looks hardest: his character is his (never his words, thoughts, or a move he did not make);
+  anyone set against him STAYS set against him; let the room talk (several real exchanges, their own voices, never his);
+  end where he can act (a live beat, nothing wound down or summed up); stay in the moment as it happens. Five, not
+  fifteen — a small model keeps a few and drops a list. Not one word about the page's SHAPE (M342 stands).
+- WHAT EACH PERSON HERE IS IN THE MIDDLE OF (anchor.js peopleNow), said once more at the end with the hour and the
+  ground: the ledger's own words for the people actually in the scene (never his character's, at most four, cut at 140
+  characters). Facts, not instructions — the same design as M343 — and the cheapest guard there is against a room that
+  quietly agrees with him.
+- THE PAGE THAT TOOK HIS CHARACTER IS ASKED FOR AGAIN, ONCE (plain.js mineLeak, voice.js askAgain('mine'), the re-ask in
+  ui/chat.js beside M117's). Seen: a line in his mouth in any of the three shapes a page writes it, his own thinking
+  ("Jovan decided…"), a move he did not make. NOT seen (deliberately narrow): his name in the scene, his name in someone
+  else's mouth, his body described, someone else acting in a sentence that names him — and never anything his OWN message
+  just said (every suspect fragment is weighed against his words first: the page telling his move back is not a theft).
+  A second try that still takes him is kept; the story goes on.
+- THE LAW, FOR EVERY SESSION AFTER THIS ONE: every help for a weak model lives behind the derestricted switch. OFF, the
+  turn is byte for byte what it was before any of it existed, and no check runs. His frontier model's persona is what
+  breaks first (M340, M341, M342 are what that already cost), so nothing here is ever "just a small improvement for
+  everyone".
+- WHAT IS NOT IN THE CODE, AND WHY: his sampler (temperature, top-p, penalties) is his — M12's law is that the house sends
+  exactly what he set and nothing else, so the numbers that suit a 27B are his to set, not the house's to impose.
+- TESTS: m354.mjs M354-1 (the five lines ride ON, and the OFF turn is byte-identical: same system blocks, same messages),
+  M354-2 (his words, thoughts and moves seen in every shape, under the fuller name too), M354-3 (and what is not his left
+  alone, including the move and the line he wrote himself), M354-4 (the ask is one sentence in his voice and says nothing
+  about shape), M354-5 (what each person here is in the middle of: present only, never his character, four at most, cut
+  short, nothing invented). DOM-74 walks it in the app: OFF, one call and the page that spoke for him stands; ON, the five
+  lines ride and the page that spoke for him is asked again once — and the page kept is the second one.
+- Two of the switch's own older laws were scoped, not loosened: M343-2 and M344-3 measured "one breath" over everything
+  before his note; the scene IS still one breath, and the five plain lines are their own part after it (they now read the
+  scene's part by name). M85's M120-1 reads the wire's name, which gained the carried page. The code was right all three times.
+- GATES ON THE PUSHED TREE: harness 709/709, walk 93/93 (alone), longplay 8/8, lint clean.
+- version.js -> m354-001.

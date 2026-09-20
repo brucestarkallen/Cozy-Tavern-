@@ -94,6 +94,7 @@
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { sceneAnchor, recallFromRecord, recallLine } from './anchor.js'; /* M343, M344 */
+import { plainRules } from './plain.js'; /* M354: the five plain lines, behind the derestricted switch */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
@@ -739,7 +740,9 @@ export function buildRequest({
    * ground, blank lines) and a header with no place wears its card — none of which needs one word in the request. */
   /* M343: the older-model switch — the scene said once more, LAST (assemble/anchor.js). Only when chat.js says the switch is on. */
   let anchorLine = '';
+  let plainLine = ''; /* M354: what a small model needs — only with the switch on */
   if (safeSettings.olderModelNow === true) {
+    plainLine = toTeller(plainRules(mcNameOf(state)), voice);
     /* M344: the scene's words = the last pages AND what the writer just wrote; the record's lines come from the window's nodes */
     const lastUser = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
     const sceneNow = [...recentPages, lastUser ? String(lastUser.text || '') : ''].filter(Boolean);
@@ -752,7 +755,7 @@ export function buildRequest({
    * own word about his own move, said as a person says it, led by the teller's name; never through inVoice: its action
    * words are story text ("sneak into the house" is a house). With the referee off it is never here. */
   const rulingLine = rulingText && safeSettings.refereeOn !== false ? toTeller(rulingText, voice) : '';
-  const closing = [rulingLine, directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  const closing = [rulingLine, directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, plainLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';
