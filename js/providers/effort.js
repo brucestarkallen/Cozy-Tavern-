@@ -58,11 +58,27 @@ export function effortLabel(l) {
 /* Which spelling of "think harder" this connection speaks. Read off the
  * saved preset first (the form stores it, M22), then off the address and
  * model name for connections that predate the marker. */
+/* M348: the model's names — its own id, and the weights its provider says stand behind it (an alias such as Synthetic's
+ * "syn:large:vision" is Kimi K3: moonshotai/Kimi-K3). Every family test reads both. */
+export function modelNames(conn) {
+  const c = conn || {};
+  const own = String(c.model || '').toLowerCase();
+  const known = c.identFor && c.identFor === detectKey(c) && typeof c.modelHf === 'string' ? c.modelHf.toLowerCase() : '';
+  return known ? [own, known, known.split('/').pop()] : [own];
+}
+/* the thinking levels the model itself declares (Synthetic lists them per model) — null when it says nothing */
+export function declaredEfforts(conn) {
+  const c = conn || {};
+  return c.identFor && c.identFor === detectKey(c) && Array.isArray(c.modelEfforts) && c.modelEfforts.length ? c.modelEfforts : null;
+}
+
 export function reasonStyle(conn) {
   const c = conn || {};
   if (c.type === 'anthropic') return 'anthropic';
   const url = String(c.baseUrl || '').toLowerCase();
   const model = String(c.model || '').toLowerCase();
+  const names = modelNames(c);
+  const any = (re) => names.some((n) => re.test(n));
   if (c.preset === 'hermes' || model === 'hermes-agent') return 'hermes';
   if (c.preset === 'openrouter' || url.includes('openrouter.ai')) return 'openrouter';
   /* M303: THE KIMI FAMILY HAD NO SPELLING OF ITS OWN. A Moonshot address fell
@@ -76,14 +92,14 @@ export function reasonStyle(conn) {
    * openai-shaped address but OpenRouter's, which maps its own; the K2.x
    * switch only on Moonshot's own address, where its fields are known. */
   const kimiHost = url.includes('moonshot') || /(^|[/.])kimi\.(ai|com)([/:]|$)/.test(url);
-  if (/kimi[-_.]?k[3-9]/.test(model) || (kimiHost && /^k[3-9]\b/.test(model))) return 'kimi';
+  if (any(/kimi[-_.]?k[3-9]/) || (kimiHost && /^k[3-9]\b/.test(model))) return 'kimi';
   if (kimiHost && /^kimi/.test(model)) return /k2\.?7-code/.test(model) ? 'none' : 'kimi2';
-  if (c.preset === 'zai' || url.includes('api.z.ai') || /\bglm\b|^glm|glm-/.test(model)) return 'zai';
-  if (/qwen/.test(model)) return 'qwen';
+  if (c.preset === 'zai' || url.includes('api.z.ai') || any(/\bglm\b|^glm|glm-/)) return 'zai';
+  if (any(/qwen/)) return 'qwen';
   /* M37: DeepSeek thinks by default (at high) and is told not to with
    * thinking:{type:'disabled'} — "decides for itself" left the workers
    * thinking their whole budget away. */
-  if (c.preset === 'deepseek' || url.includes('deepseek') || /^deepseek/.test(model)) return 'deepseek';
+  if (c.preset === 'deepseek' || url.includes('deepseek') || any(/^deepseek/)) return 'deepseek';
   return 'openai';
 }
 
@@ -91,15 +107,22 @@ export function reasonStyle(conn) {
  * the house itself maps), then nearest-below within the style's levels;
  * `cap` is a rung the wire itself refused (rejection memory) and nothing
  * above it is ever spoken again for that connection. */
-export function effortFor(style, eff, cap) {
-  const lv = EFFORT_LEVELS[style] || EFFORT_LEVELS.openai;
+export function effortFor(style, eff, cap, declared = null) {
+  const lv0 = EFFORT_LEVELS[style] || EFFORT_LEVELS.openai;
+  /* M348: a model that declares its levels is only ever sent one of them ("off" stays where the style has it: it is
+   * never a level anyone declares — it is sending none) */
+  const lv = Array.isArray(declared) && declared.length ? lv0.filter((l) => l === 'off' || declared.includes(l)) : lv0;
+  if (!lv.some((l) => l !== 'off') && Array.isArray(declared)) return effortFor(style, eff, cap, null);
   const e = (EFFORT_ALIAS[style] && EFFORT_ALIAS[style][eff]) || eff;
   let r = EFFORT_RANK.indexOf(e);
   if (r < 0) r = 0;
   const cr = cap ? EFFORT_RANK.indexOf(cap) : -1;
   if (cr >= 0 && r > cr) r = cr;
   while (r > 0 && lv.indexOf(EFFORT_RANK[r]) < 0) r--;
-  return lv.indexOf(EFFORT_RANK[r]) >= 0 ? EFFORT_RANK[r] : 'off';
+  if (lv.indexOf(EFFORT_RANK[r]) >= 0) return EFFORT_RANK[r];
+  /* nothing at or below, and no "off" to fall to (a model that always thinks): the least it declares */
+  if (lv.indexOf('off') < 0) { const least = lv.find((l) => l !== 'off'); if (least) return least; }
+  return 'off';
 }
 
 /* One rung down within what the style can say; null at low — a refusal
@@ -128,6 +151,7 @@ export const PREFILL_REFUSAL = /assistant message prefill|must end with a user m
  * request on it either. The mark stands until the model field changes —
  * the settings form clears it then. Never throws: the turn's outcome is
  * already decided by the retry, the memory is a courtesy. */
+import { detectKey } from './room.js'; /* M348: what the model is, kept for that very model at that very address */
 import { db } from '../store.js';
 
 export async function markConnectionDown(conn, field, shape) {
@@ -192,7 +216,7 @@ export function spokenAs(conn, effort) {
   const want = EFFORT_RANK.includes(effort) ? effort : 'off';
   if (style === 'none') return 'nothing is sent — this model decides for itself';
   if (style === 'kimi2' || style === 'qwen') return want === 'off' ? 'thinking switched off' : 'thinking switched on (this model has no levels)';
-  const said = effortFor(style, want);
+  const said = effortFor(style, want, undefined, declaredEfforts(conn));
   if (style === 'kimi' && want === 'off') return `“${said}” — Kimi K3 always thinks; this is the least it can`;
   return said === 'off' ? 'off' : `“${said}”`;
 }

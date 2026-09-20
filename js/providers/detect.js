@@ -23,20 +23,28 @@ export function learnContext(conn, opts = {}) {
   asking.set(key, p);
   return p;
 }
+/* M348: and WHAT THE MODEL IS — the weights behind an alias and the thinking levels it declares — asked in the same one
+ * question, for every connection (a room the writer set himself still leaves this to learn), kept for that very model
+ * at that very address, asked again after a day when nothing came back. */
 async function learnOnce(conn, { now = Date.now(), provider = null } = {}) {
-  if (typeof conn.contextSize === 'number' && conn.contextSize > 0) return conn;
   if (!String(conn.model || '').trim()) return conn;
   const key = detectKey(conn);
-  if (conn.detectedFor === key && Number(conn.detectedContext) > 0) return conn;
-  if (conn.detectTriedFor === key && now - (Number(conn.detectTriedAt) || 0) < ASK_AGAIN_MS) return conn;
-  let patch = { detectTriedFor: key, detectTriedAt: now };
+  const roomKnown = (typeof conn.contextSize === 'number' && conn.contextSize > 0) || (conn.detectedFor === key && Number(conn.detectedContext) > 0);
+  const whoKnown = conn.identFor === key;
+  const roomAsked = conn.detectTriedFor === key && now - (Number(conn.detectTriedAt) || 0) < ASK_AGAIN_MS;
+  const whoAsked = conn.identTriedFor === key && now - (Number(conn.identTriedAt) || 0) < ASK_AGAIN_MS;
+  if ((roomKnown || roomAsked) && (whoKnown || whoAsked)) return conn;
+  let patch = {};
+  if (!roomKnown) patch = { ...patch, detectTriedFor: key, detectTriedAt: now };
+  if (!whoKnown) patch = { ...patch, identTriedFor: key, identTriedAt: now };
   try {
     const models = await (provider || createProvider(conn)).listModels();
     const want = String(conn.model).trim();
     const hit = (models || []).find((m) => m && m.id === want)
       || (models || []).find((m) => m && String(m.id).toLowerCase() === want.toLowerCase());
     const size = hit && Number(hit.context) > 0 ? Math.floor(hit.context) : 0;
-    if (size) patch = { ...patch, detectedContext: size, detectedFor: key };
+    if (size && !roomKnown) patch = { ...patch, detectedContext: size, detectedFor: key };
+    if (hit && !whoKnown) patch = { ...patch, identFor: key, modelHf: typeof hit.hf === 'string' ? hit.hf : '', modelEfforts: Array.isArray(hit.efforts) && hit.efforts.length ? hit.efforts : null };
   } catch (err) { /* no answer: the preset stands, and it is asked again tomorrow */ }
   try { await db.connections.update(conn.id, patch); } catch (err) { /* kept in hand this once */ }
   return { ...conn, ...patch };

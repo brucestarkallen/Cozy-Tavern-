@@ -47,6 +47,18 @@ export function contextOf(conn) {
   return PRESET_CONTEXT[presetIdFor(conn)] || UNKNOWN_CONTEXT;
 }
 /* M289: the size the provider reports for a model, under any of the names houses use */
+/* M348: WHAT A MODEL IS, IN ITS PROVIDER'S OWN WORDS. An alias hides a model's family from its name — Synthetic serves
+ * Kimi K3 as "syn:large:vision" — so the house read it as a generic model and spoke the generic thinking shape to it. A
+ * listing that says which weights stand behind the alias (Synthetic: hugging_face_id; others: canonical_slug, hf_id) and
+ * which thinking levels the model takes (Synthetic: reasoning_parameters.efforts) is kept, and read like the name. */
+export function reportedIdentity(m) {
+  if (!m || typeof m !== 'object') return { hf: '', efforts: null };
+  const hf = [m.hugging_face_id, m.huggingface_id, m.hf_id, m.canonical_slug].find((x) => typeof x === 'string' && x.trim());
+  const raw = (m.reasoning_parameters && m.reasoning_parameters.efforts) || m.supported_reasoning_efforts || null;
+  const efforts = Array.isArray(raw) ? raw.map((e) => String(e || '').toLowerCase().trim()).filter(Boolean) : null;
+  return { hf: hf ? hf.trim() : '', efforts: efforts && efforts.length ? efforts : null };
+}
+
 export function reportedContext(m) {
   if (!m || typeof m !== 'object') return 0;
   const candidates = [m.context_length, m.max_model_len, m.context_window, m.max_context_length, m.max_input_tokens,

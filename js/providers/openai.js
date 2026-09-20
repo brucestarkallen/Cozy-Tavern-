@@ -14,7 +14,7 @@
  * durationMs = fetch start to stream end.
  */
 
-import { reportedContext } from './room.js'; /* M289 */
+import { reportedContext, reportedIdentity } from './room.js'; /* M289; M348 */
 import { readSSE } from './sse.js';
 import { withImagePart, transportError } from './wire.js';
 /* M22-A/D: the full reasoning ladder (per-house spellings, alias-down,
@@ -22,7 +22,7 @@ import { withImagePart, transportError } from './wire.js';
 import {
   reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
   applyPrefill, prefillPlan, markConnectionDown, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal, thinkingLead,
-} from './effort.js';
+ declaredEfforts } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
 
@@ -176,7 +176,7 @@ function requestBody(connection, wireMessages, opts = {}) {
   const opened = pf.applied && pf.keepThinkingOpen && set === 'off';
   const wanted = opened ? 'low' : set;
   const suppressed = opts.suppressReasoning || reasoningIsDown(connection, style); /* M303: a refusal of another spelling is not a refusal of this one */
-  const effort = suppressed ? 'off' : effortFor(style, wanted);
+  const effort = suppressed ? 'off' : effortFor(style, wanted, undefined, declaredEfforts(connection)); /* M348: only levels the model itself declares */
   if (style === 'none') {
     /* the model decides on its own — nothing extra is ever sent */
   } else if (suppressed) {
@@ -564,7 +564,7 @@ export function createOpenAIProvider(connection) {
     const rows = body && Array.isArray(body.data) ? body.data : [];
     return rows
       .filter((m) => m && typeof m.id === 'string' && m.id)
-      .map((m) => ({ id: m.id, label: m.id, context: reportedContext(m) })); /* M289: the room it reports */
+      .map((m) => ({ id: m.id, label: m.id, context: reportedContext(m), ...reportedIdentity(m) })); /* M289: the room it reports; M348: what it is */
   }
 
   return { test, listModels, streamChat, testPrefill };

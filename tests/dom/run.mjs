@@ -3822,6 +3822,42 @@ test('DOM-70 WHAT THE STORYTELLER SAW, WORD FOR WORD: the sheet opens on Normal;
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-71 KIMI K3 BEHIND SYNTHETIC’S ALIAS, IN THE APP: “syn:large:vision” at Low is learned from the provider’s own list before the page and sent Moonshot’s K3 request — reasoning_effort "low" and no thinking switch — and a page that asked for thinking and got none says so on its receipt (M348)', async () => {
+  const before = errors.length;
+  const conns = await db.connections.list();
+  const conn = conns.find((c) => c && c.baseUrl && /mock\.example/.test(c.baseUrl)) || conns[0];
+  const kept = { model: conn.model, reasoning: conn.reasoning || null, contextSize: conn.contextSize == null ? null : conn.contextSize };
+  await db.connections.update(conn.id, { model: 'syn:large:vision', reasoning: { effort: 'low' }, contextSize: 1000000, identFor: null, identTriedFor: null, identTriedAt: null, modelHf: null, modelEfforts: null });
+  house.state.models = [{ provider: 'synthetic', always_on: true, id: 'syn:large:vision', hugging_face_id: 'moonshotai/Kimi-K3', reasoning_parameters: { efforts: ['low', 'high', 'max'] }, context_length: 1048576 }];
+  try {
+    const st = await db.stories.create({ title: 'the alias' });
+    await db.stories.update(st.id, { keeper: false, extraction: false });
+    await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[Harbor — Monday, March 3, 2025 | 09:00 | clear | coat | the pier]\n\nThe gulls wheeled.' });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I walk to the end of the pier.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker && c.body && c.body.model === 'syn:large:vision');
+    assert(told, 'the storyteller was asked on the alias');
+    eq(told.body.reasoning_effort, 'low', 'Low is sent as K3’s own "low"');
+    assert(!('thinking' in told.body), 'and no thinking switch rides (Moonshot: K3 must not be sent one): ' + JSON.stringify(told.body.thinking));
+    const learned = (await db.connections.list()).find((c) => c.id === conn.id);
+    eq(learned.modelHf, 'moonshotai/Kimi-K3', 'the connection knows what the alias is');
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    eq(page.receipt && page.receipt.noThought, true, 'no thinking came back — and the page knows it');
+    click(qa('#thread .msg-assistant .msg-receipt').pop());
+    await until(() => !q('#receipt-sheet').hidden, 'the sheet', 5000);
+    assert(/no thinking came back from the model/.test(q('#receipt-footer').textContent), 'the receipt says so: ' + q('#receipt-footer').textContent);
+    click(q('#btn-receipt-close'));
+  } finally {
+    house.state.models = null;
+    await db.connections.update(conn.id, { model: kept.model, reasoning: kept.reasoning, contextSize: kept.contextSize, identFor: null, identTriedFor: null, identTriedAt: null, modelHf: null, modelEfforts: null });
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

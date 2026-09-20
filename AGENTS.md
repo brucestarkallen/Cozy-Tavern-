@@ -8344,3 +8344,38 @@ and the rest); and can old pages still show what was inside?
   still says it once — the law now measures what is sent (the system blocks and the messages). The code was right both times.
 - GATES ON THE PUSHED TREE: harness 679/679, walk 89/89 (alone), longplay 8/8, lint clean.
 - version.js -> m347-001.
+
+# M348 — "for Synthetic's Kimi K3, at Low it doesn't think at all — is something wrong?"
+The writer: on Synthetic, Kimi K3 ("syn:large:vision" in the provider's own list, hugging_face_id moonshotai/Kimi-K3,
+efforts low / high / max) did not think at Low, while the forum says it does.
+- WHAT WAS WRONG (measured, M348-2): the house read a model's family from its NAME alone, and "syn:large:vision" names no
+  family — so K3 behind the alias was spoken to as a generic model. Every level carried a `thinking` switch Moonshot says
+  K3 must not be sent ("remove the K2.x thinking configuration"); Off was sent as thinking:{type:'disabled'} with NO
+  effort — K3 cannot stop thinking and an unsaid effort is its max; Medium and XHigh were sent as levels K3 does not have
+  (a refusal of them would set the refusal memory, and a day of nothing sent — max again). Low itself went out as
+  reasoning_effort "low" beside that thinking switch.
+- THE FIX, FOR THE WHOLE CLASS: a model is what its provider says it is. The /models listing now keeps the weights behind
+  an alias (hugging_face_id, huggingface_id, hf_id, canonical_slug) and the levels the model declares
+  (reasoning_parameters.efforts, supported_reasoning_efforts) — room.js reportedIdentity. The house learns them in the one
+  question it already asks for a model's room (detect.js learnContext — now for every connection, since a room the writer
+  set himself still leaves what the model IS to learn; once per model at that address; again after a day when nothing
+  came back; waited for at most 1.5 s before the storyteller's page, as the room is). Every family test reads the model's
+  own id AND the weights its provider names (effort.js modelNames), so GLM, DeepSeek, Qwen and Kimi behind any alias are
+  spoken to in their own words; and effortFor only ever sends a level the model declares (nearest below; a model that
+  always thinks gets its least). A model picked from the list in the connection form is kept with what it is at once,
+  and the form's hint names it.
+- AFTER (measured): Off -> reasoning_effort "low" (K3's least — it always thinks), Low -> "low", Medium -> "high", High ->
+  "high", XHigh -> "max", Max -> "max"; nothing else — exactly Moonshot's documented K3 request.
+- "DID IT THINK?" IS NEVER A GUESS: a page that asked for thinking and got none back now says "no thinking came back from
+  the model" on its receipt (receipt.noThought). What was asked is in Raw (M347); what came back is on the receipt.
+- NOT VERIFIED: Synthetic itself. This container cannot reach api.synthetic.new, so whether K3 on Synthetic thinks at Low
+  with the corrected request is not measured here; the request is proven to be the one Moonshot documents, and every page
+  now says whether thinking came back. Moonshot's docs also require the full assistant message, reasoning_content
+  included, to be passed back on multi-turn (K3 was trained with "preserved thinking"); the house sends earlier pages'
+  words only — whether that makes K3 think less at Low is unmeasured and not changed here.
+- TESTS: m348.mjs M348-1 (the listing keeps the weights and the levels), M348-2 (the request at all six levels before and
+  after learning, byte for byte; one question even with a hand-set room; not asked again; the card and the hint name K3),
+  M348-3 (GLM and DeepSeek behind aliases; facts for one model never taken for another), M348-4 (the receipt). DOM-71 in the
+  app: the alias at Low is learned before the page, sent reasoning_effort "low" with no thinking switch, and the receipt
+  says no thinking came back.
+- version.js -> m348-001.

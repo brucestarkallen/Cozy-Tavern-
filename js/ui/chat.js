@@ -3976,6 +3976,7 @@ export function initChat(ctx) {
         }).catch(() => false);
         receipt = finalizeReceipt(receiptDraft, {
           sentId,
+          noThought: reasoning.effort !== 'off' && !String(thinking || '').trim(), /* M348 */
           ttftMs: result.ttftMs,
           tfftMs: result.tfftMs,
           durationMs: result.durationMs,

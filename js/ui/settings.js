@@ -487,6 +487,18 @@ export function initSettings(ctx) {
   /* M303: the standing word under the thinking dial, for a house that has one
    * (Kimi K3 cannot be told "off"; its temperature and top-p are fixed) — read
    * from what the form holds NOW, so it follows the model as it is typed */
+  let offeredModels = []; /* M348 */
+  let editingConn = null; /* M348 */
+  /* M348: what the model in the form IS — from the provider's list just fetched, or from what the house already learned
+   * for this model at this address — so the hint and the saved connection speak for Kimi K3 behind "syn:large:vision" */
+  function knownFacts(draft) {
+    const key = detectKey(draft);
+    const row = offeredModels.find((m) => m && m.id === draft.model);
+    if (row && (row.hf || row.efforts)) return { identFor: key, modelHf: row.hf || '', modelEfforts: row.efforts || null };
+    if (editingConn && editingConn.identFor === key) return { identFor: key, modelHf: editingConn.modelHf || '', modelEfforts: editingConn.modelEfforts || null };
+    return {};
+  }
+
   function refreshReasoningHint() {
     if (!els.reasoningHint) return;
     const p = presetById(els.preset.value);
@@ -504,7 +516,8 @@ export function initSettings(ctx) {
       if (!clash) els.prefillHint.textContent = said;
       if (clash) els.prefillHint.textContent = 'Not used while thinking is on: on this address a started reply makes the model skip its thinking entirely, so with thinking at “' + els.connReasoning.value + '” the thinking is sent and these words stay home. Set thinking to Off to use them.';
     }
-    const words = thinkingHint({ type: p.type, preset: els.preset.value, baseUrl: els.baseUrl.value.trim() || p.baseUrl || '', model: els.model.value.trim() || p.model || '' });
+    const hintDraft = { type: p.type, preset: els.preset.value, baseUrl: els.baseUrl.value.trim() || p.baseUrl || '', model: els.model.value.trim() || p.model || '' };
+    const words = thinkingHint({ ...hintDraft, ...knownFacts(hintDraft) });
     els.reasoningHint.textContent = words;
     els.reasoningHint.hidden = !words;
     /* M308: the thinking room says, for THIS address and model, whether the number can be sent at all —
@@ -587,6 +600,8 @@ export function initSettings(ctx) {
     els.form.hidden = false;
     els.formTitle.textContent = conn ? `Changing “${conn.label}”` : 'A new connection';
     hideModelPicker();
+    editingConn = conn || null; /* M348 */
+    offeredModels = [];
     if (conn) {
       els.preset.value = presetFor(conn);
       els.label.value = conn.label;
@@ -665,6 +680,7 @@ export function initSettings(ctx) {
     els.modelsNote.textContent = 'Asking what’s on offer…';
     try {
       const models = await createProvider(draft).listModels();
+      offeredModels = Array.isArray(models) ? models : []; /* M348: what each model is, as its provider says */
       if (!models.length) {
         els.modelsNote.textContent = 'The list came back empty — the model name above still stands.';
         return;
@@ -819,6 +835,8 @@ export function initSettings(ctx) {
     /* M8.5/M22-A: the thinking voice — the full ladder, kept only when on.
      * What the wire can actually say is resolved per house at send time
      * (effort.js). */
+    /* M348: a model picked from the provider's own list is kept with what it is */
+    Object.assign(fields, { identFor: undefined, modelHf: undefined, modelEfforts: undefined }, knownFacts({ model: fields.model, baseUrl: fields.baseUrl }));
     const effort = els.connReasoning.value;
     if (EFFORT_RANK.includes(effort) && effort !== 'off') {
       fields.reasoning = { effort };
