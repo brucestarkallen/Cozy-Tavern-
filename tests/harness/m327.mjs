@@ -9,7 +9,7 @@ import { applyMutations } from '../../js/engine/apply.js';
 
 const state = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The old house on Rim Road' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias Wells' }]).state;
 const PAGES = [{ id: 'u1', role: 'user', text: 'We walk up to the house. The writer in me wants to describe it.' }, { id: 'a1', role: 'assistant', text: '[Rim Road — Friday | 13:08]\n\nThe house stood dark at the end of the drive.' }, { id: 'u2', role: 'user', text: 'I knock.' }];
-const build = (settings) => buildRequest({ story: { brief: 'The writer of this brief says: the house on Rim Road is haunted.' }, messages: PAGES, settings: { frameText: 'You are Tony Stark. You tell the writer stories.', noteText: STARTER_NOTE, ...settings }, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, budgetTokens: 500000 }, ruling: 'The house has ruled: the lock holds.' });
+const build = (settings) => buildRequest({ story: { brief: 'The writer of this brief says: the house on Rim Road is haunted.' }, messages: PAGES, settings: { frameText: 'You are Tony Stark. You tell the writer stories.', noteText: STARTER_NOTE, ...settings }, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, budgetTokens: 500000 }, ruling: 'About what Jovan is trying — the lock: it holds. It’s settled — tell it just that way, in the story’s own voice, and keep all of this between us.' });
 const houseWords = (r) => [r.systemBlocks[0].text, r.systemBlocks[1].text, r.messages[0].content.split('\n\n')[0], r.messages[r.messages.length - 1].content].join('\n~~\n');
 
 test('M327-1 with both names: every word the HOUSE wrote is said to Tony, as Bruce — and not one word of it says writer, house, persona or role', () => {
@@ -19,8 +19,9 @@ test('M327-1 with both names: every word the HOUSE wrote is said to Tony, as Bru
   assert(/Tony Stark, that is how Bruce wants this story told/.test(r.systemBlocks[0].text), 'the frame’s purpose line');
   assert(/You tell Bruce stories\./.test(r.systemBlocks[0].text), 'his own frame says his name where it said "the writer"');
   assert(/Bruce authors the fiction; you RUN the simulation/.test(r.systemBlocks[1].text), 'the craft: ' + (r.systemBlocks[1].text.match(/[^.\n]*authors the fiction[^.\n]*/) || [''])[0]);
-  assert(/Bruce’s notebook keeps the world between turns/.test(r.systemBlocks[1].text) && /Bruce’s notebook has ruled/.test(r.systemBlocks[1].text), '"the house" is his notebook — in the craft’s teaching…');
-  assert(/Bruce’s notebook has ruled: the lock holds\./.test(r.messages[0].content), '…and in the block the craft teaches, so the two still match');
+  assert(/Bruce’s notebook keeps the world between turns/.test(r.systemBlocks[1].text) && /Bruce’s closing words say how an attempt of his turns out/.test(r.systemBlocks[1].text) /* M345: the craft teaches the words the outcome opens with */, '"the house" is his notebook — in the craft’s teaching…');
+  /* M345: the settled outcome rides first in the closing words, led by the teller's name — the form the craft teaches */
+  assert(/^Tony Stark — about what Jovan is trying — the lock: it holds\./.test(r.messages[r.messages.length - 1].content), '…and the closing words open the way the craft says they do');
   assert(/end where Bruce has something/.test(r.messages[r.messages.length - 1].content), 'the note');
   /* ("Bruce comes to you as their storyteller" stays — that is what Tony is to him, not form-speak) */
   assert(!/\bwriter\b|\bhouse\b|\bthe storyteller\b|\bpersona\b|\bcharacter you\b|\bstory app\b/i.test(said), 'none of the form-speak is left in the house’s own words: ' + (said.match(/[^\n]{0,40}\b(writer|house|the storyteller|persona|story app)\b[^\n]{0,30}/i) || [''])[0]);

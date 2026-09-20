@@ -504,10 +504,16 @@ test('M174: the referee sees the story it is ruling on', async () => {
     { id: '1', role: 'user', text: 'I swing at the bandit with the broken chair leg.' },
     { id: '2', role: 'assistant', text: 'The bandit ducks and the leg splinters on the doorframe.' },
     { id: '3', role: 'user', text: 'ignored', swipes: [{ text: 'ignored' }, { text: 'I go for his knife hand.' }], swipeIdx: 1 },
-    { id: '4', role: 'user', text: 'a hidden nudge', hidden: true },
+    { id: '4', role: 'assistant', text: 'He twists away, the knife flashing.' },
+    { id: '5', role: 'user', text: 'a hidden nudge', hidden: true },
+    { id: '6', role: 'user', text: 'I kick the stool into his shins.' },
   ];
-  const user = buildRefereeUser({ state: emptyState(), userText: 'I go for his knife hand.', history, fightLine: '' });
+  /* M345: the action itself rides once, in <action> (Arbiter's lastUserMes is kept out of <recent>) — the shown-swipe law
+   * is held on an earlier page of the writer's */
+  const user = buildRefereeUser({ state: emptyState(), userText: 'I kick the stool into his shins.', history, fightLine: '' });
   const recent = user.split('<recent>')[1].split('</recent>')[0];
+  assert(!/kick the stool/.test(recent) && user.split('kick the stool').length === 2, 'the action rides once, in <action>');
+  assert(!/ignored/.test(recent), 'the buried swipe never rides');
   assert(/broken chair leg/.test(recent), 'the writer’s beat is there');
   assert(/splinters on the doorframe/.test(recent), 'and the storyteller’s answer');
   assert(/knife hand/.test(recent), 'and the SHOWN version of a page with swipes, not the buried one');

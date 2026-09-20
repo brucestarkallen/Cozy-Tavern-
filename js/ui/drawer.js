@@ -1185,12 +1185,22 @@ function measurePanel(ctx) {
     }
     const state = await loadState(story.id);
     const sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
-    const names = Object.keys(sheet.actors || {});
+    /* M345: the main character leads the sheet — and is shown even before anyone has weighed him */
+    const names = Object.keys(sheet.actors || {}).sort((a, b) => (isMc(state, b) ? 1 : 0) - (isMc(state, a) ? 1 : 0));
+    const mcNamed = typeof sheet.playerName === 'string' && sheet.playerName.trim() ? sheet.playerName.trim() : '';
     if (!names.length) {
-      note.textContent = 'No one is weighed yet. Once the referee has ruled on a chancy moment — or the tale has found its footing — the cast’s measure is written here, 0 to 10.';
+      note.textContent = 'No one is weighed yet. After the tale’s first pages — and after every fight — the cast is weighed from the whole ledger, 0 to 10, and written here.';
       return;
     }
-    note.textContent = 'How the house weighs each of them, 0 to 10 — what they’re known for, and what ails them. The referee rules from these numbers.';
+    note.textContent = 'How each of them measures, 0 to 10 — what they’re known for, and what they carry. The referee rules from these numbers; they are weighed again after every fight and whenever someone new is in the scene.';
+    if (mcNamed && !names.some((n) => isMc(state, n))) {
+      const li = document.createElement('li');
+      li.className = 'present-row measure-row';
+      const words = document.createElement('span');
+      words.textContent = mcNamed + ' (you) — not weighed yet; the next page weighs you';
+      li.appendChild(words);
+      list.appendChild(li);
+    }
     for (const name of names) {
       const actor = sheet.actors[name];
       if (!actor || typeof actor !== 'object') continue;

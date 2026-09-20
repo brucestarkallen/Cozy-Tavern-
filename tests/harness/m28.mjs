@@ -166,9 +166,18 @@ test('M28-6: mc.set names the main character once, refuses a second guess, and t
   eq(mcName(u.state), 'the player', 'taken back');
 });
 
-test('M28-7: the referee’s seeder never clobbers a known main-character name', () => {
-  const src = readFileSync(new URL('../../js/agents/referee.js', import.meta.url), 'utf8');
-  assert(/if \(!known\) state\.sheet\.playerName = nm;/.test(src), 'seeder sets the name only when none is known');
+test('M28-7: the referee’s seeder never clobbers a known main-character name', async () => {
+  /* M345: run, not read — the seeder's merge itself */
+  const { mergeSeed } = await import('../../js/agents/referee.js');
+  const known = { sheet: { actors: {}, playerName: 'Jovan' }, characters: {} };
+  mergeSeed(known, { player_story_name: 'Kaelen', actors: [] });
+  eq(known.sheet.playerName, 'Jovan', 'a known name stands');
+  const none = { sheet: { actors: {}, playerName: '' }, characters: {} };
+  mergeSeed(none, { player_story_name: 'Jovan Wells', actors: [] });
+  eq(none.sheet.playerName, 'Jovan Wells', 'an unknown one is learned');
+  const label = { sheet: { actors: {}, playerName: '' }, characters: {} };
+  mergeSeed(label, { player_story_name: 'the player', actors: [] });
+  eq(label.sheet.playerName, '', 'a label is never taken for his name');
 });
 
 /* M233: every worker used to ask for effort:'off' outright, and I called it

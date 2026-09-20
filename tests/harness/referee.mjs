@@ -377,9 +377,12 @@ test('M11 armed: a fight opening on a declaration binds the standoff, nothing ro
 
 /* ---------- the injection slot ---------- */
 
-test('M11 injection: the ruling rides the dynamic tail as the receipt-named "The house has ruled" slot', () => {
+/* M345: the law moved. The ruling rode the dynamic tail (the briefing before the whole story) — on paper: chat.js never
+ * handed it to buildRequest, and the storyteller never read one. It rides now FIRST IN THE CLOSING WORDS, right after
+ * the writer's page it settles (Arbiter's depth 0), in the writer's own voice. */
+test('M11 injection: the ruling rides first in the closing words, the receipt-named "The house has ruled" slot', () => {
   const state = mkState();
-  const directive = 'The house has ruled — how this goes:\nMara tries: leap the fence.\nHow it lands: SUCCESS — it succeeds as intended.';
+  const directive = 'About what Mara is trying — leap the fence: it works, just as meant. It’s settled — tell it just that way, in the story’s own voice, and keep all of this between us.';
   const { messages, receipt } = buildRequest({
     story: { brief: '' }, messages: [], settings: {}, state,
     modules: [], memory: '', cast: [], lore: '', loreFired: [],
@@ -390,7 +393,9 @@ test('M11 injection: the ruling rides the dynamic tail as the receipt-named "The
   assert(slot, 'the receipt names the slot');
   assert(slot.tokens > 0, 'the slot carries the ruling');
   const tail = messages.find((msg) => typeof msg.content === 'string' && msg.content.startsWith(STATE_MARKER));
-  assert(tail && tail.content.includes(directive), 'the ruling is in the dynamic tail');
+  assert(!tail || !tail.content.includes(directive), 'not in the briefing');
+  const closing = messages[messages.length - 1];
+  assert(closing.role === 'user' && closing.content.startsWith(directive), 'first in the closing words');
   /* and when nothing was ruled, there is no slot at all */
   const quiet = buildRequest({
     story: { brief: '' }, messages: [], settings: {}, state: mkState(),

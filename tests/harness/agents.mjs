@@ -27,7 +27,7 @@ test('committed fate: same words replay the verdict; new words roll fresh', asyn
   const connection = { type: 'openai' };
   const first = await refereeStep({ connection, userText: 'I try to leap the fence', userId: 'u1', history: [msg], state: mkState(), settings: {}, callLLM });
   eq(first.status, 'ruled', 'a chancy attempt is ruled');
-  assert(first.ruling && typeof first.ruling.directive === 'string' && first.ruling.directive.includes('The house has ruled'), 'the ruling speaks its name');
+  assert(first.ruling && typeof first.ruling.directive === 'string' && /^About what /.test(first.ruling.directive) && !/house has ruled/.test(first.ruling.directive), 'the ruling speaks the way a person speaks (M345)');
   let calls = 0;
   const spyLLM = async (...a) => { calls += 1; return callLLM(...a); };
   const replay = await refereeStep({ connection, userText: 'I try to leap the fence', userId: 'u1', history: [msg], state: first.state, settings: {}, callLLM: spyLLM });

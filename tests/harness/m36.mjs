@@ -19,7 +19,7 @@ test('M36-1 the core is bounded, keeps the laws, and emits nothing the house now
   }
   /* the binding section: the truth the house hands over, and how to use it */
   assert(/## The House's Truth/.test(CRAFT_TEXT));
-  for (const bound of ['Where things stand right now', 'Who Knows What', 'arriving in about N minutes', "Our story so far", "The world's word", 'The house has ruled', 'A mended page']) {
+  for (const bound of ['Where things stand right now', 'Who Knows What', 'arriving in about N minutes', "Our story so far", "The world's word", 'An outcome already settled', 'A mended page'] /* M345 */) {
     assert(CRAFT_TEXT.includes(bound), 'bound to: ' + bound);
   }
   /* the pass keeps only B and L */

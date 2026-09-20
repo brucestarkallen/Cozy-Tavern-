@@ -95,7 +95,7 @@ import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { sceneAnchor, recallFromRecord, recallLine } from './anchor.js'; /* M343, M344 */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
-import { withoutAuthorshipFrame } from './craft.js'; /* M309 */
+import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
@@ -370,6 +370,18 @@ function isContinueTurn(history) {
   return text === '' || /^(continue|go on|keep going)[.!…]?$/i.test(text);
 }
 
+/* M345: the craft's line about a settled outcome. A craft saved before today carries the old wording ("The house has
+ * ruled = a verdict injected from outside the story…") — it is spoken as today's line; with the referee off, the line
+ * is not sent at all: nothing is ever settled for the storyteller, so nothing needs teaching. */
+const OLD_RULED_LINE = /^[ \t]*The house has ruled = [^\n]*\n?/m;
+const NEW_RULED_LINE = /^[ \t]*An outcome already settled = [^\n]*\n?/m;
+export function refereeCraft(text, on) {
+  const s = String(text == null ? '' : text);
+  if (!on) return s.replace(OLD_RULED_LINE, '').replace(NEW_RULED_LINE, '');
+  const line = CRAFT_TEXT.match(NEW_RULED_LINE);
+  return line ? s.replace(OLD_RULED_LINE, line[0]) : s;
+}
+
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
   window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter,
@@ -429,7 +441,7 @@ export function buildRequest({
 
   /* --- 2. The craft --- */
   const craft = selected.find(({ mod }) => mod && mod.id === 'core-craft');
-  const craftText = craft && craft.mod ? inPerson(inVoice(naturalThinking(withoutAuthorshipFrame(craft.mod.text), voice, person), voice), person) : ''; /* M335: a teller with a self thinks in its own voice */ /* M327: in the writer's name; M309: the house's craft no longer holds it; a copy saved before today loses it here */
+  const craftText = craft && craft.mod ? inPerson(inVoice(naturalThinking(refereeCraft(withoutAuthorshipFrame(craft.mod.text), safeSettings.refereeOn !== false), voice, person), voice), person) : ''; /* M335: a teller with a self thinks in its own voice */ /* M327: in the writer's name; M309: the house's craft no longer holds it; a copy saved before today loses it here */
   pushSlot('The craft', craftText, 'the rulebook', craft ? craft.reason : '');
 
   /* --- 3. The brief --- */
@@ -544,7 +556,7 @@ export function buildRequest({
   }
 
   /* --- 5. The state of things --- */
-  const facts = renderStateFacts(state, { ...stateView(windowInfo && windowInfo.budgetTokens), scenePages: recentPages }); /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
+  const facts = renderStateFacts(state, { ...stateView(windowInfo && windowInfo.budgetTokens), scenePages: recentPages, noFight: safeSettings.refereeOn === false }); /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
   pushSlot('The state of things', facts);
 
   /* --- 6. Active modules (everything selected that isn't the craft) --- */
@@ -591,7 +603,6 @@ export function buildRequest({
   if (directorText) stateParts.push('The director’s note:\n' + directorText);
   if (editorText) stateParts.push('The editor’s eye:\n' + editorText);
   if (eyeText) stateParts.push(toTeller(eyeWithoutRuleNames(eyeText, voice, person), voice)); /* the eye speaks its own name — M327: and the teller's */
-  if (rulingText) stateParts.push(inVoice(rulingText, voice)); /* the directive already speaks its name (M327: "the house has ruled" is the notebook's word, where the writer is named) */
   const stateInjection = stateParts.length
     ? { role: 'user', content: briefingOpening(voice) + '\n\n' + stateParts.join('\n\n') }
     : null;
@@ -625,8 +636,8 @@ export function buildRequest({
   if (eyeText) {
     pushSlot('The house’s eye', eyeText, 'the last page’s slips against the craft, checked in code — recolored this turn');
   }
-  if (rulingText) {
-    pushSlot('The house has ruled', rulingText, 'the referee’s binding word for this turn');
+  if (rulingText && safeSettings.refereeOn !== false) {
+    pushSlot('The house has ruled', rulingText, 'the referee’s settled outcome for this turn — first in the closing words, right after your page');
   }
 
   /* --- 9. The note at the end --- (resolved before slot 8 so the window
@@ -728,7 +739,12 @@ export function buildRequest({
     const recall = recallLine(recallFromRecord(windowInfo && windowInfo.nodes, sceneNow, { ignore: presentNames }));
     anchorLine = sceneAnchor(state, { scenePages: recentPages, voice, recall });
   }
-  const closing = [directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  /* M345: THE SETTLED OUTCOME RIDES FIRST IN THE CLOSING WORDS — right after the writer's page it settles, where Arbiter
+   * puts it (depth 0: the most heeded spot; before the M345 fix it never reached the wire at all). It is the writer's
+   * own word about his own move, said as a person says it, led by the teller's name; never through inVoice: its action
+   * words are story text ("sneak into the house" is a house). With the referee off it is never here. */
+  const rulingLine = rulingText && safeSettings.refereeOn !== false ? toTeller(rulingText, voice) : '';
+  const closing = [rulingLine, directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';

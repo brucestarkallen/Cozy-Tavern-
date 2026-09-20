@@ -201,7 +201,7 @@ test('M72-9 every job in the chain answers to the chain generation, and the keep
   assert(/run: chainJob\(run, \(\) => \(chainGen\.get\(story\.id\) \|\| 0\) !== gen\)/.test(bw), 'a turned counter is stale');
   for (const name of ['world', 'scribe', 'auditor']) assert(new RegExp("enqueue\\('" + name + "', async \\(\\{ signal, stale(, renew)? \\}\\) => \\{\\n\\s*if \\(story\\.extraction === false \\|\\| stale\\(\\)\\) return").test(bw), name + ' checks first');
   assert(/stale, \/\* M72: a keeper whose ledger was rewound under it writes nothing \*\//.test(bw), 'the keeper is told');
-  assert(/enqueue\('seeder', async \(\{ signal, stale \}\) => \{\n\s*try \{\n\s*if \(stale\(\)\) return/.test(bw), 'the seeder too');
+  assert(/enqueue\('seeder', async \(\{ signal, stale(?:, renew)? \}\) => \{\n\s*try \{\n\s*if \(stale\(\)\) return/.test(bw), 'the seeder too'); /* M345: it may renew its leash — a large cast is a long answer */
   const cont = bw.slice(bw.indexOf("enqueue('continuity'"), bw.indexOf("enqueue('auditor'"));
   assert(/if \(stale\(\)\) return \{ silent: true \};\n\s*const fresh = await loadState\(story\.id\);/.test(cont), 'the second reader checks before reading');
 });

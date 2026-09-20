@@ -147,6 +147,61 @@ export function findActor(state, name) {
   return key ? state.sheet.actors[key] : null;
 }
 
+/* M345: SEEDING-GRADE IDENTITY (Arbiter v0.31/v0.42 findActorKeySamePerson). An existing sheet key is the same person
+ * only when one name's words are all in the other's ("Kaiser" <-> "Kaiser von Adler"), either way round; a shared
+ * surname alone is NOT one person ("Claire Wessex" is never "Marcus Wessex"). */
+export function findActorKeySamePerson(state, name) {
+  const actors = (state && state.sheet && state.sheet.actors) || {};
+  const nrm = (x) => String(x || '').toLowerCase().trim();
+  const toks = (x) => nrm(x).split(/[\s,]+/).filter(Boolean);
+  const target = nrm(name);
+  if (!target) return null;
+  for (const key of Object.keys(actors)) if (nrm(key) === target) return key;
+  const tt = toks(name);
+  if (!tt.length) return null;
+  for (const key of Object.keys(actors)) {
+    const kt = toks(key);
+    if (kt.length && (kt.every((w) => tt.includes(w)) || tt.every((w) => kt.includes(w)))) return key;
+  }
+  return null;
+}
+
+/* M345: ONE ENTRY FOR THE MAIN CHARACTER (Arbiter's reconcilePlayerEntries). Any sheet entry filed under a name that
+ * means him — "you", "the player", a part of his story name — is folded into his own entry: his entry's numbers win,
+ * the other only fills domains it lacks and hands over its conditions. Returns true when something was folded. */
+export function reconcilePlayerEntries(state) {
+  const actors = state && state.sheet && state.sheet.actors;
+  if (!actors || typeof actors !== 'object') return false;
+  const story = mcName(state);
+  if (story === 'the player') return false;
+  let changed = false;
+  let mcKey = findActorKeyExact(state, story) || findActorKeySamePerson(state, story);
+  for (const key of Object.keys(actors)) {
+    if (key === mcKey || !isMcAlias(state, key)) continue;
+    const src = actors[key];
+    delete actors[key];
+    changed = true;
+    if (!src || typeof src !== 'object') continue;
+    if (!mcKey) { mcKey = story; actors[mcKey] = { ...src, domains: { ...(src.domains || {}) } }; continue; }
+    const dst = actors[mcKey];
+    dst.domains = dst.domains && typeof dst.domains === 'object' ? dst.domains : {};
+    for (const [d, v] of Object.entries(src.domains || {})) if (dst.domains[d] === undefined) dst.domains[d] = v;
+    if (Array.isArray(src.conditions) && src.conditions.length) {
+      dst.conditions = Array.isArray(dst.conditions) ? dst.conditions : [];
+      const have = new Set(dst.conditions.map((c) => String(c && c.name || '').toLowerCase()));
+      for (const c of src.conditions) if (c && !have.has(String(c.name || '').toLowerCase())) dst.conditions.push(c);
+    }
+    if (Number.isFinite(Number(src.poise)) && dst.poise === undefined) dst.poise = src.poise;
+  }
+  /* his entry stands under his story name, not under a part of it */
+  if (mcKey && mcKey !== story && !findActorKeyExact(state, story) && samePersonName(mcKey, story) && mcKey.split(/\s+/).length <= story.split(/\s+/).length) {
+    actors[story] = actors[mcKey];
+    delete actors[mcKey];
+    changed = true;
+  }
+  return changed;
+}
+
 function conditionMod(actorEntry, domain) {
   if (!actorEntry || !Array.isArray(actorEntry.conditions)) return 0;
   const d = String(domain || '').toLowerCase();
@@ -291,6 +346,13 @@ export function liveCombatant(state, name) {
   return null;
 }
 
+/* M345: a domain in plain words, for anything the storyteller reads */
+export const DOMAIN_WORDS = {
+  melee: 'in close fighting', ranged: 'in anything at range', social: 'in dealing with people', intellect: 'in anything that takes thought',
+  stealth: 'in moving unseen', craft: 'in anything made or mended by hand', athletics: 'in running, climbing and leaping', willpower: 'in holding firm',
+  pilot: 'at the controls',
+};
+
 /* Apply a persistent condition change to the sheet, resolving "player" to
  * the story name. Creates the actor entry if needed, seeded from the LIVE
  * combatant's rating when one exists. Returns a note for narration. */
@@ -319,20 +381,21 @@ export function applyConditionChange(state, cc) {
       const cn = String(c.name || '').toLowerCase();
       return !(cn === rl || cn.includes(rl) || rl.includes(cn));
     });
-    if (entry.conditions.length < before) notes.push(name + ' recovers from ' + cc.remove);
+    if (entry.conditions.length < before) notes.push(name + ' is past ' + cc.remove + ' now');
   }
   if (cc.add) {
     const al = cc.add.toLowerCase();
     if (!entry.conditions.some((c) => String(c.name || '').toLowerCase() === al)) {
-      const item = { name: cc.add, mod: cc.mod };
+      /* M345: who filed it — the referee's own filings are never taken back by a re-seed of the sheet */
+      const item = { name: cc.add, mod: cc.mod, by: cc.by || 'referee' };
       if (cc.domain) item.domain = cc.domain;
       if (cc.gear) item.gear = true;
       entry.conditions.push(item);
       if (entry.conditions.length > 8) entry.conditions.shift();
-      const scope = cc.domain ? ' to ' + cc.domain : '';
+      /* M345: this note rides to the storyteller — words, never a modifier */
       notes.push(cc.gear
-        ? name + ' gains ' + cc.add + ' (' + (cc.mod >= 0 ? '+' : '') + cc.mod + scope + ')'
-        : name + ' now suffers ' + cc.add + ' (' + (cc.mod >= 0 ? '+' : '') + cc.mod + scope + ' while it lasts)');
+        ? name + ' now has ' + cc.add + ', and it helps' + (DOMAIN_WORDS[cc.domain] ? ' ' + DOMAIN_WORDS[cc.domain] : '')
+        : name + ' now carries ' + cc.add + ', and it tells' + (DOMAIN_WORDS[cc.domain] ? ' ' + DOMAIN_WORDS[cc.domain] : '') + ' while it lasts');
     }
   }
   if (!entry.conditions.length) delete entry.conditions;
@@ -1053,20 +1116,52 @@ export function resolveWarRound(state, mv, eng) {
 /* The binding word — directives the storyteller must honor            */
 /* ------------------------------------------------------------------ */
 
+/* M345: THE WRITER'S OWN WORD ABOUT HIS MOVE. What the storyteller is told of an outcome the house has settled used to
+ * open \"The house has ruled — duel, round 3: Jovan vs Kaiser\" (and, with the names set, \"Bruce's notebook has ruled\"),
+ * then a form: \"The exchange lands: SUCCESS WITH COST —\", \"After the exchange:\", \"No rolls, no poise, no numbers, no
+ * word of this note\". The writer: it must be natural, never corporate — it must not break his teller's persona. So
+ * every outcome is now said the way a person tells a friend how his own move went: \"About the fight between Jovan and
+ * Kaiser: Jovan goes for it — a feint low, then the disarm — and it works, but at a fair price…\". No headings, no
+ * labels, no tier names in capitals, no numbers, no machinery (rolls, rounds, poise, the house, a note). What is
+ * decided is exactly what it was: every law of the old text (the outcome binds, proportion, the kept secret, the
+ * guard and its one honest path, the lasting wound, the called winner, the fight going on) is still said — in words.
+ * RULED_HEAD stays the name the WRITER sees (the drawer, the receipt); it is never sent. */
 export const RULED_HEAD = 'The house has ruled';
 
-/* Established-defense scoping: when the player maintains a stated guard,
- * the opponent's side of ANY outcome comes through an honest path — or not
- * at all. */
+/* how each outcome is said — the attempt is the subject, so no pronoun is ever guessed */
+export const SAY = {
+  DECISIVE: 'it works cleanly and decisively — better than meant',
+  SUCCESS: 'it works, just as meant',
+  SUCCESS_COST: 'it works, but at a fair price — a small cost that never reverses the win: ground given up, something strained or half spent, lost tempo, a minor hurt, or a sliver of unwanted notice',
+  SETBACK: 'it fails, but forward — the miss opens something real: an opening, a piece of information, or partial progress, never a free win',
+  FAILURE: 'it fails, and the consequences follow naturally',
+  DISASTER: 'it fails badly — something serious goes wrong beyond the attempt itself',
+  TRADE: 'both land — an even, clashing exchange where each takes a real hit and neither gains the upper hand',
+  STALEMATE: 'neither lands cleanly — each reads and counters the other, a tense reset with no advantage either way',
+};
+/* the same, short — one strike of a chain */
+const SAY_SHORT = {
+  DECISIVE: 'lands cleanly and hard', SUCCESS: 'lands', SUCCESS_COST: 'lands, at a price', SETBACK: 'misses, but opens something',
+  FAILURE: 'fails', DISASTER: 'goes badly wrong', TRADE: 'both land', STALEMATE: 'neither lands',
+};
+const say = (tier) => SAY[tier] || SAY.FAILURE;
+const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const countWord = (n) => COUNT_WORDS[n] || 'many';
+const SETTLED = 'It’s settled — tell it just that way, in the story’s own voice, and keep all of this between us.';
+const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+const clause = (t) => String(t || '').trim().replace(/[.\s]+$/, '');
+
+/* Established-defense scoping: when the player maintains a stated guard, the opponent's side of ANY outcome comes
+ * through an honest path — or not at all. */
 const GUARD_NEG_TIERS = { TRADE: 1, SETBACK: 1, FAILURE: 1, DISASTER: 1, SUCCESS_COST: 1 };
 export function guardLines(adj, playerName, oppName, tier) {
   if (!adj || !adj.playerGuard) return [];
-  const out = ['Standing guard, already established in the story: ' + adj.playerGuard + '.'];
+  const out = [playerName + '’s guard still stands, as the story set it — ' + clause(adj.playerGuard) + '.'];
   if (GUARD_NEG_TIERS[tier]) {
     if (adj.counterPath) {
-      out.push('Any toll or pressure on ' + playerName + ' this beat comes only through this path — name it in the prose: ' + adj.counterPath + '. Never through contact the guard forbids.');
+      out.push('Anything this costs ' + playerName + ' comes only through that one way in — ' + clause(adj.counterPath) + ' — so show it coming that way, never through contact the guard forbids.');
     } else {
-      out.push(oppName + ' has no way through that guard this beat — don\'t write them landing contact or a wound. A bad result here is ' + playerName + '\'s own attempt failing: read, evaded, deflected, or stopped. Any cost is strain, lost footing, a jarred grip, or ceded tempo. The guard holds.');
+      out.push(cap(oppName) + ' has no way through that guard this time — no contact, no wound. The bad turn is ' + playerName + '’s own attempt being read, slipped or stopped, and the cost is strain, footing, a jarred grip or lost tempo. The guard holds.');
     }
   }
   return out;
@@ -1075,8 +1170,8 @@ export function guardLines(adj, playerName, oppName, tier) {
 export function sideStatus(side) {
   const p = Math.max(0, side.poise);
   let t = side.name + ' is ' + poiseWord(p, side.maxPoise);
-  if (side.injuries > 0) t += ', carrying ' + side.injuries + ' lasting injur' + (side.injuries > 1 ? 'ies' : 'y');
-  if (side.momentum > 0) t += ', with momentum';
+  if (side.injuries > 0) t += ', carrying ' + (side.injuries === 1 ? 'a lasting wound' : countWord(side.injuries) + ' lasting wounds');
+  if (side.momentum > 0) t += ', with the momentum';
   if (typeof side.composure === 'number' && side.composureMax) {
     const frac = side.composure / side.composureMax;
     if (frac < 0.25) t += ', and visibly breaking — panic taking hold';
@@ -1085,199 +1180,176 @@ export function sideStatus(side) {
   return t;
 }
 
-/* The lone-check directive: attempt, outcome, "don't re-decide it." */
+const secretLine = (who, onlyFailure) => (onlyFailure
+  ? 'Keep every consequence in proportion to how this went. If ' + who + ' was acting in secret or under cover, this doesn’t give it away — only a real failure could; at most a faint, deniable flicker of suspicion.'
+  : 'Keep every consequence in proportion. If ' + who + ' was acting in secret or under cover, a win doesn’t give it away — at most a faint, deniable flicker of suspicion.');
+
+/* A lone check: what was tried, how it went, what rides on it. */
 export function buildDirective(adj, res) {
-  const t = TIERS[res.tier] || TIERS.FAILURE;
-  const stakes = adj.stakes ? (' Stakes: ' + adj.stakes + '.') : '';
+  const stakes = adj.stakes ? ' What’s riding on it: ' + clause(adj.stakes) + '.' : '';
   return [
-    RULED_HEAD + ' — how this goes:',
-    adj.actor + ' tries: ' + adj.action + '.',
-    'How it lands: ' + t.name + ' — ' + t.text + stakes,
-    ...guardLines(adj, adj.actor, adj.kind === 'actor' ? adj.opposition : 'The opposition', res.tier),
-    'That\'s the outcome — don\'t re-decide it, just tell it in the story\'s own voice. No rolls, no odds, no word of this note.',
-  ].join('\n');
+    'About what ' + adj.actor + ' is trying — ' + clause(adj.action) + ': ' + say(res.tier) + '.' + stakes,
+    ...guardLines(adj, adj.actor, adj.kind === 'actor' ? adj.opposition : 'whatever stands against it', res.tier),
+    ...(res.tier === 'SUCCESS_COST' ? [secretLine(adj.actor, true)] : []), /* the one win whose price could leak a kept secret */
+    SETTLED,
+  ].join(' ');
 }
 
 export function buildDuelDirective(state, adj, res) {
   const duel = state.duel;
+  const me = duel.player.name;
+  const foe = duel.opp.name;
+  const head = 'About the fight between ' + me + ' and ' + foe + ': ';
   if (res.recover) {
-    const lines = [
-      RULED_HEAD + ' — duel, round ' + duel.round + ': ' + duel.player.name + ' vs ' + duel.opp.name,
-      duel.player.name + ' disengages to recover: ' + adj.action + '.',
-    ];
-    if (res.gained > 0) lines.push(duel.player.name + ' regains composure and steadies — noticeably refreshed, wounds or fatigue eased (but not erased). Show the recovery working.');
-    else lines.push(duel.player.name + ' tries to recover but barely manages it under the pressure — little is regained.');
-    if (res.counter > 0 && !res.over) lines.push('But disengaging left an opening: ' + duel.opp.name + ' lands a real blow in the gap — ' + duel.player.name + ' takes a hit while recovering. Show it connecting; the recovery was not clean.');
+    const lines = [head + me + ' breaks off to recover — ' + clause(adj.action) + ' — '
+      + (res.gained > 0 ? 'and it helps: ' + me + ' steadies, noticeably refreshed, hurts and tiredness eased but not erased. Show the recovery working.' : 'but under the pressure it barely helps; little comes back.')];
+    if (res.counter > 0 && !res.over) lines.push('Breaking off left a gap, and ' + foe + ' lands a real blow in it — show it connecting; the recovery was not clean.');
     if (res.over) {
-      lines.push('Caught: ' + duel.opp.name + ' punishes the disengage with a decisive strike — ' + duel.player.name + ' dropped their guard to recover and pays for it. ' + duel.opp.name + ' has won this duel. Tell the ending the story\'s earned (a felling blow, a blade at the throat, collapse). That stands; ' + duel.player.name + ' can\'t rally.');
-      lines.push('Don\'t re-decide any of it. No rolls, no poise, no numbers, no word of this note — just tell it in the story\'s voice.');
-      return lines.join('\n');
+      lines.push('And ' + foe + ' punishes it: ' + me + ' dropped the guard to recover and pays for it with the fight. ' + foe + ' wins. Tell the ending the story has earned — a felling blow, a blade at the throat, a collapse — and it stands; ' + me + ' can’t rally.');
+      lines.push(SETTLED);
+      return lines.join(' ');
     }
-    lines.push('This cost tempo: ' + duel.opp.name + ' seizes the initiative and presses freely into the opening ' + duel.player.name + ' gave up. Show ' + duel.opp.name + ' capitalizing.');
-    lines.push('After the exchange: ' + sideStatus(duel.player) + '; ' + sideStatus(duel.opp) + '. The duel goes on — end on a live beat.');
-    lines.push('Don\'t re-decide any of it. No rolls, no poise, no numbers, no word of this note — just tell it in the story\'s voice.');
-    return lines.join('\n');
+    lines.push('It cost the initiative: ' + foe + ' presses freely into the gap ' + me + ' gave up — show that. ' + sideStatus(duel.player) + '; ' + sideStatus(duel.opp) + '. The fight goes on — end on a live beat.');
+    lines.push(SETTLED);
+    return lines.join(' ');
   }
-  const t = TIERS[res.tier] || TIERS.FAILURE;
   const fx = EXCHANGE_EFFECTS[res.tier] || {};
-  const lines = [
-    RULED_HEAD + ' — duel, round ' + duel.round + ': ' + duel.player.name + ' vs ' + duel.opp.name,
-    duel.player.name + '\'s move: ' + adj.action + '.',
-    'The exchange lands: ' + t.name + ' — ' + t.text,
-  ];
-  lines.push(...guardLines(adj, duel.player.name, duel.opp.name, res.tier));
-  if (res.opening) lines.push('(' + duel.player.name + ' is exploiting the opening from the previous exchange.)');
-  if (!res.outcome && fx.injureOpp) lines.push('Give ' + duel.opp.name + ' a real, lasting injury and name it in the prose — it visibly weakens them from here on.');
-  if (!res.outcome && fx.injureSelf && !(adj.playerGuard && !adj.counterPath)) lines.push('Give ' + duel.player.name + ' a real, lasting injury and name it in the prose — it visibly weakens them from here on.');
-  if (!res.outcome && res.tier === 'SETBACK' && !duel.over) lines.push(duel.player.name + ' loses this exchange but spots a real opening to exploit next round — show it.');
+  const lines = [head + me + ' goes for it — ' + clause(adj.action) + ' — and ' + say(res.tier) + '.'];
+  lines.push(...guardLines(adj, me, foe, res.tier));
+  if (res.opening) lines.push(me + ' is pressing the opening the last exchange left.');
+  if (!res.outcome && fx.injureOpp) lines.push(foe + ' takes a real, lasting wound from it — name it in the telling; it weakens them from here on.');
+  if (!res.outcome && fx.injureSelf && !(adj.playerGuard && !adj.counterPath)) lines.push(me + ' takes a real, lasting wound from it — name it in the telling; it weakens them from here on.');
+  if (!res.outcome && res.tier === 'SETBACK' && !duel.over) lines.push(me + ' loses this exchange but sees a real opening to use next — show it.');
   if (res.outcome) {
-    lines.push('No scores are kept in this duel — each exchange stands on its own, and consequences last only as long as the story carries them.');
-    lines.push('The duel goes on until the story ends it: when everything so far makes a yield, a flight, an interruption, or a finish the honest next beat, write that ending yourself. I\'m not calling a winner.');
+    lines.push('Nothing is being tallied in this fight — each exchange stands on its own, and a hurt lasts only as long as the story carries it. The fight goes on until the story itself ends it: when everything so far makes a yield, a flight, an interruption or a finish the honest next beat, write that ending yourself — nobody is calling a winner.');
   } else if (duel.over) {
     if (duel.victor === 'draw') {
-      /* Mutual knockout (a TRADE that emptied BOTH pools) — never a false
-       * winner. */
-      lines.push('They take each other down in the same exchange — ' + duel.player.name + ' and ' + duel.opp.name + ' are both down. Tell the double finish the story\'s earned (a final clash neither walks away from, both collapsing, whatever fits the tone). Neither side wins, and neither can rally. That stands.');
+      lines.push('They take each other down in the same exchange — ' + me + ' and ' + foe + ' are both down. Tell the double finish the story has earned; neither wins, neither can rally, and it stands.');
     } else {
       const winner = duel.victor === 'player' ? duel.player : duel.opp;
       const loser = duel.victor === 'player' ? duel.opp : duel.player;
-      lines.push(loser.name + ' is beaten — ' + winner.name + ' takes the duel. Tell the ending the story\'s earned (yield, knockout, disarm, retreat, or kill, whatever fits the tone). That stands; the loser can\'t rally.');
+      lines.push(loser.name + ' is beaten — ' + winner.name + ' takes the fight. Tell the ending the story has earned (a yield, a knockout, a disarm, a retreat or a kill, whatever fits), and it stands; ' + loser.name + ' can’t rally.');
     }
   } else {
-    lines.push('After the exchange: ' + sideStatus(duel.player) + '; ' + sideStatus(duel.opp) + '. The duel goes on — end on a live beat, not a resolution.');
+    lines.push(sideStatus(duel.player) + '; ' + sideStatus(duel.opp) + '. The fight goes on — end on a live beat, not a resolution.');
   }
-  lines.push('Keep every consequence proportionate to the result above. If ' + duel.player.name + ' acted in secret or under cover, this exchange doesn\'t automatically expose that — don\'t blow a concealment they carefully protected unless the result was a real failure; a mere cost is at most a faint, deniable flicker of suspicion.');
-  lines.push('Don\'t re-decide the exchange or the duel. No rolls, no poise, no numbers, no word of this note — just tell it in the story\'s voice.');
-  return lines.join('\n');
+  lines.push(secretLine(me, true));
+  lines.push(SETTLED);
+  return lines.join(' ');
 }
 
 export function buildDuelSequenceDirective(state, adj, res) {
   const duel = state.duel;
-  const strikeLines = res.steps.map((st) => {
-    const t = TIERS[st.tier] || TIERS.FAILURE;
-    return '  • ' + st.strike + ' → ' + t.name;
-  }).join('\n');
-  const ov = TIERS[res.overall] || TIERS.FAILURE;
-  const lines = [
-    RULED_HEAD + ' — duel, round ' + duel.round + ': ' + duel.player.name + ' commits to a combo',
-    'Tell the combo strike by strike, in order, each result exactly as given:',
-    strikeLines,
-    'Taken together the exchange is a ' + ov.name + ' — ' + ov.text,
-  ];
-  lines.splice(3, 0, ...guardLines(adj, duel.player.name, duel.opp.name, res.overall));
-  if (!res.outcome) lines.push(sideStatus(duel.opp) + '. ' + sideStatus(duel.player) + '.');
+  const me = duel.player.name;
+  const foe = duel.opp.name;
+  const chain = res.steps.map((st, i) => (i === 0 ? 'first ' : i === res.steps.length - 1 ? 'and last ' : 'then ') + clause(st.strike) + ' — ' + (SAY_SHORT[st.tier] || SAY_SHORT.FAILURE)).join('; ');
+  const lines = ['About the fight between ' + me + ' and ' + foe + ': ' + me + ' commits to a chain of strikes, and each goes exactly so, in order: ' + chain + '. Taken together, ' + say(res.overall) + '.'];
+  lines.push(...guardLines(adj, me, foe, res.overall));
+  if (!res.outcome && !duel.over) lines.push(sideStatus(duel.opp) + '; ' + sideStatus(duel.player) + '.');
   if (res.outcome) {
-    lines.push('No scores are kept in this duel — each exchange stands on its own, and consequences last only as long as the story carries them. The duel goes on until the story ends it: when everything so far makes a yield, a flight, an interruption, or a finish the honest next beat, write that ending yourself. I\'m not calling a winner.');
+    lines.push('Nothing is being tallied in this fight — each exchange stands on its own. The fight goes on until the story itself ends it; when everything so far makes a yield, a flight, an interruption or a finish the honest next beat, write that ending yourself — nobody is calling a winner.');
   } else if (duel.over) {
-    if (res.victor === 'draw') {
-      lines.push('The combo ends with both fighters down — ' + duel.player.name + ' and ' + duel.opp.name + ' take each other out in the same flurry. Tell the double finish the story\'s earned; neither side wins and neither can rally. That stands.');
-    } else {
-      lines.push(res.victor === 'player'
-        ? duel.opp.name + ' is beaten — tell the finish the story\'s earned (downed, disarmed, dropped). That stands.'
-        : duel.player.name + ' is beaten — tell how ' + duel.opp.name + ' turns the failed combo into the finish. That stands.');
-    }
+    if (res.victor === 'draw') lines.push('The chain ends with both of them down — ' + me + ' and ' + foe + ' take each other out in the same flurry. Tell the double finish the story has earned; neither wins, and it stands.');
+    else lines.push(res.victor === 'player'
+      ? foe + ' is beaten — tell the finish the story has earned, and it stands.'
+      : me + ' is beaten — tell how ' + foe + ' turns the failed chain into the finish, and it stands.');
   } else {
-    lines.push('The duel goes on — end on a live beat, not a resolution.');
+    lines.push('The fight goes on — end on a live beat, not a resolution.');
   }
-  lines.push('Keep every consequence proportionate. If ' + duel.player.name + ' acted in secret or under cover, a successful combo doesn\'t expose that — don\'t blow a concealment they carefully protected off a win; at most a faint, deniable flicker of suspicion.');
-  lines.push('A strike marked as a setback, failure, or fumble did go wrong — show the opponent reading it, slipping it, or making them pay; don\'t quietly let a failed strike land. No rolls, no poise, no tiers, no numbers, no word of this note — just tell it in the story\'s voice.');
-  return lines.join('\n');
+  lines.push('A strike that misses or goes wrong really did — show ' + foe + ' reading it, slipping it or making ' + me + ' pay; never let a failed strike quietly land.');
+  lines.push(secretLine(me, false));
+  lines.push(SETTLED);
+  return lines.join(' ');
 }
 
-/* ARMED: a fight opened on a declaration or squaring-up binds the
- * storyteller to the standoff WITHOUT any outcome — nothing was attempted,
- * nothing was rolled, and nothing may be resolved this turn. */
+/* A fight joined on a declaration or a squaring-up: the standoff binds, and nothing is decided. */
 export function buildArmedDirective(state, adj) {
   const duel = state.duel;
-  const head = duel
-    ? RULED_HEAD + ' — duel joined: ' + duel.player.name + ' vs ' + duel.opp.name
-    : RULED_HEAD + ' — ' + (state.battle && state.battle.kind === 'war' ? 'war' : 'battle') + ' joined';
+  const who = duel ? duel.player.name + ' and ' + duel.opp.name : 'the two sides';
+  const kind = duel ? 'fight' : (state.battle && state.battle.kind === 'war' ? 'war' : 'battle');
   return [
-    head,
-    'They\'re only squaring up: ' + (adj.action || 'the squaring-up') + '. No blow has landed, nothing has succeeded or failed, nothing is decided yet.',
-    'Tell the standoff, the words, and the readying exactly as written — declarations, taunts, and drawn steel aren\'t attacks, and neither side gains or loses anything yet.',
-    'The first real attempt gets adjudicated as round 1. End on the brink, not past it. No rolls, no numbers, no word of this note.',
-  ].join('\n');
+    'About ' + who + ': the ' + kind + ' is joined, but they’re only squaring up so far — ' + clause(adj.action || 'the squaring-up') + '. No blow has landed and nothing is decided yet.',
+    'Tell the standoff, the words and the readying exactly as written — a declaration, a taunt or drawn steel is not an attack, and neither side gains or loses anything yet. The first real attempt is where it begins; end on the brink, not past it.',
+    'Keep all of this between us.',
+  ].join(' ');
 }
 
 export function buildBattleDirective(state, adj, out) {
   const b = state.battle;
   const mc = playerUnit(b);
-  const lines = [
-    RULED_HEAD + ' — battle, round ' + b.round + ': ' + standing(b.allies).length + '/' + b.allies.length + ' vs ' + standing(b.enemies).length + '/' + b.enemies.length,
-  ];
+  const lines = [];
   if (out.mcRes) {
-    const t = TIERS[out.mcRes.tier] || TIERS.FAILURE;
     if (out.mcRes.command) {
-      lines.push(mc.name + ' commands: ' + adj.action + '.');
-      lines.push('The order\'s effect: ' + t.name + ' — let it show in how the whole side fights this round.');
+      lines.push('About the battle: ' + mc.name + ' gives the order — ' + clause(adj.action) + ' — and ' + say(out.mcRes.tier) + '. Let it show in how the whole side fights now.');
     } else {
-      lines.push(mc.name + '\'s move: ' + adj.action + '.');
-      lines.push('Their exchange: ' + t.name + ' — ' + t.text);
-      lines.push(...guardLines(adj, mc.name, 'The enemy', out.mcRes.tier));
+      lines.push('About the battle: ' + mc.name + ' goes for it — ' + clause(adj.action) + ' — and ' + say(out.mcRes.tier) + '.');
+      lines.push(...guardLines(adj, mc.name, 'the enemy', out.mcRes.tier));
     }
     const fx = out.outcome ? {} : (EXCHANGE_EFFECTS[out.mcRes.tier] || {});
-    if (fx.injureOpp && !out.mcRes.command) lines.push('Give their opponent a real, lasting injury and name it.');
-    if (fx.injureSelf && !(adj.playerGuard && !adj.counterPath)) lines.push('Give ' + mc.name + ' a real, lasting injury and name it — it visibly weakens them.');
+    if (fx.injureOpp && !out.mcRes.command) lines.push('Whoever ' + mc.name + ' faced takes a real, lasting wound — name it.');
+    if (fx.injureSelf && !(adj.playerGuard && !adj.counterPath)) lines.push(mc.name + ' takes a real, lasting wound — name it; it weakens them from here on.');
+  } else {
+    lines.push('About the battle: ' + clause(adj.action) + '.');
   }
   const rep = out.reports.slice(0, 4);
-  if (rep.length) lines.push('Elsewhere on the field — weave these in as fact: ' + rep.join(' '));
-  if (out.reports.length > 4) lines.push('The remaining clashes hold without decision.');
+  if (rep.length) lines.push('Elsewhere on the field, and true: ' + rep.join(' '));
+  if (out.reports.length > 4) lines.push('The rest of the clashes hold without a decision.');
   if (out.outcome) {
-    lines.push('Only ' + mc.name + '\'s action was scored here. The wider field — who falls, who holds, how morale sways — follows the story, and the battle goes on until the story ends it: write the rout, stand-down, or escape yourself when the story earns it. I\'m not calling a side\'s victory.');
+    lines.push('Only ' + mc.name + '’s own part was settled. Who falls, who holds and how the nerve of each side sways follows the story, and the battle goes on until the story ends it — write the rout, the stand-down or the escape yourself when it’s earned; nobody is calling the field.');
   } else if (b.over) {
-    if (b.mcDown) lines.push(mc.name + ' is taken out of the fight — tell it (downed, disarmed, or dragged clear, whatever fits the tone), then the field resolves: ' + (b.victor === 'allies' ? 'their side still wins the engagement.' : 'their side is beaten.'));
-    else lines.push('It\'s decisive: the ' + (b.victor === 'allies' ? mc.name + '\'s side has won' : 'enemy side has won') + ' this engagement. Tell the ending the story\'s earned (rout, surrender, retreat, capture, or worse, whatever fits the tone). That stands.');
+    if (b.mcDown) lines.push(mc.name + ' is taken out of the fight — tell it (downed, disarmed or dragged clear, whatever fits) — and then the field resolves: ' + (b.victor === 'allies' ? 'their side still wins the day.' : 'their side is beaten.'));
+    else lines.push('It’s decisive: ' + (b.victor === 'allies' ? mc.name + '’s side has won' : 'the enemy has won') + '. Tell the ending the story has earned — a rout, a surrender, a retreat, a capture or worse — and it stands.');
   } else {
-    lines.push('How both sides stand: allies ' + moraleWord(moraleOf(b.allies)) + ', enemies ' + moraleWord(moraleOf(b.enemies)) + '. The battle goes on — end on a live beat, not a resolution.');
+    lines.push(mc.name + '’s side is ' + moraleWord(moraleOf(b.allies)) + '; the enemy is ' + moraleWord(moraleOf(b.enemies)) + '. The battle goes on — end on a live beat, not a resolution.');
   }
-  lines.push('Don\'t re-decide any outcome above. No rolls, no poise, no numbers, no word of this note — just tell it in the story\'s voice.');
-  return lines.join('\n');
+  lines.push(SETTLED);
+  return lines.join(' ');
 }
 
 export function buildWarDirective(state, adj, out) {
   const b = state.battle;
   const mc = playerUnit(b);
-  const aliveA = standing(nonPlayer(b.allies)).length;
-  const aliveE = standing(b.enemies).length;
-  const lines = [
-    RULED_HEAD + ' — war, round ' + b.round + ': ' + aliveA + '/' + nonPlayer(b.allies).length + ' formations vs ' + aliveE + '/' + b.enemies.length,
-    mc.name + ' orders: ' + adj.action + '.',
-  ];
+  const lines = ['About the war: ' + mc.name + ' orders it — ' + clause(adj.action) + '.'];
   if (out.focalRes) {
-    const t = TIERS[out.focalRes.tier] || TIERS.FAILURE;
     if (out.focalRes.stratagem) {
-      if (out.condNote && out.condNote.favors === 'allies') {
-        lines.push('The stratagem takes hold: ' + t.name + '. A lasting condition now favors ' + mc.name + '\'s side' + (out.condNote.mod > 1 ? ' strongly' : '') + ' — show it reshaping the field.');
-      } else if (out.condNote && out.condNote.favors === 'enemies') {
-        lines.push('The stratagem backfires: ' + t.name + '. It now works against ' + mc.name + '\'s side (wind turns, ruse seen through, ground betrays them) — show the reversal.');
-      } else {
-        lines.push('The stratagem: ' + t.name + ' — ' + t.text);
-      }
+      if (out.condNote && out.condNote.favors === 'allies') lines.push('The stratagem takes hold, and the field now favours ' + mc.name + '’s side' + (out.condNote.mod > 1 ? ' strongly' : '') + ' — show it reshaping the fight.');
+      else if (out.condNote && out.condNote.favors === 'enemies') lines.push('The stratagem backfires — the wind turns, the ruse is seen through, the ground betrays them — and now it works against ' + mc.name + '’s side. Show the reversal.');
+      else lines.push('The stratagem: ' + say(out.focalRes.tier) + '.');
     } else if (out.focalRes.personal) {
-      lines.push(mc.name + ' personally engages ' + (out.target ? out.target.name : 'the enemy') + ': ' + t.name + ' — ' + t.text);
-      lines.push(...guardLines(adj, mc.name, out.target ? out.target.name : 'The enemy', out.focalRes.tier));
+      const foe = out.target ? out.target.name : 'the enemy';
+      lines.push(mc.name + ' takes the field in person against ' + foe + ', and ' + say(out.focalRes.tier) + '.');
+      lines.push(...guardLines(adj, mc.name, foe, out.focalRes.tier));
     } else {
-      lines.push((out.acting ? out.acting.name : 'The ordered formation') + ' executes against ' + (out.target ? out.target.name : 'the enemy') + ': ' + t.name + ' — ' + t.text);
+      lines.push((out.acting ? out.acting.name : 'The ordered formation') + ' carries it out against ' + (out.target ? out.target.name : 'the enemy') + ', and ' + say(out.focalRes.tier) + '.');
       if (out.target && !out.target.standing) lines.push(out.target.name + ' is broken and routs from the field.');
       if (out.acting && !out.acting.standing) lines.push(out.acting.name + ' is broken in the attempt.');
     }
   }
   const rep = out.reports.slice(0, 3);
-  if (rep.length) lines.push('Along the rest of the line (weave in as fact): ' + rep.join(' '));
+  if (rep.length) lines.push('Along the rest of the line, and true: ' + rep.join(' '));
   if (b.conditions && b.conditions.length) {
-    lines.push('Standing conditions: ' + b.conditions.map((c) => '"' + c.name + '" (favors ' + (c.favors === 'allies' ? mc.name + '\'s side' : 'the enemy') + ')').join('; ') + '.');
+    lines.push('Still shaping the field: ' + b.conditions.map((c) => clause(c.name) + ' (in ' + (c.favors === 'allies' ? mc.name + '’s favour' : 'the enemy’s favour') + ')').join('; ') + '.');
   }
   if (out.outcome) {
-    lines.push('Only this order was scored. Casualties, the tide of the line, and the day\'s end follow the story — the engagement goes on until the story ends it. I\'m not calling the field.');
+    lines.push('Only this order was settled. The losses, the tide of the line and the end of the day follow the story — the engagement goes on until the story ends it; nobody is calling the field.');
   } else if (b.over) {
-    if (b.mcDown) lines.push(mc.name + ' falls amid the fighting — tell it (struck down, machine disabled, dragged from the field, whatever fits the tone). Command collapses: the enemy takes the day.');
-    else lines.push('It\'s decisive: the ' + (b.victor === 'allies' ? 'enemy line shatters — ' + mc.name + '\'s side takes the field' : 'allied line breaks — the enemy takes the field') + '. Tell the rout, surrender, or withdrawal the story\'s earned. That stands.');
+    if (b.mcDown) lines.push(mc.name + ' falls in the fighting — tell it (struck down, disabled, dragged from the field, whatever fits) — and command collapses: the enemy takes the day.');
+    else lines.push('It’s decisive: ' + (b.victor === 'allies' ? 'the enemy line shatters and ' + mc.name + '’s side takes the field' : 'the allied line breaks and the enemy takes the field') + '. Tell the rout, the surrender or the withdrawal the story has earned, and it stands.');
   } else {
-    lines.push('Formations that fall are broken or routed, not annihilated, unless the story demands worse. The engagement goes on — end on a live beat, not a resolution.');
+    lines.push('A formation that falls is broken or routed, not wiped out, unless the story demands worse. The engagement goes on — end on a live beat, not a resolution.');
   }
-  lines.push('Don\'t re-decide any outcome above. No rolls, no strength numbers, no word of this note — just tell it at battlefield scale, in the story\'s voice.');
-  return lines.join('\n');
+  lines.push('It’s settled — tell it at the scale of the field, in the story’s own voice, and keep all of this between us.');
+  return lines.join(' ');
+}
+
+/* the fight let go by the story itself, and a beat inside a fight that risks nothing */
+export function buildFightOverDirective(action) {
+  return 'About the fight: it’s over — ' + clause(action) + '. Tell the winding-down the story has earned, honestly, from everything that came before; nothing further is decided. Keep all of this between us.';
+}
+export function buildLullDirective(state, action) {
+  const who = state && state.duel ? state.duel.player.name + ' and ' + state.duel.opp.name : 'the two sides';
+  return 'About the fight between ' + who + ': this moment risks nothing in it — ' + clause(action) + '. Tell it exactly as written, but the fight itself isn’t decided now: nobody lands, yields or falls unless the words already did it. End on the live tension.'
+    + ' Keep all of this between us.';
 }
 
 /* ------------------------------------------------------------------ */

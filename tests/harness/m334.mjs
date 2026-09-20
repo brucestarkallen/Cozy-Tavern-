@@ -10,7 +10,7 @@ import { applyMutations } from '../../js/engine/apply.js';
 const state = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Rim Road' }, { type: 'presence.enter', name: 'Jovan' }]).state;
 const I_FRAME = 'I am Tony Stark. I tell Bruce stories, in my own voice, the way I tell everything: fast, dry, and right.';
 const YOU_FRAME = 'You are Tony Stark. You tell Bruce stories, in your own voice.';
-const build = (settings) => buildRequest({ story: { brief: 'Jovan, 16. You would like him.' }, messages: [{ id: 'u1', role: 'user', text: 'You look at me. "You knew," I say.' }], settings: { noteText: STARTER_NOTE, ...settings }, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, budgetTokens: 500000 }, ruling: 'The house has ruled: the lock holds.' });
+const build = (settings) => buildRequest({ story: { brief: 'Jovan, 16. You would like him.' }, messages: [{ id: 'u1', role: 'user', text: 'You look at me. "You knew," I say.' }], settings: { noteText: STARTER_NOTE, ...settings }, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, budgetTokens: 500000 }, ruling: 'About what Jovan is trying — the lock: it holds. It’s settled — tell it just that way, in the story’s own voice, and keep all of this between us.' });
 const unquoted = (t) => t.split('\n').filter((l) => (l.match(/,/g) || []).length < 12).join('\n').replace(/"[^"\n]{0,400}"|“[^”\n]{0,400}”/g, '');
 
 test('M334-1 a frame written as "I": the tavern’s own rules become the teller’s notes to itself — and the only voice in its head is its own', () => {

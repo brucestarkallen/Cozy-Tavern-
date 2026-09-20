@@ -8192,3 +8192,71 @@ No user payload is ever committed, shipped, or quoted into shipped files.
   and the newest page both ride, the request only grew, the room line is not a smaller one.
 - NOT VERIFIED: GLM 4.6 itself — no key here. What is sent is proven; how much it lifts that model only his play can show.
 - version.js -> m344-001.
+
+# M345 — "why is my integrated Arbiter stupid": the referee's outcome never reached the storyteller, and the cast sheet was seeded blind
+The writer: the cast sheet ("How they measure") left out his main character Jovan and filed the paper bag over Jovan's head
+under Kaelen. He ordered the referee fixed and analysed, ALL of Arbiter in behind its switch (off = the storyteller decides
+everything), and every word natural — never corporate — so his teller's persona holds.
+- ROOT 1 — THE OUTCOME NEVER REACHED THE STORYTELLER. Since M11 chat.js set state.pendingVerdict and consumed it, and never
+  passed `ruling:` to buildRequest (`git log -S"ruling:" -- js/ui/chat.js` is empty: it never did). M11's injection law
+  called buildRequest with the ruling by hand, so it was green while the wire carried nothing. Measured in the real app (DOM-68):
+  with the hand-off removed, the closing words open "Before you write: reread…" — no outcome; with it, "About what Jovan is
+  trying — feint low, then the disarm: …". Fixed at the hand-off: rulingFor(state, lastUser.id, ooc) in BOTH buildRequest
+  calls (the probe measures the room with it), and only the outcome ruled on THIS page of the writer's (pendingVerdict.forUser)
+  — never one left from a send that stopped before it was told, never on an out-of-character turn.
+- WHERE IT RIDES: first in the closing words, right after the writer's page it settles — Arbiter's depth 0 — led by the
+  teller's name (toTeller), never through inVoice (its action words are story text: "sneak into the house" stays a house).
+  This is the one thing the house says in the closing words that is longer than a sentence (M341's law is about SHAPE —
+  headings, templates, a manual's tone — and the outcome has none of those): it is the writer's own word about his own move.
+- THE WORDS: every outcome is said the way a person says it — "About the fight between Jovan and Kaiser: Jovan goes for it —
+  a feint low, then the disarm — and it works, but at a fair price — …". No "The house has ruled — duel, round 3", no tier in
+  capitals, no numbers (wounds are "a lasting wound", "two lasting wounds"), no rounds, poise, rolls, house, note or referee.
+  Every law of the old text is still said: the binding outcome, proportion, the kept secret (once — it was said twice), the
+  guard and its one honest way in, the lasting wound, the called winner or the draw, the fight the story ends, the chain
+  strike by strike, the standoff where nothing is decided. A condition's note is words too ("now carries a broken arm, and it
+  tells in close fighting while it lasts"). The craft's line teaches the words the outcome really opens with ("An outcome
+  already settled = when the writer's closing words say how an attempt of his turns out…"); a stored craft's old line is
+  spoken as today's (refereeCraft).
+- ROOT 2 — THE SEEDER WAS BLIND. It was handed twelve page-tails of 600 characters labelled "Player:"/"Story:", asked to name
+  the player, and never told who the player IS — nor shown the brief, the people's pages, their bodies or the record. It
+  guessed Kaelen; the guessed name was thrown away (the ledger knew "Jovan") but the actors built on the guess were kept. It
+  answered in 600 tokens (a big cast was cut off mid-list), seeded once (empty sheet) and after fights, so the wrong sheet
+  never healed, and a re-seed could LOWER a rating. Now (Arbiter v0.42's seeder, with Cozy's ledger): <player> names Jovan and
+  labels his pages "Jovan (the writer)"; the brief, the cast notes, every person's page (the scene's first), their bodies, the
+  locks, the newest record lines and the newest pages whole — sized to the worker's room; 8,000 tokens to answer; Jovan FIRST,
+  every named person, the story's own hierarchy, the current level, people only; a disguise, clothing or a look is never a
+  condition. In code (mergeSeed): every name that means him lands on HIS entry; a name the ledger has a page for is filed
+  under the page's name (M320); the writer's hand is locked; a fight's estimate gives way; this seeder's numbers only rise;
+  its own reading of what someone carries is replaced each time; the referee's filings (now tagged by:'referee') are never
+  taken back. Him left out = asked once more, by name.
+- THE APP REPAIRS WHAT IT CAN DETECT: a sheet without the new stamp (sheet.seedVersion 2) is the blind seeder's — the next page
+  re-reads it whole: its numbers replaced, its misfiled conditions let go, names no page stands for dropped. The writer's
+  Kaelen loses Jovan's bag on his next page, with no hand on it (DOM-68). migrateSheet keeps the stamp (it dropped every field
+  but actors/playerName — the stamp would have read "blind" on every load and re-seeded every page).
+- WHEN THE SHEET IS WEIGHED: the first pages, after a fight, when the main character is missing, when someone in the scene is
+  not on it (three pages apart; a face the last weighing saw and left off never calls it again), every hundred pages.
+- THE REFEREE READS WHAT IT RULES ON: his name spelled out (<player>, every part of it is him), the whole sheet with him first
+  (was twelve rows), who is here and who they are (their pages' first lines, their bodies, the locks), the brief, and the eight
+  newest pages whole (was six pages cut to their last 400 characters) — the action once. Its prompts are Arbiter v0.42's rules
+  in Cozy's JSON: the skill by the act's physical nature; a dirty move is an edge, never a penalty; circumstance two-sided;
+  the opposition is whoever the story says and never any part of his name, never a place or a faction; the established guard
+  and its one honest counter-path; lasting damage registered, never poured into circumstance; words do not parry steel (a
+  talking beat under attack is fought at a disadvantage); any combatant rated by threat; scale mismatch; gear up to +3.
+- THE SWITCH (Settings → the referee): OFF = the storyteller decides everything. Not one byte of it rides: no outcome, no slot,
+  no craft line about settled outcomes, no fight or nerve in the state of things; no referee call, no seeder; a fight standing
+  when it was switched off is let go (its hurts go to the body ledger, as at any fight's end).
+- The drawer's sheet leads with him ("Jovan (you)"), and says so when he is not weighed yet.
+- NOT PORTED, BY DESIGN: Arbiter's event engine and world threads — the world agent (M29) already moves the world between
+  pages; a second one would be two ways to do one thing. Fast mode (no referee call) — it hands footing back to the model; the
+  writer asked for quality. Hand controls for the sheet — the heal and the triggers above keep it right without a hand; the
+  housekeeper's combat.begin/combat.end remain the way to open or close a fight by hand.
+- TESTS: m345.mjs M345-1…10 (the seeder's real reading; the writer's sheet through the store and back; the heal; growth and
+  the hand; asked again by name; when it is due; the referee's reading; every outcome's words scanned for capitals, numbers
+  and machinery; where the outcome rides and OFF = nothing; tagged conditions and identity). DOM-68 walks it in the app. Moved
+  laws, updated deliberately: M11 injection (first in the closing words, not the briefing), agents.mjs, M327-1, M334, M36-1.
+  Also: M174 (the action rides once now — the shown-swipe law is held on an earlier page of the writer's), M28-7 (run, not
+  read: the seeder's merge itself — a known name stands, an unknown one is learned, a label is never a name), M72-9 (the seeder
+  may renew its leash; it still answers to the chain first). Two walk checks read the DOM in the same instant the store changed
+  and raced under load (DOM-45 and DOM-65 each failed once in a full walk and passed alone) — they now wait for the render.
+  GATES ON THE PUSHED TREE: harness 673/673, walk 87/87 (alone), longplay 8/8, lint clean.
+- version.js -> m345-001.

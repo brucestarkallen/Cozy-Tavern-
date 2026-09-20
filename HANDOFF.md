@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m344-001)
+# Cozy Tavern — handoff for the next session (state at m345-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M344). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M345). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 663 checks on the engines, assembler, workers, laws.
+- `node tests/harness/run.mjs` — 673 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 86 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 87 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,11 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- THE REFEREE'S OUTCOME REACHES THE STORYTELLER (M345) — it never did from M11 to M344: chat.js never passed `ruling:`. It rides
+  FIRST IN THE CLOSING WORDS (toTeller, never inVoice), only for THIS page of the writer's (pendingVerdict.forUser), in words a
+  person says (no tier names, numbers, rounds, poise). The referee OFF = not one byte of it, no referee or seeder call, a standing
+  fight let go. The cast sheet is seeded WITH the ledger in view (<player> names the MC; brief, people, bodies, record, pages), the
+  MC first; a sheet without seedVersion 2 heals itself on the next page. Prove any referee change in the app (DOM-68).
 - THREE OPT-IN SWITCHES, EACH "OFF = NOT ONE BYTE" AND HELD BY A BYTE-FOR-BYTE LAW: think-on-page (M339), older model (M343), and the
   cut-before-header tick. Anything that adds words to what the storyteller reads goes behind a switch like these, in the
   writer's voice, one line — or it does not go in (M341/M342). The storyteller's room is read through chat.js roomOf ONLY, and roomOf is the provider's room: NO switch may ever take a page, the note or the record out of a request (M344) — help a weaker model by ADDING what is far (assemble/anchor.js), never by removing.

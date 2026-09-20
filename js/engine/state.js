@@ -269,10 +269,15 @@ function migrateSheet(sheet) {
     if (!name.trim()) continue;
     actors[name.trim()] = entry;
   }
-  return {
+  const out = {
     actors,
     playerName: typeof sheet.playerName === 'string' ? sheet.playerName.trim().slice(0, 60) : '',
   };
+  /* M345: the seeder's stamp rides with the sheet — dropped here, every load read as the blind seeder's work */
+  if (Number.isFinite(sheet.seedVersion)) out.seedVersion = sheet.seedVersion;
+  if (Number.isFinite(sheet.seededAtPage)) out.seededAtPage = sheet.seededAtPage;
+  if (Array.isArray(sheet.seenPresent)) out.seenPresent = sheet.seenPresent.filter((n) => typeof n === 'string').slice(0, 40);
+  return out;
 }
 
 function migrateFight(fight) {
@@ -621,7 +626,7 @@ export function stateView(budgetTokens) {
 
 /* M338: the words the blind spots are handed over in — what they are, and what to do with them */
 export const BLIND_HEAD = 'Who does NOT know what — no page shows them learning these. One of them may still guess, suspect, or be told on this page; but if they SPEAK of it or ACT on it, the page must show how they came to know, truly (who told them, what they saw). Otherwise they do not know it, and never claim a telling that did not happen: ';
-export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [] } = {}) {
+export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [], noFight = false } = {}) {
   if (!state || typeof state !== 'object') return '';
 
   const clockMinutes = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
@@ -639,14 +644,14 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M11: a fight that stands is the freshest fact of the scene and never
    * sheds. (The referee's ruling itself no longer rides here — it has its
    * own "The house has ruled" slot in the dynamic tail, assemble/stack.js.) */
-  const fightLine = renderFightLine(state);
+  const fightLine = noFight ? '' : renderFightLine(state); /* M345: the referee off — no fight is kept for the storyteller */
   if (fightLine) sections.push({ shed: 0, text: fightLine });
 
   /* M11: the player's nerve, when it's fraying — the storyteller should
    * let strain show without ever speaking numbers. The pool's max rides the
    * settings (3..12); half of the smallest pool is 1.5, so "fraying" below
    * 3 is a fair reading of the ported schedule across every setting. */
-  if (Number.isFinite(state.composure)) {
+  if (!noFight && Number.isFinite(state.composure)) {
     if (state.composure < 1.5) sections.push({ shed: 1, text: mcName(state) + ' is near breaking — the strain shows.' });
     else if (state.composure < 3) sections.push({ shed: 1, text: mcName(state) + '\'s nerve is fraying.' });
   }

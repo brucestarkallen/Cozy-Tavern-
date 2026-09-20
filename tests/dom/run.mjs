@@ -2538,7 +2538,8 @@ test('DOM-45 a housekeeper retry that is stopped takes nothing: the answer the w
     const turns = (await loadSession(st.id)).turns;
     eq(turns.map((t) => t.role).join(' '), 'writer housekeeper', 'the question and the answer are back (the session was left empty before)');
     assert(/FIRST ANSWER/.test(turns[1].text), 'the answer as it was');
-    assert(qa('#hk-thread .hk-bubble').some((b) => /FIRST ANSWER/.test(b.textContent)), 'and on the sheet');
+    /* M345: the sheet re-renders after the session is written back — it is waited for, not raced (a loaded walk read it a frame early) */
+    await until(() => qa('#hk-thread .hk-bubble').some((b) => /FIRST ANSWER/.test(b.textContent)), 'and on the sheet', 10000);
     eq(q('#hk-input').value, '', 'the question is not left in the box as though it had never been asked');
     assert(q('#hk-thread details.hk-cut'), 'what the retry had thought is kept under it');
     /* and a retry that LANDS still keeps the old answer a swipe away */
@@ -3473,6 +3474,7 @@ test('DOM-65 THE WRITER’S TWO SCREENSHOTS: with thinking off the teller though
     assert(page.text.startsWith('[Lakeside path, west-bench bend') && /"Plus one," Aurora said/.test(page.text) && !/delicious/.test(page.text), 'the page is the page: ' + page.text.slice(0, 80));
     assert(/Oh this is delicious/.test(String(page.thinking || '')) && /Let me write the walk/.test(String(page.thinking || '')), 'what it thought is kept where thinking is kept');
     eq((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length, 2, 'one page, not two');
+    await until(() => { const m = qa('#thread .msg-assistant').slice(-1)[0]; return m && /Plus one/.test(m.textContent); }, 'the kept page on the thread (the thread renders after the store — waited for, not raced: M345)', 10000);
     { const shown = qa('#thread .msg-assistant').slice(-1)[0]; const body = [...shown.querySelectorAll('p')].filter((el) => !el.closest('details')).map((el) => el.textContent).join(' '); assert(/Plus one/.test(shown.textContent) && !/Oh this is delicious/.test(body), 'and he never reads the thinking as story (M340: the selector this used matched nothing)'); }
     /* 2. the switch OFF: nothing is asked */
     house.state.storyAnswer = () => H2 + 'They walked on.';
@@ -3612,6 +3614,80 @@ test('DOM-67 THE OLDER-MODEL SWITCH in the app: it ships OFF and the request say
     house.state.storyAnswer = priorStory;
     if (was === true) await db.settings.set('olderModel', true); else await db.settings.delete('olderModel');
     if (env.ctx.chat.noteOlderModel) await env.ctx.chat.noteOlderModel();
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-68 THE WRITER’S CAST SHEET AND THE REFEREE, IN THE APP: a sheet the blind seeder made (Jovan missing, his paper bag on Kaelen) heals itself on the next page — Jovan first, the bag gone; a chancy move is ruled with his name spelled out and the brief in view, and THE OUTCOME REACHES THE STORYTELLER, first in the closing words (it never did before M345); the referee OFF: no referee, no seeder, no outcome, and a standing fight is let go (M345)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = (n) => '[Ravenwood courtyard — Monday, September 7, 2026 | 08:' + String(n % 60).padStart(2, '0') + ' | clear | paper bag | at the gate]\n\n';
+  const st = await db.stories.create({ title: 'the paper bag' });
+  await db.stories.update(st.id, { keeper: false, brief: 'Jovan, 16, hides his face under a paper bag. Kaelen is the fourth seat of Ravenwood; Ivar the first.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I pull the paper bag over my head and step into the courtyard.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H(1) + 'Kaelen stared at the bag. "Is that you, Jovan?"' });
+  await db.messages.append(st.id, { role: 'user', text: 'I nod. "Morning."' });
+  await db.messages.append(st.id, { role: 'assistant', text: H(2) + 'Kaelen raised his practice sword. "Then show me."' });
+  let ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Ravenwood courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kaelen' }]).state;
+  ledger.characters = { Kaelen: { core: 'Kaelen, fourth seat of Ravenwood; a careful swordsman.', state: 'sword raised', threads: [] } };
+  ledger.sheet = { ...ledger.sheet, actors: { Kaelen: { default: 4, domains: { melee: 4 }, _auto: true, conditions: [{ name: 'Paper bag over head', mod: -1 }] }, Ivar: { default: 7, domains: { melee: 7 }, _auto: true } } };
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  const refSys = /You are the referee of a story|referee of a one-on-one duel/;
+  const seedSys = /You keep the cast sheet of a story/;
+  house.state.storyAnswer = () => H(9) + 'Steel rang in the courtyard.';
+  house.state.workerAnswer = (body, sys) => {
+    if (refSys.test(sys)) return JSON.stringify({ check: true, actor: 'Jovan', action: 'feint low, then the disarm', kind: 'actor', domain: 'melee', opposition: 'Kaelen', tier: 'peer', circumstance: 0, stakes: 'his sword' });
+    if (seedSys.test(sys)) return JSON.stringify({ player_story_name: 'Jovan', actors: [{ name: 'Jovan', default: 6, domains: { melee: 7 } }, { name: 'Kaelen', default: 5, domains: { melee: 6 } }, { name: 'Ivar', default: 8, domains: { melee: 9 } }] });
+    return '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
+  };
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers — the last of them (the seeder) finished, not only started', 40000); return house.state.calls.slice(from); };
+  const sysOf = (c) => (Array.isArray(c.body.messages) ? c.body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : String(c.body.system || ''));
+  const userOf = (c) => (Array.isArray(c.body.messages) ? c.body.messages.filter((m) => m.role === 'user').map((m) => m.content).join('\n') : '');
+  const was = await db.settings.get('refereeOn');
+  try {
+    await db.settings.delete('refereeOn');
+    const calls = await send('I try to disarm Kaelen with a feint low.');
+    const ref = calls.find((c) => c.isWorker && refSys.test(sysOf(c)));
+    assert(ref, 'the referee was asked');
+    assert(/The player character is "Jovan"/.test(userOf(ref)) && /hides his face under a paper bag/.test(userOf(ref)) && /Kaelen — Kaelen, fourth seat/.test(userOf(ref)), 'it read his name, the brief and who Kaelen is');
+    const story = calls.find((c) => !c.isWorker);
+    const closing = story.body.messages[story.body.messages.length - 1].content;
+    assert(/^(?:[^—\n]{1,40} — )?[Aa]bout what Jovan is trying — feint low, then the disarm: /.test(closing), 'THE OUTCOME REACHES THE STORYTELLER, first in the closing words: ' + closing.slice(0, 160));
+    assert(!/\b(?:SUCCESS|FAILURE|DECISIVE|SETBACK|DISASTER|house has ruled|round \d)\b/.test(closing), 'in words, never a form');
+    const seed = calls.find((c) => c.isWorker && seedSys.test(sysOf(c)));
+    assert(seed, 'the sheet the blind seeder made was weighed again on this page');
+    assert(/is Jovan\. Every page labelled "Jovan \(the writer\)"/.test(userOf(seed)), 'and the seeder was told who the writer plays');
+    const sheet = (await loadState(st.id)).sheet;
+    eq(Object.keys(sheet.actors)[0] === 'Jovan' || Boolean(sheet.actors.Jovan), true, 'Jovan is on his sheet');
+    eq(sheet.actors.Jovan.default, 6, 'weighed');
+    assert(!sheet.actors.Kaelen.conditions, 'Kaelen no longer wears Jovan’s bag: ' + JSON.stringify(sheet.actors.Kaelen));
+    eq(sheet.seedVersion, 2, 'stamped');
+    /* the drawer names him first, as "you" */
+    /* OFF */
+    await openSettings(); if (q('[data-room="story"]')) click(q('[data-room="story"]'));
+    const box = await until(() => q('#referee-on'), 'the switch is in Settings', 10000);
+    if (box.checked) { box.checked = false; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => (await db.settings.get('refereeOn')) === false, 'kept off', 5000);
+    await closeSettings();
+    let s2 = await loadState(st.id);
+    s2 = applyMutations(s2, [{ type: 'combat.begin', kind: 'duel', opponent: 'Kaelen', domain: 'melee', opponentRating: 5 }]).state;
+    await saveState(st.id, s2);
+    assert((await loadState(st.id)).duel, 'a fight stands before the switch-off page');
+    const offCalls = await send('I try to disarm Kaelen again.');
+    assert(!offCalls.some((c) => c.isWorker && (refSys.test(sysOf(c)) || seedSys.test(sysOf(c)))), 'OFF: no referee, no seeder');
+    const offStory = offCalls.find((c) => !c.isWorker);
+    const all = JSON.stringify(offStory.body);
+    assert(!/[Aa]bout what Jovan is trying|An outcome already settled|The house has ruled =|A duel is joined/.test(all), 'OFF: not one word of it reaches the storyteller');
+    eq((await loadState(st.id)).duel, null, 'OFF: the standing fight was let go');
+  } finally {
+    house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker;
+    if (was === false) await db.settings.set('refereeOn', false); else await db.settings.delete('refereeOn');
     await closeSettings();
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));

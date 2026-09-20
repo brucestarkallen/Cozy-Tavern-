@@ -3048,12 +3048,14 @@ export function initChat(ctx) {
      * go, the actor sheet fills itself in the background. It never blocks a
      * turn, and it keeps its own quiet ways (failures stay off the workers
      * line, as M11 shipped them). */
-    enqueue('seeder', async ({ signal, stale }) => {
+    enqueue('seeder', async ({ signal, stale, renew }) => {
       try {
         if (stale()) return { silent: true };
+        /* M345: the sheet is the referee's — with the referee off it is not kept */
+        if (!(await refereeSettings()).on) return { silent: true };
         const connection = await resolveWorkerConnection(story, 'seeder');
         if (!connection) return { silent: true };
-        await maybeSeedSheet({ connection, storyId: story.id, signal });
+        await maybeSeedSheet({ connection, storyId: story.id, signal, renew, brief: story.brief || '', castNotes: story.castNotes || '' });
       } catch (err) { /* the seeder's trouble is its own */ }
       return { silent: true };
     });
@@ -3074,6 +3076,12 @@ export function initChat(ctx) {
       tellerPerson: await db.settings.get('tellerPerson'), /* M334: 'first' | 'second' | unset = follow the frame */
     };
   }
+
+  /* M345: the outcome settled for this turn — the words the storyteller reads. Only the one ruled on THIS page of the
+   * writer's: never on an out-of-character turn (the referee does not rule on one), and never an outcome left over from
+   * a send that stopped before it was told (it would settle a move the writer is no longer making). */
+  const rulingFor = (st, userId, ooc) => (!ooc && userId && st && st.pendingVerdict && st.pendingVerdict.forUser === userId
+    && typeof st.pendingVerdict.directive === 'string' ? st.pendingVerdict.directive : '');
 
   /* M11: the referee's dials (Settings → The referee). `on` is the master
    * switch; the rest shape the gate and the engine. */
@@ -3453,7 +3461,7 @@ export function initChat(ctx) {
         }
         history = fullHistory.slice(0, at);
       }
-      const settingsValues = await gatherSettings();
+      const settingsValues = { ...(await gatherSettings()), refereeOn: (await db.settings.get('refereeOn')) !== false }; /* M345: the switch reaches the assembler */
       /* M339: THE SWITCH — "let a model that cannot think, think on its page". OFF (as it ships): not one byte of any request
        * changes. ON: on a turn whose connection has its thinking OFF (a story page, never an out-of-character answer) the
        * closing message asks the teller to think first inside a think-tag and then write the page. A connection that
@@ -3497,6 +3505,13 @@ export function initChat(ctx) {
         const { signal, done } = workerSignal(12000); /* the referee's 12s budget */
         try {
           const refSettings = await refereeSettings();
+          /* M345: THE REFEREE OFF MEANS THE STORYTELLER DECIDES EVERYTHING — a fight the referee was keeping when it was
+           * switched off is let go (its lasting hurts go to the body ledger, as at any fight's end), so nothing of it is
+           * carried for the storyteller or left standing for the day the switch comes back */
+          if (!refSettings.on && ((state.duel && state.duel.active) || (state.battle && state.battle.active))) {
+            state = applyMutations(state, [{ type: 'combat.end' }]).state;
+            await saveState(story.id, state);
+          }
           if (refSettings.on) {
             const workerConnection = await resolveWorkerConnection(story, 'referee');
             const step = await refereeStep({
@@ -3507,10 +3522,11 @@ export function initChat(ctx) {
               state,
               settings: refSettings,
               signal,
+              brief: story.brief || '', castNotes: story.castNotes || '', /* M345: the referee reads who these people are */
             });
             state = (step && step.state) || state;
             if (step && step.ruling) {
-              state = { ...state, pendingVerdict: step.ruling, lastVerdict: step.ruling };
+              state = { ...state, pendingVerdict: { ...step.ruling, forUser: lastUser.id }, lastVerdict: step.ruling }; /* M345: whose page it settles */
             }
             /* The referee's timeline and fight state move even on quiet
              * turns — save whatever the step settled. */
@@ -3604,6 +3620,7 @@ export function initChat(ctx) {
         directorNote: renderDirectorNote(directorState), editorEye: renderEditorNote(editorState),
         houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
         worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
+        ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
       /* M264: the record rides in the room the storyteller's context leaves it */
@@ -3645,6 +3662,9 @@ export function initChat(ctx) {
         houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
         /* M29: the world agent's word for this turn. */
         worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
+        /* M345: THE SETTLED OUTCOME REACHES THE STORYTELLER. Since M11 the referee ruled into the ledger and the drawer,
+         * and this call never handed the ruling on — the storyteller never once read it. */
+        ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       });

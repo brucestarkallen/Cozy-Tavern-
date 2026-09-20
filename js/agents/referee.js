@@ -34,21 +34,27 @@ import { parseFirstObject } from './jsonutil.js';
 import { pageText as wirePageText } from '../assemble/stack.js'; /* M174: the one reader of a page's words */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
-import { applyMutations } from '../engine/apply.js';
+import { applyMutations, storyTurn } from '../engine/apply.js';
 import { loadState, saveState, notify } from '../engine/state.js';
+import { findPersonKey, importanceOf } from '../engine/people.js'; /* M345: the seeder and the referee read who people ARE */
+import { renderBodies } from '../engine/bodies.js';
+import { renderCanon } from '../engine/canon.js';
+import { writerText, wholePage, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js';
+import { loadMemory, recordFor } from './memory.js';
+import { contextOf } from '../providers/room.js';
 import { db } from '../store.js';
 import {
   clamp, probFromDelta, sliceOutcome, rngFloat, TIER_MEANING,
 } from '../engine/referee-math.js';
 import {
   ENGINE_DEFAULTS, engineSettings, mcName, isMcAlias, samePersonName,
-  findActor, findActorKey, safeKey, ratingFor, tierRating, combatDomain,
+  findActor, findActorKey, findActorKeyExact, findActorKeySamePerson, reconcilePlayerEntries, safeKey, ratingFor, tierRating, combatDomain,
   composurePenalty, applyComposureChange,
   passiveComposureRecovery, applyConditionChange,
   duelActive, battleActive, startDuel, resolveDuelExchange, resolveDuelSequence,
   resolveBattleRound, resolveWarRound,
   buildDirective, buildDuelDirective, buildDuelSequenceDirective, buildArmedDirective,
-  buildBattleDirective, buildWarDirective, renderFightLine, RULED_HEAD,
+  buildBattleDirective, buildWarDirective, buildFightOverDirective, buildLullDirective, renderFightLine,
 } from '../engine/duels.js';
 
 const MAX_TOKENS = 600; /* one small JSON object; thinking is off on the wire (M28) */
@@ -192,33 +198,37 @@ export function userMessageHash(text) {
 
 const TIER_LIST = 'trivial, easy, moderate, hard, extreme, mook, trained, elite, formidable, inferior, peer, superior';
 
+/* M345: Arbiter v0.42's rating scale, for ANY combatant — a person, a beast, a monster, a machine */
 const RATING_GUIDE = [
-  'Ratings are 0-10. Guide — untrained 2, competent 5, veteran 6, master 8, legendary 9, apex 10. Doubt means lower.',
-  '1-2 clumsy, hopeless. 3-4 a hobbyist, trained mook. 5 an even chance, dependable under pressure. 6 dangerous, honed.',
-  '7 famous for it. 8 among the best alive. 9 myth made flesh. 10 unbeatable — reserve it for the truly unmatched.',
-  'Ruthlessly honest. Most people are 3-5 at most things.',
+  'Ratings are 0-10, by effective threat, for ANY kind of combatant — a person, a beast, a monster, a machine, an alien: 2 untrained, 4 trained, 5 a competent professional, 6 a veteran, 7 elite, 8 a master, 9 legendary, 10 apex.',
+  'Rate a creature by how dangerous it is, not its species: a feral dog 3, a trained warhound 5, a dire beast 7, an ancient dragon or apex monster 9-10.',
+  'Ruthlessly honest: most ordinary people are 3-5 at most things, and doubt means lower — but a named rival, antagonist or boss the player faces in a serious fight is a PEER of the player or stronger unless the story plainly shows otherwise.',
 ].join(' ');
 
 const JSON_ONLY = 'Output one raw JSON object and nothing else. No prose, no markdown, no code fences.';
 
 const NARRATIVE_RULES = [
   'Never talk about this adjudication. No dice, odds, DCs, or rules-speak anywhere.',
-  'Never re-decide an outcome the house has already committed to.',
+  'Never re-decide an outcome that is already settled.',
 ].join(' ');
 
 /* Fields the model fills. actor is HARDENED in code to the player. */
-const MC_FIELD = '"actor": the player\'s name exactly as it appears in <player>, or "you" if none is given. Always the player — never a companion, never the opposition.';
-const ACTION_FIELD = '"action": a short, vivid, mechanical-only description of the attempt in THIS message. No outcome words.';
-const SHEET_FIELD = '<sheet>: known actor ratings, 0-10. The player\'s name may appear here. Ratings are permanent.';
-const RECENT_FIELD = '<recent>: recent story, oldest first. Learn who the player is from it.';
-const GUARD_FIELD = '"playerGuard": null, or the specific established defense or deterrent the player is actively maintaining this beat — only when the message keeps it up. Short.';
-const COUNTER_FIELD = '"counterPath": null, or one honest way the opposition could still threaten the player without breaking the playerGuard. Short.';
-const GUARD_RULE = 'A guard only counts if the player\'s message maintains it. Fresh dialogue does not retire an old guard; a clearly contradictory action does.';
-const OPP_RATING_FIELD = '"opponent_rating": null, or a 0-10 estimate for a NEW opponent not in <sheet>. ' + RATING_GUIDE;
-const TEAM_ROSTER_FIELD = (name) => '"' + name + '": array of named characters on that side THIS message puts in the fight. Short names, "Bandit x3" style counts allowed.';
+const MC_FIELD = '"actor": the player\'s name exactly as it appears in <player>, or "you" if none is given. Always the player — never a companion, never the opposition, never the storyteller.';
+const ACTION_FIELD = '"action": a short, vivid, mechanical-only description of the attempt in THIS message, 3-10 words. No outcome words.';
+/* M345: Arbiter v0.34's established defenses, word for word in meaning — shared by every schema so they are judged the same */
+const GUARD_FIELD = '"playerGuard": null, or an ACTIVE protection the player is MAINTAINING this beat per the ESTABLISHED story — a total or partial defense the story has already defined (an untouchable barrier, a ward, intangibility, a shield-art, armour of the world\'s own rules). State it as a CONSTRAINT, e.g. "Infinity holds: nothing physical reaches his body; only the sword\'s veil is lowered". Null when no such stated defense is up.';
+const COUNTER_FIELD = '"counterPath": null, or — set ONLY with playerGuard — the ONE honest way the opposition can still harm or truly pressure the player THIS beat despite that guard, rooted in the established story (the exposed blade can be seized; the ground under him can be shattered; the veil must widen the instant he commits, and that instant can be struck). If the guard forecloses every path this beat, null — never invent one to seem fair.';
+const GUARD_RULE = '- playerGuard / counterPath: read the ESTABLISHED story, not genre habit. When a maintained guard forecloses direct harm and you find NO honest counterPath, the opposition cannot land contact this beat — a bad result then means the player\'s OWN attempt failing (read, evaded, stopped), ground or tempo lost, or the guard strained, never an impossible touch. A real counterPath both licenses the opposition\'s side of the outcome AND is exactly what the telling must name. A guard the opposition has no answer to is also strong POSITIVE circumstance for the player\'s safety — though their own attack through or around it can still fail on its merits. A standing, always-on defense the story has established (an ambient barrier, a permanent ward) REMAINS playerGuard even while the player ATTACKS — set it every beat until the story shows it dropped, spent, or bypassed.';
+/* M345: Arbiter v0.36 — a wound that is only narrated does nothing */
+const COND_RECONCILE_RULE = '- Lasting damage MUST be registered, never merely narrated: if the recent story shows EITHER side carrying an UNREGISTERED persistent state — impaled, a maimed or unusable limb, heavy blood loss, pinned under wreckage, poisoned, disarmed — file condition_change for it NOW as a catch-up, even if it arose beats ago. A registered wound lowers that fighter\'s effective rating every beat; an unregistered one does nothing, leaving a half-dead foe fighting at full strength. NEVER pour lasting damage into circumstance: circumstance is ONLY what is transient about THIS beat beyond what registered conditions already cover — re-awarding a registered wound as circumstance counts it twice.';
+const DIRTY_RULE = '- circumstance is PHYSICAL advantage only: position, momentum, surprise, preparation, an exposed target, terrain, impairment, haste. NEVER penalize a move for being illegal, a foul, dirty, dishonourable, unsporting or immoral, and never mention rules, sanctions or penalties — you do not know this world\'s rules; whether a move is allowed is the story\'s to tell, not yours to score. A dirty move that gives a real physical edge (a groin kick, sand in the eyes, a sucker punch) is POSITIVE circumstance. Judge only what works.';
+const TWO_SIDED_RULE = '- circumstance is TWO-SIDED and impartial: weigh what the opposition is doing as much as the player. If the opposition has the better position, has set a trap, is pressing an advantage, or is simply the more dangerous fighter seizing control, that is NEGATIVE circumstance for the player even when the player\'s own move is sound. A good move into a worse position still nets negative. Judge as a neutral observer, never from the player\'s hopes.';
+const OPPONENT_RULE = '- The opposition is WHOEVER the story says the player is up against in <recent>/<action>; use that name, with the <sheet> spelling when they are on it. Never substitute a different sheet name because it is familiar. The opposition is NEVER the player: no part of the player\'s name — given name or surname — is ever the opposition or an opponent. The opposition is a PERSON or a creature — never a place, a school, a house, a faction or an organisation.';
+const OPP_RATING_FIELD = '"opponent_rating": null, or a 0-10 estimate — ONLY when a fight opens against someone NOT in <sheet>, from the scene and what is said of them. ' + RATING_GUIDE;
+const TEAM_ROSTER_FIELD = (name) => '"' + name + '": array of named characters on that side THIS message puts in the fight, the player left out. Short names; "Bandit x3" style counts for unnamed groups.';
 const WAR_COMMANDER_FIELD = '"enemy_commander": the enemy commander\'s name if this opens a war, else null.';
-const CONDITION_FIELD = '"condition_change": null, or {"who": name, "add": short label, "mod": integer -4..+2, "domain": melee|ranged|social|intellect|stealth|craft|null, "gear": true|false, "remove": label|null} for a persistent consequence of THIS beat — a lasting wound, a curse, a gear pickup. Only what the story just established; null otherwise.';
-const COMPOSURE_FIELD = '"composure_change": null, or {"who": name, "delta": integer -3..+2} for acute mental strain THIS beat causes — terror, horror, a breaking moment — or its relief. Ordinary bruises are not composure.';
+const CONDITION_FIELD = '"condition_change": null, or {"who": name, "add": short label, "mod": integer -4..+3, "domain": melee|ranged|social|intellect|stealth|craft|null, "gear": true|false, "remove": label|null} for a persistent consequence THIS beat establishes or resolves — a lasting wound, poison, a curse, exhaustion that lasts, a disarm; or gear picked up, lost or broken (a fine blade +1, a legendary weapon +2 or +3, gear:true so healing never strips it). Only what lasts beyond this scene; domain = the ONE domain it touches, null for the whole body. null otherwise.';
+const COMPOSURE_FIELD = '"composure_change": null, or {"who": name, "delta": integer -3..+2} — the mental toll or relief of THIS moment: negative when someone faces horror, terror, gruesome death, dread, betrayal or crushing loss (a mild shock -1, witnessing atrocity -2, mind-shattering horror -3), or when the player\'s action frightens, awes or demoralizes an opponent; positive on safety, rest, reassurance or a grounding victory. The story\'s emotional weight, independent of any outcome; ordinary bruises are not composure.';
 
 const SITUATION_FIELD = [
   '"situation": "task" | "opposed" | "fight_opening" | "fight_ongoing" | "war".',
@@ -228,23 +238,28 @@ const SITUATION_FIELD = [
 
 const TIER_FIELD = '"tier": for a task, the difficulty — ' + TIER_LIST.split(', ').slice(0, 5).join(', ') + '. For opposed or a fight, the opposition — mook, trained, elite, formidable, or relative to the actor: inferior, peer, superior.';
 
-const DUEL_START_FIELD = '"duel_start": null, or {"opponent": name, "domain": melee|ranged|null, "rating": 0-10|null, "scale": integer -4..4 (player bigger = positive)} when a one-on-one fight opens.';
-const BATTLE_START_FIELD = '"battle_start": null, or {' + TEAM_ROSTER_FIELD('allies') + ', ' + TEAM_ROSTER_FIELD('enemies') + ', "domain": melee|ranged|null} when a party-scale fight opens.';
-const WAR_START_FIELD = '"war_start": null, or {' + TEAM_ROSTER_FIELD('allies') + ', ' + TEAM_ROSTER_FIELD('enemies') + ', ' + WAR_COMMANDER_FIELD + '} when an army-scale engagement opens.';
+const SCALE_FIELD = '"scale": integer -4..4 — ONLY when the two sides are CATEGORICALLY mismatched in size, mass or power (a human against a dragon, a foot soldier against a war-machine, a child against a bear), from the PLAYER\'s side: strongly negative when the player is hopelessly outmatched by something vast (a normal human attacking a dragon head-on: -3 or -4), strongly positive when the player is the vast one; 0 when both are roughly the same scale, however their skill differs. An equalizer in the story (a dragon-slaying spear, a machine of their own, an exposed weak point) shrinks it.';
+const DUEL_START_FIELD = '"duel_start": null, or {"opponent": name, "domain": melee|ranged|null, "rating": 0-10|null, ' + SCALE_FIELD + '} — when combat against ONE named person truly OPENS: an actual strike, lunge, shot, grapple or power unleashed AT them (even a quick or lopsided one), OR both sides clearly squared up — blades drawn, stances taken, the duel accepted — though nothing has been swung yet (then check:false: the fight joins, nothing is decided). For an actual attack on a person, prefer the duel to a lone check.';
+const BATTLE_START_FIELD = '"battle_start": null, or {' + TEAM_ROSTER_FIELD('allies') + ', ' + TEAM_ROSTER_FIELD('enemies') + ', "domain": melee|ranged|null, "scale": -4..4} — when combat begins against SEVERAL opponents at once, or the player attacks a GROUP ("sweep through the guards"); unnamed foes get a fitting squad with a count ("Guard x3"). Skirmish scale, a handful a side — not armies.';
+const WAR_START_FIELD = '"war_start": null, or {' + TEAM_ROSTER_FIELD('allies') + ', ' + TEAM_ROSTER_FIELD('enemies') + ', ' + WAR_COMMANDER_FIELD + ', "scale": -4..4} — when the player takes COMMAND of army-scale fighting, ordering formations; name formations from the story (2-5 a side), inventing sensible ones if unnamed. Both lists must be filled.';
 
-/* The micro-referee's whole brief — Arbiter's ADJ_SYSTEM, Cozy voice.
- * check:false is the honest ruling for talk, taunts, future tense,
- * preparation, OOC, and recaps: nothing is attempted, nothing is scored. */
+/* The micro-referee's whole brief — Arbiter's ADJ_SYSTEM (v0.42), in Cozy's JSON shape.
+ * check:false is the honest ruling for talk, taunts, future tense, preparation, OOC, and recaps. */
 export const ADJ_SYSTEM = [
-  'You are the referee of a story. Read the player\'s message and decide, briefly and mechanically, what — if anything — is genuinely being risked THIS beat, and who or what stands against it.',
-  'check:true only when the player ACTS on something chancy RIGHT NOW: an attack, a gamble, a sneak, a leap, a press against opposition. The attempt must be stated in the message, in the present.',
+  'You are the referee of a story. Read the player\'s message and decide, briefly and mechanically, what — if anything — is genuinely being risked THIS beat, and who or what stands against it. You NEVER decide success or failure — only the parameters.',
+  'check:true only when THIS message commits an attempt whose outcome is genuinely uncertain RIGHT NOW: an attack, a gamble, a sneak, a leap, a press against opposition. A message that merely promises, prepares, discusses or recalls an action attempts nothing.',
   'check:false for everything else:',
-  '- Talk, taunts, threats, boasts, and declarations of intent — quoted or not — are not attempts. "I\'ll kill you" kills nobody.',
-  '- Future tense, plans, wishes, and hypotheticals ("I\'m going to…", "we should…", "if he moves I\'ll…") are not attempts.',
-  '- Preparation and positioning without risk — drawing a sword, standing up, walking over, readying — is not an attempt unless the readiness itself is contested.',
-  '- Out-of-character notes, questions about the story, and recaps of what already happened are never attempts.',
-  '- A request to the storyteller ("describe…", "what do I see?") is not an attempt.',
+  '- Dialogue, taunts, boasts, threats, banter and negotiation — talk is talk, even mid-standoff and even with a blade drawn. "I\'ll kill you" kills nobody. Routine actions with no real chance of an interesting failure; pure narration; actions by anyone other than the player.',
+  '- Declarations and intent: future tense, plans, wishes and hypotheticals ("I will…", "I\'m going to…", "we should…", "if he moves I\'ll…") and negations ("I\'m not going to use my full power") describe what MAY happen — nothing is attempted now.',
+  '- Preparation and posture: drawing or sheathing a weapon, taking position, a stance, sizing someone up, or powering up or readying an ability WITHOUT releasing it at anyone. These can still OPEN a fight — see duel_start.',
+  '- Out-of-character or directorial text: bracketed notes, questions to the storyteller, "what would <character> do", a request to describe something, instructions about the scene.',
+  '- What is already resolved: restating or recapping what earlier pages settled is not a new attempt — never rule twice on what has already happened.',
   'When in doubt, check:false. The story continues unruled far more often than it is ruled.',
+  '- domain: the SKILL the act actually uses, chosen by its PHYSICAL nature — a strike, punch, kick, feint, swing or grapple is melee (never stealth just because it is a feint or sneaky); a shot or a throw is ranged; moving unseen is stealth; persuasion or intimidation is social. Prefer a domain the player has on <sheet> when it fits.',
+  DIRTY_RULE,
+  OPPONENT_RULE,
+  GUARD_RULE,
+  COND_RECONCILE_RULE,
   NARRATIVE_RULES,
   JSON_ONLY,
   'The JSON shape:',
@@ -256,11 +271,10 @@ export const ADJ_SYSTEM = [
   '"domain": melee | ranged | social | intellect | stealth | craft | null — the arena this attempt plays in,',
   '"opposition": for kind actor, the opponent\'s name; for kind task, a difficulty word — ' + TIER_LIST + ',',
   TIER_FIELD,
-  '"circumstance": integer -3..+3 for this beat\'s immediate tilt (positioning, surprise, exhaustion, help). 0 unless the fiction clearly argues otherwise,',
+  '"circumstance": integer -3..+3 for this beat\'s immediate physical tilt (positioning, surprise, exhaustion, help). 0 unless the story clearly argues otherwise,',
   '"stakes": one short phrase on what failure costs, or null,',
   GUARD_FIELD,
   COUNTER_FIELD,
-  GUARD_RULE,
   OPP_RATING_FIELD,
   DUEL_START_FIELD,
   BATTLE_START_FIELD,
@@ -270,75 +284,100 @@ export const ADJ_SYSTEM = [
   '}',
 ].join('\n');
 
-/* In-fight prompts: every beat is scored; the referee only reads the move. */
+/* In-fight prompts: every beat is scored; the referee only reads the move. (Arbiter's DUEL_SYSTEM, v0.42) */
 export const DUEL_SYSTEM = [
-  'You are the referee of a one-on-one duel already in progress. Read the player\'s move THIS beat.',
-  '"exchange": false when the message is talk, a taunt, a pause, a yield, an attempt to surrender or flee-talk, or anything that risks nothing in the fight. Also false when the message ends the fight by agreement or interruption.',
-  '"combat_ended": true when this beat closes the duel — a yield accepted, flight, rescue, collapse, interruption. The engine also ends fights itself; only mark what the story shows.',
-  '"move": "attack" for strikes, grapples, shots, and aggressive maneuvers; "recover" for disengaging to catch breath, bind a wound, or regain footing — recovering cedes tempo and invites a free counter; "talk" scores nothing.',
-  '"sequence": null, or a list of 2-4 {"strike": short label, "circumstance": -3..+3} when the message commits to a described combo. A combo is ONE exchange, not free extra attacks.',
-  '"opponent_switch": null, or the new opponent\'s name if the player disengages and squares up against someone else.',
+  'You are the referee of a one-on-one duel already in progress. Score the player\'s move THIS beat. You NEVER decide who wins — only the parameters.',
+  '- While the OPPONENT is actively attacking or pressing this beat, every player turn IS an exchange — words do not parry steel. A passive, hesitant, talking or purely defensive turn UNDER ATTACK is an exchange ("exchange": true, "move": "attack") at NEGATIVE circumstance, never exchange:false. The player cannot stall a pressing opponent by talking.',
+  '- "exchange": false ONLY when NEITHER side commits an attack this beat: a mutual standoff or measuring-up, talk or terms while circling, a stance or readying without contact, a declaration of what the player WILL or WON\'T do, out-of-character or directorial text, or a recap of what earlier pages already resolved.',
+  '- "combat_ended": true ONLY when the story has already clearly ended the fight this beat — a yield accepted, flight, rescue, collapse, separation, or the scene leaving combat.',
+  '- "move": "attack" for strikes, grapples, shots, aggressive manoeuvres and defensive counters that still contest the opponent; "recover" when the player DISENGAGES to restore themselves — healing on themselves, catching their breath, a defensive reset, mending their own wounds (it regains footing but yields tempo: the opponent acts freely); "talk" only for a beat that is not an exchange at all.',
+  '- For "recover", circumstance is how SAFELY they can recover: unopposed with a reliable method +2; snatched under pressure with the enemy closing -2. Recovery never fails into damage — at worst it barely helps.',
+  '- "sequence": fill it ONLY when the player\'s single message is a genuine CHAIN of 2+ distinct offensive sub-actions meant to land in order (disrupt his spell, THEN a groin kick, THEN an elbow). Each strike gets its own circumstance, judged on its OWN footing given what came before AND the opponent reacting between strikes. A chain is HIGH-RISK: a late strike is only as good as the setup that survived to it. 2-4 strikes; null for a single action — never invent a chain the player did not write, and still fill "action"/"circumstance" for the move as a whole.',
+  '- "opponent_switch": null, or the new opponent\'s name if the player disengages and squares up against someone else.',
+  DIRTY_RULE,
+  TWO_SIDED_RULE,
+  GUARD_RULE,
+  COND_RECONCILE_RULE,
+  '- condition_change is available MID-FIGHT: set it when THIS exchange establishes or resolves something persistent on EITHER fighter (a wound beyond the exchange, poison taking hold, a disarm, gear seized or broken).',
+  '- composure_change works both ways: the player\'s action frightening, awing or demoralizing the opponent ("who": the opponent, negative), or terror and horror shaking the player.',
   NARRATIVE_RULES,
   JSON_ONLY,
-  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": "attack"|"recover"|"talk", "circumstance": -3..+3, "sequence": null|[…], "opponent_switch": null|name, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
+  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": "attack"|"recover"|"talk", "circumstance": -3..+3, "sequence": null|[{"strike": short label, "circumstance": -3..+3}], "opponent_switch": null|name, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
 ].join('\n');
 
 export const BATTLE_SYSTEM = [
-  'You are the referee of a battle already in progress — a party-scale fight. Read the player\'s beat.',
-  '"exchange": false for talk, taunts, pauses, and anything risking nothing. "combat_ended": true when the story closes the engagement.',
-  '"move": {"kind": "attack"|"command", "target": enemy name|null, "circumstance": -3..+3} — command means the player directs allies rather than striking.',
-  '"target": the enemy the player engages, if named or clearly meant, else null.',
+  'You are the referee of a battle already in progress — a party-scale fight. Read the player\'s beat. You NEVER decide who wins — only the parameters.',
+  '- "exchange": false only for talk, councils, pauses and anything that risks nothing while nobody presses; under attack, a talking or hesitant turn is still an exchange at negative circumstance. "combat_ended": true only when the story has already closed the engagement.',
+  '- "move": {"kind": "attack"|"command", "target": enemy name|null, "circumstance": -3..+3} — command means the player directs allies rather than striking; target is the enemy the player engages, if named or clearly meant.',
+  DIRTY_RULE,
+  TWO_SIDED_RULE,
+  GUARD_RULE,
+  COND_RECONCILE_RULE,
   NARRATIVE_RULES,
   JSON_ONLY,
-  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "attack"|"command", "target": null|name, "circumstance": -3..+3}, ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
+  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "attack"|"command", "target": null|name, "circumstance": -3..+3}, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
 ].join('\n');
 
 export const WAR_SYSTEM = [
-  'You are the referee of a war already in progress — the player commands formations at army scale. Read the order THIS beat.',
-  '"exchange": false for talk, councils, pauses, and anything that risks nothing on the field. "combat_ended": true when the story closes the engagement.',
-  '"move": {"kind": "maneuver"|"stratagem"|"personal", "acting": allied formation|null, "target": enemy formation|null, "circumstance": -3..+3} — maneuver orders a formation, stratagem reshapes the field (fire, flood, feigned retreat), personal means the commander fights in person.',
+  'You are the referee of a war already in progress — the player commands formations at army scale. Read the order THIS beat. You NEVER decide who wins — only the parameters.',
+  '- "exchange": false for talk, councils, pauses and anything that risks nothing on the field. "combat_ended": true only when the story has already closed the engagement.',
+  '- "move": {"kind": "maneuver"|"stratagem"|"personal", "acting": allied formation|null, "target": enemy formation|null, "circumstance": -3..+3} — maneuver orders a formation; stratagem reshapes the field (fire, flood, a feigned retreat); personal means the commander fights in person. circumstance weighs how tactically sound the order is against what the enemy is doing — skill matters, but never dwarfs the units themselves.',
+  DIRTY_RULE,
+  TWO_SIDED_RULE,
+  GUARD_RULE,
+  COND_RECONCILE_RULE,
   NARRATIVE_RULES,
   JSON_ONLY,
-  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "maneuver"|"stratagem"|"personal", "acting": null|name, "target": null|name, "circumstance": -3..+3}, ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
+  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "maneuver"|"stratagem"|"personal", "acting": null|name, "target": null|name, "circumstance": -3..+3}, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
 ].join('\n');
 
-/* The sheet seeder — background, first turns and post-fight. */
+/* M345: THE CAST SHEET, SEEDED WITH ITS EYES OPEN. The writer's sheet had his main character missing and the paper bag
+ * over Jovan's head filed under Kaelen. The seeder had been handed twelve page-tails labelled \"Player:\"/\"Story:\" and
+ * asked to name the player — nobody told it who the player IS, and it saw neither the brief, the people's pages nor the
+ * record — so it guessed. It is told now (<player>), shown what the ledger knows (the brief, every person's page,
+ * their bodies, the record, the newest pages whole), and asked the way Arbiter v0.42 asks: the story's own hierarchy,
+ * the whole named cast, the current level, people only. */
 export const SEED_SYSTEM = [
-  'You keep the cast sheet of a story: how everyone measures, 0-10, plus what ails them.',
-  'Read the transcript. For every named character (including the player\'s), give a default rating and any clearly-shown domain ratings (melee, ranged, social, intellect, stealth, craft). ' + RATING_GUIDE,
-  'Add conditions only for lasting, story-established facts — a wound still carried, a curse, signature gear — with a small modifier (-4..+2) and an optional domain tag.',
-  'Also name the player character as the story shows them (player_story_name), so rulings can speak their name.',
+  'You keep the cast sheet of a story: how capable each person is, 0-10, at the things that decide contests — and the lasting harm or gear that changes it.',
+  RATING_GUIDE,
+  'CALIBRATE TO THE STORY\'S OWN HIERARCHY: if the setting has ranks, tiers, classes or a pecking order (school rankings, tournament seeding, dueling classes, a military chain, a stated power scale), place each person WITHIN it — someone at or near the top belongs at 7-9 even when words like "student" or "young" make them sound junior. Read the ranking, not the job title. The brief outranks every page.',
+  'Rate each person at their CURRENT level as of the newest page. If the story shows someone has trained, grown or unlocked new power since <sheet> was written, rate the new, higher level.',
+  'Domains are lowercase single words — melee, ranged, stealth, social, athletics, intellect, willpower, pilot, craft; others only when the story clearly needs them. 2-4 per person is plenty.',
+  '"lasting": ONLY what the story has established that changes what a person can DO in a contest — a wound still carried, an illness, a curse, exhaustion that lasts, or signature gear (a masterwork blade, enchanted armour). NEVER clothing, a disguise, a mask, a look, a mood or a habit. mod -4..+3 (harm negative, good gear positive); domain = the ONE domain it touches (a sword: melee), null for the whole body; gear true for equipment. File each on the person who actually carries it.',
+  'WHO IS WHO: <player> names the main character — the person the writer plays. The writer\'s pages ARE that person acting: "I", "me" and "you" in them mean the main character, never anyone else, and anything the writer\'s pages do or wear is the main character\'s. The FIRST entry in "actors" is always the main character, under exactly the name <player> gives. Never make an entry for "you", "I", "the player" or "the writer".',
+  'Include EVERY named person in <people> and <brief> — allies, rivals, mentors, family, anyone who recurs — not only those on the newest pages. A large cast is expected; nobody is dropped to save space. Merge obvious duplicates and aliases into one entry, under the name <people> uses.',
+  'People and creatures ONLY: never an entry for a place, a school, a house, a clan, a faction, a team, an organisation or a title.',
   JSON_ONLY,
-  '{ "player_story_name": string|null, "actors": [ { "name": string, "default": 0-10, "domains": {"melee": 0-10, …}, "conditions": [ {"name": string, "mod": int, "domain": string|null} ] } ] }',
+  '{ "player_story_name": string|null, "actors": [ { "name": string, "default": 0-10, "domains": {"melee": 0-10, …}, "lasting": [ {"name": string, "mod": int, "domain": string|null, "gear": true|false} ] } ] }',
 ].join('\n');
 
 /* ==================================================================== */
 /* The micro-call — worker connection, cold, small, one retry           */
 /* ==================================================================== */
 
-async function callRefereeOnce(connection, system, user, signal) {
+async function callRefereeOnce(connection, system, user, signal, maxTokens = MAX_TOKENS) {
   /* M28: the one wire path (agents/call.js) — thinking OFF per house, cold,
    * small. A refused call throws here and callReferee reads that as '' —
    * on the send path a failure means no ruling this turn, never a stall. */
   if (!connection || typeof connection !== 'object') return '';
-  const { text } = await callWorker(connection, { system, user, maxTokens: MAX_TOKENS, signal });
+  const { text } = await callWorker(connection, { system, user, maxTokens, signal });
   return text;
 }
 
 /* Strict JSON via the shared balanced-brace walker, then exactly ONE retry
  * on malformed output. Returns the parsed object or null. */
-async function callReferee(connection, system, user, signal, callLLM) {
+async function callReferee(connection, system, user, signal, callLLM, maxTokens = MAX_TOKENS, usable = null) {
   const call = callLLM || callRefereeOnce;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let raw = '';
     try {
-      raw = await call(connection, system, user, signal);
+      raw = await call(connection, system, user, signal, maxTokens);
     } catch (err) {
       raw = '';
     }
     if (signal && signal.aborted) return null;
     const parsed = parseFirstObject(raw);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (!usable || usable(parsed))) return parsed;
     if (attempt === 0) user = user + '\n\n' + JSON_ONLY;
   }
   return null;
@@ -363,41 +402,78 @@ function clip(text, max) {
  * The house has one reader for a page's words; it is used here now. */
 const pageText = wirePageText;
 
+/* M345: THE REFEREE READS WHAT IT RULES ON. It was shown the last six pages cut to their last 400 characters, twelve
+ * sheet rows, and no word of who anyone is. Arbiter v0.42 gives its referee the player's identity spelled out, the
+ * whole sheet, the character card and the memory, and a full window. Here: the player block, the whole sheet (the
+ * main character first), who is in the scene with their pages' first lines and what their bodies carry, the brief,
+ * and the newest pages whole — the action itself never counted twice. */
+const REF_BRIEF_ROOM = 12000;
+const REF_PAGES = 8;
+const REF_PAGE_CAP = 3000;
+
 function sheetBlock(state) {
   const actors = (state.sheet && state.sheet.actors) || {};
+  const keys = Object.keys(actors).sort((a, b) => (isMcAlias(state, b) ? 1 : 0) - (isMcAlias(state, a) ? 1 : 0)).slice(0, 60);
   const lines = [];
-  for (const name of Object.keys(actors).slice(0, 12)) {
+  for (const name of keys) {
     const a = actors[name];
     if (!a || typeof a !== 'object') continue;
     const parts = [];
     if (Number.isFinite(a.default)) parts.push('default ' + a.default);
     const doms = a.domains && typeof a.domains === 'object' ? a.domains : {};
-    for (const d of Object.keys(doms).slice(0, 6)) {
+    for (const d of Object.keys(doms).slice(0, 8)) {
       if (Number.isFinite(doms[d])) parts.push(d + ' ' + doms[d]);
     }
     const conds = Array.isArray(a.conditions) && a.conditions.length
       ? ' | ' + a.conditions.map((c) => c.name + ' ' + (c.mod >= 0 ? '+' : '') + c.mod + (c.domain ? ' ' + c.domain : '')).join(', ')
       : '';
-    lines.push(name + ': ' + (parts.join(', ') || 'unrated') + conds);
+    lines.push(name + (isMcAlias(state, name) && mcName(state) !== 'the player' ? ' (the player)' : '') + ': ' + (parts.join(', ') || 'unrated') + conds);
   }
   return lines.length ? lines.join('\n') : '(empty — no one is rated yet)';
 }
 
-function recentBlock(history, max) {
-  const tail = (history || []).filter((m) => m && !m.hidden).slice(-6);
-  return tail.map((m) => {
-    const who = m.role === 'user' ? 'Player' : 'Story';
-    return who + ': ' + clip(pageText(m), 400);
-  }).join('\n') || '(none yet)';
+function recentBlock(history, state, userText) {
+  const mc = mcName(state);
+  const pages = (history || []).filter((m) => m && !m.hidden);
+  const last = pages[pages.length - 1];
+  const upTo = last && last.role === 'user' && userMessageHash(pageText(last)) === userMessageHash(userText) ? pages.slice(0, -1) : pages;
+  return upTo.slice(-REF_PAGES).map((m) => {
+    const who = m.role === 'user' ? (mc === 'the player' ? 'The player' : mc + ' (the player)') : 'Story';
+    return who + ': ' + wholePage(pageText(m), REF_PAGE_CAP);
+  }).join('\n\n') || '(none yet)';
 }
 
-export function buildRefereeUser({ state, userText, history, fightLine }) {
+function hereBlock(state) {
+  const present = (Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
+  const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const lines = [];
+  for (const name of present.slice(0, 16)) {
+    if (isMcAlias(state, name)) continue;
+    const key = findPersonKey(chars, name);
+    const core = key && chars[key] && typeof chars[key].core === 'string' ? chars[key].core.trim().replace(/\s+/g, ' ') : '';
+    lines.push(name + (core ? ' — ' + (core.length > 400 ? core.slice(0, core.lastIndexOf(' ', 400)) + '…' : core) : ''));
+  }
+  let bodies = '';
+  try { bodies = renderBodies(state.bodies, state.clock && state.clock.minutes, storyTurn(state)); } catch (err) { bodies = ''; }
+  const locked = (() => { try { return renderCanon(state.canon, present); } catch (err) { return ''; } })();
+  return [lines.join('\n'), bodies && bodies.trim() ? 'What their bodies carry:\n' + bodies.slice(0, 3000) : '', locked && locked.trim() ? 'Locked true:\n' + locked.slice(0, 3000) : ''].filter(Boolean).join('\n');
+}
+
+export function buildRefereeUser({ state, userText, history, fightLine, brief = '', castNotes = '' }) {
+  const mc = mcName(state);
+  const player = mc === 'the player'
+    ? 'The player character is not named yet. The text in <action> is written BY the player: "I" and "you" in it both mean the player acting.'
+    : 'The player character is "' + mc + '". The text in <action> is written BY the player: "I" and "you" in it both mean ' + mc + ' acting. The player may appear in <recent> under a fuller name, a title or a nickname — EVERY part of the player\'s name is the player, never a separate person and never the opponent. The storyteller\'s pages are not a combatant.';
+  const here = hereBlock(state);
+  const material = [String(brief || '').trim() ? writerText(brief, REF_BRIEF_ROOM, 'brief') : '', String(castNotes || '').trim() ? writerText(castNotes, Math.floor(REF_BRIEF_ROOM / 2), 'cast notes') : ''].filter(Boolean).join('\n\n');
   return [
-    '<player>' + mcName(state) + '</player>',
+    '<player>\n' + player + '\n</player>',
     '<sheet>\n' + sheetBlock(state) + '\n</sheet>',
+    here ? '<here>\n' + here + '\n</here>' : null,
+    material ? '<brief>\n' + material + '\n</brief>' : null,
     fightLine ? '<fight>' + fightLine + '</fight>' : null,
-    '<recent>\n' + recentBlock(history) + '\n</recent>',
-    '<action>' + clip(userText, 800) + '</action>',
+    '<recent>\n' + recentBlock(history, state, userText) + '\n</recent>',
+    '<action>' + clip(userText, 2000) + '</action>',
   ].filter(Boolean).join('\n');
 }
 
@@ -427,7 +503,7 @@ function normalizeConditionChange(v, state) {
   if (v.remove) out.remove = cleanName(v.remove, 50);
   if (v.add) {
     out.add = cleanName(v.add, 50);
-    out.mod = clampInt(v.mod, -4, 2, -1);
+    out.mod = clampInt(v.mod, -4, 3, -1);
     if (v.domain && typeof v.domain === 'string') out.domain = v.domain.toLowerCase().trim().slice(0, 20);
     if (v.gear === true) out.gear = true;
   }
@@ -557,7 +633,11 @@ export function normalizeDuelAdj(obj, state) {
     }));
     if (seq.length >= 2) out.sequence = seq;
   }
-  if (out.move === 'talk') out.exchange = false;
+  /* M345: words do not parry steel — a talking beat the referee still calls an exchange (the opponent presses) is
+   * fought at a disadvantage; a talking beat that is no exchange is a lull */
+  if (out.move === 'talk') {
+    if (obj.exchange === true) { out.move = 'attack'; out.circumstance = Math.min(out.circumstance, -1); } else out.exchange = false;
+  }
   return out;
 }
 
@@ -727,7 +807,7 @@ function commitRef(state, entry) {
  * Returns {state, ruling, status, why}:
  *   ruling = {kind, tier, words, directive, at} or null
  *   status = 'ruled' | 'no-check' | 'replayed' | 'degraded' | 'skipped'      */
-export async function refereeStep({ connection, userText, userId, history, state, settings, signal, callLLM } = {}) {
+export async function refereeStep({ connection, userText, userId, history, state, settings, signal, callLLM, brief = '', castNotes = '' } = {}) {
   try {
     if (!state || typeof state !== 'object') return { state, ruling: null, status: 'degraded', why: 'no state' };
     const eng = engineSettings(settings);
@@ -798,7 +878,7 @@ export async function refereeStep({ connection, userText, userId, history, state
     }
 
     const fightLine = renderFightLine(state);
-    const user = buildRefereeUser({ state, userText: text, history, fightLine });
+    const user = buildRefereeUser({ state, userText: text, history, fightLine, brief, castNotes });
     const inWar = battleActive(state) && state.battle.kind === 'war';
     const inBattle = battleActive(state) && !inWar;
     const inDuel = duelActive(state);
@@ -824,8 +904,8 @@ export async function refereeStep({ connection, userText, userId, history, state
         const res = applyComposureChange(state, cc.delta, eng);
         if (res) {
           sideNotes.push(res.worsened
-            ? 'The strain tells on ' + mcName(state) + ' — ' + res.state + '. Let it show, without numbers.'
-            : mcName(state) + ' steadies — ' + res.state + '. Let it show, without numbers.');
+            ? 'The strain is telling on ' + mcName(state) + ' now — ' + res.state + '; let it show.'
+            : mcName(state) + ' steadies — ' + res.state + ' again; let it show.');
         }
       } else {
         const unit = state.duel
@@ -837,7 +917,15 @@ export async function refereeStep({ connection, userText, userId, history, state
         }
       }
     }
-    const withNotes = (directive) => (sideNotes.length ? directive + '\n' + sideNotes.join('\n') : directive);
+    /* M345: one paragraph — the side-notes join the telling, before its last line */
+    const withNotes = (directive) => {
+      if (!sideNotes.length) return directive;
+      const notes = sideNotes.map((n) => String(n).replace(/[.\s]+$/, '') + '.').join(' ');
+      const at = directive.lastIndexOf(' It’s settled');
+      const at2 = directive.lastIndexOf(' Keep all of this between us.');
+      const cutAt = at !== -1 ? at : at2;
+      return cutAt !== -1 ? directive.slice(0, cutAt) + ' ' + notes + directive.slice(cutAt) : directive + ' ' + notes;
+    };
 
     const ruling = (kind, tier, directive) => ({ kind, tier, words: TIER_MEANING[tier] || String(tier || ''), directive, at: Date.now() });
 
@@ -845,22 +933,13 @@ export async function refereeStep({ connection, userText, userId, history, state
       const applied = applyMutations(state, [{ type: 'combat.end', engine: engineForMutations(eng, settings) }]);
       state = applied.state;
       state.seedDueAfterFight = true;
-      const v = ruling(kindLabel, 'CLOSED', [
-        RULED_HEAD + ' — the fight is over: ' + adj.action + '.',
-        'Tell the winding-down the story has earned, honestly, from everything that came before. Nothing further is decided for you.',
-        'No rolls, no numbers, no word of this note.',
-      ].join('\n'));
+      const v = ruling(kindLabel, 'CLOSED', buildFightOverDirective(adj.action));
       commit(v);
       return { state, ruling: v, status: 'ruled', why: 'combat ended by the story' };
     };
 
     const lull = (kindLabel) => {
-      const v = ruling(kindLabel, 'LULL', [
-        fightLine || RULED_HEAD + ' — the fight stands.',
-        'This beat risks nothing in the fight: ' + adj.action + '.',
-        'Tell it exactly as written — but the fight itself is not decided this beat. No one lands, yields, or falls unless the words themselves already did it. End on the live tension.',
-        'No rolls, no numbers, no word of this note.',
-      ].join('\n'));
+      const v = ruling(kindLabel, 'LULL', buildLullDirective(state, adj.action));
       commit(v);
       return { state, ruling: v, status: 'ruled', why: 'a beat without risk' };
     };
@@ -990,71 +1069,279 @@ export async function refereeStep({ connection, userText, userId, history, state
 /* Background seeding — the sheet fills itself in the quiet moments     */
 /* ==================================================================== */
 
-/* Seed the actor sheet from the transcript: on the first turns (once the
- * story has a few beats and the sheet is still empty) and after any fight
- * lets go. Background only — never on the critical path, never throws. */
-export async function maybeSeedSheet({ connection, storyId, signal, callLLM } = {}) {
+/* M345: the sheet's own stamp. 1 = the blind seeder (M11..M344) — a sheet it made is read again, whole, the next time
+ * the seeder runs (the app repairs what it can detect). */
+export const SEED_VERSION = 2;
+export const SEED_EVERY = 100;        /* Arbiter's fallback timer: a long quiet stretch still refreshes growth */
+export const SEED_NEW_FACE_GAP = 3;   /* pages between re-seeds called by someone in the scene the sheet does not have */
+export const SEED_MAX_TOKENS = 8000;  /* a large cast needs room to answer (the old 600 cut a big sheet off mid-list) */
+const SEED_MAX_ACTORS = 80;           /* runaway guard, never a size a real cast reaches */
+const PLAIN_SELF = /^(?:you|i|me|myself|player|the player|writer|the writer|narrator|the narrator|storyteller|the storyteller)$/i;
+
+const lower = (x) => String(x || '').trim().toLowerCase();
+const isHandKept = (e) => Boolean(e && (e._hand || (!e._auto && !e._estimated)));
+
+/* why the sheet wants a seeding now — '' when it does not */
+export function seedDue(state, pagesTold) {
+  const sheet = state && state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {} };
+  const actors = sheet.actors && typeof sheet.actors === 'object' ? sheet.actors : {};
+  if ((Number(pagesTold) || 0) < 2) return '';
+  const names = Object.keys(actors);
+  if (!names.length) return 'first';
+  if (sheet.seedVersion !== SEED_VERSION) return 'heal';
+  if (state.seedDueAfterFight === true) return 'after a fight';
+  const now = storyTurn(state);
+  const since = now - (Number.isFinite(sheet.seededAtPage) ? sheet.seededAtPage : 0);
+  const mc = mcName(state);
+  if (since >= SEED_NEW_FACE_GAP) {
+    if (mc !== 'the player' && !findActorKeySamePerson(state, mc)) return 'the main character';
+    const present = Array.isArray(state.present) ? state.present : [];
+    /* someone the last weighing already saw here and left off (a crowd, a voice) does not call it again every page */
+    const seen = new Set(Array.isArray(sheet.seenPresent) ? sheet.seenPresent.map(lower) : []);
+    const newFace = present.map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean)
+      .find((n) => !isMcAlias(state, n) && !findActorKeySamePerson(state, n) && !seen.has(lower(n)));
+    if (newFace) return 'a new face';
+  }
+  if (since >= SEED_EVERY) return 'a while since';
+  return '';
+}
+
+/* every person the ledger holds a page for, the most important first, in the room given */
+export function seedPeople(state, brief = '', room = 60000) {
+  const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const here = new Set((Array.isArray(state && state.present) ? state.present : []).map((p) => lower(typeof p === 'string' ? p : p && p.name)));
+  const turn = storyTurn(state || {});
+  const rows = [];
+  for (const [name, c] of Object.entries(chars)) {
+    if (!c || typeof c !== 'object' || c.retired) continue;
+    const core = typeof c.core === 'string' ? c.core.trim().replace(/\s+/g, ' ') : '';
+    const now = typeof c.state === 'string' ? c.state.trim().replace(/\s+/g, ' ') : '';
+    let weight = 0;
+    try { weight = importanceOf(state, name, brief, turn, { placeWords: [], lately: [] }); } catch (err) { weight = 0; }
+    rows.push({ name, core, now, weight: weight + (here.has(lower(name)) ? 1000 : 0), here: here.has(lower(name)) });
+  }
+  rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
+  const lines = [];
+  let used = 0;
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i];
+    const who = isMcAlias(state, r.name) ? ' (the main character)' : r.here ? ' (in the scene)' : '';
+    let line = r.name + who + ' — ' + ([r.core.slice(0, 900), r.now ? 'lately: ' + r.now.slice(0, 300) : ''].filter(Boolean).join(' | ') || 'no page written yet');
+    if (used + line.length + 1 > room) {
+      lines.push('(' + (rows.length - i) + ' more the ledger knows, the least important: ' + rows.slice(i).map((x) => x.name).join(', ') + ')');
+      break;
+    }
+    lines.push(line);
+    used += line.length + 1;
+  }
+  return lines.join('\n');
+}
+
+function seedSheetBlock(state) {
+  const actors = (state.sheet && state.sheet.actors) || {};
+  const mc = mcName(state);
+  const keys = Object.keys(actors).sort((a, b) => (isMcAlias(state, b) ? 1 : 0) - (isMcAlias(state, a) ? 1 : 0));
+  const lines = keys.map((name) => {
+    const a = actors[name];
+    if (!a || typeof a !== 'object') return '';
+    const doms = a.domains && typeof a.domains === 'object' ? Object.entries(a.domains).filter(([, v]) => Number.isFinite(v)).map(([d, v]) => d + ' ' + v) : [];
+    const kept = Array.isArray(a.conditions) ? a.conditions.filter((c) => c && c.name).map((c) => c.name + ' ' + (c.mod >= 0 ? '+' : '') + c.mod + (c.domain ? ' ' + c.domain : '')) : [];
+    return name + (isMcAlias(state, name) && mc !== 'the player' ? ' (the main character)' : '') + ': default ' + (Number.isFinite(a.default) ? a.default : '?')
+      + (doms.length ? ', ' + doms.join(', ') : '') + (kept.length ? ' | carries: ' + kept.join('; ') : '') + (isHandKept(a) ? ' — kept by the writer’s hand' : '');
+  }).filter(Boolean);
+  return lines.length ? lines.join('\n') : '(empty — no one is rated yet)';
+}
+
+/* the seeder's whole reading, sized to the worker's room */
+export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', record = '', room = 300000 } = {}) {
+  const mc = mcName(state);
+  const share = (part) => Math.max(4000, Math.floor(room * part));
+  const player = mc === 'the player'
+    ? 'The main character is not named in the ledger yet. The writer\'s pages below are the main character acting; name them as the story does (player_story_name) and put them first.'
+    : 'The main character — the person the writer plays — is ' + mc + '. Every page labelled "' + mc + ' (the writer)" below is ' + mc + ' acting: "I", "me" and "you" in it are ' + mc + '. Put ' + mc + ' first in "actors", under exactly the name "' + mc + '".';
+  const told = [];
+  let used = 0;
+  const budget = share(0.3);
+  for (let i = pages.length - 1; i >= 0; i -= 1) {
+    const m = pages[i];
+    if (!m || m.hidden) continue;
+    const words = wholePage(pageText(m), 6000);
+    if (!words.trim()) continue;
+    const line = (m.role === 'user' ? (mc === 'the player' ? 'The writer' : mc + ' (the writer)') : 'The story') + ':\n' + words;
+    if (used + line.length > budget && told.length) break;
+    told.push(line);
+    used += line.length;
+  }
+  told.reverse();
+  const bodies = (() => { try { return renderBodies(state.bodies, state.clock && state.clock.minutes, storyTurn(state)); } catch (err) { return ''; } })();
+  const locked = (() => { try { return state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : ''; } catch (err) { return ''; } })();
+  const cut = (t, n) => { const s = String(t || ''); return s.length > n ? s.slice(s.length - n) : s; };
+  return [
+    '<player>\n' + player + '\n</player>',
+    '<sheet>\n' + seedSheetBlock(state) + '\n</sheet>',
+    String(brief || '').trim() ? '<brief>\n' + writerText(brief, Math.min(BRIEF_ROOM, share(0.15)), 'brief') + '\n</brief>' : null,
+    String(castNotes || '').trim() ? '<cast_notes>\n' + writerText(castNotes, Math.min(CAST_ROOM, share(0.08)), 'cast notes') + '\n</cast_notes>' : null,
+    '<people>\n' + (seedPeople(state, String(brief || '') + '\n' + String(castNotes || ''), share(0.2)) || '(no pages written yet)') + '\n</people>',
+    bodies && bodies.trim() ? '<bodies>\n' + cut(bodies, 8000) + '\n</bodies>' : null,
+    locked && locked.trim() ? '<locked>\n' + cut(locked, 8000) + '\n</locked>' : null,
+    String(record || '').trim() ? '<record>\n' + cut(record, share(0.2)) + '\n</record>' : null,
+    '<pages>\n' + (told.join('\n\n') || '(none yet)') + '\n</pages>',
+  ].filter(Boolean).join('\n\n');
+}
+
+function normalizeLasting(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 6).map((c) => ({
+    name: String((c && c.name) || '').replace(/\s+/g, ' ').trim().slice(0, 50),
+    mod: clampInt(c && c.mod, -4, 3, -1),
+    ...(c && typeof c.domain === 'string' && c.domain.trim() ? { domain: c.domain.toLowerCase().trim().slice(0, 20) } : {}),
+    ...(c && c.gear === true ? { gear: true } : {}),
+    by: 'seed',
+  })).filter((c) => c.name && !/\b(?:clothes|clothing|outfit|dress|shirt|hoodie|jacket|disguise|paper bag|bag over (?:his|her|their|the) head|appearance|mood|habit)\b/i.test(c.name));
+}
+
+/* a name that is a place or a faction the ledger knows is never a person */
+function notAPerson(state, name) {
+  const n = lower(name);
+  if (!n) return true;
+  if (state.place && lower(state.place.name) === n) return true;
+  if (state.factions && typeof state.factions === 'object' && Object.keys(state.factions).some((k) => lower(k) === n)) return true;
+  return false;
+}
+
+/* M345: the answer, folded into the sheet the way Arbiter v0.42 folds it — and the old blind seeder's work healed.
+ *   - every name that means the main character lands on HIS entry (never a second one, never someone else's);
+ *   - a name the ledger has a page for is filed under the page's name (one person, one name, in every book — M320);
+ *   - the writer's hand is locked (only new domains are added); an estimate from a fight is replaced by a considered
+ *     rating; this seeder's own entries only ever RISE (growth), and its own reading of what they carry is replaced;
+ *   - what the referee filed in a beat, and what the writer set by hand, is never taken back by a seeding;
+ *   - heal: a sheet the blind seeder made is re-read whole — its numbers replaced, its misfiled conditions let go, and
+ *     its entries for people the ledger does not know dropped.
+ * Returns {touched, mcMissing}. */
+export function mergeSeed(state, parsed, { heal = false } = {}) {
+  state.sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
+  if (!state.sheet.actors || typeof state.sheet.actors !== 'object') state.sheet.actors = {};
+  const actors = state.sheet.actors;
+  if (typeof parsed.player_story_name === 'string' && parsed.player_story_name.trim()) {
+    const known = typeof state.sheet.playerName === 'string' ? state.sheet.playerName.trim() : '';
+    const nm = parsed.player_story_name.trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (!known && !PLAIN_SELF.test(nm)) state.sheet.playerName = nm; /* M28: a name the ledger knows is never clobbered */
+  }
+  const raw = Array.isArray(parsed.actors) ? parsed.actors
+    : (parsed.actors && typeof parsed.actors === 'object' ? Object.entries(parsed.actors).map(([name, v]) => ({ ...(v && typeof v === 'object' ? v : {}), name })) : []);
+  const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const mc = mcName(state);
+  const seen = new Set();
+  let touched = 0;
+  for (const item of raw.slice(0, SEED_MAX_ACTORS)) {
+    if (!item || typeof item !== 'object') continue;
+    let name = safeKey(String(item.name || '').replace(/\s+/g, ' ').trim().slice(0, 60));
+    if (!name) continue;
+    if (PLAIN_SELF.test(name) || isMcAlias(state, name)) {
+      if (mc === 'the player') continue;
+      name = mc;
+    } else {
+      const pageKey = findPersonKey(chars, name);
+      if (pageKey && !isMcAlias(state, pageKey)) name = pageKey;
+    }
+    if (notAPerson(state, name)) continue;
+    const domains = {};
+    if (item.domains && typeof item.domains === 'object') {
+      for (const d of Object.keys(item.domains).slice(0, 8)) {
+        const v = Number(item.domains[d]);
+        const dk = String(d).toLowerCase().trim().slice(0, 20);
+        if (dk && Number.isFinite(v)) domains[dk] = clamp(v, 0, 10);
+      }
+    }
+    const fresh = { default: clampInt(item.default, 0, 10, ENGINE_DEFAULTS.defaultRating), domains };
+    const lasting = normalizeLasting(item.lasting || item.conditions);
+    const key = findActorKeyExact(state, name) || findActorKeySamePerson(state, name);
+    const existing = key ? actors[key] : null;
+    if (existing && typeof existing === 'object' && isHandKept(existing)) {
+      existing.domains = existing.domains && typeof existing.domains === 'object' ? existing.domains : {};
+      for (const [d, v] of Object.entries(fresh.domains)) if (existing.domains[d] === undefined) existing.domains[d] = v;
+      seen.add(key);
+      continue;
+    }
+    const otherHands = existing && Array.isArray(existing.conditions)
+      ? existing.conditions.filter((c) => c && (c.by === 'referee' || c.by === 'hand' || (!heal && existing.seed === SEED_VERSION && c.by !== 'seed')))
+      : [];
+    if (existing && existing._auto && existing.seed === SEED_VERSION && !heal) {
+      /* growth: a considered rating of this seeder's only ever rises */
+      if (fresh.default > (Number(existing.default) || 0)) existing.default = fresh.default;
+      existing.domains = existing.domains && typeof existing.domains === 'object' ? existing.domains : {};
+      for (const [d, v] of Object.entries(fresh.domains)) if (existing.domains[d] === undefined || v > existing.domains[d]) existing.domains[d] = v;
+      existing.conditions = [...otherHands, ...lasting].slice(-8);
+      if (!existing.conditions.length) delete existing.conditions;
+      seen.add(key);
+      touched += 1;
+      continue;
+    }
+    const entry = { default: fresh.default, domains: fresh.domains, _auto: true, seed: SEED_VERSION };
+    const conds = [...otherHands, ...lasting].slice(-8);
+    if (conds.length) entry.conditions = conds;
+    if (existing && Number.isFinite(Number(existing.poise))) entry.poise = existing.poise;
+    if (key && key !== name) delete actors[key];
+    actors[name] = entry;
+    seen.add(name);
+    touched += 1;
+  }
+  if (heal) {
+    for (const [k, e] of Object.entries(actors)) {
+      if (!e || typeof e !== 'object' || !e._auto || e.seed === SEED_VERSION || seen.has(k)) continue;
+      if (findPersonKey(chars, k) || isMcAlias(state, k)) {
+        /* a person the ledger knows keeps the old number; the blind reading of what they carry goes */
+        e.seed = SEED_VERSION;
+        if (Array.isArray(e.conditions)) { e.conditions = e.conditions.filter((c) => c && (c.by === 'referee' || c.by === 'hand')); if (!e.conditions.length) delete e.conditions; }
+        continue;
+      }
+      delete actors[k];
+      touched += 1;
+    }
+  }
+  if (reconcilePlayerEntries(state)) touched += 1;
+  const mcMissing = mc !== 'the player' && !findActorKeySamePerson(state, mc);
+  return { touched, mcMissing };
+}
+
+/* Seed the actor sheet: on the first pages, after a fight lets go, when someone in the scene (or the main character)
+ * is not on it, when the blind seeder made it, and every SEED_EVERY pages. Background only — never on the critical
+ * path, never throws. */
+export async function maybeSeedSheet({ connection, storyId, signal, callLLM, brief = '', castNotes = '', renew } = {}) {
   try {
     if (!connection || !storyId) return { ok: false };
     const state = await loadState(storyId);
     if (!state) return { ok: false };
-    const actors = (state.sheet && state.sheet.actors) || {};
-    const empty = Object.keys(actors).length === 0;
-    const due = state.seedDueAfterFight === true;
-    if (!empty && !due) return { ok: false, why: 'not due' };
     const messages = (await db.messages.list(storyId)).filter((m) => m && !m.hidden);
-    if (messages.length < 4) return { ok: false, why: 'too early' };
-    const transcript = messages.slice(-12).map((m) => {
-      const who = m.role === 'user' ? 'Player' : 'Story';
-      return who + ': ' + clip(pageText(m), 600);
-    }).join('\n');
-    const user = '<transcript>\n' + transcript + '\n</transcript>\n<sheet>\n' + sheetBlock(state) + '\n</sheet>';
-    const parsed = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM);
-    if (!parsed || typeof parsed !== 'object') return { ok: false, why: 'no usable answer' };
-    state.sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
-    if (!state.sheet.actors || typeof state.sheet.actors !== 'object') state.sheet.actors = {};
-    if (typeof parsed.player_story_name === 'string' && parsed.player_story_name.trim()) {
-      const nm = parsed.player_story_name.trim().slice(0, 60);
-      /* M28: a name the ledger already knows — from the founding read
-       * (mc.set) or the hand — is never clobbered by a seeder's guess. */
-      const known = typeof state.sheet.playerName === 'string' ? state.sheet.playerName.trim() : '';
-      if (!known) state.sheet.playerName = nm;
+    const told = messages.filter((m) => m.role === 'assistant').length;
+    const why = seedDue(state, told);
+    if (!why) return { ok: false, why: 'not due' };
+    let record = '';
+    try { record = recordFor(await loadMemory(storyId), 1, 120000); } catch (err) { record = ''; }
+    const room = Math.max(40000, Math.min(400000, Math.floor(contextOf(connection) * 3 * 0.55)));
+    let user = buildSeedUser({ state, pages: messages.slice(-40), brief, castNotes, record, room });
+    if (typeof renew === 'function') renew(240000);
+    let parsed = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));
+    if (!parsed) return { ok: false, why: 'no usable answer' };
+    /* the seeding is written onto the ledger as it stands NOW — a page may have landed while the model read */
+    const fresh = await loadState(storyId);
+    if (!fresh) return { ok: false };
+    const heal = why === 'heal';
+    let result = mergeSeed(fresh, parsed, { heal });
+    if (result.mcMissing) {
+      /* the main character left out: asked once more, by name */
+      if (typeof renew === 'function') renew(240000);
+      user += '\n\nYou left out ' + mcName(fresh) + ' — the main character. Answer again with the whole sheet, ' + mcName(fresh) + ' first.';
+      const again = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));
+      if (again) result = mergeSeed(fresh, again, { heal: false });
     }
-    let touched = 0;
-    const list = Array.isArray(parsed.actors) ? parsed.actors.slice(0, 16) : [];
-    for (const raw of list) {
-      if (!raw || typeof raw !== 'object') continue;
-      const name = safeKey(raw.name);
-      if (!name) continue;
-      const existing = state.sheet.actors[findActorKey(state, name) || name];
-      /* Hand-kept entries win; the seeder only fills or refreshes its own
-       * (_auto / _estimated) work. */
-      if (existing && !existing._auto && !existing._estimated) continue;
-      const entry = {
-        default: clampInt(raw.default, 0, 10, ENGINE_DEFAULTS.defaultRating),
-        domains: {},
-        _auto: true,
-      };
-      if (raw.domains && typeof raw.domains === 'object') {
-        for (const d of Object.keys(raw.domains).slice(0, 8)) {
-          const v = Number(raw.domains[d]);
-          if (Number.isFinite(v)) entry.domains[d.toLowerCase().trim().slice(0, 20)] = clamp(v, 0, 10);
-        }
-      }
-      if (Array.isArray(raw.conditions) && raw.conditions.length) {
-        entry.conditions = raw.conditions.slice(0, 6).map((c) => ({
-          name: String(c && c.name || '').slice(0, 50),
-          mod: clampInt(c && c.mod, -4, 2, -1),
-          ...(c && c.domain ? { domain: String(c.domain).toLowerCase().slice(0, 20) } : {}),
-        })).filter((c) => c.name);
-      }
-      state.sheet.actors[findActorKey(state, name) || name] = entry;
-      touched += 1;
-    }
-    state.seedDueAfterFight = false;
-    await saveState(storyId, state);
+    fresh.sheet.seedVersion = SEED_VERSION;
+    fresh.sheet.seededAtPage = storyTurn(fresh);
+    fresh.sheet.seenPresent = (Array.isArray(fresh.present) ? fresh.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean).slice(0, 40);
+    fresh.seedDueAfterFight = false;
+    await saveState(storyId, fresh);
     notify(storyId);
-    return { ok: true, touched };
+    return { ok: true, touched: result.touched, why };
   } catch (err) {
     return { ok: false };
   }
