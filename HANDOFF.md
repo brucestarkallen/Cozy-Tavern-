@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m348-001)
+# Cozy Tavern — handoff for the next session (state at m349-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M348). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M349). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 683 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 687 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 90 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -25,6 +25,10 @@ founding design lives in AGENTS.md's first entries.)
   person says (no tier names, numbers, rounds, poise). The referee OFF = not one byte of it, no referee or seeder call, a standing
   fight let go. The cast sheet is seeded WITH the ledger in view (<player> names the MC; brief, people, bodies, record, pages), the
   MC first; a sheet without seedVersion 2 heals itself on the next page. Prove any referee change in the app (DOM-68).
+- A RELAY THAT LISTS A MODEL'S LEVELS IS SPOKEN TO IN THOSE WORDS (M349): style 'declared' (Synthetic's
+  reasoning_parameters.efforts) = ONE field, reasoning_effort, one listed value (Off = "none" where listed, else the least);
+  GLM on Z.ai by its generation (effort.js zaiWire: 5.3+ always thinks low/high/max; 5.2 off/high/max; before 5.2 a switch).
+  "Cannot stop thinking" is ONE test, alwaysThinks(conn) — the worker room floor and the connection card read it.
 - A MODEL IS WHAT ITS PROVIDER SAYS IT IS (M348): an alias (Synthetic's "syn:large:vision" = Kimi K3) is read by the weights
   the provider's own /models listing names (hugging_face_id / canonical_slug) and sent only the levels it declares
   (reasoning_parameters.efforts) — learned with the room (providers/detect.js, one question, kept per model@address) and read by

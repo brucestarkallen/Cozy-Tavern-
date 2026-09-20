@@ -33,7 +33,7 @@
  */
 
 import { createProvider } from '../providers/index.js';
-import { reasonStyle } from '../providers/effort.js';
+import { alwaysThinks } from '../providers/effort.js';
 
 export const WORKER_MAX_TOKENS = 1200;
 export const ALWAYS_THINKS_FLOOR = 16000; /* M303 */
@@ -88,7 +88,7 @@ export function workerConnection(connection, { maxTokens, effort, temperature } 
    * to ensure the full reasoning_content and content can be returned"). It is
    * a ceiling on the reply, never a cost, and the only thing set here that
    * the connection did not say: the floor that keeps an answer whole. */
-  if (reasonStyle(c) === 'kimi') c.maxTokens = Math.max(c.maxTokens, ALWAYS_THINKS_FLOOR);
+  if (alwaysThinks(c)) c.maxTokens = Math.max(c.maxTokens, ALWAYS_THINKS_FLOOR); /* M349: every model that cannot stop, however it is reached */
   /* M233: THINKING IS THE WRITER'S TO DECIDE, LIKE EVERYTHING ELSE. Every
    * worker used to ask for effort:'off' outright, and I called that "a worker
    * choosing about its own job" — which was the same paternalism I had just

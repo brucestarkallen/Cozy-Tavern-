@@ -8379,3 +8379,33 @@ efforts low / high / max) did not think at Low, while the forum says it does.
   app: the alias at Low is learned before the page, sent reasoning_effort "low" with no thinking switch, and the receipt
   says no thinking came back.
 - version.js -> m348-001.
+
+# M349 — "so a GLM model on Synthetic will work? or another provider?"
+Checked against the providers' own documents and Synthetic's live listing (as published in two public trackers: every
+route's accepted levels in reasoning_parameters.efforts, sent through the one top-level reasoning_effort field; GLM-5.2
+none/high/max, Kimi K3 low/high/max, Qwen3.8-27B low/medium/xhigh), then measured through the real provider at all six
+levels. Two more of the same fault were found, and fixed with it:
+- GLM ON SYNTHETIC WAS SPOKEN TO IN Z.AI'S WORDS: a thinking:{type} switch that is not part of Synthetic's surface, Off as
+  that switch (so, likely, no Off at all), and Low as "switch on, no effort" (the model's default, its most). Now any model
+  whose relay lists its levels (style 'declared') is sent exactly one field, reasoning_effort, with one listed value: Off is
+  "none" where the model lists it, else its least (it always thinks); every other level through its family's own alias
+  (medium -> high, xhigh -> max for K3 and GLM), then the nearest listed level below, else its least — a level that asks for
+  some thinking is never spoken as "none". Measured: GLM-5.2 on Synthetic Off none, Low high, Medium high, High high, XHigh
+  max, Max max; K3 as M348; Qwen Off low, High medium, Max xhigh; a route the listing names no weights for keeps the house's
+  nearest-below law.
+- GLM ON Z.AI WAS SPOKEN TO AS IF EVERY GENERATION WERE ONE: Low went out as "thinking on, no effort" — max, the most, for a
+  writer who asked for the least — and Off to GLM-5.3 as thinking disabled, which Z.ai says fails ("disabling reasoning is
+  no longer supported"). Now by generation (zaiWire): 5.3 and after always think — low/high/max, Off is "low"; 5.2 — Off
+  the switch, Low and Medium "high", XHigh "max"; before 5.2 — the switch alone (no reasoning_effort, which starts at 5.2).
+- "CANNOT STOP THINKING" IS ONE TEST (alwaysThinks): Kimi K3 however reached, GLM-5.3+, and any model whose relay lists no
+  "none". The worker room floor (M303: a worker's 400 tokens thought away) asked "is the style kimi?" — K3 behind the alias
+  (declared now) would have lost it; the connection card's "what Off becomes" asked the same. Both read the one test.
+- KIMI K3 ELSEWHERE is unchanged and measured: Moonshot and any host whose model name says kimi-k3 (Together's
+  moonshotai/Kimi-K3) get reasoning_effort only; OpenRouter its own reasoning object, which it maps per model.
+- NOT VERIFIED: no provider was called from here (the container reaches none of them). The requests are proven equal to
+  what each provider documents; how each model then thinks is theirs, and every page's receipt says whether thinking came
+  back (M348).
+- TESTS: m349.mjs M349-1 (Synthetic: four routes, six levels, one field), M349-2 (Z.ai GLM-5.3, 5.2, 4.6 at six levels),
+  M349-3 (K3 on Together and OpenRouter), M349-4 (alwaysThinks everywhere, and the worker floor it earns through the real
+  callWorker). M348's laws now read the style as 'declared' with the family kept (familyStyle).
+- version.js -> m349-001.

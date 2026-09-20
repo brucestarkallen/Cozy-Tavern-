@@ -72,7 +72,20 @@ export function declaredEfforts(conn) {
   return c.identFor && c.identFor === detectKey(c) && Array.isArray(c.modelEfforts) && c.modelEfforts.length ? c.modelEfforts : null;
 }
 
+/* M349: A RELAY THAT PUBLISHES EACH MODEL'S LEVELS IS SPOKEN TO IN EXACTLY THOSE WORDS. Synthetic lists every route's
+ * accepted values in reasoning_parameters.efforts and takes them through the one top-level reasoning_effort field — a
+ * family's own switch (GLM's thinking:{type}, Qwen's enable_thinking) is not part of its surface, and "off" is the value
+ * "none" where a model declares it. So when the house has learned a model's declared levels (M348), that is the spelling,
+ * whatever family the weights are. */
 export function reasonStyle(conn) {
+  const c = conn || {};
+  if (c.type === 'anthropic') return 'anthropic';
+  if (declaredEfforts(c)) return 'declared';
+  return familyStyle(c);
+}
+
+/* the family's own spelling — for a house that publishes no levels */
+export function familyStyle(conn) {
   const c = conn || {};
   if (c.type === 'anthropic') return 'anthropic';
   const url = String(c.baseUrl || '').toLowerCase();
@@ -101,6 +114,52 @@ export function reasonStyle(conn) {
    * thinking their whole budget away. */
   if (c.preset === 'deepseek' || url.includes('deepseek') || any(/^deepseek/)) return 'deepseek';
   return 'openai';
+}
+
+/* M349: GLM'S GENERATION DECIDES ITS WORDS (Z.ai, "Core Parameters", "GLM-5.3"): reasoning_effort exists from GLM-5.2;
+ * GLM-5.2 takes off (thinking disabled), high and max — low and medium are high on its own side, xhigh is max; GLM-5.3 and
+ * after always think ("disabling reasoning is no longer supported" — a request with thinking disabled FAILS) and take
+ * low, high and max. The house sent Low as "thinking on, no effort", which is max — the writer asked for the least and got
+ * the most — and Off to GLM-5.3 as a switch-off it refuses. */
+export function glmVersion(conn) {
+  for (const n of modelNames(conn)) {
+    const m = /glm[-_.]?(\d+)(?:[._](\d+))?/.exec(n);
+    if (m) return Number(m[1]) + (m[2] ? Number('0.' + m[2]) : 0);
+  }
+  return null;
+}
+/* M349: a model that cannot be told not to think — Kimi K3, GLM-5.3 and after, and any model whose relay lists no "none"
+ * among its levels. Its thinking is counted in the same room as its answer (the worker floor, M303) and its Off is spoken
+ * as its least (the connection card says so). One test, read everywhere that asked "is it K3?". */
+export function alwaysThinks(conn) {
+  const style = reasonStyle(conn);
+  if (style === 'declared') return !(declaredEfforts(conn) || []).includes('none');
+  if (style === 'kimi') return true;
+  if (style === 'zai') { const v = glmVersion(conn); return v !== null && v >= 5.3; }
+  return false;
+}
+export function zaiWire(effort, version) {
+  const e = effort === 'medium' ? 'high' : effort === 'xhigh' ? 'max' : effort;
+  if (version !== null && version >= 5.3) return { thinking: { type: 'enabled' }, reasoning_effort: e === 'off' ? 'low' : e };
+  if (version !== null && version < 5.2) return { thinking: { type: e === 'off' ? 'disabled' : 'enabled' } };
+  if (e === 'off') return { thinking: { type: 'disabled' } };
+  return { thinking: { type: 'enabled' }, reasoning_effort: e === 'low' ? 'high' : e };
+}
+
+/* M349: what a model that declares its levels is sent for the writer's level: "none" for Off where it declares none (else
+ * its least — it always thinks); any other level through its family's own alias (K3 and GLM read medium as high, xhigh
+ * as max), then the nearest declared thinking level below, else its least — a level that asks for SOME thinking is never
+ * spoken as "none". */
+export function declaredWire(conn, effort) {
+  const declared = declaredEfforts(conn) || [];
+  const thinking = EFFORT_RANK.filter((l) => l !== 'off' && declared.includes(l));
+  if (effort === 'off') return declared.includes('none') ? 'none' : (thinking[0] || '');
+  const fam = familyStyle(conn);
+  const e = (EFFORT_ALIAS[fam] && EFFORT_ALIAS[fam][effort]) || effort;
+  const r = EFFORT_RANK.indexOf(e);
+  let best = '';
+  for (const l of thinking) if (EFFORT_RANK.indexOf(l) <= r) best = l;
+  return best || thinking[0] || '';
 }
 
 /* The effort this connection can actually SAY: alias-down first (a level
@@ -216,6 +275,20 @@ export function spokenAs(conn, effort) {
   const want = EFFORT_RANK.includes(effort) ? effort : 'off';
   if (style === 'none') return 'nothing is sent — this model decides for itself';
   if (style === 'kimi2' || style === 'qwen') return want === 'off' ? 'thinking switched off' : 'thinking switched on (this model has no levels)';
+  if (style === 'declared') {
+    const said = declaredWire(conn, want);
+    const fam = familyStyle(conn);
+    if (!said) return 'nothing is sent — this model declares no levels the house can speak';
+    if (want === 'off' && said !== 'none') return `“${said}” — ${fam === 'kimi' ? 'Kimi K3' : 'this model'} always thinks; this is the least it declares`;
+    return `“${said}”`;
+  }
+  if (style === 'zai') {
+    const v = glmVersion(conn);
+    const w = zaiWire(effortFor('zai', want), v);
+    if (!w.reasoning_effort) return w.thinking.type === 'disabled' ? 'off' : 'thinking switched on';
+    if (want === 'off') return `“${w.reasoning_effort}” — GLM-${v} always thinks; this is the least it can`;
+    return `“${w.reasoning_effort}”`;
+  }
   const said = effortFor(style, want, undefined, declaredEfforts(conn));
   if (style === 'kimi' && want === 'off') return `“${said}” — Kimi K3 always thinks; this is the least it can`;
   return said === 'off' ? 'off' : `“${said}”`;
@@ -267,6 +340,18 @@ export function effectiveReasoningOf(connection, story) {
 /* the standing word under the form's thinking dial, when the house has one */
 export function thinkingHint(conn) {
   const style = reasonStyle(conn);
+  if (style === 'declared') {
+    const d = (declaredEfforts(conn) || []).join(', ');
+    const who = familyStyle(conn) === 'kimi' ? 'Kimi K3' : 'This model';
+    return who + ' takes exactly the levels its provider lists for it (' + d + '), and only those are ever sent, as reasoning_effort'
+      + ((declaredEfforts(conn) || []).includes('none') ? ' — Off is sent as “none”.' : ' — it always thinks, so Off is its least.');
+  }
+  if (style === 'zai') {
+    const v = glmVersion(conn);
+    if (v !== null && v >= 5.3) return 'GLM-' + v + ' always thinks and takes low, high and max — Off is spoken as “low”, Medium as “high”, XHigh as “max”.';
+    if (v !== null && v < 5.2) return 'This GLM’s thinking is a switch: Off turns it off, every other level turns it on (it takes no levels).';
+    return 'GLM-5.2 takes off, high and max — Low and Medium are its “high”, XHigh its “max”.';
+  }
   if (style === 'kimi') return 'Kimi K3 always thinks — it cannot be told not to — and has three levels only. Off and Low are spoken as “low”, Medium and High as “high”, XHigh and Max as “max”; left unsaid it would think at max. At “low” K3 often answers almost at once, with little or no thinking shown: that is the model’s own lightest setting, and there is nothing between it and “high”. Moonshot fixes its temperature (1.0) and top-p (0.95) and asks that they be left out — leave those two dials empty for this connection.';
   if (style === 'kimi2') return 'This Kimi model’s thinking is a switch: Off turns it off, every other level turns it on. Moonshot fixes its temperature and top-p — leave those two dials empty.';
   if (style === 'none' && /kimi/i.test(String(conn && conn.model || ''))) return 'This Kimi model always thinks and takes no thinking setting — nothing is sent for it.';

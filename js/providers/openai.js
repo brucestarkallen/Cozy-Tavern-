@@ -22,7 +22,7 @@ import { withImagePart, transportError } from './wire.js';
 import {
   reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
   applyPrefill, prefillPlan, markConnectionDown, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal, thinkingLead,
- declaredEfforts } from './effort.js';
+ declaredEfforts, declaredWire, zaiWire, glmVersion } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
 
@@ -186,9 +186,15 @@ function requestBody(connection, wireMessages, opts = {}) {
     body.reasoning = effort === 'off'
       ? { enabled: false }
       : (budget ? { max_tokens: budget } : { effort });
+  } else if (style === 'declared') {
+    /* M349: the relay's own words for this model — one field, one of the values it lists */
+    const said = declaredWire(connection, wanted);
+    if (said) body.reasoning_effort = said;
   } else if (style === 'zai') {
-    body.thinking = { type: effort === 'off' ? 'disabled' : 'enabled' };
-    if (effort !== 'off' && effort !== 'low') body.reasoning_effort = effort;
+    /* M349: by GLM's generation (effort.js zaiWire) */
+    const w = zaiWire(effort, glmVersion(connection));
+    body.thinking = w.thinking;
+    if (w.reasoning_effort) body.reasoning_effort = w.reasoning_effort;
   } else if (style === 'qwen') {
     body.enable_thinking = effort !== 'off';
   } else if (style === 'hermes') {

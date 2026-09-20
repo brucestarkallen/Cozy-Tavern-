@@ -20,7 +20,7 @@ import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '..
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
 import { learnContext } from '../providers/detect.js'; /* M289 */
 import { byName } from '../providers/order.js'; /* M301: every list of names the writer picks from, A to Z */
-import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking, describePrefill, prefillFields } from '../providers/effort.js';
+import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking, describePrefill, prefillFields, alwaysThinks } from '../providers/effort.js';
 import { download } from './download.js';
 import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
 import { cleanName, framePerson } from '../assemble/voice.js'; /* M327, M334 */
@@ -307,7 +307,7 @@ export function initSettings(ctx) {
        * and the card said nothing; and a refusal of a spelling this
        * connection no longer speaks is not shown as standing. */
       const style = reasonStyle(conn);
-      if (effort !== 'off' || style === 'kimi') {
+      if (effort !== 'off' || alwaysThinks(conn)) { /* M349: any model that cannot be told off says what its Off is */
         const spoken = document.createElement('span');
         spoken.className = 'connection-kind';
         const said = reasoningIsDown(conn, style)

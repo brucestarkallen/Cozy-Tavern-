@@ -54,7 +54,8 @@ export function contextOf(conn) {
 export function reportedIdentity(m) {
   if (!m || typeof m !== 'object') return { hf: '', efforts: null };
   const hf = [m.hugging_face_id, m.huggingface_id, m.hf_id, m.canonical_slug].find((x) => typeof x === 'string' && x.trim());
-  const raw = (m.reasoning_parameters && m.reasoning_parameters.efforts) || m.supported_reasoning_efforts || null;
+  /* only Synthetic's documented shape: each route's levels, sent through the top-level reasoning_effort field */
+  const raw = (m.reasoning_parameters && m.reasoning_parameters.efforts) || null;
   const efforts = Array.isArray(raw) ? raw.map((e) => String(e || '').toLowerCase().trim()).filter(Boolean) : null;
   return { hf: hf ? hf.trim() : '', efforts: efforts && efforts.length ? efforts : null };
 }

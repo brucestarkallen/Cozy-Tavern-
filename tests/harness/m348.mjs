@@ -8,7 +8,7 @@ import { test, assert, eq } from './lib.mjs';
 import { db } from '../../js/store.js';
 import { createProvider } from '../../js/providers/index.js';
 import { learnContext } from '../../js/providers/detect.js';
-import { reasonStyle, spokenAs, thinkingHint } from '../../js/providers/effort.js';
+import { reasonStyle, familyStyle, spokenAs, thinkingHint } from '../../js/providers/effort.js';
 import { finalizeReceipt } from '../../js/assemble/receipt.js';
 
 /* the writer's own listing, as he pasted it */
@@ -54,7 +54,8 @@ test('M348-2 KIMI K3 BEHIND “syn:large:vision” IS SENT MOONSHOT’S OWN K3 R
   eq(learned.modelHf, 'moonshotai/Kimi-K3', 'learned');
   const kept = (await db.connections.list()).find((c) => c.id === 'c-syn');
   eq(kept.modelHf, 'moonshotai/Kimi-K3', 'and kept on the connection');
-  eq(reasonStyle(kept), 'kimi', 'read as Kimi K3 now');
+  eq(reasonStyle(kept), 'declared', 'spoken in the relay’s own words now (M349)');
+  eq(familyStyle(kept), 'kimi', 'and known as Kimi K3');
   const after = {};
   await withHouse(async () => { for (const l of LEVELS) after[l] = thinkingOf(await send(kept, l)); }, seen);
   const want = { off: 'low', low: 'low', medium: 'high', high: 'high', xhigh: 'max', max: 'max' };
@@ -69,8 +70,8 @@ test('M348-2 KIMI K3 BEHIND “syn:large:vision” IS SENT MOONSHOT’S OWN K3 R
 test('M348-3 THE WHOLE CLASS: any family behind an alias is read by the weights its provider names — GLM and DeepSeek too; an alias learned for one model is not taken for another', () => {
   const at = 'https://api.synthetic.new/openai/v1';
   const known = (model, hf) => ({ type: 'openai', baseUrl: at, model, identFor: model + '@' + at, modelHf: hf });
-  eq(reasonStyle(known('syn:glm', 'zai-org/GLM-5.2')), 'zai', 'GLM behind an alias');
-  eq(reasonStyle(known('syn:ds', 'deepseek-ai/DeepSeek-V4')), 'deepseek', 'DeepSeek behind an alias');
+  eq(familyStyle(known('syn:glm', 'zai-org/GLM-5.2')), 'zai', 'GLM behind an alias');
+  eq(familyStyle(known('syn:ds', 'deepseek-ai/DeepSeek-V4')), 'deepseek', 'DeepSeek behind an alias');
   eq(reasonStyle({ ...known('syn:large:vision', 'moonshotai/Kimi-K3'), model: 'syn:other' }), 'openai', 'facts learned for another model are not this one’s');
 });
 
