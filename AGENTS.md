@@ -8474,3 +8474,22 @@ needed to answer for itself, on his phone, in one tap:
   own connection and picks it, as the older connection scenarios do. Both failures were the test's, not the app's.
 - GATES ON THE PUSHED TREE: harness 698/698, walk 91/91 (alone), longplay 8/8, lint clean.
 - version.js -> m351-001.
+
+# M352 — "where's the canon verification settings?"
+Under “The glossary”, which is nobody's idea of where a switch lives. The rooms of Settings (M105) place a section by a
+list in buildQuickNav, and anything unlisted fell to `ROOMS[ROOMS.length - 1]` — the glossary. M346 added
+section-canon to the page and not to a room, so the switch the writer was told about was two taps away in the wrong room,
+and nothing said so.
+- IT STANDS WITH THE REFEREE NOW: Settings → The readers → Canon verification, right under the referee (the section also
+  moved there on the page, so the order a writer scrolls matches the room he taps).
+- AND THE FALLBACK IS NO LONGER A TRAP: a section nobody listed shows beside its NEIGHBOURS — the room of the section
+  after it on the page, else the one before it (roomForSection). The last room is only the fallback of a page with no
+  rooms at all.
+- HELD TO A LAW, SO IT CANNOT HAPPEN AGAIN: SETTINGS_ROOMS and roomForSection are module-level and exported; M352-1 reads
+  the page's own sections and fails if any is listed in none or in two rooms (and if a room names a section the page does
+  not have); M352-2 holds the neighbour rule; DOM-73 walks every room in the app and fails unless each section is reached
+  from exactly one, canon verification is in The readers, and the glossary holds only the glossary.
+- An older law (findability M18 → M105) read the room list out of the source text and broke when it moved; it reads the
+  exported list now, and its intent lives in M352-1 besides. The code was right.
+- GATES ON THE PUSHED TREE: harness 700/700, walk 92/92 (alone), longplay 8/8, lint clean.
+- version.js -> m352-001.

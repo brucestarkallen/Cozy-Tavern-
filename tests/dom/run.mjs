@@ -3921,6 +3921,32 @@ test('DOM-72 THINKING ASKED FOR AND NONE CAME BACK: the page says so once, and â
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-73 EVERY ROOM OF SETTINGS HOLDS ITS OWN, AND NOTHING IS LOST IN THE GLOSSARY: each section is reached from exactly one room, canon verification stands with the referee in The readers, and a section nobody listed shows beside its neighbours rather than at the end (M352)', async () => {
+  const before = errors.length;
+  await openSettings();
+  const chips = await until(() => { const c = qa('#view-settings .nav-chip'); return c.length ? c : null; }, 'the rooms', 10000);
+  const all = qa('#view-settings .settings-section').map((s) => s.id);
+  assert(all.includes('section-canon'), 'canon verification is a section of Settings');
+  const seen = new Map();
+  for (const chip of chips) {
+    click(chip);
+    await until(() => chip.classList.contains('current'), 'the room opens', 5000);
+    for (const s of qa('#view-settings .settings-section')) {
+      if (s.hidden) continue;
+      seen.set(s.id, [...(seen.get(s.id) || []), chip.dataset.room]);
+    }
+  }
+  for (const id of all) {
+    const rooms = seen.get(id) || [];
+    eq(rooms.length, 1, id + ' is reached from exactly one room (got: ' + rooms.join(', ') + ')');
+  }
+  eq((seen.get('section-canon') || [])[0], 'readers', 'canon verification stands with the referee, in The readers');
+  eq((seen.get('section-referee') || [])[0], 'readers', 'and the referee is still there');
+  eq(JSON.stringify([...seen.entries()].filter(([, r]) => r[0] === 'help').map(([id]) => id)), JSON.stringify(['section-help']), 'the glossary holds the glossary, and nothing that was merely forgotten');
+  await closeSettings();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern â€” the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

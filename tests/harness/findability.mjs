@@ -38,16 +38,18 @@ test('M18 → M97 the header is ONE slim row at every width, all three rooms vis
   assert(/@media \(max-width: 380px\)\s*\{\s*\.brand\s*\{\s*display:\s*none/.test(css), 'the brand yields on the narrowest screens so the rooms stay in sight');
 });
 
+import { SETTINGS_ROOMS } from '../../js/ui/settings.js'; /* M352 */
+
 test('M18 → M105 settings is rooms, one open at a time: a tab strip of six, every section assigned, the open room remembered', () => {
   const html = read('index.html');
   const rooms = [...html.matchAll(/<section class="settings-section" id="([^"]+)"/g)].map((m) => m[1]);
   assert(rooms.length >= 8, 'the rooms stand');
   const src = read('js/ui/settings.js');
   assert(src.includes("document.getElementById('settings-quicknav')"), 'settings finds the strip');
-  const builder = src.slice(src.indexOf('const ROOMS = ['), src.indexOf('nav.openRoomFor'));
-  /* every section in index.html belongs to a room; a section the strip does not name falls to the house */
-  const named = [...builder.matchAll(/'(section-[a-z-]+)'/g)].map((m) => m[1]);
-  for (const id of rooms) assert(named.includes(id) || /roomOf = \(id\) => \(ROOMS\.find/.test(builder), 'assigned or defaulted: ' + id);
+  const builder = src.slice(src.indexOf('const ROOMS = SETTINGS_ROOMS'), src.indexOf('nav.openRoomFor'));
+  /* M352: every section of the page belongs to a room — run, not read (the list and its rule are exported now, and a
+   * section nobody listed no longer falls to the glossary: M352-1, M352-2) */
+  for (const id of rooms) assert(SETTINGS_ROOMS.some(([, , list]) => list.includes(id)), 'assigned: ' + id);
   assert(/section\.hidden = roomOf\(section\.id\) !== room/.test(builder), 'a room not open is hidden, not moved');
   assert(/db\.settings\.set\('settingsRoom', room\)/.test(builder), 'the open room is remembered');
   assert(src.includes("chip.className = 'nav-chip'"), 'chips wear the quiet chip style');

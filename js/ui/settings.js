@@ -44,6 +44,32 @@ import { pageText } from '../assemble/stack.js';
 
 let workerRowsGeneration = 0;
 
+/* M352: THE ROOMS OF SETTINGS, AND WHERE A SECTION NOBODY LISTED GOES. Canon verification (M346) was in no room's list,
+ * and the rule was "anything unlisted belongs to the LAST room" — the glossary. So its switch sat under “The glossary”
+ * for two releases and the writer went looking for it. A section nobody listed now shows beside its NEIGHBOURS on the
+ * page (the room of the section after it, else the one before it), where a writer looks for it; the last room is only
+ * ever the fallback of a page that has no rooms at all. */
+export const SETTINGS_ROOMS = [
+  ['storyteller', 'Storyteller', ['section-connections', 'section-workers', 'section-thinking']],
+  ['story', 'This story', ['section-brief', 'section-cast', 'section-frame', 'section-note', 'section-shelf']],
+  ['craft', 'The craft', ['section-rulebook', 'section-engine', 'section-regex']],
+  ['world', 'People & lore', ['section-people', 'section-lore', 'section-oldchats']],
+  ['readers', 'The readers', ['section-memory', 'section-referee', 'section-canon']],
+  ['house', 'The house', ['section-appearance', 'section-welcome', 'section-backup']],
+  ['help', 'The glossary', ['section-help']],
+];
+export function roomForSection(id, orderedIds = []) {
+  const listed = (x) => (SETTINGS_ROOMS.find(([, , ids]) => ids.includes(x)) || [null])[0];
+  const own = listed(id);
+  if (own) return own;
+  const at = orderedIds.indexOf(id);
+  if (at >= 0) {
+    for (let i = at + 1; i < orderedIds.length; i += 1) { const r = listed(orderedIds[i]); if (r) return r; }
+    for (let i = at - 1; i >= 0; i -= 1) { const r = listed(orderedIds[i]); if (r) return r; }
+  }
+  return SETTINGS_ROOMS[SETTINGS_ROOMS.length - 1][0];
+}
+
 export function initSettings(ctx) {
   const els = {
     connList: document.getElementById('connection-list'),
@@ -2490,20 +2516,12 @@ export function initSettings(ctx) {
     const nav = els.quicknav;
     if (!nav) return;
     nav.textContent = '';
-    /* M105: the rooms of settings, one at a time — a tab strip instead of one
-     * long scroll. Every section keeps its id; a room that is not open is
-     * hidden, not moved. The open room is remembered. */
-    const ROOMS = [
-      ['storyteller', 'Storyteller', ['section-connections', 'section-workers', 'section-thinking']],
-      ['story', 'This story', ['section-brief', 'section-cast', 'section-frame', 'section-note', 'section-shelf']],
-      ['craft', 'The craft', ['section-rulebook', 'section-engine', 'section-regex']],
-      ['world', 'People & lore', ['section-people', 'section-lore', 'section-oldchats']],
-      ['readers', 'The readers', ['section-memory', 'section-referee']],
-      ['house', 'The house', ['section-appearance', 'section-welcome', 'section-backup']],
-      ['help', 'The glossary', ['section-help']],
-    ];
+    /* M105: the rooms of settings, one at a time — a tab strip instead of one long scroll. Every section keeps its id;
+     * a room that is not open is hidden, not moved. The open room is remembered. The list and the rule that places a
+     * section in a room are module-level (M352), so they can be held to a law. */
+    const ROOMS = SETTINGS_ROOMS;
     const sections = [...document.querySelectorAll('#view-settings .settings-section')];
-    const roomOf = (id) => (ROOMS.find(([, , ids]) => ids.includes(id)) || ROOMS[ROOMS.length - 1])[0];
+    const roomOf = (id) => roomForSection(id, sections.map((x) => x.id));
     const show = async (room, remember = true) => {
       for (const section of sections) section.hidden = roomOf(section.id) !== room;
       for (const chip of nav.querySelectorAll('.nav-chip')) chip.classList.toggle('current', chip.dataset.room === room);
