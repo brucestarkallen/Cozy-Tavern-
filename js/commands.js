@@ -64,7 +64,7 @@ const CONTINUE_RE = /^#continue\s*$/i;
 const NEXT_RE = /^#q\s*$/i;
 const TIME_RE = /^#time\s*$/i;
 const TIMESKIP_RE = /^#(?:time\s*skip|timeskip|skip\s+to)\s*([\s\S]*)$/i;
-const STORY_RE = /^#story\s+([\s\S]+)$/i;
+const STORY_RE = /^#story(?:\s+([\s\S]+))?\s*$/i; /* M359: with no concept at all, the storyteller chooses that too — but #storyteller is not the command */
 const WINDOW_RE = /^#(?:put\s*twb|twb)\s+([^\n]+?)\s*$/i;
 const REFEREE_RE = /^#(?:roll|skip|noroll)\b/i;
 const REFEREE_INLINE_RE = /(?:^|\s)#\s*(?:no\s+roll|roll\s+this|roll|skip|noroll)\b/i;
@@ -128,16 +128,20 @@ export function parseCommand(text) {
     };
   }
   m = trimmed.match(STORY_RE);
-  if (m && m[1].trim()) {
-    const concept = m[1].trim();
+  if (m) {
+    /* M359: "#story" alone is a story too — the concept is one more unspecified detail, and the law says every one of
+     * them is chosen and written in, never asked about. */
+    const concept = (m[1] || '').trim();
     return {
       kind: 'story',
-      clean: concept,
-      directive: DIRECTIVES.story + concept,
-      chip: 'a new tale — the first scene, written now',
+      clean: concept || 'A new tale — you choose it.',
+      directive: concept
+        ? DIRECTIVES.story + concept
+        : DIRECTIVES.story + 'you choose it — the kind of story, the world, the hour, who MC is and who is with him. Choose, and write the first scene of it now.',
+      chip: concept ? 'a new tale — the first scene, written now' : 'a new tale of your choosing — the first scene, written now',
       hidden: false,
       ooc: false,
-      name: titleFrom(concept),
+      name: concept ? titleFrom(concept) : 'A new tale',
     };
   }
   m = trimmed.match(WINDOW_RE);

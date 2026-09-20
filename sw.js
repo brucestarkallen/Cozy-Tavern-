@@ -56,6 +56,7 @@ const SHELL = [
   'js/sent.js',
   'js/providers/relay.js',
   'js/assemble/plain.js',
+  'js/assemble/plainvoice.js',
   'js/agents/sensors.js',
   'js/canon/host.js',
   'js/canon/bridge.js',

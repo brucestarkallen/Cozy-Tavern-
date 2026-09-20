@@ -8660,3 +8660,31 @@ the thing he cannot stand. So: a box under the two names, Settings -> This story
 - GATES ON THE PUSHED TREE: harness 719/719, walk 94/94 (alone), longplay 8/8, lint clean. DOM-74 moved with the law: the
   page that took his character now STANDS, and the word comes before the next one.
 - version.js -> m358-001.
+
+# M359 — the grounding phrase through the whole standing word, #story on its own, and his preset read back to him
+- WOVEN INTO THE PRESET ITSELF (voice.js groundingWeave). He asked for it "before preset… randomly anywhere between 30% of
+  total preset words so it'll stuck on the AI mind". Randomly is the one thing not to do: a phrase dropped mid-sentence
+  breaks the sentence it lands in and reads as damage, not voice. It goes where a reader would put it — once as the first
+  breath after the frame's opening paragraph, and once more at the PARAGRAPH BREAK nearest a third of the way down (his
+  30%, landed on a boundary). Never inside a paragraph, never more than twice, and weaving twice is weaving once.
+- IN FRONT OF A HOUSE COMMAND'S LAW (stack.js). A turn that is mostly instruction (#time skip, #p, #pp, #q, #continue) is
+  exactly where his teller's voice slid into an assistant's; the command's law now opens with his phrase in quotes, so the
+  first thing read on that turn is his teller's own words.
+- #STORY WAS NOT MISSING — it is in js/commands.js and in the glossary — but it demanded a concept, and a bare "#story" fell
+  through to nothing. The concept is one more unspecified detail, and that command's own law says every one of them is
+  chosen and written in, never asked about: "#story" alone now opens a tale named "A new tale" and hands the choosing over
+  (the world, the hour, who MC is, who is with him), first scene written at once. "#storyteller" is still not the command.
+- HIS OWN PRESET, READ BACK TO HIM (assemble/plainvoice.js, Settings -> This story -> The frame -> "Read my standing words
+  for an assistant's voice"). He asked whether the house could look over the whole forty thousand words instead of him
+  pasting them: it can, mechanically, with no model and no wire. Every line of the frame, this tale's own frame and every
+  module on the shelf is read against two lists — the words that name the machine (an assistant, a model, a prompt, the
+  user, a policy, the makers) or the apologetic register ("I cannot", "I apologize", "Let me know"), and the register of
+  documentation ("output", "ensure", "step-by-step", "it's important to note"). ONE finding per line, with every word in it
+  that does it and where it stands. It rewrites NOTHING: his words are his, and a machine guessing at his prose is how a
+  voice gets flattened.
+- TESTS: m359.mjs M359-1 (woven after the opening breath and a third down, never inside a paragraph, never twice over,
+  empty leaves the frame untouched), M359-2 (in front of a command's law, and the law alone when the box is empty),
+  M359-3 (#story named and bare, and #storyteller is not it), M359-4 (one line at a time with its words, his own prose
+  left alone, a clean frame reads clean).
+- GATES ON THE PUSHED TREE: harness 723/723, walk 94/94 (alone), longplay 8/8, lint clean.
+- version.js -> m359-001.

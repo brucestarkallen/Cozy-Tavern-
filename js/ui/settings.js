@@ -14,6 +14,7 @@
  * and the real thinking control — no placeholders.
  */
 
+import { readStandingWords } from '../assemble/plainvoice.js'; /* M359 */
 import { loadSensors, sensorLine } from '../agents/sensors.js'; /* M356 */
 import { canonWikis, setCanonWikis } from '../canon/bridge.js'; /* M346 */
 import { db } from '../store.js';
@@ -124,6 +125,8 @@ export function initSettings(ctx) {
     tellerPersonNote: document.getElementById('teller-person-note'),
     writerName: document.getElementById('writer-name'),
     groundingPhrase: document.getElementById('grounding-phrase'), /* M358 */
+    frameVoiceCheck: document.getElementById('frame-voice-check'), /* M359 */
+    frameVoiceFound: document.getElementById('frame-voice-found'),
     frameStory: document.getElementById('frame-story'),
     frameStoryName: document.getElementById('frame-story-name'),
     /* M21: the frame's purpose line and its end-of-request echo. */
@@ -935,6 +938,40 @@ export function initSettings(ctx) {
   if (els.tellerName) els.tellerName.addEventListener('change', () => keepName('tellerName', els.tellerName));
   if (els.writerName) els.writerName.addEventListener('change', () => keepName('writerName', els.writerName));
   /* M358: the grounding phrase is kept the same way — the moment the box is left, and forgotten when it is emptied */
+  /* M359: his own standing words, read for an assistant's voice — mechanically, nothing rewritten, nothing sent */
+  if (els.frameVoiceCheck && els.frameVoiceFound) els.frameVoiceCheck.addEventListener('click', async () => {
+    const list = els.frameVoiceFound;
+    list.textContent = '';
+    list.hidden = false;
+    const pieces = [];
+    const story = await activeStory();
+    if (story && typeof story.frameOverride === 'string' && story.frameOverride.trim()) pieces.push({ name: 'this tale’s own frame', text: story.frameOverride });
+    pieces.push({ name: 'the frame', text: els.frameGlobal ? els.frameGlobal.value : '' });
+    try {
+      const shelf = await listModules();
+      for (const mod of Array.isArray(shelf) ? shelf : []) if (mod && mod.on !== false && typeof mod.text === 'string') pieces.push({ name: mod.name || mod.id || 'the rulebook', text: mod.text });
+    } catch (err) { /* the frame alone is still worth reading */ }
+    const found = readStandingWords(pieces);
+    if (!found.length) {
+      const li = document.createElement('li');
+      li.textContent = 'Nothing in your standing words sounds like an assistant.';
+      list.appendChild(li);
+      return;
+    }
+    const head = document.createElement('li');
+    head.textContent = found.length + (found.length === 1 ? ' line reads like a machine, not a person:' : ' lines read like a machine, not a person:');
+    list.appendChild(head);
+    for (const f of found.slice(0, 40)) {
+      const li = document.createElement('li');
+      li.textContent = '“' + f.words.join('”, “') + '” (' + f.why + ') — ' + f.where + ': ' + f.line;
+      list.appendChild(li);
+    }
+    if (found.length > 40) {
+      const more = document.createElement('li');
+      more.textContent = 'and ' + (found.length - 40) + ' more.';
+      list.appendChild(more);
+    }
+  });
   if (els.groundingPhrase) els.groundingPhrase.addEventListener('change', async () => {
     const v = String(els.groundingPhrase.value || '').replace(/\s+/g, ' ').trim().slice(0, 80);
     els.groundingPhrase.value = v;

@@ -39,6 +39,30 @@ export function groundingLine(voice) {
   const words = 'Open your thinking with “' + phrase + '”, the way you always do, and then think however you like.';
   return hasVoice(voice) ? toTeller(words, voice) : words;
 }
+/* M359: THE PHRASE WOVEN INTO THE STANDING WORDS. The writer: put it "before preset… randomly anywhere between 30% of
+ * total preset words so it'll stuck on the AI mind". Randomly is the one thing not to do — a phrase dropped mid-sentence
+ * breaks the sentence it lands in. It goes where a reader would put it: once at the top, in the first breath after the
+ * frame's opening paragraph, and once more at the paragraph break nearest a third of the way down — so it is read
+ * early, and again while the standing words are still being read. Never inside a paragraph, never more than twice. */
+export const groundingSaid = (phrase) => 'You open every thought with “' + phrase + '”.';
+export function groundingWeave(text, phrase) {
+  const body = String(text == null ? '' : text);
+  const said = String(phrase || '').trim();
+  if (!said || !body.trim()) return body;
+  const line = groundingSaid(said);
+  if (body.includes(line)) return body;
+  const parts = body.split(/\n\n+/);
+  if (parts.length < 2) return line + '\n\n' + body;
+  const at = (n) => parts.slice(0, n).join('\n\n').length;
+  const third = body.length / 3;
+  let best = 1;
+  for (let i = 1; i < parts.length; i += 1) if (Math.abs(at(i) - third) < Math.abs(at(best) - third)) best = i;
+  const out = [...parts];
+  if (best > 1) out.splice(best, 0, line);
+  out.splice(1, 0, line);
+  return out.join('\n\n');
+}
+
 /* what the thinking itself is started with, where the model takes a seed (M328's thinking prefill) */
 export function groundingSeed(settings) {
   const phrase = groundingOf(settings);

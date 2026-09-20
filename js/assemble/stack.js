@@ -97,7 +97,7 @@ import { sceneAnchor, recallFromRecord, recallLine } from './anchor.js'; /* M343
 import { plainRules } from './plain.js'; /* M354: the five plain lines, behind the derestricted switch */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
-import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingLine } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
+import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingLine, groundingWeave } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -422,7 +422,8 @@ export function buildRequest({
 
   /* --- 1. The frame --- */
   const framePicked = pickText(safeStory.frameOverride, safeSettings.frameText, STARTER_FRAME);
-  const frame = { ...framePicked, text: inVoice(framePicked.text, voice) };
+  /* M359: his grounding phrase is woven into the standing words themselves — the top, and a third of the way down */
+  const frame = { ...framePicked, text: groundingWeave(inVoice(framePicked.text, voice), voice.grounding) };
   /* M334: first person or second — the writer's choice, or read off his frame's own opening words. It turns the SYSTEM-side
    * words the house wrote (purpose line, craft, woken rules); never the frame; never what is said to the teller in a
    * user-role message, which is the writer speaking. */
@@ -660,7 +661,10 @@ export function buildRequest({
 
   /* --- 10. The continue nudge + M9 house commands --- */
   const nudges = isContinueTurn(history);
-  const directiveText = typeof directive === 'string' ? directive.trim() : '';
+  /* M359: and it goes in front of a house command's law, so a turn that is mostly instruction (#time skip, #p, #q)
+   * still opens in his teller's own voice rather than an assistant's */
+  const rawDirective = typeof directive === 'string' ? directive.trim() : '';
+  const directiveText = rawDirective && voice.grounding ? '“' + voice.grounding + '” — ' + rawDirective : rawDirective;
   const prefixTokens = slots.reduce((sum, s) => sum + s.tokens, 0)
     + estimateTokens(hasNote ? note.text : '')
     + estimateTokens(nudges ? CONTINUE_NUDGE : '')
