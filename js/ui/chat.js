@@ -4417,8 +4417,12 @@ export function initChat(ctx) {
         return;
       }
       if (!parsed.hidden) {
-        els.thread.appendChild(msgNode(saved));
-        lastRender.ids.push(saved.id);
+        /* M383: ONE PAGE OF HIS, SHOWN ONCE. A #story opens a new tale, and opening it draws that tale — which, once his
+         * words are saved, already shows them; this line then drew them a second time. Two "YOU" boxes for one message
+         * (his screenshot), until a page landed and the thread was redrawn — and when no page came, they stayed. */
+        const alreadyShown = [...els.thread.querySelectorAll('.msg[data-id]')].some((n) => n.dataset.id === String(saved.id));
+        if (!alreadyShown) els.thread.appendChild(msgNode(saved));
+        if (!lastRender.ids.includes(saved.id)) lastRender.ids.push(saved.id);
         scrollToBottom();
         /* M21: the shelf preview follows the newest page, even before the
          * storyteller answers. */

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m382-001)
+# Cozy Tavern — handoff for the next session (state at m383-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 He tells his story with a frontier model and a hand-built persona (a funny teller, his own frame and rules). Almost every
@@ -26,13 +26,13 @@ talking to an assistant. The teller then thinks in an assistant's voice ("the us
    field on a message must be added to store.js's append whitelist, or it does not exist.
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M382). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M383). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
 - `node tests/harness/run.mjs` — 751 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 101 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 102 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

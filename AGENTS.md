@@ -9178,3 +9178,17 @@ His screenshot: two "YOU: A new tale — you choose it." and no page. He had typ
   words, and no house sentence anywhere. HANDOFF's rule 8 now says it: test what is sent through the real app.
 - GATES ON THE PUSHED TREE: harness 751/751, walk 101/101, longplay 8/8, lint clean.
 - version.js -> m382-001.
+
+# M383 — his one message was drawn twice
+The second half of his screenshot: two "YOU" boxes for one "#story". Reproduced in the walk: while the storyteller writes
+after a #story, the store holds ONE message of his and the thread shows TWO. A #story opens a new tale, and opening it
+draws that tale — which, once his words are saved, already shows them — and send() then drew them a second time. A
+landed page redraws the thread and the copy vanished; his page never came (M382's bug), so both stayed. Never sent
+twice: one message, one ask. send() now draws his message only if it is not already on the thread (by its id); the
+only other place a message is drawn is the thread's own render, which clears and redraws from the store.
+- ALSO ANSWERED: the line under the composer when a shortcut is typed ("a new tale of your choosing — the first scene,
+  written now") is only ever put on the screen (els.composerChip.textContent) — never sent to the storyteller.
+- TESTS: DOM-84 — a #story held mid-write: one message in the store, ONE box on the thread showing "#story", and one after
+  the page lands.
+- GATES ON THE PUSHED TREE: harness 751/751, walk 102/102, longplay 8/8, lint clean.
+- version.js -> m383-001.

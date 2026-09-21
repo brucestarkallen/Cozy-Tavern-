@@ -4345,6 +4345,32 @@ test('DOM-83 EVERY SHORTCUT, THROUGH THE REAL APP: the thread shows what he type
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-84 ONE MESSAGE OF HIS IS SHOWN ONCE: a #story opens a new tale and, while the storyteller writes (and if no page ever comes), his one message is ONE box on the thread — it was drawn twice (M383)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const H = '[The kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\n';
+  const prior = house.state.storyAnswer;
+  let release; const held = new Promise((r) => { release = r; });
+  house.state.storyAnswer = () => held.then(() => H + 'The kettle sang.');
+  try {
+    const from = house.state.calls.length;
+    type(q('#composer-input'), '#story'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
+    await new Promise((r) => setTimeout(r, 600));
+    const tale = (await db.stories.list()).slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+    eq((await db.messages.list(tale.id)).filter((m) => m.role === 'user').length, 1, 'one message of his in the store');
+    eq(qa('#thread .msg-user').length, 1, 'and ONE box on the thread while the storyteller writes');
+    assert(/#story/.test(q('#thread .msg-user').textContent) && !/you choose it/.test(q('#thread .msg-user').textContent), 'showing what he typed');
+    release();
+    await until(() => !env.ctx.chat.isBusy(), 'the page lands', 30000);
+    await until(() => queuedCount(tale.id) === 0 && !workIsRunning(tale.id), 'the readers', 30000);
+    eq(qa('#thread .msg-user').length, 1, 'and one after');
+  } finally {
+    house.state.storyAnswer = prior;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
