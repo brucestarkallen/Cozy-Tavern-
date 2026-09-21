@@ -16,6 +16,9 @@
 
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { measureStream, speedWords, pickOpenAI, SPEED_ASK, SPEED_MAX_TOKENS } from './speed.js'; /* M373 */
+
+/* M376: the least room a THINKING page is given — the same floor the workers already keep for a thinking model */
+export const PAGE_THINKING_FLOOR = 16000;
 import { reportedContext, reportedIdentity } from './room.js'; /* M289; M348 */
 import { readSSE } from './sse.js';
 import { withImagePart, transportError } from './wire.js';
@@ -166,6 +169,13 @@ function requestBody(connection, wireMessages, opts = {}) {
   if (typeof connection.topP === 'number') body.top_p = connection.topP;
   if (typeof connection.maxTokens === 'number' && connection.maxTokens > 0) {
     body.max_tokens = Math.round(connection.maxTokens);
+    /* M376: A FLOOR, NOT A SETTING (his rule: "the only override allowed is a floor that prevents corruption — a minimum
+     * token budget"). A thinking model spends its room thinking first; set lower than this, the thinking used the room
+     * up, the reply was cut before its page ever came, and the house had to ask a second time — the stop and restart he
+     * saw. With thinking asked for (or a model that always thinks), a room he set below the floor is raised to it. A
+     * room he never set is still never sent. */
+    const thinkingAsked = (connection.reasoning && typeof connection.reasoning.effort === 'string' && connection.reasoning.effort !== 'off') || alwaysThinks(connection);
+    if (thinkingAsked && body.max_tokens < PAGE_THINKING_FLOOR) body.max_tokens = PAGE_THINKING_FLOOR;
   }
   const style = reasonStyle(connection);
   const r = (connection && connection.reasoning) || {};

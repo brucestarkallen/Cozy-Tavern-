@@ -4213,6 +4213,61 @@ test('DOM-79 THE GROUNDING PHRASE WITHOUT ANY MACHINERY SHOWING: no seed where t
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-80 A FIRST TRY THAT BROUGHT BACK NO PAGE: no banner, the second try opens with the thinking he was watching and carries on under it, and the page keeps all of it (M376)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const said = [];
+  const realToast = env.ctx.toast;
+  env.ctx.toast = (w) => { said.push(String(w)); return realToast ? realToast(w) : undefined; };
+  const conns = await db.connections.list();
+  const house0 = conns.find((c) => c && c.baseUrl && /mock\.example/.test(c.baseUrl)) || conns[0];
+  const wasActive = await db.settings.get('activeConnectionId');
+  const conn = await db.connections.add({ label: 'thinks first', type: 'openai', baseUrl: house0.baseUrl, apiKey: house0.apiKey || 'k', model: 'thinker-model', reasoning: { effort: 'high' } });
+  await db.settings.set('activeConnectionId', conn.id);
+  const priorFetch = globalThis.fetch;
+  const H = '[The kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\n';
+  const FIRST = 'The first try thinks long about the kettle and the rain, and about who will speak first. '.repeat(8);
+  let tries = 0;
+  let release;
+  const held = new Promise((r) => { release = r; });
+  const sse = (events) => new Response(events.map((e) => 'data: ' + JSON.stringify(e) + '\n\n').join('') + 'data: [DONE]\n\n', { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  globalThis.fetch = async (url, opts) => {
+    let body = null;
+    try { body = opts && opts.body ? JSON.parse(opts.body) : null; } catch (err) { body = null; }
+    if (!body || body.model !== 'thinker-model' || body.stream !== true) return priorFetch(url, opts);
+    tries += 1;
+    if (tries === 1) return sse([{ choices: [{ delta: { reasoning_content: FIRST } }] }, { choices: [{ delta: { content: '…' } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]);
+    await held;
+    return sse([{ choices: [{ delta: { reasoning_content: 'Now the page. ' } }] }, { choices: [{ delta: { content: H + 'The kettle sang, and Rias poured.' } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]);
+  };
+  try {
+    const st = await db.stories.create({ title: 'second try' });
+    await db.stories.update(st.id, { keeper: false, extraction: false });
+    await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+    await db.messages.append(st.id, { role: 'assistant', text: H + 'The kettle was cold.' });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
+    await until(() => tries === 2, 'the second try is asked', 30000);
+    const box = await until(() => { const p = q('#thread .msg-assistant.pending'); const t = p && p.querySelector('.thinking-body'); return t && /first try thinks long about the kettle/.test(t.textContent) ? t : null; }, 'the second try opens with the thinking he was watching', 10000);
+    assert(box, 'it stands in the box');
+    assert(!said.some((w) => /Asking again|asking for the page itself/i.test(w)), 'no banner: ' + said.join(' | '));
+    release();
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page lands', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(/The kettle sang, and Rias poured\./.test(page.text), 'the page is the second try’s');
+    const kept = JSON.stringify(page);
+    assert(/first try thinks long about the kettle/.test(kept) && /Now the page\./.test(kept), 'and both thinkings are kept with it');
+  } finally {
+    globalThis.fetch = priorFetch;
+    env.ctx.toast = realToast;
+    await db.settings.set('activeConnectionId', wasActive);
+    await db.connections.remove(conn.id);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

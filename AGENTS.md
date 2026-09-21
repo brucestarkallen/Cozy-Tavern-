@@ -9017,3 +9017,24 @@ reader — zero lines). What had changed was HOW the phrase reached the teller:
   turns too, his story prefill never riding those.
 - GATES ON THE PUSHED TREE: harness 743/743, walk 98/98 (alone), longplay 8/8, lint clean.
 - version.js -> m375-001.
+
+# M376 — "a banner I don't know, during thinking, then my thinking stops, then it restarts"
+When the first try brings back no page — its thinking used the whole room and the page was cut, or it thought and then
+wrote almost nothing, or a provider leaked its control tokens — the house asks a second time (M117, M120, M323-M339). That
+recovery was right; how it showed was not: a toast ("Asking again.", or a long line about planning) flashed by, the box of
+thinking he had been reading vanished, and a new thinking began from nothing.
+- NO BANNER: the three second tries say nothing on screen.
+- THE THINKING CARRIES ON: each second try is handed the thinking he was watching (thinkingShown) and it stands in the box
+  the moment the second try opens; the new thinking continues under it. All of it — the first try's thinking, the plan it
+  wrote, the second try's — is kept with the page (the M323 plan-carry, widened to every second try).
+- THE COMMONEST CAUSE, PREVENTED: a thinking model spends its room thinking first; with the room he set below what a
+  thinking page needs, the page was cut before it came and the second try was forced. His rule allows exactly one
+  override — "a floor that prevents corruption (e.g. a minimum token budget)" — so a THINKING page (thinking asked for, or
+  a model that always thinks) whose room he set below 16,000 tokens is given 16,000 (PAGE_THINKING_FLOOR, the same floor
+  the workers already keep). A room above it is his own number; a room he never set is never sent; no thinking, his number.
+- TESTS: m376.mjs M376-1 (thinking at 4000 -> 16000; no thinking 4000 stays; 30000 stays; unset never sent). DOM-80 in the
+  app: a first try with long thinking and no page, the second held open — the second try opens with the first thinking in
+  the box, no banner, and the landed page keeps both thinkings. (A source-reading version of that law was deleted: a test
+  runs the feature.)
+- GATES ON THE PUSHED TREE: harness 744/744, walk 99/99 (alone), longplay 8/8, lint clean.
+- version.js -> m376-001.

@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m375-001)
+# Cozy Tavern — handoff for the next session (state at m376-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M375). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M376). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 743 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 744 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 98 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 99 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -38,6 +38,9 @@ founding design lives in AGENTS.md's first entries.)
   Never a raw macro on the wire. And (M362, voice.js withHisName) the name his rules use for him — "What your rules call
   you", beside Your name — goes out as whatever Your name says: whole words only, case as typed, possessives included,
   never inside another word; nothing when either box is empty or they agree. His own pages are never rewritten.
+- A SECOND TRY IS SILENT AND CONTINUOUS (M376): when a first try brings back no page, the house asks once more with NO
+  banner, the thinking he was watching standing in the box as the second try opens, and all of it kept with the page. A
+  thinking page is never given less than 16,000 tokens of room when he set less (his rule's one allowed floor).
 - A PAGE THAT HAS LANDED IS THE STORY (M357): nothing the house notices ABOUT a page ever sends that page back to the model.
   What it saw (his character taken, the same words again) is said once at the end of the NEXT turn, in his voice
   (plain.js mineWord/staleWord -> sensors.js keepPageWord -> takeWordForTurn -> stack.js sensorNote). The only re-asks left

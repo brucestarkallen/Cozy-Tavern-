@@ -3952,6 +3952,11 @@ export function initChat(ctx) {
               full += text;
               paintLive();
         };
+        /* M376: A SECOND TRY CONTINUES THE THINKING HE WAS WATCHING. When the first try brought back no page, the house asks
+         * once more — and the thinking he had been reading vanished, a banner flashed, and a new thinking began from
+         * nothing: "my thinking stops, then my thinking restarts". The thinking he watched now stands in the box the moment
+         * the second try opens, and the new thinking carries on under it. */
+        if (generateArgs.thinkingShown && String(generateArgs.thinkingShown).trim()) takeThinking(String(generateArgs.thinkingShown).trim() + '\n\n');
         const result = await provider.streamChat({
           systemBlocks,
           messages: planWire,
@@ -3982,7 +3987,9 @@ export function initChat(ctx) {
          * carried its thinking twice (measured: a 2,842-character lead saved as 5,683). The gate is for
          * the eye while the words arrive; what is kept is decided here, from the finished text. */
         if (cutLead) { const cut = splitAtHeader(full); leadThinking = cut.lead; full = cut.page; }
-        if (generateArgs.planCarried) leadThinking = String(generateArgs.planCarried) + (leadThinking ? '\n\n' + leadThinking : '');
+        /* M376: what he watched on the first try (its thinking, and the plan it wrote) is kept with the page, before the second try's own */
+        const carried = [generateArgs.thinkingShown, generateArgs.planCarried].map((x) => String(x || '').trim()).filter(Boolean).join('\n\n');
+        if (carried) leadThinking = carried + (leadThinking ? '\n\n' + leadThinking : '');
         /* M279: the last of the thinking, drawn where the reader is (the whole of it is already there) */
         if (thinkBody) { if (!thinkLines) thinkLines = streamText(thinkBody); thinkLines.append(thinking.slice(thinkLines.length)); }
         /* M22: the provider's kind words (a refusal retried once, a
@@ -4121,8 +4128,8 @@ export function initChat(ctx) {
         const mulled = !allPlan && !cutShort && priorHadHeader;
         if (allPlan || mulled || (cutShort && usesHeaders)) {
           pending.remove();
-          toast(mulled ? 'The reply was the storyteller thinking it over, and no page — asking for the page itself.' : allPlan && !cutShort ? 'The reply was all planning and no page — asking for the page itself.' : 'The reply ran out of room while it was still planning — asking for the page itself.');
-          return generate({ ...generateArgs, planCarried: reply.trim(), planKind: mulled ? 'mulled' : 'plan' });
+          /* M376: no banner — the second try carries on in the same box (the plan is handed back and shown as its start) */
+          return generate({ ...generateArgs, planCarried: reply.trim(), planKind: mulled ? 'mulled' : 'plan', thinkingShown: provThinking }); /* M376: the thinking he watched carries on */
         }
       }
 
@@ -4148,8 +4155,7 @@ export function initChat(ctx) {
       if (leakedControl && full.replace(/^\[[^\]\n]*\]\s*/, '').trim().length < 160 && !stoppedByHand && !generateArgs.leakRetried) {
         /* M122: quietly — no word of the house on the story page; a toast, gone in a breath */
         pending.remove();
-        toast('Asking again.');
-        return generate({ ...generateArgs, leakRetried: true });
+        return generate({ ...generateArgs, leakRetried: true, thinkingShown: thinking }); /* M376: no banner; the thinking carries on */
       }
       if (leakedControl) toast('The words before the provider’s leak were kept.');
 
@@ -4165,8 +4171,7 @@ export function initChat(ctx) {
       if (!stoppedByHand && !cutShort && bodyLen < 160 && modelThought.trim().length > 400) {
         if (!generateArgs.thoughtRetried) {
           pending.remove();
-          toast('Asking again.');
-          return generate({ ...generateArgs, thoughtRetried: true });
+          return generate({ ...generateArgs, thoughtRetried: true, thinkingShown: thinking }); /* M376: no banner; the thinking carries on */
         }
         const lines = modelThought.split('\n');
         let at = -1;
