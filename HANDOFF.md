@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m371-001)
+# Cozy Tavern — handoff for the next session (state at m372-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M371). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M372). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 734 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 736 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 98 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -20,6 +20,10 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- THE LEDGER HEALS ITSELF, THE PAGE IS NEVER TOUCHED (M372): his mission is a house that runs itself, so a ledger error a
+  careful reader would catch is the AUDITOR's to catch and correct (it runs after every page), never his to fix by hand
+  through the housekeeper. It checks what the ledger says happened — who did what, to whom, with whose thing — read across
+  the pages' sequence, and may let a wrong fact go (knowledge.forget). The first reader is told the same before it writes.
 - THE WORLD IS A LIFE SIMULATION, NOT A GAME (M366, his words: "realistic real life simulation", "not gamey"). Everyone in
   the ledger lives their own life — their own people call and text THEM, the world is not arranged around the main
   character — and nothing in the world agent's brief is a quota: no "one contact a scene", no forced moves, no schedules.

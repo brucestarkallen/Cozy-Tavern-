@@ -8923,3 +8923,28 @@ non-thinking models alike — and whether it still lands first. Checked turn typ
   the thinking opens with the phrase, and with his own prefill set it still does while his prefill never rides.
 - GATES ON THE PUSHED TREE: harness 734/734, walk 98/98 (alone), longplay 8/8, lint clean.
 - version.js -> m371-001.
+
+# M372 — what the ledger says happened: who did what, with whose thing
+His report, and his principle: "my mission is to build everything autonomous — I should not fix it manually with the help of
+the housekeeper." The ledger said Vanessa called Jovan's phone. The page was ambiguous, but a careful reader (him, and the
+housekeeper when asked) knew it was Rias's phone: Rias had just declined Vanessa's text, Vanessa called again, and Rias
+handed her phone to Jovan.
+- WHY NOTHING CAUGHT IT: the auditor runs after every page and holds the whole ledger against the pages, but its checklist
+  covered the hour, the ground, who is here, the seats, each person's page against the brief, canon, bodies, standings,
+  threads, loose ends and who witnessed what — never WHAT THE LEDGER SAYS HAPPENED. And had it noticed a wrong fact in who
+  knows what, it could not have let it go: knowledge.forget was the housekeeper's alone.
+- THE AUDITOR NOW CHECKS IT (agents/auditor.js): every line that says who did what, to whom, or with whose thing (a call, a
+  message, a phone, a key, a gift, a blow, a promise) is held against the pages the way a careful reader reads them —
+  following the sequence across pages, not one line alone ("the phone in her hand is HER phone even when a later line only
+  says 'the phone'; a call that comes again to the phone she just declined comes to her, and reaches him only because she
+  handed it over"). Where one page is ambiguous, the reading the sequence makes plain wins. A wrong line is corrected
+  wherever it stands: a person's page (people.set), a thread's next step (thread.set), a loose end (people.note), or a fact
+  (knowledge.forget of the wrong one, knowledge.add of the right one — knowledge.forget joins AUDITOR_TYPES).
+- THE FIRST READER IS TOLD THE SAME (agents/extractor.js, "WHOSE AND WHO"), so the wrong line is not written in the first
+  place; the auditor is there for what slips through.
+- THE PAGE IS NEVER REWRITTEN: the story stands as written (M357's law); the ledger is what read it wrong.
+- TESTS: m372.mjs M372-1 (knowledge.forget is the auditor's now, and through the ledger a wrong fact goes and the right one
+  stands), M372-2 (the check, his own case as its example, the means to fix and "never the page", all in the auditor's
+  brief as it is really built; and the first reader's brief carries WHOSE AND WHO).
+- GATES ON THE PUSHED TREE: harness 736/736, walk 98/98 (alone), longplay 8/8, lint clean.
+- version.js -> m372-001.

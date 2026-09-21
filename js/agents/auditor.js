@@ -67,7 +67,7 @@ const VOCABULARY = [
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"toward|seeking|tense|busy|waiting","etaMinutes":25} / offscreen.clear {"type":"offscreen.clear","name":"NAME"}',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black"} / canon.unlock {"type":"canon.unlock","name":"NAME","key":"hair"}',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} / thread.close {"type":"thread.close","title":"…"}',
-  'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"…"}',
+  'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"…"} / knowledge.forget {"type":"knowledge.forget","name":"NAME","fact":"the wrong line, as written"} — forget ONLY a line the pages contradict, and add the right one beside it',
   'faction.set {"type":"faction.set","name":"…","stance":"…","agenda":"…","move":"…"}',
   'people.set {"type":"people.set","name":"NAME","field":"core|state|arc","text":"…"} — the main character\'s core and arc are never written',
   'people.note {"type":"people.note","name":"NAME","field":"unthread","text":"the loose end as it stands"} \u2014 closes ONE finished loose end (field "thread" opens one); matched by sense, so word it close to how it reads',
@@ -136,6 +136,16 @@ function law({ mc }) {
     '    something still hanging for the rest of the tale.',
     '  - WHO KNOWS WHAT: a present person who plainly witnessed something on the latest pages with no',
     '    knowledge line for it (knowledge.add).',
+    '  - WHAT THE LEDGER SAYS HAPPENED (M372): every line that says who did what, to whom, or with whose',
+    '    thing — a call, a message, a phone, a key, a gift, a blow, a promise — held against the pages the',
+    '    way a careful reader reads them: following the sequence across pages, not one line alone. The phone',
+    '    in her hand is HER phone even when a later line only says "the phone"; a call that comes again to',
+    '    the phone she just declined comes to her, and reaches him only because she handed it over. Where',
+    '    one page\'s words are ambiguous, the reading the sequence makes plain wins, and a line that got it',
+    '    wrong is corrected wherever it stands: people.set with the corrected field (state, arc or core),',
+    '    thread.set with the corrected next step, people.note to close a wrong loose end and open the right',
+    '    one, knowledge.forget of the wrong fact with knowledge.add of the right one. The pages are never',
+    '    rewritten — the story stands as written; the ledger is what reads it wrong.',
     '',
     'Be exact and be conservative: only what the brief states or the pages show, never what would be',
     'nice. If the ledger is true to the story, say so with an empty list — that is a good answer.',
@@ -642,7 +652,7 @@ export function exampleLeakHousekeeping(state, brief = '', castNotes = '') {
 export const AUDITOR_TYPES = new Set([
   'clock.set', 'place.set', 'presence.enter', 'presence.leave', 'mc.set',
   'body.injure', 'body.heal', 'rel.set', 'offscreen.set', 'offscreen.clear',
-  'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add',
+  'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add', 'knowledge.forget', /* M372: a wrong fact can be let go */
   'faction.set', 'people.set', 'people.note', 'people.forget',
 ]);
 /* M279: "stands as the pages moved it", "not the ledger's to zero" — thirteen such lines at turn 77 */

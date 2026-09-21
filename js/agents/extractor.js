@@ -244,6 +244,11 @@ function systemPrompt({ mc, founding }) {
     'A WINDOW IS ELSEWHERE: everything after a line reading *** The World Beyond *** is a cut to',
     'another place — the people in it are NOT in the scene. Never presence.enter them; the world',
     'agent seats them. Only the prose BEFORE the window is the scene.',
+    'WHOSE AND WHO (M372): when a line says who called whom, whose phone rang, who gave what to whom, take it',
+    'from what the pages before this one established — the phone in her hand is her phone even where a line',
+    'only says "the phone"; a call that comes again to the phone she just declined comes to HER, and reaches',
+    'someone else only if she hands it over. An ambiguous line is read the way the sequence makes plain, and',
+    'never guessed toward the main character.',
     'PLACEHOLDERS: NAME, OTHER NAME, NEW NAME, NAME SURNAME and MAIN CHARACTER in the examples above are placeholders, never people — never write them; write only the names the ledger, the brief and the pages use.',
   ].join('\n');
 }

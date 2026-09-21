@@ -72,6 +72,7 @@ import './m356.mjs';
 import './m357.mjs';
 import './m359.mjs';
 import './m364.mjs';
+import './m372.mjs';
 import './m293.mjs';
 import './m294.mjs';
 import './m297.mjs';
