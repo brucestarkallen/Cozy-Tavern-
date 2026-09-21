@@ -4087,6 +4087,45 @@ test('DOM-76 HIS OWN WORDS, READ BACK AND GROUPED: the check names the lines of 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-77 WHAT HIS RULES CALL HIM FOLLOWS HIS NAME, IN THE APP: “LO” in his frame goes to the storyteller as whatever Your name says, and his own pages stay his words (M362)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const kept = { frame: await db.settings.get('frameText'), writer: await db.settings.get('writerName'), rules: await db.settings.get('rulesName') };
+  try {
+    await db.settings.set('frameText', 'You tell this story with LO. LO’s word is final, and LO plays the main character.');
+    await openSettings();
+    click(q('[data-room="story"]'));
+    const writer = await until(() => q('#writer-name'), 'Your name', 10000);
+    writer.value = 'Bruce'; writer.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    const rules = await until(() => q('#rules-name'), 'What your rules call you', 10000);
+    rules.value = 'LO'; rules.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('rulesName')) === 'LO' && (await db.settings.get('writerName')) === 'Bruce', 'both kept', 5000);
+    await closeSettings();
+    const st = await db.stories.create({ title: 'his name' });
+    await db.stories.update(st.id, { keeper: false, extraction: false });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'LO looks around.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
+    /* the storyteller's own request, by its frame (the walk's house sorts calls by house words, and this frame carries none) */
+    const sysOf = (c) => (c.body.messages || []).filter((m) => m.role === 'system').map((m) => String(m.content)).join('\n');
+    const told = house.state.calls.slice(from).find((c) => /You tell this story with/.test(sysOf(c)));
+    assert(told, 'the storyteller was asked');
+    const system = (told.body.messages || []).filter((m) => m.role === 'system').map((m) => String(m.content)).join('\n');
+    assert(/You tell this story with Bruce\. Bruce’s word is final, and Bruce plays the main character\./.test(system), 'his rules say his name as the box says it: ' + system.slice(0, 200));
+    assert(!/\bLO\b/.test(system), 'not one "LO" left in them');
+    assert((told.body.messages || []).some((m) => m.role === 'user' && /LO looks around\./.test(String(m.content))), 'and his own page is his words, as he wrote them');
+  } finally {
+    if (typeof kept.frame === 'string') await db.settings.set('frameText', kept.frame); else await db.settings.delete('frameText');
+    if (typeof kept.writer === 'string') await db.settings.set('writerName', kept.writer); else await db.settings.delete('writerName');
+    if (typeof kept.rules === 'string') await db.settings.set('rulesName', kept.rules); else await db.settings.delete('rulesName');
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

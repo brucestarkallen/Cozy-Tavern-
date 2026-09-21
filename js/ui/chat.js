@@ -3111,6 +3111,7 @@ export function initChat(ctx) {
       writerName: await db.settings.get('writerName'),
       tellerPerson: await db.settings.get('tellerPerson'), /* M334: 'first' | 'second' | unset = follow the frame */
       groundingPhrase: await db.settings.get('groundingPhrase'), /* M358: the first words of its thinking */
+      rulesName: await db.settings.get('rulesName'), /* M362: the name his own rules use for him */
     };
   }
 

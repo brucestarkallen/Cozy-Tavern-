@@ -23,7 +23,7 @@ export function cleanName(v) {
 }
 export function voiceOf(settings) {
   const s = settings && typeof settings === 'object' ? settings : {};
-  return { teller: cleanName(s.tellerName), writer: cleanName(s.writerName), grounding: groundingOf(s) };
+  return { teller: cleanName(s.tellerName), writer: cleanName(s.writerName), grounding: groundingOf(s), rulesName: cleanName(s.rulesName) };
 }
 /* M358: THE GROUNDING PHRASE — the first words of the teller's own thinking. The writer: with a phrase of its own to
  * open on ("Autobots, roll out!"), his teller keeps its voice through the thinking; without one, the turns that are
@@ -87,8 +87,23 @@ export function withMacros(text, voice) {
   return out.replace(/\{\{\s*user\s*\}\}|<USER>/gi, user).replace(/\{\{\s*char\s*\}\}|<BOT>/gi, char);
 }
 
+/* M362: THE NAME HIS RULES USE FOR HIM FOLLOWS "YOUR NAME". His frame and rules call him "LO"; the Your name box is
+ * what the house calls him. He asked for the one to follow the other, so there is never a second name for one man and
+ * nothing to edit by hand: every whole-word mention of the name his rules use (as he typed it, case and all — "LO",
+ * "LO's") goes out as whatever Your name says. Never inside another word ("hello", "LOW"), never a different case ("Lo
+ * and behold"), and nothing at all when either box is empty or the two already agree. */
+export function withHisName(text, voice) {
+  const out = String(text == null ? '' : text);
+  const v = voice || {};
+  const from = typeof v.rulesName === 'string' ? v.rulesName.trim() : '';
+  const to = typeof v.writer === 'string' ? v.writer.trim() : '';
+  if (!from || !to || from === to || !out.includes(from)) return out;
+  const esc = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return out.replace(new RegExp('(^|[^A-Za-z0-9_])' + esc + '(?![A-Za-z0-9_])', 'g'), (m, lead) => lead + to);
+}
+
 export function inVoice(text, voice) {
-  let out = withMacros(text, voice);
+  let out = withHisName(withMacros(text, voice), voice);
   /* M333: ONE "YOU ARE". The writer's frame says who the teller IS ("You are Tony Stark…"); two lines later the craft
    * said "You are an unbiased cinematographer." — a second identity in the same message, and the plainer of the two.
    * With a teller named, the craft's line is a MANNER, not a self: the rule it carries (the camera's eye, no

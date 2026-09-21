@@ -8729,3 +8729,19 @@ sent "{{user}}" to his storyteller as raw template syntax — exactly the machin
   reading sees {{user}} as his character's name; the list stays short and the copy is the whole line).
 - GATES ON THE PUSHED TREE: harness 726/726, walk 95/95 (alone), longplay 8/8, lint clean.
 - version.js -> m361-001.
+
+# M362 — "LO" in his rules follows whatever Your name says
+He asked for his name in his own rules to follow the name he sets, not to be told to keep two boxes in step by hand.
+- A BOX BESIDE YOUR NAME (Settings -> This story -> The frame): "What your rules call you" (e.g. LO). Every whole-word
+  mention of that name in his standing words — the frame, this tale's frame, the craft, his rules, the note — goes out as
+  whatever Your name says (voice.js withHisName, inside inVoice beside the macros). Change Your name and every mention in
+  his rules follows; nothing to edit by hand.
+- EXACT, SO IT CANNOT DAMAGE HIS PROSE: whole words only (never "hello", "LOW", "SLOW"), case as he typed it (never "Lo
+  and behold"), possessives included ("LO's", "LO’s"), beside any punctuation. Nothing at all when either box is empty or
+  the two already agree. His own pages are his words and are never rewritten.
+- The reading of his preset (M359-M361) reads it with the same swap, so it sees what is sent.
+- TESTS: m359.mjs M362-1 (every mention and possessive, never inside another word or another case, nothing when a box is
+  empty or they agree, the whole standing word as sent with not one "LO" left, and his own page untouched). DOM-77 walks it
+  in the app: both boxes typed in Settings, a page sent, the storyteller's request read.
+- GATES ON THE PUSHED TREE: harness 727/727, walk 96/96 (alone), longplay 8/8, lint clean.
+- version.js -> m362-001.

@@ -127,3 +127,24 @@ test('M361-2 THE READING SEES HIS WORDS AS THEY WILL BE SENT, AND HANDS OVER WHO
   assert(found[0].line.endsWith('…'), 'the list on screen stays short');
   assert(findingsText(found).includes(long.trim()), 'but what is copied is the whole line, so it can be rewritten');
 });
+
+test('M362-1 THE NAME HIS RULES USE FOR HIM FOLLOWS “YOUR NAME”: every whole-word mention goes out as the box says — never inside another word, never another case, and nothing when either box is empty or they agree', async () => {
+  const { withHisName, voiceOf } = await import('../../js/assemble/voice.js');
+  const v = voiceOf({ writerName: 'Bruce', rulesName: 'LO' });
+  eq(withHisName('LO writes the MC; LO’s word is final, and LO\'s input too.', v), 'Bruce writes the MC; Bruce’s word is final, and Bruce\'s input too.', 'every mention, possessives too');
+  eq(withHisName('(LO) — LO.', v), '(Bruce) — Bruce.', 'beside any punctuation');
+  eq(withHisName('Hello, LOW tide, Lo and behold, SLOW.', v), 'Hello, LOW tide, Lo and behold, SLOW.', 'never inside another word, never another case');
+  eq(withHisName('LO writes.', voiceOf({ rulesName: 'LO' })), 'LO writes.', 'Your name empty: as written');
+  eq(withHisName('LO writes.', voiceOf({ writerName: 'Bruce' })), 'LO writes.', 'the rules box empty: as written');
+  eq(withHisName('LO writes.', voiceOf({ writerName: 'LO', rulesName: 'LO' })), 'LO writes.', 'the two agree: as written');
+  const r = buildRequest({
+    story: { brief: '' }, messages: [{ id: 'u1', role: 'user', text: 'LO waits.' }],
+    settings: { tellerName: 'Optimus Prime', writerName: 'Bruce', rulesName: 'LO', frameText: 'You are {{char}}. LO plays {{user}}; LO’s word is final.' },
+    state: { sheet: { playerName: 'Jovan', actors: {} } }, modules: [], memory: '', cast: [], lore: '', loreFired: [],
+    window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '',
+  });
+  const standing = JSON.stringify(r.systemBlocks);
+  assert(/Bruce plays Jovan; Bruce’s word is final/.test(standing), 'in the whole standing word as sent: ' + standing.slice(0, 200));
+  assert(!/\bLO\b/.test(standing), 'not one "LO" left in his rules');
+  assert(r.messages.some((m) => /LO waits\./.test(String(m.content))), 'and his own pages are his words, never rewritten');
+});
