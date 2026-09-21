@@ -5,7 +5,6 @@
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { plainRules, mineLeak, mineNames, echoesWriter } from '../../js/assemble/plain.js';
-import { askAgain } from '../../js/assemble/voice.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 import { emptyState } from '../../js/engine/state.js';
 import { applyMutations } from '../../js/engine/apply.js';

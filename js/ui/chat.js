@@ -69,9 +69,9 @@ import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's
 import { factChange, isNameLike, hasWord, replaceWord, againstTheBrief } from '../agents/ripple.js'; /* M100: the ripple */
 import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
 import { loadSessionRoot } from '../agents/housekeeper.js'; /* M331 */
-import { voiceOf, askAgain, groundingSeed } from '../assemble/voice.js'; /* M327: the two names; M358: the grounding phrase */
+import { voiceOf, groundingSeed } from '../assemble/voice.js'; /* M327: the two names; M358: the grounding phrase */
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
-import { makeHeaderGate, splitAtHeader, headerIndex, planOnly, opensWithPlan, pageOnly } from './headergate.js';
+import { makeHeaderGate, splitAtHeader, pageOnly } from './headergate.js';
 import { tidyPage } from './pageshape.js'; /* M340: the page made whole before it is kept */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName, isMcAlias } from '../engine/duels.js';
 import { mineLeak, staleLeak, mineWord, staleWord } from '../assemble/plain.js'; /* M354/M355: did the page take his character, or say what was already said? (derestricted only) */
@@ -3901,19 +3901,12 @@ export function initChat(ctx) {
       let finishReason = null;
       let streamSources = null; // M22-C: the search's findings
       try {
-        /* M120: a model that wrote its page inside the thinking and left the
-         * answer empty is asked once more with one plain line on the last
-         * message — the page is the answer, the thinking is not the page. */
-        const wireMessages = generateArgs.thoughtRetried && messages.length
-          ? messages.map((m, i) => (i === messages.length - 1 && m.role === 'user'
-            ? { ...m, content: (typeof m.content === 'string' ? m.content : String(m.content || '')) + '\n\n' + askAgain('thought', turnVoice) } /* M327: said to the teller by name, where there is one */
-            : m))
-          : messages;
-      /* M323: the one re-ask after a reply that ran out of room while still planning — the plan is handed back as the
-       * model's own turn, so it writes the page and does not plan again */
-      const planWire = generateArgs.planCarried
-        ? [...wireMessages, { role: 'assistant', content: String(generateArgs.planCarried) }, { role: 'user', content: askAgain(generateArgs.planKind === 'mulled' ? 'mulled' : 'plan', turnVoice) }]
-        : wireMessages;
+        /* M377: NO SECOND TRY IS EVER SENT BY THE HOUSE. The writer: "I hate this — delete this feature. Just let me do
+         * the retry button manually, because the automatic thinking breaks my persona." Every automatic ask-again
+         * (M117's leak, M120's page-inside-the-thinking, M323-M339's plan with no page) handed his teller a line from the
+         * house about its own last answer, and his teller answered THAT, in an assistant's voice. The messages go as they
+         * are; a reply that brings no page lands as it came, and "Try again" is his. */
+        const wireMessages = messages;
       takeThinking = function (text) {
               thinking += text;
               if (!thinkStart) {
@@ -3952,14 +3945,9 @@ export function initChat(ctx) {
               full += text;
               paintLive();
         };
-        /* M376: A SECOND TRY CONTINUES THE THINKING HE WAS WATCHING. When the first try brought back no page, the house asks
-         * once more — and the thinking he had been reading vanished, a banner flashed, and a new thinking began from
-         * nothing: "my thinking stops, then my thinking restarts". The thinking he watched now stands in the box the moment
-         * the second try opens, and the new thinking carries on under it. */
-        if (generateArgs.thinkingShown && String(generateArgs.thinkingShown).trim()) takeThinking(String(generateArgs.thinkingShown).trim() + '\n\n');
         const result = await provider.streamChat({
           systemBlocks,
-          messages: planWire,
+          messages: wireMessages,
           signal: abort.signal,
           onToken({ channel, text }) {
             /* M22-C: the note channel — a provider's live word ("Searching
@@ -3987,9 +3975,6 @@ export function initChat(ctx) {
          * carried its thinking twice (measured: a 2,842-character lead saved as 5,683). The gate is for
          * the eye while the words arrive; what is kept is decided here, from the finished text. */
         if (cutLead) { const cut = splitAtHeader(full); leadThinking = cut.lead; full = cut.page; }
-        /* M376: what he watched on the first try (its thinking, and the plan it wrote) is kept with the page, before the second try's own */
-        const carried = [generateArgs.thinkingShown, generateArgs.planCarried].map((x) => String(x || '').trim()).filter(Boolean).join('\n\n');
-        if (carried) leadThinking = carried + (leadThinking ? '\n\n' + leadThinking : '');
         /* M279: the last of the thinking, drawn where the reader is (the whole of it is already there) */
         if (thinkBody) { if (!thinkLines) thinkLines = streamText(thinkBody); thinkLines.append(thinking.slice(thinkLines.length)); }
         /* M22: the provider's kind words (a refusal retried once, a
@@ -4107,31 +4092,8 @@ export function initChat(ctx) {
        * page. In a tale whose pages open with a header there is a surer sign: a reply that opens with a
        * self-labelled plan and holds NO header has no page in it, however its paragraphs are labelled.
        * The whole reply is the plan; the page is asked for, once. */
-      const reply = wholeReply || full;
-      let usesHeaders = true;
-      let priorHadHeader = false; /* M339: known, not assumed — there IS an earlier page and it opens with a header */
-      if (cutLead && !generateArgs.planCarried && reply.trim() && headerIndex(reply) === -1) {
-        try {
-          const prior = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id)).pop();
-          if (prior) { usesHeaders = headerIndex(String(pageOnly(pageText(prior)) || '').trimStart()) === 0; priorHadHeader = usesHeaders; }
-        } catch (err) { usesHeaders = false; }
-        const allPlan = planOnly(reply) || (usesHeaders && opensWithPlan(reply));
-        /* M339: THE WRITER'S TWO SCREENSHOTS — under the house's own masthead (drawn only when a page has NO header) stood the
-         * teller thinking the scene over in its own voice: "Oh this is delicious. Jovan's being sweet about it… Let me
-         * write the walk where Claire gets included and nobody's heart breaks too much." — and there the reply ended.
-         * No header, no story; shown and saved as the page. M324/M325 knew a plan by its LABELS ("Planning:", "Beat:");
-         * M335 then asked the teller to think in plain words, with no labels — so its thinking stopped looking like
-         * a plan to this check. The surer sign needs no labels: in a tale whose last page opened with a header, a
-         * finished reply that holds NO header anywhere has no page in it. It is handed back as the teller's own
-         * thinking and the page is asked for, once. (A tale's first page, or a tale that keeps no headers, is
-         * judged by labels alone, as before.) */
-        const mulled = !allPlan && !cutShort && priorHadHeader;
-        if (allPlan || mulled || (cutShort && usesHeaders)) {
-          pending.remove();
-          /* M376: no banner — the second try carries on in the same box (the plan is handed back and shown as its start) */
-          return generate({ ...generateArgs, planCarried: reply.trim(), planKind: mulled ? 'mulled' : 'plan', thinkingShown: provThinking }); /* M376: the thinking he watched carries on */
-        }
-      }
+      /* M377: a reply that is all thinking-it-over, or a plan with no page, is no longer handed back and asked for again —
+       * it lands as it came, and he asks again himself if he wants another. */
 
       /* M354/M355, as M357 changed them: WHAT THE HOUSE SAW IN THIS PAGE IS SAID BEFORE THE NEXT ONE, NOT BY SENDING
        * THIS ONE BACK. A page that has landed is the story; handing it to the model again and waiting is a stutter the
@@ -4149,30 +4111,17 @@ export function initChat(ctx) {
         } catch (err) { /* a reading of the page is never worth the page */ }
       }
 
-      /* M117: a page the leak left near-empty is answered again once, by the
-       * house — the same prompt, a fresh stream — before anything is saved.
-       * A second leak lands what came before it, with a note on the page. */
-      if (leakedControl && full.replace(/^\[[^\]\n]*\]\s*/, '').trim().length < 160 && !stoppedByHand && !generateArgs.leakRetried) {
-        /* M122: quietly — no word of the house on the story page; a toast, gone in a breath */
-        pending.remove();
-        return generate({ ...generateArgs, leakRetried: true, thinkingShown: thinking }); /* M376: no banner; the thinking carries on */
-      }
       if (leakedControl) toast('The words before the provider’s leak were kept.');
 
-      /* M120: the page came back inside the thinking. Once: ask again with
-       * the plain line. Twice: salvage the page-shaped tail of the thinking
-       * (from its last header line) so the story goes on, and say so. */
+      /* M120, as M377 changed it: the page came back INSIDE the thinking and the answer is (nearly) empty. Nothing is asked
+       * again; where the thinking plainly holds the page — from its last header line on — the page is taken from it,
+       * silently. Otherwise the reply lands as it came, and "Try again" is his. */
       const bodyLen = full.replace(/^\[[^\]\n]*\]\s*/, '').trim().length;
       /* M323: …the PROVIDER's thinking. Since M322 `thinking` also holds what the reply said before its header — so a
        * short page after a long plan (a nod, one line of dialogue) was taken for "the page is inside the
-       * thinking", thrown away, and asked for again with a line telling the model it had answered with
-       * nothing. A plan on the page is not a page hidden in the thinking. */
+       * thinking". A plan on the page is not a page hidden in the thinking. */
       const modelThought = String(provThinking || '');
       if (!stoppedByHand && !cutShort && bodyLen < 160 && modelThought.trim().length > 400) {
-        if (!generateArgs.thoughtRetried) {
-          pending.remove();
-          return generate({ ...generateArgs, thoughtRetried: true, thinkingShown: thinking }); /* M376: no banner; the thinking carries on */
-        }
         const lines = modelThought.split('\n');
         let at = -1;
         for (let i = lines.length - 1; i >= 0; i -= 1) if (/^\s*\[[^\]\n]{6,}\]\s*$/.test(lines[i])) { at = i; break; }
@@ -4180,7 +4129,6 @@ export function initChat(ctx) {
         if (salvaged.replace(/^\[[^\]\n]*\]\s*/, '').trim().length >= 160) {
           full = salvaged;
           thinking = '';
-          toast('The page was taken from the thinking.');
         }
       }
 

@@ -9038,3 +9038,25 @@ thinking he had been reading vanished, and a new thinking began from nothing.
   runs the feature.)
 - GATES ON THE PUSHED TREE: harness 744/744, walk 99/99 (alone), longplay 8/8, lint clean.
 - version.js -> m376-001.
+
+# M377 — the house never asks again on its own
+His order, after M376: "I hate this — delete this feature. Just let me do the retry button manually, because the automatic
+thinking breaks my persona." Every automatic second try handed his teller a line from the house about its own last answer
+("Your last try put the whole page inside your thinking…", "You ran out of room while you were still planning…", "That was
+you thinking it over…") and the teller answered THAT, in an assistant's voice.
+- DELETED: M117's second try after a provider leak, M120's after a page written inside the thinking, and M323/M324/M325/
+  M339's after a plan (or a thinking-over) with no page — with the wire that carried them (the nudged messages, planWire,
+  planCarried/planKind), M376's carried thinking (thinkingShown), and the words themselves (voice.js askAgain, all kinds).
+  A reply that brings no page lands AS IT CAME — a plan cut short is marked cut short, a reply that is all plan is the page
+  he sees — and "Try again", the ▸ and the note's "Ask again" are his.
+- KEPT, BECAUSE NOTHING IS SENT: when a page was plainly written inside the thinking and the answer is empty, the page is
+  taken from the thinking's last header line on — locally, silently (its toast is gone too). And M376's floor: a thinking
+  page is never given less than 16,000 tokens of room when he set less — the commonest reason no page came at all.
+- TESTS MOVED WITH THE LAW: m85.mjs M117-1 (the page ends at the leak; nothing asked again) and M120-1 (no second try in the
+  source; the page taken from the last header, without a banner); m327/m339/m354/m357 lose their askAgain lines (the
+  words are gone); DOM-57 parts 3, 5, 6 (asked once; what lands, pinned: the plan marked cut short, the plan as the page,
+  the labelled plan as thinking with the rest as the page); DOM-65 part 1 (asked once; what came is kept and on the
+  thread for him to judge); DOM-80 rewritten (asked ONCE, nothing said, what came kept — and his own retry then asks
+  again and brings the new version).
+- GATES ON THE PUSHED TREE: harness 744/744, walk 99/99 (alone), longplay 8/8, lint clean.
+- version.js -> m377-001.

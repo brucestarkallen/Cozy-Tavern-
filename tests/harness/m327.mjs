@@ -3,7 +3,7 @@ import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { buildRequest, STARTER_FRAME, STARTER_NOTE, STATE_MARKER } from '../../js/assemble/stack.js';
 import { CRAFT_TEXT } from '../../js/assemble/craft.js';
-import { voiceOf, inVoice, briefingOpening, isBriefing, askAgain, cleanName } from '../../js/assemble/voice.js';
+import { voiceOf, inVoice, briefingOpening, isBriefing, cleanName } from '../../js/assemble/voice.js';
 import { emptyState } from '../../js/engine/state.js';
 import { applyMutations } from '../../js/engine/apply.js';
 
@@ -25,7 +25,6 @@ test('M327-1 with both names: every word the HOUSE wrote is said to Tony, as Bru
   assert(/end where Bruce has something/.test(r.messages[r.messages.length - 1].content), 'the note');
   /* ("Bruce comes to you as their storyteller" stays — that is what Tony is to him, not form-speak) */
   assert(!/\bwriter\b|\bhouse\b|\bthe storyteller\b|\bpersona\b|\bcharacter you\b|\bstory app\b/i.test(said), 'none of the form-speak is left in the house’s own words: ' + (said.match(/[^\n]{0,40}\b(writer|house|the storyteller|persona|story app)\b[^\n]{0,30}/i) || [''])[0]);
-  eq(askAgain('plan', voiceOf({ tellerName: 'Tony Stark', writerName: 'Bruce' })).slice(0, 33), 'Tony Stark — you ran out of room ');
 });
 
 test('M327-2 the STORY is never touched: a house in a page, in the brief, in the ledger stays a house; the writer’s own typed words stay his', () => {
@@ -47,7 +46,6 @@ test('M327-3 change the name and the next request is for Steve; clear both and e
   eq(JSON.stringify(none), JSON.stringify(was), 'blank names are no names');
   assert(none.messages[0].content.startsWith(STATE_MARKER), 'the briefing opens as it did');
   assert(/the writer authors the fiction/.test(none.systemBlocks[1].text) && /The house keeps the world between turns/.test(none.systemBlocks[1].text), 'the craft is the craft');
-  eq(askAgain('plan', voiceOf({})), 'You ran out of room while you were still planning. The plan above is yours — do not plan again and do not repeat it. Write the page itself now, beginning with its header line.');
   for (const v of [{}, { teller: 'Tony' }, { writer: 'Bruce' }, { teller: 'Tony', writer: 'Bruce' }]) assert(isBriefing(briefingOpening(v) + '\n\nnotes'), 'the briefing is known by any of its openings');
   eq(cleanName('  Tony\n[Stark] {x}  '), 'Tony Stark x', 'a name is a name: no brackets, no line breaks');
   eq(inVoice('the writer’s own; The writer; the house’s word', { writer: 'Rias' }), 'Rias’ own; Rias; Rias’ notebook’s word');

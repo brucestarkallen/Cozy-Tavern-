@@ -1,7 +1,7 @@
-# Cozy Tavern — handoff for the next session (state at m376-001)
+# Cozy Tavern — handoff for the next session (state at m377-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M376). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M377). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
@@ -38,13 +38,17 @@ founding design lives in AGENTS.md's first entries.)
   Never a raw macro on the wire. And (M362, voice.js withHisName) the name his rules use for him — "What your rules call
   you", beside Your name — goes out as whatever Your name says: whole words only, case as typed, possessives included,
   never inside another word; nothing when either box is empty or they agree. His own pages are never rewritten.
-- A SECOND TRY IS SILENT AND CONTINUOUS (M376): when a first try brings back no page, the house asks once more with NO
-  banner, the thinking he was watching standing in the box as the second try opens, and all of it kept with the page. A
-  thinking page is never given less than 16,000 tokens of room when he set less (his rule's one allowed floor).
+- THE HOUSE NEVER ASKS AGAIN ON ITS OWN (M377, his order: "delete this feature — let me do the retry button manually,
+  the automatic thinking breaks my persona"). No second try is ever sent by the house — not for a leak (M117), not for a
+  page inside the thinking (M120), not for a plan with no page (M323-M339). A reply that brings no page lands as it came
+  and "Try again" is his. The only thing kept: a page PLAINLY written inside the thinking (from its last header on) is taken
+  out of it, silently — local, nothing sent. A thinking page is never given less than 16,000 tokens of room when he set
+  less (M376's floor, the one override his rule allows) — the commonest reason no page came. NEVER re-add an automatic
+  second try.
 - A PAGE THAT HAS LANDED IS THE STORY (M357): nothing the house notices ABOUT a page ever sends that page back to the model.
   What it saw (his character taken, the same words again) is said once at the end of the NEXT turn, in his voice
   (plain.js mineWord/staleWord -> sensors.js keepPageWord -> takeWordForTurn -> stack.js sensorNote). The only re-asks left
-  are for a page that never arrived at all (M117's leak, M120/M339's thinking-with-no-page). Any future check follows this.
+  are gone too (M377): nothing is ever asked again by the house. Any future check follows this.
 - THE GROUNDING PHRASE (M358/M359/M375, Settings -> This story -> The frame, under the two names): NEVER AS MACHINERY.
   It lives in TWO places only: woven into the standing words as who the teller is ("You open every thought with “X”." —
   after the frame's opening breath and at the paragraph break nearest a third down), and, ONLY where the provider truly

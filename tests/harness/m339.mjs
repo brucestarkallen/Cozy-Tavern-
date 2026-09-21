@@ -2,7 +2,7 @@
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { buildRequest, STARTER_NOTE } from '../../js/assemble/stack.js';
-import { askAgain, thinkOnPageLine } from '../../js/assemble/voice.js';
+import { thinkOnPageLine } from '../../js/assemble/voice.js';
 import { emptyState } from '../../js/engine/state.js';
 
 const build = (settings) => buildRequest({ story: {}, messages: [{ id: 'u1', role: 'user', text: 'It seems we got plus one?' }], settings: { noteText: STARTER_NOTE, frameText: 'You are Tony Stark.', ...settings }, state: { ...emptyState(), page: 2 }, modules: [], memory: '', window: { keeperOn: true } });
@@ -28,7 +28,4 @@ test('M339-2 THE SWITCH, ON: the closing message asks the teller to think first 
 });
 
 test('M339-3 the words that ask for the page after the teller only thought it over — never "you ran out of room", which it did not', () => {
-  assert(/^That was you thinking it over, and it stopped there\. It is yours — do not think it over again and do not repeat it\. Write the page itself now, beginning with its header line\.$/.test(askAgain('mulled', {})));
-  assert(/^Tony Stark — that was you thinking it over/.test(askAgain('mulled', { teller: 'Tony Stark', writer: 'Bruce' })));
-  assert(/ran out of room/.test(askAgain('plan', {})) && !/ran out of room/.test(askAgain('mulled', {})), 'the older words stand for the older case');
 });

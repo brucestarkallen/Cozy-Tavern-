@@ -600,7 +600,7 @@ test('M117-1 control tokens leaked into the content end the page at the first on
   const clean = stripControlLeak('She sat down. "a < b | c > d," she said.');
   assert(!clean.leaked, 'angle brackets and pipes in prose are not control tokens');
   const src = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/leakedControl = true;/.test(src) && /leakRetried: true/.test(src), 'the page ends at the leak and an emptied page is asked again once');
+  assert(/leakedControl = true;/.test(src) && !/leakRetried/.test(src), 'the page ends at the leak, and nothing is asked again (M377: "Try again" is his)');
 });
 
 test('M118-1 a claim of change is first person or "now reads" — quoted prose and bare "set/done/fixed" never trip the house\'s nudge', async () => {
@@ -627,19 +627,11 @@ test('M119-1 the eye names a glitch character from another script; a loose ancho
   assert(/landed on a loose anchor and the words it meant to change are still on the page/.test(ui), 'the house re-asks once');
 });
 
-test('M120-1 a page written inside the thinking is asked again once with the plain line, then salvaged from the thinking’s last header', async () => {
+test('M120-1 (as M377 changed it) a page written inside the thinking is never asked for again — it is taken from the thinking’s last header, silently, where one is plainly there', async () => {
   const src = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  /* M327: the line's words live in assemble/voice.js now (said to the teller by name, where there is one); unnamed, it is
-   * the same line to the letter */
-  const voiceSrc = (await import('node:fs')).readFileSync(new URL('../../js/assemble/voice.js', import.meta.url), 'utf8');
-  const { askAgain } = await import('../../js/assemble/voice.js');
-  assert(/thoughtRetried: true/.test(src) && /askAgain\('thought', turnVoice\)/.test(src) && /WRITE THE PAGE AS YOUR ANSWER/.test(voiceSrc), 'the re-ask and its line');
-  eq(askAgain('thought', {}), '[The house: your last attempt put the whole page inside your thinking and answered with nothing. Think briefly if you must, then WRITE THE PAGE AS YOUR ANSWER — the header line and the prose — outside the thinking.]', 'unnamed: the line as it always was');
-  assert(/const salvaged = at !== -1 \? lines\.slice\(at\)\.join/.test(src), 'the salvage from the last header line');
-  /* M323: the wire is `planWire` now — wireMessages itself, with the carried plan's two messages after it only on the one
-   * re-ask a reply that ran out of room earns; the nudged messages still ride it */
-  assert(/: wireMessages;\n/.test(src.slice(src.indexOf('const planWire = generateArgs.planCarried'), src.indexOf('const planWire = generateArgs.planCarried') + 700)), 'the plan’s wire IS the nudged wire when no plan is carried');
-  assert(src.indexOf('const wireMessages = generateArgs.thoughtRetried') < src.indexOf('messages: planWire'), 'the nudged messages ride the wire');
+  assert(!/thoughtRetried|planCarried|leakRetried/.test(src), 'no second try is sent by the house');
+  assert(/const salvaged = at !== -1 \? lines\.slice\(at\)\.join/.test(src), 'the page taken from the last header line of the thinking');
+  assert(!/The page was taken from the thinking/.test(src), 'without a banner');
 });
 
 test('M121-1 the second reader knows a lie from a slip and a language from a glitch; the eye notes a short foreign run for it', async () => {

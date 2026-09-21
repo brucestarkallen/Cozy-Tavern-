@@ -3029,7 +3029,7 @@ test('DOM-56 a model that thinks on the page: everything before the header becom
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few characters at a time): the thinking is kept once, a short page is not thrown away, a reply that ran out of room while still planning is asked for its page — the plan handed back (M323); and a plan that names itself is told from its page with no header at all (M324)', async () => {
+test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few characters at a time): the thinking is kept once, a short page is not thrown away, a reply that ran out of room while still planning lands as it came, never asked for again (M323, as M377 changed it); and a plan that names itself is told from its page with no header at all (M324)', async () => {
   const before = errors.length;
   const { queuedCount } = await import('../../js/agents/queue.js');
   const tickBefore = await db.settings.get('cutBeforeHeader');
@@ -3081,15 +3081,12 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
     const d = await play('a nod', () => ({ text: plan(60) + HEADER + '\n\nShe nodded once.' }));
     eq(asks.length, 1, 'asked once');
     eq(d.text, HEADER + '\n\nShe nodded once.');
-    /* (3) the writer’s report: the reply ran out of room while still planning — no header, no page */
+    /* (3) the writer’s report: the reply ran out of room while still planning — no header, no page. M377: the house
+     * never asks again on its own — what came lands, and "Try again" is his */
     const long = plan(60);
     const e = await play('ran out of room', (n) => (n === 1 ? { text: long, finish: 'length' } : { text: PAGE }), true);
-    eq(asks.length, 2, 'the page itself is asked for, once');
-    const tail = asks[1].messages.slice(-2);
-    assert(tail[0].role === 'assistant' && tail[0].content.startsWith('Step 1: weigh') && tail[1].role === 'user' && /do not plan again/.test(tail[1].content) && /beginning with its header line/.test(tail[1].content), 'with the plan handed back as the model’s own turn: ' + JSON.stringify(tail.map((m) => m.role)));
-    eq(e.text, PAGE, 'and the page lands, from its header');
-    assert(String(e.thinking || '').startsWith('Step 1: weigh') && !e.cutShort, 'the plan is this page’s thinking; nothing is marked cut short');
-    assert(!/Step 1: weigh/.test(q('#thread .msg-assistant:last-of-type .msg-body').textContent), 'the plan is never on the page the writer reads');
+    eq(asks.length, 1, 'asked once — never a second try by the house');
+    assert(/^Step 1: weigh/.test(String(e.text || '')) && e.cutShort, 'it lands as it came — the plan, marked cut short — and the writer asks again if he wants the page');
     /* (4) M324 — THE WRITER’S SCREENSHOT: "Planning: … Beat: …" and then the page, with NO header anywhere in the reply.
      * M322/M323 found no header, so the whole plan was handed back as the page (in the thinking block while it
      * streamed, then "gone, and outside"). A plan that names itself gives the page away. */
@@ -3101,19 +3098,16 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
     eq(f.text, PROSE, 'the page is the page');
     assert(String(f.thinking || '').startsWith('Planning: Jovan giggles') && /Beat: world answers/.test(f.thinking), 'and the plan is its thinking: ' + String(f.thinking || '').slice(0, 60));
     assert(!/Planning: Jovan giggles/.test(q('#thread .msg-assistant:last-of-type .msg-body').textContent), 'it is not on the page he reads');
-    /* (5) a reply that is ALL plan, ended normally: no page came — the page is asked for, once, the plan handed back */
+    /* (5) a reply that is ALL plan, ended normally: no page came. M377: nothing is asked again */
     const g = await play('all plan, no page', (n) => (n === 1 ? { text: PLAN } : { text: PROSE }));
-    eq(asks.length, 2, 'the page itself is asked for');
-    assert(asks[1].messages.slice(-2)[0].role === 'assistant' && /^Planning: Jovan giggles/.test(asks[1].messages.slice(-2)[0].content), 'with the plan handed back');
-    eq(g.text, PROSE); assert(/^Planning: Jovan giggles/.test(String(g.thinking || '')), 'the plan is kept as the thinking');
+    eq(asks.length, 1, 'asked once — never a second try by the house');
+    assert(/^Planning: Jovan giggles/.test(String(g.text || '')), 'it lands as it came, for the writer to judge');
     /* (6) M325 — the writer of his screenshot: "no header — the text just ends with '.', planning". In a tale whose pages
      * open with a header, a reply that opens with a plan and holds no header has no page in it, even when its
      * LAST paragraph carries no label (by labels alone that paragraph would have been taken for the page) */
     const h = await play('a plan whose last paragraph has no label', (n) => (n === 1 ? { text: PLAN + 'I should keep it light and end on her question.' } : { text: PAGE }), true);
-    eq(asks.length, 2, 'the page itself is asked for');
-    assert(/end on her question\.$/.test(asks[1].messages.slice(-2)[0].content), 'the WHOLE plan handed back, its unlabelled end included');
-    eq(h.text, PAGE, 'and the page that lands begins at its header');
-    assert(/^Planning: Jovan giggles/.test(String(h.thinking || '')) && /end on her question/.test(h.thinking), 'the whole plan is its thinking');
+    eq(asks.length, 1, 'asked once — never a second try by the house');
+    assert(/^Planning: Jovan giggles/.test(String(h.thinking || '')) && /end on her question\.$/.test(String(h.text || '')), 'it lands as it came: the labelled plan as its thinking, the rest as the page');
     /* (7) M326 — THE WRITER’S FIVE SCREENSHOTS of one reply: a plan, the header and a draft, "That’s solid. Let me check: …",
      * the SAME header and a second draft, "Let me reconstruct final:", the SAME header and the final draft, then a
      * checklist ending "Ship it." The page he is given is the LAST draft; and the turn AFTER is sent no draft of it. */
@@ -3443,7 +3437,7 @@ test('DOM-64 THE WRITER’S REPORT, the whole loop in the app: the storyteller i
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-65 THE WRITER’S TWO SCREENSHOTS: with thinking off the teller thought the scene over in its own voice ("Oh this is delicious… Let me write the walk…") and stopped — no header, no story, shown as the page. Now that reply is handed back as its thinking and the page is asked for, once, by the house; and THE SWITCH: off = nothing asked, on = asked to think inside a think-tag (only when the connection’s thinking is off), and the tag is split exactly (M339)', async () => {
+test('DOM-65 THE WRITER’S TWO SCREENSHOTS: with thinking off the teller thought the scene over in its own voice ("Oh this is delicious… Let me write the walk…") and stopped — no header, no story. M377: it lands as it came and is never asked for again by the house — "Try again" is his; and THE SWITCH: off = nothing asked, on = asked to think inside a think-tag (only when the connection’s thinking is off), and the tag is split exactly (M339)', async () => {
   const before = errors.length;
   const { queuedCount } = await import('../../js/agents/queue.js');
   const H1 = '[Lakeside path — Friday, August 21, 2026 | 16:02 | gold light | gray tee | walking]\n\n';
@@ -3466,16 +3460,12 @@ test('DOM-65 THE WRITER’S TWO SCREENSHOTS: with thinking off the teller though
     house.state.storyAnswer = () => { n += 1; return n === 1 ? MULL : H2 + '"Plus one," Aurora said, and did not let go of his hand.'; };
     let from = await send('You say so.. You look at Aurora… It seems we got plus one?');
     let calls = tellerCalls(from);
-    eq(calls.length, 2, 'the house asked again by itself, once');
-    const again = calls[1].body.messages;
-    assert(again[again.length - 2].role === 'assistant' && /Oh this is delicious/.test(again[again.length - 2].content), 'handing the teller its own thinking back');
-    assert(/that was you thinking it over, and it stopped there/i.test(again[again.length - 1].content) && /beginning with its header line/.test(again[again.length - 1].content), 'and asking for the page: ' + again[again.length - 1].content.slice(0, 120));
+    /* M377: the house never asks again on its own — the reply lands as it came, and "Try again" is his */
+    eq(calls.length, 1, 'asked once — never a second try by the house');
     let page = await lastPage();
-    assert(page.text.startsWith('[Lakeside path, west-bench bend') && /"Plus one," Aurora said/.test(page.text) && !/delicious/.test(page.text), 'the page is the page: ' + page.text.slice(0, 80));
-    assert(/Oh this is delicious/.test(String(page.thinking || '')) && /Let me write the walk/.test(String(page.thinking || '')), 'what it thought is kept where thinking is kept');
+    assert(/Oh this is delicious/.test(page.text + String(page.thinking || '')), 'what came is kept, as it came: ' + page.text.slice(0, 80));
     eq((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length, 2, 'one page, not two');
-    await until(() => { const m = qa('#thread .msg-assistant').slice(-1)[0]; return m && /Plus one/.test(m.textContent); }, 'the kept page on the thread (the thread renders after the store — waited for, not raced: M345)', 10000);
-    { const shown = qa('#thread .msg-assistant').slice(-1)[0]; const body = [...shown.querySelectorAll('p')].filter((el) => !el.closest('details')).map((el) => el.textContent).join(' '); assert(/Plus one/.test(shown.textContent) && !/Oh this is delicious/.test(body), 'and he never reads the thinking as story (M340: the selector this used matched nothing)'); }
+    await until(() => { const m = qa('#thread .msg-assistant').slice(-1)[0]; return m && /delicious/.test(m.textContent); }, 'on the thread, for him to judge and ask again himself', 10000);
     /* 2. the switch OFF: nothing is asked */
     house.state.storyAnswer = () => H2 + 'They walked on.';
     from = await send('We walk on.');
@@ -4213,7 +4203,7 @@ test('DOM-79 THE GROUNDING PHRASE WITHOUT ANY MACHINERY SHOWING: no seed where t
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-80 A FIRST TRY THAT BROUGHT BACK NO PAGE: no banner, the second try opens with the thinking he was watching and carries on under it, and the page keeps all of it (M376)', async () => {
+test('DOM-80 A FIRST TRY THAT BROUGHT BACK NO PAGE: the house never asks again on its own and says nothing — what came lands as it came, and his own Try again asks when he says so (M377, undoing M376’s second try)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   const said = [];
@@ -4234,7 +4224,9 @@ test('DOM-80 A FIRST TRY THAT BROUGHT BACK NO PAGE: no banner, the second try op
   globalThis.fetch = async (url, opts) => {
     let body = null;
     try { body = opts && opts.body ? JSON.parse(opts.body) : null; } catch (err) { body = null; }
-    if (!body || body.model !== 'thinker-model' || body.stream !== true) return priorFetch(url, opts);
+    const sys = body && Array.isArray(body.messages) ? body.messages.filter((m) => m.role === 'system').map((m) => String(m.content)).join('\n') : '';
+    /* only the storyteller's own asks — the readers use this connection too, and are answered by the house as always */
+    if (!body || body.model !== 'thinker-model' || body.stream !== true || !/You are telling a story/.test(sys)) return priorFetch(url, opts);
     tries += 1;
     if (tries === 1) return sse([{ choices: [{ delta: { reasoning_content: FIRST } }] }, { choices: [{ delta: { content: '…' } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]);
     await held;
@@ -4248,17 +4240,20 @@ test('DOM-80 A FIRST TRY THAT BROUGHT BACK NO PAGE: no banner, the second try op
     env.window.__cozy.setActiveStoryId(st.id);
     await env.window.__cozy.chat.renderThread({ structural: true });
     type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
-    await until(() => tries === 2, 'the second try is asked', 30000);
-    const box = await until(() => { const p = q('#thread .msg-assistant.pending'); const t = p && p.querySelector('.thinking-body'); return t && /first try thinks long about the kettle/.test(t.textContent) ? t : null; }, 'the second try opens with the thinking he was watching', 10000);
-    assert(box, 'it stands in the box');
-    assert(!said.some((w) => /Asking again|asking for the page itself/i.test(w)), 'no banner: ' + said.join(' | '));
-    release();
-    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page lands', 30000);
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the reply lands', 30000);
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
+    eq(tries, 1, 'asked ONCE — the house never sends a second try on its own (M377)');
+    assert(!said.some((w) => /Asking again|asking for the page itself|taken from the thinking/i.test(w)), 'and says nothing about it: ' + said.join(' | '));
     const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
-    assert(/The kettle sang, and Rias poured\./.test(page.text), 'the page is the second try’s');
-    const kept = JSON.stringify(page);
-    assert(/first try thinks long about the kettle/.test(kept) && /Now the page\./.test(kept), 'and both thinkings are kept with it');
+    assert(/first try thinks long about the kettle/.test(JSON.stringify(page)), 'what came is kept, thinking and all');
+    /* and "Try again" — his — asks it again when HE says so */
+    release();
+    const retry = await until(() => [...qa('button')].find((b) => /^(Try again|Ask again)$/.test(b.textContent.trim()) && !b.hidden) || q('.msg-assistant:last-of-type .swipe-bar .msg-act[data-act="swipe-next"]'), 'his own way to ask again', 10000);
+    click(retry);
+    await until(() => tries === 2 && !env.ctx.chat.isBusy(), 'asked again, by his hand', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
+    const again = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(/The kettle sang, and Rias poured\./.test(JSON.stringify(again)), 'and the new version is there');
   } finally {
     globalThis.fetch = priorFetch;
     env.ctx.toast = realToast;

@@ -6,7 +6,7 @@ import { test, assert, eq } from './lib.mjs';
 import { readFileSync } from 'node:fs';
 import { db } from '../../js/store.js';
 import { stripFurniture, staleLeak, mineLeak, mineWord, staleWord } from '../../js/assemble/plain.js';
-import { voiceOf, groundingOf, groundingLine, groundingSeed, askAgain } from '../../js/assemble/voice.js';
+import { voiceOf, groundingOf, groundingLine, groundingSeed } from '../../js/assemble/voice.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 import { keepPageWord, takeWordForTurn, loadSensors } from '../../js/agents/sensors.js';
 
@@ -51,8 +51,6 @@ test('M357-2 IT IS SAID BEFORE THE NEXT PAGE, NOT BY SENDING THIS ONE BACK — o
   /* the two asks that used to send a page back are gone, and so is the wire that carried it */
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(!/mineWire|mineCarried|mineRetried/.test(chat), 'nothing carries a landed page back to the model any more');
-  eq(askAgain('mine', {}), askAgain('anything else', {}), 'and the ask for it is gone from his voice');
-  assert(/ran out of room while you were still planning/.test(askAgain('fresh', {})), 'what is left asks only for a page that never arrived');
 });
 
 test('M358-1 (as M375 changed it) THE GROUNDING PHRASE lives in who the teller is and, where the provider truly continues a thought, in the thought itself — never as an order at the end; empty is nothing at all', () => {
