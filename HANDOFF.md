@@ -1,7 +1,7 @@
-# Cozy Tavern — handoff for the next session (state at m365-001)
+# Cozy Tavern — handoff for the next session (state at m366-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M365). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M366). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
@@ -20,6 +20,11 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- THE WORLD IS A LIFE SIMULATION, NOT A GAME (M366, his words: "realistic real life simulation", "not gamey"). Everyone in
+  the ledger lives their own life — their own people call and text THEM, the world is not arranged around the main
+  character — and nothing in the world agent's brief is a quota: no "one contact a scene", no forced moves, no schedules.
+  A person not looked at for hours is looked at again and placed where their own life has them now (which may be where
+  they were, if their life keeps them there). Never add a counting rule to the world again.
 - SILLYTAVERN'S MACROS ARE SWAPPED LIKE SILLYTAVERN SWAPS THEM (M361, voice.js withMacros, run first inside inVoice):
   {{user}}/<USER> = the one he plays (the main character's story name, else his own name), {{char}}/<BOT> = the teller.
   Never a raw macro on the wire. And (M362, voice.js withHisName) the name his rules use for him — "What your rules call

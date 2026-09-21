@@ -30,18 +30,23 @@ test('M365-1 A SEAT HAS AN AGE, AND ONE PAST IT IS STALE — by the story clock,
   eq(seatAge(world(9 * 60, 9 * 60), 'Nobody'), null, 'someone with no seat has no seat’s age');
 });
 
-test('M365-2 THE WORLD AGENT IS SHOWN WHO HAS BEEN SITTING STILL, AND TOLD TO MOVE THEM ON — a time skip walks the whole world forward', () => {
+test('M366-1 THE WORLD AGENT IS SHOWN WHO HAS NOT BEEN LOOKED AT, AND ASKED WHERE THEIR OWN LIFE HAS THEM NOW — never forced to move, never where the story simply left them', () => {
   const roster = peopleForWorld(world(9 * 60 + 26 * 60, 9 * 60), { material: 'Caleb is Jovan’s best friend.' });
   const text = typeof roster === 'string' ? roster : roster.text;
-  assert(/Caleb \[SEATED 26 hours ago — move them on\]/.test(text), 'Caleb is marked, with how long he has been sitting there: ' + text.slice(0, 120));
+  assert(/Caleb \[last placed 26 hours ago — where are they now\?\]/.test(text), 'Caleb is marked, with how long ago he was placed: ' + text.slice(0, 120));
   const fresh = peopleForWorld(world(9 * 60 + 30, 9 * 60), { material: 'Caleb is Jovan’s best friend.' });
-  assert(!/move them on/.test(typeof fresh === 'string' ? fresh : fresh.text), 'a fresh seat is left alone');
-  assert(/A SEAT GOES STALE/.test(briefOf(world(9 * 60, 9 * 60))) && /After a time skip, that is\s+everyone/.test(briefOf(world(9 * 60, 9 * 60))), 'the law is in its brief');
-  assert(/never a life/.test(briefOf(world(9 * 60, 9 * 60))), 'a day in one place with nothing holding them is a mistake, said so');
+  assert(!/where are they now/.test(typeof fresh === 'string' ? fresh : fresh.text), 'a fresh placing is left alone');
+  const brief = briefOf(world(9 * 60, 9 * 60)).replace(/\s+/g, ' ');
+  assert(/EVERYONE LIVES THEIR OWN LIFE/.test(brief), 'the law is in the brief the agent really receives');
+  assert(/which may be the same place if their life truly keeps them there/.test(brief), 'staying put is allowed when their life keeps them there');
+  assert(/never simply where the story last left them/.test(brief), 'and parking is not');
 });
 
-test('M365-3 A BOND IS A CAUSE: the people closest to him reach him the way people do — still never on a timer, still at most one a scene', () => {
-  assert(/A BOND IS A CAUSE/.test(briefOf(world(9 * 60, 9 * 60))), 'the law is in its brief');
-  assert(/a teammate who\s+(?:'\s*\+\s*')?calls him "cap"/.test(briefOf(world(9 * 60, 9 * 60)).replace(/\n/g, ' ')) || /calls him "cap"/.test(briefOf(world(9 * 60, 9 * 60))), 'in his own story’s terms');
-  assert(/NEVER on a timer/.test(briefOf(world(9 * 60, 9 * 60))) && /at most one such contact per scene/.test(briefOf(world(9 * 60, 9 * 60))), 'and the old limits still stand');
+test('M366-2 EVERY PERSON HAS THEIR OWN PEOPLE, AND CONTACTS COME AS REAL LIFE SENDS THEM — no quota, several at once is allowed, none invented', () => {
+  const brief = briefOf(world(9 * 60, 9 * 60)).replace(/\s+/g, ' ');
+  assert(/not arranged around the main character/.test(brief), 'the world is not arranged around the main character');
+  assert(/their own people who call and text THEM \(the team texts its captain/.test(brief), 'NPCs are reached by their own people — the team texts ITS captain');
+  assert(/several of them at once, or none/.test(brief) && /No quota and no schedule/.test(brief), 'a mother, a sister and a friend may all reach out on one evening');
+  assert(!/at most one such contact per scene/.test(brief), 'the old one-a-scene cap is gone');
+  assert(/never invented to fill a scene/.test(brief), 'and nothing is made up to fill one');
 });

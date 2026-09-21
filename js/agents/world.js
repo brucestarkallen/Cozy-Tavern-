@@ -150,12 +150,14 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'the HOUSE’S OWN NOTE of where someone stepped off the page — a sighting, not a life: the first time',
     'you see one, move that person on from it by the clock (the shift ended, she went home, he is asleep)',
     'with a real offscreen.set. There is no limit on how many people you may seat in one answer.',
-    'A SEAT GOES STALE (M365). Nobody stays where they were put: a line marked "[SEATED … ago — move them on]"',
-    'is someone whose whereabouts were written hours or days of story ago. Move EVERY one of them on in this',
-    'answer with a real offscreen.set: where their own day has taken them by now — the shift ended, practice',
-    'let out, they went home, they are asleep, they are out with their own friends. After a time skip, that is',
-    'everyone: walk the whole world forward to the new hour. A person who has been in the same place for a day',
-    'with nothing holding them there is a mistake in the ledger, never a life.',
+    'EVERYONE LIVES THEIR OWN LIFE (M366). The people in this ledger are not arranged around the main',
+    'character: each has their own day, their own work or school, their own friends, family and plans, and',
+    'their own people who call and text THEM (the team texts its captain, a sister calls her brother, friends',
+    'make plans without anyone on the page). A line marked "[last placed … ago — where are they now?]" was',
+    'written hours or days of story ago: look at that person again and write where their own life has them',
+    'NOW with a real offscreen.set — which may be the same place if their life truly keeps them there (asleep',
+    'at home at night, at work through a shift), but never simply where the story last left them. After a time',
+    'skip, look at everyone this way.',
     'A passer-through — a driver, a waiter, a clerk with one errand and no bond — is not seated at all;',
     'the house clears any seat nothing carries and lets its person pass out of the story.',
     '',
@@ -189,12 +191,11 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     '    fan, a pickpocket) — and, where the world has phones, letters or messengers, a CALL, a TEXT or a',
     '    NOTE from an absent person with a live want and a reason to reach out NOW (name who, by what',
     '    channel, and what they want; the storyteller renders the screen or the voice). A person need not',
-    '    walk to the scene to reach it. Small, locale-true, at most one such contact per scene and not',
-    '    every scene, and NEVER on a timer — only when a cause on the ledger produces it. Empty is a valid',
-    '    and common answer. A BOND IS A CAUSE (M365): the people closest to him — a best friend, a teammate who',
-    '    calls him "cap", family, someone he is seeing — reach out the way people do when their own day gives',
-    '    them a moment (bored after practice, saw something he would laugh at, want him somewhere tonight). They',
-    '    have lives, friends and plans of their own, and some of it reaches him by phone.',
+    '    walk to the scene to reach it. As real life does it: the people in his life reach out when their own',
+    '    lives give them a reason — a mother checking in, a sister wanting something, a friend with plans —',
+    '    and on a busy evening that can be several of them at once, or none. No quota and no schedule, never',
+    '    invented to fill a scene: each one comes from that person\'s own day and what they want. Empty is a',
+    '    valid and common answer.',
     '  ripe — what ripened and whom it reached, one line each. Empty when nothing did.',
     '  twb — at most ONE window into the world beyond, only when something CHANGED since that thread was',
     '    last shown (the list of windows already opened is below) and it does something (a decision, a',
@@ -322,7 +323,7 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
     rows.push({ name, core, now, weight, here, noSeat, stale, ago: stale ? agoWords(seatAge(state, name)) : '' });
   }
   rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
-  const mark = (r) => (r.here ? ' [in the scene]' : r.noSeat ? ' [NO SEAT — seat them]' : r.stale ? ' [SEATED ' + (r.ago || 'long ago') + ' — move them on]' : '');
+  const mark = (r) => (r.here ? ' [in the scene]' : r.noSeat ? ' [NO SEAT — seat them]' : r.stale ? ' [last placed ' + (r.ago || 'long ago') + ' — where are they now?]' : '');
   const whole = (r) => r.name + mark(r) + ' — ' + [r.core, r.now && !seated.has(lower(r.name)) && !seatForPerson(state, r.name) ? 'last noted: ' + r.now : ''].filter(Boolean).join(' | ');
   const lean = (r) => { const first = (r.core || r.now).split(/(?<=[.!?])\s+/)[0] || ''; return r.name + mark(r) + ' — ' + (first.length > 240 ? first.slice(0, first.lastIndexOf(' ', 240)) + '…' : first); };
   const lines = [];

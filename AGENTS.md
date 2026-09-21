@@ -8792,3 +8792,29 @@ time skip the ledger seems confused, and some people are still stale."
   bottom, and never for a version written in its page's place.
 - GATES ON THE PUSHED TREE: harness 731/731, walk 97/97 (alone), longplay 8/8, lint clean.
 - version.js -> m365-001.
+
+# M366 — correcting M365: Caleb's own life, and no quota on real life
+The writer, rightly angry: M365 misread him. Caleb is not his main character — Caleb is an NPC in the ledger, the football
+captain, and the complaint was that CALEB has no life: parked at the neighbour's, nobody around him, no teammates texting
+HIM ("what are you doing, cap"). M365 instead wrote a line about people texting the main character "cap", and kept — and
+leaned on — a limit of "at most one such contact per scene". His words: "what happens if my mom, my sister, my friend also
+text me? Why make everything gamey, unlike a realistic real-life simulation?"
+- EVERYONE LIVES THEIR OWN LIFE (the world agent's brief): the people in the ledger are not arranged around the main
+  character; each has their own day, their own work or school, friends, family and plans, and their own people who call and
+  text THEM — the team texts its captain, a sister calls her brother, friends make plans without anyone on the page.
+- CONTACTS AS REAL LIFE SENDS THEM: the one-a-scene cap is gone. The people in his life reach out when their own lives give
+  them a reason, and on a busy evening that can be several at once, or none. No quota, no schedule, never invented to fill
+  a scene — each comes from that person's own day and what they want.
+- LOOK AGAIN, DON'T FORCE A MOVE: M365's "move EVERY one of them on" was a game rule too. A person not looked at for hours
+  of story is marked "[last placed … ago — where are they now?]" and the agent writes where their own life has them NOW —
+  which may be the same place if their life truly keeps them there (asleep at home, at work through a shift), but never
+  simply where the story last left them. After a time skip, everyone is looked at this way. (The age is only when to look
+  again; what the agent writes is the person's life, not a timer's.)
+- TESTS: m364.mjs M366-1 (the mark and the look-again law as the agent receives them; staying put allowed when life keeps
+  them there, parking not), M366-2 (the world not arranged around him; NPCs reached by their own people — the team texts
+  ITS captain; several contacts at once or none, no quota; the one-a-scene cap gone; nothing invented to fill a scene).
+- GATES ON THE PUSHED TREE: harness 731/731, walk 97/97 (alone), longplay 8/8, lint clean. One walk before it failed ten
+  early scenarios in a cascade (DOM-6c, DOM-8a-f, DOM-11c, DOM-13c — each waiting on pages an earlier one makes) and the
+  very next run of the same tree passed all 97; this change touched only the world agent's brief text, which the walk's
+  fake house never reads. Unexplained, recorded here so a second sighting is recognised.
+- version.js -> m366-001.
