@@ -55,8 +55,38 @@ test('M367-1 A LIFE OF THEIR OWN NEVER DROPS HIM: anyone with a reason concernin
   const brief = briefOf(world(9 * 60, 9 * 60)).replace(/\s+/g, ' ');
   assert(/A life of their own is never a reason to drop HIM/.test(brief), 'the two laws are said together');
   assert(/a thread, a grudge, a want, a debt, a bond — keeps pursuing it through that life/.test(brief), 'a reason concerning him is still pursued');
-  assert(/Every agenda someone holds toward the main character keeps moving — no count, no cap/.test(brief), 'every agenda moves');
+  assert(/every agenda keeps moving: no count, no cap/.test(brief), 'every agenda moves (M368 widened it to threads between anyone)');
   assert(/never frozen because too many others are pressing/.test(brief), 'nobody is benched by a number');
   assert(!/Two or three hot threads at most/.test(brief), 'the old cap on threads is gone');
   assert(/it goes quiet while their own life keeps them away/.test(brief), 'what quiets a thread is their life, not a rule');
+});
+
+test('M368-1 A THREAD RUNS BETWEEN ANY TWO PEOPLE, THROUGH THE LEDGER: Caleb and the quarterback’s job is kept with its other party, and the brief says threads are not only about him', async () => {
+  const st0 = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }]).state;
+  const st = applyMutations(st0, [{ type: 'thread.set', title: 'Caleb and the starting job', owner: 'Caleb', with: 'Marcus', heat: 'hot', next: 'outplay Marcus at Friday’s practice' }]).state;
+  const t = st.threads.find((x) => x.title === 'Caleb and the starting job');
+  eq(t.with, 'Marcus', 'the other party is kept');
+  const brief = briefOf(world(9 * 60, 9 * 60)).replace(/\s+/g, ' ');
+  assert(/toward the main character OR toward anyone else in the story/.test(brief), 'the schema says it');
+  assert(/Threads run between ANY people, not only toward the main character/.test(brief), 'and so does the law');
+  assert(/its cause is often its own: its rivals, its money, its people, its politics/.test(brief), 'a faction moves for its own reasons too');
+});
+
+test('M368-2 HIS OWN THREADS ARE THE LAST THE LEDGER LETS GO, and the storyteller sees this scene’s threads first — other people’s business away from the page never crowds it', async () => {
+  const { setThread, renderThreads } = await import('../../js/engine/world.js');
+  let list = [{ title: 'Jovan owes the Sixes', owner: 'Rook', heat: 'cold', atTurn: 1 }];
+  for (let i = 0; i < 45; i += 1) list = setThread(list, { title: 'Neighbours feud ' + i, owner: 'Neighbour ' + i, heat: 'cold' }, 10 + i, { mc: 'Jovan' });
+  assert(list.some((x) => x.title === 'Jovan owes the Sixes'), 'forty-five of other people’s cold threads did not push out his oldest, coldest one');
+  eq(list.length <= 40, true, 'and the ledger still keeps its bound');
+  const threads = [
+    { title: 'The Carter sisters and the house', owner: 'Ana Carter', with: 'Bea Carter', heat: 'hot', atTurn: 30 },
+    { title: 'Coach and the budget', owner: 'Coach', heat: 'hot', atTurn: 29 },
+    { title: 'Kaelen and the fourth seat', owner: 'Kaelen', heat: 'cold', atTurn: 2 },
+    { title: 'Jovan and the missing ledger', owner: 'Rook', heat: 'cold', atTurn: 1 },
+  ];
+  const shown = renderThreads(threads, 2, { names: ['Jovan', 'Kaelen'] }).split('\n');
+  eq(shown.length, 2, 'the storyteller still gets its few lines');
+  assert(shown.some((l) => /missing ledger/.test(l)) && shown.some((l) => /fourth seat/.test(l)), 'and they are the ones touching this scene, cold or not: ' + shown.join(' | '));
+  assert(!shown.some((l) => /Carter sisters|budget/.test(l)), 'not other people’s hot business away from the page');
+  assert(/\(with Bea Carter\)/.test(renderThreads(threads, Infinity)), 'the other party is named when it is shown');
 });

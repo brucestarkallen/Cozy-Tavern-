@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m367-001)
+# Cozy Tavern — handoff for the next session (state at m368-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M367). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M368). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 732 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 734 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 97 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -26,7 +26,9 @@ founding design lives in AGENTS.md's first entries.)
   A person not looked at for hours is looked at again and placed where their own life has them now (which may be where
   they were, if their life keeps them there). A life of their own never drops HIM (M367): anyone with a reason concerning
   the main character keeps pursuing it through that life, and no count caps how many threads may press him at once.
-  Never add a counting rule to the world again.
+  Threads run between ANY two people (M368: thread.set `with`), factions move for their own causes, the ledger lets his
+  own threads go last, and the storyteller is shown this scene's threads first (renderThreads scene ranking) — the world
+  is large, the storyteller's view of it stays small. Never add a counting rule to the world again.
 - SILLYTAVERN'S MACROS ARE SWAPPED LIKE SILLYTAVERN SWAPS THEM (M361, voice.js withMacros, run first inside inVoice):
   {{user}}/<USER> = the one he plays (the main character's story name, else his own name), {{char}}/<BOT> = the teller.
   Never a raw macro on the wire. And (M362, voice.js withHisName) the name his rules use for him — "What your rules call

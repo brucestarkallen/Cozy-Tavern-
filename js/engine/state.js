@@ -740,7 +740,9 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   const legacy = Array.isArray(state.threads)
     ? state.threads.map((t) => (typeof t === 'string' ? t : t && !t.title && (t.label || t.name))).filter(Boolean)
     : [];
-  const threadText = [renderThreads(structured, whole ? Infinity : undefined), legacy.join('; ')].filter(Boolean).join('\n');
+  /* M368: the threads that touch this scene first — someone present, or the main character */
+  const sceneNames = [mcName(state), ...(Array.isArray(state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : [])].filter((n) => n && n !== 'the player');
+  const threadText = [renderThreads(structured, whole ? Infinity : undefined, whole ? null : { names: sceneNames }), legacy.join('; ')].filter(Boolean).join('\n');
   if (threadText) sections.push({ shed: 4, text: 'Threads still open: ' + threadText.split('\n').join('\n') });
 
   /* The budget: shed the least vital until the block fits. The ruling, the

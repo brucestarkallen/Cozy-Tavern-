@@ -157,7 +157,18 @@ export function threadHousekeeping(threads, nowTurn, spared = []) {
   return out;
 }
 
-export function setThread(threads, { title, owner, heat, next } = {}, atTurn) {
+/* M368: a thread may run between ANY two people — Caleb and the quarterback's job, two sisters and their mother's house —
+ * not only toward the main character. `with` names the other party when there is one. And when the ledger must let a
+ * thread go, it lets go of one that does not touch the main character first: a crowd of other people's business never
+ * pushes his own threads out. */
+export function threadTouches(t, names = []) {
+  const said = [t && t.title, t && t.owner, t && t.with, t && t.next].filter(Boolean).join(' ').toLowerCase();
+  return names.filter(Boolean).some((n) => {
+    const words = String(n).toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    return words.some((w) => new RegExp('(^|[^a-z0-9])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![a-z0-9])').test(said));
+  });
+}
+export function setThread(threads, { title, owner, heat, next, with: other } = {}, atTurn, { mc = '' } = {}) {
   const list = copyThreads(threads);
   const name = undoubled(cleanText(title, 300));
   if (!name) return list;
@@ -165,6 +176,7 @@ export function setThread(threads, { title, owner, heat, next } = {}, atTurn) {
   const base = at === -1 ? { title: name } : list[at];
   const entry = { ...base };
   if (cleanText(owner)) entry.owner = cleanText(owner, 120);
+  if (cleanText(other)) entry.with = cleanText(other, 120); /* M368 */
   if (THREAD_HEAT.includes(heat)) entry.heat = heat;
   if (!entry.heat) entry.heat = 'hot';
   if (cleanText(next)) entry.next = undoubled(cleanText(next, 1000));
@@ -172,11 +184,9 @@ export function setThread(threads, { title, owner, heat, next } = {}, atTurn) {
   if (at === -1) list.push(entry); else list[at] = entry;
   while (list.length > THREADS_MAX) {
     let worst = 0;
-    for (let i = 1; i < list.length; i += 1) {
-      const a = list[worst]; const b = list[i];
-      const rank = (t) => (t.heat === 'cold' ? 0 : 1) * 1e9 + (Number.isFinite(t.atTurn) ? t.atTurn : -1);
-      if (rank(b) < rank(a)) worst = i;
-    }
+    /* M368: his own threads are let go last — then cold before hot, then oldest */
+    const rank = (t) => (mc && threadTouches(t, [mc]) ? 1 : 0) * 1e12 + (t.heat === 'cold' ? 0 : 1) * 1e9 + (Number.isFinite(t.atTurn) ? t.atTurn : -1);
+    for (let i = 1; i < list.length; i += 1) if (rank(list[i]) < rank(list[worst])) worst = i;
     list.splice(worst, 1);
   }
   return list;
@@ -189,14 +199,19 @@ export function closeThread(threads, title) {
   return list;
 }
 
-export function renderThreads(threads, top = THREADS_RENDER) {
+/* M368: the storyteller is shown the threads that touch THIS scene first — someone in it, or the main character — then
+ * the hot, then the recent; other people's business away from the page stays in the ledger (the world agent reads all of
+ * it) and never crowds the storyteller's few lines. */
+export function renderThreads(threads, top = THREADS_RENDER, scene = null) {
   const list = copyThreads(threads);
   if (!list.length) return '';
+  const names = scene && Array.isArray(scene.names) ? scene.names : [];
+  const near = (t) => (names.length && threadTouches(t, names) ? 0 : 1);
   const rank = (t) => (t.heat === 'cold' ? 1 : 0);
-  list.sort((a, b) => rank(a) - rank(b) || (b.atTurn ?? -1) - (a.atTurn ?? -1));
+  list.sort((a, b) => near(a) - near(b) || rank(a) - rank(b) || (b.atTurn ?? -1) - (a.atTurn ?? -1));
   return list.slice(0, top).map((t) => {
     let line = (t.heat === 'cold' ? '(cold) ' : '') + t.title;
-    if (t.owner) line += ' — ' + t.owner;
+    if (t.owner) line += ' — ' + t.owner + (t.with ? ' (with ' + t.with + ')' : '');
     if (t.next) line += (t.owner ? ' means to ' : ' — next: ') + t.next.replace(/\.+$/, '');
     return line;
   }).join('\n');

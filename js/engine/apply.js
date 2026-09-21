@@ -819,8 +819,8 @@ const HANDLERS = {
     const nextRaw = capText(m.next, 1000);
     const nextStep = nextRaw && !brokenOff(nextRaw) ? nextRaw : '';
     state.threads = setThread(state.threads, {
-      title, owner: capText(m.owner, 120), heat: heat === 'cold' ? 'cold' : (heat === 'hot' ? 'hot' : undefined), next: nextStep,
-    }, storyTurn(state));
+      title, owner: capText(m.owner, 120), with: capText(m.with, 120), heat: heat === 'cold' ? 'cold' : (heat === 'hot' ? 'hot' : undefined), next: nextStep,
+    }, storyTurn(state), { mc: mcName(state) }); /* M368: between any two people; his own let go last */
     const words = (at === -1 ? 'A thread opened: ' : 'A thread moved: ') + title
       + (nextStep ? ' — next, ' + nextStep.replace(/\.+$/, '') : '')
       + (nextRaw && !nextStep ? ' (its next step broke off mid-phrase, so the old one stands)' : '')

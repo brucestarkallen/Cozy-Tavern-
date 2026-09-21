@@ -8836,3 +8836,30 @@ first as leave to look away from him, and the second benched everyone past the t
   count, nobody benched by a number, the old cap gone, a thread quieted only by its owner's life).
 - GATES ON THE PUSHED TREE: harness 732/732, walk 97/97 (alone), longplay 8/8, lint clean.
 - version.js -> m367-001.
+
+# M368 — the ledger as a world: threads between anyone, factions for their own reasons, the storyteller's view kept small
+He asked whether the ledger already is a world simulation of its own — not bloated, rotating without dropping the important
+cast, NPCs with threads between each other, factions making their own moves — while never confusing the storyteller.
+- ALREADY SO, AND HOW (no change): the storyteller's people view is budgeted by the context (engine/people.js peopleView):
+  on his half-million context up to 16 present people with full cards, 6 recalled, and a roster of up to 60 names, all
+  inside a people budget of at most 72,000 characters (about 18k tokens); who rides is weighed by importance
+  (importanceOf), and anyone the brief or his cast notes name weighs 30 more, so his own cast is never rotated out for a
+  passer-by. The world agent sees everyone, whole (peopleForWorld).
+- THREADS BETWEEN ANYONE (new): a thread was framed as "a live agenda pushing toward the main character", so NPCs never
+  had business of their own with each other. thread.set now carries `with` (the other party), the schema and the THREADS
+  law say threads run between ANY people (a rivalry on the team, a sister and her mother, a debt between neighbours).
+- HIS OWN THREADS LET GO LAST (new): the ledger keeps up to 40 world threads and let the coldest-oldest go. With threads
+  between anyone, a crowd of other people's business could have pushed his own cold threads out. setThread now lets go of
+  threads that do not touch the main character first (then cold before hot, then oldest).
+- THE STORYTELLER SEES THIS SCENE'S THREADS FIRST (new): it is shown five threads, and they were simply the hottest and
+  newest anywhere. renderThreads now ranks the threads touching this scene (someone present, or the main character) first,
+  cold or not — other people's business away from the page stays in the ledger for the world agent and never crowds the
+  storyteller's few lines. The world is large; the storyteller's view of it stays small and on the scene.
+- FACTIONS FOR THEIR OWN REASONS (brief): a faction still moves only on cause, and the brief now says its cause is often
+  its own — its rivals, its money, its people, its politics — not only the main character.
+- TESTS: m364.mjs M368-1 (a thread between Caleb and Marcus kept with its other party; the schema and the law say threads
+  run between anyone; factions' own causes), M368-2 (forty-five cold threads of other people's never push out his oldest
+  coldest one, the bound still held; the storyteller's lines are the ones touching this scene, cold or not, never others'
+  hot business elsewhere; the other party named when shown). M367-1 moved to the widened wording.
+- GATES ON THE PUSHED TREE: harness 734/734, walk 97/97 (alone), longplay 8/8, lint clean.
+- version.js -> m368-001.
