@@ -4126,6 +4126,40 @@ test('DOM-77 WHAT HIS RULES CALL HIM FOLLOWS HIS NAME, IN THE APP: “LO” in h
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-78 A NEW VERSION OF A PAGE IS WRITTEN WHERE THE PAGE STANDS: while it is written it takes that page’s own place (not a second copy at the end of the thread), the view stays on its first line, and the old version is back the moment the writing stops (M364)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const H = '[The kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\n';
+  const st = await db.stories.create({ title: 'in its place' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'The first version of the page.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = house.state.storyAnswer;
+  let release;
+  const held = new Promise((r) => { release = r; });
+  house.state.storyAnswer = () => held.then(() => H + 'The second version, written where the first one stood.');
+  try {
+    const pages = () => qa('#thread .msg-assistant');
+    const page = pages()[pages().length - 1];
+    const count = qa('#thread .msg').length;
+    click(q('.swipe-bar .msg-act[data-act="swipe-next"]', page) || q('.msg-act[data-act="swipe"]', page));
+    const writing = await until(() => q('#thread .msg-assistant.pending'), 'the new version begins', 10000);
+    eq(page.hidden, true, 'the page it replaces steps aside while it is written');
+    eq(writing.previousElementSibling, page, 'and it is written in that page’s own place');
+    eq(qa('#thread .msg:not([hidden])').length, count, 'not a second copy added to the end of the thread');
+    release();
+    await until(async () => { const m = (await db.messages.list(st.id)).find((x) => x.role === 'assistant'); return m && Array.isArray(m.swipes) && m.swipes.length >= 2 && !env.ctx.chat.isBusy(); }, 'the new version lands as a swipe', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
+    await until(() => !q('#thread .msg-assistant.pending'), 'the writing is done', 10000);
+    assert(/second version, written where the first one stood/.test(pages()[pages().length - 1].textContent), 'the new version shows in the page’s place');
+  } finally {
+    house.state.storyAnswer = prior;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

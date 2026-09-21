@@ -8755,3 +8755,40 @@ not the man writing the story — and the reading could not tell the two apart.
 - TESTS: m359.mjs M363-1 (his two lines and an account/handle left alone; "the user" still flagged, with its reason).
 - GATES ON THE PUSHED TREE: harness 728/728, walk 96/96 (alone), lint clean. A reading-only change — nothing sent is touched.
 - version.js -> m363-001.
+
+# M364 — a new version of a page is written where that page stands
+The writer: "when I swipe for an alternative answer it starts at the bottom, unlike SillyTavern". The page being written
+was always APPENDED to the end of the thread (`els.thread.appendChild(pending)`) and the view followed it down — so a
+swipe grew a second copy under the first and dragged him to the bottom of a long page.
+- The version being written now takes the page's own place: the old version is hidden while it is written (and back the
+  moment the writing stops without landing — the pending node's remove() puts it back, so every one of the seven exits
+  that drop a page being written restores it), the view goes to the new version's FIRST line, and nothing drags it down
+  (holdPlace: the scroll handler does not turn following back on while a swipe is written; the three follow-downs in
+  generate() skip a version written in place). A new page, not a swipe, is written at the end exactly as before.
+- TESTS: DOM-78 walks a swipe with the answer held mid-page: the page it replaces steps aside, the new version is written
+  in that page's own place (its previous sibling), no second copy is added, and the new version lands in its place.
+
+# M365 — the world moves on: a seat goes stale, and a bond is a cause
+The writer: "Caleb keeps parking at Jovan's neighbor like a weirdo who has no life; every NPC should have a background,
+be alive, have friends who call or text him — 'what are you doing, cap', he's literally the football captain. After a
+time skip the ledger seems confused, and some people are still stale."
+- ROOT CAUSE: the world agent's roster marked only people with NO seat ("[NO SEAT — seat them]"). Anyone seated once —
+  however long ago, however many hours the story then skipped — was never looked at again. Caleb, seated at the
+  neighbour's on Monday afternoon, was still there on Thursday, because nothing ever asked where he was now.
+- A SEAT HAS AN AGE (world.js seatAge/seatIsStale): story-minutes since it was written (pages when the story keeps no
+  clock). Three story-hours (or twelve pages) on, it is stale, and the roster marks it "[SEATED 26 hours ago — move them
+  on]" exactly as it marks no seat at all; the brief tells the agent to move every one of them on with a real
+  offscreen.set — where their own day has taken them. A TIME SKIP AGES EVERY SEAT AT ONCE, so the next pass walks the whole
+  world forward to the new hour. "A person who has been in the same place for a day with nothing holding them there is a
+  mistake in the ledger, never a life."
+- A BOND IS A CAUSE: the law for calls and texts said "only when a cause on the ledger produces it", and a friend
+  wanting to talk is rarely written down as one — so friends almost never reached out. The people closest to him (a best
+  friend, a teammate who calls him "cap", family, someone he is seeing) now reach out the way people do when their own day
+  gives them a moment; the old limits still stand (never on a timer, at most one contact a scene).
+- TESTS: m364.mjs M365-1 (a seat's age by clock and by pages; three hours / twelve pages; a 26-hour skip), M365-2 (the
+  roster marks Caleb with how long he has sat there, leaves a fresh seat alone, and the brief the agent really receives
+  carries the law), M365-3 (a bond is a cause, and the old limits still stand).
+- M34-6 (a source reading of the landing scroll) now reads the in-place form too; the law is unchanged: only near the
+  bottom, and never for a version written in its page's place.
+- GATES ON THE PUSHED TREE: harness 731/731, walk 97/97 (alone), longplay 8/8, lint clean.
+- version.js -> m365-001.

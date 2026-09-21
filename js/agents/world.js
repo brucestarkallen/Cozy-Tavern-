@@ -150,6 +150,12 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'the HOUSE’S OWN NOTE of where someone stepped off the page — a sighting, not a life: the first time',
     'you see one, move that person on from it by the clock (the shift ended, she went home, he is asleep)',
     'with a real offscreen.set. There is no limit on how many people you may seat in one answer.',
+    'A SEAT GOES STALE (M365). Nobody stays where they were put: a line marked "[SEATED … ago — move them on]"',
+    'is someone whose whereabouts were written hours or days of story ago. Move EVERY one of them on in this',
+    'answer with a real offscreen.set: where their own day has taken them by now — the shift ended, practice',
+    'let out, they went home, they are asleep, they are out with their own friends. After a time skip, that is',
+    'everyone: walk the whole world forward to the new hour. A person who has been in the same place for a day',
+    'with nothing holding them there is a mistake in the ledger, never a life.',
     'A passer-through — a driver, a waiter, a clerk with one errand and no bond — is not seated at all;',
     'the house clears any seat nothing carries and lets its person pass out of the story.',
     '',
@@ -185,7 +191,10 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     '    channel, and what they want; the storyteller renders the screen or the voice). A person need not',
     '    walk to the scene to reach it. Small, locale-true, at most one such contact per scene and not',
     '    every scene, and NEVER on a timer — only when a cause on the ledger produces it. Empty is a valid',
-    '    and common answer.',
+    '    and common answer. A BOND IS A CAUSE (M365): the people closest to him — a best friend, a teammate who',
+    '    calls him "cap", family, someone he is seeing — reach out the way people do when their own day gives',
+    '    them a moment (bored after practice, saw something he would laugh at, want him somewhere tonight). They',
+    '    have lives, friends and plans of their own, and some of it reaches him by phone.',
     '  ripe — what ripened and whom it reached, one line each. Empty when nothing did.',
     '  twb — at most ONE window into the world beyond, only when something CHANGED since that thread was',
     '    last shown (the list of windows already opened is below) and it does something (a decision, a',
@@ -259,6 +268,36 @@ function shownWindows(state) {
  * whole while the room holds them and lean after, the cut SAID; and whoever
  * matters and has no whereabouts is marked, so the agent seats them. */
 export const WORLD_PEOPLE_ROOM = 60000;
+
+/* M365: A SEAT GOES STALE. The writer: "Caleb keeps parking at Jovan's neighbor like a weirdo who has no life", and "after
+ * a time skip the ledger seems confused, some people still stale". The roster marked only people with NO seat, so anyone
+ * seated once — however long ago, however many hours the story then skipped — was never looked at again: seated at the
+ * neighbour's on Monday afternoon, still there on Thursday. A seat now has an AGE (story-minutes since it was written,
+ * or pages when the story keeps no clock), and a seat past it is marked for moving on exactly like no seat at all. A
+ * time skip ages every seat at once, so the whole world is walked forward in the next pass. */
+export const STALE_SEAT_MINUTES = 180;  /* three story-hours: a day moves people on */
+export const STALE_SEAT_PAGES = 12;     /* when the story keeps no clock */
+export function seatAge(state, name) {
+  const found = seatForPerson(state, name);
+  const seat = found && found.entry ? found.entry : (found && typeof found === 'object' && !found.key ? found : null);
+  if (!seat) return null;
+  const clock = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
+  const minutes = clock !== null && Number.isFinite(seat.sinceMinutes) ? Math.max(0, clock - seat.sinceMinutes) : null;
+  const turn = storyTurn(state || {});
+  const pages = Number.isFinite(seat.atTurn) ? Math.max(0, turn - seat.atTurn) : null;
+  return { minutes, pages };
+}
+export function seatIsStale(state, name) {
+  const age = seatAge(state, name);
+  if (!age) return false;
+  if (age.minutes !== null) return age.minutes >= STALE_SEAT_MINUTES;
+  return age.pages !== null && age.pages >= STALE_SEAT_PAGES;
+}
+const agoWords = (age) => {
+  if (!age) return '';
+  if (age.minutes !== null) { const h = Math.round(age.minutes / 60); return h >= 48 ? Math.round(h / 24) + ' days ago' : h >= 1 ? h + (h === 1 ? ' hour ago' : ' hours ago') : 'just now'; }
+  return age.pages !== null ? age.pages + ' pages ago' : '';
+};
 export function peopleForWorld(state, { material = '', castNames = [], room = WORLD_PEOPLE_ROOM } = {}) {
   const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
   const turn = storyTurn(state || {});
@@ -278,10 +317,12 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
     const here = present.has(lower(name));
     const hasSeat = seated.has(lower(name)) || Boolean(seatForPerson(state, name)); /* M320: "Rias" seated IS "Rias Gremory" seated */
     const noSeat = !here && !hasSeat && (weight >= IMPORTANT_AT || own(name));
-    rows.push({ name, core, now, weight, here, noSeat });
+    /* M365: a seat past its age is due for moving on, exactly like no seat */
+    const stale = !here && hasSeat && (weight >= IMPORTANT_AT || own(name)) && seatIsStale(state, name);
+    rows.push({ name, core, now, weight, here, noSeat, stale, ago: stale ? agoWords(seatAge(state, name)) : '' });
   }
   rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
-  const mark = (r) => (r.here ? ' [in the scene]' : r.noSeat ? ' [NO SEAT — seat them]' : '');
+  const mark = (r) => (r.here ? ' [in the scene]' : r.noSeat ? ' [NO SEAT — seat them]' : r.stale ? ' [SEATED ' + (r.ago || 'long ago') + ' — move them on]' : '');
   const whole = (r) => r.name + mark(r) + ' — ' + [r.core, r.now && !seated.has(lower(r.name)) && !seatForPerson(state, r.name) ? 'last noted: ' + r.now : ''].filter(Boolean).join(' | ');
   const lean = (r) => { const first = (r.core || r.now).split(/(?<=[.!?])\s+/)[0] || ''; return r.name + mark(r) + ' — ' + (first.length > 240 ? first.slice(0, first.lastIndexOf(' ', 240)) + '…' : first); };
   const lines = [];

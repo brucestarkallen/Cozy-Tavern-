@@ -374,6 +374,7 @@ export function initChat(ctx) {
    * brings it back to the tail. The old test — "within 120px" — snapped a
    * reader back down on every token the moment they scrolled a little. */
   let following = true;
+  let holdPlace = false; /* M364: a version being written in its page's place keeps the view at its first line */
   let lastScrollTop = 0;
   let scrollRaf = 0;
   function atTail() {
@@ -382,6 +383,7 @@ export function initChat(ctx) {
   }
   els.thread.addEventListener('scroll', () => {
     const t = els.thread;
+    if (holdPlace && busy) { following = false; lastScrollTop = t.scrollTop; updateJump(); return; } /* M364: reading a swipe from its start */
     if (t.scrollTop < lastScrollTop - 2 && !atTail()) following = false; /* the hand went up */
     else if (atTail()) following = true;                                   /* the hand came back */
     lastScrollTop = t.scrollTop;
@@ -3774,8 +3776,25 @@ export function initChat(ctx) {
       const body = document.createElement('div');
       body.className = 'msg-body';
       pending.appendChild(body);
-      els.thread.appendChild(pending);
-      if (nearBottom()) scrollToBottom();
+      /* M364: A NEW VERSION OF A PAGE IS WRITTEN WHERE THAT PAGE STANDS. The writer: "when I swipe for an alternative
+       * answer it starts at the bottom, unlike SillyTavern". The page being written was always appended to the END of
+       * the thread and the view followed it down — so a swipe grew a second copy under the first and dragged him to the
+       * bottom of a long page. Now the version being written takes the page's own place (the old one hidden while it is
+       * written, and back the moment the writing stops without landing), the view goes to its FIRST line and stays
+       * there, and nothing drags him down. A new page, not a swipe, is written at the end exactly as before. */
+      const inPlace = swipeTarget ? [...els.thread.querySelectorAll('.msg[data-id]')].find((n) => n.dataset.id === String(swipeTarget.id)) || null : null;
+      holdPlace = Boolean(inPlace);
+      if (inPlace) {
+        inPlace.hidden = true;
+        inPlace.after(pending);
+        const drop = pending.remove.bind(pending);
+        pending.remove = () => { inPlace.hidden = false; holdPlace = false; drop(); };
+        following = false;
+        requestAnimationFrame(() => { try { pending.scrollIntoView({ block: 'start' }); } catch (err) { /* a view that cannot move stays put */ } });
+      } else {
+        els.thread.appendChild(pending);
+        if (!inPlace && nearBottom()) scrollToBottom();
+      }
 
       abort = new AbortController();
       els.btnStop.hidden = false;
@@ -4196,7 +4215,7 @@ export function initChat(ctx) {
            * no page came or went. Emptying ids here used to make the next
            * render re-append the whole thread — every page twice, and the
            * reader thrown back up the scroll. */
-          if (nearBottom()) scrollToBottom();
+          if (!inPlace && nearBottom()) scrollToBottom();
           await refreshPreview(story.id); // M21: the shelf hears the new version
           stories = await db.stories.list();
           renderStoryList();
@@ -4235,7 +4254,7 @@ export function initChat(ctx) {
         lastRender.ids.push(saved.id);
         /* M34: the scroll law (M27) holds at the landing too — the thread
          * moves only if the reader was already at its tail. */
-        if (nearBottom()) scrollToBottom();
+        if (!inPlace && nearBottom()) scrollToBottom();
         await refreshPreview(story.id); // M21: the shelf hears the new page
         stories = await db.stories.list();
         renderStoryList();

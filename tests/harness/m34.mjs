@@ -139,7 +139,7 @@ test('M34-6 the keyboard stays down on a phone: the house never focuses the comp
   const fin = chat.slice(chat.indexOf('els.btnStop.hidden = true;'), chat.indexOf('els.btnStop.hidden = true;') + 300);
   assert(/focusComposerIfDesktop\(\)/.test(fin) && !/els\.input\.focus\(\)/.test(fin), 'the finally block asks, never grabs');
   const landing = chat.slice(chat.indexOf('lastRender.ids.push(saved.id);'), chat.indexOf('lastRender.ids.push(saved.id);') + 300);
-  assert(/if \(nearBottom\(\)\) scrollToBottom\(\)/.test(landing), 'the landing scroll obeys the scroll law');
+  assert(/if \((?:!inPlace && )?nearBottom\(\)\) scrollToBottom\(\)/.test(landing), 'the landing scroll obeys the scroll law (M364: and never drags a version written in its page’s place)');
 });
 
 test('M34-7 the 🎨 pack ships on: the header is a card, the cut-away boxes itself, prose after it survives', () => {
