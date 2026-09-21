@@ -20,6 +20,7 @@
  */
 
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
+import { measureStream, speedWords, pickAnthropic, SPEED_ASK, SPEED_MAX_TOKENS } from './speed.js'; /* M373 */
 import { reportedContext } from './room.js'; /* M289 */
 import { readSSE } from './sse.js';
 import { withImagePart, transportError } from './wire.js';
@@ -185,10 +186,20 @@ export function createAnthropicProvider(connection) {
         }),
       }, connection);
       if (!res.ok) return { ok: false, detail: await explain(res) };
-      return { ok: true, detail: 'Claude answered — the line is good.' };
     } catch (err) {
       return { ok: false, detail: 'Couldn’t reach Claude — check the connection and try again.' };
     }
+    /* M373: and how fast it is — one streamed answer, timed, with this connection's own settings */
+    let m = null;
+    try {
+      const body = requestBody(connection, [], '', [{ role: 'user', content: SPEED_ASK }], {}).body;
+      body.stream = true;
+      body.max_tokens = Math.max(SPEED_MAX_TOKENS, body.thinking && Number.isFinite(body.thinking.budget_tokens) ? body.thinking.budget_tokens + 400 : 0);
+      const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const res = await houseFetch(`${base}/v1/messages`, { method: 'POST', headers: headersOf(connection), body: JSON.stringify(body) }, connection);
+      if (res.ok) m = await measureStream(res, pickAnthropic, { startedAt: t0 });
+    } catch (err) { m = null; }
+    return { ok: true, detail: 'Claude answered — the line is good.' + (m ? ' ' + speedWords(m) : ''), ...(m ? { speed: m } : {}) };
   }
 
   /* "Fetch what's on offer" (M8): GET /v1/models, same credentials as the

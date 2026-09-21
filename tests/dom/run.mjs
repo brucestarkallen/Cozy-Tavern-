@@ -3910,6 +3910,8 @@ test('DOM-72 THINKING ASKED FOR AND NONE CAME BACK: the page says so once, and �
     assert(/NO thinking with it/.test(result.textContent) && /Asked again at “max”/.test(result.textContent) && /this LEVEL that gives none here/.test(result.textContent), 'it names which it is: ' + result.textContent);
     eq(probes.length, 2, 'asked at the level set, then once at the top');
     eq(probes[0].reasoning_effort, 'low', 'the level set');
+    /* M373: and how fast the connection is — one streamed answer, timed, on the card with the rest */
+    assert(/Speed: first words after \d+(\.\d+)? s · /.test(result.textContent), 'the test says how fast: ' + result.textContent.slice(-200));
     await closeSettings();
   } finally {
     globalThis.fetch = priorFetch;

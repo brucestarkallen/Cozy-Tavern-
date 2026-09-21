@@ -15,6 +15,7 @@
  */
 
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
+import { measureStream, speedWords, pickOpenAI, SPEED_ASK, SPEED_MAX_TOKENS } from './speed.js'; /* M373 */
 import { reportedContext, reportedIdentity } from './room.js'; /* M289; M348 */
 import { readSSE } from './sse.js';
 import { withImagePart, transportError } from './wire.js';
@@ -306,7 +307,33 @@ export function createOpenAIProvider(connection) {
     return { ok: true, thought: typeof thought === 'string' ? thought.trim() : '', tokens: Number.isFinite(tokens) ? tokens : null, said: String(msg.content || '').trim(), asked };
   }
 
+  /* M373: one streamed answer, timed — how long before its first words, and how fast it writes after them. His own
+   * settings ride (M12); a provider that will not take the usage request is asked once more without it. */
+  async function measure() {
+    for (const withUsage of [true, false]) {
+      try {
+        const { body } = requestBody(connection, [{ role: 'user', content: SPEED_ASK }], {});
+        body.stream = true;
+        body.max_tokens = SPEED_MAX_TOKENS;
+        delete body.plugins;
+        if (withUsage) body.stream_options = { include_usage: true };
+        const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const res = await houseFetch(`${base}/v1/chat/completions`, { method: 'POST', headers: headersOf(connection), body: JSON.stringify(body) }, connection);
+        if (!res.ok) { if (withUsage && res.status >= 400 && res.status < 500) continue; return null; }
+        return await measureStream(res, pickOpenAI, { startedAt: t0 });
+      } catch (err) { return null; }
+    }
+    return null;
+  }
+
   async function test() {
+    const found = await testLine();
+    if (!found || !found.ok) return found;
+    const m = await measure();
+    return m ? { ...found, detail: found.detail + ' ' + speedWords(m), speed: m } : found;
+  }
+
+  async function testLine() {
     const set = connection.reasoning && typeof connection.reasoning.effort === 'string' ? connection.reasoning.effort : 'off';
     const words = (a) => (Object.keys(a).length ? Object.entries(a).map(([k, v]) => k + ': ' + (typeof v === 'string' ? '“' + v + '”' : JSON.stringify(v))).join(', ') : 'nothing about thinking');
     try {

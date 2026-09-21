@@ -18,10 +18,18 @@ const refuse = (message) => ({ ok: false, status: 400, headers: new Headers(), a
 async function runTest(conn, house) {
   const asks = [];
   const real = globalThis.fetch;
-  globalThis.fetch = async (url, opts) => { const b = JSON.parse(opts.body); asks.push(b); return house(b, asks.length); };
+  /* M373: the test ends with ONE streamed answer, timed for speed — it is not a question about thinking, so it is kept
+   * apart: `asks` are the thinking questions (as before), `timed` the speed reading */
+  const timed = [];
+  globalThis.fetch = async (url, opts) => {
+    const b = JSON.parse(opts.body);
+    if (b.stream === true) { timed.push(b); return { ok: true, status: 200, headers: new Headers(), body: new ReadableStream({ start(ctl) { ctl.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Rain on the glass."}}]}\n\ndata: [DONE]\n\n')); ctl.close(); } }) }; }
+    asks.push(b);
+    return house(b, asks.length);
+  };
   try {
     const stored = (await db.connections.list()).find((c) => c.id === conn.id) || conn;
-    return { out: await createProvider(stored).test(), asks };
+    return { out: await createProvider(stored).test(), asks, timed };
   } finally { globalThis.fetch = real; }
 }
 const conn = async (id, effort, extra = {}) => { const c = { id, type: 'openai', baseUrl: 'https://api.brand-new.example/v1', apiKey: 'k', model: 'nova-' + id, reasoning: { effort }, ...extra }; await db.connections.add(c); return c; };

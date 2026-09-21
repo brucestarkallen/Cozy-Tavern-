@@ -8948,3 +8948,27 @@ handed her phone to Jovan.
   brief as it is really built; and the first reader's brief carries WHOSE AND WHO).
 - GATES ON THE PUSHED TREE: harness 736/736, walk 98/98 (alone), longplay 8/8, lint clean.
 - version.js -> m372-001.
+
+# M373 — the connection test says how fast the connection is
+He asked for the connection's Test to show its latency and its speed. Both now come from ONE streamed answer, the way a page
+streams (js/providers/speed.js), timed after the test has found the line good:
+- FIRST WORDS AFTER: from the moment the ask leaves to the first thing the model sends back — thinking or text, whichever
+  comes first. What he waits through before a page starts to move.
+- TOKENS A SECOND: how fast it writes once it has started — the tokens it sent (the provider's own count where it reports
+  one: OpenAI-shaped via stream_options.include_usage, Claude via message_delta's output_tokens; otherwise estimated from
+  the characters at four to a token, and SAID to be an estimate) over the time from its first word to its last. The wait
+  before the first word is never counted in the speed, so a slow start never hides a fast writer.
+- HIS SETTINGS RIDE (M12): the timed ask is built by the same requestBody a page uses — his temperature, his thinking
+  level — on a short fixed ask (SPEED_ASK), capped at 700 tokens (Claude: more when its thinking budget needs it); it
+  never touches a story. A provider that refuses the count request (a 4xx naming stream_options) is asked once more
+  without it.
+- On the card: "Speed: first words after 0.80 s · 120 tokens a second (60 tokens in 2.8 s)." appended to what the test
+  already says. Nothing streamed back is said plainly; an answer too short to time says so.
+- TESTS: m373.mjs M373-1 (first words after, thinking counting as the first word; the provider's own count; the wait not
+  counted in the speed; the sentence), M373-2 (no count -> estimated and said; nothing streamed said plainly; Claude's
+  thinking and its own count), M373-3 (the test itself: the line found good, then one streamed ask with his temperature on
+  the fixed ask, refused with the count request and asked once more without it). m351.mjs's fake house keeps the timed
+  answer apart from the thinking questions it counts (the questions are unchanged). DOM-72 taps Test on a real card and
+  reads the speed line.
+- GATES ON THE PUSHED TREE: harness 739/739, walk 98/98 (alone), longplay 8/8, relay.py 11/11, lint clean.
+- version.js -> m373-001.
