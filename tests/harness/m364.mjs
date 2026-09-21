@@ -50,3 +50,13 @@ test('M366-2 EVERY PERSON HAS THEIR OWN PEOPLE, AND CONTACTS COME AS REAL LIFE S
   assert(!/at most one such contact per scene/.test(brief), 'the old one-a-scene cap is gone');
   assert(/never invented to fill a scene/.test(brief), 'and nothing is made up to fill one');
 });
+
+test('M367-1 A LIFE OF THEIR OWN NEVER DROPS HIM: anyone with a reason concerning the main character keeps pursuing it — and no count caps how many may', () => {
+  const brief = briefOf(world(9 * 60, 9 * 60)).replace(/\s+/g, ' ');
+  assert(/A life of their own is never a reason to drop HIM/.test(brief), 'the two laws are said together');
+  assert(/a thread, a grudge, a want, a debt, a bond — keeps pursuing it through that life/.test(brief), 'a reason concerning him is still pursued');
+  assert(/Every agenda someone holds toward the main character keeps moving — no count, no cap/.test(brief), 'every agenda moves');
+  assert(/never frozen because too many others are pressing/.test(brief), 'nobody is benched by a number');
+  assert(!/Two or three hot threads at most/.test(brief), 'the old cap on threads is gone');
+  assert(/it goes quiet while their own life keeps them away/.test(brief), 'what quiets a thread is their life, not a rule');
+});

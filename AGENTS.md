@@ -8818,3 +8818,21 @@ text me? Why make everything gamey, unlike a realistic real-life simulation?"
   very next run of the same tree passed all 97; this change touched only the world agent's brief text, which the walk's
   fake house never reads. Unexplained, recorded here so a second sighting is recognised.
 - version.js -> m366-001.
+
+# M367 — a life of their own never drops him
+He asked whether M366 had quietly made the people who DO have a reason concerning his main character stop acting on it.
+Read as sent, the risk was real in the wording: "the people in this ledger are not arranged around the main character"
+stood alone, and three sections later THREADS still said "two or three hot threads at most" — so a model could take the
+first as leave to look away from him, and the second benched everyone past the third.
+- The life law now says both halves together: a life of their own is never a reason to drop HIM — anyone with a reason
+  concerning the main character (a thread, a grudge, a want, a debt, a bond) keeps pursuing it through that life, when that
+  life gives them the chance.
+- THREADS has no count: every agenda someone holds toward him keeps moving. A thread is hot while its owner is in position
+  to press it now, quiet while their own life keeps them away (work, distance, a plan still ripening), and wakes when it
+  lets them — never frozen because too many others are pressing. (M366's standing law, applied to the one count it missed.)
+- Left as it was, deliberately: "twb — at most ONE window into the world beyond". That is how many cut-aways the
+  STORYTELLER shows in one page (pacing on the page), not how many people live or act; the world behind it is unlimited.
+- TESTS: m364.mjs M367-1 (both halves said together, a reason concerning him still pursued, every agenda moving with no
+  count, nobody benched by a number, the old cap gone, a thread quieted only by its owner's life).
+- GATES ON THE PUSHED TREE: harness 732/732, walk 97/97 (alone), longplay 8/8, lint clean.
+- version.js -> m367-001.
