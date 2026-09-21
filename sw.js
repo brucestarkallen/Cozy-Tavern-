@@ -74,6 +74,7 @@ const SHELL = [
   'js/import/lorebook.js',
   'js/import/chats.js',
   'js/ui/chat.js',
+  'js/ui/placeholder.js',
   'js/ui/headergate.js',
   'js/ui/pageshape.js',
   'js/ui/settings.js',

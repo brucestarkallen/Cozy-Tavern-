@@ -136,7 +136,8 @@ export function parseCommand(text) {
     return { kind: 'nextScene', clean: trimmed, directive: DIRECTIVES.nextScene, chip: 'the next scene — the director’s pick', hidden: false, ooc: false };
   }
   if (TIME_RE.test(trimmed)) {
-    return { kind: 'time', clean: '', directive: DIRECTIVES.time, chip: 'what hour is it?', hidden: false, ooc: false };
+    /* M382: "#time" is kept as he typed it — an empty page would travel as the house's "Go on." */
+    return { kind: 'time', clean: '#time', directive: DIRECTIVES.time, chip: 'what hour is it?', hidden: false, ooc: false };
   }
   m = trimmed.match(TIMESKIP_RE);
   if (m) {
@@ -157,7 +158,8 @@ export function parseCommand(text) {
     const concept = (m[1] || '').trim();
     return {
       kind: 'story',
-      clean: concept || 'A new tale — you choose it.',
+      /* M382: with no concept, the page keeps what he typed — never the house's own sentence in his place */
+      clean: concept || '#story',
       directive: concept
         ? DIRECTIVES.story + concept
         : DIRECTIVES.story + 'you choose it — the kind of story, the world, the hour, who MC is and who is with him. Choose, and write the first scene of it now.',

@@ -9156,3 +9156,25 @@ written down so no later session breaks his storyteller's persona.
   once he empties "The note at the end" and keeps it.
 - GATES ON THE PUSHED TREE: harness 749/749, walk 100/100, longplay 8/8, relay.py 11/11, lint clean.
 - version.js -> m381-001.
+
+# M382 — "#story" reached the storyteller as the house's own sentence
+His screenshot: two "YOU: A new tale — you choose it." and no page. He had typed "#story".
+- ROOT CAUSE, MINE: M379 moved every shortcut's meaning into the standing words and sent his message "as he typed it"
+  from a new `typed` field — but db.messages.append (store.js) builds each row from a WHITELIST of fields, and `typed`
+  was not on it. It was dropped on every save. So every shortcut whose page text differs from what he typed went out
+  wrong: a bare "#story" was sent as M359's placeholder "A new tale — you choose it." (a sentence the house wrote, posing
+  as him, with the command gone), "#story <concept>" as the bare concept, "#question …" as the bare question (no longer
+  known to be out of character), a bare "#time" as an empty page (sent as "Go on."), and "#continue" as "Go on.". M379's
+  laws built the messages by hand and never went through the store; DOM-82 used "#p", whose page text IS what he typed.
+- FIXED AT THE ROOT: store.js keeps `typed`. The page never shows a house sentence in his place: a bare "#story" is kept
+  as "#story" (commands.js; the placeholder is gone), a bare "#time" as "#time"; a concept or a question stays his page
+  text (M85's law — his own words, not the command) while `typed` carries the command to the storyteller.
+- THE DAMAGE REPAIRED WHERE IT WAS SAVED: pages saved from m379 to m381 as exactly "A new tale — you choose it." are put
+  back to "#story" once, at boot (ui/placeholder.js; exact text only; storyteller pages never touched). Other command
+  pages saved in that window (a bare question, an empty #time) cannot be told apart from ordinary words and are left.
+- TESTS THROUGH THE REAL PATH: m382.mjs M382-1 (the store keeps `typed`; the wire sends it), M382-2 (the saved
+  placeholder put back once, exactly). DOM-83 in the app: "#story", "#story <concept>", "#question …", "#time", "#p",
+  "#continue" typed into the composer — the storyteller is sent EXACTLY what he typed each time, the thread keeps his own
+  words, and no house sentence anywhere. HANDOFF's rule 8 now says it: test what is sent through the real app.
+- GATES ON THE PUSHED TREE: harness 751/751, walk 101/101, longplay 8/8, lint clean.
+- version.js -> m382-001.

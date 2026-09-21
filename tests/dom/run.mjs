@@ -4307,6 +4307,44 @@ test('DOM-82 HIS MESSAGE IS THE LAST THING THE STORYTELLER READS: a shortcut goe
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-83 EVERY SHORTCUT, THROUGH THE REAL APP: the thread shows what he typed, and the storyteller is sent exactly that — "#story" alone, "#story <concept>", "#question", "#time", "#continue", "#p" — never a sentence the house wrote in its place (M382)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const H = '[The kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\n';
+  const prior = house.state.storyAnswer;
+  house.state.storyAnswer = () => H + 'The kettle sang.';
+  const tellerLast = (from) => { const told = house.state.calls.slice(from).filter((c) => !c.isWorker && Array.isArray(c.body.messages)).pop(); if (!told) return null; const u = [...told.body.messages].reverse().find((m) => m.role === 'user'); return u ? String(u.content) : null; };
+  const settle = async (id) => { await until(() => !env.ctx.chat.isBusy(), 'the turn', 30000); await until(() => queuedCount(id) === 0 && !workIsRunning(id), 'the readers', 30000); };
+  const activeId = async () => { const all = await db.stories.list(); return all.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0].id; };
+  try {
+    /* a new tale, twice over: bare, and with a concept */
+    for (const typed of ['#story', '#story a lighthouse keeper who stops sleeping']) {
+      const from = house.state.calls.length;
+      type(q('#composer-input'), typed); submit(q('#composer'));
+      await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
+      const id = await activeId();
+      await settle(id);
+      eq(tellerLast(from), typed, typed + ': the storyteller is sent exactly what he typed');
+      const mine = (await db.messages.list(id)).find((m) => m.role === 'user');
+      /* the page keeps HIS words: the concept he gave (M85), or what he typed when he gave none */
+      eq(mine.text, typed === '#story' ? '#story' : 'a lighthouse keeper who stops sleeping', typed + ': the thread keeps his own words');
+      assert(!/you choose it/.test(JSON.stringify(await db.messages.list(id))), 'no house sentence in his place');
+    }
+    /* then, in that tale: a question, the hour, a beat, and continue */
+    const id = await activeId();
+    for (const typed of ['#question what does she want', '#time', '#p', '#continue']) {
+      const from = house.state.calls.length;
+      type(q('#composer-input'), typed); submit(q('#composer'));
+      await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
+      await settle(id);
+      eq(tellerLast(from), typed, typed + ': the storyteller is sent exactly what he typed');
+    }
+  } finally {
+    house.state.storyAnswer = prior;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

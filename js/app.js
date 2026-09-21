@@ -3,6 +3,7 @@
  * and the shared context handed to each UI module.
  */
 
+import { repairStoryPlaceholder } from './ui/placeholder.js'; /* M382 */
 import { sweepSent } from './sent.js'; /* M347: a gone tale's kept words go with it */
 import { db } from './store.js';
 import { initChat } from './ui/chat.js';
@@ -190,6 +191,10 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
    * the open. */
   /* M347: a tale that is gone takes the words its pages were sent with it (js/sent.js keeps them in its own database) */
   try { const tales = await db.stories.list(); sweepSent((tales || []).map((t) => t && t.id).filter(Boolean)).catch(() => 0); } catch (err) { /* never holds the boot */ }
+  /* M382: THE PLACEHOLDER REPAIRED WHERE IT WAS SAVED. From m379 to m381 a bare "#story" was kept as the house's own
+   * sentence, "A new tale — you choose it.", and that is what the storyteller was sent, every time the turn was asked.
+   * It is detected exactly, and put back to what he typed — once, on the first boot of this version. */
+  try { await repairStoryPlaceholder(); } catch (err) { /* the next boot tries again */ }
   try { if (typeof db.sweepOrphans === 'function') await db.sweepOrphans(); } catch (err) { /* the shelf is no worse for it */ }
   await applyStoredTheme();
 

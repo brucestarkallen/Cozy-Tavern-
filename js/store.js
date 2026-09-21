@@ -486,6 +486,10 @@ const messages = {
     /* M9: an out-of-character aside (#question, ((…)), //…) — kept out of
      * the workers' reading. */
     if (msg.ooc === true) row.ooc = true;
+    /* M382: WHAT HE TYPED, KEPT. M379 sent a shortcut to the storyteller "as he typed it" from a `typed` field this
+     * append never kept — so the field was dropped on the way into the store, and a bare "#story" reached the
+     * storyteller as the house's own placeholder, "A new tale — you choose it.", as if he had written that. */
+    if (typeof msg.typed === 'string' && msg.typed.trim()) row.typed = msg.typed.trim().slice(0, 4000);
     /* M22-C: where the storyteller looked things up ([{title, url}]),
      * folded under the page it informed. */
     if (Array.isArray(msg.sources) && msg.sources.length) {
