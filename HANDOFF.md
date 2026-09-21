@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m377-001)
+# Cozy Tavern — handoff for the next session (state at m378-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M377). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M378). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 744 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 743 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 99 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -35,9 +35,9 @@ founding design lives in AGENTS.md's first entries.)
   is large, the storyteller's view of it stays small. Never add a counting rule to the world again.
 - SILLYTAVERN'S MACROS ARE SWAPPED LIKE SILLYTAVERN SWAPS THEM (M361, voice.js withMacros, run first inside inVoice):
   {{user}}/<USER> = the one he plays (the main character's story name, else his own name), {{char}}/<BOT> = the teller.
-  Never a raw macro on the wire. And (M362, voice.js withHisName) the name his rules use for him — "What your rules call
-  you", beside Your name — goes out as whatever Your name says: whole words only, case as typed, possessives included,
-  never inside another word; nothing when either box is empty or they agree. His own pages are never rewritten.
+  Never a raw macro on the wire. His own words are never renamed: M362's "What your rules call you" swap was DELETED in
+  M378 — a persona written about "LO" and read about another name is about someone else. The one name the house uses for
+  him is Your name; it should say what his rules say.
 - THE HOUSE NEVER ASKS AGAIN ON ITS OWN (M377, his order: "delete this feature — let me do the retry button manually,
   the automatic thinking breaks my persona"). No second try is ever sent by the house — not for a leak (M117), not for a
   page inside the thinking (M120), not for a plan with no page (M323-M339). A reply that brings no page lands as it came

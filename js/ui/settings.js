@@ -14,7 +14,7 @@
  * and the real thinking control — no placeholders.
  */
 
-import { withMacros, withHisName } from '../assemble/voice.js'; /* M361, M362 */
+import { withMacros } from '../assemble/voice.js'; /* M361 */
 import { loadState } from '../engine/state.js'; /* M361: whose name {{user}} is */
 import { mcName } from '../engine/duels.js'; /* M361 */
 import { readStandingWords, groupFindings, findingsText } from '../assemble/plainvoice.js'; /* M359, M360 */
@@ -129,7 +129,6 @@ export function initSettings(ctx) {
     tellerPersonNote: document.getElementById('teller-person-note'),
     writerName: document.getElementById('writer-name'),
     groundingPhrase: document.getElementById('grounding-phrase'), /* M358 */
-    rulesName: document.getElementById('rules-name'), /* M362 */
     frameVoiceCheck: document.getElementById('frame-voice-check'), /* M359 */
     frameVoiceFound: document.getElementById('frame-voice-found'),
     frameStory: document.getElementById('frame-story'),
@@ -942,7 +941,6 @@ export function initSettings(ctx) {
   };
   if (els.tellerName) els.tellerName.addEventListener('change', () => keepName('tellerName', els.tellerName));
   if (els.writerName) els.writerName.addEventListener('change', () => keepName('writerName', els.writerName));
-  if (els.rulesName) els.rulesName.addEventListener('change', () => keepName('rulesName', els.rulesName)); /* M362 */
   /* M358: the grounding phrase is kept the same way — the moment the box is left, and forgotten when it is emptied */
   /* M359: his own standing words, read for an assistant's voice — mechanically, nothing rewritten, nothing sent */
   if (els.frameVoiceCheck && els.frameVoiceFound) els.frameVoiceCheck.addEventListener('click', async () => {
@@ -962,9 +960,9 @@ export function initSettings(ctx) {
       }
     } catch (err) { /* the frame alone is still worth reading */ }
     /* M361: read as they will be SENT — {{user}} and {{char}} are his names by then, never "user" */
-    const names = { writer: cleanName(await db.settings.get('writerName')), teller: cleanName(await db.settings.get('tellerName')), rulesName: cleanName(await db.settings.get('rulesName')), mc: '' };
+    const names = { writer: cleanName(await db.settings.get('writerName')), teller: cleanName(await db.settings.get('tellerName')), mc: '' };
     try { if (story) names.mc = mcName(await loadState(story.id)); } catch (err) { /* no ledger yet: his own name stands in */ }
-    const found = readStandingWords(pieces.map((p) => ({ ...p, text: withHisName(withMacros(p.text, names), names) })));
+    const found = readStandingWords(pieces.map((p) => ({ ...p, text: withMacros(p.text, names) })));
     const { machine, manual, house } = groupFindings(found);
     const add = (words) => { const li = document.createElement('li'); li.textContent = words; list.appendChild(li); return li; };
     if (!machine.length && !manual.length) {
@@ -1016,7 +1014,6 @@ export function initSettings(ctx) {
 
   async function loadPromptSlots() {
     if (els.groundingPhrase) els.groundingPhrase.value = String((await db.settings.get('groundingPhrase')) || ''); /* M358 */
-    if (els.rulesName) els.rulesName.value = cleanName(await db.settings.get('rulesName')); /* M362 */
     if (els.tellerName) els.tellerName.value = cleanName(await db.settings.get('tellerName'));
     if (els.writerName) els.writerName.value = cleanName(await db.settings.get('writerName'));
     if (els.tellerPerson) { const p = await db.settings.get('tellerPerson'); els.tellerPerson.value = p === 'first' || p === 'second' ? p : 'follow'; }
@@ -2459,7 +2456,7 @@ export function initSettings(ctx) {
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
-    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn', 'sensorsOn', 'groundingPhrase', 'rulesName',
+    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn', 'sensorsOn', 'groundingPhrase',
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
   ];

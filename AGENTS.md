@@ -9060,3 +9060,20 @@ you thinking it over…") and the teller answered THAT, in an assistant's voice.
   again and brings the new version).
 - GATES ON THE PUSHED TREE: harness 744/744, walk 99/99 (alone), longplay 8/8, lint clean.
 - version.js -> m377-001.
+
+# M378 — a new try clears a stopped thinking at once; the name swap is deleted
+1. "When I tap retry after I stop the thinking in the middle, the old thinking is still there until the output is done."
+   A Stop mid-thinking keeps the cut thinking on the page, whole and copyable (M301); it was let go only when the NEXT
+   PAGE landed (clearCutThinking at the two landing points), so Try again showed the old stopped thinking and the new one
+   streaming side by side until the new page was finished. Now the moment ANY new try begins — Try again, a new message,
+   a new version — the stopped thinking is cleared, before the new one is drawn.
+2. "Why, when I delete 'What your rules call you', does the persona actually become the persona?" Because M362's swap was
+   the wrong design: it rewrote the name his persona is BUILT around, inside his own rules — a persona written about "LO"
+   and then read about another name is a persona about someone else. With the box empty his rules went out as written and
+   the persona was itself again. DELETED: the box, its setting (rulesName), its keeping and reset, voice.js withHisName
+   (and its call in inVoice and the preset reading), voiceOf's field; M362-1 and DOM-77 go with it. His rules are never
+   renamed; the one name the house uses for him is Your name, and it should say what his rules say.
+- TESTS: DOM-81 in the app — a thinking stopped mid-way is kept on the page; Try again begins a new try and the stopped
+  thinking is ALREADY gone (not waiting for the page); the new page lands and it never comes back.
+- GATES ON THE PUSHED TREE: harness 743/743, walk 99/99 (alone), longplay 8/8, lint clean.
+- version.js -> m378-001.

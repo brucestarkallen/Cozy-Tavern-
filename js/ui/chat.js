@@ -3113,7 +3113,6 @@ export function initChat(ctx) {
       writerName: await db.settings.get('writerName'),
       tellerPerson: await db.settings.get('tellerPerson'), /* M334: 'first' | 'second' | unset = follow the frame */
       groundingPhrase: await db.settings.get('groundingPhrase'), /* M358: the first words of its thinking */
-      rulesName: await db.settings.get('rulesName'), /* M362: the name his own rules use for him */
     };
   }
 
@@ -3771,6 +3770,11 @@ export function initChat(ctx) {
         else if (reasoning.effort !== 'off' && reasoningIsDown(connection, reasonStyle(connection))) sayOnce('refused:' + connection.id, 'This connection once refused its thinking settings, so they ride unsent. It is asked again by itself a day after that refusal — or now, if you re-save the connection.');
       } catch (err) { /* a word of explanation is never worth a thrown turn */ }
 
+      /* M378: A NEW TRY CLEARS THE THINKING A STOP LEFT BEHIND — AT ONCE. After a Stop mid-thinking the cut thinking is
+       * kept on the page, whole and copyable (M301); it was let go only when the NEXT PAGE landed, so "Try again" showed
+       * the old stopped thinking and the new one streaming together until the new page was done. The moment any new try
+       * begins, the old one is gone. */
+      await clearCutThinking(story.id);
       const pending = document.createElement('article');
       pending.className = 'msg msg-assistant pending';
       const pendingLabel = document.createElement('div');
