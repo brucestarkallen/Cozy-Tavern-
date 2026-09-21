@@ -102,3 +102,18 @@ test('M380-3 A HOUSE THAT REFUSES A SYSTEM MESSAGE AFTER THE STORY is remembered
     eq((await db.connections.list()).find((c) => c.id === conn.id).systemAfterRefused, true, 'and remembered for this connection');
   } finally { globalThis.fetch = prior; await db.connections.remove(conn.id); }
 });
+
+test('M384-1 HIS TWO ALWAYS CLOSE IT: whatever else rides after his message comes first — the repeated main instructions, then his note, are the last two things the storyteller reads', () => {
+  const r = buildRequest({
+    story: { brief: '' }, messages: [...base, { id: 'u1', role: 'user', text: 'I swing at him.' }],
+    settings: { tellerName: 'Tony Stark', writerName: 'Bruce', frameText: 'MAIN: You are Tony Stark.', framePurposeOn: false, frameEcho: true, noteText: 'NOTE: keep it funny.' },
+    state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 1000000 },
+    directive: '', directorNote: '', editorEye: '', ruling: 'RULING: the blow lands.', sensorNote: 'SENSOR: something is at stake.',
+  });
+  const after = last(r);
+  eq(after.role, 'system');
+  const parts = after.content.split('\n\n');
+  eq(parts[parts.length - 1], 'NOTE: keep it funny.', 'his note is the very last thing');
+  eq(parts[parts.length - 2], 'MAIN: You are Tony Stark.', 'his main instructions, repeated, right before it');
+  assert(parts.findIndex((p) => /RULING/.test(p)) < parts.length - 2 && parts.findIndex((p) => /SENSOR/.test(p)) < parts.length - 2, 'the referee and the switches come before both');
+});

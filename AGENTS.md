@@ -9192,3 +9192,15 @@ only other place a message is drawn is the thread's own render, which clears and
   the page lands.
 - GATES ON THE PUSHED TREE: harness 751/751, walk 102/102, longplay 8/8, lint clean.
 - version.js -> m383-001.
+
+# M384 — his repeated instructions and his note always close what follows his message
+He asked where the referee and the rest sit against his repeated main instructions and his note at the end — "those two
+should always be at the end". They were not: the closing words ran referee's outcome, the repeated main instructions,
+then the switches' lines (the scene anchor, the plain lines, the sensors' word, the think-on-page line), then his note —
+so a switch's line could stand between his instructions and his note. Now (stack.js closing): the referee's outcome and
+every switch's line first, then his main instructions repeated (when "Say it again at the end" is on), then his note at
+the end, always last. (M21 always described the repeat as "just before the note at the end".)
+- TESTS: m379.mjs M384-1 (with a ruling, the sensors' word, the repeat and a note: the note last, the repeat right before
+  it, the ruling and the sensors' word ahead of both, all one system message).
+- GATES ON THE PUSHED TREE: harness 752/752, walk 102/102, longplay 8/8, lint clean.
+- version.js -> m384-001.

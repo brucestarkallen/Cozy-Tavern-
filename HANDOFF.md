@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m383-001)
+# Cozy Tavern — handoff for the next session (state at m384-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 He tells his story with a frontier model and a hand-built persona (a funny teller, his own frame and rules). Almost every
@@ -7,6 +7,8 @@ talking to an assistant. The teller then thinks in an assistant's voice ("the us
 1. HIS MESSAGE IS THE LAST THING IT READS. Nothing the house writes may follow his message as a USER message. What does
    follow (his own note, the referee's outcome, a switch's line) goes as a SYSTEM message by default (setting "Sent after
    your message as", afterRole — SillyTavern's post-history instructions). Claude gets it as user (no system turn there).
+   Inside it, HIS TWO ALWAYS CLOSE IT (M384): the referee's outcome and any switch's line first, then his main
+   instructions repeated (when "Say it again at the end" is on), then his note at the end — always last.
 2. HIS WORDS TRAVEL AS HE TYPED THEM. A shortcut (#p, #pp, #q, #continue, #time skip, #story, #question, ((…)), //) is sent
    exactly as typed; its meaning lives ONCE in the standing words (commands.js shortcutsText). Never a second message with
    its law. "continue" typed is "continue" sent; only an EMPTY or hidden message is sent as "Go on.".
@@ -26,11 +28,11 @@ talking to an assistant. The teller then thinks in an assistant's voice ("the us
    field on a message must be added to store.js's append whitelist, or it does not exist.
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M383). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M384). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 751 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 752 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 102 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).

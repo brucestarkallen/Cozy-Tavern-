@@ -795,7 +795,11 @@ export function buildRequest({
    * wants me to open with…"), in the very voice the phrase is there to keep out. The phrase lives in the standing words
    * (who the teller IS) and, where the provider truly continues a thought, as the thought's own first words. */
   const groundLine = '';
-  const closing = [rulingLine, directiveText, echoOn ? frameText : '', anchorLine, plainLine, sensorLine, groundLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  /* M384: HIS TWO ALWAYS CLOSE IT. The repeated main instructions and his note at the end are the last two things the
+   * storyteller reads, in that order — whatever else rides after his message (the referee's outcome, a switch's line)
+   * comes BEFORE them. The repeat stood second, ahead of the switches, so a think-on-page line or the sensors' word
+   * could sit between his instructions and his note. (M21 always meant it "just before the note at the end".) */
+  const closing = [rulingLine, directiveText, anchorLine, plainLine, sensorLine, groundLine, thinkLine, echoOn ? frameText : '', hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   /* M380: WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE — SillyTavern's post-history instructions — unless he chooses
    * otherwise. As a user message it read as HIM writing a second message of instructions, and his teller answered it as
    * an assistant answers a user. */
