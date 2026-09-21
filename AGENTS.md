@@ -9139,3 +9139,20 @@ reading his system instructions, which (by "What the storyteller saw") hold no "
   standing words) instead of the law in a trailing message; LONG-5 now asserts no law is ever sent as a message.
 - GATES ON THE PUSHED TREE (M379 + M380 together): harness 749/749, walk 100/100, longplay 8/8, lint clean.
 - version.js -> m380-001.
+
+# M381 — the session's final audit
+He closed the session ("audit everything from this session, make sure it's perfect"), and asked that every update be
+written down so no later session breaks his storyteller's persona.
+- RECORDED: every milestone of the session, M354-M380, has its entry here (checked one by one). HANDOFF.md now OPENS with
+  "READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS": the eight rules the session paid for, and the
+  check to run before any push that touches what is sent (read every message's role and words as the provider gets them).
+- ONE BUG FOUND AND FIXED: M379 sent "Go on." in place of anything that looked like a request to continue — so when he
+  TYPED "continue" or "keep going!", his own words were rewritten into the house's. Now anything he typed travels as typed;
+  only an empty send or the hidden Continue button's message has "Go on." stand in its place (stack.js). m379.mjs M379-3
+  holds it ("continue", "keep going!", "Go on" each travel as typed; an empty send is "Go on.").
+- AUDITED, NO CHANGE NEEDED: a swipe of an out-of-character turn keeps it out of character (turnArgsBefore reads the stored
+  ooc flag, not only the words); the late-system retry runs only on a refused answer (the accepted path breaks first); the
+  Raw view is the provider's own request body (checked equal to what fetch received); the starter note is gone entirely
+  once he empties "The note at the end" and keeps it.
+- GATES ON THE PUSHED TREE: harness 749/749, walk 100/100, longplay 8/8, relay.py 11/11, lint clean.
+- version.js -> m381-001.

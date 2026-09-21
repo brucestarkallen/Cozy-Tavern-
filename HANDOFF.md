@@ -1,7 +1,30 @@
-# Cozy Tavern — handoff for the next session (state at m380-001)
+# Cozy Tavern — handoff for the next session (state at m381-001)
+
+## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+He tells his story with a frontier model and a hand-built persona (a funny teller, his own frame and rules). Almost every
+bad week in M340–M380 was one kind of mistake: the house putting words in front of that teller that read like a system
+talking to an assistant. The teller then thinks in an assistant's voice ("the user wants…", "this wrapper…"). Rules:
+1. HIS MESSAGE IS THE LAST THING IT READS. Nothing the house writes may follow his message as a USER message. What does
+   follow (his own note, the referee's outcome, a switch's line) goes as a SYSTEM message by default (setting "Sent after
+   your message as", afterRole — SillyTavern's post-history instructions). Claude gets it as user (no system turn there).
+2. HIS WORDS TRAVEL AS HE TYPED THEM. A shortcut (#p, #pp, #q, #continue, #time skip, #story, #question, ((…)), //) is sent
+   exactly as typed; its meaning lives ONCE in the standing words (commands.js shortcutsText). Never a second message with
+   its law. "continue" typed is "continue" sent; only an EMPTY or hidden message is sent as "Go on.".
+3. NEVER ASK AGAIN ON ITS OWN. No automatic second try, for any reason (M377). A page that landed is the story (M357).
+   "Try again" is his.
+4. NO NOTES ABOUT ITS PLUMBING. No banner about seeds, the grounding phrase or retries (M370, M376→M377).
+5. THE GROUNDING PHRASE lives in the standing words only ("You open every thought with “X”.", woven twice), plus a true
+   thinking seed ONLY on a provider that continues a started thought (DeepSeek, Moonshot). Never a user line, never glued
+   to a command, never on Synthetic as a trailing message (M375).
+6. THE NAME BOXES ONLY CHANGE WORDS ("the writer" → his name, {{user}}/{{char}}). Nothing is ever ADDED for a name, and
+   the name his rules were written around is never rewritten (M378, M380).
+7. SMALL-MODEL HELP ONLY BEHIND THE DERESTRICTED SWITCH (on hold, off). OFF = byte for byte (M354).
+8. BEFORE YOU PUSH ANYTHING THAT TOUCHES WHAT IS SENT: build a turn, send it through the provider with a stubbed fetch, and
+   read every message's ROLE and WORDS (the Raw view in "What the storyteller saw" is that body, byte for byte). A new
+   user-role line from the house is a bug.
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M380). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M381). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)

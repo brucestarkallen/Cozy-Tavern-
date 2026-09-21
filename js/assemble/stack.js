@@ -758,7 +758,9 @@ export function buildRequest({
    * when nothing of his travels. */
   if (nudges) {
     const last = out[out.length - 1];
-    const hisTravels = last && last.role === 'user' && String(last.content || '').trim() && !/^(continue|go on|keep going)[.!…]?$/i.test(String(last.content).trim());
+    /* M381: anything he TYPED travels as he typed it — "continue" and "keep going!" included; only an empty or hidden
+     * message (the Continue button) has "Go on." stand in its place */
+    const hisTravels = last && last.role === 'user' && String(last.content || '').trim();
     if (!hisTravels) {
       if (last && last.role === 'user') out[out.length - 1] = { ...last, content: CONTINUE_NUDGE };
       else out.push({ role: 'user', content: CONTINUE_NUDGE });

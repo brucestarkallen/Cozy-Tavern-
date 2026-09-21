@@ -45,6 +45,13 @@ test('M379-3 THE CONTINUE NUDGE IS HIS OWN MESSAGE — “Go on.” in his place
   eq(tapped.messages.filter((m) => m.role === 'user' && m.content === CONTINUE_NUDGE).length, 1, 'once');
   const typed = build([{ id: 'u1', role: 'user', text: 'I walk in.' }]);
   assert(!typed.messages.some((m) => m.content === CONTINUE_NUDGE), 'a turn where he said something has no nudge at all');
+  /* M381: his own "continue" is his words — never rewritten into the house's "Go on." */
+  for (const words of ['continue', 'keep going!', 'Go on']) {
+    const his = build([{ id: 'u1', role: 'user', text: words }]);
+    eq(last(his).content, words, 'he typed “' + words + '”, and that is what travels');
+  }
+  const empty = build([{ id: 'u1', role: 'user', text: '' }]);
+  eq(last(empty).content, CONTINUE_NUDGE, 'an empty send has “Go on.” in its place');
 });
 
 
