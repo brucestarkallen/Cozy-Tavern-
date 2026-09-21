@@ -8972,3 +8972,22 @@ streams (js/providers/speed.js), timed after the test has found the line good:
   reads the speed line.
 - GATES ON THE PUSHED TREE: harness 739/739, walk 98/98 (alone), longplay 8/8, relay.py 11/11, lint clean.
 - version.js -> m373-001.
+
+# M374 — why thinking read 40 tokens a second and no thinking read 3 (or 20)
+His report: the same connection timed 40 tokens a second with thinking on, and 3 — or 20 — with it off. Some of that can be
+real (a provider may route thinking and non-thinking asks to different machines), but the reading itself had three faults,
+each of which bends exactly this way:
+- THE CLOCK STARTED ON A SPACE. A provider may open its stream at once with a chunk that carries only " " or a newline,
+  before the model has written anything; the first word was timed from there, so the whole wait for the model counted as
+  writing time and a short answer read as a crawl. The clock now starts on the first chunk with real text in it (speed.js).
+- THINKING COUNTED BUT NEVER STREAMED WAS CREDITED AS WRITING. A model that thinks silently reports those tokens in its count
+  while the stream shows only the text; divided by the text's short window, it read many times faster than it writes. When
+  the provider reports reasoning tokens and no thinking was streamed, they are taken out of the count (thinking that WAS
+  streamed is writing we watched, and still counts).
+- THE SAMPLE WAS TOO SHORT. A hundred words is ~130 tokens: with thinking off, one network burst or one stall decided the
+  whole reading (hence 3 one time, 20 the next). The timed answer is now three hundred words (cap 1,200 tokens).
+- TESTS: m373.mjs M374-1 (a stream opening with a bare space: first words at the real word, 40 a second — 17 the old way),
+  M374-2 (800 silent thinking tokens not credited — 50 a second, not 450; streamed thinking still counts), M374-3 (the
+  timed answer asks for three hundred words).
+- GATES ON THE PUSHED TREE: harness 742/742, walk 98/98 (alone), longplay 8/8, lint clean.
+- version.js -> m374-001.

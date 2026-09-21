@@ -70,3 +70,38 @@ test('M373-3 THE TEST ITSELF: after it finds the line good, it times one streame
     globalThis.fetch = priorFetch;
   }
 });
+
+test('M374-1 THE CLOCK STARTS ON THE FIRST REAL WORD: a stream that opens with a bare space before the model has written anything no longer counts the wait as writing time (his “3 tokens a second” on a model that writes at 40)', async () => {
+  const { res, now } = timedStream([
+    [100, oa({ role: 'assistant', content: ' ' })],       /* the provider opens the stream at once, with nothing in it */
+    [4000, oa({ content: 'The window held the night, ' })], /* the model's first real word, four seconds later */
+    [7000, oa({ content: 'and the rain kept on.' })],
+    [7000, 'data: ' + JSON.stringify({ choices: [], usage: { completion_tokens: 120 } })],
+  ]);
+  const m = await measureStream(res, pickOpenAI, { now, startedAt: 0 });
+  eq(m.firstMs, 4000, 'first words after 4 s — the real ones, not the space at 0.1 s');
+  eq(Math.round(m.tps), 40, '120 tokens over the 3 s it wrote: 40 a second — timed from the space it would have read 17');
+});
+
+test('M374-2 THINKING THAT WAS COUNTED BUT NEVER STREAMED IS NOT WRITING WE WATCHED: a model that thinks silently is timed on the text it wrote, not credited with its hidden thinking', async () => {
+  const { res, now } = timedStream([
+    [6000, oa({ content: 'Rain. '.repeat(20) })],
+    [8000, oa({ content: 'More rain.' })],
+    [8000, 'data: ' + JSON.stringify({ choices: [], usage: { completion_tokens: 900, completion_tokens_details: { reasoning_tokens: 800 } } })],
+  ]);
+  const m = await measureStream(res, pickOpenAI, { now, startedAt: 0 });
+  eq(m.tokens, 100, 'the 100 tokens it wrote where we could see, not the 900 it counted');
+  eq(Math.round(m.tps), 50, 'over the 2 s it wrote them — the 800 silent ones would have read 450 a second');
+  const shown = timedStream([
+    [500, oa({ reasoning_content: 'Hm. '.repeat(50) })],
+    [3000, oa({ content: 'Rain.' })],
+    [3000, 'data: ' + JSON.stringify({ choices: [], usage: { completion_tokens: 250, completion_tokens_details: { reasoning_tokens: 200 } } })],
+  ]);
+  const t = await measureStream(shown.res, pickOpenAI, { now: shown.now, startedAt: 0 });
+  eq(t.tokens, 250, 'thinking we watched stream is writing, and counts');
+  eq(Math.round(t.tps), 100, 'over the 2.5 s from its first thought to its last word');
+});
+
+test('M374-3 THE TIMED ANSWER IS LONG ENOUGH TO TRUST — three hundred words, not one hundred', () => {
+  assert(/three hundred words/.test(SPEED_ASK), SPEED_ASK);
+});

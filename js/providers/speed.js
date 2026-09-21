@@ -9,8 +9,10 @@
  * It is measured with the connection's own settings (his temperature, his thinking level — M12's law), on a short fixed
  * ask; it never touches a story. */
 
-export const SPEED_ASK = 'Write one short paragraph, about a hundred words, of rain on a window at night.';
-export const SPEED_MAX_TOKENS = 700; /* enough for thinking to start and a paragraph to follow; the test's own cap */
+/* M374: a longer answer. A hundred words is ~130 tokens — so short that one network burst or one stall decides the whole
+ * reading (his: 3 tokens a second on one test, 20 on the next, same model). Three hundred words is a sample worth timing. */
+export const SPEED_ASK = 'Write three short paragraphs, about three hundred words in all, of rain on a window at night.';
+export const SPEED_MAX_TOKENS = 1200; /* room for thinking to start and three paragraphs to follow; the test's own cap */
 
 /* Read a streamed answer to its end. `pick(json)` says what one event carried: {text, tokens} — the characters of
  * thinking or text in it, and a token count if the provider reported one there. */
@@ -20,6 +22,8 @@ export async function measureStream(res, pick, { now = () => (typeof performance
   let last = null;
   let chars = 0;
   let reported = null;
+  let hidden = null;     /* M374: thinking tokens the provider counted but never streamed */
+  let thoughtChars = 0;
   const body = res && res.body;
   if (!body || typeof body.getReader !== 'function') return null;
   const reader = body.getReader();
@@ -33,13 +37,16 @@ export async function measureStream(res, pick, { now = () => (typeof performance
     let json = null;
     try { json = JSON.parse(data); } catch (err) { return; }
     const got = pick(json) || {};
+    /* M374: THE CLOCK STARTS ON THE FIRST REAL WORD. A provider may open its stream with a chunk that carries only a
+     * space or a newline, sent before the model has written anything — timed from there, the whole wait for the model
+     * was counted as writing time, and a short answer read as a crawl. */
     if (typeof got.text === 'string' && got.text.length) {
       const at = now();
-      if (first === null) first = at;
-      last = at;
-      chars += got.text.length;
+      if (first === null && /\S/.test(got.text)) first = at;
+      if (first !== null) { last = at; chars += got.text.length; if (got.kind === 'think') thoughtChars += got.text.length; }
     }
     if (Number.isFinite(got.tokens) && got.tokens > 0) reported = got.tokens;
+    if (Number.isFinite(got.reasoning) && got.reasoning > 0) hidden = got.reasoning;
   };
   for (;;) {
     const { value, done } = await reader.read();
@@ -52,7 +59,11 @@ export async function measureStream(res, pick, { now = () => (typeof performance
   if (carry) take(carry);
   const end = now();
   if (first === null) return { firstMs: null, totalMs: end - t0, tokens: reported || 0, estimated: reported == null, tps: null };
-  const tokens = reported != null ? reported : Math.max(1, Math.round(chars / 4));
+  /* M374: THINKING THAT WAS COUNTED BUT NEVER STREAMED IS NOT WRITING WE WATCHED. A model that thinks silently (asked
+   * for no thinking, or its address keeps the words back) reports those tokens in its count while the stream shows only
+   * the text — divided by the text's short window, they made it look many times faster than it writes. */
+  let tokens = reported != null ? reported : Math.max(1, Math.round(chars / 4));
+  if (reported != null && hidden != null && thoughtChars === 0 && hidden < reported) tokens = reported - hidden;
   const writing = ((last !== null ? last : end) - first) / 1000;
   return {
     firstMs: first - t0,
@@ -77,15 +88,21 @@ export function pickOpenAI(json) {
   const c = json && Array.isArray(json.choices) && json.choices[0] ? json.choices[0] : null;
   const d = c && c.delta ? c.delta : {};
   let text = '';
-  for (const [k, v] of Object.entries(d)) if (typeof v === 'string' && v && (k === 'content' || /reason|think|thought/i.test(k))) text += v;
+  let kind = 'say';
+  for (const [k, v] of Object.entries(d)) {
+    if (typeof v !== 'string' || !v) continue;
+    if (k === 'content') text += v;
+    else if (/reason|think|thought/i.test(k)) { text += v; kind = 'think'; }
+  }
   const u = json && json.usage ? json.usage : null;
-  return { text, tokens: u ? Number(u.completion_tokens) : null };
+  const r = u ? Number((u.completion_tokens_details && u.completion_tokens_details.reasoning_tokens) ?? u.reasoning_tokens) : NaN;
+  return { text, kind, tokens: u ? Number(u.completion_tokens) : null, reasoning: Number.isFinite(r) ? r : null };
 }
 export function pickAnthropic(json) {
   if (!json || typeof json !== 'object') return {};
   if (json.type === 'content_block_delta' && json.delta) {
     const d = json.delta;
-    return { text: String(d.text || d.thinking || '') };
+    return d.thinking ? { text: String(d.thinking), kind: 'think' } : { text: String(d.text || ''), kind: 'say' };
   }
   if (json.type === 'message_delta' && json.usage) return { tokens: Number(json.usage.output_tokens) };
   return {};
