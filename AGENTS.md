@@ -8863,3 +8863,23 @@ cast, NPCs with threads between each other, factions making their own moves — 
   hot business elsewhere; the other party named when shown). M367-1 moved to the widened wording.
 - GATES ON THE PUSHED TREE: harness 734/734, walk 97/97 (alone), longplay 8/8, lint clean.
 - version.js -> m368-001.
+
+# M369 — the banner about a seed he never set
+He saw a banner, gone before he could read it: "…thinking seed… sent…". It was M358's grounding phrase: the house plants it
+as a seed at the start of the thinking (a thinking prefill), and his model on that connection sent no thinking back, so the
+provider reported the seed as sent-but-steering-nothing and the house said, in the prefill's own words, "Your thinking seed
+was sent, but no thinking came back from this model". He never set a seed; he set a grounding phrase.
+- SAID IN HIS WORDS: when the seed was the grounding phrase, the banner now reads "This model sends no thinking back, so
+  your grounding phrase can't be planted at the start of its thinking. It is still asked for in your words at the end of
+  every turn — nothing else changes." Once. A prefill he set himself keeps its own old words.
+- AND NOT PLANTED THERE AGAIN: the connection remembers it for that model at that address (groundingSeedFailedFor), so the
+  seed stops riding on a model that cannot carry it; the line asking for the phrase still rides every turn. A different
+  model or address is tried afresh.
+- {{user}}/{{char}} (M361) CANNOT BREAK THE PERSONA: they used to reach the storyteller as raw template syntax; they are now
+  the names SillyTavern itself would put there — {{user}} the character he plays, {{char}} his teller.
+- TESTS: DOM-79 (a model that sends no thinking back: the banner in his words, once, not the old seed words; remembered for
+  that model; not planted on the next turn; the phrase still asked for at the end).
+- M358-2 reads the source for his own prefill winning; M369 put the seed's memory between, so its window widened. Law
+  unchanged.
+- GATES ON THE PUSHED TREE: harness 734/734, walk 98/98 (alone), longplay 8/8, lint clean.
+- version.js -> m369-001.

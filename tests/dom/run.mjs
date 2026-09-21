@@ -4160,6 +4160,46 @@ test('DOM-78 A NEW VERSION OF A PAGE IS WRITTEN WHERE THE PAGE STANDS: while it 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-79 THE GROUNDING PHRASE ON A MODEL THAT SENDS NO THINKING BACK: the banner says so in his own words, once, and the phrase is not planted there again — it is still asked for at the end of every turn (M369)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const said = [];
+  const realToast = env.ctx.toast;
+  env.ctx.toast = (w) => { said.push(String(w)); return realToast ? realToast(w) : undefined; };
+  const conns = await db.connections.list();
+  const house0 = conns.find((c) => c && c.baseUrl && /mock\.example/.test(c.baseUrl)) || conns[0];
+  const wasActive = await db.settings.get('activeConnectionId');
+  const conn = await db.connections.add({ label: 'no thinking back', type: 'openai', baseUrl: house0.baseUrl, apiKey: house0.apiKey || 'k', model: 'quiet-model', reasoning: { effort: 'high' } });
+  await db.settings.set('activeConnectionId', conn.id);
+  const wasPhrase = await db.settings.get('groundingPhrase');
+  await db.settings.set('groundingPhrase', 'Autobots, roll out!');
+  try {
+    const st = await db.stories.create({ title: 'grounding' });
+    await db.stories.update(st.id, { keeper: false, extraction: false });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000); return house.state.calls.slice(from).find((c) => c.body && c.body.model === 'quiet-model'); };
+    const seededIn = (call) => JSON.stringify(call.body.messages || []).includes('Autobots, roll out! ') && (call.body.messages || []).some((m) => m.role === 'assistant' && /Autobots, roll out!/.test(JSON.stringify(m)));
+    const first = await send('I look around.');
+    assert(first, 'the storyteller was asked');
+    assert(said.some((w) => /your grounding phrase can’t be planted at the start of its thinking/.test(w)), 'the banner says it in his words: ' + said.join(' | '));
+    assert(!said.some((w) => /Your thinking seed was sent/.test(w)), 'not the old words about a seed he never set');
+    const kept = (await db.connections.list()).find((c) => c.id === conn.id);
+    eq(kept.groundingSeedFailedFor, 'quiet-model@' + house0.baseUrl, 'remembered for this model at this address');
+    const second = await send('I wait.');
+    assert(!seededIn(second), 'the phrase is not planted there again');
+    const closing = String(second.body.messages[second.body.messages.length - 1].content || '');
+    assert(/[Oo]pen your thinking with “Autobots, roll out!”/.test(closing), 'and it is still asked for at the end: ' + closing.slice(0, 120));
+    eq(said.filter((w) => /grounding phrase can’t be planted/.test(w)).length, 1, 'the banner came once');
+  } finally {
+    env.ctx.toast = realToast;
+    if (typeof wasPhrase === 'string') await db.settings.set('groundingPhrase', wasPhrase); else await db.settings.delete('groundingPhrase');
+    await db.settings.set('activeConnectionId', wasActive);
+    await db.connections.remove(conn.id);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

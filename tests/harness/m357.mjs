@@ -76,7 +76,7 @@ test('M358-2 HIS OWN PREFILL ALWAYS WINS, and an out-of-character turn takes nei
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   const at = chat.indexOf('const grounding = ooc ? \'\' : groundingSeed(settingsValues);');
   assert(at > 0, 'the seed is made only for a page of the story');
-  const near = chat.slice(at, at + 400);
+  const near = chat.slice(at, at + 1200); /* M369 put the model's memory of a seed that did not take between them */
   assert(/!String\(connection\.prefill \|\| ''\)\.trim\(\)/.test(near), 'and only where he has set no prefill of his own');
   assert(/\.\.\.\(ooc \? \{ prefill: '' \} : \{\}\)/.test(near), 'an out-of-character turn keeps its empty prefill');
 });
