@@ -14,6 +14,9 @@
  * and the real thinking control — no placeholders.
  */
 
+import { withMacros } from '../assemble/voice.js'; /* M361 */
+import { loadState } from '../engine/state.js'; /* M361: whose name {{user}} is */
+import { mcName } from '../engine/duels.js'; /* M361 */
 import { readStandingWords, groupFindings, findingsText } from '../assemble/plainvoice.js'; /* M359, M360 */
 import { copyWords } from './receiptview.js'; /* M360: the flagged lines, in one tap */
 import { loadSensors, sensorLine } from '../agents/sensors.js'; /* M356 */
@@ -956,7 +959,10 @@ export function initSettings(ctx) {
         pieces.push({ name: mod.name || mod.id || 'the rulebook', text: mod.text, mine: mod.source !== 'builtin' });
       }
     } catch (err) { /* the frame alone is still worth reading */ }
-    const found = readStandingWords(pieces);
+    /* M361: read as they will be SENT — {{user}} and {{char}} are his names by then, never "user" */
+    const names = { writer: cleanName(await db.settings.get('writerName')), teller: cleanName(await db.settings.get('tellerName')), mc: '' };
+    try { if (story) names.mc = mcName(await loadState(story.id)); } catch (err) { /* no ledger yet: his own name stands in */ }
+    const found = readStandingWords(pieces.map((p) => ({ ...p, text: withMacros(p.text, names) })));
     const { machine, manual, house } = groupFindings(found);
     const add = (words) => { const li = document.createElement('li'); li.textContent = words; list.appendChild(li); return li; };
     if (!machine.length && !manual.length) {

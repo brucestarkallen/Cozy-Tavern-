@@ -73,8 +73,22 @@ export function hasVoice(voice) { return Boolean(voice && (voice.teller || voice
 const possessive = (name) => name + (/s$/i.test(name) ? '’' : '’s');
 
 /* the house's own third-person text (the craft, the frame, a block's header), with the names in it */
+/* M361: SILLYTAVERN'S OWN NAMES FOR THE TWO PEOPLE. His rules came over from a SillyTavern preset and still say
+ * {{user}} and {{char}} (and the older <USER>/<BOT>). SillyTavern swaps them for names before anything is sent; this
+ * house never did — so "{{user}}" went to his storyteller as template syntax, the very machinery he is keeping out of
+ * its head. Swapped now wherever his standing words are voiced: {{user}} is the one he plays (the main character's story
+ * name, else his own name), {{char}} is the teller. With no name known, plain words — never a raw macro. */
+export function withMacros(text, voice) {
+  const out = String(text == null ? '' : text);
+  if (!/\{\{\s*(?:user|char)\s*\}\}|<(?:USER|BOT)>/i.test(out)) return out;
+  const v = voice || {};
+  const user = (typeof v.mc === 'string' && v.mc && v.mc !== 'the player' ? v.mc : '') || v.writer || 'the one I play';
+  const char = v.teller || 'the storyteller';
+  return out.replace(/\{\{\s*user\s*\}\}|<USER>/gi, user).replace(/\{\{\s*char\s*\}\}|<BOT>/gi, char);
+}
+
 export function inVoice(text, voice) {
-  let out = String(text == null ? '' : text);
+  let out = withMacros(text, voice);
   /* M333: ONE "YOU ARE". The writer's frame says who the teller IS ("You are Tony Stark…"); two lines later the craft
    * said "You are an unbiased cinematographer." — a second identity in the same message, and the plainer of the two.
    * With a teller named, the craft's line is a MANNER, not a self: the rule it carries (the camera's eye, no

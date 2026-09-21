@@ -8709,3 +8709,23 @@ whole preset. Both the number and the question were the reading's fault, not his
   prose out, counts the house's rulebook apart, the copy takes the flagged lines, and his frame is untouched.
 - GATES ON THE PUSHED TREE: harness 724/724, walk 95/95 (alone), longplay 8/8, lint clean.
 - version.js -> m360-001.
+
+# M361 — {{user}} went to his storyteller as template syntax
+He pasted the lines the reading flagged (M360). Four of the six "names the machine" lines were `{{user}}` — and that was
+not a flag about his writing, it was a bug in the house: his rules came over from SillyTavern, where {{user}} and
+{{char}} are swapped for names before anything is sent, and this house never swapped them. So every rule he brought over
+sent "{{user}}" to his storyteller as raw template syntax — exactly the machinery he is keeping out of its head.
+- SWAPPED NOW (voice.js withMacros, the first thing inVoice does, so every place his standing words are voiced has it:
+  the frame, the frame's purpose, the craft, every woven rule, the note): {{user}} and <USER> are the one he plays — the
+  main character's story name, else his own name, else "the one I play"; {{char}} and <BOT> are the teller, else "the
+  storyteller". However they are spelled ({{ User }}, {{CHAR}}). Text without them is untouched.
+- THE READING SEES HIS WORDS AS THEY WILL BE SENT, so {{user}} is never flagged as "user" again; and what it copies is the
+  WHOLE line (a line cut off with "…" cannot be rewritten by whoever it is handed to — his paste arrived cut).
+- HIS NAME: nothing in the house touches the name he writes in his own rules ("LO"). The house only swaps ITS own words
+  ("the writer", "the house") and now these macros. If "Your name" in The frame says anything other than what his rules
+  call him, his storyteller reads two names for one man — the box should say what his rules say.
+- TESTS: m359.mjs M361-1 (every spelling of both macros, his own name before the story names his character, plain words
+  with no name at all, text without macros untouched, and a whole request with not one macro on the wire), M361-2 (the
+  reading sees {{user}} as his character's name; the list stays short and the copy is the whole line).
+- GATES ON THE PUSHED TREE: harness 726/726, walk 95/95 (alone), longplay 8/8, lint clean.
+- version.js -> m361-001.

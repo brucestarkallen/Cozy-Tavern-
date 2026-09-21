@@ -418,7 +418,7 @@ export function buildRequest({
   };
 
   /* M327: who tells, and who listens — the names the house's own words are said in (assemble/voice.js) */
-  const voice = voiceOf(safeSettings);
+  const voice = { ...voiceOf(safeSettings), mc: mcNameOf(state) }; /* M361: {{user}} is the one he plays */
 
   /* --- 1. The frame --- */
   const framePicked = pickText(safeStory.frameOverride, safeSettings.frameText, STARTER_FRAME);

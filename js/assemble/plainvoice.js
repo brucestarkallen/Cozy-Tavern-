@@ -46,7 +46,7 @@ export function assistantVoice(text, { where = '' } = {}) {
       while ((hit = re.exec(body)) !== null) {
         const line = lineAt(body, hit.index);
         if (!line) continue;
-        const kept = byLine.get(line) || { where, tier, why, line: line.length > 160 ? line.slice(0, 160) + '…' : line, words: [] };
+        const kept = byLine.get(line) || { where, tier, why, line: line.length > 160 ? line.slice(0, 160) + '…' : line, full: line, words: [] };
         if (!kept.words.some((w) => w.toLowerCase() === hit[0].toLowerCase())) kept.words.push(hit[0]);
         if (tier === 'breaks the voice') { kept.tier = tier; if (!kept.why || kept.why === why) kept.why = why; }
         byLine.set(line, kept);
@@ -85,7 +85,8 @@ export function groupFindings(found = []) {
 /* the flagged lines as plain text — what he can hand to someone who will rewrite them, instead of the whole preset */
 export function findingsText(found = []) {
   const { machine, manual } = groupFindings(found);
-  const say = (f) => '— ' + f.where + ': ' + f.line + '\n  (' + f.words.join(', ') + ')';
+  /* M361: the WHOLE line — a line cut off with "…" cannot be rewritten by whoever it is handed to */
+  const say = (f) => '— ' + f.where + ': ' + (f.full || f.line) + '\n  (' + f.words.join(', ') + ')';
   const out = [];
   if (machine.length) out.push('Lines that name the machine (' + machine.length + '):', ...machine.map(say));
   if (manual.length) out.push('', 'Lines that read like a manual (' + manual.length + '):', ...manual.map(say));

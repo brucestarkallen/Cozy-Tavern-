@@ -94,3 +94,36 @@ test('M360-1 FIFTY LINES IS NOT FIFTY PROBLEMS: the reading is grouped — what 
   const clean = groupFindings(readStandingWords([{ name: 'the frame', text: 'A clean line of his own.', mine: true }]));
   eq(clean.machine.length + clean.manual.length + clean.house, 0, 'a clean frame reads clean');
 });
+
+test('M361-1 SILLYTAVERN’S NAMES ARE SWAPPED FOR HIS, AS SILLYTAVERN DOES: {{user}} is the one he plays, {{char}} the teller — never a raw macro on the wire', async () => {
+  const { withMacros, inVoice } = await import('../../js/assemble/voice.js');
+  const names = { teller: 'Optimus Prime', writer: 'LO', mc: 'Jovan' };
+  eq(withMacros('Contact Trigger: IF any contact occurs with {{user}} -> describe it.', names), 'Contact Trigger: IF any contact occurs with Jovan -> describe it.', '{{user}} is the one he plays');
+  eq(withMacros('{{char}} narrates; <BOT> never speaks for <USER>.', names), 'Optimus Prime narrates; Optimus Prime never speaks for Jovan.', 'and {{char}}, <BOT>, <USER>');
+  eq(withMacros('{{ User }} and {{CHAR}}', names), 'Jovan and Optimus Prime', 'however they are spelled');
+  eq(withMacros('{{user}} waits.', { writer: 'LO' }), 'LO waits.', 'before the story names his character, his own name');
+  eq(withMacros('{{user}} waits, and {{char}} watches.', {}), 'the one I play waits, and the storyteller watches.', 'and with no name at all, plain words — never a macro');
+  eq(withMacros('No macros here.', names), 'No macros here.', 'text without them is untouched');
+  assert(!/\{\{/.test(inVoice('A rule for {{user}} from {{char}}.', names)), 'and every voiced word goes out without them');
+  /* the whole standing word, as the storyteller gets it */
+  const r = buildRequest({
+    story: { brief: '' }, messages: [{ id: 'u1', role: 'user', text: 'I wait.' }],
+    settings: { tellerName: 'Optimus Prime', writerName: 'LO', frameText: 'You are {{char}}. You tell the story of {{user}}.' },
+    state: { sheet: { playerName: 'Jovan', actors: {} } }, modules: [], memory: '', cast: [], lore: '', loreFired: [],
+    window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '',
+  });
+  const wire = JSON.stringify(r.systemBlocks) + JSON.stringify(r.messages);
+  assert(!/\{\{\s*(user|char)\s*\}\}/i.test(wire), 'not one macro reaches the storyteller');
+});
+
+test('M361-2 THE READING SEES HIS WORDS AS THEY WILL BE SENT, AND HANDS OVER WHOLE LINES', async () => {
+  const { withMacros } = await import('../../js/assemble/voice.js');
+  const { findingsText } = await import('../../js/assemble/plainvoice.js');
+  const names = { teller: 'Optimus Prime', writer: 'LO', mc: 'Jovan' };
+  const text = 'Contact Trigger: IF any sensation or contact occurs with {{user}} -> ALWAYS describe the physiological feeling.';
+  eq(readStandingWords([{ name: 'Hybrid POV', text: withMacros(text, names), mine: true }]).length, 0, '{{user}} is Jovan by the time it is read — not "user"');
+  const long = 'Scope Exception = this module overrides the Main Prompt for one layer ONLY; ' + 'all narration stays as it was, and nothing else about the page changes at all. '.repeat(3);
+  const found = readStandingWords([{ name: 'Hybrid POV', text: long, mine: true }]);
+  assert(found[0].line.endsWith('…'), 'the list on screen stays short');
+  assert(findingsText(found).includes(long.trim()), 'but what is copied is the whole line, so it can be rewritten');
+});
