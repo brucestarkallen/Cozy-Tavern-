@@ -4051,6 +4051,42 @@ test('DOM-75 THE SENSORS IN THE APP: off as they ship; switched on, each page is
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-76 HIS OWN WORDS, READ BACK AND GROUPED: the check names the lines of HIS that name the machine, counts the house’s own rulebook apart, and hands him the flagged lines in one tap — and it changes nothing (M359, M360)', async () => {
+  const before = errors.length;
+  const was = await db.settings.get('frameText');
+  const copied = [];
+  const clip = env.window.navigator.clipboard;
+  const priorWrite = clip.writeText;
+  clip.writeText = async (t) => { copied.push(String(t)); };
+  try {
+    await db.settings.set('frameText', ['You are Optimus Prime, and you tell this story with Bruce.', 'As an AI assistant, ensure the output is formatted for the user.', 'Rain found the gutters first, and nobody minded.'].join('\n'));
+    await openSettings();
+    click(q('[data-room="story"]'));
+    const btn = await until(() => q('#frame-voice-check'), 'the button is in The frame', 10000);
+    const box = q('#frame-global');
+    box.value = await db.settings.get('frameText');
+    const beforeWords = box.value;
+    click(btn);
+    const list = await until(() => { const l = q('#frame-voice-found'); return l && !l.hidden && l.children.length ? l : null; }, 'it says what it found', 10000);
+    const said = list.textContent;
+    assert(/line of YOURS names the machine|lines of YOURS name the machine/.test(said), 'it leads with what is his and what matters: ' + said.slice(0, 160));
+    assert(/“assistant”|“As an AI”/.test(said) && /As an AI assistant, ensure the output/.test(said), 'and names the line itself');
+    assert(!/Rain found the gutters/.test(said), 'his own prose is left out of it');
+    assert(/house’s own rulebook/.test(said), 'the house’s own words are counted apart: ' + said.slice(-160));
+    const copy = [...list.querySelectorAll('button')].find((b) => /Copy these lines/.test(b.textContent));
+    assert(copy, 'and there is one tap to take them');
+    click(copy);
+    await until(() => copied.length === 1, 'copied', 3000);
+    assert(/Lines that name the machine/.test(copied[0]) && /As an AI assistant/.test(copied[0]), 'what was taken is the flagged lines: ' + copied[0].slice(0, 90));
+    eq(q('#frame-global').value, beforeWords, 'and his frame is untouched — the reading rewrites nothing');
+  } finally {
+    clip.writeText = priorWrite;
+    if (typeof was === 'string') await db.settings.set('frameText', was); else await db.settings.delete('frameText');
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

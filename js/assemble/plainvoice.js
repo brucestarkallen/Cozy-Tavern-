@@ -57,12 +57,37 @@ export function assistantVoice(text, { where = '' } = {}) {
   return [...byLine.values()];
 }
 
-/* the same, over every piece of standing words at once: [{name, text}] -> the findings, worst first */
+/* the same, over every piece of standing words at once: [{name, text, mine}] -> the findings, worst first.
+ * `mine` marks the words HE wrote (his frame, this tale's frame, his own rules) apart from the house's own rulebook. */
 export function readStandingWords(pieces = []) {
   const out = [];
   for (const piece of Array.isArray(pieces) ? pieces : []) {
     if (!piece || typeof piece.text !== 'string') continue;
-    out.push(...assistantVoice(piece.text, { where: String(piece.name || '') }));
+    for (const found of assistantVoice(piece.text, { where: String(piece.name || '') })) out.push({ ...found, mine: piece.mine !== false });
   }
   return out.sort((a, b) => (a.tier === b.tier ? 0 : a.tier === 'breaks the voice' ? -1 : 1));
+}
+
+/* M360: FIFTY LINES IS NOT FIFTY PROBLEMS. A preset that instructs a storyteller is allowed to sound like instruction;
+ * what breaks a teller's voice is the words that name the APPARATUS (an assistant, the user, a prompt, a policy) and
+ * the apologetic register — and only where HE wrote them. The house's own rulebook is spoken in his voice when it is
+ * sent (inVoice/inPerson) and is not his to fix. So the reading is grouped: what matters, what is only register, and
+ * what is not his at all. */
+export function groupFindings(found = []) {
+  const all = Array.isArray(found) ? found : [];
+  const mine = all.filter((f) => f && f.mine !== false);
+  return {
+    machine: mine.filter((f) => f.tier === 'breaks the voice'),
+    manual: mine.filter((f) => f.tier !== 'breaks the voice'),
+    house: all.filter((f) => f && f.mine === false).length,
+  };
+}
+/* the flagged lines as plain text — what he can hand to someone who will rewrite them, instead of the whole preset */
+export function findingsText(found = []) {
+  const { machine, manual } = groupFindings(found);
+  const say = (f) => '— ' + f.where + ': ' + f.line + '\n  (' + f.words.join(', ') + ')';
+  const out = [];
+  if (machine.length) out.push('Lines that name the machine (' + machine.length + '):', ...machine.map(say));
+  if (manual.length) out.push('', 'Lines that read like a manual (' + manual.length + '):', ...manual.map(say));
+  return out.join('\n');
 }

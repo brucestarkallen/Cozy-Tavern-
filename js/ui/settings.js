@@ -14,7 +14,8 @@
  * and the real thinking control — no placeholders.
  */
 
-import { readStandingWords } from '../assemble/plainvoice.js'; /* M359 */
+import { readStandingWords, groupFindings, findingsText } from '../assemble/plainvoice.js'; /* M359, M360 */
+import { copyWords } from './receiptview.js'; /* M360: the flagged lines, in one tap */
 import { loadSensors, sensorLine } from '../agents/sensors.js'; /* M356 */
 import { canonWikis, setCanonWikis } from '../canon/bridge.js'; /* M346 */
 import { db } from '../store.js';
@@ -945,32 +946,42 @@ export function initSettings(ctx) {
     list.hidden = false;
     const pieces = [];
     const story = await activeStory();
-    if (story && typeof story.frameOverride === 'string' && story.frameOverride.trim()) pieces.push({ name: 'this tale’s own frame', text: story.frameOverride });
-    pieces.push({ name: 'the frame', text: els.frameGlobal ? els.frameGlobal.value : '' });
+    if (story && typeof story.frameOverride === 'string' && story.frameOverride.trim()) pieces.push({ name: 'this tale’s own frame', text: story.frameOverride, mine: true });
+    pieces.push({ name: 'the frame', text: els.frameGlobal ? els.frameGlobal.value : '', mine: true });
     try {
       const shelf = await listModules();
-      for (const mod of Array.isArray(shelf) ? shelf : []) if (mod && mod.on !== false && typeof mod.text === 'string') pieces.push({ name: mod.name || mod.id || 'the rulebook', text: mod.text });
+      /* M360: his own rules are his to fix; the house's own rulebook is spoken in his voice when it is sent */
+      for (const mod of Array.isArray(shelf) ? shelf : []) {
+        if (!mod || typeof mod.text !== 'string') continue;
+        pieces.push({ name: mod.name || mod.id || 'the rulebook', text: mod.text, mine: mod.source !== 'builtin' });
+      }
     } catch (err) { /* the frame alone is still worth reading */ }
     const found = readStandingWords(pieces);
-    if (!found.length) {
-      const li = document.createElement('li');
-      li.textContent = 'Nothing in your standing words sounds like an assistant.';
-      list.appendChild(li);
+    const { machine, manual, house } = groupFindings(found);
+    const add = (words) => { const li = document.createElement('li'); li.textContent = words; list.appendChild(li); return li; };
+    if (!machine.length && !manual.length) {
+      add(house ? 'Nothing in YOUR words sounds like an assistant. (' + house + ' in the house’s own rulebook, which is spoken in your voice when it is sent — not yours to fix.)' : 'Nothing in your standing words sounds like an assistant.');
       return;
     }
-    const head = document.createElement('li');
-    head.textContent = found.length + (found.length === 1 ? ' line reads like a machine, not a person:' : ' lines read like a machine, not a person:');
-    list.appendChild(head);
-    for (const f of found.slice(0, 40)) {
-      const li = document.createElement('li');
-      li.textContent = '“' + f.words.join('”, “') + '” (' + f.why + ') — ' + f.where + ': ' + f.line;
-      list.appendChild(li);
+    add(machine.length
+      ? machine.length + (machine.length === 1 ? ' line of YOURS names the machine — this is the one that breaks a teller’s voice:' : ' lines of YOURS name the machine — these are the ones that break a teller’s voice:')
+      : 'Nothing of yours names the machine.');
+    for (const f of machine.slice(0, 25)) add('“' + f.words.join('”, “') + '” (' + f.why + ') — ' + f.where + ': ' + f.line);
+    if (machine.length > 25) add('and ' + (machine.length - 25) + ' more like it.');
+    if (manual.length) {
+      add(manual.length + ' more read like a manual rather than a person (your call — a preset is allowed to instruct):');
+      for (const f of manual.slice(0, 10)) add('“' + f.words.join('”, “') + '” — ' + f.where + ': ' + f.line);
+      if (manual.length > 10) add('and ' + (manual.length - 10) + ' more of those.');
     }
-    if (found.length > 40) {
-      const more = document.createElement('li');
-      more.textContent = 'and ' + (found.length - 40) + ' more.';
-      list.appendChild(more);
-    }
+    if (house) add(house + ' more stand in the house’s own rulebook. Those are spoken in your voice when they are sent, and are not yours to fix.');
+    const li = document.createElement('li');
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'text-btn';
+    copy.textContent = 'Copy these lines';
+    copy.addEventListener('click', () => copyWords(findingsText(found), copy));
+    li.appendChild(copy);
+    list.appendChild(li);
   });
   if (els.groundingPhrase) els.groundingPhrase.addEventListener('change', async () => {
     const v = String(els.groundingPhrase.value || '').replace(/\s+/g, ' ').trim().slice(0, 80);

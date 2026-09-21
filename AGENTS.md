@@ -8688,3 +8688,24 @@ the thing he cannot stand. So: a box under the two names, Settings -> This story
   left alone, a clean frame reads clean).
 - GATES ON THE PUSHED TREE: harness 723/723, walk 94/94 (alone), longplay 8/8, lint clean.
 - version.js -> m359-001.
+
+# M360 — fifty lines is not fifty problems: the reading of his preset, grouped
+He ran M359's reading and got "50 lines read like a machine, not a person", and asked whether he should hand over the
+whole preset. Both the number and the question were the reading's fault, not his:
+- A PRESET IS ALLOWED TO INSTRUCT. Half the list was register ("output", "ensure", "format", "note that") in text whose
+  whole job is instruction. What actually breaks a teller's voice is narrower: the words that name the APPARATUS (an
+  assistant, the user, a prompt, a policy, the makers) and the apologetic register ("I cannot", "I apologize", "Let me
+  know").
+- AND HALF OF IT WAS NOT HIS. The shelf holds the house's own rulebook (modules with source 'builtin'), which is spoken
+  in his voice when it is sent (inVoice/inPerson) and is not his to fix — it was being listed beside his own lines as
+  though it were.
+- SO THE READING IS GROUPED (plainvoice.js groupFindings): what HE wrote that names the machine, first and named; what of
+  his only reads like a manual, second and his call; and the house's own rulebook, counted and never listed. A clean
+  frame with a noisy house rulebook now says "Nothing in YOUR words sounds like an assistant".
+- AND THERE IS ONE TAP TO HAND THEM OVER (findingsText + a Copy button): the flagged lines of HIS, grouped, as plain text
+  — never his prose, never the house's rulebook, never the forty thousand words.
+- TESTS: m359.mjs M360-1 (the three groups, the copy's text, his prose and the house's words kept out of it, a clean
+  frame reads clean). DOM-76 in the app: the list leads with what is his and what matters, names the line, leaves his
+  prose out, counts the house's rulebook apart, the copy takes the flagged lines, and his frame is untouched.
+- GATES ON THE PUSHED TREE: harness 724/724, walk 95/95 (alone), longplay 8/8, lint clean.
+- version.js -> m360-001.

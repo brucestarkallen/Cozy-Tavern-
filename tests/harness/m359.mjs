@@ -75,3 +75,22 @@ test('M359-4 HIS OWN STANDING WORDS, READ BACK TO HIM: the lines that sound like
   eq(assistantVoice('A clean line of his own, with nothing of the machine in it.').length, 0, 'a clean frame reads clean');
   assert(VOICE_BREAKS.length > 15, 'and the list it reads against is a real one');
 });
+
+test('M360-1 FIFTY LINES IS NOT FIFTY PROBLEMS: the reading is grouped — what HE wrote that names the machine, what only reads like a manual, and what stands in the house’s own rulebook (not his to fix)', async () => {
+  const { groupFindings, findingsText } = await import('../../js/assemble/plainvoice.js');
+  const mine = ['You are Optimus Prime.', 'As an AI assistant, ensure the output is formatted for the user.', 'Ensure the response is vivid.', 'Rain found the gutters first.'].join('\n');
+  const house = ['The board = the ledger; ensure the output carries its header.', 'The user is never named on the page.'].join('\n');
+  const found = readStandingWords([{ name: 'the frame', text: mine, mine: true }, { name: 'The craft', text: house, mine: false }]);
+  const g = groupFindings(found);
+  eq(g.machine.length, 1, 'one line of his names the machine');
+  assert(g.machine[0].words.includes('assistant') && g.machine[0].where === 'the frame', 'named, with where it stands');
+  eq(g.manual.length, 1, 'one more of his only reads like a manual');
+  eq(g.house, 2, 'and the house’s own rulebook is counted, never listed as his: ' + g.house);
+  const text = findingsText(found);
+  assert(/Lines that name the machine \(1\)/.test(text) && /Lines that read like a manual \(1\)/.test(text), 'the copy is grouped the same way: ' + text.slice(0, 80));
+  assert(!/The board = the ledger/.test(text), 'and carries nothing of the house’s own rulebook');
+  assert(!/Rain found the gutters/.test(text), 'nor his own prose');
+  eq(findingsText([]), '', 'nothing found, nothing to copy');
+  const clean = groupFindings(readStandingWords([{ name: 'the frame', text: 'A clean line of his own.', mine: true }]));
+  eq(clean.machine.length + clean.manual.length + clean.house, 0, 'a clean frame reads clean');
+});
