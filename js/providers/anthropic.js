@@ -132,7 +132,8 @@ function requestBody(connection, blocks, legacySystem, messages, opts = {}) {
       ? Math.round(connection.maxTokens)
       : MAX_TOKENS,
     system: systemBlocks(blocks, legacySystem),
-    messages: pf.messages.map((m) => withImagePart(m, 'anthropic')),
+    /* M380: Claude takes no system turn among the messages — a system message after the story rides as a user one */
+    messages: pf.messages.map((m) => withImagePart(m && m.role === 'system' ? { ...m, role: 'user' } : m, 'anthropic')),
     stream: true,
   };
   if (typeof connection.temperature === 'number') body.temperature = connection.temperature;

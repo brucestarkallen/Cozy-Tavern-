@@ -11,7 +11,7 @@
  *     and leaves the elsewhere ledger — with no hand on it
  *   - the record folds and the verbatim window never exceeds the keeper's
  *   - the voices ride under the page and rotate
- *   - #q, #time skip, #Put TWB, #story reach the storyteller as their law
+ *   - #q, #time skip, #Put TWB, #story reach the storyteller as he typed them (M379: their laws live in the standing words)
  *   - zero errors across the whole play
  * Run it: node tests/dom/longplay.mjs   (after: cd tests/dom && npm install)
  */
@@ -55,8 +55,11 @@ house.state.storyAnswer = (body) => {
   if (fromLedger !== null) script.lastHour = fromLedger;
   let advance = STEP;
   let extra = '';
-  if (/#time skip — /.test(tail)) { advance = 3 * DAY; script.skips += 1; extra = 'Three days pass in a blur of unpacking and phone calls. '; }
-  if (/#q — the next scene/.test(tail)) { script.previews += 1; extra += 'PREVIEW — later today, at the corner store, Kim is arguing with the owner about a debt; it matters because the owner knows Jovan is back. '; advance = 90; }
+  /* M379: a real teller reads his TYPED shortcut as the last message and the shortcut's law in its standing words */
+  const lastUser = String(([...msgs].reverse().find((m) => m.role === 'user') || {}).content || '').trim();
+  const knowsLaws = /SHORTCUTS\. When/.test(msgs.filter((m) => m.role === 'system').map((m) => String(m.content)).join('\n'));
+  if (knowsLaws && /^#time skip\b/i.test(lastUser)) { advance = 3 * DAY; script.skips += 1; extra = 'Three days pass in a blur of unpacking and phone calls. '; }
+  if (knowsLaws && /^#q\b/i.test(lastUser)) { script.previews += 1; extra += 'PREVIEW — later today, at the corner store, Kim is arguing with the owner about a debt; it matters because the owner knows Jovan is back. '; advance = 90; }
   /* a good storyteller reads the hour it was handed and lets time pass from THERE */
   scriptMinutes = (fromLedger !== null ? fromLedger : scriptMinutes) + advance;
   const header = headerAt(scriptMinutes);
@@ -301,11 +304,9 @@ test('LONG-5 the voices ride under the page, rotate, and never reach the wire; t
   assert(active && /window beyond the page/i.test(active.reason), 'the window rule woke: ' + (active && active.reason));
   const turn12 = receipts.find((r) => r.turn === 12).slots.find((s) => s.name === 'Active modules');
   assert(!turn12 || !/window beyond the page/i.test(turn12.reason), 'and stood down once the window closed');
-  eq(script.previews, 1, '#q reached the storyteller as the director’s law');
-  const q15 = receipts.find((r) => r.turn === 15).slots.find((s) => s.name === 'The house heard');
-  assert(q15 && q15.tokens > 100, '#q’s whole law rode the tail on its turn only: ' + (q15 && q15.tokens));
-  const q16 = receipts.find((r) => r.turn === 16).slots.find((s) => s.name === 'The house heard');
-  assert(!q16 || q16.tokens === 0, 'and not the turn after');
+  eq(script.previews, 1, '#q reached the storyteller as he typed it, on its turn only — its law in the standing words');
+  /* M379: no second message carries a shortcut's law, on its turn or any other */
+  for (const t of [15, 16]) assert(!receipts.find((r) => r.turn === t).slots.some((x) => x.name === 'The house heard'), 'no law sent as a message on turn ' + t);
 });
 
 test('LONG-7 the house’s eye: the slipped page carries its findings, the next turn was handed the recolor, and the turn after was not', async () => {

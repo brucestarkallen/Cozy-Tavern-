@@ -15,6 +15,7 @@
  */
 
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
+import { db } from '../store.js'; /* M380: a house that refuses a late system message is remembered */
 import { measureStream, speedWords, pickOpenAI, SPEED_ASK, SPEED_MAX_TOKENS } from './speed.js'; /* M373 */
 
 /* M376: the least room a THINKING page is given — the same floor the workers already keep for a thinking model */
@@ -403,7 +404,8 @@ export function createOpenAIProvider(connection) {
       const systemText = Array.isArray(system) ? system.join('\n\n') : system;
       if (systemText) wire.push({ role: 'system', content: systemText });
     }
-    for (const m of messages) wire.push(withImagePart(m, 'openai'));
+    /* M380: a system message after the story (the post-history words) — sent as a user one to a house that once refused it */
+    for (const m of messages) wire.push(withImagePart(m && m.role === 'system' && connection.systemAfterRefused ? { ...m, role: 'user' } : m, 'openai'));
 
     const startedAt = Date.now();
     const notes = [];
@@ -458,6 +460,15 @@ export function createOpenAIProvider(connection) {
         detail = (j && j.error && j.error.message) || '';
       } catch (err) { /* not JSON — the status still tells a story */ }
       const fourHundred = out.status === 400 || out.status === 422;
+      /* M380: A HOUSE THAT TAKES NO SYSTEM MESSAGE AFTER THE STORY says so once, is remembered, and the same turn goes again
+       * with those words as a user message — his setting stands wherever it is taken */
+      const lateSystem = wire.some((m, i) => i > 0 && m && m.role === 'system');
+      if (fourHundred && lateSystem && !connection.systemAfterRefused && /system/i.test(detail)) {
+        connection.systemAfterRefused = true;
+        try { if (connection.id) await db.connections.update(connection.id, { systemAfterRefused: true }); } catch (err) { /* asked again all the same */ }
+        for (let i = 1; i < wire.length; i += 1) if (wire[i] && wire[i].role === 'system') wire[i] = { ...wire[i], role: 'user' };
+        continue;
+      }
       const sentReasoning = Boolean(
         body.reasoning_effort || body.reasoning || body.thinking
         || 'enable_thinking' in body || (body.model_options && body.model_options.reasoning)

@@ -1,6 +1,7 @@
 /* M334 — first person or second: the person the teller thinks in. */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
+import { shortcutsText } from '../../js/commands.js';
 import { buildRequest, STARTER_NOTE } from '../../js/assemble/stack.js';
 import { CRAFT_TEXT } from '../../js/assemble/craft.js';
 import { inPerson, framePerson, personOf } from '../../js/assemble/voice.js';
@@ -25,7 +26,9 @@ test('M334-1 a frame written as "I": the tavern’s own rules become the teller�
   eq(left.filter((x) => !/\(you\/I\/he\/she\/name\)/.test(x)).length, 0, 'no "you" is left speaking to the teller: ' + JSON.stringify(left.slice(0, 3)));
   assert(/ruin you, don't you dare/.test(craft), 'a list of banned PHRASES is prose being named, and is left alone');
   assert(/\(you\/I\/he\/she\/name\)/.test(craft), 'so is the word "you" itself, in a list of pronouns');
-  eq((craft.match(/"[^"\n]*\byou\b[^"\n]*"/gi) || []).length, (CRAFT_TEXT.match(/"[^"\n]*\byou\b[^"\n]*"/gi) || []).length, 'and every quoted example of story text');
+  /* M379: the shortcuts ride the same block now, with their own quoted example — left alone like every other */
+  const quotedYou = (t) => (String(t).match(/"[^"\n]*\byou\b[^"\n]*"/gi) || []).length;
+  eq(quotedYou(craft), quotedYou(CRAFT_TEXT) + quotedYou(shortcutsText()), 'and every quoted example of story text');
 });
 
 test('M334-2 what the WRITER says stays "you": the briefing, the note and the story are his voice and his story — a person says "you" to a friend whichever way that friend thinks of himself', () => {

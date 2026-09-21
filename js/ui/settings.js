@@ -129,6 +129,7 @@ export function initSettings(ctx) {
     tellerPersonNote: document.getElementById('teller-person-note'),
     writerName: document.getElementById('writer-name'),
     groundingPhrase: document.getElementById('grounding-phrase'), /* M358 */
+    afterRole: document.getElementById('after-role'), /* M380 */
     frameVoiceCheck: document.getElementById('frame-voice-check'), /* M359 */
     frameVoiceFound: document.getElementById('frame-voice-found'),
     frameStory: document.getElementById('frame-story'),
@@ -941,6 +942,7 @@ export function initSettings(ctx) {
   };
   if (els.tellerName) els.tellerName.addEventListener('change', () => keepName('tellerName', els.tellerName));
   if (els.writerName) els.writerName.addEventListener('change', () => keepName('writerName', els.writerName));
+  if (els.afterRole) els.afterRole.addEventListener('change', async () => { await db.settings.set('afterRole', els.afterRole.value === 'user' ? 'user' : 'system'); }); /* M380 */
   /* M358: the grounding phrase is kept the same way — the moment the box is left, and forgotten when it is emptied */
   /* M359: his own standing words, read for an assistant's voice — mechanically, nothing rewritten, nothing sent */
   if (els.frameVoiceCheck && els.frameVoiceFound) els.frameVoiceCheck.addEventListener('click', async () => {
@@ -1014,6 +1016,7 @@ export function initSettings(ctx) {
 
   async function loadPromptSlots() {
     if (els.groundingPhrase) els.groundingPhrase.value = String((await db.settings.get('groundingPhrase')) || ''); /* M358 */
+    if (els.afterRole) els.afterRole.value = (await db.settings.get('afterRole')) === 'user' ? 'user' : 'system'; /* M380 */
     if (els.tellerName) els.tellerName.value = cleanName(await db.settings.get('tellerName'));
     if (els.writerName) els.writerName.value = cleanName(await db.settings.get('writerName'));
     if (els.tellerPerson) { const p = await db.settings.get('tellerPerson'); els.tellerPerson.value = p === 'first' || p === 'second' ? p : 'follow'; }
@@ -2456,7 +2459,7 @@ export function initSettings(ctx) {
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
-    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn', 'sensorsOn', 'groundingPhrase',
+    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn', 'sensorsOn', 'groundingPhrase', 'afterRole',
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
   ];

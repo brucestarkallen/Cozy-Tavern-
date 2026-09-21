@@ -20,7 +20,7 @@ test('M339-2 THE SWITCH, ON: the closing message asks the teller to think first 
   const last = r.messages[r.messages.length - 1].content;
   assert(/Think it through first, inside <think> and <\/think> — in your own voice/.test(last) && /Only what comes after <\/think> is the page; never stop before it\./.test(last), last.slice(0, 200));
   assert(last.trimEnd().endsWith(STARTER_NOTE.trim()) && last.indexOf('<think>') < last.indexOf(STARTER_NOTE.trim()), 'before the note, which stays last');
-  eq(r.messages.filter((m) => m.role === 'user' && /<think>/.test(m.content)).length, 1, 'said once, in one place');
+  eq(r.messages.filter((m) => m.role === 'system' && /<think>/.test(m.content)).length, 1, 'said once, in one place — the system message after his (M380)');
   assert(!r.systemBlocks.some((b) => /<think>/.test(b.text)), 'never in the rules — it is this turn’s word, not a law');
   const named = build({ thinkOnPageNow: true, tellerName: 'Tony Stark', writerName: 'Bruce', frameText: 'I am Tony Stark. I tell Bruce stories.' });
   assert(/Tony Stark — think it through first, inside <think> and <\/think> — in your own voice/.test(named.messages[named.messages.length - 1].content), 'by name, and "you": ' + named.messages[named.messages.length - 1].content.slice(0, 120));

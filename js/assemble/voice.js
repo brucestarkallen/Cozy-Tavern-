@@ -87,9 +87,9 @@ export function withMacros(text, voice) {
   return out.replace(/\{\{\s*user\s*\}\}|<USER>/gi, user).replace(/\{\{\s*char\s*\}\}|<BOT>/gi, char);
 }
 
-/* M378: M362's name swap ("What your rules call you") is gone. It rewrote the name his persona is BUILT around inside his
- * own rules — and a persona written about "LO" and then read about "Bruce" is about someone else. His rules go out exactly
- * as written; the one name the house uses for him is Your name, and the box should say what his rules say. */
+/* M380: the name boxes ONLY change words — where the house's own text says "the writer" or "the storyteller", or a rule
+ * says {{user}}/{{char}}, the names he typed are put in. Nothing is ever ADDED for a name (M379's "one man" line was an
+ * injection, and is gone with its box). */
 export function inVoice(text, voice) {
   let out = withMacros(text, voice);
   /* M333: ONE "YOU ARE". The writer's frame says who the teller IS ("You are Tony Stark…"); two lines later the craft

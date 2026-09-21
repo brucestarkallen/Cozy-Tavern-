@@ -26,9 +26,12 @@ test('M354-1 THE FIVE PLAIN LINES RIDE ONLY WITH THE SWITCH ON — and the turn 
   for (const law of ['Jovan is mine', 'stays set against him', 'Let the room talk', 'End where I can act', 'Stay in the moment']) assert(closing.includes(law), 'ON: ' + law);
   /* and nothing else moved: the turn is the OFF turn plus the scene line and these lines */
   const offClosing = off.messages[off.messages.length - 1].content;
-  eq(JSON.stringify(off.messages.slice(0, -1)), JSON.stringify(on.messages.slice(0, -1)), 'every other message is untouched');
+  /* M379: with no note of his own, the OFF turn ends on his message — the ON turn is the OFF turn plus its one closing message */
+  const onRest = on.messages.slice(0, -1);
+  eq(JSON.stringify(off.messages.slice(0, onRest.length)), JSON.stringify(onRest), 'every other message is untouched');
   eq(JSON.stringify(off.systemBlocks), JSON.stringify(on.systemBlocks), 'and so is everything standing');
-  assert(on.messages[on.messages.length - 1].content.includes(offClosing.split('\n\n').pop()), 'the closing words keep what they had');
+  eq(String(off.messages[off.messages.length - 1].content), 'I step into the courtyard.', 'OFF: his own words are the last thing it reads (M379)');
+  void offClosing;
 });
 
 test('M354-2 HIS CHARACTER’S OWN WORDS, THOUGHTS AND MOVES ARE SEEN — in every shape a page writes them', () => {

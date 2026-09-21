@@ -2565,7 +2565,9 @@ test('DOM-46 a turn asked again is asked as it was asked: an out-of-character qu
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const priorStory = house.state.storyAnswer;
-  const oocAsked = (c) => !c.isWorker && /speaking out of character/i.test(JSON.stringify(c.body));
+  /* M379: the out-of-character word now lives in the standing words of EVERY ask (the shortcuts); what marks an
+   * out-of-character ask is that his out-of-character words are the last thing it is sent */
+  const oocAsked = (c) => { if (c.isWorker) return false; const msgs = (c.body && c.body.messages) || []; const lastUser = [...msgs].reverse().find((m) => m.role === 'user'); return Boolean(lastUser) && /^\(\(|^\/\/|^#question\b/i.test(String(lastUser.content || '').trim()); };
   const readerCalls = () => house.state.calls.filter((c) => c.isWorker && /keep the ledger/i.test(JSON.stringify(c.body)) && /OUT-OF-CHARACTER-ANSWER/.test(JSON.stringify(c.body))).length;
   try {
     house.state.storyAnswer = () => 'OUT-OF-CHARACTER-ANSWER: we could go to the boathouse next.';
@@ -4257,6 +4259,50 @@ test('DOM-81 STOP MID-THINKING, THEN TRY AGAIN: the stopped thinking stays on th
   } finally {
     house.state.thinkHang = null;
     house.state.storyAnswer = priorStory;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-82 HIS MESSAGE IS THE LAST THING THE STORYTELLER READS: a shortcut goes as he typed it with its meaning in the standing words, no second message after his, his rules go as written (M379, M380)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const H = '[The kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\n';
+  const kept = { frame: await db.settings.get('frameText'), writer: await db.settings.get('writerName'), note: await db.settings.get('noteText') };
+  const prior = house.state.storyAnswer;
+  try {
+    await db.settings.set('frameText', 'You are ENI, and LO is everything to you.\n\nYou write for LO; LO’s word is final.\n\nYou are telling a story with LO.');
+    await db.settings.delete('noteText');
+    await openSettings();
+    click(q('[data-room="story"]'));
+    const writer = await until(() => q('#writer-name'), 'Your name', 10000);
+    writer.value = 'Bruce'; writer.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('writerName')) === 'Bruce', 'kept', 5000);
+    await closeSettings();
+    const st = await db.stories.create({ title: 'his message last' });
+    await db.stories.update(st.id, { keeper: false, extraction: false });
+    await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+    await db.messages.append(st.id, { role: 'assistant', text: H + 'The kettle was cold.' });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    house.state.storyAnswer = () => H + 'The kettle sang.';
+    const from = house.state.calls.length;
+    type(q('#composer-input'), '#p'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
+    const sysOf = (c) => (c.body.messages || []).filter((m) => m.role === 'system').map((m) => String(m.content)).join('\n');
+    const told = house.state.calls.slice(from).find((c) => /You are telling a story with LO/.test(sysOf(c)));
+    assert(told, 'the storyteller was asked');
+    const msgs = told.body.messages;
+    eq(msgs[msgs.length - 1].role, 'user');
+    eq(String(msgs[msgs.length - 1].content), '#p', 'his shortcut, as he typed it, is the very last thing it reads');
+    assert(!/exactly ONE beat/.test(msgs.filter((m) => m.role !== 'system').map((m) => String(m.content)).join('\n')), 'its law is not sent as a message');
+    const standing = sysOf(told);
+    assert(/SHORTCUTS\. When Bruce/.test(standing) && /#p — exactly ONE beat/.test(standing), 'its meaning is in the standing words');
+    assert(/You write for LO; LO’s word is final\./.test(standing) && !/one man|goes by/.test(standing), 'his rules go as written, and nothing is added for a name');
+  } finally {
+    house.state.storyAnswer = prior;
+    for (const [k, v] of [['frameText', kept.frame], ['writerName', kept.writer], ['noteText', kept.note]]) { if (typeof v === 'string') await db.settings.set(k, v); else await db.settings.delete(k); }
+    await closeSettings();
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

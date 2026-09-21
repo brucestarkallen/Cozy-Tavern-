@@ -94,6 +94,7 @@
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { sceneAnchor, recallFromRecord, recallLine } from './anchor.js'; /* M343, M344 */
+import { shortcutsText } from '../commands.js'; /* M379 */
 import { plainRules } from './plain.js'; /* M354: the five plain lines, behind the derestricted switch */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
@@ -195,13 +196,17 @@ export function pageText(msg) {
     : (msg && typeof msg.content === 'string' ? msg.content : '');
 }
 
+const typedOf = (m) => (m && typeof m.typed === 'string' && m.typed.trim() ? m.typed.trim() : '');
+
 /* The pages that may travel on the wire: user/assistant, never hidden — a
  * hidden "Go on." lives in the store for the audit and fires the nudge, but
  * never sits in the story-so-far. Exported for the harness. */
 export function wireable(messages, pageFilter) {
   const filter = typeof pageFilter === 'function' ? pageFilter : null;
   const list = (messages || [])
-    .filter((m) => m && !m.hidden && (m.role === 'user' || m.role === 'assistant'));
+    /* M379: a shortcut travels as he TYPED it ("#p", "#story a lighthouse keeper", "#continue") — even one the thread
+     * keeps hidden — because its meaning now lives in the standing words, not in a second message */
+    .filter((m) => m && (!m.hidden || typedOf(m)) && (m.role === 'user' || m.role === 'assistant'));
   /* M27: a picture rides the wire only on its own page's turn — later turns
    * carry a quiet note instead, so a gallery never becomes a tax. */
   let lastUserId = null;
@@ -210,7 +215,8 @@ export function wireable(messages, pageFilter) {
   }
   return list.map((m) => {
     /* M30: wire-mode regex rules shape only what rides the wire. */
-    const content = filter ? filter(pageText(m), m.role) : pageText(m);
+    const said = m.role === 'user' && typedOf(m) ? typedOf(m) : pageText(m);
+    const content = filter ? filter(said, m.role) : said;
     const out = { role: m.role, content, id: m.id };
     if (m.image && m.image.dataUrl) {
       if (m.id === lastUserId) {
@@ -446,7 +452,16 @@ export function buildRequest({
   /* --- 2. The craft --- */
   const craft = selected.find(({ mod }) => mod && mod.id === 'core-craft');
   const craftText = craft && craft.mod ? inPerson(inVoice(naturalThinking(refereeCraft(withoutAuthorshipFrame(craft.mod.text), safeSettings.refereeOn !== false), voice, person), voice), person) : ''; /* M335: a teller with a self thinks in its own voice */ /* M327: in the writer's name; M309: the house's craft no longer holds it; a copy saved before today loses it here */
-  pushSlot('The craft', craftText, 'the rulebook', craft ? craft.reason : '');
+  /* M379: the shortcuts are said once, here, with the rulebook — never again as a second message after his */
+  const shortcuts = inPerson(inVoice(shortcutsText(), voice), person);
+  /* M379: THE HOUSE'S OWN NOTE IS NOT A MESSAGE AFTER HIS. With no note of his own, the starter note ("Before you write:
+   * reread the last few exchanges…") rode EVERY turn as a second user message after his — house words he never wrote,
+   * sent as if he had said them again. It is said once, here, in the standing words. A note he writes himself still
+   * stands at the end, where he put it. */
+  const notePickedEarly = resolveNote(safeStory.noteOverride, safeSettings.noteText);
+  const starterStanding = notePickedEarly.source === 'the starter text' ? inPerson(inVoice(notePickedEarly.text, voice), person) : '';
+  const craftWhole = [craftText, shortcuts, starterStanding].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
+  pushSlot('The craft', craftWhole, 'the rulebook, with the shortcuts', craft ? craft.reason : '');
 
   /* --- 3. The brief --- */
   const brief = typeof safeStory.brief === 'string' ? safeStory.brief : '';
@@ -529,7 +544,7 @@ export function buildRequest({
   /* Positional stability: slots 1–4 always emit four blocks in law order
    * (empty text included) so receipts and tests can read them by seat;
    * the PROVIDERS drop empty blocks when they map to the wire. */
-  const systemBlocks = [frameText, craftText]
+  const systemBlocks = [frameText, craftWhole]
     .map((text) => (typeof text === 'string' ? text : ''))
     .map((text) => ({ text, cache: true }))
     .concat(
@@ -655,18 +670,19 @@ export function buildRequest({
 
   /* --- 9. The note at the end --- (resolved before slot 8 so the window
    * law's keeper-off budget can count what the prefix already spent) */
-  const notePicked = resolveNote(safeStory.noteOverride, safeSettings.noteText);
-  const note = { ...notePicked, text: inVoice(notePicked.text, voice) }; /* M327: "the other writer" is the writer, by name */
+  const notePicked = notePickedEarly;
+  /* M379: the starter note is in the standing words now; only a note HE wrote stands at the end */
+  const note = notePicked.source === 'the starter text' ? { ...notePicked, text: '' } : { ...notePicked, text: inVoice(notePicked.text, voice) }; /* M327: "the other writer" is the writer, by name */
   const hasNote = Boolean(note.text && note.text.trim());
 
   /* --- 10. The continue nudge + M9 house commands --- */
   const nudges = isContinueTurn(history);
   /* M359: and it goes in front of a house command's law, so a turn that is mostly instruction (#time skip, #p, #q)
    * still opens in his teller's own voice rather than an assistant's */
-  const rawDirective = typeof directive === 'string' ? directive.trim() : '';
+  void directive; /* M379: a shortcut's law is no longer sent on its turn — it is in the standing words; his typed words travel */
   /* M375: the phrase is no longer glued to the front of a command's law — a quotation hanging before "#time skip" is
    * exactly what his teller's thinking started calling "the wrapper" */
-  const directiveText = rawDirective;
+  const directiveText = '';
   const prefixTokens = slots.reduce((sum, s) => sum + s.tokens, 0)
     + estimateTokens(hasNote ? note.text : '')
     + estimateTokens(nudges ? CONTINUE_NUDGE : '')
@@ -725,10 +741,7 @@ export function buildRequest({
     pushSlot('The frame, said again', frameText, 'the anchor against long-context fade');
   }
   pushSlot('The note at the end', hasNote ? note.text : '', note.source, hasNote ? '' : 'left empty — nothing slipped in');
-  if (directiveText) {
-    pushSlot('The house heard', directiveText, 'a command from the writer', 'spoken quietly, never shown as plain words');
-  }
-  pushSlot('The continue nudge', nudges ? CONTINUE_NUDGE : '', '', nudges ? 'you only asked it to go on' : '');
+  pushSlot('The continue nudge', nudges ? CONTINUE_NUDGE : '', '', nudges ? 'you only asked it to go on — sent as your own message, never a second one' : '');
 
   /* Assemble the wire in slot order: state injection first, then the
    * window, then the command directive (when spoken), then the nudge (when
@@ -740,6 +753,17 @@ export function buildRequest({
   const out = [];
   if (stateInjection) out.push(stateInjection);
   out.push(...wire);
+  /* M379: THE CONTINUE NUDGE IS HIS OWN MESSAGE. He sent nothing (or tapped Continue): "Go on." used to ride in a second
+   * message after the story, from the house; it now stands in HIS place — the one user message of this turn — and only
+   * when nothing of his travels. */
+  if (nudges) {
+    const last = out[out.length - 1];
+    const hisTravels = last && last.role === 'user' && String(last.content || '').trim() && !/^(continue|go on|keep going)[.!…]?$/i.test(String(last.content).trim());
+    if (!hisTravels) {
+      if (last && last.role === 'user') out[out.length - 1] = { ...last, content: CONTINUE_NUDGE };
+      else out.push({ role: 'user', content: CONTINUE_NUDGE });
+    }
+  }
   /* M339: the switch's line — only when chat.js says this turn needs it (the switch ON and the connection's thinking off) */
   const thinkLine = safeSettings.thinkOnPageNow === true ? thinkOnPageLine(voice) : '';
   /* M342: NOTHING ABOUT THE PAGE'S SHAPE IS SAID TO THE STORYTELLER. M340 showed a young tale a skeleton (a nine-line form; M341 cut it
@@ -769,8 +793,12 @@ export function buildRequest({
    * wants me to open with…"), in the very voice the phrase is there to keep out. The phrase lives in the standing words
    * (who the teller IS) and, where the provider truly continues a thought, as the thought's own first words. */
   const groundLine = '';
-  const closing = [rulingLine, directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, plainLine, sensorLine, groundLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
-  if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
+  const closing = [rulingLine, directiveText, echoOn ? frameText : '', anchorLine, plainLine, sensorLine, groundLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  /* M380: WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE — SillyTavern's post-history instructions — unless he chooses
+   * otherwise. As a user message it read as HIM writing a second message of instructions, and his teller answered it as
+   * an assistant answers a user. */
+  const afterRole = safeSettings.afterRole === 'user' ? 'user' : 'system';
+  if (closing.length) out.push({ role: afterRole, content: closing.join('\n\n') });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';
   const receipt = {

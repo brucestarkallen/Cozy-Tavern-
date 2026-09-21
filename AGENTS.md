@@ -9077,3 +9077,65 @@ you thinking it over…") and the teller answered THAT, in an assistant's voice.
   thinking is ALREADY gone (not waiting for the page); the new page lands and it never comes back.
 - GATES ON THE PUSHED TREE: harness 743/743, walk 99/99 (alone), longplay 8/8, lint clean.
 - version.js -> m378-001.
+
+# M379 — his message is the last thing the storyteller reads; any name without rewriting his rules
+1. THE NAME (his words: "I use Bruce, not LO — that's why I asked why, without Bruce there, the persona is better. I want
+   any name. Do you do something besides changing the words?"). M378 deleted the box without answering; the answer: M362
+   only changed words, and that is exactly why the persona got worse. His rules were written AROUND "LO" — the name is
+   part of what the model recognises the persona by — and nothing else was renamed (his earlier pages, the record, the
+   teller's own past lines still said "LO"), so the teller read two names for one man. NOW (voice.js nameBridge): the box
+   is back, and his rules are NEVER rewritten; one line after the frame's opening says "“LO”, wherever these words say
+   it, is Bruce — one man. Bruce is the name he goes by; call him Bruce." Nothing when a box is empty or the two agree.
+2. THE SHORTCUT DOUBLING (his words: "the shortcut is basically doubling my user message — delete it, integrate it into my
+   main instructions. That's why it thinks it's an assistant system."). A shortcut's law rode as a SECOND user message
+   after his ("#p", then "#p — exactly ONE beat…"). Now every shortcut's meaning is said once in the standing words
+   (commands.js shortcutsText, appended to the craft's block — positional seats unchanged) and his message travels AS HE
+   TYPED IT (messages keep `typed`; stack.js wireable sends it; a hidden shortcut like #continue still travels). The #q law
+   no longer says "You are the director…" (a second identity, M333's law).
+   THE SAME SHAPE, FOUND WHILE ANSWERING HIS 4TH QUESTION: with no note of his own, the house's STARTER note ("Before you
+   write: reread the last few exchanges…") rode EVERY turn as a second user message after his. It is in the standing
+   words now; a note he writes himself still stands at the end, where he put it.
+3. THE CONTINUE NUDGE: "Go on." — when he sends nothing or taps Continue. It rode as a second message; it now stands in HIS
+   place as the one user message of that turn, and only when nothing of his travels.
+4. THE NOTE AT THE END / "AFTER THIS TURN": the closing words were one more user-role message after his — the last thing
+   the model read. By default nothing follows his message now. What may, only when it fires: a note HE wrote, the
+   referee's settled outcome, and switches he turns on. "After this turn" on the receipt was never sent to the storyteller:
+   it lists what the readers wrote into the ledger AFTER the page.
+- TESTS: m379.mjs M379-1 (seven shortcuts travel as typed with nothing after; a hidden #continue travels; every shortcut
+  explained in the standing words to his name; no second identity), M379-2 (no note of his: his words close the request,
+  the starter in the standing words; his own note still at the end), M379-3 ("Go on." once, in his place; none when he
+  said something), M379-4 (his rules word for word, one bridging line right after the opening, nothing when a box is empty
+  or they agree, said once). DOM-82 in the app: both name boxes set in Settings, "#p" sent — the storyteller's last
+  message is "#p", its law not sent, its meaning in the standing words, "LO" kept and bridged.
+- MOVED WITH THE LAW: stack.mjs M9 (a command's law never a second message) and A1 (the room sized from the house's own
+  words, which grew by the shortcuts — the honest cutoff line is the law); m259 M259-46 (no command part); m334 M334-1
+  (the shortcuts' own quoted example counted, untouched); m354 M354-1 (the OFF turn ends on his words).
+- version.js -> m379-001.
+
+# M380 — the name boxes only change words; what follows his message is a system message
+He was right, and M379 misread him again. His question was: do the name boxes ("Who is telling", "Your name") do anything
+MORE than change words? — because changing words is GOOD, and anything more is an injection. M379 answered by adding one
+("“LO”, wherever these words say it, is Bruce — one man…"), and recommended "What your rules call you: LO" without ever
+reading his system instructions, which (by "What the storyteller saw") hold no "LO" at all.
+- THE NAME BOXES ONLY CHANGE WORDS. Where the house's own text says "the writer" or "the storyteller", or a rule says
+  {{user}}/{{char}}, his names go in. Nothing is added for a name. The bridge line and the "What your rules call you" box
+  are deleted (voice.js nameBridge, the setting, its keeping and reset, M379-4 and DOM-82's name checks). "Your name: Bruce"
+  alone is the whole of it.
+- WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE (his request: "you should create a setting whether it's a user message or a
+  system message… instead of system post-history instructions like SillyTavern"). Everything after his own message — his
+  note at the end, the referee's settled outcome, any switch's line — rode as a USER message, which reads as him writing a
+  second message of instructions. Setting "Sent after your message as" (afterRole, beside the note at the end): a system
+  message (the default — SillyTavern's post-history instructions) or a user message. Claude takes no system turn among its
+  messages, so a Claude connection always gets it as a user message (anthropic.js). A house that refuses a system message
+  after the story (a 400 naming "system") is remembered on the connection (systemAfterRefused) and the SAME turn goes again
+  with those words as a user message.
+- STILL A USER MESSAGE, said to him plainly: the briefing BEFORE the story ("Tony Stark — Bruce here. This is where things
+  stand…") — written as his own notes by design (M327).
+- TESTS: m379.mjs M380-1 (names only change words: "the writer" becomes Bruce, not one paragraph added), M380-2 (his message,
+  then the note as a system message by default; a user message when chosen; Claude gets no system turn), M380-3 (a house
+  that refuses: asked twice, the second with the words as user, remembered). MOVED WITH THE LAW: referee.mjs M11, m345
+  M345-9, m339 M339-2 (the closing is a system message by default).
+- longplay.mjs moved with M379: its scripted teller reads the TYPED shortcut as the last message (and the law in the
+  standing words) instead of the law in a trailing message; LONG-5 now asserts no law is ever sent as a message.
+- GATES ON THE PUSHED TREE (M379 + M380 together): harness 749/749, walk 100/100, longplay 8/8, lint clean.
+- version.js -> m380-001.

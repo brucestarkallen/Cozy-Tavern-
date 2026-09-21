@@ -1,13 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m378-001)
+# Cozy Tavern — handoff for the next session (state at m380-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M378). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M380). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 743 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 749 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 99 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 100 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -20,6 +20,15 @@ founding design lives in AGENTS.md's first entries.)
   /tmp/perf.py in its session; recreate from AGENTS.md M145 if needed.)
 
 ## The laws that matter most (all enforced in code and held by tests)
+- HIS MESSAGE IS THE LAST THING THE STORYTELLER READS (M379). A second user message after his, in the house's words, reads
+  to a teller as a system instructing an assistant — his persona's worst enemy. So: every shortcut's meaning lives in the
+  standing words (commands.js shortcutsText, with the craft) and his message travels AS TYPED (messages keep `typed`; a
+  hidden shortcut still travels); the house's starter note is in the standing words; the continue nudge ("Go on.") stands
+  in HIS place when nothing of his travels. What may still follow his message, only when it fires: a note HE wrote, the
+  referee's settled outcome, and the switches he turns on (think-on-page, the sensors, derestricted, the frame echo) —
+  and THAT goes as a SYSTEM message by default (M380, SillyTavern's post-history instructions; setting afterRole, beside
+  the note at the end; Claude always gets it as user; a house that refuses a late system message is remembered and asked
+  again with it as user). NEVER add a house line after his message again.
 - THE LEDGER HEALS ITSELF, THE PAGE IS NEVER TOUCHED (M372): his mission is a house that runs itself, so a ledger error a
   careful reader would catch is the AUDITOR's to catch and correct (it runs after every page), never his to fix by hand
   through the housekeeper. It checks what the ledger says happened — who did what, to whom, with whose thing — read across
@@ -35,9 +44,9 @@ founding design lives in AGENTS.md's first entries.)
   is large, the storyteller's view of it stays small. Never add a counting rule to the world again.
 - SILLYTAVERN'S MACROS ARE SWAPPED LIKE SILLYTAVERN SWAPS THEM (M361, voice.js withMacros, run first inside inVoice):
   {{user}}/<USER> = the one he plays (the main character's story name, else his own name), {{char}}/<BOT> = the teller.
-  Never a raw macro on the wire. His own words are never renamed: M362's "What your rules call you" swap was DELETED in
-  M378 — a persona written about "LO" and read about another name is about someone else. The one name the house uses for
-  him is Your name; it should say what his rules say.
+  Never a raw macro on the wire. His own words are never renamed. THE NAME BOXES ONLY CHANGE WORDS (M380): where the
+  house's own text says "the writer"/"the storyteller", or a rule says {{user}}/{{char}}, his names go in — nothing is
+  ever ADDED for a name (M379's "one man" line was an injection, and is gone with its box).
 - THE HOUSE NEVER ASKS AGAIN ON ITS OWN (M377, his order: "delete this feature — let me do the retry button manually,
   the automatic thinking breaks my persona"). No second try is ever sent by the house — not for a leak (M117), not for a
   page inside the thinking (M120), not for a plan with no page (M323-M339). A reply that brings no page lands as it came

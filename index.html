@@ -315,6 +315,14 @@
             <textarea id="note-story" rows="4" spellcheck="false" aria-label="The note at the end, just for this story" placeholder="Leave empty and the story borrows the one above."></textarea>
             <div class="row"><button id="btn-save-note-story" class="btn" type="button">Keep it</button><span id="note-story-saved" class="quiet" hidden>Kept.</span></div>
           </div>
+          <!-- M380: the role of everything sent after his message -->
+          <label class="stack-label" for="after-role">Sent after your message as
+            <select id="after-role">
+              <option value="system">A system message (like SillyTavern’s post-history instructions)</option>
+              <option value="user">A user message</option>
+            </select>
+          </label>
+          <p class="quiet">Everything that comes after your own message — this note, and anything a switch adds there — goes to your storyteller as one message. As a system message it reads as instructions from the setup, the way SillyTavern sends post-history instructions. As a user message it reads as if you had written a second message yourself. Claude takes no system message there, so a Claude connection always gets it as a user message.</p>
         </section>
 
         <section class="settings-section" id="section-brief">

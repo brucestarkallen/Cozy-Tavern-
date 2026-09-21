@@ -3113,6 +3113,7 @@ export function initChat(ctx) {
       writerName: await db.settings.get('writerName'),
       tellerPerson: await db.settings.get('tellerPerson'), /* M334: 'first' | 'second' | unset = follow the frame */
       groundingPhrase: await db.settings.get('groundingPhrase'), /* M358: the first words of its thinking */
+      afterRole: await db.settings.get('afterRole'), /* M380: what follows his message rides as system (default) or user */
     };
   }
 
@@ -4403,6 +4404,9 @@ export function initChat(ctx) {
           hidden: parsed.hidden || undefined,
           ooc: parsed.ooc || undefined,
           image: imageToSend || undefined,
+          /* M379: a shortcut is kept as he TYPED it too — that is what travels to the storyteller (its meaning is in the
+           * standing words); the thread still shows what it always showed */
+          typed: parsed.kind ? String(text).trim() : undefined,
         });
         if (imageToSend) setPendingImage(null);
       } catch (err) {

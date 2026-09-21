@@ -1775,7 +1775,9 @@ test('M259-46: every part the receipt lists is in the request — nothing counte
     'The story so far': ['HISTORY-MARK'], 'The note at the end': ['NOTE-MARK'], 'The house heard': ['DIRECTIVE-MARK'],
   };
   const listed = (req.receipt.slots || []).filter((s) => s.tokens > 0);
-  assert(listed.length >= 17, 'the request under test fills every part: ' + listed.length);
+  /* M379: a house command's law is no longer a part of the request (it lives in the standing words, with the shortcuts) */
+  assert(listed.length >= 16, 'the request under test fills every part: ' + listed.length);
+  assert(!listed.some((x) => x.name === 'The house heard') && !wire.includes('DIRECTIVE-MARK'), 'and no command law rides as a part of its own');
   for (const slot of listed) {
     assert(marks[slot.name], 'a part this law does not know yet \u2014 give it a mark: ' + slot.name);
     for (const m of marks[slot.name]) assert(wire.includes(m), '\u201c' + slot.name + '\u201d is listed on the receipt and its words are in the request: ' + m);

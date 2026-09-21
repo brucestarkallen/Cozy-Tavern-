@@ -236,7 +236,7 @@ test('M345-9 THE SETTLED OUTCOME RIDES FIRST IN THE CLOSING WORDS, in the writer
   });
   const on = build({ tellerName: 'Iron Man', writerName: 'Bruce', noteText: 'Keep it tight.' });
   const last = on.messages[on.messages.length - 1];
-  eq(last.role, 'user', 'the closing words');
+  eq(last.role, 'system', 'the closing words — a system message after his (M380)');
   assert(last.content.startsWith('Iron Man — about what Jovan is trying — sneak into the house: it works'), 'first, led by the teller’s name: ' + last.content.slice(0, 120));
   assert(last.content.indexOf('Keep it tight.') > last.content.indexOf('keep all of this between us'), 'the note still last');
   assert(!/Bruce’s notebook/.test(last.content), 'the action’s own words are story text — "the house" stays a house');

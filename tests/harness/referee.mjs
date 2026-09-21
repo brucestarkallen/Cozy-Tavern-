@@ -395,7 +395,7 @@ test('M11 injection: the ruling rides first in the closing words, the receipt-na
   const tail = messages.find((msg) => typeof msg.content === 'string' && msg.content.startsWith(STATE_MARKER));
   assert(!tail || !tail.content.includes(directive), 'not in the briefing');
   const closing = messages[messages.length - 1];
-  assert(closing.role === 'user' && closing.content.startsWith(directive), 'first in the closing words');
+  assert(closing.role === 'system' && closing.content.startsWith(directive), 'first in the closing words — a system message after his (M380)');
   /* and when nothing was ruled, there is no slot at all */
   const quiet = buildRequest({
     story: { brief: '' }, messages: [], settings: {}, state: mkState(),

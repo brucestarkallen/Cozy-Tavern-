@@ -26,7 +26,11 @@ test('A1: window boundary holds under the size; custom window honored', () => {
 });
 
 test('A1: keeper off — token-budgeted cutoff with an honest receipt line', () => {
-  const r = buildRequest({ story: {}, messages: pages(40), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: false, budgetTokens: 400 } });
+  /* M379: the room is sized from the house's own words (they grew by the shortcuts), plus a little for pages — so the law
+   * tested is the honest cutoff line, never a guess at how big the standing words are */
+  const whole = buildRequest({ story: {}, messages: pages(40), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: false, budgetTokens: 10000000 } });
+  const fixed = whole.receipt.slots.filter((x) => x.name !== 'The story so far').reduce((n, x) => n + x.tokens, 0);
+  const r = buildRequest({ story: {}, messages: pages(40), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: false, budgetTokens: fixed + 120 } });
   const s = slot(r, 'The story so far');
   assert(/pages carried word for word, the rest rests/.test(s.source), 'honest cutoff line: ' + s.source);
   const carried = parseInt(s.source, 10);
@@ -56,13 +60,13 @@ test('A4: cache breakpoint sits at the END of slot 2, slots 3-4 non-cached', () 
   assert(r.systemBlocks[2].cache === false && r.systemBlocks[3].cache === false, 'slots 3-4 NOT cached');
 });
 
-test('M9: a house command rides just before the note, named on the receipt', () => {
-  const r = buildRequest({ story: {}, messages: pages(3), settings: {}, state: {}, modules: [], memory: '', directive: 'Write a single beat only.', window: { keeperOn: true } });
-  /* M321: the wrapping is one closing message now (the storyteller's own thinking spent a turn sorting the old stack of them); what is held is unchanged — the order */ 
-  const closing = r.messages[r.messages.length - 1].content;
-  const idx = closing.indexOf('Write a single beat only.');
-  assert(idx === 0 && closing.length > 'Write a single beat only.'.length, 'directive sits before the note');
-  assert(slot(r, 'The house heard'), 'receipt names the command');
+test('M9 (as M379 changed it): a house command’s law is never sent as a second message on its turn — the shortcuts are said once, in the standing words, and his typed words are the last message', () => {
+  const msgs = [...pages(3), { id: 'cmd', role: 'user', text: '#p', typed: '#p' }];
+  const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: {}, modules: [], memory: '', directive: 'Write a single beat only.', window: { keeperOn: true } });
+  assert(!JSON.stringify(r.messages).includes('Write a single beat only.'), 'the law is not on the wire');
+  eq(r.messages[r.messages.length - 1].content, '#p', 'his own typed words are the last message');
+  assert(/SHORTCUTS\. When the writer/.test(r.systemBlocks[1].text) && /#p — exactly ONE beat/.test(r.systemBlocks[1].text), 'the shortcut is explained in the standing words');
+  assert(!slot(r, 'The house heard'), 'and the receipt names no second message');
 });
 
 test('M9: lore receipt names which entries fired', () => {
