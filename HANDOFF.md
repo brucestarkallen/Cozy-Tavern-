@@ -1,7 +1,7 @@
-# Cozy Tavern — handoff for the next session (state at m369-001)
+# Cozy Tavern — handoff for the next session (state at m370-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M369). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M370). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
@@ -43,7 +43,8 @@ founding design lives in AGENTS.md's first entries.)
   takes a seed (his own prefill always wins), woven into the standing words themselves (voice.js groundingWeave: after the
   frame's opening breath and again at the paragraph break nearest a third down — never inside a paragraph, never more than
   twice), set in front of a house command's law (#p, #q, #time skip…), and asked for in his voice at the end. Empty = not
-  one byte anywhere. Persona work is what it protects — never make it a rule about the page.
+  one byte anywhere. M370: planted EVERY turn whatever the model did last time, never remembered, never announced — for a
+  model that does not think, what it writes before the header IS its thinking, and the phrase opens that too. Persona work is what it protects — never make it a rule about the page.
 - SMALL-MODEL WORK IS ON HOLD (his word, at m358): he tells with his frontier model. M354/M355 stay behind the derestricted
   switch, off; M356's sensors behind their own, off. Build nothing further for weak models unless he asks again.
 - THE SENSORS READ, THEY NEVER WRITE (M356, agents/sensors.js): after each page, narrow true/false questions about it,

@@ -8883,3 +8883,22 @@ was sent, but no thinking came back from this model". He never set a seed; he se
   unchanged.
 - GATES ON THE PUSHED TREE: harness 734/734, walk 98/98 (alone), longplay 8/8, lint clean.
 - version.js -> m369-001.
+
+# M370 — undoing M369: the grounding phrase is never announced and never withdrawn
+The writer, rightly: "grounding phrase also can be used for non-thinking — that's why we have everything before the header
+acted as thinking, so it doesn't matter, it's actually helping… my gut feels this is stupid." M369 answered a banner he
+could not read by making a NEW banner and by withdrawing the phrase's seed from any model that once sent no thinking back.
+Both were wrong:
+- A MODEL THAT SENDS NO THINKING BACK IS NOT A REASON TO STOP. What a model writes before the page's header IS its
+  thinking — the page gate cuts it off as such — so the phrase that opens it helps a model that does not think natively just
+  as much. The phrase is also woven into the standing words and asked for at the end of every turn. And "sent none back
+  once" was remembered per model and address, so the same model raised to a higher level, or simply thinking on its next
+  turn, would never have been seeded again.
+- HIS PERSONA'S WORDS ARE NEVER ANNOUNCED. A banner about the grounding phrase's plumbing is exactly the machinery he keeps
+  out of sight. So: planted on EVERY turn, whatever the model did last time; nothing remembered on the connection; no banner
+  about it at all. The only seed banner left is for a prefill HE set himself.
+- {{user}}/{{char}}: the storyteller never sees them — they are swapped for names before anything is sent (M361).
+- TESTS: DOM-79, rewritten: no banner about the grounding phrase or a seed, the phrase planted again on the next turn (as the
+  last assistant turn's thinking), still asked for in the closing words, nothing remembered on the connection.
+- GATES ON THE PUSHED TREE: harness 734/734, walk 98/98 (alone), longplay 8/8, lint clean.
+- version.js -> m370-001.

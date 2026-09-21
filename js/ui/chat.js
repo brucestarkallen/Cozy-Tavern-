@@ -3744,11 +3744,11 @@ export function initChat(ctx) {
        * prefill) — his own prefill, if he has set one, always wins; an out-of-character turn is not a page and takes
        * neither. */
       const grounding = ooc ? '' : groundingSeed(settingsValues);
-      /* M369: a model that sent no thinking back the first time it was seeded is not seeded again — the phrase can only
-       * start a thinking that exists; the line at the end still asks for it on every turn */
-      const seedKey = String(connection.model || '') + '@' + String(connection.baseUrl || '');
-      const seedTook = connection.groundingSeedFailedFor !== seedKey;
-      const seeded = grounding && seedTook && !String(connection.prefill || '').trim() ? { prefill: grounding } : {};
+      /* M370 (undoing M369): the phrase is planted on EVERY turn, whatever the model did last time. A model that sends no
+       * thinking back is not a reason to stop: what it writes before the header is its thinking (the page gate cuts it
+       * off as such), the phrase is woven into the standing words and asked for at the end, and the same model at a
+       * higher level, or on its next turn, may think after all. Nothing is remembered and nothing is said about it. */
+      const seeded = grounding && !String(connection.prefill || '').trim() ? { prefill: grounding } : {};
       const provider = createProvider({ ...connection, reasoning, ...seeded, ...(ooc ? { prefill: '' } : {}) });
       const showThinking = (await db.settings.get('showThinking')) !== false;
       /* M319: THE THREE SWITCHES THAT STOP THE THINKING FOR EVERY MODEL AT ONCE SAY SO, WHEN THEY DO. The writer:
@@ -4047,16 +4047,9 @@ export function initChat(ctx) {
           prefill: result.prefill && result.prefill.words ? result.prefill.words : '',
         });
         /* M329: a seed that steered nothing is said once for that connection — the receipt says it every turn */
-        if (result.prefill && result.prefill.seeded && result.prefill.working === false) {
-          if (seeded.prefill) {
-            /* M369: the seed was the GROUNDING PHRASE, not a prefill he set — say it in the words he knows, once, and stop
-             * planting it on this model; nothing else about the turn changes */
-            try { connection.groundingSeedFailedFor = seedKey; if (connection.id) await db.connections.update(connection.id, { groundingSeedFailedFor: seedKey }); } catch (err) { /* it is tried once more next time, no harm */ }
-            sayOnce('grounding-seed:' + (connection.id || '') + ':' + seedKey, 'This model sends no thinking back, so your grounding phrase can’t be planted at the start of its thinking. It is still asked for in your words at the end of every turn — nothing else changes.');
-          } else {
-            sayOnce('seed-nothing:' + (connection.id || ''), 'Your thinking seed was sent, but no thinking came back from this model — a seed steers nothing here. (“What the storyteller saw” on a page says what the prefill did on that turn.)');
-          }
-        }
+        /* M370: a banner only about a seed HE set (his own prefill). The grounding phrase is never announced — it is his
+         * persona's words, and a note about its plumbing is exactly the machinery he keeps out of sight. */
+        if (result.prefill && result.prefill.seeded && result.prefill.working === false && !seeded.prefill) sayOnce('seed-nothing:' + (connection.id || ''), 'Your thinking seed was sent, but no thinking came back from this model — a seed steers nothing here. (“What the storyteller saw” on a page says what the prefill did on that turn.)');
       } catch (err) {
         stopPainting(); /* M164: no frame lands into a page that is gone */
         /* M160: the thinking clock used to be stopped only when the writer
