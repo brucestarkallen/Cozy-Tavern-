@@ -8745,3 +8745,13 @@ He asked for his name in his own rules to follow the name he sets, not to be tol
   in the app: both boxes typed in Settings, a page sent, the storyteller's request read.
 - GATES ON THE PUSHED TREE: harness 727/727, walk 96/96 (alone), longplay 8/8, lint clean.
 - version.js -> m362-001.
+
+# M363 — a crowd of accounts is not him
+He asked whether two flagged lines of his Twitter X Feed rule were a problem: "User Pool Array:[" and "Select =
+Random(Quantity=5, Source=User Pool Array)". They are not — "User" there is the crowd of accounts on the in-story feed,
+not the man writing the story — and the reading could not tell the two apart.
+- plainvoice.js: "user" followed by the word for what it is (a pool, an account, a handle, a list, a profile, a feed, a
+  post…) is someone else's user and is left alone; "the user", "user's", a bare "user" are still him, and still flagged.
+- TESTS: m359.mjs M363-1 (his two lines and an account/handle left alone; "the user" still flagged, with its reason).
+- GATES ON THE PUSHED TREE: harness 728/728, walk 96/96 (alone), lint clean. A reading-only change — nothing sent is touched.
+- version.js -> m363-001.

@@ -10,7 +10,10 @@
 export const VOICE_BREAKS = [
   ['as an ai', 'names the machine'], ['language model', 'names the machine'], ['\\bai\\b', 'names the machine'],
   ['\\bllm\\b', 'names the machine'], ['assistant', 'names the machine'], ['chatbot', 'names the machine'],
-  ['\\buser\\b', 'calls him the user'], ['end user', 'calls him the user'],
+  /* M363: "User" in "User Pool Array" is a crowd of accounts on an in-story feed, not him — a user followed by the word
+   * for what it is (a pool, an account, a handle, a list…) is someone ELSE's user, and is left alone */
+  ['\\buser\\b(?!\\s*(?:pool|account|accounts|name|names|handle|handles|list|base|id|ids|count|profile|profiles|array|feed|post|posts)\\b)', 'calls him the user'],
+  ['end user', 'calls him the user'],
   ['system prompt', 'names the machinery'], ['\\bprompt\\b', 'names the machinery'], ['\\btoken', 'names the machinery'],
   ['guidelines', 'names the rules of a machine'], ['\\bpolicy\\b', 'names the rules of a machine'], ['content policy', 'names the rules of a machine'],
   ['openai', 'names the maker'], ['anthropic', 'names the maker'], ['\\bgpt\\b', 'names the maker'], ['\\bclaude\\b', 'names the maker'],

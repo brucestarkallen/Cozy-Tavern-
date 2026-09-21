@@ -148,3 +148,11 @@ test('M362-1 THE NAME HIS RULES USE FOR HIM FOLLOWS “YOUR NAME”: every whole
   assert(!/\bLO\b/.test(standing), 'not one "LO" left in his rules');
   assert(r.messages.some((m) => /LO waits\./.test(String(m.content))), 'and his own pages are his words, never rewritten');
 });
+
+test('M363-1 A CROWD OF ACCOUNTS IS NOT HIM: “User Pool Array” on an in-story feed is left alone, while “the user” still is flagged', () => {
+  eq(assistantVoice('User Pool Array:[').length, 0, 'the feed’s pool of accounts');
+  eq(assistantVoice('Select = Random(Quantity=5, Source=User Pool Array)').length, 0, 'and the line that picks from it');
+  eq(assistantVoice('Each user account posts once; every user handle is lowercase.').length, 0, 'an account, a handle');
+  eq(assistantVoice('Describe it for the user.').length, 1, 'but “the user” is still him, and still flagged');
+  eq(assistantVoice('The user decides what happens next.')[0].why, 'calls him the user', 'with the reason said');
+});
