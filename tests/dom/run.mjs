@@ -4160,7 +4160,7 @@ test('DOM-78 A NEW VERSION OF A PAGE IS WRITTEN WHERE THE PAGE STANDS: while it 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-79 THE GROUNDING PHRASE ON A MODEL THAT SENDS NO THINKING BACK: no banner, nothing remembered, and the phrase planted and asked for on every turn all the same (M370, undoing M369)', async () => {
+test('DOM-79 THE GROUNDING PHRASE ON EVERY TURN: on a model that sends no thinking back — no banner, nothing remembered, planted and asked for all the same; and on an out-of-character turn too, never with his story prefill (M370, M371)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   const said = [];
@@ -4190,6 +4190,14 @@ test('DOM-79 THE GROUNDING PHRASE ON A MODEL THAT SENDS NO THINKING BACK: no ban
     assert(/[Oo]pen your thinking with “Autobots, roll out!”/.test(closing), 'and still asked for at the end: ' + closing.slice(0, 120));
     const kept = (await db.connections.list()).find((c) => c.id === conn.id);
     assert(!('groundingSeedFailedFor' in kept), 'nothing about it is remembered on the connection');
+    /* M371: an out-of-character turn opens with it too — and his own story prefill never rides one */
+    const oocTurn = async (words) => { const from = house.state.calls.length; type(q('#composer-input'), words); submit(q('#composer')); await until(() => !env.ctx.chat.isBusy() && house.state.calls.slice(from).some((c) => c.body && c.body.model === 'quiet-model'), 'the answer', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000); return house.state.calls.slice(from).find((c) => c.body && c.body.model === 'quiet-model'); };
+    const asked = await oocTurn('((slow down a little))');
+    assert(seededIn(asked), 'an out-of-character turn’s thinking opens with it');
+    await db.connections.update(conn.id, { prefill: 'THE PAGE OPENS:' });
+    const askedAgain = await oocTurn('// one more thing');
+    assert(seededIn(askedAgain), 'with his own prefill set, the out-of-character turn still opens with the phrase');
+    assert(!JSON.stringify(askedAgain.body.messages).includes('THE PAGE OPENS:'), 'and his story prefill never rides it');
   } finally {
     env.ctx.toast = realToast;
     if (typeof wasPhrase === 'string') await db.settings.set('groundingPhrase', wasPhrase); else await db.settings.delete('groundingPhrase');

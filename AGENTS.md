@@ -8902,3 +8902,24 @@ Both were wrong:
   last assistant turn's thinking), still asked for in the closing words, nothing remembered on the connection.
 - GATES ON THE PUSHED TREE: harness 734/734, walk 98/98 (alone), longplay 8/8, lint clean.
 - version.js -> m370-001.
+
+# M371 — the grounding phrase on every turn, out-of-character ones included
+He asked for confirmation that the phrase rides EVERYTHING — every # command, #time skip and #story included, thinking and
+non-thinking models alike — and whether it still lands first. Checked turn type by turn type against buildRequest:
+- A PAGE ("I walk in."): woven twice into the standing words (after the frame's opening breath, and at the paragraph break
+  nearest a third down), asked for in his voice at the end, and planted as the first words of the thinking.
+- EVERY # COMMAND (#time skip, #story, #p, #pp, #continue): all of the above, AND the command's own law opens with it.
+- THE OUT-OF-CHARACTER TURNS (#question, ((…)), //): woven, asked for, and the law opens with it — but the thinking seed
+  was skipped on them (M358 had copied the rule that an out-of-character turn takes no prefill). That rule exists for HIS
+  prefill, which opens a PAGE; the grounding phrase is his teller's voice, and the out-of-character turns are exactly where
+  a teller slides into an assistant's register. Now the phrase is planted on them too; his own story prefill still never
+  rides an out-of-character turn, and still wins on a page of the story.
+- WHERE THE SEED IS PLANTED, IT IS LITERALLY FIRST: it rides as the opening of the model's thinking (reasoning_content where
+  the provider takes it, a <think> opening where it does not). A model that does not think writes its thinking before the
+  header, and the phrase opens that. Where no seed can ride, the line at the end asks for it as the first words.
+- The workers (the world agent, the readers) do not carry it: they are not his teller, and never speak as it.
+- TESTS: m357.mjs M358-2 moved to the widened law (planted where he set no prefill and on every out-of-character turn; an
+  out-of-character turn carries the phrase and never his story prefill). DOM-79 gains two out-of-character turns in the app:
+  the thinking opens with the phrase, and with his own prefill set it still does while his prefill never rides.
+- GATES ON THE PUSHED TREE: harness 734/734, walk 98/98 (alone), longplay 8/8, lint clean.
+- version.js -> m371-001.

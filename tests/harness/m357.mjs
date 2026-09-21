@@ -72,11 +72,11 @@ test('M358-1 THE GROUNDING PHRASE opens its thinking, in his voice and in the th
   assert(!/open your thinking/i.test(JSON.stringify(off.messages) + JSON.stringify(off.systemBlocks)), 'with the box empty, the turn is what it was');
 });
 
-test('M358-2 HIS OWN PREFILL ALWAYS WINS, and an out-of-character turn takes neither', () => {
+test('M358-2 (as M371 widened it) HIS OWN PREFILL WINS ON A PAGE OF THE STORY, and an out-of-character turn takes the grounding phrase — never his story prefill', () => {
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  const at = chat.indexOf('const grounding = ooc ? \'\' : groundingSeed(settingsValues);');
-  assert(at > 0, 'the seed is made only for a page of the story');
-  const near = chat.slice(at, at + 1200); /* the reason for planting it every turn sits between them */
-  assert(/!String\(connection\.prefill \|\| ''\)\.trim\(\)/.test(near), 'and only where he has set no prefill of his own');
-  assert(/\.\.\.\(ooc \? \{ prefill: '' \} : \{\}\)/.test(near), 'an out-of-character turn keeps its empty prefill');
+  const at = chat.indexOf('const grounding = groundingSeed(settingsValues);');
+  assert(at > 0, 'the phrase is made for every turn, in character or out of it');
+  const near = chat.slice(at, at + 600);
+  assert(/const seeded = grounding && \(ooc \|\| !ownPrefill\)/.test(near), 'planted where he has set no prefill, and on every out-of-character turn');
+  assert(/\.\.\.\(ooc \? \{ prefill: seeded\.prefill \|\| '' \} : \{\}\)/.test(near), 'an out-of-character turn carries the phrase and never his story prefill');
 });

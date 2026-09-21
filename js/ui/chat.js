@@ -3743,13 +3743,15 @@ export function initChat(ctx) {
       /* M358: the grounding phrase is SEEDED into the thinking itself where the model takes a seed (M328's thinking
        * prefill) — his own prefill, if he has set one, always wins; an out-of-character turn is not a page and takes
        * neither. */
-      const grounding = ooc ? '' : groundingSeed(settingsValues);
-      /* M370 (undoing M369): the phrase is planted on EVERY turn, whatever the model did last time. A model that sends no
-       * thinking back is not a reason to stop: what it writes before the header is its thinking (the page gate cuts it
-       * off as such), the phrase is woven into the standing words and asked for at the end, and the same model at a
-       * higher level, or on its next turn, may think after all. Nothing is remembered and nothing is said about it. */
-      const seeded = grounding && !String(connection.prefill || '').trim() ? { prefill: grounding } : {};
-      const provider = createProvider({ ...connection, reasoning, ...seeded, ...(ooc ? { prefill: '' } : {}) });
+      /* M358/M370/M371: THE GROUNDING PHRASE OPENS EVERY TURN'S THINKING — a page, a command (#time skip, #story, #p…),
+       * and an out-of-character turn alike (#question, ((…)), //): it is his teller's voice, not the page's words, and the
+       * out-of-character turns are exactly where a teller slides into an assistant's register. It is planted whatever the
+       * model did last time, never remembered, never announced (M370). His OWN prefill wins on a page of the story; on an
+       * out-of-character turn his prefill is a page's opening and stays off (as it always has), and the phrase rides. */
+      const grounding = groundingSeed(settingsValues);
+      const ownPrefill = String(connection.prefill || '').trim();
+      const seeded = grounding && (ooc || !ownPrefill) ? { prefill: grounding } : {};
+      const provider = createProvider({ ...connection, reasoning, ...seeded, ...(ooc ? { prefill: seeded.prefill || '' } : {}) });
       const showThinking = (await db.settings.get('showThinking')) !== false;
       /* M319: THE THREE SWITCHES THAT STOP THE THINKING FOR EVERY MODEL AT ONCE SAY SO, WHEN THEY DO. The writer:
        * "all my models — DeepSeek, Kimi, everything — can't think", at low, medium, high, xhigh, max. The
