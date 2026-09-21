@@ -65,7 +65,7 @@ test('M380-1 THE NAME BOXES ONLY CHANGE WORDS — nothing is added for a name', 
   assert(!/one man|goes by|call him/i.test(a), 'no line about names at all');
 });
 
-test('M380-2 WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE (SillyTavern’s post-history instructions) — or a user one if he chooses; Claude always gets a user one', async () => {
+test('M380-2 (as M385 corrected it) WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE — or a user one if he chooses; Claude gets it as a system message too, and a Claude model that refuses it is remembered and sent a user one', async () => {
   const note = { tellerName: 'Tony Stark', writerName: 'Bruce', noteText: 'Keep it funny.' };
   const sys = build([{ id: 'u1', role: 'user', text: 'I walk in.' }], { settings: note });
   eq(sys.messages[sys.messages.length - 2].role, 'user'); eq(sys.messages[sys.messages.length - 2].content, 'I walk in.', 'his message');
@@ -73,12 +73,36 @@ test('M380-2 WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE (SillyTavern’s post-
   const usr = build([{ id: 'u1', role: 'user', text: 'I walk in.' }], { settings: { ...note, afterRole: 'user' } });
   eq(usr.messages[usr.messages.length - 1].role, 'user', 'or as a user message, when he chooses it');
   const { createProvider } = await import('../../js/providers/index.js');
-  const sent = [];
+  const { db } = await import('../../js/store.js');
+  const stub = (refuse) => async (url, opts) => {
+    const body = JSON.parse(opts.body); sent.push(body);
+    if (refuse && body.messages.some((m) => m.role === 'system')) return new Response(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'messages.1.role: system messages are not supported on this model' } }), { status: 400, headers: { 'content-type': 'application/json' } });
+    return new Response('event: message_stop\ndata: {"type":"message_stop"}\n\n', { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  };
+  let sent = [];
   const prior = globalThis.fetch;
-  globalThis.fetch = async (url, opts) => { sent.push(JSON.parse(opts.body)); return new Response('event: message_stop\ndata: {"type":"message_stop"}\n\n', { status: 200, headers: { 'content-type': 'text/event-stream' } }); };
-  try { await createProvider({ type: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: 'k', model: 'claude-x' }).streamChat({ systemBlocks: sys.systemBlocks, messages: sys.messages, onToken() {} }); } catch (err) { /* the stub answers nothing; the request is what is read */ }
-  finally { globalThis.fetch = prior; }
-  assert(sent.length && !sent[0].messages.some((m) => m.role === 'system'), 'Claude takes no system turn among the messages: it rides as a user one');
+  try {
+    /* a Claude model that takes it (Opus 5): sent as a system message */
+    globalThis.fetch = stub(false);
+    try { await createProvider({ type: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: 'k', model: 'claude-opus-5' }).streamChat({ systemBlocks: sys.systemBlocks, messages: sys.messages, onToken() {} }); } catch (err) { /* the stub writes nothing */ }
+    eq(sent.length, 1); eq(sent[0].messages[sent[0].messages.length - 1].role, 'system', 'Claude Opus 5 is sent a system message after his');
+    /* a Claude model that refuses it (Sonnet 5): refused once, remembered for that model, the same turn sent again as user */
+    sent = [];
+    const conn = await db.connections.add({ label: 'sonnet', type: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: 'k', model: 'claude-sonnet-5' });
+    globalThis.fetch = stub(true);
+    const stored = (await db.connections.list()).find((c) => c.id === conn.id);
+    try { await createProvider(stored).streamChat({ systemBlocks: sys.systemBlocks, messages: sys.messages, onToken() {} }); } catch (err) { /* the stub writes nothing */ }
+    eq(sent.length, 2, 'asked as set, then again');
+    eq(sent[1].messages[sent[1].messages.length - 1].role, 'user', 'the second time as a user message');
+    const kept = (await db.connections.list()).find((c) => c.id === conn.id);
+    eq(kept.systemAfterRefusedFor, 'claude-sonnet-5@https://api.anthropic.com', 'remembered for that model');
+    sent = [];
+    await db.connections.update(conn.id, { model: 'claude-opus-5' });
+    globalThis.fetch = stub(false);
+    try { await createProvider((await db.connections.list()).find((c) => c.id === conn.id)).streamChat({ systemBlocks: sys.systemBlocks, messages: sys.messages, onToken() {} }); } catch (err) { /* nothing */ }
+    eq(sent[0].messages[sent[0].messages.length - 1].role, 'system', 'and a different model on the same connection is tried afresh');
+    await db.connections.remove(conn.id);
+  } finally { globalThis.fetch = prior; }
 });
 
 test('M380-3 A HOUSE THAT REFUSES A SYSTEM MESSAGE AFTER THE STORY is remembered, and the same turn goes again with it as a user message', async () => {
@@ -99,7 +123,7 @@ test('M380-3 A HOUSE THAT REFUSES A SYSTEM MESSAGE AFTER THE STORY is remembered
     assert(/Page\./.test(out.text), 'the turn landed');
     eq(sent.length, 2, 'asked once as set, once again with the words as a user message');
     eq(sent[1].messages[sent[1].messages.length - 1].role, 'user');
-    eq((await db.connections.list()).find((c) => c.id === conn.id).systemAfterRefused, true, 'and remembered for this connection');
+    eq((await db.connections.list()).find((c) => c.id === conn.id).systemAfterRefusedFor, 'm@https://strict.example', 'and remembered for this model at this address (M385)');
   } finally { globalThis.fetch = prior; await db.connections.remove(conn.id); }
 });
 

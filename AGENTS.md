@@ -9204,3 +9204,22 @@ the end, always last. (M21 always described the repeat as "just before the note 
   it, the ruling and the sensors' word ahead of both, all one system message).
 - GATES ON THE PUSHED TREE: harness 752/752, walk 102/102, longplay 8/8, lint clean.
 - version.js -> m384-001.
+
+# M385 — Claude does take a system message after the story (M380 was out of date)
+He checked M380's claim ("Claude takes no system message there, so a Claude connection always gets it as a user message")
+and said newer Claude models take one — he had used it in SillyTavern months ago. He was right; the claim came from memory
+and was not checked. Anthropic's docs (platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages):
+a `role: "system"` message inside `messages` — a mid-conversation system message — is accepted on Claude Fable 5.1,
+Mythos 5.1, Fable 5, Mythos 5, Opus 4.8 and Opus 5, on the Claude API, Amazon Bedrock and Google Cloud, no beta header; it
+must immediately follow a user turn and either end the array or precede an assistant turn (what follows his message
+does both); it is NOT available on Claude Sonnet 5.
+- anthropic.js no longer turns it into a user message: it is sent as a system message. A model that refuses it (a 400
+  naming "system") is remembered for THAT model at that address, a note says so, and the same turn goes again with those
+  words as a user message. Change the model and it is tried afresh.
+- ONE MEMORY FOR BOTH PROVIDERS (providers/latesystem.js lateSystemRefused/rememberLateSystemRefused): openai.js's M380
+  mark was one flag for the whole connection; it is now per model and address too (the old flag is still read).
+- The setting's words in Settings now say which Claude models take it.
+- TESTS: m379.mjs M380-2 rewritten — Claude Opus 5 is sent a system message; Claude Sonnet 5 refuses, is asked again with
+  a user message, remembered for that model; the same connection on Opus 5 is tried afresh. M380-3 checks the per-model mark.
+- GATES ON THE PUSHED TREE: harness 752/752, walk 102/102, longplay 8/8, lint clean.
+- version.js -> m385-001.

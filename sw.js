@@ -55,6 +55,7 @@ const SHELL = [
   'js/agents/referee.js',
   'js/sent.js',
   'js/providers/relay.js',
+  'js/providers/latesystem.js',
   'js/providers/speed.js',
   'js/assemble/plain.js',
   'js/assemble/plainvoice.js',

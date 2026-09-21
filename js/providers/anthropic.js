@@ -20,6 +20,7 @@
  */
 
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
+import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js'; /* M385 */
 import { measureStream, speedWords, pickAnthropic, SPEED_ASK, SPEED_MAX_TOKENS } from './speed.js'; /* M373 */
 import { reportedContext } from './room.js'; /* M289 */
 import { readSSE } from './sse.js';
@@ -132,8 +133,11 @@ function requestBody(connection, blocks, legacySystem, messages, opts = {}) {
       ? Math.round(connection.maxTokens)
       : MAX_TOKENS,
     system: systemBlocks(blocks, legacySystem),
-    /* M380: Claude takes no system turn among the messages — a system message after the story rides as a user one */
-    messages: pf.messages.map((m) => withImagePart(m && m.role === 'system' ? { ...m, role: 'user' } : m, 'anthropic')),
+    /* M385 (correcting M380, which said Claude takes no system turn there — out of date): Claude Opus 4.8, Opus 5, Fable 5
+     * and 5.1 and Mythos 5 and 5.1 take a "system" message right after a user turn as a mid-conversation system message
+     * (platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages); Sonnet 5 and older models refuse
+     * it. It is sent as a system message, and a model that refuses it is remembered and sent a user message instead. */
+    messages: pf.messages.map((m) => withImagePart(m && m.role === 'system' && lateSystemRefused(connection) ? { ...m, role: 'user' } : m, 'anthropic')),
     stream: true,
   };
   if (typeof connection.temperature === 'number') body.temperature = connection.temperature;
@@ -255,6 +259,14 @@ export function createAnthropicProvider(connection) {
         detail = (j && j.error && j.error.message) || '';
       } catch (err) { /* not JSON — the status still tells a story */ }
       const fourHundred = res.status === 400 || res.status === 422;
+      /* M385: a model that takes no system message after the story says so once; it is remembered for THIS model, and
+       * the same turn goes again with those words as a user message */
+      if (fourHundred && !lateSystemRefused(connection) && (body.messages || []).some((m) => m && m.role === 'system') && /system/i.test(detail)) {
+        await rememberLateSystemRefused(connection);
+        notes.push('This Claude model takes no system message after the story, so the words after your message went as a user message — and will, on this model.');
+        attempt -= 1; /* the refusal is not one of the two tries the thinking and the prefill may each spend */
+        continue;
+      }
       const sentReasoning = Boolean(body.thinking || body.output_config);
       const sentPrefill = prefill.applied;
       if (fourHundred && !opts.suppressReasoning && sentReasoning && REASONING_REFUSAL.test(detail)) {
