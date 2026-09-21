@@ -516,6 +516,17 @@ export function prefillFields(conn) {
   if (flag && flag === reasoning) return { flag, reasoning, error: 'The continuation flag and the thinking field are both “' + flag + '” — the flag would overwrite the seed.' };
   return { flag, reasoning, error: '' };
 }
+/* M375: DOES THIS PROVIDER CONTINUE A STARTED THOUGHT? Only a provider with a continuation flag (DeepSeek's prefix,
+ * Moonshot's partial) takes a trailing assistant message as the START of its reply. Everywhere else — Synthetic, most
+ * OpenAI-shaped houses — the same message is a FINISHED, EMPTY turn the model then reads as part of the conversation, and
+ * reasons about in its thinking ("the user's message… this wrapper…"). The grounding phrase is seeded only where it is
+ * truly continued; everywhere else it lives in the standing words alone. */
+export function seedContinues(conn) {
+  if (prefillProfile(conn) === 'anthropic') return false;
+  const f = prefillFields(conn);
+  return !f.error && Boolean(f.flag);
+}
+
 /* what WOULD be sent for this connection, decided in one place: the turn, the card, the form and "Test it" all ask here */
 export function prefillPlan(conn) {
   const text = String(conn && conn.prefill != null ? conn.prefill : '');

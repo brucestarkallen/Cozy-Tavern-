@@ -30,19 +30,16 @@ test('M359-1 THE PHRASE IS WOVEN WHERE A READER WOULD PUT IT — after the openi
   eq(groundingWeave(groundingWeave(FRAME, 'Autobots, roll out!'), 'Autobots, roll out!'), groundingWeave(FRAME, 'Autobots, roll out!'), 'woven twice is woven once');
 });
 
-test('M359-2 IT STANDS IN FRONT OF A HOUSE COMMAND’S LAW — the turns that are mostly instruction open in his teller’s voice', () => {
+test('M359-2 (as M375 changed it) A HOUSE COMMAND’S LAW GOES AS IT IS — no quotation glued to its front (his teller’s thinking had started calling it “the wrapper”)', () => {
   const build = (settings, directive) => buildRequest({
     story: { brief: '' }, messages: [{ id: 'u1', role: 'user', text: '#time skip to dawn' }], settings, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [],
     window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive, directorNote: '', editorEye: '', ruling: '',
   });
   const law = parseCommand('#time skip to dawn').directive;
   const on = build({ tellerName: 'Optimus Prime', groundingPhrase: 'Autobots, roll out!' }, law);
-  const closing = on.messages[on.messages.length - 1].content;
-  assert(closing.startsWith('“Autobots, roll out!” — #time skip'), 'his phrase, then the law: ' + closing.slice(0, 70));
-  const off = build({ tellerName: 'Optimus Prime' }, law);
-  assert(off.messages[off.messages.length - 1].content.startsWith('#time skip'), 'with no phrase set, the law as it was');
-  const framed = build({ tellerName: 'Optimus Prime', groundingPhrase: 'Autobots, roll out!', frameText: FRAME }, '');
-  void framed;
+  const closing = on.messages.filter((m) => m.role === 'user').slice(-1)[0].content;
+  assert(closing.startsWith('#time skip'), 'the law, as it is: ' + closing.slice(0, 60));
+  assert(!/Autobots, roll out!/.test(closing), 'with nothing of the phrase glued to it');
 });
 
 test('M359-3 “#story” ALONE IS A STORY TOO — the concept is one more unspecified detail, and the law says every one of them is chosen', () => {

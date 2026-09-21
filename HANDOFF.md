@@ -1,11 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m374-001)
+# Cozy Tavern — handoff for the next session (state at m375-001)
 
 Repo: https://github.com/brucestarkallen/Cozy-Tavern- (main). Every commit is tested first.
-Full history of every law and fix: AGENTS.md (M1 … M374). (There is no SPEC.md in the repo — the
+Full history of every law and fix: AGENTS.md (M1 … M375). (There is no SPEC.md in the repo — the
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 742 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 743 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 98 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -42,15 +42,14 @@ founding design lives in AGENTS.md's first entries.)
   What it saw (his character taken, the same words again) is said once at the end of the NEXT turn, in his voice
   (plain.js mineWord/staleWord -> sensors.js keepPageWord -> takeWordForTurn -> stack.js sensorNote). The only re-asks left
   are for a page that never arrived at all (M117's leak, M120/M339's thinking-with-no-page). Any future check follows this.
-- THE GROUNDING PHRASE (M358/M359, Settings -> This story -> The frame, under the two names): the first words of the teller's
-  own thinking, in FOUR places, all of them gated on the box holding something — seeded into the thinking where the model
-  takes a seed (his own prefill always wins), woven into the standing words themselves (voice.js groundingWeave: after the
-  frame's opening breath and again at the paragraph break nearest a third down — never inside a paragraph, never more than
-  twice), set in front of a house command's law (#p, #q, #time skip…), and asked for in his voice at the end. Empty = not
-  one byte anywhere. M370: planted EVERY turn whatever the model did last time, never remembered, never announced — for a
-  model that does not think, what it writes before the header IS its thinking, and the phrase opens that too. M371: on
-  EVERY turn — a page, every # command, and the out-of-character turns (#question, ((…)), //) — his own story prefill
-  winning only on a page of the story. Persona work is what it protects — never make it a rule about the page.
+- THE GROUNDING PHRASE (M358/M359/M375, Settings -> This story -> The frame, under the two names): NEVER AS MACHINERY.
+  It lives in TWO places only: woven into the standing words as who the teller is ("You open every thought with “X”." —
+  after the frame's opening breath and at the paragraph break nearest a third down), and, ONLY where the provider truly
+  continues a started thought (a continuation flag: DeepSeek's prefix, Moonshot's partial, or one he typed), as the
+  thought's own first words — every turn, out-of-character ones too, never announced (M370/M371). M375 took away the
+  line at the end ("open your thinking with…") and the quotation glued to a command's law: his teller's thinking started
+  narrating them in an assistant's voice ("the user wants…", "the wrapper"). On a provider with no continuation flag
+  (Synthetic) a seed is an empty extra turn the model reads — never send one there. Empty box = not one byte.
 - SMALL-MODEL WORK IS ON HOLD (his word, at m358): he tells with his frontier model. M354/M355 stay behind the derestricted
   switch, off; M356's sensors behind their own, off. Build nothing further for weak models unless he asks again.
 - THE SENSORS READ, THEY NEVER WRITE (M356, agents/sensors.js): after each page, narrow true/false questions about it,

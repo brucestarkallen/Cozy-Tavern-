@@ -105,3 +105,14 @@ test('M374-2 THINKING THAT WAS COUNTED BUT NEVER STREAMED IS NOT WRITING WE WATC
 test('M374-3 THE TIMED ANSWER IS LONG ENOUGH TO TRUST — three hundred words, not one hundred', () => {
   assert(/three hundred words/.test(SPEED_ASK), SPEED_ASK);
 });
+
+test('M375-1 THE PHRASE IS SEEDED ONLY WHERE THE PROVIDER TRULY CONTINUES A STARTED THOUGHT — elsewhere the seed was an empty extra turn the model read and reasoned about', async () => {
+  const { seedContinues } = await import('../../js/providers/effort.js');
+  eq(seedContinues({ type: 'openai', baseUrl: 'https://api.deepseek.com', model: 'deepseek-reasoner' }), true, 'DeepSeek continues (prefix)');
+  eq(seedContinues({ type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k2' }), true, 'Moonshot continues (partial)');
+  eq(seedContinues({ type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: 'moonshotai/kimi-k2' }), true, 'a Moonshot model on OpenRouter continues');
+  eq(seedContinues({ type: 'openai', baseUrl: 'https://api.synthetic.new/openai/v1', model: 'syn:large:vision' }), false, 'Synthetic has no continuation flag: no seed');
+  eq(seedContinues({ type: 'openai', baseUrl: 'https://hemmingway.io', model: 'hemmingway-27b' }), false, 'nor Hemmingway');
+  eq(seedContinues({ type: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'claude' }), false, 'Claude takes no thinking seed');
+  eq(seedContinues({ type: 'openai', baseUrl: 'https://x.example', model: 'm', prefillFlagField: 'partial' }), true, 'a continuation flag he typed himself counts');
+});

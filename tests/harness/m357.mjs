@@ -55,7 +55,7 @@ test('M357-2 IT IS SAID BEFORE THE NEXT PAGE, NOT BY SENDING THIS ONE BACK — o
   assert(/ran out of room while you were still planning/.test(askAgain('fresh', {})), 'what is left asks only for a page that never arrived');
 });
 
-test('M358-1 THE GROUNDING PHRASE opens its thinking, in his voice and in the thinking itself — and empty is nothing at all', () => {
+test('M358-1 (as M375 changed it) THE GROUNDING PHRASE lives in who the teller is and, where the provider truly continues a thought, in the thought itself — never as an order at the end; empty is nothing at all', () => {
   eq(groundingOf({ groundingPhrase: '  Autobots,   roll out!  ' }), 'Autobots, roll out!', 'kept as he typed it, tidied');
   eq(groundingOf({}), '', 'and nothing when it is empty');
   const voice = voiceOf({ tellerName: 'Optimus Prime', writerName: 'Bruce', groundingPhrase: 'Autobots, roll out!' });
@@ -66,10 +66,13 @@ test('M358-1 THE GROUNDING PHRASE opens its thinking, in his voice and in the th
   eq(groundingLine(voiceOf({ tellerName: 'Optimus Prime' })), '', 'empty: not one word');
   eq(groundingSeed({ groundingPhrase: 'Autobots, roll out!' }), '<think>Autobots, roll out! ', 'the thinking itself is seeded with it');
   eq(groundingSeed({}), '', 'empty: no seed');
-  const on = buildRequest({ story: { brief: '' }, messages: [{ id: 'u1', role: 'user', text: 'I wait.' }], settings: { tellerName: 'Optimus Prime', groundingPhrase: 'Autobots, roll out!' }, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '' });
-  assert(on.messages[on.messages.length - 1].content.startsWith('Optimus Prime — open your thinking with'), 'it rides the closing words');
+  /* M375: no line at the end about the thinking any more — that order is what a teller narrates in an assistant's voice */
+  const on = buildRequest({ story: { brief: '' }, messages: [{ id: 'u1', role: 'user', text: 'I wait.' }], settings: { tellerName: 'Optimus Prime', groundingPhrase: 'Autobots, roll out!', frameText: 'You are Optimus Prime.\n\nYou tell it in close third.\n\nA third paragraph with a middle of its own.\n\nA fourth.' }, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '' });
+  const closing = on.messages.filter((m) => m.role === 'user').slice(-1)[0].content;
+  assert(!/open your thinking/i.test(closing), 'no order about the thinking at the end: ' + closing.slice(0, 80));
+  assert(/You open every thought with “Autobots, roll out!”/.test(JSON.stringify(on.systemBlocks)), 'the phrase lives in who the teller is');
   const off = buildRequest({ story: { brief: '' }, messages: [{ id: 'u1', role: 'user', text: 'I wait.' }], settings: { tellerName: 'Optimus Prime' }, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '' });
-  assert(!/open your thinking/i.test(JSON.stringify(off.messages) + JSON.stringify(off.systemBlocks)), 'with the box empty, the turn is what it was');
+  assert(!/open your thinking|open every thought/i.test(JSON.stringify(off.messages) + JSON.stringify(off.systemBlocks)), 'with the box empty, the turn is what it was');
 });
 
 test('M358-2 (as M371 widened it) HIS OWN PREFILL WINS ON A PAGE OF THE STORY, and an out-of-character turn takes the grounding phrase — never his story prefill', () => {

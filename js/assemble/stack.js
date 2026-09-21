@@ -97,7 +97,7 @@ import { sceneAnchor, recallFromRecord, recallLine } from './anchor.js'; /* M343
 import { plainRules } from './plain.js'; /* M354: the five plain lines, behind the derestricted switch */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
-import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingLine, groundingWeave } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
+import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -664,7 +664,9 @@ export function buildRequest({
   /* M359: and it goes in front of a house command's law, so a turn that is mostly instruction (#time skip, #p, #q)
    * still opens in his teller's own voice rather than an assistant's */
   const rawDirective = typeof directive === 'string' ? directive.trim() : '';
-  const directiveText = rawDirective && voice.grounding ? '“' + voice.grounding + '” — ' + rawDirective : rawDirective;
+  /* M375: the phrase is no longer glued to the front of a command's law — a quotation hanging before "#time skip" is
+   * exactly what his teller's thinking started calling "the wrapper" */
+  const directiveText = rawDirective;
   const prefixTokens = slots.reduce((sum, s) => sum + s.tokens, 0)
     + estimateTokens(hasNote ? note.text : '')
     + estimateTokens(nudges ? CONTINUE_NUDGE : '')
@@ -763,7 +765,10 @@ export function buildRequest({
    * words are story text ("sneak into the house" is a house). With the referee off it is never here. */
   const rulingLine = rulingText && safeSettings.refereeOn !== false ? toTeller(rulingText, voice) : '';
   /* M358: the grounding phrase — the first words of its own thinking, asked for in his voice, right beside the thinking */
-  const groundLine = groundingLine(voice);
+  /* M375: and no line at the end about the thinking — an order about how to think is what a teller narrates ("the user
+   * wants me to open with…"), in the very voice the phrase is there to keep out. The phrase lives in the standing words
+   * (who the teller IS) and, where the provider truly continues a thought, as the thought's own first words. */
+  const groundLine = '';
   const closing = [rulingLine, directiveText, nudges ? CONTINUE_NUDGE : '', echoOn ? frameText : '', anchorLine, plainLine, sensorLine, groundLine, thinkLine, hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   if (closing.length) out.push({ role: 'user', content: closing.join('\n\n') });
 

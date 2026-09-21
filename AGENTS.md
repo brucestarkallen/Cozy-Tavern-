@@ -8991,3 +8991,29 @@ each of which bends exactly this way:
   timed answer asks for three hundred words).
 - GATES ON THE PUSHED TREE: harness 742/742, walk 98/98 (alone), longplay 8/8, lint clean.
 - version.js -> m374-001.
+
+# M375 — the grounding phrase had become machinery his teller talked about
+His report: at m359 his funny persona held in the thinking; now the thinking says "user" and "wrapper". The house's own words
+carry no machine word at all (checked: a page, #time skip and an out-of-character turn built as sent, read with the M359
+reader — zero lines). What had changed was HOW the phrase reached the teller:
+- THE SEED ON A PROVIDER THAT DOES NOT CONTINUE. The phrase was planted as a trailing assistant message carrying it as
+  thinking. DeepSeek (prefix) and Moonshot (partial) read that as the START of the reply and continue it; Synthetic — his
+  frontier model's house — has no continuation flag, so the same message is a FINISHED, EMPTY assistant turn at the end of
+  the conversation, which the model then reads and reasons about ("the user's message… this wrapper…"). M370 made it ride
+  every turn and M371 widened it to out-of-character turns, so it grew worse after m359. Now (effort.js seedContinues) the
+  phrase is seeded ONLY where the provider truly continues a thought: DeepSeek, Moonshot, a Moonshot model on OpenRouter,
+  or a continuation flag he typed himself. Never Synthetic, Hemmingway, other OpenAI-shaped houses, or Claude.
+- THE QUOTATION GLUED TO A COMMAND (M359): "“X” — #time skip — jump to…" is a quote hanging before a house command — the
+  very shape a thinking model calls a wrapper. Gone: a command's law goes as it is.
+- THE ORDER AT THE END (M358): "open your thinking with “X”, the way you always do…" is an instruction ABOUT the thinking,
+  and an instruction about the thinking is what a teller narrates, in an assistant's voice ("the user wants me to open
+  with…"). Gone.
+- WHAT STAYS: the phrase woven into the standing words as who the teller is (M359's weave — part of his persona, not an
+  order this turn), and the true seed where the provider continues it. Empty box: not one byte.
+- TESTS: m357.mjs M358-1 (no order at the end, the phrase in the standing words, empty is nothing), m359.mjs M359-2 (a
+  command's law goes as it is), m373.mjs M375-1 (which providers truly continue: DeepSeek, Moonshot, OpenRouter's Moonshot,
+  a typed flag — never Synthetic, Hemmingway or Claude). DOM-79 in the app: on a provider with no flag, no seed, no order at
+  the end, nothing announced, the phrase in the standing words; with a flag, the thought opens with it, out-of-character
+  turns too, his story prefill never riding those.
+- GATES ON THE PUSHED TREE: harness 743/743, walk 98/98 (alone), longplay 8/8, lint clean.
+- version.js -> m375-001.

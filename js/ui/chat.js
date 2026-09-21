@@ -93,7 +93,7 @@ import { loadRules, currentRules, applyRules } from '../regex.js'; /* M30: the r
 import { renderHtmlProse, looksHtml } from './richhtml.js'; /* M31: display rules may dress the page in HTML */
 import { download } from './download.js';
 import { storyToMarkdown, storyToJsonl, storyExportBasename } from './storyexport.js';
-import { EFFORT_RANK, effectiveReasoningOf, reasoningIsDown, reasonStyle } from '../providers/effort.js';
+import { EFFORT_RANK, effectiveReasoningOf, reasoningIsDown, reasonStyle, seedContinues } from '../providers/effort.js';
 /* M10's showrunners ride the send path too (the episode mark is stripped
  * from the prose before the page is saved, and their standing texts join
  * the assembled tail). M15 audit found these names used below but never
@@ -3750,7 +3750,9 @@ export function initChat(ctx) {
        * out-of-character turn his prefill is a page's opening and stays off (as it always has), and the phrase rides. */
       const grounding = groundingSeed(settingsValues);
       const ownPrefill = String(connection.prefill || '').trim();
-      const seeded = grounding && (ooc || !ownPrefill) ? { prefill: grounding } : {};
+      /* M375: and only where the provider truly continues a started thought — anywhere else the seed is an empty extra
+       * turn the model reads, and reasons about in an assistant's voice */
+      const seeded = grounding && (ooc || !ownPrefill) && seedContinues(connection) ? { prefill: grounding } : {};
       const provider = createProvider({ ...connection, reasoning, ...seeded, ...(ooc ? { prefill: seeded.prefill || '' } : {}) });
       const showThinking = (await db.settings.get('showThinking')) !== false;
       /* M319: THE THREE SWITCHES THAT STOP THE THINKING FOR EVERY MODEL AT ONCE SAY SO, WHEN THEY DO. The writer:

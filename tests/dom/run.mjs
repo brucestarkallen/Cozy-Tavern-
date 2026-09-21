@@ -4162,7 +4162,7 @@ test('DOM-78 A NEW VERSION OF A PAGE IS WRITTEN WHERE THE PAGE STANDS: while it 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-79 THE GROUNDING PHRASE ON EVERY TURN: on a model that sends no thinking back — no banner, nothing remembered, planted and asked for all the same; and on an out-of-character turn too, never with his story prefill (M370, M371)', async () => {
+test('DOM-79 THE GROUNDING PHRASE WITHOUT ANY MACHINERY SHOWING: no seed where the provider does not truly continue a thought, no order at the end, nothing announced — it lives in the standing words; where the provider does continue, the thought opens with it, out-of-character turns too (M370, M371, M375)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   const said = [];
@@ -4183,19 +4183,23 @@ test('DOM-79 THE GROUNDING PHRASE ON EVERY TURN: on a model that sends no thinki
     const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000); return house.state.calls.slice(from).find((c) => c.body && c.body.model === 'quiet-model'); };
     /* the seed rides as the last assistant turn's thinking (or its text, where a provider takes no thinking there) */
     const seededIn = (call) => { const last = (call.body.messages || []).slice(-1)[0] || {}; return last.role === 'assistant' && /Autobots, roll out!/.test(String(last.reasoning_content || '') + String(last.content || '')); };
+    /* M375: this address has no continuation flag — a seed here would be an empty extra turn the model reads */
     const first = await send('I look around.');
     assert(first, 'the storyteller was asked');
-    assert(!said.some((w) => /grounding phrase|thinking seed/i.test(w)), 'no banner about it at all — his persona’s words are never announced: ' + said.join(' | '));
+    assert(!seededIn(first), 'no seed where the provider does not truly continue a thought');
+    const firstClosing = String(((first.body.messages || []).filter((m) => m.role === 'user').slice(-1)[0] || {}).content || '');
+    assert(!/open your thinking/i.test(firstClosing), 'no order about the thinking at the end: ' + firstClosing.slice(0, 80));
+    const standing = (first.body.messages || []).filter((m) => m.role === 'system').map((m) => String(m.content)).join('\n');
+    assert(/You open every thought with “Autobots, roll out!”/.test(standing), 'the phrase lives in the standing words');
+    assert(!said.some((w) => /grounding phrase|thinking seed/i.test(w)), 'and nothing is announced: ' + said.join(' | '));
+    /* where the provider DOES continue a thought (here a continuation flag of his own), the thought opens with it — on a
+     * page and on an out-of-character turn alike, and his story prefill never rides the out-of-character one */
+    await db.connections.update(conn.id, { prefillFlagField: 'partial' });
     const second = await send('I wait.');
-    assert(seededIn(second), 'and the phrase is planted again on the next turn, whatever the model did before');
-    const closing = String(((second.body.messages || []).filter((m) => m.role === 'user').slice(-1)[0] || {}).content || ''); /* the seed rides after it */
-    assert(/[Oo]pen your thinking with “Autobots, roll out!”/.test(closing), 'and still asked for at the end: ' + closing.slice(0, 120));
-    const kept = (await db.connections.list()).find((c) => c.id === conn.id);
-    assert(!('groundingSeedFailedFor' in kept), 'nothing about it is remembered on the connection');
-    /* M371: an out-of-character turn opens with it too — and his own story prefill never rides one */
+    assert(seededIn(second), 'the thought opens with the phrase where the provider continues it');
     const oocTurn = async (words) => { const from = house.state.calls.length; type(q('#composer-input'), words); submit(q('#composer')); await until(() => !env.ctx.chat.isBusy() && house.state.calls.slice(from).some((c) => c.body && c.body.model === 'quiet-model'), 'the answer', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000); return house.state.calls.slice(from).find((c) => c.body && c.body.model === 'quiet-model'); };
     const asked = await oocTurn('((slow down a little))');
-    assert(seededIn(asked), 'an out-of-character turn’s thinking opens with it');
+    assert(seededIn(asked), 'an out-of-character turn’s thought opens with it too');
     await db.connections.update(conn.id, { prefill: 'THE PAGE OPENS:' });
     const askedAgain = await oocTurn('// one more thing');
     assert(seededIn(askedAgain), 'with his own prefill set, the out-of-character turn still opens with the phrase');
