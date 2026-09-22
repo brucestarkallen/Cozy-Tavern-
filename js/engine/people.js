@@ -30,6 +30,7 @@
  */
 
 import { isMcAlias, mcName } from './duels.js';
+import { foldName, canonAliasOf } from './names.js'; /* M398: one person, one page */
 import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
 import { seatNowWords, findSeat, setSeatResolver } from './offscreen.js'; /* M300: a seat says its age; M304: one wording for every reader; M320: a seat is found the way a page is */
@@ -148,6 +149,15 @@ export function findPersonKey(characters, name) {
   const keys = Object.keys(characters && typeof characters === 'object' ? characters : {});
   const exact = keys.find((k) => k.toLowerCase() === wanted);
   if (exact) return exact;
+  /* M398: ONE PERSON, ONE PAGE — THE SAME LETTERS, OR CANON'S OTHER NAME FOR THEM. "Suì-Fēng" (from canon) and
+   * "Sui-Feng" (on the page) are one person with folded letters; "Soi Fon" is her too when canon says so. Only a
+   * match that is exactly one page, and only by folded letters or canon's names — first names keep their own rule
+   * below (two Vanessas are never one). */
+  const folded = foldName(name);
+  const sameLetters = keys.filter((k) => foldName(k) === folded);
+  if (sameLetters.length === 1) return sameLetters[0];
+  const byCanon = keys.filter((k) => canonAliasOf(k, name));
+  if (byCanon.length === 1) return byCanon[0];
   const near = keys.filter((k) => {
     if (titlesDiffer(k, wanted)) return false; /* M272 */
     const bound = Math.min(nameBound(k), nameBound(wanted)) || 1;

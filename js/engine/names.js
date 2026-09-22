@@ -32,6 +32,12 @@ function aliased(a, b) {
   return false;
 }
 
+/* Do the story's canon names make `a` and `b` one person (not by letters or first names — by canon alone)? */
+export function canonAliasOf(a, b) {
+  const fa = foldName(a); const fb = foldName(b);
+  return Boolean(fa && fb && fa !== fb && aliased(fa, fb));
+}
+
 /* Is `a` the same person as `b`? The same name (folded), a first or last name of the other, one cut short of the
  * other, or two names the story's canon knows as one person. Never a near miss: seating is a hard fact. */
 export function samePersonName(a, b) {

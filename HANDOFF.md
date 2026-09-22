@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m397-001)
+# Cozy Tavern — handoff for the next session (state at m398-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0b. THE HOUSEKEEPER NEVER CLAIMS WHAT IT ONLY PROPOSED (M397). A ledger card the dry run says can never land is handed
@@ -10,7 +10,10 @@
    samePersonName (letters folded, a first/last name, a name cut short, canon's other names via setAliasSource) and
    isHere (a name means one person, or only its exact letters decide). Every book uses it: the seat guard, the seat
    finder, the storyteller's elsewhere list, the drawer, the world agent's "[in the scene]". applyMutations ends every
-   batch by letting go of any elsewhere note for someone in the scene. No seat where the scene itself is (unless on
+   batch by letting go of any elsewhere note for someone in the scene. M398: the scribe, the auditor, the referee's
+   cast, the housekeeper's reading, the whole-ledger reading and the drawer's people panel ask the same matcher; a
+   page is found by folded letters and canon's other names (findPersonKey); a page names the story threads its person
+   owns (ownedThreadTitles) wherever it is read. No seat where the scene itself is (unless on
    the way in); no arrival on a stance that stays put. Never compare person names by exact lower case again.
 0. WHAT HE TYPES IS WHAT HAPPENS (M391). A shortcut (#story, #p, #pp, #q, #continue, #time, #question, #Put TWB, ((…)),
    //) does NOTHING in the house: the page he sees, the page kept and the words the storyteller is sent are exactly what
@@ -51,7 +54,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 783 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 787 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 108 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).

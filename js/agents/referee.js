@@ -31,6 +31,7 @@
  */
 
 import { parseFirstObject } from './jsonutil.js';
+import { isHere } from '../engine/names.js'; /* M398 */
 import { pageText as wirePageText } from '../assemble/stack.js'; /* M174: the one reader of a page's words */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
@@ -1109,7 +1110,8 @@ export function seedDue(state, pagesTold) {
 /* every person the ledger holds a page for, the most important first, in the room given */
 export function seedPeople(state, brief = '', room = 60000) {
   const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
-  const here = new Set((Array.isArray(state && state.present) ? state.present : []).map((p) => lower(typeof p === 'string' ? p : p && p.name)));
+  const hereSet = new Set((Array.isArray(state && state.present) ? state.present : []).map((p) => lower(typeof p === 'string' ? p : p && p.name)));
+  const here = { has: (k) => hereSet.has(k) || isHere(state, k) }; /* M398: one answer to "the same person?" */
   const turn = storyTurn(state || {});
   const rows = [];
   for (const [name, c] of Object.entries(chars)) {

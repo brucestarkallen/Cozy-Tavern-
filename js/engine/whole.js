@@ -23,6 +23,7 @@
  */
 
 import { renderClock } from './clock.js';
+import { isHere, samePersonName } from './names.js'; /* M398 */
 import { renderBodies } from './bodies.js';
 import { renderCanon } from './canon.js';
 import { renderOffscreen } from './offscreen.js';
@@ -221,12 +222,12 @@ export function nearNames(state) {
     ...Object.keys((state && state.offscreen) || {}).map(lower),
     ...Object.keys(rels).filter((k) => { const r = rels[k] || {}; return Math.abs(r.p || 0) + Math.abs(r.r || 0) + Math.abs(r.s || 0) >= 20; }).map(lower),
   ]);
-  return { here, near, lower };
+  return { here, near, lower, state }; /* M398: the state rides, for the one matcher */
 }
 export function leanPage(names, name, c, level) {
   if (!c || typeof c !== 'object') return null;
   if (c.retired && level >= 1) return null;
-  const inScene = names.here.has(names.lower(name));
+  const inScene = names.here.has(names.lower(name)) || Boolean(names.state && isHere(names.state, name)); /* M398 */
   const close = inScene || (names.near.has(names.lower(name)) && level < 4);
   const threads = Array.isArray(c.threads) ? c.threads.map((t) => (typeof t === 'string' ? t : t && t.text)).filter(Boolean) : [];
   return {
@@ -234,7 +235,20 @@ export function leanPage(names, name, c, level) {
     state: c.state && (level < 3 || close) ? c.state : '',
     arc: c.arc && (level < 2 || close) ? c.arc : '',
     threads: level < 2 || close ? threads : [],
+    owns: names.state ? ownedThreadTitles(names.state, name) : [], /* M398 */
     shortened: level > 0 && !inScene,
   };
 }
 export const LEAN_STEPS = 5;
+
+/* M398: THE STORY THREADS A PERSON OWNS ARE THEIRS — ONE HOME, SHOWN WHERE THEY ARE READ. A thread the world keeps
+ * ("Rukia Kuchiki and the 13th Division command", owner Rukia Kuchiki) lives with the story's threads; her page's own
+ * loose ends are the small things left open on the page (M131 shows a loose end that repeats one of them once, as the
+ * thread). The housekeeper read her page "THREADS: (none)" beside the world's thread and called the ledger
+ * inconsistent — and proposed writing it twice. Every reading of a page now names the story threads its person owns,
+ * by the one matcher (engine/names.js). */
+export function ownedThreadTitles(state, name) {
+  return (state && Array.isArray(state.threads) ? state.threads : [])
+    .filter((t) => t && typeof t === 'object' && t.title && t.owner && samePersonName(t.owner, name))
+    .map((t) => String(t.title).trim());
+}

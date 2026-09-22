@@ -20,6 +20,8 @@
  */
 
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
+import { seatForPerson } from '../engine/people.js'; /* M398 */
+import { isHere } from '../engine/names.js'; /* M398: one answer to "the same person?" */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -217,6 +219,7 @@ function characterPages(state, level = 0) {
     if (p.state) bits.push('now: ' + p.state);
     if (p.arc) bits.push('arc: ' + p.arc);
     if (p.threads.length) bits.push('loose ends: ' + p.threads.join('; '));
+    if (p.owns && p.owns.length) bits.push('owns the story threads: ' + p.owns.join('; ') + ' (kept with the threads, never repeated as loose ends)'); /* M398 */
     lines.push(name + (c.retired ? ' (passed through — out of the story until a page names them)' : '') + ' — ' + bits.join(' | '));
   }
   return lines.join('\n');
@@ -591,8 +594,11 @@ export function peopleHousekeeping(state, brief = '', castNotes = '', castNames 
   const turn = storyTurn(state);
   const mc = mcName(state) !== 'the player' ? mcName(state) : '';
   const lower = (x) => String(x || '').trim().toLowerCase();
-  const present = new Set((state.present || []).map((p) => lower(p && p.name)));
-  const seated = new Set(Object.keys(state.offscreen || {}).map(lower));
+  /* M398: here and seated by the one matcher — "Rukia" in the scene is Rukia Kuchiki here; a seat under any form of a name is theirs */
+  const presentSet = new Set((state.present || []).map((p) => lower(p && p.name)));
+  const present = { has: (k) => presentSet.has(k) || isHere(state, k) };
+  const seatedSet = new Set(Object.keys(state.offscreen || {}).map(lower));
+  const seated = { has: (k) => seatedSet.has(k) || Boolean(seatForPerson(state, k)) };
   const locked = new Set(Object.keys(state.canon || {}).map(lower));
   const rels = state.relationships || {};
   for (const [name, c] of Object.entries(chars)) {
@@ -765,7 +771,7 @@ export function carriedBy(state, name, { brief = '', castNotes = '', pages = [],
   const threads = Array.isArray(state.threads) ? state.threads : [];
   const n = String(name || '').trim().toLowerCase();
   if (!n) return '';
-  const present = (state.present || []).some((p) => p && String(p.name || '').trim().toLowerCase() === n);
+  const present = (state.present || []).some((p) => p && String(p.name || '').trim().toLowerCase() === n) || isHere(state, name); /* M398 */
   if (present) return 'in the scene';
   if (writersOwn(name, material, castNames)) return 'the brief names them';
   const relKey = Object.keys(rels).find((r) => samePersonLoose(r, name));

@@ -20,6 +20,8 @@
  */
 
 import { balancedCandidates, parseLenient } from './jsonutil.js';
+import { seatForPerson } from '../engine/people.js'; /* M398 */
+import { isHere } from '../engine/names.js'; /* M398 */
 import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
 import { loadState, saveState, notify } from '../engine/state.js';
 import { renderPeopleTiers, peopleView, mcKey, findPersonKey } from '../engine/people.js';
@@ -285,9 +287,9 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
    * merge laws are the applier's now (engine/apply.js → mergeDeltas). */
   /* M130: one writer per now — a 'state' line for a person who is elsewhere
    * (seated by the world agent, not present) is dropped; the seat is their now */
-  const present = new Set((fresh.present || []).map((p) => String((p && p.name) || '').trim().toLowerCase()));
-  const seated = new Set(Object.keys(fresh.offscreen || {}).map((k) => k.trim().toLowerCase()));
-  const kept = deltas.filter((d) => !(d && d.field === 'state' && !present.has(String(d.name || '').trim().toLowerCase()) && seated.has(String(d.name || '').trim().toLowerCase())));
+  /* M398: here and seated by the one matcher — the scribe's "now" for Rukia Kuchiki, in the scene as "Rukia", was
+   * dropped as if she were elsewhere */
+  const kept = deltas.filter((d) => !(d && d.field === 'state' && !isHere(fresh, d.name) && seatForPerson(fresh, d.name)));
   const { state: next, applied, rejected } = applyMutations(fresh, kept.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
   const dropped = rejected.map((r) => ({ delta: r.mutation, why: r.why }));

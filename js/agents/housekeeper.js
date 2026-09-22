@@ -48,6 +48,7 @@
  */
 
 import { nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M288: the lean steps */
+import { samePersonName } from '../engine/names.js'; /* M398 */
 import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
 import { db } from '../store.js';
 import { loadState, saveState, notify } from '../engine/state.js';
@@ -1051,7 +1052,7 @@ export function ledgerSliceHash(state, key) {
   if (kind === 'clock') slice = st.clock || null;
   else if (kind === 'place') slice = st.place || null;
   else if (kind === 'mc') slice = (st.sheet && st.sheet.playerName) || '';
-  else if (kind === 'presence') slice = (Array.isArray(st.present) ? st.present : []).find((p) => p && String(p.name).trim().toLowerCase() === name) || null;
+  else if (kind === 'presence') slice = (Array.isArray(st.present) ? st.present : []).find((p) => p && String(p.name).trim().toLowerCase() === name) || (Array.isArray(st.present) ? st.present : []).find((p) => p && samePersonName(p.name, name)) || null; /* M398 */
   else if (kind === 'mode') slice = st.mode || {};
   else if (kind === 'body') slice = byName(st.bodies);
   else if (kind === 'rel') slice = byName(st.relationships);
@@ -3045,9 +3046,13 @@ function personBlock(name, c, p) {
   const threads = (c.threads || []).length
     ? (p.threads.length ? p.threads.map((t) => '\u201c' + t + '\u201d').join('; ') : '(not shown this reading)')
     : '(none)';
+  /* M398: the story threads they own are named here — kept with the story's threads, never copied onto the page */
+  const owns = p && Array.isArray(p.owns) && p.owns.length
+    ? '\n  OWNS THESE STORY THREADS (kept with the story\u2019s threads, not repeated as loose ends \u2014 nothing is missing): ' + p.owns.map((t) => '\u201c' + t + '\u201d').join('; ')
+    : '';
   return '[' + name + (c.retired ? ' \u2014 passed through' : '') + ']'
     + field('CORE', c.core, p.core) + field('STATE', c.state, p.state) + field('ARC', c.arc, p.arc)
-    + '\n  THREADS: ' + threads;
+    + '\n  THREADS: ' + threads + owns;
 }
 
 export async function runConversation({

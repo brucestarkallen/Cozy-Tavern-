@@ -9640,3 +9640,37 @@ change could not be done, it kept saying "it's done, it's done, it's done".
   correction sets the wrong card aside). The whole harness stayed green (783) — no older test depended on the old
   behavior. NEGATIVE-TESTED: all four guards.
 - version.js -> m397-001.
+
+# M398 — the ledger audited, book by book: every reader asks one matcher; a page names the threads its person owns
+He asked for the whole ledger audited — the scene, the people, the world, the pipeline — so the earlier mistakes
+cannot come back; whether a housekeeper finding (Rukia's page "THREADS: (none)" beside the world's thread "Rukia
+Kuchiki and the 13th Division command") was real; and whether the ledger's agents are logical and smart.
+THE AUDIT — the M396 fault, searched for everywhere (a person compared to the scene by EXACT lower case):
+- the scribe dropped a present person's "now" as if they were elsewhere when the page named them another way ("Rukia"
+  in the scene, "Rukia Kuchiki" in the delta, a stale seat) — isHere/seatForPerson now;
+- the auditor read who is here and who is seated by exact names — so it could "fix" a present person as absent;
+- the referee's cast (seedPeople) — the fight's own people could be read as away;
+- the housekeeper's review slice of a presence, the whole-ledger reading (nearNames/leanPage: a present person's page
+  was shortened as if away), and the drawer's people panel ("— here" / "— elsewhere", her seat, her now).
+  All ask engine/names.js now.
+- ONE PERSON, ONE PAGE: findPersonKey found a page by exact name, near spelling or a first/last name — never by folded
+  letters past the spelling bound ("Rōjūrō Ōtoribashi" and "Rojuro Otoribashi" became two Roses) and never by canon's
+  other name ("Soi Fon" beside "Suì-Fēng"). Both are steps now, each only when exactly one page answers.
+THE HOUSEKEEPER'S FINDING: not a missing loose end — a missing LINK. A story thread lives with the story's threads
+(M131 shows a page's loose end that repeats it once, as the thread), and no reading of her page said she owned it. So
+the housekeeper saw "(none)" and proposed writing it twice. Every reading of a page now names the story threads its
+person owns (ownedThreadTitles, by the one matcher): the housekeeper's ("OWNS THESE STORY THREADS … nothing is
+missing"), the auditor's, and the drawer's ("Their story threads:"). One home for the thread; its owner's page points
+to it. The storyteller's own reading is unchanged (the threads already ride once, as threads).
+THE AGENTS, HONESTLY: their judgment is the model's; what the house controls is what they are TOLD and what they are
+ALLOWED. This audit and the last three removed the traps found in both: the world agent told a present person needed
+a seat (M396), allowed a seat where the scene is and an arrival on a busy stance (M396); the housekeeper allowed to
+stage a card that cannot land and to say "done" of a proposal (M397), shown a page without its threads (M398); the
+scribe, the auditor and the referee reading presence by exact names (M398); every worker handed canon's end-state
+as fact (M392–M394).
+- TESTS: m398.mjs (4: the housekeeper reads her owned thread on her page; the scribe keeps her now under another form
+  while a seated person's now stays the seat's; the referee's cast has her here; one person one page by folded letters
+  — Rose's four marks — and by canon's names, two Vanessas still two). M130-1 and M131-1 pinned the scribe's OLD code
+  text for the same law; they point at the new rule now, and M398-2 proves it running. NEGATIVE-TESTED: the owned-
+  threads line, the scribe's exact match, the referee's exact match, the page finder's folded and canon steps.
+- version.js -> m398-001.

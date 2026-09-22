@@ -726,7 +726,8 @@ test('M129-1 a person who appears only inside the window is never seated present
 
 test('M130-1 one now per person: the scribe never writes state for a seated absent person; a recall card carries the seat', async () => {
   const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/scribe.js', import.meta.url), 'utf8');
-  assert(/ONLY for people IN THE SCENE/.test(src) && /seated\.has\(String\(d\.name/.test(src), 'the law and the code');
+  /* M398: the rule now asks the one matcher (isHere, seatForPerson) — the behaviour is M398-2's to prove, under both forms of a name */
+  assert(/ONLY for people IN THE SCENE/.test(src) && /!isHere\(fresh, d\.name\) && seatForPerson\(fresh, d\.name\)/.test(src), 'the law and the code');
   const { renderPeopleTiers } = await import('../../js/engine/people.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
   let st = emptyState();
@@ -763,7 +764,7 @@ test('M131-1 OWNERSHIP OF THE LEDGER: every fact has one writer; every second wr
       'while a finished loose end is what lasts, and lands');
   }
   /* the now of an absent person — the world agent’s seat; the scribe writes state for the present only */
-  assert(/seated\.has\(String\(d\.name/.test(scribe), 'the scribe drops state for the seated absent');
+  assert(/!isHere\(fresh, d\.name\) && seatForPerson\(fresh, d\.name\)/.test(scribe), 'the scribe drops state for the seated absent (M398: by the one matcher — M398-2 proves it running)');
   /* the ground and the hour — the header, in code, over the extractor’s own guess */
   assert(/headerHas\.has\(m\.type\)/.test(chat), 'the header wins over the extractor’s place/clock');
   /* people in a window — never present */

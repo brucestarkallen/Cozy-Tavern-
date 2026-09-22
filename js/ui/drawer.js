@@ -55,7 +55,7 @@ import { pageText } from '../assemble/stack.js';
 import { db } from '../store.js';
 import { canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys, canonNotes } from '../canon/bridge.js'; /* M386: what canon says; M395: its own notes */
 import { overlayFor, throughLens, lensHeld } from '../agents/canonlens.js'; /* M392: canon through his story */
-import { isHere } from '../engine/names.js'; /* M396: one answer to "the same person?" */
+import { isHere, samePersonName } from '../engine/names.js'; /* M396/M398: one answer to "the same person?" */
 
 /* ---------- shared helpers ---------- */
 
@@ -1875,7 +1875,9 @@ function peoplePanel(ctx) {
     const passed = Object.keys(chars).filter((n) => chars[n] && typeof chars[n] === 'object' && chars[n].retired);
     if (!names.length && !passed.length) { note.textContent = 'No character pages yet. The scribe writes one for everyone who acts on a page; the world agent for everyone it seats.'; return; }
     note.textContent = names.length + (names.length === 1 ? ' page' : ' pages') + ' — who each person is, where they are now, how things stand with you, and what is still open. The scribe writes them after each page; you can write on one by hand below, and every line can be taken back from “What changed and why”.';
-    const present = new Set((state.present || []).map((p) => String(p && p.name || '').toLowerCase()));
+    /* M398: "here" by the one matcher (engine/names.js) — a page "Rukia Kuchiki" with "Rukia" in the scene is here */
+    const presentSet = new Set((state.present || []).map((p) => String(p && p.name || '').toLowerCase()));
+    const present = { has: (k) => presentSet.has(k) || isHere(state, k) };
     names.sort((a, b) => (present.has(b.toLowerCase()) - present.has(a.toLowerCase())) || a.localeCompare(b));
     /* M104: why each person is carried, in the house's own words — information
      * for the writer, never a decision for a model */
@@ -1886,7 +1888,7 @@ function peoplePanel(ctx) {
       const li = document.createElement('li');
       li.className = 'present-row mind-row people-row';
       const head = document.createElement('strong');
-      head.textContent = name + (present.has(name.toLowerCase()) ? ' — here' : (state.offscreen && Object.keys(state.offscreen).some((k) => k.toLowerCase() === name.toLowerCase()) ? ' — elsewhere' : ''));
+      head.textContent = name + (present.has(name.toLowerCase()) ? ' — here' : (seatForPerson(state, name) ? ' — elsewhere' : '')); /* M398: a seat under any form of their name */
       li.appendChild(head);
       const why = carriedBy(state, name, { brief: story.brief || '', castNotes: story.castNotes || '', pages: recent, castNames });
       const carry = document.createElement('div');
@@ -1914,7 +1916,7 @@ function peoplePanel(ctx) {
        * His now is written in code from the ledger the page reader keeps every
        * page — where he is in the room, the ground, the hour; the scribe's note
        * rides beneath it only while it is fresh, and is never shown stale. */
-      const seat = mine ? (state.present || []).find((p) => p && String(p.name || '').toLowerCase() === name.toLowerCase()) : null;
+      const seat = mine ? ((state.present || []).find((p) => p && String(p.name || '').toLowerCase() === name.toLowerCase()) || (state.present || []).find((p) => p && samePersonName(p.name, name))) : null; /* M398 */
       if (mine && (seat || (state.place && state.place.name))) {
         const bits = [seat && seat.position ? String(seat.position).trim() : '', state.place && state.place.name ? 'at ' + String(state.place.name).trim() : '', state.clock ? renderClock(state.clock) : ''].filter(Boolean);
         addLine('Now: ' + bits.join(' — '));
@@ -1924,9 +1926,12 @@ function peoplePanel(ctx) {
        * main character too; "Now:" over a thirty-page-old line hid a page that was not being kept */
       else if (typeof c.state === 'string' && c.state.trim()) addLine((ago > 2 ? (isHere || mine ? 'Last noted ' : 'Last seen ') + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ' : 'Now: ') + c.state.trim());
       if (typeof c.arc === 'string' && c.arc.trim()) addLine('Between you: ' + c.arc.trim());
+      /* M398: the story threads this person owns, named on their page — kept with the story's threads, one home */
+      const ownsThreads = (state.threads || []).filter((t) => t && t.title && t.owner && samePersonName(t.owner, name)).map((t) => String(t.title).trim());
+      if (ownsThreads.length) addLine('Their story threads: ' + ownsThreads.join('; '));
       if (Array.isArray(c.threads) && c.threads.length) {
         /* M131: a loose end that repeats a world thread this person owns is shown once — as the thread */
-        const owned = (state.threads || []).filter((t) => t && t.owner && String(t.owner).toLowerCase() === name.toLowerCase()).map((t) => String((t.title || '') + ' ' + (t.next || '')).toLowerCase());
+        const owned = (state.threads || []).filter((t) => t && t.owner && samePersonName(t.owner, name)).map((t) => String((t.title || '') + ' ' + (t.next || '')).toLowerCase()); /* M398: the owner by the one matcher */
         const ends = c.threads.map((t) => (typeof t === 'string' ? t : t && t.text)).filter(Boolean)
           .filter((le) => !owned.some((o) => { const w = String(le).toLowerCase().split(/\W+/).filter((x) => x.length > 3); const hit = w.filter((x) => o.includes(x)).length; return w.length >= 4 && hit / w.length >= 0.6; }));
         if (ends.length) addLine('Loose ends: ' + ends.join('; '));
