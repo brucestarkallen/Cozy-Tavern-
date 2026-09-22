@@ -55,6 +55,7 @@ import { pageText } from '../assemble/stack.js';
 import { db } from '../store.js';
 import { canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys, canonNotes } from '../canon/bridge.js'; /* M386: what canon says; M395: its own notes */
 import { overlayFor, throughLens, lensHeld } from '../agents/canonlens.js'; /* M392: canon through his story */
+import { isHere } from '../engine/names.js'; /* M396: one answer to "the same person?" */
 
 /* ---------- shared helpers ---------- */
 
@@ -1011,7 +1012,7 @@ function elsewherePanel(ctx) {
      * engine (seatLine); one order (seatOrder). */
     const clockNow = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
     const here = new Set((Array.isArray(state.present) ? state.present : []).map((p) => String((p && p.name) || '').trim().toLowerCase()));
-    const names = seatOrder(offscreen, clockNow).filter((n) => !here.has(n.trim().toLowerCase()));
+    const names = seatOrder(offscreen, clockNow).filter((n) => !here.has(n.trim().toLowerCase()) && !isHere(state, n)); /* M396 */
     note.textContent = names.length
       ? 'Where the absent are, as last known — whoever can reach the scene soonest first. Someone who leaves the page is kept where they were last seen until the world moves them on; coming back into the scene lets the note go on its own.'
       : 'No one is written elsewhere yet. When someone leaves the page, where they were last seen lands here.';

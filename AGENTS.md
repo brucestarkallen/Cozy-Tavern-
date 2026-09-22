@@ -9587,3 +9587,36 @@ doesn't follow the header", and whether his instruction that anyone can interrup
 - version.js -> m395-001; Canon Grounding v0.68.1 vendored @ 803dc53 (fresh clone: proof 602, sim 430; v0.68.1 only moves
   the host-place functions after the PLACE_WORDS they read — Cozy's lint flagged the order). The import of canonNote is
   keepCanonNote in chat.js (the send path has a local canonNote — the note itself). Lint: 148 warnings, none new.
+
+# M396 — the ledger audited: nobody is in two places, and "elsewhere" never contradicts the scene
+His Bleach duel: the captains going to watch Jovan fight in the Tenth Division courtyard, Rukia and Suì-Fēng among
+them — and "What's happening elsewhere" had Rukia in the 13th Division office, Suì-Fēng in the Onmitsukidō compound,
+Rose "in the Tenth Division courtyard, the galleries, watching the yard", Hitsugaya "arriving at the galleries", and
+every line "due now" — "taken up with someone else, due now". Some were in "Who's here" too.
+THE AUDIT (the ledger's books against each other, root by root):
+- FOUR ANSWERS TO "THE SAME PERSON?": the seat guard matched a first or last name, the seat finder near spellings,
+  and the storyteller's elsewhere list, the drawer and the world agent's own "who is here" matched EXACT lower case.
+  None folded letters ("Suì-Fēng" — the name canon verification hands the workers — and "Sui-Feng" were two people),
+  none knew canon's other names ("Soi Fon"). So a person on the page under one form and seated under another was
+  listed here AND elsewhere — and the world agent was told the one standing in the scene had "NO SEAT — seat them".
+  One matcher now (engine/names.js): samePersonName and isHere, with canon's alias groups lent by the bridge; used by
+  findPresent, findSeat, renderOffscreen (state of things, the whole ledger, the world agent's list), the drawer and
+  the world agent's marks. isHere refuses to guess: two Vanessas and a note under "Vanessa" stay (M320's law kept).
+- NO LAW, ONLY HOPES: presence.enter let a seat go and offscreen.set refused a present person — each writer's courtesy,
+  and a ledger that ever held both (older pages, a name spelled two ways) held it forever. applyMutations now ends
+  every batch by letting go of any elsewhere note for someone in the scene (said in What changed and why); a fold
+  replays it the same. His current ledger heals on its next change.
+- ELSEWHERE AT THE SCENE: nothing stopped a seat at the scene's own place. offscreen.set now refuses one (the place's
+  first part, two words or more — a whole city is no one spot) unless the person is on the way in (toward/seeking);
+  the world agent is told: anyone the page shows in the scene is in it, nobody is seated where the scene is.
+- "DUE NOW" ON A STANCE THAT STAYS PUT: an arrival rode "busy"/"waiting" seats. It is no longer kept (offscreen.set) or
+  said (renderArrival) for them; someone moving in (toward, seeking, tense) keeps theirs.
+- TESTS: m396.mjs (4: one matcher; nobody in two places after every batch — his Rukia and Suì-Fēng under the page's
+  names, never re-seated, a broken ledger healed by the next change and never told to the storyteller; no seat where
+  the scene is, an arrival only where it moves; the world agent marks both [in the scene], never "seat them").
+  Three older tests caught my first draft (a name cut short, two Vanessas, an arrival with no stance) — the code was
+  wrong each time, and was fixed; no test was changed. NEGATIVE-TESTED: the batch law, the ambiguity check, folding,
+  the venue guard, the world agent's marks, busy arrivals.
+- NOT DONE BY CODE: whether Rukia and Suì-Fēng are in "Who's here" at all is the extractor's reading of his page; if
+  the page shows them and "Who's here" does not, "read again" on that page re-reads it.
+- version.js -> m396-001.

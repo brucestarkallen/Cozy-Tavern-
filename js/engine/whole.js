@@ -165,7 +165,7 @@ export function renderWholeLedger(state) {
   section('Who knows what — EVERY line written, for everyone:',
     renderAllKnowledge(state.knowledge, present), '(nothing written)');
   section('Elsewhere — every seat of the absent:',
-    renderOffscreen(state.offscreen, present, clockMinutes, 1000), '(nobody seated)');
+    renderOffscreen(state.offscreen, present, clockMinutes, 1000, state.characters || {}), '(nobody seated)'); /* M396 */
   section('What their bodies carry:',
     renderBodies(state.bodies, clockMinutes, storyTurn(state)), '(nothing written)');
   section('What is locked true:',

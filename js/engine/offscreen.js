@@ -35,6 +35,7 @@
  */
 
 import { renderArrival } from './world.js'; /* M29: stance and arrival on the clock */
+import { samePersonName, isHere } from './names.js'; /* M396: one answer to "the same person?" */
 
 const RENDER_TOP = 6;
 
@@ -107,6 +108,9 @@ export function findSeat(offscreen, name) {
   if (!wanted) return null;
   const safe = offscreen && typeof offscreen === 'object' ? offscreen : {};
   let key = Object.keys(safe).find((k) => k.trim().toLowerCase() === wanted);
+  /* M396: the same person under another form of the name (folded letters, a first name, canon's other name) — only
+   * when exactly one seat answers */
+  if (!key) { const hits = Object.keys(safe).filter((k) => samePersonName(k, name)); if (hits.length === 1) key = hits[0]; }
   if (!key && nearName) { try { key = nearName(safe, cleanText(name)) || undefined; } catch (err) { key = undefined; } }
   return key ? { key, entry: safe[key] } : null;
 }
@@ -164,17 +168,12 @@ function seatWords(name, entry, clockMinutes) {
 
 /* The six most recently seated who are NOT in the scene right now.
  * `present` is state.present ([{name}] — plain strings tolerated). */
-export function renderOffscreen(offscreen, present, clockMinutes, top = RENDER_TOP) {
+export function renderOffscreen(offscreen, present, clockMinutes, top = RENDER_TOP, characters = {}) {
   const safe = offscreen && typeof offscreen === 'object' ? offscreen : {};
-  const here = new Set(
-    (Array.isArray(present) ? present : [])
-      .map((p) => cleanText(typeof p === 'string' ? p : p && p.name).toLowerCase())
-      .filter(Boolean)
-  );
   const rows = [];
   for (const [name, entry] of Object.entries(safe)) {
     if (!entry || typeof entry !== 'object') continue;
-    if (here.has(name.trim().toLowerCase())) continue; // they're in the scene
+    if (isHere({ present, offscreen: safe, characters }, name)) continue; // they're in the scene — under any form of their name (M396)
     rows.push({ line: seatWords(name, entry, clockMinutes), recency: recencyKey(entry), rank: stanceRank(entry, clockMinutes) });
   }
   /* M86: the writer's ACW rotation, not recency alone — whoever is moving

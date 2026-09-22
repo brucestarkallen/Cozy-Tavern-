@@ -721,7 +721,7 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M86: the living world is not the first thing the budget drops — who is
    * moving toward the scene stands with the body ledger (shed 3); the
    * standings and the threads follow (4); the factions last (5). */
-  const elsewhere = renderOffscreen(state.offscreen, present, clockMinutes, whole ? 1000 : undefined);
+  const elsewhere = renderOffscreen(state.offscreen, present, clockMinutes, whole ? 1000 : undefined, state.characters || {}); /* M396 */
   if (elsewhere) sections.push({ shed: 3, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
 
   const factionLines = renderFactions(state.factions, whole ? Infinity : undefined);

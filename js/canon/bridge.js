@@ -35,6 +35,7 @@ import { mcName } from '../engine/duels.js';
 import { findPersonKey } from '../engine/people.js';
 import { findCanonKey, findFact, FACTS_SHOWN } from '../engine/canon.js';
 import { applyMutations, letGoMark } from '../engine/apply.js';
+import { setAliasSource } from '../engine/names.js'; /* M396: canon knows who answers to which names */
 import { loadState, saveState, notify } from '../engine/state.js';
 import { overlayFor, throughLens, lensPremise, lensCurrent, lensPeople, lensDueIn } from '../agents/canonlens.js'; /* M392/M393/M394: canon through his story */
 import {
@@ -152,6 +153,18 @@ export function ledgerOf(state, { brief = '' } = {}) {
   return out;
 }
 
+
+/* M396: the names each canon person answers to, as groups — for the ledger's one matcher */
+function aliasGroupsOf(meta) {
+  const cache = meta && meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {};
+  const groups = [];
+  for (const e of Object.values(cache)) {
+    if (!e || !e.found || e.kind === 'place' || !e.name) continue;
+    const names = [e.name, ...(Array.isArray(e.aliases) ? e.aliases : [])].filter((n) => typeof n === 'string' && n.trim().length >= 3);
+    if (names.length > 1) groups.push(names);
+  }
+  return groups;
+}
 
 /* the story's canon memory, without the ledger Cozy lends it each time */
 async function saveMeta(storyId, meta) {
@@ -271,6 +284,9 @@ async function enterStory(bundle) {
   await canonReady();
   const meta = await loadMeta(story.id);
   setContext(contextFor({ ...bundle, meta }));
+  /* M396: every book of the ledger asks "the same person?" of one matcher — and canon knows who answers to which names
+   * (Soi Fon is Suì-Fēng): the story in hand lends it the names of everyone it has looked up */
+  setAliasSource(() => aliasGroupsOf(meta));
   if (lastStory !== story.id) {
     lastStory = story.id;
     await eventSource.emit(event_types.CHAT_CHANGED); /* a new chat for it: its per-chat memory resets, the wiki is checked */

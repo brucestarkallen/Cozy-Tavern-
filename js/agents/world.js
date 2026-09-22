@@ -49,6 +49,7 @@ import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
 import { findPersonKey, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
+import { isHere } from '../engine/names.js'; /* M396: one answer to "the same person?" */
 import { storyTurn } from '../engine/apply.js';
 import { applyMutations } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
@@ -141,7 +142,9 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'for a reason. Someone moving toward the main character gets stance "toward" and an ETA; before the',
     'ETA they are on the road, never early. A change from what the ledger says needs a cause — a silent',
     'flip is an error, not variety. Someone the page shows arriving is the extractor\'s to seat; you clear',
-    'their elsewhere note.',
+    'their elsewhere note. Anyone the page shows IN the scene is in it, whatever the list below says — never',
+    'seat them elsewhere. Nobody is seated where the scene itself is: someone at that place is in the scene,',
+    'or on the way to it ("toward", with an ETA). Only someone on their way has an arrival.',
     '',
     'WHO IS SEATED (M304). EVERYONE WHO MATTERS TO THE STORY HAS A WHEREABOUTS AT EVERY HOUR — family,',
     'friends, rivals, lovers, the writer’s own people, anyone with a standing, a thread, a locked truth or a',
@@ -317,7 +320,7 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
     const arc = typeof c.arc === 'string' ? c.arc.trim() : '';
     if (!core && !now && !arc) continue;
     const weight = importanceOf(state, name, material, turn, scene) + (own(name) ? 30 : 0);
-    const here = present.has(lower(name));
+    const here = present.has(lower(name)) || isHere(state, name); /* M396: under any form of their name */
     const hasSeat = seated.has(lower(name)) || Boolean(seatForPerson(state, name)); /* M320: "Rias" seated IS "Rias Gremory" seated */
     const noSeat = !here && !hasSeat && (weight >= IMPORTANT_AT || own(name));
     /* M365: a seat past its age is due for moving on, exactly like no seat */
@@ -373,7 +376,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
    * story rides now, as it does to the extractor (M226). */
   const recordSoFar = String(record || '').trim();
   const FENCE3 = '\u0022\u0022\u0022';
-  const elsewhereAll = renderOffscreen(state.offscreen, present, clockMinutes, 40);
+  const elsewhereAll = renderOffscreen(state.offscreen, present, clockMinutes, 40, state.characters || {}); /* M396 */
   const threads = renderAllThreads(state.threads);
   const knowledge = renderAllKnowledge(state.knowledge, present);
   const factions = renderAllFactions(state.factions);

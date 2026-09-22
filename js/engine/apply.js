@@ -45,6 +45,7 @@ import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
 import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson } from './people.js';
+import { samePersonName, isHere, foldName } from './names.js'; /* M396: one answer to "the same person?" */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
@@ -159,22 +160,10 @@ export function findPresent(state, name) {
    * and WRONG here: it made "Person2" the same seat as "Person1", one letter
    * apart, and six laws caught it at once. Seating is a hard fact. Only a
    * name that is plainly the SAME name resolves: a first name, a surname, or
-   * one cut short — never a near miss. */
-  const words = (t) => String(t).trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const want = words(wanted);
-  const sameName = (seat) => {
-    const has = words(seat);
-    if (has.join(' ') === want.join(' ')) return true;
-    if (want.length === 1 && has.length > 1) return has[0] === want[0] || has[has.length - 1] === want[0];
-    if (has.length === 1 && want.length > 1) return want[0] === has[0] || want[want.length - 1] === has[0];
-    const a = want.join(' ');
-    const b = has.join(' ');
-    if (want.length >= 2 && has.length >= 2) {
-      const [shortOne, longOne] = a.length <= b.length ? [a, b] : [b, a];
-      return longOne.startsWith(shortOne) && longOne.length > shortOne.length;
-    }
-    return false;
-  };
+   * one cut short — never a near miss. M396: the one matcher every book uses
+   * (engine/names.js) — letters folded (Suì-Fēng is Sui-Feng) and the story's
+   * canon knowledge of who answers to which names (Soi Fon is Suì-Fēng). */
+  const sameName = (other) => samePersonName(other, wanted);
   const hits = state.present.filter((p) => p && typeof p.name === 'string' && sameName(p.name));
   if (hits.length !== 1) return -1;
   return state.present.indexOf(hits[0]);
@@ -712,8 +701,19 @@ const HANDLERS = {
      * one ("Rias" is seated as "Rias Gremory"); a seat they already hold under another form of their name is
      * taken over, never left beside the new one. */
     const pageKey = findPersonKey(state.characters || {}, name);
-    if (findPresent(state, name) !== -1 || (pageKey && findPresent(state, pageKey) !== -1)) {
+    if (findPresent(state, name) !== -1 || (pageKey && findPresent(state, pageKey) !== -1) || isHere(state, name) || (pageKey && isHere(state, pageKey))) {
       return { why: (pageKey || name) + ' is in the scene — they cannot be written elsewhere' };
+    }
+    /* M396: ELSEWHERE IS NEVER WHERE THE SCENE IS. The world agent seated Rose "in the Tenth Division courtyard, the
+     * galleries, watching the yard" while the scene was the duel in that very courtyard: someone there is IN the scene
+     * (the page shows who is seen) or on the way to it — "toward", with an arrival — never "elsewhere" at the same
+     * place. Judged on the place's first part ("Tenth Division courtyard"), and only for a place of two words or more
+     * (a whole city is no one spot). */
+    const movingIn = m.stance === 'toward' || m.stance === 'seeking';
+    const sceneSpot = foldName(String((state.place && state.place.name) || '').split(/\s*(?:—|–|,|;|\()\s*/)[0]);
+    const seatSpot = foldName(String(location || '').split(/\s*(?:—|–|,|;|\()\s*/)[0]);
+    if (!movingIn && sceneSpot && sceneSpot.split(' ').length >= 2 && seatSpot === sceneSpot) {
+      return { why: (pageKey || name) + ' would be where the scene is (' + location + ') — someone there is in the scene, or on the way to it (toward, with an arrival), never elsewhere' };
     }
     const seated = seatForPerson(state, pageKey || name) || seatForPerson(state, name);
     const key = pageKey || (seated ? seated.key : name);
@@ -725,8 +725,9 @@ const HANDLERS = {
      * refuse the seat. */
     const stance = typeof m.stance === 'string' && STANCES.includes(m.stance.trim().toLowerCase())
       ? m.stance.trim().toLowerCase() : '';
+    /* M396: an arrival never rides a stance that stays put — "taken up with someone else, due now" said both */
     const eta = Number(m.etaMinutes);
-    const etaMinutes = Number.isFinite(eta) && eta >= 0 ? Math.min(60 * 24 * 30, Math.round(eta)) : undefined;
+    const etaMinutes = stance !== 'busy' && stance !== 'waiting' && Number.isFinite(eta) && eta >= 0 ? Math.min(60 * 24 * 30, Math.round(eta)) : undefined;
     state.offscreen = seat(
       state.offscreen, key,
       { location, activity, agenda: capText(m.agenda, 1000), stance, etaMinutes },
@@ -1278,6 +1279,20 @@ export function applyMutations(state, mutations) {
     }
   }
 
+  /* M396: NOBODY IS IN TWO PLACES — AS A LAW OF EVERY BATCH, NOT A HOPE OF EACH WRITER. Whoever stands in the scene
+   * (under any form of their name — folded letters, a first name, canon's other name for them) holds no elsewhere note:
+   * a note that says otherwise is let go here, at the end of every batch, so a ledger that ever held both (older pages,
+   * a name spelled two ways) heals on the next change, and a fold replays it the same. */
+  if (next.offscreen && typeof next.offscreen === 'object' && Array.isArray(next.present) && next.present.length) {
+    const stale = Object.keys(next.offscreen).filter((k) => isHere(next, k));
+    if (stale.length) {
+      next.offscreen = { ...next.offscreen };
+      for (const k of stale) {
+        delete next.offscreen[k];
+        appendLog(next, k + ' is in the scene — the elsewhere note that said otherwise was let go.', null);
+      }
+    }
+  }
   return { state: next, applied, rejected };
 }
 
