@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m386-001)
+# Cozy Tavern — handoff for the next session (state at m387-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 He tells his story with a frontier model and a hand-built persona (a funny teller, his own frame and rules). Almost every
@@ -35,7 +35,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 761 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 762 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 103 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -169,6 +169,12 @@ founding design lives in AGENTS.md's first entries.)
     CanonGrounding_api) and Settings (js/ui/canonsettings.js, drawn only with the switch on, one copy of each setting:
     the extension's own live object). A branch keeps its canon (carryCanonMemory). The scribe, the world agent and the
     auditor are handed the real record (canonRecordFor) — byte-identical requests without it.
+  M387 (Canon Grounding v0.65.0): ONE HOME FOR A FACT — measure before claiming none is repeated (M387's scene read
+  Rukia's violet eyes three times a page). A face lives in "What's true of them" (canon's features + its `look`; a
+  feature the look states is no line of its own); ledgerOf marks `holds: ["appearance"]` for everyone here whose face
+  the shelf shows whole, and the note then gives them no Appearance line. Who they are in canon lives in the note; what
+  THIS story made of them lives on their page (the scribe keeps pages true to the record and never repeats it). His
+  truths render before the series' (renderCanon). Never add a second place the storyteller reads a canon fact.
 - THREE OPT-IN SWITCHES, EACH "OFF = NOT ONE BYTE" AND HELD BY A BYTE-FOR-BYTE LAW: think-on-page (M339), older model (M343), and the
   cut-before-header tick. Anything that adds words to what the storyteller reads goes behind a switch like these, in the
   writer's voice, one line — or it does not go in (M341/M342). The storyteller's room is read through chat.js roomOf ONLY, and roomOf is the provider's room: NO switch may ever take a page, the note or the record out of a request (M344) — help a weaker model by ADDING what is far (assemble/anchor.js), never by removing.

@@ -33,7 +33,7 @@ import { contextOf } from '../providers/room.js';
 import { pageText } from '../assemble/stack.js';
 import { mcName } from '../engine/duels.js';
 import { findPersonKey } from '../engine/people.js';
-import { findCanonKey, findFact } from '../engine/canon.js';
+import { findCanonKey, findFact, FACTS_SHOWN } from '../engine/canon.js';
 import { applyMutations, letGoMark } from '../engine/apply.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import {
@@ -103,6 +103,9 @@ export function stChat(messages, { mc = 'the player', title = '' } = {}) {
   }));
 }
 
+/* a truth that is part of a face (the founder's five and scars, canon's features and look, a hand's "appearance") */
+const FACE_KEY = /hair|eye|height|tall|build|body|figure|skin|complexion|scar|mark|tattoo|feature|look|appearance|face/i;
+
 /* Cozy's people ledger, in the shape the extension reads Summaryception's: every person a page stands for, and him.
  * M386: WHO'S HERE IS MARKED. Everyone the ledger has standing in the scene (state.present — the extractor's reading of
  * the page, the ground truth of the room) carries `present: true`, under the name their page stands under (M320) — the
@@ -113,19 +116,30 @@ export function ledgerOf(state) {
   const present = (Array.isArray(state && state.present) ? state.present : [])
     .map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => typeof n === 'string' && n.trim());
   const here = new Set(present.map((n) => findPersonKey(chars, n) || n));
+  /* M386: ONE HOME FOR A FACE. A face "What's true of them" shows the storyteller this turn — someone here, with a face
+   * on their shelf, all of it inside what the shelf shows — is the ledger's to say: the note is told (holds), and says
+   * who they are instead. Anyone else keeps their Appearance line in the note, so a face is never said twice or not at all. */
+  const canon = state && state.canon && typeof state.canon === 'object' ? state.canon : {};
+  const faceShown = (name) => {
+    const k = findCanonKey(canon, name);
+    const facts = k && canon[k] && Array.isArray(canon[k].facts) ? canon[k].facts : [];
+    return facts.length > 0 && facts.length <= FACTS_SHOWN && facts.some((f) => f && FACE_KEY.test(String(f.key || '')));
+  };
+  const mark = (name) => (here.has(name) ? { present: true, ...(faceShown(name) ? { holds: ['appearance'] } : {}) } : {});
   for (const [name, c] of Object.entries(chars)) {
     if (!c || typeof c !== 'object' || c.retired) continue;
-    out[name] = { whereabouts: typeof c.state === 'string' ? c.state.slice(0, 200) : '', ...(here.has(name) ? { present: true } : {}) };
+    out[name] = { whereabouts: typeof c.state === 'string' ? c.state.slice(0, 200) : '', ...mark(name) };
   }
   for (const n of present) {
     const key = findPersonKey(chars, n);
     if (key && out[key]) continue; /* their page speaks for them */
-    if (!out[n]) out[n] = { whereabouts: 'here', present: true };
+    if (!out[n]) out[n] = { whereabouts: 'here', ...mark(n) };
   }
   const mc = mcName(state);
-  if (mc !== 'the player' && !out[mc]) out[mc] = { whereabouts: 'the main character', ...(here.has(mc) ? { present: true } : {}) };
+  if (mc !== 'the player' && !out[mc]) out[mc] = { whereabouts: 'the main character', ...mark(mc) };
   return out;
 }
+
 
 /* the story's canon memory, without the ledger Cozy lends it each time */
 async function saveMeta(storyId, meta) {
@@ -478,7 +492,7 @@ function briefSpeaks(material, name, key, others = []) {
  * that: a lock only where nothing of anyone else's stands; its own lock corrected when the series' answer changed; its
  * own lock withdrawn when the name is blocked, the page forgotten, or the brief now speaks to it. A truth he let go is
  * never written again (state.canonLetGo). Pure: the same ledger and memory give the same changes. */
-export function canonLocks({ state, meta, brief = '', resolve = null } = {}) {
+export function canonLocks({ state, meta, brief = '', resolve = null, physical = true } = {}) {
   const st = state && typeof state === 'object' ? state : {};
   const m = meta && typeof meta === 'object' ? meta : {};
   const cache = m.canon_grounding_cache && typeof m.canon_grounding_cache === 'object' ? m.canon_grounding_cache : {};
@@ -504,10 +518,29 @@ export function canonLocks({ state, meta, brief = '', resolve = null } = {}) {
      * resolver at hand, the names as written */
     const isBlocked = hit && blocked.some((b) => (resolve ? (resolve(cache, b) || {}).key === hit.key : false)
       || [hit.entry.name, hit.key, name, ...(hit.entry.aliases || [])].some((x) => sameName(x, b)));
-    const want = hit && !isBlocked ? canonFeatures(hit.entry) : {};
-    for (const k of Object.keys(want)) if (briefSpeaks(brief, name, k, names) || (hit && briefSpeaks(brief, hit.entry.name, k, names))) delete want[k];
+    /* "How they look" off in its settings: the series writes no face at all, and takes back what it wrote */
+    const want = hit && !isBlocked && physical !== false ? canonFeatures(hit.entry) : {};
+    let briefSaid = false;
+    for (const k of Object.keys(want)) if (briefSpeaks(brief, name, k, names) || (hit && briefSpeaks(brief, hit.entry.name, k, names))) { delete want[k]; briefSaid = true; }
     const shelfKey = findCanonKey(canon, name);
     const shelf = shelfKey ? canon[shelfKey] : null;
+    /* the rest of the look (the Appearance prose — "a single bang hanging between her eyes") lives with the face, so the
+     * note can leave the face to the ledger whole — but only where neither his brief nor his hand has spoken to any of
+     * that face (a canon look beside his blonde hair would contradict him in one line) */
+    const hisFace = shelf && Array.isArray(shelf.facts) && shelf.facts.some((f) => f && f.source !== 'canon' && FACE_KEY.test(String(f.key || '')));
+    const look = hit && !isBlocked && physical !== false && hit.entry.sections && typeof hit.entry.sections.look === 'string' ? hit.entry.sections.look.trim() : '';
+    if (look && !briefSaid && !hisFace && !['hair', 'eyes', 'height', 'build', 'skin', 'distinguishing features'].some((k) => briefSpeaks(brief, name, k, names))
+      && !letGo.has(letGoMark(shelfKey || name, 'look'))) {
+      want.look = look.length > 400 ? look.slice(0, 399).replace(/\s+\S*$/, '') + '…' : look;
+      /* said once: a feature the look already states in its own words ("violet eyes") is not a second line of its own —
+       * the extension's own rule for its Appearance line, applied where the face now lives */
+      const lookLc = normTok(want.look);
+      for (const k of Object.keys(want)) {
+        if (k === 'look') continue;
+        const val = normTok(want[k]).replace(/[.;]+$/, '').trim();
+        if (val && new RegExp('(^|[^\\p{L}\\p{N}])' + val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\p{N}])', 'u').test(lookLc)) delete want[k];
+      }
+    }
     for (const [key, value] of Object.entries(want)) {
       const held = shelf ? findFact(shelf, key) : null;
       if (held && held.entry.source !== 'canon') continue; /* the brief's, the writer's or a reader's */
@@ -532,7 +565,7 @@ export async function canonSyncLedger(story, { stale = () => false } = {}) {
   const meta = await loadMeta(story.id);
   const fresh = await loadState(story.id);
   await canonReady();
-  const changes = canonLocks({ state: fresh, meta, brief: String(story.brief || '') + '\n' + String(story.castNotes || ''), resolve: (store, n) => api().entryIn(store, n) });
+  const changes = canonLocks({ state: fresh, meta, brief: String(story.brief || '') + '\n' + String(story.castNotes || ''), resolve: (store, n) => api().entryIn(store, n), physical: api().settings().physical !== false });
   if (!changes.length || stale()) return { applied: [] };
   const { state: next, applied } = applyMutations(fresh, changes);
   if (!applied.length || stale()) return { applied: [] };

@@ -9308,3 +9308,49 @@ first thing in his briefing, after the frame (systemBlocks) and before every pag
 - NEGATIVE-TESTED (each guard broken alone, its own test fails): 13, on m386.mjs: the series writing over his truth, no let-go mark on an unlock, the let-go ignored by a lock, no mark when a series lock is taken back (M386-1); no present marks, no opening words of his (M386-4); no rival rule, the brief check on any word of a name (M386-2); no withdrawal (M386-3); a branch from an older page carrying the tracker's position (M386-6); no record for the workers (M386-7); the off-copy keeping the series' truths (M386-9); "Not always here" by one name only (M386-5). Not negative-tested: copyState's own copy of canonLetGo (no handler edits the list in place, so no test can see it go).
 - GATES: harness 761/761 (752 + the nine of m386), walk 103/103 (DOM-85 new, DOM-69 moved), longplay 8/8, lint 0 errors (148 warnings: the one added is carryCanonMemory leaving out the lent ledger by destructuring, the idiom saveMeta already used) — on the working tree; again on a fresh clone of the pushed tree below.
 - version.js -> m386-001.
+
+# M387 — one home for a fact: canon and the ledger stop saying the same thing
+He asked whether canon was really fitted to the ledger Cozy already has — each book in symbiosis, no redundancy, no
+context bloat: canon puts the face in the ledger and stops, or an agent reads canon's desk and decides what goes in the
+ledger. MEASURED FIRST (a three-person scene, Rukia and Byakuya Kuchiki, canon on, m386): the storyteller read Rukia's
+violet eyes THREE times a page (the note's Appearance, the ledger's truths, her page's core), her height and Byakuya's
+twice, "Gotei 13", "6th Division" and "aloof" twice (note + page core), and inside the note the "With Byakuya" line and
+the "Relationships" line were the same sentence (v0.64.0's subtree reader made the Relationships section equal to the
+pair's subsection). Note 397 tokens, briefing 601.
+- THE DIVISION, ONE HOME PER KIND OF FACT, IN CODE (no extra model call):
+  · a FACE lives in "What's true of them" — canon writes it there (M386) and the note then leaves it there: bridge.js
+    ledgerOf marks `holds: ["appearance"]` for everyone here whose face the shelf shows this turn (and only when the
+    shelf shows all of it, FACTS_SHOWN); Canon Grounding v0.65.0 gives them no Appearance line. The first page a canon
+    person appears, the ledger has no face yet and the note says it; from the next page, the ledger does. Never twice,
+    never zero.
+  · the rest of the look (the Appearance prose) lives with the face (a `look` truth, source canon) — only where neither
+    his brief nor his hand has spoken to any of that face; a feature the look already states in its own words ("violet
+    eyes") is not a second line of its own (the extension's own appearanceLine rule, applied where the face now lives).
+  · WHO THEY ARE in canon (identity, nature, powers, voice, canon ties, secrets, surroundings, pairs) lives in the note.
+  · WHAT THIS STORY MADE OF THEM lives on their page: the scribe (canon on) is handed the record and told to keep every
+    page true to it but never repeat it — the page holds where they are, what they did and learned here, how they
+    stand, and names the record only where the story departs from it. (His idea of an agent reading canon's desk and
+    deciding what the ledger keeps: that agent is the scribe, and this is its division.) Pages already written with the
+    record in them keep it: no worker rewrites a page to take it out (a hand-written core is his, and a rewrite would
+    take the hand mark with it).
+  · Canon Grounding v0.65.0: a Relationships line never repeats a pair line (the fallback builds the pairs first).
+- HIS TRUTHS FIRST ON THE SHELF (canon.js renderCanon): the render shows six; his, the brief's and a reader's come before
+  the series', so a truth he writes after the series filled a shelf is never the one cut. "eyes.." never again (a value
+  ending in a stop gets none added).
+- "HOW THEY LOOK" OFF in canon's settings: the series writes no face into the ledger and takes back what it wrote.
+- MEASURED AFTER (page two, same scene): note 268 tokens (−32%), briefing 491 (−18%); every face word read ONCE —
+  violet, 144 cm, grey, 180 cm, kenseikan — and "Gotei 13", "6th Division", "aloof" once where the pages are written the
+  new way (twice only where an old page still repeats the record).
+- TESTS: m386.mjs M386-10 (the whole division on the real extension: page one says the face, the sync moves it, page two
+  leaves it — every face word counted once across the request; his truth first; his brief's face keeps the canon look
+  out; "How they look" off takes the faces back; the scribe's division). DOM-85: page two has no Appearance line, her
+  look is in her truths, and "violet" is read once in the request. The extension's sim [63] (and the fixed scenario: the
+  sim's keyword list never matched a Relationships section, so its first draft proved nothing — caught by breaking the
+  guard, fixed, broken again, caught).
+- NEGATIVE-TESTED (each guard broken alone, its own test fails, M386-10): no holds mark; no look fold; the series'
+  truths rendered first; "How they look" off ignored; a canon look beside his hand-written face (its test was added
+  after this very mutation first passed unseen — the brief case has a second check of its own, the hand case had none);
+  the scribe told to write from the record again. Extension: the face left to the host; the Relationships repeat.
+- GATES: harness 762/762, walk 103/103, longplay 8/8, lint 0 errors (148 warnings, as before M387) — on the working tree
+  and again on a fresh clone of the pushed tree. Canon Grounding v0.65.0 on its fresh clone: proof 596, sim 413.
+- version.js -> m387-001.

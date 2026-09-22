@@ -4450,9 +4450,10 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
     if (worldCall) assert(/WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE/.test(JSON.stringify(worldCall.body)), 'the world agent is handed the real record');
     assert(scribeCall || worldCall, 'a worker told to use the record was asked on this page');
     /* 4. the series' faces are in What's true of them, marked as the series' */
-    await until(async () => { const c = ((await loadState(st.id)).canon || {})['Rukia Kuchiki']; return c && c.facts.some((f) => f.key === 'eyes' && f.value === 'Violet' && f.source === 'canon'); }, 'Rukia’s violet eyes, locked from the series', 15000);
+    /* her look lives with her face (the violet eyes said once, in its own words — no separate "eyes" line) */
+    await until(async () => { const c = ((await loadState(st.id)).canon || {})['Rukia Kuchiki']; return c && c.facts.some((f) => f.key === 'look' && /violet eyes/i.test(f.value) && f.source === 'canon'); }, 'Rukia’s look, locked from the series', 15000);
     let truths = await openRoom('What’s true of them');
-    await until(() => /Rukia Kuchiki — eyes: Violet · as the series has it/.test(truths.textContent), 'the room shows the series’ truth', 10000);
+    await until(() => /Rukia Kuchiki — look: [^·]*violet eyes[^·]* · as the series has it/.test(truths.textContent), 'the room shows the series’ truth', 10000);
     /* he lets the series' hair go */
     const hairRow = [...truths.querySelectorAll('li')].find((li) => /Rukia Kuchiki — hair:/.test(li.textContent));
     assert(hairRow, 'her hair is there');
@@ -4473,6 +4474,11 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
     const two = await send('I ask her about the garden.');
     const b2 = briefingOf(two.body);
     assert(/Rukia Kuchiki:/.test(b2.content) && !/Byakuya Kuchiki:/.test(b2.content), 'never means never: ' + b2.content.slice(0, 500));
+    /* ONE HOME FOR A FACE: the ledger holds her face now, so the note leaves it there — read once, in her truths */
+    const canon2 = b2.content.split('\n\n')[1] || '';
+    assert(!/Appearance:/.test(canon2), 'page two: no Appearance line for a face the ledger shows: ' + canon2.slice(0, 400));
+    assert(/True of them: [^\n]*Rukia Kuchiki — [^\n]*look: [^\n]*violet eyes/.test(b2.content), 'her face, in her truths');
+    eq((JSON.stringify(two.body.messages).match(/violet/gi) || []).length, 1, 'her violet eyes are read once on the page');
     const rk = ((await loadState(st.id)).canon || {})['Rukia Kuchiki'];
     assert(rk && !rk.facts.some((f) => f.key === 'hair'), 'the hair he let go stays gone');
     /* 7. a branch from the newest page keeps its canon */

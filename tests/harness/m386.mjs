@@ -46,7 +46,8 @@ const ledgerWith = (present, pages = {}) => {
   return st;
 };
 async function freshStory(title, brief) {
-  const st = await db.stories.create({ title, brief });
+  const st = await db.stories.create({ title });
+  if (brief) await db.stories.update(st.id, { brief }); /* create() keeps a title only */
   const story = await db.stories.get(st.id);
   /* this story's wiki named, as the room's box does (a manual decree — no discovery call) */
   await db.settings.set(canonMetaKey(story.id), { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: title, fp: '(manual)', manual: true, ts: Date.now() } });
@@ -295,3 +296,73 @@ test('M386-9 OFF SENDS NOTHING OF IT: the series’ truths leave the ledger (jou
   const back = await canonSyncLedger(story);
   assert(back.applied.some((a) => a.mutation.key === 'eyes'), 'on again: the next sync writes them back');
 });
+
+test('M386-10 ONE HOME FOR A FACT: once the ledger holds a canon face, the note leaves it there — every face word read once on the next page; his own truths come first on the shelf; his brief’s face keeps the canon look out; “How they look” off takes the series’ faces back; the scribe keeps pages true to the record without repeating it', async () => withWiki(async () => {
+  const { FACTS_SHOWN } = await import('../../js/engine/canon.js');
+  const { renderCanon } = await import('../../js/engine/canon.js');
+  const story = await freshStory('One home', 'A Bleach story. Jovan is a guest at the Kuchiki manor.');
+  let state = ledgerWith(['Jovan', 'Rukia Kuchiki', 'Byakuya Kuchiki'], {
+    'Rukia Kuchiki': { core: 'Took Jovan on as her student.', state: 'pouring tea', threads: [] },
+    'Byakuya Kuchiki': { core: 'Tolerates Jovan for Rukia’s sake.', state: 'at the head of the table', threads: [] },
+  });
+  await saveState(story.id, state);
+  const m1 = [{ id: 'u1', role: 'user', text: 'I sit down at the long table.' }, { id: 'a1', role: 'assistant', text: 'She pours the tea. He does not look up.' }, { id: 'u2', role: 'user', text: 'I thank her.' }];
+  const first = await canonBeforeSend({ story, state, messages: m1, connection: null });
+  assert(/Rukia Kuchiki:[\s\S]*Appearance:/.test(first), 'page one: nothing holds her face yet, so the note says it');
+  const r = await canonSyncLedger(story);
+  assert(r.applied.length > 0, 'after the page, the faces go to the ledger');
+  state = await loadState(story.id);
+  const rk = state.canon['Rukia Kuchiki'].facts;
+  assert(rk.some((f) => f.key === 'look' && /violet eyes/i.test(f.value) && f.source === 'canon'), 'her look lives with her face');
+  assert(!rk.some((f) => f.key === 'eyes'), 'a feature the look already says in its own words is not a second line');
+  assert(rk.some((f) => f.key === 'hair' && /chin-length/.test(f.value)), 'a feature the look does not say stays its own line');
+  eq(ledgerOf(state)['Rukia Kuchiki'].holds.join(), 'appearance', 'the ledger tells the note it holds her face');
+  const m2 = [...m1, { id: 'a2', role: 'assistant', text: 'She nods once.' }, { id: 'u3', role: 'user', text: 'I ask about the garden.' }];
+  const second = await canonBeforeSend({ story, state, messages: m2, connection: null });
+  assert(/Rukia Kuchiki:/.test(second) && !/Appearance:/.test(second), 'page two: the note leaves both faces to the ledger: ' + second.slice(0, 500));
+  const req = buildRequest({ story, messages: m2, settings: { tellerName: 'Iron Man', writerName: 'Bruce', frameText: 'You are Iron Man.' }, state, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '', canonNote: second });
+  const all = [...req.systemBlocks.map((b) => b.text), ...req.messages.map((m) => String(m.content))].join('\n');
+  for (const [w, re] of [['violet', /violet/gi], ['144 cm', /144 cm/g], ['grey', /grey/gi], ['180 cm', /180 cm/g], ['kenseikan', /kenseikan/g]]) eq((all.match(re) || []).length, 1, '“' + w + '” is read once');
+  /* the writer's own truth, written after the series filled her shelf, is never the one the cap cuts */
+  let s2 = applyMutations(state, [1, 2, 3, 4, 5].map((i) => ({ type: 'canon.lock', name: 'Rukia Kuchiki', key: 'canon ' + i, value: 'v' + i, source: 'canon' }))).state;
+  s2 = applyMutations(s2, [{ type: 'canon.lock', name: 'Rukia Kuchiki', key: 'mood', value: 'guarded' }]).state;
+  assert(s2.canon['Rukia Kuchiki'].facts.length > FACTS_SHOWN, 'more than the shelf shows');
+  assert(/Rukia Kuchiki — mood: guarded/.test(renderCanon(s2.canon, ['Rukia Kuchiki'])), 'his truth shows first');
+  assert(!ledgerOf(s2)['Rukia Kuchiki'].holds, 'a face the shelf cannot show whole stays in the note');
+  /* his brief speaks to her face: the canon look stays out (it would contradict him in one line) */
+  const aus = await freshStory('AU', 'A Bleach story where Rukia Kuchiki has silver hair.');
+  await saveState(aus.id, ledgerWith(['Rukia Kuchiki'], { 'Rukia Kuchiki': { core: 'x', state: 'here', threads: [] } }));
+  (await canonMeta(aus.id)).canon_grounding_cache = JSON.parse(JSON.stringify((await canonMeta(story.id)).canon_grounding_cache));
+  await canonSyncLedger(aus);
+  const af = (await loadState(aus.id)).canon['Rukia Kuchiki'].facts.map((f) => f.key);
+  assert(!af.includes('hair') && !af.includes('look'), 'his silver hair is his; no canon look beside it: ' + af.join());
+  /* his own hand on her face: no canon look beside it — and a look the series wrote before his hand spoke is taken back */
+  const copyCache = async (id) => { (await canonMeta(id)).canon_grounding_cache = JSON.parse(JSON.stringify((await canonMeta(story.id)).canon_grounding_cache)); };
+  const hand = await freshStory('Hand', 'A Bleach story.');
+  await saveState(hand.id, applyMutations(ledgerWith(['Rukia Kuchiki'], { 'Rukia Kuchiki': { core: 'x', state: 'here', threads: [] } }), [{ type: 'canon.lock', name: 'Rukia Kuchiki', key: 'eyes', value: 'green' }]).state);
+  await copyCache(hand.id);
+  await canonSyncLedger(hand);
+  const hf = (await loadState(hand.id)).canon['Rukia Kuchiki'].facts;
+  assert(hf.some((f) => f.key === 'eyes' && f.value === 'green' && !f.source), 'his green eyes stand');
+  assert(!hf.some((f) => f.key === 'look'), 'no canon look beside his hand: ' + hf.map((f) => f.key).join());
+  const later = await freshStory('Hand later', 'A Bleach story.');
+  await saveState(later.id, ledgerWith(['Rukia Kuchiki'], { 'Rukia Kuchiki': { core: 'x', state: 'here', threads: [] } }));
+  await copyCache(later.id);
+  await canonSyncLedger(later);
+  assert((await loadState(later.id)).canon['Rukia Kuchiki'].facts.some((f) => f.key === 'look' && f.source === 'canon'), 'the series wrote her look');
+  await saveState(later.id, applyMutations(await loadState(later.id), [{ type: 'canon.lock', name: 'Rukia Kuchiki', key: 'eyes', value: 'green' }]).state);
+  await canonSyncLedger(later);
+  const lf = (await loadState(later.id)).canon['Rukia Kuchiki'].facts;
+  assert(!lf.some((f) => f.key === 'look') && lf.some((f) => f.key === 'eyes' && f.value === 'green'), 'once his hand speaks to her face, the canon look is taken back and his eyes stand: ' + lf.map((f) => f.key + '=' + f.value).join(' | '));
+  /* "How they look" off: the series' faces are taken back */
+  const was = (await canonSettings()).physical;
+  try {
+    await setCanonSetting('physical', false);
+    await canonSyncLedger(story);
+    const left = ((await loadState(story.id)).canon['Rukia Kuchiki'] || { facts: [] }).facts.filter((f) => f.source === 'canon');
+    eq(left.length, 0, 'none of the series’ faces left');
+  } finally { await setCanonSetting('physical', was); }
+  /* the scribe: true to the record, never repeating it */
+  const sc = buildScribeMessages({ state, userText: 'hi', assistantText: 'Rukia nods.', brief: 'B', castNotes: '', canonRecord: canonRecordFor(await canonMeta(story.id), ['Rukia Kuchiki']) });
+  assert(/Keep every page true to it/.test(sc.user) && /do not repeat it on the pages/.test(sc.user), 'the scribe is told the division');
+}));

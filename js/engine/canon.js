@@ -25,7 +25,7 @@
  * callers honest too.) */
 const KEY_CAP = 120;   /* M266: kept whole (were 40 and 140) */
 const VALUE_CAP = 1000;
-const FACTS_SHOWN = 6; // per character, in the compact render
+export const FACTS_SHOWN = 6; // per character, in the compact render (M386: exported — the canon bridge claims a face only when all of it shows)
 
 function clean(text, cap) {
   if (typeof text !== 'string') return '';
@@ -119,11 +119,13 @@ export function renderCanon(canon, presentNames, perPerson = FACTS_SHOWN) {
     const entry = canon[canonKey];
     if (!entry || typeof entry !== 'object') continue;
     const facts = Array.isArray(entry.facts) ? entry.facts : [];
-    const shown = facts
-      .filter((f) => f && typeof f.key === 'string' && typeof f.value === 'string' && f.key.trim() && f.value.trim())
+    /* M386: his truths (and the brief's, and a reader's) first, the series' after — a truth he writes by hand after the
+     * series filled the shelf is never the one the cap cuts */
+    const valid = facts.filter((f) => f && typeof f.key === 'string' && typeof f.value === 'string' && f.key.trim() && f.value.trim());
+    const shown = [...valid.filter((f) => f.source !== 'canon'), ...valid.filter((f) => f.source === 'canon')]
       .slice(0, perPerson)
       .map((f) => f.key.trim() + ': ' + f.value.trim());
-    if (shown.length) lines.push(canonKey + ' — ' + shown.join('; ') + '.');
+    if (shown.length) { const said = shown.join('; '); lines.push(canonKey + ' — ' + said + (/[.!?…]$/.test(said) ? '' : '.')); } /* M386: never "eyes.." */
   }
   return lines.join('\n');
 }

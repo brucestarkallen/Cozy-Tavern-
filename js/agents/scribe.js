@@ -155,7 +155,7 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     ...(String(brief || '').trim() ? ['The writer\u2019s brief \u2014 who these people are; it outranks every page:', '"""', writerText(brief, BRIEF_ROOM, 'brief'), '"""', ''] : []),
     ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
     /* M386: "written from the REAL RECORD" — handed to it at last (canon verification on, and someone here is canon) */
-    ...(String(canonRecord || '').trim() ? ['What the series itself says of its people in this story (their real record — true names, family, roles, history):', '"""', String(canonRecord).trim(), '"""', ''] : []),
+    ...(String(canonRecord || '').trim() ? ['What the series itself says of its people in this story — their real record. Keep every page true to it (never a made-up family, role or past), but do not repeat it on the pages: the storyteller already reads it from the series itself on every page they are in, and their faces are kept in the ledger\u2019s truths. A page holds what THIS story has made of them — where they are, what they have done and learned here, how they stand — and names the record only where this story departs from it:', '"""', String(canonRecord).trim(), '"""', ''] : []),
     'Here is what the character pages currently say:',
     ledger && ledger.text ? ledger.text : 'Nothing is written on the character pages yet.',
     ...(mcRecord ? ['', mcRecord] : []),
