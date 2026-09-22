@@ -116,3 +116,6 @@ import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');
 await runAll();
+/* M386: it ends when its tests end, like the walk — a timer some module left (a debounce, a worker's ceiling) kept the
+ * process alive after the summary, and every run left an idle node behind */
+process.exit(process.exitCode || 0);
