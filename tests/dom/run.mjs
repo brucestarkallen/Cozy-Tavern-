@@ -4421,6 +4421,15 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
   };
   const closeDrawer = async () => { if (!q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'the drawer closed'); } };
   const was = await db.settings.get('canonOn');
+  /* M392: her canon is read through the story (a Bleach story, nothing changed) — the lens answers "holds" for all */
+  const priorWorker85 = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep a canon character true to ONE story/.test(String(sys))) {
+      const user = String((body.messages || []).filter((m) => m.role === 'user').pop()?.content || '');
+      return JSON.stringify({ verdicts: [...user.matchAll(/^(\d+)\. /gm)].map((m) => ({ n: Number(m[1]), verdict: 'holds' })) });
+    }
+    return priorWorker85(body, sys);
+  };
   try {
     /* 1. Settings: the switch, and with it every lever of the extension, named as it names them */
     await openSettings();
@@ -4514,6 +4523,7 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
     eq(wikiAsked.length, asked, 'OFF: nothing is looked up');
   } finally {
     globalThis.fetch = priorFetch;
+    house.state.workerAnswer = priorWorker85;
     if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
     await closeSettings().catch(() => {});
     if (!q('#drawer').hidden) click(q('#btn-ledger'));

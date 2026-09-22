@@ -175,6 +175,15 @@ export async function canonMeta(storyId) {
   if (!storyId) return {};
   return loadMeta(storyId);
 }
+/* M392: his story's premise as the lens reads it — the brief, the cast notes, his canon notes (this story's and every
+ * story's), where the story stands in canon */
+export async function canonPremise(story) {
+  if (!story || !story.id) return '';
+  const meta = await loadMeta(story.id);
+  const s = extension_settings.canon_grounding || (await db.settings.get(CANON_SETTINGS_KEY)) || {};
+  return premiseOf(story, meta, { globalNotes: typeof s.pinnedGlobal === 'string' ? s.pinnedGlobal : '' });
+}
+
 /* keep the story's live canon memory now (a worker that wrote into it — M388's memo) */
 export async function canonSaveMeta(storyId) {
   if (!storyId || !metas.has(storyId)) return;
@@ -685,7 +694,7 @@ export async function carryCanonMemory(fromId, toId, { fromTheTail = false } = {
  * were told to use the real record and never handed it — a worker told to use what it never receives invents it. For the
  * people these pages carry, what the series says: who they are, their family and ties, the facts a narrator must not get
  * wrong. Empty when nobody here is canon (or canon verification is off: the caller asks only then). */
-export function canonRecordFor(meta, names, { cap = 6000 } = {}) {
+export function canonRecordFor(meta, names, { cap = 6000, premise = '' } = {}) {
   const m = meta && typeof meta === 'object' ? meta : {};
   const cache = m.canon_grounding_cache && typeof m.canon_grounding_cache === 'object' ? m.canon_grounding_cache : {};
   const list = [...new Set((Array.isArray(names) ? names : []).filter((n) => typeof n === 'string' && n.trim()))];
@@ -696,7 +705,12 @@ export function canonRecordFor(meta, names, { cap = 6000 } = {}) {
     const hit = canonEntryFor(cache, name, list);
     if (!hit || seen.has(hit.key)) continue;
     seen.add(hit.key);
-    const e = throughLens(hit.entry, overlayFor(m, hit.entry)); /* M392: the record as it holds in HIS story */
+    /* M392: the record as it holds in HIS story. With a premise to hold it to, a person not yet read through it is not
+     * handed to the workers at all — the scribe told "keep every page true to the record" would otherwise write canon's
+     * end-state (a marriage his story never had) into the ledger; they are read the page they first ride. */
+    const lens = overlayFor(m, hit.entry);
+    if (String(premise || '').trim() && !lens) continue;
+    const e = throughLens(hit.entry, lens);
     const d = e.dossier && typeof e.dossier === 'object' ? e.dossier : {};
     const who = clip(d.identity || e.sections.identity || '', 300);
     const ties = clip(e.sections.relationship || '', 300);

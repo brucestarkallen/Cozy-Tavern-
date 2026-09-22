@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m392-001)
+# Cozy Tavern — handoff for the next session (state at m392-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. WHAT HE TYPES IS WHAT HAPPENS (M391). A shortcut (#story, #p, #pp, #q, #continue, #time, #question, #Put TWB, ((…)),

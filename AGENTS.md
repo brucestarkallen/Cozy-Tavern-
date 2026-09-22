@@ -9502,3 +9502,11 @@ asked for canon's context kept, never as current fact and never as prophecy, so 
   unlensed; the premise ignored (Cozy); the lens not applied; rebuild not handed to the host; the arc's old words; the
   notice's fragments (extension).
 - version.js -> m392-001.
+- FRESH CLONE OF THE PUSH (1186cc8): harness 773/773, walk 106/106, long play 8/8, lint 0 errors.
+- m392-002 — THE WORKERS ARE HANDED ONLY WHAT WAS READ THROUGH HIS STORY. The lens runs for the people who RIDE; the
+  record (canonRecordFor) goes to the scribe, the world agent and the auditor for everyone in the ledger — so a person
+  in the ledger who had not ridden since (Renji, say, off-page) reached the scribe unlensed, with the scribe told "keep
+  every page true to the record": canon's end-state (his marriage) could be written into the ledger from there. With a
+  premise to hold it to (bridge.js canonPremise), a person not yet read through it is not handed to the workers at all;
+  they are read the page they first ride. No premise: canon as it is. Tested (M392-3, negative-tested); DOM-85's house
+  now answers the lens ("holds" for all), so its scribe still gets Rukia's record — proving the wiring end to end.

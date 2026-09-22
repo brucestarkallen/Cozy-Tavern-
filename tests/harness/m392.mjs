@@ -125,4 +125,11 @@ test('M392-3 A LENS IS FOR THE CANON WORDS IT WAS MADE FROM: a page looked up ag
   const changed = RUKIA_ENTRY(); changed.dossier.facts = [...changed.dossier.facts, 'She is fond of Chappy.'];
   eq(overlayFor(meta, changed), null, 'new canon words: not through the old lens (it is made again)');
   eq(premiseOf({ brief: '' }, {}), '', 'no premise, nothing to judge by');
+  /* the workers are handed only what was read through his story, when there is a premise to hold it to */
+  const bare = { canon_grounding_cache: { rukia: RUKIA_ENTRY() } };
+  eq(canonRecordFor(bare, ['Rukia Kuchiki'], { premise: PREMISE_BRIEF }), '', 'not yet read through his story: not handed to the workers at all');
+  assert(/married to Renji/.test(canonRecordFor(bare, ['Rukia Kuchiki'])), 'with no premise, canon as it is');
+  const lensed = { ...bare, [LENS_KEY]: meta[LENS_KEY] };
+  const rec = canonRecordFor(lensed, ['Rukia Kuchiki'], { premise: PREMISE_BRIEF });
+  assert(rec && !/married|Ichika/i.test(rec) && /Sode no Shirayuki/.test(rec), 'read through it: handed as it holds: ' + rec);
 });

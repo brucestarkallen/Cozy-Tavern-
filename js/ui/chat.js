@@ -53,7 +53,7 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
-import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta } from '../canon/bridge.js'; /* M346/M386: canon verification */
+import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
 import { readSensors, takeWordForTurn, keepPageWord, sensorLine } from '../agents/sensors.js'; /* M356/M357: the readings, and the one line they earn */
@@ -5824,7 +5824,7 @@ export function initChat(ctx) {
       if (!story || !(await canonOn())) return '';
       const st = await loadState(story.id);
       const names = [...(Array.isArray(st.present) ? st.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)), ...Object.keys(st.characters || {})].filter(Boolean);
-      return canonRecordFor(await canonMeta(story.id), names);
+      return canonRecordFor(await canonMeta(story.id), names, { premise: await canonPremise(story) }); /* M392: only what holds in his story */
     } catch (err) { return ''; }
   }
 
