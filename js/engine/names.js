@@ -38,23 +38,37 @@ export function canonAliasOf(a, b) {
   return Boolean(fa && fb && fa !== fb && aliased(fa, fb));
 }
 
-/* Is `a` the same person as `b`? The same name (folded), a first or last name of the other, one cut short of the
- * other, or two names the story's canon knows as one person. Never a near miss: seating is a hard fact. */
+/* M404: a rank or a courtesy is not a name — "Lieutenant Rukia Kuchiki" is Rukia Kuchiki, "Captain Hitsugaya" is
+ * Hitsugaya, "Kyōraku-san" is Kyōraku. Stripped from the front (titles) and the back (honorifics), never down to nothing. */
+const TITLES = new Set(('captain lieutenant commander general colonel major sergeant officer detective agent lady lord sir dame miss mister mr mrs ms dr doctor professor prof master madam madame king queen prince princess head chief elder')
+  .split(' '));
+const HONORIFICS = new Set('san sama kun chan dono sensei senpai'.split(' '));
+function bareName(folded) {
+  let w = folded.split(' ').filter(Boolean);
+  while (w.length > 1 && TITLES.has(w[0])) w = w.slice(1);
+  while (w.length > 1 && HONORIFICS.has(w[w.length - 1])) w = w.slice(0, -1);
+  return w.join(' ');
+}
+
+/* Is `a` the same person as `b`? The same name (folded, a rank or courtesy set aside), a first or last name of the
+ * other, one cut short of the other, the same names in another order ("Kuchiki Rukia"), or two names the story's
+ * canon knows as one person. Never a near miss: seating is a hard fact. */
 export function samePersonName(a, b) {
-  const fa = foldName(a);
-  const fb = foldName(b);
+  const fa = bareName(foldName(a));
+  const fb = bareName(foldName(b));
   if (!fa || !fb) return false;
   if (fa === fb) return true;
   const wa = fa.split(' ');
   const wb = fb.split(' ');
   if (wa.length === 1 && wb.length > 1 && (wb[0] === wa[0] || wb[wb.length - 1] === wa[0])) return true;
   if (wb.length === 1 && wa.length > 1 && (wa[0] === wb[0] || wa[wa.length - 1] === wb[0])) return true;
+  if (wa.length >= 2 && wa.length === wb.length && [...wa].sort().join(' ') === [...wb].sort().join(' ')) return true; /* M404: family name first */
   if (wa.length >= 2 && wb.length >= 2) {
     /* one cut short: "Vanessa Rey" is Vanessa Reynolds (M257) */
     const [shortOne, longOne] = fa.length <= fb.length ? [fa, fb] : [fb, fa];
     if (longOne.startsWith(shortOne) && longOne.length > shortOne.length) return true;
   }
-  return aliased(fa, fb);
+  return aliased(foldName(a), foldName(b)) || aliased(fa, fb);
 }
 
 /* Every name the ledger knows a person by — pages, the scene, the seats. */

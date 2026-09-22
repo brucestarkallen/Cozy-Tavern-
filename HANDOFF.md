@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m403-001)
+# Cozy Tavern — handoff for the next session (state at m404-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0d. THE QUIET ONES IN THE ROOM (M401): whoever is here, not the main character and not on the latest page or in his
@@ -67,9 +67,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 798 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 799 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 109 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 110 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

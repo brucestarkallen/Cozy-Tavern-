@@ -1888,7 +1888,8 @@ function peoplePanel(ctx) {
       const li = document.createElement('li');
       li.className = 'present-row mind-row people-row';
       const head = document.createElement('strong');
-      head.textContent = name + (present.has(name.toLowerCase()) ? ' — here' : (seatForPerson(state, name) ? ' — elsewhere' : '')); /* M398: a seat under any form of their name */
+      /* M404: never a blank — here, elsewhere, or plainly not yet placed (the world agent seats anyone who matters next page) */
+      head.textContent = name + (isMc(state, name) ? '' : present.has(name.toLowerCase()) ? ' — here' : (seatForPerson(state, name) ? ' — elsewhere' : ' — whereabouts not yet written')); /* M398: a seat under any form of their name */
       li.appendChild(head);
       const why = carriedBy(state, name, { brief: story.brief || '', castNotes: story.castNotes || '', pages: recent, castNames });
       const carry = document.createElement('div');

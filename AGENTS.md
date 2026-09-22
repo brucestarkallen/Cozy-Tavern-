@@ -9775,3 +9775,18 @@ hall · Byakuya Kuchiki stepped out of the scene · Renji Abarai stepped out · 
 - TESTS: m403.mjs (the real auditor on a scripted answer: its ground move let go, three silent leaves let go, the leave
   the page shows lands, nobody else "elsewhere"). NEGATIVE-TESTED: both guards.
 - version.js -> m403-001.
+
+# M404 — every person has a banner; a rank or family name first is still the same person
+He: everyone in "The people" had a "— here" or "— elsewhere" banner; Rukia Kuchiki had none.
+- A BLANK MEANT TWO THINGS AND SAID NEITHER: the banner was "— here" when the matcher found her in the scene, "—
+  elsewhere" when a seat was hers, and NOTHING otherwise — both "no whereabouts written yet" and "in the scene under
+  a form of her name the matcher missed" drew the same blank. Now it is never blank: "— here", "— elsewhere", or
+  "— whereabouts not yet written" (the world agent seats anyone who matters on the next page, M304).
+- THE FORMS THE MATCHER MISSED (engine/names.js): a rank or courtesy — "Lieutenant Rukia Kuchiki", "Captain
+  Hitsugaya", "Kyōraku-san" — is set aside (titles from the front, honorifics from the back, never down to nothing);
+  the same names in another order ("Kuchiki Rukia", family name first) are the same person. Two Kuchikis stay two
+  people; a rank alone is nobody. Every book that asks the matcher (M396/M398) gains it at once.
+- TESTS: M404-1 (in m396.mjs). Walk DOM-92 (the people panel: here though the scene says "Lieutenant Rukia Kuchiki",
+  here though it says "Kuchiki Byakuya", elsewhere, and "whereabouts not yet written" — never a blank).
+  NEGATIVE-TESTED: titles kept; order kept.
+- version.js -> m404-001.

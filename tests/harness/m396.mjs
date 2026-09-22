@@ -79,3 +79,12 @@ test('M396-4 THE WORLD AGENT IS NEVER TOLD TO SEAT SOMEONE STANDING IN THE SCENE
   assert(/Nobody is seated where the scene itself is/.test(msg.system), 'the law is said');
   setAliasSource(() => []);
 });
+
+test('M404-1 A RANK, A COURTESY OR FAMILY NAME FIRST IS STILL THE SAME PERSON — and nothing more', () => {
+  eq(samePersonName('Lieutenant Rukia Kuchiki', 'Rukia Kuchiki'), true, 'a rank');
+  eq(samePersonName('Captain Hitsugaya', 'Tōshirō Hitsugaya'), true, 'a rank and a surname');
+  eq(samePersonName('Kyōraku-san', 'Shunsui Kyōraku'), true, 'a courtesy');
+  eq(samePersonName('Kuchiki Rukia', 'Rukia Kuchiki'), true, 'family name first');
+  eq(samePersonName('Rukia Kuchiki', 'Byakuya Kuchiki'), false, 'two Kuchikis are two people');
+  eq(samePersonName('Captain', 'Rukia'), false, 'a rank alone is nobody');
+});

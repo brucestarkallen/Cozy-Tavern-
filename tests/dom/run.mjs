@@ -4873,6 +4873,36 @@ test('DOM-91 EACH STORY HAS ITS OWN CANON SWITCH: on in one story in Settings, o
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-92 EVERY PERSON HAS A BANNER: here (even when the scene names her "Lieutenant Rukia Kuchiki" or "Kuchiki Rukia"), elsewhere, or plainly "whereabouts not yet written" — never a blank (M404)', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'Banners' });
+  let ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: '10th Division HQ — training courtyard' },
+    { type: 'presence.enter', name: 'Jovan Oda' }, { type: 'presence.enter', name: 'Lieutenant Rukia Kuchiki' }, { type: 'presence.enter', name: 'Kuchiki Byakuya' },
+    { type: 'offscreen.set', name: 'Renji Abarai', location: '6th Division barracks', activity: 'drilling', stance: 'busy' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'His lieutenant.', state: 'x', threads: [] }, 'Byakuya Kuchiki': { core: 'Captain of the 6th.', state: 'x', threads: [] }, 'Renji Abarai': { core: 'Lieutenant of the 6th.', state: 'x', threads: [] }, 'Iba Tetsuzaemon': { core: 'Lieutenant of the 7th.', state: '', threads: [] } };
+  await saveState(st.id, { ...ledger, readTo: 0, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    click(q('#btn-ledger'));
+    await until(() => !q('#drawer').hidden, 'the drawer');
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const room = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'The people');
+    await until(() => room && /Carried by/.test(room.textContent), 'the pages drawn', 10000);
+    const head = (who) => [...room.querySelectorAll('li.people-row > strong')].map((s) => s.textContent).find((t) => t.startsWith(who)) || '';
+    eq(head('Rukia Kuchiki'), 'Rukia Kuchiki — here', 'here, though the scene names her "Lieutenant Rukia Kuchiki"');
+    eq(head('Byakuya Kuchiki'), 'Byakuya Kuchiki — here', 'here, though the scene names him family name first');
+    eq(head('Renji Abarai'), 'Renji Abarai — elsewhere', 'elsewhere');
+    eq(head('Iba Tetsuzaemon'), 'Iba Tetsuzaemon — whereabouts not yet written', 'and never a blank');
+    click(q('#btn-ledger'));
+  } finally {
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
