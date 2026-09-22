@@ -21,7 +21,7 @@ import { readStandingWords, groupFindings, findingsText } from '../assemble/plai
 import { copyWords } from './receiptview.js'; /* M360: the flagged lines, in one tap */
 import { loadSensors, sensorLine } from '../agents/sensors.js'; /* M356 */
 import { drawCanonControls } from './canonsettings.js'; /* M346; M386: every lever of canon verification */
-import { canonWithdraw } from '../canon/bridge.js'; /* M386: off, the series' truths leave the open story's ledger at once */
+import { canonWithdraw, canonOn, setCanonOn } from '../canon/bridge.js'; /* M386: off, the series' truths leave the open story's ledger at once; M399: each story's own switch */
 import { db } from '../store.js';
 import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '../providers/index.js';
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
@@ -1567,7 +1567,14 @@ export function initSettings(ctx) {
   async function renderReferee() {
     els.refereeOn.checked = (await db.settings.get('refereeOn')) !== false;
     /* M346: canon verification — its own switch (off as it ships) and, only to be sure, the series' wiki */
-    if (els.canonOn) els.canonOn.checked = (await db.settings.get('canonOn')) === true;
+    /* M399: the switch is THIS story's — off unless he switched it on for it; with no story open there is none to switch */
+    if (els.canonOn) {
+      const story = await activeStory();
+      els.canonOn.disabled = !story;
+      els.canonOn.checked = story ? await canonOn(story.id) : false;
+      const lab = els.canonOn.closest('label');
+      if (lab && lab.lastChild && lab.lastChild.nodeType === 3) lab.lastChild.textContent = story ? ' Canon verification — for “' + (story.title || 'this story') + '”' : ' Canon verification — open a story to switch it on for it';
+    }
     /* M356: the sensors — off as they ship, and what they have read so far, for the story in hand */
     if (els.sensorsOn) els.sensorsOn.checked = (await db.settings.get('sensorsOn')) === true;
     if (els.sensorReadings) {
@@ -1594,8 +1601,10 @@ export function initSettings(ctx) {
     }
   }
   if (els.canonOn) els.canonOn.addEventListener('change', async () => {
-    await db.settings.set('canonOn', els.canonOn.checked);
-    if (!els.canonOn.checked) { try { const story = await activeStory(); if (story) await canonWithdraw(story.id); } catch (err) { /* its next page withdraws them */ } }
+    const story = await activeStory(); /* M399: this story's switch, and only this story's */
+    if (!story) { els.canonOn.checked = false; return; }
+    await setCanonOn(story.id, els.canonOn.checked);
+    if (!els.canonOn.checked) { try { await canonWithdraw(story.id); } catch (err) { /* its next page withdraws them */ } }
     await drawCanon();
   });
   if (els.sensorsOn) els.sensorsOn.addEventListener('change', async () => { await db.settings.set('sensorsOn', els.sensorsOn.checked); }); /* M356 */
@@ -2474,7 +2483,7 @@ export function initSettings(ctx) {
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
-    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'canonOn', 'sensorsOn', 'groundingPhrase', 'afterRole',
+    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'groundingPhrase', 'afterRole', /* M399: canon's switch is each story's own, not a setting of the house */
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
   ];

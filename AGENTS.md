@@ -9674,3 +9674,25 @@ as fact (M392–M394).
   text for the same law; they point at the new rule now, and M398-2 proves it running. NEGATIVE-TESTED: the owned-
   threads line, the scribe's exact match, the referee's exact match, the page finder's folded and canon steps.
 - version.js -> m398-001.
+
+# M399 — canon verification is switched per story
+He: "Why is the canon not stuck on a specific page? Default off; if one story has Bleach, only that story has it — the
+others off, each by its own last saved state." One switch (settings row "canonOn") ran canon for EVERY story the moment
+it was on in one.
+- bridge.js canonOn(storyId) / setCanonOn(storyId, on): the row "canonOn:<id>" — the tale's own (store.js
+  STORY_PREFIXES: it rides the tale's book, never the house's, is swept when orphaned, goes with the tale). Off is no
+  row: a story is off until he switches it on for it. Every reader asks for its story: the send path, the readers'
+  chain (lens, old-page cleanup, faces, the workers' record), the room.
+- Settings: the switch is the OPEN story's — its label names the story ("Canon verification — for “Bleach, captain
+  Oda”"), disabled with no story open; the levers below it stay shared by every story that has it on; the help text
+  says each story has its own switch. "Reset settings" no longer touches it (a story's switch is the story's).
+- A branch keeps its story's switch (carryCanonMemory). An imported SillyTavern chat keeps its canon memory but starts
+  OFF, as every story does, until he switches it on.
+- THE MOVE, ONCE: the old single switch, where it stood on, becomes "on" for every story canon was really used in (a
+  wiki bound, someone found) and off for the rest; then the old row is let go. So his Bleach story keeps canon on;
+  every other story is off unless he switches it on.
+- TESTS: m399.mjs (3: each story's own switch; the move — on where used, off where only misses, the old row gone; the
+  tale's row in its book, never the house's, swept, gone with the tale, kept by a branch). Walk DOM-91 (on in one story
+  in Settings, off in the next one opened, on again back in the first; the switch names its story). The canon walk
+  scenarios set their own story's switch; DOM-85's "off" now reads off as no row.
+- version.js -> m399-001.

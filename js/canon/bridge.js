@@ -45,7 +45,44 @@ import {
 export const CANON_SETTINGS_KEY = 'canonGroundingSettings';
 export const canonMetaKey = (storyId) => 'canonMeta:' + storyId;
 
-export async function canonOn() { return (await db.settings.get('canonOn')) === true; }
+/* M399: EACH STORY HAS ITS OWN SWITCH — off unless he switched it on for that story. One switch for every story put
+ * Bleach canon into every tale the moment it was on in one. The switch is a tale's own row ("canonOn:<id>"): it rides
+ * the tale's book, a branch keeps it, and it goes with the tale. */
+export const canonOnKey = (storyId) => 'canonOn:' + storyId;
+export async function canonOn(storyId) {
+  if (!storyId) return false;
+  await migrateCanonSwitch();
+  return (await db.settings.get(canonOnKey(storyId))) === true;
+}
+export async function setCanonOn(storyId, on) {
+  if (!storyId) return;
+  await migrateCanonSwitch();
+  if (on) await db.settings.set(canonOnKey(storyId), true); else await db.settings.delete(canonOnKey(storyId));
+}
+/* M399: the one switch that was, once: it stood ON — so every story it was really used in (a wiki bound, someone
+ * found) keeps canon on; every other story is off, as a story is by default. The old switch is then let go. */
+let migrated = null;
+export function _canonSwitchMigrationAgain() { migrated = null; } /* for the harness: a fresh app start */
+function migrateCanonSwitch() {
+  if (!migrated) {
+    migrated = (async () => {
+      try {
+        const was = await db.settings.get('canonOn');
+        if (was === undefined) return;
+        if (was === true) {
+          for (const s of await db.stories.list()) {
+            const meta = await db.settings.get(canonMetaKey(s.id));
+            const cache = meta && meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {};
+            const used = Boolean(meta && (meta.canon_grounding_wiki || (meta.canon_grounding_wiki_ok && meta.canon_grounding_wiki_ok.wikis) || Object.values(cache).some((e) => e && e.found)));
+            if (used) await db.settings.set(canonOnKey(s.id), true);
+          }
+        }
+        await db.settings.delete('canonOn');
+      } catch (err) { migrated = null; /* asked again next time */ }
+    })();
+  }
+  return migrated;
+}
 
 /* M386: THE WORDS THAT OPEN WHAT CANON SAYS, in the writer's voice to his teller (the briefing is his own notes, a
  * user-role message: "you" to the teller, never the house's machinery). What the extension's own framing teaches, kept:
@@ -728,6 +765,8 @@ export async function canonWithdraw(storyId) {
  * the branch's own story moves. */
 export async function carryCanonMemory(fromId, toId, { fromTheTail = false } = {}) {
   if (!fromId || !toId) return false;
+  /* M399: a branch keeps its story's own switch — on where the story had it on, off where it did not */
+  if (await canonOn(fromId)) await setCanonOn(toId, true);
   const live = metas.get(fromId);
   const saved = live || (await db.settings.get(canonMetaKey(fromId)));
   if (!saved || typeof saved !== 'object' || !Object.keys(saved).length) return false;

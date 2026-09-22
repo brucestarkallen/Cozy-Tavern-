@@ -3725,10 +3725,10 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
     /* M386: the first-look wiki is one of the levers drawn once the switch is on */
     if (typeof wiki === 'string') { const w = await until(() => q('#canon-wikis'), 'the first-look wiki box, drawn with the switch on', 10000); w.value = wiki; w.dispatchEvent(new env.window.Event('change', { bubbles: true })); await until(async () => ((await db.settings.get('canonGroundingSettings')) || {}).wikis === wiki, 'the wiki kept', 5000); }
-    await until(async () => ((await db.settings.get('canonOn')) === true) === on, 'kept', 5000);
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 5000);
     await closeSettings();
   };
-  const was = await db.settings.get('canonOn');
+  const was = await db.settings.get('canonOn:' + st.id);
   try {
     await openSettings();
     eq((await until(() => q('#canon-on'), 'the switch', 10000)).checked, false, 'it ships OFF');
@@ -3747,7 +3747,7 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     eq(wikiAsked.length, asked, 'OFF: nothing is looked up');
   } finally {
     globalThis.fetch = priorFetch;
-    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    if (was === true) await db.settings.set('canonOn:' + st.id, true); else await db.settings.delete('canonOn:' + st.id);
     await closeSettings();
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
@@ -4420,7 +4420,7 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
     return sec;
   };
   const closeDrawer = async () => { if (!q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'the drawer closed'); } };
-  const was = await db.settings.get('canonOn');
+  const was = await db.settings.get('canonOn:' + st.id);
   /* M392: her canon is read through the story (a Bleach story, nothing changed) — the lens answers "holds" for all */
   const priorWorker85 = house.state.workerAnswer;
   house.state.workerAnswer = (body, sys) => {
@@ -4513,7 +4513,7 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
     await openSettings();
     const sw2 = await until(() => q('#canon-on'), 'the switch', 10000);
     sw2.checked = false; sw2.dispatchEvent(new env.window.Event('change', { bubbles: true }));
-    await until(async () => (await db.settings.get('canonOn')) === false, 'off, kept', 5000);
+    await until(async () => (await db.settings.get('canonOn:' + st.id)) !== true, 'off, kept (M399: off is no row — the story is off by default)', 5000);
     await until(() => q('#canon-controls').hidden && !q('#canon-physical'), 'its levers put away', 5000);
     await closeSettings();
     const offRoom = await openRoom('What canon says');
@@ -4526,7 +4526,7 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
   } finally {
     globalThis.fetch = priorFetch;
     house.state.workerAnswer = priorWorker85;
-    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    if (was === true) await db.settings.set('canonOn:' + st.id, true); else await db.settings.delete('canonOn:' + st.id);
     await closeSettings().catch(() => {});
     if (!q('#drawer').hidden) click(q('#btn-ledger'));
   }
@@ -4567,9 +4567,9 @@ test('DOM-86 OLD PAGES STOP REPEATING CANON, ON THEIR OWN: after a page, a core 
     if (/You tidy character pages of a story/.test(String(sys))) { asked.push(JSON.stringify(body)); return JSON.stringify({ pages: [{ name: 'Rukia Kuchiki', core: CLEAN }] }); }
     return priorWorker(body, sys);
   };
-  const was = await db.settings.get('canonOn');
+  const was = await db.settings.get('canonOn:' + st.id);
   try {
-    await db.settings.set('canonOn', true);
+    await db.settings.set('canonOn:' + st.id, true);
     const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
     type(q('#composer-input'), 'I draw my sword and bow to her.');
     submit(q('#composer'));
@@ -4591,14 +4591,15 @@ test('DOM-86 OLD PAGES STOP REPEATING CANON, ON THEIR OWN: after a page, a core 
   } finally {
     globalThis.fetch = priorFetch;
     house.state.workerAnswer = priorWorker;
-    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    if (was === true) await db.settings.set('canonOn:' + st.id, true); else await db.settings.delete('canonOn:' + st.id);
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
 test('DOM-87 EVERY KIND OF CANON CONTROL IN SETTINGS WRITES THROUGH: a switch, a number (held inside its limits), his own words and “↺ as it came” — each kept in the extension’s own settings at once, and drawn back as kept (M390)', async () => {
   const before = errors.length;
-  const was = await db.settings.get('canonOn');
+  const open87 = await db.settings.get('activeStoryId'); /* M399: the switch is the open story's */
+  const was = await db.settings.get('canonOn:' + open87);
   const kept = async () => (await db.settings.get('canonGroundingSettings')) || {};
   const change = (el, value) => { if (typeof value === 'boolean') el.checked = value; else el.value = value; el.dispatchEvent(new env.window.Event('change', { bubbles: true })); };
   try {
@@ -4636,7 +4637,7 @@ test('DOM-87 EVERY KIND OF CANON CONTROL IN SETTINGS WRITES THROUGH: a switch, a
     await openSettings();
     await until(() => q('#canon-maxCharacters') && q('#canon-maxCharacters').value === '8', 'drawn back as kept', 10000);
   } finally {
-    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    if (was === true) await db.settings.set('canonOn:' + open87, true); else await db.settings.delete('canonOn:' + open87);
     await closeSettings().catch(() => {});
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
@@ -4676,9 +4677,9 @@ test('DOM-88 CANON THROUGH HIS STORY, IN THE APP: his Bleach premise (Oda is cap
     }
     return priorWorker(body, sys);
   };
-  const was = await db.settings.get('canonOn');
+  const was = await db.settings.get('canonOn:' + st.id);
   try {
-    await db.settings.set('canonOn', true);
+    await db.settings.set('canonOn:' + st.id, true);
     const from = house.state.calls.length;
     type(q('#composer-input'), 'I hand Rukia the duty roster.');
     submit(q('#composer'));
@@ -4704,7 +4705,7 @@ test('DOM-88 CANON THROUGH HIS STORY, IN THE APP: his Bleach premise (Oda is cap
   } finally {
     globalThis.fetch = priorFetch;
     house.state.workerAnswer = priorWorker;
-    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    if (was === true) await db.settings.set('canonOn:' + st.id, true); else await db.settings.delete('canonOn:' + st.id);
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
@@ -4745,10 +4746,10 @@ test('DOM-89 “READ AGAIN” REBUILDS THE LEDGER, NEVER THE PAGE — and the re
     if (/You keep the character pages of a slow, warm story/.test(String(sys))) scribeSaw.push(JSON.stringify(body));
     return priorWorker(body, sys);
   };
-  const was = await db.settings.get('canonOn');
+  const was = await db.settings.get('canonOn:' + st.id);
   const calls0 = house.state.calls.length;
   try {
-    await db.settings.set('canonOn', true);
+    await db.settings.set('canonOn:' + st.id, true);
     const row = await until(() => q(`.msg[data-id="${page.id}"] .msg-act[data-act="read again"]`), 'read again under page one', 10000);
     click(row);
     await until(() => lensAsked > 0, 'the readers’ chain reads her through his story', 20000);
@@ -4775,7 +4776,7 @@ test('DOM-89 “READ AGAIN” REBUILDS THE LEDGER, NEVER THE PAGE — and the re
   } finally {
     globalThis.fetch = priorFetch;
     house.state.workerAnswer = priorWorker;
-    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    if (was === true) await db.settings.set('canonOn:' + st.id, true); else await db.settings.delete('canonOn:' + st.id);
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
@@ -4806,9 +4807,9 @@ test('DOM-90 THE ROOM READS ITS PEOPLE THROUGH HIS STORY WHEN IT OPENS: no page 
     }
     return priorWorker(body, sys);
   };
-  const was = await db.settings.get('canonOn');
+  const was = await db.settings.get('canonOn:' + st.id);
   try {
-    await db.settings.set('canonOn', true);
+    await db.settings.set('canonOn:' + st.id, true);
     click(q('#btn-ledger'));
     await until(() => !q('#drawer').hidden, 'the drawer');
     await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
@@ -4834,7 +4835,40 @@ test('DOM-90 THE ROOM READS ITS PEOPLE THROUGH HIS STORY WHEN IT OPENS: no page 
     click(q('#btn-ledger'));
   } finally {
     house.state.workerAnswer = priorWorker;
-    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    if (was === true) await db.settings.set('canonOn:' + st.id, true); else await db.settings.delete('canonOn:' + st.id);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-91 EACH STORY HAS ITS OWN CANON SWITCH: on in one story in Settings, off in the next one opened, on again back in the first — the switch names the story it is for (M399)', async () => {
+  const before = errors.length;
+  const a = await db.stories.create({ title: 'Bleach, captain Oda' });
+  const b = await db.stories.create({ title: 'A tale of my own' });
+  const open = async (id) => { env.window.__cozy.setActiveStoryId(id); await env.window.__cozy.chat.renderThread({ structural: true }); await tick(100); };
+  try {
+    await open(a.id);
+    await openSettings();
+    let sw = await until(() => q('#canon-on'), 'the switch', 10000);
+    await until(() => /Bleach, captain Oda/.test(sw.closest('label').textContent), 'it names the story it is for', 5000);
+    eq(sw.checked, false, 'off until switched on');
+    sw.checked = true; sw.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('canonOn:' + a.id)) === true, 'on for this story', 5000);
+    await closeSettings();
+    await open(b.id);
+    await openSettings();
+    sw = await until(() => q('#canon-on'), 'the switch', 10000);
+    await until(() => /A tale of my own/.test(sw.closest('label').textContent), 'now it is the other story’s', 5000);
+    eq(sw.checked, false, 'the other story is off');
+    eq(await db.settings.get('canonOn:' + b.id), undefined, 'and nothing was written for it');
+    await closeSettings();
+    await open(a.id);
+    await openSettings();
+    sw = await until(() => q('#canon-on'), 'the switch', 10000);
+    await until(() => sw.checked === true, 'back in the first story, on as it was left', 5000);
+    await closeSettings();
+  } finally {
+    await db.settings.delete('canonOn:' + a.id);
+    await closeSettings().catch(() => {});
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

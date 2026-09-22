@@ -1233,8 +1233,8 @@ function canonSaysPanel(ctx) {
     body.textContent = '';
     said.textContent = flash;
     if (!story) { say('Open a story and this is what canon says of its people.'); return; }
-    if (!(await canonOn())) {
-      say('Canon verification is off — Settings → The readers → Canon verification switches it on. Off, nothing of it runs and nothing of it is sent.');
+    if (!(await canonOn(story.id))) { /* M399: this story's own switch */
+      say('Canon verification is off for this story — Settings → The readers → Canon verification switches it on for this story alone. Off, nothing of it runs and nothing of it is sent.');
       return;
     }
     const meta = await canonMeta(story.id);

@@ -2777,7 +2777,7 @@ export function initChat(ctx) {
      * with canon verification on. */
     enqueue('canon', async ({ stale }) => {
       try {
-        if (stale() || !(await canonOn())) return { silent: true };
+        if (stale() || !(await canonOn(story.id))) return { silent: true };
         const connection = await resolveWorkerConnection(story, 'canon');
         if (!connection) return { silent: true };
         const read = await canonLensLedger((await db.stories.get(story.id)) || story, { connection });
@@ -3062,7 +3062,7 @@ export function initChat(ctx) {
      * page, the record is taken out and what this story made of them kept — never a core his hand wrote, nothing added,
      * nothing of the story lost (both held in code: agents/canontidy.js), journaled. Only with canon verification on. */
     enqueue('scribe', async ({ signal, stale, renew }) => {
-      if (story.extraction === false || stale() || !(await canonOn())) return { silent: true };
+      if (story.extraction === false || stale() || !(await canonOn(story.id))) return { silent: true };
       const meta = await canonMeta(story.id);
       if (!canonRepeats(await loadState(story.id), meta).length) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'scribe');
@@ -3080,7 +3080,7 @@ export function initChat(ctx) {
      * switch on; the people a page brings in are looked up after it, and written on the next. */
     enqueue('canon', async ({ stale }) => {
       try {
-        if (stale() || !(await canonOn())) return { silent: true };
+        if (stale() || !(await canonOn(story.id))) return { silent: true };
         if (!(await stillThere(story.id, msg.id))) return { silent: true };
         const r = await canonSyncLedger((await db.stories.get(story.id)) || story, { stale });
         const n = r && Array.isArray(r.applied) ? r.applied.length : 0;
@@ -3146,7 +3146,7 @@ export function initChat(ctx) {
      * now, so the next page has them. Only with its switch on. */
     enqueue('canon', async ({ stale }) => {
       try {
-        if (stale() || !(await canonOn())) return { silent: true };
+        if (stale() || !(await canonOn(story.id))) return { silent: true };
         const connection = await resolveWorkerConnection(story, 'canon');
         await canonAfterPage({ story, state: await loadState(story.id), messages: visiblePages(await db.messages.list(story.id)), connection });
       } catch (err) { /* its trouble is its own */ }
@@ -3573,7 +3573,7 @@ export function initChat(ctx) {
       /* M386: CANON VERIFICATION OFF SENDS NOTHING OF IT — not its note, and not the series' truths it wrote into What's
        * true of them: withdrawn from the ledger (a story page may write), or left out of this turn's copy (an
        * out-of-character turn may not). Switched on again, the next page writes them back. */
-      if (!(await canonOn())) {
+      if (!(await canonOn(story.id))) {
         if (!ooc) { try { const cleaned = await canonWithdraw(story.id); if (cleaned) state = cleaned; } catch (err) { /* the copy below still holds */ } }
         state = withoutCanonTruths(state);
       }
@@ -3591,7 +3591,7 @@ export function initChat(ctx) {
       /* M346: CANON VERIFICATION runs as SillyTavern runs it — its interceptor before the page, holding the turn only as
        * long as its own windows allow (it finishes in the background and the next page gets it). Beside the referee,
        * not after it. OFF (as it ships) or an out-of-character turn: never called, not one byte. */
-      const canonPending = (!ooc && lastUser && (await canonOn()))
+      const canonPending = (!ooc && lastUser && (await canonOn(story.id)))
         ? (async () => {
           const canonConnection = await resolveWorkerConnection(story, 'canon');
           return canonBeforeSend({ story, state, messages: history, connection: canonConnection, type: swipeTarget ? 'swipe' : 'normal' });
@@ -5839,7 +5839,7 @@ export function initChat(ctx) {
    * canon verification is off or nobody here is canon. */
   async function canonRecordOf(story) {
     try {
-      if (!story || !(await canonOn())) return '';
+      if (!story || !(await canonOn(story.id))) return '';
       const st = await loadState(story.id);
       const names = [...(Array.isArray(st.present) ? st.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)), ...Object.keys(st.characters || {})].filter(Boolean);
       return canonRecordFor(await canonMeta(story.id), names, { premise: await canonPremise(story) }); /* M392: only what holds in his story */
