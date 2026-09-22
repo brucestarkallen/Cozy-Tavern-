@@ -45,7 +45,7 @@ import { loadMemory, recordFor } from './memory.js';
 import { contextOf } from '../providers/room.js';
 import { db } from '../store.js';
 import {
-  clamp, probFromDelta, sliceOutcome, rngFloat, TIER_MEANING,
+  clamp, probFromDelta, sliceOutcome, rngFloat, TIER_MEANING, presetFor,
 } from '../engine/referee-math.js';
 import {
   ENGINE_DEFAULTS, engineSettings, mcName, isMcAlias, samePersonName,
@@ -691,10 +691,15 @@ export function resolveCheck(state, adj, eng) {
   } else {
     oR = tierRating(adj.tier || adj.opposition || 'moderate', aR);
   }
-  const delta = clamp(aR - oR + adj.circumstance + composurePenalty(state, eng) + eng.preset.bonus, -13, 13);
+  /* M400: THE FIGHT STYLE IS HIS EDGE, NOT THE WORLD'S. Heroic's +1 and its wider decisive / narrower disaster bands
+   * (gritty's the reverse) are the main character's — fights and battles are rolled from his side already; a lone
+   * check another person makes ("Renji tries to force the door") rolls as the world is, realistic. */
+  const his = isMcAlias(state, adj.actor);
+  const style = his ? eng.preset : presetFor('realistic');
+  const delta = clamp(aR - oR + adj.circumstance + composurePenalty(state, eng) + style.bonus, -13, 13);
   const P = probFromDelta(delta);
   const u = rngFloat();
-  const tier = sliceOutcome(P, u, eng.preset.mods);
+  const tier = sliceOutcome(P, u, style.mods);
   return { tier, aR, oR, delta, P, u };
 }
 

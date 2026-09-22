@@ -9696,3 +9696,16 @@ it was on in one.
   in Settings, off in the next one opened, on again back in the first; the switch names its story). The canon walk
   scenarios set their own story's switch; DOM-85's "off" now reads off as no row.
 - version.js -> m399-001.
+
+# M400 — the fight style is his edge, measured
+He asked whether the referee's heroic / realistic / gritty is a gimmick, and whether heroic buffs his MC.
+- NOT A GIMMICK — engine/referee-math.js PRESETS, measured on the real roller (an even fight, then one against someone
+  two steps stronger): realistic wins 50% / 24%, disasters 5.4% / 10.8%; HEROIC +1 to his side and wider decisive,
+  half the disaster band — wins 64% / 36%, decisive 10.1%, disasters 1.6% / 4%; gritty the same odds as realistic
+  but dearer wins (success-at-a-cost 23.6% vs 18.1%) and more disasters (8.1% / 16.2%).
+- FOUND: fights and battles are rolled from his side (duels.js adds the edge to the player), but a LONE CHECK added the
+  style's +1 and bands to WHOEVER acted — "Renji tries to force the door" got heroic luck too, and under gritty any
+  NPC's check broke more often. resolveCheck now gives the style to the main character's own checks; another person's
+  check rolls as the world is (realistic).
+- TESTS: m400.mjs (2: his own check +1 under heroic, another's not — negative-tested; the styles' real odds).
+- version.js -> m400-001.
