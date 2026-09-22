@@ -1911,7 +1911,9 @@ test('M237: no cap in the house severs a word, and no list has an unguarded door
   const apply = read('js/engine/apply.js');
   assert(/if \(findPresent\(state, name\) !== -1\) \{/.test(apply), 'present: someone already in the room is refused');
   assert(/const wanted = new Set\(list\.map/.test(apply), 'mood: a closed set of known flags, so no flag can be written twice');
-  assert(/state\.canon = lockFact\(state\.canon, canonKey, \{ key, value \}/.test(apply),
+  /* M386: the lock also carries where a truth came from ({ key, value, source }) — still locked BY KEY (M386-1 relocks the
+   * series' own hair and finds one fact under "hair", corrected) */
+  assert(/state\.canon = lockFact\(state\.canon, canonKey, \{ key, value[,} ]/.test(apply),
     'canon: a truth is locked BY KEY, so relocking corrects rather than duplicates');
 });
 

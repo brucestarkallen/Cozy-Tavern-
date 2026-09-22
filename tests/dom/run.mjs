@@ -3722,7 +3722,8 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
     if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    if (typeof wiki === 'string') { const w = q('#canon-wikis'); w.value = wiki; w.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    /* M386: the first-look wiki is one of the levers drawn once the switch is on */
+    if (typeof wiki === 'string') { const w = await until(() => q('#canon-wikis'), 'the first-look wiki box, drawn with the switch on', 10000); w.value = wiki; w.dispatchEvent(new env.window.Event('change', { bubbles: true })); await until(async () => ((await db.settings.get('canonGroundingSettings')) || {}).wikis === wiki, 'the wiki kept', 5000); }
     await until(async () => ((await db.settings.get('canonOn')) === true) === on, 'kept', 5000);
     await closeSettings();
   };
@@ -3735,12 +3736,13 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     const on = await send('I bow to Rukia and ask her to teach me kido.');
     const briefing = on.messages.find((m) => m.role === 'user' && /where things stand/i.test(String(m.content)));
     assert(briefing, 'the briefing rode: ' + on.messages.map((m) => m.role + ':' + String(m.content).slice(0, 80)).join(' || '));
-    assert(/Canon from this series' wiki/.test(briefing.content) && /Violet|Black, chin-length/.test(briefing.content), 'the briefing opens with what the wiki says of Rukia: ' + String(briefing.content).slice(0, 300));
+    /* M386: its opening words are his own now — "What canon says about the people here" — not the extension's "canon from this series' wiki" */
+    assert(/What canon says about the people here/.test(briefing.content) && /Violet|Black, chin-length/.test(briefing.content), 'the briefing opens with what canon says of Rukia: ' + String(briefing.content).slice(0, 300));
     assert(wikiAsked.includes('bleach.fandom.com'), 'the series’ wiki was asked');
     await setCanon(false);
     const asked = wikiAsked.length;
     const off = await send('I try the incantation again.');
-    assert(!/Canon from this series' wiki|Violet|chin-length/.test(JSON.stringify(off.messages)), 'OFF: nothing of it is sent');
+    assert(!/What canon says about the people here|Violet|chin-length/.test(JSON.stringify(off.messages)), 'OFF: nothing of it is sent');
     eq(wikiAsked.length, asked, 'OFF: nothing is looked up');
   } finally {
     globalThis.fetch = priorFetch;
@@ -4367,6 +4369,144 @@ test('DOM-84 ONE MESSAGE OF HIS IS SHOWN ONCE: a #story opens a new tale and, wh
     eq(qa('#thread .msg-user').length, 1, 'and one after');
   } finally {
     house.state.storyAnswer = prior;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension in Settings; the story’s wiki named in its ledger room; the two Kuchikis “Who’s here” has ride with only “she” and “he” on the page, with who they are to each other, under his own words; the scribe and the world agent are handed their real record; the series’ faces land in What’s true of them; “Never” and a let-go truth hold; a branch keeps it all; off sends nothing (M386)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = '[Kuchiki manor — Monday, September 7, 2026 | 19:00 | clear | haori | at the table]\n\n';
+  const st = await db.stories.create({ title: 'Kuchiki manor' });
+  await db.stories.update(st.id, { keeper: false, brief: 'A Bleach story. Jovan is a guest at the Kuchiki manor.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I sit at the long table and bow.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'She pours the tea without a word. At the head of the table, he does not look up.' });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }, { type: 'presence.enter', name: 'Byakuya Kuchiki' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'The host’s sister.', state: 'pouring tea', threads: [] }, 'Byakuya Kuchiki': { core: 'The head of the house.', state: 'at the head of the table', threads: [] } };
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const RUK = "{{Infobox Character\n| name = Rukia Kuchiki\n| hair = Black, chin-length\n| eyes = Violet\n| height = 144 cm\n}}\n'''Rukia Kuchiki''' is a Shinigami and the adopted sister of Byakuya Kuchiki.\n== Appearance ==\nRukia is a petite young woman with violet eyes and black hair.\n== Relationships ==\n=== Byakuya Kuchiki ===\nRukia reveres her adoptive brother Byakuya and long mistook his distance for disdain.";
+  const BYA = "{{Infobox Character\n| name = Byakuya Kuchiki\n| hair = Black, long\n| eyes = Grey\n| height = 180 cm\n}}\n'''Byakuya Kuchiki''' is the head of the Kuchiki clan.\n== Appearance ==\nByakuya is a tall, slender man with grey eyes.\n== Relationships ==\n=== Rukia Kuchiki ===\nByakuya adopted Rukia to honour a promise to his late wife Hisana, and guards her from a distance.";
+  const wikiAsked = [];
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = (url, opts) => {
+    if (!/fandom\.com|wiki\.gg/.test(String(url))) return priorFetch(url, opts);
+    const u = new URL(String(url));
+    wikiAsked.push(u.hostname);
+    const ok = (obj) => Promise.resolve({ ok: true, status: 200, json: async () => obj, text: async () => JSON.stringify(obj) });
+    if (u.hostname !== 'bleach.fandom.com') return ok({});
+    const who = (t) => (/rukia/i.test(t || '') ? 'Rukia Kuchiki' : /byakuya/i.test(t || '') ? 'Byakuya Kuchiki' : '');
+    const titles = u.searchParams.get('titles'); const page = u.searchParams.get('page'); const sr = u.searchParams.get('srsearch');
+    if (u.searchParams.get('list') === 'recentchanges') return ok({ query: { recentchanges: [{ timestamp: '2026-09-01T00:00:00Z' }] } });
+    if (sr) return ok({ query: { search: who(sr) ? [{ title: who(sr) }] : [] } });
+    if (titles) return who(titles) ? ok({ query: { pages: { 7: { pageid: 7, title: who(titles) } } } }) : ok({ query: { pages: { '-1': { title: titles, missing: '' } } } });
+    if (page && !/\//.test(page) && who(page)) return ok({ parse: { title: who(page), wikitext: { '*': who(page) === 'Rukia Kuchiki' ? RUK : BYA } } });
+    return ok({});
+  };
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); const calls = house.state.calls.slice(from); const told = calls.find((c) => Array.isArray(c.body.messages) && c.body.messages.some((m) => m.role === 'user' && /where things stand/i.test(String(m.content)))); assert(told, 'the storyteller was asked'); return { body: told.body, calls }; };
+  const briefingOf = (body) => body.messages.find((m) => m.role === 'user' && /where things stand/i.test(String(m.content)));
+  const openRoom = async (title) => {
+    if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const sec = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === title);
+    assert(sec, 'the room “' + title + '” is in the ledger');
+    return sec;
+  };
+  const closeDrawer = async () => { if (!q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'the drawer closed'); } };
+  const was = await db.settings.get('canonOn');
+  try {
+    /* 1. Settings: the switch, and with it every lever of the extension, named as it names them */
+    await openSettings();
+    const sw = await until(() => q('#canon-on'), 'the switch', 10000);
+    if (!sw.checked) { sw.checked = true; sw.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(() => q('#canon-physical') && q('#canon-castAuditor') && q('#canon-relationDynamics'), 'its levers, drawn', 15000);
+    const levers = q('#canon-controls').textContent;
+    for (const name of ['Cast Auditor', 'Per-pair dynamics', 'Prose briefs', 'Smarter AI', '✒ Advanced', 'LLM-curated dossiers', 'Parser self-test', 'Smart dynamic order', 'Say what is NOT in canon', 'Find each story’s wiki by itself']) assert(levers.includes(name), 'Settings has “' + name + '”');
+    eq(qa('#canon-controls textarea').length >= 8, true, 'the words it uses, and his notes for every story');
+    await closeSettings();
+    /* 2. the story's wiki, named in its own ledger room — a decree for this story */
+    const room = await openRoom('What canon says');
+    const wikiBox = await until(() => room.querySelector('#canon-story-wiki'), 'the story’s wiki box', 10000);
+    wikiBox.value = 'bleach';
+    submit(wikiBox.closest('form'));
+    await until(async () => ((await db.settings.get('canonMeta:' + st.id)) || {}).canon_grounding_wiki === 'bleach', 'this story asks bleach', 15000);
+    await closeDrawer();
+    /* 3. a page whose words name nobody: both ride, with who they are to each other, under his words */
+    const one = await send('I thank her for the tea.');
+    const b1 = briefingOf(one.body);
+    assert(/Rukia Kuchiki:/.test(b1.content) && /Byakuya Kuchiki:/.test(b1.content), 'the two “Who’s here” has ride with only “she” and “he” on the page: ' + b1.content.slice(0, 700));
+    assert(/With Byakuya Kuchiki:[^\n]*adoptive brother/i.test(b1.content) || /With Rukia Kuchiki:[^\n]*Hisana/i.test(b1.content), 'who they are to each other: ' + b1.content.slice(0, 1200));
+    const canonPart = b1.content.split('\n\n')[1] || '';
+    assert(canonPart.startsWith('What canon says about the people here'), 'first in his notes');
+    assert(!/\bwiki\b|\bnote\b|storyteller|inject|grounding|verification/i.test(canonPart.split('\n')[0]), 'no machinery in its opening words: ' + canonPart.split('\n')[0]);
+    assert(wikiAsked.includes('bleach.fandom.com'), 'the story’s wiki was asked');
+    /* the workers told to write from the real record are handed it, on the wire */
+    const scribeCall = one.calls.find((c) => /character scribe/i.test(String((c.body.messages || [])[0] && c.body.messages[0].content)) || /character scribe/i.test(JSON.stringify(c.body.system || '')));
+    if (scribeCall) assert(/What the series itself says of its people/.test(JSON.stringify(scribeCall.body)) && /Rukia Kuchiki —/.test(JSON.stringify(scribeCall.body)), 'the scribe is handed the real record');
+    const worldCall = one.calls.find((c) => /world beyond the page/i.test(JSON.stringify(c.body)));
+    if (worldCall) assert(/WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE/.test(JSON.stringify(worldCall.body)), 'the world agent is handed the real record');
+    assert(scribeCall || worldCall, 'a worker told to use the record was asked on this page');
+    /* 4. the series' faces are in What's true of them, marked as the series' */
+    await until(async () => { const c = ((await loadState(st.id)).canon || {})['Rukia Kuchiki']; return c && c.facts.some((f) => f.key === 'eyes' && f.value === 'Violet' && f.source === 'canon'); }, 'Rukia’s violet eyes, locked from the series', 15000);
+    let truths = await openRoom('What’s true of them');
+    await until(() => /Rukia Kuchiki — eyes: Violet · as the series has it/.test(truths.textContent), 'the room shows the series’ truth', 10000);
+    /* he lets the series' hair go */
+    const hairRow = [...truths.querySelectorAll('li')].find((li) => /Rukia Kuchiki — hair:/.test(li.textContent));
+    assert(hairRow, 'her hair is there');
+    click(hairRow.querySelector('button'));
+    await until(async () => ((await loadState(st.id)).canonLetGo || []).includes('rukia kuchiki|hair'), 'the letting-go remembered', 10000);
+    /* 5. "Never" for Byakuya, from his card in the canon room */
+    const canonRoom = await openRoom('What canon says');
+    const card = await until(() => [...canonRoom.querySelectorAll('details.canon-card')].find((d) => /^Byakuya Kuchiki/.test(d.querySelector('summary').textContent)), 'Byakuya’s card', 10000);
+    assert(/in the scene/.test(card.querySelector('summary').textContent), 'he is marked in the scene');
+    card.open = true;
+    await until(() => [...card.querySelectorAll('button')].some((b) => b.textContent === 'Never'), 'his card opened', 5000);
+    assert(/Who they are to the people here:/.test(card.textContent) && /Rukia/.test(card.textContent), 'his card says who he is to her');
+    click([...card.querySelectorAll('button')].find((b) => b.textContent === 'Never'));
+    await until(async () => /Byakuya Kuchiki/.test(((await db.settings.get('canonMeta:' + st.id)) || {}).canon_grounding_block || ''), 'never, kept with the story', 10000);
+    await until(async () => !((((await loadState(st.id)).canon || {})['Byakuya Kuchiki'] || { facts: [] }).facts.some((f) => f.source === 'canon')), 'his series truths withdrawn at once', 10000);
+    await closeDrawer();
+    /* 6. the next page: Byakuya never; Rukia's hair not written again */
+    const two = await send('I ask her about the garden.');
+    const b2 = briefingOf(two.body);
+    assert(/Rukia Kuchiki:/.test(b2.content) && !/Byakuya Kuchiki:/.test(b2.content), 'never means never: ' + b2.content.slice(0, 500));
+    const rk = ((await loadState(st.id)).canon || {})['Rukia Kuchiki'];
+    assert(rk && !rk.facts.some((f) => f.key === 'hair'), 'the hair he let go stays gone');
+    /* 7. a branch from the newest page keeps its canon */
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await tick(200);
+    const pagesNow = assistantPages();
+    click(q('.msg-act[data-act="branch"]', pagesNow[pagesNow.length - 1]));
+    await until(async () => (await storyId()) !== st.id, 'the branch is open', 15000);
+    await settled();
+    const branch = await db.stories.get(await storyId());
+    assert(branch && /Kuchiki manor — a branch/.test(branch.title), 'the branch was made: ' + (branch && branch.title));
+    const bm = await until(async () => db.settings.get('canonMeta:' + branch.id), 'the branch’s canon memory', 10000);
+    assert(bm.canon_grounding_wiki === 'bleach' && /Byakuya Kuchiki/.test(bm.canon_grounding_block || '') && Object.values(bm.canon_grounding_cache || {}).some((e) => e && /Rukia/.test(e.name || '')), 'the branch keeps the story’s wiki, his Never and what was looked up');
+    /* 8. off: the room says so, nothing is looked up, nothing is sent */
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await openSettings();
+    const sw2 = await until(() => q('#canon-on'), 'the switch', 10000);
+    sw2.checked = false; sw2.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('canonOn')) === false, 'off, kept', 5000);
+    await until(() => q('#canon-controls').hidden && !q('#canon-physical'), 'its levers put away', 5000);
+    await closeSettings();
+    const offRoom = await openRoom('What canon says');
+    await until(() => /Canon verification is off/.test(offRoom.textContent), 'the room says it is off', 5000);
+    await closeDrawer();
+    const asked = wikiAsked.length;
+    const three = await send('I finish my tea.');
+    assert(!/What canon says about the people here|Violet|Rukia Kuchiki:/.test(JSON.stringify(three.body.messages)), 'OFF: nothing of it is sent');
+    eq(wikiAsked.length, asked, 'OFF: nothing is looked up');
+  } finally {
+    globalThis.fetch = priorFetch;
+    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    await closeSettings().catch(() => {});
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

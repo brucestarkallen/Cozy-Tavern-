@@ -20,7 +20,8 @@ import { mcName } from '../engine/duels.js'; /* M361 */
 import { readStandingWords, groupFindings, findingsText } from '../assemble/plainvoice.js'; /* M359, M360 */
 import { copyWords } from './receiptview.js'; /* M360: the flagged lines, in one tap */
 import { loadSensors, sensorLine } from '../agents/sensors.js'; /* M356 */
-import { canonWikis, setCanonWikis } from '../canon/bridge.js'; /* M346 */
+import { drawCanonControls } from './canonsettings.js'; /* M346; M386: every lever of canon verification */
+import { canonWithdraw } from '../canon/bridge.js'; /* M386: off, the series' truths leave the open story's ledger at once */
 import { db } from '../store.js';
 import { createProvider, presetById, normalizeBaseUrl, wouldNormalize } from '../providers/index.js';
 import { presetIdFor, detectKey } from '../providers/room.js'; /* M285; M289 */
@@ -209,7 +210,7 @@ export function initSettings(ctx) {
     canonOn: document.getElementById('canon-on'), /* M346 */
     sensorsOn: document.getElementById('sensors-on'), /* M356 */
     sensorReadings: document.getElementById('sensors-readings'),
-    canonWikis: document.getElementById('canon-wikis'),
+    canonControls: document.getElementById('canon-controls'), /* M386 */
     refereeSensitivity: document.getElementById('referee-sensitivity'),
     refereePreset: document.getElementById('referee-preset'),
     refereeFightStyle: document.getElementById('referee-fightstyle'),
@@ -1575,15 +1576,29 @@ export function initSettings(ctx) {
       const line = kept ? sensorLine(kept) : '';
       els.sensorReadings.textContent = line ? 'This story so far — ' + line : 'No readings yet.';
     }
-    if (els.canonWikis) els.canonWikis.value = await canonWikis();
+    await drawCanon();
     els.refereeSensitivity.value = (await db.settings.get('refereeSensitivity')) || 'normal';
     els.refereePreset.value = (await db.settings.get('refereePreset')) || 'realistic';
     els.refereeFightStyle.value = (await db.settings.get('refereeFightStyle')) || 'tracked';
   }
 
-  if (els.canonOn) els.canonOn.addEventListener('change', async () => { await db.settings.set('canonOn', els.canonOn.checked); });
+  /* M386: its levers are drawn only with the switch on — off, the extension is never loaded */
+  async function drawCanon() {
+    if (!els.canonControls) return;
+    if (!(els.canonOn && els.canonOn.checked)) { els.canonControls.textContent = ''; els.canonControls.hidden = true; return; }
+    els.canonControls.hidden = false;
+    try {
+      await drawCanonControls(els.canonControls, { selfTest: () => (ctx.chat && typeof ctx.chat.canonTest === 'function' ? ctx.chat.canonTest() : { ok: false, ms: 0, error: 'open a story first' }) });
+    } catch (err) {
+      els.canonControls.textContent = 'Its settings could not be drawn just now (' + String((err && err.message) || err).slice(0, 120) + ').';
+    }
+  }
+  if (els.canonOn) els.canonOn.addEventListener('change', async () => {
+    await db.settings.set('canonOn', els.canonOn.checked);
+    if (!els.canonOn.checked) { try { const story = await activeStory(); if (story) await canonWithdraw(story.id); } catch (err) { /* its next page withdraws them */ } }
+    await drawCanon();
+  });
   if (els.sensorsOn) els.sensorsOn.addEventListener('change', async () => { await db.settings.set('sensorsOn', els.sensorsOn.checked); }); /* M356 */
-  if (els.canonWikis) els.canonWikis.addEventListener('change', async () => { await setCanonWikis(els.canonWikis.value); });
   els.refereeOn.addEventListener('change', async () => {
     await db.settings.set('refereeOn', els.refereeOn.checked);
   });

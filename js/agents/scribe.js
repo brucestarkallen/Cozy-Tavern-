@@ -118,7 +118,7 @@ const SYSTEM_PROMPT = [
  * notes kept whole, a few present cards filled it, and the off-scene people
  * this very page names (M227) were shed before it could read them. */
 export const SCRIBE_VIEW_TOKENS = 200000;
-export function buildScribeMessages({ state, userText, assistantText, brief = '', castNotes = '' }) {
+export function buildScribeMessages({ state, userText, assistantText, brief = '', castNotes = '', canonRecord = '' }) {
   /* M227: THE SCRIBE COULD NOT SEE THE LOOSE ENDS IT WAS MEANT TO CLOSE.
    * renderPeopleTiers only gives a full page — Loose ends included — to
    * people on scene, and recalls an OFF-scene person only when these pages
@@ -154,6 +154,8 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
   const user = [
     ...(String(brief || '').trim() ? ['The writer\u2019s brief \u2014 who these people are; it outranks every page:', '"""', writerText(brief, BRIEF_ROOM, 'brief'), '"""', ''] : []),
     ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
+    /* M386: "written from the REAL RECORD" — handed to it at last (canon verification on, and someone here is canon) */
+    ...(String(canonRecord || '').trim() ? ['What the series itself says of its people in this story (their real record — true names, family, roles, history):', '"""', String(canonRecord).trim(), '"""', ''] : []),
     'Here is what the character pages currently say:',
     ledger && ledger.text ? ledger.text : 'Nothing is written on the character pages yet.',
     ...(mcRecord ? ['', mcRecord] : []),
@@ -224,13 +226,13 @@ function nameFromWords(words, fallback) {
   return at > 0 ? words.slice(0, at) : String(fallback || '').trim();
 }
 
-export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale, renew, brief = '', castNotes = '' } = {}) {
+export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale, renew, brief = '', castNotes = '', canonRecord = '' } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
 
   const before = await loadState(storyId);
-  const prompt = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes });
+  const prompt = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes, canonRecord });
   /* M28: the one wire path — thinking off per house, temperature 0; a
    * transport failure throws (with retryAfterMs when the house named a wait)
    * and the queue retries. */

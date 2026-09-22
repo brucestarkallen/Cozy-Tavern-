@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m385-001)
+# Cozy Tavern — handoff for the next session (state at m386-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 He tells his story with a frontier model and a hand-built persona (a funny teller, his own frame and rules). Almost every
@@ -35,9 +35,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 752 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 761 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 102 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 103 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -153,6 +153,22 @@ founding design lives in AGENTS.md's first entries.)
   test/sim.mjs), then vendor again. js/canon/bridge.js hands it the story as ST's chat and card, Cozy's people ledger as its
   cast (Summaryception's slot), the 'canon' worker for its model calls, ONE live memory object per story (canonMeta:<id>).
   Its note leads the briefing. Switch canonOn, OFF as it ships = never loaded, never called, not one byte (DOM-69).
+  M386 (Canon Grounding v0.64.0): the WHOLE of it is Cozy's now, and the ledger beside it —
+  · WHO'S HERE IS ITS CAST: bridge.js ledgerOf marks everyone state.present has `present: true`; the extension's ONE door
+    (ledgerOnScreen) puts them in the scene with no name on the page and resolves their pairs. Never filter the lent
+    ledger by name anywhere else.
+  · ITS OPENING WORDS ARE HIS (bridge.js CANON_HEADER, through getContext().canonHeaderDefault): no wiki, no note, no
+    storyteller. The ⌀ / story-position / pin blocks are the extension's own words, in the player's voice.
+  · THE SERIES' FACES LIVE IN "WHAT'S TRUE OF THEM" (canonLocks → canonSyncLedger, a chain job BEFORE the checkpoint):
+    apply.js canon.lock/unlock carry `source: 'canon'` — the series writes only where nothing of anyone else's stands,
+    corrects and withdraws only its own, and a truth let go by anyone else is marked in state.canonLetGo (journaled:
+    folds, branches and take-backs keep it honest). Never write a canon-sourced lock any other way.
+  · OFF SENDS NOTHING OF IT: the send path withdraws the series' truths (canonWithdraw, journaled) or leaves them out of
+    an out-of-character turn's copy (withoutCanonTruths); Settings withdraws them from the open story at once.
+  · Its levers: the ledger room "What canon says" (per story, canonAction → the extension's host surface
+    CanonGrounding_api) and Settings (js/ui/canonsettings.js, drawn only with the switch on, one copy of each setting:
+    the extension's own live object). A branch keeps its canon (carryCanonMemory). The scribe, the world agent and the
+    auditor are handed the real record (canonRecordFor) — byte-identical requests without it.
 - THREE OPT-IN SWITCHES, EACH "OFF = NOT ONE BYTE" AND HELD BY A BYTE-FOR-BYTE LAW: think-on-page (M339), older model (M343), and the
   cut-before-header tick. Anything that adds words to what the storyteller reads goes behind a switch like these, in the
   writer's voice, one line — or it does not go in (M341/M342). The storyteller's room is read through chat.js roomOf ONLY, and roomOf is the provider's room: NO switch may ever take a page, the note or the record out of a request (M344) — help a weaker model by ADDING what is far (assemble/anchor.js), never by removing.

@@ -70,6 +70,9 @@ export function lockFact(canon, name, fact, m) {
   const value = clean(fact && fact.value, VALUE_CAP);
   if (!who || !key || !value) return next;
   const clockMinutes = Number.isFinite(m) ? m : null;
+  /* M386: where a truth came from — 'canon' when the series itself said it (canon verification), nothing when the brief,
+   * the writer's hand or a reader wrote it. Anything but the series' own lock takes the mark away. */
+  const source = fact && fact.source === 'canon' ? 'canon' : '';
   const found = findCanonKey(next, who);
   const canonKey = found || who;
   if (!found) next[canonKey] = { facts: [] };
@@ -77,9 +80,10 @@ export function lockFact(canon, name, fact, m) {
   if (!Array.isArray(entry.facts)) entry.facts = [];
   const held = findFact(entry, key);
   if (held) {
-    entry.facts[held.index] = { ...held.entry, key: held.entry.key, value, atMinutes: clockMinutes };
+    const { source: _was, ...rest } = held.entry;
+    entry.facts[held.index] = { ...rest, key: held.entry.key, value, atMinutes: clockMinutes, ...(source ? { source } : {}) };
   } else {
-    entry.facts.push({ key, value, atMinutes: clockMinutes });
+    entry.facts.push({ key, value, atMinutes: clockMinutes, ...(source ? { source } : {}) });
   }
   return next;
 }

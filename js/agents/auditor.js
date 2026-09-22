@@ -230,7 +230,7 @@ export function buildAuditorMessages(args) {
   for (let level = 1; level <= LEAN_STEPS && built.system.length + built.user.length > room * 0.6; level += 1) built = buildAuditorAt(args, level);
   return built;
 }
-function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages = [], index = [], pageCount = 0 }, lean = 0) {
+function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages = [], index = [], pageCount = 0, canonRecord = '' }, lean = 0) {
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   /* M259: the WHOLE ledger — every standing with its numbers, every thread,
@@ -242,6 +242,7 @@ function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages 
     'THE BRIEF (the writer\'s own words):',
     FENCE, writerText(brief, BRIEF_ROOM, 'brief', true) || '(none written)', FENCE, /* M283: to its room, a stated cut past it */
     ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT (the writer\'s own words):', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE] : []),
+    ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — the brief outranks it; where the brief is silent, a canon character is this):', FENCE, String(canonRecord).trim(), FENCE] : []), /* M386 */
     '',
     /* M259: what changes least comes first, the ledger (which changes every
      * page) last — so the house can reuse what it already read of the brief,
@@ -356,7 +357,7 @@ export function auditView(list, foldedTo, budget = AUDIT_VIEW_CHARS) {
   return { shown, index };
 }
 
-export async function auditLedger({ connection, storyId, brief = '', castNotes = '', castNames = [], signal, stale, renew } = {}) {
+export async function auditLedger({ connection, storyId, brief = '', castNotes = '', castNames = [], signal, stale, renew, canonRecord = '' } = {}) {
   if (!connection || typeof connection !== 'object' || !storyId) return null;
   const state = await loadState(storyId);
   const mem = await loadMemory(storyId);
@@ -377,10 +378,10 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const room = auditRoomChars(connection);
   const record = recordWithPages(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35))));
   const foldedTo = Math.max(0, ...((mem && Array.isArray(mem.nodes)) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1));
-  const bare = buildAuditorMessages({ state, brief, castNotes, record, pages: [], pageCount: all.length, room }); /* M287: the audit's own room */
+  const bare = buildAuditorMessages({ state, brief, castNotes, record, pages: [], pageCount: all.length, room, canonRecord }); /* M287: the audit's own room */
   const view = auditView(all, foldedTo, Math.min(AUDIT_VIEW_CHARS, viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length)));
   if (!view.shown.length) return null;
-  const prompt = buildAuditorMessages({ state, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room });
+  const prompt = buildAuditorMessages({ state, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room, canonRecord });
   let read = null;
   let raw = '';
   let user = prompt.user;

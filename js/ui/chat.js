@@ -53,7 +53,7 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
-import { canonOn, canonBeforeSend, canonAfterPage } from '../canon/bridge.js'; /* M346: canon verification */
+import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
 import { readSensors, takeWordForTurn, keepPageWord, sensorLine } from '../agents/sensors.js'; /* M356/M357: the readings, and the one line they earn */
 import { onToast as onCanonToast } from '../canon/host.js';
@@ -2436,7 +2436,7 @@ export function initChat(ctx) {
     const connection = await resolveWorkerConnection(story, 'auditor');
     if (!connection) { banner.failed('The auditor needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale, renew }) => {
-      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew });
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story) });
       if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     } });
@@ -2813,6 +2813,7 @@ export function initChat(ctx) {
         renew,
         story, pageNumber: atSelf + 1, /* M259: it may look */
         jumpedMinutes,
+        canonRecord: await canonRecordOf(story), /* M386: the real record it is told to seat canon people from */
       });
       /* M85: the voices land under the page they followed (a re-ink, like
        * the masthead); a read that heard none clears a stale block from an
@@ -2845,6 +2846,7 @@ export function initChat(ctx) {
         renew,
         brief: story.brief || '', /* M283: the brief outranks every page — the scribe reads it */
         castNotes: story.castNotes || '',
+        canonRecord: await canonRecordOf(story), /* M386: "written from the REAL RECORD" — now it has it */
       });
       /* M259: the scribe says what it did, like every other minder */
       if (!kept) return { silent: true };
@@ -2998,7 +3000,7 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'auditor');
       if (!connection) return upkeepOnly();
       if (stale()) return { silent: true };
-      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew });
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story) });
       if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     });
@@ -3033,6 +3035,24 @@ export function initChat(ctx) {
       await saveState(story.id, { ...after, healedGen: HEAL_GEN });
       notify(story.id);
       return { silent: false, detail: 'read the people and their standings again from the pages, once — for notes the old house had cut short, or standings the old auditor had pushed back to the brief (' + rebuildPeopleWords(r) + '; the drawer can put the old ones back)' };
+    });
+
+    /* 4a''. M386: WHAT THE SERIES SAYS OF A FACE IS WRITTEN WHERE A FACE IS KEPT. Everyone in the ledger who is a canon
+     * character has the series' hair, eyes, height, build, skin and distinguishing features in "What's true of them" —
+     * only where nothing of the brief's, the writer's or a reader's stands, never again once he lets one go, corrected
+     * when the series is looked up again, withdrawn when he blocks the name or forgets the page. Code only (the canon
+     * memory and the ledger, no model, no network), before the checkpoint so this page's version keeps it. Only with its
+     * switch on; the people a page brings in are looked up after it, and written on the next. */
+    enqueue('canon', async ({ stale }) => {
+      try {
+        if (stale() || !(await canonOn())) return { silent: true };
+        if (!(await stillThere(story.id, msg.id))) return { silent: true };
+        const r = await canonSyncLedger((await db.stories.get(story.id)) || story, { stale });
+        const n = r && Array.isArray(r.applied) ? r.applied.length : 0;
+        if (!n) return { silent: true };
+        const who = [...new Set(r.applied.map((a) => a.mutation.name))];
+        return { silent: false, detail: 'wrote what the series says of ' + who.slice(0, 6).join(', ') + (who.length > 6 ? ', …' : '') + ' into What’s true of them (' + n + (n === 1 ? ' line' : ' lines') + ')' };
+      } catch (err) { return { silent: true }; }
     });
 
     /* 4b. M40: the version's checkpoint — the ledger as it stands once the
@@ -3515,6 +3535,13 @@ export function initChat(ctx) {
        * the assembler looks at anything. */
       await pendingWork(story.id, 5000);
       let state = await loadState(story.id);
+      /* M386: CANON VERIFICATION OFF SENDS NOTHING OF IT — not its note, and not the series' truths it wrote into What's
+       * true of them: withdrawn from the ledger (a story page may write), or left out of this turn's copy (an
+       * out-of-character turn may not). Switched on again, the next page writes them back. */
+      if (!(await canonOn())) {
+        if (!ooc) { try { const cleaned = await canonWithdraw(story.id); if (cleaned) state = cleaned; } catch (err) { /* the copy below still holds */ } }
+        state = withoutCanonTruths(state);
+      }
 
       /* M11: the autonomous referee — the ONLY agent call allowed before
        * the story generation, and only when its local gate passes (a fight
@@ -5059,6 +5086,9 @@ export function initChat(ctx) {
     await saveMemory(branch.id, { ...mem, nodes });
     const lore = await loadLore(story.id);
     if (lore.length) await saveLore(branch.id, lore.map((e) => ({ ...e })));
+    /* M386: a branch keeps its canon — the series it found, the wiki he named, his pins, blocks and notes; what the
+     * tracker derived from later pages (an advanced story position, the current setting) only from the newest page */
+    await carryCanonMemory(story.id, branch.id, { fromTheTail });
     await db.stories.update(branch.id, { building: false }); /* M332: whole — from here it is a tale like any other (and this write sends it to the device) */
     } catch (err) {
       /* M332: a branch that could not be finished is not left half-made */
@@ -5776,8 +5806,40 @@ export function initChat(ctx) {
    * saves it), so render paths can apply it without waiting. */
   loadRules().catch(() => {});
 
+  /* M386: THE REAL RECORD, FOR THE WORKERS TOLD TO WRITE FROM IT. The scribe, the world agent and the auditor are told a
+   * canon character is written from the real record — and were never handed it. What the series says of the canon
+   * people in this ledger (who they are, family and ties, the facts), from the story's own canon memory; nothing when
+   * canon verification is off or nobody here is canon. */
+  async function canonRecordOf(story) {
+    try {
+      if (!story || !(await canonOn())) return '';
+      const st = await loadState(story.id);
+      const names = [...(Array.isArray(st.present) ? st.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)), ...Object.keys(st.characters || {})].filter(Boolean);
+      return canonRecordFor(await canonMeta(story.id), names);
+    } catch (err) { return ''; }
+  }
+
+  /* M386: canon verification's own levers for the open story — the ledger room and Settings call these. The extension's
+   * functions run with this story as its chat: its pages, its ledger, the canon worker's connection (the same one its
+   * turn uses). Nothing when no story is open. */
+  async function canonAct(action, arg) {
+    const story = await activeStory();
+    if (!story) return null;
+    const connection = await resolveWorkerConnection(story, 'canon');
+    return canonAction({ story, state: await loadState(story.id), messages: await db.messages.list(story.id), connection }, action, arg);
+  }
+  async function canonTest() {
+    const story = await activeStory();
+    if (!story) return { ok: false, ms: 0, error: 'open a story first — the test asks through its worker connection' };
+    const connection = await resolveWorkerConnection(story, 'canon');
+    if (!connection) return { ok: false, ms: 0, error: 'no connection to ask' };
+    return canonSelfTest({ story, state: await loadState(story.id), messages: await db.messages.list(story.id), connection });
+  }
+
   ctx.chat = {
     openStory, /* M189: so a fetch-on-open can be exercised by a test */
+    canonAct, /* M386 */
+    canonTest, /* M386 */
     isBusy: () => Boolean(busy),
     isReplaying,
     repairTimeline,

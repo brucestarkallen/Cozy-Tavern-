@@ -9223,3 +9223,88 @@ does both); it is NOT available on Claude Sonnet 5.
   a user message, remembered for that model; the same connection on Opus 5 is tried afresh. M380-3 checks the per-model mark.
 - GATES ON THE PUSHED TREE: harness 752/752, walk 102/102, longplay 8/8, lint clean.
 - version.js -> m385-001.
+
+# M386 — canon verification, whole: Who's here is its cast, its words are his, the series' faces live in the ledger
+He asked how canon verification works, whether it was all ported, where it is injected ("as a user message, right?"), and
+why it was "literally just one box": M346 had vendored the engine and shown one switch and one text box, never its
+panel, never the ledger. He asked for all of it, smart and autonomous, using what the ledger already knows (Who's here,
+the physical descriptions), a new ledger section for what canon says (relationships, history), and nothing that breaks
+his persona. Answers: it runs as his extension on the SillyTavern stand-in (bridge.js/host.js); YES, a user message — the
+first thing in his briefing, after the frame (systemBlocks) and before every page, where ST's depth 9999 puts it.
+- CANON GROUNDING v0.64.0 (the extension, pushed first, three roots, 8 guards negative-tested; proof 593, sim 406):
+  · a HOST'S LEDGER THAT KNOWS WHO IS IN THE ROOM is heard: entries marked `present: true` ride (tier 2, grounded as
+    trusted, in the pair pool) with no name in the window — ONE door (ledgerOnScreen) replaced six name-only filters;
+  · A SECTION THAT OPENS STRAIGHT INTO ITS SUBSECTIONS was invisible ("== Relationships ==" then "=== Issei ==="): the
+    readers demanded a text line under a heading; one reader (sectionAt) now reads a section with its subtree, in all
+    four places — the page's own pair dynamics, eras of History, arcs whose Summary opens into parts;
+  · NO WIKI, NO VERDICT: `[].every(...)` is true, so with no wiki set a lookup that searched nothing recorded a miss that
+    "covered" the empty list and the ⌀ notice told the storyteller "not in canon"; now nothing is recorded or claimed;
+  · a host may frame the note (getContext().canonHeaderDefault); the panel's buttons are ONE function each, shared with
+    a host surface (globalThis.CanonGrounding_api) — preview, scan, clear, forget, look it up again, the story position,
+    the chat's pins, the self-test, both resets, the wiki binding — and the name resolver itself (cacheEntryIn, the pure
+    form of cacheEntryFor), so Cozy reads a pinned "Rukia" as Rukia Kuchiki exactly as the note does.
+  Pushed as c54dfd5 (feat → test → chore(release)); re-gated on a fresh clone: syntax OK, proof 596/596, sim 406/406;
+  vendored from that clone at c54dfd5 (the vendored body differs from it only in the three asserted places).
+- WHO'S HERE IS THE CAST (bridge.js ledgerOf): everyone state.present has is marked present under the name their page
+  stands under (M320) — the two Kuchikis ride with only "she" and "he" on the page, and their "With …" lines come from
+  the wiki page itself.
+- HIS WORDS (CANON_HEADER): "What canon says about the people here — sharper than anyone's memory, so where it differs
+  from what you recall (a face, a tie, something in their past), this is right. Nobody in the story knows more of it than
+  they've lived, and a hidden identity stays hidden. It's how someone tends to be, never a script: …" — no wiki, no
+  note, no storyteller, no "portrayal error". Editable in Settings ("The words before what canon says"); empty = these.
+- THE SERIES' FACES IN "WHAT'S TRUE OF THEM" (canonLocks → canonSyncLedger, a chain job before the checkpoint): hair,
+  eyes, height, build, skin, distinguishing features, for everyone in the ledger who is a canon character. The law, in
+  the engine (apply.js canon.lock/unlock `source: 'canon'`): the series writes only where nothing of the brief's, the
+  writer's or a reader's stands; corrects or withdraws only its own; a truth he (or the auditor, or the housekeeper) lets
+  go is marked in state.canonLetGo — journaled with the unlock, so a branch from before it has the truth back, and taking
+  the unlock back takes the mark back; taking back the series' own lock is a letting-go too. Withdrawn when he blocks the
+  name, forgets the page, or the brief speaks to that feature. WHO IS WHO (canonEntryFor): the series' full name, else a
+  shorter name only when nobody else in the ledger could be meant — his Rias Wells is never Rias Gremory, and a bare
+  "Rias" beside Rias Wells is nobody's; "Rias Wells has black hair" in the brief says nothing of Rias Gremory's hair.
+- OFF SENDS NOTHING OF IT (M346's law, kept whole): switched off, the series' truths are withdrawn from the open story at
+  once (Settings) and from any story on its next page (the send path, journaled; an out-of-character turn, which may not
+  write, leaves them out of its copy — withoutCanonTruths). Switched on again, the next page writes them back.
+- THE LEDGER ROOM "WHAT CANON SAYS" (drawer.js canonSaysPanel, in The people): this story's wiki (named = a decree that
+  lets another universe go; empty = it finds it itself, now; the wikis it has used offered as he types), Ask canon,
+  where our story is (set / ×), where the scene is (×), his standing notes for this story, a card for everyone looked up
+  (the people in the scene first, then the newest): who they are, how they look, who they are to the people here, their
+  story, family and ties, what they can do, how they talk, what is kept hidden in the story, what surrounds them — with
+  Always here / Never (one list each: moving into one leaves the other, by every name they answer to) / Look it up
+  again / Forget; what it asked about and did not find (Look again); why each rode with the last page (or would ride
+  now); Look at the scene now; What it would send now; Forget everything it knows here. "What's true of them" marks the
+  series' truths ("· as the series has it").
+- SETTINGS (js/ui/canonsettings.js, drawn only with the switch on — off, the extension is never loaded): every lever of
+  its panel, named as it names them — how it finds the people (the parser, every page, the story's own ledger, lowercase
+  names, Cast Auditor, the people the storyteller brings in, find each story's wiki by itself, tell me what it is doing,
+  🔬 Parser self-test through the story's canon worker); what it says of them (the seven kinds, LLM-curated dossiers,
+  Prose briefs, Smart dynamic order, Per-pair dynamics, Smarter AI, Say what is NOT in canon, where our story is rides,
+  it follows the story by itself, ✒ Advanced); how much and how long; where it looks (the first-look wiki, the wikis it
+  has used); his notes for every story; the seven instruction texts (↺ as it came); what it reads on a wiki page; put
+  everything back. One copy of each setting: the extension's own object, live — a change is in force on the next page.
+  The extension's own "enabled" stays on: one switch, Cozy's. Its shipped example wiki (the author's
+  "the-eminence-in-shadow") is cleared once — every story here finds its own.
+- A BRANCH KEEPS ITS CANON (carryCanonMemory in branchFrom): what was looked up, the story's wiki, his pins, blocks and
+  notes, a story position he set; what the tracker derived from later pages (an advanced position, the current setting)
+  only from the newest page.
+- THE REAL RECORD REACHES THE WORKERS TOLD TO USE IT (rule 11): the scribe ("written from the REAL RECORD"), the world
+  agent and the auditor were never handed it; with canon on, canonRecordFor gives them what the series says of the canon
+  people in the ledger (who they are, family and ties, the facts). Without it their requests are byte-identical.
+- canon verification's runs are noted in The workers ("canon verification", WORKER_NAMES); the light's minders unchanged.
+- FOUND WHILE BUILDING IT, FIXED: (1) the walk caught the series' truths riding with canon switched OFF ("Violet" sent) —
+  the off-law above; (2) re-reading the room: a lever's error was erased by the redraw it caused, and a failure could be
+  answered with a wrong "not found" (errors now kept, callers say nothing over a failure); groups counted as "places"
+  (the extension has two kinds — now "places and things"); "Why each rode" vanished after a preview (now "Why each
+  would ride now"); Settings promised the used wikis in each room and did not offer them (a datalist now); (3) the new
+  test caught "Not always here" leaving Rukia always here when the list held her as "Rukia" — the room and the levers now
+  resolve every decree with the extension's own resolver (canonPinnedKeys, entryIn), and so does "Never" for the ledger.
+- AN OLD TEST THAT PINNED TEXT (m100 M237): it matched lockFact's exact arguments `{ key, value }`; the lock now also
+  carries its source — still BY KEY (M386-1 corrects the series' own hair in place and counts one hair). Loosened to the
+  property, nothing else.
+- TESTS: harness m386.mjs (9: the engine's let-go law through the journal, the undo and a load; who is who; the ledger
+  sync; the live path with nameless pages, pairs, his words, the message order; every lever; branch carry; the workers'
+  record, byte-identical without it; live settings; off withdraws). Walk DOM-85 (the whole thing through the real UI:
+  Settings' levers, the room's wiki box, nameless pages, the scribe/world on the wire, the series' faces, a let-go hair,
+  Never, a branch, off). DOM-69 moved to his words and the levers drawn with the switch.
+- NEGATIVE-TESTED (each guard broken alone, its own test fails): 13, on m386.mjs: the series writing over his truth, no let-go mark on an unlock, the let-go ignored by a lock, no mark when a series lock is taken back (M386-1); no present marks, no opening words of his (M386-4); no rival rule, the brief check on any word of a name (M386-2); no withdrawal (M386-3); a branch from an older page carrying the tracker's position (M386-6); no record for the workers (M386-7); the off-copy keeping the series' truths (M386-9); "Not always here" by one name only (M386-5). Not negative-tested: copyState's own copy of canonLetGo (no handler edits the list in place, so no test can see it go).
+- GATES: harness 761/761 (752 + the nine of m386), walk 103/103 (DOM-85 new, DOM-69 moved), longplay 8/8, lint 0 errors (148 warnings: the one added is carryCanonMemory leaving out the lent ledger by destructuring, the idiom saveMeta already used) — on the working tree; again on a fresh clone of the pushed tree below.
+- version.js -> m386-001.

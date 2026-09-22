@@ -103,7 +103,14 @@ function copyState(state) {
      * world opened ride the same way. */
     journal: Array.isArray(safe.journal) ? safe.journal.slice() : [],
     worldShown: Array.isArray(safe.worldShown) ? safe.worldShown.map((w) => ({ ...w })) : [],
+    /* M386: the series' truths the writer let go — never shared with the caller's copy */
+    canonLetGo: Array.isArray(safe.canonLetGo) ? safe.canonLetGo.slice() : [],
   };
+}
+
+/* M386: one spelling for "this person's this truth, let go" — lower case, the way every reader compares */
+export function letGoMark(name, key) {
+  return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase() + '|' + String(key || '').trim().toLowerCase();
 }
 
 /* Name normalization: trim, collapse inner whitespace. Matching is
@@ -775,13 +782,22 @@ const HANDLERS = {
     const canonKey = findCanonKey(state.canon, name) || name;
     const before = state.canon[canonKey] ? cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey] : null;
     const held = before ? findFact(before, key) : null;
+    /* M386: canon verification writes only where nothing of anyone else's is written — a truth the brief, the writer or a
+     * reader holds under that name is theirs, whatever the series says. Its OWN earlier truth it may correct (a page
+     * looked up again). */
+    const fromCanon = m.source === 'canon';
+    if (fromCanon && held && held.entry.source !== 'canon') return { why: canonKey + ' — ' + held.entry.key + ' is already written (' + held.entry.value + ')', same: true };
+    if (fromCanon && Array.isArray(state.canonLetGo) && state.canonLetGo.includes(letGoMark(canonKey, key))) return { why: canonKey + ' — ' + key + ' was let go, and stays so', same: true };
     /* M259: a truth already locked in those words is no change */
-    if (held && String(held.entry.value || '').trim().toLowerCase() === value.trim().toLowerCase()) return { why: canonKey + ' — ' + held.entry.key + ' is already locked as ' + held.entry.value, same: true };
-    state.canon = lockFact(state.canon, canonKey, { key, value }, clockMinutesOf(state));
-    const words = held
-      ? canonKey + ' — ' + held.entry.key + ' stands corrected: ' + value + ' (it was ' + held.entry.value + ').'
-      : canonKey + ' — it is now true: ' + key + ': ' + value + '.';
-    return { words, undo: { kind: 'canon.restore', name: canonKey, before } };
+    const sameWords = held && String(held.entry.value || '').trim().toLowerCase() === value.trim().toLowerCase();
+    if (sameWords && Boolean(held.entry.source) === fromCanon) return { why: canonKey + ' — ' + held.entry.key + ' is already locked as ' + held.entry.value, same: true };
+    state.canon = lockFact(state.canon, canonKey, { key, value, source: fromCanon ? 'canon' : '' }, clockMinutesOf(state));
+    const words = sameWords
+      ? canonKey + ' — ' + held.entry.key + ': ' + value + ' is now written as their own, not only the series\u2019.'
+      : held
+        ? canonKey + ' — ' + held.entry.key + ' stands corrected: ' + value + ' (it was ' + held.entry.value + ').'
+        : canonKey + ' — it is now true: ' + key + ': ' + value + (fromCanon ? ' (as the series has it).' : '.');
+    return { words, undo: { kind: 'canon.restore', name: canonKey, before, ...(fromCanon ? { source: 'canon', key } : {}) } };
   },
 
   'canon.unlock'(state, m) {
@@ -792,11 +808,20 @@ const HANDLERS = {
     const key = capText(m.key, 120);
     const held = findFact(state.canon[canonKey], key);
     if (!held) return { why: 'no truth called “' + (key || '?') + '” is locked for ' + canonKey };
+    /* M386: the series takes back only its own truths (a page it no longer holds, a name he blocked) — never one the brief,
+     * the writer or a reader wrote — and doing so is no letting-go of his */
+    const byCanon = m.source === 'canon';
+    if (byCanon && held.entry.source !== 'canon') return { why: canonKey + ' — ' + held.entry.key + ' is not the series’ to take back', same: true };
     const before = cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey];
     state.canon = unlockFact(state.canon, canonKey, key);
+    /* M386: a truth the series gave, let go — by the writer's hand, the auditor or the housekeeper — stays let go: canon
+     * verification never writes it again on this timeline (the mark is journaled with the unlock, so a branch from before
+     * it has the truth back, and taking the unlock back takes the mark back) */
+    const mark = held.entry.source === 'canon' && !byCanon ? letGoMark(canonKey, held.entry.key) : '';
+    if (mark) state.canonLetGo = [...new Set([...(Array.isArray(state.canonLetGo) ? state.canonLetGo : []), mark])];
     return {
       words: canonKey + ' — “' + held.entry.key + '” is no longer written as certain.',
-      undo: { kind: 'canon.restore', name: canonKey, before },
+      undo: { kind: 'canon.restore', name: canonKey, before, ...(mark ? { letGo: mark } : {}) },
     };
   },
 
@@ -1406,6 +1431,10 @@ function applyUndo(next, undo) {
       const key = findCanonKey(next.canon, undo.name) || undo.name;
       if (undo.before) next.canon[key] = cloneMap({ [key]: undo.before })[key];
       else delete next.canon[key];
+      /* M386: taking back the series' own lock lets that truth go for good; taking back a let-go brings it home */
+      const marks = Array.isArray(next.canonLetGo) ? next.canonLetGo : [];
+      if (undo.source === 'canon' && undo.key) next.canonLetGo = [...new Set([...marks, letGoMark(undo.name, undo.key)])];
+      if (undo.letGo) next.canonLetGo = marks.filter((x) => x !== undo.letGo);
       ok = true;
     } else if (undo.kind === 'threads.restore') {
       next.threads = Array.isArray(undo.before) ? undo.before.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];

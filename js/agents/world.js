@@ -356,7 +356,7 @@ function spokenVoices(voicesBefore) {
 }
 
 export const WORLD_LOOKS = 2;
-export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity, peopleRoom = WORLD_PEOPLE_ROOM }) {
+export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity, peopleRoom = WORLD_PEOPLE_ROOM, canonRecord = '' }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
   const known = mcName(state);
@@ -410,6 +410,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
       ...(people.unseated.length ? ['WITH NO WHEREABOUTS RIGHT NOW — seat EVERY ONE of these in this answer (offscreen.set: where they are at this hour and what they are doing, from their page, the story so far and the clock; the want only if you can name it): ' + people.unseated.join(', '), ''] : [])] : []),
     ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] : []), /* M283 */
     ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE, ''] : []), /* M283 */
+    ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — a canon character\'s family, role and life are these, never invented):', FENCE, String(canonRecord).trim(), FENCE, ''] : []), /* M386 */
     ...(before.length ? (() => {
       /* M261: the story so far, whole, newest first, into the room */
       const w = windowOfPages(before, contextBudget);
@@ -468,7 +469,7 @@ export function parseWorldAnswer(raw) {
 
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
-export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0 } = {}) {
+export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0, canonRecord = '' } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
@@ -478,9 +479,9 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * dropped it on arrival. */
   /* M304: the people list has a room of its own — a fifth of the connection's, the same in both builds, so the pages' window is measured against the list it will really ride beside */
   const peopleRoom = Math.max(12000, Math.floor(roomChars(connection, MAX_TOKENS) * 0.2));
-  const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, peopleRoom });
+  const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, peopleRoom, canonRecord });
   const contextBudget = viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length);
-  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, contextBudget, peopleRoom });
+  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, contextBudget, peopleRoom, canonRecord });
   /* M31: an answer we can't use earns ONE second ask with a sharper word;
    * the raw answer rides out so the drawer can show it. */
   let read = null;

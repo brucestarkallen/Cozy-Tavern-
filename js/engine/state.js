@@ -108,6 +108,8 @@ export const emptyState = () => ({
    * threads), written by the scribe and by hand (engine/people.js). The
    * main character's entry is record-only (state + threads). */
   characters: {},
+  /* M386: the series' truths the writer (or a reader) let go — "name|key", never written again on this timeline */
+  canonLetGo: [],
 });
 
 /* ---------- pub/sub: the drawer listens for the engine ---------- */
@@ -335,6 +337,7 @@ function normalize(saved) {
   next.worldShown = Array.isArray(saved.worldShown) ? saved.worldShown.filter((w) => w && typeof w === 'object') : [];
   next.audit = saved.audit && typeof saved.audit === 'object' ? saved.audit : null; /* M41 */
   next.journal = Array.isArray(saved.journal) ? saved.journal.filter((e) => e && Number.isInteger(e.p) && e.m && typeof e.m === 'object' && typeof e.m.type === 'string') : []; /* M69 */
+  next.canonLetGo = Array.isArray(saved.canonLetGo) ? [...new Set(saved.canonLetGo.filter((x) => typeof x === 'string' && x.includes('|')))] : []; /* M386 */
   next.page = Number.isInteger(saved.page) ? saved.page : -1;
   /* M276: the reading mark, apart from the stamp — a ledger saved before it began from its page */
   next.readTo = Number.isInteger(saved.readTo) ? saved.readTo : next.page;

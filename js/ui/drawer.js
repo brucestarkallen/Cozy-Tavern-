@@ -53,6 +53,7 @@ import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '.
 import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
 import { pageText } from '../assemble/stack.js';
 import { db } from '../store.js';
+import { canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys } from '../canon/bridge.js'; /* M386: what canon says */
 
 /* ---------- shared helpers ---------- */
 
@@ -1134,18 +1135,19 @@ function canonPanel(ctx) {
     const names = Object.keys(canon).filter((n) => canon[n]
       && Array.isArray(canon[n].facts) && canon[n].facts.length);
     note.textContent = names.length
-      ? 'Locked truths — the story treats these as simply so, and the second reader checks each page against them.'
+      ? 'Locked truths — the story treats these as simply so, and the second reader checks each page against them. With canon verification on, what the series says of a canon face is written here too, wherever you and the brief have not.'
       : 'Nothing is locked yet. When something about a person is simply so — hair: black; eyes: grey — write it down here and the story will hold to it.';
     for (const name of names) {
       for (const fact of canon[name].facts) {
         const li = document.createElement('li');
         li.className = 'present-row';
         const words = document.createElement('span');
-        words.textContent = name + ' — ' + fact.key + ': ' + fact.value;
+        /* M386: a truth the series gave says so — letting it go keeps it gone (canon verification never writes it again) */
+        words.textContent = name + ' — ' + fact.key + ': ' + fact.value + (fact.source === 'canon' ? ' · as the series has it' : '');
         const out = document.createElement('button');
         out.type = 'button';
         out.className = 'story-mini';
-        out.title = 'No longer certain';
+        out.title = fact.source === 'canon' ? 'Let this go — the series’ word will not be written here again' : 'No longer certain';
         out.setAttribute('aria-label', `“${fact.key}” is no longer locked for ${name}`);
         out.textContent = '×';
         out.addEventListener('click', async () => {
@@ -1156,6 +1158,334 @@ function canonPanel(ctx) {
         list.appendChild(li);
       }
     }
+  });
+
+  render();
+  return wrap;
+}
+
+/* ---------- what canon says (M386 — canon verification's own room) ---------- */
+
+/* M386: THE LEDGER ROOM OF THE SERIES ITSELF. M346 showed canon verification as one switch and one box; the writer: "it's
+ * literally just one box". Here is everything it knows of this story and every lever its own panel has, for the story in
+ * hand: the wiki it asks (found by itself, or named), a plain-words ask, where our story stands in canon, where the scene
+ * is, his standing notes, and every person and place it has looked up — who they are, how they look, who they are to the
+ * people in the scene, their story, what they can do, how they talk, what is kept hidden, what surrounds them — with
+ * Always here / Never / Look it up again / Forget on each. What it asked about and did not find is listed apart; why each
+ * rode on the last page, and what it would send now, are one tap away. OFF: one line saying where it is switched on. */
+function canonSaysPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'canon-says';
+  const note = quietNote('');
+  const said = quietNote('');
+  said.id = 'canon-said';
+  const body = document.createElement('div');
+  wrap.append(note, said, body);
+  /* what the last lever answered — kept across the redraw it causes */
+  let flash = '';
+  const answer = (words) => { flash = words || ''; said.textContent = flash; };
+
+  /* a lever that could not run says why, and the words stay through the redraw; its caller then says nothing over them */
+  const FAILED = Symbol('failed');
+  const act = async (action, arg, busyWords) => {
+    if (!(ctx.chat && typeof ctx.chat.canonAct === 'function')) return FAILED;
+    for (const b of wrap.querySelectorAll('button, input, textarea')) b.disabled = true;
+    const was = note.textContent;
+    if (busyWords) note.textContent = busyWords;
+    try {
+      return await ctx.chat.canonAct(action, arg);
+    } catch (err) {
+      answer('It could not do that just now (' + String((err && err.message) || err).slice(0, 120) + ').');
+      return FAILED;
+    } finally {
+      for (const b of wrap.querySelectorAll('button, input, textarea')) b.disabled = false;
+      if (note.textContent === busyWords) note.textContent = was;
+    }
+  };
+  const button = (words, onClick, title) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'text-btn';
+    b.textContent = words;
+    if (title) b.title = title;
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  const line = (label, text) => {
+    if (!text || !String(text).trim()) return null;
+    const p = document.createElement('p');
+    p.className = 'canon-line';
+    const b = document.createElement('b');
+    b.textContent = label + ' ';
+    p.append(b, document.createTextNode(String(text).trim()));
+    return p;
+  };
+  const say = (words) => { note.textContent = words; };
+
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    body.textContent = '';
+    said.textContent = flash;
+    if (!story) { say('Open a story and this is what canon says of its people.'); return; }
+    if (!(await canonOn())) {
+      say('Canon verification is off — Settings → The readers → Canon verification switches it on. Off, nothing of it runs and nothing of it is sent.');
+      return;
+    }
+    const meta = await canonMeta(story.id);
+    const state = await loadStateFresh(story.id);
+    const cache = meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {};
+    const entries = Object.entries(cache).filter(([, e]) => e && typeof e === 'object');
+    const found = entries.filter(([, e]) => e.found);
+    const misses = entries.filter(([, e]) => !e.found && (e.reason === 'no-page' || e.reason === 'meta-page' || e.reason === 'not-character' || e.reason === 'no-facts'));
+    const binding = typeof meta.canon_grounding_wiki === 'string' ? meta.canon_grounding_wiki : '';
+    const ok = meta.canon_grounding_wiki_ok && typeof meta.canon_grounding_wiki_ok === 'object' ? meta.canon_grounding_wiki_ok : null;
+    /* the extension keeps two kinds: a person, and everything else it vouched for (a place, a group, a thing) */
+    const people = found.filter(([, e]) => e.kind !== 'place').length;
+    const places = found.length - people;
+    say(binding
+      ? 'This story’s canon comes from ' + binding.split(',').join(', ') + (ok && ok.manual ? ' (you named it)' : ok && ok.failed ? ' (it is still looking for a better one)' : ' (it found it by itself)') + ' — ' + people + (people === 1 ? ' person' : ' people') + (places ? ' and ' + places + (places === 1 ? ' place or thing' : ' places and things') : '') + ' looked up.'
+      : 'It has not found this story’s wiki yet — it looks by itself from the brief on the next page, or name it below.');
+
+    /* this story's wiki */
+    const wikiForm = document.createElement('form');
+    wikiForm.className = 'present-form ledger-form';
+    const wikiLabel = document.createElement('label');
+    wikiLabel.textContent = 'This story’s wiki';
+    const wikiIn = document.createElement('input');
+    wikiIn.type = 'text';
+    wikiIn.id = 'canon-story-wiki';
+    wikiIn.value = binding;
+    wikiIn.placeholder = 'e.g. highschooldxd — empty: it finds it itself';
+    wikiIn.setAttribute('aria-label', 'This story’s wiki');
+    /* the wikis it has used, offered as he types */
+    const used = await canonSavedWikis();
+    if (used.length) {
+      const offer = document.createElement('datalist');
+      offer.id = 'canon-used-wikis';
+      for (const w of used) { const o = document.createElement('option'); o.value = w; offer.appendChild(o); }
+      wikiIn.setAttribute('list', offer.id);
+      wikiLabel.appendChild(offer);
+    }
+    wikiLabel.appendChild(wikiIn);
+    const wikiBtn = document.createElement('button');
+    wikiBtn.type = 'submit';
+    wikiBtn.className = 'text-btn';
+    wikiBtn.textContent = 'Keep';
+    wikiForm.append(wikiLabel, wikiBtn);
+    wikiForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const r = await act('wiki', wikiIn.value, wikiIn.value.trim() ? 'Using that wiki for this story…' : 'Looking for this story’s wiki…');
+      if (r !== FAILED) answer(r && r.binding ? 'This story now asks ' + r.binding.split(',').join(', ') + '.' : 'No wiki found for this story yet — name one above.');
+      render();
+    });
+    body.appendChild(wikiForm);
+
+    /* ask canon, in plain words */
+    const askForm = document.createElement('form');
+    askForm.className = 'present-form ledger-form';
+    const askIn = document.createElement('input');
+    askIn.type = 'text';
+    askIn.id = 'canon-ask';
+    askIn.placeholder = 'Ask canon — “look up Akeno”, “we’re at the Kokabiel arc”, “always keep Rias here”';
+    askIn.setAttribute('aria-label', 'Ask canon');
+    const askBtn = document.createElement('button');
+    askBtn.type = 'submit';
+    askBtn.className = 'text-btn';
+    askBtn.textContent = 'Ask';
+    askForm.append(askIn, askBtn);
+    askForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = askIn.value.trim();
+      if (!q) return;
+      const r = await act('ask', q, 'Asking canon…');
+      if (r !== FAILED) answer(r && r.msg ? r.msg : 'It could not read that — try naming who, or which arc.');
+      render();
+    });
+    body.append(askForm);
+
+    /* where our story is, and where the scene is */
+    const arc = meta.canon_grounding_arc && typeof meta.canon_grounding_arc === 'object' ? meta.canon_grounding_arc : null;
+    const arcRow = document.createElement('div');
+    arcRow.className = 'present-row';
+    const arcWords = document.createElement('span');
+    arcWords.textContent = arc && arc.title
+      ? 'Where our story is: ' + arc.title + (arc.mode === 'begun' ? ' — just begun' : arc.mode === 'reached' ? ' — reached' : '')
+      : 'Where our story is: not set — it follows the story by itself when a page begins a canon event.';
+    arcRow.appendChild(arcWords);
+    if (arc && arc.title) arcRow.appendChild(button('×', async () => { await act('clearArc'); render(); }, 'Forget where our story is'));
+    body.appendChild(arcRow);
+    const arcForm = document.createElement('form');
+    arcForm.className = 'present-form ledger-form';
+    const arcIn = document.createElement('input');
+    arcIn.type = 'text';
+    arcIn.id = 'canon-arc';
+    arcIn.placeholder = 'Set it — an arc, a volume, an episode';
+    arcIn.setAttribute('aria-label', 'Where our story is in canon');
+    const arcBtn = document.createElement('button');
+    arcBtn.type = 'submit';
+    arcBtn.className = 'text-btn';
+    arcBtn.textContent = 'Set';
+    arcForm.append(arcIn, arcBtn);
+    arcForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!arcIn.value.trim()) return;
+      const r = await act('arc', arcIn.value, 'Looking up that part of the story…');
+      if (r !== FAILED) answer(r ? 'Our story is now at ' + (r.title || arcIn.value.trim()) + '.' : 'No arc, volume or episode by that name on this story’s wiki.');
+      render();
+    });
+    body.appendChild(arcForm);
+    const settingKey = typeof meta.canon_grounding_setting === 'string' ? meta.canon_grounding_setting : '';
+    if (settingKey) {
+      const setRow = document.createElement('div');
+      setRow.className = 'present-row';
+      const setWords = document.createElement('span');
+      setWords.textContent = 'Where the scene is: ' + ((cache[settingKey] && cache[settingKey].name) || settingKey) + ' — it stays until the scene moves.';
+      setRow.append(setWords, button('×', async () => { await act('clearSetting'); render(); }, 'Forget where the scene is'));
+      body.appendChild(setRow);
+    }
+
+    /* his standing notes for this story */
+    const notesLabel = document.createElement('label');
+    notesLabel.className = 'canon-notes';
+    notesLabel.textContent = 'Your standing notes for this story — they always ride with what canon says:';
+    const notes = document.createElement('textarea');
+    notes.id = 'canon-story-notes';
+    notes.rows = 3;
+    notes.value = typeof meta.canon_grounding_pin === 'string' ? meta.canon_grounding_pin : '';
+    notes.placeholder = 'In our story, Rias and Jovan met at the club fair — not in canon.';
+    notes.addEventListener('change', async () => { await act('note', notes.value); });
+    notesLabel.appendChild(notes);
+    body.appendChild(notesLabel);
+
+    /* everyone it has looked up — the people in the scene first, then the newest */
+    /* who his decrees name, as the note itself reads them (a pinned "Rukia" is Rukia Kuchiki) */
+    let pinned = { always: [], never: [] };
+    try { pinned = await canonPinnedKeys(story.id); } catch (err) { /* shown without the marks this once */ }
+    const ledger = ledgerOf(state);
+    const ledgerNames = Object.keys(ledger);
+    const hereKeys = new Set();
+    for (const n of ledgerNames.filter((k) => ledger[k].present)) {
+      const hit = canonEntryFor(cache, n, ledgerNames);
+      if (hit) hereKeys.add(hit.key);
+    }
+    const ordered = found.slice().sort(([ka, a], [kb, b]) => (hereKeys.has(kb) - hereKeys.has(ka)) || ((Number(b.ts) || 0) - (Number(a.ts) || 0)));
+    if (ordered.length) {
+      const h = document.createElement('p');
+      h.className = 'quiet';
+      h.textContent = 'What canon says of each — the people in the scene first:';
+      body.appendChild(h);
+    }
+    const hereEntries = ordered.filter(([k]) => hereKeys.has(k));
+    for (const [key, e] of ordered) {
+      const fold = document.createElement('details');
+      fold.className = 'canon-card';
+      fold.dataset.key = key;
+      const sum = document.createElement('summary');
+      const tags = [hereKeys.has(key) ? 'in the scene' : '', e.kind === 'place' ? 'a place or thing' : '', pinned.always.includes(key) ? 'always here' : '', pinned.never.includes(key) ? 'never' : '', e.dossier ? '✦' : ''].filter(Boolean);
+      sum.textContent = (e.name || key) + (tags.length ? ' — ' + tags.join(' · ') : '');
+      fold.appendChild(sum);
+      let drawn = false;
+      const draw = () => {
+        if (drawn) return;
+        drawn = true;
+        const d = e.dossier && typeof e.dossier === 'object' ? e.dossier : {};
+        const sec = e.sections && typeof e.sections === 'object' ? e.sections : {};
+        const list = (v) => (Array.isArray(v) ? v.filter(Boolean).join('; ') : '');
+        const pairs = [];
+        for (const [ok2, other] of hereEntries) {
+          if (ok2 === key) continue;
+          const byWiki = e.rel && typeof e.rel === 'object' ? e.rel[String(other.name || '').toLowerCase()] : '';
+          const byDossier = d.dynamics && typeof d.dynamics === 'object'
+            ? Object.entries(d.dynamics).find(([w]) => String(w).toLowerCase() === String(other.name || '').toLowerCase() || String(other.name || '').toLowerCase().includes(String(w).toLowerCase()))
+            : null;
+          const how = (byDossier && byDossier[1]) || byWiki;
+          if (how) pairs.push('With ' + other.name + ': ' + how);
+        }
+        const rows = [
+          line('Who they are:', d.brief || d.identity || sec.identity),
+          line('How they look:', [sec.look, sec.physical].filter(Boolean).join(' — ')),
+          line('Who they are to the people here:', pairs.join(' · ')),
+          line('Their story:', list(d.facts) || sec.biography),
+          line('Family and ties:', sec.relationship),
+          line('What they can do:', list(d.abilities) || sec.abilities),
+          line('How they talk:', (Array.isArray(d.voice) && d.voice.length ? d.voice : (sec.voice ? [sec.voice] : [])).map((q) => '“' + String(q).replace(/^["“]|["”]$/g, '') + '”').join(' ')),
+          line('Kept hidden in the story:', list(d.secrets)),
+          line('Around them:', (Array.isArray(d.related) ? d.related : []).map((r) => (r && r.name ? r.name + (r.why ? ' — ' + r.why : '') : '')).filter(Boolean).join('; ')),
+          line('Also:', sec.trivia),
+          line('Also called:', Array.isArray(e.aliases) ? e.aliases.filter((a) => a && a.toLowerCase() !== String(e.name || '').toLowerCase()).join(', ') : ''),
+          line('From:', (e.wiki ? e.wiki + ' — ' : '') + 'looked up ' + (fmtWhenWords(e.ts) || 'a while ago')),
+        ].filter(Boolean);
+        for (const r of rows) fold.appendChild(r);
+        const bar = document.createElement('div');
+        bar.className = 'canon-actions';
+        const isAlways = pinned.always.includes(key);
+        const isNever = pinned.never.includes(key);
+        bar.append(
+          button(isAlways ? 'Not always here' : 'Always here', async () => { await act('always', { key, name: e.name || key, on: !isAlways }); render(); }, 'Ride with every page, named or not'),
+          button(isNever ? 'Let them back' : 'Never', async () => { await act('never', { key, name: e.name || key, on: !isNever }); render(); }, 'Never send what canon says of them'),
+          button('Look it up again', async () => { await act('lookAgain', key, 'Looking ' + (e.name || key) + ' up again…'); render(); }, 'Fetch their page again now'),
+          button('Forget', async () => { await act('forget', key); render(); }, 'Let this go; it is looked up again the next time the story names them'),
+        );
+        fold.appendChild(bar);
+      };
+      fold.addEventListener('toggle', () => { if (fold.open) draw(); });
+      body.appendChild(fold);
+    }
+    if (!ordered.length) body.appendChild(quietNote('Nobody looked up yet — the people of the scene are looked up as the story names them.'));
+
+    /* what it asked about and did not find */
+    if (misses.length) {
+      const fold = document.createElement('details');
+      fold.className = 'canon-misses';
+      const sum = document.createElement('summary');
+      sum.textContent = 'Asked about, not found in canon (' + misses.length + ')';
+      fold.appendChild(sum);
+      const why = { 'no-page': 'no page', 'meta-page': 'only a page about the series', 'not-character': 'a page, but not a person or place', 'no-facts': 'a page with nothing to use' };
+      for (const [key, e] of misses.sort(([, a], [, b]) => (Number(b.ts) || 0) - (Number(a.ts) || 0))) {
+        const row = document.createElement('div');
+        row.className = 'present-row';
+        const words = document.createElement('span');
+        words.textContent = (e.name || key) + ' — ' + (why[e.reason] || e.reason);
+        row.append(words, button('Look again', async () => { await act('lookAgain', key, 'Looking ' + (e.name || key) + ' up again…'); render(); }));
+        fold.appendChild(row);
+      }
+      body.appendChild(fold);
+    }
+
+    /* why they rode on the last page; what it would send now; a look at the scene now */
+    const last = canonLast(story.id);
+    if (last && Array.isArray(last.reasons) && last.reasons.length) {
+      const fold = document.createElement('details');
+      const sum = document.createElement('summary');
+      sum.textContent = last.source === 'preview' ? 'Why each would ride now' : 'Why each rode with the last page';
+      fold.appendChild(sum);
+      for (const r of last.reasons) fold.appendChild(quietNote(r));
+      body.appendChild(fold);
+    }
+    const tools = document.createElement('div');
+    tools.className = 'canon-actions';
+    const shown = document.createElement('pre');
+    shown.className = 'canon-preview';
+    shown.hidden = true;
+    tools.append(
+      button('Look at the scene now', async () => {
+        const r = await act('scan', null, 'Reading the scene and looking everyone up…');
+        if (r !== FAILED) answer(r && r.msg ? r.msg : 'The scene was read.');
+        render();
+      }, 'Read who is in the scene now and look them up'),
+      button('What it would send now', async () => {
+        const r = await act('preview', null, 'Putting it together…');
+        if (r === FAILED) return;
+        shown.hidden = false;
+        shown.textContent = r && r.note ? r.note : 'Nothing — ' + ((r && r.empty) || 'nobody in the scene is canon yet');
+      }, 'The words the next page would carry'),
+      button('Forget everything it knows here', async () => {
+        if (!window.confirm('Forget everything canon verification has looked up for this story? It looks everyone up again as the story names them.')) return;
+        await act('clearAll');
+        render();
+      }),
+    );
+    body.append(tools, shown);
   });
 
   render();
@@ -1637,6 +1967,7 @@ const WORKER_WORDS = {
   housekeeper: 'the housekeeper',
   director: 'the director',
   editor: 'the editor',
+  canon: 'canon verification', /* M386 */
 };
 
 function workersPanel(ctx) {
@@ -2003,7 +2334,7 @@ const DRAWER_ROOMS = [
 ];
 const ROOM_OF = {
   'the-clock': 'scene', 'the-ruling': 'scene', 'how-they-measure': 'scene', 'whos-here': 'scene', 'the-mood': 'scene',
-  'the-people': 'people', 'whats-true': 'people', 'holding-up': 'people', 'on-their-mind': 'people',
+  'the-people': 'people', 'whats-true': 'people', 'what-canon-says': 'people', 'holding-up': 'people', 'on-their-mind': 'people',
   'elsewhere': 'world', 'the-world-beyond': 'world', 'voices': 'world',
   'the-record': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
 };
@@ -2035,6 +2366,11 @@ const PANELS = [
     id: 'whats-true',
     title: 'What’s true of them',
     render: (ctx) => canonPanel(ctx),
+  },
+  {
+    id: 'what-canon-says', /* M386 */
+    title: 'What canon says',
+    render: (ctx) => canonSaysPanel(ctx),
   },
   {
     id: 'holding-up',
