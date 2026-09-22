@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m391-001)
+# Cozy Tavern — handoff for the next session (state at m392-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. WHAT HE TYPES IS WHAT HAPPENS (M391). A shortcut (#story, #p, #pp, #q, #continue, #time, #question, #Put TWB, ((…)),
@@ -40,9 +40,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 770 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 773 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 105 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 106 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -188,6 +188,11 @@ founding design lives in AGENTS.md's first entries.)
   brief describes is marked held (ledgerOf's briefFace) from the first page. One wiki-name reader (bridge.js wikiName).
   M390: an imported SillyTavern chat keeps its canon memory (import/chats.js: the chat metadata's canon_grounding_*
   keys ARE canonMeta's shape) — never drop a chat's canon on the way in.
+  M392: CANON THROUGH HIS STORY (agents/canonlens.js + Canon Grounding v0.67's host lens). A wiki is canon's END; his
+  stories leave canon. Each canon person who rides is judged once per premise (brief, cast notes, his canon notes, the
+  story position): every canon statement holds / changed / later; only what holds is said — to the storyteller (the
+  note, rebuilt the same turn), to the workers (canonRecordFor) and in the room ("Not so in this story"). A kept part
+  is the statement's own words only (keepHolds). Never let canon's end-state reach anyone as fact or as prophecy.
 - THREE OPT-IN SWITCHES, EACH "OFF = NOT ONE BYTE" AND HELD BY A BYTE-FOR-BYTE LAW: think-on-page (M339), older model (M343), and the
   cut-before-header tick. Anything that adds words to what the storyteller reads goes behind a switch like these, in the
   writer's voice, one line — or it does not go in (M341/M342). The storyteller's room is read through chat.js roomOf ONLY, and roomOf is the provider's room: NO switch may ever take a page, the note or the record out of a request (M344) — help a weaker model by ADDING what is far (assemble/anchor.js), never by removing.

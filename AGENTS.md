@@ -9463,3 +9463,42 @@ law: verbatim, no gamey system, nothing in the house doing things with his words
   concept as the page).
 - GATES before the push: harness 770/770, walk 105/105, lint 0 errors.
 - version.js -> m391-001.
+
+# M392 — canon through his story: what his story changed, or has not reached, is never said
+His Bleach story: MC Oda is the new captain of the 13th Division, Rukia his lieutenant (she had expected the captaincy),
+and she has not married Renji. Canon verification sent, every page, the wiki's END-STATE as fact: "She is the current
+Captain of the 13th Division … She is married to Renji Abarai and they have a daughter named Ichika Abarai." A
+storyteller told she is married cannot let his MC grow close to her; told she is captain, it argues with his premise. He
+asked for canon's context kept, never as current fact and never as prophecy, so his MC stays free to change history.
+- THE LENS (agents/canonlens.js): each canon person who rides is judged ONCE per premise — the premise being his brief,
+  cast notes, his canon notes (the story's and every story's) and where the story stands in canon. Every canon statement
+  about who they are (identity, brief sentences, facts, secrets, dynamics, the per-pair lines, the fallback's identity /
+  relationship / biography sentences) gets a verdict: holds (rides) / changed (his story says otherwise — never said) /
+  later (a rank, a marriage, a child, a death this story has not reached — never said, never destined). A statement
+  that only partly holds is kept in part — its OWN words only, checked in code (keepHolds: no word it did not have);
+  a statement with no verdict holds (nothing is lost to a skipped answer).
+- WHERE IT IS APPLIED: to the storyteller — Canon Grounding v0.67's host lens (getContext().canonLens → overlayFor),
+  and bridge.js canonBeforeSend lenses whoever rode without a lens made for this premise, then REBUILDS the same turn's
+  note through it (api.rebuild); a lens not back within 15 s lands for the next page. To the workers — canonRecordFor
+  reads the record through the lens (the scribe and the world agent never write the marriage into the ledger). In the
+  room — each card shows canon as it rides, and "Not so in this story: … — your story changed it / not reached here".
+- The lens is for the canon words it was made from (a fingerprint): a page looked up again is judged again; a changed
+  premise is judged again. Canon's own memory stays canon (the extension's cache); the lens lives in the story's canon
+  memory (cozy_lens) — carried by a branch, dropped with the tale.
+- CANON GROUNDING v0.67.0/0.67.1 (pushed, 7f45c24; fresh clone proof 598, sim 423): the host lens + rebuild; a story
+  position is "canon's course, never this story's script" (it said "let them unfold naturally" — a push toward canon in
+  a story free to leave it); and the intermittent [64] failure traced to its ROOT — the sweep looks up the fragments of
+  an asked-about name, and when they landed first the not-in-canon notice named three unknowns for one ("Crimson Pact",
+  "Ulveth", "Crimson Pact of Ulveth"). v0.67.0 had misread it as a slow machine's race window and patched the test;
+  v0.67.1 fixed the notice (a whole-word fragment of a longer asked-about name is not listed) and put the test back.
+- FOUND BY THE TEST ITSELF: M392-2's fake provider did not stream, and the worker call streams — the lens "ran" (the
+  house counted it) and stored nothing. The fake now streams like a real provider; the lens was right all along.
+- TESTS: m392.mjs (3: the lens's own law on his exact Rukia facts; his story live through the real extension — none of
+  the captaincy, marriage or daughter reaches the storyteller, her sword and her friend do, the lens is made once and
+  again when his premise changes, the workers' record says the same; a lens only for the canon words it was made from).
+  Walk DOM-88: his premise through the real app — the storyteller's briefing carries none of canon's end-state, her
+  card says "married to Renji Abarai … your story changed it".
+- NEGATIVE-TESTED: no rebuild; a kept part adding words; a lens applied to other canon words; the workers' record
+  unlensed; the premise ignored (Cozy); the lens not applied; rebuild not handed to the host; the arc's old words; the
+  notice's fragments (extension).
+- version.js -> m392-001.

@@ -54,6 +54,7 @@ import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor
 import { pageText } from '../assemble/stack.js';
 import { db } from '../store.js';
 import { canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys } from '../canon/bridge.js'; /* M386: what canon says */
+import { overlayFor, throughLens, lensHeld } from '../agents/canonlens.js'; /* M392: canon through his story */
 
 /* ---------- shared helpers ---------- */
 
@@ -1388,13 +1389,15 @@ function canonSaysPanel(ctx) {
       const draw = () => {
         if (drawn) return;
         drawn = true;
-        const d = e.dossier && typeof e.dossier === 'object' ? e.dossier : {};
-        const sec = e.sections && typeof e.sections === 'object' ? e.sections : {};
+        /* M392: the card shows what rides — canon seen through his story — and, apart, what his story holds back */
+        const seenE = throughLens(e, overlayFor(meta, e));
+        const d = seenE.dossier && typeof seenE.dossier === 'object' ? seenE.dossier : {};
+        const sec = seenE.sections && typeof seenE.sections === 'object' ? seenE.sections : {};
         const list = (v) => (Array.isArray(v) ? v.filter(Boolean).join('; ') : '');
         const pairs = [];
         for (const [ok2, other] of hereEntries) {
           if (ok2 === key) continue;
-          const byWiki = e.rel && typeof e.rel === 'object' ? e.rel[String(other.name || '').toLowerCase()] : '';
+          const byWiki = seenE.rel && typeof seenE.rel === 'object' ? seenE.rel[String(other.name || '').toLowerCase()] : '';
           const byDossier = d.dynamics && typeof d.dynamics === 'object'
             ? Object.entries(d.dynamics).find(([w]) => String(w).toLowerCase() === String(other.name || '').toLowerCase() || String(other.name || '').toLowerCase().includes(String(w).toLowerCase()))
             : null;
@@ -1412,6 +1415,7 @@ function canonSaysPanel(ctx) {
           line('Kept hidden in the story:', list(d.secrets)),
           line('Around them:', (Array.isArray(d.related) ? d.related : []).map((r) => (r && r.name ? r.name + (r.why ? ' — ' + r.why : '') : '')).filter(Boolean).join('; ')),
           line('Also:', sec.trivia),
+          line('Not so in this story:', lensHeld(meta, e).map((h) => (h.kept ? '“' + h.text + '” (only “' + h.kept + '” holds)' : '“' + h.text + '”') + ' — ' + (h.why === 'later' ? 'not reached here' : 'your story changed it')).join(' · ')),
           line('Also called:', Array.isArray(e.aliases) ? e.aliases.filter((a) => a && a.toLowerCase() !== String(e.name || '').toLowerCase()).join(', ') : ''),
           line('From:', (e.wiki ? e.wiki + ' — ' : '') + 'looked up ' + (fmtWhenWords(e.ts) || 'a while ago')),
         ].filter(Boolean);

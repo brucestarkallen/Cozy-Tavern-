@@ -36,6 +36,7 @@ import { findPersonKey } from '../engine/people.js';
 import { findCanonKey, findFact, FACTS_SHOWN } from '../engine/canon.js';
 import { applyMutations, letGoMark } from '../engine/apply.js';
 import { loadState, saveState, notify } from '../engine/state.js';
+import { overlayFor, throughLens, premiseOf, lensCurrent, lensPeople } from '../agents/canonlens.js'; /* M392: canon through his story */
 import {
   extension_settings, setContext, injectionSetter, injectionFor, eventSource, event_types, runBoot, onSettingsSave, flushSettings,
 } from './host.js';
@@ -198,6 +199,7 @@ function contextFor({ story, state, messages, connection, meta }) {
     extension_prompt_roles: { SYSTEM: 0, USER: 1, ASSISTANT: 2 },
     setExtensionPrompt: injectionSetter(story.id),
     canonHeaderDefault: CANON_HEADER, /* M386 */
+    canonLens: (entry) => overlayFor(meta, entry), /* M392: what of canon holds in HIS story */
     /* ST's generateRaw({prompt, systemPrompt, responseLength}) — through the writer's worker connection */
     generateRaw: async (opts) => {
       const o = opts && typeof opts === 'object' ? opts : { prompt: String(opts || '') };
@@ -229,6 +231,9 @@ async function enterStory(bundle) {
   return meta;
 }
 
+/* how long a page may wait for the lenses of people met this page (once per person per premise) */
+const LENS_WAIT_MS = 15000;
+
 /* Before a page is written: the story becomes the extension's chat, and its interceptor runs as ST runs it — with its
  * own time windows (it releases the turn when they close and finishes in the background). Returns the note it holds
  * for this story now. */
@@ -239,9 +244,37 @@ export async function canonBeforeSend({ story, state, messages, connection, type
   if (typeof intercept === 'function') {
     try { await intercept(stChat(messages, { mc: mcName(state), title: story.title || '' }), contextOf(connection), () => {}, type); } catch (err) { /* never breaks a turn */ }
   }
+  /* M392: CANON THROUGH HIS STORY. Whoever rode without a lens made for this premise (someone met this page, a brief he
+   * just changed) is lensed now — what of canon holds in his story, what it changed, what it has not reached — and the
+   * turn's note is built again through it, the same turn and the same inputs. A lens not back in time lands for the
+   * next page; the note built without it still carries his opening words (our story wins). */
+  try {
+    const premise = premiseOf(story, meta, { globalNotes: (extension_settings.canon_grounding || {}).pinnedGlobal || '' });
+    if (premise && connection) {
+      const due = entriesInNote(injectionFor(story.id), meta).filter((e) => !lensCurrent(meta, e, premise));
+      if (due.length) {
+        const done = await lensPeople({ connection, meta, entries: due, premise, deadlineMs: LENS_WAIT_MS, onKept: () => saveMeta(story.id, meta) });
+        if (done.length) await api().rebuild();
+      }
+    }
+  } catch (err) { /* the note stands as built */ }
   /* kept now, not only on its own 400 ms timer — a phone that reloads the page would lose what it just found */
   try { await saveMeta(story.id, meta); } catch (err) { /* its own timer still saves */ }
   return injectionFor(story.id);
+}
+
+/* The canon people a built note carries — its blocks open with "Name:" on a line of its own */
+function entriesInNote(note, meta) {
+  const cache = meta && meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {};
+  const heads = new Set([...String(note || '').matchAll(/^([^\n:]{1,80}):$/gm)].map((m) => m[1].trim().toLowerCase()));
+  const seen = new Set();
+  return Object.values(cache).filter((e) => {
+    if (!e || !e.found || e.kind === 'place' || !heads.has(String(e.name || '').toLowerCase())) return false;
+    const k = String(e.name).toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 /* After the storyteller's page lands: the extension grounds the people the page brought in, for the next one. */
@@ -663,7 +696,7 @@ export function canonRecordFor(meta, names, { cap = 6000 } = {}) {
     const hit = canonEntryFor(cache, name, list);
     if (!hit || seen.has(hit.key)) continue;
     seen.add(hit.key);
-    const e = hit.entry;
+    const e = throughLens(hit.entry, overlayFor(m, hit.entry)); /* M392: the record as it holds in HIS story */
     const d = e.dossier && typeof e.dossier === 'object' ? e.dossier : {};
     const who = clip(d.identity || e.sections.identity || '', 300);
     const ties = clip(e.sections.relationship || '', 300);

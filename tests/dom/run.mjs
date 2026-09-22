@@ -4630,6 +4630,73 @@ test('DOM-87 EVERY KIND OF CANON CONTROL IN SETTINGS WRITES THROUGH: a switch, a
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-88 CANON THROUGH HIS STORY, IN THE APP: his Bleach premise (Oda is captain of the 13th, Rukia his lieutenant who expected the captaincy, not married to Renji) — the storyteller is sent none of canon’s captaincy, marriage or daughter, her sword and her friend still ride, and her card says what was held back and why (M392)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = '[13th Division barracks — Monday, June 1, 2026 | 09:00 | clear | shihakushō | the captain’s office]\n\n';
+  const st = await db.stories.create({ title: 'Oda of the 13th' });
+  await db.stories.update(st.id, { keeper: false, extraction: false, brief: 'A Bleach story after the war. Oda is the new captain of the 13th Division; Rukia Kuchiki is his lieutenant — she had expected the captaincy. Rukia has not married Renji.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I step into the office.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'She is already at the desk, sorting reports.' });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'presence.enter', name: 'Oda' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'Oda’s lieutenant; she had expected the captaincy.', state: 'at the desk', threads: [] } };
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  const rukia = { name: 'Rukia Kuchiki', found: true, kind: 'character', wiki: 'bleach', aliases: ['Rukia'], ts: Date.now(), rel: {},
+    sections: { identity: 'Rukia Kuchiki is a Shinigami.', physical: 'hair: Black; eyes: Violet' },
+    dossier: { identity: 'The current Captain of the 13th Division', brief: 'A proud, modest noble who leads the 13th Division. She loves rabbit-themed things.',
+      facts: ['She is married to Renji Abarai and they have a daughter named Ichika Abarai.', 'She is a close friend of Ichigo Kurosaki.', 'Her Zanpakutō is named Sode no Shirayuki.'],
+      secrets: [], abilities: [], voice: [], related: [], dynamics: {} } };
+  await db.settings.set('canonMeta:' + st.id, { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: Date.now() }, canon_grounding_cache: { rukia } });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = (url, opts) => (/fandom\.com|wiki\.gg/.test(String(url)) ? Promise.resolve({ ok: true, status: 200, json: async () => ({}), text: async () => '{}' }) : priorFetch(url, opts));
+  const priorWorker = house.state.workerAnswer;
+  let lensAsked = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep a canon character true to ONE story/.test(String(sys))) {
+      lensAsked += 1;
+      const user = String((body.messages || []).filter((m) => m.role === 'user').pop()?.content || '');
+      const verdicts = [...user.matchAll(/^(\d+)\. (.+)$/gm)].map((m) => ({ n: Number(m[1]), verdict: /current Captain|leads the 13th|married|Ichika/i.test(m[2]) ? 'changed' : 'holds' }));
+      return JSON.stringify({ verdicts });
+    }
+    return priorWorker(body, sys);
+  };
+  const was = await db.settings.get('canonOn');
+  try {
+    await db.settings.set('canonOn', true);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I hand Rukia the duty roster.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > 1 && !env.ctx.chat.isBusy(), 'the page', 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    eq(lensAsked, 1, 'she was read through his story once');
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker && Array.isArray(c.body.messages) && c.body.messages.some((m) => m.role === 'user' && /where things stand/i.test(String(m.content))));
+    assert(told, 'the storyteller was asked');
+    const briefing = told.body.messages.find((m) => m.role === 'user' && /where things stand/i.test(String(m.content))).content;
+    assert(/Rukia Kuchiki:/.test(briefing), 'she rides');
+    assert(!/married|Ichika|current Captain|leads the 13th/i.test(briefing), 'none of canon’s end-state is sent — not as fact, not as prophecy: ' + briefing.slice(0, 900));
+    assert(/Sode no Shirayuki/.test(briefing) && /Ichigo Kurosaki/.test(briefing), 'her sword and her friend still ride');
+    /* the room says what was held back, and why */
+    click(q('#btn-ledger'));
+    await until(() => !q('#drawer').hidden, 'the drawer');
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const room = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says');
+    const card = await until(() => [...room.querySelectorAll('details.canon-card')].find((d) => /^Rukia Kuchiki/.test(d.querySelector('summary').textContent)), 'her card', 10000);
+    card.open = true;
+    await until(() => /Not so in this story:/.test(card.textContent), 'the held-back line', 5000);
+    assert(/married to Renji Abarai[^·]*your story changed it/.test(card.textContent), 'the marriage, held back because his story changed it: ' + card.textContent.slice(0, 600));
+    click(q('#btn-ledger'));
+  } finally {
+    globalThis.fetch = priorFetch;
+    house.state.workerAnswer = priorWorker;
+    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
