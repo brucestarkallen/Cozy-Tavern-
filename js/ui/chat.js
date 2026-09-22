@@ -53,7 +53,8 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
-import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths } from '../canon/bridge.js'; /* M346/M386: canon verification */
+import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta } from '../canon/bridge.js'; /* M346/M386: canon verification */
+import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
 import { readSensors, takeWordForTurn, keepPageWord, sensorLine } from '../agents/sensors.js'; /* M356/M357: the readings, and the one line they earn */
 import { onToast as onCanonToast } from '../canon/host.js';
@@ -3035,6 +3036,21 @@ export function initChat(ctx) {
       await saveState(story.id, { ...after, healedGen: HEAL_GEN });
       notify(story.id);
       return { silent: false, detail: 'read the people and their standings again from the pages, once — for notes the old house had cut short, or standings the old auditor had pushed back to the brief (' + rebuildPeopleWords(r) + '; the drawer can put the old ones back)' };
+    });
+
+    /* 4a-canon. M388: THE OLD PAGES STOP REPEATING CANON — a page written before M387's division still carries what the
+     * series says (its canon role, family, looks, nature), read twice every page that person is in. Once for each such
+     * page, the record is taken out and what this story made of them kept — never a core his hand wrote, nothing added,
+     * nothing of the story lost (both held in code: agents/canontidy.js), journaled. Only with canon verification on. */
+    enqueue('scribe', async ({ signal, stale, renew }) => {
+      if (story.extraction === false || stale() || !(await canonOn())) return { silent: true };
+      const meta = await canonMeta(story.id);
+      if (!canonRepeats(await loadState(story.id), meta).length) return { silent: true };
+      const connection = await resolveWorkerConnection(story, 'scribe');
+      if (!connection) return { silent: true };
+      const r = await canonTidyPeople({ connection, storyId: story.id, meta, saveMeta: () => canonSaveMeta(story.id), signal, stale, renew });
+      if (!r) return { silent: true };
+      return { silent: false, detail: canonTidyWords(r), unfinished: r.failed > 0 };
     });
 
     /* 4a''. M386: WHAT THE SERIES SAYS OF A FACE IS WRITTEN WHERE A FACE IS KEPT. Everyone in the ledger who is a canon

@@ -4517,6 +4517,69 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-86 OLD PAGES STOP REPEATING CANON, ON THEIR OWN: after a page, a core written before the division is cleaned once through the chain — what the story made of her kept, the record gone — and a core he wrote by hand is never touched (M388)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = '[Kuchiki manor — Tuesday, September 8, 2026 | 08:00 | clear | haori | in the garden]\n\n';
+  const OLD = 'Rukia Kuchiki, a Shinigami of the Gotei 13 and Byakuya’s adopted sister; petite, black hair, violet eyes; stern and proud; took Jovan on as her student when no one else would.';
+  const CLEAN = 'Took Jovan on as her student when no one else would.';
+  const MINE = 'Byakuya Kuchiki, captain of the 6th Division; aloof; he let Jovan stay for Rukia’s sake.';
+  const st = await db.stories.create({ title: 'Old pages' });
+  await db.stories.update(st.id, { keeper: false, brief: 'A Bleach story. Jovan trains under Rukia Kuchiki.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I walk into the garden.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'She is already there, sword drawn.' });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }, { type: 'presence.enter', name: 'Byakuya Kuchiki' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: OLD, state: 'in the garden', threads: [] }, 'Byakuya Kuchiki': { core: MINE, state: 'on the veranda', threads: [], hand: { core: true } } };
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  const entry = (name, identity, physical) => ({ name, found: true, kind: 'character', wiki: 'bleach', aliases: [], ts: Date.now(), rel: {}, sections: { identity, physical, personality: '' } });
+  await db.settings.set('canonMeta:' + st.id, {
+    canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'Old pages', fp: '(manual)', manual: true, ts: Date.now() },
+    canon_grounding_cache: {
+      'rukia kuchiki': { ...entry('Rukia Kuchiki', 'Rukia Kuchiki is a Shinigami of the Gotei 13 and the adopted sister of Byakuya Kuchiki.', 'hair: Black, chin-length; eyes: Violet; height: 144 cm'), sections: { identity: 'Rukia Kuchiki is a Shinigami of the Gotei 13 and the adopted sister of Byakuya Kuchiki.', physical: 'hair: Black, chin-length; eyes: Violet; height: 144 cm', look: 'A petite young woman with violet eyes and black hair.', personality: 'Rukia is stern and proud.' } },
+      'byakuya kuchiki': entry('Byakuya Kuchiki', 'Byakuya Kuchiki is the captain of the 6th Division and head of the Kuchiki clan.', 'hair: Black, long; eyes: Grey'),
+    },
+  });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = (url, opts) => (/fandom\.com|wiki\.gg/.test(String(url)) ? Promise.resolve({ ok: true, status: 200, json: async () => ({}), text: async () => '{}' }) : priorFetch(url, opts));
+  const priorWorker = house.state.workerAnswer;
+  const asked = [];
+  house.state.workerAnswer = (body, sys) => {
+    if (/You tidy character pages of a story/.test(String(sys))) { asked.push(JSON.stringify(body)); return JSON.stringify({ pages: [{ name: 'Rukia Kuchiki', core: CLEAN }] }); }
+    return priorWorker(body, sys);
+  };
+  const was = await db.settings.get('canonOn');
+  try {
+    await db.settings.set('canonOn', true);
+    const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+    type(q('#composer-input'), 'I draw my sword and bow to her.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    const after = await loadState(st.id);
+    eq(after.characters['Rukia Kuchiki'].core, CLEAN, 'her page keeps what the story made of her; the record is gone');
+    eq(after.characters['Byakuya Kuchiki'].core, MINE, 'the page he wrote by hand is untouched');
+    eq(asked.length, 1, 'asked once');
+    assert(!asked[0].includes('he let Jovan stay'), 'his own page was never sent');
+    assert(after.log.some((e) => /Rukia Kuchiki/.test(e.words) && e.undo), 'journaled, with a way back');
+    /* the next page asks nothing: the page is clean, and the memo remembers */
+    const had2 = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+    type(q('#composer-input'), 'We spar until noon.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had2 && !env.ctx.chat.isBusy(), 'the second page', 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers again', 40000);
+    eq(asked.length, 1, 'never asked twice');
+  } finally {
+    globalThis.fetch = priorFetch;
+    house.state.workerAnswer = priorWorker;
+    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

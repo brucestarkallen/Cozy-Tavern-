@@ -64,6 +64,7 @@ const SHELL = [
   'js/canon/bridge.js',
   'js/canon/grounding.js',
   'js/ui/canonsettings.js', /* M386 */
+  'js/agents/canontidy.js', /* M388 */
   'js/agents/memory.js',
   'js/agents/continuity.js',
   'js/agents/lint.js',

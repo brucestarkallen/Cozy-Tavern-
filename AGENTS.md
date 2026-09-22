@@ -9354,3 +9354,29 @@ pair's subsection). Note 397 tokens, briefing 601.
 - GATES: harness 762/762, walk 103/103, longplay 8/8, lint 0 errors (148 warnings, as before M387) — on the working tree
   and again on a fresh clone of the pushed tree. Canon Grounding v0.65.0 on its fresh clone: proof 596, sim 413.
 - version.js -> m387-001.
+
+# M388 — the old pages stop repeating canon, on their own
+He asked what "character pages written before this fix still repeat canon; I left them alone on purpose, because
+rewriting them could overwrite pages you wrote by hand" meant. It meant: a person's page in "The people" (their core,
+"who they are") written by the scribe before M387 still says what the series says — "Rukia Kuchiki, a Shinigami of the
+Gotei 13 and Byakuya's adopted sister; petite, black hair, violet eyes; stern and proud" — beside the canon section and
+her truths, read twice or three times every page she is in. And the reason given was wrong: the house can tell his words
+from a reader's, field by field (M263's hand mark — the tidy of M291 already never rewrites a field his hand wrote). The
+work had simply not been done. Detection without repair is handing him a task, so:
+- agents/canontidy.js, a chain job (the scribe's connection) before the canon sync and the checkpoint, only with canon
+  verification on: canonRepeats finds a page whose core no hand wrote and whose words are the record's (at least four,
+  two in five, the person's own names not counted); the worker is shown the record and the core and writes the core
+  again without the record; cleanCoreHolds refuses, IN CODE, an answer that ADDS a word the page never had or LOSES a
+  word the record does not say (the story's own), or takes nothing out; applied as people.set (journaled — What changed
+  and why takes it back), judged against the page as it stands after the read (a page rewritten meanwhile is not
+  touched). Each core is asked about ONCE: a memo by the core's own words in the story's canon memory (cozy_canon_tidied;
+  a refused answer is remembered too, so nothing loops; a core written afresh is looked at afresh).
+- canonSaveMeta (bridge.js) keeps the live canon memory after a worker writes into it.
+- TESTS: m388.mjs (3: which pages — found, not a story core, never his hand, never a non-canon person, never asked twice;
+  the answer's law — added / lost / unchanged refused; the whole cleanup on a scripted worker — cleaned through the
+  ledger, undoable, his page never sent, asked once, a refused answer leaves the page, a page rewritten meanwhile left).
+  Walk DOM-86: the chain does it on its own after a page — her page cleaned, his hand-written Byakuya untouched and never
+  sent, journaled, and the next page asks nothing.
+- NEGATIVE-TESTED (each broken alone, its own test fails): additions allowed; story words lost allowed; the hand mark
+  ignored; the memo ignored; the page-rewritten-meanwhile check ignored.
+- GATES: see the pushed tree's fresh clone below. version.js -> m388-001.

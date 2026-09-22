@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m387-001)
+# Cozy Tavern — handoff for the next session (state at m388-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 He tells his story with a frontier model and a hand-built persona (a funny teller, his own frame and rules). Almost every
@@ -35,9 +35,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 762 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 765 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 103 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 104 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
@@ -175,6 +175,9 @@ founding design lives in AGENTS.md's first entries.)
   the shelf shows whole, and the note then gives them no Appearance line. Who they are in canon lives in the note; what
   THIS story made of them lives on their page (the scribe keeps pages true to the record and never repeats it). His
   truths render before the series' (renderCanon). Never add a second place the storyteller reads a canon fact.
+  M388: pages written before that division are cleaned ONCE, on their own (agents/canontidy.js, a chain job before the
+  checkpoint): a core no hand wrote, that repeats the record, is asked about once (memo by the core's words in the canon
+  memory); the answer must ADD no word and LOSE no word of the story — checked in code, refused otherwise; journaled.
 - THREE OPT-IN SWITCHES, EACH "OFF = NOT ONE BYTE" AND HELD BY A BYTE-FOR-BYTE LAW: think-on-page (M339), older model (M343), and the
   cut-before-header tick. Anything that adds words to what the storyteller reads goes behind a switch like these, in the
   writer's voice, one line — or it does not go in (M341/M342). The storyteller's room is read through chat.js roomOf ONLY, and roomOf is the provider's room: NO switch may ever take a page, the note or the record out of a request (M344) — help a weaker model by ADDING what is far (assemble/anchor.js), never by removing.

@@ -163,6 +163,11 @@ export async function canonMeta(storyId) {
   if (!storyId) return {};
   return loadMeta(storyId);
 }
+/* keep the story's live canon memory now (a worker that wrote into it — M388's memo) */
+export async function canonSaveMeta(storyId) {
+  if (!storyId || !metas.has(storyId)) return;
+  await saveMeta(storyId, metas.get(storyId));
+}
 
 function contextFor({ story, state, messages, connection, meta }) {
   const mc = mcName(state);
