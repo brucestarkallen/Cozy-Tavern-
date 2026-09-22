@@ -1642,7 +1642,15 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     const reasonOp = ledits.find((m) => m && typeof m.reason === 'string' && m.reason.trim());
     /* M76: the card shows what the ledger WILL say — a dry run on a copy */
     let preview = null;
-    try { const dry = applyMutations(state, mutations.filter((m) => m.type !== 'module.pin')); preview = { words: dry.applied.map((a) => a.words), refused: dry.rejected.map((r) => r.why) }; } catch (err) { preview = null; }
+    let cannot = '';
+    try {
+      const dry = applyMutations(state, mutations.filter((m) => m.type !== 'module.pin'));
+      preview = { words: dry.applied.map((a) => a.words), refused: dry.rejected.map((r) => r.why) };
+      /* M397: A CARD THAT CANNOT LAND IS NEVER SHOWN AS IF IT COULD. The dry run already knew every change in it
+       * would be refused — and it was staged "pending", he pressed Apply, it failed, and the housekeeper said "done"
+       * again. Nothing in it lands: it is staged refused, with why. */
+      if (!dry.applied.length && dry.rejected.some((r) => !r.same)) cannot = dry.rejected.filter((r) => !r.same).map((r) => r.why).join('; ');
+    } catch (err) { preview = null; }
     proposals.push({
       id: uid(),
       ts: Date.now(),
@@ -1653,8 +1661,8 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
         : mutations.some((m) => /^people\./.test(m.type)) ? 'ledger and people’s pages changes' : 'ledger changes'),
       reason: cleanReason(reasonOp ? reasonOp.reason : ''),
       op: { mutations, preview },
-      status: 'pending',
-      words: '',
+      status: cannot ? 'refused' : 'pending',
+      words: cannot ? 'Could not land — ' + cannot : '',
       review: [...new Set(mutations.map(ledgerTargetKey))].map((key) => ({ target: 'ledger:' + key, hash: ledgerSliceHash(state, key) })),
     });
   }
@@ -1892,11 +1900,49 @@ export function supersededByNew(oldP, newP) {
   if (!t || t !== cardTarget(newP)) return false;
   const o = oldP.op || {}; const n = newP.op || {};
   if (oldP.kind === 'edit' && (o.hide !== undefined || n.hide !== undefined)) return false;
-  if (typeof o.find === 'string' && typeof n.find === 'string') return o.find === n.find;
+  /* M397: the same passage quoted again — longer or shorter — is the same fix, refined */
+  if (typeof o.find === 'string' && typeof n.find === 'string') return o.find === n.find || (o.find.length >= 12 && n.find.includes(o.find)) || (n.find.length >= 12 && o.find.includes(n.find));
   if (oldP.kind === 'brief') return typeof o.text === 'string' && typeof n.text === 'string';
   if (oldP.kind === 'lore') return Boolean(o.patch && n.patch && typeof o.patch.content === 'string' && typeof n.patch.content === 'string');
-  if (oldP.kind === 'ledit') return false; /* two ledger cards are two changes */
+  /* M397: A NEWER LEDGER CARD THAT DECIDES THE SAME FACTS REPLACES THE OLDER. "Two ledger cards are two changes"
+   * left a wrong proposal pending beside its correction — Apply all would have written both, the wrong one first.
+   * The older card is set aside when every fact it touches (a person's page field, a seat, a truth, a standing …) is
+   * one the newer card decides again; a card about other facts stays. */
+  if (oldP.kind === 'ledit') {
+    const oldKeys = ledgerFactKeys(o.mutations);
+    const newKeys = new Set(ledgerFactKeys(n.mutations));
+    return oldKeys.length > 0 && oldKeys.every((k) => newKeys.has(k));
+  }
   return false;
+}
+
+/* M397: the facts a ledger card decides — one key per thing it writes, whatever the words */
+export function ledgerFactKeys(mutations) {
+  const who = (m) => String((m && (m.name || m.holder || m.person || m.to || m.from)) || '').trim().toLowerCase();
+  const out = [];
+  for (const m of Array.isArray(mutations) ? mutations : []) {
+    if (!m || typeof m.type !== 'string') continue;
+    const t = m.type;
+    const fam = t.split('.')[0];
+    if (fam === 'people') out.push('people:' + who(m) + ':' + String(m.field || t).toLowerCase());
+    else if (fam === 'offscreen') out.push('seat:' + who(m));
+    else if (fam === 'presence') out.push('presence:' + who(m));
+    else if (fam === 'canon') out.push('canon:' + who(m) + ':' + String(m.key || '').toLowerCase());
+    else if (fam === 'rel') out.push('rel:' + who(m));
+    else out.push(t + ':' + who(m) + ':' + String(m.key || m.field || m.id || m.title || '').toLowerCase());
+  }
+  return [...new Set(out)];
+}
+
+/* M397: why a ledger card can never land (every entry refused by the ledger itself), or '' when some of it can */
+export function ledgerCardCannotLand(ledits, state) {
+  const mutations = (Array.isArray(ledits) ? ledits : []).filter((m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim() && m.type !== 'module.pin');
+  if (!mutations.length) return '';
+  try {
+    const dry = applyMutations(state, mutations);
+    if (dry.applied.length || !dry.rejected.some((r) => !r.same)) return '';
+    return dry.rejected.filter((r) => !r.same).map((r) => r.why).join('; ');
+  } catch (err) { return ''; }
 }
 /* Is an OLD pending card dead — its anchor gone from the text as it stands? */
 export function anchorIsDead(p, world = {}) {
@@ -3026,6 +3072,8 @@ export async function runConversation({
     let sweptRipple = false;
     let nudgedBrief = false;
     let nudgedNoBlock = false;
+    let nudgedCannotLand = false; /* M397 */
+    let nudgedClaim = false; /* M397 */
     let nudgedUnreadable = false;
     let pot = HK_MAX_TOKENS;
     let thinkRetries = 0;
@@ -3187,6 +3235,25 @@ export async function runConversation({
         nudgedNoBlock = true;
         wire.push({ role: 'assistant', content: raw });
         wire.push({ role: 'user', content: '[NOTHING HAPPENED] ' + (claimsChange(parsed.text) ? 'Your answer says a change was made, but it holds no block — so nothing changed. ' : 'The writer\'s message reads as an ask for a change and your answer holds no block — so nothing changed. ') + 'Re-send your whole answer with the block that makes it: <brief> for THE BRIEF or THE CAST NOTES, <edits> for a page, <ledits> for the ledger or a page of the people, <record> for a record line, <lore> for the shelf — quoting the exact words you change. If, reading the writer again, no change was asked — it was a question, a check, a thought aloud — simply answer THAT, to the writer, as if this note did not exist: never mention this note, never say "you\'re right", never re-read the writer\'s words as an order they did not give. If a change was asked and no block can do it, say so plainly, without claiming it was done, and name what can be done instead.' });
+        continue;
+      }
+      /* M397: A LEDGER CARD THAT CANNOT LAND is handed back once, in this same run, with the ledger's own reasons —
+       * never staged as a change he can apply and then told "done". */
+      if (!nudgedCannotLand) {
+        const cannotLand = ledgerCardCannotLand(parsed.ledits, state);
+        if (cannotLand) {
+          nudgedCannotLand = true;
+          wire.push({ role: 'assistant', content: raw });
+          wire.push({ role: 'user', content: '[CANNOT LAND] Your ledger card would change nothing — the ledger refuses every entry in it: ' + cannotLand + '. Re-send your whole answer with a card that CAN land (answer the reason — a different person, a different fact, the right name), or, if what the writer asked cannot be done in the ledger, say so plainly and name what can be done instead. Never say it is done.' });
+          continue;
+        }
+      }
+      /* M397: "DONE" SAID OF A CARD THAT IS ONLY PROPOSED. Nothing changes until the writer applies a card — an
+       * answer that carries cards and says it is done, fixed or updated tells him something false. Once. */
+      if (!nudgedClaim && hasAnyBlock(parsed) && claimsChange(parsed.text)) {
+        nudgedClaim = true;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: '[NOT YET] Your answer says the change is done — nothing is done until the writer applies your cards. Re-send the same answer, the same blocks, with words that say what the cards WILL do once applied (never "done", "fixed", "updated", "I\'ve changed").' });
         continue;
       }
       /* M61 (v2.77): the ripple — the words an edit removes still sit on

@@ -9620,3 +9620,23 @@ THE AUDIT (the ledger's books against each other, root by root):
 - NOT DONE BY CODE: whether Rukia and Suì-Fēng are in "Who's here" at all is the extractor's reading of his page; if
   the page shows them and "Who's here" does not, "read again" on that page re-reads it.
 - version.js -> m396-001.
+
+# M397 — the housekeeper: no wrong card left beside its correction, no card that cannot land, no false "done"
+He: the housekeeper gave a wrong proposal, then the next one — the first was never superseded; and when he told it the
+change could not be done, it kept saying "it's done, it's done, it's done".
+- WRONG CARD LEFT PENDING: supersededByNew said "two ledger cards are two changes" — a ledger card was never set aside
+  by its correction, and Apply all would have written both, the wrong one first. Now a newer ledger card that decides
+  every fact the older one touched (ledgerFactKeys: a person's page field, a seat, presence, a truth, a standing, …)
+  supersedes it; a card about other facts stays. An edit quoting the same passage longer or shorter is the same fix,
+  refined, and supersedes too.
+- A CARD THAT CANNOT LAND, STAGED AS IF IT COULD: the card's dry run (M76) already knew every entry would be refused
+  (e.g. seating someone who is in the scene) — and it was staged "pending", he applied it, it failed, and the loop
+  began. Now the run hands such a card back once, in the same run, with the ledger's own reasons ([CANNOT LAND]); a
+  card still unlandable is staged REFUSED with "Could not land — <why>", never pending.
+- "DONE" OF A CARD ONLY PROPOSED: the no-block nudge (M75) only caught a claim with NO card. An answer carrying cards
+  that says "done", "fixed", "updated" is now handed back once ([NOT YET]): nothing is done until he applies.
+- TESTS: m397.mjs (3: supersede by facts and by passage; the hand-backs on a scripted model — the ledger's reason at
+  once, "done" taken back, the answer he sees says what the card will do; staged refused with why, and across turns the
+  correction sets the wrong card aside). The whole harness stayed green (783) — no older test depended on the old
+  behavior. NEGATIVE-TESTED: all four guards.
+- version.js -> m397-001.

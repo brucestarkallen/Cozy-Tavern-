@@ -1,6 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m396-001)
+# Cozy Tavern — handoff for the next session (state at m397-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0b. THE HOUSEKEEPER NEVER CLAIMS WHAT IT ONLY PROPOSED (M397). A ledger card the dry run says can never land is handed
+   back in the same run ([CANNOT LAND], the ledger's reasons) and, if still unlandable, staged REFUSED with why — never
+   pending. An answer with cards that says "done/fixed/updated" is handed back once ([NOT YET]). A newer ledger card
+   that decides the same facts (ledgerFactKeys) supersedes the older; an edit quoting the same passage longer or
+   shorter supersedes too.
 0a. NOBODY IS IN TWO PLACES (M396). "The same person?" has ONE answer in the whole ledger: engine/names.js —
    samePersonName (letters folded, a first/last name, a name cut short, canon's other names via setAliasSource) and
    isHere (a name means one person, or only its exact letters decide). Every book uses it: the seat guard, the seat
@@ -46,7 +51,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 780 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 783 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 108 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
