@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m402-001)
+# Cozy Tavern — handoff for the next session (state at m403-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0d. THE QUIET ONES IN THE ROOM (M401): whoever is here, not the main character and not on the latest page or in his
@@ -9,6 +9,8 @@
    M402: SILENCE IS NOT LEAVING — the page reader's presence.leave for someone the page (or his message) never names
    is let go in code (extractor.js leavesTheyWereShown). Someone the world agent puts where the scene is WALKS INTO it
    (offscreen.set at the scene's ground, not arriving → presence.enter) — never "elsewhere" there.
+   M403: THE AUDITOR too — its presence.leave passes the same silence rule (the latest pages must name them), and it may
+   move the ground ONLY to what the latest page's header says (header silent = no move).
 0c. CANON VERIFICATION IS SWITCHED PER STORY (M399): canonOn(storyId) / setCanonOn — the row "canonOn:<id>", a tale's
    own (STORY_PREFIXES), off unless switched on for that story; Settings' switch is the OPEN story's and names it; a
    branch keeps it. The old single switch moved once (on where canon was really used) and is gone.
@@ -65,7 +67,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 797 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 798 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 109 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).

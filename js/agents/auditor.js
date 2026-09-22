@@ -20,6 +20,8 @@
  */
 
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
+import { leavesTheyWereShown } from './extractor.js'; /* M403: silence is not leaving */
+import { samePlace } from '../engine/apply.js'; /* M403 */
 import { seatForPerson } from '../engine/people.js'; /* M398 */
 import { isHere } from '../engine/names.js'; /* M398: one answer to "the same person?" */
 import { db } from '../store.js';
@@ -415,6 +417,20 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const latestStory = [...all].reverse().find((m) => m && m.role === 'assistant' && !m.ooc);
   const header = latestStory ? headerMutations(pageText(latestStory)) : [];
   read.issues = auditorScope(read.issues, fresh, { header }); /* M128: the moment never lands from an audit */
+  /* M403: SILENCE IS NOT LEAVING — for the auditor as for the page reader (M402): it took Byakuya, Renji, Iba and the
+   * rest out of the scene in one batch, none of them shown leaving. A leave for someone the latest page never names is
+   * let go here, in code. */
+  {
+    const latestText = [...all].reverse().filter((m) => m && !m.hidden).slice(0, 2).map((m) => pageText(m)).join('\n');
+    const kept = [];
+    for (const issue of read.issues) {
+      if (!issue || !Array.isArray(issue.mutations) || !issue.mutations.length) { kept.push(issue); continue; }
+      const muts = leavesTheyWereShown(issue.mutations, latestText);
+      if (!muts.length && !(issue.pages && issue.fix)) continue; /* a finding that was only a silent leave is no finding */
+      kept.push({ ...issue, mutations: muts });
+    }
+    read.issues = kept;
+  }
   /* M267: A CHECK THAT FOUND NOTHING IS NOT A FINDING. The writer counted
    * fourteen "mistakes" in a reading that changed three things: the rest were
    * the auditor listing what it had checked and found right ("the thread
@@ -682,7 +698,7 @@ export function auditorScope(issues, state, { header = [] } = {}) {
   const headerAgrees = (m) => {
     const h = said.find((x) => x && x.type === m.type);
     if (!h) return null;
-    if (m.type === 'place.set') return String(h.name || '').trim().toLowerCase() === String(m.name || m.place || '').trim().toLowerCase();
+    if (m.type === 'place.set') return samePlace(String(h.name || ''), String(m.name || m.place || '')); /* M403: one place matcher */
     return ['year', 'month', 'day', 'hour', 'minute'].every((k) => Number(h[k]) === Number(m[k]));
   };
   const seats = (state && state.offscreen && typeof state.offscreen === 'object') ? state.offscreen : {};
@@ -692,6 +708,10 @@ export function auditorScope(issues, state, { header = [] } = {}) {
     /* the header line is the truth for the ground and the hour (M131): the
      * auditor may bring the ledger TO it, never move it anywhere else */
     if ((m.type === 'place.set' || m.type === 'clock.set') && headerAgrees(m) === false) return true;
+    /* M403: THE GROUND IS THE PAGE'S. With the header silent, the auditor moved his whole scene out of the courtyard to
+     * "1st Division HQ — outside the assembly hall" on its own reading — and every person in it went "elsewhere". It may
+     * bring the ground TO what the latest page's header says; it never moves it on its own. */
+    if (m.type === 'place.set' && headerAgrees(m) !== true) return true;
     if (m.type === 'people.note') return String(m.field || '').trim().toLowerCase() !== 'unthread';
     /* someone already here who "comes in" is a move — the page reader's */
     if (m.type === 'presence.enter' && Array.isArray(state && state.present) && findPresent(state, m.name) !== -1) return true;

@@ -9756,3 +9756,22 @@ He branched back to before the Zaraki fight and read page 12 again: Kyōraku's p
   whole lets its leave go and keeps the rest; placed where the scene is, he walks in, nowhere else, undoable).
   NEGATIVE-TESTED: the leave guard; the walk-in.
 - version.js -> m402-001.
+
+# M403 — one audit emptied his scene: the auditor gets the same laws as the page reader
+He, furious: everyone "elsewhere — last seen at 10th Division HQ — training courtyard", the courtyard the scene was in.
+The workers' line said it: "the auditor … set 19 right: The scene now stands in 1st Division HQ — outside the assembly
+hall · Byakuya Kuchiki stepped out of the scene · Renji Abarai stepped out · Iba Tetsuzaemon stepped out · …".
+- THE ROOT: M402 put "silence is not leaving" on the PAGE READER only — the auditor is a second writer of presence and
+  of the ground, and had neither law. It moved the ground on its own reading (its scope refused a move only when the
+  header DISAGREED; with the header silent it moved freely), then took the whole room out of the scene in one batch —
+  every one of them "last seen" at the ground the page began on (M304), the courtyard. My M402 fix covered one of the
+  two writers; rule 8 (search the codebase for the same fault) was not done — this is that miss.
+- THE GROUND IS THE PAGE'S (auditorScope): the auditor may bring the ground TO the latest page's header, and never move
+  it otherwise — header silent means no move. The header comparison uses samePlace (it compared exact lower case).
+- SILENCE IS NOT LEAVING, FOR THE AUDITOR TOO (auditLedger): its presence.leave passes leavesTheyWereShown against the
+  latest pages; a finding that was only silent leaves is no finding. A leave the page shows still lands.
+- HIS LEDGER: "read again" under the latest page takes back everything its chain wrote (the auditor's batch with it)
+  and reads it again under these laws; or take the auditor's lines back in "What changed and why".
+- TESTS: m403.mjs (the real auditor on a scripted answer: its ground move let go, three silent leaves let go, the leave
+  the page shows lands, nobody else "elsewhere"). NEGATIVE-TESTED: both guards.
+- version.js -> m403-001.
