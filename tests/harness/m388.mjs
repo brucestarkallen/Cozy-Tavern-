@@ -68,7 +68,7 @@ test('M388-3 ONCE, JOURNALED, NEVER HIS: the page is cleaned through the ledger 
   const m = meta();
   let kept = 0;
   const house = scriptedHouse([JSON.stringify({ pages: [{ name: 'Rukia Kuchiki', core: CLEAN }] })]);
-  const r = await withHouse(house, () => canonTidyPeople({ connection: CONN, storyId: sid, meta: m, saveMeta: async () => { kept += 1; } }));
+  const r = await withHouse(house, () => canonTidyPeople({ connection: CONN, storyId: sid, meta: m, keepMemo: async () => { kept += 1; } }));
   eq(r.applied.length, 1, 'one page cleaned');
   const after = await loadState(sid);
   eq(after.characters['Rukia Kuchiki'].core, CLEAN, 'what the story made of her stays; the record is gone');

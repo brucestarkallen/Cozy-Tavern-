@@ -138,8 +138,8 @@ export function parseCanonTidy(raw) {
 }
 
 /* Clean the pages that repeat the record, once each. `meta` is the story's live canon memory (the memo is kept there);
- * `saveMeta` keeps it. Returns {applied, refused, asked, failed} — or null when the story moved on underneath it. */
-export async function canonTidyPeople({ connection, storyId, meta, saveMeta = async () => {}, signal, stale = () => false, renew } = {}) {
+ * `keepMemo` keeps it. Returns {applied, refused, asked, failed} — or null when the story moved on underneath it. */
+export async function canonTidyPeople({ connection, storyId, meta, keepMemo = async () => {}, signal, stale = () => false, renew } = {}) {
   if (!connection || !storyId || !meta) return null;
   const start = await loadState(storyId);
   const due = canonRepeats(start, meta);
@@ -184,7 +184,7 @@ export async function canonTidyPeople({ connection, storyId, meta, saveMeta = as
     await saveState(storyId, next);
     notify(storyId);
   }
-  try { await saveMeta(); } catch (err) { /* asked again next time */ }
+  try { await keepMemo(); } catch (err) { /* asked again next time */ }
   return { applied, refused, asked: due.length, failed };
 }
 

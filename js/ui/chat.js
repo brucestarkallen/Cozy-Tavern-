@@ -3048,7 +3048,7 @@ export function initChat(ctx) {
       if (!canonRepeats(await loadState(story.id), meta).length) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'scribe');
       if (!connection) return { silent: true };
-      const r = await canonTidyPeople({ connection, storyId: story.id, meta, saveMeta: () => canonSaveMeta(story.id), signal, stale, renew });
+      const r = await canonTidyPeople({ connection, storyId: story.id, meta, keepMemo: () => canonSaveMeta(story.id), signal, stale, renew });
       if (!r) return { silent: true };
       return { silent: false, detail: canonTidyWords(r), unfinished: r.failed > 0 };
     });

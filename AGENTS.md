@@ -9379,4 +9379,8 @@ work had simply not been done. Detection without repair is handing him a task, s
   sent, journaled, and the next page asks nothing.
 - NEGATIVE-TESTED (each broken alone, its own test fails): additions allowed; story words lost allowed; the hand mark
   ignored; the memo ignored; the page-rewritten-meanwhile check ignored.
-- GATES: see the pushed tree's fresh clone below. version.js -> m388-001.
+- FOUND BY THE FULL HARNESS ON THE FIRST PUSH (6a36bff): M15's ghost-call audit reads a call to save*/load*/render*
+  with no definition in the file as a ghost — canontidy's callback PARAMETER `saveMeta` was one. Renamed `keepMemo`
+  (the audit is right to be simple; a parameter named like a module function is exactly how a real ghost hides).
+  The first push was made before the full harness had run on the tree — run it BEFORE pushing, not only after.
+- GATES (fresh clone of the pushed tree): see the final push. version.js -> m388-001.
