@@ -51,7 +51,14 @@ export async function canonOn() { return (await db.settings.get('canonOn')) === 
  * hidden; it is how someone tends to be, never a script; a pair's line is how they are with that one person; quotes are
  * cadence. Not kept: "wiki", "the note", "the storyteller", "portrayal error" — the words his teller would start thinking
  * in. The writer may write his own in Settings (the extension's "Injection header"); empty = these. */
-export const CANON_HEADER = 'What canon says about the people here — sharper than anyone’s memory, so where it differs from what you recall (a face, a tie, something in their past), this is right. Nobody in the story knows more of it than they’ve lived, and a hidden identity stays hidden. It’s how someone tends to be, never a script: the moment, the company and the pressure bend them, a “With …” line is how they are around that one person, and their quoted lines are only there so you hear how they talk.';
+export const CANON_HEADER = 'What canon says about the people here — sharper than anyone’s memory, so where it differs from what you recall (a face, a tie, something in their past), this is right; where our story has made something otherwise, our story wins. Nobody in the story knows more of it than they’ve lived, and a hidden identity stays hidden. It’s how someone tends to be, never a script: the moment, the company and the pressure bend them, a “With …” line is how they are around that one person, and their quoted lines are only there so you hear how they talk.';
+
+/* M389: ONE reader of a wiki name for every box that takes one — a bare name, a pasted Fandom address, a wiki.gg host;
+ * protocol and page path dropped, several with commas */
+export function wikiName(value) {
+  return String(value || '').split(',').map((w) => w.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/\.fandom\.com$/, ''))
+    .filter(Boolean).join(',');
+}
 
 /* the extension's shipped example wiki (its author's own ST default) — never a choice the writer made here */
 const SHIPPED_WIKI = 'the-eminence-in-shadow';
@@ -110,7 +117,7 @@ const FACE_KEY = /hair|eye|height|tall|build|body|figure|skin|complexion|scar|ma
  * M386: WHO'S HERE IS MARKED. Everyone the ledger has standing in the scene (state.present — the extractor's reading of
  * the page, the ground truth of the room) carries `present: true`, under the name their page stands under (M320) — the
  * extension puts them in the scene with no name on the page. */
-export function ledgerOf(state) {
+export function ledgerOf(state, { brief = '' } = {}) {
   const out = {};
   const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
   const present = (Array.isArray(state && state.present) ? state.present : [])
@@ -125,7 +132,11 @@ export function ledgerOf(state) {
     const facts = k && canon[k] && Array.isArray(canon[k].facts) ? canon[k].facts : [];
     return facts.length > 0 && facts.length <= FACTS_SHOWN && facts.some((f) => f && FACE_KEY.test(String(f.key || '')));
   };
-  const mark = (name) => (here.has(name) ? { present: true, ...(faceShown(name) ? { holds: ['appearance'] } : {}) } : {});
+  /* M389: a face HIS brief describes is his from the very first page — canon's Appearance would contradict it before
+   * the founder has locked his version (the brief rides in the frame; the note must not argue with it) */
+  const everyone = [...new Set([...Object.entries(chars).filter(([, c]) => c && typeof c === 'object' && !c.retired).map(([n]) => n), ...present, mcName(state)])]; /* the same people canonLocks weighs */
+  const briefFace = (name) => Boolean(brief) && ['hair', 'eyes', 'height', 'build', 'skin', 'distinguishing features'].some((k) => briefSpeaks(brief, name, k, everyone));
+  const mark = (name) => (here.has(name) ? { present: true, ...(faceShown(name) || briefFace(name) ? { holds: ['appearance'] } : {}) } : {});
   for (const [name, c] of Object.entries(chars)) {
     if (!c || typeof c !== 'object' || c.retired) continue;
     out[name] = { whereabouts: typeof c.state === 'string' ? c.state.slice(0, 200) : '', ...mark(name) };
@@ -173,7 +184,7 @@ function contextFor({ story, state, messages, connection, meta }) {
   const mc = mcName(state);
   const card = { name: story.title || '', description: story.brief || '', personality: '', scenario: story.castNotes || '', first_mes: '', mes_example: '' };
   card.data = { ...card };
-  meta.summaryception = { ledger: ledgerOf(state) };
+  meta.summaryception = { ledger: ledgerOf(state, { brief: String(story.brief || '') + '\n' + String(story.castNotes || '') }) };
   return {
     chat: stChat(messages, { mc, title: story.title || '' }),
     chatMetadata: meta,
@@ -259,7 +270,7 @@ export async function canonAction(bundle, action, arg) {
     case 'wiki': {
       /* this story's wiki: named = a decree for this story (the extension's own manual binding, which also lets go of
        * another universe's finds); cleared = it finds the story's wiki itself again, now */
-      const v = String(arg || '').split(',').map((w) => w.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\.fandom\.com.*$/, '')).filter(Boolean).join(',');
+      const v = wikiName(arg);
       if (v) a.bindWiki(v);
       else {
         delete meta.canon_grounding_wiki;
@@ -379,7 +390,7 @@ export async function canonWikis() {
   return v.trim().toLowerCase() === SHIPPED_WIKI && !s.cozyStamp386 ? '' : v;
 }
 export async function setCanonWikis(value) {
-  const v = String(value || '').split(',').map((w) => w.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\.fandom\.com.*$/, '')).filter(Boolean).join(',');
+  const v = wikiName(value);
   if (extension_settings.canon_grounding) { extension_settings.canon_grounding.wikis = v; await flushSettings(); return v; }
   const saved = (await db.settings.get(CANON_SETTINGS_KEY)) || {};
   await db.settings.set(CANON_SETTINGS_KEY, { ...saved, wikis: v });

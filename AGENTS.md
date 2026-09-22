@@ -9384,3 +9384,40 @@ work had simply not been done. Detection without repair is handing him a task, s
   (the audit is right to be simple; a parameter named like a module function is exactly how a real ghost hides).
   The first push was made before the full harness had run on the tree — run it BEFORE pushing, not only after.
 - GATES (fresh clone of the pushed tree): see the final push. version.js -> m388-001.
+
+# M389 — the audit of canon verification, end to end
+He asked for everything audited — foolproof, no bugs, a clear pipeline — and then a plain guide to using it. The pipeline
+was walked stage by stage against the code, each stage's failure modes brainstormed, and every doubt either proven fine
+by reading the path or fixed with a test that fails when the fix is taken out.
+THE PIPELINE (what runs, in order):
+  switch on (Settings → The readers) → canonReady (load once; first run: the model reads the scene; the author's example
+  wiki cleared; the extension's own "enabled" kept on) → per page, BEFORE: enterStory (the story as ST's chat, the brief
+  as its card, the ledger lent with present/holds marks, his opening words, the canon worker's connection) → the
+  interceptor (discover the wiki / parse the scene / look up / dossier / pairs, inside its time windows) → the note →
+  the top of his briefing (a user message after the frame; "What canon says" on the receipt) → AFTER the page, in the
+  chain: the old-page cleanup (M388) → the faces into What's true of them (M386/M387) → the checkpoint → the people the
+  page brought in are looked up (for the next page). Beside it: the scribe, the world agent and the auditor handed the
+  record; OFF withdraws the series' truths and sends nothing; a branch carries the canon memory; the room and Settings
+  pull its levers through the extension's own host surface.
+FOUND AND FIXED:
+- STORY_PREFIXES (store.js, M160's list of a tale's rows) never learned `canonMeta` (M346) or `sensors` (M356): a
+  gone tale's canon memory and readings rode _house.json on every push, forever, and the boot sweep never took them.
+- a face his BRIEF describes: canon's Appearance rode on the first page (before the founder locks his version) and
+  argued with the brief — "silver hair" in the frame, "black hair" in the note. ledgerOf now marks such a face held
+  from the first page; and his opening words now say "where our story has made something otherwise, our story wins".
+- two copies of the wiki-name reader (the room's box, Settings' box), and neither dropped a pasted page path — a
+  wiki.gg address was stored with "/wiki/Guide" on it. One reader now (wikiName), both boxes.
+- Canon Grounding v0.66.0: the story position's guard spoke of "the storyteller's map" inside a note written TO the
+  storyteller ("your map" now), and the not-in-canon notice named the machinery ("(no wiki page)", gone).
+CHECKED AND SOUND (read on the path, no change): a Continue page carries the note (the hidden "continue" is a system line
+to the extension, no re-parse); the note is inside the request's measured room (M287's probe includes it); OOC turns
+never call it; a swipe never re-parses; hidden pages are system lines; a rewind, a fold or a branch takes the series'
+truths with the page they were written on (journaled); a deleted tale takes its canon memory (by suffix); the tale's
+book carries it; the room draws its cards only when opened. A lookup still in flight when he switches stories writes
+into the story it began in (the extension holds that story's cache object) — kept on that story's next save.
+- TESTS: m389.mjs (3: the tale's rows ride its book, never the house's, swept when orphaned, gone with the tale; one
+  wiki-name reader, both boxes, a wiki.gg page path dropped; his brief's face held from page one, a silent brief
+  claims nothing, the opening words say whose story wins). Extension sim [64].
+- NEGATIVE-TESTED: the prefixes forgotten; the page path kept; the brief's face ignored (Cozy); "the storyteller's map"
+  and "(no wiki page)" back (extension).
+- version.js -> m389-001; Canon Grounding v0.66.0 vendored @ da10387.

@@ -706,7 +706,10 @@ async function exportStory(storyId) {
  * twice: the house book refuses them for a tale that no longer stands, and
  * the boot sweep lets those orphans go for good. `cast:` is NOT here — the
  * cast library is app-wide and its suffix is a card's id, not a tale's. */
-const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'versionState', 'ckptBank', /* M314: the tale's bank of journal and log entries its checkpoints name */ 'hk', 'director', 'editor', 'memoryBackup', 'peopleBackup', 'bookStamp', 'cutThinking', 'hkCut', 'hkDraft'];
+const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'versionState', 'ckptBank', /* M314: the tale's bank of journal and log entries its checkpoints name */ 'hk', 'director', 'editor', 'memoryBackup', 'peopleBackup', 'bookStamp', 'cutThinking', 'hkCut', 'hkDraft',
+  /* M389: the audit found two tales' rows the list never learned — canon verification's memory (M346) and the sensors'
+   * readings (M356): a gone tale's copy rode the house book on every push and was never swept */
+  'canonMeta', 'sensors'];
 const STORY_PREFIXED = new RegExp('^(?:' + STORY_PREFIXES.join('|') + '):.+$');
 
 /* M160: every tale-shaped row whose tale is gone, let go for good. Stores
