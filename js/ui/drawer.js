@@ -1167,6 +1167,10 @@ function canonPanel(ctx) {
 
 /* ---------- what canon says (M386 — canon verification's own room) ---------- */
 
+/* M394: when the room last asked for its people to be read through his story, per story — so a lens that cannot land
+ * (no connection, a worker that will not answer) is not asked for on every redraw */
+const lensTried = new Map();
+
 /* M386: THE LEDGER ROOM OF THE SERIES ITSELF. M346 showed canon verification as one switch and one box; the writer: "it's
  * literally just one box". Here is everything it knows of this story and every lever its own panel has, for the story in
  * hand: the wiki it asks (found by itself, or named), a plain-words ask, where our story stands in canon, where the scene
@@ -1370,6 +1374,18 @@ function canonSaysPanel(ctx) {
       if (hit) hereKeys.add(hit.key);
     }
     const ordered = found.slice().sort(([ka, a], [kb, b]) => (hereKeys.has(kb) - hereKeys.has(ka)) || ((Number(b.ts) || 0) - (Number(a.ts) || 0)));
+    /* M394: THE CARD HE READS IS CANON THROUGH HIS STORY. Anyone of this ledger canon knows who has not been read through
+     * it yet is read now, in the background — once per person per premise — and the room draws again when it lands. */
+    const ledgerKeys = new Set(ledgerNames.map((n) => { const hit = canonEntryFor(cache, n, ledgerNames); return hit ? hit.key : null; }).filter(Boolean));
+    const unread = ordered.filter(([k, e]) => e.kind !== 'place' && ledgerKeys.has(k) && !overlayFor(meta, e));
+    if (unread.length && Date.now() - (lensTried.get(story.id) || 0) > 5 * 60 * 1000 && ctx.chat && typeof ctx.chat.canonAct === 'function') {
+      lensTried.set(story.id, Date.now());
+      answer('Reading ' + unread.map(([, e]) => e.name).slice(0, 4).join(', ') + (unread.length > 4 ? ', …' : '') + ' through your story…');
+      ctx.chat.canonAct('lens').then((read) => {
+        answer(read && read.length ? 'Read through your story: ' + read.join(', ') + ' — what it changed or has not reached is not said.' : '');
+        render();
+      }).catch(() => { answer(''); });
+    }
     if (ordered.length) {
       const h = document.createElement('p');
       h.className = 'quiet';
@@ -1416,6 +1432,7 @@ function canonSaysPanel(ctx) {
           line('Around them:', (Array.isArray(d.related) ? d.related : []).map((r) => (r && r.name ? r.name + (r.why ? ' — ' + r.why : '') : '')).filter(Boolean).join('; ')),
           line('Also:', sec.trivia),
           line('Not so in this story:', lensHeld(meta, e).map((h) => (h.kept ? '“' + h.text + '” (only “' + h.kept + '” holds)' : '“' + h.text + '”') + ' — ' + (h.why === 'later' ? 'not reached here' : 'your story changed it')).join(' · ')),
+          overlayFor(meta, e) ? null : line('Not read through your story yet:', ledgerKeys.has(key) ? 'it is being read now.' : 'it will be, the first page they are in.'),
           line('Also called:', Array.isArray(e.aliases) ? e.aliases.filter((a) => a && a.toLowerCase() !== String(e.name || '').toLowerCase()).join(', ') : ''),
           line('From:', (e.wiki ? e.wiki + ' — ' : '') + 'looked up ' + (fmtWhenWords(e.ts) || 'a while ago')),
         ].filter(Boolean);

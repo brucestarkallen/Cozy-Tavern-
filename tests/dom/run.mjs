@@ -4457,11 +4457,13 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
     assert(!/\bwiki\b|\bnote\b|storyteller|inject|grounding|verification/i.test(canonPart.split('\n')[0]), 'no machinery in its opening words: ' + canonPart.split('\n')[0]);
     assert(wikiAsked.includes('bleach.fandom.com'), 'the story’s wiki was asked');
     /* the workers told to write from the real record are handed it, on the wire */
-    const scribeCall = one.calls.find((c) => /character scribe/i.test(String((c.body.messages || [])[0] && c.body.messages[0].content)) || /character scribe/i.test(JSON.stringify(c.body.system || '')));
-    if (scribeCall) assert(/What the series itself says of its people/.test(JSON.stringify(scribeCall.body)) && /Rukia Kuchiki —/.test(JSON.stringify(scribeCall.body)), 'the scribe is handed the real record');
+    /* the scribe is recognized by its own opening words (an earlier draft looked for "character scribe", matched
+     * nothing, and let the world agent's call satisfy the check alone) */
+    const scribeCall = one.calls.find((c) => /You keep the character pages of a slow, warm story/.test(JSON.stringify(c.body)));
+    assert(scribeCall, 'the scribe was asked on this page');
+    assert(/What the series itself says of its people/.test(JSON.stringify(scribeCall.body)) && /Rukia Kuchiki —/.test(JSON.stringify(scribeCall.body)), 'the scribe is handed the real record');
     const worldCall = one.calls.find((c) => /world beyond the page/i.test(JSON.stringify(c.body)));
     if (worldCall) assert(/WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE/.test(JSON.stringify(worldCall.body)), 'the world agent is handed the real record');
-    assert(scribeCall || worldCall, 'a worker told to use the record was asked on this page');
     /* 4. the series' faces are in What's true of them, marked as the series' */
     /* her look lives with her face (the violet eyes said once, in its own words — no separate "eyes" line) */
     await until(async () => { const c = ((await loadState(st.id)).canon || {})['Rukia Kuchiki']; return c && c.facts.some((f) => f.key === 'look' && /violet eyes/i.test(f.value) && f.source === 'canon'); }, 'Rukia’s look, locked from the series', 15000);
@@ -4701,6 +4703,121 @@ test('DOM-88 CANON THROUGH HIS STORY, IN THE APP: his Bleach premise (Oda is cap
     click(q('#btn-ledger'));
   } finally {
     globalThis.fetch = priorFetch;
+    house.state.workerAnswer = priorWorker;
+    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-89 “READ AGAIN” REBUILDS THE LEDGER, NEVER THE PAGE — and the readers are handed canon through his story: the page keeps every word, the lens runs in the readers’ own chain (no page sent), the scribe gets her record without the marriage or the captaincy, and her card says what was held back (M394)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = '[13th Division barracks — Monday, June 1, 2026 | 09:00 | clear | shihakushō | the captain’s office]\n\n';
+  const PAGE = H + 'Rukia sets the roster on your desk without a word, violet eyes lingering a moment too long.';
+  const st = await db.stories.create({ title: 'Oda, page one' });
+  await db.stories.update(st.id, { keeper: false, brief: 'A Bleach story after the war. Oda is the new captain of the 13th Division; Rukia Kuchiki is his lieutenant — she had expected the captaincy.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I take my seat as captain.' });
+  const page = await db.messages.append(st.id, { role: 'assistant', text: PAGE });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'presence.enter', name: 'Oda' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'Oda’s lieutenant.', state: 'at the desk', threads: [] } };
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  const rukia = { name: 'Rukia Kuchiki', found: true, kind: 'character', wiki: 'bleach', aliases: ['Rukia'], ts: Date.now(), rel: {},
+    sections: { identity: 'Rukia Kuchiki is a Shinigami.', physical: 'hair: Black; eyes: Violet' },
+    dossier: { identity: 'The current Captain of the 13th Division', brief: 'A proud, modest noble.',
+      facts: ['She is married to Renji Abarai and they have a daughter named Ichika Abarai.', 'Her Zanpakutō is named Sode no Shirayuki.'],
+      secrets: [], abilities: ['Sode no Shirayuki: her Zanpakutō'], voice: [], related: [{ name: '13th Division', why: 'Her current captaincy' }], dynamics: {} } };
+  await db.settings.set('canonMeta:' + st.id, { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: Date.now() }, canon_grounding_cache: { rukia } });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = (url, opts) => (/fandom\.com|wiki\.gg/.test(String(url)) ? Promise.resolve({ ok: true, status: 200, json: async () => ({}), text: async () => '{}' }) : priorFetch(url, opts));
+  const priorWorker = house.state.workerAnswer;
+  let lensAsked = 0;
+  const scribeSaw = [];
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep a canon character true to ONE story/.test(String(sys))) {
+      lensAsked += 1;
+      const user = String((body.messages || []).filter((m) => m.role === 'user').pop()?.content || '');
+      return JSON.stringify({ verdicts: [...user.matchAll(/^(\d+)\. (.+)$/gm)].map((m) => ({ n: Number(m[1]), verdict: /current Captain|captaincy|married|Ichika/i.test(m[2]) ? 'changed' : 'holds' })) });
+    }
+    if (/You keep the character pages of a slow, warm story/.test(String(sys))) scribeSaw.push(JSON.stringify(body));
+    return priorWorker(body, sys);
+  };
+  const was = await db.settings.get('canonOn');
+  const calls0 = house.state.calls.length;
+  try {
+    await db.settings.set('canonOn', true);
+    const row = await until(() => q(`.msg[data-id="${page.id}"] .msg-act[data-act="read again"]`), 'read again under page one', 10000);
+    click(row);
+    await until(() => lensAsked > 0, 'the readers’ chain reads her through his story', 20000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    eq((await db.messages.list(st.id)).find((m) => m.id === page.id).text, PAGE, 'the page keeps every word');
+    /* the storyteller's request is the one carrying his briefing — the parser's own call is a reader's, not a page's */
+    eq(house.state.calls.slice(calls0).filter((c) => Array.isArray(c.body.messages) && c.body.messages.some((m) => m.role === 'user' && /where things stand/i.test(String(m.content)))).length, 0, 'the storyteller was never asked — nothing was rewritten');
+    assert(scribeSaw.length > 0, 'the scribe read the page again');
+    const saw = scribeSaw.join(' ');
+    assert(/Rukia Kuchiki —/.test(saw) && /Sode no Shirayuki/.test(saw), 'the scribe is handed her record');
+    assert(!/married to Renji|Ichika|current Captain|current captaincy/i.test(saw), 'without the marriage or the captaincy');
+    click(q('#btn-ledger'));
+    await until(() => !q('#drawer').hidden, 'the drawer');
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const room = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says');
+    const card = await until(() => [...room.querySelectorAll('details.canon-card')].find((d) => /^Rukia Kuchiki/.test(d.querySelector('summary').textContent)), 'her card', 10000);
+    card.open = true;
+    await until(() => /Not so in this story:/.test(card.textContent), 'the held-back line', 5000);
+    const storyLine = [...card.querySelectorAll('p.canon-line')].find((p) => /^Their story:/.test(p.textContent));
+    assert(storyLine && /Sode no Shirayuki/.test(storyLine.textContent) && !/married/.test(storyLine.textContent), 'her card’s story no longer lists the marriage: ' + (storyLine && storyLine.textContent));
+    const heldLine = [...card.querySelectorAll('p.canon-line')].find((p) => /^Not so in this story:/.test(p.textContent));
+    assert(heldLine && /married to Renji Abarai[^·]*your story changed it/.test(heldLine.textContent), 'and the held-back line says why');
+    click(q('#btn-ledger'));
+  } finally {
+    globalThis.fetch = priorFetch;
+    house.state.workerAnswer = priorWorker;
+    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-90 THE ROOM READS ITS PEOPLE THROUGH HIS STORY WHEN IT OPENS: no page sent, no button pressed — her card turns from canon’s end-state to his story’s, and says what it held back (M394)', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'Oda, the room first' });
+  await db.stories.update(st.id, { keeper: false, extraction: false, brief: 'A Bleach story after the war. Oda is the new captain of the 13th Division; Rukia Kuchiki is his lieutenant — she had expected the captaincy.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I take my seat as captain.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'Rukia sets the roster on your desk.' });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'presence.enter', name: 'Oda' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'Oda’s lieutenant.', state: 'at the desk', threads: [] } };
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  await db.settings.set('canonMeta:' + st.id, { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: Date.now() }, canon_grounding_cache: { rukia: {
+    name: 'Rukia Kuchiki', found: true, kind: 'character', wiki: 'bleach', aliases: ['Rukia'], ts: Date.now(), rel: {}, sections: { identity: 'Rukia Kuchiki is a Shinigami.' },
+    dossier: { identity: 'The current Captain of the 13th Division', brief: 'A proud noble.', facts: ['She is married to Renji Abarai.', 'Her Zanpakutō is named Sode no Shirayuki.'], secrets: [], abilities: [], voice: [], related: [], dynamics: {} } } } });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorWorker = house.state.workerAnswer;
+  let lensAsked = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep a canon character true to ONE story/.test(String(sys))) {
+      lensAsked += 1;
+      const user = String((body.messages || []).filter((m) => m.role === 'user').pop()?.content || '');
+      return JSON.stringify({ verdicts: [...user.matchAll(/^(\d+)\. (.+)$/gm)].map((m) => ({ n: Number(m[1]), verdict: /current Captain|married/i.test(m[2]) ? 'changed' : 'holds' })) });
+    }
+    return priorWorker(body, sys);
+  };
+  const was = await db.settings.get('canonOn');
+  try {
+    await db.settings.set('canonOn', true);
+    click(q('#btn-ledger'));
+    await until(() => !q('#drawer').hidden, 'the drawer');
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const room = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says');
+    await until(() => lensAsked > 0, 'the room asked for her to be read through his story', 15000);
+    await until(async () => { await env.ctx.drawer.renderAllRooms(); await tick(200); const c = [...room.querySelectorAll('details.canon-card')].find((d) => /^Rukia Kuchiki/.test(d.querySelector('summary').textContent)); if (!c) return false; c.open = true; await tick(100); return /Not so in this story:/.test(c.textContent); }, 'her card, through his story', 15000);
+    eq(lensAsked, 1, 'asked once');
+    click(q('#btn-ledger'));
+  } finally {
     house.state.workerAnswer = priorWorker;
     if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
   }

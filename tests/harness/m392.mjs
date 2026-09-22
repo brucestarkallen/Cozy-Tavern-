@@ -30,6 +30,8 @@ function judge(statements) {
     if (/current Captain of the 13th Division, having previously served as its lieutenant under/.test(t)) return { n: x.n, verdict: 'changed', keep: 'having previously served as its lieutenant under Jūshirō Ukitake' };
     if (/current Captain|leads the 13th/.test(t)) return { n: x.n, verdict: 'changed' };
     if (/married|Ichika|husband/i.test(t)) return { n: x.n, verdict: 'changed' };
+    if (/final arc|Royal Guard/i.test(t)) return { n: x.n, verdict: 'later' };
+    if (/current captaincy and former lieutenant post/.test(t)) return { n: x.n, verdict: 'changed', keep: '13th Division: former lieutenant post' };
     return { n: x.n, verdict: 'holds' };
   }) };
 }
@@ -158,5 +160,34 @@ test('M393-1 NOTHING WRITTEN IS STILL HIS STORY: with no brief at all, she is st
     assert(premise.length > 0, 'the premise is never empty');
     const other = { canon_grounding_cache: { rukia: RUKIA_ENTRY() } };
     eq(canonRecordFor(other, ['Rukia Kuchiki'], { premise }), '', 'unread canon never reaches the workers, brief or no brief');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('M394-1 THE LENS DOES NOT WAIT FOR A PAGE: everyone canon knows in the ledger is read through his story at once — powers and the world around them too — and a ledger already read asks nothing', async () => {
+  const { canonLensLedger } = await import('../../js/canon/bridge.js');
+  const { throughLens } = await import('../../js/agents/canonlens.js');
+  const realFetch = globalThis.fetch;
+  const asks = installFake(realFetch);
+  try {
+    const st = await db.stories.create({ title: 'Read at once' });
+    await db.stories.update(st.id, { brief: PREMISE_BRIEF });
+    const story = await db.stories.get(st.id);
+    const r = RUKIA_ENTRY();
+    r.dossier.abilities = ['Ōken Clothing: garments of the Royal Guard, from the final arc', 'Sode no Shirayuki: her Zanpakutō'];
+    r.dossier.related = [{ name: '13th Division', why: 'Her current captaincy and former lieutenant post' }, { name: 'Kuchiki Clan', why: 'Noble family she was adopted into' }];
+    await db.settings.set(canonMetaKey(story.id), { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: 1 }, canon_grounding_cache: { rukia: r } });
+    const state = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }]).state;
+    state.characters = { 'Rukia Kuchiki': { core: 'Oda’s lieutenant.', state: 'off duty', threads: [] } }; /* in the ledger, not in the scene */
+    await saveState(story.id, state);
+    const read = await canonLensLedger(story, { connection: CONN });
+    eq(read.join(), 'Rukia Kuchiki', 'read at once — no page sent, not even in the scene');
+    const meta = await canonMeta(story.id);
+    const seen = throughLens(meta.canon_grounding_cache.rukia, overlayFor(meta, meta.canon_grounding_cache.rukia));
+    assert(!seen.dossier.facts.some((f) => /married/.test(f)), 'the marriage is not carried');
+    assert(!JSON.stringify(seen.dossier.related).includes('current captaincy') && seen.dossier.related.some((x) => x.name === '13th Division'), 'the 13th stays hers to serve in; "her current captaincy" goes: ' + JSON.stringify(seen.dossier.related));
+    assert(seen.dossier.related.some((x) => x.name === 'Kuchiki Clan' && /adopted/.test(x.why)), 'the rest of the world around her stays as canon has it');
+    eq(asks.lens, 1, 'one worker call');
+    eq((await canonLensLedger(story, { connection: CONN })).length, 0, 'a ledger already read asks nothing');
+    eq(asks.lens, 1, 'no second call');
   } finally { globalThis.fetch = realFetch; }
 });

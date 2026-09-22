@@ -1,5 +1,5 @@
 /* Cozy Tavern — js/canon/grounding.js
- * VENDORED: Canon Grounding v0.67.1 (github.com/brucestarkallen/Sillytavern-Canon-Verification- @ 7f45c24)
+ * VENDORED: Canon Grounding v0.67.2 (github.com/brucestarkallen/Sillytavern-Canon-Verification- @ fdddee8)
  * by tools/vendor-canon.py. Do not edit here — change the extension and vendor it again. */
 /*
  * Canon Grounding — SillyTavern extension
@@ -99,7 +99,7 @@ let lastReasons = [];        // reasons SNAPSHOT taken with the injected note, s
 let chatEpoch = 0;          // bumped on CHAT_CHANGED — async work from an older epoch is discarded
 let parseSerial = 0;        // monotonically increasing parse id — only the LATEST parse may apply
 const INJECT_KEY = "CANON_GROUNDING";
-const CG_VERSION = "0.67.1";
+const CG_VERSION = "0.67.2";
 // Tag set on the legacy chat-spliced canon note (old-ST fallback when
 // setExtensionPrompt is unavailable) so every later pass can find and remove it.
 const FALLBACK_TAG = "canon_grounding_fallback";
@@ -2826,7 +2826,9 @@ function lensedEntry(entry, lens) {
     const e = { ...entry };
     if (entry.dossier && typeof entry.dossier === "object") {
         const d = { ...entry.dossier };
-        for (const k of ["identity", "brief", "facts", "secrets", "dynamics"]) if (L[k] !== undefined) d[k] = L[k];
+        // v0.67.2: powers and the world around them are timeline too ("Ōken Clothing" from the last arc; "her current
+        // captaincy" as the 13th Division's why) — a host lens covers them as well
+        for (const k of ["identity", "brief", "facts", "secrets", "dynamics", "abilities", "related"]) if (L[k] !== undefined) d[k] = L[k];
         e.dossier = d;
     }
     if (L.sections && typeof L.sections === "object" && entry.sections) e.sections = { ...entry.sections, ...L.sections };

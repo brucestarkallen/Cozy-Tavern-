@@ -53,7 +53,7 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
 import { applyMutations, storyTurn } from '../engine/apply.js';
-import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise } from '../canon/bridge.js'; /* M346/M386: canon verification */
+import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
 import { readSensors, takeWordForTurn, keepPageWord, sensorLine } from '../agents/sensors.js'; /* M356/M357: the readings, and the one line they earn */
@@ -2764,6 +2764,20 @@ export function initChat(ctx) {
           ? 'its answer ran out of room'
           : n ? `wrote ${n} ${n === 1 ? 'change' : 'changes'}: ` + applied.slice(0, 5).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 5 ? ' · …' : '') + refused : 'nothing to write down' + refused;
       return { silent: false, detail, raw: extractRaw };
+    });
+
+    /* M394: CANON THROUGH HIS STORY, BEFORE THE WORLD AND THE SCRIBE WRITE. Everyone canon knows in this ledger with no lens
+     * for this premise is read through his story here — so the world agent and the scribe (and a "read again") are
+     * handed only what holds in his story, never canon's end-state and never nothing. Once per person per premise; only
+     * with canon verification on. */
+    enqueue('canon', async ({ stale }) => {
+      try {
+        if (stale() || !(await canonOn())) return { silent: true };
+        const connection = await resolveWorkerConnection(story, 'canon');
+        if (!connection) return { silent: true };
+        const read = await canonLensLedger((await db.stories.get(story.id)) || story, { connection });
+        return read.length ? { silent: false, detail: 'read ' + read.join(', ') + ' through your story — what it changed or has not reached is not said' } : { silent: true };
+      } catch (err) { return { silent: true }; }
     });
 
     /* 1b. The world agent (M29): once the page's own truth has landed,

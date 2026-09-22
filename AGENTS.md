@@ -9530,3 +9530,35 @@ without writing anything that would steer the storyteller himself. His philosoph
   marriage / daughter are not sent, the premise is never empty, unread canon reaches no worker). NEGATIVE-TESTED: the
   lens standing down with no premise → M393-1 fails.
 - version.js -> m393-001.
+
+# M394 — the lens never waits for a page; "read again" rebuilds the ledger, never the page
+He was furious, twice. First: told to regenerate his first page, he said his page is beautiful — he wanted the LEDGER
+rebuilt, not the page. The right control was "read again" under the storyteller's page (M113: the ledger rewinds to
+before the page and the readers read the same words fresh; the page is never sent again). Second, his screenshot of
+Rukia's card after the update: "She is the current Captain … married to Renji … a daughter named Ichika" still listed,
+"Around them: 13th Division — her current captaincy", no "Not so in this story" — and he asked if I even knew what the
+buttons do. The root: the lens (M392) only ran when a page was SENT. With no page since the update, nothing had been
+read through his story — not the card he looks at, not what "read again" hands the readers. And the lens never judged
+powers or the world around them at all.
+- THE LENS NEVER WAITS FOR A PAGE (bridge.js canonLensLedger): everyone canon knows in the ledger (who is here, whose
+  page it is) with no lens for this premise is read through his story — in the readers' chain, BEFORE the world agent
+  and the scribe (chat.js, a 'canon' job), so "read again" and every page hand them only what holds in his story; and
+  in the room when it opens (drawer.js, in the background, at most once per five minutes per story when it cannot land;
+  the room draws again when the lens lands and an unread card says so).
+- IT COVERS POWERS AND THE WORLD AROUND THEM: lensStatements judges dossier.abilities and dossier.related (the entity's
+  why — "Her current captaincy and former lieutenant post" keeps "former lieutenant post", the 13th Division itself
+  stays hers to serve in); throughLens applies them; Canon Grounding v0.67.2 applies them in the note.
+- THE BUTTONS, for the record (he asked): under a storyteller's page — "read again" (the ledger rebuilt from that page,
+  the page untouched); under his own message — "try again" (the storyteller writes the page again); the ▸ on the last
+  page — another version (the old one kept); in the ledger — "Rebuild the people from the pages" (character pages and
+  standings re-read from every page, the old ones kept to put back), "Rebuild the record from the pages" (the record
+  refolded), "Found the world from the brief" (the founder again). None of them but "try again" and ▸ writes a page.
+- A TEST THAT PROVED NOTHING, FOUND AND FIXED: DOM-85 looked for the scribe by "character scribe" — words its prompt
+  never had — and let the world agent's call satisfy the check alone. It now finds the scribe by its own opening words
+  and requires it. DOM-89 recognizes the storyteller's request by his briefing (the canon parser's call is a reader's).
+- TESTS: m392.mjs M394-1 (the ledger read at once, no page sent, someone off-page included; powers and the world
+  around her through the lens; a read ledger asks nothing). Walk DOM-89 ("read again" on his page one: every word of the
+  page kept, the storyteller never asked, the lens runs in the chain, the scribe handed her record without the marriage
+  or the captaincy, her card's story and held-back lines); DOM-90 (the room opened, nothing else: her card turns to his
+  story's and says what was held back). NEGATIVE-TESTED: the chain's lens gone, the room's lens gone, powers unjudged.
+- version.js -> m394-001; Canon Grounding v0.67.2 vendored @ fdddee8 (fresh clone: proof 602, sim 424).

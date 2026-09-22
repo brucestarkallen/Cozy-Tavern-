@@ -36,7 +36,7 @@ import { findPersonKey } from '../engine/people.js';
 import { findCanonKey, findFact, FACTS_SHOWN } from '../engine/canon.js';
 import { applyMutations, letGoMark } from '../engine/apply.js';
 import { loadState, saveState, notify } from '../engine/state.js';
-import { overlayFor, throughLens, lensPremise, lensCurrent, lensPeople } from '../agents/canonlens.js'; /* M392/M393: canon through his story */
+import { overlayFor, throughLens, lensPremise, lensCurrent, lensPeople, lensDueIn } from '../agents/canonlens.js'; /* M392/M393/M394: canon through his story */
 import {
   extension_settings, setContext, injectionSetter, injectionFor, eventSource, event_types, runBoot, onSettingsSave, flushSettings,
 } from './host.js';
@@ -182,6 +182,28 @@ export async function canonPremise(story) {
   const meta = await loadMeta(story.id);
   const s = extension_settings.canon_grounding || (await db.settings.get(CANON_SETTINGS_KEY)) || {};
   return lensPremise(story, meta, { globalNotes: typeof s.pinnedGlobal === 'string' ? s.pinnedGlobal : '' }); /* M393: never empty */
+}
+
+/* M394: THE LENS DOES NOT WAIT FOR A PAGE. Everyone canon knows in this ledger (who is here, whose page it is) is read
+ * through his story now — the readers' chain calls this before the world agent and the scribe (so "read again" and
+ * every page hand them the filtered record, never canon's end-state), and the room calls it when it opens (so the card
+ * he looks at is the truth of his story, not the wiki's). One worker call per person per premise; nothing when every
+ * lens is current. Returns the names read. */
+export async function canonLensLedger(story, { state = null, connection = null, deadlineMs = 20000 } = {}) {
+  if (!story || !story.id || !connection) return [];
+  const meta = await loadMeta(story.id);
+  const st = state || (await loadState(story.id));
+  const chars = st && st.characters && typeof st.characters === 'object' ? st.characters : {};
+  const names = [...new Set([
+    ...(Array.isArray(st && st.present) ? st.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)),
+    ...Object.entries(chars).filter(([, c]) => c && typeof c === 'object' && !c.retired).map(([n]) => n),
+  ].filter(Boolean))];
+  const premise = await canonPremise(story);
+  const due = lensDueIn(meta, names, premise, canonEntryFor);
+  if (!due.length) return [];
+  const done = await lensPeople({ connection, meta, entries: due, premise, deadlineMs, onKept: () => saveMeta(story.id, meta) });
+  if (done.length) { try { await saveMeta(story.id, meta); } catch (err) { /* kept on the next save */ } notify(story.id); }
+  return done;
 }
 
 /* keep the story's live canon memory now (a worker that wrote into it — M388's memo) */
@@ -351,6 +373,7 @@ export async function canonAction(bundle, action, arg) {
     case 'forget': out = a.forget(String(arg || '')); break;
     case 'lookAgain': out = await a.lookAgain(String(arg || '')); break;
     case 'clearAll': a.clearCache(); out = true; break;
+    case 'lens': out = await canonLensLedger(story, { state: bundle.state, connection: bundle.connection }); return out; /* M394: read-only for the ledger; the lens notifies itself */
     default: return null;
   }
   try { await saveMeta(story.id, meta); } catch (err) { /* kept on the next save */ }

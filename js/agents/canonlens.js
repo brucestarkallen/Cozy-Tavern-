@@ -49,6 +49,10 @@ export function lensStatements(entry) {
     (Array.isArray(d.facts) ? d.facts : []).forEach((t, i) => add('facts', i, t));
     (Array.isArray(d.secrets) ? d.secrets : []).forEach((t, i) => add('secrets', i, t));
     if (d.dynamics && typeof d.dynamics === 'object') for (const [who, t] of Object.entries(d.dynamics)) add('dynamics', who, t);
+    /* M394: powers and the world around them are timeline too ("Ōken Clothing" from the last arc; the 13th Division's
+     * why, "her current captaincy") */
+    (Array.isArray(d.abilities) ? d.abilities : []).forEach((t, i) => add('abilities', i, t));
+    (Array.isArray(d.related) ? d.related : []).forEach((r, i) => { if (r && r.name && r.why) add('related', i, r.name + ': ' + r.why); });
   }
   for (const f of ['identity', 'relationship', 'biography']) sentences(s[f]).forEach((t, i) => add('s.' + f, i, t));
   if (entry.rel && typeof entry.rel === 'object') for (const [who, t] of Object.entries(entry.rel)) if (t) add('pairs', who, t);
@@ -112,12 +116,26 @@ export function throughLens(entry, overlay) {
   const e = { ...entry };
   if (entry.dossier) {
     const d = { ...entry.dossier };
-    for (const k of ['identity', 'brief', 'facts', 'secrets', 'dynamics']) if (overlay[k] !== undefined) d[k] = overlay[k];
+    for (const k of ['identity', 'brief', 'facts', 'secrets', 'dynamics', 'abilities', 'related']) if (overlay[k] !== undefined) d[k] = overlay[k];
     e.dossier = d;
   }
   if (overlay.sections && entry.sections) e.sections = { ...entry.sections, ...overlay.sections };
   if (overlay.pairs) e.rel = { ...(entry.rel || {}), ...overlay.pairs };
   return e;
+}
+
+/* M394: the canon people of this ledger (everyone here, every page's person) that have no lens for this premise yet */
+export function lensDueIn(meta, names, premise, match) {
+  const cache = meta && meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {};
+  const out = [];
+  const seen = new Set();
+  for (const n of (Array.isArray(names) ? names : [])) {
+    const hit = typeof match === 'function' ? match(cache, n, names) : null;
+    if (!hit || !hit.entry || !hit.entry.found || hit.entry.kind === 'place' || seen.has(hit.key)) continue;
+    seen.add(hit.key);
+    if (!lensCurrent(meta, hit.entry, premise) && lensStatements(hit.entry).length) out.push(hit.entry);
+  }
+  return out;
 }
 
 export function buildLensMessages(entry, statements, premise) {
@@ -186,6 +204,16 @@ export function overlayFrom(entry, statements, verdicts) {
     if (Array.isArray(d.facts)) overlay.facts = of('facts').map((x) => x.out).filter(Boolean);
     if (Array.isArray(d.secrets)) overlay.secrets = of('secrets').map((x) => x.out).filter(Boolean);
     if (d.dynamics && typeof d.dynamics === 'object') overlay.dynamics = Object.fromEntries(of('dynamics').filter((x) => x.out).map((x) => [x.key, x.out]));
+    if (Array.isArray(d.abilities)) overlay.abilities = of('abilities').map((x) => x.out).filter(Boolean);
+    /* the world around them stays (the 13th is still hers to serve in); only a why his story changed goes */
+    if (Array.isArray(d.related)) {
+      overlay.related = d.related.map((r, i) => {
+        const x = of('related').find((y) => y.key === i);
+        if (!x) return r;
+        const why = x.out ? String(x.out).replace(new RegExp('^' + String(r.name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':\\s*'), '') : '';
+        return { ...r, why };
+      });
+    }
   }
   const s = entry.sections && typeof entry.sections === 'object' ? entry.sections : null;
   if (s) {
