@@ -713,7 +713,13 @@ const HANDLERS = {
     const sceneSpot = foldName(String((state.place && state.place.name) || '').split(/\s*(?:—|–|,|;|\()\s*/)[0]);
     const seatSpot = foldName(String(location || '').split(/\s*(?:—|–|,|;|\()\s*/)[0]);
     if (!movingIn && sceneSpot && sceneSpot.split(' ').length >= 2 && seatSpot === sceneSpot) {
-      return { why: (pageKey || name) + ' would be where the scene is (' + location + ') — someone there is in the scene, or on the way to it (toward, with an arrival), never elsewhere' };
+      /* M402: SOMEONE THE WORLD PUTS WHERE THE SCENE IS, IS IN THE SCENE. Refusing the seat (M396) left them stuck: a
+       * "last seen at <the scene's own ground>" note the world agent could never move on — Kyōraku "elsewhere" at the
+       * courtyard the duel was in. They walk in instead (their note lets go on its own), and the quiet ones in the room
+       * keep them alive (M401). */
+      const entered = HANDLERS['presence.enter'](state, { type: 'presence.enter', name: pageKey || name });
+      if (entered && entered.words) return { words: (pageKey || name) + ' is where the scene is (' + location + ') — in the scene. ' + entered.words, undo: entered.undo };
+      return { why: (pageKey || name) + ' is where the scene is — in the scene already', same: true };
     }
     const seated = seatForPerson(state, pageKey || name) || seatForPerson(state, name);
     const key = pageKey || (seated ? seated.key : name);

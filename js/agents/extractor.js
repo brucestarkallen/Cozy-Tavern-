@@ -35,6 +35,7 @@
  * they were the published contract. */
 
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
+import { foldName } from '../engine/names.js'; /* M402: silence is not leaving */
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
@@ -107,7 +108,7 @@ const VOCABULARY = [
   'place.set {"type":"place.set","name":"the chapel"} — the ground the scene stands on, only when first named or it truly moves',
   'clock.advance {"type":"clock.advance","minutes":30,"reason":"the walk to the chapel"} — when time clearly passes; minutes is a number',
   'presence.enter {"type":"presence.enter","name":"NAME","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown',
-  'presence.leave {"type":"presence.leave","name":"OTHER NAME"} — when someone clearly leaves the scene',
+  'presence.leave {"type":"presence.leave","name":"OTHER NAME"} — ONLY when the page SHOWS them leaving (walks out, is carried off, vanishes); someone the page does not mention is quiet, not gone, and stays',
   'presence.update {"type":"presence.update","name":"NAME","position":"at the window"} — when someone present moves or changes dress',
   /* M256: WHO KNOWS WHAT, FOR THE PEOPLE IN THE ROOM. knowledge.add appeared
    * NOWHERE in this file. The world agent has it, but the world agent is
@@ -392,7 +393,25 @@ export function parseExtractorAnswer(raw) {
  * line. What never throws: an answer we can't use, which resolves
  * {mutations:[], note:'unusable'} so the drawer can say so. A missing
  * connection or an empty page resolves {mutations:[], failed:true}. */
-export async function extractTurn({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew, storyId = '', story = null, pageNumber = 0 } = {}) {
+/* M402: SILENCE IS NOT LEAVING. Kyōraku stood at the rail of the very courtyard the scene was in; a page that did not
+ * name him was read as him leaving, and the ledger said "elsewhere — last seen at 10th Division HQ, training
+ * courtyard", the scene's own ground. The page reader may take someone out of the scene only when the page (or his
+ * message) names them — a departure is written about the person who departs; someone the page never mentions is
+ * simply quiet, and stays (the world agent keeps them alive, M401). Held in code, whatever the model answered. */
+export function leavesTheyWereShown(mutations, text) {
+  const hay = foldName(text);
+  const named = (name) => foldName(name).split(' ').filter((w) => w.length >= 3)
+    .some((w) => new RegExp('(^|[^\\p{L}\\p{N}])' + w + '($|[^\\p{L}\\p{N}])', 'u').test(hay));
+  return (Array.isArray(mutations) ? mutations : []).filter((m) => !(m && m.type === 'presence.leave' && !named(m.name)));
+}
+
+export async function extractTurn(args = {}) {
+  const read = await extractTurnRead(args);
+  if (read && Array.isArray(read.mutations)) read.mutations = leavesTheyWereShown(read.mutations, String(args.userText || '') + '\n' + String(args.assistantText || ''));
+  return read;
+}
+
+async function extractTurnRead({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew, storyId = '', story = null, pageNumber = 0 } = {}) {
   if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
   if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);

@@ -57,9 +57,11 @@ test('M396-3 NO SEAT WHERE THE SCENE IS; AN ARRIVAL ONLY FOR SOMEONE ON THEIR WA
     { type: 'offscreen.set', name: 'Tōshirō Hitsugaya', location: 'Tenth Division courtyard, the east gate', activity: 'walking in', stance: 'toward', etaMinutes: 2 },
     { type: 'offscreen.set', name: 'Mayuri Kurotsuchi', location: '12th Division, his laboratory', activity: 'ordering a profile', stance: 'busy', etaMinutes: 0 },
   ]);
-  eq(r.applied.length, 2, 'two seats hold');
-  assert(r.rejected.some((x) => /Rōjūrō Otoribashi would be where the scene is/.test(x.why)), 'someone at the scene’s own place is not "elsewhere": ' + JSON.stringify(r.rejected));
+  /* M402: someone put where the scene is walks INTO it (a refusal left such a person stuck "elsewhere" at the scene's
+   * own ground, where no worker could ever move them on) */
+  eq(r.applied.length, 3, 'all three land');
   st = r.state;
+  assert(st.present.some((p) => p.name === 'Rōjūrō Otoribashi') && !st.offscreen['Rōjūrō Otoribashi'], 'Rose, at the scene’s own place, is IN the scene — never "elsewhere" there');
   assert(st.offscreen['Tōshirō Hitsugaya'], 'someone on the way to it is');
   const lines = renderOffscreen(st.offscreen, st.present, st.clock && st.clock.minutes);
   assert(!/Mayuri[^\n]*due now/.test(lines), 'no arrival for someone taken up elsewhere: ' + lines);

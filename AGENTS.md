@@ -9734,3 +9734,25 @@ storyteller narrated others. Should they be simulated, and where — the scene o
   world agent his now lands on his page and reaches the storyteller, a now for the fighter or someone away is let go).
   NEGATIVE-TESTED: the code guard; the list in the request.
 - version.js -> m401-001.
+
+# M402 — silence is not leaving; someone where the scene is, is in it
+He branched back to before the Zaraki fight and read page 12 again: Kyōraku's page said "Now (elsewhere): last seen at
+10th Division HQ — training courtyard" — the courtyard Jovan was standing in — and no "now" of his own was simulated.
+- THE ROOT: the page reader took him out of the scene (presence.leave → M304's "last seen" note at the scene's own
+  ground) on a page that never named him. The quiet ones in the room (M401) are only the PRESENT, so once out he got
+  a "last seen" line instead of a life; and the world agent could never move him on to where he truly was, because
+  M396 refused a seat at the scene's own place. Stuck, "elsewhere", in the room.
+- SILENCE IS NOT LEAVING (extractor.js leavesTheyWereShown, applied to every extractTurn answer): a presence.leave for
+  someone the page or his message never names is let go in code, whatever the model answered; the page reader's own
+  vocabulary says leave ONLY when the page shows them leaving — someone unmentioned is quiet, not gone. Named leaving
+  (letters folded) still leaves.
+- SOMEONE WHERE THE SCENE IS, IS IN IT (apply.js offscreen.set): a seat at the scene's own ground that is not an arrival
+  now WALKS THE PERSON IN (presence.enter; their note lets go on its own; undoable) instead of being refused — so the
+  world agent, told to move a "last seen" person on, heals a ledger stuck like his: he returns to Who's here, and the
+  world agent keeps him alive there next page. M396-3's expectation (Rose refused) is Rose walking in now.
+- HIS LEDGER: "read again" under page 12 again (the leave is let go now), or simply the next page — the world agent
+  moves Kyōraku on from "last seen", and a place in the courtyard walks him back in.
+- TESTS: m402.mjs (3: a page that never names him cannot take him out, one that shows him go can; the page reader run
+  whole lets its leave go and keeps the rest; placed where the scene is, he walks in, nowhere else, undoable).
+  NEGATIVE-TESTED: the leave guard; the walk-in.
+- version.js -> m402-001.
