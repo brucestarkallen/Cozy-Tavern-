@@ -58,6 +58,7 @@ import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canonti
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
 import { readSensors, takeWordForTurn, keepPageWord, sensorLine } from '../agents/sensors.js'; /* M356/M357: the readings, and the one line they earn */
 import { onToast as onCanonToast } from '../canon/host.js';
+import { canonNote as keepCanonNote } from '../canon/bridge.js'; /* M395: canon's own notes go to its room, never onto the screen */
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
 import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../agents/queue.js';
@@ -316,6 +317,10 @@ export function initChat(ctx) {
   function toast(words) {
     if (ctx.toast) ctx.toast(words);
   }
+
+  /* M395: canon verification's own notices (📍 a setting, 📖 a story position, 🔭 a wiki, a parser that failed) are kept
+   * in its room — never a popup on his screen, page after page */
+  onCanonToast((words) => keepCanonNote(words));
 
   /* M9 (B1): the shelf warns once per crossing of the 80% line. */
   db.onStorageWarning(() => {
@@ -3588,7 +3593,6 @@ export function initChat(ctx) {
        * not after it. OFF (as it ships) or an out-of-character turn: never called, not one byte. */
       const canonPending = (!ooc && lastUser && (await canonOn()))
         ? (async () => {
-          onCanonToast((words) => toast(words));
           const canonConnection = await resolveWorkerConnection(story, 'canon');
           return canonBeforeSend({ story, state, messages: history, connection: canonConnection, type: swipeTarget ? 'swipe' : 'normal' });
         })().catch(() => '')

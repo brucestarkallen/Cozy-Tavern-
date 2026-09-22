@@ -9562,3 +9562,28 @@ powers or the world around them at all.
   or the captaincy, her card's story and held-back lines); DOM-90 (the room opened, nothing else: her card turns to his
   story's and says what was held back). NEGATIVE-TESTED: the chain's lens gone, the room's lens gone, powers unjudged.
 - version.js -> m394-001; Canon Grounding v0.67.2 vendored @ fdddee8 (fresh clone: proof 602, sim 424).
+
+# M395 — where the scene is follows his header, and canon never pops up on his screen
+He: "why the canon setting keeps popping up on my screen on every screen and the setting is wrong — why the setting
+doesn't follow the header", and whether his instruction that anyone can interrupt the MC was still there.
+- THE POPUPS: the extension speaks like a SillyTavern panel — a toast when its tracker moves the setting ("📍 setting →
+  …"), advances a story position, finds a wiki or a parser fails — and M346 wired those toasts to Cozy's own, so they
+  landed on his screen page after page. They are now kept in the bridge (canonNote, the newest thirty) and shown in
+  the room "What canon says" under "What it noted lately". Registered once when chat starts; nothing of canon pops up.
+- THE SETTING: its tracker chose the scene's place from the parser's list — a place someone merely mentioned could
+  become "where we are" (and ride as the current setting every page), while the page's own header said otherwise. The
+  ledger knows where the scene is (state.place, read by the extractor from the header): the bridge lends it as
+  canonScenePlace, and Canon Grounding v0.68.0's setting follows it — the canon place already looked up under that name
+  or one of its parts ("Kuchiki Manor — the tea room"), or NO setting when canon does not know the place (never a wrong
+  one); nothing looked up from a header's words, nothing announced; the parser's place is never made the setting.
+- HIS INTERRUPT LAW: in the craft he runs ("NPCs Can Interrupt MC = they don't stand still while MC speaks or acts" and
+  "Every MC Action Is An Attempt = a present NPC with motive may INTERCEPT it…"), assemble/craft.js, last changed at
+  M345 — nothing since touched it. Measured: a request built with the rulebook as it ships carries both lines in its
+  system part. A craft he wrote himself in the rulebook is his and was never touched either.
+- TESTS: m392.mjs M395-1 (his header's place → the setting, a part of it enough; an unknown place → none; a notice
+  kept, not shown). Walk DOM-90 extended (a notice raised → no popup on his screen; the room, opened, keeps it).
+  Extension sim [66]. NEGATIVE-TESTED: popups back; the place not lent (Cozy); the host place ignored; the parser's
+  place allowed to win (extension).
+- version.js -> m395-001; Canon Grounding v0.68.1 vendored @ 803dc53 (fresh clone: proof 602, sim 430; v0.68.1 only moves
+  the host-place functions after the PLACE_WORDS they read — Cozy's lint flagged the order). The import of canonNote is
+  keepCanonNote in chat.js (the send path has a local canonNote — the note itself). Lint: 148 warnings, none new.

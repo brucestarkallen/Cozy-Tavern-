@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m394-001)
+# Cozy Tavern — handoff for the next session (state at m395-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. WHAT HE TYPES IS WHAT HAPPENS (M391). A shortcut (#story, #p, #pp, #q, #continue, #time, #question, #Put TWB, ((…)),
@@ -40,7 +40,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 775 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 776 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 108 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
@@ -199,6 +199,9 @@ founding design lives in AGENTS.md's first entries.)
   the readers read the same words fresh). M394: the lens never waits for a page — the readers' chain reads the ledger's
   canon people before the world agent and the scribe (canonLensLedger), and the room reads them when it opens; it
   covers powers (abilities) and the world around them (related) too (Canon Grounding v0.67.2).
+  M395: WHERE THE SCENE IS belongs to the ledger (state.place, from the header) — lent as canonScenePlace; the
+  extension's setting follows it (Canon Grounding v0.68.0), a known canon place or none. Canon's own notices NEVER
+  pop up: chat.js routes the extension's toasts to canonNote, shown in its room ("What it noted lately").
 - THREE OPT-IN SWITCHES, EACH "OFF = NOT ONE BYTE" AND HELD BY A BYTE-FOR-BYTE LAW: think-on-page (M339), older model (M343), and the
   cut-before-header tick. Anything that adds words to what the storyteller reads goes behind a switch like these, in the
   writer's voice, one line — or it does not go in (M341/M342). The storyteller's room is read through chat.js roomOf ONLY, and roomOf is the provider's room: NO switch may ever take a page, the note or the record out of a request (M344) — help a weaker model by ADDING what is far (assemble/anchor.js), never by removing.

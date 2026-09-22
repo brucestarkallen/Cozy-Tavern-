@@ -53,7 +53,7 @@ import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '.
 import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
 import { pageText } from '../assemble/stack.js';
 import { db } from '../store.js';
-import { canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys } from '../canon/bridge.js'; /* M386: what canon says */
+import { canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys, canonNotes } from '../canon/bridge.js'; /* M386: what canon says; M395: its own notes */
 import { overlayFor, throughLens, lensHeld } from '../agents/canonlens.js'; /* M392: canon through his story */
 
 /* ---------- shared helpers ---------- */
@@ -1481,6 +1481,17 @@ function canonSaysPanel(ctx) {
       sum.textContent = last.source === 'preview' ? 'Why each would ride now' : 'Why each rode with the last page';
       fold.appendChild(sum);
       for (const r of last.reasons) fold.appendChild(quietNote(r));
+      body.appendChild(fold);
+    }
+    /* M395: what it noted lately — its own notices, kept here instead of popping up on his screen */
+    const noted = canonNotes();
+    if (noted.length) {
+      const fold = document.createElement('details');
+      fold.className = 'canon-notes-log';
+      const sum = document.createElement('summary');
+      sum.textContent = 'What it noted lately (' + noted.length + ')';
+      fold.appendChild(sum);
+      for (const n of noted.slice(0, 12)) fold.appendChild(quietNote(n.words + ' — ' + (fmtWhenWords(n.at) || 'just now')));
       body.appendChild(fold);
     }
     const tools = document.createElement('div');

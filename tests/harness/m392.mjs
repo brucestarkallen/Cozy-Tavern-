@@ -191,3 +191,25 @@ test('M394-1 THE LENS DOES NOT WAIT FOR A PAGE: everyone canon knows in the ledg
     eq(asks.lens, 1, 'no second call');
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('M395-1 WHERE THE SCENE IS, BY HIS LEDGER: the setting is the canon place the page header names (a part of it will do), a place canon does not know leaves none; and canon’s own notices are kept for its room, never shown as popups', async () => {
+  const { canonNote, canonNotes } = await import('../../js/canon/bridge.js');
+  const { onToast, toastr } = await import('../../js/canon/host.js');
+  const st = await db.stories.create({ title: 'Where we are' });
+  const story = await db.stories.get(st.id);
+  await db.settings.set(canonMetaKey(story.id), { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: 1 },
+    canon_grounding_setting: 'karakura town',
+    canon_grounding_cache: {
+      'kuchiki manor': { name: 'Kuchiki Manor', found: true, kind: 'place', wiki: 'bleach', aliases: [], ts: Date.now(), sections: { identity: 'The Kuchiki estate.' } },
+      'karakura town': { name: 'Karakura Town', found: true, kind: 'place', wiki: 'bleach', aliases: [], ts: Date.now(), sections: { identity: 'A town.' } },
+    } });
+  const state = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'presence.enter', name: 'Oda' }, { type: 'place.set', name: 'Kuchiki Manor — the tea room' }]).state;
+  await canonBeforeSend({ story, state, messages: [{ id: 'u1', role: 'user', text: 'Word came from Karakura Town.' }], connection: null });
+  eq((await canonMeta(story.id)).canon_grounding_setting, 'kuchiki manor', 'the setting is where his header says the scene is');
+  const nowhere = applyMutations(state, [{ type: 'place.set', name: 'a ramen stall by the river' }]).state;
+  await canonBeforeSend({ story, state: nowhere, messages: [{ id: 'u1', role: 'user', text: 'We sit down to eat.' }], connection: null });
+  eq((await canonMeta(story.id)).canon_grounding_setting, '', 'a place canon does not know: no setting, never a wrong one');
+  onToast((w) => canonNote(w));
+  toastr.info('📍 setting → Seireitei');
+  eq(canonNotes()[0].words, '📍 setting → Seireitei', 'its notice is kept for its room');
+});

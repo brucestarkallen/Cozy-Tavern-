@@ -206,6 +206,19 @@ export async function canonLensLedger(story, { state = null, connection = null, 
   return done;
 }
 
+/* M395: CANON'S OWN NOTES NEVER POP UP. The extension speaks the way a SillyTavern panel does — a toast for a setting it
+ * moved to, a story position, a wiki it found, a parser that failed — and in Cozy each one landed on his screen,
+ * page after page. They are kept here instead (the newest first, a few dozen) and shown in its room, where he looks
+ * when he wants to know what it did. */
+const notes = [];
+export function canonNote(words) {
+  const w = String(words || '').trim();
+  if (!w) return;
+  notes.unshift({ words: w, at: Date.now() });
+  if (notes.length > 30) notes.length = 30;
+}
+export function canonNotes() { return notes.slice(); }
+
 /* keep the story's live canon memory now (a worker that wrote into it — M388's memo) */
 export async function canonSaveMeta(storyId) {
   if (!storyId || !metas.has(storyId)) return;
@@ -231,6 +244,9 @@ function contextFor({ story, state, messages, connection, meta }) {
     setExtensionPrompt: injectionSetter(story.id),
     canonHeaderDefault: CANON_HEADER, /* M386 */
     canonLens: (entry) => overlayFor(meta, entry), /* M392: what of canon holds in HIS story */
+    /* M395: WHERE THE SCENE IS is the ledger's (the page's header, read by the extractor) — the extension's setting follows
+     * it, a known canon place or none, never its parser's guess at a place someone mentioned */
+    canonScenePlace: state && state.place && typeof state.place.name === 'string' ? state.place.name : '',
     /* ST's generateRaw({prompt, systemPrompt, responseLength}) — through the writer's worker connection */
     generateRaw: async (opts) => {
       const o = opts && typeof opts === 'object' ? opts : { prompt: String(opts || '') };

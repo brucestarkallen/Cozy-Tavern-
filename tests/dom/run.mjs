@@ -4816,6 +4816,21 @@ test('DOM-90 THE ROOM READS ITS PEOPLE THROUGH HIS STORY WHEN IT OPENS: no page 
     await until(() => lensAsked > 0, 'the room asked for her to be read through his story', 15000);
     await until(async () => { await env.ctx.drawer.renderAllRooms(); await tick(200); const c = [...room.querySelectorAll('details.canon-card')].find((d) => /^Rukia Kuchiki/.test(d.querySelector('summary').textContent)); if (!c) return false; c.open = true; await tick(100); return /Not so in this story:/.test(c.textContent); }, 'her card, through his story', 15000);
     eq(lensAsked, 1, 'asked once');
+    /* M395: canon's own notices never pop up on his screen — they are kept in its room */
+    const { toastr: canonToastr } = await import('../../js/canon/host.js');
+    const toastsBefore = q('#toasts') ? q('#toasts').textContent : '';
+    canonToastr.info('📍 setting → Seireitei');
+    await tick(300);
+    eq((q('#toasts') ? q('#toasts').textContent : '') === toastsBefore || !/setting → Seireitei/.test(q('#toasts') ? q('#toasts').textContent : ''), true, 'no popup on his screen');
+    /* the room draws what it holds when it is opened */
+    click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'the drawer closed');
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer again');
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const room2 = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says');
+    await until(() => /What it noted lately/.test(room2.textContent), 'the room keeps its notes', 5000);
+    const log = room2.querySelector('details.canon-notes-log');
+    log.open = true;
+    assert(/setting → Seireitei/.test(log.textContent), 'the notice is there when he looks');
     click(q('#btn-ledger'));
   } finally {
     house.state.workerAnswer = priorWorker;
