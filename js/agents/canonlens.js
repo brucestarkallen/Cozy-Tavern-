@@ -74,6 +74,14 @@ export function premiseOf(story, meta, { globalNotes = '' } = {}) {
   ].filter(Boolean).join('\n\n');
 }
 
+/* M393: A STORY WITH NOTHING WRITTEN IS STILL ITS OWN STORY. With no premise at all the lens used to stand down and
+ * canon's END rode as fact — the opposite of his law (canon's later states are never assumed). The lens now always
+ * reads; when he has written nothing, this is what it reads. */
+export const NO_PREMISE = 'The writer has written no premise for this story: the story is only what its own pages show, and nothing of canon\u2019s later states (a rank or title, a marriage, a child, a death, an alliance) is established in it.';
+export function lensPremise(story, meta, opts = {}) {
+  return premiseOf(story, meta, opts) || NO_PREMISE;
+}
+
 export function lensKey(entry, premise) { return lensFingerprint(entry) + '|' + hash(premise); }
 
 const nameKey = (entry) => String((entry && entry.name) || '').trim().toLowerCase();
@@ -123,7 +131,8 @@ export function buildLensMessages(entry, statements, premise) {
     '  "later"   — a canon event or state this story has NOT reached or established — a rank or title, a marriage, a',
     '              child, a death, an alliance, a betrayal, a move — never a fact here, and never destined.',
     'When only part of a statement holds, add "keep": that part in the statement\'s OWN words (cut, never add or change',
-    'a word). When the story says nothing either way and it is not a later state, it holds.',
+    'a word). SILENCE IS NOT ESTABLISHMENT: a rank or title, a marriage, a child, a death or an alliance holds only where',
+    'the story itself establishes it (or plainly sets itself where canon had it). Anything else the story is silent on holds.',
     'Answer with JSON only: {"verdicts":[{"n":1,"verdict":"holds"},{"n":2,"verdict":"changed","keep":"<the part that holds>"}]}',
   ].join('\n'));
   const user = [

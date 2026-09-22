@@ -33,6 +33,43 @@ function judge(statements) {
     return { n: x.n, verdict: 'holds' };
   }) };
 }
+function installFake(realFetch) {
+  const asks = { lens: 0, prompts: [] };
+  const WT = "{{Infobox Character\n| name = Rukia Kuchiki\n| hair = Black\n| eyes = Violet\n}}\n'''Rukia Kuchiki''' is a Shinigami.";
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url);
+    if (/fandom\.com/.test(u)) {
+      const q = new URL(u); const ok = (o) => ({ ok: true, status: 200, json: async () => o, text: async () => JSON.stringify(o) });
+      const t = q.searchParams.get('titles'), p = q.searchParams.get('page'), sr = q.searchParams.get('srsearch');
+      if (q.searchParams.get('list') === 'recentchanges') return ok({ query: { recentchanges: [{ timestamp: '2026-09-01T00:00:00Z' }] } });
+      if (sr) return ok({ query: { search: /rukia/i.test(sr) ? [{ title: 'Rukia Kuchiki' }] : [] } });
+      if (t) return /rukia/i.test(t) ? ok({ query: { pages: { 7: { pageid: 7, title: 'Rukia Kuchiki' } } } }) : ok({ query: { pages: { '-1': { title: t, missing: '' } } } });
+      if (p && /rukia/i.test(p)) return ok({ parse: { title: 'Rukia Kuchiki', wikitext: { '*': WT } } });
+      return ok({});
+    }
+    if (/z\.ai/.test(u)) {
+      const body = JSON.parse(opts.body);
+      const sys = String((body.messages || []).find((m) => m.role === 'system')?.content || '');
+      const user = String((body.messages || []).filter((m) => m.role === 'user').pop()?.content || '');
+      let answer = '{}';
+      if (/You keep a canon character true to ONE story/.test(sys)) {
+        asks.lens += 1; asks.prompts.push(sys);
+        const statements = [...user.matchAll(/^(\d+)\. (.+)$/gm)].map((m) => ({ n: Number(m[1]), text: m[2] }));
+        answer = JSON.stringify(judge(statements));
+      }
+      if (body.stream) {
+        const lines = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\n' + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+        const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(lines)); c.close(); } });
+        return { ok: true, status: 200, headers: new Headers(), body: stream, json: async () => ({}), text: async () => lines, clone() { return this; } };
+      }
+      const obj = { choices: [{ message: { role: 'assistant', content: answer }, finish_reason: 'stop' }] };
+      return { ok: true, status: 200, headers: new Headers(), json: async () => obj, text: async () => JSON.stringify(obj), clone() { return this; } };
+    }
+    return realFetch(url, opts);
+  };
+  return asks;
+}
+
 const PREMISE_BRIEF = 'A Bleach story after the war. Oda is the new captain of the 13th Division; Rukia Kuchiki is his lieutenant — she had expected the captaincy. Rukia has not married Renji.';
 
 test('M392-1 THE LENS’S OWN LAW: every canon statement judged; what his story changed is not kept; a part that holds is kept in its own words only; nothing without a verdict is lost', () => {
@@ -54,39 +91,7 @@ test('M392-1 THE LENS’S OWN LAW: every canon statement judged; what his story 
 
 test('M392-2 HIS OODA/RUKIA STORY, LIVE: the page carries none of the captaincy, the marriage or the daughter — her sister, her sword and her friends ride; the lens is made once, again when his premise changes; the workers’ record says the same', async () => {
   const realFetch = globalThis.fetch;
-  const asks = { lens: 0 };
-  const WT = "{{Infobox Character\n| name = Rukia Kuchiki\n| hair = Black\n| eyes = Violet\n}}\n'''Rukia Kuchiki''' is a Shinigami.";
-  globalThis.fetch = async (url, opts) => {
-    const u = String(url);
-    if (/fandom\.com/.test(u)) {
-      const q = new URL(u); const ok = (o) => ({ ok: true, status: 200, json: async () => o, text: async () => JSON.stringify(o) });
-      const t = q.searchParams.get('titles'), p = q.searchParams.get('page'), sr = q.searchParams.get('srsearch');
-      if (q.searchParams.get('list') === 'recentchanges') return ok({ query: { recentchanges: [{ timestamp: '2026-09-01T00:00:00Z' }] } });
-      if (sr) return ok({ query: { search: /rukia/i.test(sr) ? [{ title: 'Rukia Kuchiki' }] : [] } });
-      if (t) return /rukia/i.test(t) ? ok({ query: { pages: { 7: { pageid: 7, title: 'Rukia Kuchiki' } } } }) : ok({ query: { pages: { '-1': { title: t, missing: '' } } } });
-      if (p && /rukia/i.test(p)) return ok({ parse: { title: 'Rukia Kuchiki', wikitext: { '*': WT } } });
-      return ok({});
-    }
-    if (/z\.ai/.test(u)) {
-      const body = JSON.parse(opts.body);
-      const sys = String((body.messages || []).find((m) => m.role === 'system')?.content || '');
-      const user = String((body.messages || []).filter((m) => m.role === 'user').pop()?.content || '');
-      let answer = '{}';
-      if (/You keep a canon character true to ONE story/.test(sys)) {
-        asks.lens += 1;
-        const statements = [...user.matchAll(/^(\d+)\. (.+)$/gm)].map((m) => ({ n: Number(m[1]), text: m[2] }));
-        answer = JSON.stringify(judge(statements));
-      }
-      if (body.stream) {
-        const lines = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\n' + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
-        const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(lines)); c.close(); } });
-        return { ok: true, status: 200, headers: new Headers(), body: stream, json: async () => ({}), text: async () => lines, clone() { return this; } };
-      }
-      const obj = { choices: [{ message: { role: 'assistant', content: answer }, finish_reason: 'stop' }] };
-      return { ok: true, status: 200, headers: new Headers(), json: async () => obj, text: async () => JSON.stringify(obj), clone() { return this; } };
-    }
-    return realFetch(url, opts);
-  };
+  const asks = installFake(realFetch);
   try {
     const st = await db.stories.create({ title: 'Oda of the 13th' });
     await db.stories.update(st.id, { brief: PREMISE_BRIEF });
@@ -132,4 +137,26 @@ test('M392-3 A LENS IS FOR THE CANON WORDS IT WAS MADE FROM: a page looked up ag
   const lensed = { ...bare, [LENS_KEY]: meta[LENS_KEY] };
   const rec = canonRecordFor(lensed, ['Rukia Kuchiki'], { premise: PREMISE_BRIEF });
   assert(rec && !/married|Ichika/i.test(rec) && /Sode no Shirayuki/.test(rec), 'read through it: handed as it holds: ' + rec);
+});
+
+test('M393-1 NOTHING WRITTEN IS STILL HIS STORY: with no brief at all, she is still read through the story — canon’s end-state (the captaincy, the marriage, the daughter) is not sent; silence is not establishment; and the workers get only what was read', async () => {
+  const realFetch = globalThis.fetch;
+  const asks = installFake(realFetch);
+  try {
+    const st = await db.stories.create({ title: 'No brief at all' });
+    const story = await db.stories.get(st.id);
+    await db.settings.set(canonMetaKey(story.id), { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: 1 }, canon_grounding_cache: { rukia: RUKIA_ENTRY() } });
+    const state = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'presence.enter', name: 'Oda' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+    state.characters = { 'Rukia Kuchiki': { core: 'x', state: 'here', threads: [] } };
+    await saveState(story.id, state);
+    const note = await canonBeforeSend({ story, state, messages: [{ id: 'u1', role: 'user', text: 'I greet Rukia.' }], connection: CONN });
+    eq(asks.lens, 1, 'read through the story with nothing written');
+    assert(/SILENCE IS NOT ESTABLISHMENT/.test(asks.prompts[0]), 'the lens is told silence is not establishment');
+    assert(/Rukia Kuchiki:/.test(note) && !/married|Ichika|current Captain|leads the 13th/i.test(note), 'canon’s end-state is not sent: ' + note.slice(note.indexOf('Rukia Kuchiki:'), note.indexOf('Rukia Kuchiki:') + 400));
+    const { canonPremise } = await import('../../js/canon/bridge.js');
+    const premise = await canonPremise(story);
+    assert(premise.length > 0, 'the premise is never empty');
+    const other = { canon_grounding_cache: { rukia: RUKIA_ENTRY() } };
+    eq(canonRecordFor(other, ['Rukia Kuchiki'], { premise }), '', 'unread canon never reaches the workers, brief or no brief');
+  } finally { globalThis.fetch = realFetch; }
 });

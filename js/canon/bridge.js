@@ -36,7 +36,7 @@ import { findPersonKey } from '../engine/people.js';
 import { findCanonKey, findFact, FACTS_SHOWN } from '../engine/canon.js';
 import { applyMutations, letGoMark } from '../engine/apply.js';
 import { loadState, saveState, notify } from '../engine/state.js';
-import { overlayFor, throughLens, premiseOf, lensCurrent, lensPeople } from '../agents/canonlens.js'; /* M392: canon through his story */
+import { overlayFor, throughLens, lensPremise, lensCurrent, lensPeople } from '../agents/canonlens.js'; /* M392/M393: canon through his story */
 import {
   extension_settings, setContext, injectionSetter, injectionFor, eventSource, event_types, runBoot, onSettingsSave, flushSettings,
 } from './host.js';
@@ -181,7 +181,7 @@ export async function canonPremise(story) {
   if (!story || !story.id) return '';
   const meta = await loadMeta(story.id);
   const s = extension_settings.canon_grounding || (await db.settings.get(CANON_SETTINGS_KEY)) || {};
-  return premiseOf(story, meta, { globalNotes: typeof s.pinnedGlobal === 'string' ? s.pinnedGlobal : '' });
+  return lensPremise(story, meta, { globalNotes: typeof s.pinnedGlobal === 'string' ? s.pinnedGlobal : '' }); /* M393: never empty */
 }
 
 /* keep the story's live canon memory now (a worker that wrote into it — M388's memo) */
@@ -258,8 +258,8 @@ export async function canonBeforeSend({ story, state, messages, connection, type
    * turn's note is built again through it, the same turn and the same inputs. A lens not back in time lands for the
    * next page; the note built without it still carries his opening words (our story wins). */
   try {
-    const premise = premiseOf(story, meta, { globalNotes: (extension_settings.canon_grounding || {}).pinnedGlobal || '' });
-    if (premise && connection) {
+    const premise = lensPremise(story, meta, { globalNotes: (extension_settings.canon_grounding || {}).pinnedGlobal || '' }); /* M393: never empty */
+    if (connection) {
       const due = entriesInNote(injectionFor(story.id), meta).filter((e) => !lensCurrent(meta, e, premise));
       if (due.length) {
         const done = await lensPeople({ connection, meta, entries: due, premise, deadlineMs: LENS_WAIT_MS, onKept: () => saveMeta(story.id, meta) });

@@ -9510,3 +9510,23 @@ asked for canon's context kept, never as current fact and never as prophecy, so 
   premise to hold it to (bridge.js canonPremise), a person not yet read through it is not handed to the workers at all;
   they are read the page they first ride. No premise: canon as it is. Tested (M392-3, negative-tested); DOM-85's house
   now answers the lens ("holds" for all), so its scribe still gets Rukia's record — proving the wiring end to end.
+
+# M393 — the lens always reads: nothing written is still his story, and silence is not establishment
+He asked, of his Bleach story still on its first page, how to restart canon so nothing like "Rukia is married" is in it —
+without writing anything that would steer the storyteller himself. His philosophy: autonomous and self-healing.
+- THE GAP: the lens (M392) stood down when a story had no premise at all (no brief, no cast notes, no canon notes) — and
+  then canon's END rode as fact, unfiltered: exactly what he forbids. Now it always reads: lensPremise gives NO_PREMISE
+  when he has written nothing ("the story is only what its own pages show, and nothing of canon's later states is
+  established in it"); canonPremise (the workers' record) is never empty, so unread canon never reaches a worker.
+- SILENCE IS NOT ESTABLISHMENT, in the lens's own instructions: a rank or title, a marriage, a child, a death or an
+  alliance holds only where the story itself establishes it (or plainly sets itself where canon had it); anything else
+  the story is silent on holds. His premise needs no line about Renji for the marriage to stay out.
+- HIS PAGE ONE, RESTARTED, WITH NOTHING WRITTEN: regenerate it. M21's true rollback takes the ledger back to before that
+  page (everything the old page's readers wrote from the unfiltered canon goes with it), the storyteller writes the page
+  again from canon read through his story, and the readers write from the filtered record. The canon memory itself
+  (what the wiki says) is not to be forgotten — it is canon, and the lens is what keeps it true to his story; forgetting
+  it would only make every lookup happen again.
+- TESTS: m392.mjs M393-1 (no brief at all: the lens reads, is told silence is not establishment, the captaincy /
+  marriage / daughter are not sent, the premise is never empty, unread canon reaches no worker). NEGATIVE-TESTED: the
+  lens standing down with no premise → M393-1 fails.
+- version.js -> m393-001.
