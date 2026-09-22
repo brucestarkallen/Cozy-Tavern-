@@ -1,6 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m400-001)
+# Cozy Tavern — handoff for the next session (state at m401-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0d. THE QUIET ONES IN THE ROOM (M401): whoever is here, not the main character and not on the latest page or in his
+   message (world.js quietInScene — any word of the name, letters folded) is the world agent's to keep alive: one
+   line of what they are doing and weighing, written as their page's "now" (people.set field state) — where the
+   storyteller already reads everyone here. The world agent may write a "now" for them ALONE (a code guard); the
+   page's people are the scribe's, the absent are their seats'. Never an order, never a line of dialogue.
 0c. CANON VERIFICATION IS SWITCHED PER STORY (M399): canonOn(storyId) / setCanonOn — the row "canonOn:<id>", a tale's
    own (STORY_PREFIXES), off unless switched on for that story; Settings' switch is the OPEN story's and names it; a
    branch keeps it. The old single switch moved once (on where canon was really used) and is gone.
@@ -57,7 +62,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 792 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 794 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 109 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).

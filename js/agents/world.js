@@ -49,7 +49,7 @@ import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
 import { findPersonKey, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
-import { isHere } from '../engine/names.js'; /* M396: one answer to "the same person?" */
+import { isHere, samePersonName, foldName } from '../engine/names.js'; /* M396/M401: one answer to "the same person?" */
 import { storyTurn } from '../engine/apply.js';
 import { applyMutations } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
@@ -76,6 +76,7 @@ const VOCABULARY = [
   'thread.close {"type":"thread.close","title":"NAME and the letter"} — when it is resolved for good',
   'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"saw MAIN CHARACTER leave the letter unread"} — one thing one person witnessed or was told, from THIS page; never what they might guess',
   'faction.set {"type":"faction.set","name":"the studio","stance":"quietly furious","agenda":"bury the story before Monday","move":"sent a lawyer to the hotel"} — a faction moves only on cause; move = what it just did',
+  'people.set {"type":"people.set","name":"QUIET NAME","field":"state","text":"at the rail, hat low, weighing whether to step in"} — ONLY for someone listed IN THE SCENE, NOT ON THE PAGE: their now, this minute',
   'people.set {"type":"people.set","name":"NEW NAME","field":"core","text":"the main character\'s manager; forty, sleepless, keeps three phones; loyal to the money first"} — ONLY for a NEW named person the world needs (a role that must be filled), their one-line core; then seat them with offscreen.set',
 ].join('\n');
 
@@ -125,6 +126,14 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'COST IS WORLD LOGIC, NOT PUNISHMENT: the world’s answer to a public act follows who would care,',
     'what they would do, and when it lands — sometimes applause, sometimes a manhunt — never a rule',
     'that the main character must pay, and never that he must not.',
+    '',
+    'THE QUIET ONES IN THE ROOM (listed below, when there are any). Everyone in the scene the page did not',
+    'show is still THERE, living this very minute in their own nature: reacting to what the scene just did,',
+    'weighing what to do about it, busy with their own business in the room. For EACH of them write their now',
+    'with people.set field "state": one line of what they are doing and weighing — "at the rail, hat tipped low,',
+    'one hand drifting toward his sword, weighing whether to stop it before Zaraki dies" — true to their core and',
+    'to where the scene stands. Never an instruction to anyone, never a line of dialogue, never moved out of the',
+    'scene; the page decides whether they act. Someone the page DID show is the scribe\'s to write, not yours.',
     '',
     'THE ABSENT. Every named person not in the scene has a life — including one the page only names in',
     'passing ("my sister NAME would laugh if she saw us"): from that line on, that sister exists; give her a',
@@ -359,6 +368,25 @@ function spokenVoices(voicesBefore) {
 }
 
 export const WORLD_LOOKS = 2;
+/* M401: THE QUIET ONES IN THE ROOM. The world agent kept the absent alive by the clock; nobody kept the people who
+ * stand in the scene while the page looks at someone else. His duel: Zaraki nearly killed, Kyōraku at the rail — and
+ * silent, because nothing in the ledger said what Kyōraku was doing or weighing. Whoever is here (Who's here), is not
+ * the main character, and is not named on the latest page or in his message, is the world agent's to keep alive: one
+ * line of what they are doing and weighing NOW, written on their own page as their "now" — where the storyteller
+ * already reads everyone in the scene. Never an order to the storyteller, never a line of dialogue for them. */
+export function quietInScene(state, pageText = '', userText = '') {
+  const text = String(pageText || '') + '\n' + String(userText || '');
+  return (Array.isArray(state && state.present) ? state.present : [])
+    .map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => typeof n === 'string' && n.trim())
+    .filter((n) => !isMc(state, n))
+    .filter((n) => { const key = findPersonKey((state && state.characters) || {}, n) || n; return !namedInText(text, n) && !namedInText(text, key) && !anyNameWordIn(text, n) && !anyNameWordIn(text, key); });
+}
+/* a first name, a surname, any word of the name the page used ("Zaraki" is Kenpachi Zaraki) — letters folded */
+function anyNameWordIn(text, name) {
+  const hay = foldName(text);
+  return foldName(name).split(' ').filter((w) => w.length >= 3).some((w) => new RegExp('(^|[^\\p{L}\\p{N}])' + w + '($|[^\\p{L}\\p{N}])', 'u').test(hay));
+}
+
 export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity, peopleRoom = WORLD_PEOPLE_ROOM, canonRecord = '' }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
@@ -394,6 +422,13 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     'EVERYONE WRITTEN ELSEWHERE (the absent, as last known — advance each by the clock or leave them):',
     elsewhereAll || 'No one is written elsewhere yet.',
     '',
+    ...(() => {
+      const quiet = quietInScene(state, assistantText, userText);
+      if (!quiet.length) return [];
+      const chars = (state && state.characters) || {};
+      return ['IN THE SCENE, NOT ON THE PAGE — the quiet ones in the room (write each one\'s now: people.set field "state"):',
+        ...quiet.map((n) => { const k = findPersonKey(chars, n) || n; const c = chars[k] || {}; return '- ' + k + (c.core ? ' — ' + String(c.core).slice(0, 200) : '') + (c.state ? ' | last now: ' + String(c.state).slice(0, 200) : ''); }), ''];
+    })(),
     'THREADS:',
     threads || 'None open yet.',
     '',
@@ -517,6 +552,14 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   /* Re-read at write time — the ledger may have moved (the extractor's
    * masthead, a hand edit) while the world was being read. */
   const fresh = await loadState(storyId);
+  /* M401: ONE WRITER PER NOW. The world agent writes a "now" ONLY for a quiet one in the room — here, not the main
+   * character, not on the page; someone the page showed is the scribe's, someone away is the seat's. Anything else it
+   * tried is let go here, in code. */
+  {
+    const quiet = quietInScene(fresh, assistantText, userText).map((n) => findPersonKey(fresh.characters || {}, n) || n);
+    const isQuiet = (name) => quiet.some((q) => samePersonName(q, name));
+    read.mutations = read.mutations.filter((m) => !(m && m.type === 'people.set' && String(m.field || '').trim() === 'state' && !isQuiet(m.name)));
+  }
   /* M40: everyone the agent seats has a page. A seat without a people.set
    * in the same answer gets a minimal core from the seat itself, so the
    * character ledger never shows two people while "elsewhere" shows three;

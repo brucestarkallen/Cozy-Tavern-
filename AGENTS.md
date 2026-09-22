@@ -9709,3 +9709,28 @@ He asked whether the referee's heroic / realistic / gritty is a gimmick, and whe
   check rolls as the world is (realistic).
 - TESTS: m400.mjs (2: his own check +1 under heroic, another's not — negative-tested; the styles' real odds).
 - version.js -> m400-001.
+
+# M401 — the quiet ones in the room; and what the "drift note" in the storyteller's thinking was
+He: (1) his storyteller's thinking said "The page drift note about asterisked actions was already handled last pages.
+Clean room, grin, play" — is that an injection into his post-history instructions? (2) The absent are simulated; the
+people in the scene who are not on the page are not — his MC nearly killed Zaraki and Kyōraku stood silent while the
+storyteller narrated others. Should they be simulated, and where — the scene or the people ledger?
+- (1) THE HOUSE'S EYE (M88), not his post-history instructions and not the frame: after each page, code checks the
+  page against his craft's own mechanical laws (Sound As Onomatopoeia: asterisks wrap contact sounds only — a span of
+  four words or more in asterisks is read as an action; Marks On The Page; …). When the LAST page slipped, one short
+  note rides his briefing for the next turn, in his voice, naming his craft's own Drift Recovery ("that page stands
+  as written… let the next page quietly come back to it"); the receipt shows it as "The house's eye". The storyteller
+  reading it in its thinking and not on the page is the design (M321 reworded it after it was called "the injected
+  lint"). Nothing changed here.
+- (2) THE QUIET ONES IN THE ROOM — simulated, on the people ledger, not a new scene section (one home per fact: a
+  present person's "now" is their page's, and the storyteller already reads every present person's page). world.js
+  quietInScene finds them in code — here, not the main character, not named on the latest page or in his message (any
+  word of the name, letters folded: "Zaraki" is Kenpachi Zaraki); the world agent is shown them ("IN THE SCENE, NOT ON
+  THE PAGE") with the law: for each, one line of what they are doing and weighing this minute, in their nature,
+  reacting to the scene — never an instruction, never dialogue, never moved out of the scene; the page decides whether
+  they act. A code guard lets the world agent write a "now" ONLY for them (the page's people stay the scribe's, the
+  absent their seats'). No extra model call: the world agent already runs every page.
+- TESTS: m401.mjs (2: who is quiet — Kyōraku at the rail, never Zaraki or Rukia whom the page showed; on a scripted
+  world agent his now lands on his page and reaches the storyteller, a now for the fighter or someone away is let go).
+  NEGATIVE-TESTED: the code guard; the list in the request.
+- version.js -> m401-001.
