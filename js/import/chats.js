@@ -18,6 +18,7 @@
  */
 
 import { db } from '../store.js';
+import { canonMetaKey } from '../canon/bridge.js';
 
 const NOT_A_CHAT = 'That file doesn’t read like a SillyTavern chat export — no chat metadata up top.';
 
@@ -40,11 +41,19 @@ export function parseSTChat(jsonlText) {
 
   let title = 'An old tale, brought home';
   let firstMessageLine = 1;
+  let canon = null;
   if (head && typeof head === 'object' && !Array.isArray(head)
     && head.chat_metadata && typeof head.chat_metadata === 'object') {
     /* A name for the shelf: who the tale was with, when the export says. */
     const charName = typeof head.character_name === 'string' ? head.character_name.trim() : '';
     if (charName) title = `With ${charName}`;
+    /* M390: A CHAT PLAYED WITH CANON GROUNDING COMES HOME WITH ITS CANON. The extension keeps its memory in the chat's own
+     * metadata (canon_grounding_*: everyone it looked up, the wiki it was bound to, the pins, the blocks, the notes, the
+     * story position) — the very keys Cozy's canon memory is made of. Dropped, the tale re-looked-up everyone, found its
+     * wiki again, and lost every decree he had made. */
+    for (const [k, v] of Object.entries(head.chat_metadata)) {
+      if (k.startsWith('canon_grounding_') && v !== undefined && v !== null) (canon || (canon = {}))[k] = v;
+    }
   } else if (looksLikeMessage(head)) {
     /* M9 leniency: some exports come home without the metadata line —
      * every line is a page then, and the shelf name waits for the telling. */
@@ -93,7 +102,7 @@ export function parseSTChat(jsonlText) {
   if (!messages.length) {
     throw new Error('That export holds no pages — just a cover.');
   }
-  return { title, messages };
+  return canon ? { title, messages, canon } : { title, messages };
 }
 
 export async function importAsStory(parsed) {
@@ -106,6 +115,10 @@ export async function importAsStory(parsed) {
    * the write fails, the empty cover goes too. */
   try {
     await db.messages.appendAll(story.id, parsed.messages);
+    /* M390: its canon memory, as the extension kept it — part of the same all-or-nothing import */
+    if (parsed.canon && typeof parsed.canon === 'object' && Object.keys(parsed.canon).length) {
+      await db.settings.set(canonMetaKey(story.id), JSON.parse(JSON.stringify(parsed.canon)));
+    }
   } catch (err) {
     try { await db.stories.remove(story.id); } catch (e) { /* the cover stays, empty */ }
     throw err;

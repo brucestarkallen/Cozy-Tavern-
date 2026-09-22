@@ -4580,6 +4580,52 @@ test('DOM-86 OLD PAGES STOP REPEATING CANON, ON THEIR OWN: after a page, a core 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-87 EVERY KIND OF CANON CONTROL IN SETTINGS WRITES THROUGH: a switch, a number (held inside its limits), his own words and “↺ as it came” — each kept in the extension’s own settings at once, and drawn back as kept (M390)', async () => {
+  const before = errors.length;
+  const was = await db.settings.get('canonOn');
+  const kept = async () => (await db.settings.get('canonGroundingSettings')) || {};
+  const change = (el, value) => { if (typeof value === 'boolean') el.checked = value; else el.value = value; el.dispatchEvent(new env.window.Event('change', { bubbles: true })); };
+  try {
+    await openSettings();
+    const sw = await until(() => q('#canon-on'), 'the switch', 10000);
+    if (!sw.checked) change(sw, true);
+    const phys = await until(() => q('#canon-physical'), 'its levers', 15000);
+    const priorPhys = phys.checked;
+    change(phys, !priorPhys);
+    await until(async () => (await kept()).physical === !priorPhys, 'the switch kept', 5000);
+    change(phys, priorPhys);
+    await until(async () => (await kept()).physical === priorPhys, 'and back', 5000);
+    const maxPeople = q('#canon-maxCharacters');
+    change(maxPeople, '3');
+    await until(async () => (await kept()).maxCharacters === 3, 'a number kept', 5000);
+    change(maxPeople, '999');
+    await until(async () => (await kept()).maxCharacters === 30, 'held at its ceiling', 5000);
+    eq(maxPeople.value, '30', 'and the box says so');
+    change(q('#canon-maxBlockMs'), '4');
+    await until(async () => (await kept()).maxBlockMs === 4000, 'seconds kept as milliseconds', 5000);
+    change(maxPeople, '8');
+    change(q('#canon-maxBlockMs'), '2');
+    await until(async () => (await kept()).maxCharacters === 8 && (await kept()).maxBlockMs === 2000, 'put back', 5000);
+    const header = q('#canon-promptHeader');
+    assert(/^What canon says about the people here/.test(header.value), 'his opening words shown as they came');
+    change(header, 'My own words before canon.');
+    await until(async () => (await kept()).promptHeader === 'My own words before canon.', 'his words kept', 5000);
+    const back = [...header.parentElement.querySelectorAll('button'), ...qa('#canon-controls button')].find((b) => b.textContent === '↺ as it came' && b.closest('.canon-group') === header.closest('.canon-group') && b.parentElement.previousElementSibling === header);
+    assert(back, 'the ↺ beside it');
+    click(back);
+    await until(async () => (await kept()).promptHeader === '', 'as it came again (kept empty: the built-in words ride)', 5000);
+    assert(/^What canon says about the people here/.test(header.value), 'and the box shows them');
+    /* closed and opened again: every control draws what is kept */
+    await closeSettings();
+    await openSettings();
+    await until(() => q('#canon-maxCharacters') && q('#canon-maxCharacters').value === '8', 'drawn back as kept', 10000);
+  } finally {
+    if (was === true) await db.settings.set('canonOn', true); else await db.settings.delete('canonOn');
+    await closeSettings().catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

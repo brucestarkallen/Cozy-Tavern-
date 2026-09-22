@@ -9421,3 +9421,19 @@ into the story it began in (the extension holds that story's cache object) — k
 - NEGATIVE-TESTED: the prefixes forgotten; the page path kept; the brief's face ignored (Cozy); "the storyteller's map"
   and "(no wiki page)" back (extension).
 - version.js -> m389-001; Canon Grounding v0.66.0 vendored @ da10387.
+
+# M390 — the audit, continued: an imported chat keeps its canon; every kind of canon control writes through
+"Continue" after M389's audit: the fresh-clone walk's summary read (104/104) and the long play run there (8/8), then the
+brainstorm carried on past the pipeline into the doors around it.
+- FOUND: importing a SillyTavern chat (Settings → bring your old chats) threw away its chat metadata — and Canon
+  Grounding keeps ALL of its memory there (canon_grounding_*: everyone it looked up, the wiki it was bound to, his pins,
+  blocks, notes, the story position) in exactly the shape Cozy's canonMeta has. A chat he played with the extension came
+  home as a stranger: every name looked up again, the wiki found again, every decree gone. parseSTChat keeps those keys
+  (and only those — never another extension's ledger); importAsStory writes them as the story's canon memory inside the
+  same all-or-nothing import.
+- PROVEN UNTESTED DOORS, NOW TESTED: the room's "Forget everything it knows here" takes the series' faces out of the
+  ledger with it (his own truths stay) and "where the scene is" forgets (m390 M390-2); every KIND of Settings control
+  writes through the extension's own settings at once and draws back as kept — a switch, a number held at its ceiling
+  (999 → 30) and kept in milliseconds where it is seconds, his own opening words and "↺ as it came" (walk DOM-87).
+- TESTS: m390.mjs (2), DOM-87. NEGATIVE-TESTED: the importer's canon keys dropped → M390-1 fails.
+- version.js -> m390-001.
