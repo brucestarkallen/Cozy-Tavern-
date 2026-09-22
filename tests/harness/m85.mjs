@@ -110,8 +110,9 @@ test('M85-4 the command parser hears the writer’s whole table', () => {
   eq(parseCommand('#skip to the tournament finals').kind, 'timeSkip');
   eq(parseCommand('#time').kind, 'time', 'the bare #time still asks the hour');
   const story = parseCommand('#story A mecha tournament in Tokyo, 2037, and a boy who lost his sister to the last one');
-  eq(story.kind, 'story'); assert(/No proposals|no proposals/i.test(story.directive)); eq(story.clean, 'A mecha tournament in Tokyo, 2037, and a boy who lost his sister to the last one');
-  assert(story.name.length <= 41 && story.name.startsWith('A mecha tournament'), 'the new tale’s title: ' + story.name);
+  /* M391: his page is what he typed, "#story" and all — and no new tale is named, because none is opened */
+  eq(story.kind, 'story'); assert(/No proposals|no proposals/i.test(story.directive)); eq(story.clean, '#story A mecha tournament in Tokyo, 2037, and a boy who lost his sister to the last one');
+  eq(story.name, undefined, 'the house opens no tale for it');
   const win = parseCommand('#Put TWB Aurora');
   eq(win.kind, 'window'); eq(win.name, 'Aurora'); assert(/\*\*\* The World Beyond \*\*\*/.test(win.directive) && /Cut Away Quarantine/.test(win.directive), 'the window’s format and quarantine ride with the turn');
   /* each command carries its WHOLE law on its own turn (M85-002) */
@@ -122,7 +123,7 @@ test('M85-4 the command parser hears the writer’s whole table', () => {
   const pp = parseCommand('#pp');
   eq(pp.kind, 'skip'); assert(/Party Gate/.test(pp.directive) && /cross-cut/.test(pp.directive) && /quarantine holds/.test(pp.directive), '#pp carries the arc-transit law');
   const cont = parseCommand('#continue');
-  eq(cont.kind, 'continue'); eq(cont.hidden, true); assert(/no time skip/.test(cont.directive), '#continue plays it forward, hidden as before');
+  eq(cont.kind, 'continue'); eq(cont.hidden, false); eq(cont.clean, '#continue'); assert(/no time skip/.test(cont.directive), '#continue plays it forward — M391: his page, shown as typed');
   assert(/No proactive MC/.test(parseCommand('#p').directive));
   assert(/trace, the root cause and the corrected line/.test(parseCommand('#question why did she know?').directive), '#question carries the callout protocol');
   /* the referee's words are recognized, never called unknown */

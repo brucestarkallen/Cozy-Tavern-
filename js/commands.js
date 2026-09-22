@@ -27,7 +27,7 @@
  *   #q               the next scene — the director's preview, then the scene
  *   #time skip X     jump to X (also #timeskip X, #skip to X)
  *   #time            say the hour, briefly (the house's own)
- *   #story concept   a new tale from the concept — chat.js opens it
+ *   #story concept   a story begun from the concept — IN THE TALE HE IS IN (M391: the house opens nothing)
  *   #Put TWB name    one window beyond the page on that person (also #twb name)
  *   #roll / #skip / # no roll / # roll this — the referee's overrides; the
  *                    words ride as typed, the chip only names them
@@ -57,6 +57,12 @@ const DIRECTIVES = {
   ooc: 'The writer is speaking out of character. Answer them plainly and briefly, without advancing the scene.',
 };
 
+/* M391: WHAT HE TYPES IS WHAT HAPPENS. "#story start the opening scene" in his Bleach story opened a NEW TALE — a
+ * frontend doing something with his words behind the storyteller's back. A shortcut now does nothing in the house: the
+ * page he sees, the page kept and the words the storyteller is sent are all exactly what he typed, in the tale he typed
+ * it in; its meaning lives in the standing words (M379), and the storyteller acts on it there. What the house still does
+ * with a shortcut is quiet and on his side of the glass: the chip under the composer names it, and an out-of-character
+ * turn (#question, ((…)), a // line) is not read into the ledger. */
 /* M379: THE SHORTCUTS LIVE IN THE STANDING WORDS, AND HIS MESSAGE GOES AS HE TYPED IT. The writer: "the shortcut is
  * basically doubling my user message — delete it, integrate it into my main instructions. That's why it thinks it's an
  * assistant system." A command's law used to ride as a SECOND user message after his own — "#p", then "#p — exactly ONE
@@ -111,7 +117,7 @@ export function parseCommand(text) {
   if (m && m[1].trim()) {
     return {
       kind: 'question',
-      clean: m[1].trim(),
+      clean: trimmed, /* M391: as he typed it */
       directive: DIRECTIVES.question + m[1].trim(),
       chip: 'a question, out of character — no state work',
       hidden: false,
@@ -130,7 +136,7 @@ export function parseCommand(text) {
     /* The continue command IS the hidden nudge: the stored page is hidden,
      * slot 10 does the talking, and (M85) the writer's own #continue law
      * rides with it — play the situation forward, no time skip. */
-    return { kind: 'continue', clean: 'continue', directive: DIRECTIVES.continue, chip: 'go on — play it forward to its natural stop', hidden: true, ooc: false };
+    return { kind: 'continue', clean: trimmed, directive: DIRECTIVES.continue, chip: 'go on — play it forward to its natural stop', hidden: false, ooc: false }; /* M391: his page, as typed, shown */
   }
   if (NEXT_RE.test(trimmed)) {
     return { kind: 'nextScene', clean: trimmed, directive: DIRECTIVES.nextScene, chip: 'the next scene — the director’s pick', hidden: false, ooc: false };
@@ -158,15 +164,14 @@ export function parseCommand(text) {
     const concept = (m[1] || '').trim();
     return {
       kind: 'story',
-      /* M382: with no concept, the page keeps what he typed — never the house's own sentence in his place */
-      clean: concept || '#story',
+      /* M382/M391: the page keeps exactly what he typed — "#story" and all */
+      clean: trimmed,
       directive: concept
         ? DIRECTIVES.story + concept
         : DIRECTIVES.story + 'you choose it — the kind of story, the world, the hour, who MC is and who is with him. Choose, and write the first scene of it now.',
-      chip: concept ? 'a new tale — the first scene, written now' : 'a new tale of your choosing — the first scene, written now',
+      chip: concept ? 'the story begins from your words — right here' : 'the story begins, of the storyteller’s choosing — right here',
       hidden: false,
       ooc: false,
-      name: concept ? titleFrom(concept) : 'A new tale',
     };
   }
   m = trimmed.match(WINDOW_RE);

@@ -9437,3 +9437,29 @@ brainstorm carried on past the pipeline into the doors around it.
   (999 → 30) and kept in milliseconds where it is seconds, his own opening words and "↺ as it came" (walk DOM-87).
 - TESTS: m390.mjs (2), DOM-87. NEGATIVE-TESTED: the importer's canon keys dropped → M390-1 fails.
 - version.js -> m390-001.
+
+# M391 — what he types is what happens: a shortcut opens nothing
+He typed "#story start the opening scene" in his Bleach story and Cozy opened a NEW TALE. He had been told (M379) that
+every shortcut's meaning is in his main instructions and his words go as typed; that was true of what the storyteller
+was SENT, but the frontend still acted on the words: #story opened a tale named from the concept and showed him the
+concept without "#story"; #question showed his question without "#question"; #continue was stored as a hidden page. His
+law: verbatim, no gamey system, nothing in the house doing things with his words behind the storyteller's back.
+- commands.js: every shortcut's page is exactly what he typed (clean = the typed text); #continue is his page, shown;
+  #story opens nothing (no `name`, no new-tale reading); the chip for #story says it begins "right here".
+- chat.js send(): the #story new-tale branch is gone. His words go to the tale he is in. Only with no tale open at all is
+  one begun (as for any first words), named from them with a leading shortcut word left off the SHELF NAME only.
+- What a shortcut still does in the house, all of it on his side of the glass: the composer chip names it; an
+  out-of-character turn (#question, ((…)), a // line) is not read into the ledger (fewer house words, not more); the
+  referee's own #roll / #skip still reach the referee. The per-command directive has not travelled since M379
+  (stack.js `void directive`) — DOM-84 now checks no house instruction rides beside his #story.
+- Old pages keep what they were stored as (a #story page from before shows its concept); their `typed` field is what the
+  storyteller was and is sent.
+- TESTS: m85/m359/engine updated — they encoded the removed behavior (the concept as the page, a name to open under, a
+  hidden #continue): the old expectation was the thing he rejected. DOM-2: his first page reads "#story Jovan is eating
+  …" and the shelf name "Jovan is eating…". DOM-84: "#story" typed in a tale — no new tale, still in his tale, sent as
+  typed, no house instruction beside it, one box. DOM-83 (every shortcut through the real app) rewritten to the same
+  law: in one tale, #story alone, #story with a concept, #question, #time, #p and #continue — each sent as typed, kept
+  and shown as typed, never hidden, and no tale opened by any of them (it had asserted a new tale per #story and the
+  concept as the page).
+- GATES before the push: harness 770/770, walk 105/105, lint 0 errors.
+- version.js -> m391-001.

@@ -89,7 +89,7 @@ test('commands: the five words, asides, and honest passthrough', () => {
   eq(parseCommand('#p').kind, 'beat');
   eq(parseCommand('#pp').kind, 'skip');
   const c = parseCommand('#continue');
-  eq(c.kind, 'continue'); assert(c.hidden === true, 'continue page is hidden');
+  eq(c.kind, 'continue'); assert(c.hidden === false && c.clean === '#continue', 'M391: the #continue he typed is his page, shown as typed');
   eq(parseCommand('#time').kind, 'time');
   assert(parseCommand('((checking in — back in five))').ooc === true, '((…)) is OOC');
   assert(parseCommand('// a note to the house').ooc === true, '// is OOC');

@@ -1,6 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m390-001)
+# Cozy Tavern — handoff for the next session (state at m391-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0. WHAT HE TYPES IS WHAT HAPPENS (M391). A shortcut (#story, #p, #pp, #q, #continue, #time, #question, #Put TWB, ((…)),
+   //) does NOTHING in the house: the page he sees, the page kept and the words the storyteller is sent are exactly what
+   he typed, in the tale he typed them in. Their meaning lives in the standing words (M379's SHORTCUTS). The house may
+   only (a) name it on the composer chip and (b) not read an out-of-character turn into the ledger. Never again a new
+   tale, a hidden page, a stripped word or an instruction riding beside his message because of a # word.
 He tells his story with a frontier model and a hand-built persona (a funny teller, his own frame and rules). Almost every
 bad week in M340–M380 was one kind of mistake: the house putting words in front of that teller that read like a system
 talking to an assistant. The teller then thinks in an assistant's voice ("the user wants…", "this wrapper…"). Rules:

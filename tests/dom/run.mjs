@@ -105,8 +105,9 @@ test('DOM-2 a turn: send → the storyteller answers → the ledger is founded �
   assert(sid, 'a story was begun from the first words');
   /* M85: #story opens the tale named from the concept, and the page carries the concept, not the command */
   const begun = await db.stories.get(sid);
-  assert(begun && begun.title.startsWith('Jovan is eating'), 'named from the concept: ' + (begun && begun.title));
-  assert(userPages().length === 1 && !/#story/.test(bodyText(userPages()[0])), 'the command word never reaches the page');
+  assert(begun && begun.title.startsWith('Jovan is eating'), 'named from his words (the shortcut word left off the shelf name only): ' + (begun && begun.title));
+  /* M391: his page is exactly what he typed */
+  assert(userPages().length === 1 && /^#story Jovan is eating/.test(bodyText(userPages()[0]).trim()), 'his page is what he typed: ' + bodyText(userPages()[0]));
   await until(async () => (await db.settings.get('state:' + sid) || {}).place, 'the ledger to be founded', 10000);
   const st = await db.settings.get('state:' + sid);
   eq(st.place.name, 'Lakeside Park'); /* M131: the header line is the truth for the ground, over the extractor’s own place.set */
@@ -4309,7 +4310,7 @@ test('DOM-82 HIS MESSAGE IS THE LAST THING THE STORYTELLER READS: a shortcut goe
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-83 EVERY SHORTCUT, THROUGH THE REAL APP: the thread shows what he typed, and the storyteller is sent exactly that — "#story" alone, "#story <concept>", "#question", "#time", "#continue", "#p" — never a sentence the house wrote in its place (M382)', async () => {
+test('DOM-83 EVERY SHORTCUT, THROUGH THE REAL APP: typed in the tale he is in, each is sent exactly as typed, kept and shown exactly as typed, and none opens a tale — "#story" alone, "#story <concept>", "#question", "#time", "#p", "#continue" (M382, M391)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   const H = '[The kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\n';
@@ -4317,37 +4318,32 @@ test('DOM-83 EVERY SHORTCUT, THROUGH THE REAL APP: the thread shows what he type
   house.state.storyAnswer = () => H + 'The kettle sang.';
   const tellerLast = (from) => { const told = house.state.calls.slice(from).filter((c) => !c.isWorker && Array.isArray(c.body.messages)).pop(); if (!told) return null; const u = [...told.body.messages].reverse().find((m) => m.role === 'user'); return u ? String(u.content) : null; };
   const settle = async (id) => { await until(() => !env.ctx.chat.isBusy(), 'the turn', 30000); await until(() => queuedCount(id) === 0 && !workIsRunning(id), 'the readers', 30000); };
-  const activeId = async () => { const all = await db.stories.list(); return all.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0].id; };
   try {
-    /* a new tale, twice over: bare, and with a concept */
-    for (const typed of ['#story', '#story a lighthouse keeper who stops sleeping']) {
+    /* M391: every shortcut typed in the tale he is in — sent as typed, kept and shown as typed, and no tale opened */
+    const tale = await db.stories.create({ title: 'shortcuts, as typed' });
+    env.window.__cozy.setActiveStoryId(tale.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const talesBefore = (await db.stories.list()).length;
+    for (const typed of ['#story', '#story a lighthouse keeper who stops sleeping', '#question what does she want', '#time', '#p', '#continue']) {
       const from = house.state.calls.length;
       type(q('#composer-input'), typed); submit(q('#composer'));
       await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
-      const id = await activeId();
-      await settle(id);
+      await settle(tale.id);
       eq(tellerLast(from), typed, typed + ': the storyteller is sent exactly what he typed');
-      const mine = (await db.messages.list(id)).find((m) => m.role === 'user');
-      /* the page keeps HIS words: the concept he gave (M85), or what he typed when he gave none */
-      eq(mine.text, typed === '#story' ? '#story' : 'a lighthouse keeper who stops sleeping', typed + ': the thread keeps his own words');
-      assert(!/you choose it/.test(JSON.stringify(await db.messages.list(id))), 'no house sentence in his place');
+      const mine = (await db.messages.list(tale.id)).filter((m) => m.role === 'user').pop();
+      eq(mine.text, typed, typed + ': the thread keeps exactly what he typed');
+      eq(Boolean(mine.hidden), false, typed + ': shown, never hidden');
+      assert(!/you choose it/.test(JSON.stringify(await db.messages.list(tale.id))), 'no house sentence in his place');
     }
-    /* then, in that tale: a question, the hour, a beat, and continue */
-    const id = await activeId();
-    for (const typed of ['#question what does she want', '#time', '#p', '#continue']) {
-      const from = house.state.calls.length;
-      type(q('#composer-input'), typed); submit(q('#composer'));
-      await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
-      await settle(id);
-      eq(tellerLast(from), typed, typed + ': the storyteller is sent exactly what he typed');
-    }
+    eq((await db.stories.list()).length, talesBefore, 'no tale was opened by any of them');
+    eq(await db.settings.get('activeStoryId'), tale.id, 'he is still in his tale');
   } finally {
     house.state.storyAnswer = prior;
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-84 ONE MESSAGE OF HIS IS SHOWN ONCE: a #story opens a new tale and, while the storyteller writes (and if no page ever comes), his one message is ONE box on the thread — it was drawn twice (M383)', async () => {
+test('DOM-84 A SHORTCUT OPENS NOTHING, AND HIS MESSAGE IS SHOWN ONCE: “#story” typed in the tale he is in stays in that tale — no new tale — shown as typed, ONE box while the storyteller writes and after (M383, M391)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   const H = '[The kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\n';
@@ -4356,10 +4352,18 @@ test('DOM-84 ONE MESSAGE OF HIS IS SHOWN ONCE: a #story opens a new tale and, wh
   house.state.storyAnswer = () => held.then(() => H + 'The kettle sang.');
   try {
     const from = house.state.calls.length;
+    const tale = await db.stories.create({ title: 'the tale he is in' });
+    env.window.__cozy.setActiveStoryId(tale.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const talesBefore = (await db.stories.list()).length;
     type(q('#composer-input'), '#story'); submit(q('#composer'));
     await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
     await new Promise((r) => setTimeout(r, 600));
-    const tale = (await db.stories.list()).slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+    eq((await db.stories.list()).length, talesBefore, 'no new tale was opened');
+    eq(await db.settings.get('activeStoryId'), tale.id, 'he is still in his tale');
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker);
+    assert(told.body.messages.some((m) => m.role === 'user' && m.content === '#story'), 'the storyteller is sent exactly what he typed');
+    assert(!JSON.stringify(told.body).includes('a new story begins from the concept below'), 'and no instruction of the house rides beside it');
     eq((await db.messages.list(tale.id)).filter((m) => m.role === 'user').length, 1, 'one message of his in the store');
     eq(qa('#thread .msg-user').length, 1, 'and ONE box on the thread while the storyteller writes');
     assert(/#story/.test(q('#thread .msg-user').textContent) && !/you choose it/.test(q('#thread .msg-user').textContent), 'showing what he typed');

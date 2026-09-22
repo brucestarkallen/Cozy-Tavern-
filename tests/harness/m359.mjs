@@ -45,11 +45,12 @@ test('M359-2 (as M375 changed it) A HOUSE COMMAND’S LAW GOES AS IT IS — no q
 test('M359-3 “#story” ALONE IS A STORY TOO — the concept is one more unspecified detail, and the law says every one of them is chosen', () => {
   const named = parseCommand('#story a lighthouse keeper who stops sleeping');
   eq(named.kind, 'story');
-  eq(named.name, 'a lighthouse keeper who stops sleeping', 'its title comes from his concept');
+  eq(named.clean, '#story a lighthouse keeper who stops sleeping', 'M391: his page is what he typed');
+  eq(named.name, undefined, 'and no tale is opened for it');
   assert(/no proposals, no options, no plan spoken first/.test(named.directive), 'and the law is written in');
   const bare = parseCommand('#story');
   eq(bare.kind, 'story', 'a bare #story is a story');
-  eq(bare.name, 'A new tale', 'with a name to open under');
+  eq(bare.clean, '#story', 'kept as typed');
   assert(/you choose it — the kind of story, the world, the hour/.test(bare.directive), 'and the choosing is handed over: ' + bare.directive.slice(-120));
   assert(/no proposals/.test(bare.directive), 'still nothing asked about');
   eq(parseCommand('#storyteller is nice').kind === 'story', false, 'and a word that merely starts with it is not the command');

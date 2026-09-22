@@ -4407,20 +4407,13 @@ export function initChat(ctx) {
         restoreComposer(text);
         return;
       }
-      /* M85: #story — the writer's own command for a new tale: a fresh
-       * story, named from the concept, opened before the words are sent;
-       * the storyteller writes the first scene at once (the craft's
-       * No Proposals). The old tale keeps its ledger untouched. */
-      const early = parseCommand(text);
-      if (early.kind === 'story') {
-        story = await db.stories.create({ title: early.name || 'A new tale' });
-        ctx.setActiveStoryId(story.id);
-        await refreshStories(true);
-        toast(`“${story.title}” is begun.`);
-        if (ctx.onStoriesChanged) ctx.onStoriesChanged();
-      }
+      /* M391: A SHORTCUT OPENS NOTHING. "#story start the opening scene", typed in his Bleach story, opened a new tale
+       * (M85's reading of #story) — the house acting on his words behind the storyteller's back. His words now go to the
+       * tale he is in, exactly as typed, and the storyteller reads what #story means in the standing words. Only with no
+       * tale open at all is one begun — as for any first words — named from them (a leading shortcut word left off the
+       * shelf's name only; the page keeps it). */
       if (!story) {
-        const oneLine = text.replace(/\s+/g, ' ').trim();
+        const oneLine = text.replace(/\s+/g, ' ').trim().replace(/^#\S+\s+(?=\S)/, '');
         const title = oneLine.length > 40 ? oneLine.slice(0, 40).trimEnd() + '…' : oneLine;
         story = await db.stories.create({ title });
         ctx.setActiveStoryId(story.id);
