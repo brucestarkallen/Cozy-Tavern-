@@ -1186,6 +1186,30 @@ function markHand(hand, field, byHand) {
   return next;
 }
 
+/* M405: A "NOW" OF A GROUND THE SCENE HAS LEFT. Before M405 a move let only the main character's now go, so ledgers hold
+ * present people whose now still names a place the scene stood in before ("inside the assembly hall at 1st Division HQ"
+ * in the 10th Division courtyard). This names them — present, never the main character, never his hand's words — for
+ * the readers' chain to let go as a journaled change (people.set state clear) before the world agent and the scribe
+ * write the true ones. (Not a law of every batch: it reads the journal, and a fold must replay changes, not re-judge.) */
+export function staleNows(state) {
+  if (!state || !state.place || typeof state.place.name !== 'string' || !Array.isArray(state.present) || !state.characters) return [];
+  const spot = (n) => foldName(String(n || '').split(/\s*(?:—|–|,|;|\()\s*/)[0]);
+  const here = spot(state.place.name);
+  const past = [...new Set((Array.isArray(state.journal) ? state.journal : [])
+    .map((j) => (j && j.m && j.m.type === 'place.set' ? spot(j.m.name || j.m.place) : ''))
+    .filter((g) => g && g !== here && g.split(' ').length >= 2))];
+  if (!here || !past.length) return [];
+  const out = [];
+  for (const p of state.present) {
+    const k = p && p.name ? findPersonKey(state.characters, p.name) : '';
+    const entry = k ? state.characters[k] : null;
+    if (!entry || isMc(state, k) || typeof entry.state !== 'string' || !entry.state.trim() || (entry.hand && entry.hand.state)) continue;
+    const now = foldName(entry.state);
+    if (past.some((g) => now.includes(g)) && !now.includes(here)) out.push(k);
+  }
+  return out;
+}
+
 /* M261: two names for one place — case, a leading "the", punctuation */
 function placeKey(name) {
   return String(name || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();

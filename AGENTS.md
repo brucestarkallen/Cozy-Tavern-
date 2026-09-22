@@ -9790,3 +9790,24 @@ He: everyone in "The people" had a "— here" or "— elsewhere" banner; Rukia K
   here though it says "Kuchiki Byakuya", elsewhere, and "whereabouts not yet written" — never a blank).
   NEGATIVE-TESTED: titles kept; order kept.
 - version.js -> m404-001.
+
+# M405 — a "now" of a place the scene has left is let go; a nickname in brackets finds its page
+He: Kyōraku finally read "— here", but his "Now:" said "inside the assembly hall at 1st Division HQ, the announcement
+pending" — eight scenes old, in the courtyard. And "Rose — here" had no description at all.
+- THE STALE NOW: a scene move (place.set) let go of the MAIN CHARACTER's old now (M272) and nobody else's, so a present
+  person carried a "now" of a place the scene had left, read by the storyteller and the drawer as the present.
+  engine/apply.js staleNows names every present person (never the main character, never a now his hand wrote) whose
+  now names a ground from the journal's place history and not the ground the scene stands on; the readers' chain lets
+  those go as a journaled change (people.set state, clear) right after the page reader, before the world agent and the
+  scribe write the true ones (the world agent's quiet ones, M401). His ledger heals on the next page.
+- FIRST DRAFT, TAKEN BACK: I first made place.set itself let go of every present now, and a batch law heal the old
+  ones. The fold fuzzers (fold-fuzz.mjs) failed at once — "a journal fold reproduces the world the writes made" — the
+  law read the journal and the move's side effect did not replay true. Both are gone; the heal is a journaled change a
+  worker makes, which a fold replays like any other. The fuzzers pass again.
+- ROSE: the world agent had written him as "Rōjūrō Otoribashi (Rose)"; the page reader wrote "Rose" — and a first/last-
+  name match compared raw words, "(rose)" ≠ "rose", so "Rose" became a second, empty page. findPersonKey's first/last
+  word rule compares folded words now (brackets and marks set aside): "Rose" finds "Rōjūrō Otoribashi (Rose)".
+- TESTS: m405.mjs (3: a move then the chain — the old now named and let go, his hand's kept, undoable; an old ledger's
+  stale now named once and let go, a now of this ground kept; "Rose" finds his bracketed page, one page). The chain job
+  is filed under the page reader (M29-10 reads the chain order). NEGATIVE-TESTED: the finder; the bracket fold.
+- version.js -> m405-001.

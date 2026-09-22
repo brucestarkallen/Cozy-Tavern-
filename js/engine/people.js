@@ -176,9 +176,11 @@ export function findPersonKey(characters, name) {
    * word — and ONLY when exactly one person answers to it. Two Vanessas in
    * the story means neither is matched, and a new page is the honest
    * outcome. */
+  /* M405: letters folded and brackets set aside — "Rōjūrō Otoribashi (Rose)" answers to "Rose" */
   const partOf = (full, part) => {
-    const words = full.toLowerCase().split(/\s+/).filter(Boolean);
-    return words.length > 1 && (words[0] === part || words[words.length - 1] === part);
+    const words = foldName(full).split(' ').filter(Boolean);
+    const p = foldName(part);
+    return words.length > 1 && (words[0] === p || words[words.length - 1] === p);
   };
   const byPart = keys.filter((k) => partOf(k, wanted));
   if (byPart.length === 1) return byPart[0];

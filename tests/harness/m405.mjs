@@ -1,0 +1,48 @@
+/* M405: everyone's "now" belongs to the ground it was written on — a move lets it go, and a now of a ground the scene has
+ * left heals on the next change; a nickname in brackets finds its page. Runs the real engine. */
+import './idb-shim.mjs';
+import { test, assert, eq } from './lib.mjs';
+import { applyMutations, undoEntry, staleNows } from '../../js/engine/apply.js';
+import { emptyState } from '../../js/engine/state.js';
+import { findPersonKey } from '../../js/engine/people.js';
+
+const base = () => {
+  let st = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: '1st Division HQ — outside the assembly hall' },
+    { type: 'presence.enter', name: 'Jovan Oda' }, { type: 'presence.enter', name: 'Shunsui Kyōraku' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+  st.characters = { 'Shunsui Kyōraku': { core: 'Captain-Commander.', state: 'Inside the assembly hall at 1st Division HQ, the announcement pending.', threads: [] },
+    'Rukia Kuchiki': { core: 'His lieutenant.', state: 'by the doors, watching him', threads: [], hand: { state: true } } };
+  return st;
+};
+
+test('M405-1 A MOVE, THEN THE READERS’ CHAIN: every present person whose now names the ground the scene just left is named and let go (journaled, undoable) — never one his hand wrote', () => {
+  let st = applyMutations(base(), [{ type: 'place.set', name: '10th Division HQ — training courtyard' }]).state;
+  eq(staleNows(st).join(), 'Shunsui Kyōraku', 'the assembly-hall now is named; her own words are not');
+  st = applyMutations(st, staleNows(st).map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true }))).state;
+  assert(!st.characters['Shunsui Kyōraku'].state, 'the assembly-hall now does not follow him into the courtyard');
+  eq(st.characters['Rukia Kuchiki'].state, 'by the doors, watching him', 'his own words stay');
+  const back = undoEntry(st, st.log.length - 1);
+  eq(back.state.characters['Shunsui Kyōraku'].state, 'Inside the assembly hall at 1st Division HQ, the announcement pending.', 'taken back, it returns');
+});
+
+test('M405-2 A LEDGER ALREADY HOLDING A NOW OF A GROUND THE SCENE LEFT IS NAMED, AND LET GO AS A JOURNALED CHANGE (what the readers’ chain does) — a now of the ground it stands on stays', () => {
+  let st = base();
+  /* the move happened before this law: the old now is still there */
+  st.journal = [...st.journal, { id: 99, p: 5, m: { type: 'place.set', name: '10th Division HQ — training courtyard' } }];
+  st.place = { name: '10th Division HQ — training courtyard' };
+  st.characters['Rukia Kuchiki'] = { ...st.characters['Rukia Kuchiki'], hand: {}, state: 'at the 10th Division HQ rail, arms folded' };
+  eq(staleNows(st).join(), 'Shunsui Kyōraku', 'named: only his');
+  const r = applyMutations(st, staleNows(st).map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true })));
+  eq(r.applied.length, 1, 'let go, journaled');
+  st = r.state;
+  assert(!st.characters['Shunsui Kyōraku'].state, 'his stale now is gone');
+  eq(st.characters['Rukia Kuchiki'].state, 'at the 10th Division HQ rail, arms folded', 'a now of this ground stays');
+  eq(staleNows(st).length, 0, 'and nothing is named again');
+});
+
+test('M405-3 A NICKNAME IN BRACKETS FINDS ITS PAGE: "Rose" is "Rōjūrō Otoribashi (Rose)" — never a second, empty page', () => {
+  const chars = { 'Rōjūrō Otoribashi (Rose)': { core: 'Captain of the 3rd.' } };
+  eq(findPersonKey(chars, 'Rose'), 'Rōjūrō Otoribashi (Rose)', 'found');
+  const st = applyMutations({ ...emptyState(), page: 1, characters: chars }, [{ type: 'people.set', name: 'Rose', field: 'state', text: 'on the shaded arc' }]).state;
+  eq(Object.keys(st.characters).join(), 'Rōjūrō Otoribashi (Rose)', 'one page');
+  eq(st.characters['Rōjūrō Otoribashi (Rose)'].state, 'on the shaded arc', 'written where he is kept');
+});

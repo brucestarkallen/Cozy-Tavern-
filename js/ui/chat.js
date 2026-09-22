@@ -52,7 +52,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
-import { applyMutations, storyTurn } from '../engine/apply.js';
+import { applyMutations, storyTurn, staleNows } from '../engine/apply.js'; /* M405 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
@@ -2769,6 +2769,21 @@ export function initChat(ctx) {
           ? 'its answer ran out of room'
           : n ? `wrote ${n} ${n === 1 ? 'change' : 'changes'}: ` + applied.slice(0, 5).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 5 ? ' · …' : '') + refused : 'nothing to write down' + refused;
       return { silent: false, detail, raw: extractRaw };
+    });
+
+    /* M405: A "NOW" OF A GROUND THE SCENE HAS LEFT is let go before the world agent and the scribe write the true ones —
+     * a journaled change of the house's own (engine/apply.js staleNows), so a fold replays it and a take-back returns it.
+     * Filed under the page reader: it is the upkeep of the ground the page reader moved. */
+    enqueue('extractor', async ({ stale }) => {
+      if (story.extraction === false || stale()) return { silent: true };
+      const fresh = await loadState(story.id);
+      const who = staleNows(fresh);
+      if (!who.length) return { silent: true };
+      const { state: next, applied } = applyMutations(fresh, who.map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true })));
+      if (!applied.length) return { silent: true };
+      await saveState(story.id, next);
+      notify(story.id);
+      return { silent: false, detail: 'let go of a “now” that named a place the scene has left: ' + who.join(', ') };
     });
 
     /* M394: CANON THROUGH HIS STORY, BEFORE THE WORLD AND THE SCRIBE WRITE. Everyone canon knows in this ledger with no lens
