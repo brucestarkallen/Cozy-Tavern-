@@ -98,6 +98,13 @@ try:
         wait_until(page, """async (pid) => { const db = window.__cozy.db; const b = (await db.stories.list()).find((s) => s.id !== pid); return Boolean(b) && (await db.messages.count(b.id)) >= 3; }""", parent, 20, 'the branch to be part-made')
         cut = page.evaluate(STATE, parent)
         print('  cut off mid-branch:', json.dumps(cut.get('rows')))
+        # M430: a branch still being made is NOBODY's book — not on the device either. Its first carried page used to
+        # find no book there and push the half-made branch whole (pages, no ledger, no record). Watched while it builds.
+        half = []
+        for _ in range(6):
+            half.append(device_record(cut['branch']['id']))
+            time.sleep(0.3)
+        check('while the branch is still being made, the device holds NO book of it (not half of one)', all(h == 'NO BOOK' for h in half), half)
         page.reload(); page.wait_for_function('window.__cozy && window.__cozy.db && window.__cozy.chat')
         wait_until(page, WHOLE, parent, 60, 'the house to make the branch again, whole')
         after = page.evaluate(STATE, parent)
@@ -109,8 +116,13 @@ try:
         check('it is a NEW tale — the half-made one was cleared away, not patched up', after['branch']['id'] != cut['branch']['id'], (cut['branch']['id'], after['branch']['id']))
         check('the refresh really did land mid-branch (the fixture)', 0 < cut['branch']['pages'] < 12 and not cut['branch']['record'], cut['branch'])
         check('and the parent kept its own record', after.get('parentRecord') == 2, after)
-        time.sleep(5)
-        dev = device_record(after['branch']['id'])
+        # M430: whole, it goes to the device at once (not up to twenty seconds later) — asked within five seconds
+        dev = 'NO BOOK'
+        t0 = time.time()
+        while time.time() - t0 < 5:
+            dev = device_record(after['branch']['id'])
+            if isinstance(dev, list) and len(dev) == len(after['branch']['record']): break
+            time.sleep(0.25)
         print('  on the device     :', dev)
         check('the DEVICE holds the whole branch — record and all', isinstance(dev, list) and len(dev) == len(after['branch']['record']), dev)
         half = [f for f in os.listdir(os.path.join(DATA, 'books')) if f.endswith('.json') and f not in ('_house.json', parent + '.json', after['branch']['id'] + '.json')]

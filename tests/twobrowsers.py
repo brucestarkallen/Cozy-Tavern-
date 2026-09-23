@@ -242,17 +242,29 @@ try:
           const last = (await window.__cozy.db.messages.list(id)).pop();
           document.querySelector('.msg[data-id="' + last.id + '"] .msg-act[data-act="branch"]').click();
         }""", long_id)
-        a.wait_for_timeout(3500)
-        branch_id = a.evaluate("async () => { const s = (await window.__cozy.db.stories.list()).find(x => /a branch/.test(x.title)); return s ? s.id : null; }")
-        check('the branch stands in A', bool(branch_id))
+        # M430 (with M332): a branch still being made is nobody's book — the device holds NOTHING of it until it is whole,
+        # and then ONE whole book, at once. (M295's first form of this check wanted the half-made branch on the device
+        # with its pages trickling into the log — the very half-book M332 forbids; the page door kept pushing it until M430.)
+        branch_id = None
+        whole = False
+        seen_half = False
+        t0 = time.time()
+        while time.time() - t0 < 60:
+            row = a.evaluate("async () => { const s = (await window.__cozy.db.stories.list()).find(x => /a branch/.test(x.title)); return s ? { id: s.id, building: Boolean(s.building) } : null; }")
+            if row:
+                branch_id = row['id']
+                if row['building'] and os.path.exists(os.path.join(DATA, 'books', branch_id + '.json')): seen_half = True
+                if not row['building']: whole = True; break
+            a.wait_for_timeout(150)
+        check('the branch stands in A, whole', bool(branch_id) and whole)
+        check('while it was being made, the device held no book of it', not seen_half)
         bfile = os.path.join(DATA, 'books', str(branch_id) + '.json')
-        blog = bfile[:-5] + '.log'
-        check('its book reached the device', os.path.exists(bfile))
-        lines = open(blog, encoding='utf-8').read().count('\n') if os.path.exists(blog) else 0
-        check('the pages behind the first whole push append as pages do (the log carries them)', lines >= 20, '%d log lines' % lines)
-        check('one whole book, not one per page (no second whole push has landed yet)', not os.path.exists(bfile + '.bak1'))
-        on_device = json.loads(a.evaluate("async (id) => JSON.stringify(await (await fetch('api/books/one/' + id)).json())", branch_id))
-        check('and every carried page is on the device', len(on_device['messages']) == 120, '%d pages' % len(on_device['messages']))
+        t0 = time.time()
+        while time.time() - t0 < 10 and not os.path.exists(bfile): time.sleep(0.2)
+        check('whole, its book reached the device at once', os.path.exists(bfile))
+        check('one whole book, not one per page (no second whole push has landed)', not os.path.exists(bfile + '.bak1'))
+        on_device = json.loads(a.evaluate("async (id) => { const r = await fetch('api/books/one/' + id); return r.ok ? JSON.stringify(await r.json()) : '{\"messages\": []}'; }", branch_id))
+        check('and every carried page is on the device, in that one book', len(on_device['messages']) == 120, '%d pages' % len(on_device['messages']))
 
         # --- M293: A STREAM THAT DROPPED IS CAUGHT UP ON ----------------------
         # the server goes down; while it is down another hand appends a page to the

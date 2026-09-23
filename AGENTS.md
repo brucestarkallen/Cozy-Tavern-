@@ -10254,3 +10254,29 @@ receipt and never touched the editor — checked, and now held by a test.
   NEGATIVE-TESTED: without the wait the editor is redrawn away. Walk 114/114, harness 833/833, long play 8/8,
   cutthinking, twobrowsers, perf_housekeeper green.
 - version.js -> m429-001.
+
+# M430 — a branch reaches the device whole and at once, never half
+The one open item of the session's audit: tests/branchrefresh.py failed once in four runs ("the DEVICE holds the whole
+branch — record and all :: NO RECORD ROW IN THE BOOK"). Watched while a branch builds, the cause is real, not the test:
+- A HALF-MADE BRANCH WENT TO THE DEVICE. M332's law ("a branch still being made is nobody's book yet") was kept by the
+  whole-book push (pushIds skips a `building` tale) and NOT by the page door: the first carried page found no book on
+  the device, and the page's fallback pushed the half-made branch WHOLE — its pages, no ledger, no record. That is the
+  book M332 exists to prevent (a browser that dies mid-branch leaves exactly it on the device). sync-worker.js: a page
+  of a tale still being made sends nothing — no page, no fallback.
+- THE WHOLE BRANCH WAITED UP TO TWENTY SECONDS, OR FOREVER. Letting go of `building` (its last write) only marked the
+  tale for the twenty-second push — so whether the device held the record five seconds later was luck (the flake).
+  sync.js now sends it at once — AFTER the write has landed: the store's hook runs as a write BEGINS, and the first
+  version asked at once, read the row still `building` in the worker's own connection, held the branch back, and
+  nothing asked again (tests/twobrowsers.py: the branch never reached the device). A push answer names the tales it held
+  back (waiting).
+- tests/twobrowsers.py's M295 check wanted the half-made branch on the device with its pages trickling into the log —
+  the half-book M332 forbids; the page door had been making it pass. It now holds: while being made the device holds no
+  book of it; whole, ONE whole book reaches the device at once with every carried page. tests/branchrefresh.py watches
+  the device while the branch builds (no book, not half of one) and asks for the whole branch within five seconds.
+- Also my own slip, caught by the tests before any commit: the first edit of the wrap left a stray ")" — the app would
+  not have loaded. Every sync file is import-checked now before a run.
+- NEGATIVE-TESTED: without the page door's guard the device holds a half branch (branchrefresh fails); asking for the
+  push before the write lands leaves the whole branch off the device (twobrowsers fails). Twobrowsers 26, branchrefresh
+  13 (5 runs green), holdsone 17, twohands 10, foldcrash 12, append 24, guard 13, wipe 11, backup 8, recover 3;
+  harness 833/833, walk 114/114, long play 8/8.
+- version.js -> m430-001.

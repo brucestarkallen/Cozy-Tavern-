@@ -134,12 +134,14 @@ async function notePushing(id, stamp) {
   } catch (err) { /* bookkeeping only */ }
 }
 
-async function pushIds(ids, mine = {}) {
+async function pushIds(ids, mine = {}, waiting = []) {
   const done = [];
   const refused = [];
   for (const id of ids) {
-    /* M332: a branch still being made is nobody's book yet (chat.js branchFrom marks it `building` until its last row is in) */
-    if (id !== HOUSE) { const row = await db.stories.get(id); if (row && row.building && typeof row.building === 'object') continue; }
+    /* M332: a branch still being made is nobody's book yet (chat.js branchFrom marks it `building` until its last row is in)
+     * M430: held back, it is named in the answer (waiting); it goes to the device the moment its last write lets go of
+     * `building` (sync.js stories.update) */
+    if (id !== HOUSE) { const row = await db.stories.get(id); if (row && row.building && typeof row.building === 'object') { waiting.push(id); continue; } }
     let json = id === HOUSE ? await db.exportHouse() : await db.exportStory(id);
     if (!json) continue;
     if (id === HOUSE) json = await houseForPush(json, (mine && mine[HOUSE]) || []);
@@ -210,8 +212,9 @@ self.onmessage = async (e) => {
   const reply = (m) => self.postMessage(rid === undefined ? m : { ...m, rid });
   try {
     if (msg.kind === 'push') {
-      const ids = await pushIds(Array.isArray(msg.ids) ? msg.ids : [], msg.mine || {});
-      reply({ kind: 'pushed', ok: true, ids });
+      const waiting = [];
+      const ids = await pushIds(Array.isArray(msg.ids) ? msg.ids : [], msg.mine || {}, waiting);
+      reply({ kind: 'pushed', ok: true, ids, waiting });
       return;
     }
     if (msg.kind === 'pull') {
@@ -228,6 +231,11 @@ self.onmessage = async (e) => {
     /* M183: a page landed. One line to the device — and if it will not take
      * it, the whole book, exactly as before. */
     if (msg.kind === 'page') {
+      /* M430: A BRANCH STILL BEING MADE SENDS NOTHING — not a page, and not the whole-book fallback below. pushIds kept
+       * M332's law and this door did not: the first carried page of a branch found no book on the device and pushed the
+       * half-made branch WHOLE — pages, no ledger, no record — the very book M332 says must never exist. The pages
+       * wait with the rest; the branch goes to the device whole the moment it is whole (sync.js). */
+      { const row = await db.stories.get(msg.id); if (row && row.building && typeof row.building === 'object') { reply({ kind: 'paged', ok: false, waiting: true }); return; } }
       let ok = await putPage(msg.id, { at: new Date().toISOString(), m: msg.row });
       if (!ok) {
         /* M295: ONE WHOLE BOOK FOR A TALE THE DEVICE HAS NOT MET, NOT ONE PER

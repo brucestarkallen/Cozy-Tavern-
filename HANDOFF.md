@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m429-001)
+# Cozy Tavern — handoff for the next session (state at m430-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -281,7 +281,9 @@ founding design lives in AGENTS.md's first entries.)
 - THE PERSON THE TELLER THINKS IN (M334, assemble/voice.js): SYSTEM-side words the house wrote go through inVoice (names)
   then inPerson (I / You); USER-role words are the writer speaking and always say "you"; the frame, quoted examples,
   phrase lists and story data are never transformed. Any new rule text must read right in BOTH persons — print it.
-- NOTHING IS MADE IN THE OPEN, AND THE PAGE IS NEVER RELOADED UNDER THE WRITER'S HANDS (M332). A multi-step creation (a
+- NOTHING IS MADE IN THE OPEN, AND THE PAGE IS NEVER RELOADED UNDER THE WRITER'S HANDS (M332; M430 — EVERY door to the
+  device keeps a `building` tale off it, the page door included, and letting go of `building` sends it at once, after
+  the write lands). A multi-step creation (a
   branch) marks its row `building` from its first write, stays off the shelf and off the device until whole, and
   is remade at the next load if cut off. A boot pull still running keeps the tavern closed (sync.js veil); a push
   notes its stamp BEFORE it goes (booksPushing) so its own work is never pulled back. tests/branchrefresh.py.

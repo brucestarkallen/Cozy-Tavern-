@@ -145,6 +145,8 @@ export async function initSync(ctx) {
           const began = Date.now();
           const r = await ask({ kind: 'push', ids, expect: 'pushed', mine: { _house: mineFor('_house') } }); /* M311: what this browser itself let go — everything else the device holds is kept */
           for (const id of (r && Array.isArray(r.ids)) ? r.ids : []) pushedAt.set(id, began);
+          /* M430: a tale held back while it is still being made is not lost to the device: letting go of `building`
+           * (its last write) sends it at once — the stories.update wrap below */
         }
       } finally { running = null; }
     })();
@@ -223,7 +225,11 @@ export async function initSync(ctx) {
   wrap(ctx.db.settings, 'set', ([key]) => { if (/^bookStamp:/.test(key) || key === 'booksStamp' || key === 'booksPushing') return; noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
   wrap(ctx.db.settings, 'delete', ([key]) => { noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
   wrap(ctx.db.stories, 'create', (args, out) => { Promise.resolve(out).then((st) => { if (st && st.id) { knownIds.add(st.id); mark(st.id); mark('_house'); } }); });
-  wrap(ctx.db.stories, 'update', ([id]) => { mark(id); mark('_house'); });
+  /* M430: A BRANCH GOES TO THE DEVICE THE MOMENT IT IS WHOLE (chat.js branchFrom lets go of `building` after its last row)
+   * — at once, like a page, never twenty seconds later with the device holding nothing of it (or, before M430, a half) */
+  /* (after the write has landed — the hook runs as the write BEGINS, and a push asked for at once read the row still
+   * `building` in the worker's own connection, held the branch back, and nothing asked again) */
+  wrap(ctx.db.stories, 'update', ([id, patch], out) => { if (patch && patch.building === false) { const go = () => markNow(id); Promise.resolve(out).then(go, go); } else mark(id); mark('_house'); });
   wrap(ctx.db.stories, 'remove', ([id]) => { knownIds.delete(id); mark('_house'); try { ctx.db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } try { fetch('api/books/drop/' + encodeURIComponent(id), { method: 'POST' }).catch(() => {}); } catch (err) { /* fine */ } });
   /* M183: A PAGE IS APPENDED, NOT A BOOK REWRITTEN. M181 sent prose to the
    * device the moment it landed — and "a page landed" meant serializing the
