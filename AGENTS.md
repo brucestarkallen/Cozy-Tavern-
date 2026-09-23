@@ -9837,3 +9837,14 @@ Settings → The workers still read "keeps the absent alive": a control that doe
 find (his rule 13). The row now reads "The world beyond — simulates everyone the page isn't showing: the absent where
 they are, and the people in the scene the page didn't mention; moves the world by the clock, briefs the storyteller".
 Harness 803/803, walk 110/110. version.js -> m407-001.
+
+# M408 — everyone here has a "now"
+He: Kyōraku and Rukia have no "Now" while others do. The M405 heal let go of their "now" of the assembly hall; they
+are on the page, so the new one was the scribe's — and the scribe writes sparsely ("only where something truly
+shifted"), so it wrote none. The world agent writes nows only for the people the page does NOT mention (M401).
+- The scribe is told, by name, who in the scene has no now yet ("IN THE SCENE WITH NO NOW YET — for each one this
+  page shows, write their state now").
+- No card is blank meanwhile: a present person with no now reads "Now: here — <their position>" (what the scene
+  knows for certain) — on the storyteller's card (people.js cardText) and in the drawer — until a reader writes more.
+- TESTS: M408-1 (in m405.mjs: the scribe is told Kyōraku, not Rukia who has one; his card reads "Now: here — by the
+  rail."). Harness 804/804. version.js -> m408-001.

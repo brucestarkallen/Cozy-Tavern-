@@ -153,7 +153,18 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     return 'The main character\u2019s record \u2014 ' + (key || name) + ' (only their state and loose ends are ever written; keep them current):\n'
       + (lines.length ? lines.join('\n') : 'Nothing written yet.');
   })();
+  /* M408: EVERYONE HERE HAS A NOW. A now that named a place the scene had left is let go (M405); the one the page shows
+   * is the scribe's to write again — and the scribe writes sparsely ("only where something truly shifted"), so Kyōraku
+   * and Rukia stood in the courtyard with no now at all. Whoever is here with no now is named, to be written this time. */
+  const noNow = (() => {
+    const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+    const mc = mcKey(state);
+    return (Array.isArray(state && state.present) ? state.present : [])
+      .map((p) => (p && p.name ? findPersonKey(chars, p.name) || p.name : '')).filter(Boolean)
+      .filter((k) => k !== mc && !(chars[k] && typeof chars[k].state === 'string' && chars[k].state.trim()));
+  })();
   const user = [
+    ...(noNow.length ? ['IN THE SCENE WITH NO NOW YET \u2014 for each one this page shows, write their state now (what they are doing this minute, from the page): ' + noNow.join(', '), ''] : []),
     ...(String(brief || '').trim() ? ['The writer\u2019s brief \u2014 who these people are; it outranks every page:', '"""', writerText(brief, BRIEF_ROOM, 'brief'), '"""', ''] : []),
     ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
     /* M386: "written from the REAL RECORD" — handed to it at last (canon verification on, and someone here is canon) */

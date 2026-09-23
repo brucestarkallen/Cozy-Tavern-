@@ -465,9 +465,11 @@ export function stateLabel(entry, turn) {
   return 'Now: ';
 }
 
-function cardText(name, entry, turn, cap) {
+function cardText(name, entry, turn, cap, here = null) {
   const head = name + (entry.core ? ' — ' + entry.core : '');
-  const now = entry.state ? stateLabel(entry, turn) + entry.state : '';
+  /* M408: never a blank now for someone here — what the ledger knows for certain (where they stand in the scene) until
+   * a reader writes more */
+  const now = entry.state ? stateLabel(entry, turn) + entry.state : (here ? 'Now: here' + (here.position ? ' — ' + here.position : '') + '.' : '');
   let arc = entry.arc ? 'Between you: ' + entry.arc : '';
   /* M306: THE CARD SHOWED THE THREE OLDEST LOOSE ENDS, NEVER THE NEWEST. The list
    * is kept oldest first (a new one is pushed on the end, and a full list lets
@@ -713,7 +715,9 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   });
   for (const key of cardKeys) {
     if (!keys.includes(key)) continue;
-    sections.push({ shed: 0, text: cardText(key, characters[key], turn) });
+    /* M408: the scene's own entry for them (their position), for a card with no now yet */
+    const here = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && p.name && (findPersonKey(characters, p.name) || p.name) === key) || null;
+    sections.push({ shed: 0, text: cardText(key, characters[key], turn, undefined, here) });
     tiers.cards += 1;
   }
   const also = overflow.map(compactLine)

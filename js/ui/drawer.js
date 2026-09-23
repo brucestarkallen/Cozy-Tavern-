@@ -1926,6 +1926,8 @@ function peoplePanel(ctx) {
       /* M294: a note older than a couple of pages says so for everyone — the one here and the
        * main character too; "Now:" over a thirty-page-old line hid a page that was not being kept */
       else if (typeof c.state === 'string' && c.state.trim()) addLine((ago > 2 ? (isHere || mine ? 'Last noted ' : 'Last seen ') + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ' : 'Now: ') + c.state.trim());
+      /* M408: someone here is never without a now — what the scene knows for certain until a reader writes more */
+      else if (isHere && !mine) { const spot = (state.present || []).find((p) => p && samePersonName(p.name, name)); addLine('Now: here' + (spot && spot.position ? ' — ' + spot.position : '') + ' (the next page writes what they are doing)'); }
       if (typeof c.arc === 'string' && c.arc.trim()) addLine('Between you: ' + c.arc.trim());
       /* M398: the story threads this person owns, named on their page — kept with the story's threads, one home */
       const ownsThreads = (state.threads || []).filter((t) => t && t.title && t.owner && samePersonName(t.owner, name)).map((t) => String(t.title).trim());

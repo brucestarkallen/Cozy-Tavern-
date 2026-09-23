@@ -63,3 +63,15 @@ test('M406-1 ONE PERSON, TWO PAGES, JOINED: the empty "Rose" page folds into "R�
   const back = undoEntry(st, st.log.length - 1);
   assert(back.state.characters['Rose'], 'taken back, it is as it was');
 });
+
+test('M408-1 EVERYONE HERE HAS A NOW: the scribe is told who in the scene has none; the storyteller’s card is never blank — "here, by the rail" until a reader writes more', async () => {
+  const { buildScribeMessages } = await import('../../js/agents/scribe.js');
+  const { renderPeopleTiers } = await import('../../js/engine/people.js');
+  let st = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'presence.enter', name: 'Jovan Oda' }, { type: 'presence.enter', name: 'Shunsui Kyōraku', position: 'by the rail' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+  st.characters = { 'Shunsui Kyōraku': { core: 'Captain-Commander.', threads: [] }, 'Rukia Kuchiki': { core: 'His lieutenant.', state: 'arms folded at the gate', threads: [] } };
+  const msg = buildScribeMessages({ state: st, userText: 'I step in.', assistantText: 'Kyōraku tips his hat.' });
+  assert(/IN THE SCENE WITH NO NOW YET[^\n]*Shunsui Kyōraku/.test(msg.user) && !/NO NOW YET[^\n]*Rukia/.test(msg.user), 'the scribe is told: Kyōraku, not Rukia');
+  const told = renderPeopleTiers(st, { recentPages: ['Kyōraku tips his hat.'] });
+  const text = typeof told === 'string' ? told : String(told.text || '');
+  assert(/Shunsui Kyōraku — Captain-Commander\.\nNow: here — by the rail\./.test(text), 'his card says what the scene knows: ' + text.slice(0, 300));
+});
