@@ -20,6 +20,7 @@
  * for it never pays for it.
  */
 
+import { BLIND_LINE } from '../engine/world.js'; /* M416: the one wording of a thing someone hasn't found out */
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M283 */
 import { renderStateFacts } from '../engine/state.js';
 import { renderCanon } from '../engine/canon.js';
@@ -83,9 +84,10 @@ const SYSTEM_PROMPT = [
   'noise).',
   '',
   'UNTOLD KNOWLEDGE — the one case where what is NOT written counts (M338). The ledger lists, for the',
-  'people here, what each HAS learned ("knows:") and what no page has shown them learning ("has not',
-  'been shown learning:"). When a character on this page STATES or ACTS ON one of the things they have',
-  'not been shown learning — or claims a telling the ledger gives no sign of ("you told me yesterday",',
+  /* M416: the marker is the storyteller's own notes' words (engine/world.js BLIND_LINE), read from the one home */
+  'people here, what each HAS learned ("knows:") and what no page has shown them learning ("' + BLIND_LINE.trim() + '" \u2014',
+  'the same words the storyteller\u2019s notes use). When a character on this page STATES or ACTS ON one of the',
+  'things they have not been shown learning — or claims a telling the ledger gives no sign of ("you told me yesterday",',
   '"you gave me the schedule") — and the page itself shows no true way they came to know it (told on',
   'this page, seen on this page, a guess said AS a guess), that is a warn: name who, and what they',
   'could not know. `fix` is the nearest TRUE way, in a short phrase: the person the ledger says knows',

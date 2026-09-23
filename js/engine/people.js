@@ -668,7 +668,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   const awayNow = (k) => {
     const seat = seatOf(k);
     if (!seat) return null;
-    if (seatsInState) return 'away \u2014 where they are now is under Elsewhere';
+    if (seatsInState) return 'away'; /* M416: said plainly — where, is in Elsewhere a few lines on (M292: once) */
     if (![seat.location, seat.activity].filter(Boolean).length) return null;
     /* M300: a seat says its age; M304: and a sighting says it is one — the same words every reader gets */
     return seatNowWords(seat, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null);
@@ -795,7 +795,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
       const lines = shown.map((k) => {
         const who = shortClause(characters[k].core, 90);
         const seated = awayNow(k);
-        const now = seated && seatsInState ? 'away (see Elsewhere)' : shortClause(seated || characters[k].state, 70);
+        const now = seated && seatsInState ? 'away' : shortClause(seated || characters[k].state, 70); /* M416 */
         return '- ' + k + (who ? ' \u2014 ' + who : '') + (now ? ' \u00b7 now: ' + now : '') + ' (' + agoOf(k) + ')';
       });
       sections.push({ shed: 3, text: 'Elsewhere in the tale:\n' + lines.join('\n') + (moreWords ? '\n' + moreWords.charAt(0).toUpperCase() + moreWords.slice(1) + '.' : '') });

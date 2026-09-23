@@ -63,7 +63,7 @@ test('M29-3 factions + arrivals', () => {
   eq(renderArrival({ stance: 'toward', arrivesAtMinutes: 1000 }, 975), 'moving toward the main character, arriving in about 25 minutes');
   eq(renderArrival({ arrivesAtMinutes: 1000 }, 1000), 'due now');
   assert(/overdue by about 30 minutes/.test(renderArrival({ arrivesAtMinutes: 1000 }, 1030)));
-  eq(renderArrival({ stance: 'busy' }, null), 'taken up with someone else');
+  eq(renderArrival({ stance: 'busy' }, null), 'busy with their own affairs'); /* M416: never invented company */
   eq(renderArrival({ etaMinutes: 90 }, null), 'about 1.5 hours away', 'no clock: the relative figure speaks');
   eq(renderArrival({}, 5), '');
 });

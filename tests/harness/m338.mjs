@@ -29,10 +29,10 @@ test('M338-1 THE WRITER’S REPORT: Claire "was given the schedule yesterday" �
   assert(claire.lacks.some((l) => /lied to Mi-na about football training/.test(l.fact)), 'and what MC did out of her sight: ' + JSON.stringify(claire.lacks.map((l) => l.fact)));
   assert(!spots.some((s) => s.name === 'Jovan'), 'the main character is the writer’s — never listed');
   const facts = renderStateFacts(st, { scenePages: ['Jovan asked Claire how she found them at four o’clock.'] });
-  assert(/Who does NOT know what — no page shows them learning these\./.test(facts) && /never claim a telling that did not happen: /.test(facts) && /Claire Maxwell has not been shown learning: Jovan agreed by text[^.]*\(Aurora Sterling knows\)/.test(facts), 'it rides in the ledger’s words: ' + facts.slice(facts.indexOf('Who does NOT'), facts.indexOf('Who does NOT') + 420));
+  assert(/What they haven’t found out — no page has shown them learning these\./.test(facts) && /nobody remembers being told something they never were: /.test(facts) && /Claire Maxwell hasn’t found out: Jovan agreed by text[^.]*\(Aurora Sterling knows\)/.test(facts), 'it rides in the ledger’s words: ' + facts.slice(facts.indexOf('Who does NOT'), facts.indexOf('Who does NOT') + 420));
   /* …and it reaches the storyteller's request */
   const r = buildRequest({ story: {}, messages: [{ id: 'u', role: 'user', text: 'How did you find us?' }], settings: { noteText: STARTER_NOTE }, state: st, modules: [], memory: '', window: { keeperOn: true } });
-  assert(/Claire Maxwell has not been shown learning: Jovan agreed by text/.test(r.messages[0].content), 'in the briefing, before the page is written');
+  assert(/Claire Maxwell hasn’t found out: Jovan agreed by text/.test(r.messages[0].content), 'in the briefing, before the page is written');
 });
 
 test('M338-2 after the page, the second reader is GIVEN the duty and the list: a character who speaks of what no page showed them learning is a finding, and the fix is the nearest TRUE way', () => {
@@ -40,7 +40,7 @@ test('M338-2 after the page, the second reader is GIVEN the duty and the list: a
   assert(/UNTOLD KNOWLEDGE/.test(system) && /claims a telling the ledger gives no sign of \("you told me yesterday",/.test(system), 'the duty');
   assert(/`fix` is the nearest TRUE way/.test(system) && /Never a finding: a character lying or\s+bluffing on purpose/.test(system) && /the main character, whose knowledge is the writer's/.test(system), 'the fix, and what is the story and not a slip');
   assert(/ABSENCE IS NEVER DRIFT/.test(system), 'the older law stands for everything else');
-  assert(/Claire Maxwell has not been shown learning: Jovan agreed by text to walk with her at four o’clock from her driveway \(Aurora Sterling knows\)/.test(user), 'and it is shown what she was never shown — keyed to this page: ' + user.slice(user.indexOf('Who does NOT'), user.indexOf('Who does NOT') + 300));
+  assert(/Claire Maxwell hasn’t found out: Jovan agreed by text to walk with her at four o’clock from her driveway \(Aurora Sterling knows\)/.test(user), 'and it is shown what she was never shown — keyed to this page: ' + user.slice(user.indexOf('Who does NOT'), user.indexOf('Who does NOT') + 300));
   assert(user.includes(PAGE), 'beside the page itself');
 });
 
@@ -48,7 +48,7 @@ test('M338-3 quiet when there is nothing to say: everybody holds what the others
   let st = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kim' }, { type: 'presence.enter', name: 'Liara' },
     { type: 'knowledge.add', name: 'Kim', fact: 'the letter was left unread' }, { type: 'knowledge.add', name: 'Liara', fact: 'The letter was left unread.' }]).state;
   eq(blindSpots(st.knowledge, st.present, { turn: 4, mc: 'Jovan' }).length, 0, 'the same fact held by both');
-  assert(!/Who does NOT know/.test(renderStateFacts(st)), 'no heading with nothing under it');
+  assert(!/What they haven’t found out/.test(renderStateFacts(st)), 'no heading with nothing under it');
   eq(blindSpots(st.knowledge, [], { turn: 4 }).length, 0);
   st = applyMutations({ ...st, page: 3 }, [{ type: 'knowledge.add', name: 'Vanessa', fact: 'the bakery closes early on Mondays' }]).state;
   eq(blindSpots(st.knowledge, st.present, { turn: 300, mc: 'Jovan', scenePages: ['They argued about the fence.'] }).length, 0, 'three hundred pages on, a trifle far from the scene is not brought up');

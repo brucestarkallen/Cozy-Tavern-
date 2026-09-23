@@ -2348,7 +2348,7 @@ test('M259-58: a title\u2019s period does not end a sentence; where the absent a
   const count = (w) => w.split('SEAT-AURORA').length - 1;
   const whole = wire(1000000);
   eq(count(whole), 1, 'a whole request says where Aurora is once');
-  assert(/Aurora Sterling \u2014 Warm, sociable, quietly perceptive\.\\nNow: away \u2014 where they are now is under Elsewhere/.test(whole), 'and her card points there');
+  assert(/Aurora Sterling \u2014 Warm, sociable, quietly perceptive\.\\nNow: away(\\n|$)/.test(whole), 'and her card says she is away — where, is said once, under Elsewhere (M416: plainly, no pointer)');
   assert(!whole.includes('an old note'), 'her old note is not read as her now');
   const tight = renderPeopleTiers(st, { recentPages: [], view: peopleView(0), brief: '', scenePages: [], seatsInState: false }).text;
   assert(tight.includes('SEAT-AURORA'), 'where the state of things may shed its seats, the card keeps hers');

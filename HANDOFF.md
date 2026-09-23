@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m415-001)
+# Cozy Tavern — handoff for the next session (state at m416-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -30,6 +30,10 @@
    pending. An answer with cards that says "done/fixed/updated" is handed back once ([NOT YET]). A newer ledger card
    that decides the same facts (ledgerFactKeys) supersedes the older; an edit quoting the same passage longer or
    shorter supersedes too.
+0h. READ THE NOTES AS THE TELLER READS THEM (M416): send one turn through the app and read the briefing line by line. Words the
+   house says live ONCE and every reader takes them from there — a thread's next (world.js threadNextWords), the line
+   for what someone hasn't found out (world.js BLIND_LINE — the anchor and the second reader match by it). "Busy" is
+   "busy with their own affairs", never "someone else". A small standing's bare number ("R-8") is M53, his rule.
 0g. THE ONE MATCHER HAS ONE LIST OF TITLES, AND ONE "NAMED ON THE PAGE" (M414, engine/names.js). A title is evidence: two
    titles of the same kind that share nothing are two people (Captain/Lieutenant Kuchiki, Mr./Mrs./Dr. Sterling); an
    apostrophe inside a word belongs to the name ("Jovan's mother" is never Jovan); a courtesy after a name counts only

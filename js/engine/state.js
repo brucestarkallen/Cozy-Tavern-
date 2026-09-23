@@ -628,7 +628,10 @@ export function stateView(budgetTokens) {
 }
 
 /* M338: the words the blind spots are handed over in — what they are, and what to do with them */
-export const BLIND_HEAD = 'Who does NOT know what — no page shows them learning these. One of them may still guess, suspect, or be told on this page; but if they SPEAK of it or ACT on it, the page must show how they came to know, truly (who told them, what they saw). Otherwise they do not know it, and never claim a telling that did not happen: ';
+/* M416: said the way one person tells another — the M338 law whole (they may guess, suspect or be told; they speak of it
+ * or act on it only once the page shows how they came to know; no telling that never happened), without the capitals
+ * and the rulebook's "must" his teller read as a system talking */
+export const BLIND_HEAD = 'What they haven’t found out — no page has shown them learning these. They can still guess, suspect or be told on this page, but they speak of it or act on it only once the page shows how they came to know (who told them, what they saw); nobody remembers being told something they never were: ';
 export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [], noFight = false } = {}) {
   if (!state || typeof state !== 'object') return '';
 

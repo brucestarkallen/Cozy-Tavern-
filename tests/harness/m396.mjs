@@ -65,7 +65,7 @@ test('M396-3 NO SEAT WHERE THE SCENE IS; AN ARRIVAL ONLY FOR SOMEONE ON THEIR WA
   assert(st.offscreen['Tōshirō Hitsugaya'], 'someone on the way to it is');
   const lines = renderOffscreen(st.offscreen, st.present, st.clock && st.clock.minutes);
   assert(!/Mayuri[^\n]*due now/.test(lines), 'no arrival for someone taken up elsewhere: ' + lines);
-  eq(renderArrival({ stance: 'busy', arrivesAtMinutes: 600 }, 600), 'taken up with someone else', 'busy is busy');
+  eq(renderArrival({ stance: 'busy', arrivesAtMinutes: 600 }, 600), 'busy with their own affairs', 'busy is busy'); /* M416 */
   assert(/due now/.test(renderArrival({ stance: 'toward', arrivesAtMinutes: 600 }, 600)), 'toward, at its hour, is due');
 });
 

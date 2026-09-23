@@ -31,13 +31,13 @@ test('M343-2 ON: the last thing the storyteller reads before the note is the sce
   assert(/^Tony Stark — right now, so it is in front of you — The hour: /.test(anchor), anchor.slice(0, 120));
   const facts = renderStateFacts(lakeside(), { scenePages: ['How did you find us?'] }).split('\n');
   for (const head of ['The hour: ', 'The ground: ', 'Here now: ']) { const line = facts.find((l) => l.startsWith(head)); assert(line && anchor.includes(line), 'the ledger’s own line, to the letter: ' + head); }
-  assert(/Claire Maxwell has not been shown learning: Jovan agreed by text to walk with her at four o’clock/.test(anchor), 'and her blind spot, where an older model looks hardest');
+  assert(/Claire Maxwell hasn’t found out: Jovan agreed by text to walk with her at four o’clock/.test(anchor), 'and her blind spot, where an older model looks hardest');
   eq(anchor.split('\n').length, 1, 'one breath — never a block');
   const parts = last.split('\n\n');
   assert(parts.indexOf(anchor) < parts.findIndex((p) => /five things/.test(p)), 'M354: the scene first, then the five plain lines');
   assert(last.trimEnd().endsWith('MY NOTE, AS I WROTE IT.'), 'and his note still last of all');
   assert(anchor.length < 900, 'and short: ' + anchor.length);
-  assert(!/\b(must|never|always|do not|don't|should|remember to)\b/i.test(anchor.replace(/has not been shown learning/g, '')), 'facts, not orders: ' + anchor);
+  assert(!/\b(must|never|always|do not|don't|should|remember to)\b/i.test(anchor.replace(/hasn’t found out/g, '')), 'facts, not orders: ' + anchor);
   assert(!r.systemBlocks.some((b) => /right now, so it is in front of you/.test(b.text)), 'never in the rules');
   eq(r.messages.filter((m) => /right now, so it is in front of you/.test(m.content)).length, 1, 'said once');
 });

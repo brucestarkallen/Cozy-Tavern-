@@ -10003,3 +10003,37 @@ card that cannot land, handed back by [CANNOT LAND] — that stays.
   no hand-back; cards waiting — the hand-back comes). M397-2 now runs with cardsWait (its premise: a card only
   proposed). NEGATIVE-TESTED: the hand-back without the guard fails M415-1. Harness 815/815, walk 111/111, long play 8/8.
 - version.js -> m415-001.
+
+# M416 — his storyteller's notes, read as the teller reads them: four lines that read like a machine
+One real turn was sent through the app (a teller "Lothar" in the frame, "Bruce" as the writer, a Bleach ledger) and the
+notes it was handed were read line by line, as the teller reads them.
+- "BUSY" INVENTED COMPANY: the busy stance was worded "taken up with someone else" — to the world agent (its vocabulary)
+  and to the storyteller (STANCE_WORDS). Since M366 everyone lives their own life, and busy is the stance of anyone
+  occupied with it: Byakuya, alone with the patrol rosters, was described as being with someone. Now "busy with their own
+  affairs" to the storyteller, and "taken up with their own affairs (their work, their own people)" to the world agent.
+- A THREAD'S NEXT BROKE ITS SENTENCE: "<owner> means to <next>" is right for a plan ("corner him before Renji leaves") and
+  broken for a sentence ("means to she tests whether Oda deserves it"). engine/world.js threadNextWords — a next written
+  as a sentence (a subject, a "will", the owner's own name first) is said as "— next: …"; a plan reads on after "means
+  to" (a capital set small). ONE wording for the storyteller's threads (renderThreads) and the workers' whole ledger
+  (whole.js renderAllThreads), which had two copies of the old line.
+- AN AWAY CARD POINTED LIKE A MANUAL: "Now: away — where they are now is under Elsewhere" (and "away (see Elsewhere)" on
+  the roster). M292's law stands — where the absent are is said once, under Elsewhere, in the same notes — the card
+  just says "away".
+- WHO HASN'T FOUND OUT WHAT, IN A RULEBOOK'S VOICE: "Who does NOT know what … if they SPEAK of it or ACT on it, the page
+  must show …" and "has not been shown learning:". The same law (M338 — they may guess, suspect or be told; they speak
+  of it or act on it only once the page shows how they came to know; no telling that never happened) in the voice of
+  the notes: "What they haven’t found out — …" and "<Name> hasn’t found out: …". The line's words live once
+  (engine/world.js BLIND_LINE); the derestricted anchor (assemble/anchor.js) and the second reader's brief
+  (continuity.js) read them from there — the anchor had matched the old words by a literal of its own.
+- NOT CHANGED, AND WHY: a small standing shows as its number alone ("Rukia Kuchiki — R-8") — M53, his own field report:
+  a word for |v| < 10 ("distant") overstated a whisper; P/R/S is his preset's notation.
+- SETTLED, NOT BUGS: (1) the connection form's thinking dial has no unset state — Off is its visible default and is sent
+  as off (DeepSeek thinks by default otherwise); (2) the missing positions of the first probe were the probe's own
+  timing (it wrote positions while the first page's chain was still running, and that page's ground then landed and let
+  them go, as a move does) — seeded after the chain finished, every position reaches the notes.
+- TESTS: m416.mjs (4: busy never invents company; a thread's next reads right in both renderers; an away card says
+  "away" and Elsewhere says where; the plain head and line, the anchor and the second reader reading the same words).
+  Updated the pins of the old words (m29, m396, m259, m338, m343, the walk's DOM M338 scenario) — each checks the same
+  behaviour in the new words. NEGATIVE-TESTED: each of the four fails its test when the old words come back. Harness
+  819/819, walk 111/111, long play 8/8; the live request read again through the app.
+- version.js -> m416-001.

@@ -14,7 +14,7 @@
  * Pure. */
 import { renderStateFacts, BLIND_HEAD } from '../engine/state.js';
 import { toTeller } from './voice.js';
-import { sceneWordsOf } from '../engine/world.js';
+import { sceneWordsOf, BLIND_LINE } from '../engine/world.js'; /* M416: the blind line's one wording */
 import { findPersonKey } from '../engine/people.js'; /* M354 */
 import { isMcAlias } from '../engine/duels.js'; /* M354 */
 
@@ -46,7 +46,7 @@ export function sceneAnchor(state, { scenePages = [], voice = null, recall = '' 
   const pick = (head) => lines.find((l) => l.startsWith(head)) || '';
   const hour = pick('The hour: '); const ground = pick('The ground: '); const here = pick('Here now: ');
   if (!hour && !ground && !here) return '';
-  const blind = lines.map((l) => (l.startsWith(BLIND_HEAD) ? l.slice(BLIND_HEAD.length) : l)).filter((l) => / has not been shown learning: /.test(l)).slice(0, ANCHOR_MAX_BLIND);
+  const blind = lines.map((l) => (l.startsWith(BLIND_HEAD) ? l.slice(BLIND_HEAD.length) : l)).filter((l) => l.includes(BLIND_LINE)).slice(0, ANCHOR_MAX_BLIND);
   /* M354: AND WHAT EACH OF THEM IS IN THE MIDDLE OF. The 27B model's own card says it loses on HOSTILE storytelling —
    * a model tuned to give people what they want softens whoever is set against the writer. The ledger already knows
    * what each person here is doing and wanting; said once more at the end, where such a model looks hardest, it is the

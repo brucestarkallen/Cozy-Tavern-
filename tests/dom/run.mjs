@@ -3415,7 +3415,7 @@ test('DOM-64 THE WRITER’S REPORT, the whole loop in the app: the storyteller i
     if (/continuity reader/i.test(sys)) {
       readerSaw = user;
       /* a reader that can only find it if the house SHOWED it the list and gave it the duty */
-      const shown = /UNTOLD KNOWLEDGE/.test(sys) && /Claire Maxwell has not been shown learning: Jovan agreed by text/.test(user) && /You gave me the schedule yesterday/.test(user);
+      const shown = /UNTOLD KNOWLEDGE/.test(sys) && /Claire Maxwell hasn’t found out: Jovan agreed by text/.test(user) && /You gave me the schedule yesterday/.test(user);
       return shown ? JSON.stringify({ findings: [{ words: 'Claire says Jovan gave her the schedule yesterday; no page shows her learning the four o’clock — Aurora knows it.', severity: 'warn', fix: 'Aurora told her the time' }] }) : '{"findings":[]}';
     }
     if (/mend a story/i.test(sys) || /<contradiction>/.test(user)) {
@@ -3429,12 +3429,12 @@ test('DOM-64 THE WRITER’S REPORT, the whole loop in the app: the storyteller i
   try {
     type(q('#composer-input'), 'I smile back at her. "How did you find us?"'); submit(q('#composer'));
     await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 15000);
-    assert(/Claire Maxwell has not been shown learning: Jovan agreed by text to walk with her at four o’clock/.test(tellerSaw), 'BEFORE the page: the storyteller was handed her blind spot: ' + tellerSaw.slice(tellerSaw.indexOf('Who does NOT'), tellerSaw.indexOf('Who does NOT') + 200));
+    assert(/Claire Maxwell hasn’t found out: Jovan agreed by text to walk with her at four o’clock/.test(tellerSaw), 'BEFORE the page: the storyteller was handed her blind spot: ' + tellerSaw.slice(tellerSaw.indexOf('Who does NOT'), tellerSaw.indexOf('Who does NOT') + 200));
     await until(() => queuedCount(st.id) === 0, 'the readers', 60000);
     const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant')[1];
     assert(/Aurora told me the time/.test(page.text) && !/You gave me the schedule yesterday/.test(page.text), 'AFTER the page: mended to the true way, with no hand on it: ' + page.text.slice(-200));
     assert(page.mended && /You gave me the schedule yesterday/.test(page.mended.before), 'the earlier words are a tap away');
-    assert(/has not been shown learning/.test(readerSaw), 'the second reader was shown the list');
+    assert(/hasn’t found out/.test(readerSaw), 'the second reader was shown the list');
     assert(/Aurora told me the time/.test(q('#thread').textContent), 'and the page he reads says so');
   } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));

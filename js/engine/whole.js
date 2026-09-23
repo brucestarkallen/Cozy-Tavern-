@@ -28,7 +28,7 @@ import { renderBodies } from './bodies.js';
 import { renderCanon } from './canon.js';
 import { renderOffscreen } from './offscreen.js';
 import { renderFightLine, mcName } from './duels.js';
-import { findKnowledgeKey } from './world.js';
+import { findKnowledgeKey, threadNextWords } from './world.js'; /* M416: one wording for a thread's next */
 import { storyTurn } from './apply.js';
 import { firstSentence } from './sentence.js'; /* M292 */
 
@@ -70,7 +70,7 @@ export function renderAllThreads(threads) {
     if (!title) continue;
     let line = (t.heat === 'cold' ? '(cold) ' : '') + '"' + title + '"';
     if (t.owner) line += ' — ' + clean(t.owner);
-    if (t.next) line += (t.owner ? ' means to ' : ' — next: ') + clean(t.next).replace(/\.+$/, '');
+    if (t.next) line += threadNextWords(t.owner && clean(t.owner), clean(t.next)); /* M416 */
     rows.push(line);
   }
   return rows.join('\n');

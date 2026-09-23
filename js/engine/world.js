@@ -37,7 +37,9 @@ export const STANCE_WORDS = {
   toward: 'moving toward the main character',
   seeking: 'searching for the main character',
   tense: 'unresolved tension with the main character',
-  busy: 'taken up with someone else',
+  /* M416: a person living their own life (M366) — never "taken up with someone else", which told the storyteller Byakuya
+   * was with somebody while he sat alone with the patrol rosters */
+  busy: 'busy with their own affairs',
   waiting: 'holding — the want still stands',
 };
 
@@ -202,6 +204,25 @@ export function closeThread(threads, title) {
 /* M368: the storyteller is shown the threads that touch THIS scene first — someone in it, or the main character — then
  * the hot, then the recent; other people's business away from the page stays in the ledger (the world agent reads all of
  * it) and never crowds the storyteller's few lines. */
+/* M416: one wording for someone who has not found something out — the anchor reads the lines by it (assemble/anchor.js) */
+export const BLIND_LINE = ' hasn’t found out: ';
+
+/* M416: WHAT THE OWNER WILL DO, SAID THE WAY IT READS. "Rukia Kuchiki means to " + next is right for "corner him before
+ * Renji leaves" and broken for "she tests whether Oda deserves it" ("means to she tests…") — a next written as a whole
+ * sentence (a subject, a will) is said as what comes next instead. One wording for every reader (whole.js too). */
+export function threadNextWords(owner, next) {
+  const n = String(next == null ? '' : next).replace(/\s+/g, ' ').trim().replace(/\.+$/, '').replace(/^to\s+/i, '');
+  if (!n) return '';
+  if (!String(owner || '').trim()) return ' — next: ' + n;
+  const first = n.split(' ')[0].toLowerCase().replace(/[^\p{L}']/gu, '');
+  const ownWords = String(owner).toLowerCase().split(/[^\p{L}]+/u).filter((w) => w.length >= 2);
+  const sentence = /^(she|he|they|it|i|we|you|the|a|an|his|her|their|its|our|my|your|this|that|these|those|someone|somebody|nobody|everyone|everybody)$/.test(first)
+    || ownWords.includes(first) || /^(will|would|is|are|was|were|has|have|had|plans|wants|intends|hopes)$/.test(first)
+    || /\b(will|is going to|are going to)\b/i.test(n.split(' ').slice(0, 4).join(' '));
+  /* a plan written as a sentence of its own ("Watch the new captain") reads on after "means to" in small letters */
+  return sentence ? ' — next: ' + n : ' means to ' + (/^\p{Lu}\p{Ll}/u.test(n) ? n[0].toLowerCase() + n.slice(1) : n);
+}
+
 export function renderThreads(threads, top = THREADS_RENDER, scene = null) {
   const list = copyThreads(threads);
   if (!list.length) return '';
@@ -212,7 +233,7 @@ export function renderThreads(threads, top = THREADS_RENDER, scene = null) {
   return list.slice(0, top).map((t) => {
     let line = (t.heat === 'cold' ? '(cold) ' : '') + t.title;
     if (t.owner) line += ' — ' + t.owner + (t.with ? ' (with ' + t.with + ')' : '');
-    if (t.next) line += (t.owner ? ' means to ' : ' — next: ') + t.next.replace(/\.+$/, '');
+    if (t.next) line += threadNextWords(t.owner, t.next); /* M416 */
     return line;
   }).join('\n');
 }
@@ -687,5 +708,5 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
 export function renderBlindSpots(spots) {
   const list = (Array.isArray(spots) ? spots : []).filter((s) => s && Array.isArray(s.lacks) && s.lacks.length);
   if (!list.length) return '';
-  return list.map((s) => s.name + ' has not been shown learning: ' + s.lacks.map((l) => l.fact + ' (' + l.from + ' knows)').join('; ') + '.').join('\n');
+  return list.map((s) => s.name + BLIND_LINE + s.lacks.map((l) => l.fact + ' (' + l.from + ' knows)').join('; ') + '.').join('\n'); /* M416 */
 }
