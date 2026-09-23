@@ -49,7 +49,7 @@ import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
 import { findPersonKey, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
-import { isHere, samePersonName, foldName } from '../engine/names.js'; /* M396/M401: one answer to "the same person?" */
+import { isHere, samePersonName, nameOnPage } from '../engine/names.js'; /* M396/M401: one answer to "the same person?"; M414: one answer to "named on the page?" */
 import { storyTurn } from '../engine/apply.js';
 import { applyMutations } from '../engine/apply.js';
 import { renderOffscreen } from '../engine/offscreen.js';
@@ -385,13 +385,10 @@ export function quietInScene(state, pageText = '', userText = '') {
       /* M409: someone here with NO now at all is the world agent's too, mentioned or not — a now is never left for "the
        * next page" (the scribe writes sparsely; the world agent runs every page) */
       const noNow = !(chars[key] && typeof chars[key].state === 'string' && chars[key].state.trim());
-      return noNow || (!namedInText(text, n) && !namedInText(text, key) && !anyNameWordIn(text, n) && !anyNameWordIn(text, key));
+      /* a first name, a surname, any word of the name the page used ("Zaraki" is Kenpachi Zaraki) — never a title or
+       * "the" (M414: engine/names.js nameOnPage, the one answer every reader asks) */
+      return noNow || (!nameOnPage(text, n) && !nameOnPage(text, key));
     });
-}
-/* a first name, a surname, any word of the name the page used ("Zaraki" is Kenpachi Zaraki) — letters folded */
-function anyNameWordIn(text, name) {
-  const hay = foldName(text);
-  return foldName(name).split(' ').filter((w) => w.length >= 3).some((w) => new RegExp('(^|[^\\p{L}\\p{N}])' + w + '($|[^\\p{L}\\p{N}])', 'u').test(hay));
 }
 
 export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity, peopleRoom = WORLD_PEOPLE_ROOM, canonRecord = '' }) {

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m413-001)
+# Cozy Tavern — handoff for the next session (state at m414-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -29,6 +29,14 @@
    pending. An answer with cards that says "done/fixed/updated" is handed back once ([NOT YET]). A newer ledger card
    that decides the same facts (ledgerFactKeys) supersedes the older; an edit quoting the same passage longer or
    shorter supersedes too.
+0g. THE ONE MATCHER HAS ONE LIST OF TITLES, AND ONE "NAMED ON THE PAGE" (M414, engine/names.js). A title is evidence: two
+   titles of the same kind that share nothing are two people (Captain/Lieutenant Kuchiki, Mr./Mrs./Dr. Sterling); an
+   apostrophe inside a word belongs to the name ("Jovan's mother" is never Jovan); a courtesy after a name counts only
+   when joined ("-san", "-taichō" — Jackie Chan keeps "Chan"). "Already here?" for someone walking in is strict
+   (findPresent strict / oneMeaning — "Kuchiki" with two Kuchikis is nobody's). Whether a person is NAMED in a text is
+   names.js nameOnPage and nothing else — never a title, "the" or an owner; "Ed" counts. The auditor's permission to
+   take someone out needs a going the NARRATION shows (auditor.js showsDeparture: never a side, never a quote).
+   Tests that need the tavern's database name it (cozytavern.v1) — never the first in the list (M347 added a second).
 0a. NOBODY IS IN TWO PLACES (M396). "The same person?" has ONE answer in the whole ledger: engine/names.js —
    samePersonName (letters folded, a first/last name, a name cut short, canon's other names via setAliasSource) and
    isHere (a name means one person, or only its exact letters decide). Every book uses it: the seat guard, the seat

@@ -74,7 +74,9 @@ try:
         a.wait_for_selector('#composer-input', timeout=30000)
         a.wait_for_timeout(1500)
         dbname = a.evaluate("async () => (await indexedDB.databases()).map((d) => d.name)")
-        HELD = HELD.replace("'cozy-tavern'", json.dumps([n for n in dbname if n][0]))
+        # M414: the tavern's own database by NAME — since M347 the browser also holds 'cozytavern.sent.v1' (the words each
+        # page was sent), and it can list first: the first name read a database with no settings table and the probe died
+        HELD = HELD.replace("'cozy-tavern'", json.dumps(next(n for n in dbname if n == 'cozytavern.v1')))
         seeded = a.evaluate(SEED)
         ids = seeded['ids']
         a.wait_for_timeout(2500)
@@ -114,7 +116,7 @@ try:
         # --- the tale now behind it (tale 1) goes in its turn; a tale AHEAD of the device never does ---
         a.evaluate("""async (id) => {
           /* a row written straight into the store, as a write the push never learned of (a tab killed mid-turn) */
-          const name = (await indexedDB.databases()).map((d) => d.name).filter(Boolean)[0];
+          const name = 'cozytavern.v1'; /* M414: the tavern's own database — never the first in the list (the sent words' database can list first) */
           await new Promise((res) => { const r = indexedDB.open(name); r.onsuccess = () => { const d = r.result; const t = d.transaction('settings', 'readwrite'); t.objectStore('settings').put({ key: 'director:' + id, value: { note: 'written here, never pushed' } }); t.oncomplete = () => { d.close(); res(); }; }; });
         }""", ids[0])
         deadline = time.time() + 70   # the open marked the house; the evictor waits for that push (twenty seconds), then finds this tale ahead and pushes it at once

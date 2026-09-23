@@ -35,7 +35,7 @@
  * they were the published contract. */
 
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
-import { foldName } from '../engine/names.js'; /* M402: silence is not leaving */
+import { nameOnPage } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
@@ -399,10 +399,8 @@ export function parseExtractorAnswer(raw) {
  * message) names them — a departure is written about the person who departs; someone the page never mentions is
  * simply quiet, and stays (the world agent keeps them alive, M401). Held in code, whatever the model answered. */
 export function leavesTheyWereShown(mutations, text) {
-  const hay = foldName(text);
-  const named = (name) => foldName(name).split(' ').filter((w) => w.length >= 3)
-    .some((w) => new RegExp('(^|[^\\p{L}\\p{N}])' + w + '($|[^\\p{L}\\p{N}])', 'u').test(hay));
-  return (Array.isArray(mutations) ? mutations : []).filter((m) => !(m && m.type === 'presence.leave' && !named(m.name)));
+  /* M414: named by the one answer (engine/names.js nameOnPage) — a title or "the" is not the name, "Ed" is */
+  return (Array.isArray(mutations) ? mutations : []).filter((m) => !(m && m.type === 'presence.leave' && !nameOnPage(text, m.name)));
 }
 
 export async function extractTurn(args = {}) {

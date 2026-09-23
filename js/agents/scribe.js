@@ -21,7 +21,7 @@
 
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { seatForPerson } from '../engine/people.js'; /* M398 */
-import { isHere, foldName } from '../engine/names.js'; /* M398/M412 */
+import { isHere, nameOnPage } from '../engine/names.js'; /* M398/M412; M414: named by the one answer */
 import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
 import { loadState, saveState, notify } from '../engine/state.js';
 import { renderPeopleTiers, peopleView, mcKey, findPersonKey } from '../engine/people.js';
@@ -304,8 +304,8 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
    * (M401, in code); the scribe's mirror law was only in words. A now the scribe writes for someone here whom neither
    * this page nor his message mentions is theirs to lose to nothing the page said — it is the world agent's, and the
    * scribe's is let go here (the same shape of fault as M411's tidy: a later writer undoing the simulation). */
-  const pageWords = foldName(String(userText || '') + '\n' + String(assistantText || ''));
-  const shownOnPage = (name) => foldName(name).split(' ').filter((w) => w.length >= 3).some((w) => new RegExp('(^|[^\\p{L}\\p{N}])' + w + '($|[^\\p{L}\\p{N}])', 'u').test(pageWords));
+  const pageWords = String(userText || '') + '\n' + String(assistantText || '');
+  const shownOnPage = (name) => nameOnPage(pageWords, name); /* M414: the one answer — never a title or "the" */
   const kept = deltas.filter((d) => !(d && d.field === 'state' && !isHere(fresh, d.name) && seatForPerson(fresh, d.name)))
     .filter((d) => !(d && d.field === 'state' && isHere(fresh, d.name) && !shownOnPage(d.name) && !(findPersonKey(fresh.characters || {}, d.name) && shownOnPage(findPersonKey(fresh.characters || {}, d.name)))));
   const { state: next, applied, rejected } = applyMutations(fresh, kept.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));

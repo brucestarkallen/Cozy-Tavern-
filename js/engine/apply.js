@@ -45,7 +45,7 @@ import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
 import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson } from './people.js';
-import { samePersonName, isHere, foldName } from './names.js'; /* M396: one answer to "the same person?" */
+import { samePersonName, isHere, foldName, oneMeaning } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
@@ -149,7 +149,7 @@ function normalizeName(name) {
  * scene and a known person to her page, and the new guard below could be
  * walked straight past by writing her first name. One question, asked the
  * same way everywhere. */
-export function findPresent(state, name) {
+export function findPresent(state, name, { strict = false } = {}) {
   const wanted = String(name || '').trim().toLowerCase();
   if (!wanted) return -1;
   const exact = state.present.findIndex((p) => p && typeof p.name === 'string'
@@ -166,6 +166,11 @@ export function findPresent(state, name) {
   const sameName = (other) => samePersonName(other, wanted);
   const hits = state.present.filter((p) => p && typeof p.name === 'string' && sameName(p.name));
   if (hits.length !== 1) return -1;
+  /* M414: STRICT — "IS SOMEONE WHO COMES IN ALREADY HERE?" A name that could mean two people the ledger knows ("Kuchiki"
+   * with Rukia in the scene and Byakuya on his page) is not "already here": taken as Rukia, Byakuya walking in was
+   * swallowed as "already written in" and could never be put right (the auditor asks the same question). Leaving and
+   * moving stay with the scene's own people (only someone here can leave). */
+  if (strict && !oneMeaning(state, name)) return -1;
   return state.present.indexOf(hits[0]);
 }
 
@@ -390,7 +395,7 @@ const HANDLERS = {
   'presence.enter'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    if (findPresent(state, name) !== -1) {
+    if (findPresent(state, name, { strict: true }) !== -1) { /* M414 */
       /* M259: someone already here who "comes in" at a new spot has MOVED —
        * the position or dress the page gave is written, not thrown away
        * with a refusal. With nothing new it is already so, not a refusal. */
@@ -701,7 +706,7 @@ const HANDLERS = {
      * one ("Rias" is seated as "Rias Gremory"); a seat they already hold under another form of their name is
      * taken over, never left beside the new one. */
     const pageKey = findPersonKey(state.characters || {}, name);
-    if (findPresent(state, name) !== -1 || (pageKey && findPresent(state, pageKey) !== -1) || isHere(state, name) || (pageKey && isHere(state, pageKey))) {
+    if (findPresent(state, name, { strict: true }) !== -1 || (pageKey && findPresent(state, pageKey, { strict: true }) !== -1) || isHere(state, name) || (pageKey && isHere(state, pageKey))) { /* M414: strict */
       return { why: (pageKey || name) + ' is in the scene — they cannot be written elsewhere' };
     }
     /* M396: ELSEWHERE IS NEVER WHERE THE SCENE IS. The world agent seated Rose "in the Tenth Division courtyard, the

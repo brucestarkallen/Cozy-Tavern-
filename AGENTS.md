@@ -9938,3 +9938,53 @@ shape: it forbade exactly the auditor's real work (stale presence) and allowed w
   LONG PLAY 8/8. NEGATIVE-TESTED: the auditor taking out anyone (M403-1 fails), never taking out the long-silent
   (LONG-8 fails). The long play now runs with every change (HANDOFF).
 - version.js -> m413-001.
+
+# M414 — the one matcher, audited: an owner is not the person, two titles of one kind are two people, one "named on the page"
+A fresh session's audit of M396–M413, read line by line and run.
+- "JOVAN'S MOTHER" WAS JOVAN: foldName turns an apostrophe into a space, and the first-name rule then read "jovan s mother"
+  as the main character. While he stood in the scene she could never walk in ("already written in"), the batch law
+  (M396) let her elsewhere note go after every page, and a leave meant for her under another word ("Jovan's mom") took
+  HIM out. engine/names.js compares names with nameFold: an apostrophe inside a word is part of it ("jovans mother",
+  "obrien") — for NAMES only; text is still searched with foldName.
+- TWO TITLES OF ONE KIND ARE TWO PEOPLE: M404 threw the title away, so "Captain Kuchiki" (Byakuya) and "Lieutenant
+  Kuchiki" (Rukia) were one person, and so were Mr. and Mrs. Sterling (M272 had ruled them two). There were three title
+  lists (names.js, people.js TITLE_RE, people.js TITLE_WORD) and none knew the others' words. names.js now holds the one
+  list, each title with its kind (civil — Mr/Mrs/Ms/Miss/Dr/Prof —, noble, royal, rank, kin, order, role): two titles of
+  the SAME kind that share nothing are two people; different kinds can be one person ("Lady Rukia" is "Lieutenant Rukia
+  Kuchiki"). people.js titlesDiffer keeps M272's own refusals and adds these.
+- "ALREADY HERE" SWALLOWED A NEWCOMER: findPresent took "Kuchiki" (or "Captain Kuchiki") walking in as Rukia, already in the
+  scene, even with Byakuya on his own page — "already written in", silently, and the auditor asks the same question, so
+  it could never heal. findPresent(state, name, { strict: true }) (presence.enter, offscreen.set's "is in the scene",
+  the auditor's scope) refuses a name that could mean two people the ledger knows (names.js oneMeaning). Leaving and
+  moving stay with the scene's own people (only someone here can leave).
+- A COURTESY AFTER A NAME IS ONE ONLY WHEN IT IS JOINED: M404 stripped a trailing "chan"/"kun"/"san" standing on its own —
+  Jackie Chan became "Jackie" and "Chan" named nobody. Only the Japanese joining counts now ("Kyōraku-san",
+  "Hitsugaya-taichō", "Kuchiki-fukutaichō" — the last two carry their rank).
+- THE PAGE FINDER NEVER ASKED THE ONE MATCHER: "Captain Hitsugaya" never found Toshiro Hitsugaya's page, nor "Kuchiki Rukia"
+  Rukia Kuchiki's — so a present person's page was "missing" and a second one got written. findPersonKey's last step asks
+  samePersonName (exactly one page; M272's "Mrs. Sterling is not a bare Sterling" kept).
+- "NAMED ON THE PAGE" HAD FOUR COPIES (world.js quietInScene, extractor.js leavesTheyWereShown, scribe.js M412, auditor.js
+  M413) — any word of three letters or more. A title or "the" counted: "Lieutenant Rukia Kuchiki" was on every page that
+  mentioned any lieutenant (never quiet, never simulated), "The bartender" on every page; and "Ed" or "Al" on none (no
+  word long enough — never allowed to leave, never the scribe's). One answer now: names.js nameOnPage — the whole name,
+  or any word of it that names someone; never a title, a joined courtesy, a joining word, or the owner in "Jovan's
+  mother"; a two-letter name counts. A word two people share (a family name) still counts for both.
+- THE AUDITOR'S "SHOWN GOING" READ A SIDE AS A GOING: M413's word list passed "Rukia stood to his left", "her left hand"
+  and "Don't leave" (someone SAYING it). auditor.js showsDeparture: words in quotation marks are set aside; "left" is a
+  going only when it is not a side, not passive ("was left") and not a thing left in a state ("left the door open");
+  "leave" only when nothing says it did not or has not happened yet ("didn't leave", "wanted to leave").
+- M405'S CHAIN JOB SAVED WITHOUT M290'S LAST CHECK: every other reader's save checks stale() and that its page still stands
+  the moment before it writes; this one checked only at its start. It does both now. (Proven by reading: the window is
+  two local reads — no test reaches it without an injected delay.)
+- tests/holdsone.py HAD FAILED SINCE M347: it read "the first database in the list" twice, and since M347 the browser also
+  holds cozytavern.sent.v1, which lists first — the probe read a database with no settings table and died ("Execution
+  context was destroyed" — no navigation happened; checked over CDP). It names cozytavern.v1 now. 17/17.
+- M237's presence line read the handler's SOURCE TEXT; it runs the door now (someone already here, walking in again under
+  the same name or a shorter one, is refused as already so, and the scene holds them once).
+- TESTS: m414.mjs (4: the owner is not the person; two titles of one kind; named on the page, through the world agent's
+  quiet ones and the page reader's leaves; the auditor's narrated going on 13 sentences and the real auditor).
+  NEGATIVE-TESTED, one mutation at a time: the apostrophe fold, the title conflict, strict findPresent, the old any-word
+  rule, the old leave/left words — each fails its test. Harness 814/814, walk 111/111, long play 8/8, lint 0 errors;
+  holdsone 17, twobrowsers 26, twohands 10, foldcrash 12, append 24, backup 8, guard 13, wipe 11, recover 3, relay 11,
+  branchrefresh 12, cutthinking 26, housekeeper_rounds, perf_housekeeper, perf_rooms, paint_magma, contrast, coat, paint.
+- version.js -> m414-001.

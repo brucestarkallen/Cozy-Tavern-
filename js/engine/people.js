@@ -30,7 +30,7 @@
  */
 
 import { isMcAlias, mcName } from './duels.js';
-import { foldName, canonAliasOf } from './names.js'; /* M398: one person, one page */
+import { foldName, canonAliasOf, samePersonName, titlesConflict, isTitleWord } from './names.js'; /* M398: one person, one page; M414: one list of titles */
 import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
 import { seatNowWords, findSeat, setSeatResolver } from './offscreen.js'; /* M300: a seat says its age; M304: one wording for every reader; M320: a seat is found the way a page is */
@@ -140,7 +140,9 @@ export function nameTitle(name) {
 function titlesDiffer(a, b) {
   const x = nameTitle(a);
   const y = nameTitle(b);
-  return Boolean(x && y && x !== y);
+  /* M414: and the ledger's one reading of titles (engine/names.js) — two ranks that differ are two people too
+   * ("Captain Kuchiki" is not "Lieutenant Kuchiki"); M272's own pairs stay refused exactly as before */
+  return Boolean(x && y && x !== y) || titlesConflict(a, b);
 }
 
 export function findPersonKey(characters, name) {
@@ -216,6 +218,13 @@ export function findPersonKey(characters, name) {
     });
     if (byWhole.length === 1) return byWhole[0];
   }
+  /* M414: THE ONE MATCHER, LAST. "Captain Hitsugaya" never found Toshiro Hitsugaya's page (the matcher set the rank
+   * aside since M404; this finder did not), and "Kuchiki Rukia" never found Rukia Kuchiki's — so a present person's page
+   * was "missing" and a second one was written. Any form the one matcher calls the same person, when exactly one page
+   * answers — never two titles that disagree. */
+  /* M272 stands: a name with a courtesy title ("Mrs. Sterling") is never whoever was written down as the bare surname */
+  const bySame = keys.filter((k) => samePersonName(k, name) && !titlesDiffer(k, wanted) && !(nameTitle(wanted) && keyLower(k).split(' ').length === 1));
+  if (bySame.length === 1) return bySame[0];
   return '';
 }
 
@@ -497,9 +506,13 @@ const TITLE_WORD = /^(mr|mrs|ms|miss|mx|dr|prof|professor|sir|lady|lord|aunt|aun
 export function spokenNames(name) {
   const whole = String(name || '').trim();
   if (!whole) return [];
-  const words = whole.split(/\s+/);
+  let words = whole.split(/\s+/);
   const out = [whole];
-  if (words.length > 1 && !TITLE_WORD.test(words[0]) && words[0].replace(/[^\p{L}]/gu, '').length >= 3) out.push(words[0]);
+  /* M414: the name a person is spoken by is the first word AFTER any title ("Lieutenant Rukia Kuchiki" is "Rukia") —
+   * the ledger's one list of titles (engine/names.js), which TITLE_WORD's own list never matched */
+  while (words.length > 1 && (TITLE_WORD.test(words[0]) || isTitleWord(words[0]))) words = words.slice(1);
+  if (words.length > 1 && words[0].replace(/[^\p{L}]/gu, '').length >= 3 && words.join(' ') !== whole) out.push(words.join(' '));
+  if (words.length > 1 && words[0].replace(/[^\p{L}]/gu, '').length >= 3) out.push(words[0]);
   return out;
 }
 const wordRe = (n) => new RegExp('(^|[^\\p{L}\\p{N}_])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^\\p{L}\\p{N}_]|$)', 'iu');

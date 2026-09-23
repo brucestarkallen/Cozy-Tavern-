@@ -1909,7 +1909,18 @@ test('M237: no cap in the house severs a word, and no list has an unguarded door
   assert(/const at = next\[key\]\.threads\.findIndex\(\(t\) => sameLooseEnd\(String\(t\), text\)\);/.test(people), 'threads: and the one-at-a-time path');
 
   const apply = read('js/engine/apply.js');
-  assert(/if \(findPresent\(state, name\) !== -1\) \{/.test(apply), 'present: someone already in the room is refused');
+  /* M414: this line read the handler's source text (so a guard that changed its spelling failed it, and a guard that
+   * kept the words and lost the check passed it) — it runs the door now: someone already in the room, walking in again
+   * under the same name or a shorter form of it, is refused as already so, and the scene still holds them once */
+  {
+    const { applyMutations } = await import('../../js/engine/apply.js');
+    const { emptyState } = await import('../../js/engine/state.js');
+    const inRoom = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'presence.enter', name: 'Liara Vance' }]).state;
+    const again = applyMutations(inRoom, [{ type: 'presence.enter', name: 'Liara Vance' }, { type: 'presence.enter', name: 'Liara' }]);
+    assert(again.applied.length === 0 && again.rejected.length === 2 && again.rejected.every((r) => r.same === true),
+      'present: someone already in the room is refused — ' + JSON.stringify(again.rejected.map((r) => r.why)));
+    assert(again.state.present.length === 1 && again.state.present[0].name === 'Liara Vance', 'present: and the scene holds them once');
+  }
   assert(/const wanted = new Set\(list\.map/.test(apply), 'mood: a closed set of known flags, so no flag can be written twice');
   /* M386: the lock also carries where a truth came from ({ key, value, source }) — still locked BY KEY (M386-1 relocks the
    * series' own hair and finds one fact under "hair", corrected) */

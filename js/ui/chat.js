@@ -2789,6 +2789,9 @@ export function initChat(ctx) {
       const cleared = who.length ? applyMutations(joined.state, who.map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true }))) : { state: joined.state, applied: [] };
       const groundMoved = cleared.state.place && fresh.place && cleared.state.place.name !== (await loadState(story.id)).place?.name;
       if (!joined.applied.length && !cleared.applied.length && !groundMoved) return { silent: true };
+      /* M414: M290's law, which this job alone skipped — a page a rewind (Try again, read again) let go while these
+       * reads were out writes nothing: checked the moment before the save, like every other reader's save */
+      if (stale() || !(await stillThere(story.id, msg.id))) return { silent: true };
       await saveState(story.id, cleared.state);
       notify(story.id);
       return { silent: false, detail: [joined.applied.length ? 'joined ' + joins.map((j) => j.from + ' into ' + j.to).join(', ') : '', cleared.applied.length ? 'let go of a “now” that named a place the scene has left: ' + who.join(', ') : ''].filter(Boolean).join(' · ') };
