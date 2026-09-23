@@ -40,4 +40,11 @@ test('M433-2 THE HOUSEKEEPER\u2019S CARD ON AN IMPORTED ENTRY LANDS: numbered en
   const after = await loadLore(sid);
   eq(after.find((e) => e.id === 1).content, 'Lieutenant of the 6th; Rukia\u2019s oldest friend.', 'entry 1 changed');
   eq(after.find((e) => e.id === 0).content, 'Oda\u2019s lieutenant.', 'and entry 0');
+  /* named by its number, as SillyTavern numbers it */
+  const byNumber = stageProposals(parseProtocol('<lore>[{"entry":"2","content":"Captain of the 6th; Rukia\u2019s brother."}]</lore>'),
+    { messages: [], state: emptyState(), modules: [], lore: after, memory: { nodes: [] }, session: { turns: [] }, story: { id: sid, title: 't' } });
+  eq(byNumber[0].status, 'pending', 'an entry named by its number is found: ' + byNumber[0].words);
+  const s2 = { id: 2, turns: [{ role: 'housekeeper', text: 'x', proposals: byNumber, ts: 2 }] };
+  assert((await applyProposal(s2, sid, byNumber[0].id)).ok, 'and the card lands');
+  eq((await loadLore(sid)).find((e) => e.id === 2).content, 'Captain of the 6th; Rukia\u2019s brother.', 'on entry 2');
 });

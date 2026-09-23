@@ -10348,3 +10348,19 @@ both (the fuller); chara otherwise.
 - TESTS: M436-1 (real PNG bytes: V2 alone, V3 alone, both, a damaged chunk). NEGATIVE-TESTED. The card picture reader had
   no test at all before.
 - Harness 839/839, walk 115/115, long play 8/8. version.js -> m436-001.
+
+# M437 — a SillyTavern chat comes over whole; an imported lorebook entry is found by its number
+The two concerns the last reply left recorded, fixed (his rule: a recorded concern with a fix available is fixed).
+- import/chats.js + store.js appendAll: only the SHOWN words of each SillyTavern page came over. A reply's other versions
+  (its swipes) come now as the page's own (◂ ▸ walk them), the shown one shown — its words the page's even when he had
+  edited them in ST after the swipe — and the thinking ST kept for it (extra.reasoning) rides the page. ST's own date
+  spelling ("June 1, 2024 3:04pm") is read (it failed to parse, and the pages took the hour of the import).
+- housekeeper.js findEntry: an imported lorebook entry named by its NUMBER ("entry": "2") is found (the id was compared
+  by === with the model's text).
+- Also checked (rule 11): everything the housekeeper's instructions say it sees reaches its context — the brief, the cast
+  notes, the pages, the ledger (people's pages, hurts, knowledge, threads, elsewhere, canon locks, the clock), the record,
+  the lore shelf, the rulebook's names.
+- TESTS: M437-1 (swipes, the shown one, his edit kept, the kept thinking, a one-version page plain, ST's dates, the file's
+  order — through the real import and store), M433-2 grows an entry named by its number. NEGATIVE-TESTED both.
+  Harness 840/840, walk 115/115, long play 8/8.
+- version.js -> m437-001.

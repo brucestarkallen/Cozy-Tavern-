@@ -89,15 +89,29 @@ export function parseSTChat(jsonlText) {
      * line with no date landed at "now", after every dated page. Every page
      * is stamped strictly after the one before it; a date only moves a page
      * forward, never back. */
-    const raw = typeof row.send_date === 'number' ? row.send_date : Date.parse(row.send_date);
+    let raw = typeof row.send_date === 'number' ? row.send_date : Date.parse(row.send_date);
+    /* M437: SillyTavern's own spelling of a date ("June 1, 2024 3:04pm") — read, not replaced by the hour of the import */
+    if (!Number.isFinite(raw) && typeof row.send_date === 'string') raw = Date.parse(row.send_date.replace(/(\d)\s*(am|pm)\b/i, '$1 $2'));
     let ts = Number.isFinite(raw) ? raw : (lastTs ? lastTs + 1 : Date.now());
     if (ts <= lastTs) ts = lastTs + 1;
     lastTs = ts;
-    messages.push({
-      role: row.is_user === true ? 'user' : 'assistant',
-      text: mes,
-      ts,
-    });
+    const page = { role: row.is_user === true ? 'user' : 'assistant', text: mes, ts };
+    /* M437: WHAT SILLYTAVERN KEPT OF A PAGE COMES WITH IT. Only the shown words came over; the other versions of a reply
+     * (its swipes) were left behind, and so was the thinking SillyTavern kept for the shown one. The versions come as
+     * the page's own (◂ ▸ walk them), the shown one shown — its words the page's words even when he had edited them in
+     * SillyTavern after the swipe was written — and the kept thinking rides the shown page. */
+    const alts = Array.isArray(row.swipes) ? row.swipes.filter((t) => typeof t === 'string') : [];
+    if (page.role === 'assistant' && alts.length > 1) {
+      const at = Number.isInteger(row.swipe_id) && row.swipe_id >= 0 && row.swipe_id < alts.length ? row.swipe_id : Math.max(0, alts.indexOf(mes));
+      page.swipes = alts.map((t, k) => ({ text: k === at ? mes : t, ts: ts + k }));
+      page.swipeIdx = at;
+    }
+    const kept = row.extra && typeof row.extra === 'object' && typeof row.extra.reasoning === 'string' ? row.extra.reasoning.trim() : '';
+    if (page.role === 'assistant' && kept) {
+      page.thinking = kept;
+      if (page.swipes) page.swipes[page.swipeIdx].thinking = kept;
+    }
+    messages.push(page);
   }
   if (!messages.length) {
     throw new Error('That export holds no pages — just a cover.');

@@ -1785,7 +1785,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   const findEntry = (ref) => {
     const w = String(ref || '').trim().toLowerCase();
     if (!w) return null;
-    return shelf.find((e) => e && ((typeof e.name === 'string' && e.name.trim().toLowerCase() === w) || e.id === ref))
+    return shelf.find((e) => e && ((typeof e.name === 'string' && e.name.trim().toLowerCase() === w) || String(e.id) === String(ref).trim())) /* M433: an imported entry's id is a number */
       || shelf.find((e) => e && Array.isArray(e.keys) && e.keys.some((k) => String(k).trim().toLowerCase() === w))
       || null;
   };

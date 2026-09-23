@@ -520,13 +520,27 @@ const messages = {
   async appendAll(storyId, msgs) {
     const list = (Array.isArray(msgs) ? msgs : []).filter((m) => m && typeof m === 'object');
     if (!storyId || !list.length) return [];
-    const rows = list.map((msg, i) => ({
-      id: msg.id || uid(),
-      storyId,
-      role: msg.role === 'assistant' ? 'assistant' : 'user',
-      text: typeof msg.text === 'string' ? msg.text : '',
-      ts: Number.isFinite(msg.ts) ? msg.ts : Date.now() + i,
-    }));
+    const rows = list.map((msg, i) => {
+      const row = {
+        id: msg.id || uid(),
+        storyId,
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        text: typeof msg.text === 'string' ? msg.text : '',
+        ts: Number.isFinite(msg.ts) ? msg.ts : Date.now() + i,
+      };
+      /* M437: a brought-over page keeps its other versions and its kept thinking (import/chats.js) */
+      if (Array.isArray(msg.swipes) && msg.swipes.length > 1) {
+        row.swipes = msg.swipes.filter((w) => w && typeof w.text === 'string').map((w) => {
+          const one = { text: w.text, ts: Number.isFinite(w.ts) ? w.ts : row.ts };
+          if (typeof w.thinking === 'string' && w.thinking) one.thinking = w.thinking;
+          return one;
+        });
+        if (row.swipes.length > 1) row.swipeIdx = Number.isInteger(msg.swipeIdx) ? Math.min(row.swipes.length - 1, Math.max(0, msg.swipeIdx)) : row.swipes.length - 1;
+        else delete row.swipes;
+      }
+      if (typeof msg.thinking === 'string' && msg.thinking) row.thinking = msg.thinking;
+      return row;
+    });
     const d = await openDB();
     await new Promise((resolve, reject) => {
       const t = d.transaction('messages', 'readwrite');
