@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m406-001)
+# Cozy Tavern — handoff for the next session (state at m407-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0d. THE QUIET ONES IN THE ROOM (M401): whoever is here, not the main character and not on the latest page or in his

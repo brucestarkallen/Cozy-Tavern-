@@ -8,7 +8,7 @@
 export const WORKER_ROWS = [
   ['founder', 'The founder — reads the brief, the cast, the cards and the lore, and writes the world into the ledger before the story begins'],
   ['extractor', 'The ledger reader — writes down what each page changed'],
-  ['world', 'The world beyond — keeps the absent alive, moves the world by the clock, briefs the storyteller'],
+  ['world', 'The world beyond — simulates everyone the page isn’t showing: the absent where they are, and the people in the scene the page didn’t mention; moves the world by the clock, briefs the storyteller'], /* M407: its row says the whole of what it does (M401) */
   ['scribe', 'The character scribe — keeps every soul true to itself'],
   ['keeper', 'The memory keeper — folds old pages into notes'],
   ['continuity', 'The second reader — quietly flags what drifts'],

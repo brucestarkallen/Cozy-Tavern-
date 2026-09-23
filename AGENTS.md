@@ -9829,3 +9829,11 @@ and why tell him to fix Rose by hand through the housekeeper instead of "read ag
 - TESTS: M406-1 (in m405.mjs: only Rose joins, onto his full page; the empty page gone, his description kept, his
   presence follows, taken back whole). Negative-tested. The fold fuzzers pass (the join is a journaled change).
 - version.js -> m406-001.
+
+# M407 — the world agent's row in The workers says everything it simulates
+He asked which worker simulates the people, to give it its own connection. It is the world agent — the absent (where
+they are, by the clock) and, since M401, the people in the scene the page does not mention (their "now"). Its row in
+Settings → The workers still read "keeps the absent alive": a control that does not say what it does is one he cannot
+find (his rule 13). The row now reads "The world beyond — simulates everyone the page isn't showing: the absent where
+they are, and the people in the scene the page didn't mention; moves the world by the clock, briefs the storyteller".
+Harness 803/803, walk 110/110. version.js -> m407-001.
