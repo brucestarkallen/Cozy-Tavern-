@@ -10104,3 +10104,18 @@ out: the Onmitsukido watches Oda (Sui-Feng knows)" — her own secret, as if she
 - TESTS: M420-1 (the finder; the notes through renderStateFacts — her fact shown as hers, never told she hasn't found out
   her own secret, what she truly hasn't learned still said). NEGATIVE-TESTED. Harness 824/824, walk 111/111, long play 8/8.
 - version.js -> m420-001.
+
+# M421 — a move inside one compound is a move: a now is judged by the ledger's one place matcher
+M405/M409 judged a present person's "now" stale when the ground it was written on (nowAt) differed from the scene's —
+but compared only the place's FIRST part. Since M410 the ground is the header's whole place, and a move from "10th
+Division HQ — training courtyard" to "10th Division HQ — captain's office" is a move by the ledger's own rule (placeKey:
+it lets every position go, M261) — while Kyōraku's "at the rail, watching the sand" was kept as current, because both
+places begin "10th Division HQ". The storyteller read a courtyard now in the captain's office: the M405 fault, inside
+one compound.
+- apply.js staleNows: a now with a recorded ground is stale when samePlace(nowAt, the page's ground) is false — the same
+  matcher a place.set moves by (case, a leading "the", punctuation). The words check for nows written before M409 (no
+  nowAt) keeps reading the first part of past grounds, as it must (it searches the now's own words). Whoever is here
+  with no now is written by the world agent the same page (M409), so nobody is left without one.
+- TESTS: M421-1 (the same place in any letters keeps the now; the move inside the HQ, which the ledger calls a move, lets
+  it go). NEGATIVE-TESTED: the first-part rule fails it. Harness 825/825, walk 111/111, long play 8/8.
+- version.js -> m421-001.

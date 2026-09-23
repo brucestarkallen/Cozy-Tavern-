@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m420-001)
+# Cozy Tavern — handoff for the next session (state at m421-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only

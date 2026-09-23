@@ -1243,8 +1243,11 @@ export function staleNows(state, { ground = '' } = {}) {
     const k = p && p.name ? findPersonKey(state.characters, p.name) : '';
     const entry = k ? state.characters[k] : null;
     if (!entry || isMc(state, k) || typeof entry.state !== 'string' || !entry.state.trim() || (entry.hand && entry.hand.state)) continue;
-    /* M409: written on another ground (recorded when written) — stale by fact */
-    if (entry.nowAt && spot(entry.nowAt) && spot(entry.nowAt) !== here) { out.push(k); continue; }
+    /* M409: written on another ground (recorded when written) — stale by fact. M421: judged by the ledger's own ONE place
+     * matcher (samePlace — the rule a place.set moves by), not by the place's first part: "10th Division HQ — training
+     * courtyard" to "10th Division HQ — captain's office" is a move (it lets every position go), so a now written in the
+     * courtyard ("at the rail, watching the sand") is of a place the scene has left, not of the HQ it is still in */
+    if (entry.nowAt && String(entry.nowAt).trim() && !samePlace(entry.nowAt, where)) { out.push(k); continue; }
     if (entry.nowAt) continue;
     const now = foldName(entry.state);
     if (past.some((g) => now.includes(g)) && !now.includes(here)) out.push(k);
