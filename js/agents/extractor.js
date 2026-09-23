@@ -36,7 +36,8 @@
 
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, samePlace, seatAtScene } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { headerMutations } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc } from '../engine/people.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
@@ -450,6 +451,23 @@ export async function extractTurn(args = {}) {
   const read = await extractTurnRead(args);
   if (read && Array.isArray(read.mutations)) {
     read.mutations = leavesTheyWereShown(read.mutations, String(args.userText || '') + '\n' + String(args.assistantText || ''));
+    /* M446: A LEAVING IS WHAT THE PAGE ENDS ON. Named on the page was enough (M402) — so a step out and back, a walk to
+     * the window, or a slip took Rukia out while she stood beside him. A leave stands only when the last sentence of the
+     * scene that names them as themself (with the sentences that go on about them) narrates them going
+     * (engine/apply.js goneAtTheEnd). */
+    /* When the page MOVES the ground, the scene can leave someone behind without a word of their own going ("Ms. June
+     * waved them off from the diner door" as they walked home, M304): there a leave stands unless the page's own room
+     * (its "here") says they came along. */
+    const was = args.state && args.state.place && typeof args.state.place.name === 'string' ? args.state.place.name : '';
+    const ground = (headerMutations(args.assistantText).find((m) => m && m.type === 'place.set') || read.mutations.find((m) => m && m.type === 'place.set') || {}).name || '';
+    /* a header that names less of the same place ("13th Division Barracks" in the captain's office) is no move */
+    const moved = Boolean(was && ground && !samePlace(ground, was) && !seatAtScene(was, ground));
+    const cameAlong = (n) => (Array.isArray(read.here) ? read.here : []).some((h) => samePersonName(h, n));
+    read.mutations = read.mutations.filter((m) => {
+      if (!(m && m.type === 'presence.leave' && args.state)) return true;
+      const n = String(m.name || '');
+      return moved ? !cameAlong(n) : goneAtTheEnd(args.state, args.assistantText, n);
+    });
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
     read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));
     read.mutations = [...read.mutations, ...hereFromBoard(args.state, read.here, args.assistantText, read.mutations)];

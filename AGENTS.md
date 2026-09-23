@@ -10553,3 +10553,31 @@ itself was right (it drops Appearance where the ledger holds the face, M387); th
   material (DOM-101 fails: the tidy never cleans her page — the state his story is in).
 Harness 855/855, walk 119/119, long play 8/8, lint 0 errors (no new warnings).
 - version.js -> m445-001.
+
+# M446 — a leaving is what the page ends on
+He: Byakuya never left the scene — Byakuya is here; Rukia is put "elsewhere" while her now is accurate.
+- So M444's first cause (another Kuchiki's leaving) was not his. The other door that puts a present person "elsewhere"
+  with a TRUE now: presence.leave writes "last seen at <the ground>" — the very office she stands in, which reads as an
+  accurate now. The page reader could take someone out whenever the page merely NAMED them (M402's whole test): a step
+  out for the rosters and back, a walk to the window, or a slip in its answer took her out and nothing wrote her back.
+  Reproduced through the real app (DOM-102 with the guard removed: Who's here = Byakuya, Jovan — Rukia gone).
+- THE LAW: engine/apply.js goneAtTheEnd(state, page, name) — the LAST sentence of the scene (before any window) that
+  names the person as themself (shownOnPage: never a family name another person shares), with the pronoun sentences
+  straight after it when neither names anyone else by name or by rank ("Rukia glanced at Kuchiki-taichō. He left." is
+  his), narrates them going (showsDeparture — moved from the auditor into the engine; auditor.js re-exports it). The
+  page reader's leave stands only then (extractor.js extractTurn), EXCEPT when the page moves the ground (its header, or
+  its own place.set; a header naming less of the same place is no move): there the scene leaves people behind with no
+  word of their own going (M304's Ms. June), and a leave stands unless the answer's "here" lists them.
+- THE AUDITOR: its permission to take someone out (M403/M413) read any sentence of the last two pages (a player page
+  among them) that named them and had a going in it — "Kuchiki-taichō left" gave it Rukia. Now the newest STORY page that
+  names them as themself decides, by goneAtTheEnd; the eight silent pages rule stands.
+- TESTS: m446.mjs (4): the reader of a going (out and back, across the room, bowed and left, another Kuchiki, pronoun
+  follow-on, spoken words, a "he" after another named by rank or by name); the page reader's leave through the real
+  extractor on four pages; the auditor's on two; a moved ground leaves Ms. June behind, keeps whoever the room lists.
+  Walk DOM-102: Rukia steps out and back, the page reader writes her leaving — she stays, no note, Byakuya stays, the
+  drawer says both are here. DOM-49 (M304's left-behind) held after the moved-ground rule (it failed without it).
+  NEGATIVE-TESTED (9): no guard; the auditor's old sentence rule; no pronoun follow-on; a greedy follow-on; the first
+  going kept over a later return; the move ignored; every page a move; a less specific header taken for a move; the
+  room's "came along" ignored — each failed its own test; DOM-102 failed without the guard with his exact symptom.
+Harness 859/859, walk 120/120, long play 8/8, lint 0 errors (one warning's line number moved: 385 → 386).
+- version.js -> m446-001.

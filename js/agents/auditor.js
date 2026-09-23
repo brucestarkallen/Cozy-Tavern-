@@ -23,12 +23,13 @@ import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } fr
 import { samePlace } from '../engine/apply.js'; /* M403 */
 import { seatForPerson } from '../engine/people.js'; /* M398 */
 import { isHere, nameOnPage } from '../engine/names.js'; /* M398/M413; M414: named by the one answer */
+import { shownOnPage } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, headerMutations } from '../engine/state.js';
-import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf } from '../engine/apply.js'; /* M444 */
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
 import { findSeat } from '../engine/offscreen.js';
 import { findThread } from '../engine/world.js';
 /* M240: it was told to catch a healed wound and never shown the wounds.
@@ -424,10 +425,20 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * named in the recent pages without going stays — they are in the scene. */
   {
     const visible = all.filter((m) => m && !m.hidden);
-    const lastTexts = visible.slice(-2).map((m) => pageText(m));
+    /* M446: the last two STORY pages — the player's page says what he attempts, never who went */
+    const lastTexts = visible.filter((m) => m.role === 'assistant' && !m.ooc).slice(-2).map((m) => pageText(m));
     const windowTexts = visible.slice(-8).map((m) => pageText(m));
     /* M414: named by the one answer (engine/names.js — never a title or "the"), and a going the NARRATION shows */
-    const showsGoing = (n) => lastTexts.some((t) => String(t).split(/(?<=[.!?])\s+/).some((sent) => nameOnPage(sent, n) && showsDeparture(sent)));
+    /* M446: the newest page that names them as themself decides, and its LAST such line: gone at its end (goneAtTheEnd) —
+     * never a going read off a family name another person shares ("Kuchiki-taichō left" is not Rukia), never one a later
+     * line takes back (she came back with the files) */
+    const showsGoing = (n) => {
+      for (let i = lastTexts.length - 1; i >= 0; i -= 1) {
+        if (!scenePartOf(lastTexts[i]).split(/\n+/).some((l) => shownOnPage(fresh, l, n))) continue;
+        return goneAtTheEnd(fresh, lastTexts[i], n);
+      }
+      return false;
+    };
     const longSilent = (n) => visible.length >= 8 && !windowTexts.some((t) => nameOnPage(t, n));
     const kept = [];
     for (const issue of read.issues) {
@@ -694,33 +705,8 @@ export const AUDITOR_TYPES = new Set([
 /* M279: "stands as the pages moved it", "not the ledger's to zero" — thirteen such lines at turn 77 */
 const ALL_IS_WELL = /\b(stands? as written|stands? as the (?:pages|story) (?:have |has )?(?:moved|left|put|set) (?:it|them|her|him)|not (?:the ledger'?s|mine|the auditor'?s) to (?:zero|move|change|touch)|left as written|as the story has it|(?:is|are) (?:live and )?(?:correct|correctly \w+|complete|consistent|accurate|fine)|none is wrongly|nothing (?:is )?(?:wrong|stale|missing)|match(?:es)? the (?:brief|pages)|no canon contradicts|no (?:change|fix) (?:is )?needed)\b/i;
 
-/* M414: DOES THIS SENTENCE SHOW SOMEONE GOING? M413's word list let a side pass for a going — "Rukia stood to his left",
- * "her left hand", "Don't leave" (someone SAYING it) — so an auditor's wrong "stepped out" found its permission in any
- * sentence with a direction in it. A going is narrated: words in quotation marks are what someone says, and are set
- * aside; "left" is a going only when it is not a side ("to his left", "on the left", "her left hand"); "leave" is one
- * only when nothing says it did not or has not happened yet ("didn't leave", "wanted to leave"). */
-const GOING = /\b(?:(?:walk|stride|strode|stalk|storm|hurr(?:y|ie)|head|march|stomp|limp|wander|trudge|dash|rush|run|ran|file|flash[- ]?step|shunpo)\w*\s+(?:out|off|away|home|outside)\b|slip\w*\s+(?:out|off|away)\b|step\w*\s+(?:out|outside)\b|(?:go|goes|going|went|gone)\s+(?:out|off|home|away)\b|depart(?:s|ed|ing)?\b|exit(?:s|ed|ing)?\b(?!\s+(?:wound|strategy|interview))|(?:is|was|were|are)\s+gone\b|vanish(?:es|ed|ing)?\b|disappear(?:s|ed|ing)?\b|took\s+(?:his|her|their)\s+leave\b)/i;
-const LEAVE_WORD = /\b(leave|leaves|leaving|left)\b/gi;
-const SIDE_BEFORE = /(?:\b(?:to|on|at|by|from|toward|towards|onto|into)\s+(?:the|his|her|their|my|your|its|our)\s+|\b(?:his|her|their|my|your|its|the)\s+(?:far\s+|own\s+)?)$/i;
-const SIDE_AFTER = /^\s+(?:hand|hands|side|arm|arms|leg|legs|foot|feet|eye|eyes|ear|ears|shoulder|shoulders|hip|wing|flank|cheek|temple|wrist|knee|elbow|palm|fist|breast|chest|brow|thigh|ankle|heel|finger|fingers|thumb|pocket|sleeve|corner|edge|turn|fork|lane|half|rear|wall|window|hook|jab|cross|field|column|over|unsaid|unspoken|untouched|unanswered|unfinished|alone|intact|behind)\b/i;
-/* "was left", "been left" — something left behind, nobody going */
-const LEFT_PASSIVE = /\b(?:was|were|is|are|been|being|be|get|gets|got)\s+$/i;
-/* "left the door open", "left the sword on the table" — a thing left in a state, nobody going */
-const LEFT_THING = /^\s+(?:the|his|her|their|a|an|it|them|him|my|your|its|our)\b[^.,;!?]{0,40}?\b(?:untouched|open|unopened|ajar|unlocked|unsaid|unspoken|unanswered|unfinished|uneaten|half[- ]eaten|alone|intact|lying|standing|hanging|cold|running|burning|on\s+the\s+(?:table|floor|desk|counter|ground|bench|bed|chair|shelf|sand))\b/i;
-const NOT_YET = /(?:\b(?:not|never|to|would|could|should|might|must|will|can|cannot|shall|didn['’]?t|don['’]?t|doesn['’]?t|won['’]?t|can['’]?t|couldn['’]?t|wouldn['’]?t|shouldn['’]?t|refused\s+to|about\s+to|ready\s+to|wanted\s+to|wants\s+to|tried\s+to)\s+)$/i;
-export function showsDeparture(sentence) {
-  const said = String(sentence || '').replace(/"[^"]*"|“[^”]*”|«[^»]*»|「[^」]*」/g, ' ');
-  if (GOING.test(said)) return true;
-  for (const m of said.matchAll(LEAVE_WORD)) {
-    const before = said.slice(0, m.index);
-    const after = said.slice(m.index + m[0].length);
-    const w = m[0].toLowerCase();
-    if (w === 'left') { if (SIDE_BEFORE.test(before) || SIDE_AFTER.test(after) || LEFT_PASSIVE.test(before) || LEFT_THING.test(after)) continue; }
-    else if (NOT_YET.test(before)) continue;
-    return true;
-  }
-  return false;
-}
+/* M414's departure reader lives with the engine's other readers of a page now (engine/apply.js) — the page reader asks it too (M446) */
+export { showsDeparture };
 
 /* M268: "→ no change" and "the moment, not mine to report" were still reported */
 const NO_CHANGE_FIX = /^\s*(?:no change|none|nothing(?: to (?:do|change|fix))?|no action|leave it(?: as it is)?|as is|n\/a)\b/i;

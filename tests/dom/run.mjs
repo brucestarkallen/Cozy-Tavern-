@@ -5313,6 +5313,54 @@ test('DOM-101 ONE HOME FOR A CANON FACT, PLAYED THROUGH THE REAL APP: with canon
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-102 A LEAVING IS WHAT THE PAGE ENDS ON, PLAYED THROUGH THE REAL READERS: Rukia steps out for the rosters and comes back — the page reader writes her leaving — and she stays here, with no "last seen" note; Byakuya, who never left, stays; the drawer says so (M446)', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const ROOM = "13th Division Barracks — Captain's Office";
+  const st = await db.stories.create({ title: 'The rosters' });
+  await db.stories.update(st.id, { keeper: false });
+  const ledger = applyMutations({ ...emptyState(), page: -1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: ROOM },
+    ...['Jovan Oda', 'Rukia Kuchiki', 'Byakuya Kuchiki'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'His lieutenant.', threads: [] }, 'Byakuya Kuchiki': { core: 'Captain of the 6th.', threads: [] } };
+  await saveState(st.id, { ...ledger, readTo: -1, tidiedGen: 999, healedGen: 999 });
+  house.state.storyAnswer = "[13th Division Barracks — Captain's Office — Monday, June 1, 2026 | 10:00 | clear | captain's haori | at the desk]\n\n"
+    + 'Rukia stepped out to fetch the duty rosters.\n\nByakuya studied the map on the wall, silent.\n\nRukia came back with the files and set them on Oda’s desk.';
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'presence.leave', name: 'Rukia Kuchiki' }, { type: 'mode.snapshot', flags: [] }], here: ['Jovan Oda', 'Byakuya Kuchiki'] });
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
+    return walkDefaultWorker(body, sys);
+  };
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    type(q('#composer-input'), 'I wait for the rosters.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(async () => queuedCount(st.id) === 0 && !workIsRunning(st.id) && (await loadState(st.id)).worldBrief, 'the readers', 40000);
+    await settled();
+    const after = await loadState(st.id);
+    eq(after.present.map((p) => p.name).sort().join(', '), 'Byakuya Kuchiki, Jovan Oda, Rukia Kuchiki', 'Rukia and Byakuya are here');
+    eq(Object.keys(after.offscreen || {}).length, 0, 'nobody is "last seen" anywhere');
+    click(q('#btn-ledger'));
+    await until(() => !q('#drawer').hidden, 'the drawer');
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const room = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'The people');
+    await until(() => room && /Carried by/.test(room.textContent), 'the pages drawn', 10000);
+    const head = (who) => [...room.querySelectorAll('li.people-row > strong')].map((s) => s.textContent).find((t) => t.startsWith(who)) || '';
+    eq(head('Rukia Kuchiki'), 'Rukia Kuchiki — here', 'Rukia');
+    eq(head('Byakuya Kuchiki'), 'Byakuya Kuchiki — here', 'Byakuya');
+    click(q('#btn-ledger'));
+  } finally {
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+    house.state.storyAnswer = null;
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

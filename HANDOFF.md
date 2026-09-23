@@ -1,6 +1,12 @@
-# Cozy Tavern — handoff for the next session (state at m445-001)
+# Cozy Tavern — handoff for the next session (state at m446-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0k. A LEAVING IS WHAT THE PAGE ENDS ON (M446). The page reader's presence.leave stands only when the last sentence of the
+   scene naming the person as themself (and the pronoun sentences right after it, when neither names anyone else by name
+   or rank) narrates them going — engine/apply.js goneAtTheEnd, with showsDeparture (moved there from the auditor, which
+   re-exports it). When the page MOVES the ground (header or answer; a header naming less of the same place is no move),
+   the scene can leave someone behind: the leave stands unless the answer's "here" lists them. The auditor's permission
+   to take someone out reads the same: the newest STORY page naming them decides, by its last such sentence.
 0j. ONE HOME FOR A CANON FACT, KEPT (M445): with canon on, what the series says of a person rides in canon's note and their
    face in "What's true of them"; their page's core holds what THIS story made of them. agents/canontidy.js takes the
    series out of old cores — its law judges "the story's words" against the STORY'S OWN MATERIAL (brief, cast notes, the
@@ -109,9 +115,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 855 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 859 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 119 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 120 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

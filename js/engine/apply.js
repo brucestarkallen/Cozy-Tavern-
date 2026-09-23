@@ -1445,6 +1445,64 @@ export function narrationOf(text) {
   return String(text || '').replace(/"[^"\n]*"|“[^”]*”|«[^»]*»|「[^」]*」|『[^』]*』/g, ' ');
 }
 
+/* M414: DOES THIS SENTENCE SHOW SOMEONE GOING? M413's word list let a side pass for a going — "Rukia stood to his left",
+ * "her left hand", "Don't leave" (someone SAYING it) — so an auditor's wrong "stepped out" found its permission in any
+ * sentence with a direction in it. A going is narrated: words in quotation marks are what someone says, and are set
+ * aside; "left" is a going only when it is not a side ("to his left", "on the left", "her left hand"); "leave" is one
+ * only when nothing says it did not or has not happened yet ("didn't leave", "wanted to leave"). */
+const GOING = /\b(?:(?:walk|stride|strode|stalk|storm|hurr(?:y|ie)|head|march|stomp|limp|wander|trudge|dash|rush|run|ran|file|flash[- ]?step|shunpo)\w*\s+(?:out|off|away|home|outside)\b|slip\w*\s+(?:out|off|away)\b|step\w*\s+(?:out|outside)\b|(?:go|goes|going|went|gone)\s+(?:out|off|home|away)\b|depart(?:s|ed|ing)?\b|exit(?:s|ed|ing)?\b(?!\s+(?:wound|strategy|interview))|(?:is|was|were|are)\s+gone\b|vanish(?:es|ed|ing)?\b|disappear(?:s|ed|ing)?\b|took\s+(?:his|her|their)\s+leave\b)/i;
+const LEAVE_WORD = /\b(leave|leaves|leaving|left)\b/gi;
+const SIDE_BEFORE = /(?:\b(?:to|on|at|by|from|toward|towards|onto|into)\s+(?:the|his|her|their|my|your|its|our)\s+|\b(?:his|her|their|my|your|its|the)\s+(?:far\s+|own\s+)?)$/i;
+const SIDE_AFTER = /^\s+(?:hand|hands|side|arm|arms|leg|legs|foot|feet|eye|eyes|ear|ears|shoulder|shoulders|hip|wing|flank|cheek|temple|wrist|knee|elbow|palm|fist|breast|chest|brow|thigh|ankle|heel|finger|fingers|thumb|pocket|sleeve|corner|edge|turn|fork|lane|half|rear|wall|window|hook|jab|cross|field|column|over|unsaid|unspoken|untouched|unanswered|unfinished|alone|intact|behind)\b/i;
+/* "was left", "been left" — something left behind, nobody going */
+const LEFT_PASSIVE = /\b(?:was|were|is|are|been|being|be|get|gets|got)\s+$/i;
+/* "left the door open", "left the sword on the table" — a thing left in a state, nobody going */
+const LEFT_THING = /^\s+(?:the|his|her|their|a|an|it|them|him|my|your|its|our)\b[^.,;!?]{0,40}?\b(?:untouched|open|unopened|ajar|unlocked|unsaid|unspoken|unanswered|unfinished|uneaten|half[- ]eaten|alone|intact|lying|standing|hanging|cold|running|burning|on\s+the\s+(?:table|floor|desk|counter|ground|bench|bed|chair|shelf|sand))\b/i;
+const NOT_YET = /(?:\b(?:not|never|to|would|could|should|might|must|will|can|cannot|shall|didn['’]?t|don['’]?t|doesn['’]?t|won['’]?t|can['’]?t|couldn['’]?t|wouldn['’]?t|shouldn['’]?t|refused\s+to|about\s+to|ready\s+to|wanted\s+to|wants\s+to|tried\s+to)\s+)$/i;
+export function showsDeparture(sentence) {
+  const said = String(sentence || '').replace(/"[^"]*"|“[^”]*”|«[^»]*»|「[^」]*」/g, ' ');
+  if (GOING.test(said)) return true;
+  for (const m of said.matchAll(LEAVE_WORD)) {
+    const before = said.slice(0, m.index);
+    const after = said.slice(m.index + m[0].length);
+    const w = m[0].toLowerCase();
+    if (w === 'left') { if (SIDE_BEFORE.test(before) || SIDE_AFTER.test(after) || LEFT_PASSIVE.test(before) || LEFT_THING.test(after)) continue; }
+    else if (NOT_YET.test(before)) continue;
+    return true;
+  }
+  return false;
+}
+
+/* M446: IS THIS PERSON GONE AT THE END OF THE PAGE? His Rukia was put "elsewhere — last seen at" the very office she stood
+ * in, Byakuya never having left: the page reader may take someone out when the page merely NAMES them (M402), so a
+ * leave-and-come-back, a walk across the room or a slip took her out and kept her out. A page shows someone gone when
+ * the LAST sentence of its scene (before any window) that names them as themself — never by a family name another
+ * person shares (shownOnPage) — narrates them going (showsDeparture: spoken words set aside), with the sentences right
+ * after it that go on about them by a pronoun ("Rukia rose. She bowed once and left.") — only when neither names anyone
+ * else, by name or by rank ("Rukia glanced at Kuchiki-taichō. He left." is his going). A later sentence that names them
+ * without going means they are here; a page that never names them as themself does not show them going. */
+const RANKED = /\b(?:captain|lieutenant|commander|general|sergeant|officer|detective|mr|mrs|ms|miss|dr|lady|lord|sir|madam|master)\.?\s+\p{Lu}|\p{L}+-(?:taich|fukutaich|s[oō]taich|san\b|sama\b|kun\b|chan\b|dono\b|sensei\b|senpai\b)/iu;
+export function goneAtTheEnd(state, pageText, name) {
+  const s = state && typeof state === 'object' ? state : {};
+  const sentences = scenePartOf(pageText).split(/(?<=[.!?…])\s+|\n+/).map((x) => x.trim()).filter(Boolean);
+  const others = [...new Set([
+    ...Object.keys(s.characters && typeof s.characters === 'object' ? s.characters : {}),
+    ...(Array.isArray(s.present) ? s.present : []).map((p) => (p && typeof p.name === 'string' ? p.name : '')),
+    ...Object.keys(s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {}),
+    mcName(s) !== 'the player' ? mcName(s) : '',
+  ])].filter((n) => n && !samePersonName(n, name));
+  const someoneElse = (t) => RANKED.test(narrationOf(t)) || others.some((n) => shownOnPage(s, t, n));
+  for (let i = sentences.length - 1; i >= 0; i -= 1) {
+    if (!shownOnPage(s, sentences[i], name)) continue;
+    const run = [sentences[i]];
+    if (!someoneElse(sentences[i])) {
+      for (let j = i + 1; j < sentences.length && /^(?:she|he|they|her|his|their)\b/i.test(sentences[j]) && !someoneElse(sentences[j]); j += 1) run.push(sentences[j]);
+    }
+    return run.some((t) => showsDeparture(t));
+  }
+  return false;
+}
+
 /* M444: WHO WALKED IN FROM ANOTHER ROOM. Until M444 a seat anywhere in the scene's compound walked its person into the
  * scene (the first-part test above). A ledger written then holds people in "Here now" who never came in: here, not the
  * main character, the last word the journal holds about where they are is that seat, the seat by today's test is NOT
