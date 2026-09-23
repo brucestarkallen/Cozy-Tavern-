@@ -189,9 +189,21 @@ export function personBookKey(state, book, name, finder) {
   const same = Object.keys(map).filter((k) => samePersonName(k, name));
   return same.length === 1 && oneMeaning(state, name) ? same[0] : null;
 }
+/* M423: the page a NEW entry is written under is found the way a seat is (M257 — a hard fact): the same letters, or the
+ * one matcher when exactly one page answers and the name means one person — never a near spelling. M419 first used the
+ * page finder, whose near spelling is right for a misheard name on a page and wrong here: Mira's burned hand and her
+ * standing landed on Mara, the innkeeper. */
+function strictPageKey(state, name) {
+  const pages = Object.keys(state.characters && typeof state.characters === 'object' ? state.characters : {});
+  const wanted = String(name || '').trim().toLowerCase();
+  const exact = pages.find((k) => k.trim().toLowerCase() === wanted);
+  if (exact) return exact;
+  const same = pages.filter((k) => samePersonName(k, name));
+  return same.length === 1 && oneMeaning(state, name) ? same[0] : '';
+}
 function newBookKey(state, name) {
-  if (isMc(state, name) && mcName(state) !== 'the player') return findPersonKey(state.characters || {}, mcName(state)) || mcName(state);
-  return findPersonKey(state.characters || {}, name) || name;
+  if (isMc(state, name) && mcName(state) !== 'the player') return strictPageKey(state, mcName(state)) || mcName(state);
+  return strictPageKey(state, name) || name;
 }
 const relKeyOf = (map, name) => { const f = findRelationship(map, name); return f ? f.key : null; };
 function findPersonRel(state, name) {

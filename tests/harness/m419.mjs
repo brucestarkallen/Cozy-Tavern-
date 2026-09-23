@@ -46,3 +46,14 @@ test('M419-2 AN OLDER LEDGER\u2019S SPLIT BOOKS JOIN THE PAGE: "Rukia"\u2019s in
   eq(Object.keys(st.relationships).join(','), 'Rukia Kuchiki', 'one standing for her');
   eq(strayBookKeys(st).length, 0, 'healed — nothing left to join');
 });
+
+test('M423-1 A NEAR SPELLING IS ANOTHER PERSON IN EVERY BOOK: Mira\u2019s burned hand and her standing are Mira\u2019s — never Mara\u2019s, the innkeeper whose page is one letter away', () => {
+  const st = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'people.set', name: 'Mara', field: 'core', text: 'the innkeeper' },
+    { type: 'body.injure', name: 'Mira', what: 'a burned hand', sev: 1 }, { type: 'rel.shift', name: 'Mira', axis: 'p', delta: 5, cause: 'he helped her' },
+    { type: 'knowledge.add', name: 'Mira', fact: 'the cellar door sticks' }, { type: 'body.injure', name: 'Rukia', what: 'a cut', sev: 1 },
+    { type: 'people.set', name: 'Rukia Kuchiki', field: 'core', text: 'his lieutenant' }, { type: 'body.injure', name: 'Rukia', what: 'a bruise', sev: 1 }]).state;
+  assert(st.bodies.Mira && !((st.bodies.Mara || {}).injuries || []).length, 'her hurt is hers: ' + Object.keys(st.bodies).join(', '));
+  assert(st.relationships.Mira && !st.relationships.Mara, 'her standing is hers');
+  assert(st.knowledge.Mira && !st.knowledge.Mara, 'what she knows is hers');
+});
+

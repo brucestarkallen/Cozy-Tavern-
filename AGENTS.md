@@ -10130,3 +10130,15 @@ pending card was never seen.
 - TESTS: M422-1 (her body changing under a card about "Rukia" changes its slice; someone else's does not).
   NEGATIVE-TESTED. Harness 826/826, walk 111/111, long play 8/8.
 - version.js -> m422-001.
+
+# M423 — a near spelling is another person in every book (M419's new entries, corrected)
+Found reading M419 again against the fold fuzzers' names ("Mara" and "Mira"): M419 wrote a NEW injury, standing or piece
+of knowledge under "the name the person's page stands under" — found with findPersonKey, whose near spelling (one letter,
+for a short name) is right for a misheard name on a PAGE and wrong for a hard fact. Mira's burned hand and her standing
+landed on Mara, the innkeeper. M257 had ruled the same for seats ("seating is a hard fact"). The harness did not catch it:
+the fuzzers check that a fold equals the writes, not who the writes are about.
+- apply.js newBookKey: the page is found the way a seat is — the same letters, or the one matcher when exactly one page
+  answers and the name means one person; never a near spelling (strictPageKey). The main character's entry the same way.
+- TESTS: M423-1 (in m419.mjs: Mira's hurt, standing and knowledge are Mira's, never Mara's; "Rukia" still lands on Rukia
+  Kuchiki's page). NEGATIVE-TESTED: the page finder's near spelling fails it. Harness 827/827, walk 111/111, long play 8/8.
+- version.js -> m423-001.
