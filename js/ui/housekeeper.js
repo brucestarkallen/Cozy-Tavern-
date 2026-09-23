@@ -70,6 +70,7 @@ export function initHousekeeper(ctx) {
   let open = false;
   let busy = false;
   let applying = false;
+  let turnInFlight = false; /* M442: true only while housekeeperTurn runs — it saves the talk as it found it at its start */
   let reaskedMiss = false; /* M119: one re-ask per landing */
   /* M64: applying and undoing never wait on the model's lock */
   let workerCtl = null;
@@ -723,6 +724,9 @@ export function initHousekeeper(ctx) {
     for (const p of live) cardsList.append(renderCard(p));
   }
 
+  /* M442: a turn never starts while a change is landing — the turn saves the talk as it found it at its start, and a change
+   * still landing would be written over; it waits the moment the change takes (never refused) */
+  async function settleApplying() { while (applying) await new Promise((r) => setTimeout(r, 60)); }
   function setBusy(next, words) {
     /* M271: the housekeeper's button lights the house's own working lamp (the ledger's blue one) while it works */
     { const btn = document.getElementById('btn-housekeeper'); if (btn) btn.classList.toggle('is-working', Boolean(next)); }
@@ -756,6 +760,7 @@ export function initHousekeeper(ctx) {
   /* ---------- applying and undoing ---------- */
 
   async function applyOne(proposalId) {
+    if (turnInFlight) { toast('Wait for the housekeeper to finish — its answer is still coming.'); return; } /* M442: the answer in flight saves the talk as it found it; a change landed meanwhile would be written over */
     if (applying) { toast('One moment — a change is still landing.'); return; }
     applying = true;
     try {
@@ -792,6 +797,7 @@ export function initHousekeeper(ctx) {
   }
 
   async function applyAll() {
+    if (turnInFlight) { toast('Wait for the housekeeper to finish — its answer is still coming.'); return; } /* M442: the answer in flight saves the talk as it found it; a change landed meanwhile would be written over */
     if (applying) { toast('One moment — a change is still landing.'); return; }
     applying = true;
     try {
@@ -814,6 +820,7 @@ export function initHousekeeper(ctx) {
   }
 
   async function undo() {
+    if (turnInFlight) { toast('Wait for the housekeeper to finish — its answer is still coming.'); return; } /* M442: the answer in flight saves the talk as it found it; a change landed meanwhile would be written over */
     if (applying) { toast('One moment — a change is still landing.'); return; }
     applying = true;
     try {
@@ -868,6 +875,8 @@ export function initHousekeeper(ctx) {
     const connection = await resolveWorkerConnection(story);
     if (!connection) { toast('No connection yet — the housekeeper has no one to be.'); return; }
 
+    await settleApplying(); /* M442 */
+    if (busy) { toast('The housekeeper is still busy — press ⏹ Stop, or wait.'); return; } /* the wait let another ask start first */
     setBusy(true, 'The housekeeper is looking…');
     input.value = '';
     /* M270: the question stands in the thread the moment it is asked — it
@@ -974,6 +983,7 @@ export function initHousekeeper(ctx) {
       const [director, editor] = await Promise.all([loadDirector(story.id), loadEditor(story.id)]);
       const { renderDirectorNote } = await import('../agents/director.js');
       const { renderEditorNote } = await import('../agents/editor.js');
+      turnInFlight = true;
       const result = await housekeeperTurn({
         storyId: story.id,
         writerText: text,
@@ -1022,6 +1032,7 @@ export function initHousekeeper(ctx) {
           if (!drawQueued) { drawQueued = true; (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn) => setTimeout(fn, 16))(drawStream); }
         },
       });
+      turnInFlight = false; /* M442: saved — changes may land again (the auto-apply below, his Apply) */
       /* M269: the last pieces are drawn before the answer is read; a frame
        * that comes later draws nothing into a bubble that is gone */
       if (drawQueued || waitingThink || waitingProse) drawStream();
@@ -1062,6 +1073,9 @@ export function initHousekeeper(ctx) {
        * cards as they arrive", on by default) — the writer asked for nothing to
        * wait on his hand; every card keeps its Undo. Off, the cards wait as before. */
       if ((await db.settings.get('hkAutoApply')) !== false) {
+        /* M442: the landing on arrival is a change landing like his Apply — his click meanwhile waits its moment */
+        while (applying) await new Promise((r) => setTimeout(r, 60));
+        applying = true;
         try {
           const landed = await applyAllPending(session, story.id);
           if (landed.count) {
@@ -1077,7 +1091,7 @@ export function initHousekeeper(ctx) {
               setTimeout(() => send('[THE HOUSE] Your edit ' + names + ' landed on a loose anchor and the words it meant to change are still on the page (or the words it meant to write are not). Read that page again as it stands — fetch it whole — and either re-propose the edit with the exact find copied from the page, or say plainly that the page is already right and why.'), 50);
             } else if (!(Array.isArray(landed.missed) && landed.missed.length)) reaskedMiss = false;
           }
-        } catch (err) { /* a card that will not land stays a card, with its refusal shown */ }
+        } catch (err) { /* a card that will not land stays a card, with its refusal shown */ } finally { applying = false; }
       }
       /* M80: the thinking the writer watched is on the turn, whatever the wire
        * handed back afterwards — belt and braces, because "it was there while it
@@ -1107,6 +1121,7 @@ export function initHousekeeper(ctx) {
       /* render() draws the kept thinking from the turn; M301: a cut ask's thinking stays where it was */
       if (thinkFold && thinkFold.isConnected) { if (cutKept && cutHere()) thinkFold.replaceWith(cutFold(true)); else thinkFold.remove(); }
       workerCtl = null;
+      turnInFlight = false; /* M442 */
       setBusy(false);
     }
   }
@@ -1119,6 +1134,8 @@ export function initHousekeeper(ctx) {
     if (!story) { toast('Open a story first.'); return; }
     const connection = await resolveWorkerConnection(story);
     if (!connection) { toast('No connection yet.'); return; }
+    await settleApplying(); /* M442 */
+    if (busy) { toast('The housekeeper is still busy — press ⏹ Stop, or wait.'); return; } /* the wait let another ask start first */
     setBusy(true, mode === 'restart' ? 'Clearing the board…' : 'The director is sketching…');
     workerCtl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     try {
@@ -1147,6 +1164,8 @@ export function initHousekeeper(ctx) {
     if (!story) { toast('Open a story first.'); return; }
     const connection = await resolveWorkerConnection(story);
     if (!connection) { toast('No connection yet.'); return; }
+    await settleApplying(); /* M442 */
+    if (busy) { toast('The housekeeper is still busy — press ⏹ Stop, or wait.'); return; } /* the wait let another ask start first */
     setBusy(true, 'The editor is reading…');
     workerCtl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     try {
@@ -1315,6 +1334,8 @@ export function initHousekeeper(ctx) {
     if (which === 'off') { const r = await directorOff(story.id); thread.append(bubble('housekeeper', r.words)); refreshStatusLine(); return; }
     const connection = await resolveWorkerConnection(story);
     if (!connection) { toast('No connection yet.'); return; }
+    await settleApplying(); /* M442 */
+    if (busy) { toast('The housekeeper is still busy — press ⏹ Stop, or wait.'); return; } /* the wait let another ask start first */
     setBusy(true, which === 'status' ? 'Checking the episode…' : which === 'ideas' ? 'Sketching three doors…' : 'Re-aiming the episode…');
     workerCtl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     try {
@@ -1338,6 +1359,8 @@ export function initHousekeeper(ctx) {
     if (!auto) { const name = window.prompt('A title for this story:', story.title || ''); if (name && name.trim()) { await db.stories.update(story.id, { title: name.trim().slice(0, 80) }); if (ctx.chat && ctx.chat.refreshStories) await ctx.chat.refreshStories(); toast('Renamed.'); } return; }
     const connection = await resolveWorkerConnection(story);
     if (!connection) { toast('No connection yet.'); return; }
+    await settleApplying(); /* M442 */
+    if (busy) { toast('The housekeeper is still busy — press ⏹ Stop, or wait.'); return; } /* the wait let another ask start first */
     setBusy(true, 'Reading the tale for a name…');
     try {
       const pages = (await db.messages.list(story.id)).filter((m) => !m.hidden).slice(-8).map((m) => String(m.text || '').slice(0, 1500)).join('\n\n');

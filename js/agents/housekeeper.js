@@ -3353,7 +3353,7 @@ export async function housekeeperTurn({
     if (proposals.intraDups) withdrawNote += '\n\n(' + proposals.intraDups + (proposals.intraDups === 1 ? ' duplicate card' : ' duplicate cards') + ' within the answer merged.)';
     if (result.parsed.supersede.length) {
       const sup = applySupersede(session, result.parsed.supersede);
-      if (sup.unmatched.length) withdrawNote = '\n\n(No pending card answers to: ' + sup.unmatched.map((l) => '“' + l + '”').join(', ') + ' — nothing was withdrawn for those.)';
+      if (sup.unmatched.length) withdrawNote += '\n\n(No pending card answers to: ' + sup.unmatched.map((l) => '“' + l + '”').join(', ') + ' — nothing was withdrawn for those.)';
       else if (sup.count && (!proposals.length || sup.groups.length)) withdrawNote += '\n\n(Withdrew ' + sup.count + (sup.count === 1 ? ' card' : ' cards') + (sup.groups.length ? ' — all of ' + sup.groups.map((g) => '“' + g + '”').join(', ') : '') + '.)';
     }
 

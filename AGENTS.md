@@ -10417,3 +10417,26 @@ carry it now. Checked the other lists: the stories are last-active first, the le
 - TESTS: M441-1 (the one talked in last first, then the newest made, then the old). NEGATIVE-TESTED. Harness 846/846,
   walk 115/115, long play 8/8, housekeeper rounds green.
 - version.js -> m441-001.
+
+# M442 — a change never lands under a housekeeper answer still coming
+Read the housekeeper's screen and its turn: housekeeperTurn loads the talk (the session: cards, their states, the take-back
+record) when the ask starts and SAVES IT BACK when the answer lands. The screen let Apply, Apply all and Undo run while
+an answer was in flight (they checked only for another change landing) — so a take-back pressed meanwhile reverted the
+story, and the answer then wrote the talk back as it had found it: the change still recorded as standing, its take-back
+record lost, and a second Undo taking back what was already gone. The same held the other way: an ask begun while a
+change was still landing loaded the talk before the change was recorded.
+- ui/housekeeper.js: turnInFlight is true exactly while housekeeperTurn runs; Apply, Apply all and Undo say "Wait for the
+  housekeeper to finish — its answer is still coming" then (only then: the moments after, while the screen draws the
+  answer, his clicks work). Every ask (and the director's and the editor's) first waits for a change still landing, then
+  checks again that no other ask began meanwhile. The landing on arrival (cards as they arrive, M96) counts as a change
+  landing, so his own click meanwhile waits its moment instead of racing it.
+- A first cut guarded the whole busy spell and DOM-11c failed (his Apply on cards drawn a moment before the spell ended
+  was refused); narrowed to the answer in flight.
+- agents/housekeeper.js: an answer's notes about withdrawn cards no longer wipe its note about cards set aside (= → +=).
+- Also read, no change: the housekeeper's loop can go round again only on one-time nudges, fetch rounds capped at three,
+  and two thinking retries — it always ends; the director's status, ideas and steer are handed what their instructions
+  name (the directive, the brief, the ledger, the latest pages), and a thinking connection's small answer room is raised
+  to the thinking floor by the connection (M376).
+- TESTS: DOM-98 (Undo while an answer is coming waits; after it lands, Undo takes back exactly once). NEGATIVE-TESTED.
+  Harness 846/846, walk 116/116, long play 8/8, housekeeper rounds green.
+- version.js -> m442-001.

@@ -5037,6 +5037,47 @@ test('DOM-97 A CARD\u2019S GREETING OPENS HIS STORY WITH NAMES: invited into an 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-98 A CHANGE NEVER LANDS UNDER AN ANSWER STILL COMING: while the housekeeper is answering, Undo waits for it (the answer saves the talk as it found it, and would write the take-back over) — and afterwards takes back exactly once (M442)', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await db.stories.update(sid, { brief: 'Rias is his older sister.' });
+  const prior = house.state.workerAnswer;
+  let release; const held = new Promise((r) => { release = r; });
+  let asked = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (!/housekeeper of a cozy tavern/i.test(sys)) return prior(body, sys);
+    asked += 1;
+    if (asked === 1) return 'Done.\n<brief>[{"field":"brief","find":"older sister","replace":"younger sister","reason":"asked"}]</brief>';
+    return held.then(() => 'Nothing more to change.');
+  };
+  try {
+    if (q('#hk-sheet').hidden) { click(q('#btn-housekeeper')); await until(() => !q('#hk-sheet').hidden, 'the housekeeper'); }
+    await until(() => !q('#hk-send').disabled, 'the housekeeper free', 10000);
+    type(q('#hk-input'), 'make her the younger sister'); submit(q('#hk-form'));
+    const apply = await until(() => qa('#hk-cards button').find((b) => /^Apply$/i.test(b.textContent.trim())), 'the card', 10000).catch(() => null);
+    if (apply) click(apply);
+    await until(async () => /younger sister/.test((await db.stories.get(sid)).brief), 'the brief changed', 10000);
+    await until(() => !q('#hk-send').disabled, 'free again', 10000);
+    type(q('#hk-input'), 'anything else?'); submit(q('#hk-form'));
+    await until(() => q('#hk-send').disabled, 'the housekeeper answering', 10000);
+    click(q('#hk-undo')); await tick(600);
+    assert(/younger sister/.test((await db.stories.get(sid)).brief), 'while the answer is coming, Undo waits — the brief stands');
+    release();
+    await until(() => !q('#hk-send').disabled, 'the answer landed', 15000);
+    click(q('#hk-undo'));
+    await until(async () => /older sister/.test((await db.stories.get(sid)).brief), 'now Undo takes it back', 10000);
+    click(q('#hk-undo')); await tick(800);
+    assert(/older sister/.test((await db.stories.get(sid)).brief), 'and only once — nothing is taken back twice');
+  } finally {
+    release();
+    house.state.workerAnswer = prior;
+    await until(() => !q('#hk-send').disabled, 'free', 10000).catch(() => {});
+    if (!q('#hk-sheet').hidden) { const close = q('#hk-close') || q('#btn-housekeeper'); click(close); }
+    await tick(300);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-93 "READ AGAIN" PUTS THE GROUND WHERE THE PAGE SAYS AND LETS GO OF THE NOW OF A PLACE LEFT — Kyōraku’s assembly-hall now goes, Rukia’s courtyard now stays, the page is untouched, and no card says "the next page" (M409)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
