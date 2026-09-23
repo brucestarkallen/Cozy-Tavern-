@@ -1882,7 +1882,7 @@ export function cardTarget(p) {
     case 'brief': return 'story:' + (op.field || 'brief');
     case 'record': return op.nodeId ? 'record:' + op.nodeId : null;
     case 'redit': return op.moduleId ? 'mod:' + op.moduleId : null;
-    case 'lore': return op.add ? null : (op.entryId ? 'lore:' + op.entryId : null);
+    case 'lore': return op.add ? null : (op.entryId !== undefined && op.entryId !== null && op.entryId !== '' ? 'lore:' + op.entryId : null); /* M433: entry 0 is an entry */
     case 'ledit': return 'ledger';
     default: return null;
   }
@@ -2224,12 +2224,14 @@ async function stalenessCheck(storyId, p) {
     if (r.target.startsWith('exists:')) {
       const rest = r.target.slice(7);
       if (rest.startsWith('msg:') && !all.find((m) => m && m.id === rest.slice(4))) return gone('the page');
-      if (rest.startsWith('lore:') && !(await loadLore(storyId)).find((e) => e && e.id === rest.slice(5))) return gone('that lore entry');
+      /* M433: a lore entry's id is kept as it came — SillyTavern's are numbers (0, 1, 2…) — and a review target is text:
+       * compared as text, or every card on an imported lorebook's entry read "that lore entry is gone" and never landed */
+      if (rest.startsWith('lore:') && !(await loadLore(storyId)).find((e) => e && String(e.id) === rest.slice(5))) return gone('that lore entry');
       continue;
     }
     if (r.target.startsWith('lorefield:')) {
       const [, id, field] = r.target.split(':');
-      const entry = (await loadLore(storyId)).find((e) => e && e.id === id);
+      const entry = (await loadLore(storyId)).find((e) => e && String(e.id) === id); /* M433: as text */
       if (!entry) return gone('that lore entry');
       if (hashText(JSON.stringify(entry[field] === undefined ? null : entry[field])) !== r.hash) return 'not applied — the entry’s ' + field + ' was changed by something else since this was staged; Re-propose asks the housekeeper to look again';
       continue;

@@ -83,6 +83,14 @@ export function parseLorebook(jsonText) {
      * scan_depth says how far back the listening reaches. */
     if (row.constant === true) entry.constant = true;
     if (secondaryKeys.length) entry.secondaryKeys = secondaryKeys;
+    /* M434: what SillyTavern did with an entry, kept — its title (the comment he gave it), and how its secondary keys
+     * decide: only when the entry is "selective", and by its logic (0 AND ANY, 1 NOT ALL, 2 NOT ANY, 3 AND ALL). Read
+     * as AND ANY always, an entry he wrote to stay out when a word is present came in exactly then. */
+    const title = typeof row.comment === 'string' ? row.comment.trim() : (typeof row.name === 'string' ? row.name.trim() : '');
+    if (title) entry.name = title;
+    if (secondaryKeys.length && row.selective === false) entry.selective = false;
+    const logic = Number(row.selectiveLogic);
+    if (secondaryKeys.length && [1, 2, 3].includes(logic)) entry.secondaryLogic = logic;
     const depth = Number(row.scan_depth != null ? row.scan_depth : row.depth);
     if (Number.isFinite(depth) && depth > 0) entry.depth = Math.floor(depth);
     entries.push(entry);
@@ -112,7 +120,7 @@ export async function loadLore(storyId) {
  * throws on a missing id — that's a quiet no-op returning undefined. */
 
 export async function updateLoreEntry(storyId, entryId, patch) {
-  if (!storyId || !entryId) return undefined;
+  if (!storyId || entryId === undefined || entryId === null || entryId === '') return undefined; /* M433: an entry's id may be 0 — SillyTavern numbers its lorebook from 0 */
   const entries = await loadLore(storyId);
   const index = entries.findIndex((e) => e && e.id === entryId);
   if (index === -1) return undefined;
@@ -135,7 +143,7 @@ export async function updateLoreEntry(storyId, entryId, patch) {
 }
 
 export async function removeLoreEntry(storyId, entryId) {
-  if (!storyId || !entryId) return undefined;
+  if (!storyId || entryId === undefined || entryId === null || entryId === '') return undefined; /* M433: an entry's id may be 0 — SillyTavern numbers its lorebook from 0 */
   const entries = await loadLore(storyId);
   const next = entries.filter((e) => e && e.id !== entryId);
   if (next.length === entries.length) return undefined;
@@ -145,7 +153,7 @@ export async function removeLoreEntry(storyId, entryId) {
 
 /* dir = -1 (earlier on the shelf) or +1 (later). */
 export async function moveLoreEntry(storyId, entryId, dir) {
-  if (!storyId || !entryId) return undefined;
+  if (!storyId || entryId === undefined || entryId === null || entryId === '') return undefined; /* M433: an entry's id may be 0 — SillyTavern numbers its lorebook from 0 */
   const entries = await loadLore(storyId);
   const index = entries.findIndex((e) => e && e.id === entryId);
   if (index === -1) return undefined;
@@ -175,6 +183,17 @@ const KEY_RES_CAP = 4000;
 function keyRegex(key) {
   const held = KEY_RES.get(key);
   if (held) { held.lastIndex = 0; return held; }
+  /* M434: a key written as a regular expression ("/rukia|kuchiki/i"), as SillyTavern reads it; one that will not
+   * compile is read as its letters */
+  const asRe = /^\/(.+)\/([gimsuy]*)$/s.exec(key);
+  if (asRe) {
+    try {
+      const re = new RegExp(asRe[1], asRe[2].replace(/g/g, ''));
+      if (KEY_RES.size >= KEY_RES_CAP) KEY_RES.clear();
+      KEY_RES.set(key, re);
+      return re;
+    } catch (err) { /* its letters, below */ }
+  }
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const re = new RegExp('(?:^|[^\\p{L}\\p{N}])' + escaped + '(?=$|[^\\p{L}\\p{N}])', 'iu');
   if (KEY_RES.size >= KEY_RES_CAP) KEY_RES.clear();
@@ -230,13 +249,15 @@ export function matchLoreDetailed(entries, recent, budgetChars = 1200) {
       if (keyRegex(key).test(scanned)) heard.add(folded);
     }
     if (!heard.size) return;
-    if (secondaries.length) {
-      /* ST selective AND-mode: a secondary key must also be spoken. */
-      const secondaryHeard = secondaries.some((raw) => {
-        const key = String(raw == null ? '' : raw).trim();
-        return key && keyRegex(key).test(scanned);
-      });
-      if (!secondaryHeard) return;
+    if (secondaries.length && entry.selective !== false) {
+      /* ST selective: the secondary keys decide by the entry's own logic (M434) — AND ANY (a secondary key must also
+       * be spoken; the house's reading before), NOT ALL, NOT ANY, AND ALL */
+      const heardSecond = secondaries.map((raw) => String(raw == null ? '' : raw).trim()).filter(Boolean).map((key) => keyRegex(key).test(scanned));
+      const any = heardSecond.some(Boolean);
+      const all = heardSecond.length > 0 && heardSecond.every(Boolean);
+      const logic = Number(entry.secondaryLogic) || 0;
+      const passes = logic === 1 ? !all : logic === 2 ? !any : logic === 3 ? all : any;
+      if (!passes) return;
     }
     hits.push({
       content,
@@ -298,8 +319,8 @@ export function loreToWorldbook(entries, name) {
       content: typeof e.content === 'string' ? e.content : '',
       constant,
       vectorized: !constant,
-      selective: !constant && secondary.length > 0,
-      selectiveLogic: 0,
+      selective: !constant && secondary.length > 0 && e.selective !== false, /* M434: kept as it came */
+      selectiveLogic: [1, 2, 3].includes(Number(e.secondaryLogic)) ? Number(e.secondaryLogic) : 0,
       addMemo: true,
       order: 100 - i,
       position: constant ? 0 : 1,

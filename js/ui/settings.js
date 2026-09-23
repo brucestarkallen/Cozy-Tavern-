@@ -1706,6 +1706,12 @@ export function initSettings(ctx) {
     words.textContent = item.name;
     label.append(box, words);
     li.appendChild(label);
+    if (item.wasOff) { /* M432 */
+      const off = document.createElement('p');
+      off.className = 'quiet engine-why';
+      off.textContent = '— switched off in your preset, so it starts unticked';
+      li.appendChild(off);
+    }
     if (item.guessed) {
       const guess = document.createElement('p');
       guess.className = 'quiet engine-why';

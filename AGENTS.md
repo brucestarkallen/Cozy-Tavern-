@@ -10299,3 +10299,32 @@ and to A: a connection he deleted came back. Timing decided it (whether B's prob
   it fails its three checks every time; with M431 26/26 (run twice).
 - Harness 833/833, walk 114/114, long play 8/8; holdsone 17, twohands 10, branchrefresh 13, relay 11.
 - version.js -> m431-001.
+
+# M432 — a SillyTavern preset comes in as SillyTavern used it
+The importers, read line by line (his "audit everything"). js/import/sillytavern.js parsePreset read each block's
+switch from its FIRST mention across every prompt order in the file — and a preset carries two: 100000 (the old default,
+only ST's own blocks) and 100001 (the global order ST's Prompt Manager uses). So ST's own blocks (the Main Prompt, the
+jailbreak, NSFW…) were read as the stale order had them. And decompose never read the switch at all: every block he had
+switched OFF in ST came in ticked — his old craft blocks straight into the storyteller's standing words.
+- The global order (100001) is read when it is there, else the file's one order; a block in no order ST uses is not in
+  its prompt and comes in off. A block switched off starts UNTICKED in the preview, marked "switched off in your
+  preset" — shown, and his to tick; never brought in on.
+- TESTS: M432-1 (the stale order never decides; off, on and orphan blocks; one order; no order). NEGATIVE-TESTED.
+
+# M433 — an imported lorebook's first entry, and the housekeeper's cards on imported entries
+- SillyTavern numbers a lorebook's entries from 0. updateLoreEntry / moveLoreEntry / removeLoreEntry refused an id that
+  is falsy — entry 0 could never be edited, moved or removed from Settings.
+- The housekeeper's lore card is reviewed before it lands against targets written as TEXT ("exists:lore:3") and compared
+  with the entry's id by ===: an imported entry's id is a NUMBER, so every card on an imported lorebook read "that lore
+  entry has gone from the story" and never landed. Compared as text now; entry 0 is a card target too.
+- TESTS: M433-1 (entry 0 edited, moved, removed by hand), M433-2 (the housekeeper's cards on entries 0 and 1 land).
+  NEGATIVE-TESTED both.
+
+# M434 — a lorebook wakes as SillyTavern woke it
+- The entry's title (ST's comment) is kept (it was dropped: entries showed only their keys).
+- A key written as a regular expression ("/rukia|kuchiki/i") is read as one (it was read as its letters, and never woke).
+- Secondary keys decide by the entry's own logic — only when it is selective, and by selectiveLogic (AND ANY, NOT ALL,
+  NOT ANY, AND ALL); every entry was read as AND ANY, so one he wrote to stay out when a word is present came in exactly
+  then. Exported back to a worldbook the same way.
+- TESTS: M434-1 (each logic, a regex key, a not-selective entry, the title, the round trip). NEGATIVE-TESTED.
+- Harness 837/837, walk 114/114, long play 8/8. version.js -> m434-001.

@@ -137,6 +137,9 @@ import './m421.mjs';
 import './m422.mjs';
 import './m425.mjs';
 import './m427.mjs';
+import './m432.mjs';
+import './m433.mjs';
+import './m434.mjs';
 import './record-fuzz.mjs';
 import { runAll } from './lib.mjs';
 

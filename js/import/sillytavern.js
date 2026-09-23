@@ -59,14 +59,17 @@ export function parsePreset(jsonText) {
 
   /* In SillyTavern the on/off switches live apart from the prompts, in
    * prompt_order; we marry them back together by identifier. */
+  /* M432: THE ORDER SILLYTAVERN ACTUALLY USES. A preset carries one prompt order per character id — 100000 (the old
+   * default, only ST's own blocks) and 100001 (the global order the Prompt Manager uses). Taking each identifier's FIRST
+   * mention across all of them read ST's own blocks (the Main Prompt, the jailbreak, NSFW…) as the stale 100000 had them —
+   * so a block he had switched off could come in on. The global order is read when it is there, else the one order the
+   * file has; a block in no order at all is not in the prompt in ST, and comes in off. */
   const enabledByIdentifier = new Map();
-  const orderBlocks = Array.isArray(raw.prompt_order) ? raw.prompt_order : [];
-  for (const block of orderBlocks) {
-    const list = block && Array.isArray(block.order) ? block.order : [];
-    for (const row of list) {
-      if (row && row.identifier != null && !enabledByIdentifier.has(row.identifier)) {
-        enabledByIdentifier.set(String(row.identifier), row.enabled !== false);
-      }
+  const orderBlocks = (Array.isArray(raw.prompt_order) ? raw.prompt_order : []).filter((b) => b && Array.isArray(b.order) && b.order.length);
+  const activeOrder = orderBlocks.find((b) => Number(b.character_id) === 100001) || orderBlocks[orderBlocks.length - 1] || null;
+  for (const row of activeOrder ? activeOrder.order : []) {
+    if (row && row.identifier != null && !enabledByIdentifier.has(String(row.identifier))) {
+      enabledByIdentifier.set(String(row.identifier), row.enabled !== false);
     }
   }
   if (!enabledByIdentifier.size) {
@@ -84,7 +87,7 @@ export function parsePreset(jsonText) {
       name: name || identifier || 'An unnamed block',
       identifier,
       content: typeof row.content === 'string' ? row.content : '',
-      enabled: enabledByIdentifier.has(identifier) ? enabledByIdentifier.get(identifier) : true,
+      enabled: enabledByIdentifier.size ? (enabledByIdentifier.has(identifier) ? enabledByIdentifier.get(identifier) : false) : true, /* M432 */
       role: typeof row.role === 'string' ? row.role : null,
       pos: typeof row.injection_position === 'number' ? row.injection_position : null,
       depth: typeof row.injection_depth === 'number' ? row.injection_depth : null,
@@ -103,8 +106,9 @@ export function decompose(entries) {
     const name = displayName(entry.name);
     const text = String(entry.content || '').trim();
     switch (verdict.bucket) {
+      /* M432: a block switched off in his preset starts unticked — shown, and his to tick; never brought in on */
       case 'craft':
-        plan.craft.push({ name, text, include: true, guessed: Boolean(verdict.guessed) });
+        plan.craft.push({ name, text, include: entry.enabled !== false, wasOff: entry.enabled === false, guessed: Boolean(verdict.guessed) });
         break;
       case 'modules':
         plan.modules.push({
@@ -112,7 +116,8 @@ export function decompose(entries) {
           whenKey: verdict.whenKey || 'manual',
           pinned: false,
           why: verdict.why || 'you choose when this walks in',
-          include: true,
+          include: entry.enabled !== false,
+          wasOff: entry.enabled === false,
           guessed: Boolean(verdict.guessed),
         });
         break;
