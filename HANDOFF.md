@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m412-001)
+# Cozy Tavern — handoff for the next session (state at m413-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -17,8 +17,10 @@
    M402: SILENCE IS NOT LEAVING — the page reader's presence.leave for someone the page (or his message) never names
    is let go in code (extractor.js leavesTheyWereShown). Someone the world agent puts where the scene is WALKS INTO it
    (offscreen.set at the scene's ground, not arriving → presence.enter) — never "elsewhere" there.
-   M403: THE AUDITOR too — its presence.leave passes the same silence rule (the latest pages must name them), and it may
-   move the ground ONLY to what the latest page's header says (header silent = no move).
+   M403/M413: THE AUDITOR may take someone out only when the latest pages show them GOING (their name in a sentence that
+   says they leave) or they have been silent through the last eight pages of a story that has eight — never someone
+   named in the recent pages without going; and it may move the ground ONLY to what the latest page's header says.
+   RUN THE LONG PLAY (tests/dom/longplay.mjs) with the harness and the walk — M403's first rule broke LONG-8 unseen.
 0c. CANON VERIFICATION IS SWITCHED PER STORY (M399): canonOn(storyId) / setCanonOn — the row "canonOn:<id>", a tale's
    own (STORY_PREFIXES), off unless switched on for that story; Settings' switch is the OPEN story's and names it; a
    branch keeps it. The old single switch moved once (on where canon was really used) and is gone.

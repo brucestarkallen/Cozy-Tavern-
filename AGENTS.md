@@ -9924,3 +9924,17 @@ answered around it, so he had to explain again — and whether any fix made some
   (M128). The full harness (810, fold fuzzers included) and walk pass.
 - TESTS: M412-1 (in m405.mjs: his exact case — the scribe's old assembly-hall line for Kyōraku let go, his simulated
   line stands; Rukia, on the page, is the scribe's). Negative-tested. version.js -> m412-001.
+
+# M413 — the long play caught what M403 broke; the auditor's rule for taking someone out, corrected
+He was furious at "I can't promise" — his own standing rule says: never a generic disclaimer; say what was checked, what
+it proved, what was not covered. So the whole pipeline was run end to end, the long play included — and the long play
+(LONG-8, not run since M402) FAILED: M403 had made the auditor unable to take out anyone the latest pages did not NAME,
+so a person who came in eighty pages ago and was never seen again stayed "here" forever. M403's rule was the wrong
+shape: it forbade exactly the auditor's real work (stale presence) and allowed what it should forbid (anyone named).
+- NOW (auditor.js): the auditor may take someone out when the latest pages show them GOING (their name in a sentence
+  that says they leave), or when they have been silent through the last eight pages of a story that has eight. Anyone
+  named in the recent pages without going stays — they are in the scene (his duel's captains). The ground rule stands.
+- CHECKED: harness 810/810 (M403-1: his emptied room — the captains stay, Lisa shown walking out goes), walk 111/111,
+  LONG PLAY 8/8. NEGATIVE-TESTED: the auditor taking out anyone (M403-1 fails), never taking out the long-silent
+  (LONG-8 fails). The long play now runs with every change (HANDOFF).
+- version.js -> m413-001.

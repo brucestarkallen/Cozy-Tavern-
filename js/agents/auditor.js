@@ -20,10 +20,9 @@
  */
 
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
-import { leavesTheyWereShown } from './extractor.js'; /* M403: silence is not leaving */
 import { samePlace } from '../engine/apply.js'; /* M403 */
 import { seatForPerson } from '../engine/people.js'; /* M398 */
-import { isHere } from '../engine/names.js'; /* M398: one answer to "the same person?" */
+import { isHere, foldName } from '../engine/names.js'; /* M398/M413 */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -417,16 +416,26 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const latestStory = [...all].reverse().find((m) => m && m.role === 'assistant' && !m.ooc);
   const header = latestStory ? headerMutations(pageText(latestStory)) : [];
   read.issues = auditorScope(read.issues, fresh, { header }); /* M128: the moment never lands from an audit */
-  /* M403: SILENCE IS NOT LEAVING — for the auditor as for the page reader (M402): it took Byakuya, Renji, Iba and the
-   * rest out of the scene in one batch, none of them shown leaving. A leave for someone the latest page never names is
-   * let go here, in code. */
+  /* M403/M413: WHEN THE AUDITOR MAY TAKE SOMEONE OUT OF THE SCENE. It took Byakuya, Renji, Iba and the rest out in one
+   * batch while they stood at the duel (M403) — and M403's first answer (only someone the latest pages NAME may be taken
+   * out) stopped its real work too: someone who came in eighty pages ago and was never seen again (the long play's
+   * Person7) stayed "here" forever. Two cases, held in code: the latest pages SHOW them going (their name in a sentence
+   * that says they leave), or they have been silent through the last eight pages of a story that has eight. Anyone
+   * named in the recent pages without going stays — they are in the scene. */
   {
-    const latestText = [...all].reverse().filter((m) => m && !m.hidden).slice(0, 2).map((m) => pageText(m)).join('\n');
+    const visible = all.filter((m) => m && !m.hidden);
+    const lastTexts = visible.slice(-2).map((m) => pageText(m));
+    const windowTexts = visible.slice(-8).map((m) => pageText(m));
+    const DEPARTS = /\b(walk(s|ed)? (out|off|away)|leav(e|es|ing)|left|go(es)? (out|off|home|away)|went (out|off|home|away)|head(s|ed)? (out|off|home|away)|depart(s|ed)?|exit(s|ed)?|(is|was) gone|vanish(es|ed)?|disappear(s|ed)?|slip(s|ped)? (out|away)|storm(s|ed)? (out|off)|flash[- ]?step(s|ped)? away|shunpo(s|ed)? away)\b/i;
+    const words = (n) => foldName(n).split(' ').filter((w) => w.length >= 3);
+    const named = (text, n) => { const hay = foldName(text); return words(n).some((w) => new RegExp('(^|[^\\p{L}\\p{N}])' + w + '($|[^\\p{L}\\p{N}])', 'u').test(hay)); };
+    const showsGoing = (n) => lastTexts.some((t) => String(t).split(/(?<=[.!?])\s+/).some((sent) => named(sent, n) && DEPARTS.test(sent)));
+    const longSilent = (n) => visible.length >= 8 && !windowTexts.some((t) => named(t, n));
     const kept = [];
     for (const issue of read.issues) {
       if (!issue || !Array.isArray(issue.mutations) || !issue.mutations.length) { kept.push(issue); continue; }
-      const muts = leavesTheyWereShown(issue.mutations, latestText);
-      if (!muts.length && !(issue.pages && issue.fix)) continue; /* a finding that was only a silent leave is no finding */
+      const muts = issue.mutations.filter((m) => !(m && m.type === 'presence.leave' && !showsGoing(m.name) && !longSilent(m.name)));
+      if (!muts.length && !(issue.pages && issue.fix)) continue; /* a finding that was only a refused leave is no finding */
       kept.push({ ...issue, mutations: muts });
     }
     read.issues = kept;
