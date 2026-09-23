@@ -1126,7 +1126,7 @@ export async function loadSessionRoot(storyId) {
     let root;
     if (Array.isArray(saved.sessions)) {
       root = {
-        sessions: saved.sessions.filter((x) => x && typeof x === 'object').map((x, i) => ({ id: Number.isFinite(x.id) ? x.id : i + 1, name: typeof x.name === 'string' && x.name.trim() ? x.name : 'Session ' + (i + 1), turns: cleanTurns(x.turns) })),
+        sessions: saved.sessions.filter((x) => x && typeof x === 'object').map((x, i) => ({ id: Number.isFinite(x.id) ? x.id : i + 1, name: typeof x.name === 'string' && x.name.trim() ? x.name : 'Session ' + (i + 1), turns: cleanTurns(x.turns), ...(Number.isFinite(x.createdAt) ? { createdAt: x.createdAt } : {}) })), /* M441: when it was made rides with it */
         activeId: saved.activeId,
         batches: (Array.isArray(saved.batches) ? saved.batches : []).filter((b) => b && typeof b === 'object' && Array.isArray(b.items)),
       };
@@ -1143,7 +1143,7 @@ export async function loadSessionRoot(storyId) {
 export async function saveSessionRoot(storyId, root) {
   if (!storyId || !root) return;
   await db.settings.set(SESSION_PREFIX + storyId, {
-    sessions: root.sessions.map((x) => ({ id: x.id, name: x.name, turns: (x.turns || []).slice(-SESSION_TURNS_CAP) })),
+    sessions: root.sessions.map((x) => ({ id: x.id, name: x.name, turns: (x.turns || []).slice(-SESSION_TURNS_CAP), ...(Number.isFinite(x.createdAt) ? { createdAt: x.createdAt } : {}) })), /* M441 */
     activeId: root.activeId,
     batches: (root.batches || []).slice(-UNDO_CAP),
   });
@@ -1166,7 +1166,12 @@ export async function saveSession(storyId, session) {
 /* the session shelf: list, switch, new, branch (whole or at a turn), rename, delete, clear */
 export async function listSessions(storyId) {
   const root = await loadSessionRoot(storyId);
-  return { sessions: root.sessions.map((x) => ({ id: x.id, name: x.name, turns: x.turns.length })), activeId: root.activeId };
+  /* M441: THE SESSIONS BY WHEN THEY WERE LAST USED (his rule: activity lists sort by recency, not by internal order) —
+   * the newest talk first; a session never spoken in stands by when it was made, and one kept from before this stamp
+   * by its number */
+  const lastAt = (x) => Math.max(Number(x.createdAt) || 0, ...((x.turns || []).map((t) => Number(t && t.ts) || 0)), 0);
+  const sessions = root.sessions.slice().sort((a, b) => (lastAt(b) - lastAt(a)) || (b.id - a.id));
+  return { sessions: sessions.map((x) => ({ id: x.id, name: x.name, turns: x.turns.length })), activeId: root.activeId };
 }
 export async function switchSession(storyId, id) {
   const root = await loadSessionRoot(storyId);
@@ -1180,7 +1185,7 @@ export async function newSession(storyId, name) {
   const id = Math.max(0, ...root.sessions.map((x) => x.id)) + 1;
   const used = new Set(root.sessions.map((x) => { const m = /^Session (\d+)$/.exec(x.name); return m ? Number(m[1]) : 0; }));
   let n = 1; while (used.has(n)) n += 1;
-  root.sessions.push({ id, name: (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 40) : 'Session ' + n, turns: [] });
+  root.sessions.push({ id, name: (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 40) : 'Session ' + n, turns: [], createdAt: Date.now() });
   root.activeId = id;
   await saveSessionRoot(storyId, root);
   return loadSession(storyId);
@@ -1192,7 +1197,7 @@ export async function branchSession(storyId, atTurn) {
   const whole = !Number.isInteger(atTurn);
   const turns = JSON.parse(JSON.stringify(whole ? cur.turns : cur.turns.slice(0, atTurn + 1)));
   /* cards in a branch are the branch's own view of the same story: pending ones stay pending */
-  root.sessions.push({ id, name: (cur.name + (whole ? ' (branch)' : ' @' + (atTurn + 1))).slice(0, 40), turns });
+  root.sessions.push({ id, name: (cur.name + (whole ? ' (branch)' : ' @' + (atTurn + 1))).slice(0, 40), turns, createdAt: Date.now() });
   root.activeId = id;
   await saveSessionRoot(storyId, root);
   return loadSession(storyId);

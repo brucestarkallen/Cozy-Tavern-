@@ -10407,3 +10407,13 @@ never to fill a scene.
 - TESTS: M440-1 (what the storyteller is sent), M440-2 (his edited copy read with the correction, his own words intact).
   NEGATIVE-TESTED both. Harness 845/845, walk 115/115, long play 8/8.
 - version.js -> m440-001.
+
+# M441 — the housekeeper's sessions, newest-used first
+His rule 14: activity lists sort by recency, not by internal order. The housekeeper's session picker listed its
+sessions in the order they were made. listSessions now sorts by when each was last used (its latest turn; a session never
+spoken in, by when it was made; one kept from before the stamp, by its number). The made-at stamp is written with a new or
+branched session — and the shelf's load and save kept only id, name and turns, so the stamp was dropped both ways; both
+carry it now. Checked the other lists: the stories are last-active first, the ledger's "What changed" newest first.
+- TESTS: M441-1 (the one talked in last first, then the newest made, then the old). NEGATIVE-TESTED. Harness 846/846,
+  walk 115/115, long play 8/8, housekeeper rounds green.
+- version.js -> m441-001.
