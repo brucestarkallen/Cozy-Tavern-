@@ -10166,3 +10166,25 @@ each page's own checkpoint proves nothing — the first draft of this fuzzer did
   older fold fuzzers pass. Harness 828/828, walk 111/111, long play 8/8; branchrefresh 12, holdsone 17, foldcrash 12,
   twohands 10.
 - version.js -> m424-001.
+
+# M425 — the record speaks of exactly the pages it claims: a squeeze merges only neighbours
+A new stress test for the record keeper (tests/harness/record-fuzz.mjs): sixty random stories through additions,
+deletions (the record slides), edits and swipes (a hole the keeper reads again), take-backs from a point and squeezes,
+on the REAL keeper (maybeSummarize) with a scripted model that writes into every line exactly which pages it read — and
+after every step every line is held to the pages under its span, and no page may be covered twice.
+- FOUND: a squeeze merges a layer's two OLDEST lines into one spanning from the first's first page to the second's last.
+  When those two were not neighbours — lines of another layer between them (an edit let a squeezed line go and its pages
+  were read again as first-layer lines), or a hole — the merged line CLAIMED pages it was never written from: pages
+  covered twice (and every later edit of one of them let a huge line go), or a hole never read again (a covered page is
+  not due), the story-so-far quietly missing them. The random walk found it on its own (trial 24: a line over pages 6–23
+  that had read six of them).
+- memory.js maybeSummarize (promotion): the oldest pair in a layer whose pages MEET is squeezed — nothing between them
+  but empty marker lines (pages that held nothing), which the merged line takes in and which leave with its sources;
+  with no such pair the layer waits. Two neighbours squeeze exactly as before.
+- Checked and sound: a deletion's slide, an edit's hole, a take-back's cut, holes read first, and a keeper that cannot
+  read a hole runs no squeeze that turn.
+- TESTS: M425-1 (a hole the keeper cannot read this run stays a hole and stays due), M425-2 (another layer's lines between
+  the oldest two: the neighbours are squeezed, no page covered twice), M425-3 (an empty marker between two lines is taken
+  in), M425-4 (the fuzz: 60 stories × 30 steps). NEGATIVE-TESTED: the oldest-two rule fails M425-2 and the fuzz; keeping
+  the marker fails M425-3; a deletion that does not slide fails the fuzz. Harness 832/832, walk 111/111, long play 8/8.
+- version.js -> m425-001.

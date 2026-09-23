@@ -1397,8 +1397,25 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const layer = mem.nodes.filter((n) => n.level === level && !n.empty && !n.correction)
       .sort((a, b) => (a.span[0] - b.span[0]) || ((a.at || 0) - (b.at || 0)));
     if (squeeze.mode === 'lines' ? layer.length <= squeeze.lines : (layer.length <= NOTES_PER_PROMOTION || recordChars(mem) <= room)) continue;
-    const toMerge = layer.slice(0, NOTES_PER_PROMOTION);
+    /* M425: ONLY NEIGHBOURS ARE SQUEEZED. The merged line spans from the first line's first page to the last line's last
+     * page — so two lines with anything between them (a hole an edit left and the keeper has not read again, or lines
+     * of another layer that an edit's re-reading put there) made a line that CLAIMED pages it was never written from:
+     * a hole was never read again (a covered page is not due), and pages under another line were covered twice. The
+     * oldest pair whose pages meet — nothing between them but empty marker lines (pages that held nothing), which the
+     * merged line takes in — is squeezed; with none, this layer waits. */
+    const between = (a, b) => mem.nodes.filter((n) => n && Array.isArray(n.span) && !n.correction && n.span[0] > a.span[1] && n.span[1] < b.span[0]);
+    const meets = (a, b) => {
+      const gap = between(a, b);
+      if (gap.some((n) => !n.empty)) return false;
+      const filled = coveredSet(gap);
+      for (let pg = a.span[1] + 1; pg < b.span[0]; pg += 1) if (!filled.has(pg)) return false;
+      return true;
+    };
+    const at = layer.findIndex((n, i) => i + 1 < layer.length && meets(n, layer[i + 1]));
+    if (at === -1) continue;
+    const toMerge = layer.slice(at, at + NOTES_PER_PROMOTION);
     if (toMerge.length < 2) continue;
+    const absorbed = between(toMerge[0], toMerge[toMerge.length - 1]).map((n) => n.id); /* empty marker lines the merge takes in */
     const record = recordFor(mem, level + 1, keeperRecordCap(connection));
     if (typeof renew === 'function') renew();
     let raw = await callKeeper(connection, buildFoldMessages(toMerge, { playerName, record }), signal);
@@ -1426,7 +1443,8 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     if (!toMerge.every((node) => nodeUnmoved(now.nodes, node.id, nodeSignature(node)))) break;
     mem = now;
     mem.window = window;
-    /* COPY, don't cut: the sources leave only once the merged line stands */
+    /* COPY, don't cut: the sources leave only once the merged line stands (and the empty markers it took in, M425) */
+    for (const id of absorbed) ids.add(id);
     mem.nodes = mem.nodes.filter((node) => !ids.has(node.id));
     mem.nodes.push(merged);
     changed = true;
