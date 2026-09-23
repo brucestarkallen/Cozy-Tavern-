@@ -1984,10 +1984,13 @@ test('M239: knowledge and factions find a person under any of their names', asyn
   eq(findFactionKey({ 'the Wells family': {}, 'the Wells council': {} }, 'Wells'), null, 'a shared word matches neither');
   eq(findFactionKey(factions, 'the Thorne gang'), null, 'and an unrelated name matches nothing');
 
-  /* one rule, shared, so the three ledgers cannot drift apart again */
-  const src = readFileSync(new URL('../../js/engine/world.js', import.meta.url), 'utf8');
-  assert(/export function nearKey\(keys, name\)/.test(src), 'one matcher');
-  eq((src.match(/return nearKey\(Object\.keys\(safe\), name\);/g) || []).length, 2, 'used by both ledgers');
+  /* one rule, shared, so the ledgers cannot drift apart again — M420: this read the SOURCE for two copies of one
+   * return line (a knowledge finder that also asks the one matcher failed it while finding every name above); the two
+   * finders now answer the same questions the same way, run */
+  const both = { 'the Vanderbilt family': [], 'Vanessa Reynolds': [], 'Ravenwood town council': [] };
+  for (const q of ['Vanderbilt', 'Vanessa', 'Reynolds', 'Ravenwood council', 'the Thorne gang']) {
+    eq(findKnowledgeKey(both, q), findFactionKey(both, q), 'one rule in both ledgers: ' + q);
+  }
 });
 
 /* M240: the writer asked why the AUDITOR never caught the stale loose ends

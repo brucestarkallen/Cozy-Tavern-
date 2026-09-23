@@ -10090,3 +10090,17 @@ the main character, as the page reader often writes him — a body of its own be
   join). NEGATIVE-TESTED: the matcher step, both main-character redirects, the heal — each fails it. Harness 823/823,
   walk 111/111, long play 8/8.
 - version.js -> m419-001.
+
+# M420 — her own secret is hers: who-knows-what finds a person under any form of their name
+Asked of the storyteller's notes after M419: with "Suì-Fēng" in the scene (canon's spelling) and her knowledge written
+under "Sui-Feng" (the page's), findKnowledgeKey (first/last names, a name inside a longer one — nearKey) found nothing.
+So "Who knows what" left her facts out, and "What they haven't found out" told the storyteller "Suì-Fēng hasn't found
+out: the Onmitsukido watches Oda (Sui-Feng knows)" — her own secret, as if she and Sui-Feng were two people.
+- world.js findKnowledgeKey: nearKey first, then the one matcher (engine/names.js — folded letters, a rank, canon's other
+  name) when exactly one entry answers; a surname two people share finds nobody. engine/world.js now imports names.js
+  (which imports nothing — no cycle).
+- M239's last check read world.js's SOURCE for two copies of one return line; it now runs both finders on the same
+  questions and holds that they answer alike.
+- TESTS: M420-1 (the finder; the notes through renderStateFacts — her fact shown as hers, never told she hasn't found out
+  her own secret, what she truly hasn't learned still said). NEGATIVE-TESTED. Harness 824/824, walk 111/111, long play 8/8.
+- version.js -> m420-001.

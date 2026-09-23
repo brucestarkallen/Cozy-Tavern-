@@ -31,6 +31,8 @@
  * "arriving in about 15 minutes" / "due now" / "overdue" against the clock.
  */
 
+import { samePersonName } from './names.js'; /* M420: one answer to "the same person?" for who-knows-what */
+
 export const THREAD_HEAT = ['hot', 'cold'];
 export const STANCES = ['toward', 'seeking', 'tense', 'busy', 'waiting'];
 export const STANCE_WORDS = {
@@ -302,7 +304,14 @@ export function findKnowledgeKey(knowledge, name) {
   const wanted = keyOf(name);
   if (!wanted) return null;
   const safe = knowledge && typeof knowledge === 'object' ? knowledge : {};
-  return nearKey(Object.keys(safe), name);
+  const near = nearKey(Object.keys(safe), name);
+  if (near) return near;
+  /* M420: AND THE ONE MATCHER (engine/names.js). With "Suì-Fēng" in the scene and her knowledge under "Sui-Feng", her
+   * own facts were missing from Who knows what — and the notes told the storyteller she "hasn’t found out" her own
+   * secret ("Sui-Feng knows"), as if they were two people. Folded letters, a rank, canon's other name — when exactly
+   * one entry answers. */
+  const same = Object.keys(safe).filter((k) => samePersonName(k, name));
+  return same.length === 1 ? same[0] : null;
 }
 
 /* Add one fact to one person. The same fact twice (case-insensitive) is a
