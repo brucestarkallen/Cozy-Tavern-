@@ -10658,3 +10658,17 @@ The last page-mending door that stood on the ledger's own state (after M447's wh
   second reader. NEGATIVE-TESTED: the chain not passing the story (DOM-104 fails), the reader not sending it (M450-2).
 Harness 869/869, walk 122/122, long play 8/8, lint 0 errors (no new warnings).
 - version.js -> m450-001.
+
+# M451 — who is here is said once in what the storyteller reads
+Measured through the real app (a turn sent, every message read): the system's "Who's here" block said "Here right now:
+Jovan Oda, Rukia Kuchiki, Shunsui Kyōraku." and the notes that open the story said "Here now: …" — the same names twice
+on every page, against his "no redundancy, no context bloat".
+- THE ONE HOME: the notes (engine/state.js renderStateFacts "Here now:", shed 0 — never dropped for room) keep it, with
+  where each stands and what they wear. assemble/stack.js's slot 4 keeps the cast notes and the cards of whoever is here
+  (still filtered by who is present); its receipt says "cast notes, and the cards of X (here now)".
+- MEASURED: roles and order unchanged (system, the notes, the history); the names once; the system message 78,240 →
+  78,180 characters in his office scene.
+- TESTS: m451.mjs M451-1 on the real builder (the list once, with her position; never "Here right now"; a present card and
+  the cast notes still ride). NEGATIVE-TESTED: the old line back fails it.
+Harness 870/870, walk 122/122, long play 8/8, lint 0 errors (no new warnings).
+- version.js -> m451-001.

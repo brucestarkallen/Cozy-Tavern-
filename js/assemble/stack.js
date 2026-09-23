@@ -512,10 +512,10 @@ export function buildRequest({
    * 9,000 characters mid-word on any context; now the slot follows the room,
    * and a cut, if one must be made, falls at the end of a line. */
   const slot4Room = Math.max(SLOT4_BUDGET, Math.min(80000, roomChars(windowInfo)));
-  let whosHere = [
-    castNotes,
-    presentNames.length ? 'Here right now: ' + presentNames.join(', ') + '.' : '',
-  ].filter(Boolean).join('\n\n');
+  /* M451: WHO IS HERE IS SAID ONCE. This block said "Here right now: …" and the notes that open the story said "Here now:
+   * …" — the same names twice on every page (measured through the app). The notes keep it, with where each stands and
+   * what they wear; this block keeps the cast notes and the cards of whoever is here. */
+  let whosHere = [castNotes].filter(Boolean).join('\n\n');
   if (whosHere.length > slot4Room) whosHere = atLine(whosHere, slot4Room);
   for (const line of cardLines) {
     const candidate = whosHere ? whosHere + '\n' + line : line;
@@ -527,8 +527,8 @@ export function buildRequest({
     whosHere,
     whosHere
       ? (invitedNames.length
-        ? 'cast notes, who is present, and the cards of ' + invitedNames.join(', ')
-        : 'cast notes, and who is present')
+        ? 'cast notes, and the cards of ' + invitedNames.join(', ') + ' (here now)'
+        : 'cast notes')
       : ''
   );
 

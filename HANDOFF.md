@@ -1,6 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m450-001)
+# Cozy Tavern — handoff for the next session (state at m451-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0p. WHO IS HERE IS SAID ONCE (M451): the notes that open the story say it ("Here now:" with where each stands and what they
+   wear — shed 0, never dropped); the system's "Who's here" block holds the cast notes and the cards of whoever is here,
+   never the names again. Measured through the app: the names once, the request 60 characters shorter, roles unchanged.
 0o. WHO COULD KNOW THIS IS READ AGAINST THE STORY (M450): the second reader's untold-knowledge warn MENDS the page, and
    its blind spots come from the ledger's knowledge lines — one the page reader missed made a true telling look untold.
    It is handed the story so far now (memory.js storySoFar: the record and the unfolded pages before this one, whole
@@ -137,7 +140,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 869 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 870 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 122 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
