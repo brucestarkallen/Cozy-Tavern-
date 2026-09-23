@@ -3058,6 +3058,7 @@ function personBlock(name, c, p) {
 export async function runConversation({
   connection, story, messages, state, modules, lore, memory, directorText, editorText,
   session, writerText, contextPages, call, signal, onToken,
+  cardsWait = false, /* M415: the cards wait for his Apply (Settings → the housekeeper → "Apply its cards as they arrive" off) */
 } = {}) {
   try {
     const caller = typeof call === 'function'
@@ -3254,8 +3255,12 @@ export async function runConversation({
         }
       }
       /* M397: "DONE" SAID OF A CARD THAT IS ONLY PROPOSED. Nothing changes until the writer applies a card — an
-       * answer that carries cards and says it is done, fixed or updated tells him something false. Once. */
-      if (!nudgedClaim && hasAnyBlock(parsed) && claimsChange(parsed.text)) {
+       * answer that carries cards and says it is done, fixed or updated tells him something false. Once.
+       * M415: ONLY WHEN HIS CARDS WAIT FOR HIM. They land the moment the answer arrives (M96, on as it ships), so "done"
+       * of a card in THIS answer is true — its own brief allows it — and handing it back cost a second model call
+       * every time and turned a landed change into "once you apply it", an Apply that does not exist. A card that
+       * cannot land is handed back above ([CANNOT LAND]); that was the "done, done, done" of M397. */
+      if (cardsWait && !nudgedClaim && hasAnyBlock(parsed) && claimsChange(parsed.text)) {
         nudgedClaim = true;
         wire.push({ role: 'assistant', content: raw });
         wire.push({ role: 'user', content: '[NOT YET] Your answer says the change is done — nothing is done until the writer applies your cards. Re-send the same answer, the same blocks, with words that say what the cards WILL do once applied (never "done", "fixed", "updated", "I\'ve changed").' });
@@ -3290,7 +3295,7 @@ export async function housekeeperTurn({
     if (!storyId) return { ok: false, error: 'no story is open' };
     const story = await db.stories.get(storyId);
     if (!story) return { ok: false, error: 'that story has gone' };
-    const [messages, state, modules, session, pagesSetting, lore, mem] = await Promise.all([
+    const [messages, state, modules, session, pagesSetting, lore, mem, autoApply] = await Promise.all([
       db.messages.list(storyId),
       loadState(storyId),
       listModules(),
@@ -3298,6 +3303,7 @@ export async function housekeeperTurn({
       db.settings.get('hkContextPages'),
       loadLore(storyId),
       loadMemory(storyId),
+      db.settings.get('hkAutoApply'), /* M415: do his cards land on arrival (the default) or wait for Apply? */
     ]);
     const result = await runConversation({
       connection, story, messages, state, modules, lore, memory: mem,
@@ -3305,6 +3311,7 @@ export async function housekeeperTurn({
       session, writerText,
       contextPages: cleanContextPages(pagesSetting),
       call, signal, onToken,
+      cardsWait: autoApply === false,
     });
     if (!result.ok) return { ok: false, error: result.error || 'the housekeeper went quiet' };
 

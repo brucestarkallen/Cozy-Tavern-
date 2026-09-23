@@ -9988,3 +9988,18 @@ A fresh session's audit of M396–M413, read line by line and run.
   holdsone 17, twobrowsers 26, twohands 10, foldcrash 12, append 24, backup 8, guard 13, wipe 11, recover 3, relay 11,
   branchrefresh 12, cutthinking 26, housekeeper_rounds, perf_housekeeper, perf_rooms, paint_magma, contrast, coat, paint.
 - version.js -> m414-001.
+
+# M415 — "done" of a card that lands on arrival is true; the housekeeper is handed it back only when his cards wait
+M397 added a second hand-back: an answer that carried cards and said "done", "fixed" or "updated" was sent back once
+("[NOT YET] … nothing is done until the writer applies your cards … say what the cards WILL do once applied"). But his
+cards LAND ON ARRIVAL (M96, Settings → the housekeeper → "Apply its cards as they arrive", on as it ships): "done" of a
+card in THIS answer was true — the housekeeper's own brief allows it ("never … about a thing that is not in a block in
+THIS answer") — and every such answer cost a second model call (a wait) and came back saying "once you apply it", an
+Apply that did not exist. What he had reported in M397 ("done, done, done" of a change that could not be done) is the
+card that cannot land, handed back by [CANNOT LAND] — that stays.
+- runConversation({ cardsWait }) — the [NOT YET] hand-back fires only when his cards wait for Apply; housekeeperTurn
+  reads the setting (hkAutoApply === false) and passes it.
+- TESTS: M415-1 (the real housekeeperTurn, the setting read from the real store: cards landing on arrival — one model call,
+  no hand-back; cards waiting — the hand-back comes). M397-2 now runs with cardsWait (its premise: a card only
+  proposed). NEGATIVE-TESTED: the hand-back without the guard fails M415-1. Harness 815/815, walk 111/111, long play 8/8.
+- version.js -> m415-001.

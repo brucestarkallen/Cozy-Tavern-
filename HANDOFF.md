@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m414-001)
+# Cozy Tavern — handoff for the next session (state at m415-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -24,7 +24,8 @@
 0c. CANON VERIFICATION IS SWITCHED PER STORY (M399): canonOn(storyId) / setCanonOn — the row "canonOn:<id>", a tale's
    own (STORY_PREFIXES), off unless switched on for that story; Settings' switch is the OPEN story's and names it; a
    branch keeps it. The old single switch moved once (on where canon was really used) and is gone.
-0b. THE HOUSEKEEPER NEVER CLAIMS WHAT IT ONLY PROPOSED (M397). A ledger card the dry run says can never land is handed
+0b. THE HOUSEKEEPER NEVER CLAIMS WHAT IT ONLY PROPOSED (M397) — and M415: his cards LAND ON ARRIVAL by default (M96), so "done" of a
+   card in the same answer is true; the [NOT YET] hand-back runs only when his cards wait for Apply (runConversation cardsWait). A ledger card the dry run says can never land is handed
    back in the same run ([CANNOT LAND], the ledger's reasons) and, if still unlandable, staged REFUSED with why — never
    pending. An answer with cards that says "done/fixed/updated" is handed back once ([NOT YET]). A newer ledger card
    that decides the same facts (ledgerFactKeys) supersedes the older; an edit quoting the same passage longer or

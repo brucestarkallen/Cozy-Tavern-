@@ -31,7 +31,8 @@ test('M397-2 A CARD THAT CANNOT LAND IS HANDED BACK AT ONCE, AND "DONE" SAID OF 
     'Once you apply it, her page will say she is watching the duel from the galleries.\n<ledits>[{"type":"people.set","name":"Rukia Kuchiki","field":"state","text":"watching the duel from the galleries"}]</ledits>',
   ];
   const call = async ({ messages }) => { sent.push(messages[messages.length - 1].content); return { text: answers[Math.min(sent.length - 1, answers.length - 1)] }; };
-  const r = await runConversation({ story: { id: 's', title: 't', brief: '' }, messages: [], state: scene(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, writerText: 'Rukia is at the duel, fix where she is', contextPages: 8, call });
+  /* M415: the "done" hand-back is for cards that WAIT for his Apply (auto-apply off) — this run is that case */
+  const r = await runConversation({ story: { id: 's', title: 't', brief: '' }, messages: [], state: scene(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, writerText: 'Rukia is at the duel, fix where she is', contextPages: 8, call, cardsWait: true });
   assert(r.ok, r.error);
   eq(sent.length, 3, 'two hand-backs, then the answer');
   assert(/^\[CANNOT LAND\]/.test(sent[1]) && /is in the scene/.test(sent[1]), 'the first: the ledger’s own reason, at once: ' + sent[1].slice(0, 160));
