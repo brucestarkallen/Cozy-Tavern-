@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m418-001)
+# Cozy Tavern — handoff for the next session (state at m419-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -312,7 +312,8 @@ founding design lives in AGENTS.md's first entries.)
   (stack.js STATE_MARKER — never a literal, never a bracket tag), one closing message with the note
   last. A header sent to the storyteller is written as one person briefing another, and the craft's
   teaching of a block must match the words that block really opens with. A picker CHOOSES (settings.js).
-- ONE PERSON, ONE NAME, IN EVERY BOOK (M320): never look a person up in ANY ledger book by exact key — pages
+- ONE PERSON, ONE NAME, IN EVERY BOOK (M320; M419 — bodies, standings, knowledge and truths too, apply.js personBookKey /
+  newBookKey, and strayBookKeys heals an older split): never look a person up in ANY ledger book by exact key — pages
   by findPersonKey, seats by people.js seatForPerson (this person's seat and nobody else's). A seat is
   written under the name the person's page stands under. When two books describe one person and
   disagree, suspect the KEY before the content.

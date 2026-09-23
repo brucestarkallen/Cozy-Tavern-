@@ -130,6 +130,7 @@ import './m415.mjs';
 import './m416.mjs';
 import './m417.mjs';
 import './m418.mjs';
+import './m419.mjs';
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

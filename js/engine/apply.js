@@ -174,6 +174,31 @@ export function findPresent(state, name, { strict = false } = {}) {
   return state.present.indexOf(hits[0]);
 }
 
+/* M419: ONE PERSON, ONE NAME, IN EVERY BOOK — THE BODY LEDGER, THE STANDINGS AND WHO-KNOWS-WHAT TOO. M320's law ("never
+ * look a person up in ANY ledger book by exact key") reached the pages and the seats; injuries and standings still matched
+ * EXACT letters, and who-knows-what first and last names only — so "Rukia" hurt on one page and "Rukia Kuchiki" on the
+ * next were two bodies, and her standing two standings, each holding half its history. An entry is found by the book's
+ * own finder first, then by the one matcher (engine/names.js) when exactly one entry answers and the name means one
+ * person; a NEW entry is written under the name the person's page stands under. */
+function personBookKey(state, book, name, finder) {
+  const map = book && typeof book === 'object' ? book : {};
+  const found = typeof finder === 'function' ? finder(map, name) : null;
+  if (found) return found;
+  /* "you", "I", "the player" and his story name are one person: the main character's own entry */
+  if (isMc(state, name) && mcName(state) !== 'the player') return Object.keys(map).find((k) => isMc(state, k)) || null;
+  const same = Object.keys(map).filter((k) => samePersonName(k, name));
+  return same.length === 1 && oneMeaning(state, name) ? same[0] : null;
+}
+function newBookKey(state, name) {
+  if (isMc(state, name) && mcName(state) !== 'the player') return findPersonKey(state.characters || {}, mcName(state)) || mcName(state);
+  return findPersonKey(state.characters || {}, name) || name;
+}
+const relKeyOf = (map, name) => { const f = findRelationship(map, name); return f ? f.key : null; };
+function findPersonRel(state, name) {
+  const key = personBookKey(state, state.relationships, name, relKeyOf);
+  return key ? { key, rel: state.relationships[key] } : null;
+}
+
 function isInt(value) {
   return typeof value === 'number' && Number.isFinite(value) && Math.floor(value) === value;
 }
@@ -525,7 +550,7 @@ const HANDLERS = {
     if (!name) return { why: 'no name came with it' };
     const what = capText(m.what, 1000);
     if (!what) return { why: 'it didn’t say what the hurt was' };
-    const key = findBodyKey(state.bodies, name) || name;
+    const key = personBookKey(state, state.bodies, name, findBodyKey) || newBookKey(state, name); /* M419 */
     const before = state.bodies[key] ? cloneMap({ [key]: state.bodies[key] })[key] : null;
     state.bodies = addInjury(
       state.bodies, key,
@@ -543,7 +568,7 @@ const HANDLERS = {
     if (!name) return { why: 'no name came with it' };
     const what = capText(m.what, 1000);
     if (!what) return { why: 'it didn’t say what wore them down' };
-    const key = findBodyKey(state.bodies, name) || name;
+    const key = personBookKey(state, state.bodies, name, findBodyKey) || newBookKey(state, name); /* M419 */
     const before = state.bodies[key] ? cloneMap({ [key]: state.bodies[key] })[key] : null;
     state.bodies = addStrain(state.bodies, key, { what }, clockMinutesOf(state), storyTurn(state));
     return {
@@ -555,7 +580,7 @@ const HANDLERS = {
   'body.heal'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const key = findBodyKey(state.bodies, name);
+    const key = personBookKey(state, state.bodies, name, findBodyKey); /* M419 */
     const body = key ? state.bodies[key] : null;
     const injury = body ? findInjury(body, m.what) : null;
     if (injury) {
@@ -606,8 +631,8 @@ const HANDLERS = {
     if (!cause) {
       return { why: 'a shift between people needs its reason in words — what on the page earned it' };
     }
-    const found = findRelationship(state.relationships, name);
-    const key = found ? found.key : name;
+    const found = findPersonRel(state, name); /* M419 */
+    const key = found ? found.key : newBookKey(state, name);
     const before = found ? cloneMap({ [key]: found.rel })[key] : null;
     /* M261: A BEAT IS COUNTED ONCE. The page's reader now sees the pages before
      * it; a beat from one of them, sent again, would move a standing twice.
@@ -650,8 +675,8 @@ const HANDLERS = {
     if (!Object.keys(given).length) {
       return { why: 'it didn’t say where any axis stands' };
     }
-    const found = findRelationship(state.relationships, name);
-    const key = found ? found.key : name;
+    const found = findPersonRel(state, name); /* M419 */
+    const key = found ? found.key : newBookKey(state, name);
     const before = found ? cloneMap({ [key]: found.rel })[key] : null;
     /* M259: a standing already at every number given is no change */
     if (found && Object.entries(given).every(([axis, value]) => (Number(found.rel[axis]) || 0) === value)) return { why: key + ' already stands so', same: true };
@@ -679,7 +704,7 @@ const HANDLERS = {
   'rel.clear'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const found = findRelationship(state.relationships, name);
+    const found = findPersonRel(state, name); /* M419 */
     if (!found) return { why: 'no standing stands for ' + name };
     const before = cloneMap({ [found.key]: found.rel })[found.key];
     delete state.relationships[found.key];
@@ -791,7 +816,7 @@ const HANDLERS = {
     if (!key) return { why: 'it didn’t say what the truth is called — hair, eyes, a limp' };
     const value = capText(m.value, 1000);
     if (!value) return { why: 'it didn’t say what’s true of ' + name };
-    const canonKey = findCanonKey(state.canon, name) || name;
+    const canonKey = personBookKey(state, state.canon, name, findCanonKey) || newBookKey(state, name); /* M419: what's true of them, one person one entry */
     const before = state.canon[canonKey] ? cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey] : null;
     const held = before ? findFact(before, key) : null;
     /* M386: canon verification writes only where nothing of anyone else's is written — a truth the brief, the writer or a
@@ -815,7 +840,7 @@ const HANDLERS = {
   'canon.unlock'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const canonKey = findCanonKey(state.canon, name);
+    const canonKey = personBookKey(state, state.canon, name, findCanonKey); /* M419 */
     if (!canonKey) return { why: 'nothing is locked true of ' + name };
     const key = capText(m.key, 120);
     const held = findFact(state.canon[canonKey], key);
@@ -883,7 +908,7 @@ const HANDLERS = {
     const fact = capText(m.fact || m.text, 1000);
     if (!name) return { why: 'no name came with it' };
     if (!fact) return { why: 'it didn’t say which fact to let go' };
-    const key = findKnowledgeKey(state.knowledge, name);
+    const key = personBookKey(state, state.knowledge, name, findKnowledgeKey); /* M419 */
     const list = key && state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key] : [];
     if (!list.length) return { why: (key || name) + ' has nothing written down to let go' };
     const want = factKey(fact);
@@ -901,7 +926,7 @@ const HANDLERS = {
     const fact = capText(m.fact || m.text, 1000);
     if (!name) return { why: 'no name came with it' };
     if (!fact) return { why: 'it didn’t say what ' + name + ' learned' };
-    const key = findKnowledgeKey(state.knowledge, name) || name;
+    const key = personBookKey(state, state.knowledge, name, findKnowledgeKey) || newBookKey(state, name); /* M419 */
     const before = state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key].map((k) => ({ ...k })) : null;
     const next = addKnowledge(state.knowledge, key, fact, storyTurn(state));
     const after = next[key] || [];
@@ -1160,7 +1185,7 @@ const HANDLERS = {
     for (const h of hurt) {
       /* The body ledger knows story names, not aliases of the player. */
       if (!h.name || /^(the player|you|player)$/i.test(h.name)) continue;
-      const key = findBodyKey(state.bodies, h.name) || h.name;
+      const key = personBookKey(state, state.bodies, h.name, findBodyKey) || newBookKey(state, h.name); /* M419 */
       const what = capText('wounds taken in the fight with ' + (h.foe || 'their foe'), 1000);
       state.bodies = addInjury(state.bodies, key,
         { what, sev: h.injuries >= 2 ? 3 : 2, treated: false },
@@ -1255,6 +1280,38 @@ export function duplicatePages(state) {
     }
     out.push({ from, to: into });
     taken.add(from);
+  }
+  return out;
+}
+
+/* M419: A BOOK ENTRY UNDER ANOTHER FORM OF SOMEONE'S NAME, JOINED TO THEIR PAGE. Ledgers written before M419 hold
+ * injuries, standings and knowledge under a short or other form of a person's name ("Rukia" beside her page "Rukia
+ * Kuchiki"); an entry with no page of its own whose name the one matcher gives to exactly one page — the name meaning one
+ * person — is renamed onto that page (people.rename: every book follows, entries merged, nothing lost; journaled,
+ * undoable). "you" and the main character's labels join his own name. */
+export function strayBookKeys(state) {
+  const s = state && typeof state === 'object' ? state : {};
+  const pages = Object.keys(s.characters && typeof s.characters === 'object' ? s.characters : {});
+  const isPage = (k) => pages.some((p) => p.trim().toLowerCase() === String(k).trim().toLowerCase());
+  const out = [];
+  const seen = new Set();
+  for (const book of ['bodies', 'relationships', 'knowledge', 'canon']) {
+    for (const key of Object.keys(s[book] && typeof s[book] === 'object' ? s[book] : {})) {
+      const low = key.trim().toLowerCase();
+      if (!low || seen.has(low) || isPage(key)) continue;
+      seen.add(low);
+      let to = '';
+      if (isMc(s, key)) {
+        const mc = mcName(s);
+        if (mc === 'the player' || mc.trim().toLowerCase() === low) continue;
+        to = findPersonKey(s.characters || {}, mc) || mc;
+      } else {
+        const hits = pages.filter((p) => samePersonName(p, key));
+        if (hits.length !== 1 || !oneMeaning(s, key)) continue;
+        to = hits[0];
+      }
+      if (to && to.trim().toLowerCase() !== low) out.push({ from: key, to });
+    }
   }
   return out;
 }

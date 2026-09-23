@@ -52,7 +52,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
-import { applyMutations, storyTurn, staleNows, duplicatePages } from '../engine/apply.js'; /* M405/M406 */
+import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys } from '../engine/apply.js'; /* M405/M406; M419 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
@@ -2783,8 +2783,13 @@ export function initChat(ctx) {
       const headerGround = ((msg && msg.role === 'assistant' && !msg.ooc ? headerMutations(pageText(msg)) : []).find((m) => m && m.type === 'place.set') || {}).name || ''; /* this chain's own page */
       if (headerGround) { const moved = applyMutations(fresh, [{ type: 'place.set', name: headerGround }]); if (moved.applied.length) fresh = moved.state; }
       /* M406: one person, two pages — joined first, so the nows below are read on the one page */
-      const joins = duplicatePages(fresh);
-      const joined = joins.length ? applyMutations(fresh, joins.map((j) => ({ type: 'people.rename', from: j.from, to: j.to, cause: 'one person, one page' }))) : { state: fresh, applied: [] };
+      const pageJoins = duplicatePages(fresh);
+      const pagesJoined = pageJoins.length ? applyMutations(fresh, pageJoins.map((j) => ({ type: 'people.rename', from: j.from, to: j.to, cause: 'one person, one page' }))) : { state: fresh, applied: [] };
+      /* M419: and an injury, a standing or a thing known under another form of their name follows them to their page */
+      const strays = strayBookKeys(pagesJoined.state);
+      const straysJoined = strays.length ? applyMutations(pagesJoined.state, strays.map((j) => ({ type: 'people.rename', from: j.from, to: j.to, cause: 'one person, one name in every book' }))) : { state: pagesJoined.state, applied: [] };
+      const joins = [...pageJoins, ...strays];
+      const joined = { state: straysJoined.state, applied: [...pagesJoined.applied, ...straysJoined.applied] };
       const who = staleNows(joined.state, { ground: headerGround });
       const cleared = who.length ? applyMutations(joined.state, who.map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true }))) : { state: joined.state, applied: [] };
       const groundMoved = cleared.state.place && fresh.place && cleared.state.place.name !== (await loadState(story.id)).place?.name;

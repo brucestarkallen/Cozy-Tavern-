@@ -10068,3 +10068,25 @@ Hitsugaya" (seventeen letters each).
   two Kuchikis never; the name listed first or second, the same join). NEGATIVE-TESTED: the direction rule and the
   name-length rule each fail it. Harness 821/821, walk 111/111, long play 8/8.
 - version.js -> m418-001.
+
+# M419 — one person, one name in EVERY book: injuries, standings, who-knows-what and what's true of them
+M320's law ("never look a person up in ANY ledger book by exact key") reached the pages and the seats, and M396–M414 the
+presence. The body ledger, the standings and the locked truths still matched EXACT letters, and who-knows-what first and
+last names only: "Rukia" hurt on one page and "Rukia Kuchiki" on the next were two bodies (a heal of one left the other's
+wound open), her standing two standings each with half its history, "Suì-Fēng" and "Sui-Feng" two minds, and "you" —
+the main character, as the page reader often writes him — a body of its own beside his name.
+- apply.js personBookKey: a book entry is found by the book's own finder first (exact; knowledge's first/last-name rules),
+  then — "you", "I", "the player" and his story name — the main character's own entry, then the one matcher
+  (engine/names.js) when exactly one entry answers and the name means one person. A NEW entry is written under the name
+  the person's page stands under (newBookKey), the main character's under his. Used by body.injure / strain / heal (and a
+  fight's wounds), rel.shift / set / clear, knowledge.add / forget, canon.lock / unlock. The take-backs keep their exact
+  keys (they name the entry they wrote).
+- apply.js strayBookKeys + the readers' chain (after the page joins, M406): an older ledger's injury, standing, knowledge or
+  truth under another form of a name, with no page of its own, is renamed onto the one page the name means
+  (people.rename — every book follows, entries merged, journaled, undoable); "you" onto the main character. A bare
+  surname two people share joins nobody.
+- TESTS: m419.mjs (2: one body, one standing, one mind and one set of truths per person — the short name, folded letters,
+  "you" on his short-named entry, a bare "Kuchiki" nobody's; an older ledger's split books joined and nothing left to
+  join). NEGATIVE-TESTED: the matcher step, both main-character redirects, the heal — each fails it. Harness 823/823,
+  walk 111/111, long play 8/8.
+- version.js -> m419-001.
