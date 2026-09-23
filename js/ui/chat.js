@@ -1342,7 +1342,17 @@ export function initChat(ctx) {
     return true;
   }
 
+  /* M429: A PAGE HE IS RE-INKING IS NEVER REDRAWN AWAY. A whole-thread redraw that comes while his editor is open on a
+   * page (a housekeeper card landing with its re-inks, a live sync from his other browser, a shelf change) would have
+   * thrown the editor and his words away. It waits, and runs the moment the editor closes (his words kept or let go).
+   * Opening a story is his own move away from the page, and is never held. */
+  let threadRedrawOwed = null;
   async function renderThread({ structural = false, opening = false } = {}) {
+    if (!opening && els.thread.querySelector('textarea.edit-box')) {
+      threadRedrawOwed = { structural: Boolean(structural || (threadRedrawOwed && threadRedrawOwed.structural)) };
+      return;
+    }
+    threadRedrawOwed = null;
     const place = structural ? markPlace() : null;
     const wasAtTail = nearBottom();
     const story = await activeStory();
@@ -4943,6 +4953,8 @@ export function initChat(ctx) {
         await refreshPreview(story.id);
       }
       await rerenderMessage(story.id, msg.id);
+      /* M429: a whole redraw asked for while the editor stood open runs now */
+      if (threadRedrawOwed) { const owed = threadRedrawOwed; threadRedrawOwed = null; await renderThread(owed); }
     };
     saveBtn.addEventListener('click', () => finish(true));
     cancelBtn.addEventListener('click', () => finish(false));

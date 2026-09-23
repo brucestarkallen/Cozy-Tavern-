@@ -4972,6 +4972,46 @@ test('DOM-95 THE LEDGER IS NEVER REDRAWN UNDER HIS FINGERS: typing in a field of
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-96 A PAGE HE IS RE-INKING IS NEVER REDRAWN AWAY: he opens the editor on the newest page while the workers still read it — the world agent\u2019s write-back lands under the page and the whole thread is asked to redraw — and his editor, his words and the focus stay; the page is drawn with his words once he keeps them (M429)', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  const prior = house.state.workerAnswer;
+  let release; const held = new Promise((r) => { release = r; });
+  house.state.workerAnswer = (body, sys) => (/world beyond the page/i.test(sys) ? held.then(() => JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [{ speaker: 'Kim', channel: 'text', content: 'Where are you?' }] } })) : prior(body, sys));
+  try {
+    type(q('#composer-input'), 'I wait by the window.');
+    submit(q('#composer'));
+    await until(() => !q('.msg-pending') && !q('.msg.streaming') && !env.ctx.chat.isBusy(), 'the page landed', 30000);
+    const last = assistantPages().slice(-1)[0];
+    const id = last.dataset.id;
+    click(q('.msg-act[data-act="edit"]', last));
+    const box = await until(() => q('textarea.edit-box', last), 'the editor', 10000);
+    box.value = box.value + ' He is re-inking this line';
+    box.dispatchEvent(new env.window.Event('input', { bubbles: true }));
+    release(); /* the world agent answers: its voices are written under the page (a re-ink of this very page) */
+    await until(async () => { const m = (await db.messages.list(sid)).find((x) => x.id === id); return m && Array.isArray(m.voices) && m.voices.length; }, 'the write-back landed', 20000);
+    /* and a whole redraw of the thread comes while he types (a housekeeper card's re-inks, a live sync, a shelf change) */
+    env.ctx.chat.renderThread({ structural: true });
+    env.ctx.onStoriesChanged();
+    await tick(800);
+    assert(box.isConnected, 'his editor still stands — not redrawn away under him');
+    assert(/He is re-inking this line$/.test(box.value), 'his words are in it');
+    eq(document.activeElement, box, 'and the focus is his');
+    const keep = [...box.parentElement.querySelectorAll('button')].find((b) => /Keep the new words/.test(b.textContent));
+    click(keep);
+    await until(async () => { const m = (await db.messages.list(sid)).find((x) => x.id === id); return m && /He is re-inking this line/.test(m.text); }, 'his words kept', 15000);
+    await until(() => !q('textarea.edit-box'), 'the editor closes', 10000);
+    await settled();
+    const again = qa('.msg-assistant').find((n) => n.dataset.id === id);
+    assert(again && /He is re-inking this line/.test(again.textContent), 'and the page is drawn with his kept words (the voices are the drawer\u2019s, M97)');
+  } finally {
+    release();
+    house.state.workerAnswer = prior;
+    await settled();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-93 "READ AGAIN" PUTS THE GROUND WHERE THE PAGE SAYS AND LETS GO OF THE NOW OF A PLACE LEFT — Kyōraku’s assembly-hall now goes, Rukia’s courtyard now stays, the page is untouched, and no card says "the next page" (M409)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

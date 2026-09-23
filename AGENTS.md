@@ -10239,3 +10239,18 @@ the same person in another (M399 made canon a story's own switch; its names were
   the frame box is drawn back to the starter words. Walk 113/113, harness 833/833, long play 8/8, perf_rooms and
   perf_housekeeper within budget.
 - version.js -> m428-001.
+
+# M429 — a page he is re-inking is never redrawn away
+M428's search for the same fault in the rest of the house (rule 8: every background redraw): the story's thread is
+redrawn whole (renderThread) by things that are not his hand — a housekeeper answer whose cards land with re-inks
+(refreshStoryFloor), a live sync from his other browser (sync.js paint), a shelf change (onStoriesChanged) — and a
+whole redraw replaced a page he had open in the editor ("Re-ink this page"): the editor and every word he had typed
+were gone. A worker's own write-back to the page (the masthead, the voices, the reader's words) only redraws its
+receipt and never touched the editor — checked, and now held by a test.
+- chat.js renderThread: while a page editor stands open, a redraw that is not his opening of a story waits
+  (threadRedrawOwed) and runs the moment the editor closes, his words kept or let go.
+- TESTS: DOM-96 (the editor open on the newest page; the world agent's write-back lands and a whole redraw is asked
+  twice — the editor, his words and the focus stay; his words are kept and the page is drawn with them).
+  NEGATIVE-TESTED: without the wait the editor is redrawn away. Walk 114/114, harness 833/833, long play 8/8,
+  cutthinking, twobrowsers, perf_housekeeper green.
+- version.js -> m429-001.
