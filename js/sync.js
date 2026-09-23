@@ -255,7 +255,13 @@ export async function initSync(ctx) {
   /* M293: the house's own probe of a model's room (providers/detect.js) is
    * bookkeeping, not the writer's hand — it never marks the house dirty and
    * never makes the row this browser's; it rides the next push that comes. */
-  const PROBE_ONLY = /^(?:detectedContext|detectedFor|detectTriedFor|detectTriedAt)$/;
+  /* M431: EVERY NOTE THE HOUSE KEEPS ABOUT A CONNECTION ON ITS OWN — not only the room it asked of (M293): who the model is
+   * (detect.js: identFor, modelHf, modelEfforts, identTried*), that the web page was refused and the tavern's server carried
+   * the call (relay.js: viaRelay), what the model taught it or refused (effort.js: learned*, reasoningDown*, prefillDown*),
+   * and a refused late system message (latesystem.js). Only viaRelay and identTried* were missing — and they were enough:
+   * the other browser, having probed the connection he deleted here, took it for its own ("changed in this browser
+   * since its last push"), kept it through his deletion and pushed it back to the device and to this browser. */
+  const PROBE_ONLY = /^(?:detectedContext|detectedFor|detectTriedFor|detectTriedAt|identFor|identTriedFor|identTriedAt|modelHf|modelEfforts|viaRelay|learnedFor|learnedAt|learnedEfforts|learnedDrop|learnedOffThinks|reasoningDownAt|reasoningDownShape|reasoningDownRechecked|prefillDownAt|prefillDownShape|systemAfterRefusedFor|systemAfterRefused)$/;
   wrap(ctx.db.connections, 'update', ([id, patch]) => { if (patch && typeof patch === 'object' && Object.keys(patch).length && Object.keys(patch).every((k) => PROBE_ONLY.test(k))) return; noteKey('conn:' + id); mark('_house'); });
   wrap(ctx.db.connections, 'remove', ([id]) => { noteKey('conn:' + id); mark('_house'); });
   wrap(ctx.db, 'importAll', () => { for (const id of knownIds) mark(id); mark('_house'); });

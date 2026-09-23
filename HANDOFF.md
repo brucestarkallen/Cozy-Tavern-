@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m430-001)
+# Cozy Tavern — handoff for the next session (state at m431-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -365,6 +365,9 @@ founding design lives in AGENTS.md's first entries.)
   the writer's phone. Keys by getAllKeys(), rows by key. `python3 tests/perf_rooms.py` measures the
   ledger and Settings with a LIBRARY on the shelf and holds the budgets; a change to store.js, sync or
   a room's first draw is measured there before it ships. One heavy tale proves nothing about his lag.
+- The house's own notes about a connection (M431 — probes, identity, relay, what a model taught or refused) are
+  bookkeeping (sync.js PROBE_ONLY): they never make a row a browser's. A NEW house-written connection field goes on that
+  list, or a connection deleted in one browser comes back from the other.
 - The house book (M311): a browser speaks only for the rows it changed — before every push the worker
   holds its house against the device's and carries every row it lacks and did not itself let go
   (store.js keepWhatWasNeverLetGo). Shelves heal from the tales' own projectId (projects.heal), names

@@ -186,6 +186,12 @@ try:
         b.wait_for_timeout(2000)
         conns_b = b.evaluate("async () => (await window.__cozy.db.connections.list()).map(c => c.id)")
         check('B receives both connections live', sorted(conns_b) == ['conn-gone', 'conn-keep'], str(conns_b))
+        # M431: B's house has probed the spare on its own (the model's room and identity, a web page refused and carried by
+        # the tavern's server) — bookkeeping, never B's hand: it must not make the row B's, or B keeps it through A's
+        # deletion and pushes it home again (the flake: whether B's probe ran before A's deletion)
+        b.evaluate("""async () => {
+          await window.__cozy.db.connections.update('conn-gone', { viaRelay: true, identTriedFor: 'm@https://spare.example/v1', identTriedAt: Date.now(), detectTriedFor: 'm@https://spare.example/v1', detectTriedAt: Date.now() });
+        }""")
         a.evaluate("""async () => {
           const db = window.__cozy.db;
           await db.connections.remove('conn-gone');

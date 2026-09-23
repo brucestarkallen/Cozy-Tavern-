@@ -10280,3 +10280,22 @@ branch — record and all :: NO RECORD ROW IN THE BOOK"). Watched while a branch
   13 (5 runs green), holdsone 17, twohands 10, foldcrash 12, append 24, guard 13, wipe 11, backup 8, recover 3;
   harness 833/833, walk 114/114, long play 8/8.
 - version.js -> m430-001.
+
+# M431 — a connection he deletes stays deleted: the house's own notes about a connection never make it a browser's
+The last open item of the audit: tests/twobrowsers.py failed three runs in a row, then passed three, same code ("a
+connection let go in A is let go in B, live", "B's next push does not bring the let-go connection home", "nor to the
+device"). Logged every write B made to its connections: in the failing runs B's own house had probed the spare connection
+before A deleted it — update {viaRelay: true} (the web page refused the probe and the tavern's server carried it,
+relay.js) and {identTriedFor, identTriedAt} (who the model is, detect.js). M293 set such bookkeeping apart
+(PROBE_ONLY: "never makes the row this browser's") but listed only the ROOM probe's four keys. So B took the spare for its
+own ("changed here since its last push"), kept it through his deletion, and its next push carried it back to the device
+and to A: a connection he deleted came back. Timing decided it (whether B's probe ran first) — a real bug, not a flake.
+- sync.js PROBE_ONLY: every note the house keeps about a connection on its own — detect.js (detected*, detectTried*,
+  identFor, identTried*, modelHf, modelEfforts), relay.js (viaRelay), effort.js (learned*, reasoningDown*, prefillDown*),
+  latesystem.js (systemAfterRefused*). A patch holding only these never marks the house and never makes the row the
+  browser's; what the house learned rides the next push that comes (as M293 intended), and each browser relearns what
+  it needs.
+- tests/twobrowsers.py now makes B probe the spare BEFORE A deletes it (the losing order, every run) — with the old list
+  it fails its three checks every time; with M431 26/26 (run twice).
+- Harness 833/833, walk 114/114, long play 8/8; holdsone 17, twohands 10, branchrefresh 13, relay 11.
+- version.js -> m431-001.
