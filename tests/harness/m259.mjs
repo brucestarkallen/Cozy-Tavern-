@@ -1163,7 +1163,9 @@ test('M259-32: a report of what went right is not a finding; the second reader n
     { type: 'canon.lock', name: 'Rias Wells', key: 'age', value: 'seventeen' },
   ]).state;
   const c = buildContinuityMessages({ state: scene, assistantText: 'Rias crossed her arms.' }).user;
-  assert(c.includes('Rias Wells') && c.includes('Lakeshore Drive') && c.includes('seventeen'), 'who is here, where the absent are, what is locked');
+  /* M447: where the absent are is no longer shown to the second reader — a seat is the world's moving guess, and a
+   * finding held against it mended the PAGE to follow a wrong ledger (his Rukia, "last seen" in the office she stood in) */
+  assert(c.includes('Rias Wells') && !c.includes('Lakeshore Drive') && c.includes('seventeen'), 'who is here and what is locked — never where the absent are');
   assert(!/arms uncrossed|flip-flops|stove counter|intimate/i.test(c), 'never where anyone stands, what they wear, or the mood');
   const longBrief = 'The brief opens. ' + 'b'.repeat(9000) + ' BRIEF-END: Rias is seventeen.';
   assert(buildContinuityMessages({ state: scene, assistantText: 'x', brief: longBrief }).user.includes('BRIEF-END'), 'and the whole brief — it was cut at 4,000');

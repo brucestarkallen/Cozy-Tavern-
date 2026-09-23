@@ -10581,3 +10581,24 @@ He: Byakuya never left the scene — Byakuya is here; Rukia is put "elsewhere" w
   room's "came along" ignored — each failed its own test; DOM-102 failed without the guard with his exact symptom.
 Harness 859/859, walk 120/120, long play 8/8, lint 0 errors (one warning's line number moved: 385 → 386).
 - version.js -> m446-001.
+
+# M447 — who is where is never mended: the second reader stops rewriting pages to follow a wrong ledger
+Found while checking M446 against his report (Rukia "elsewhere" while the page had her in the office).
+- THE FAULT: the second reader (agents/continuity.js) was told "a person present who the ledger says is elsewhere with
+  no arrival on the page" is DRIFT, was shown every seat, and a warn with a fix MENDS THE PAGE (chat.js mendAround).
+  So a wrong ledger — a leave that should never have stood, a seat the world agent guessed — was written INTO his
+  story: proven through the real app, the mender deleted "Rukia waited, arms folded." from the page that showed her
+  there. M357/M372's law (the page is the story; a ledger error is the ledger's to heal) had a door open in the reader
+  that watches for drift.
+- THE LAW NOW: the second reader is shown who is here by name and what is locked, never where the absent are (the
+  seats are the world's moving state); its law says who is where is the page's — never a finding. In code, whatever it
+  writes: a finding that holds the page to the ledger's whereabouts ("the ledger has her elsewhere", "she should not
+  be here") is let go (whereFinding); one about who could know — someone away when a thing was said — stands (M338).
+- M259's line that the second reader is shown "where the absent are" now says the opposite, with the reason.
+- TESTS: m447.mjs (2): the reader's request carries no seat and the law says so, a lock still binds; on a scripted
+  reader, two whereabouts findings are let go, who-could-know (even beside "the record") and a locked eye colour stand.
+  Walk DOM-103: the ledger has Rukia elsewhere, the page shows her, the reader asks for a mend — the page stands word for
+  word and the mender is never asked. NEGATIVE-TESTED: without the guard DOM-103's page is mended (her line deleted) and
+  M447-2 fails.
+Harness 861/861, walk 121/121, long play 8/8, lint 0 errors (no new warnings).
+- version.js -> m447-001.

@@ -1,6 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m446-001)
+# Cozy Tavern — handoff for the next session (state at m447-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0l. WHO IS WHERE IS NEVER MENDED (M447). The second reader (agents/continuity.js) is shown who is here by name and what is
+   locked — never the seats — and told who is where is the page's. A finding that holds the page to the ledger's
+   whereabouts is let go in code (whereFinding; one about who could know stays). Its warn MENDS THE PAGE: with the seats
+   and the old law, a wrong "elsewhere" deleted "Rukia waited, arms folded." from his page (DOM-103 without the guard).
+   Any new reason for a mend must be a fact that lasts (a lock, the brief) — never the ledger's moving state.
 0k. A LEAVING IS WHAT THE PAGE ENDS ON (M446). The page reader's presence.leave stands only when the last sentence of the
    scene naming the person as themself (and the pronoun sentences right after it, when neither names anyone else by name
    or rank) narrates them going — engine/apply.js goneAtTheEnd, with showsDeparture (moved there from the auditor, which
@@ -115,9 +120,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 859 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 861 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 120 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 121 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

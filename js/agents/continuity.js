@@ -60,11 +60,12 @@ const SYSTEM_PROMPT = [
   'you never report it. ABSENCE IS NEVER DRIFT: a fact the ledgers do not hold —',
   'a kinship, a nickname, a history no lock names — is not contradicted by',
   'anything; "the ledger never establishes it" is not a finding. Drift needs a',
-  'WRITTEN fact (a lock, the brief, a standing seat) that DISAGREES with the page.',
+  'WRITTEN fact (a lock, the brief) that DISAGREES with the page.',
   'Drift is against what LASTS: the locked truths (hair,',
-  'eyes, age, name, kin, origin, a scar), a person present who the ledger says',
-  'is elsewhere with no arrival on the page, a wound the ledger holds open',
+  'eyes, age, name, kin, origin, a scar), a wound the ledger holds open',
   'written as if it never was.',
+  'WHO IS WHERE IS THE PAGE\'S: who stands in the scene, who came or went, and where the absent are follow',
+  'the page — the house keeps them from it. Someone the page shows here is here; never a finding.',
   '',
   'WHAT IS NOT DRIFT — a fact a CHARACTER states wrongly ON PURPOSE or IN CHARACTER is',
   'the story, never a slip: a lie, a joke, a tease, an exaggeration, sarcasm, a memory',
@@ -112,7 +113,7 @@ export function buildContinuityMessages({ state, assistantText, brief = '' }) {
    * name, and where the absent are; never where anyone stands, what they wear,
    * or the mood. */
   const lasting = state && typeof state === 'object'
-    ? { ...state, present: (Array.isArray(state.present) ? state.present : []).map((p) => (p && p.name ? { name: p.name } : p)), mode: {} }
+    ? { ...state, present: (Array.isArray(state.present) ? state.present : []).map((p) => (p && p.name ? { name: p.name } : p)), mode: {}, offscreen: {} } /* M447: where the absent are is never shown — the page decides it */
     : state;
   /* M338: the blind spots are keyed to the page being read — what bears on it, and what is recent */
   const facts = renderStateFacts(lasting, { scenePages: [String(assistantText || '')] }) || 'Nothing is written in the ledger yet.';
@@ -124,7 +125,7 @@ export function buildContinuityMessages({ state, assistantText, brief = '' }) {
     canon || 'Nothing is locked yet.',
     '',
     ...(String(brief || '').trim() ? ['The writer\'s brief — what the writer set down; it COUNTS AS WRITTEN (a kinship, a home, an age here needs no lock):', writerText(brief, BRIEF_ROOM, 'brief'), ''] : []), /* M267/M283: the whole brief */
-    'What the ledgers hold that LASTS — who is here by name, where the absent are, what is locked (never where anyone stands or what they wear: those are the page\'s to move; a body this',
+    'What the ledgers hold that LASTS — who is here by name, what is locked (never where anyone stands or what they wear: those are the page\'s to move; a body this',
     'page moves, a posture it changes, a thing it takes off or picks up, is the story moving —',
     'never drift):',
     facts,
@@ -203,7 +204,22 @@ export async function checkTurn({ connection, state, assistantText, signal, brie
     maxTokens: MAX_TOKENS,
     signal,
   });
-  return parseContinuityAnswer(text);
+  /* M447: WHO IS WHERE IS NEVER MENDED. A finding that the page has someone here whom the ledger has elsewhere was a warn
+   * with a fix — and the fix MENDED THE PAGE: his Rukia, taken out by a wrong leave and "last seen" in the office she stood
+   * in, could be written out of the very page that shows her there. The ledger follows the page (the page reader's room,
+   * M444); a finding that sets the page against the ledger's whereabouts is let go here, whatever the reader wrote. */
+  const read = parseContinuityAnswer(text);
+  read.findings = read.findings.filter((f) => !whereFinding(f));
+  return read;
+}
+
+/* M447: a finding that holds the page to the ledger's whereabouts ("the ledger has her elsewhere", "she should not be
+ * here") — never one that only says someone was away when something was said (that is who could know, M338) */
+const WHERE_FINDING = /\b(?:ledger|record|written|notes?)\b[^.;]{0,90}\b(?:elsewhere|away|absent|not (?:here|present|in the scene)|last seen)\b|\b(?:elsewhere|absent|last seen)\b[^.;]{0,90}\b(?:ledger|record|written)\b|\b(?:should(?:n['’]?t| not) be|is not|isn['’]?t|cannot be|can['’]?t be) (?:here|present|in the (?:scene|room|office))\b/i;
+const ABOUT_KNOWING = /\b(?:know|knew|known|knows|learn|learned|learnt|told|tell|heard|overheard|could not|couldn['’]t|never saw)\b/i;
+export function whereFinding(finding) {
+  const text = String((finding && finding.words) || '') + ' ' + String((finding && finding.fix) || '');
+  return WHERE_FINDING.test(text) && !ABOUT_KNOWING.test(text); /* a finding about who could know stays (M338) */
 }
 
 

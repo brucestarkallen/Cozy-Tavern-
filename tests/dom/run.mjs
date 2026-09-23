@@ -5361,6 +5361,48 @@ test('DOM-102 A LEAVING IS WHAT THE PAGE ENDS ON, PLAYED THROUGH THE REAL READER
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-103 WHO IS WHERE IS NEVER MENDED, PLAYED THROUGH THE REAL READERS: the ledger has Rukia elsewhere while the page shows her in the office — the second reader calls it drift and asks for a mend — and the page stands exactly as written (M447)', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'The rosters, read twice' });
+  await db.stories.update(st.id, { keeper: false });
+  const ledger = applyMutations({ ...emptyState(), page: -1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: "13th Division Barracks — Captain's Office" },
+    ...['Jovan Oda', 'Byakuya Kuchiki'].map((n) => ({ type: 'presence.enter', name: n })),
+    { type: 'offscreen.set', name: 'Rukia Kuchiki', location: '13th Division Barracks — her own office', activity: 'filing', stance: 'busy' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'His lieutenant.', threads: [] }, 'Byakuya Kuchiki': { core: 'Captain of the 6th.', threads: [] } };
+  await saveState(st.id, { ...ledger, readTo: -1, tidiedGen: 999, healedGen: 999 });
+  const PAGE = "[13th Division Barracks — Captain's Office — Monday, June 1, 2026 | 10:00 | clear | captain's haori | at the desk]\n\nThe lieutenant set the rosters on Oda’s desk while Byakuya read. Rukia waited, arms folded.";
+  let mendAsked = 0;
+  house.state.storyAnswer = PAGE;
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: [] }], here: [] });
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
+    if (/continuity reader|second reader/i.test(sys)) return JSON.stringify({ findings: [{ words: 'Rukia is in the captain’s office, but the ledger has her elsewhere, in her own office.', severity: 'warn', fix: 'Rukia should not be in the scene' }] });
+    if (/mend a story/i.test(sys)) { mendAsked += 1; const user = String((body.messages || []).slice(-1)[0].content || ''); const hit = [...user.matchAll(/\[(\d+)\] \(STORY\) ([\s\S]*?)(?=\n\n\[\d+\] \(|\n<\/passage>)/g)].find((b) => /Rukia/.test(b[2])); return hit ? JSON.stringify([{ index: Number(hit[1]), text: hit[2].replace(' Rukia waited, arms folded.', '') }]) : '[]'; }
+    return walkDefaultWorker(body, sys);
+  };
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    type(q('#composer-input'), 'I read the rosters.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(async () => queuedCount(st.id) === 0 && !workIsRunning(st.id) && (await loadState(st.id)).worldBrief, 'the readers', 40000);
+    await settled();
+    const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    eq(page.text, PAGE, 'the page stands exactly as written');
+    assert(!page.mended, 'and carries no mend');
+    eq(mendAsked, 0, 'the mender was never asked');
+  } finally {
+    house.state.storyAnswer = null;
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
