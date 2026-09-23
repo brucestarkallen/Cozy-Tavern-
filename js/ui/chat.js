@@ -3009,7 +3009,7 @@ export function initChat(ctx) {
     /* 4. The continuity reader (M6): advisory drift notes against canon and
      * the ledgers, stored on the same message. M9 (B12): its own per-story
      * switch too. It never touches the words. */
-    enqueue('continuity', async ({ signal, stale }) => {
+    enqueue('continuity', async ({ signal, stale, renew }) => {
       /* M35: the second reader is ON by default now — the writer asked for
        * no continuity issues, and a reader that only speaks when asked
        * cannot keep that promise. */
@@ -3020,12 +3020,19 @@ export function initChat(ctx) {
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
       const fresh = await loadState(story.id);
+      /* M450: the story so far — the record and the pages before this one, as the page reader reads them — so a telling
+       * the ledger missed is never called untold (and the page mended) */
+      let soFar = { before: [], record: '' };
+      try { soFar = storySoFar(await db.messages.list(story.id), await loadMemory(story.id), msg.id, { least: 4, recordCap: Math.floor(roomChars(connection) * 0.35) }); } catch (err) { soFar = { before: [], record: '' }; }
       const { findings } = await checkTurn({
         connection,
         state: fresh,
         assistantText: pageText(msg),
         signal,
         brief: String((story && story.brief) || '') + (story && story.castNotes ? '\n\n' + story.castNotes : ''), /* M129: the brief counts as written */
+        record: soFar.record,
+        before: soFar.before,
+        renew,
       });
       const list = Array.isArray(findings) ? findings : [];
       if (stale()) return { silent: true };

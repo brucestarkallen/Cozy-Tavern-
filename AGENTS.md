@@ -10641,3 +10641,20 @@ Found by searching the whole engine and the agents for person names compared by 
   exact own-lines skip each fail their test.
 Harness 867/867, walk 121/121, long play 8/8, lint 0 errors (one old warning's line number moved).
 - version.js -> m449-001.
+
+# M450 — who could know this is read against the story, not only the ledger
+The last page-mending door that stood on the ledger's own state (after M447's whereabouts and M448's series truths).
+- THE FAULT: the second reader's UNTOLD KNOWLEDGE (M338, his own request) warns when a character states what they have
+  not been shown learning, and its warn MENDS the page. "Not shown learning" was the ledger's blind spots, computed from
+  the knowledge lines — and the reader saw only this page. A telling the page reader missed writing down (Oda told
+  Kiyone and Rukia; only Rukia's line written) made Kiyone's true mention look untold, with nothing in front of the
+  reader to say otherwise.
+- THE LAW NOW: the second reader is handed what the other readers read — the record and the pages before this one,
+  whole into its room (memory.js storySoFar, as the page reader gets it; chat.js passes them, with the leash's renew
+  for the longer reading) — and told the ledger's lists can miss a telling: when the story so far shows them learning
+  it, they know it, and there is no finding. His M338 guard against tellings that never happened stands.
+- TESTS: m450.mjs (2): the reader's request carries the record and the earlier page, and the law says the ledger can
+  miss one; on the wire, checkTurn sends them. Walk DOM-104: through the real app the earlier telling reaches the
+  second reader. NEGATIVE-TESTED: the chain not passing the story (DOM-104 fails), the reader not sending it (M450-2).
+Harness 869/869, walk 122/122, long play 8/8, lint 0 errors (no new warnings).
+- version.js -> m450-001.

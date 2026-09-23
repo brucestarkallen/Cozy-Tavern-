@@ -30,6 +30,7 @@ import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { wholePage } from '../engine/whole.js'; /* M259: the page read to its end */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
+import { windowOfPages, viewBudget, leashFor } from './lookup.js'; /* M450: the story so far, as the other readers are shown it */
 
 const MAX_TOKENS = 1200; /* findings are a short JSON list; thinking is off on the wire (M28) */
 const FINDINGS_CAP = 6;
@@ -89,8 +90,10 @@ const SYSTEM_PROMPT = [
   'people here, what each HAS learned ("knows:") and what no page has shown them learning ("' + BLIND_LINE.trim() + '" \u2014',
   'the same words the storyteller\u2019s notes use). When a character on this page STATES or ACTS ON one of the',
   'things they have not been shown learning — or claims a telling the ledger gives no sign of ("you told me yesterday",',
-  '"you gave me the schedule") — and the page itself shows no true way they came to know it (told on',
-  'this page, seen on this page, a guess said AS a guess), that is a warn: name who, and what they',
+  '"you gave me the schedule") — and neither the page nor THE STORY SO FAR (below: the record and the pages',
+  'before this one) shows a true way they came to know it (told, seen, overheard; a guess said AS a guess), that',
+  'is a warn: name who, and what they could not know. The ledger\'s lists can miss a telling — when the story so',
+  'far shows them learning it, they know it, and there is no finding.',
   'could not know. `fix` is the nearest TRUE way, in a short phrase: the person the ledger says knows',
   'it told them ("Aurora told her the time"), or, when nothing supports their knowing, that they do not',
   'know it and ask, guess or find out on the page instead. Never a finding: a character lying or',
@@ -105,7 +108,7 @@ const SYSTEM_PROMPT = [
 /* Exported for the harness: the two messages any provider flavor receives.
  * The check reads ALL canon (not only who's present — a locked truth about
  * someone off-page still binds the page that speaks of them). */
-export function buildContinuityMessages({ state, assistantText, brief = '' }) {
+export function buildContinuityMessages({ state, assistantText, brief = '', record = '', before = [], contextBudget = Infinity }) {
   /* M267: THE SECOND READER IS SHOWN WHAT LASTS. Told that posture, position
    * and what is on a foot are the story moving, it still reported them — and
    * the mender wrote the page back to the ledger's older moment ("Rias's arms
@@ -136,6 +139,15 @@ export function buildContinuityMessages({ state, assistantText, brief = '' }) {
     'never drift):',
     facts,
     '',
+    /* M450: WHO COULD KNOW THIS IS READ AGAINST THE STORY, NOT ONLY THE LEDGER. The blind spots come from the ledger's
+     * knowledge lines, and a line the page reader missed made a TRUE telling look untold — and this reader's warn MENDS
+     * the page. It reads what the other readers read: the record, and the pages before this one, whole into its room. */
+    ...(String(record || '').trim() ? ['THE STORY SO FAR, FOLDED — what the earlier pages established:', '"""', String(record).trim(), '"""', ''] : []),
+    ...(Array.isArray(before) && before.length ? (() => {
+      const w = windowOfPages(before, contextBudget);
+      return ['THE PAGES JUST BEFORE THIS ONE (already read — who was told or shown what):', '"""', w.shown.join('\n\n') || '(none fit)', '"""',
+        ...(w.index.length ? ['Earlier pages not shown whole:', ...w.index] : []), ''];
+    })() : []),
     'The page just finished:',
     '"""',
     wholePage(assistantText),
@@ -200,10 +212,12 @@ export function parseContinuityAnswer(raw) {
 /* Read one finished page against canon and the ledgers. M28: a transport
  * failure THROWS so the queue retries with backoff; a garbled answer is
  * {findings:[]}. A missing connection or an empty page: {findings:[]}. */
-export async function checkTurn({ connection, state, assistantText, signal, brief = '' } = {}) {
+export async function checkTurn({ connection, state, assistantText, signal, brief = '', record = '', before = [], renew } = {}) {
   if (!connection || typeof connection !== 'object') return { findings: [] };
   if (!assistantText || !String(assistantText).trim()) return { findings: [] };
-  const prompt = buildContinuityMessages({ state, assistantText, brief });
+  const bare = buildContinuityMessages({ state, assistantText, brief, record });
+  const prompt = buildContinuityMessages({ state, assistantText, brief, record, before, contextBudget: viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length) });
+  if (typeof renew === 'function') renew(leashFor(prompt.system.length + prompt.user.length)); /* M450: a long reading is given the time to read it (M261) */
   const { text } = await callWorker(connection, {
     system: prompt.system,
     user: prompt.user,

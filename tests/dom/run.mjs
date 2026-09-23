@@ -5403,6 +5403,45 @@ test('DOM-103 WHO IS WHERE IS NEVER MENDED, PLAYED THROUGH THE REAL READERS: the
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-104 WHO COULD KNOW THIS IS READ AGAINST THE STORY: played through the real app, the second reader is sent the earlier page where Oda told Kiyone about the transfer — a telling the ledger never wrote down (M450)', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'The transfer' });
+  await db.stories.update(st.id, { keeper: false });
+  await db.messages.append(st.id, { role: 'user', text: 'I tell them both about the transfer.' });
+  await db.messages.append(st.id, { role: 'assistant', text: "[13th Division Barracks — Captain's Office — Monday, June 1, 2026 | 09:00 | clear | captain's haori | at the desk]\n\nOda told Kiyone and Rukia that the transfer order came from the Captain-Commander himself. TELLING-MARK" });
+  const ledger = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: "13th Division Barracks — Captain's Office" },
+    ...['Jovan Oda', 'Rukia Kuchiki', 'Kiyone Kotetsu'].map((n) => ({ type: 'presence.enter', name: n })),
+    { type: 'knowledge.add', name: 'Rukia Kuchiki', fact: 'the transfer order came from the Captain-Commander' }]).state; /* Kiyone's line was missed */
+  await saveState(st.id, { ...ledger, readTo: 0, tidiedGen: 999, healedGen: 999 });
+  house.state.storyAnswer = "[13th Division Barracks — Captain's Office — Monday, June 1, 2026 | 09:20 | clear | captain's haori | at the desk]\n\nKiyone frowned. “If the Captain-Commander signed the transfer, we can’t refuse it.”";
+  let readerSaw = '';
+  house.state.workerAnswer = (body, sys) => {
+    if (/continuity reader/i.test(sys)) { readerSaw = (body.messages || []).map((m) => String(m.content)).join('\n'); return '{"findings":[]}'; }
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: [] }], here: ['Jovan Oda', 'Rukia Kuchiki', 'Kiyone Kotetsu'] });
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
+    return walkDefaultWorker(body, sys);
+  };
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    type(q('#composer-input'), 'I wait for her answer.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(async () => queuedCount(st.id) === 0 && !workIsRunning(st.id) && readerSaw, 'the second reader', 40000);
+    await settled();
+    assert(/TELLING-MARK/.test(readerSaw), 'the second reader was sent the earlier telling');
+    assert(/can miss a telling/.test(readerSaw), 'and told the ledger can miss one');
+  } finally {
+    house.state.storyAnswer = null;
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
