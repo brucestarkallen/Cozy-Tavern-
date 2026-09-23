@@ -51,7 +51,7 @@ import { loadState, saveState, notify, renderStateFacts } from '../engine/state.
 import { findPersonKey, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
 import { isHere, samePersonName, nameOnPage } from '../engine/names.js'; /* M396/M401: one answer to "the same person?"; M414: one answer to "named on the page?" */
 import { storyTurn } from '../engine/apply.js';
-import { applyMutations } from '../engine/apply.js';
+import { applyMutations, clearsThatArrive, scenePartOf } from '../engine/apply.js'; /* M444: cleared is never nowhere */
 import { renderOffscreen } from '../engine/offscreen.js';
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
@@ -151,9 +151,12 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'for a reason. Someone moving toward the main character gets stance "toward" and an ETA; before the',
     'ETA they are on the road, never early. A change from what the ledger says needs a cause — a silent',
     'flip is an error, not variety. Someone the page shows arriving is the extractor\'s to seat; you clear',
-    'their elsewhere note. Anyone the page shows IN the scene is in it, whatever the list below says — never',
-    'seat them elsewhere. Nobody is seated where the scene itself is: someone at that place is in the scene,',
-    'or on the way to it ("toward", with an ETA). Only someone on their way has an arrival.',
+    'their elsewhere note, and the house writes them in. Anyone the page shows IN the scene is in it, whatever the',
+    'list below says — never seat them elsewhere; one the ledger has not written in at all, seat at the ground in',
+    'its own words (the ledger\'s "The ground:" line), and the house writes them in.',
+    'Nobody is seated where the scene itself is: someone at that place is in the scene, or on the way to it',
+    '("toward", with an ETA). Another room of the same building is elsewhere — name that room. Only someone on',
+    'their way has an arrival.',
     '',
     'WHO IS SEATED (M304). EVERYONE WHO MATTERS TO THE STORY HAS A WHEREABOUTS AT EVERY HOUR — family,',
     'friends, rivals, lovers, the writer’s own people, anyone with a standing, a thread, a locked truth or a',
@@ -564,6 +567,9 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
     const isQuiet = (name) => quiet.some((q) => samePersonName(q, name));
     read.mutations = read.mutations.filter((m) => !(m && m.type === 'people.set' && String(m.field || '').trim() === 'state' && !isQuiet(m.name)));
   }
+  /* M444: CLEARED IS NEVER NOWHERE — its letting go of the note of someone the page shows there is her walking in (the
+   * one door it is told to leave to the page reader, kept by the house when the page reader missed her) */
+  read.mutations = clearsThatArrive(fresh, read.mutations, scenePartOf(assistantText));
   /* M40: everyone the agent seats has a page. A seat without a people.set
    * in the same answer gets a minimal core from the seat itself, so the
    * character ledger never shows two people while "elsewhere" shows three;

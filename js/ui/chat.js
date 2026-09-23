@@ -52,7 +52,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
-import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys } from '../engine/apply.js'; /* M405/M406; M419 */
+import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns } from '../engine/apply.js'; /* M405/M406; M419; M444 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
@@ -2801,15 +2801,23 @@ export function initChat(ctx) {
       const joins = [...pageJoins, ...strays];
       const joined = { state: straysJoined.state, applied: [...pagesJoined.applied, ...straysJoined.applied] };
       const who = staleNows(joined.state, { ground: headerGround });
-      const cleared = who.length ? applyMutations(joined.state, who.map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true }))) : { state: joined.state, applied: [] };
+      const clearedNows = who.length ? applyMutations(joined.state, who.map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true }))) : { state: joined.state, applied: [] };
+      /* M444: WHO WALKED IN FROM ANOTHER ROOM — before M444 a seat anywhere in the scene's compound put its person in the
+       * scene; whoever came in that way and no story page has shown since goes back where the world had them (journaled,
+       * undoable; never the main character, never someone a page or his hand put there) */
+      const storyPages = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').map((m) => ({ text: m.ooc ? '' : pageText(m) }));
+      const walkIns = wrongWalkIns(clearedNows.state, storyPages);
+      const walkedBack = walkIns.length ? applyMutations(clearedNows.state, walkIns) : { state: clearedNows.state, applied: [] };
+      const cleared = { state: walkedBack.state, applied: clearedNows.applied };
+      const sentBack = [...new Set(walkedBack.applied.filter((a) => a.mutation.type === 'presence.leave').map((a) => a.mutation.name))];
       const groundMoved = cleared.state.place && fresh.place && cleared.state.place.name !== (await loadState(story.id)).place?.name;
-      if (!joined.applied.length && !cleared.applied.length && !groundMoved) return { silent: true };
+      if (!joined.applied.length && !cleared.applied.length && !walkedBack.applied.length && !groundMoved) return { silent: true };
       /* M414: M290's law, which this job alone skipped — a page a rewind (Try again, read again) let go while these
        * reads were out writes nothing: checked the moment before the save, like every other reader's save */
       if (stale() || !(await stillThere(story.id, msg.id))) return { silent: true };
       await saveState(story.id, cleared.state);
       notify(story.id);
-      return { silent: false, detail: [joined.applied.length ? 'joined ' + joins.map((j) => j.from + ' into ' + j.to).join(', ') : '', cleared.applied.length ? 'let go of a “now” that named a place the scene has left: ' + who.join(', ') : ''].filter(Boolean).join(' · ') };
+      return { silent: false, detail: [joined.applied.length ? 'joined ' + joins.map((j) => j.from + ' into ' + j.to).join(', ') : '', cleared.applied.length ? 'let go of a “now” that named a place the scene has left: ' + who.join(', ') : '', sentBack.length ? 'put back where the world had them (never in the scene — seated in another part of the same place): ' + sentBack.join(', ') : ''].filter(Boolean).join(' · ') };
     });
 
     /* M394: CANON THROUGH HIS STORY, BEFORE THE WORLD AND THE SCRIBE WRITE. Everyone canon knows in this ledger with no lens

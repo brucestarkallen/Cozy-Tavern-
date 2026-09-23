@@ -5184,6 +5184,64 @@ test('DOM-93 "READ AGAIN" PUTS THE GROUND WHERE THE PAGE SAYS AND LETS GO OF THE
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-100 HIS BLEACH OFFICE, PLAYED THROUGH THE REAL READERS: Byakuya leaving never takes Rukia; Sentarō, lost to a note at the very office, is written back by the room restated; Renji, whose note the world agent lets go as he walks in, is here, not nowhere; Kiyone, seated in another room of the barracks, stays elsewhere — and the drawer says so (M444)', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  /* run alone (ONLY=DOM-100), the walk's first connection is not there yet */
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const ROOM = "13th Division Barracks — Captain's Office";
+  const PAGE = "[13th Division Barracks — Captain's Office — Monday, June 1, 2026 | 10:00 | clear | captain's haori | at the desk]\n\n"
+    + 'Rukia set the report on Oda’s desk. Sentarō hovered by the window, pretending not to listen. Kuchiki-taichō studied them both, then turned and left without a word. Renji Abarai shouldered through the door a moment later, grinning.\n\n'
+    + '*** The World Beyond ***\n\nKiyone Kotetsu sorted rosters in the third seats’ office.';
+  const st = await db.stories.create({ title: 'The captain’s office' });
+  await db.stories.update(st.id, { keeper: false });
+  let ledger = applyMutations({ ...emptyState(), page: -1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: ROOM },
+    ...['Jovan Oda', 'Rukia Kuchiki'].map((n) => ({ type: 'presence.enter', name: n })),
+    { type: 'offscreen.set', name: 'Renji Abarai', location: '6th Division Barracks — the training yard', activity: 'drilling', stance: 'busy' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'His lieutenant.', threads: [] }, 'Byakuya Kuchiki': { core: 'Captain of the 6th.', threads: [] },
+    'Kiyone Kotetsu': { core: 'Third seat of the 13th.', threads: [] }, 'Sentarō Kotsubaki': { core: 'Third seat of the 13th.', threads: [] }, 'Renji Abarai': { core: 'Lieutenant of the 6th.', threads: [] } };
+  /* the old fault's leavings: Sentarō "last seen" at the very office he stands in */
+  ledger.offscreen = { ...ledger.offscreen, 'Sentarō Kotsubaki': { location: ROOM, activity: '', lastSeen: true, sinceMinutes: null, atTurn: 1 } };
+  await saveState(st.id, { ...ledger, readTo: -1, tidiedGen: 999, healedGen: 999 });
+  house.state.storyAnswer = PAGE;
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'presence.leave', name: 'Captain Kuchiki' }, { type: 'mode.snapshot', flags: ['group'] }], resolved: [], here: ['Jovan Oda', 'Rukia Kuchiki', 'Sentarō Kotsubaki'] });
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'offscreen.clear', name: 'Renji Abarai' }, { type: 'offscreen.set', name: 'Kiyone Kotetsu', location: "13th Division Barracks — the third seats' office", activity: 'sorting rosters', stance: 'busy' }], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
+    return walkDefaultWorker(body, sys);
+  };
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    type(q('#composer-input'), 'I look up from the report.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(async () => queuedCount(st.id) === 0 && !workIsRunning(st.id) && (await loadState(st.id)).worldBrief, 'the readers', 40000);
+    await settled();
+    const after = await loadState(st.id);
+    eq(after.present.map((p) => p.name).sort().join(', '), 'Jovan Oda, Renji Abarai, Rukia Kuchiki, Sentarō Kotsubaki', 'who is here, as the page has it');
+    eq(Object.keys(after.offscreen || {}).join(), 'Kiyone Kotetsu', 'only Kiyone is elsewhere');
+    eq(after.offscreen['Kiyone Kotetsu'].location, "13th Division Barracks — the third seats' office", 'in the room the world put her in');
+    click(q('#btn-ledger'));
+    await until(() => !q('#drawer').hidden, 'the drawer');
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const room = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'The people');
+    await until(() => room && /Carried by/.test(room.textContent), 'the pages drawn', 10000);
+    const head = (who) => [...room.querySelectorAll('li.people-row > strong')].map((s) => s.textContent).find((t) => t.startsWith(who)) || '';
+    eq(head('Rukia Kuchiki'), 'Rukia Kuchiki — here', 'Rukia');
+    eq(head('Sentarō Kotsubaki'), 'Sentarō Kotsubaki — here', 'Sentarō');
+    eq(head('Renji Abarai'), 'Renji Abarai — here', 'Renji');
+    eq(head('Kiyone Kotetsu'), 'Kiyone Kotetsu — elsewhere', 'Kiyone');
+    click(q('#btn-ledger'));
+  } finally {
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+    house.state.storyAnswer = null;
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

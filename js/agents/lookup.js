@@ -53,19 +53,28 @@ export function windowOfPages(before, budget = Infinity) {
   const shown = [];
   const index = [];
   let full = true;
+  const who = (b) => (b.role === 'user' ? 'The writer' : 'The storyteller');
+  const numOf = (b) => (Number.isInteger(b.number) && b.number > 0 ? b.number : 0);
+  const indexLine = (b) => {
+    const flat = String(b.text || '').replace(/\s+/g, ' ').trim();
+    return (numOf(b) ? 'p' + numOf(b) + ' ' : '') + who(b) + ' — ' + (flat.length > PREVIEW ? flat.slice(0, PREVIEW - 1).trimEnd() + '…' : (flat || '(an empty page)'));
+  };
+  /* M444: THE INDEX IS PART OF THE VIEW. The pages that do not fit stand as index lines — and those lines were never
+   * counted, so a view packed to its 70% ran past it by every line of the index (a longer page-reader law was enough
+   * to show it). Before a page is taken whole, the room for every OLDER page's index line is kept back. */
+  const older = new Array(list.length + 1).fill(0);
+  for (let i = 0; i < list.length; i += 1) older[i + 1] = older[i] + indexLine(list[i] || {}).length + 1;
   for (let i = list.length - 1; i >= 0; i -= 1) {
     const b = list[i] || {};
     const text = String(b.text || '');
-    const who = b.role === 'user' ? 'The writer' : 'The storyteller';
-    const num = Number.isInteger(b.number) && b.number > 0 ? b.number : 0;
+    const num = numOf(b);
     const t = wholePageLocal(text, CONTEXT_PAGE_CAP);
-    if (!full || t.length + 80 > left) {
+    if (!full || t.length + 80 + older[i] > left) {
       full = false;
-      const flat = text.replace(/\s+/g, ' ').trim();
-      index.unshift((num ? 'p' + num + ' ' : '') + who + ' — ' + (flat.length > PREVIEW ? flat.slice(0, PREVIEW - 1).trimEnd() + '…' : (flat || '(an empty page)')));
+      index.unshift(indexLine(b));
       continue;
     }
-    shown.unshift((num ? '[p' + num + (t.length !== text.length ? ' — shortened; fetch "' + num + '" for all of it' : '') + '] ' : '') + who + ': ' + t);
+    shown.unshift((num ? '[p' + num + (t.length !== text.length ? ' — shortened; fetch "' + num + '" for all of it' : '') + '] ' : '') + who(b) + ': ' + t);
     left -= t.length + 80;
   }
   return { shown, index };

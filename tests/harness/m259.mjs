@@ -700,8 +700,12 @@ test('M259-21: the extractor and the world agent read the story so far whole, wi
   assert(ends(ss, 12) && !ends(ss, 2), 'the newest pages whole, the oldest not');
   assert(/p2 The storyteller — CONTEXT PAGE 2/.test(ss), 'the oldest stand in the index by number');
   const { roomChars, LOOK_RESERVE } = await import('../../js/agents/lookup.js');
+  const { EXTRACTOR_MAX_TOKENS } = await import('../../js/agents/extractor.js');
   const size = sh.calls[0].body.messages.reduce((n, mm) => n + String(mm.content || '').length, 0);
-  assert(size <= roomChars(small, 4000) * 0.7 + 2000, 'the view leaves room to look — at most 70% of the room: ' + size + ' of ' + roomChars(small, 4000));
+  /* M444: measured against the page reader's OWN room (its answer budget is EXTRACTOR_MAX_TOKENS, 2400 since M37 — this
+   * line read 4000, a room 4,800 characters smaller, and held with 246 to spare until the reader's law grew); the index
+   * of the pages that did not fit is inside the 70% now, and only the two headings around the pages ride over it */
+  assert(size <= roomChars(small, EXTRACTOR_MAX_TOKENS) * 0.7 + 400, 'the view leaves room to look — at most 70% of the room: ' + size + ' of ' + roomChars(small, EXTRACTOR_MAX_TOKENS));
   eq(LOOK_RESERVE, 0.3, 'three tenths of every room are kept for looking');
 
   const storyId = 'm259-world-window';

@@ -10466,3 +10466,56 @@ tools, the sheet). Found and fixed:
   lands after he opened another tale lands its card in the tale that asked). NEGATIVE-TESTED each part separately.
   Harness 846/846, walk 117/117, long play 8/8, housekeeper rounds and perf green.
 - version.js -> m443-001.
+
+# M444 — who is here heals itself: the room restated every page, leaving as strict as entering, the scene's place whole
+He: in his Bleach story every NPC stood at Oda's location; Rukia, who was with him, was put "elsewhere"; the next scene,
+where he expected it to heal, her banner read "whereabouts not yet written" while her own "now" was right.
+FOUR ROOTS, each reproduced on the real engine before any change:
+- THE COMPOUND WAS THE SCENE. M396/M402 judged "is this seat where the scene is?" on the place's FIRST PART. Since M410
+  the header's place is the whole place ("13th Division Barracks — Captain's Office"), so the first part is the
+  compound: the world agent seating Kiyone in "13th Division Barracks — the third seats' office" and Sentarō in
+  "…, the training yard" walked both into the captain's office (probe: Who's here = Jovan, Rukia, Kiyone, Sentarō).
+  apply.js seatAtScene: every part of the scene's place must be named in the seat (any order and punctuation, plurals
+  and possessives aside; a part after in/at/inside/within/of, or opening the seat's part with where-in-it words after
+  it); named after outside/near/to/behind, or run on into another place ("the Bluebird parking lot"), it is not the
+  scene; a one-word place or a lone town/city/district is no one spot (M396's measure, kept).
+- ANOTHER KUCHIKI TOOK HER OUT. presence.leave/update matched loosely ("only someone here can leave" — M414 made only
+  entering strict). Byakuya, in the scene but not written in, left as "Captain Kuchiki" (or "Kuchiki", "Kuchiki-taichō")
+  and the one Kuchiki written in — Rukia — stepped out and got "last seen at" the very office she stood in. Both are
+  strict now; the refusal says the name could be more than one person. auditor.js auditorScope's "already here?"
+  asks strictly too ("Captain Kuchiki" walking in is not Rukia already here).
+- CLEARED WAS NOWHERE. The world agent is told someone the page shows arriving is the page reader's to write in and its
+  own to clear the note of; the auditor was told "offscreen.clear". When the page reader had missed her, the note went
+  and she stood nowhere. apply.js clearsThatArrive: a worker's offscreen.clear of someone the page's telling names as
+  themself (shownOnPage — whole name, or a word of it no one else the ledger knows shares; narrationOf drops spoken
+  lines; scenePartOf drops the window), not here, one meaning, not re-seated in the same answer, is presence.enter —
+  in the page reader, the world agent and the auditor (converted on the finding, so its report says what landed).
+  The auditor is told presence.enter for this case now.
+- NOTHING RESTATED THE ROOM. Presence was kept only by changes, and the page reader is told only the new page is news,
+  so a person who never "walked in" (she was there all along) was never written back. The mood board has been restated
+  whole every page since M47/M92 for exactly this. The page reader now answers "here" too (extractor.js
+  hereFromBoard): whoever it names that "Here now" lacks walks in when the telling names them as themself and the name
+  means one person; the main character is written in when missing; nobody is ever taken out for being left off. The
+  house's own entries say why in What changed and why ("— the page shows them here").
+THE LEDGER HE HAS: apply.js wrongWalkIns, run by the page reader's upkeep job (chat.js, after the stale nows): a present
+person whose last whereabouts in the journal is a seat the new test says was NOT the scene (the ground then read from
+the journal), and whom no story page since has named in its scene part, leaves and is seated where the world had them
+(journaled, undoable; never the main character, never someone a page or his hand put there; a bare family name in the
+journal is never taken for one sister).
+ALSO FOUND: M259-21 measured the page reader's view against a room 4,800 characters too small (answer budget 4000; the
+reader's is 2400 since M37) and held by 246 characters until the reader's law grew. Measured against its own room now
+(EXTRACTOR_MAX_TOKENS exported); and the page index — lines for the pages that did not fit — was never counted inside
+the 70% view (lookup.js windowOfPages keeps room for every older page's index line before taking a page whole).
+TESTS: m444.mjs (8): another Kuchiki's leaving (four forms) never takes or moves Rukia and says why, her own name does;
+another room of the barracks stays elsewhere, the office in any wording walks in, outside it does not (14-row table);
+the room restated through the real page reader on a scripted model (only Sentarō written back — not Renji in a spoken
+line, not Kiyone in the window, not "Kuchiki", not Byakuya named only as Kuchiki-taichō; quiet Iba stays); the world
+agent's clear of Renji walking in is his entrance, Byakuya named only in dialogue is let go; the auditor's clear is an
+entrance and its scope is strict; the heal (Kiyone back to her office, Sentarō shown since stays, Isane seated in the
+office stays, a "Kotetsu" seat is neither sister's, two take-backs restore it); named as themself; the index inside
+the view. Walk DOM-100: his office played through the real app's readers — Rukia here, Sentarō written back, Renji
+here, Kiyone elsewhere, the drawer's banners say so. NEGATIVE-TESTED: thirteen breaks of the harness laws, each failing
+its own test; four breaks against DOM-100 run alone, each failing with his exact symptom (Rukia missing, Kiyone in the
+office, Sentarō lost, Renji nowhere); the old window against the index check.
+Harness 854/854, walk 118/118, long play 8/8, lint 0 errors (no new warnings against m443).
+- version.js -> m444-001.

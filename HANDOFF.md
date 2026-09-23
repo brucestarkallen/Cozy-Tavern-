@@ -1,6 +1,18 @@
-# Cozy Tavern — handoff for the next session (state at m443-001)
+# Cozy Tavern — handoff for the next session (state at m444-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0i. WHO IS HERE HEALS ITSELF (M444). (1) THE ROOM IS RESTATED ON EVERY PAGE: the page reader answers "here" (everyone in
+   the scene at the page's end); whoever it names that "Here now" lacks walks in when the page's TELLING names them as
+   themself (before any window, outside spoken lines, never by a family name another person shares — apply.js
+   shownOnPage, narrationOf, scenePartOf) and the name means one person; nobody is ever taken out for being left off
+   (M402 stands). extractor.js hereFromBoard. (2) LEAVING AND MOVING ARE STRICT like entering (M414): a name the ledger
+   knows as two people ("Captain Kuchiki" with Rukia and Byakuya) takes nobody out and moves nobody — it took Rukia out.
+   (3) THE SCENE'S PLACE IS WHOLE: a seat is at the scene only when it names every part of the place (apply.js
+   seatAtScene) — the first-part test read the compound after M410 and pulled every NPC of "13th Division Barracks"
+   into the captain's office. (4) CLEARED IS NEVER NOWHERE: a worker's offscreen.clear of someone the page shows there
+   is her entrance (clearsThatArrive — page reader, world agent, auditor). (5) wrongWalkIns puts back, once, whoever the
+   old compound test pulled in and no page has shown since (the page reader's upkeep job). The view a reader gets now
+   counts its page index inside the 70% (lookup.js windowOfPages).
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
    for someone here the page does not show, or with no now — code guard, M401/M409); the scribe (only for someone the
    page shows — code guard, M412); the tidy (never over a now written this page or while it read, M411); the page
@@ -90,9 +102,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 810 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 854 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 111 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 118 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

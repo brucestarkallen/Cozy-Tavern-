@@ -35,7 +35,9 @@
  * they were the published contract. */
 
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
-import { nameOnPage } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
+import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere */
+import { isMc } from '../engine/people.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
@@ -49,6 +51,7 @@ import { mcName } from '../engine/duels.js';
  * with room to spare. (M26's 2000 was a bandage over thinking models
  * spending the budget on thought; the wire now tells them not to.) */
 const MAX_TOKENS = 2400; /* M37: room for a long founding even if a house thinks a little anyway */
+export const EXTRACTOR_MAX_TOKENS = MAX_TOKENS; /* M444: the page reader's room is measured with its own answer budget */
 
 /* ---------- the in-flight tracker (the send path's courtesy wait) ---------- */
 
@@ -225,10 +228,15 @@ function systemPrompt({ mc, founding }) {
     who,
     '',
     'Answer with JSON ONLY, in exactly this shape:',
-    '{"mutations":[ ... ], "resolved":[ ... ]}',
+    '{"mutations":[ ... ], "resolved":[ ... ], "here":[ ... ]}',
     '"resolved" holds the exact titles of the OPEN THREADS (listed under the page) that THIS page',
     'resolved — the question answered, the plan carried out or abandoned, the promise kept, the thing',
     'found, the decision made. A thread the page only moved is not resolved. [] when none was.',
+    '"here" names EVERYONE in the scene at the END of this page, by the names the ledger uses: the main',
+    'character, everyone the page shows there, and everyone on the ledger\'s "Here now" line whom the page did',
+    'not show leaving (quiet is not gone). Never someone only spoken of or remembered, heard on a phone or seen',
+    'on a screen, and never anyone in the window. Whoever you name here that the ledger has not written in is',
+    'written in; nobody is taken out for being left off — a leaving is still presence.leave, shown on the page.',
     '',
     'The only mutations that exist:',
     VOCABULARY,
@@ -378,7 +386,11 @@ export function parseExtractorAnswer(raw) {
       closing.add(t.toLowerCase());
       mutations.push({ type: 'thread.close', title: t });
     }
-    return { mutations, note: mutations.length ? 'ok' : 'empty' };
+    /* M444: the room as it stands at the end of the page — names only; the house decides who is written in */
+    const here = (Array.isArray(parsed.here) ? parsed.here : [])
+      .map((h) => (typeof h === 'string' ? h : h && typeof h.name === 'string' ? h.name : ''))
+      .map((h) => String(h || '').trim()).filter((h) => h && h.length <= 80);
+    return { mutations, note: mutations.length ? 'ok' : 'empty', here };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
   }
@@ -403,9 +415,45 @@ export function leavesTheyWereShown(mutations, text) {
   return (Array.isArray(mutations) ? mutations : []).filter((m) => !(m && m.type === 'presence.leave' && !nameOnPage(text, m.name)));
 }
 
+/* M444: THE ROOM, RESTATED ON EVERY PAGE. Who is here was kept by what CHANGED — someone came in, someone left — and the
+ * page reader is told that only the new page is news. So one wrong change stuck for good: Rukia, taken out of the scene
+ * by another Kuchiki's leaving, stood beside him page after page, never written back in, because she never walked in —
+ * she had been there all along. The mood board is restated whole on every page for exactly this (M47/M92); the room is
+ * now too, the page reader's "here". Whoever it names who is not written in walks in — when the page's own telling
+ * (before any window, outside the spoken lines) names them, the name means one person, and the same answer does not
+ * take them out or seat them elsewhere. The main character is the page's own eye and needs no naming. Nobody is ever
+ * taken OUT for being left off (M402: silence is not leaving). */
+export function hereFromBoard(state, here, assistantText, mutations = []) {
+  const names = (Array.isArray(here) ? here : []).map((h) => String(h || '').trim()).filter(Boolean);
+  if (!names.length || !state || typeof state !== 'object') return [];
+  const told = narrationOf(scenePartOf(assistantText));
+  const list = Array.isArray(mutations) ? mutations : [];
+  const said = (types, n) => list.some((m) => m && types.includes(m.type) && typeof m.name === 'string' && samePersonName(m.name, n));
+  const mc = mcName(state);
+  const out = [];
+  for (const n of names) {
+    if (isMc(state, n)) {
+      if (mc === 'the player' || isHere(state, mc) || said(['presence.enter', 'presence.leave'], mc) || out.some((m) => m.name === mc)) continue;
+      out.push({ type: 'presence.enter', name: mc, cause: 'the page is told through their eyes' });
+      continue;
+    }
+    if (isHere(state, n) || said(['presence.enter', 'presence.leave', 'offscreen.set'], n) || !oneMeaning(state, n)) continue;
+    const name = pageNameFor(state, n) || n;
+    if (!shownOnPage(state, told, n) && !shownOnPage(state, told, name)) continue; /* named as themself, never by a family name another shares */
+    if (out.some((m) => samePersonName(m.name, name))) continue;
+    out.push({ type: 'presence.enter', name, cause: 'the page shows them here' });
+  }
+  return out;
+}
+
 export async function extractTurn(args = {}) {
   const read = await extractTurnRead(args);
-  if (read && Array.isArray(read.mutations)) read.mutations = leavesTheyWereShown(read.mutations, String(args.userText || '') + '\n' + String(args.assistantText || ''));
+  if (read && Array.isArray(read.mutations)) {
+    read.mutations = leavesTheyWereShown(read.mutations, String(args.userText || '') + '\n' + String(args.assistantText || ''));
+    /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
+    read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));
+    read.mutations = [...read.mutations, ...hereFromBoard(args.state, read.here, args.assistantText, read.mutations)];
+  }
   return read;
 }
 

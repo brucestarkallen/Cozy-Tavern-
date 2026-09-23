@@ -45,7 +45,7 @@ import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
 import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson } from './people.js';
-import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning */
+import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
@@ -201,6 +201,9 @@ function strictPageKey(state, name) {
   const same = pages.filter((k) => samePersonName(k, name));
   return same.length === 1 && oneMeaning(state, name) ? same[0] : '';
 }
+/* M444: the name a person's page stands under, found the way a seat is (the same letters, or the one matcher when exactly
+ * one page answers and the name means one person) — for the house's own writes of who is here */
+export function pageNameFor(state, name) { return strictPageKey(state, name); }
 function newBookKey(state, name) {
   if (isMc(state, name) && mcName(state) !== 'the player') return strictPageKey(state, mcName(state)) || mcName(state);
   return strictPageKey(state, name) || name;
@@ -457,6 +460,8 @@ const HANDLERS = {
     let words = name + ' came into the scene';
     const detail = [position, attire].filter(Boolean).join(', ');
     if (detail) words += ' — ' + detail;
+    const cause = capText(m.cause, 300); /* M444: why the house wrote them in, when it was the house */
+    if (cause) words += ' — ' + cause.replace(/\.+$/, '');
     words += '.';
     /* M4: walking back into the scene lets go of the elsewhere note —
      * presence.enter auto-unseats (and the undo puts the seat back). */
@@ -478,8 +483,13 @@ const HANDLERS = {
   'presence.leave'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const at = findPresent(state, name);
-    if (at === -1) return { why: 'no one here answers to ' + name };
+    /* M444: A NAME THAT COULD BE TWO PEOPLE TAKES NOBODY OUT. His Bleach story: Byakuya left the room — the page reader
+     * wrote "Captain Kuchiki" — and Byakuya was not written in, so the one Kuchiki who was, Rukia, stepped out of the
+     * scene and was noted "last seen" at the very room she stood in. M414 made ENTERING strict and left leaving loose on
+     * "only someone here can leave" — but someone standing in the scene unwritten can leave too. The strict answer, the
+     * same as entering: a name the ledger knows as two people is nobody's to move. */
+    const at = findPresent(state, name, { strict: true });
+    if (at === -1) return { why: findPresent(state, name) !== -1 ? '“' + name + '” could be more than one person the story knows — nobody here is taken out on it' : 'no one here answers to ' + name };
     const before = { ...state.present[at] };
     state.present.splice(at, 1);
     /* M304: SOMEONE WHO LEAVES THE PAGE IS NEVER NOWHERE (see engine/offscreen.js).
@@ -496,8 +506,9 @@ const HANDLERS = {
       state.offscreen = seat(state.offscreen, before.name, { location: ground || 'where the scene stood', activity: '', lastSeen: true }, clockMinutesOf(state), storyTurn(state));
       seatAdded = before.name;
     }
+    const cause = capText(m.cause, 300);
     return {
-      words: before.name + ' stepped out of the scene.',
+      words: before.name + ' stepped out of the scene' + (cause ? ' — ' + cause.replace(/\.+$/, '') : '') + '.',
       undo: { kind: 'presence.restore', before, index: at, ...(seatAdded ? { seatAdded } : {}) },
     };
   },
@@ -505,8 +516,8 @@ const HANDLERS = {
   'presence.update'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const at = findPresent(state, name);
-    if (at === -1) return { why: 'no one here answers to ' + name };
+    const at = findPresent(state, name, { strict: true }); /* M444: a name that could be two people moves nobody */
+    if (at === -1) return { why: findPresent(state, name) !== -1 ? '“' + name + '” could be more than one person the story knows — nobody here is moved on it' : 'no one here answers to ' + name };
     if (m.position === undefined && m.attire === undefined) {
       return { why: 'it didn’t say what changed about ' + name };
     }
@@ -753,9 +764,12 @@ const HANDLERS = {
      * place. Judged on the place's first part ("Tenth Division courtyard"), and only for a place of two words or more
      * (a whole city is no one spot). */
     const movingIn = m.stance === 'toward' || m.stance === 'seeking';
-    const sceneSpot = foldName(String((state.place && state.place.name) || '').split(/\s*(?:—|–|,|;|\()\s*/)[0]);
-    const seatSpot = foldName(String(location || '').split(/\s*(?:—|–|,|;|\()\s*/)[0]);
-    if (!movingIn && sceneSpot && sceneSpot.split(' ').length >= 2 && seatSpot === sceneSpot) {
+    /* M444: THE SCENE'S PLACE, WHOLE — never only its first part. Since M410 the header's place is the whole place
+     * ("13th Division Barracks — Captain's Office"), so a first-part test read the COMPOUND: every seat anywhere in it —
+     * "13th Division Barracks — the third seats' office", "…, the training yard" — walked into the captain's office, and
+     * every one of his people stood beside the main character. The seat is at the scene only when it names every part
+     * of the scene's place, and not as a place she is outside of or on the way to (seatAtScene). */
+    if (!movingIn && seatAtScene(location, state.place && state.place.name)) {
       /* M402: SOMEONE THE WORLD PUTS WHERE THE SCENE IS, IS IN THE SCENE. Refusing the seat (M396) left them stuck: a
        * "last seen at <the scene's own ground>" note the world agent could never move on — Kyōraku "elsewhere" at the
        * courtyard the duel was in. They walk in instead (their note lets go on its own), and the quiet ones in the room
@@ -1339,6 +1353,143 @@ function placeKey(name) {
 export function samePlace(a, b) {
   const x = placeKey(a);
   return Boolean(x) && x === placeKey(b);
+}
+
+/* M444: IS THIS SEAT WHERE THE SCENE IS? The seat names EVERY part of the scene's place — "13th Division Barracks" AND
+ * "Captain's Office", in any order and any punctuation, a plural or a possessive aside — so another room of the same
+ * compound is elsewhere. A part is named when it stands as the seat's own part ("…, Captain's Office"), opens it with
+ * where-in-it words after ("Captain's Office, by the window", "…of the 13th Division Barracks"), or follows "in", "at",
+ * "inside", "within" or "of". Named after "outside", "near", "to" or "behind", or run on into another place ("the
+ * Bluebird parking lot"), it is where she is NOT. A one-word place, or a town, a city or a district with nothing more
+ * specific, is no one spot (M396). */
+const PLACE_FILL = new Set(['the', 'a', 'an', 's']);
+const PLACE_REGION = new Set(['town', 'city', 'village', 'district', 'ward', 'prefecture', 'province', 'county', 'kingdom', 'empire', 'realm', 'country', 'island', 'world', 'capital', 'suburb', 'neighborhood', 'neighbourhood', 'quarter', 'region', 'continent', 'metropoli', 'borough', 'township', 'hamlet']);
+/* the words as placeWordsOf leaves them ("across" → acros) */
+const PLACE_IN = new Set(['in', 'at', 'inside', 'within', 'of']);
+const PLACE_WITHIN = new Set(['by', 'beside', 'near', 'against', 'behind', 'next', 'at', 'on', 'in', 'of', 'with', 'facing', 'opposite', 'under', 'along', 'acros', 'close', 'watching', 'standing', 'sitting', 'seated', 'waiting', 'leaning', 'kneeling', 'working', 'doorway', 'corner', 'window']);
+const placeWordsOf = (text) => foldName(text).split(' ').filter(Boolean).map((w) => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w)).filter((w) => !PLACE_FILL.has(w));
+const placeParts = (text) => String(text || '').split(/\s*(?:—|–|,|;|\(|\)|\s-\s)\s*/).map(placeWordsOf).filter((ws) => ws.length);
+export function seatAtScene(location, sceneName) {
+  const scene = String(sceneName || '').trim();
+  const where = String(location || '').trim();
+  if (!scene || !where) return false;
+  const parts = placeParts(scene);
+  const all = parts.flat();
+  /* M396's measure, kept: two words or more as written ("the Bluebird" is a spot, "Tokyo" is not) */
+  if (!all.length || foldName(scene).split(' ').filter(Boolean).length < 2) return false;
+  if (parts.length === 1 && PLACE_REGION.has(all[all.length - 1])) return false;
+  const seatParts = placeParts(where);
+  const named = (p) => seatParts.some((q) => {
+    for (let i = 0; i + p.length <= q.length; i += 1) {
+      if (!p.every((w, k) => q[i + k] === w)) continue;
+      const before = i > 0 ? q[i - 1] : '';
+      const after = i + p.length < q.length ? q[i + p.length] : '';
+      if ((!before || PLACE_IN.has(before)) && (!after || PLACE_WITHIN.has(after))) return true;
+    }
+    return false;
+  });
+  return parts.every(named);
+}
+
+/* M444: CLEARED IS NEVER NOWHERE. The world agent is told that someone the page shows arriving is the page reader's to
+ * write in and its own only to let go of the elsewhere note; the auditor was told the same ("offscreen.clear"). When the
+ * page reader had not written her in, the note went and nothing put her in the scene: Rukia, beside him on the page, was
+ * "whereabouts not yet written" in the ledger while her own "now" said she stood there. A worker's clearing of someone's
+ * elsewhere note, when the page (before any window) names her, she is not already here, the name means one person and
+ * the same answer does not seat her somewhere else, is her walking in — presence.enter, which lets the note go itself. */
+export function clearsThatArrive(state, mutations, sceneText) {
+  const list = Array.isArray(mutations) ? mutations : [];
+  const text = narrationOf(sceneText); /* named by the telling, not only in someone's line ("Where is Renji?") */
+  if (!text.trim() || !state || typeof state !== 'object') return list;
+  const seatedAgain = (name) => list.some((x) => x && x.type === 'offscreen.set' && typeof x.name === 'string' && samePersonName(x.name, name));
+  return list.map((m) => {
+    if (!m || m.type !== 'offscreen.clear' || typeof m.name !== 'string' || !m.name.trim()) return m;
+    const name = normalizeName(m.name);
+    if (!name || isMc(state, name) || isHere(state, name) || !seatForPerson(state, name) || seatedAgain(name) || !oneMeaning(state, name)) return m;
+    const key = strictPageKey(state, name) || name;
+    if (!shownOnPage(state, text, name) && !shownOnPage(state, text, key)) return m;
+    return { type: 'presence.enter', name: key, cause: 'the page shows them here' };
+  });
+}
+
+/* M444: IS THIS PERSON THEMSELF NAMED IN THIS TEXT — by their whole name, or by a word of it no one else the ledger
+ * knows shares. "Kuchiki-taichō nodded" names Byakuya, never Rukia Kuchiki; "Rukia" names her. (nameOnPage counts a
+ * shared family name for both — right for "might they be here?", wrong for writing someone into the scene.) */
+export function shownOnPage(state, text, name) {
+  const s = state && typeof state === 'object' ? state : {};
+  if (!nameOnPage(text, name)) return false;
+  const bare = nameCore(name);
+  if (bare && bare.includes(' ') && nameOnPage(text, bare)) {
+    const folded = ' ' + foldName(text) + ' ';
+    if (folded.includes(' ' + foldName(bare) + ' ')) return true; /* the whole name, as it stands */
+  }
+  const others = [
+    ...Object.keys(s.characters && typeof s.characters === 'object' ? s.characters : {}),
+    ...(Array.isArray(s.present) ? s.present : []).map((p) => (p && typeof p.name === 'string' ? p.name : '')),
+    ...Object.keys(s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {}),
+  ].filter((n) => n && !samePersonName(n, name));
+  const shared = new Set(others.flatMap((n) => nameCore(n).split(' ')));
+  return nameCore(name).split(' ').filter((w) => w.length >= 2 && !shared.has(w)).some((w) => nameOnPage(text, w));
+}
+
+/* M444: THE ROOM BEFORE ANY WINDOW — the part of a story page that is the scene (after *** The World Beyond *** is
+ * another place, M129) */
+export function scenePartOf(pageText) {
+  const t = String(pageText || '');
+  const cut = t.indexOf('*** The World Beyond ***');
+  return cut === -1 ? t : t.slice(0, cut);
+}
+/* M444: the telling without its spoken lines — someone only talked about ("Byakuya would never allow it") is not shown
+ * there; the quote marks the auditor's departure reader sets aside (showsDeparture) */
+export function narrationOf(text) {
+  return String(text || '').replace(/"[^"\n]*"|“[^”]*”|«[^»]*»|「[^」]*」|『[^』]*』/g, ' ');
+}
+
+/* M444: WHO WALKED IN FROM ANOTHER ROOM. Until M444 a seat anywhere in the scene's compound walked its person into the
+ * scene (the first-part test above). A ledger written then holds people in "Here now" who never came in: here, not the
+ * main character, the last word the journal holds about where they are is that seat, the seat by today's test is NOT
+ * where the scene stood, and no story page since (before its window) has named them. They are put back where the
+ * world had them — never someone a page has shown since, never one his hand wrote in, never the main character.
+ * storyPages: the story's pages as the page reader counts them ([{text}], the storyteller's pages only). */
+export function wrongWalkIns(state, storyPages = []) {
+  const s = state && typeof state === 'object' ? state : {};
+  const present = Array.isArray(s.present) ? s.present : [];
+  const journal = Array.isArray(s.journal) ? s.journal : [];
+  const pages = Array.isArray(storyPages) ? storyPages : [];
+  if (!present.length || !journal.length) return [];
+  const WHERE = new Set(['presence.enter', 'presence.leave', 'offscreen.set', 'offscreen.clear', 'people.rename', 'people.forget']);
+  const out = [];
+  for (const p of present) {
+    const name = p && typeof p.name === 'string' ? p.name : '';
+    if (!name || isMc(s, name)) continue;
+    let at = -1;
+    for (let i = journal.length - 1; i >= 0; i -= 1) {
+      const m = journal[i] && journal[i].m;
+      if (!m || !WHERE.has(m.type)) continue;
+      const who = [m.name, m.from, m.to].filter((x) => typeof x === 'string' && x.trim());
+      /* the same letters, or another form of the name that means one person (never a bare "Kuchiki" for Rukia) */
+      if (who.some((x) => x.trim().toLowerCase() === name.trim().toLowerCase() || (samePersonName(x, name) && oneMeaning(s, x)))) { at = i; break; }
+    }
+    if (at === -1) continue;
+    const entry = journal[at];
+    const seatM = entry.m;
+    if (seatM.type !== 'offscreen.set' || seatM.stance === 'toward' || seatM.stance === 'seeking') continue;
+    /* the ground the scene stood on when that seat was written */
+    let ground = '';
+    for (let i = at - 1; i >= 0; i -= 1) { const m = journal[i] && journal[i].m; if (m && m.type === 'place.set') { ground = String(m.name || m.place || ''); break; } }
+    if (!ground) {
+      if (journal.slice(at + 1).some((j) => j && j.m && j.m.type === 'place.set')) continue; /* the journal no longer reaches it */
+      ground = s.place && typeof s.place.name === 'string' ? s.place.name : '';
+    }
+    if (!ground || seatAtScene(seatM.location, ground)) continue;
+    const since = Number.isInteger(entry.p) ? entry.p : -1;
+    const key = findPersonKey(s.characters || {}, name);
+    const shown = pages.some((pg, i) => i > since && pg && (nameOnPage(scenePartOf(pg.text), name) || (key && nameOnPage(scenePartOf(pg.text), key))));
+    if (shown) continue;
+    out.push({ type: 'presence.leave', name, cause: 'never in it — the world had put them in another part of ' + String(ground).split(/\s*(?:—|–|,|;|\()\s*/)[0] });
+    out.push({ type: 'offscreen.set', name, location: seatM.location, ...(seatM.activity ? { activity: seatM.activity } : {}), ...(seatM.agenda ? { agenda: seatM.agenda } : {}), ...(seatM.stance ? { stance: seatM.stance } : {}) });
+  }
+  return out;
 }
 
 /* M261: the same beat — the same words in any order, or nearly all of them */

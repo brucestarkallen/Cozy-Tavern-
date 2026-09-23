@@ -28,7 +28,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, headerMutations } from '../engine/state.js';
-import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent } from '../engine/apply.js';
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf } from '../engine/apply.js'; /* M444 */
 import { findSeat } from '../engine/offscreen.js';
 import { findThread } from '../engine/world.js';
 /* M240: it was told to catch a healed wound and never shown the wounds.
@@ -107,7 +107,7 @@ function law({ mc }) {
     '    present actually still in the scene? Someone who left pages ago and is still "here" is an',
     '    error; someone who arrived and is not listed is an error.',
     '  - THE ABSENT: does each seat match where the pages last put that person? A person the pages',
-    '    show arriving still seated elsewhere is an error (offscreen.clear). A named person the pages',
+    '    show in the scene still seated elsewhere is an error (presence.enter — it lets the note go). A named person the pages',
     '    or the brief establish who has no seat and no page is missing (people.set, offscreen.set).',
     '  - THE PEOPLE: does each character page agree with the brief and with the pages? A wrong name,',
     '    a wrong relation, a wrong role is an error. A real person or a character from an established',
@@ -438,6 +438,12 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     }
     read.issues = kept;
   }
+  /* M444: CLEARED IS NEVER NOWHERE — a note it lets go of someone the latest page shows there is her walking in (converted
+   * on the finding itself, so the report says what landed) */
+  {
+    const sceneNow = latestStory ? scenePartOf(pageText(latestStory)) : '';
+    if (sceneNow) read.issues = read.issues.map((i) => (i && Array.isArray(i.mutations) && i.mutations.length ? { ...i, mutations: clearsThatArrive(fresh, i.mutations, sceneNow) } : i));
+  }
   /* M267: A CHECK THAT FOUND NOTHING IS NOT A FINDING. The writer counted
    * fourteen "mistakes" in a reading that changed three things: the rest were
    * the auditor listing what it had checked and found right ("the thread
@@ -750,7 +756,7 @@ export function auditorScope(issues, state, { header = [] } = {}) {
     if (m.type === 'place.set' && headerAgrees(m) !== true) return true;
     if (m.type === 'people.note') return String(m.field || '').trim().toLowerCase() !== 'unthread';
     /* someone already here who "comes in" is a move — the page reader's */
-    if (m.type === 'presence.enter' && Array.isArray(state && state.present) && findPresent(state, m.name) !== -1) return true;
+    if (m.type === 'presence.enter' && Array.isArray(state && state.present) && findPresent(state, m.name, { strict: true }) !== -1) return true; /* M444: "already here" asked the way entering asks it — Captain Kuchiki is not Rukia */
     if (m.type === 'people.set') {
       if (mc && String(m.name || '').trim().toLowerCase() === mc) return true;
       return m.field === 'state' || m.field === 'arc' || m.field === 'threads';
