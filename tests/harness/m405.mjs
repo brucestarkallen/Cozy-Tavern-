@@ -46,3 +46,20 @@ test('M405-3 A NICKNAME IN BRACKETS FINDS ITS PAGE: "Rose" is "Rōjūrō Otoriba
   eq(Object.keys(st.characters).join(), 'Rōjūrō Otoribashi (Rose)', 'one page');
   eq(st.characters['Rōjūrō Otoribashi (Rose)'].state, 'on the shaded arc', 'written where he is kept');
 });
+
+test('M406-1 ONE PERSON, TWO PAGES, JOINED: the empty "Rose" page folds into "Rōjūrō Otoribashi (Rose)" — his presence follows, nothing is lost, it can be taken back; two Kuchikis and two Vanessas are never joined', async () => {
+  const { duplicatePages } = await import('../../js/engine/apply.js');
+  let st = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'presence.enter', name: 'Rose' }]).state;
+  st.characters = { ...st.characters, 'Rose': { core: '', state: 'on the shaded arc', threads: [] }, 'Rōjūrō Otoribashi (Rose)': { core: 'Captain of the 3rd.', state: '', threads: [] },
+    'Rukia Kuchiki': { core: 'y', threads: [] }, 'Byakuya Kuchiki': { core: 'z', threads: [] }, 'Vanessa Reynolds': { threads: [] }, 'Vanessa Cole': { threads: [] } };
+  const joins = duplicatePages(st);
+  eq(JSON.stringify(joins), JSON.stringify([{ from: 'Rose', to: 'Rōjūrō Otoribashi (Rose)' }]), 'only Rose, onto his full page');
+  const r = applyMutations(st, joins.map((j) => ({ type: 'people.rename', from: j.from, to: j.to })));
+  eq(r.applied.length, 1, 'joined');
+  st = r.state;
+  assert(!st.characters['Rose'], 'the empty page is gone');
+  eq(st.characters['Rōjūrō Otoribashi (Rose)'].core, 'Captain of the 3rd.', 'his description stays');
+  assert(st.present.some((p) => p.name === 'Rōjūrō Otoribashi (Rose)'), 'he is here under his one page');
+  const back = undoEntry(st, st.log.length - 1);
+  assert(back.state.characters['Rose'], 'taken back, it is as it was');
+});

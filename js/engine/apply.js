@@ -1210,6 +1210,27 @@ export function staleNows(state) {
   return out;
 }
 
+/* M406: ONE PERSON, TWO PAGES — FOUND AND JOINED. Before M405 "Rose" and "Rōjūrō Otoribashi (Rose)" became two pages;
+ * the fix stops new ones, and ledgers already holding both are joined here: a page whose name finds exactly one OTHER
+ * page (folded letters, canon's other name, a first or last name, a nickname in brackets — findPersonKey's own rules)
+ * is renamed onto it (people.rename loses nothing, M163; journaled, undoable). Never the main character. */
+export function duplicatePages(state) {
+  const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const out = [];
+  const taken = new Set();
+  for (const name of Object.keys(chars)) {
+    if (taken.has(name) || isMc(state, name)) continue;
+    const others = Object.fromEntries(Object.entries(chars).filter(([k]) => k !== name && !taken.has(k)));
+    const to = findPersonKey(others, name);
+    if (!to || isMc(state, to)) continue;
+    /* only a SHORTER form joins a fuller one — never two full names that merely look alike */
+    if (foldName(to).length <= foldName(name).length) continue;
+    out.push({ from: name, to });
+    taken.add(name);
+  }
+  return out;
+}
+
 /* M261: two names for one place — case, a leading "the", punctuation */
 function placeKey(name) {
   return String(name || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();

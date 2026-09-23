@@ -52,7 +52,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
-import { applyMutations, storyTurn, staleNows } from '../engine/apply.js'; /* M405 */
+import { applyMutations, storyTurn, staleNows, duplicatePages } from '../engine/apply.js'; /* M405/M406 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
@@ -2777,13 +2777,15 @@ export function initChat(ctx) {
     enqueue('extractor', async ({ stale }) => {
       if (story.extraction === false || stale()) return { silent: true };
       const fresh = await loadState(story.id);
-      const who = staleNows(fresh);
-      if (!who.length) return { silent: true };
-      const { state: next, applied } = applyMutations(fresh, who.map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true })));
-      if (!applied.length) return { silent: true };
-      await saveState(story.id, next);
+      /* M406: one person, two pages — joined first, so the nows below are read on the one page */
+      const joins = duplicatePages(fresh);
+      const joined = joins.length ? applyMutations(fresh, joins.map((j) => ({ type: 'people.rename', from: j.from, to: j.to, cause: 'one person, one page' }))) : { state: fresh, applied: [] };
+      const who = staleNows(joined.state);
+      const cleared = who.length ? applyMutations(joined.state, who.map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true }))) : { state: joined.state, applied: [] };
+      if (!joined.applied.length && !cleared.applied.length) return { silent: true };
+      await saveState(story.id, cleared.state);
       notify(story.id);
-      return { silent: false, detail: 'let go of a “now” that named a place the scene has left: ' + who.join(', ') };
+      return { silent: false, detail: [joined.applied.length ? 'joined ' + joins.map((j) => j.from + ' into ' + j.to).join(', ') : '', cleared.applied.length ? 'let go of a “now” that named a place the scene has left: ' + who.join(', ') : ''].filter(Boolean).join(' · ') };
     });
 
     /* M394: CANON THROUGH HIS STORY, BEFORE THE WORLD AND THE SCRIBE WRITE. Everyone canon knows in this ledger with no lens

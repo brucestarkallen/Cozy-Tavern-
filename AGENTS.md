@@ -9811,3 +9811,21 @@ pending" — eight scenes old, in the courtyard. And "Rose — here" had no desc
   stale now named once and let go, a now of this ground kept; "Rose" finds his bracketed page, one page). The chain job
   is filed under the page reader (M29-10 reads the chain order). NEGATIVE-TESTED: the finder; the bracket fold.
 - version.js -> m405-001.
+
+# M406 — one person's two pages are joined on their own; the answer he should have had
+He: what exactly happened — Kyōraku was always at the 10th Division and is meant to be SIMULATED; what is "quiet";
+and why tell him to fix Rose by hand through the housekeeper instead of "read again".
+- THE PLAIN ACCOUNT (for the next reader of this file): "quiet" was my word for M401's simulation — a person in Who's
+  here whom the latest page does not mention; the world agent writes their "now" every page. Kyōraku missed it three
+  ways, one after another: (1) the page reader took him out of Who's here for not being mentioned (M402 fixed), (2) the
+  auditor took the whole room out and moved the scene (M403 fixed), (3) his page kept a "now" from the assembly hall,
+  because a scene move only ever cleared the main character's (M405 fixed). Out of Who's here, the simulation skipped
+  him; back in, the old now stood until the next page's simulation.
+- ROSE, JOINED ON ITS OWN (engine/apply.js duplicatePages; the readers' chain job right after the page reader, the same
+  one that lets go of stale nows): a page whose name finds exactly one OTHER, fuller page by findPersonKey's own rules
+  is renamed onto it (people.rename, M163: nothing lost; journaled, undoable). "Rose" joins "Rōjūrō Otoribashi (Rose)";
+  two Kuchikis and two Vanessas never join. It runs every page — so "read again" on the latest page does it, which is
+  what he should have been told instead of the housekeeper.
+- TESTS: M406-1 (in m405.mjs: only Rose joins, onto his full page; the empty page gone, his description kept, his
+  presence follows, taken back whole). Negative-tested. The fold fuzzers pass (the join is a journaled change).
+- version.js -> m406-001.
