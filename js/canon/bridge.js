@@ -323,7 +323,7 @@ async function enterStory(bundle) {
   setContext(contextFor({ ...bundle, meta }));
   /* M396: every book of the ledger asks "the same person?" of one matcher — and canon knows who answers to which names
    * (Soi Fon is Suì-Fēng): the story in hand lends it the names of everyone it has looked up */
-  setAliasSource(() => aliasGroupsOf(meta));
+  setAliasSource(() => aliasGroupsOf(meta), story.id); /* M427: this story's, heard only while it is open */
   if (lastStory !== story.id) {
     lastStory = story.id;
     await eventSource.emit(event_types.CHAT_CHANGED); /* a new chat for it: its per-chat memory resets, the wiki is checked */

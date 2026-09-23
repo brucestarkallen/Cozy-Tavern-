@@ -14,6 +14,7 @@ import { initWelcome } from './ui/welcome.js';
 import { VERSION } from './version.js';
 import { acquirePen } from './tablock.js';
 import { initSync } from './sync.js';
+import { setAliasScope } from './engine/names.js'; /* M427: canon's other names are heard only in their own story */
 
 /* ---------- theme: lamplight by default; "follow the sky" is a choice ----
  * M8: the hearth (dark) is the default face. Nothing stored → dark. The
@@ -105,6 +106,7 @@ function toast(words, onTap) {
 
 let activeStoryId = null;
 
+setAliasScope(() => getActiveStoryId()); /* M427 */
 function getActiveStoryId() {
   return activeStoryId;
 }

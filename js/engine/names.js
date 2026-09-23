@@ -14,7 +14,14 @@
 
 /* the story's canon alias groups — [[name, alias, …], …] — or none */
 let aliasSource = () => [];
-export function setAliasSource(fn) { aliasSource = typeof fn === 'function' ? fn : () => []; }
+/* M427: ONE STORY'S CANON NEVER SPEAKS IN ANOTHER. The bridge lends the names canon knows for the story it last entered —
+ * and nothing ever took them back: after his Bleach tale, a tale with canon off still matched people by Bleach's other
+ * names. The lent names are the story's own (its id rides with them) and are heard only while that story is the open
+ * one (app.js tells the matcher which that is); with no story known — the harness — they are heard as before. */
+let aliasStory = null;
+let openStoryOf = () => null;
+export function setAliasSource(fn, storyId = null) { aliasSource = typeof fn === 'function' ? fn : () => []; aliasStory = storyId || null; }
+export function setAliasScope(fn) { openStoryOf = typeof fn === 'function' ? fn : () => null; }
 
 /* a name with its letters folded: accents off, case off, punctuation to spaces */
 export function foldName(name) {
@@ -23,6 +30,7 @@ export function foldName(name) {
 }
 
 function aliased(a, b) {
+  if (aliasStory) { let open = null; try { open = openStoryOf(); } catch (err) { open = null; } if (open && open !== aliasStory) return false; }
   let groups = [];
   try { groups = aliasSource() || []; } catch (err) { groups = []; }
   for (const g of Array.isArray(groups) ? groups : []) {

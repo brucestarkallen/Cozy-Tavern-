@@ -10208,3 +10208,16 @@ nothing had been). His frame and his brief are the words he cares most about.
   lost; without the typed-only rule another hand's brief is overwritten (with ""). Walk 112/112, harness 832/832,
   long play 8/8.
 - version.js -> m426-001.
+
+# M427 — one story's canon never speaks in another
+The audit of the canon bridge: the bridge lends the ledger's one matcher the other names canon knows (M396 — "Soi Fon"
+is Suì-Fēng) for the story it last entered, through a module-level source — and nothing ever took them back. After his
+Bleach tale, a tale with canon OFF still matched its people by Bleach's other names: one story's canon deciding who is
+the same person in another (M399 made canon a story's own switch; its names were not).
+- names.js setAliasSource(fn, storyId) and setAliasScope(getOpenStory): the lent names carry their story and are heard
+  only while it is the open one (app.js hands the matcher the open story). With no story known (the harness) they are
+  heard as before; a story's own chain finishing after he moved on simply matches without them (the safe way).
+- bridge.js enterStory lends them with the story's id.
+- TESTS: M427-1 (in the Bleach tale "Soi Fon" finds Suì-Fēng's page; in another tale it does not; with no scope, as
+  before). NEGATIVE-TESTED. Harness 833/833, walk 112/112, long play 8/8.
+- version.js -> m427-001.
