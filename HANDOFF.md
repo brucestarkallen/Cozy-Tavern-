@@ -1,6 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m447-001)
+# Cozy Tavern — handoff for the next session (state at m448-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0m. WHAT THE SERIES SAYS NEVER MENDS HIS PAGE (M448). The two readers whose findings MEND pages — the second reader
+   (continuity.js buildContinuityMessages) and the record's checker (memory.js canonRecord) — are shown his truths, the
+   brief's and the readers', never a truth with source 'canon' (canon's faces are where his story started; his story
+   may change them). The auditor is told a face the pages changed in this story is relocked to the pages (canon.lock —
+   a non-series lock the series never writes over). EVERY DOOR THAT MENDS A PAGE (chat.js mendAround callers): the
+   keeper's checker, the second reader, the auditor's brief-wins, the eye's glitch, the ripple of his own edit — each
+   rests on his material, his truths or a glitch; never on the ledger's moving state or the series.
 0l. WHO IS WHERE IS NEVER MENDED (M447). The second reader (agents/continuity.js) is shown who is here by name and what is
    locked — never the seats — and told who is where is the page's. A finding that holds the page to the ledger's
    whereabouts is let go in code (whereFinding; one about who could know stays). Its warn MENDS THE PAGE: with the seats
@@ -120,7 +127,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 861 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 864 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 121 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).

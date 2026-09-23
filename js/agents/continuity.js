@@ -112,14 +112,20 @@ export function buildContinuityMessages({ state, assistantText, brief = '' }) {
    * are uncrossed"). It is not shown the moment at all now: who is here by
    * name, and where the absent are; never where anyone stands, what they wear,
    * or the mood. */
+  /* M448: WHAT THE SERIES SAYS IS NEVER A REASON TO MEND HIS PAGE. The series' own truths (canon's faces, source
+   * 'canon') are where his story STARTED; his story may change them (a haircut, a scar, a time skip) and the page that
+   * shows it is the story — "where our story has made something otherwise, our story wins". Shown to this reader as
+   * locks, a page that changed one was drift, and a warn mends the page back to the wiki. The reader is shown his
+   * truths, the brief's and the readers' — never the series' own. */
+  const hisCanon = state && state.canon && typeof state.canon === 'object'
+    ? Object.fromEntries(Object.entries(state.canon).map(([k, e]) => [k, e && typeof e === 'object' ? { ...e, facts: (Array.isArray(e.facts) ? e.facts : []).filter((f) => f && f.source !== 'canon') } : e]))
+    : {};
   const lasting = state && typeof state === 'object'
-    ? { ...state, present: (Array.isArray(state.present) ? state.present : []).map((p) => (p && p.name ? { name: p.name } : p)), mode: {}, offscreen: {} } /* M447: where the absent are is never shown — the page decides it */
+    ? { ...state, present: (Array.isArray(state.present) ? state.present : []).map((p) => (p && p.name ? { name: p.name } : p)), mode: {}, offscreen: {}, canon: hisCanon } /* M447: where the absent are is never shown — the page decides it */
     : state;
   /* M338: the blind spots are keyed to the page being read — what bears on it, and what is recent */
   const facts = renderStateFacts(lasting, { scenePages: [String(assistantText || '')] }) || 'Nothing is written in the ledger yet.';
-  const canon = state && state.canon && typeof state.canon === 'object'
-    ? renderCanon(state.canon, Object.keys(state.canon))
-    : '';
+  const canon = Object.keys(hisCanon).length ? renderCanon(hisCanon, Object.keys(hisCanon)) : ''; /* M448: his truths, never the series' */
   const user = [
     'What is locked true of them:',
     canon || 'Nothing is locked yet.',

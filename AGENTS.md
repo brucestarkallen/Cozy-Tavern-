@@ -10602,3 +10602,21 @@ Found while checking M446 against his report (Rukia "elsewhere" while the page h
   M447-2 fails.
 Harness 861/861, walk 121/121, long play 8/8, lint 0 errors (no new warnings).
 - version.js -> m447-001.
+
+# M448 — what the series says is never a reason to mend his page
+Found auditing every door that mends a page (after M447).
+- THE FAULT: the second reader and the record's checker (memory.js verify → canonRecord) were handed EVERY locked truth,
+  the series' own among them (canon.lock with source 'canon': canon's hair, eyes, height, look) — unmarked, and told
+  locked truths outrank a page; both findings MEND pages. His canon stories leave canon on purpose; a page that cut
+  Rukia's hair ("cropped short since the war") stood against the wiki's "chin-length" and could be mended back — while
+  canon's own note tells the storyteller "where our story has made something otherwise, our story wins".
+- THE LAW NOW: both readers are shown his truths, the brief's and the readers' — never the series' own. And the auditor
+  is told a face the series gave that the pages have plainly changed in this story is relocked to the pages
+  (canon.lock, a non-series lock — apply.js never lets the series write over it, M386). Every mend door, audited:
+  keeper's checker (brief + his truths), second reader (his truths; never whereabouts, M447), the auditor's brief
+  wins, the eye's glitch, the ripple of his own edit — none rests on the ledger's moving state or the series.
+- TESTS: m448.mjs (3): the second reader's request carries his truth, not the series' face; the record checker's the
+  brief and his truth, not the series'; a face relocked by the story stands and the series cannot write its own over it.
+  NEGATIVE-TESTED: each filter removed fails its test.
+Harness 864/864, walk 121/121, long play 8/8, lint 0 errors (no new warnings; three old ones' line numbers moved).
+- version.js -> m448-001.

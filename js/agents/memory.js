@@ -816,7 +816,9 @@ export async function canonRecord(storyId, record) {
   let brief = '';
   let locks = '';
   try { const story = await db.stories.get(storyId); brief = String((story && story.brief) || '').trim(); } catch (err) { brief = ''; }
-  try { const st = await loadState(storyId); locks = st && st.canon && typeof st.canon === 'object' ? renderCanon(st.canon, Object.keys(st.canon), Infinity) : ''; } catch (err) { locks = ''; }
+  /* M448: the truths that outrank a page are his, the brief's and the readers' — never the series' own (canon's faces are
+   * where his story started; a page that changed one is the story, and this checker's "source" finding mends the page) */
+  try { const st = await loadState(storyId); const his = st && st.canon && typeof st.canon === 'object' ? Object.fromEntries(Object.entries(st.canon).map(([k, e]) => [k, e && typeof e === 'object' ? { ...e, facts: (Array.isArray(e.facts) ? e.facts : []).filter((f) => f && f.source !== 'canon') } : e])) : {}; locks = renderCanon(his, Object.keys(his), Infinity); } catch (err) { locks = ''; }
   const parts = [];
   if (brief) parts.push('THE WRITER\'S BRIEF (it outranks every page):\n' + writerText(brief, BRIEF_ROOM, 'brief'));
   if (locks) parts.push('LOCKED TRUTHS:\n' + locks);
