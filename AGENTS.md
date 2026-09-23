@@ -10119,3 +10119,14 @@ one compound.
 - TESTS: M421-1 (the same place in any letters keeps the now; the move inside the HQ, which the ledger calls a move, lets
   it go). NEGATIVE-TESTED: the first-part rule fails it. Harness 825/825, walk 111/111, long play 8/8.
 - version.js -> m421-001.
+
+# M422 — a housekeeper card watches the entry its write lands on
+M419's search for the same fault elsewhere (rule 8): the housekeeper's review of a pending card (ledgerSliceHash — has
+the ledger slice this card touches changed since it was staged?) looked the slice up by EXACT name. Since M419 a card's
+"body.injure Rukia" lands on "Rukia Kuchiki"; the review watched "Rukia" — nothing — so a change to her body under a
+pending card was never seen.
+- housekeeper.js ledgerSliceHash: bodies, standings, seats, truths, knowledge, factions and pages are found by
+  apply.js personBookKey (now exported) — the finder the card's own write uses.
+- TESTS: M422-1 (her body changing under a card about "Rukia" changes its slice; someone else's does not).
+  NEGATIVE-TESTED. Harness 826/826, walk 111/111, long play 8/8.
+- version.js -> m422-001.

@@ -52,7 +52,7 @@ import { samePersonName } from '../engine/names.js'; /* M398 */
 import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
 import { db } from '../store.js';
 import { loadState, saveState, notify } from '../engine/state.js';
-import { applyMutations, undoEntry } from '../engine/apply.js';
+import { applyMutations, undoEntry, personBookKey } from '../engine/apply.js'; /* M421: a card's slice found as the card writes it */
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
 import { loadLore, saveLore } from '../import/lorebook.js'; /* M38: the housekeeper keeps the lore shelf too */
 import { loadMemory, saveMemory } from './memory.js'; /* M61: and the record */
@@ -1047,7 +1047,9 @@ export function ledgerSliceHash(state, key) {
   const at = String(key || '').indexOf(':');
   const kind = at === -1 ? key : key.slice(0, at);
   const name = at === -1 ? '' : key.slice(at + 1);
-  const byName = (map) => { const hit = Object.entries(map || {}).find(([k]) => String(k).trim().toLowerCase() === name); return hit ? hit[1] : null; };
+  /* M421: a card's slice is found the way the card's own write finds it (apply.js personBookKey — the one matcher, the
+   * main character's labels) — so a card about "Rukia" watches the entry it lands on, "Rukia Kuchiki" */
+  const byName = (map) => { const key = personBookKey(st, map, name); return key ? map[key] : null; };
   let slice;
   if (kind === 'clock') slice = st.clock || null;
   else if (kind === 'place') slice = st.place || null;

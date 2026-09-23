@@ -180,7 +180,7 @@ export function findPresent(state, name, { strict = false } = {}) {
  * next were two bodies, and her standing two standings, each holding half its history. An entry is found by the book's
  * own finder first, then by the one matcher (engine/names.js) when exactly one entry answers and the name means one
  * person; a NEW entry is written under the name the person's page stands under. */
-function personBookKey(state, book, name, finder) {
+export function personBookKey(state, book, name, finder) {
   const map = book && typeof book === 'object' ? book : {};
   const found = typeof finder === 'function' ? finder(map, name) : null;
   if (found) return found;
