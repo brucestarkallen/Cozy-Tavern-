@@ -10364,3 +10364,9 @@ The two concerns the last reply left recorded, fixed (his rule: a recorded conce
   order — through the real import and store), M433-2 grows an entry named by its number. NEGATIVE-TESTED both.
   Harness 840/840, walk 115/115, long play 8/8.
 - version.js -> m437-001.
+
+# M438 — the housekeeper's take-back, held by a test (no change to the code)
+Audited the housekeeper's apply and take-back as one round trip: two answers (the brief, the cast notes, a person's page;
+then a lore entry added and one changed, and a thread) applied through the real apply-all, then taken back one card at a
+time — the second answer's changes first, leaving the first answer exactly; then the first, leaving everything exactly
+as it was; then "nothing left" said. It held on the first run — no bug — and M438-1 now keeps it so. Harness 841/841.
