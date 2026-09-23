@@ -835,14 +835,22 @@ export function headerMutations(pageText) {
   const out = [];
   const head = parts[0] || '';
   const dash = head.split(/\s+[—–-]\s+/);
-  const place = (dash[0] || '').trim();
+  /* M410: THE WHOLE PLACE, NOT ITS FIRST WORD-GROUP. "[10th Division HQ — training courtyard — Monday, June 1 …]" is the
+   * courtyard, not just the HQ: the place is every part before the first that reads as a day or a date (a weekday, a
+   * month with a number, or a numeric date) — and the header's place replacing the page reader's fuller one would
+   * otherwise count as a move every page and clear where everyone stands. */
+  const isDatePart = (t) => new RegExp('\\b(' + ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].join('|') + ')\\b', 'i').test(t)
+    || new RegExp('\\b(' + MONTHS.join('|') + ')\\s+\\d{1,2}', 'i').test(t) || new RegExp('\\b\\d{1,2}(st|nd|rd|th)?\\s+(' + MONTHS.join('|') + ')\\b', 'i').test(t)
+    || /^\d{1,4}[\/.-]\d{1,2}/.test(t);
+  const dateAt = dash.findIndex((t, i) => i > 0 && isDatePart(t));
+  const place = (dateAt > 0 ? dash.slice(0, dateAt).join(' — ') : (dash[0] || '')).trim();
   /* M409: A PLACE MAY BEGIN WITH A NUMBER. "10th Division HQ", "1st Division HQ", "13th Division barracks" — every
    * ground of his Bleach story — were dropped here (any leading digit was taken for a time or a date), so his headers
    * never set the ground: it stayed wherever a reader or an old audit had put it, and people's "now" were judged
    * against the wrong place. Only a time ("09:00") or a date ("06/01", "1 June") at the front is not a place. */
   const notAPlace = /^\d{1,2}:\d{2}\b/.test(place) || /^\d{1,4}[\/.-]\d{1,2}/.test(place) || new RegExp('^\\d{1,2}(st|nd|rd|th)?\\s+(' + MONTHS.join('|') + ')\\b', 'i').test(place) || /^\d+$/.test(place);
   if (place && place.length <= 80 && !notAPlace) out.push({ type: 'place.set', name: place });
-  const dateWords = (dash.slice(1).join(' ') || '') + ' ' + parts.slice(1).join(' ');
+  const dateWords = (dash.slice(dateAt > 0 ? dateAt : 1).join(' ') || '') + ' ' + parts.slice(1).join(' ');
   const dm = dateWords.match(new RegExp('(' + MONTHS.join('|') + ')\\s+(\\d{1,2}),?\\s+(\\d{4})', 'i'));
   const tm = (parts.slice(1).join(' ') + ' ' + head).match(/\b(\d{1,2}):(\d{2})\b/);
   if (dm && tm) {

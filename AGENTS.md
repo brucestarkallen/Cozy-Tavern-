@@ -9875,3 +9875,21 @@ while the captains watched the duel.
   Rukia's courtyard now kept, the page untouched, no card says "the next page"). NEGATIVE-TESTED: the header fix,
   nowAt, the world agent's no-now people.
 - version.js -> m409-001.
+
+# M410 — checked M409 against what worked before it; the header's whole place
+He asked whether the update broke anything or made it better, showing the workers' line from before it: the world
+agent writing rich "now"s for Kyōraku, Rose, Hitsugaya and Suì-Fēng (the M401 simulation working), the auditor
+bringing Rukia back into the scene.
+- WHAT M409 KEEPS: the world agent still writes a now for everyone here the page does not mention (and now also for
+  anyone here with none); the auditor may still bring someone INTO the scene (only its moves of the ground and its
+  silent leaves are refused, M403).
+- WHAT M409 WOULD HAVE BROKEN, FOUND AND FIXED HERE: with a place that begins with a number now read from the header,
+  the header's place REPLACES the page reader's (M128: the header wins) — and the header parser took only the part
+  before the FIRST dash ("10th Division HQ"), so a reader's "10th Division HQ — training courtyard" would have become
+  "10th Division HQ": a move by name, which clears where everyone stands (M261), and a coarser ground. The place is now
+  every part of the header before the first that reads as a day or a date ("[10th Division HQ — training courtyard —
+  Monday, June 1 …]" → "10th Division HQ — training courtyard"); a header with no date keeps its first part as before.
+- A ledger whose ground is still a different string from the header's moves once on the first page after updating
+  (where each stands is read again on that page) — then stays.
+- TESTS: M410-1 (the courtyard, not just the HQ; the HQ when that is all the header says; the date and hour still
+  read). Negative-tested. Harness 808/808. version.js -> m410-001.

@@ -109,3 +109,12 @@ test('M409-3 A NOW KNOWS THE GROUND IT WAS WRITTEN ON: a move makes it stale by 
   st = applyMutations(st, [{ type: 'people.set', name: 'Shunsui Kyōraku', field: 'state', text: 'at the rail, hat tipped low' }]).state;
   eq(staleNows(st).length, 0, 'a now written here is of here');
 });
+
+test('M410-1 THE HEADER’S WHOLE PLACE: everything before the day or date — the courtyard, not just the HQ — so the page reader’s fuller place is not replaced by a shorter one (a "move" that would clear where everyone stands)', async () => {
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const place = (h) => (headerMutations(h).find((m) => m.type === 'place.set') || {}).name || '';
+  eq(place('[10th Division HQ — training courtyard — Monday, June 1, 2026 | 10:00 | clear]'), '10th Division HQ — training courtyard', 'the courtyard');
+  eq(place('[10th Division HQ — Monday, June 1, 2026 | 10:00 | clear]'), '10th Division HQ', 'the HQ when that is all the header says');
+  const clock = headerMutations('[10th Division HQ — training courtyard — Monday, June 1, 2026 | 10:00 | clear]').find((m) => m.type === 'clock.set');
+  assert(clock && clock.day === 1 && clock.month === 6 && clock.hour === 10, 'and the date and hour are still read');
+});
