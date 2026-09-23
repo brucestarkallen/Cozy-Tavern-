@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m424-001)
+# Cozy Tavern — handoff for the next session (state at m425-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -510,7 +510,8 @@ founding design lives in AGENTS.md's first entries.)
   the journal fold only where it reaches AND covers (M91, M106, M147); a branch during a running
   chain re-reads its last page (M112); a story closed mid-chain finishes on open (M127).
 - Any edit ripples (M100): a name in code everywhere; a value through the mender + a correction.
-- The record: keeper folds, verifier checks, detail auditor keeps, hard tokens checked in code
+- The record: a squeeze merges only NEIGHBOURING lines (M425 — tests/harness/record-fuzz.mjs holds every line to
+  the pages under it). Keeper folds, verifier checks, detail auditor keeps, hard tokens checked in code
   (M111); a brief that contradicts a page: the brief wins, page mended, record corrected (M90).
 - Seats have a life in code (M103); loose ends close on sense and evict the oldest (M134); the
   hour's law is spoken from the clock and a clock jump re-seats everyone (M134).
