@@ -836,7 +836,12 @@ export function headerMutations(pageText) {
   const head = parts[0] || '';
   const dash = head.split(/\s+[—–-]\s+/);
   const place = (dash[0] || '').trim();
-  if (place && place.length <= 80 && !/^\d/.test(place)) out.push({ type: 'place.set', name: place });
+  /* M409: A PLACE MAY BEGIN WITH A NUMBER. "10th Division HQ", "1st Division HQ", "13th Division barracks" — every
+   * ground of his Bleach story — were dropped here (any leading digit was taken for a time or a date), so his headers
+   * never set the ground: it stayed wherever a reader or an old audit had put it, and people's "now" were judged
+   * against the wrong place. Only a time ("09:00") or a date ("06/01", "1 June") at the front is not a place. */
+  const notAPlace = /^\d{1,2}:\d{2}\b/.test(place) || /^\d{1,4}[\/.-]\d{1,2}/.test(place) || new RegExp('^\\d{1,2}(st|nd|rd|th)?\\s+(' + MONTHS.join('|') + ')\\b', 'i').test(place) || /^\d+$/.test(place);
+  if (place && place.length <= 80 && !notAPlace) out.push({ type: 'place.set', name: place });
   const dateWords = (dash.slice(1).join(' ') || '') + ' ' + parts.slice(1).join(' ');
   const dm = dateWords.match(new RegExp('(' + MONTHS.join('|') + ')\\s+(\\d{1,2}),?\\s+(\\d{4})', 'i'));
   const tm = (parts.slice(1).join(' ') + ' ' + head).match(/\b(\d{1,2}):(\d{2})\b/);

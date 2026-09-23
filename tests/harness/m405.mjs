@@ -75,3 +75,37 @@ test('M408-1 EVERYONE HERE HAS A NOW: the scribe is told who in the scene has no
   const text = typeof told === 'string' ? told : String(told.text || '');
   assert(/Shunsui Kyōraku — Captain-Commander\.\nNow: here — by the rail\./.test(text), 'his card says what the scene knows: ' + text.slice(0, 300));
 });
+
+test('M409-1 THE PAGE’S GROUND JUDGES THE NOWS: with the ledger’s ground wrongly at the assembly hall and the page’s header at the courtyard, Kyōraku’s assembly-hall now is the stale one — Rukia’s courtyard now is not; and whoever here has no now is the world agent’s, mentioned or not', async () => {
+  const { quietInScene } = await import('../../js/agents/world.js');
+  let st = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: '10th Division HQ — training courtyard' },
+    { type: 'presence.enter', name: 'Jovan Oda' }, { type: 'presence.enter', name: 'Shunsui Kyōraku' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }, { type: 'presence.enter', name: 'Renji Abarai' },
+    { type: 'place.set', name: '1st Division HQ — outside the assembly hall' }]).state; /* an old audit's wrong move */
+  st.characters = { 'Shunsui Kyōraku': { core: 'x', state: 'inside the assembly hall at 1st Division HQ, among the assembled captains', threads: [] },
+    'Rukia Kuchiki': { core: 'y', state: 'at the 10th Division HQ rail, arms folded', threads: [] }, 'Renji Abarai': { core: 'z', threads: [] } };
+  eq(staleNows(st).join(), 'Rukia Kuchiki', 'judged by the ledger’s wrong ground: the TRUE now looks stale (the M405 fault)');
+  eq(staleNows(st, { ground: '10th Division HQ — training courtyard' }).join(), 'Shunsui Kyōraku', 'judged by the page’s header: the assembly-hall now is the stale one');
+  const quiet = quietInScene(st, 'Renji and Rukia trade a look.', '');
+  assert(quiet.includes('Renji Abarai'), 'Renji, on the page with no now, is kept alive by the world agent too');
+  assert(!quiet.includes('Rukia Kuchiki'), 'Rukia, on the page with a now, stays the scribe’s');
+});
+
+test('M409-2 A PLACE MAY BEGIN WITH A NUMBER — his headers set the ground; a time or a date at the front still does not', async () => {
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const place = (h) => (headerMutations(h).find((m) => m.type === 'place.set') || {}).name || '';
+  eq(place('[10th Division HQ — Monday, June 1, 2026 | 10:00 | clear]'), '10th Division HQ', 'the 10th Division');
+  eq(place('[13th Division barracks — Monday, June 1, 2026 | 09:00 | clear | shihakushō | the captain’s office]'), '13th Division barracks', 'the 13th’s barracks');
+  eq(place('[09:00 | Monday, June 1, 2026]'), '', 'a time is not a place');
+  eq(place('[1 June 2026 | 09:00]'), '', 'nor a date');
+});
+
+test('M409-3 A NOW KNOWS THE GROUND IT WAS WRITTEN ON: a move makes it stale by fact — even when folds and rewinds have trimmed the journal’s history of grounds', () => {
+  let st = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: '1st Division HQ — outside the assembly hall' },
+    { type: 'presence.enter', name: 'Shunsui Kyōraku' }, { type: 'people.set', name: 'Shunsui Kyōraku', field: 'state', text: 'among the assembled captains' }]).state;
+  eq(st.characters['Shunsui Kyōraku'].nowAt, '1st Division HQ — outside the assembly hall', 'recorded where it was written');
+  st = applyMutations(st, [{ type: 'place.set', name: '10th Division HQ' }]).state;
+  st.journal = []; /* a rewind trimmed the history */
+  eq(staleNows(st).join(), 'Shunsui Kyōraku', 'still stale by fact');
+  st = applyMutations(st, [{ type: 'people.set', name: 'Shunsui Kyōraku', field: 'state', text: 'at the rail, hat tipped low' }]).state;
+  eq(staleNows(st).length, 0, 'a now written here is of here');
+});

@@ -4903,6 +4903,48 @@ test('DOM-92 EVERY PERSON HAS A BANNER: here (even when the scene names her "Lie
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-93 "READ AGAIN" PUTS THE GROUND WHERE THE PAGE SAYS AND LETS GO OF THE NOW OF A PLACE LEFT — Kyōraku’s assembly-hall now goes, Rukia’s courtyard now stays, the page is untouched, and no card says "the next page" (M409)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const PAGE = '[10th Division HQ — Monday, June 1, 2026 | 10:00 | clear | shihakushō | on the sand]\n\nJovan and Zaraki circle each other; Rukia watches from the rail.';
+  const st = await db.stories.create({ title: 'The ground of the page' });
+  await db.stories.update(st.id, { keeper: false });
+  await db.messages.append(st.id, { role: 'user', text: 'I step onto the sand.' });
+  const page = await db.messages.append(st.id, { role: 'assistant', text: PAGE });
+  /* the ground as the pages had it, the nows written where they were, then an old audit's wrong move of the ground */
+  let ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: '10th Division HQ' },
+    ...['Jovan Oda', 'Shunsui Kyōraku', 'Rukia Kuchiki', 'Kenpachi Zaraki'].map((n) => ({ type: 'presence.enter', name: n })),
+    { type: 'people.set', name: 'Rukia Kuchiki', field: 'core', text: 'His lieutenant.' }, { type: 'people.set', name: 'Rukia Kuchiki', field: 'state', text: 'at the 10th Division HQ rail, arms folded' },
+    { type: 'people.set', name: 'Kenpachi Zaraki', field: 'core', text: 'Captain of the 11th.' },
+    { type: 'place.set', name: '1st Division HQ — outside the assembly hall' },
+    { type: 'people.set', name: 'Shunsui Kyōraku', field: 'core', text: 'Captain-Commander.' }, { type: 'people.set', name: 'Shunsui Kyōraku', field: 'state', text: 'inside the assembly hall at 1st Division HQ, among the assembled captains' }]).state;
+  await saveState(st.id, { ...ledger, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    const row = await until(() => q(`.msg[data-id="${page.id}"] .msg-act[data-act="read again"]`), 'read again under the page', 10000);
+    click(row);
+    await tick(500);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    const after = await loadState(st.id);
+    assert(/10th Division HQ/.test(after.place.name), 'the ground is where the page says: ' + after.place.name);
+    assert(!/assembly hall/i.test(String(after.characters['Shunsui Kyōraku'].state || '')), 'Kyōraku’s assembly-hall now is gone: ' + after.characters['Shunsui Kyōraku'].state);
+    assert(/10th Division HQ rail/.test(String(after.characters['Rukia Kuchiki'].state || '')), 'Rukia’s courtyard now stays');
+    eq((await db.messages.list(st.id)).find((m) => m.id === page.id).text, PAGE, 'the page is untouched');
+    click(q('#btn-ledger'));
+    await until(() => !q('#drawer').hidden, 'the drawer');
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const room = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'The people');
+    assert(room && !/the next page writes/.test(room.textContent), 'no card promises "the next page"');
+    click(q('#btn-ledger'));
+  } finally {
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

@@ -376,10 +376,17 @@ export const WORLD_LOOKS = 2;
  * already reads everyone in the scene. Never an order to the storyteller, never a line of dialogue for them. */
 export function quietInScene(state, pageText = '', userText = '') {
   const text = String(pageText || '') + '\n' + String(userText || '');
+  const chars = (state && state.characters) || {};
   return (Array.isArray(state && state.present) ? state.present : [])
     .map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => typeof n === 'string' && n.trim())
     .filter((n) => !isMc(state, n))
-    .filter((n) => { const key = findPersonKey((state && state.characters) || {}, n) || n; return !namedInText(text, n) && !namedInText(text, key) && !anyNameWordIn(text, n) && !anyNameWordIn(text, key); });
+    .filter((n) => {
+      const key = findPersonKey(chars, n) || n;
+      /* M409: someone here with NO now at all is the world agent's too, mentioned or not — a now is never left for "the
+       * next page" (the scribe writes sparsely; the world agent runs every page) */
+      const noNow = !(chars[key] && typeof chars[key].state === 'string' && chars[key].state.trim());
+      return noNow || (!namedInText(text, n) && !namedInText(text, key) && !anyNameWordIn(text, n) && !anyNameWordIn(text, key));
+    });
 }
 /* a first name, a surname, any word of the name the page used ("Zaraki" is Kenpachi Zaraki) — letters folded */
 function anyNameWordIn(text, name) {

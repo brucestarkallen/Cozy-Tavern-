@@ -9848,3 +9848,30 @@ shifted"), so it wrote none. The world agent writes nows only for the people the
   knows for certain) — on the storyteller's card (people.js cardText) and in the drawer — until a reader writes more.
 - TESTS: M408-1 (in m405.mjs: the scribe is told Kyōraku, not Rukia who has one; his card reads "Now: here — by the
   rail."). Harness 804/804. version.js -> m408-001.
+
+# M409 — the real root: his headers never set the ground (a place that began with a number was dropped)
+He, exhausted: Rukia's card said "Now: here (the next page writes what they are doing)" — a delay, a promise, not a
+simulation — and Kyōraku's "now" was still "inside the assembly hall at 1st Division HQ, among the assembled captains"
+while the captains watched the duel.
+- THE ROOT UNDER ALL OF IT (engine/state.js headerMutations): `if (place && !/^\d/.test(place))` — any place that began
+  with a digit was taken for a time or a date and DROPPED. Every ground of his Bleach story begins with one ("10th
+  Division HQ", "1st Division HQ", "13th Division barracks"), so his headers never set the ground: it stayed wherever
+  a reader or an audit had last put it. That is why the auditor could move the scene "with the header silent" (M403),
+  why the ledger thought the scene was the assembly hall, and why M405's heal — judging nows against that WRONG ground
+  — let go of Rukia's true courtyard now and kept Kyōraku's assembly-hall one. Only a time ("09:00"), a date ("06/01",
+  "1 June") or a bare number at the front is not a place now.
+- THE CHAIN PUTS THE GROUND RIGHT FIRST (chat.js, the page reader's upkeep job): the ground is set to what this page's
+  header says (a journaled place.set), then nows are judged against the PAGE'S ground (staleNows { ground }).
+- A NOW KNOWS WHERE IT WAS WRITTEN (apply.js people.set records nowAt = the ground at the time): a move makes it stale
+  by fact, even when folds and rewinds have trimmed the journal's history of grounds (which is exactly what hid
+  Kyōraku's in DOM-93's first run). The journal-words check stays only for nows written before M409.
+- NO NOW IS LEFT FOR "THE NEXT PAGE": whoever here has no now at all is the world agent's to write (quietInScene), whether
+  the page mentions them or not — the world agent runs every page, the scribe writes sparsely. The drawer no longer
+  says "(the next page writes what they are doing)": a card with no now reads "Now: here — <position>".
+- TESTS: M409-1 (the page's ground judges: the wrong ledger ground makes the TRUE now look stale; the header's makes
+  the assembly-hall now the stale one; a mentioned person with no now is the world agent's), M409-2 (his headers set
+  the ground; a time or a date does not), M409-3 (a now knows its ground; stale by fact with the journal trimmed; a now
+  written here is of here). Walk DOM-93 ("read again": the ground where the page says, Kyōraku's assembly-hall now gone,
+  Rukia's courtyard now kept, the page untouched, no card says "the next page"). NEGATIVE-TESTED: the header fix,
+  nowAt, the world agent's no-now people.
+- version.js -> m409-001.

@@ -2776,13 +2776,19 @@ export function initChat(ctx) {
      * Filed under the page reader: it is the upkeep of the ground the page reader moved. */
     enqueue('extractor', async ({ stale }) => {
       if (story.extraction === false || stale()) return { silent: true };
-      const fresh = await loadState(story.id);
+      let fresh = await loadState(story.id);
+      /* M409: THE PAGE'S HEADER IS THE GROUND. If the ledger's ground is not the one the latest page's header names (an
+       * old audit moved it; a reader missed a move), it is put right here first — a journaled change — and every now is
+       * judged against the page's ground. */
+      const headerGround = ((msg && msg.role === 'assistant' && !msg.ooc ? headerMutations(pageText(msg)) : []).find((m) => m && m.type === 'place.set') || {}).name || ''; /* this chain's own page */
+      if (headerGround) { const moved = applyMutations(fresh, [{ type: 'place.set', name: headerGround }]); if (moved.applied.length) fresh = moved.state; }
       /* M406: one person, two pages — joined first, so the nows below are read on the one page */
       const joins = duplicatePages(fresh);
       const joined = joins.length ? applyMutations(fresh, joins.map((j) => ({ type: 'people.rename', from: j.from, to: j.to, cause: 'one person, one page' }))) : { state: fresh, applied: [] };
-      const who = staleNows(joined.state);
+      const who = staleNows(joined.state, { ground: headerGround });
       const cleared = who.length ? applyMutations(joined.state, who.map((name) => ({ type: 'people.set', name, field: 'state', text: '', clear: true }))) : { state: joined.state, applied: [] };
-      if (!joined.applied.length && !cleared.applied.length) return { silent: true };
+      const groundMoved = cleared.state.place && fresh.place && cleared.state.place.name !== (await loadState(story.id)).place?.name;
+      if (!joined.applied.length && !cleared.applied.length && !groundMoved) return { silent: true };
       await saveState(story.id, cleared.state);
       notify(story.id);
       return { silent: false, detail: [joined.applied.length ? 'joined ' + joins.map((j) => j.from + ' into ' + j.to).join(', ') : '', cleared.applied.length ? 'let go of a “now” that named a place the scene has left: ' + who.join(', ') : ''].filter(Boolean).join(' · ') };

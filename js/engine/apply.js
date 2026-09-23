@@ -1003,6 +1003,12 @@ const HANDLERS = {
      * again, and the mark for that field goes */
     result.entry.hand = markHand(result.entry.hand, field, m.byHand === true);
     if (!Object.keys(result.entry.hand).length) delete result.entry.hand;
+    /* M409: A NOW KNOWS THE GROUND IT WAS WRITTEN ON — so a move makes it stale by fact, not by guessing at its words
+     * (the journal's history of grounds is trimmed by folds and rewinds; this is not) */
+    if (field === 'state') {
+      if (m.clear === true || !String(result.entry.state || '').trim()) delete result.entry.nowAt;
+      else if (state.place && typeof state.place.name === 'string' && state.place.name.trim()) result.entry.nowAt = state.place.name.trim();
+    }
     state.characters[result.key] = result.entry;
     const FIELD_WORDS = {
       core: 'their nature',
@@ -1191,19 +1197,25 @@ function markHand(hand, field, byHand) {
  * in the 10th Division courtyard). This names them — present, never the main character, never his hand's words — for
  * the readers' chain to let go as a journaled change (people.set state clear) before the world agent and the scribe
  * write the true ones. (Not a law of every batch: it reads the journal, and a fold must replay changes, not re-judge.) */
-export function staleNows(state) {
-  if (!state || !state.place || typeof state.place.name !== 'string' || !Array.isArray(state.present) || !state.characters) return [];
-  const spot = (n) => foldName(String(n || '').split(/\s*(?:—|–|,|;|\()\s*/)[0]);
-  const here = spot(state.place.name);
+export function staleNows(state, { ground = '' } = {}) {
+  /* M409: judged against the ground the PAGE stands on (its header) when it says — a ledger ground an audit moved
+   * wrongly made the courtyard's true nows look stale and the assembly hall's look current (Rukia cleared, Kyōraku kept) */
+  const where = String(ground || '').trim() || (state && state.place && typeof state.place.name === 'string' ? state.place.name : '');
+  if (!state || !where || !Array.isArray(state.present) || !state.characters) return [];
+  const spot = (n) => foldName(String(n || '').split(/\s*(?:—|—|–|,|;|\()\s*/)[0]);
+  const here = spot(where);
   const past = [...new Set((Array.isArray(state.journal) ? state.journal : [])
     .map((j) => (j && j.m && j.m.type === 'place.set' ? spot(j.m.name || j.m.place) : ''))
     .filter((g) => g && g !== here && g.split(' ').length >= 2))];
-  if (!here || !past.length) return [];
+  if (!here) return [];
   const out = [];
   for (const p of state.present) {
     const k = p && p.name ? findPersonKey(state.characters, p.name) : '';
     const entry = k ? state.characters[k] : null;
     if (!entry || isMc(state, k) || typeof entry.state !== 'string' || !entry.state.trim() || (entry.hand && entry.hand.state)) continue;
+    /* M409: written on another ground (recorded when written) — stale by fact */
+    if (entry.nowAt && spot(entry.nowAt) && spot(entry.nowAt) !== here) { out.push(k); continue; }
+    if (entry.nowAt) continue;
     const now = foldName(entry.state);
     if (past.some((g) => now.includes(g)) && !now.includes(here)) out.push(k);
   }
