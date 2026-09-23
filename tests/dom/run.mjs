@@ -5072,8 +5072,72 @@ test('DOM-98 A CHANGE NEVER LANDS UNDER AN ANSWER STILL COMING: while the housek
     release();
     house.state.workerAnswer = prior;
     await until(() => !q('#hk-send').disabled, 'free', 10000).catch(() => {});
-    if (!q('#hk-sheet').hidden) { const close = q('#hk-close') || q('#btn-housekeeper'); click(close); }
+    if (!q('#hk-sheet').hidden) { const close = q('#btn-hk-close') || q('#btn-housekeeper'); click(close); }
     await tick(300);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-99 THE HOUSEKEEPER SCREEN KEEPS WHAT IS HIS: the director\u2019s three doors survive a redraw and a reopen; a hand edit on a card survives the story settling behind it; an answer that lands after he moved to another tale lands its cards there (M443)', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  await db.stories.update(sid, { brief: 'Rias is his older sister. The house is on Elm Street.' });
+  const prior = house.state.workerAnswer;
+  let release; const held = new Promise((r) => { release = r; });
+  let mode = 'doors';
+  house.state.workerAnswer = (body, sys) => {
+    if (!/housekeeper of a cozy tavern/i.test(sys)) return prior(body, sys);
+    if (mode === 'card') return 'One change.\n<brief>[{"field":"brief","find":"older sister","replace":"younger sister","reason":"asked"}]</brief>';
+    return held.then(() => 'Moved it.\n<brief>[{"field":"brief","find":"Elm Street","replace":"Oak Street","reason":"asked"}]</brief>');
+  };
+  const reopen = async () => { if (!q('#hk-sheet').hidden) { click(q('#btn-hk-close')); await tick(400); } click(q('#btn-housekeeper')); await until(() => !q('#hk-sheet').hidden, 'the housekeeper'); await tick(300); };
+  try {
+    await reopen();
+    await until(() => !q('#hk-send').disabled, 'free', 10000);
+    /* 1. the three doors, kept */
+    const priorStory = house.state.storyAnswer;
+    house.state.storyAnswer = 'DOOR-ONE a letter arrives. DOOR-TWO a fire. DOOR-THREE a guest.'; /* the director's tools ride the storyteller's wire in the fake house */
+    try {
+      click(q('#hk-more')); click(q('#hk-more-menu [data-act="dir-ideas"]'));
+      await until(() => /DOOR-TWO/.test(q('#hk-thread').textContent), 'the three doors drawn', 10000);
+    } finally { house.state.storyAnswer = priorStory; }
+    env.ctx.housekeeper.onStoriesChanged(); await tick(500);
+    assert(/DOOR-TWO/.test(q('#hk-thread').textContent), 'a redraw keeps them');
+    await reopen();
+    assert(/DOOR-TWO/.test(q('#hk-thread').textContent), 'and a reopen');
+    /* 2. a hand edit survives the story settling behind it */
+    await db.settings.set('hkAutoApply', false);
+    mode = 'card';
+    type(q('#hk-input'), 'make her the younger sister'); submit(q('#hk-form'));
+    const edit = await until(() => qa('#hk-cards button').find((b) => /Edit by hand/i.test(b.textContent)), 'the card\u2019s Edit by hand', 10000);
+    await until(() => !q('#hk-send').disabled, 'the answer settled', 10000);
+    click(edit);
+    const area = await until(() => q('#hk-cards textarea'), 'the hand edit box', 5000);
+    area.value = 'the youngest sister of three';
+    env.ctx.housekeeper.onStoriesChanged(); await tick(600);
+    assert(area.isConnected && area.value === 'the youngest sister of three', 'the story settling does not redraw his hand edit away');
+    click([...q('#hk-cards').querySelectorAll('button')].find((b) => /Keep & apply/.test(b.textContent)));
+    await until(async () => /youngest sister of three/.test((await db.stories.get(sid)).brief), 'his hand-tuned words applied', 10000);
+    await db.settings.delete('hkAutoApply');
+    /* 3. an answer that lands after he moved to another tale lands its cards in the tale that asked */
+    mode = 'held';
+    await until(() => !q('#hk-send').disabled, 'free again', 10000);
+    type(q('#hk-input'), 'move the house to Oak Street'); submit(q('#hk-form'));
+    await until(() => q('#hk-send').disabled, 'asking', 10000);
+    click(q('#btn-hk-close')); await tick(300);
+    click(q('#btn-new-story'));
+    await until(() => !q('#new-story-form').hidden, 'the new-story form');
+    type(q('#new-story-title'), 'Elsewhere for a moment');
+    submit(q('#new-story-form'));
+    await until(async () => (await storyId()) !== sid, 'another tale open', 10000);
+    click(q('#btn-housekeeper')); await until(() => !q('#hk-sheet').hidden, 'the housekeeper, open on the other tale'); await tick(400);
+    release();
+    await until(async () => /Oak Street/.test((await db.stories.get(sid)).brief), 'the card landed in the tale that asked', 15000);
+  } finally {
+    release();
+    house.state.workerAnswer = prior;
+    await db.settings.delete('hkAutoApply');
+    if (!q('#hk-sheet').hidden) { click(q('#btn-hk-close')); await tick(300); }
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

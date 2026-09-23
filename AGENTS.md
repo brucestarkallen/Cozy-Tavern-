@@ -10440,3 +10440,29 @@ change was still landing loaded the talk before the change was recorded.
 - TESTS: DOM-98 (Undo while an answer is coming waits; after it lands, Undo takes back exactly once). NEGATIVE-TESTED.
   Harness 846/846, walk 116/116, long play 8/8, housekeeper rounds green.
 - version.js -> m442-001.
+
+# M443 — the housekeeper screen, read line by line: what is his is kept
+The last part of the audit: js/ui/housekeeper.js read whole (the talk's drawing, cards, the send flow, the director's
+tools, the sheet). Found and fixed:
+- THE DIRECTOR'S WORDS WERE WIPED. Its status, its three episode seeds, a re-aim, standing down were drawn as bubbles that
+  belonged to nothing — the next redraw (an Apply, a swipe, reopening the sheet, a page landing) wiped them, the three
+  doors gone before he chose one. Kept now per tale (hkNotes:<tale>, the last twelve), drawn at the end of the session
+  they were asked in, never sent to the housekeeper, let go with that session's talk.
+- THE BACKGROUND REFRESH REDREW OVER HIM. On every story change (every page, as the readers write) the open sheet re-read
+  the talk and redrew it — wiping the words in a card's "Edit by hand" box, and swapping the talk out from under a change
+  still landing (its save then wrote the re-read talk, without that change, over the store). It waits now while an answer
+  is coming, a change is landing, or a hand edit stands open, and runs the moment they are done.
+- AN ANSWER THAT LANDED AFTER HE MOVED ON never landed its cards: with cards set to land on arrival, an answer finishing
+  while he had opened another tale (or session) returned before landing them. It is settled where it was asked now —
+  cards landed and thinking kept in the session that asked; the loose-anchor re-ask is sent only from there.
+- EVERY HAND ON THE TALK WAITS ITS TURN: Skip, Set all aside, a turn's ✎ ↻ ✕ ◂ ▸ and the session shelf wrote the talk
+  under a change still landing or an answer in flight (M442's race, by another door). A change still landing is waited
+  out (a moment — never refused: Apply and Undo clicked as a card lands now go through, which DOM-11c caught refused in
+  a first cut); an answer in flight still says to wait. A refused session switch puts the picker back on the open
+  session; a session gone meanwhile leaves the open one open (it crashed the drawing).
+- His own words go back in the box when an ask fails (it put back the command's long expansion); an answer's version
+  number is kept inside its versions (never "4/3").
+- TESTS: DOM-99 (the three doors survive a redraw and a reopen; a hand edit survives the story settling; an answer that
+  lands after he opened another tale lands its card in the tale that asked). NEGATIVE-TESTED each part separately.
+  Harness 846/846, walk 117/117, long play 8/8, housekeeper rounds and perf green.
+- version.js -> m443-001.

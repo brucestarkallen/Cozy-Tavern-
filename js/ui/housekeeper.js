@@ -133,6 +133,24 @@ export function initHousekeeper(ctx) {
    * sent to the housekeeper holds it. */
   const CUT_PREFIX = 'hkCut:';
   let cutThought = null;
+  /* M443: THE DIRECTOR'S WORDS ARE KEPT. Its status, its three doors, a re-aim, standing down: each was drawn as a bubble
+   * that belonged to nothing, and the next redraw of the talk (an Apply, a swipe, reopening the sheet, a page landing)
+   * wiped it — the three doors gone before he had chosen one. They are kept per tale (the last twelve), drawn at the
+   * end of the session they were asked in, never sent to the housekeeper, and let go with that session's talk. */
+  const NOTE_PREFIX = 'hkNotes:';
+  let notes = [];
+  async function keepNote(storyId, text) {
+    const list = ((await db.settings.get(NOTE_PREFIX + storyId)) || []).filter((n) => n && typeof n.text === 'string');
+    list.push({ text: String(text || ''), ts: Date.now(), sessionId: session && Number.isFinite(session.id) ? session.id : null });
+    const kept = list.slice(-12);
+    await db.settings.set(NOTE_PREFIX + storyId, kept);
+    if (sessionStoryId === storyId) notes = kept;
+  }
+  async function dropNotes(storyId, sessionId) {
+    const list = ((await db.settings.get(NOTE_PREFIX + storyId)) || []).filter((n) => n && n.sessionId !== sessionId);
+    await db.settings.set(NOTE_PREFIX + storyId, list);
+    if (sessionStoryId === storyId) notes = list;
+  }
 
   async function ensureSession() {
     const story = await activeStory();
@@ -141,6 +159,7 @@ export function initHousekeeper(ctx) {
       session = await loadSession(story.id);
       sessionStoryId = story.id;
       try { cutThought = (await db.settings.get(CUT_PREFIX + story.id)) || null; } catch (err) { cutThought = null; }
+      try { const n = await db.settings.get(NOTE_PREFIX + story.id); notes = Array.isArray(n) ? n : []; } catch (err) { notes = []; } /* M443 */
     }
     return story;
   }
@@ -214,7 +233,7 @@ export function initHousekeeper(ctx) {
          * and ▸ past the last version writes another answer (the old one
          * stays); an older answer keeps ↻ (ask again from here). */
         if (isLast) {
-          const at = Number.isInteger(turn.swipeIdx) ? turn.swipeIdx : versions.length - 1;
+          const at = Number.isInteger(turn.swipeIdx) ? Math.min(versions.length - 1, Math.max(0, turn.swipeIdx)) : versions.length - 1; /* M443: never "4/3" */
           mk('◂', 'The version before', 'swipe-prev', 'hk-swipe-prev' + (at <= 0 ? ' hk-dim' : ''));
           const n = document.createElement('span');
           n.className = 'hk-swipe-count';
@@ -239,7 +258,7 @@ export function initHousekeeper(ctx) {
 
   /* M73: the bubble row's acts */
   async function turnAct(act, index) {
-    if (busy) { toast('Wait for the housekeeper to finish.'); return; }
+    if (act !== 'copy-at' && await talkIsBusy()) return; /* M443 (copying writes nothing) */
     const story = await ensureSession();
     if (!story) return;
     const turn = session.turns[index];
@@ -270,7 +289,7 @@ export function initHousekeeper(ctx) {
       /* ▸ past the last version asks for another answer */
       if (act === 'swipe-next') {
         const versions = versionsOf(turn);
-        const at = Number.isInteger(turn.swipeIdx) ? turn.swipeIdx : versions.length - 1;
+        const at = Number.isInteger(turn.swipeIdx) ? Math.min(versions.length - 1, Math.max(0, turn.swipeIdx)) : versions.length - 1; /* M443: never "4/3" */
         if (at >= versions.length - 1) { await turnAct('retry-at', index); return; }
       }
       const next = await walkVersion(story.id, index, act === 'swipe-prev' ? -1 : 1);
@@ -369,11 +388,12 @@ export function initHousekeeper(ctx) {
     sessionPick.value = String(activeId);
   }
   async function sessionAct(act, arg) {
-    if (busy) { toast('Wait for the housekeeper to finish.'); return; }
+    /* M443: refused, the picker goes back to the session that is open (it had already moved to the one chosen) */
+    if (await talkIsBusy()) { if (act === 'switch') await renderSessions(); return; }
     const story = await ensureSession();
     if (!story) return;
     const wasSessionId = session && session.id;
-    if (act === 'switch') session = await switchSession(story.id, arg);
+    if (act === 'switch') { const next = await switchSession(story.id, arg); if (next) session = next; } /* a session gone meanwhile (another browser) leaves the open one open */
     else if (act === 'new') session = await newSession(story.id);
     else if (act === 'branch') session = await branchSession(story.id);
     else if (act === 'branch-at') session = await branchSession(story.id, arg);
@@ -383,6 +403,7 @@ export function initHousekeeper(ctx) {
     else if (act === 'del-last') session = await deleteLastExchange(story.id);
     /* M301: a session deleted or cleared takes its cut thinking with it — a new session may be given its number */
     if ((act === 'delete' || act === 'clear') && cutThought && cutThought.sessionId === wasSessionId) await clearCut(story.id);
+    if (act === 'delete' || act === 'clear') await dropNotes(story.id, wasSessionId); /* M443: the director's words go with the talk they were in */
     await renderSessions();
     render();
     if (act === 'branch') toast('Copied — the new session is its own; the original stands.');
@@ -633,6 +654,7 @@ export function initHousekeeper(ctx) {
       skipBtn.className = 'text-btn';
       skipBtn.textContent = 'Skip';
       skipBtn.addEventListener('click', async () => {
+        if (await talkIsBusy()) return; /* M443 */
         p.status = 'skipped';
         p.words = 'Passed by.';
         await persistSession();
@@ -694,6 +716,12 @@ export function initHousekeeper(ctx) {
       }
     });
     if (cutHere()) thread.append(cutFold(false)); /* M301 */
+    for (const n of notes) { /* M443: the director's kept words, in the session they were asked in */
+      if (n.sessionId !== null && session && Number.isFinite(session.id) && n.sessionId !== session.id) continue;
+      const b = bubble('housekeeper', n.text);
+      b.classList.add('hk-note');
+      thread.append(b);
+    }
     renderCardsBox();
     thread.scrollTop = thread.scrollHeight;
     /* M271: the ask still in flight, drawn where it belongs */
@@ -727,10 +755,21 @@ export function initHousekeeper(ctx) {
   /* M442: a turn never starts while a change is landing — the turn saves the talk as it found it at its start, and a change
    * still landing would be written over; it waits the moment the change takes (never refused) */
   async function settleApplying() { while (applying) await new Promise((r) => setTimeout(r, 60)); }
+  /* M443: EVERY HAND ON THE TALK WAITS ITS TURN. Skip, Set all aside, a turn's ✎ ↻ ✕ ◂ ▸, and the session shelf write the
+   * talk too — and did so under an answer in flight (which then saved the talk back as it found it: the skip undone, the
+   * deleted turn back) or under a change still landing (whose save then wrote the old talk over the new, or saved into
+   * the session he had just switched to). They wait for both now, with the same words as Apply. */
+  async function talkIsBusy() {
+    if (turnInFlight || busy) { toast('Wait for the housekeeper to finish.'); return true; }
+    await settleApplying(); /* a change still landing takes a moment — waited out, never refused */
+    if (turnInFlight || busy) { toast('Wait for the housekeeper to finish.'); return true; }
+    return false;
+  }
   function setBusy(next, words) {
     /* M271: the housekeeper's button lights the house's own working lamp (the ledger's blue one) while it works */
     { const btn = document.getElementById('btn-housekeeper'); if (btn) btn.classList.toggle('is-working', Boolean(next)); }
     busy = next;
+    if (!next && refreshOwed) queueMicrotask(refreshFromStore); /* M443: owed while busy — after the flow's own drawing */
     sendBtn.disabled = next;
     input.disabled = next;
     const stopBtn = document.getElementById('hk-stop');
@@ -738,6 +777,19 @@ export function initHousekeeper(ctx) {
     if (typeof words === 'string') statusLine.textContent = words;
   }
 
+  /* M443: THE BACKGROUND REFRESH WAITS ITS MOMENT. When the story settles (every page, as the readers write) the sheet
+   * re-read the talk from the store and redrew it — swapping the talk out from under a change still landing (whose save
+   * then wrote the re-read talk, without that change, over the store) and redrawing away the words he was typing into a
+   * card's "Edit by hand" box. It waits now while an answer is coming, a change is landing, or a hand edit stands open,
+   * and runs the moment they are done. */
+  let refreshOwed = false;
+  function refreshFromStore() {
+    if (!open) return;
+    if (turnInFlight || busy || applying || (cardsList && cardsList.querySelector('textarea'))) { refreshOwed = true; return; }
+    refreshOwed = false;
+    sessionStoryId = null; // re-read the session fresh
+    ensureSession().then(() => { render(); return refreshStatusLine(); }).catch(() => {});
+  }
   async function persistSession() {
     if (sessionStoryId) {
       await saveSession(sessionStoryId, session).catch(() => {});
@@ -761,7 +813,8 @@ export function initHousekeeper(ctx) {
 
   async function applyOne(proposalId) {
     if (turnInFlight) { toast('Wait for the housekeeper to finish — its answer is still coming.'); return; } /* M442: the answer in flight saves the talk as it found it; a change landed meanwhile would be written over */
-    if (applying) { toast('One moment — a change is still landing.'); return; }
+    await settleApplying(); /* M443: a change still landing takes a moment — his click waits it out, never refused */
+    if (turnInFlight) { toast('Wait for the housekeeper to finish — its answer is still coming.'); return; }
     applying = true;
     try {
     const story = await ensureSession();
@@ -779,7 +832,7 @@ export function initHousekeeper(ctx) {
     } finally {
       statusLine.textContent = '';
     }
-    } finally { applying = false; }
+    } finally { applying = false; if (refreshOwed) refreshFromStore(); }
   }
 
   /* M100: every landed page edit ripples — the rest of the story is made to
@@ -798,7 +851,8 @@ export function initHousekeeper(ctx) {
 
   async function applyAll() {
     if (turnInFlight) { toast('Wait for the housekeeper to finish — its answer is still coming.'); return; } /* M442: the answer in flight saves the talk as it found it; a change landed meanwhile would be written over */
-    if (applying) { toast('One moment — a change is still landing.'); return; }
+    await settleApplying(); /* M443: a change still landing takes a moment — his click waits it out, never refused */
+    if (turnInFlight) { toast('Wait for the housekeeper to finish — its answer is still coming.'); return; }
     applying = true;
     try {
     const story = await ensureSession();
@@ -816,12 +870,13 @@ export function initHousekeeper(ctx) {
     } finally {
       statusLine.textContent = '';
     }
-    } finally { applying = false; }
+    } finally { applying = false; if (refreshOwed) refreshFromStore(); }
   }
 
   async function undo() {
     if (turnInFlight) { toast('Wait for the housekeeper to finish — its answer is still coming.'); return; } /* M442: the answer in flight saves the talk as it found it; a change landed meanwhile would be written over */
-    if (applying) { toast('One moment — a change is still landing.'); return; }
+    await settleApplying(); /* M443: a change still landing takes a moment — his click waits it out, never refused */
+    if (turnInFlight) { toast('Wait for the housekeeper to finish — its answer is still coming.'); return; }
     applying = true;
     try {
     const story = await ensureSession();
@@ -840,7 +895,7 @@ export function initHousekeeper(ctx) {
     } finally {
       statusLine.textContent = '';
     }
-    } finally { applying = false; }
+    } finally { applying = false; if (refreshOwed) refreshFromStore(); }
   }
 
   /* ---------- the talk ---------- */
@@ -1053,7 +1108,7 @@ export function initHousekeeper(ctx) {
             ? 'It went quiet: ' + result.error + '. Your words are still in the box — ask again when you like.'
             : 'It went quiet — ask again when you like.';
         if (stalled) toast('The housekeeper’s wire went silent — the ask was cut.');
-        input.value = text;
+        input.value = raw; /* M443: his own words back, never the command's expansion */
         return;
       }
       /* M83 (G): the reply belongs to the session and the story that ASKED. If the
@@ -1064,11 +1119,10 @@ export function initHousekeeper(ctx) {
       answered = true;
       try { await db.settings.set(DRAFT_PREFIX + story.id, ''); } catch (err) { /* nothing to put back */ }
       try { await clearCut(story.id); } catch (err) { /* it goes with the next answer */ } /* M301: an answer landed — it carries its own thinking */
-      if (sessionStoryId !== story.id || (session && Number.isFinite(session.id) && Number.isFinite(result.session.id) && session.id !== result.session.id)) {
-        toast('The housekeeper answered in the session that asked — open it to read.');
-        return true;
-      }
-      session = result.session; // staged cards, supersede, and caps already settled
+      /* M443: THE ANSWER IS SETTLED WHERE IT WAS ASKED. Its cards land on arrival (M96) and its thinking is kept (M80) in the
+       * session that asked — they waited unapplied when he had moved to another session or tale meanwhile (the view returned
+       * before landing them), though he had asked for cards to land as they arrive. */
+      const asked = result.session;
       /* M96: the cards land on arrival (Settings → the housekeeper → "Apply its
        * cards as they arrive", on by default) — the writer asked for nothing to
        * wait on his hand; every card keeps its Undo. Off, the cards wait as before. */
@@ -1077,15 +1131,16 @@ export function initHousekeeper(ctx) {
         while (applying) await new Promise((r) => setTimeout(r, 60));
         applying = true;
         try {
-          const landed = await applyAllPending(session, story.id);
+          const landed = await applyAllPending(asked, story.id);
           if (landed.count) {
-            await persistSession();
+            await saveSession(story.id, asked); /* M443: into the session that asked, wherever he is looking */
             if (landed.words) toast(landed.words);
             refreshStoryFloor(landed.touched);
             rippleEdits(story, landed.edited);
             /* M119: a loosely-anchored edit that missed its words is re-asked
              * ONCE by the house — the writer never checks twice */
-            if (Array.isArray(landed.missed) && landed.missed.length && !reaskedMiss) {
+            const stillHere = sessionStoryId === story.id && (!session || !Number.isFinite(session.id) || session.id === asked.id); /* M443: the re-ask is sent from the view — only where it was asked */
+            if (stillHere && Array.isArray(landed.missed) && landed.missed.length && !reaskedMiss) {
               reaskedMiss = true;
               const names = landed.missed.map((p) => '“' + p.label + '”' + (p.op && p.op.messageId ? ' on ' + String(p.op.messageId).slice(0, 6) : '')).join(', ');
               setTimeout(() => send('[THE HOUSE] Your edit ' + names + ' landed on a loose anchor and the words it meant to change are still on the page (or the words it meant to write are not). Read that page again as it stands — fetch it whole — and either re-propose the edit with the exact find copied from the page, or say plainly that the page is already right and why.'), 50);
@@ -1097,12 +1152,17 @@ export function initHousekeeper(ctx) {
        * handed back afterwards — belt and braces, because "it was there while it
        * thought and gone after" must never happen again for any reason */
       {
-        const last = session.turns[session.turns.length - 1];
+        const last = asked.turns[asked.turns.length - 1];
         if (last && last.role === 'housekeeper' && liveThinking.trim() && !(last.thinking && last.thinking.trim())) {
           last.thinking = liveThinking.trim();
-          await saveSession(story.id, session);
+          await saveSession(story.id, asked);
         }
       }
+      if (sessionStoryId !== story.id || (session && Number.isFinite(session.id) && Number.isFinite(asked.id) && session.id !== asked.id)) {
+        toast('The housekeeper answered in the session that asked — open it to read.');
+        return true;
+      }
+      session = asked; // staged cards, supersede, caps, and the landing on arrival already settled
       render();
       statusLine.textContent = '';
       await refreshStatusLine();
@@ -1112,7 +1172,7 @@ export function initHousekeeper(ctx) {
       liveAsk = null;
       if (!cutKept && !answered && liveThinking.trim()) { try { await keepCut(story.id, askSessionId, liveThinking.trim()); cutKept = true; } catch (e) { /* the stumble is still said below */ } }
       pendingBubble.remove();
-      input.value = text;
+      input.value = raw; /* M443 */
       statusLine.textContent = 'It stumbled: ' + ((err && err.message) || 'unknown') + '. Nothing was changed.';
     } finally {
       clearInterval(ticker);
@@ -1331,7 +1391,7 @@ export function initHousekeeper(ctx) {
       viewer(d.text ? 'The directive for episode ' + d.episode + ' (spoiler) — edit and Save; save empty to let it go' : 'No episode stands — write one and Save', d.text || '', async (t) => { await saveDirector(story.id, { text: String(t || '').trim(), concluded: false }); await refreshStatusLine(); });
       return;
     }
-    if (which === 'off') { const r = await directorOff(story.id); thread.append(bubble('housekeeper', r.words)); refreshStatusLine(); return; }
+    if (which === 'off') { const r = await directorOff(story.id); await keepNote(story.id, r.words); render(); refreshStatusLine(); return; }
     const connection = await resolveWorkerConnection(story);
     if (!connection) { toast('No connection yet.'); return; }
     await settleApplying(); /* M442 */
@@ -1343,8 +1403,8 @@ export function initHousekeeper(ctx) {
       const r = which === 'status' ? await directorStatus({ connection, storyId: story.id, signal })
         : which === 'ideas' ? await directorIdeas({ connection, storyId: story.id, story, signal })
         : await directorSteer({ connection, storyId: story.id, story, direction: arg, signal });
-      thread.append(bubble('housekeeper', r.ok ? r.words : 'The director could not: ' + r.error));
-      thread.scrollTop = thread.scrollHeight;
+      await keepNote(story.id, r.ok ? r.words : 'The director could not: ' + r.error); /* M443: kept — it was a bubble the next redraw wiped */
+      render();
       if (which === 'steer') refreshStatusLine();
     } finally {
       setBusy(false, '');
@@ -1426,6 +1486,7 @@ export function initHousekeeper(ctx) {
   /* M64: the cards box */
   document.getElementById('hk-apply-all').addEventListener('click', () => { applyAll(); });
   document.getElementById('hk-dismiss-all').addEventListener('click', async () => {
+    if (await talkIsBusy()) return; /* M443 */
     for (const p of pendingProposals()) { p.status = 'skipped'; p.words = 'Set aside by the writer.'; }
     await persistSession(); render();
   });
@@ -1517,10 +1578,6 @@ export function initHousekeeper(ctx) {
     isOpen() { return open; },
     /* When stories settle (a turn landed, the showrunners wrote, another
      * tab moved), re-read the world — but only while open. */
-    onStoriesChanged() {
-      if (!open) return;
-      sessionStoryId = null; // re-read the session fresh
-      ensureSession().then(() => { render(); return refreshStatusLine(); }).catch(() => {});
-    },
+    onStoriesChanged() { refreshFromStore(); },
   };
 }
