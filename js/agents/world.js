@@ -455,7 +455,9 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
       ...(people.unseated.length ? ['WITH NO WHEREABOUTS RIGHT NOW — seat EVERY ONE of these in this answer (offscreen.set: where they are at this hour and what they are doing, from their page, the story so far and the clock; the want only if you can name it): ' + people.unseated.join(', '), ''] : [])] : []),
     ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] : []), /* M283 */
     ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE, ''] : []), /* M283 */
-    ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — a canon character\'s family, role and life are these, never invented):', FENCE, String(canonRecord).trim(), FENCE, ''] : []), /* M386 */
+    ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — a canon character\'s family, role and life are these, never invented):', FENCE, String(canonRecord).trim(), FENCE,
+      /* M445: one home for a fact — the storyteller reads the series itself on every page such a person is in */
+      'A core you write for someone this record covers says who they are to THIS story in a short line — their place here and their tie to the people here — never the looks, powers or past written above: the storyteller reads those from the series itself.', ''] : []), /* M386 */
     ...(before.length ? (() => {
       /* M261: the story so far, whole, newest first, into the room */
       const w = windowOfPages(before, contextBudget);

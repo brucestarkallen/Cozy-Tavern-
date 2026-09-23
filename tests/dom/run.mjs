@@ -5242,6 +5242,77 @@ test('DOM-100 HIS BLEACH OFFICE, PLAYED THROUGH THE REAL READERS: Byakuya leavin
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-101 ONE HOME FOR A CANON FACT, PLAYED THROUGH THE REAL APP: with canon on, his Rukia and Kyōraku pages repeat canon’s looks and swords beside canon’s own note — the tidy, handed the story’s own words, takes the series out of the pages, and the next request says each fact once (M445)', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'Oda of the 13th, canon on' });
+  await db.stories.update(st.id, { keeper: false, brief: 'A Bleach story after the war. Jovan Oda is the new captain of the 13th Division; Rukia Kuchiki is his lieutenant — she had expected the captaincy herself. Shunsui Kyōraku, Captain-Commander, chose Oda.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I take my seat as captain.' });
+  await db.messages.append(st.id, { role: 'assistant', text: "[13th Division Barracks — Captain's Office — Monday, June 1, 2026 | 09:00 | clear | captain's haori | at the desk]\n\nRukia sets the roster on the desk. Kyōraku leans in the doorway, hat tipped low." });
+  const ledger = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: "13th Division Barracks — Captain's Office" },
+    ...['Jovan Oda', 'Rukia Kuchiki', 'Shunsui Kyōraku'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
+  ledger.characters = {
+    'Rukia Kuchiki': { core: 'Lieutenant of the 13th Division, 150+; petite, slender, black hair, large violet eyes, standard shihakushō with the lieutenant’s badge; a proud Kuchiki noble, Byakuya’s adopted sister; wields Sode no Shirayuki; expected the captaincy and was passed over for Oda.', state: 'at the desk', arc: 'Stung at being passed over, but loyal.', threads: [], updatedAtTurn: 1 },
+    'Shunsui Kyōraku': { core: 'Captain-Commander of the Gotei 13, 2000+; promoted from the 8th after Yamamoto’s death; tall, lean, wavy brown hair, stubble, wears a pink flowered woman’s kimono over his captain haori; lazy charisma masking a sharp strategic mind; Zanpakutō Katen Kyōkotsu.', state: 'in the doorway', arc: 'Sole living secret-keeper of Jovan’s nature.', threads: [], updatedAtTurn: 1 },
+  };
+  await saveState(st.id, { ...ledger, readTo: 0, tidiedGen: 999, healedGen: 999 });
+  const entry = (name, alias, dossier, sections) => ({ name, found: true, kind: 'character', wiki: 'bleach', aliases: alias, ts: Date.now(), rel: {}, sections, dossier });
+  await db.settings.set('canonMeta:' + st.id, { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: Date.now() }, canon_grounding_cache: {
+    rukia: entry('Rukia Kuchiki', ['Rukia'], { identity: 'Lieutenant of the 13th Division, adopted sister of Byakuya Kuchiki', brief: 'A proud, disciplined noble of the Kuchiki clan who hides warmth behind formality.', facts: ['She was adopted into the Kuchiki clan by Byakuya.', 'Her Zanpakutō is Sode no Shirayuki, an ice-type sword.'], secrets: [], abilities: ['Sode no Shirayuki'], voice: ['Idiot!'], related: [], dynamics: {} },
+      { identity: 'Rukia Kuchiki is a Shinigami, lieutenant of the 13th Division.', physical: 'hair: black; eyes: violet', look: 'A petite young woman with black hair and large violet eyes.', abilities: 'Sode no Shirayuki' }),
+    kyoraku: entry('Shunsui Kyōraku', ['Kyōraku', 'Shunsui'], { identity: 'Captain-Commander of the Gotei 13, formerly captain of the 8th Division', brief: 'A laid-back veteran whose lazy manner hides one of the sharpest minds in Soul Society.', facts: ['He succeeded Yamamoto as Captain-Commander.', 'His Zanpakutō is Katen Kyōkotsu.'], secrets: [], abilities: ['Katen Kyōkotsu'], voice: [], related: [], dynamics: {} },
+      { identity: 'Shunsui Kyōraku is the Captain-Commander of the Gotei 13.', physical: 'hair: wavy brown', look: 'A tall man with wavy brown hair, stubble and a pink flowered kimono over his haori.', abilities: 'Katen Kyōkotsu' }),
+  } });
+  const was = await db.settings.get('canonOn:' + st.id);
+  await db.settings.set('canonOn:' + st.id, true);
+  house.state.storyAnswer = "[13th Division Barracks — Captain's Office — Monday, June 1, 2026 | 09:10 | clear | captain's haori | at the desk]\n\nRukia waits.";
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep a canon character true to ONE story/.test(String(sys))) {
+      const user = String((body.messages || []).filter((m) => m.role === 'user').pop()?.content || '');
+      return JSON.stringify({ verdicts: [...user.matchAll(/^(\d+)\. (.+)$/gm)].map((m) => ({ n: Number(m[1]), verdict: 'holds' })) });
+    }
+    if (/You tidy character pages of a story/.test(String(sys))) return JSON.stringify({ pages: [
+      { name: 'Rukia Kuchiki', core: 'Lieutenant of the 13th Division; expected the captaincy and was passed over for Oda.' },
+      { name: 'Shunsui Kyōraku', core: 'Captain-Commander of the Gotei 13.' }] });
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: [] }], here: ['Jovan Oda', 'Rukia Kuchiki', 'Shunsui Kyōraku'] });
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
+    return walkDefaultWorker(body, sys);
+  };
+  const briefingOf = () => {
+    const call = house.state.calls.filter((c) => (c.body.messages || []).some((m) => /Where things stand right now/.test(String(m.content)))).pop();
+    return call ? call.body.messages.filter((m) => m.role === 'user').map((m) => String(m.content)).find((t) => /^Where things stand right now/.test(t)) || '' : ''; /* the briefing — the craft names it too */
+  };
+  const count = (text, k) => text.split(k).length - 1;
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    type(q('#composer-input'), 'I look up from the roster.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the first page', 30000);
+    const first = briefingOf();
+    for (const k of ['Sode no Shirayuki', 'Katen Kyōkotsu', 'pink flowered']) eq(count(first, k), 2, 'before: “' + k + '” twice — the page and canon’s own');
+    await until(async () => queuedCount(st.id) === 0 && !workIsRunning(st.id) && !/Sode no Shirayuki/.test((await loadState(st.id)).characters['Rukia Kuchiki'].core), 'the tidy to take the series out of her page', 60000);
+    eq((await loadState(st.id)).characters['Rukia Kuchiki'].core, 'Lieutenant of the 13th Division; expected the captaincy and was passed over for Oda.', 'what his story made of her stays on her page');
+    await settled();
+    type(q('#composer-input'), 'I sign the roster.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 3 && !env.ctx.chat.isBusy(), 'the second page', 30000);
+    const second = briefingOf();
+    for (const k of ['Sode no Shirayuki', 'Katen Kyōkotsu', 'pink flowered', 'violet', 'wavy brown', 'adopted']) eq(count(second, k), 1, 'after: “' + k + '” once');
+    assert(/passed over for Oda/.test(second), 'his story’s own words ride');
+    assert(second.length < first.length, 'and the briefing is shorter: ' + first.length + ' → ' + second.length);
+    await until(async () => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 60000);
+  } finally {
+    await db.settings.set('canonOn:' + st.id, was === undefined ? false : was);
+    house.state.storyAnswer = null;
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

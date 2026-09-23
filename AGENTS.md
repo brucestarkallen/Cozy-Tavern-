@@ -10519,3 +10519,37 @@ its own test; four breaks against DOM-100 run alone, each failing with his exact
 office, Sentarō lost, Renji nowhere); the old window against the index check.
 Harness 854/854, walk 118/118, long play 8/8, lint 0 errors (no new warnings against m443).
 - version.js -> m444-001.
+
+# M445 — one home for a canon fact, kept: the canon tidy can clean his pages, and the world agent stops refilling them
+He asked whether canon verification is efficient and free of what the ledger already says. MEASURED through the real app
+(his Bleach office, canon on, his real Rukia and Kyōraku cores): the briefing said every canon fact TWICE — Sode no
+Shirayuki, Katen Kyōkotsu (three times), the pink flowered kimono, wavy brown hair, violet eyes, "adopted", "proud
+noble" — once on the page's core ("On their mind"), once in canon's own note or "What's true of them". Canon's note
+itself was right (it drops Appearance where the ledger holds the face, M387); the pages were not.
+- THE ROOT: M388's tidy (agents/canontidy.js) flagged both cores and refused even a PERFECT answer: its "nothing of the
+  story lost" counted every word of the old core that the record's short summary lacks as the story's — canon's own
+  details ("150+", "slender", "shihakushō", "lean", "promoted") — and a refusal was memoed as asked, for good. Proven:
+  cleanCoreHolds(his core, a right answer) → "it dropped what the story made of them (150, slender, standard, shihakusho)".
+- THE LAW NOW: given the story's own material — his brief and cast notes, the record, the pages not yet folded (chat.js,
+  the tidy job), and the person's arc and loose ends — a word is the story's when the story says it; canon's other
+  details may go; nothing may be added; without material the M388 law stands whole. A fresh memo (cozy_canon_tidied2):
+  every flagged core gets a look under this law, a refusal is looked at again up to three times, only an accepted core
+  is done.
+- THE SOURCE: the world agent, handed the record (canon on), was told a canon character's role and life "are these" and
+  to write a one-line core — so every canon newcomer's page was born repeating canon. Handed the record, it is now told a
+  core for such a person says who they are to THIS story (place here, tie to the people here), never looks, powers or
+  past. The scribe was already told (M387).
+- MEASURED AFTER (same app, next page): each of those facts once; the briefing 2,854 → 2,208 characters; the page keeps
+  "expected the captaincy and was passed over for Oda". "Captain-Commander" stays twice (his core's anchor and canon's
+  fact) — one word, left.
+- ALSO MEASURED, NOT CHANGED: with canon on, before the storyteller is asked on a first meeting the house makes canon's
+  scene read, its wiki look-ups for new names and one lens read per person per premise (the extension's own windows:
+  2 s, 12 s on a first meeting, the lens 15 s); the note itself is about 500 characters a person plus its opening.
+- TESTS: m445.mjs M445-1 (his real core: refused under the old law, accepted with the story's words; a story fact dropped
+  still refused; nothing added; an old M388 memo no longer blocks; a refusal looked at again; three refusals and it
+  stops). M388-1/3 now read the new memo (the old law's "asked once, for good" was the fault — said in the tests).
+  Walk DOM-101: canon on, two pages through the real app — twice before, once after, shorter, his words kept.
+  NEGATIVE-TESTED: the material ignored, the old memo, no retry, endless retry (harness); the chain not handing the
+  material (DOM-101 fails: the tidy never cleans her page — the state his story is in).
+Harness 855/855, walk 119/119, long play 8/8, lint 0 errors (no new warnings).
+- version.js -> m445-001.

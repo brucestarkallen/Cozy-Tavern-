@@ -69,7 +69,7 @@ import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWin
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord, againstTheBrief } from '../agents/ripple.js'; /* M100: the ripple */
-import { wholeRecord, keeperTrouble, windowFor } from '../agents/memory.js';
+import { wholeRecord, keeperTrouble, windowFor, coveredEnd } from '../agents/memory.js'; /* M445: coveredEnd — the pages not yet folded */
 import { loadSessionRoot } from '../agents/housekeeper.js'; /* M331 */
 import { voiceOf, groundingSeed } from '../assemble/voice.js'; /* M327: the two names; M358: the grounding phrase */
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
@@ -3116,7 +3116,15 @@ export function initChat(ctx) {
       if (!canonRepeats(await loadState(story.id), meta).length) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'scribe');
       if (!connection) return { silent: true };
-      const r = await canonTidyPeople({ connection, storyId: story.id, meta, keepMemo: () => canonSaveMeta(story.id), signal, stale, renew });
+      /* M445: what the story says of its people — his brief and cast notes, the record of the pages, the pages not yet
+       * folded — so the tidy can tell the story's words from the series' (agents/canontidy.js cleanCoreHolds) */
+      let material = String(story.brief || '') + '\n' + String(story.castNotes || '');
+      try {
+        const mem = await loadMemory(story.id);
+        const shown = visiblePages(await db.messages.list(story.id));
+        material += '\n' + wholeRecord(mem, 400000) + '\n' + shown.slice(coveredEnd(mem)).map((m) => pageText(m)).join('\n');
+      } catch (err) { /* the brief and cast notes still speak for the story */ }
+      const r = await canonTidyPeople({ connection, storyId: story.id, meta, keepMemo: () => canonSaveMeta(story.id), signal, stale, renew, material });
       if (!r) return { silent: true };
       return { silent: false, detail: canonTidyWords(r), unfinished: r.failed > 0 };
     });

@@ -49,8 +49,10 @@ test('M388-1 WHICH PAGES REPEAT CANON: a core full of the record is found; a cor
   const hand = ledger({ 'Rukia Kuchiki': { core: OLD, state: 'here', threads: [], hand: { core: true } } });
   eq(canonRepeats(hand, meta()).length, 0, 'a core his hand wrote is his');
   const m = meta();
-  m.cozy_canon_tidied = { 'Rukia Kuchiki': (() => { let h = 5381; for (let i = 0; i < OLD.length; i += 1) h = ((h << 5) + h + OLD.charCodeAt(i)) >>> 0; return OLD.length + ':' + h.toString(36); })() };
-  eq(canonRepeats(st, m).length, 0, 'a core already asked about in these words is not asked again');
+  /* M445: the memo of a core DONE lives under its own key (M388's refusals, marked there as done, blocked the cleanup for
+   * good — his real cores were refused even when the answer was right) */
+  m.cozy_canon_tidied2 = { 'Rukia Kuchiki': (() => { let h = 5381; for (let i = 0; i < OLD.length; i += 1) h = ((h << 5) + h + OLD.charCodeAt(i)) >>> 0; return OLD.length + ':' + h.toString(36); })() };
+  eq(canonRepeats(st, m).length, 0, 'a core already done in these words is not asked again');
 });
 
 test('M388-2 THE ANSWER HOLDS THE PAGE, OR THE PAGE STAYS: nothing added, nothing of the story lost, and shorter', async () => {
@@ -73,7 +75,7 @@ test('M388-3 ONCE, JOURNALED, NEVER HIS: the page is cleaned through the ledger 
   const after = await loadState(sid);
   eq(after.characters['Rukia Kuchiki'].core, CLEAN, 'what the story made of her stays; the record is gone');
   assert(!JSON.stringify(house.calls[0].body).includes('Mine, by hand'), 'his hand-written page was never sent');
-  assert(kept >= 1 && m.cozy_canon_tidied['Rukia Kuchiki'], 'the memo is kept in the story’s canon memory');
+  assert(kept >= 1 && m.cozy_canon_tidied2['Rukia Kuchiki'], 'the memo is kept in the story’s canon memory');
   assert(/took what the series already says out of 1 page \(Rukia Kuchiki\)/.test(canonTidyWords(r)), 'the workers’ line says what it did: ' + canonTidyWords(r));
   const back = undoEntry(after, after.log.length - 1);
   assert(back && back.state.characters['Rukia Kuchiki'].core === OLD, 'journaled: it can be taken back');
@@ -81,7 +83,8 @@ test('M388-3 ONCE, JOURNALED, NEVER HIS: the page is cleaned through the ledger 
   const r2 = await withHouse(again, () => canonTidyPeople({ connection: CONN, storyId: sid, meta: m }));
   eq(again.calls.length, 0, 'a cleaned page is not asked about again');
   eq(r2.asked, 0, 'nothing due');
-  /* an answer that invents: refused, the page stays, and it is not asked again in the same words */
+  /* an answer that invents: refused, the page stays — and (M445) it is looked at again, three times at most: one refused
+   * answer marked the page done for good, and M388's law refused even a right answer on his real pages */
   const sid2 = 'm388-b';
   await saveState(sid2, ledger({ 'Rukia Kuchiki': { core: OLD, state: 'here', threads: [] } }));
   const m2 = meta();
@@ -89,7 +92,9 @@ test('M388-3 ONCE, JOURNALED, NEVER HIS: the page is cleaned through the ledger 
   const r3 = await withHouse(bad, () => canonTidyPeople({ connection: CONN, storyId: sid2, meta: m2 }));
   eq(r3.applied.length, 0, 'refused');
   eq((await loadState(sid2)).characters['Rukia Kuchiki'].core, OLD, 'the page stays as it was');
-  eq(canonRepeats(await loadState(sid2), m2).length, 0, 'and is not asked again in the same words');
+  eq(canonRepeats(await loadState(sid2), m2).length, 1, 'and is looked at again next time');
+  for (let i = 0; i < 2; i += 1) await withHouse(scriptedHouse([JSON.stringify({ pages: [{ name: 'Rukia Kuchiki', core: 'Took Jovan on as her student; she secretly loves him.' }] })]), () => canonTidyPeople({ connection: CONN, storyId: sid2, meta: m2 }));
+  eq(canonRepeats(await loadState(sid2), m2).length, 0, 'after three refusals in the same words it is not asked again');
   /* the scribe rewrote the page while the cleanup read it: its answer is for words that are gone */
   const sid3 = 'm388-c';
   await saveState(sid3, ledger({ 'Rukia Kuchiki': { core: OLD, state: 'here', threads: [] } }));

@@ -25,7 +25,25 @@ import { canonEntryFor } from '../canon/bridge.js';
 const MAX_TOKENS = 4000;
 const BATCH = 6;
 const FENCE = '"' + '"' + '"';
-const MEMO = 'cozy_canon_tidied';
+/* M445: a memo of its own — under M388's memo a refused core was marked asked for good, so every page his Bleach story
+ * holds that repeats canon was refused once and never looked at again. Each flagged core gets a fresh look under the
+ * M445 law; a refusal is tried again on later pages, up to TRIES times, and only an accepted core is done. */
+const MEMO = 'cozy_canon_tidied2';
+const TRIES = 3;
+const doneFor = (memo, name, core) => {
+  const m = memo[name];
+  if (typeof m !== 'string') return false;
+  const key = coreKey(core);
+  if (m === key) return true;
+  const hash = m.lastIndexOf('#');
+  return hash > 0 && m.slice(0, hash) === key && Number(m.slice(hash + 1)) >= TRIES;
+};
+const triesOf = (memo, name, core) => {
+  const m = memo[name];
+  const key = coreKey(core);
+  const hash = typeof m === 'string' ? m.lastIndexOf('#') : -1;
+  return hash > 0 && m.slice(0, hash) === key ? Number(m.slice(hash + 1)) || 0 : 0;
+};
 
 /* the small words that say nothing of anyone — never counted either way */
 const LITTLE = new Set(('the and but with for from her his its their she him they them who whom whose has have had was were are '
@@ -75,7 +93,7 @@ export function canonRepeats(state, meta) {
     if (!c || typeof c !== 'object' || c.retired || isMc(state, name)) continue;
     const core = typeof c.core === 'string' ? c.core.trim() : '';
     if (!core || (c.hand && c.hand.core)) continue;
-    if (memo[name] === coreKey(core)) continue;
+    if (doneFor(memo, name, core)) continue;
     const hit = canonEntryFor(cache, name, names);
     if (!hit) continue;
     const own = new Set([...words(name), ...words(hit.entry.name), ...(hit.entry.aliases || []).flatMap(words)]);
@@ -88,8 +106,15 @@ export function canonRepeats(state, meta) {
   return out;
 }
 
-/* The answer holds the page, or the page stays: nothing added, nothing of the story lost, shorter than it was. */
-export function cleanCoreHolds(oldCore, newCore, entry, name) {
+/* The answer holds the page, or the page stays: nothing added, nothing of the story lost, shorter than it was.
+ * M445: WHAT THE STORY MADE OF THEM IS WHAT THE STORY SAYS. "Story" was every word of the old core the record's short
+ * summary does not happen to hold — so canon's own details the summary leaves out ("150+", "slender", "shihakushō",
+ * "lean", "promoted") counted as the story's, and even a perfect answer was refused: his Rukia and Kyōraku kept canon's
+ * looks and swords on their pages, read by the storyteller beside canon's own note and "What's true of them". Given
+ * the story's own material (his brief and cast notes, the record of the pages, the pages not yet folded, the person's
+ * own loose ends and standing), a word is the story's when the story says it; the rest of what the series knows may go.
+ * Without material, the old law stands whole. */
+export function cleanCoreHolds(oldCore, newCore, entry, name, material = null) {
   const next = String(newCore || '').trim();
   if (!next || next === String(oldCore || '').trim() || next.length >= String(oldCore || '').trim().length) return { ok: false, why: 'nothing taken out' };
   const before = new Set(words(oldCore));
@@ -98,7 +123,8 @@ export function cleanCoreHolds(oldCore, newCore, entry, name) {
   if (added.length) return { ok: false, why: 'it added words the page never had (' + added.slice(0, 4).join(', ') + ')' };
   const own = new Set([...words(name), ...words(entry && entry.name), ...((entry && entry.aliases) || []).flatMap(words)]);
   const rec = recordWords(entry);
-  const story = [...before].filter((w) => !rec.has(w) && !own.has(w));
+  const said = typeof material === 'string' ? new Set(words(material)) : null;
+  const story = [...before].filter((w) => !rec.has(w) && !own.has(w) && (!said || said.has(w)));
   const lost = story.filter((w) => !after.has(w));
   if (lost.length) return { ok: false, why: 'it dropped what the story made of them (' + lost.slice(0, 4).join(', ') + ')' };
   return { ok: true };
@@ -139,7 +165,7 @@ export function parseCanonTidy(raw) {
 
 /* Clean the pages that repeat the record, once each. `meta` is the story's live canon memory (the memo is kept there);
  * `keepMemo` keeps it. Returns {applied, refused, asked, failed} — or null when the story moved on underneath it. */
-export async function canonTidyPeople({ connection, storyId, meta, keepMemo = async () => {}, signal, stale = () => false, renew } = {}) {
+export async function canonTidyPeople({ connection, storyId, meta, keepMemo = async () => {}, signal, stale = () => false, renew, material = null } = {}) {
   if (!connection || !storyId || !meta) return null;
   const start = await loadState(storyId);
   const due = canonRepeats(start, meta);
@@ -172,8 +198,10 @@ export async function canonTidyPeople({ connection, storyId, meta, keepMemo = as
     const a = answers.find((x) => x.name.toLowerCase() === item.name.toLowerCase());
     const now = fresh.characters && fresh.characters[item.name];
     if (!a || !now || String(now.core || '').trim() !== item.core || (now.hand && now.hand.core)) continue;
-    const verdict = cleanCoreHolds(item.core, a.core, item.entry, item.name);
-    if (!verdict.ok) { refused.push({ name: item.name, why: verdict.why }); memo[item.name] = coreKey(item.core); continue; }
+    /* the person's own standing and loose ends are the story's too */
+    const theirs = typeof material === 'string' ? material + '\n' + [now.arc, ...(Array.isArray(now.threads) ? now.threads.map((t) => (typeof t === 'string' ? t : t && t.text)) : [])].filter(Boolean).join('\n') : null;
+    const verdict = cleanCoreHolds(item.core, a.core, item.entry, item.name, theirs);
+    if (!verdict.ok) { refused.push({ name: item.name, why: verdict.why }); memo[item.name] = coreKey(item.core) + '#' + (triesOf(memo, item.name, item.core) + 1); continue; }
     changes.push({ type: 'people.set', name: item.name, field: 'core', text: a.core });
     memo[item.name] = coreKey(a.core);
   }
