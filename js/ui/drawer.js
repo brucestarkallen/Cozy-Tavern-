@@ -2611,8 +2611,19 @@ export function initDrawer(ctx) {
   let lastRenderAt = 0;
   let lastScrollAt = 0;
   panelsEl.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { passive: true });
+  /* M428: NEVER REDRAWN UNDER HIS FINGERS. The workers write the ledger for many seconds after a page, and every write
+   * redrew the open room — so words he was typing into the ledger (a seat, a hurt, a standing, a rename, his standing
+   * notes for canon) were wiped mid-word, and on his phone the keyboard closed. While a field of the drawer holds the
+   * focus the quiet redraw waits; it comes once he leaves the field (a note saves on leaving it, as it always has). */
+  const TYPED = new Set(['text', 'search', 'number', 'email', 'url', 'tel', 'password', '']); /* a field words are typed into */
+  const typingInDrawer = () => {
+    const a = document.activeElement;
+    if (!a || a === document.body || !drawer.contains(a)) return false;
+    return a.tagName === 'TEXTAREA' || a.isContentEditable || (a.tagName === 'INPUT' && TYPED.has(String(a.getAttribute('type') || '').toLowerCase()));
+  };
   const quietRender = () => {
     if (drawer.hidden) return;
+    if (typingInDrawer()) { clearTimeout(renderTimer); renderTimer = setTimeout(quietRender, 700); return; }
     const since = Date.now() - lastRenderAt;
     const scrolling = Date.now() - lastScrollAt < 600;
     if (since >= 1500 && !scrolling) {

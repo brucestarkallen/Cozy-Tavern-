@@ -1028,6 +1028,13 @@ export function initSettings(ctx) {
   for (const box of [els.frameGlobal, els.framePurpose, els.noteGlobal, els.frameStory, els.noteStory, els.briefStory, els.castStory]) {
     if (box) box.addEventListener('input', () => typedBoxes.add(box));
   }
+  /* a box he kept with its own button is no draft any more (a later change by another hand is then drawn, never
+   * written over) */
+  for (const [id, boxes] of [['btn-save-frame', [els.frameGlobal, els.framePurpose]], ['btn-save-note', [els.noteGlobal]], ['btn-save-frame-story', [els.frameStory]],
+    ['btn-save-note-story', [els.noteStory]], ['btn-save-brief', [els.briefStory]], ['btn-save-cast', [els.castStory]]]) {
+    const button = document.getElementById(id);
+    if (button) button.addEventListener('click', () => { for (const b of boxes) typedBoxes.delete(b); });
+  }
   async function keepUnsaved() {
     try {
       const story = await activeStory();
@@ -1060,17 +1067,21 @@ export function initSettings(ctx) {
     if (els.tellerName) els.tellerName.value = cleanName(await db.settings.get('tellerName'));
     if (els.writerName) els.writerName.value = cleanName(await db.settings.get('writerName'));
     if (els.tellerPerson) { const p = await db.settings.get('tellerPerson'); els.tellerPerson.value = p === 'first' || p === 'second' ? p : 'follow'; }
-    els.frameGlobal.value = (await db.settings.get('frameText')) ?? STARTER_FRAME;
-    els.noteGlobal.value = (await db.settings.get('noteText')) ?? STARTER_NOTE;
+    /* M428: a redraw while Settings stands open (a live sync from his other browser, a shelf change) never writes over a
+     * box he is typing in — his draft stays on screen, and is kept on the way out (M426) */
+    const drafting = (box) => typedBoxes.has(box);
+    if (!drafting(els.frameGlobal)) els.frameGlobal.value = (await db.settings.get('frameText')) ?? STARTER_FRAME;
+    if (!drafting(els.noteGlobal)) els.noteGlobal.value = (await db.settings.get('noteText')) ?? STARTER_NOTE;
     /* M21: the frame's purpose line (?? — a cleared line stays cleared) and
      * the two toggles: purpose on by default, the echo off by default. */
-    if (els.framePurpose) els.framePurpose.value = (await db.settings.get('framePurpose')) ?? FRAME_PURPOSE;
+    if (els.framePurpose && !drafting(els.framePurpose)) els.framePurpose.value = (await db.settings.get('framePurpose')) ?? FRAME_PURPOSE;
     if (els.framePurposeOn) els.framePurposeOn.checked = (await db.settings.get('framePurposeOn')) !== false;
     if (els.frameEcho) els.frameEcho.checked = (await db.settings.get('frameEcho')) === true;
 
     const story = await activeStory();
-    promptSlotsStory = story ? story.id : null; /* M426: whose boxes these are, for keeping them on the way out */
-    typedBoxes.clear(); /* M426: drawn afresh from what is kept — nothing typed yet */
+    /* M426: whose boxes these are, for keeping them on the way out; another story's boxes are drawn afresh */
+    if (!(story && promptSlotsStory && story.id === promptSlotsStory)) for (const b of [els.frameStory, els.noteStory, els.briefStory, els.castStory]) typedBoxes.delete(b);
+    promptSlotsStory = story ? story.id : null;
     const storyName = story ? `“${story.title}”` : 'this story';
     els.frameStoryName.textContent = storyName;
     els.noteStoryName.textContent = storyName;
@@ -1079,10 +1090,10 @@ export function initSettings(ctx) {
     els.loreStoryName.textContent = storyName;
     els.thinkingStoryName.textContent = storyName;
     els.shelfStoryName.textContent = storyName;
-    els.frameStory.value = (story && story.frameOverride) || '';
-    els.noteStory.value = (story && story.noteOverride) || '';
-    els.briefStory.value = (story && story.brief) || '';
-    els.castStory.value = (story && story.castNotes) || '';
+    if (!drafting(els.frameStory)) els.frameStory.value = (story && story.frameOverride) || '';
+    if (!drafting(els.noteStory)) els.noteStory.value = (story && story.noteOverride) || '';
+    if (!drafting(els.briefStory)) els.briefStory.value = (story && story.brief) || '';
+    if (!drafting(els.castStory)) els.castStory.value = (story && story.castNotes) || '';
     const hasStory = Boolean(story);
     els.frameStory.disabled = !hasStory;
     els.noteStory.disabled = !hasStory;
@@ -2738,5 +2749,5 @@ export function initSettings(ctx) {
     renderThinking();
   }
 
-  ctx.settings = { onShow, onStoriesChanged, onHide: keepUnsaved }; /* M426 */
+  ctx.settings = { onShow, onStoriesChanged, onHide: async () => { await keepUnsaved(); typedBoxes.clear(); } }; /* M426/M428 */
 }

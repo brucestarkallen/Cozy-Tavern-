@@ -10221,3 +10221,21 @@ the same person in another (M399 made canon a story's own switch; its names were
 - TESTS: M427-1 (in the Bleach tale "Soi Fon" finds Suì-Fēng's page; in another tale it does not; with no scope, as
   before). NEGATIVE-TESTED. Harness 833/833, walk 112/112, long play 8/8.
 - version.js -> m427-001.
+
+# M428 — never redrawn under his fingers: the ledger and Settings leave a field he is typing in alone
+- THE LEDGER: the workers write for many seconds after every page, and every write redrew the open room of the drawer
+  (quietRender, at most every 1.5 s) — so words he was typing into a ledger field (a seat, a hurt, a standing, a rename,
+  his standing notes for canon) were wiped mid-word, and on his phone the keyboard closed. drawer.js quietRender waits
+  while a field words are typed into (a text input, a text area) holds the focus, and redraws once he leaves it (his
+  notes save on leaving, as they always did). A tapped checkbox or menu does not hold it back.
+- SETTINGS: a live sync from his other browser, or a shelf change, calls onStoriesChanged, which drew the frame, the note
+  and the story's boxes afresh from the store — over what he was typing (and M426 then had nothing to keep). A box he
+  typed in is never drawn over while Settings stands open; a box he kept with its own button is no draft any more (a
+  later change by another hand is drawn, never written over); another story's boxes are drawn afresh; the drafts end
+  when Settings closes (kept, M426).
+- TESTS: DOM-95 (typing in a ledger field while the workers write twice past the wait: the same field, his words, the
+  focus; the room catches up when he leaves it). DOM-94 grows a redraw in the middle of his typing (his frame and brief
+  drafts stay on screen). NEGATIVE-TESTED: without the ledger's wait the field is redrawn away; without the draft guard
+  the frame box is drawn back to the starter words. Walk 113/113, harness 833/833, long play 8/8, perf_rooms and
+  perf_housekeeper within budget.
+- version.js -> m428-001.

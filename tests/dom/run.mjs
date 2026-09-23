@@ -4926,6 +4926,10 @@ test('DOM-94 HIS WORDS ARE NEVER LOST ON THE WAY OUT: the frame, the note and th
     typeInto('frame-global', 'You are Lothar, and you tell it by the fire.');
     typeInto('note-global', 'Keep the duel fast.');
     typeInto('brief-story', 'Oda is the new captain of the 13th Division.');
+    /* M428: a live redraw while he is typing (a sync from his other browser, a shelf change) never writes over his draft */
+    env.ctx.onStoriesChanged(); await tick(600);
+    eq(q('#frame-global').value, 'You are Lothar, and you tell it by the fire.', 'a redraw while he types leaves his frame draft on screen');
+    eq(q('#brief-story').value, 'Oda is the new captain of the 13th Division.', 'and his brief draft');
     await closeSettings();
     await until(async () => (await db.settings.get('frameText')) === 'You are Lothar, and you tell it by the fire.', 'the frame kept on the way out', 8000);
     await until(async () => (await db.settings.get('noteText')) === 'Keep the duel fast.', 'the note kept', 8000);
@@ -4941,6 +4945,30 @@ test('DOM-94 HIS WORDS ARE NEVER LOST ON THE WAY OUT: the frame, the note and th
     await db.stories.update(sid, { brief: was.brief || '' });
     await settled();
   }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-95 THE LEDGER IS NEVER REDRAWN UNDER HIS FINGERS: typing in a field of the drawer while the workers write, the field stays — the same field, his words in it, the focus kept — and the room catches up the moment he leaves it (M428)', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); }
+  await tick(400);
+  /* the world's room holds the elsewhere form — a field to type in whatever room the ledger last had open */
+  const chip = await until(() => q('#drawer .drawer-rooms [data-room="world"]'), 'the world room', 8000);
+  click(chip); await tick(500); await env.ctx.drawer.renderAllRooms(); await tick(400);
+  const field = await until(() => q('#drawer input[aria-label="Where they’ve gone"]'), 'a field in the open ledger', 8000);
+  field.focus();
+  field.value = 'half a word he is typi';
+  field.dispatchEvent(new env.window.Event('input', { bubbles: true }));
+  const { loadState, saveState, notify } = await import('../../js/engine/state.js');
+  /* the workers write, twice, well past the redraw's wait */
+  for (let k = 0; k < 2; k += 1) { const st = await loadState(sid); await saveState(sid, { ...st, turn: (Number(st.turn) || 0) + 1 }); notify(sid); await tick(1900); }
+  assert(field.isConnected, 'the same field still stands — not redrawn away under his fingers');
+  eq(field.value, 'half a word he is typi', 'his words are in it');
+  eq(document.activeElement, field, 'and the focus is his still (the keyboard stays open)');
+  field.blur();
+  await until(() => !field.isConnected, 'the room catches up once he leaves the field', 6000);
+  click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'drawer closed', 5000).catch(() => {});
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
