@@ -10390,3 +10390,20 @@ The housekeeper's block reader, fuzzed with the ways models mangle a block:
 - TESTS: M439-1 (the housekeeper's reader), M439-2 (the workers', the sensors', the record checker's). NEGATIVE-TESTED.
   Harness 843/843, walk 115/115, long play 8/8, housekeeper rounds green.
 - version.js -> m439-001.
+
+# M440 — the storyteller's rulebook keeps no quota on real life either
+Read the whole shipped rulebook (craft.js, ~11,000 words) for contradictions with the house and with his standing
+rules. One found: "The World Reaches In" still told the storyteller that strangers reach in "at most one per scene and not
+every scene" — the very quota M366 took out of the world agent's brief ("why make everything gamey?"). Now: each stranger
+from their own reason and the place as it is (a busy market can send several, a quiet street none), never on a timer,
+never to fill a scene.
+- HIS OWN EDITED COPY: a rulebook he has edited keeps his words; the house's rejected sentence, where it stands in his copy
+  verbatim, is read with the shipped correction (modules.js withoutQuotaLines, at read time — nothing of his is written
+  over, nothing else touched).
+- Also checked, no change: every command the rulebook names exists in commands.js; the Pass's "in shorthand" notes are
+  turned into natural thinking for a teller with a self (M335) and kept for one without; the rulebook's other "at most"
+  lines are prose craft (metaphors, gags, private thoughts, one readable object per page), his preset's own
+  Information-Quarantine cap on noticing, and the house's one window beyond the page — not quotas on the world's life.
+- TESTS: M440-1 (what the storyteller is sent), M440-2 (his edited copy read with the correction, his own words intact).
+  NEGATIVE-TESTED both. Harness 845/845, walk 115/115, long play 8/8.
+- version.js -> m440-001.

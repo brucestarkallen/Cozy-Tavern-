@@ -290,6 +290,17 @@ async function retireImportedCraft(saved) {
   return rest;
 }
 
+/* M440: THE HOUSE'S OWN QUOTA LINE, OUT OF HIS COPY TOO. A rulebook he edited keeps his words — but a sentence the house
+ * itself shipped and he has since rejected (M366: no quota on real life; "at most one [stranger] per scene") is the
+ * house's mistake, not his wording: it is read with the shipped correction. Only that exact sentence; nothing else of
+ * his is touched, and nothing is written back to his copy. */
+const QUOTA_OLD = 'may promote from texture to contact — small, locale-true, at most one per scene and not every scene, never on a timer.';
+const QUOTA_NEW = "may promote from texture to contact — small, locale-true, each from that stranger's own reason and the place as it is: a busy market can send several, a quiet street none; never on a timer, never to fill a scene.";
+export function withoutQuotaLines(text) {
+  const s = String(text == null ? '' : text);
+  return s.includes(QUOTA_OLD) ? s.split(QUOTA_OLD).join(QUOTA_NEW) : s;
+}
+
 export async function listModules() {
   let saved = await readSaved();
   saved = await retireImportedCraft(saved);
@@ -306,7 +317,7 @@ export async function listModules() {
     return attachPredicate({
       ...builtin,
       name: typeof fork.name === 'string' && fork.name.trim() ? fork.name : builtin.name,
-      text: typeof fork.text === 'string' ? fork.text : builtin.text,
+      text: typeof fork.text === 'string' ? (builtin.id === 'core-craft' ? withoutQuotaLines(fork.text) : fork.text) : builtin.text,
       pinned: Boolean(fork.pinned),
       source: 'user',
       overridden: true,
