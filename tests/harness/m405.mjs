@@ -142,3 +142,30 @@ test('M411-1 THE TIDY NEVER UNDOES THE SIMULATION: a now written on this page (t
   const racing = tidyMutations(fresh, [{ name: 'Iba Tetsuzaemon', state: 'in the 7th Division office' }], { read });
   eq(racing.length, 0, 'a now written while the tidy read is not touched');
 });
+
+test('M412-1 ONE WRITER PER NOW, BOTH WAYS: the scribe may not overwrite the now of someone here the page does not show — the simulation’s line stands; someone the page shows is still the scribe’s', async () => {
+  const { HOUSES, withHouse } = await import('./thinkinghouse.mjs');
+  const { scribeTurn } = await import('../../js/agents/scribe.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const st = applyMutations({ ...emptyState(), page: 4 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: '10th Division HQ — training courtyard' },
+    ...['Jovan Oda', 'Shunsui Kyōraku', 'Rukia Kuchiki'].map((n) => ({ type: 'presence.enter', name: n })),
+    { type: 'people.set', name: 'Shunsui Kyōraku', field: 'state', text: 'at the edge of the sand near the gate, hat tipped low' },
+    { type: 'people.set', name: 'Rukia Kuchiki', field: 'state', text: 'at the rail' }]).state;
+  const sid = 'm412-scribe';
+  await saveState(sid, st);
+  const answer = JSON.stringify({ deltas: [
+    { name: 'Shunsui Kyōraku', field: 'state', text: 'inside the assembly hall at 1st Division HQ, among the assembled captains' },
+    { name: 'Rukia Kuchiki', field: 'state', text: 'gripping the rail as the blade flies' },
+  ] });
+  const fetchImpl = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    const lines = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\ndata: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+    if (body.stream) return { ok: true, status: 200, headers: new Headers(), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(lines)); c.close(); } }), json: async () => ({}), text: async () => lines, clone() { return this; } };
+    const obj = { choices: [{ message: { role: 'assistant', content: answer }, finish_reason: 'stop' }] };
+    return { ok: true, status: 200, headers: new Headers(), json: async () => obj, text: async () => JSON.stringify(obj), clone() { return this; } };
+  };
+  await withHouse({ fetch: fetchImpl }, () => scribeTurn({ connection: HOUSES[0].conn, storyId: sid, userText: 'I throw the sword.', assistantText: 'The blade spins; Rukia’s hands tighten on the rail.' }));
+  const after = await loadState(sid);
+  eq(after.characters['Shunsui Kyōraku'].state, 'at the edge of the sand near the gate, hat tipped low', 'the simulation’s line stands');
+  eq(after.characters['Rukia Kuchiki'].state, 'gripping the rail as the blade flies', 'the one the page shows is the scribe’s');
+});

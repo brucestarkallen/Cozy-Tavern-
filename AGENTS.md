@@ -9907,3 +9907,20 @@ sand near the gate, hat tipped low…") — so why did his page read "inside the
 - TESTS: M411-1 (in m405.mjs: his fresh now kept, an empty now filled, a now written meanwhile untouched). Negative-
   tested both guards; M259's tidy tests (which move a misplaced now to its owner and fill one from the latest page) all
   still pass. Harness 809/809. version.js -> m411-001.
+
+# M412 — why the fixes came one at a time, and the last writer of a "now" given its law
+He asked why I keep jumping around — he had sent the workers' log (the world agent writing Kyōraku correctly) and I
+answered around it, so he had to explain again — and whether any fix made something worse, the header one above all.
+- WHY: I answered the question I expected ("did the update break the simulation?") instead of the one his log asked
+  ("it was written right — why is it wrong?"), and I fixed each symptom where it showed instead of listing EVERY writer
+  of the one field that was wrong and checking them together. A person's "now" has six writers; they are listed in
+  HANDOFF 0f with their laws so the next fault is checked against all of them at once.
+- THE LAST ONE: the scribe's side of "one writer per now" was only words. A now the scribe writes for someone here
+  whom neither the page nor his message mentions is let go in code (scribe.js) — the mirror of the world agent's guard
+  and the same shape of fault as M411's tidy. Someone the page shows is still the scribe's.
+- NOTHING WORSE, CHECKED: the header change (M409/M410) makes the page's own header set the ground — a place that
+  begins with a number is read, the whole place up to the date is kept; a ledger whose ground was written differently
+  moves once on the next page (where each stands is read again) and then holds. The auditor never writes a now
+  (M128). The full harness (810, fold fuzzers included) and walk pass.
+- TESTS: M412-1 (in m405.mjs: his exact case — the scribe's old assembly-hall line for Kyōraku let go, his simulated
+  line stands; Rukia, on the page, is the scribe's). Negative-tested. version.js -> m412-001.

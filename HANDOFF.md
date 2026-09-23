@@ -1,6 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m411-001)
+# Cozy Tavern — handoff for the next session (state at m412-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
+   for someone here the page does not show, or with no now — code guard, M401/M409); the scribe (only for someone the
+   page shows — code guard, M412); the tidy (never over a now written this page or while it read, M411); the page
+   reader's upkeep (lets go of a now of a ground left, M405/M409); the auditor (never — M128); his hand (always his).
 0e. THE PAGE'S HEADER IS THE GROUND (M409): a place may begin with a number ("10th Division HQ") — state.js
    headerMutations dropped every one before M409, so his headers never set the ground. The readers' chain puts the
    ground where the page's header says before judging anyone's "now"; a now records the ground it was written on
@@ -71,7 +75,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 809 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 810 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 111 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).

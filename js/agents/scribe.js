@@ -21,7 +21,7 @@
 
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { seatForPerson } from '../engine/people.js'; /* M398 */
-import { isHere } from '../engine/names.js'; /* M398 */
+import { isHere, foldName } from '../engine/names.js'; /* M398/M412 */
 import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
 import { loadState, saveState, notify } from '../engine/state.js';
 import { renderPeopleTiers, peopleView, mcKey, findPersonKey } from '../engine/people.js';
@@ -300,7 +300,14 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
    * (seated by the world agent, not present) is dropped; the seat is their now */
   /* M398: here and seated by the one matcher — the scribe's "now" for Rukia Kuchiki, in the scene as "Rukia", was
    * dropped as if she were elsewhere */
-  const kept = deltas.filter((d) => !(d && d.field === 'state' && !isHere(fresh, d.name) && seatForPerson(fresh, d.name)));
+  /* M412: ONE WRITER PER NOW, BOTH WAYS. The world agent may write a now only for someone here the page does not show
+   * (M401, in code); the scribe's mirror law was only in words. A now the scribe writes for someone here whom neither
+   * this page nor his message mentions is theirs to lose to nothing the page said — it is the world agent's, and the
+   * scribe's is let go here (the same shape of fault as M411's tidy: a later writer undoing the simulation). */
+  const pageWords = foldName(String(userText || '') + '\n' + String(assistantText || ''));
+  const shownOnPage = (name) => foldName(name).split(' ').filter((w) => w.length >= 3).some((w) => new RegExp('(^|[^\\p{L}\\p{N}])' + w + '($|[^\\p{L}\\p{N}])', 'u').test(pageWords));
+  const kept = deltas.filter((d) => !(d && d.field === 'state' && !isHere(fresh, d.name) && seatForPerson(fresh, d.name)))
+    .filter((d) => !(d && d.field === 'state' && isHere(fresh, d.name) && !shownOnPage(d.name) && !(findPersonKey(fresh.characters || {}, d.name) && shownOnPage(findPersonKey(fresh.characters || {}, d.name)))));
   const { state: next, applied, rejected } = applyMutations(fresh, kept.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
   const dropped = rejected.map((r) => ({ delta: r.mutation, why: r.why }));
