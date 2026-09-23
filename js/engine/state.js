@@ -935,18 +935,25 @@ export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
   }
   state.journal = Array.isArray(state.journal) ? state.journal : [];
   state.journalSeq = Math.max(Number.isInteger(state.journalSeq) ? state.journalSeq : 0, ...state.journal.map((e) => (Number.isInteger(e.id) ? e.id : 0)));
+  /* M424: REPLAY THE SAME BATCHES THE WRITES CAME IN. A page's writes arrive in several batches (the page reader, the
+   * chain's upkeep, the world agent, the scribe …) and applyMutations ends EVERY batch with a law of its own (M396:
+   * nobody in the scene keeps an elsewhere note). Replayed as one batch per page, that law ran once instead of after each
+   * batch — and a seat the writes had let go ("Kuchiki" walked in, then was joined to Rukia's page) came back in the
+   * fold: a branch that is subtly not the story. Each write now carries its batch (b, the batch's turn); a fold replays
+   * batch by batch, in the order they were made. A journal from before this (no b) replays a page as one batch, as it did. */
   const groups = new Map();
   for (const e of [...journal].sort((x, y) => (x.p - y.p) || (x.id - y.id))) {
     if (e.p > targetPage) continue;
     const k = journalKey(e);
     const n = held.get(k) || 0;
     if (n > 0) { held.set(k, n - 1); continue; } /* the base already holds this one */
-    if (!groups.has(e.p)) groups.set(e.p, []);
-    groups.get(e.p).push(e.m);
+    const g = e.p + '|' + (Number.isInteger(e.b) ? e.b : '');
+    if (!groups.has(g)) groups.set(g, { p: e.p, first: Number.isInteger(e.id) ? e.id : 0, list: [] });
+    groups.get(g).list.push(e.m);
   }
-  for (const p of [...groups.keys()].sort((a, b) => a - b)) {
-    state.page = p;
-    state = applyMutationsFn(state, groups.get(p)).state;
+  for (const grp of [...groups.values()].sort((a, b) => (a.p - b.p) || (a.first - b.first))) {
+    state.page = grp.p;
+    state = applyMutationsFn(state, grp.list).state;
   }
   state.page = targetPage;
   /* M276: a line rebuilt to a page has read no further than that page, and holds nothing read past it */

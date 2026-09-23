@@ -10142,3 +10142,27 @@ the fuzzers check that a fold equals the writes, not who the writes are about.
 - TESTS: M423-1 (in m419.mjs: Mira's hurt, standing and knowledge are Mira's, never Mara's; "Rukia" still lands on Rukia
   Kuchiki's page). NEGATIVE-TESTED: the page finder's near spelling fails it. Harness 827/827, walk 111/111, long play 8/8.
 - version.js -> m423-001.
+
+# M424 — a fold replays the SAME batches the writes came in (a branch is exactly the story)
+A new fuzzer (tests/harness/fold-fuzz-names.mjs) walks random pages of writes under every form of a name — ranks,
+folded letters, "you", near spellings, "Oda's mother" — WITH the readers' chain's own upkeep between batches (the page
+joins M406/M418, the book joins M419, the stale nows M405/M421), and folds the journal back to every page against what
+the writes made. Checkpoints are kept only every third page, so most folds REPLAY the journal (a fold that hands back
+each page's own checkpoint proves nothing — the first draft of this fuzzer did exactly that, and caught nothing).
+- FOUND: foldJournal replayed each page's journal as ONE batch, while the writes came in several (the page reader, the
+  chain's upkeep, the world agent, the scribe…) — and applyMutations ends every batch with a law of its own (M396: nobody
+  in the scene keeps an elsewhere note). Run once instead of after each batch, the law judged a different moment: a seat
+  the writes had let go ("Kuchiki" walked in, and was then joined to Rukia's page) came back in the fold. A branch, a
+  swipe or a take-back would have handed him a ledger that was subtly not the story.
+- apply.js: every journaled write carries its batch (b = the batch's turn). state.js foldJournal replays batch by batch in
+  the order they were made; a journal from before M424 (no b) replays a page as one batch, as it did. The mark persists
+  in the live ledger and in the checkpoint bank (checked).
+- AND: a move that lets the main character's now go (M272) took the now and left its recorded ground (nowAt) behind; it
+  takes both now, and a take-back of the move restores both (the take-back fuzzer holds it exact).
+- The fuzzer compares both sides as the app holds them (saved and read back — loadState gives an absent now its empty
+  string); comparing an unsaved ledger with a saved fold had reported that as a difference.
+- TESTS: M424-1 (160 trials, 908 folds, the chain's joins between batches). NEGATIVE-TESTED: a fold that replays a page as
+  one batch fails it (trial 57: the seat that came back); a chain write made without the journal fails it. The three
+  older fold fuzzers pass. Harness 828/828, walk 111/111, long play 8/8; branchrefresh 12, holdsone 17, foldcrash 12,
+  twohands 10.
+- version.js -> m424-001.

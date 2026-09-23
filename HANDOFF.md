@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m423-001)
+# Cozy Tavern — handoff for the next session (state at m424-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -503,6 +503,9 @@ founding design lives in AGENTS.md's first entries.)
   (M130); the auditor and second reader judge only what lasts, never the moment (M123/M128), and
   the second reader never calls absence drift (M129); a writer's unanswered page is an attempt
   (M110); a window's people are elsewhere (M129).
+- A FOLD REPLAYS THE SAME BATCHES (M424): every journal write carries its batch (b); foldJournal replays batch by batch —
+  a law that ends each batch (M396) judges the same moments it judged live. Any new chain write MUST go through
+  applyMutations (journaled) — tests/harness/fold-fuzz-names.mjs fails a write that does not.
 - Branches carry that page's exact ledger: newest page = as it stands; older = checkpoint chain;
   the journal fold only where it reaches AND covers (M91, M106, M147); a branch during a running
   chain re-reads its last page (M112); a story closed mid-chain finishes on open (M127).

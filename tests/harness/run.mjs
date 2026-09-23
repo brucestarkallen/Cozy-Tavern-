@@ -3,6 +3,7 @@
 import './stack.mjs';
 import './store.mjs';
 import './fold-fuzz.mjs';
+import './fold-fuzz-names.mjs';
 import './m100.mjs';
 import './engine.mjs';
 import './agents.mjs';

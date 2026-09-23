@@ -371,9 +371,10 @@ const HANDLERS = {
     if (typeof before === 'string' && before) {
       for (const [k, entry] of Object.entries(state.characters && typeof state.characters === 'object' ? state.characters : {})) {
         if (!entry || typeof entry.state !== 'string' || !entry.state.trim() || (entry.hand && entry.hand.state) || !isMc(state, k)) continue;
-        mcState = { key: k, state: entry.state };
+        mcState = { key: k, state: entry.state, ...(entry.nowAt ? { nowAt: entry.nowAt } : {}) };
         const rest = { ...entry };
         delete rest.state;
+        delete rest.nowAt; /* M424: a now let go takes the ground it was written on with it (people.set clear does the same) */
         state.characters = { ...state.characters, [k]: rest };
         break;
       }
@@ -1413,7 +1414,7 @@ export function applyMutations(state, mutations) {
       if (!Array.isArray(next.journal)) next.journal = [];
       next.journalSeq = (Number.isInteger(next.journalSeq) ? next.journalSeq : 0) + 1;
       const jid = next.journalSeq;
-      next.journal.push({ id: jid, p: Number.isInteger(next.page) ? next.page : -1, m: JSON.parse(JSON.stringify(mutation)) });
+      next.journal.push({ id: jid, p: Number.isInteger(next.page) ? next.page : -1, b: next.turn, m: JSON.parse(JSON.stringify(mutation)) }); /* M424: the batch it came in */
       if (next.journal.length > JOURNAL_CAP) next.journal = next.journal.slice(next.journal.length - JOURNAL_CAP);
       const logEntry = appendLog(next, result.words, result.undo || null);
       logEntry.jid = jid;
@@ -1517,7 +1518,7 @@ function applyUndo(next, undo) {
       next.place = undo.before ? { name: undo.before } : null;
       if ('groundWas' in undo) next.groundWas = undo.groundWas ? { ...undo.groundWas } : null; /* M304 */
       if (undo.mcState && next.characters && next.characters[undo.mcState.key] && !next.characters[undo.mcState.key].state) {
-        next.characters = { ...next.characters, [undo.mcState.key]: { ...next.characters[undo.mcState.key], state: undo.mcState.state } };
+        next.characters = { ...next.characters, [undo.mcState.key]: { ...next.characters[undo.mcState.key], state: undo.mcState.state, ...(undo.mcState.nowAt ? { nowAt: undo.mcState.nowAt } : {}) } };
       }
       /* M261: the positions the move let go come back to whoever is still here */
       for (const was of Array.isArray(undo.positions) ? undo.positions : []) {
