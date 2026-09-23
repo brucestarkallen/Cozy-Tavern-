@@ -1015,6 +1015,45 @@ export function initSettings(ctx) {
   });
   if (els.frameGlobal) els.frameGlobal.addEventListener('input', () => sayPerson());
 
+  /* M426: HIS WORDS ARE NEVER LOST ON THE WAY OUT. The frame, the note, the story's frame and note, the brief and the
+   * cast notes are kept by their "Keep it" — and words typed there and left by closing Settings were silently thrown
+   * away: the next opening drew the boxes from what was kept, and nothing had been. Leaving Settings now keeps every box
+   * whose words differ from what is kept, by its own "Keep it" (the same door: the brief's is held against the ledger
+   * as its button does) — for the story the boxes were drawn for, and only while it is still the open one. */
+  let promptSlotsStory = null;
+  /* only words HE typed are kept on the way out: a box is his once it has had an input since it was drawn — never one
+   * whose kept value was changed by another hand while Settings stood open (a housekeeper card on the brief, a name
+   * the ripple carried), which a stale box must not write back over */
+  const typedBoxes = new Set();
+  for (const box of [els.frameGlobal, els.framePurpose, els.noteGlobal, els.frameStory, els.noteStory, els.briefStory, els.castStory]) {
+    if (box) box.addEventListener('input', () => typedBoxes.add(box));
+  }
+  async function keepUnsaved() {
+    try {
+      const story = await activeStory();
+      const same = Boolean(story && promptSlotsStory && story.id === promptSlotsStory);
+      const boxes = [
+        [els.frameGlobal, async () => (await db.settings.get('frameText')) ?? STARTER_FRAME, 'btn-save-frame', true],
+        [els.framePurpose, async () => (await db.settings.get('framePurpose')) ?? FRAME_PURPOSE, 'btn-save-frame', true],
+        [els.noteGlobal, async () => (await db.settings.get('noteText')) ?? STARTER_NOTE, 'btn-save-note', true],
+        [els.frameStory, async () => (story && story.frameOverride) || '', 'btn-save-frame-story', same],
+        [els.noteStory, async () => (story && story.noteOverride) || '', 'btn-save-note-story', same],
+        [els.briefStory, async () => (story && story.brief) || '', 'btn-save-brief', same],
+        [els.castStory, async () => (story && story.castNotes) || '', 'btn-save-cast', same],
+      ];
+      const pressed = new Set();
+      for (const [box, kept, id, mine] of boxes) {
+        if (!box || !mine || pressed.has(id) || !typedBoxes.has(box)) continue;
+        if (box.value === (await kept())) { typedBoxes.delete(box); continue; }
+        const button = document.getElementById(id);
+        if (!button || button.disabled) continue;
+        pressed.add(id);
+        typedBoxes.delete(box);
+        button.click();
+      }
+    } catch (err) { /* the boxes keep their words on screen; the next Keep it saves them */ }
+  }
+
   async function loadPromptSlots() {
     if (els.groundingPhrase) els.groundingPhrase.value = String((await db.settings.get('groundingPhrase')) || ''); /* M358 */
     if (els.afterRole) els.afterRole.value = (await db.settings.get('afterRole')) === 'user' ? 'user' : 'system'; /* M380 */
@@ -1030,6 +1069,8 @@ export function initSettings(ctx) {
     if (els.frameEcho) els.frameEcho.checked = (await db.settings.get('frameEcho')) === true;
 
     const story = await activeStory();
+    promptSlotsStory = story ? story.id : null; /* M426: whose boxes these are, for keeping them on the way out */
+    typedBoxes.clear(); /* M426: drawn afresh from what is kept — nothing typed yet */
     const storyName = story ? `“${story.title}”` : 'this story';
     els.frameStoryName.textContent = storyName;
     els.noteStoryName.textContent = storyName;
@@ -2697,5 +2738,5 @@ export function initSettings(ctx) {
     renderThinking();
   }
 
-  ctx.settings = { onShow, onStoriesChanged };
+  ctx.settings = { onShow, onStoriesChanged, onHide: keepUnsaved }; /* M426 */
 }

@@ -150,8 +150,11 @@ function showView(name) {
    * close (811ms of browser paint in the profile). The overlay covers it. */
   views.chat.hidden = false;
   views.chat.setAttribute('aria-hidden', name !== 'chat' ? 'true' : 'false');
+  const wasSettings = !views.settings.hidden;
   views.settings.hidden = name !== 'settings';
   if (name === 'settings' && ctx.settings) ctx.settings.onShow();
+  /* M426: leaving Settings keeps any words typed there and not yet kept */
+  if (wasSettings && name !== 'settings' && ctx.settings && typeof ctx.settings.onHide === 'function') ctx.settings.onHide();
   const btnSettings = document.getElementById('btn-settings');
   /* M97: an icon now — the words live on its label and tooltip, and flip to
    * say the way back while the settings room is open */

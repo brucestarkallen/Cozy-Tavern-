@@ -4903,6 +4903,47 @@ test('DOM-92 EVERY PERSON HAS A BANNER: here (even when the scene names her "Lie
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-94 HIS WORDS ARE NEVER LOST ON THE WAY OUT: the frame, the note and the story\u2019s brief typed and left by closing Settings — without “Keep it” — are kept, and drawn back when it opens; a plain open and close keeps nothing (M426)', async () => {
+  const before = errors.length;
+  const sid = await storyId();
+  const was = { frame: await db.settings.get('frameText'), note: await db.settings.get('noteText'), brief: ((await db.stories.get(sid)) || {}).brief };
+  const writes = [];
+  const set0 = db.settings.set; const upd0 = db.stories.update;
+  db.settings.set = async (...a) => { writes.push('settings:' + a[0]); return set0.apply(db.settings, a); };
+  db.stories.update = async (...a) => { writes.push('story:' + Object.keys(a[1] || {}).join(',')); return upd0.apply(db.stories, a); };
+  try {
+    await openSettings(); await tick(300);
+    await closeSettings(); await tick(400);
+    eq(writes.filter((w) => /frameText|noteText|framePurpose|brief|castNotes|frameOverride|noteOverride/.test(w)).length, 0, 'a plain open and close keeps nothing: ' + writes.join(' '));
+    /* another hand changes the brief while Settings stands open (a housekeeper card, a name the ripple carries): the box,
+     * drawn before it and never typed in, never writes its stale words back over it */
+    await openSettings(); await tick(300);
+    await upd0.call(db.stories, sid, { brief: 'Written by another hand while Settings was open.' });
+    await closeSettings(); await tick(600);
+    eq(((await db.stories.get(sid)) || {}).brief, 'Written by another hand while Settings was open.', 'a box he never typed in keeps nothing over another hand\u2019s change');
+    await openSettings(); await tick(300);
+    const typeInto = (id, words) => { const box = q('#' + id); box.value = words; box.dispatchEvent(new env.window.Event('input', { bubbles: true })); };
+    typeInto('frame-global', 'You are Lothar, and you tell it by the fire.');
+    typeInto('note-global', 'Keep the duel fast.');
+    typeInto('brief-story', 'Oda is the new captain of the 13th Division.');
+    await closeSettings();
+    await until(async () => (await db.settings.get('frameText')) === 'You are Lothar, and you tell it by the fire.', 'the frame kept on the way out', 8000);
+    await until(async () => (await db.settings.get('noteText')) === 'Keep the duel fast.', 'the note kept', 8000);
+    await until(async () => ((await db.stories.get(sid)) || {}).brief === 'Oda is the new captain of the 13th Division.', 'the brief kept', 8000);
+    await openSettings(); await tick(400);
+    eq(q('#frame-global').value, 'You are Lothar, and you tell it by the fire.', 'and drawn back when Settings opens');
+    eq(q('#brief-story').value, 'Oda is the new captain of the 13th Division.', 'the brief too');
+  } finally {
+    db.settings.set = set0; db.stories.update = upd0;
+    await closeSettings();
+    if (was.frame === undefined) await db.settings.delete('frameText'); else await db.settings.set('frameText', was.frame);
+    if (was.note === undefined) await db.settings.delete('noteText'); else await db.settings.set('noteText', was.note);
+    await db.stories.update(sid, { brief: was.brief || '' });
+    await settled();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-93 "READ AGAIN" PUTS THE GROUND WHERE THE PAGE SAYS AND LETS GO OF THE NOW OF A PLACE LEFT — Kyōraku’s assembly-hall now goes, Rukia’s courtyard now stays, the page is untouched, and no card says "the next page" (M409)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

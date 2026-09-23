@@ -10188,3 +10188,23 @@ after every step every line is held to the pages under its span, and no page may
   in), M425-4 (the fuzz: 60 stories × 30 steps). NEGATIVE-TESTED: the oldest-two rule fails M425-2 and the fuzz; keeping
   the marker fails M425-3; a deletion that does not slide fails the fuzz. Harness 832/832, walk 111/111, long play 8/8.
 - version.js -> m425-001.
+
+# M426 — his words are never lost on the way out of Settings
+Found by changing every Settings control in the real app and watching the store: the frame, its purpose line, the note,
+the story's own frame and note, the brief and the cast notes are kept by their "Keep it" — and words typed there and
+left by closing Settings were silently thrown away (checked: the next opening drew the boxes from what was kept, and
+nothing had been). His frame and his brief are the words he cares most about.
+- settings.js keepUnsaved (ctx.settings.onHide; app.js calls it when the Settings view is left): every box HE TYPED IN
+  since it was drawn (an input event) whose words differ from what is kept is kept by its own "Keep it" — the same
+  door (the brief's is held against the ledger, as its button does), for the story the boxes were drawn for and only
+  while it is still the open one.
+- ONLY WHAT HE TYPED: the first draft kept any box that differed from the store, and the full walk failed — a box drawn
+  before another hand changed the kept words (a scenario's restore; in play, a housekeeper card on the brief or a name
+  the ripple carries while Settings stands open) wrote its stale words back over them. A box never typed in keeps
+  nothing.
+- The connection form is not touched: its draft stays on screen when Settings closes (not lost) and saves with Save.
+- TESTS: DOM-94 (a plain open and close keeps nothing; another hand's change while Settings is open stands; the frame,
+  the note and the brief typed and left are kept and drawn back). NEGATIVE-TESTED: without the keep the typed words are
+  lost; without the typed-only rule another hand's brief is overwritten (with ""). Walk 112/112, harness 832/832,
+  long play 8/8.
+- version.js -> m426-001.

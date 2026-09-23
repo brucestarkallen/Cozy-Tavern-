@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m425-001)
+# Cozy Tavern — handoff for the next session (state at m426-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0f. EVERY WRITER OF A PERSON'S "NOW", AND ITS LAW (M412) — check them ALL when one misbehaves: the world agent (only
@@ -177,6 +177,8 @@ founding design lives in AGENTS.md's first entries.)
   refuses it) is tried again through serve.py's /api/relay (https only, never a private address; COZY_RELAY_TEST=1 lets the
   tests reach a local stand-in). A connection that needed it is marked viaRelay and goes that way from then on; the turn
   says so once. Run `python3 tests/relay.py` when serve.py or relay.js is touched.
+- LEAVING SETTINGS KEEPS WHAT HE TYPED (M426): a keep-box he typed in and did not Keep is kept by its own button when
+  Settings closes — never a box he did not type in (it must not write stale words over another hand's change).
 - A NEW SETTINGS SECTION MUST BE LISTED IN A ROOM (M352, settings.js SETTINGS_ROOMS): canon verification was in none, and
   unlisted used to mean “the last room” — the glossary — so its switch was unfindable. Unlisted now shows beside its
   neighbours (roomForSection), and M352-1 + DOM-73 fail if a section is listed in none or in two.
