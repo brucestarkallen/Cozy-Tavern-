@@ -12,7 +12,7 @@
  * each line where it belongs. The standings are not touched; a field the
  * writer wrote by hand is never rewritten; a core is never shortened; every
  * change is journaled and can be taken back. */
-import { seatForPerson } from '../engine/people.js'; /* M320 */
+import { seatForPerson, findPersonKey } from '../engine/people.js'; /* M320; M449 */
 import { storyTurn } from '../engine/apply.js'; /* M411 */
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -124,7 +124,7 @@ export function tidyMutations(state, answer, { read = null } = {}) {
   const readChars = (read && read.characters) || null;
   const out = [];
   for (const p of answer || []) {
-    const key = Object.keys(chars).find((k) => k.toLowerCase() === String(p.name || '').toLowerCase());
+    const key = Object.keys(chars).find((k) => k.toLowerCase() === String(p.name || '').toLowerCase()) || findPersonKey(chars, String(p.name || '')); /* M449: the page its answer means, found the way a page is */
     if (!key || isMc(state, key)) continue;
     const c = chars[key] || {};
     for (const f of ['core', 'state', 'arc']) {

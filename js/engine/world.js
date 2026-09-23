@@ -689,13 +689,13 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
   const sceneWords = sceneWordsOf(scenePages);
   const out = [];
   for (const name of names) {
-    if (name.trim().toLowerCase() === mcKey) continue; /* the main character is the writer's */
+    if (name.trim().toLowerCase() === mcKey || (mc && samePersonName(name, mc))) continue; /* the main character is the writer's — under any form of his name (M449: "Oda" in the scene is Jovan Oda) */
     const mineKey = findKnowledgeKey(safe, name);
     const mine = (mineKey ? safe[mineKey] : []).map((k) => ({ fact: k.fact, words: factWords(k.fact) }));
     const selfWords = new Set(name.toLowerCase().split(/\s+/).filter((w) => w.length >= 3));
     const found = [];
     for (const [other, list] of Object.entries(safe)) {
-      if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase()) continue;
+      if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase() || samePersonName(other, name)) continue; /* M449: their own lines under another form of their name are theirs — never "Rukia hasn't found out (Rukia knows)" */
       for (const k of (Array.isArray(list) ? list : [])) {
         const fact = String(k.fact || '').trim();
         if (!fact) continue;

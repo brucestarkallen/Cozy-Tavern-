@@ -23,7 +23,8 @@ import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } fr
 import { samePlace } from '../engine/apply.js'; /* M403 */
 import { seatForPerson } from '../engine/people.js'; /* M398 */
 import { isHere, nameOnPage } from '../engine/names.js'; /* M398/M413; M414: named by the one answer */
-import { shownOnPage } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares */
+import { shownOnPage, personBookKey } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
+import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -475,7 +476,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const mcHere = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
   for (const [m, issueWhat] of read.issues.flatMap((i) => i.mutations.map((mu) => [mu, i.what]))) {
     if (m && (m.type === 'rel.set' || m.type === 'rel.shift') && typeof m.name === 'string') {
-      const key = Object.keys(fresh.relationships || {}).find((k) => k.trim().toLowerCase() === m.name.trim().toLowerCase());
+      /* M449: THE GUARD ASKS THE SAME QUESTION THE APPLIER WILL (M164's law). This found the standing by its EXACT name,
+       * while the applier finds a person's book under any form of their name (M419): a rel.set for "Rukia" saw no
+       * standing, was not "lowering", and zeroed Rukia Kuchiki's earned P:15 — the one thing M48 says the auditor may
+       * never do on judgment. */
+      const key = personBookKey(fresh, fresh.relationships || {}, m.name, (map, n) => { const f = findRelationship(map, n); return f ? f.key : null; });
       const rel = key ? fresh.relationships[key] : null;
       const lowering = m.type === 'rel.shift' ? Number(m.delta) < 0
         : rel ? ['p', 'r', 's'].some((ax) => Number.isFinite(m[ax]) && m[ax] < (rel[ax] || 0)) : false;

@@ -10620,3 +10620,24 @@ Found auditing every door that mends a page (after M447).
   NEGATIVE-TESTED: each filter removed fails its test.
 Harness 864/864, walk 121/121, long play 8/8, lint 0 errors (no new warnings; three old ones' line numbers moved).
 - version.js -> m448-001.
+
+# M449 — a guard asks the question its writer will: the last exact-name look-ups that mattered
+Found by searching the whole engine and the agents for person names compared by exact lower case (the law since M396).
+- THE AUDITOR COULD TAKE AWAY AN EARNED STANDING (M48 says it never may on judgment): its guard found the standing by its
+  EXACT key, while the applier writes a person's book under any form of their name (M419). Proven on the real auditor:
+  a rel.set for "Rukia" saw no standing, was not "lowering", and zeroed Rukia Kuchiki's P:15 earned on the page. The
+  guard now resolves the key as the applier will (apply.js personBookKey with the standings' own finder). Held under
+  "Rukia Kuchiki", "Rukia" and "Kuchiki Rukia".
+- THE PEOPLE TIDY DROPPED ITS OWN ANSWERS for a page under a fuller name (tidy.js tidyMutations — exact key only): an
+  answer for "Rukia" wrote nothing on Rukia Kuchiki's page. Exact first, then the page finder.
+- WHAT THEY HAVEN'T FOUND OUT (engine/world.js blindSpots): the main character was skipped by exact lower case — "Oda"
+  in the scene got blind spots the writer owns; and a person's own lines under another form of their name counted as
+  someone else's ("Rukia hasn't found out … (Rukia knows)"). Both by the one matcher now.
+- THE REST, READ: every other exact comparison in js/engine and js/agents is exact-first with a matcher after
+  (findPresent, seatForPerson, carriedBy, peopleHousekeeping, the housekeeper's presence slice), or not a person
+  (modules, lore entries, the referee's units), or already backed downstream (whole.js nearNames → leanPage's isHere).
+- TESTS: m449.mjs (3): the auditor's zeroing refused under three forms of her name; the tidy writes on her page; blind
+  spots by the one matcher. NEGATIVE-TESTED: the exact guard, the exact tidy, the exact main-character skip and the
+  exact own-lines skip each fail their test.
+Harness 867/867, walk 121/121, long play 8/8, lint 0 errors (one old warning's line number moved).
+- version.js -> m449-001.
