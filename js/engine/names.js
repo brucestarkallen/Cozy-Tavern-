@@ -102,6 +102,11 @@ export function titlesConflict(a, b) {
   for (const [kind, va] of ka) { const vb = kb.get(kind); if (vb && ![...va].some((t) => vb.has(t))) return true; }
   return false;
 }
+/* M418: the name itself, a rank or a courtesy set aside ("Lieutenant Rukia Kuchiki" → "rukia kuchiki"), and whether a name
+ * carries one — for deciding which of one person's two pages is the fuller NAME */
+export function nameCore(name) { return parseName(name).bare; }
+export function hasTitle(name) { return parseName(name).titles.size > 0; }
+
 /* is this word a title that opens a name (so never the name a person is spoken by)? */
 export function isTitleWord(word) {
   return Boolean(titleOf(foldName(word)));

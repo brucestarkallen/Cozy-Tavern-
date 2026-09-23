@@ -45,7 +45,7 @@ import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
 import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson } from './people.js';
-import { samePersonName, isHere, foldName, oneMeaning } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning */
+import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
@@ -1240,10 +1240,21 @@ export function duplicatePages(state) {
     const others = Object.fromEntries(Object.entries(chars).filter(([k]) => k !== name && !taken.has(k)));
     const to = findPersonKey(others, name);
     if (!to || isMc(state, to)) continue;
-    /* only a SHORTER form joins a fuller one — never two full names that merely look alike */
-    if (foldName(to).length <= foldName(name).length) continue;
-    out.push({ from: name, to });
-    taken.add(name);
+    let from = name;
+    let into = to;
+    if (nameCore(to) === nameCore(name)) {
+      /* M418: THE SAME NAME, ONE PAGE WRITTEN WITH A RANK. Since M414 "Rukia Kuchiki" finds "Lieutenant Rukia Kuchiki" —
+       * and the longer letters would have made the RANK the page's name. A rank changes (Rukia may be a captain one
+       * day); the page stands under the name, and the titled page joins it. Two titled or two untitled forms: no join. */
+      if (hasTitle(name) === hasTitle(to)) continue;
+      if (!hasTitle(name)) { from = to; into = name; }
+    } else if (nameCore(to).length <= nameCore(name).length) {
+      /* only a SHORTER name joins a fuller one — never two full names that merely look alike; judged on the name itself,
+       * so "Captain Hitsugaya" joins "Toshiro Hitsugaya" (M418 — the rank is not part of the name's length) */
+      continue;
+    }
+    out.push({ from, to: into });
+    taken.add(from);
   }
   return out;
 }

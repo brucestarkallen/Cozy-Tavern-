@@ -10052,3 +10052,19 @@ against it (M405/M409) — and a header that was only a date set no clock.
 - TESTS: M417-1 (ten headers, ground and clock each, and the ledger after one). NEGATIVE-TESTED: without the leading-date
   step it fails. Harness 820/820, walk 111/111, long play 8/8.
 - version.js -> m417-001.
+
+# M418 — one person's two pages, one under a rank: joined under the NAME; a rank is not part of a name's length
+M414's page finder asks the one matcher last, so "Rukia Kuchiki" now finds "Lieutenant Rukia Kuchiki". The join of one
+person's two pages (M406, every page) then compared LETTERS: the ranked page, being longer, would have become the
+page's name — a rank goes stale (Rukia may be a captain one day) — and "Captain Hitsugaya" never joined "Toshiro
+Hitsugaya" (seventeen letters each).
+- apply.js duplicatePages: two pages whose NAME is the same (names.js nameCore — a rank or courtesy set aside), one with
+  a rank and one without, join into the one without, whichever the ledger lists first; otherwise only a shorter NAME
+  joins a fuller one, judged on the name itself (so "Captain Hitsugaya" joins "Toshiro Hitsugaya"). Two ranked or two
+  plain forms of one name never join; a rank and a surname two people share join nobody.
+- Since M414 a write under a second form of a name lands on the page already there, so new pairs are not made; this
+  heals the pairs an older ledger already holds. (One page per person; its name is whichever form was written first.)
+- TESTS: M418-1 (the older ledger's pairs joined under the names, both halves kept, her place in the scene following;
+  two Kuchikis never; the name listed first or second, the same join). NEGATIVE-TESTED: the direction rule and the
+  name-length rule each fail it. Harness 821/821, walk 111/111, long play 8/8.
+- version.js -> m418-001.
