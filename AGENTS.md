@@ -10370,3 +10370,23 @@ Audited the housekeeper's apply and take-back as one round trip: two answers (th
 then a lore entry added and one changed, and a thread) applied through the real apply-all, then taken back one card at a
 time — the second answer's changes first, leaving the first answer exactly; then the first, leaving everything exactly
 as it was; then "nothing left" said. It held on the first run — no bug — and M438-1 now keeps it so. Harness 841/841.
+
+# M439 — the house reads its models' answers the ways models actually write them
+The housekeeper's block reader, fuzzed with the ways models mangle a block:
+- ONE CARD WRITTEN BARE WITH A LIST INSIDE IT ({"add":true,"keys":["A"],…}) was read as its inner ["A"] — tolerantJson
+  took the LAST balanced array in the block — and the card came out "unreadable". The block's own first bracket decides
+  now: an object that opens the block is read as the object when it reads; an array as before. A list wrapped in one
+  named field ({"lore":[…]}) is that list (the old reader found the inner list by accident; kept on purpose).
+- A BLOCK TYPED IN CURLY QUOTES (“add”: true) was unreadable. With no straight quote anywhere, the curly ones are the
+  delimiters and are read as such; a block with straight quotes keeps its curly ones as words.
+- SAME FAULT ELSEWHERE (rule 8): the workers' shared reader (jsonutil parseFirstObject — the ledger's reader, the world
+  agent, the auditor, the director, canon…) took no curly quotes either; the scene sensors (sensors.js readAnswers) and the
+  record's checker (memory.js parseVerifyAnswer) used plain JSON.parse — one trailing comma or a fence and the whole
+  reading was thrown away. All read forgivingly now.
+- Checked, no change: every thinking level lands on one each model family accepts and each model declares, never climbs,
+  never turns a level into Off; duels (18,000), group fights and wars fuzzed through the real engine end, keep sane
+  numbers and come out even when the sides are even (an unnamed enemy is "trained", 4, by design; an unnamed ally the
+  default 5).
+- TESTS: M439-1 (the housekeeper's reader), M439-2 (the workers', the sensors', the record checker's). NEGATIVE-TESTED.
+  Harness 843/843, walk 115/115, long play 8/8, housekeeper rounds green.
+- version.js -> m439-001.

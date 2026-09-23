@@ -67,7 +67,9 @@ export function parseFirstObject(raw, want = null) {
    * director's watcher's answers were lost to a model that thought out loud
    * first or left a trailing comma. `want` picks the object that answers. */
   try {
-    const text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '');
+    let text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '');
+    /* M439: an answer typed in curly quotes throughout (no straight one anywhere) — its curly quotes are the delimiters */
+    if (!text.includes('"') && /[\u201c\u201d]/.test(text)) text = text.replace(/[\u201c\u201d]/g, '"');
     for (const c of balancedCandidates(text, 5)) {
       const parsed = parseLenient(c);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (typeof want !== 'function' || want(parsed))) return parsed;

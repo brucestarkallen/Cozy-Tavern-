@@ -499,12 +499,19 @@ export function sanitizeJson(text) {
  * sanitized parse as the salvage. null on any remaining trouble. */
 export function tolerantJson(raw) {
   try {
-    const text = String(raw == null ? '' : raw).replace(/```(?:json|JSON)?/g, '');
-    let candidate = lastBalancedArray(text);
-    if (!candidate) {
-      /* a single object payload (one op written bare) still counts */
-      const start = text.indexOf('{');
-      if (start === -1) return null;
+    let text = String(raw == null ? '' : raw).replace(/```(?:json|JSON)?/g, '');
+    /* M439: A BLOCK WRITTEN WITH CURLY QUOTES. A model that types “add”: true has written no straight quote at all — its
+     * curly ones ARE the delimiters (with none straight, nothing else could be), so they are read as such. A block that
+     * has straight quotes keeps its curly ones as words. */
+    if (!text.includes('"') && /[\u201c\u201d]/.test(text)) text = text.replace(/[\u201c\u201d]/g, '"');
+    const parse = (candidate) => {
+      if (!candidate) return undefined;
+      try { return JSON.parse(candidate); } catch (err) {
+        try { return JSON.parse(sanitizeJson(candidate)); } catch (err2) { return undefined; }
+      }
+    };
+    /* the first balanced {...} from `start`, strings respected */
+    const objectAt = (start) => {
       let depth = 0;
       let inString = false;
       let escaped = false;
@@ -520,17 +527,29 @@ export function tolerantJson(raw) {
         else if (ch === '{') depth += 1;
         else if (ch === '}') {
           depth -= 1;
-          if (depth === 0) { candidate = text.slice(start, i + 1); break; }
+          if (depth === 0) return text.slice(start, i + 1);
         }
       }
+      return '';
+    };
+    /* M439: ONE CARD WRITTEN BARE, WITH A LIST INSIDE IT. {"add":true,"keys":["A"],…} was read as its inner ["A"] — the
+     * last balanced array in the block — and the card came out unreadable. The block's own first bracket decides: an
+     * object that opens the block is read as the object, when it reads; an array, as before. */
+    const first = text.search(/[[{]/);
+    if (first !== -1 && text[first] === '{') {
+      const whole = parse(objectAt(first));
+      if (whole && typeof whole === 'object') return whole;
     }
-    if (!candidate) return null;
-    try {
-      return JSON.parse(candidate);
-    } catch (err) {
-      const cleaned = sanitizeJson(candidate);
-      try { return JSON.parse(cleaned); } catch (err2) { return null; }
+    const arrayCandidate = lastBalancedArray(text);
+    if (arrayCandidate) {
+      const list = parse(arrayCandidate);
+      return list === undefined ? null : list;
     }
+    /* a single object payload (one op written bare) still counts */
+    const start = text.indexOf('{');
+    if (start === -1) return null;
+    const one = parse(objectAt(start));
+    return one === undefined ? null : one;
   } catch (err) {
     return null;
   }
@@ -599,7 +618,10 @@ export function parseProtocol(raw) {
         } else {
           const key = ALIAS[tag] || tag;
           const parsed = tolerantJson(block.body);
-          const list = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+          /* M439: a list wrapped in one named field ({"lore": [...]}) is that list — as the reader took it before the
+           * bare-object reading (it found the inner list by accident then) */
+          const wrapped = parsed && !Array.isArray(parsed) && typeof parsed === 'object' && Object.keys(parsed).length === 1 && Array.isArray(Object.values(parsed)[0]) ? Object.values(parsed)[0] : null;
+          const list = wrapped || (Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []));
           let landed = 0;
           for (const item of list) {
             if (!(item && typeof item === 'object' && !Array.isArray(item))) continue;

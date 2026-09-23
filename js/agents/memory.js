@@ -37,6 +37,7 @@
  * for next time.
  */
 
+import { parseLenient } from './jsonutil.js'; /* M439 */
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
@@ -763,6 +764,7 @@ export function parseVerifyAnswer(raw) {
   try {
     let text = String(raw || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json|JSON)?/g, '').trim();
     if (!text || /^none\b/i.test(text)) return [];
+    if (!text.includes('"') && /[\u201c\u201d]/.test(text)) text = text.replace(/[\u201c\u201d]/g, '"'); /* M439 */
     const start = text.indexOf('[');
     if (start === -1) return [];
     let depth = 0; let inStr = false; let esc = false; let end = -1;
@@ -774,7 +776,7 @@ export function parseVerifyAnswer(raw) {
       else if (ch === ']') { depth -= 1; if (depth === 0) { end = i; break; } }
     }
     if (end === -1) return [];
-    const list = JSON.parse(text.slice(start, end + 1));
+    const list = parseLenient(text.slice(start, end + 1)); /* M439: a trailing comma no longer throws the findings away */
     if (!Array.isArray(list)) return [];
     return list
       .filter((e) => e && typeof e === 'object' && typeof e.issue === 'string' && e.issue.trim())

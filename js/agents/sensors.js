@@ -18,6 +18,7 @@
  * never a list; the line is the writer's voice, not a form; nothing is sent at all with its switch off. */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
+import { parseFirstObject } from './jsonutil.js'; /* M439: the workers' forgiving reader */
 import { houseFetch } from '../providers/relay.js';
 import { writerText, wholePage } from '../engine/whole.js';
 
@@ -120,9 +121,9 @@ export function readAnswers(raw, shape, sensors = SENSORS) {
   const out = {};
   let said = raw;
   if (typeof raw === 'string') {
-    const at = raw.indexOf('{');
-    const to = raw.lastIndexOf('}');
-    try { said = at >= 0 && to > at ? JSON.parse(raw.slice(at, to + 1)) : null; } catch (err) { said = null; }
+    /* M439: read as every other worker's answer is — a trailing comma, curly quotes, a thinking block or a fence around
+     * it no longer throws the whole reading away */
+    said = parseFirstObject(raw);
   }
   if (!said || typeof said !== 'object') return out;
   const answers = shape === 'decisions' ? (said.answers && typeof said.answers === 'object' ? said.answers : {}) : said;
