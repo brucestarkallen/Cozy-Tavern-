@@ -10037,3 +10037,18 @@ notes it was handed were read line by line, as the teller reads them.
   behaviour in the new words. NEGATIVE-TESTED: each of the four fails its test when the old words come back. Harness
   819/819, walk 111/111, long play 8/8; the live request read again through the app.
 - version.js -> m416-001.
+
+# M417 — a date or an hour first in the header is the clock's, never the ground
+Found by asking the header reader for every shape a page's header takes, not only his: the reader asked only the parts
+AFTER the first whether they were a date, so "[Monday, June 1, 2026 — 10th Division HQ — training courtyard | 10:40]"
+set the ground to "Monday, June 1, 2026" — a move to a day, which lets every position go (M261) and judges every "now"
+against it (M405/M409) — and a header that was only a date set no clock.
+- state.js headerMutations: leading parts that ARE a day, a date or an hour (a weekday standing with a date, a number or
+  a time of day after it, or alone; a month with a day number that ends there; a numeric date; a clock time) are the
+  clock's; the place is what follows (after a leading date, the rest of the part). A place named for a day stays a place
+  ("Sunday Market", "Friday's Pub", "May 5th Avenue", "Sunday Morning Cafe"). The date is read from everything that is not
+  the place, so "[Monday, June 1, 2026 | 10:40]" sets the clock and no ground. His own shape ("[10th Division HQ —
+  training courtyard — Monday, June 1 …]") reads exactly as before.
+- TESTS: M417-1 (ten headers, ground and clock each, and the ledger after one). NEGATIVE-TESTED: without the leading-date
+  step it fails. Harness 820/820, walk 111/111, long play 8/8.
+- version.js -> m417-001.

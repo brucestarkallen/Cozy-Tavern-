@@ -845,15 +845,35 @@ export function headerMutations(pageText) {
   const isDatePart = (t) => new RegExp('\\b(' + ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].join('|') + ')\\b', 'i').test(t)
     || new RegExp('\\b(' + MONTHS.join('|') + ')\\s+\\d{1,2}', 'i').test(t) || new RegExp('\\b\\d{1,2}(st|nd|rd|th)?\\s+(' + MONTHS.join('|') + ')\\b', 'i').test(t)
     || /^\d{1,4}[\/.-]\d{1,2}/.test(t);
-  const dateAt = dash.findIndex((t, i) => i > 0 && isDatePart(t));
-  const place = (dateAt > 0 ? dash.slice(0, dateAt).join(' — ') : (dash[0] || '')).trim();
+  /* M417: A DATE OR AN HOUR FIRST IS NOT A PLACE. "[Monday, June 1 — 10th Division HQ — training courtyard | 10:40]" set the
+   * ground to "Monday, June 1" (only a later part was ever asked whether it was a date) — a move to a place that is a
+   * day, which lets every position go and judges every now against it. Leading parts that ARE a day, a date or an hour
+   * (a weekday with a date, a number or a time of day after it, or alone; a month with its day; a numeric date; a clock
+   * time) are the clock's, and the place begins after them. "Sunday Market", "Friday's Pub", "May 5th Avenue" stay
+   * places: a weekday must stand with a date or alone, a month with a day number that ends there. */
+  const WEEKDAY = '(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)';
+  const leadsWithDate = (t) => new RegExp('^' + WEEKDAY + '\\b\\s*,?\\s*(?:(?:' + MONTHS.join('|') + ')\\s+\\d{1,2}(?![\\p{L}\\p{N}])|\\d{1,2}(?:st|nd|rd|th)?(?![\\p{L}\\p{N}])|(?:morning|afternoon|evening|night|noon|midnight|dawn|dusk)$|$)', 'iu').test(t)
+    || new RegExp('^(?:' + MONTHS.join('|') + ')\\s+\\d{1,2}(?![\\p{L}\\p{N}])', 'iu').test(t)
+    || new RegExp('^\\d{1,2}(?:st|nd|rd|th)?\\s+(?:' + MONTHS.join('|') + ')\\b', 'i').test(t)
+    || /^\d{1,4}[\/.-]\d{1,2}/.test(t) || /^\d{1,2}:\d{2}\b/.test(t);
+  let start = 0;
+  while (start < dash.length - 1 && leadsWithDate(dash[start].trim())) start += 1;
+  const dateAt = dash.findIndex((t, i) => i > start && isDatePart(t));
+  /* after a leading date the rest of the part IS the place ("[June 1, 2026 — Karakura Town — Urahara Shop | 22:10]");
+   * with no date anywhere in it, the first part alone, as M410 left it */
+  const place = (dateAt > start ? dash.slice(start, dateAt).join(' — ') : start > 0 ? dash.slice(start).join(' — ') : (dash[start] || '')).trim();
   /* M409: A PLACE MAY BEGIN WITH A NUMBER. "10th Division HQ", "1st Division HQ", "13th Division barracks" — every
    * ground of his Bleach story — were dropped here (any leading digit was taken for a time or a date), so his headers
    * never set the ground: it stayed wherever a reader or an old audit had put it, and people's "now" were judged
    * against the wrong place. Only a time ("09:00") or a date ("06/01", "1 June") at the front is not a place. */
-  const notAPlace = /^\d{1,2}:\d{2}\b/.test(place) || /^\d{1,4}[\/.-]\d{1,2}/.test(place) || new RegExp('^\\d{1,2}(st|nd|rd|th)?\\s+(' + MONTHS.join('|') + ')\\b', 'i').test(place) || /^\d+$/.test(place);
-  if (place && place.length <= 80 && !notAPlace) out.push({ type: 'place.set', name: place });
-  const dateWords = (dash.slice(dateAt > 0 ? dateAt : 1).join(' ') || '') + ' ' + parts.slice(1).join(' ');
+  const notAPlace = leadsWithDate(place) || /^\d{1,2}:\d{2}\b/.test(place) || /^\d{1,4}[\/.-]\d{1,2}/.test(place) || new RegExp('^\\d{1,2}(st|nd|rd|th)?\\s+(' + MONTHS.join('|') + ')\\b', 'i').test(place) || /^\d+$/.test(place);
+  const placeTaken = Boolean(place && place.length <= 80 && !notAPlace);
+  if (placeTaken) out.push({ type: 'place.set', name: place });
+  /* M417: the date is read from everything that is not the place — a leading date part is the clock's, and a header that
+   * is only a date ("[Monday, June 1, 2026 | 10:40]") still sets the clock */
+  const dateWords = placeTaken
+    ? [...dash.slice(0, start), ...(dateAt > start ? dash.slice(dateAt) : start > 0 ? [] : dash.slice(1))].join(' ') + ' ' + parts.slice(1).join(' ')
+    : inner;
   const dm = dateWords.match(new RegExp('(' + MONTHS.join('|') + ')\\s+(\\d{1,2}),?\\s+(\\d{4})', 'i'));
   const tm = (parts.slice(1).join(' ') + ' ' + head).match(/\b(\d{1,2}):(\d{2})\b/);
   if (dm && tm) {
