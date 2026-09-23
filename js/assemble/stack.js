@@ -98,7 +98,7 @@ import { shortcutsText } from '../commands.js'; /* M379 */
 import { plainRules } from './plain.js'; /* M354: the five plain lines, behind the derestricted switch */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
-import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
+import { voiceOf, inVoice, toTeller, briefingOpening, purposeLine, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -483,7 +483,7 @@ export function buildRequest({
     const cardName = card && typeof card.name === 'string' ? card.name.trim() : '';
     if (!cardName || !presentBare.has(bareName(cardName))) continue;
     let description = card && typeof card.description === 'string'
-      ? card.description.replace(/\s+/g, ' ').trim()
+      ? withCardNames(card.description, cardName, voice).replace(/\s+/g, ' ').trim() /* M435 */
       : '';
     if (description.length > SLOT4_CARD_DESCRIPTION) {
       description = description.slice(0, SLOT4_CARD_DESCRIPTION - 1).trimEnd() + '…';
@@ -492,7 +492,7 @@ export function buildRequest({
      * the description keeps its seat first; these ride while room remains. */
     const detail = (field, label) => {
       let text = card && typeof card[field] === 'string'
-        ? card[field].replace(/\s+/g, ' ').trim()
+        ? withCardNames(card[field], cardName, voice).replace(/\s+/g, ' ').trim() /* M435 */
         : '';
       if (!text) return '';
       if (text.length > SLOT4_CARD_DETAIL) {

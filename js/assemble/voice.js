@@ -84,7 +84,21 @@ export function withMacros(text, voice) {
   const v = voice || {};
   const user = (typeof v.mc === 'string' && v.mc && v.mc !== 'the player' ? v.mc : '') || v.writer || 'the one I play';
   const char = v.teller || 'the storyteller';
-  return out.replace(/\{\{\s*user\s*\}\}|<USER>/gi, user).replace(/\{\{\s*char\s*\}\}|<BOT>/gi, char);
+  return out.replace(/\{\{\s*user\s*\}\}|<USER>/gi, () => user).replace(/\{\{\s*char\s*\}\}|<BOT>/gi, () => char);
+}
+
+/* M435: A CARD'S OWN WORDS SAY {{char}} FOR ITSELF. A SillyTavern card is written as "{{char}} is {{user}}'s older
+ * sister" — and its description, personality and scenario went to the storyteller as they came (the "Who's here"
+ * slot), its greeting became his story's first page as it came: template syntax on the page and in the storyteller's
+ * head, the thing M361 took out of his standing words. In a card, {{char}} is the CARD's person; {{user}} is the one he
+ * plays (the main character's story name, else his own name, else the words the caller gives). */
+export function withCardNames(text, cardName, voice, nobody = 'the main character') {
+  const out = String(text == null ? '' : text);
+  if (!/\{\{\s*(?:user|char)\s*\}\}|<(?:USER|BOT)>/i.test(out)) return out;
+  const v = voice || {};
+  const user = (typeof v.mc === 'string' && v.mc && v.mc !== 'the player' ? v.mc : '') || v.writer || nobody;
+  const char = String(cardName == null ? '' : cardName).trim() || 'they';
+  return out.replace(/\{\{\s*user\s*\}\}|<USER>/gi, () => user).replace(/\{\{\s*char\s*\}\}|<BOT>/gi, () => char);
 }
 
 /* M380: the name boxes ONLY change words — where the house's own text says "the writer" or "the storyteller", or a rule

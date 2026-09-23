@@ -74,9 +74,13 @@ const NO_CHARACTER = 'That picture doesn’t carry a character.';
  * 'chara'. Returns the chunk's text as bytes, or null when the picture
  * simply doesn't carry a character. Throws the damaged error when the
  * file is cut short, or when the chara chunk's own CRC disagrees. */
+/* M436: a V3 card (chara_card_v3) carries its character in a "ccv3" chunk — the newer tools may write only that one,
+ * and the house read only "chara": such a picture said it carried no character. ccv3 is read first when a picture
+ * holds both (it is the fuller of the two); chara otherwise, as before. */
 async function findCharaText(bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let offset = 8;
+  let chara = null;
   while (offset + 8 <= bytes.length) {
     const len = view.getUint32(offset);
     const type = ascii(bytes, offset + 4, offset + 8);
@@ -88,13 +92,16 @@ async function findCharaText(bytes) {
       const data = bytes.subarray(dataStart, dataEnd);
       const nul = data.indexOf(0);
       const keyword = nul === -1 ? '' : ascii(data, 0, nul);
-      if (keyword === 'chara') {
+      if (keyword === 'chara' || keyword === 'ccv3') {
         /* This is the page we came for — hold it to its word (CRC). */
         if (crc32(bytes.subarray(offset + 4, dataEnd)) !== view.getUint32(dataEnd)) {
           throw new Error(DAMAGED);
         }
         if (type === 'tEXt') {
-          return data.subarray(nul + 1);
+          if (keyword === 'ccv3') return data.subarray(nul + 1);
+          if (!chara) chara = data.subarray(nul + 1);
+          offset = dataEnd + 4;
+          continue;
         }
         /* iTXt: keyword NUL, compression flag, compression method,
          * language NUL, translated keyword NUL, then the text (UTF-8,
@@ -108,13 +115,16 @@ async function findCharaText(bytes) {
         if (flag === 1) {
           rest = await inflate(rest);
         }
-        return rest;
+        if (keyword === 'ccv3') return rest;
+        if (!chara) chara = rest;
+        offset = dataEnd + 4;
+        continue;
       }
     }
     if (type === 'IEND') break;
     offset = dataEnd + 4;
   }
-  return null;
+  return chara;
 }
 
 /* Compressed iTXt, when a card writer bothered. DecompressionStream is

@@ -52,6 +52,8 @@ import { renderHtmlProse, looksHtml } from './richhtml.js';
 import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
 import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
 import { pageText } from '../assemble/stack.js';
+import { withCardNames, cleanName } from '../assemble/voice.js'; /* M435 */
+import { mcName } from '../engine/duels.js'; /* M435: whose name {{user}} is */
 import { db } from '../store.js';
 import { canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys, canonNotes } from '../canon/bridge.js'; /* M386: what canon says; M395: its own notes */
 import { overlayFor, throughLens, lensHeld } from '../agents/canonlens.js'; /* M392: canon through his story */
@@ -533,7 +535,9 @@ function whosHerePanel(ctx) {
           `Begin with ${card.name}’s own greeting? Their card brought opening words.`
         );
         if (yes) {
-          await db.messages.append(story.id, { role: 'assistant', text: greeting });
+          /* M435: the card's {{char}} is its own person, {{user}} the one he plays — never template syntax on his page */
+          const voice = { writer: cleanName(await db.settings.get('writerName')), mc: mcName(await loadState(story.id)) };
+          await db.messages.append(story.id, { role: 'assistant', text: withCardNames(greeting, card.name, voice, 'you') });
           if (ctx.chat && ctx.chat.renderThread) await ctx.chat.renderThread({ structural: true });
         }
       }

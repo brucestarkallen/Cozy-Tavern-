@@ -5012,6 +5012,31 @@ test('DOM-96 A PAGE HE IS RE-INKING IS NEVER REDRAWN AWAY: he opens the editor o
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-97 A CARD\u2019S GREETING OPENS HIS STORY WITH NAMES: invited into an empty tale, its "{{char}} waves at {{user}}" lands as "Rias waves at you" — never template syntax on his page (M435)', async () => {
+  const before = errors.length;
+  click(q('#btn-new-story'));
+  await until(() => !q('#new-story-form').hidden, 'the new-story form');
+  type(q('#new-story-title'), 'A greeting');
+  submit(q('#new-story-form'));
+  const sid = await until(async () => { const id = await storyId(); const s0 = id && (await db.stories.get(id)); return s0 && s0.title === 'A greeting' ? id : null; }, 'the story', 10000);
+  const { saveCastMember } = await import('../../js/import/cards.js');
+  await saveCastMember({ id: 'card-rias-greet', name: 'Rias', description: 'the club president', personality: '', scenario: '', firstMes: '*{{char}} waves at {{user}} from the porch.* "You\u2019re late."', importedAt: Date.now() });
+  if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); }
+  const chip = await until(() => q('#drawer .drawer-rooms [data-room="scene"]'), 'the scene room', 8000);
+  click(chip); await tick(500); await env.ctx.drawer.renderAllRooms(); await tick(500);
+  const select = await until(() => q('#drawer select[aria-label="Someone from the cast library to invite in"]'), 'the invite list', 8000);
+  await until(() => [...select.options].some((o) => o.value === 'card-rias-greet'), 'Rias in the list', 8000);
+  select.value = 'card-rias-greet';
+  const priorConfirm = window.confirm; window.confirm = () => true;
+  try {
+    select.closest('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    const page = await until(async () => (await db.messages.list(sid)).find((m) => m.role === 'assistant'), 'the greeting page', 10000);
+    eq(page.text, '*Rias waves at you from the porch.* "You\u2019re late."', 'the greeting with names');
+  } finally { window.confirm = priorConfirm; }
+  click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'drawer closed', 5000).catch(() => {});
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-93 "READ AGAIN" PUTS THE GROUND WHERE THE PAGE SAYS AND LETS GO OF THE NOW OF A PLACE LEFT — Kyōraku’s assembly-hall now goes, Rukia’s courtyard now stays, the page is untouched, and no card says "the next page" (M409)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

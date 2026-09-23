@@ -10328,3 +10328,23 @@ switched OFF in ST came in ticked — his old craft blocks straight into the sto
   then. Exported back to a worldbook the same way.
 - TESTS: M434-1 (each logic, a regex key, a not-selective entry, the title, the round trip). NEGATIVE-TESTED.
 - Harness 837/837, walk 114/114, long play 8/8. version.js -> m434-001.
+
+# M435 — a card's own {{char}} is its own person, {{user}} the one he plays
+A SillyTavern card is written "{{char}} is {{user}}'s older sister". Its description, personality and scenario went to
+the storyteller as they came (the "Who's here" slot), and its greeting became his story's first page as it came —
+template syntax on his page and in the storyteller's head, the thing M361 took out of his standing words.
+- voice.js withCardNames(text, cardName, voice, nobody): {{char}}/<BOT> is the CARD's person; {{user}}/<USER> the main
+  character's story name, else his own name, else the caller's words ("the main character" in the slot, "you" on the
+  greeting page). Replacements by function (a name is never read as a $-pattern) — withMacros too.
+- stack.js slot 4 (description, personality, scenario of a present card) and drawer.js (the greeting offered as the
+  opening page) pass through it.
+- TESTS: M435-1 (the request builder hands the storyteller "Rias is Jovan's older sister", no template syntax anywhere),
+  DOM-97 (a card invited into an empty tale opens it with "Rias waves at you"). NEGATIVE-TESTED both.
+
+# M436 — a V3 card picture is read
+cards.js read a picture's character only from the "chara" chunk; a V3 card (chara_card_v3) carries it in "ccv3", and
+tools that write only that chunk made a picture that "doesn't carry a character". ccv3 is read first when a picture holds
+both (the fuller); chara otherwise.
+- TESTS: M436-1 (real PNG bytes: V2 alone, V3 alone, both, a damaged chunk). NEGATIVE-TESTED. The card picture reader had
+  no test at all before.
+- Harness 839/839, walk 115/115, long play 8/8. version.js -> m436-001.
