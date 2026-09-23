@@ -9893,3 +9893,17 @@ bringing Rukia back into the scene.
   (where each stands is read again on that page) — then stays.
 - TESTS: M410-1 (the courtyard, not just the HQ; the HQ when that is all the header says; the date and hour still
   read). Negative-tested. Harness 808/808. version.js -> m410-001.
+
+# M411 — the tidy wrote the old now back over the simulation's fresh one
+He: the workers' line before the update showed the world agent writing Kyōraku's now correctly ("at the edge of the
+sand near the gate, hat tipped low…") — so why did his page read "inside the assembly hall at 1st Division HQ"?
+- THE SAME RUN'S TIDY OVERWROTE IT: "the scribe … tidied 9 pages (… Shunsui Kyoraku …)". agents/tidy.js read the pages,
+  asked its model, and wrote back every field its answer changed — judged only against the page as it stood at WRITE
+  time, so its answer (made from the page as it stood before, and from older pages) replaced the now the world agent
+  had just written. The simulation worked; a later worker undid it.
+- tidyMutations now: a now written on THIS page (by the world agent or the scribe) is never replaced by the tidy — it
+  may fill an empty now and mend an old one; and a now or an arc written while the tidy was reading (read ≠ fresh) is
+  not touched (tidyPeople passes the page it read).
+- TESTS: M411-1 (in m405.mjs: his fresh now kept, an empty now filled, a now written meanwhile untouched). Negative-
+  tested both guards; M259's tidy tests (which move a misplaced now to its owner and fill one from the latest page) all
+  still pass. Harness 809/809. version.js -> m411-001.

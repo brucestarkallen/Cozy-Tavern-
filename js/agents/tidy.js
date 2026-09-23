@@ -13,6 +13,7 @@
  * writer wrote by hand is never rewritten; a core is never shortened; every
  * change is journaled and can be taken back. */
 import { seatForPerson } from '../engine/people.js'; /* M320 */
+import { storyTurn } from '../engine/apply.js'; /* M411 */
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
@@ -112,9 +113,15 @@ export function parseTidyAnswer(raw) {
   return null;
 }
 
+/* M411: THE TIDY NEVER DECIDES WHERE SOMEONE IS. The world agent wrote Kyōraku's now at the edge of the sand, watching
+ * the thrown sword; the same run's tidy ("tidied 9 pages … Shunsui Kyoraku") wrote back "inside the assembly hall at 1st
+ * Division HQ, among the assembled captains" — an old now, read from the pages or from the page as it stood before the
+ * world agent wrote. A now another reader wrote on this page — or while the tidy was reading — is not touched; the tidy
+ * fills empty nows and mends old ones. */
 /* what an answer may change: never a hand-written field, never an emptied or shortened core */
-export function tidyMutations(state, answer) {
+export function tidyMutations(state, answer, { read = null } = {}) {
   const chars = (state && state.characters) || {};
+  const readChars = (read && read.characters) || null;
   const out = [];
   for (const p of answer || []) {
     const key = Object.keys(chars).find((k) => k.toLowerCase() === String(p.name || '').toLowerCase());
@@ -126,6 +133,11 @@ export function tidyMutations(state, answer) {
       const now = String(c[f] || '').trim();
       const next = p[f];
       if (next === now) continue;
+      /* M411: written meanwhile by another reader — theirs stands */
+      if (readChars && (f === 'state' || f === 'arc') && String(((readChars[key] || {})[f]) || '').trim() !== now) continue;
+      /* M411: a now a reader wrote on THIS page (the world agent's, the scribe's) is the freshest there is — the tidy
+       * may fill an empty now or mend an old one, never replace one written this page */
+      if (f === 'state' && now && Number(c.updatedAtTurn) === storyTurn(state)) continue;
       if (f === 'core') {
         if (!next || next.length < now.length * 0.9) continue;
         out.push({ type: 'people.set', name: key, field: 'core', text: next });
@@ -177,7 +189,7 @@ export async function tidyPeople({ connection, storyId, brief = '', castNotes = 
   if (stale()) return null;
   /* judged against the pages as they stand now (a page may have moved while it read) */
   const fresh = await loadState(storyId);
-  const { state: next, applied, rejected } = applyMutations(fresh, tidyMutations(fresh, answers));
+  const { state: next, applied, rejected } = applyMutations(fresh, tidyMutations(fresh, answers, { read: state })); /* M411: against the page it read */
   /* an answer that could not be read is asked again next time — the stamp waits for a clean reading */
   await saveState(storyId, failed ? next : { ...next, tidiedGen: TIDY_GEN });
   notify(storyId);

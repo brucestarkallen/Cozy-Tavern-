@@ -118,3 +118,27 @@ test('M410-1 THE HEADER’S WHOLE PLACE: everything before the day or date — t
   const clock = headerMutations('[10th Division HQ — training courtyard — Monday, June 1, 2026 | 10:00 | clear]').find((m) => m.type === 'clock.set');
   assert(clock && clock.day === 1 && clock.month === 6 && clock.hour === 10, 'and the date and hour are still read');
 });
+
+test('M411-1 THE TIDY NEVER UNDOES THE SIMULATION: a now written on this page (the world agent’s "at the edge of the sand") is not replaced by the tidy’s old one; a now written while the tidy was reading is not touched; an empty now is still filled', async () => {
+  const { tidyMutations } = await import('../../js/agents/tidy.js');
+  const { storyTurn } = await import('../../js/engine/apply.js');
+  const st = applyMutations({ ...emptyState(), page: 7 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: '10th Division HQ — training courtyard' },
+    { type: 'people.set', name: 'Shunsui Kyōraku', field: 'state', text: 'at the edge of the sand near the gate, hat tipped low' }]).state;
+  st.characters['Rukia Kuchiki'] = { core: 'x', state: '', threads: [], updatedAtTurn: 2 };
+  st.characters['Iba Tetsuzaemon'] = { core: 'y', state: 'at the 7th Division office', threads: [], updatedAtTurn: 2 };
+  eq(st.characters['Shunsui Kyōraku'].updatedAtTurn, storyTurn(st), 'the world agent wrote his now on this page');
+  const answer = [
+    { name: 'Shunsui Kyōraku', state: 'inside the assembly hall at 1st Division HQ, among the assembled captains' },
+    { name: 'Rukia Kuchiki', state: 'at the rail, arms folded' },
+  ];
+  const muts = tidyMutations(st, answer);
+  assert(!muts.some((m) => m.name === 'Shunsui Kyōraku'), 'his fresh now is not replaced by the old one');
+  assert(muts.some((m) => m.name === 'Rukia Kuchiki' && m.text === 'at the rail, arms folded'), 'an empty now is still filled');
+  /* read before another reader wrote Iba's now; the answer is for the old page */
+  const read = JSON.parse(JSON.stringify(st));
+  read.characters['Iba Tetsuzaemon'].state = 'at the 7th Division office';
+  const fresh = JSON.parse(JSON.stringify(st));
+  fresh.characters['Iba Tetsuzaemon'].state = 'at the north rail, watching the duel';
+  const racing = tidyMutations(fresh, [{ name: 'Iba Tetsuzaemon', state: 'in the 7th Division office' }], { read });
+  eq(racing.length, 0, 'a now written while the tidy read is not touched');
+});
