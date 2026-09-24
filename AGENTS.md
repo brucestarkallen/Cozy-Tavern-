@@ -10744,3 +10744,31 @@ rest follow".
   re-ask back (nine reads), the banner's end removed.
 Harness 875/875, walk 126/126, long play 8/8, lint 0 errors (no new warnings).
 - version.js -> m454-001.
+
+# M455 — the header's hour is the hour on any calendar, and the clock speaks the story's own day
+He: the clock "Thursday, March 5, 1001 — 09:19" under a page whose header reads "Tenth Division Courtyard — Sunday,
+Hanami 5, 1001 AG | 09:20" — "and lag by one page??"
+- ROOT: headerMutations set the clock ONLY from a real month's date (M128: "clock.set only when the header's own time is
+  readable" — read as a full real date). His story keeps its own calendar ("Hanami"), so no header ever set the clock;
+  the page reader guessed it — the page before's hour, on the real calendar the numbers fell on (a Thursday, in March).
+  Reproduced through the real app (DOM-109 with the header's hour removed: "Thursday, March 5, 1001 — 09:19").
+- NOW: a header's time sets the clock on any calendar, the day words it wrote riding along (clock.set {hour, minute,
+  dayWords}); apply.js setTimeOfDay places it — the same day words: the same day, back or forth (the header is the truth
+  for the hour); other day words: on by the day number under the same month word ("Hanami 5" → "Hanami 6"), else by the
+  weekday, else one day; no day words: an hour far earlier (over three hours) is the next morning. clock.js renderClock
+  speaks the day words ("Sunday, Hanami 5, 1001 AG — 09:20"; "the day after …" when the clock passed midnight before a
+  header came). A real date takes the clock back to the real calendar (setClock drops the words).
+- THE READER ON TOP: with the header's clock, the page reader's clock.advance is dropped as its clock.set always was — it
+  put the clock ahead of the page's own hour (DOM-109: five minutes).
+- ON OPEN: healLedgerOnOpen applies the newest page's header hour (a clock a page behind is put right before he writes).
+- A DAY IS NEVER THE GROUND: "Sunday, Hanami 5, 1001 AG" leading a header was taken for a place; a weekday before a
+  capitalised word and a day number is a date now ("Sunday Market" stays a place).
+- M85's M128-1 line said "a header without a full date sets the place only" — that expectation WAS the fault; it now
+  asserts the place and the hour on the day it names.
+- TESTS: m455.mjs (2): his header (place + hour + day words), a date-only header is no place, real dates as before; his
+  ledger following his headers (same day back and forth, next day, three days, past midnight, back to a real date).
+  Walk DOM-109: through the real app the reader's lagging guess and its extra minutes are outranked; a ledger a page
+  behind is put right on open. NEGATIVE-TESTED: no hour from his calendar (his exact symptom), the advance on top, no
+  open heal.
+Harness 877/877, walk 127/127, long play 8/8, lint 0 errors (no new warnings).
+- version.js -> m455-001.

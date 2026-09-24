@@ -391,6 +391,8 @@ const HANDLERS = {
 
   'clock.set'(state, m) {
     const { year, month, day, hour, minute } = m;
+    /* M455: an hour with no date (a header on the story's own calendar, or one that names only the time) */
+    if (!isInt(year) && !isInt(month) && !isInt(day) && isInt(hour) && isInt(minute)) return setTimeOfDay(state, m);
     if (![year, month, day, hour, minute].every(isInt)) {
       return { why: 'a clock needs a year, month, day, hour and minute, all whole numbers' };
     }
@@ -1501,6 +1503,50 @@ export function goneAtTheEnd(state, pageText, name) {
     return run.some((t) => showsDeparture(t));
   }
   return false;
+}
+
+/* M455: THE HOUR A HEADER GIVES, ON THE DAY IT NAMES. With the same day words as the clock's (or none), the same day —
+ * a header a few minutes behind the clock sets it back (the header is the truth for the hour); an hour far earlier with
+ * no day words is the next morning. Other day words move the day on: by the day number when the month word is the same
+ * ("Hanami 5" → "Hanami 6"), else by the weekday, else one day. */
+const WEEKDAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+export function daysBetweenDayWords(from, to) {
+  const md = (t) => { const x = String(t || '').match(/(\p{Lu}[\p{L}'’-]*)\s+(\d{1,2})(?!\p{N})/u); return x && !WEEKDAY_NAMES.includes(x[1].toLowerCase()) ? { month: x[1].toLowerCase(), day: Number(x[2]) } : null; };
+  const a = md(from);
+  const b = md(to);
+  if (a && b && a.month === b.month) return b.day - a.day;
+  const wd = (t) => WEEKDAY_NAMES.findIndex((w) => new RegExp('\\b' + w + '\\b', 'i').test(String(t || '')));
+  const x = wd(from);
+  const y = wd(to);
+  if (x !== -1 && y !== -1) { const d = (y - x + 7) % 7; return d === 0 ? 7 : d; }
+  return 1;
+}
+function setTimeOfDay(state, m) {
+  const hour = Number(m.hour);
+  const minute = Number(m.minute);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return { why: 'those numbers don’t land on any hour' };
+  const dayWords = typeof m.dayWords === 'string' ? m.dayWords.replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+  const before = state.clock ? { ...state.clock } : null;
+  const want = hour * 60 + minute;
+  let next;
+  if (!state.clock || !Number.isFinite(state.clock.minutes)) {
+    const y = Number((dayWords.match(/\b(\d{3,4})\b/) || [])[1]) || 2000;
+    next = createClock({ calendar: 'real', start: { year: y, month: 1, day: 1, hour, minute } });
+  } else {
+    const cur = state.clock.minutes;
+    const today = Math.floor(cur / 1440);
+    const old = typeof state.clock.dayWords === 'string' ? state.clock.dayWords.trim() : '';
+    const norm = (t) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    let on;
+    if (dayWords && old) on = norm(old) === norm(dayWords) ? 0 : daysBetweenDayWords(old, dayWords);
+    else on = want < (cur - today * 1440) - 180 ? 1 : 0;
+    next = { ...state.clock, minutes: (today + on) * 1440 + want };
+  }
+  if (dayWords) { next.dayWords = dayWords; next.dayWordsAt = Math.floor(next.minutes / 1440); }
+  next.label = renderClock(next);
+  if (before && before.minutes === next.minutes && (before.dayWords || '') === (next.dayWords || '')) return { why: 'the clock already reads ' + (renderClock(before) || 'that'), same: true };
+  state.clock = next;
+  return { words: 'The clock was set — ' + renderClock(state.clock) + '.', undo: { kind: 'clock', before } };
 }
 
 /* M453: A PAGE READ OUT OF TURN NEVER MOVES THE MOMENT. The light sends the page reader to a page no read reached (a chain

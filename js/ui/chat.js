@@ -939,7 +939,8 @@ export function initChat(ctx) {
     if (!newest) return false;
     const state = await loadState(story.id);
     let healed = false;
-    const muts = [...wrongWalkIns(state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest))];
+    /* M455: and the hour the newest page's header gives, on the day it names — a clock a page behind is put right */
+    const muts = [...headerMutations(pageText(newest)).filter((m) => m.type === 'clock.set'), ...wrongWalkIns(state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest))];
     if (muts.length && !busy && !isReplaying() && queuedCount(story.id) === 0) { /* M314: a queued moment is re-checked before it writes */
       const { state: next, applied } = applyMutations(state, muts);
       if (applied.length) { await saveState(story.id, next); notify(story.id); healed = true; }
@@ -2764,6 +2765,8 @@ export function initChat(ctx) {
       /* M131: the header is the truth for the ground and the hour — the extractor's own
        * place.set / clock.set never override what the header line said */
       const headerHas = new Set(fromHeader.map((m) => m.type));
+      /* M455: the header's hour is the page's hour — the reader's own "time passed" on top of it put the clock ahead */
+      if (headerHas.has('clock.set')) headerHas.add('clock.advance');
       const list = [...fromHeader, ...(Array.isArray(mutations) ? mutations : []).filter((m) => !(m && headerHas.has(m.type)))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
 
       /* Re-load at apply time — the ledger may have been touched by hand

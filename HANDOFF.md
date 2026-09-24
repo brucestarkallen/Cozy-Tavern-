@@ -1,6 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m454-001)
+# Cozy Tavern — handoff for the next session (state at m455-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0t. THE HEADER'S HOUR IS THE HOUR, ON ANY CALENDAR (M455). state.js headerMutations sets the clock from a header's time
+   even with no real month ("Sunday, Hanami 5, 1001 AG | 09:20"), carrying the day words; apply.js clock.set takes a
+   time of day (setTimeOfDay: same day words → same day, back or forth; other words → on by the day number, else the
+   weekday, else one day; no words → an hour far earlier is the next morning); clock.js renderClock speaks the day
+   words ("the day after …" past midnight with no header). With a header's clock, the reader's clock.advance is
+   dropped too (it put the clock ahead). The open heal puts the newest header's hour back. A weekday before a custom
+   month ("Sunday, Hanami 5") is a date, never the ground.
 0s. THE MISSED PAGES ARE READ IN ONE GO, COUNTED ON THE BANNER (M454, his words: "why it keeps pulsing yellow… even it's not
    manual it should always have banner 100% process"). chat.js fillLedgerGap reads page after page while the house is
    idle (it was three a run and a minute between runs — the yellow pulse for as long as a backlog lasted), stops the
@@ -161,9 +168,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 875 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 877 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 126 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 127 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

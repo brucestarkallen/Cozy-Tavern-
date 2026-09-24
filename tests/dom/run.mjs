@@ -5602,6 +5602,49 @@ test('DOM-108 THE PAGES THE LEDGER MISSED ARE READ IN ONE GO, WITH THE COUNT ON 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-109 THE CLOCK FOLLOWS HIS NEWEST PAGE ON HIS OWN CALENDAR, THROUGH THE REAL APP: a reader that guesses a page behind on another calendar (and adds time on top) is outranked by the header — and a ledger left a page behind is put right when the story opens (M455)', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState, saveVersionStates } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { renderClock } = await import('../../js/engine/clock.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const YARD = 'Tenth Division Courtyard';
+  const st = await db.stories.create({ title: 'Hanami' });
+  await db.stories.update(st.id, { keeper: false });
+  const lagging = applyMutations({ ...emptyState(), page: -1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: YARD },
+    { type: 'clock.set', year: 1001, month: 3, day: 5, hour: 9, minute: 19 }, ...['Jovan Oda', 'Kenpachi Zaraki'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
+  await saveState(st.id, { ...lagging, readTo: -1, tidiedGen: 999, healedGen: 999 });
+  const PAGE = '[' + YARD + ' — Sunday, Hanami 5, 1001 AG | 09:20 | blinding spring sun, drifting sand | black shihakushō, no haori | mid-sand]\n\nZaraki rolled his shoulders on the drifting sand, grinning.';
+  house.state.storyAnswer = PAGE;
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'clock.set', year: 1001, month: 3, day: 5, hour: 9, minute: 19 }, { type: 'clock.advance', minutes: 5 }, { type: 'mode.snapshot', flags: ['combat'] }] });
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
+    return walkDefaultWorker(body, sys);
+  };
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    type(q('#composer-input'), 'I draw.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(async () => queuedCount(st.id) === 0 && !workIsRunning(st.id) && (await loadState(st.id)).worldBrief, 'the readers', 40000);
+    await settled();
+    eq(renderClock((await loadState(st.id)).clock), 'Sunday, Hanami 5, 1001 AG — 09:20', 'the page’s own hour and day — the reader’s guess and its extra five minutes outranked');
+    /* a ledger a page behind (as his stood), and the story opened: nothing pressed */
+    const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    await saveState(st.id, { ...(await loadState(st.id)), clock: lagging.clock });
+    await saveVersionStates(st.id, { [page.id + ':0']: await loadState(st.id) });
+    await db.stories.update(st.id, { createdAt: Date.now() - 3600000 });
+    await env.ctx.chat.openStory(st.id);
+    await until(async () => renderClock((await loadState(st.id)).clock) === 'Sunday, Hanami 5, 1001 AG — 09:20', 'the clock to be put right on open', 10000);
+  } finally {
+    house.state.storyAnswer = null;
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

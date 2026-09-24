@@ -195,6 +195,15 @@ export function renderClock(state) {
   if (!state || typeof state.minutes !== 'number' || !Number.isFinite(state.minutes)) return '';
   const days = Math.floor(state.minutes / MINUTES_PER_DAY);
   const within = ((state.minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+  /* M455: THE STORY'S OWN DAY, IN ITS OWN WORDS. A story on its own calendar ("Sunday, Hanami 5, 1001 AG") was spoken
+   * as the real calendar's date the numbers fell on ("Thursday, March 5, 1001") — another weekday than the page's.
+   * The day words the page's header gave are the day; a day or more on (the clock moved past midnight with no header
+   * yet) says how far past them. */
+  if (typeof state.dayWords === 'string' && state.dayWords.trim() && Number.isInteger(state.dayWordsAt) && days >= state.dayWordsAt) {
+    const on = days - state.dayWordsAt;
+    const said = on === 0 ? state.dayWords.trim() : (on === 1 ? 'the day after ' : on + ' days after ') + state.dayWords.trim();
+    return said + ' — ' + pad2(Math.floor(within / 60)) + ':' + pad2(within % 60);
+  }
   const { year, month, day } = civilFromDays(days);
   const weekday = weekdayFromDays(days);
   const months = state.calendar === 'custom' ? state.monthNames : null;

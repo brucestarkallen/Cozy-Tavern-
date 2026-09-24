@@ -852,7 +852,8 @@ export function headerMutations(pageText) {
    * time) are the clock's, and the place begins after them. "Sunday Market", "Friday's Pub", "May 5th Avenue" stay
    * places: a weekday must stand with a date or alone, a month with a day number that ends there. */
   const WEEKDAY = '(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)';
-  const leadsWithDate = (t) => new RegExp('^' + WEEKDAY + '\\b\\s*,?\\s*(?:(?:' + MONTHS.join('|') + ')\\s+\\d{1,2}(?![\\p{L}\\p{N}])|\\d{1,2}(?:st|nd|rd|th)?(?![\\p{L}\\p{N}])|(?:morning|afternoon|evening|night|noon|midnight|dawn|dusk)$|$)', 'iu').test(t)
+  /* M455: a weekday before a month of the story's own calendar ("Sunday, Hanami 5") is a date too */
+  const leadsWithDate = (t) => new RegExp('^' + WEEKDAY + '\\b\\s*,?\\s*(?:\\p{Lu}[\\p{L}\'’-]*\\s+\\d{1,2}(?![\\p{L}\\p{N}])|(?:' + MONTHS.join('|') + ')\\s+\\d{1,2}(?![\\p{L}\\p{N}])|\\d{1,2}(?:st|nd|rd|th)?(?![\\p{L}\\p{N}])|(?:morning|afternoon|evening|night|noon|midnight|dawn|dusk)$|$)', 'iu').test(t)
     || new RegExp('^(?:' + MONTHS.join('|') + ')\\s+\\d{1,2}(?![\\p{L}\\p{N}])', 'iu').test(t)
     || new RegExp('^\\d{1,2}(?:st|nd|rd|th)?\\s+(?:' + MONTHS.join('|') + ')\\b', 'i').test(t)
     || /^\d{1,4}[\/.-]\d{1,2}/.test(t) || /^\d{1,2}:\d{2}\b/.test(t);
@@ -879,6 +880,14 @@ export function headerMutations(pageText) {
   if (dm && tm) {
     const month = MONTHS.indexOf(dm[1].toLowerCase()) + 1;
     out.push({ type: 'clock.set', year: Number(dm[3]), month, day: Number(dm[2]), hour: Number(tm[1]), minute: Number(tm[2]) });
+  } else if (tm && Number(tm[1]) <= 23 && Number(tm[2]) <= 59) {
+    /* M455: THE HEADER'S HOUR IS THE HOUR, WHATEVER CALENDAR THE STORY KEEPS. Only a real month's date let a header set
+     * the clock — so "[Tenth Division Courtyard — Sunday, Hanami 5, 1001 AG | 09:20 | …]" set nothing, the page reader
+     * guessed the hour (a page behind: 09:19) and the day ("Thursday, March 5, 1001"). Now the time sets the clock, and
+     * the day words the header wrote ride with it as the day. */
+    const dayParts = [...dash.slice(0, start), ...(dateAt > start ? dash.slice(dateAt) : [])].map((x) => x.trim()).filter(Boolean);
+    const dayWords = (placeTaken ? dayParts : [head.trim()]).join(' — ').replace(/\s+/g, ' ').trim();
+    out.push({ type: 'clock.set', hour: Number(tm[1]), minute: Number(tm[2]), ...(dayWords && dayWords.length <= 60 && !/^\d{1,2}:\d{2}$/.test(dayWords) ? { dayWords } : {}) });
   }
   return out;
 }

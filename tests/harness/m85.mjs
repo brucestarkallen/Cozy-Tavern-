@@ -690,7 +690,9 @@ test('M128-1 the header’s ground and hour land in code; the auditor’s scope 
   assert(hm.some((m) => m.type === 'place.set' && m.name === 'Lake path, dock bend'), JSON.stringify(hm));
   assert(hm.some((m) => m.type === 'clock.set' && m.year === 2026 && m.month === 8 && m.day === 20 && m.hour === 16 && m.minute === 18), JSON.stringify(hm));
   eq(headerMutations('No header here.').length, 0);
-  eq(headerMutations('[The room — Thursday | 09:00]').length, 1, 'a header without a full date sets the place only');
+  /* M455: a header without a full date sets the place AND its hour — the old "place only" left the hour to the page
+   * reader's guess, a page behind on another calendar (his "Thursday, March 5, 1001 — 09:19" under a page at 09:20) */
+  eq(JSON.stringify(headerMutations('[The room — Thursday | 09:00]')), JSON.stringify([{ type: 'place.set', name: 'The room' }, { type: 'clock.set', hour: 9, minute: 0, dayWords: 'Thursday' }]), 'a header without a full date sets the place and its hour, on the day it names');
   const { auditorScope } = await import('../../js/agents/auditor.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
   let st = emptyState();
