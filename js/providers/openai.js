@@ -406,6 +406,19 @@ export function createOpenAIProvider(connection) {
     }
     /* M380: a system message after the story (the post-history words) — sent as a user one to a house that once refused it */
     for (const m of messages) wire.push(withImagePart(m && m.role === 'system' && lateSystemRefused(connection) ? { ...m, role: 'user' } : m, 'openai'));
+    /* M466: DEEPSEEK'S REASONER TAKES NO TWO OF A ROLE IN A ROW ("deepseek-reasoner does not support successive user or
+     * assistant messages", a 400) — deepseek-chat and every other house take them. His own-voice entries (an assistant
+     * message beside a storyteller page) and the state message beside his first page would meet that wall; for a
+     * model named reasoner, neighbours of one role are folded into one message, a blank line between, order kept. */
+    if (/reasoner/i.test(String(connection && connection.model || ''))) {
+      for (let i = 1; i < wire.length; i += 1) {
+        const prev = wire[i - 1]; const cur = wire[i];
+        if (!prev || !cur || prev.role !== cur.role || prev.role === 'system' || typeof prev.content !== 'string' || typeof cur.content !== 'string') continue;
+        wire[i - 1] = { ...prev, content: prev.content + '\n\n' + cur.content };
+        wire.splice(i, 1);
+        i -= 1;
+      }
+    }
 
     const startedAt = Date.now();
     const notes = [];

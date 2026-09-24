@@ -616,6 +616,16 @@ const projects = {
     await settings.set(PROJECTS_KEY, rows.map((p) => (p.id === id ? { ...p, name: next } : p)));
     return { ...row, name: next };
   },
+  /* M466: a shelf put to rest (archived: true) and woken again — the row keeps its id, its name and its tales; only the
+   * flag moves. Any other field a later day needs rides the same way. */
+  async update(id, patch) {
+    const rows = await projects.list();
+    const row = rows.find((p) => p.id === id);
+    if (!row) return undefined;
+    const next = { ...row, ...(patch && typeof patch === 'object' ? patch : {}), id: row.id };
+    await settings.set(PROJECTS_KEY, rows.map((p) => (p.id === id ? next : p)));
+    return next;
+  },
   /* M311: A SHELF THAT LOST ITS ROW IS PUT BACK — THE TALES STILL KNOW WHERE THEY STOOD. The
    * whole list of shelves is ONE settings row ("projects"), and every tale carries the id of its
    * shelf (projectId). When that one row was lost — a browser that did not hold it pushed a house

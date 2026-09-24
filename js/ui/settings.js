@@ -59,7 +59,7 @@ let workerRowsGeneration = 0;
  * ever the fallback of a page that has no rooms at all. */
 export const SETTINGS_ROOMS = [
   ['storyteller', 'Storyteller', ['section-connections', 'section-usage', 'section-workers', 'section-thinking']], /* M457 */
-  ['story', 'This story', ['section-brief', 'section-cast', 'section-frame', 'section-note', 'section-shelf']],
+  ['story', 'This story', ['section-brief', 'section-cast', 'section-frame', 'section-note', 'section-own-words', 'section-shelf']], /* M466 */
   ['craft', 'The craft', ['section-rulebook', 'section-engine', 'section-regex']],
   ['world', 'People & lore', ['section-people', 'section-lore', 'section-oldchats']],
   ['readers', 'The readers', ['section-memory', 'section-referee', 'section-canon', 'section-sensors']], /* M356 */
@@ -2559,6 +2559,7 @@ export function initSettings(ctx) {
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
     'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'groundingPhrase', 'afterRole', /* M399: canon's switch is each story's own, not a setting of the house */
+    'speechColours', 'shelfSort', 'ledgerFolds', /* M466: the coats' own colours and the rooms' shapes go back; his own words (ownWords) are his writing and stay */
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
   ];
@@ -2730,11 +2731,11 @@ export function initSettings(ctx) {
    * whatever is still pending for it first. */
   const ROOM_RENDERS = {
     storyteller: () => [renderConnections, () => renderUsage(document.getElementById('usage-box')), renderWorkers, renderThinking], /* M457 */
-    story: () => [loadPromptSlots],
+    story: () => [loadPromptSlots, () => (ctx.ownWords && typeof ctx.ownWords.reload === 'function' ? ctx.ownWords.reload() : undefined)], /* M466: his own-voice entries re-read with the room (a pull may have moved them) */
     craft: () => [renderRulebook, renderRegex],
     world: () => [renderCast, renderLore],
     readers: () => [renderMemory, renderReferee],
-    house: () => [loadTheme],
+    house: () => [loadTheme, () => (ctx.speechColours && typeof ctx.speechColours.reload === 'function' ? ctx.speechColours.reload() : undefined)], /* M466: the coat's own colours */
     help: () => [],
   };
   let showToken = 0;

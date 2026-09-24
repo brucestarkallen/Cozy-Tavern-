@@ -62,6 +62,14 @@
         </form>
         <!-- M16: a shelf gathers tales that belong together. -->
         <button id="btn-new-shelf" class="text-btn shelf-new" type="button">A new shelf</button>
+        <!-- M466: the shelves and tales in the order he chooses -->
+        <label class="shelf-sort-row"><span class="lbl">Sorted</span>
+          <select id="shelf-sort" aria-label="How the shelves and tales are sorted">
+            <option value="played">Last played first</option>
+            <option value="name">By name</option>
+            <option value="newest">Newest first</option>
+          </select>
+        </label>
         <form id="new-shelf-form" class="new-story-form" hidden>
           <input id="new-shelf-name" type="text" maxlength="60" placeholder="Name the shelf…" autocomplete="off" aria-label="A name for the new shelf">
           <div class="row">
@@ -337,6 +345,14 @@
             </select>
           </label>
           <p class="quiet">Everything that comes after your own message — this note, and anything a switch adds there — goes to your storyteller as one message. As a system message it reads as instructions from the setup, the way SillyTavern sends post-history instructions. As a user message it reads as if you had written a second message yourself. Most providers take a system message there; so do Claude Opus 4.8, Opus 5, Fable and Mythos. Claude Sonnet 5, older Claude models and a few strict providers refuse it — the first time one does, Cozy remembers that model and sends it as a user message from then on.</p>
+        </section>
+
+        <!-- M466: words in the storyteller's own voice — SillyTavern's assistant-role prompts, placed at a landmark -->
+        <section class="settings-section" id="section-own-words">
+          <h3>Words in the storyteller’s own voice</h3>
+          <p class="quiet">Like SillyTavern’s prompt-manager entries with the role “AI Assistant”: a few lines the request carries as if your storyteller had already said them — so a teller who is Iron Man reads his own voice on the way in and stays Iron Man. Each entry has its own switch, whose words they are, and one of three places in the request. Off or empty, nothing is sent. <code>{{teller}}</code> and <code>{{you}}</code> become the two names from The frame.</p>
+          <div id="own-words-list" class="own-words-list"></div>
+          <div class="row"><button id="btn-own-words-add" class="text-btn" type="button">Add words</button></div>
         </section>
 
         <section class="settings-section" id="section-brief">
@@ -722,6 +738,20 @@
           </fieldset>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="colour-speech"> Colour the spoken lines and the thoughts</label>
+          </div>
+          <!-- M466: the spoken lines' and thoughts' colours, this coat's own -->
+          <div class="speech-colours" id="speech-colours">
+            <p class="quiet">The colours of the spoken lines and the thoughts for the coat you wear now — <strong id="speech-colours-coat">this coat</strong>. Each coat keeps its own pair; a colour is measured against the coat’s ground as you pick it, so you can see whether it reads.</p>
+            <div class="speech-colour-row">
+              <label class="speech-colour" for="speech-colour-spoken">Spoken lines <input type="color" id="speech-colour-spoken"></label>
+              <span class="quiet speech-reads" id="speech-colour-spoken-reads"></span>
+            </div>
+            <div class="speech-colour-row">
+              <label class="speech-colour" for="speech-colour-thought">Thoughts <input type="color" id="speech-colour-thought"></label>
+              <span class="quiet speech-reads" id="speech-colour-thought-reads"></span>
+            </div>
+            <p class="speech-sample msg-body"><span class="spoken">“You knew,” Rias said, and did not look up.</span> <span class="thought">He is lying, Aurora thought, and turned her glass.</span></p>
+            <div class="row"><button id="btn-speech-colours-reset" class="text-btn" type="button">This coat’s own colours</button></div>
           </div>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="show-starters"> Show the saved starters row above the composer</label>

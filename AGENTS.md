@@ -10989,3 +10989,43 @@ up the ledger UI — it's not intuitive and ugly; everything is ugly. Carefully,
   the magma room glowing, readable, no slower (median 16.5 vs 16.7 deep). Harness 893/893, walk 132/132, long play
   8/8, twobrowsers all green (sw.js's shell gained the two stylesheets), lint 0 errors.
 - version.js -> m465-001.
+
+# M466 — the ledger folds, the page mark, the shelves sort and rest, his own-voice words, the coat's speech colours
+He, with a screenshot of SillyTavern's prompt-manager "Edit" (Name / Role: AI Assistant / Triggers / Position:
+Relative / Prompt): "make the ledger more tidy — scrolling down with so many sub sections already opened makes my eyes
+confused; a scroll button on the right showing which page number is scrolled; the projects and chats sortable by name,
+by last played; archive a project I paused; special instructions that act as assistant role like SillyTavern that I can
+put anywhere in my context — to keep my storyteller Iron Man or Hulk being themselves; you decide one box or many, drag
+or fixed, and explain it; and dialogue colour and thoughts customizable per theme, not fixed."
+- THE LEDGER FOLDS (drawer.js, ledger.css): a panel is its name, a chevron and a live row count until tapped; what a
+  room is for stands open the first time; every fold and unfold is his and remembered. Folded is a class — the DOM the
+  walk reads is unchanged, the h3's text is still exactly the title (the count is a span after it).
+- THE PAGE MARK (ui/pagemark.js, chat.js, chat.css): "page 37 of 114" on the thread's right edge while it scrolls, a
+  scrollbar's thumb that can be dragged to any page, gone a second after the hand stops; numbered over the whole tale.
+- SORTED, AND RESTING SHELVES (chat.js, store.js projects.update): Last played first / By name / Newest first, one rule
+  for shelves and tales, remembered; ☾ puts a shelf to rest — it keeps its tales in a corner at the foot, is never
+  offered for a move, ↩ wakes it. Found on the way: M22's resting-tales corner never folded (no .collapsed rule) and
+  its head was the browser's grey button — fixed for both corners.
+- WORDS IN THE STORYTELLER'S OWN VOICE (stack.js, chat.js gatherSettings, ui/ownwords.js, providers/openai.js): several
+  entries, each with a switch, a name, whose words (the storyteller's = assistant, his = user, the house's = system) and
+  ONE OF THREE FIXED LANDMARKS chosen from a dropdown, never a drag (on a phone a dropdown is exact): before the story's
+  pages, after the newest page right before his message, after his message before the closing words. No fourth spot —
+  the last message is the prefill's (M307/M328). An assistant entry never opens a request. Each rides as its own
+  message and its own receipt row; off or empty, the request is byte for byte the same. deepseek-reasoner refuses two
+  of a role in a row (its docs and its 400 say so); for a model named reasoner the provider folds neighbours; every
+  other house takes them as built. {{teller}} and {{you}} take the two names from The frame. The words are his content:
+  the house reset never touches them.
+- THE COAT'S SPEECH COLOURS (ui/speechcolours.js, app.js applyTheme, index.html Appearance): two pickers for the coat
+  he wears, each coat its own pair, laid as inline tokens over the coat's block; the ratio against the room's ground is
+  shown as he picks, with "Brighten it until it reads" under AA — a tap, never a silent change of his choice; "This
+  coat's own colours" lets the pair go.
+- ALSO: the fixed jump pill no longer floats over Settings (body.settings-open).
+- TESTS: harness tests/harness/m466.mjs — 6 laws (placement, roles, byte-identical when off, an entry never opens a
+  request, the reasoner fold vs deepseek-chat, a resting shelf keeps id/name/tales); walk DOM-115 (folds, count,
+  remembered, Enter), DOM-116 (numbers over the whole tale, the mark in the room), DOM-117 (sort by name / last played,
+  rest, not offered, wake), DOM-118 (own words through the real app: kept, sent as an assistant message right before
+  his message with the name filled in, off = not sent, let go asks first). Harness 899/899, walk 136/136, long play
+  8/8, lint 0 errors, twobrowsers green (sw.js's shell gained three modules), paint_coats.py 0 surfaces under AA in all
+  nine coats, perf_rooms.py within budget; at 6× throttle the folded ledger scrolls at a 16.7 ms median (dark) and
+  16.7 (academy), opens in 204–572 ms, closes in 33–52 ms.
+- version.js -> m466-001.

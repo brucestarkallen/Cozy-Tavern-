@@ -126,6 +126,33 @@ export const STARTER_NOTE = [
 
 export const CONTINUE_NUDGE = 'Go on.';
 
+/* M466: WORDS IN THE STORYTELLER'S OWN VOICE — SillyTavern's prompt-manager entries with a role and a place, kept for
+ * the day he needs them (Settings → Storyteller → "Words in the storyteller's own voice"). Each entry has a switch, a
+ * name, whose words they are (the storyteller's = an assistant message, his = a user message, the house's = a system
+ * message), where they ride (three landmarks of the request, never a drag), and the words. {{teller}} and {{you}} are
+ * the two names from The frame. Off, or empty: not one byte of any request changes. */
+export const OWN_WORDS_PLACES = {
+  'before-pages': 'before the story’s pages — right after the notes',
+  'before-your-message': 'after the newest page — right before your message',
+  'after-your-message': 'after your message — before the closing words',
+};
+export function ownWordsFor(settings, voice) {
+  const list = Array.isArray(settings && settings.ownWords) ? settings.ownWords : [];
+  const out = [];
+  for (const w of list) {
+    if (!w || typeof w !== 'object' || w.on === false) continue;
+    const text = String(w.text == null ? '' : w.text)
+      .replace(/\{\{\s*teller\s*\}\}/gi, (voice && voice.teller) || 'the storyteller')
+      .replace(/\{\{\s*you\s*\}\}/gi, (voice && voice.writer) || 'you')
+      .trim();
+    if (!text) continue;
+    const role = w.role === 'you' ? 'user' : (w.role === 'house' ? 'system' : 'assistant');
+    const place = Object.prototype.hasOwnProperty.call(OWN_WORDS_PLACES, w.place) ? w.place : 'after-your-message';
+    out.push({ name: String(w.name || '').trim() || 'Own words', role, place, text });
+  }
+  return out;
+}
+
 /* M21: the frame's purpose, spoken after it (Settings → The frame). On by
  * default — the line tells the storyteller what the frame IS, so the house
  * rules of the telling outrank anything said inside the story. The writer
@@ -742,6 +769,9 @@ export function buildRequest({
   }
   pushSlot('The note at the end', hasNote ? note.text : '', note.source, hasNote ? '' : 'left empty — nothing slipped in');
   pushSlot('The continue nudge', nudges ? CONTINUE_NUDGE : '', '', nudges ? 'you only asked it to go on — sent as your own message, never a second one' : '');
+  /* M466: each of his own-voice entries is a row of its own, so the receipt shows exactly where each rides */
+  const ownWords = ownWordsFor(safeSettings, voice);
+  for (const w of ownWords) pushSlot('Own words — ' + w.name, w.text, (w.role === 'assistant' ? 'the storyteller’s own words' : w.role === 'user' ? 'your words' : 'the house’s words') + ', ' + OWN_WORDS_PLACES[w.place]);
 
   /* Assemble the wire in slot order: state injection first, then the
    * window, then the command directive (when spoken), then the nudge (when
@@ -765,6 +795,29 @@ export function buildRequest({
       if (last && last.role === 'user') out[out.length - 1] = { ...last, content: CONTINUE_NUDGE };
       else out.push({ role: 'user', content: CONTINUE_NUDGE });
     }
+  }
+  /* M466: HIS OWN-VOICE ENTRIES LAND AT THEIR LANDMARKS. "before-pages": right after the state message (or first of all
+   * when there is none); "before-your-message": right before the last user message — his page of this turn, or the
+   * "Go on." standing in its place; "after-your-message": after everything of the story, before the closing message.
+   * An entry with nothing to stand before goes to the end. The pages themselves are never touched. */
+  if (ownWords.length) {
+    const asMessage = (w) => ({ role: w.role, content: w.text });
+    const beforeYours = ownWords.filter((w) => w.place === 'before-your-message').map(asMessage);
+    if (beforeYours.length) {
+      let at = -1;
+      for (let i = out.length - 1; i >= 0; i -= 1) if (out[i] && out[i].role === 'user' && out[i] !== stateInjection) { at = i; break; }
+      /* his message is the very first one (a tale's first turn, no notes yet): the entry steps behind it rather than open the request */
+      if (at === 0) at = 1;
+      if (at === -1) out.push(...beforeYours); else out.splice(at, 0, ...beforeYours);
+    }
+    const beforePages = ownWords.filter((w) => w.place === 'before-pages').map(asMessage);
+    if (beforePages.length) {
+      /* with no notes message to follow, an assistant entry would open the request — a thing strict houses refuse
+       * (the first turn must be the user's); it steps behind his first page instead, ahead of any entry placed above */
+      const front = stateInjection ? 1 : (out[0] && out[0].role === 'user' && beforePages.some((m) => m.role === 'assistant') ? 1 : 0);
+      out.splice(front, 0, ...beforePages);
+    }
+    out.push(...ownWords.filter((w) => w.place === 'after-your-message').map(asMessage));
   }
   /* M339: the switch's line — only when chat.js says this turn needs it (the switch ON and the connection's thinking off) */
   const thinkLine = safeSettings.thinkOnPageNow === true ? thinkOnPageLine(voice) : '';

@@ -1,6 +1,26 @@
-# Cozy Tavern — handoff for the next session (state at m465-001)
+# Cozy Tavern — handoff for the next session (state at m466-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1e. THE LEDGER FOLDS; THE PAGE MARK; THE SHELVES SORT AND REST; HIS OWN-VOICE WORDS; THE COAT'S SPEECH COLOURS (M466).
+   (a) drawer.js: every panel folds to its name + a chevron + a live row count (.fold-count, a span AFTER the h3 — the
+   h3's textContent stays exactly the title, the walk reads it); `folded` is a CLASS, never `hidden`; OPEN_BY_DEFAULT =
+   the-clock, whos-here, the-people, elsewhere, the-record; his taps are remembered in settings `ledgerFolds`. The
+   counts come from one MutationObserver (window's in jsdom) + a rAF, an attribute write only where the number moved.
+   (b) ui/pagemark.js: "page N of M" thumb on .thread-wrap's right edge (position: relative now), draggable; chat.js
+   renderThread stamps every storyteller page data-page over the WHOLE tale and the thread data-pages. jsdom lays
+   nothing out — the number is real-browser only. (c) chat.js: `shelfSort` (played | name | newest) — sortTales and
+   sortShelves, one rule; `db.projects.update(id, patch)`; a shelf with archived:true rests in the "N resting shelves"
+   corner (restingShelvesRow), is never offered for a move or a new tale, its tales stay on it. The resting corners
+   FOLD now (`.shelf.collapsed > .shelf-stories { display:none }` — M22's corner never did) and their button heads wear
+   the shelf's quiet. (d) assemble/stack.js ownWordsFor + OWN_WORDS_PLACES: settings `ownWords` = [{id,on,name,role
+   teller|you|house, place before-pages|before-your-message|after-your-message, text}]; each entry is its own message at
+   its landmark (an assistant entry NEVER opens a request — it steps behind his first page) and its own receipt row
+   "Own words — <name>"; off/empty = byte-identical request (M466-2). ui/ownwords.js draws the cards. providers/openai.js
+   folds same-role neighbours for a model named reasoner only (deepseek-reasoner refuses them; deepseek-chat does not).
+   (e) ui/speechcolours.js: settings `speechColours` = { [coat]: { spoken, thought } } laid as INLINE --spoken/--thought
+   on <html> by app.js applyTheme (inline beats the coat's block; #drawer's re-scoped tokens untouched); the pickers show
+   the ratio against the room's ground and offer "Brighten it until it reads" — never a silent change of his pick.
+   (f) body.settings-open hides the fixed jump pill under Settings. TESTS: harness m466.mjs (6), walk DOM-115…118.
 1d. THE COATS AND THE LEDGER'S DRESS (M465). Nine coats: fantasy, cyberpunk, magma, academy, aurora, starship, deep, dark, light
    (+ system). A coat is FOUR things now: a COATS entry in app.js (its --bg, for the phone's bar), a token block in base.css
    defining EVERY token :root defines (51 colours — beauty.mjs fails a coat missing one), a coat-row radio + swatch in

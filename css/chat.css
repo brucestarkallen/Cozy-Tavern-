@@ -197,6 +197,31 @@
 
 /* "A new shelf" rests beside "Start a new story", quiet as a footnote. */
 .shelf-new { align-self: flex-start; }
+/* M466: a folded shelf shows only its head (the resting corners had no such rule since M22 — their tales always showed);
+ * and a head that is a button (the resting corners) wears the shelf's own quiet, not the browser's grey box */
+.shelf.collapsed > .shelf-stories { display: none; }
+button.shelf-head {
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  gap: 0.45rem;
+  padding: 0.35rem 0.3rem;
+}
+button.shelf-head:hover { color: var(--text); background: var(--surface-2); }
+/* M466: the sort row — one quiet select under the shelf button */
+.shelf-sort-row { flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.1rem 0 0.35rem; }
+.shelf-sort-row select { width: auto; flex: 1; padding: 0.35rem 0.55rem; font-size: 0.85rem; }
+/* M466: a resting shelf's own controls read quieter; its tales are still there to open */
+.resting-shelves > .shelf-stories > .shelf { opacity: 0.8; }
 
 .panel-resize {
   position: fixed;
@@ -246,7 +271,39 @@ body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-selec
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative; /* M466: the page mark rides its right edge */
 }
+
+/* M466: THE PAGE MARK — a thumb at the thread's right edge, where a scrollbar's
+ * would be: "page 37 of 114" while the story scrolls, draggable to any page,
+ * gone a second after the hand stops. Opacity only; never in the thread. */
+.page-mark {
+  position: absolute;
+  right: 6px;
+  top: 8px;
+  z-index: 6;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.page-mark.show { opacity: 1; pointer-events: auto; cursor: grab; }
+.page-mark.dragging { border-color: var(--ember); color: var(--ember); cursor: grabbing; }
+.page-mark[hidden] { display: none; }
 
 .thread {
   flex: 1;
@@ -1033,6 +1090,8 @@ body.read-only .send-btn { opacity: 0.4; }
   letter-spacing: .09em; text-transform: uppercase; cursor: pointer; box-shadow: var(--shadow);
   transition: opacity .18s, transform .18s; }
 .jump-pill[hidden] { display: none; }
+/* M466: the pill is fixed to the screen — with Settings open it floated over the settings rooms */
+body.settings-open .jump-pill { display: none; }
 .jump-pill:hover { border-color: var(--ember); color: var(--ember); }
 /* resting tales row (archive) */
 .resting-shelf { opacity: .75; }

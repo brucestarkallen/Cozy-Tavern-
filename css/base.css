@@ -1164,6 +1164,24 @@ label {
 body.plain-speech .spoken, body.plain-speech .thought { color: inherit; }
 body.plain-speech .thought { font-style: italic; }
 
+/* M466: the coat's own speech colours, and his own-voice entries (Settings) */
+.speech-colours { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.4rem; padding: 0.75rem 0.85rem; border: 1px solid var(--border-soft); border-radius: var(--r); background: var(--bg-2); }
+.speech-colour-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.speech-colour { flex-direction: row; align-items: center; gap: 0.6rem; font-size: 0.95rem; }
+.speech-colour input[type="color"] { width: 44px; height: 32px; padding: 2px; border-radius: 8px; cursor: pointer; }
+.speech-reads { font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.speech-sample { margin: 0.2rem 0 0; font-size: 1rem; line-height: 1.6; padding: 0.55rem 0.7rem; border-radius: var(--r); background: var(--bg); }
+.own-words-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.own-words-card { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.75rem 0.85rem; border: 1px solid var(--border-soft); border-left: 2px solid var(--ember-dim); border-radius: var(--r); background: var(--bg-2); }
+.own-words-card.is-off { opacity: 0.6; border-left-color: var(--border); }
+.own-words-head { display: flex; align-items: center; gap: 0.6rem; }
+.own-words-on { padding: 0; flex: 0 0 auto; }
+.own-words-name { flex: 1; }
+.own-words-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.own-words-choices label { font-size: 0.85rem; color: var(--text-2); }
+@media (max-width: 520px) { .own-words-choices { grid-template-columns: 1fr; } }
+.own-words-actions { justify-content: flex-start; }
+
 /* M136: the glossary reads like a book */
 .glossary h3 { margin: 1.2rem 0 0.4rem; font-size: 1rem; color: var(--ember); }
 .glossary ul { padding-left: 1.1rem; margin: 0.3rem 0 0.8rem; }

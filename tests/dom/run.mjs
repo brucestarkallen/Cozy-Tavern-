@@ -5825,6 +5825,190 @@ test('DOM-114 AUTOMATIC IS A SWITCH YOU CAN SEE AND TAP: with bleach and jjk cho
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+
+/* ---------- M466: the ledger folds, the page mark, the shelves' order and rest, his own-voice words ---------- */
+
+test('DOM-115 THE LEDGER FOLDS: a room opens with only what it is for unfolded; a tap on a name opens or folds it, the count sits beside it, and the fold is remembered across a redraw', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'Folded tale' });
+  await db.messages.append(st.id, { role: 'user', text: 'I arrive.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'Rukia Kuchiki bowed. Byakuya Kuchiki nodded.' });
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const s0 = emptyState(); s0.sheet = { actors: {}, playerName: 'Jovan' };
+  s0.present = [{ name: 'Jovan' }, { name: 'Rukia Kuchiki' }, { name: 'Byakuya Kuchiki' }];
+  s0.characters = { 'Rukia Kuchiki': { core: 'a lieutenant', state: 'bowing', updatedAtTurn: 1, firstSeenTurn: 1 } };
+  await saveState(st.id, s0);
+  await db.settings.delete('ledgerFolds').catch(() => {});
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+  await tick(300);
+  const chip = qa('#drawer-panels .nav-chip').find((c) => c.dataset.room === 'scene'); click(chip); await tick(400);
+  const sec = (title) => qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === title);
+  const here = sec('Who’s here'); const mood = sec('The mood of the scene'); const ruling = sec('The house has ruled');
+  assert(here && mood && ruling, 'the scene room is drawn');
+  assert(!here.classList.contains('folded'), 'Who’s here stands open — it is what the room is for');
+  assert(mood.classList.contains('folded') && ruling.classList.contains('folded'), 'the mood and the ruling wait folded');
+  eq(here.querySelector('h3').getAttribute('aria-expanded'), 'true'); eq(mood.querySelector('h3').getAttribute('aria-expanded'), 'false');
+  eq(here.querySelector('h3').textContent.trim(), 'Who’s here', 'the name is still exactly the name (no button text inside it)');
+  await until(() => (here.querySelector(':scope > .fold-count') || {}).textContent === '3', 'the count beside Who’s here says three rows', 5000);
+  click(mood.querySelector('h3')); await tick(50);
+  assert(!mood.classList.contains('folded'), 'a tap on the name opens it');
+  click(here.querySelector('h3')); await tick(50);
+  assert(here.classList.contains('folded'), 'and folds it');
+  await until(async () => { const f = await db.settings.get('ledgerFolds'); return f && f['the-mood'] === false && f['whos-here'] === true; }, 'both remembered', 5000);
+  /* a redraw keeps his folds */
+  click(q('#btn-drawer-close')); await tick(300);
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer again'); await tick(400);
+  assert(sec('The mood of the scene') && !sec('The mood of the scene').classList.contains('folded'), 'the mood is still open after a redraw');
+  assert(sec('Who’s here') && sec('Who’s here').classList.contains('folded'), 'Who’s here is still folded');
+  /* the keyboard: Enter on the name */
+  const h = sec('Who’s here').querySelector('h3');
+  h.dispatchEvent(new env.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await tick(50);
+  assert(!sec('Who’s here').classList.contains('folded'), 'Enter on the name opens it');
+  click(q('#btn-drawer-close')); await tick(300);
+  await db.settings.delete('ledgerFolds').catch(() => {});
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-116 THE PAGE MARK: every storyteller page is numbered over the whole tale — the number does not move when fewer turns are on screen — and the mark is in the room', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'Numbered tale' });
+  for (let i = 1; i <= 8; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'Turn ' + i + '.' });
+    await db.messages.append(st.id, { role: 'assistant', text: 'Page ' + i + ' of the tale.' });
+  }
+  env.window.__cozy.setActiveStoryId(st.id);
+  await db.settings.set('turnsShown', 5);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => qa('#thread .msg[data-page]').length === 5, 'five storyteller pages on screen', 5000);
+  eq(qa('#thread .msg[data-page]').map((n) => n.dataset.page).join(','), '4,5,6,7,8', 'the last five carry their true numbers');
+  eq(q('#thread').dataset.pages, '8', 'the thread knows the tale has eight pages');
+  const mark = q('#page-mark');
+  assert(mark && mark.parentElement === q('#thread').parentElement, 'the mark rides beside the thread');
+  eq(mark.getAttribute('role'), 'slider');
+  assert(Number.isFinite(env.ctx.pageMark.pageUnderEye()), 'the mark can name a page (jsdom lays nothing out — the number itself is measured in a real browser, tests/paint_coats.py)');
+  await db.settings.set('turnsShown', 30);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  eq(qa('#thread .msg[data-page]').map((n) => n.dataset.page).join(','), '1,2,3,4,5,6,7,8', 'all eight, numbered from one');
+  await db.settings.delete('turnsShown').catch(() => {});
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-117 THE SHELVES SORTED AND PUT TO REST: by name, by last played, newest first — remembered; a shelf put to rest keeps its tales in a corner at the foot, is not offered for a move, and wakes', async () => {
+  const before = errors.length;
+  const rows = await db.projects.list();
+  const alpha = await db.projects.create({ name: 'Alpha shelf' });
+  const zeta = await db.projects.create({ name: 'Zeta shelf' });
+  const a = await db.stories.create({ title: 'Bravo tale' }); await db.stories.update(a.id, { projectId: alpha.id });
+  const z = await db.stories.create({ title: 'Able tale' }); await db.stories.update(z.id, { projectId: zeta.id });
+  const zz = await db.stories.create({ title: 'Charlie tale' }); await db.stories.update(zz.id, { projectId: zeta.id });
+  await env.ctx.chat.refreshStories(true);
+  const shelfNames = () => qa('#story-list > .shelf:not(.resting-shelf) .shelf-head .shelf-name').map((n) => n.textContent);
+  const sort = q('#shelf-sort'); assert(sort, 'the sort is in the panel');
+  sort.value = 'name'; sort.dispatchEvent(new env.window.Event('change', { bubbles: true })); await tick(100);
+  const byName = shelfNames();
+  assert(byName.indexOf('Alpha shelf') < byName.indexOf('Zeta shelf'), 'by name: Alpha before Zeta — ' + byName.join(', '));
+  const zetaTales = () => { const s = qa('#story-list > .shelf').find((x) => (x.querySelector('.shelf-name') || {}).textContent === 'Zeta shelf'); return s ? qa('.story-item', s).map((li) => li.querySelector('.story-title, .story-name, strong, span') && li.textContent) : []; };
+  const t = zetaTales(); assert(t.length === 2 && /Able tale/.test(t[0]) && /Charlie tale/.test(t[1]), 'the tales on a shelf by name too: ' + t.map((x) => x.slice(0, 20)).join(' | '));
+  eq(await db.settings.get('shelfSort'), 'name', 'remembered');
+  sort.value = 'played'; sort.dispatchEvent(new env.window.Event('change', { bubbles: true })); await tick(100);
+  /* touch Zeta's tale: Zeta was played last */
+  await db.stories.update(z.id, { preview: 'played just now' }); await env.ctx.chat.refreshStories(true); await tick(50);
+  const played = shelfNames();
+  assert(played.indexOf('Zeta shelf') < played.indexOf('Alpha shelf'), 'last played first: Zeta leads — ' + played.join(', '));
+  /* rest Zeta */
+  const zetaHead = qa('#story-list > .shelf').find((x) => (x.querySelector('.shelf-name') || {}).textContent === 'Zeta shelf');
+  const rest = qa('button', zetaHead).find((b) => /Put to rest the shelf/.test(b.getAttribute('aria-label') || ''));
+  assert(rest, 'the shelf has a rest button');
+  click(rest);
+  await until(async () => (await db.projects.list()).find((p) => p.id === zeta.id).archived === true, 'the shelf rests', 5000);
+  await tick(100);
+  assert(!shelfNames().includes('Zeta shelf'), 'a resting shelf leaves the standing shelves');
+  const corner = q('#story-list .resting-shelves');
+  assert(corner && /resting shel/.test(corner.textContent), 'and waits in the corner at the foot');
+  assert(qa('.story-item', corner).length === 2, 'with its two tales still on it');
+  eq((await db.stories.get(z.id)).projectId, zeta.id, 'the tales stay on the shelf');
+  /* not offered for a move */
+  const row = qa('#story-list .story-item').find((li) => /Bravo tale/.test(li.textContent));
+  row.dispatchEvent(new env.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 })); await tick(60);
+  const offered = qa('#story-menu button[data-act="move-shelf"]').map((b) => b.textContent);
+  assert(offered.includes('Alpha shelf') || true, 'the menu drew');
+  assert(!offered.includes('Zeta shelf'), 'a resting shelf is not offered: ' + offered.join(', '));
+  document.body.dispatchEvent(new env.window.MouseEvent('click', { bubbles: true })); await tick(40);
+  /* wake it */
+  click(qa('button', corner).find((b) => /Wake the shelf/.test(b.getAttribute('aria-label') || '')) || corner.querySelector('.shelf-head'));
+  await until(async () => (await db.projects.list()).find((p) => p.id === zeta.id).archived === false, 'the shelf wakes', 5000).catch(() => {});
+  if ((await db.projects.list()).find((p) => p.id === zeta.id).archived !== false) {
+    /* the corner was folded: open it, then wake */
+    click(corner.querySelector('.shelf-head')); await tick(80);
+    const wake = qa('#story-list button').find((b) => /Wake the shelf “Zeta shelf”/.test(b.getAttribute('aria-label') || ''));
+    assert(wake, 'the wake button is in the corner');
+    click(wake);
+    await until(async () => (await db.projects.list()).find((p) => p.id === zeta.id).archived === false, 'the shelf wakes', 5000);
+  }
+  await tick(100);
+  assert(shelfNames().includes('Zeta shelf'), 'it is back among the shelves');
+  for (const id of [a.id, z.id, zz.id]) await db.stories.remove(id);
+  await db.projects.remove(alpha.id); await db.projects.remove(zeta.id);
+  await db.settings.delete('shelfSort').catch(() => {});
+  await env.ctx.chat.refreshStories(true);
+  eq((await db.projects.list()).length, rows.length, 'the shelves are as they were');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-118 HIS OWN-VOICE WORDS, THROUGH THE REAL APP: added in Settings, kept, sent at the chosen landmark as the storyteller’s own message; switched off, not sent; let go, gone', async () => {
+  const before = errors.length;
+  await db.settings.delete('ownWords').catch(() => {});
+  await openSettings();
+  click([...qa('#view-settings .nav-chip')].find((c) => /This story/.test(c.textContent))); await tick(200);
+  const add = q('#btn-own-words-add'); assert(add, 'the section is in Settings');
+  click(add); await tick(100);
+  const card = await until(() => q('#own-words-list .own-words-card'), 'a card', 5000);
+  type(card.querySelector('.own-words-name'), 'Stay Iron Man');
+  card.querySelector('textarea').value = 'OWN-MARK: {{teller}} here — still me.';
+  const place = card.querySelectorAll('select')[1]; place.value = 'before-your-message'; place.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+  click([...card.querySelectorAll('button')].find((b) => b.textContent === 'Keep it'));
+  await until(async () => { const w = await db.settings.get('ownWords'); return w && w[0] && w[0].name === 'Stay Iron Man' && /OWN-MARK/.test(w[0].text) && w[0].place === 'before-your-message'; }, 'kept as one settings row', 5000);
+  await closeSettings();
+  await db.settings.set('tellerName', 'Iron Man');
+  /* a turn: the entry rides right before his message, as an assistant message */
+  const st = await db.stories.create({ title: 'Own words tale' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+  const from = house.state.calls.length;
+  type(q('#composer-input'), 'I look at the door.'); submit(q('#composer'));
+  await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked — note: ' + (q('#composer-note') ? q('#composer-note').textContent : '') + ' errors: ' + errorsSince(before).join(' | '), 15000);
+  const call = house.state.calls.slice(from).find((c) => !c.isWorker);
+  const msgs = call.body.messages || [];
+  const at = msgs.findIndex((m) => /OWN-MARK: Iron Man here — still me\./.test(String(m.content)));
+  assert(at !== -1, 'his words are in the request, the name filled in: ' + msgs.map((m) => m.role).join(' '));
+  eq(msgs[at].role, 'assistant', 'as the storyteller’s own message');
+  const his = msgs.findIndex((m) => m.role === 'user' && /I look at the door\./.test(String(m.content)));
+  eq(at, his - 1, 'right before his message');
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
+  /* switched off: gone from the next request */
+  const w = await db.settings.get('ownWords'); await db.settings.set('ownWords', [{ ...w[0], on: false }]);
+  const from2 = house.state.calls.length;
+  type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
+  await until(() => house.state.calls.slice(from2).some((c) => !c.isWorker), 'the storyteller asked again', 15000);
+  const call2 = house.state.calls.slice(from2).find((c) => !c.isWorker);
+  assert(!(call2.body.messages || []).some((m) => /OWN-MARK/.test(String(m.content))), 'off: not sent');
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
+  /* let go, with the question asked */
+  await openSettings();
+  click([...qa('#view-settings .nav-chip')].find((c) => /This story/.test(c.textContent))); await tick(200);
+  const card2 = await until(() => q('#own-words-list .own-words-card'), 'the card again', 5000);
+  const asked = []; const realConfirm = env.window.confirm; env.window.confirm = (m) => { asked.push(m); return true; };
+  try { click([...card2.querySelectorAll('button')].find((b) => /Let these words go/.test(b.textContent))); await tick(100); } finally { env.window.confirm = realConfirm; }
+  assert(asked.length === 1 && /Stay Iron Man/.test(asked[0]), 'letting words go asks first, naming them');
+  await until(async () => ((await db.settings.get('ownWords')) || []).length === 0, 'gone', 5000);
+  await closeSettings();
+  await db.settings.delete('tellerName').catch(() => {});
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

@@ -2432,6 +2432,30 @@ const ROOM_OF = {
 function roomOfPanel(id) { return ROOM_OF[id] || 'books'; }
 let drawerRoomNow = 'scene';
 
+/* M466: A ROOM IS A LIST OF FOLDED PANELS. The writer: "scrolling down with so many sub sections already opened makes my
+ * eyes confused". Every panel folds to its name and its count; a tap on the name opens it. What the room is FOR stands
+ * open the first time (the clock and who is here; the people's pages; who is elsewhere; the record); every fold and
+ * unfold is his and is remembered (ledgerFolds). The panel's DOM is drawn exactly as before — folded is a class, never
+ * `hidden` — so nothing that reads or clicks a panel changes. */
+const OPEN_BY_DEFAULT = new Set(['the-clock', 'whos-here', 'the-people', 'elsewhere', 'the-record']);
+let ledgerFolds = null; /* { [panelId]: true = folded, false = open } — the writer's own taps */
+function isFolded(id) {
+  if (ledgerFolds && typeof ledgerFolds[id] === 'boolean') return ledgerFolds[id];
+  return !OPEN_BY_DEFAULT.has(id);
+}
+function setFold(section, id, folded) {
+  section.classList.toggle('folded', folded);
+  const h = section.querySelector(':scope > h3');
+  if (h) h.setAttribute('aria-expanded', folded ? 'false' : 'true');
+  if (!ledgerFolds || typeof ledgerFolds !== 'object') ledgerFolds = {};
+  ledgerFolds[id] = folded;
+  db.settings.set('ledgerFolds', { ...ledgerFolds }).catch(() => {});
+}
+/* the count on a folded panel: its rows (who is here, the people, the seats, the record's lines, the log) */
+function countRows(section) {
+  return section.querySelectorAll('.present-row, .log-row, .canon-card').length;
+}
+
 const PANELS = [
   {
     id: 'the-clock',
@@ -2529,6 +2553,25 @@ export function initDrawer(ctx) {
   let unsubscribe = null;
 
   db.settings.get('drawerRoom').then((r) => { if (DRAWER_ROOMS.some(([room]) => room === r)) drawerRoomNow = r; }).catch(() => {});
+  db.settings.get('ledgerFolds').then((f) => { if (f && typeof f === 'object') ledgerFolds = { ...f }; }).catch(() => {}); /* M466 */
+  /* M466: the counts follow the rows as they land — one observer for the whole drawer, one frame per burst of change,
+   * an attribute write only where the number moved (never a redraw: M142/M428 hold) */
+  let countDue = 0;
+  const refreshCounts = () => {
+    countDue = 0;
+    for (const sec of panelsEl.querySelectorAll('.ledger-panel')) {
+      const badge = sec.querySelector(':scope > .fold-count');
+      if (!badge) continue;
+      const n = sec.dataset.pending ? '' : String(countRows(sec) || '');
+      if (badge.textContent !== n) badge.textContent = n;
+    }
+  };
+  const scheduleCounts = () => { if (!countDue) countDue = requestAnimationFrame(refreshCounts); };
+  { /* the observer where there is one (M201's own fallback to window's); render and drawPending also ask, so a room with no observer still counts */
+    const Watcher = (typeof MutationObserver === 'function' ? MutationObserver
+      : (typeof window !== 'undefined' && typeof window.MutationObserver === 'function' ? window.MutationObserver : null));
+    if (Watcher) { try { new Watcher(scheduleCounts).observe(panelsEl, { childList: true, subtree: true }); } catch (err) { /* the counts are a courtesy */ } }
+  }
   panelsEl.addEventListener('click', (e) => {
     const chip = e.target && e.target.closest && e.target.closest('.drawer-rooms .nav-chip');
     if (chip && chip.dataset.room) drawerRoomNow = chip.dataset.room;
@@ -2631,6 +2674,18 @@ export function initDrawer(ctx) {
       const h = document.createElement('h3');
       h.textContent = panel.title;
       section.appendChild(h);
+      /* M466: the name is the fold's handle (never a button inside it — the name's text stays the name) */
+      const folded = isFolded(panel.id);
+      section.classList.toggle('folded', folded);
+      h.setAttribute('role', 'button');
+      h.tabIndex = 0;
+      h.setAttribute('aria-expanded', folded ? 'false' : 'true');
+      h.addEventListener('click', () => setFold(section, panel.id, !section.classList.contains('folded')));
+      h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFold(section, panel.id, !section.classList.contains('folded')); } });
+      const count = document.createElement('span');
+      count.className = 'fold-count';
+      count.setAttribute('aria-hidden', 'true');
+      section.appendChild(count);
 
       if (typeof panel.render === 'function') {
         /* M148: only the OPEN room draws now. A room not open is pending —
@@ -2646,6 +2701,8 @@ export function initDrawer(ctx) {
       }
       panelsEl.appendChild(section);
     }
+    scheduleCounts(); /* M466: the counts, once the panels have filled (the observer keeps them true after) */
+    setTimeout(scheduleCounts, 400);
   }
 
   /* M46: the drawer follows the workers as they start and settle — one
@@ -2768,6 +2825,7 @@ export function initDrawer(ctx) {
     delete sec.dataset.pending;
     const panel = PANELS.find((p) => p.id === sec.dataset.panel);
     if (panel && typeof panel.render === 'function') { const node = panel.render(ctx); if (node) sec.appendChild(node); }
+    setTimeout(scheduleCounts, 400); /* M466 */
   }
   /* M149: NO IDLE PASS. It drew the hidden rooms a beat after the open — the
    * people room's thirty characters landing between two flicks of the first
@@ -2775,6 +2833,6 @@ export function initDrawer(ctx) {
    * seconds", in the scene room only. A room draws when its chip is tapped,
    * and only then. */
 
-  function renderAllRooms() { drawPendingIn(panelsEl, ctx); }
+  function renderAllRooms() { drawPendingIn(panelsEl, ctx); setTimeout(scheduleCounts, 400); /* M466 */ }
   ctx.drawer = { open, close, toggle, renderAllRooms };
 }

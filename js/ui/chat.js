@@ -267,6 +267,7 @@ export function initChat(ctx) {
     newForm: document.getElementById('new-story-form'),
     newTitle: document.getElementById('new-story-title'),
     newShelfPick: document.getElementById('new-story-shelf'),
+    shelfSort: document.getElementById('shelf-sort'), /* M466 */
     btnNew: document.getElementById('btn-new-story'),
     btnCancelNew: document.getElementById('btn-cancel-story'),
     /* M16: the shelves — a new shelf begins from the sidebar. */
@@ -311,6 +312,11 @@ export function initChat(ctx) {
   /* M22-E2: whether the resting-tales corner stands open (in-memory; a
    * fresh visit starts folded). */
   let showResting = false;
+  /* M466: the resting shelves' corner, and how the shelves and tales are sorted (his choice, remembered) */
+  let showRestingShelves = false;
+  const SHELF_SORT_KEY = 'shelfSort';
+  const SHELF_SORTS = new Set(['played', 'name', 'newest']);
+  let shelfSort = 'played';
   /* B18: what the thread last rendered, so new pages can simply append. */
   let lastRender = { storyId: null, ids: [] };
 
@@ -473,6 +479,7 @@ export function initChat(ctx) {
     /* M16: the shelves gather alongside their tales. */
     projects = await db.projects.list();
     shelfCollapsed = (await db.settings.get(SHELF_COLLAPSED_KEY)) || {};
+    { const s = await db.settings.get(SHELF_SORT_KEY); shelfSort = SHELF_SORTS.has(s) ? s : 'played'; if (els.shelfSort && els.shelfSort.value !== shelfSort) els.shelfSort.value = shelfSort; } /* M466 */
     /* M14: page counts ride the shelf rows; the byStory index counts
      * without reading a single page. */
     /* M313: a tale held here only as a shelf row has no pages to count — its row carries the number */
@@ -651,7 +658,7 @@ export function initChat(ctx) {
       head.className = 'lbl msg-menu-head';
       head.textContent = 'Move to a shelf';
       shelves.appendChild(head);
-      const options = [{ id: '', name: 'No shelf (loose)' }, ...projects.map((p) => ({ id: p.id, name: p.name || 'a shelf' }))];
+      const options = [{ id: '', name: 'No shelf (loose)' }, ...projects.filter((p) => p.archived !== true).map((p) => ({ id: p.id, name: p.name || 'a shelf' }))]; /* M466: a resting shelf is not offered */
       for (const opt of options) {
         if ((story.projectId || '') === opt.id) continue;
         const b = document.createElement('button');
@@ -676,10 +683,28 @@ export function initChat(ctx) {
     storyMenuFor = null;
   }
 
+  /* M466: THE SHELVES AND THE TALES IN THE ORDER HE CHOSE — last played first (stories.list() hands the tales that way;
+   * a shelf stands by its most recently played tale), by name, or newest made first. One rule for shelves and tales. */
+  const byName = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base', numeric: true });
+  function sortTales(list) {
+    const out = [...list];
+    if (shelfSort === 'name') out.sort((a, b) => byName(a.title, b.title));
+    else if (shelfSort === 'newest') out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return out; /* 'played': as the store hands them — last played first */
+  }
+  function sortShelves(shelves) {
+    const played = (s) => s.stories.reduce((m, st) => Math.max(m, st.updatedAt || 0), 0);
+    const out = [...shelves];
+    if (shelfSort === 'name') out.sort((a, b) => byName(a.project.name, b.project.name));
+    else if (shelfSort === 'newest') out.sort((a, b) => (b.project.createdAt || 0) - (a.project.createdAt || 0));
+    else out.sort((a, b) => played(b) - played(a));
+    return out;
+  }
+
   /* M16: one shelf section — a collapsible .lbl header (caret, name, the
    * shelf's page-count badge) over its tales in interaction-recency order.
    * project === null is the "Loose tales" section. */
-  function shelfSection(project, shelfStories, activeId) {
+  function shelfSection(project, shelfStories, activeId, opts = {}) {
     const key = project ? project.id : 'loose';
     const name = project ? project.name : 'Loose tales';
     const collapsed = shelfCollapsed[key] === true;
@@ -718,6 +743,15 @@ export function initChat(ctx) {
       renameBtn.textContent = '✎';
       renameBtn.addEventListener('click', () => beginShelfRename(head, project));
 
+      /* M466: a shelf put to rest — the whole project paused — waits in its own corner at the foot; nothing is deleted */
+      const restBtn = document.createElement('button');
+      restBtn.type = 'button';
+      restBtn.className = 'story-mini';
+      restBtn.title = opts.resting ? 'Wake this shelf' : 'Put this shelf to rest';
+      restBtn.setAttribute('aria-label', `${opts.resting ? 'Wake' : 'Put to rest'} the shelf “${name}” — its tales stay on it`);
+      restBtn.textContent = opts.resting ? '↩' : '☾';
+      restBtn.addEventListener('click', () => restShelf(project, !opts.resting));
+
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'story-mini';
@@ -726,17 +760,34 @@ export function initChat(ctx) {
       removeBtn.textContent = '×';
       removeBtn.addEventListener('click', () => removeShelf(project));
 
-      head.append(renameBtn, removeBtn);
+      head.append(renameBtn, restBtn, removeBtn);
     }
     section.appendChild(head);
 
     if (!collapsed) {
       const inner = document.createElement('ul');
       inner.className = 'shelf-stories';
-      for (const story of shelfStories) inner.appendChild(storyItem(story, activeId));
+      for (const story of sortTales(shelfStories)) inner.appendChild(storyItem(story, activeId));
       section.appendChild(inner);
     }
     return section;
+  }
+
+  /* M466: a shelf rests or wakes; its tales stay where they are and the open tale stays open */
+  async function restShelf(project, rest) {
+    await db.projects.update(project.id, { archived: rest });
+    await refreshStories(true);
+    toast(rest ? `The shelf “${project.name}” rests — it waits at the foot with its tales.` : `The shelf “${project.name}” is back.`);
+    if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+  }
+
+  /* M466: the sort is his, remembered */
+  if (els.shelfSort) {
+    els.shelfSort.addEventListener('change', async () => {
+      shelfSort = SHELF_SORTS.has(els.shelfSort.value) ? els.shelfSort.value : 'played';
+      await db.settings.set(SHELF_SORT_KEY, shelfSort).catch(() => {});
+      renderStoryList();
+    });
   }
 
   function toggleShelf(key) {
@@ -802,13 +853,39 @@ export function initChat(ctx) {
     const waking = stories.filter((s) => s.archived !== true);
     const resting = stories.filter((s) => s.archived === true);
     const grouped = shelvesOf(waking, projects);
-    for (const { project, stories: onShelf } of grouped.shelves) {
+    /* M466: shelves put to rest keep their tales and wait in their own corner; the rest stand in the chosen order */
+    const shelvesUp = sortShelves(grouped.shelves.filter((s) => s.project.archived !== true));
+    const shelvesResting = sortShelves(grouped.shelves.filter((s) => s.project.archived === true));
+    for (const { project, stories: onShelf } of shelvesUp) {
       els.list.appendChild(shelfSection(project, onShelf, activeId));
     }
     if (grouped.loose.length || !projects.length) {
-      els.list.appendChild(shelfSection(null, grouped.loose, activeId));
+      els.list.appendChild(shelfSection(null, sortTales(grouped.loose), activeId));
     }
+    if (shelvesResting.length) els.list.appendChild(restingShelvesRow(shelvesResting, activeId));
     if (resting.length) els.list.appendChild(restingRow(resting, activeId));
+  }
+
+  /* M466: the "N resting shelves" corner — each resting shelf whole (name, count, its tales) with a way to wake it */
+  function restingShelvesRow(shelves, activeId) {
+    const li = document.createElement('li');
+    li.className = 'shelf resting-shelf resting-shelves' + (showRestingShelves ? '' : ' collapsed');
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'shelf-head';
+    const caret = document.createElement('span');
+    caret.className = 'shelf-caret';
+    caret.textContent = showRestingShelves ? '▾' : '▸';
+    const name = document.createElement('span');
+    name.className = 'shelf-name';
+    name.textContent = shelves.length === 1 ? 'One resting shelf' : `${shelves.length} resting shelves`;
+    head.append(caret, name);
+    head.addEventListener('click', () => { showRestingShelves = !showRestingShelves; renderStoryList(); });
+    const ul = document.createElement('ul');
+    ul.className = 'shelf-stories';
+    for (const { project, stories: onShelf } of shelves) ul.appendChild(shelfSection(project, onShelf, activeId, { resting: true }));
+    li.append(head, ul);
+    return li;
   }
 
   /* The "N resting tales" row — a collapsed corner at the foot of the
@@ -821,7 +898,7 @@ export function initChat(ctx) {
     head.className = 'shelf-head';
     const caret = document.createElement('span');
     caret.className = 'shelf-caret';
-    caret.textContent = '▸';
+    caret.textContent = showResting ? '▾' : '▸'; /* M466: the caret says whether the corner stands open */
     const name = document.createElement('span');
     name.className = 'shelf-name';
     name.textContent = resting.length === 1 ? 'One resting tale' : `${resting.length} resting tales`;
@@ -852,6 +929,7 @@ export function initChat(ctx) {
     looseOpt.textContent = 'Loose — no shelf';
     els.newShelfPick.appendChild(looseOpt);
     for (const project of projects) {
+      if (project.archived === true) continue; /* M466: a resting shelf is not offered */
       const opt = document.createElement('option');
       opt.value = project.id;
       opt.textContent = project.name;
@@ -1425,6 +1503,13 @@ export function initChat(ctx) {
     })();
 
     const ids = visible.map((m) => m.id);
+    /* M466: every storyteller page knows its number (1 = the first page of the tale), for the page mark at the
+     * thread's edge — counted over the WHOLE tale, so the number never changes with how many turns are on screen */
+    const pageOf = [];
+    let pageCount = 0;
+    for (const m of visible) pageOf.push(m.role === 'assistant' ? (pageCount += 1) : 0);
+    els.thread.dataset.pages = String(pageCount);
+    const stampPage = (node, i) => { if (pageOf[i]) node.dataset.page = String(pageOf[i]); else delete node.dataset.page; return node; };
     const canAppend = !structural
       && lastRender.storyId === story.id
       && lastRender.showThinking === showThinking
@@ -1457,14 +1542,14 @@ export function initChat(ctx) {
       }
       for (let i = first; i < visible.length; i += 1) {
         const msg = visible[i];
-        els.thread.appendChild(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn }));
+        els.thread.appendChild(stampPage(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn }), i));
       }
     } else {
       /* Pages arriving onto a hearth-warmed room: the hearth steps aside. */
       if (visible.length && lastRender.ids.length === 0) hideHearth();
       for (let i = lastRender.ids.length; i < visible.length; i += 1) {
         const msg = visible[i];
-        const node = msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn });
+        const node = stampPage(msgNode(msg, showThinking, { isLastAssistant: msg.id === lastAssistantId, mastheadOn }), i);
         node.classList.add('fresh'); /* M138: only a page that just arrived rises */
         els.thread.appendChild(node);
       }
@@ -3295,6 +3380,7 @@ export function initChat(ctx) {
       tellerPerson: await db.settings.get('tellerPerson'), /* M334: 'first' | 'second' | unset = follow the frame */
       groundingPhrase: await db.settings.get('groundingPhrase'), /* M358: the first words of its thinking */
       afterRole: await db.settings.get('afterRole'), /* M380: what follows his message rides as system (default) or user */
+      ownWords: await db.settings.get('ownWords'), /* M466: words in the storyteller's own voice, placed where he chose */
     };
   }
 

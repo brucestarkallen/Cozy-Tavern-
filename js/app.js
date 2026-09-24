@@ -11,6 +11,10 @@ import { initSettings } from './ui/settings.js';
 import { initDrawer } from './ui/drawer.js';
 import { initHousekeeper } from './ui/housekeeper.js';
 import { initWelcome } from './ui/welcome.js';
+import { initPageMark } from './ui/pagemark.js'; /* M466: which page is under the eye */
+import { initOwnWords } from './ui/ownwords.js'; /* M466: words in the storyteller's own voice */
+import { initSpeechColours } from './ui/speechcolours.js'; /* M466: the spoken lines' and thoughts' colours, per coat */
+import { applySpeechColours } from './ui/speechcolours.js'; /* M466: laid over the coat on every applyTheme (M14's init law reads one init a line) */
 import { VERSION } from './version.js';
 import { acquirePen } from './tablock.js';
 import { initSync } from './sync.js';
@@ -45,6 +49,7 @@ function applyTheme() {
   document.documentElement.dataset.theme = now;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', COATS[now]);
+  applySpeechColours(now); /* M466: his chosen spoken/thought colours for this coat, laid over its own */
 }
 
 function setTheme(mode) {
@@ -159,6 +164,7 @@ function showView(name) {
   views.chat.setAttribute('aria-hidden', name !== 'chat' ? 'true' : 'false');
   const wasSettings = !views.settings.hidden;
   views.settings.hidden = name !== 'settings';
+  document.body.classList.toggle('settings-open', name === 'settings'); /* M466: the story's floating pills stay under Settings */
   if (name === 'settings' && ctx.settings) ctx.settings.onShow();
   /* M426: leaving Settings keeps any words typed there and not yet kept */
   if (wasSettings && name !== 'settings' && ctx.settings && typeof ctx.settings.onHide === 'function') ctx.settings.onHide();
@@ -229,6 +235,9 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   initChat(ctx);
   initHousekeeper(ctx);
   initWelcome(ctx);
+  initPageMark(ctx); /* M466 */
+  initOwnWords(ctx); /* M466 */
+  initSpeechColours(ctx); /* M466 */
   /* M68: the house's context, reachable by the harness (and a curious writer) */
   window.__cozy = ctx;
 
