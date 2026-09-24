@@ -1,6 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m458-001)
+# Cozy Tavern — handoff for the next session (state at m459-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0x. WHO KNOWS WHAT, ONCE (M459): world.js findKnowledgeKey never takes another person's book by a shared family name (two
+   given names are two people — "Byakuya Kuchiki" wrote into Rukia's, and her block was drawn twice); renderKnowledge draws
+   each book once, says a fact three or more here share ONCE ("Everyone here knows" / "Everyone here but X knows" / "Known
+   to A, B, C") and folds re-worded facts (sameFactsOnce: 80% of words, equal numbers, the richer wording kept). Measured
+   on a ledger shaped like his: 10,459 → 3,979 characters, nothing said before left unsaid.
 0w. ANOTHER LANGUAGE IS THE STORY'S VOICE; THE MARKS ARE MADE WHOLE (M458). The second reader is shown his turn and told a word of
    another language in the page's own letters is never drift (only a run of another SCRIPT is the wire's glitch);
    continuity.js languageFinding lets such a finding go in code (never mended). ui/pageshape.js mendMarks (run by tidyPage on
@@ -189,7 +194,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 886 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 888 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 130 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).

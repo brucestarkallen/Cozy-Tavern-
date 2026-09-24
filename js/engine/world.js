@@ -309,9 +309,9 @@ export function findKnowledgeKey(knowledge, name) {
    * no book of his own, was found in RUKIA's: his facts written into hers, and her whole block drawn a second time for
    * him in Who knows what. Two given names are two people. */
   const given = (n) => keyOf(n).replace(/^the\s+/, '').split(/\s+/).filter(Boolean);
-  const w = given(name);
-  const k = near ? given(near) : [];
-  const twoPeople = w.length > 1 && k.length > 1 && w[0] !== k[0] && !samePersonName(near, name);
+  const wantWords = given(name);
+  const nearWords = near ? given(near) : [];
+  const twoPeople = wantWords.length > 1 && nearWords.length > 1 && wantWords[0] !== nearWords[0] && !samePersonName(near, name);
   if (near && !twoPeople) return near;
   /* M420: AND THE ONE MATCHER (engine/names.js). With "Suì-Fēng" in the scene and her knowledge under "Sui-Feng", her
    * own facts were missing from Who knows what — and the notes told the storyteller she "hasn’t found out" her own

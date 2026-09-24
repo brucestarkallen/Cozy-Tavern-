@@ -10847,3 +10847,23 @@ issues — missing quotation marks, *\"\"* — why is nothing fixing that?"
 Harness 886/886 (885 + M121-1 on the new law), walk 130/130, long play 8/8, lint 0 errors (no new warnings).
 - version.js -> m458-001.
 
+# M459 — who knows what, once: another's book is never found by a shared family name; shared facts said once
+He sent his "state of things" (14,943 tokens of a ~79k request at page 52): "is it the most efficient yet the best?"
+Read line by line, "Who knows what" was most of it, and three faults made it so:
+- BYAKUYA WROTE INTO RUKIA'S BOOK: findKnowledgeKey → nearKey's last rule takes any shared word of four letters or more,
+  so "Byakuya Kuchiki" (no book of his own) found Rukia Kuchiki's — his facts written into hers, her whole block drawn a
+  second time, his blind spots computed as hers. Now a loose match between two different given names is refused unless
+  names.js samePersonName says they are one person. "Rukia" and "Kuchiki" alone still find hers; M239's "Vanderbilt"
+  still finds "the Vanderbilt family".
+- ONE FACT, THIRTEEN TIMES: what the whole courtyard saw is written for each witness (right) and was said once per
+  witness (waste). renderKnowledge says a fact three or more here share ONCE — "Everyone here knows", "Everyone here but
+  X knows", "Known to A, B, C" — and each person's line keeps what is theirs alone.
+- ONE FACT, FIVE WORDINGS: sameFactsOnce folds facts sharing 80% of their words (numbers must be equal: page 43 and page
+  44 are two facts), keeping the richer wording, dated as the newer.
+- MEASURED on a ledger shaped like his (15 people, 7 shared facts, 4 re-wordings each): 10,459 → 3,979 characters; every
+  fact said before is still said. M85's crowd test gives each guest its own fact (one shared fact no longer overfills).
+- TESTS: m459.mjs (2). Harness 888/888, walk 130/130, long play 8/8, lint no new warnings.
+- The first push of this (e006516) went out before its version bump and with one lint warning (a shadowed name in
+  findKnowledgeKey); this commit renames it and bumps the version. Behaviour identical.
+- version.js -> m459-001.
+
