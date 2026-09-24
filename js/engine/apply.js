@@ -1503,6 +1503,33 @@ export function goneAtTheEnd(state, pageText, name) {
   return false;
 }
 
+/* M452: THE HOUSE HEALS WHO IS HERE BY ITSELF, FROM THE NEWEST PAGE — NO BUTTON, NO MODEL. He asked why he should press
+ * "read again" at all: a smart house knows what is wrong and mends it. A note that says someone is elsewhere AT the very
+ * place the scene stands — the house's own "last seen" there, or a seat at the scene's whole place — while the newest
+ * page's telling names them as themself (never by a family name another shares, never only in a spoken line, never in
+ * the window) and does not end on them going: they are here. Each is written in (presence.enter, which lets the note go
+ * — journaled, undoable). Someone on their way in (toward, seeking) is left on the road. Run when a story opens and
+ * after every page. */
+export function hereByTheNewestPage(state, pageText) {
+  const s = state && typeof state === 'object' ? state : null;
+  if (!s || !s.place || typeof s.place.name !== 'string' || !s.place.name.trim()) return [];
+  const ground = s.place.name;
+  const told = narrationOf(scenePartOf(pageText));
+  if (!told.trim()) return [];
+  const out = [];
+  for (const [key, seated] of Object.entries(s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {})) {
+    if (!seated || typeof seated !== 'object' || seated.stance === 'toward' || seated.stance === 'seeking') continue;
+    const atTheScene = (seated.lastSeen === true && samePlace(seated.location, ground)) || seatAtScene(seated.location, ground);
+    if (!atTheScene || isMc(s, key) || isHere(s, key) || !oneMeaning(s, key)) continue;
+    const name = strictPageKey(s, key) || key;
+    if (!shownOnPage(s, told, key) && !shownOnPage(s, told, name)) continue;
+    if (goneAtTheEnd(s, pageText, name)) continue;
+    if (out.some((m) => samePersonName(m.name, name))) continue;
+    out.push({ type: 'presence.enter', name, cause: 'the page shows them here' });
+  }
+  return out;
+}
+
 /* M444: WHO WALKED IN FROM ANOTHER ROOM. Until M444 a seat anywhere in the scene's compound walked its person into the
  * scene (the first-part test above). A ledger written then holds people in "Here now" who never came in: here, not the
  * main character, the last word the journal holds about where they are is that seat, the seat by today's test is NOT

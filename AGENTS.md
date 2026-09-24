@@ -10672,3 +10672,26 @@ on every page, against his "no redundancy, no context bloat".
   the cast notes still ride). NEGATIVE-TESTED: the old line back fails it.
 Harness 870/870, walk 122/122, long play 8/8, lint 0 errors (no new warnings).
 - version.js -> m451-001.
+
+# M452 — the ledger heals by itself when a story opens and after every page: nothing to press
+He: "Isn't read the page again and continue the next scene basically the same? My philosophy is always autonomous and I
+don't need to think about anything. If the agent doesn't know what's wrong or self heal then this isn't smart."
+- He was right: I had told him to press "read again" for a wrong the house can SEE. The difference between the two was
+  only timing (read again mends the ledger before the next page is written; continuing writes one more page from the
+  wrong ledger) — and neither should be his to think about.
+- THE HEAL, IN CODE, NO MODEL (engine/apply.js hereByTheNewestPage): a seat that puts someone elsewhere AT the very place
+  the scene stands — the house's own "last seen" there (samePlace to the ground), or a seat at the whole place
+  (seatAtScene) — for someone the newest story page's telling names as themself (shownOnPage on narrationOf(scenePartOf)),
+  not ending on them going (goneAtTheEnd), not the main character, one meaning, not on their way in: presence.enter, cause
+  "the page shows them here" (journaled; the note lets go). A note at another room is the page reader's to judge.
+- WHEN: chat.js healLedgerOnOpen — on openStory (after repairTimeline and resumeUnfinishedChain; a resumed chain heals in
+  its own upkeep) and at boot (app.js, the active story); never while busy, replaying, a chain queued or running,
+  another browser's readers at it, or on a story made in the last minute. And in the page reader's upkeep job on every
+  page, beside wrongWalkIns (which the open heal runs too).
+- TESTS: m452.mjs (2): his stuck ledger healed from the newest page (and nothing left to do); never on less — not named,
+  a spoken line, a shared family name, a going at the end, a note at another room, someone on the way in. Walk DOM-105:
+  his stuck ledger, the story OPENED the way the shelf opens it — nothing pressed, no model asked — Rukia here, the note
+  gone, the page untouched, said in What changed and why. DOM-106: a page reader that writes nothing of who is here, and
+  the chain still heals her. NEGATIVE-TESTED: no open heal (DOM-105 fails), no chain heal (DOM-106), no heal (M452-1).
+Harness 872/872, walk 124/124, long play 8/8, lint 0 errors (one old warning's line number moved).
+- version.js -> m452-001.

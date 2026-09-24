@@ -52,7 +52,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
-import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns } from '../engine/apply.js'; /* M405/M406; M419; M444 */
+import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage } from '../engine/apply.js'; /* M405/M406; M419; M444; M452 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
@@ -921,7 +921,31 @@ export function initChat(ctx) {
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();
     /* M69: a ledger from a longer telling is caught by its own stamps on open */
     const story = await db.stories.get(id);
-    if (story) repairTimeline(story).then(() => resumeUnfinishedChain(story)).catch(() => {});
+    if (story) repairTimeline(story).then(() => resumeUnfinishedChain(story)).then((resumed) => (resumed ? null : healLedgerOnOpen(story))).catch(() => {});
+  }
+
+  /* M452: THE LEDGER HEALS WHEN A STORY OPENS — nothing to press. A ledger an older reader left (someone "elsewhere" at the
+   * very place the scene stands while the newest page shows them there; someone the old compound test put in the room)
+   * is mended in code, at once, before he writes: the same laws the readers keep after every page (engine/apply.js
+   * hereByTheNewestPage, wrongWalkIns), journaled. Never while a page is being written or read, never over another
+   * browser's readers, never on a story made a minute ago (its own chain settles it). */
+  async function healLedgerOnOpen(story) {
+    if (!story || !story.id || busy || isReplaying() || story.extraction === false) return false;
+    if (Number.isFinite(story.createdAt) && Date.now() - story.createdAt < 60000) return false;
+    if (queuedCount(story.id) > 0 || workIsRunning(story.id) || otherHandAt(story.id)) return false;
+    const history = visiblePages(await db.messages.list(story.id));
+    const told = history.filter((m) => m.role === 'assistant');
+    const newest = [...told].reverse().find((m) => !m.ooc && !m.stopped && pageText(m).trim());
+    if (!newest) return false;
+    const state = await loadState(story.id);
+    const muts = [...wrongWalkIns(state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest))];
+    if (!muts.length) return false;
+    if (busy || isReplaying() || queuedCount(story.id) > 0) return false; /* M314: a queued moment is re-checked before it writes */
+    const { state: next, applied } = applyMutations(state, muts);
+    if (!applied.length) return false;
+    await saveState(story.id, next);
+    notify(story.id);
+    return true;
   }
 
   /* ---------- thread ---------- */
@@ -2807,9 +2831,12 @@ export function initChat(ctx) {
        * undoable; never the main character, never someone a page or his hand put there) */
       const storyPages = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').map((m) => ({ text: m.ooc ? '' : pageText(m) }));
       const walkIns = wrongWalkIns(clearedNows.state, storyPages);
-      const walkedBack = walkIns.length ? applyMutations(clearedNows.state, walkIns) : { state: clearedNows.state, applied: [] };
+      /* M452: and whoever a note has elsewhere at the scene's own place, whom this page shows here, is written in */
+      const hereAgain = msg && msg.role === 'assistant' && !msg.ooc ? hereByTheNewestPage(clearedNows.state, pageText(msg)) : [];
+      const walkedBack = walkIns.length || hereAgain.length ? applyMutations(clearedNows.state, [...walkIns, ...hereAgain]) : { state: clearedNows.state, applied: [] };
       const cleared = { state: walkedBack.state, applied: clearedNows.applied };
       const sentBack = [...new Set(walkedBack.applied.filter((a) => a.mutation.type === 'presence.leave').map((a) => a.mutation.name))];
+      const writtenIn = [...new Set(walkedBack.applied.filter((a) => a.mutation.type === 'presence.enter').map((a) => a.mutation.name))];
       const groundMoved = cleared.state.place && fresh.place && cleared.state.place.name !== (await loadState(story.id)).place?.name;
       if (!joined.applied.length && !cleared.applied.length && !walkedBack.applied.length && !groundMoved) return { silent: true };
       /* M414: M290's law, which this job alone skipped — a page a rewind (Try again, read again) let go while these
@@ -2817,7 +2844,7 @@ export function initChat(ctx) {
       if (stale() || !(await stillThere(story.id, msg.id))) return { silent: true };
       await saveState(story.id, cleared.state);
       notify(story.id);
-      return { silent: false, detail: [joined.applied.length ? 'joined ' + joins.map((j) => j.from + ' into ' + j.to).join(', ') : '', cleared.applied.length ? 'let go of a “now” that named a place the scene has left: ' + who.join(', ') : '', sentBack.length ? 'put back where the world had them (never in the scene — seated in another part of the same place): ' + sentBack.join(', ') : ''].filter(Boolean).join(' · ') };
+      return { silent: false, detail: [joined.applied.length ? 'joined ' + joins.map((j) => j.from + ' into ' + j.to).join(', ') : '', cleared.applied.length ? 'let go of a “now” that named a place the scene has left: ' + who.join(', ') : '', sentBack.length ? 'put back where the world had them (never in the scene — seated in another part of the same place): ' + sentBack.join(', ') : '', writtenIn.length ? 'written back into the scene (the page shows them here; a note had them elsewhere at this very place): ' + writtenIn.join(', ') : ''].filter(Boolean).join(' · ') };
     });
 
     /* M394: CANON THROUGH HIS STORY, BEFORE THE WORLD AND THE SCRIBE WRITE. Everyone canon knows in this ledger with no lens
@@ -5942,6 +5969,7 @@ export function initChat(ctx) {
     noteOlderModel, /* M343: Settings tells the thread the moment the switch moves */
     pageReinked, /* M296 */
     resumeUnfinishedChain,
+    healLedgerOnOpen, /* M452 */
     foundNow,
     rebuildStandingsNow,
     redoRecordLine,

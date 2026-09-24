@@ -1,6 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m451-001)
+# Cozy Tavern — handoff for the next session (state at m452-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0q. THE LEDGER HEALS BY ITSELF — NEVER A BUTTON (M452, his words: "if the agent doesn't know what's wrong or self heal then
+   this isn't smart"). When a story opens (chat.js openStory and app.js boot, after resumeUnfinishedChain) and after every
+   page (the page reader's upkeep job), code with no model mends what an older reader left: someone "elsewhere" AT the
+   scene's own place (a "last seen" there, or a seat at the whole place) whom the newest page's telling names as themself
+   and does not end on them going is written in (apply.js hereByTheNewestPage); whoever the old compound test put in the
+   room goes back (wrongWalkIns). Never while writing, replaying, reading or another browser's readers are at it. Never
+   advise him to press "read again" for something the house can see — build the heal instead.
 0p. WHO IS HERE IS SAID ONCE (M451): the notes that open the story say it ("Here now:" with where each stands and what they
    wear — shed 0, never dropped); the system's "Who's here" block holds the cast notes and the cards of whoever is here,
    never the names again. Measured through the app: the names once, the request 60 characters shorter, roles unchanged.
@@ -140,9 +147,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 870 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 872 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 122 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 124 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

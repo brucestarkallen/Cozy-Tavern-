@@ -240,7 +240,7 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   if (ctx.chat) await ctx.chat.renderThread();
   /* M127: a story closed mid-chain finishes its last page on open */
   if (ctx.chat && typeof ctx.chat.resumeUnfinishedChain === 'function') {
-    try { const s = activeStoryId ? await db.stories.get(activeStoryId) : null; if (s) await ctx.chat.resumeUnfinishedChain(s); } catch (err) { /* best-effort */ }
+    try { const s = activeStoryId ? await db.stories.get(activeStoryId) : null; if (s) { const resumed = await ctx.chat.resumeUnfinishedChain(s); if (!resumed && typeof ctx.chat.healLedgerOnOpen === 'function') await ctx.chat.healLedgerOnOpen(s); } } /* M452: the ledger heals as the story opens */ catch (err) { /* best-effort */ }
   }
 
   showView(currentRoute());
