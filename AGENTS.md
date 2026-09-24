@@ -10695,3 +10695,31 @@ don't need to think about anything. If the agent doesn't know what's wrong or se
   the chain still heals her. NEGATIVE-TESTED: no open heal (DOM-105 fails), no chain heal (DOM-106), no heal (M452-1).
 Harness 872/872, walk 124/124, long play 8/8, lint 0 errors (one old warning's line number moved).
 - version.js -> m452-001.
+
+# M453 — the ground never goes back to an old page's, and an echoing header never holds a wrong one
+He: Rukia "elsewhere" while she stood on the 10th Division courtyard with him — her "now" (the world agent's seat) said
+exactly that; and the header banner, right until the duel began, then "suddenly" 1st Division HQ — outside the assembly
+hall, and every page after it followed.
+- WHY RUKIA: the ledger's GROUND was the assembly hall, so a seat at the courtyard was "elsewhere", and nothing could
+  call her here. The ground was the fault.
+- ROOT 1 — A PAGE READ OUT OF TURN MOVED THE MOMENT: the light's catch-up (chat.js fillLedgerGap → readMissedPage) sends
+  the page reader to a page no read reached, and its answer landed whole on today's ledger — the old assembly page's
+  header (the ground, M128's "place.set when it moved") and its people. Reproduced through the real app (DOM-107 with
+  the guard removed: the duel's ground became "1st Division HQ — outside the assembly hall"). Now a page older than the
+  newest lands only what lasts (apply.js lastingOnly): knowledge, wounds, standings, closed threads, time passed — never
+  the ground, the hour, presence, the mood or seats (M131: the moment is the newest page's).
+- ROOT 2 — THE LOOP: the storyteller is told the ledger's ground is canon, writes it into its header, and the header
+  sets the ground (M128/M409) — a wrong ground held itself forever, and M403 forbade the auditor any move off the
+  header. Now an ECHOING header (silent, or repeating the ledger's ground) does not hold a ground the telling has left:
+  the auditor may set the ground to where the page's telling stands (its law says so), held in code by
+  apply.js groundTheTellingStandsOn — the header names no new place, the telling (header line set aside) never speaks
+  of the ground's own words, and does speak of the proposed place's own spot. M403's wrong move (the courtyard pulled to
+  the assembly hall while every page named the courtyard) is still refused (M453-3).
+- ON OPEN: a newest page whose telling never speaks of the ground (apply.js groundLooksStale, a page of twenty words or
+  more) asks the auditor quietly, before he writes (chat.js healLedgerOnOpen, after M452's code heals).
+- TESTS: m453.mjs (3): what lasts from a page out of turn; the echo rule's four cases; the auditor run whole — back to the
+  courtyard under an echoing header, M403's move still refused. Walk DOM-107: an old assembly page read late in the
+  real app — the ground stays the courtyard, the assembly's Kyōraku stays out, what the old page taught lasts.
+  NEGATIVE-TESTED: the out-of-turn guard removed (DOM-107 shows his exact regression), the echo rule held (M453-3).
+Harness 875/875, walk 125/125, long play 8/8, lint 0 errors (old warnings' line numbers moved).
+- version.js -> m453-001.

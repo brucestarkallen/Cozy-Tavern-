@@ -1503,6 +1503,51 @@ export function goneAtTheEnd(state, pageText, name) {
   return false;
 }
 
+/* M453: A PAGE READ OUT OF TURN NEVER MOVES THE MOMENT. The light sends the page reader to a page no read reached (a chain
+ * that stumbled) — often long after the story has moved on — and its answer landed WHOLE on today's ledger: the header of
+ * an old page at the 1st Division's assembly hall set the ground back there while the story fought in the 10th Division
+ * courtyard, and the storyteller, told the ground is canon, wrote that place into every header after it. The moment —
+ * the ground, the hour, who is here and where, the mood, the seats — is the NEWEST page's (M131). From a page read out
+ * of turn only what lasts lands: who learned what, a wound, a standing, a thread closed, time passed. */
+const MOMENT_TYPES = new Set(['place.set', 'clock.set', 'presence.enter', 'presence.leave', 'presence.update', 'mode.snapshot', 'offscreen.set', 'offscreen.clear']);
+export function lastingOnly(mutations) {
+  return (Array.isArray(mutations) ? mutations : []).filter((m) => !(m && MOMENT_TYPES.has(m.type)));
+}
+
+/* M453: THE GROUND A HEADER ONLY ECHOES. The storyteller is told the ledger's ground is canon and writes it into its
+ * header; the header then sets the ground (M128). Once the ground is wrong, nothing broke the loop: the duel on the 10th
+ * Division courtyard's sand ran page after page under "1st Division HQ — outside the assembly hall". May `proposed`
+ * replace the ledger's ground? Only when the page's header names no NEW place (it is silent, or it repeats the ledger's
+ * ground), the page's own telling never speaks of the ground the ledger has, and it does speak of the proposed place's
+ * own spot. The M403 wrong move (courtyard → assembly hall, the courtyard on every page) can never pass. */
+const PLACE_GENERIC = new Set(['hq', 'headquarter', 'division', 'building', 'room', 'area', 'outside', 'inside', 'front', 'back', 'side', 'near', 'by', 'the', 'of', 'and', 'in', 'at', 'on', 's', 'a', 'an', 'just']);
+export function groundTheTellingStandsOn(state, pageText, proposed, headerPlace = '') {
+  const ground = state && state.place && typeof state.place.name === 'string' ? state.place.name.trim() : '';
+  const place = String(proposed || '').trim();
+  if (!ground || !place || samePlace(place, ground) || seatAtScene(place, ground) || seatAtScene(ground, place)) return false;
+  const header = String(headerPlace || '').trim();
+  if (header && !samePlace(header, ground) && !seatAtScene(ground, header)) return false; /* a header naming somewhere new rules (M131) */
+  /* the telling, not the header line that opens it (the header is the echo under judgment) */
+  const told = new Set(placeWordsOf(narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\]\s*/, '')))));
+  if (!told.size) return false;
+  if (placeWordsOf(ground).filter((w) => !PLACE_GENERIC.has(w)).some((w) => told.has(w))) return false; /* the telling still speaks of it */
+  const parts = placeParts(place);
+  const spot = parts.length ? parts[parts.length - 1].filter((w) => !PLACE_GENERIC.has(w)) : [];
+  return spot.some((w) => told.has(w));
+}
+
+/* M453: DOES THE NEWEST PAGE'S TELLING NEVER SPEAK OF THE GROUND THE LEDGER HAS? (the header line set aside — it may be the
+ * echo). A page long enough to judge that names no word of the ground's own is the sign a ground may have gone stale; the
+ * house then asks the auditor, who reads the whole story, on its own. */
+export function groundLooksStale(state, pageText) {
+  const ground = state && state.place && typeof state.place.name === 'string' ? state.place.name.trim() : '';
+  if (!ground) return false;
+  const told = new Set(placeWordsOf(narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\]\s*/, '')))));
+  if (told.size < 20) return false;
+  const own = placeWordsOf(ground).filter((w) => !PLACE_GENERIC.has(w));
+  return own.length > 0 && !own.some((w) => told.has(w));
+}
+
 /* M452: THE HOUSE HEALS WHO IS HERE BY ITSELF, FROM THE NEWEST PAGE — NO BUTTON, NO MODEL. He asked why he should press
  * "read again" at all: a smart house knows what is wrong and mends it. A note that says someone is elsewhere AT the very
  * place the scene stands — the house's own "last seen" there, or a seat at the scene's whole place — while the newest

@@ -23,7 +23,7 @@ import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } fr
 import { samePlace } from '../engine/apply.js'; /* M403 */
 import { seatForPerson } from '../engine/people.js'; /* M398 */
 import { isHere, nameOnPage } from '../engine/names.js'; /* M398/M413; M414: named by the one answer */
-import { shownOnPage, personBookKey } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
+import { shownOnPage, personBookKey, groundTheTellingStandsOn } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
 import { callWorker } from './call.js';
@@ -104,7 +104,10 @@ function law({ mc }) {
     '    [Place — Day, Date | HH:MM | …], that line is the truth for both, and the house writes it into',
     '    the ledger in code; set them only to what that line says, never to anything else. When the',
     '    latest page has NO header line and the ground or the hour on the ledger plainly disagrees',
-    '    with where and when that page stands, set them.',
+    '    with where and when that page stands, set them. A header that only REPEATS the ledger\'s ground while the',
+    '    page\'s own telling plainly stands somewhere else (a duel on a courtyard\'s sand under a header naming an',
+    '    assembly hall) is an echo of a wrong ledger, not the page\'s word: set the ground to where the telling stands,',
+    '    in the words the story used for that place.',
     '  - WHO IS HERE: is everyone on the latest page in the ledger\'s presence, and is everyone marked',
     '    present actually still in the scene? Someone who left pages ago and is still "here" is an',
     '    error; someone who arrived and is not listed is an error.',
@@ -419,7 +422,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * and the hour in code (M128/M131) — the auditor never overrides it. */
   const latestStory = [...all].reverse().find((m) => m && m.role === 'assistant' && !m.ooc);
   const header = latestStory ? headerMutations(pageText(latestStory)) : [];
-  read.issues = auditorScope(read.issues, fresh, { header }); /* M128: the moment never lands from an audit */
+  read.issues = auditorScope(read.issues, fresh, { header, page: latestStory ? pageText(latestStory) : '' }); /* M128: the moment never lands from an audit; M453: the page, for an echoing header */
   /* M403/M413: WHEN THE AUDITOR MAY TAKE SOMEONE OUT OF THE SCENE. It took Byakuya, Renji, Iba and the rest out in one
    * batch while they stood at the duel (M403) — and M403's first answer (only someone the latest pages NAME may be taken
    * out) stopped its real work too: someone who came in eighty pages ago and was never seen again (the long play's
@@ -726,7 +729,8 @@ export function saysAllIsWell(issue) {
   return ALL_IS_WELL.test(fix) || (ALL_IS_WELL.test(what) && !/\bbut\b/i.test(what));
 }
 
-export function auditorScope(issues, state, { header = [] } = {}) {
+export function auditorScope(issues, state, { header = [], page = '' } = {}) {
+  const headerPlace = ((Array.isArray(header) ? header : []).find((x) => x && x.type === 'place.set') || {}).name || '';
   const mc = String((state && state.sheet && state.sheet.playerName) || '').trim().toLowerCase();
   const said = Array.isArray(header) ? header : [];
   /* does the header line agree with this place or hour? null when it is silent */
@@ -742,11 +746,12 @@ export function auditorScope(issues, state, { header = [] } = {}) {
     if (!AUDITOR_TYPES.has(m.type)) return true;
     /* the header line is the truth for the ground and the hour (M131): the
      * auditor may bring the ledger TO it, never move it anywhere else */
-    if ((m.type === 'place.set' || m.type === 'clock.set') && headerAgrees(m) === false) return true;
+    const tellingMoves = m.type === 'place.set' && groundTheTellingStandsOn(state, page, m.name || m.place, headerPlace); /* M453 */
+    if ((m.type === 'place.set' || m.type === 'clock.set') && headerAgrees(m) === false && !tellingMoves) return true;
     /* M403: THE GROUND IS THE PAGE'S. With the header silent, the auditor moved his whole scene out of the courtyard to
      * "1st Division HQ — outside the assembly hall" on its own reading — and every person in it went "elsewhere". It may
      * bring the ground TO what the latest page's header says; it never moves it on its own. */
-    if (m.type === 'place.set' && headerAgrees(m) !== true) return true;
+    if (m.type === 'place.set' && headerAgrees(m) !== true && !tellingMoves) return true; /* M453: an echoing header does not hold a ground the telling has left */
     if (m.type === 'people.note') return String(m.field || '').trim().toLowerCase() !== 'unthread';
     /* someone already here who "comes in" is a move — the page reader's */
     if (m.type === 'presence.enter' && Array.isArray(state && state.present) && findPresent(state, m.name, { strict: true }) !== -1) return true; /* M444: "already here" asked the way entering asks it — Captain Kuchiki is not Rukia */

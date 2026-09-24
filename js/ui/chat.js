@@ -52,7 +52,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
-import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage } from '../engine/apply.js'; /* M405/M406; M419; M444; M452 */
+import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, lastingOnly, groundLooksStale } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
@@ -938,14 +938,26 @@ export function initChat(ctx) {
     const newest = [...told].reverse().find((m) => !m.ooc && !m.stopped && pageText(m).trim());
     if (!newest) return false;
     const state = await loadState(story.id);
+    let healed = false;
     const muts = [...wrongWalkIns(state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest))];
-    if (!muts.length) return false;
-    if (busy || isReplaying() || queuedCount(story.id) > 0) return false; /* M314: a queued moment is re-checked before it writes */
-    const { state: next, applied } = applyMutations(state, muts);
-    if (!applied.length) return false;
-    await saveState(story.id, next);
-    notify(story.id);
-    return true;
+    if (muts.length && !busy && !isReplaying() && queuedCount(story.id) === 0) { /* M314: a queued moment is re-checked before it writes */
+      const { state: next, applied } = applyMutations(state, muts);
+      if (applied.length) { await saveState(story.id, next); notify(story.id); healed = true; }
+    }
+    /* M453: a ground the newest page's telling never speaks of — the auditor, who reads the whole story, is asked now,
+     * quietly, before he writes (its move off an echoing header is held to the telling in code) */
+    if (groundLooksStale(await loadState(story.id), pageText(newest)) && (await auditOn(story))) {
+      const connection = await resolveWorkerConnection(story, 'auditor');
+      if (connection && !busy && !isReplaying()) {
+        const promise = enqueueWork(story.id, { name: 'auditor', run: chainJob(async ({ signal, stale, renew }) => {
+          let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story) });
+          if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
+          return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
+        }, () => false) });
+        noteWork(story.id, promise);
+      }
+    }
+    return healed;
   }
 
   /* ---------- thread ---------- */
@@ -1945,7 +1957,9 @@ export function initChat(ctx) {
     const older = await loadState(story.id);
     const stampWas = Number.isInteger(older.page) ? older.page : -1;
     older.page = k; /* M69: its changes are stamped with the page they came from */
-    const done = applyMutations(older, back.mutations);
+    /* M453: a page older than the newest is read out of turn — only what lasts lands (engine/apply.js lastingOnly) */
+    const newestTold = [...all].reverse().find((m) => m && m.role === 'assistant');
+    const done = applyMutations(older, newestTold && newestTold.id !== missed.id ? lastingOnly(back.mutations) : back.mutations);
     done.state.page = stampWas; /* the stamp is the turn's, not this old page's */
     markPageRead(done.state, k);
     await saveState(story.id, done.state);

@@ -1,6 +1,14 @@
-# Cozy Tavern — handoff for the next session (state at m452-001)
+# Cozy Tavern — handoff for the next session (state at m453-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0r. THE GROUND NEVER GOES BACK TO AN OLD PAGE'S (M453). A page read OUT OF TURN (the light's catch-up of a page no read
+   reached, chat.js readMissedPage) lands only what lasts (apply.js lastingOnly — never place, clock.set, presence, mood,
+   seats): an old assembly-hall page read late had set his duel's ground back to the 1st Division, and the storyteller,
+   told the ground is canon, echoed it into every header after. An ECHOING header (silent, or repeating the ledger's
+   ground) no longer holds a ground the page's telling has left: the auditor may move it to where the telling stands,
+   held in code (groundTheTellingStandsOn: the telling never speaks of the ground's own words and does speak of the new
+   place's spot; M403's wrong move stays refused). On open, a newest page that never speaks of the ground asks the
+   auditor quietly (groundLooksStale). DOM-107 reproduces his exact regression without the guard.
 0q. THE LEDGER HEALS BY ITSELF — NEVER A BUTTON (M452, his words: "if the agent doesn't know what's wrong or self heal then
    this isn't smart"). When a story opens (chat.js openStory and app.js boot, after resumeUnfinishedChain) and after every
    page (the page reader's upkeep job), code with no model mends what an older reader left: someone "elsewhere" AT the
@@ -147,9 +155,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 872 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 875 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 124 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 125 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

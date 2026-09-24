@@ -5512,6 +5512,52 @@ test('DOM-106 AND AFTER EVERY PAGE: a page reader that writes nothing of who is 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-107 A PAGE READ OUT OF TURN NEVER MOVES THE MOMENT, PLAYED THROUGH THE REAL READERS: an old assembly-hall page no read reached is read late — its ground and its people stay out of today’s duel; what it taught lasts (M453)', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const HALL = '1st Division HQ — outside the assembly hall';
+  const YARD = '10th Division HQ — training courtyard';
+  const st = await db.stories.create({ title: 'The duel, read late' });
+  await db.stories.update(st.id, { keeper: false });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait for the announcement.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[' + HALL + ' — Sunday, Hanami 5, 1001 AG | 08:00 | spring sun | haori | by the doors]\n\nThe captains assembled; Kyōraku named Oda captain of the 13th. OLDPAGE' });
+  const ledger = applyMutations({ ...emptyState(), page: -1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: YARD },
+    ...['Jovan Oda', 'Kenpachi Zaraki'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
+  ledger.characters = { 'Kenpachi Zaraki': { core: 'Captain of the 11th.', threads: [] }, 'Shunsui Kyōraku': { core: 'Captain-Commander.', threads: [] } };
+  await saveState(st.id, { ...ledger, readTo: -1, tidiedGen: 999, healedGen: 999 }); /* the assembly page was never read */
+  house.state.storyAnswer = 'Zaraki widened his stance on the torn sand of the courtyard, grinning. NEWPAGE';
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys)) {
+      const page = newPageOf(String((body.messages || []).slice(-1)[0].content || ''));
+      if (/OLDPAGE/.test(page)) return JSON.stringify({ mutations: [{ type: 'place.set', name: HALL }, { type: 'presence.enter', name: 'Shunsui Kyōraku' }, { type: 'knowledge.add', name: 'Kenpachi Zaraki', fact: 'the assembly named Oda captain of the 13th' }, { type: 'mode.snapshot', flags: ['group'] }] });
+      return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: ['combat'] }] });
+    }
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
+    return walkDefaultWorker(body, sys);
+  };
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    type(q('#composer-input'), 'I draw on Zaraki.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(async () => queuedCount(st.id) === 0 && !workIsRunning(st.id) && (await loadState(st.id)).worldBrief, 'the readers', 40000);
+    await settled();
+    const after = await loadState(st.id);
+    eq(after.place.name, YARD, 'the ground stays the courtyard');
+    assert(!after.present.some((p) => /Kyōraku/.test(p.name)), 'the assembly’s Kyōraku is not written into the duel: ' + after.present.map((p) => p.name).join(', '));
+    const k = after.knowledge && (after.knowledge['Kenpachi Zaraki'] || []);
+    assert(Array.isArray(k) && k.some((x) => /named Oda captain/.test(x.fact)), 'what the old page taught lasts');
+  } finally {
+    house.state.storyAnswer = null;
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
