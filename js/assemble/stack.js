@@ -131,10 +131,11 @@ export const CONTINUE_NUDGE = 'Go on.';
  * name, whose words they are (the storyteller's = an assistant message, his = a user message, the house's = a system
  * message), where they ride (three landmarks of the request, never a drag), and the words. {{teller}} and {{you}} are
  * the two names from The frame. Off, or empty: not one byte of any request changes. */
+/* M466-2: said in the words of his own map of the request — "the notes" read as the note at the end, and it is not */
 export const OWN_WORDS_PLACES = {
-  'before-pages': 'before the story’s pages — right after the notes',
-  'before-your-message': 'after the newest page — right before your message',
-  'after-your-message': 'after your message — before the closing words',
+  'before-pages': 'after the ledger’s briefing (the tracker) — before the first story page',
+  'before-your-message': 'after the newest story page — right before your message',
+  'after-your-message': 'after your message — before the note at the end',
 };
 export function ownWordsFor(settings, voice) {
   const list = Array.isArray(settings && settings.ownWords) ? settings.ownWords : [];

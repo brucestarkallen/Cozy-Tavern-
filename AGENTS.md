@@ -11029,3 +11029,10 @@ or fixed, and explain it; and dialogue colour and thoughts customizable per them
   nine coats, perf_rooms.py within budget; at 6× throttle the folded ledger scrolls at a 16.7 ms median (dark) and
   16.7 (academy), opens in 204–572 ms, closes in 33–52 ms.
 - version.js -> m466-001.
+
+# M466-2 — the three places said in his own words
+He: "isn't it assistant role — my user message — then the notes (system) — the output? Why 'before the story's pages
+and right after the notes'?" — "the notes" in the place's name read as the note at the end; it meant the ledger's
+briefing (the one user message the tracker rides in). The three places now say: "after the ledger's briefing (the
+tracker) — before the first story page", "after the newest story page — right before your message", "after your
+message — before the note at the end". Keys unchanged; harness M466-3 reads the new words. version.js -> m466-002.

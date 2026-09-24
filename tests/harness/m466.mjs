@@ -67,7 +67,7 @@ test('M466-3 each entry lands at its landmark, with its role, and the pages them
   const rows = req.receipt.slots.filter((s) => s.name.startsWith('Own words — '));
   eq(rows.map((r) => r.name).join('|'), 'Own words — front|Own words — mid|Own words — tail');
   for (const r of rows) assert(req.messages.some((m) => m.content === r.text), r.name + ' is sent as listed');
-  assert(rows[0].source.includes('before the story'), 'the row says where: ' + rows[0].source);
+  assert(rows[0].source.includes('before the first story page'), 'the row says where: ' + rows[0].source);
 });
 
 test('M466-4 an entry with nothing to stand before goes last, never before the notes; a first turn with no state message still takes the front one', () => {
