@@ -1,6 +1,12 @@
-# Cozy Tavern — handoff for the next session (state at m453-001)
+# Cozy Tavern — handoff for the next session (state at m454-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0s. THE MISSED PAGES ARE READ IN ONE GO, COUNTED ON THE BANNER (M454, his words: "why it keeps pulsing yellow… even it's not
+   manual it should always have banner 100% process"). chat.js fillLedgerGap reads page after page while the house is
+   idle (it was three a run and a minute between runs — the yellow pulse for as long as a backlog lasted), stops the
+   moment the storyteller works (M314) and carries on by itself; the work banner counts "page 12 of 57 · 21%" to done
+   (a pause says so and clears itself — workbanner.js paused). A page read out of turn is never asked again for the mood
+   (extractTurn moodOwed:false — its mood is dropped anyway, M453): it doubled every missed page's time.
 0r. THE GROUND NEVER GOES BACK TO AN OLD PAGE'S (M453). A page read OUT OF TURN (the light's catch-up of a page no read
    reached, chat.js readMissedPage) lands only what lasts (apply.js lastingOnly — never place, clock.set, presence, mood,
    seats): an old assembly-hall page read late had set his duel's ground back to the 1st Division, and the storyteller,
@@ -157,7 +163,7 @@ founding design lives in AGENTS.md's first entries.)
 ## Run the tests before any commit (all three; all must be green)
 - `node tests/harness/run.mjs` — 875 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 125 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 126 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

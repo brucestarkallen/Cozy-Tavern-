@@ -94,6 +94,14 @@ export function beginWork(what, stop) {
       paint(words || what, 'done', 100, 'done');
       clearTimer = setTimeout(() => { if (live() && el) el.hidden = true; }, 4500);
     },
+    /* M454: a pause the house will come back from by itself — said, then out of the way */
+    paused(words) {
+      if (stopEl) stopEl.hidden = true;
+      onStop = null;
+      if (!live()) return;
+      paint(words || what, 'paused', undefined, 'waiting');
+      clearTimer = setTimeout(() => { if (live() && el) el.hidden = true; }, 6000);
+    },
     failed(words) {
       if (stopEl) stopEl.hidden = true;
       onStop = null;

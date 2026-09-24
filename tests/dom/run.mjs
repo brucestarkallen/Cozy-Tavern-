@@ -5558,6 +5558,50 @@ test('DOM-107 A PAGE READ OUT OF TURN NEVER MOVES THE MOMENT, PLAYED THROUGH THE
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-108 THE PAGES THE LEDGER MISSED ARE READ IN ONE GO, WITH THE COUNT ON SHOW: five missed pages, read one after another while the house is idle — the banner counts them and ends at 100%, and the light is not left yellow (M454)', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState, readMark } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'The backlog' });
+  await db.stories.update(st.id, { keeper: false, createdAt: Date.now() - 3600000 });
+  for (let i = 0; i < 6; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I go on. (' + i + ')' });
+    await db.messages.append(st.id, { role: 'assistant', text: 'Rukia filed the rosters. MISSED-' + i });
+  }
+  const ledger = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: "13th Division Barracks — Captain's Office" },
+    ...['Jovan Oda', 'Rukia Kuchiki'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
+  await saveState(st.id, { ...ledger, readTo: 0, tidiedGen: 999, healedGen: 999 }); /* pages 2–6 never read */
+  let reads = 0;
+  const readLog = [];
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys)) {
+      const page = newPageOf(String((body.messages || []).slice(-1)[0].content || ''));
+      const n = (page.match(/MISSED-(\d)/) || [])[1];
+      if (n) { reads += 1; readLog.push(n); }
+      /* the newest page's answer carries the mood board; the older pages' do not — they are not asked again for it */
+      return JSON.stringify({ mutations: n ? [{ type: 'knowledge.add', name: 'Rukia Kuchiki', fact: 'the roster for week ' + n + ' is filed' }, ...(n === '5' ? [{ type: 'mode.snapshot', flags: [] }] : [])] : [] });
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true }); /* the light looks, sees the gap, and sends the reader */
+    await until(async () => readMark(await loadState(st.id)) === 5 && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'every missed page read', 30000);
+    await tick(200);
+    eq(reads, 5, 'all five read, one after another, each once: ' + readLog.join(', '));
+    eq(q('#work-banner-what').textContent, 'The ledger has read every page', 'the banner says so');
+    eq(q('#work-banner-count').textContent, 'done', 'at its end');
+    eq(q('#work-banner-fill').style.width, '100%', '100%');
+    const k = (await loadState(st.id)).knowledge['Rukia Kuchiki'] || [];
+    eq(k.length, 5, 'what each page taught landed');
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

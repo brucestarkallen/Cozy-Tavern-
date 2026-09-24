@@ -475,7 +475,7 @@ export async function extractTurn(args = {}) {
   return read;
 }
 
-async function extractTurnRead({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew, storyId = '', story = null, pageNumber = 0 } = {}) {
+async function extractTurnRead({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew, storyId = '', story = null, pageNumber = 0, moodOwed = true } = {}) {
   if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
   if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
@@ -536,7 +536,9 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
      * named is cleared). A page whose answer forgot it leaves yesterday's
      * flags standing — "combat" in a quiet bedroom wakes the wrong rules; the
      * writer saw exactly this on his auditor's report. One sharper ask. */
-    if (read.note === 'ok' && attempt === 0 && !read.mutations.some((m) => m && m.type === 'mode.snapshot')) {
+    /* M454: never for a page read out of turn — its mood is not the moment's (M453 drops it), and the second ask only
+     * doubled the time every missed page took */
+    if (read.note === 'ok' && attempt === 0 && moodOwed !== false && !read.mutations.some((m) => m && m.type === 'mode.snapshot')) {
       user = prompt.user + '\n\nYour answer named no mode.snapshot. The whole board is owed on every page: add ONE mode.snapshot listing every mood that holds at the END of this page (combat, intimate, travel, socialField, isolation, group — an empty list if none), and keep every other mutation you wrote. JSON only.';
       continue;
     }

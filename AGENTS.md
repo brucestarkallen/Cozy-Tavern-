@@ -10723,3 +10723,24 @@ hall, and every page after it followed.
   NEGATIVE-TESTED: the out-of-turn guard removed (DOM-107 shows his exact regression), the echo rule held (M453-3).
 Harness 875/875, walk 125/125, long play 8/8, lint 0 errors (old warnings' line numbers moved).
 - version.js -> m453-001.
+
+# M454 — the pages the ledger missed are read in one go, and the banner counts them to the end
+He: "does the yellow indicator always restart or what? why it keeps pulsing yellow? … even it's not manual it should
+always have banner 100% process", under "◐ the extractor … stopped partway — read 3 of the pages the ledger missed — the
+rest follow".
+- WHY YELLOW: the light's repair (chat.js fillLedgerGap) read THREE missed pages a run, said "stopped partway" (the
+  amber light), and the light sent it again a minute later — for as long as the backlog lasted, with no count anywhere.
+  Reproduced in the walk: five missed pages were not done in thirty seconds with the old cap.
+- NOW: page after page in one run while the house is idle; the moment the storyteller works it stops (M314) and carries
+  on by itself after. The work banner (the one every manual action uses) counts it: "Reading the pages the ledger missed
+  — page 3 of 5 · 60%", then "The ledger has read every page — done" at 100%; a pause says so and clears itself
+  (workbanner.js paused); a failure says how far it got and that it tries again by itself. Its stop is the house's one
+  shape (M218: every banner carries a stop).
+- A PAGE READ OUT OF TURN IS NEVER ASKED AGAIN FOR ITS MOOD: M92's second ask (no mode.snapshot) ran on every missed
+  page — the walk counted 1,1,2,2,3,3,4,4,5 — though M453 drops an old page's mood. extractTurn takes moodOwed:false from
+  readMissedPage for a page older than the newest; the newest page is still owed its board.
+- TESTS: walk DOM-108 (five missed pages): all read in one go, each once, what each taught landed, the banner ends at
+  "The ledger has read every page", "done", 100%. NEGATIVE-TESTED: the old three-a-run cap (not done in time), the mood
+  re-ask back (nine reads), the banner's end removed.
+Harness 875/875, walk 126/126, long play 8/8, lint 0 errors (no new warnings).
+- version.js -> m454-001.

@@ -1943,7 +1943,11 @@ export function initChat(ctx) {
     const all = visiblePages(await db.messages.list(story.id));
     const at = all.findIndex((m) => m.id === missed.id);
     const itsUser = at > 0 ? [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user') : null;
+    /* M453: a page older than the newest is read out of turn — only what lasts lands (engine/apply.js lastingOnly) */
+    const newestTold = [...all].reverse().find((m) => m && m.role === 'assistant');
+    const outOfTurn = Boolean(newestTold && newestTold.id !== missed.id);
     const back = await extractTurn({
+      moodOwed: !outOfTurn, /* M454: no second ask for the mood of a page that is not the moment's */
       connection, state: await loadState(story.id),
       userText: itsUser ? pageText(itsUser) : '',
       assistantText: pageText(missed),
@@ -1957,9 +1961,7 @@ export function initChat(ctx) {
     const older = await loadState(story.id);
     const stampWas = Number.isInteger(older.page) ? older.page : -1;
     older.page = k; /* M69: its changes are stamped with the page they came from */
-    /* M453: a page older than the newest is read out of turn — only what lasts lands (engine/apply.js lastingOnly) */
-    const newestTold = [...all].reverse().find((m) => m && m.role === 'assistant');
-    const done = applyMutations(older, newestTold && newestTold.id !== missed.id ? lastingOnly(back.mutations) : back.mutations);
+    const done = applyMutations(older, outOfTurn ? lastingOnly(back.mutations) : back.mutations);
     done.state.page = stampWas; /* the stamp is the turn's, not this old page's */
     markPageRead(done.state, k);
     await saveState(story.id, done.state);
@@ -1982,8 +1984,17 @@ export function initChat(ctx) {
       ledgerFilledAt.set(storyId, Date.now());
       const promise = enqueueWork(storyId, { name: 'extractor', run: async ({ signal, stale, renew }) => {
         const told = visiblePages(await db.messages.list(storyId)).filter((m) => m.role === 'assistant');
+        /* M454: EVERY MISSED PAGE IN ONE GO, AND THE COUNT ON SHOW. Three pages a run and a minute between runs kept the
+         * light pulsing yellow for as long as a backlog lasted, with nothing to say how far it had got. The reader now
+         * goes on page after page while the house is idle (it still stops the moment the storyteller is at work — M314 —
+         * and carries on after), and the banner counts it to its end: "page 12 of 57 · 21%" … done. */
+        const unread = (st) => { const mark = readMark(st); const ahead = new Set(Array.isArray(st && st.readAhead) ? st.readAhead : []); let c = 0; for (let k = mark + 1; k < told.length; k += 1) if (!ahead.has(k)) c += 1; return c; };
+        const total = unread(await loadState(storyId));
+        if (!total) return { silent: true };
+        const banner = beginWork('Reading the pages the ledger missed', () => { const s = storyId; if (s) stoppedByHand(s); banner.failed('Stopped — what was read is kept; the rest are read when the house is idle again'); });
         let read = 0;
-        for (let i = 0; i < 3 && !stale(); i += 1) {
+        banner.step(0, total, 'page');
+        for (let i = 0; i < 2000 && !stale(); i += 1) {
           /* M314: NEVER WHILE THE STORYTELLER IS AT WORK. The light asks for this when nothing is busy — but the
            * job is queued, and runs later. A swipe of the last page rewinds the ledger to the page before
            * it (so that page reads as "unread") and only THEN writes the new version: a repair that ran
@@ -1995,8 +2006,12 @@ export function initChat(ctx) {
           if (k === -1) break;
           if (!(await readMissedPage(story, connection, told[k], k, { signal, renew, stale }))) break;
           read += 1;
+          banner.step(Math.min(read, total), total, 'page');
         }
         const still = oldestUnread(await loadState(storyId), told.length) !== -1;
+        if (!still) banner.done('The ledger has read every page');
+        else if (busy || isReplaying()) banner.paused('Paused while the storyteller writes — ' + read + ' of ' + total + ' read; the rest follow by themselves');
+        else banner.failed('Read ' + read + ' of ' + total + ' — the rest are tried again by themselves shortly');
         if (!still) ledgerTries.delete(storyId);
         else if (read) ledgerTries.set(storyId, 0);
         else ledgerTries.set(storyId, tries + 1);
