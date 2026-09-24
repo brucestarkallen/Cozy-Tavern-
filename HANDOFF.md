@@ -1,6 +1,12 @@
-# Cozy Tavern — handoff for the next session (state at m469-001)
+# Cozy Tavern — handoff for the next session (state at m470-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1i. THE REFEREE'S FIELD AND ITS ACCOUNT (M470): two against one is a BATTLE (duel_start.allies → battle_start in
+   normalizeAdj); `joins` on every fight beat → `combat.join` (apply.js) → duels.joinFight (a duel widens into a
+   battle carrying both fighters; a battle grows; a war refuses). Every ruling carries `account` (what, action, why,
+   circumstance, actor/opposition ratings, delta, chance, roll, tier, fight, reports) — the ledger's, NEVER the wire's
+   (M345: the storyteller hears words). normalizeAdj reads `domain` now (checkDomain) — it never did; lone checks
+   rolled on the default rating until M470.
 1h. A TURN THAT RAN PAST ITS END IS CUT (M469): director.js stripControlLeak(text, { writerText }) ends a page where a
    model began writing the writer's next turn (a role label + his words, or his whole message as a paragraph) — the
    provider's fault, the house's repair. Keep the two guards (label AND his words) — one alone trips on prose.

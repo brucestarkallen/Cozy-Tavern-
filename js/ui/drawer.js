@@ -1051,12 +1051,96 @@ function verdictPanel(ctx) {
   const note = quietNote('');
   const line = document.createElement('p');
   line.className = 'verdict-line';
-  wrap.append(note, line);
+  /* M470: the account behind the ruling — what the referee read, the odds, the roll, the field — and the last rulings */
+  const acct = document.createElement('div');
+  acct.className = 'verdict-account';
+  acct.hidden = true;
+  const past = document.createElement('details');
+  past.className = 'resting-shelf verdict-past';
+  past.hidden = true;
+  const pastSum = document.createElement('summary');
+  pastSum.className = 'lbl';
+  pastSum.textContent = 'The rulings before it';
+  const pastList = document.createElement('ul');
+  pastList.className = 'log-list';
+  past.append(pastSum, pastList);
+  wrap.append(note, line, acct, past);
+
+  const TIER_WORD = { DECISIVE: 'decisive', SUCCESS: 'success', SUCCESS_COST: 'success at a cost', TRADE: 'a trade', STALEMATE: 'a stalemate', SETBACK: 'a setback', FAILURE: 'failure', DISASTER: 'disaster', ARMED: 'armed', LULL: 'a lull', CLOSED: 'over' };
+  const sign = (n) => (n > 0 ? '+' + n : String(n));
+  const accountLines = (a) => {
+    const out = [];
+    if (!a || typeof a !== 'object') return out;
+    if (a.what) out.push(['What', a.what]);
+    if (a.action) out.push(['The attempt', a.action]);
+    if (a.actor || a.opposition) {
+      const who = (a.actor || 'the player') + (Number.isFinite(a.actorRating) ? ' (rated ' + a.actorRating + ')' : '')
+        + (a.opposition ? ' against ' + a.opposition + (Number.isFinite(a.oppositionRating) ? ' (' + a.oppositionRating + ')' : '') : '')
+        + (a.domain ? ' — ' + a.domain : '');
+      out.push(['Who', who]);
+    }
+    if (Number.isFinite(a.circumstance) || a.why) out.push(['The tilt', (Number.isFinite(a.circumstance) ? sign(a.circumstance) : '0') + (a.why ? ' — ' + a.why : '')]);
+    if (Number.isFinite(a.chance)) out.push(['The odds', a.chance + '% to succeed' + (Number.isFinite(a.delta) ? ' (edge ' + sign(a.delta) + ')' : '') + (Number.isFinite(a.roll) ? ' · rolled ' + a.roll : '') + (a.tier ? ' → ' + (TIER_WORD[a.tier] || a.tier) : '')]);
+    if (a.stakes) out.push(['At stake', a.stakes]);
+    if (a.fight && a.fight.kind === 'duel' && a.fight.player && a.fight.opp) {
+      const p = a.fight.player; const o = a.fight.opp;
+      out.push(['The duel', 'round ' + (a.fight.round || 0) + ' — ' + (a.actor || 'the player') + ': poise ' + p.poise + '/' + p.maxPoise + ', hurts ' + (p.injuries || 0) + ', momentum ' + sign(p.momentum || 0) + '; ' + o.name + ': poise ' + o.poise + '/' + o.maxPoise + ', hurts ' + (o.injuries || 0) + ', momentum ' + sign(o.momentum || 0)]);
+    }
+    if (a.fight && (a.fight.kind === 'battle' || a.fight.kind === 'war') && Array.isArray(a.fight.allies)) {
+      const side = (units) => units.map((u) => u.name + (u.standing ? '' : ' (down)') + (Number.isFinite(u.rating) ? ' ' + u.rating : '') + (u.injuries ? ', hurt ' + u.injuries : '')).join(' · ');
+      out.push(['The field', 'round ' + (a.fight.round || 0) + ' — ' + a.fight.allies.length + ' against ' + a.fight.enemies.length + '. With you: ' + side(a.fight.allies) + '. Against: ' + side(a.fight.enemies)]);
+    }
+    if (Array.isArray(a.reports) && a.reports.length) out.push(['On the field', a.reports.join(' ')]);
+    return out;
+  };
+  const drawAccount = (verdict) => {
+    acct.textContent = '';
+    const lines = accountLines(verdict && verdict.account);
+    if (!lines.length) { acct.hidden = true; return; }
+    for (const [k, v] of lines) {
+      const row = document.createElement('div');
+      row.className = 'verdict-row';
+      const key = document.createElement('span');
+      key.className = 'page-key';
+      key.textContent = k + ': ';
+      row.append(key, document.createTextNode(v));
+      acct.appendChild(row);
+    }
+    if (verdict.directive) {
+      const told = document.createElement('details');
+      told.className = 'resting-shelf';
+      const s = document.createElement('summary');
+      s.className = 'lbl';
+      s.textContent = 'What the storyteller was told';
+      const p = document.createElement('div');
+      p.className = 'log-row';
+      p.textContent = String(verdict.directive);
+      told.append(s, p);
+      acct.appendChild(told);
+    }
+    acct.hidden = false;
+  };
+  const drawPast = (state, current) => {
+    pastList.textContent = '';
+    const hist = Array.isArray(state.refHistory) ? state.refHistory : [];
+    const rows = hist.filter((h) => h && h.verdict && h.verdict !== current && typeof h.verdict.words === 'string').slice(-8).reverse();
+    if (!rows.length) { past.hidden = true; return; }
+    for (const h of rows) {
+      const li = document.createElement('li');
+      li.className = 'log-row';
+      const a = h.verdict.account || {};
+      li.textContent = (a.what ? a.what + ' — ' : '') + h.verdict.words + (Number.isFinite(a.chance) ? ' (' + a.chance + '%, rolled ' + a.roll + ')' : '') + (a.action ? ' · ' + a.action : '');
+      pastList.appendChild(li);
+    }
+    past.hidden = false;
+  };
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);
     line.textContent = '';
     line.hidden = true;
+    acct.hidden = true;
+    past.hidden = true;
     if (!story) {
       note.textContent = 'Open a story and the house will know whose chances these are.';
       return;
@@ -1076,6 +1160,8 @@ function verdictPanel(ctx) {
       : 'The latest ruling, already woven into the page it ruled on:';
     line.textContent = 'The house has ruled: ' + verdict.words.trim();
     line.hidden = false;
+    drawAccount(verdict);
+    drawPast(state, verdict);
   });
 
   render();

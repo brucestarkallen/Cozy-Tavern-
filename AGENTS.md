@@ -11099,3 +11099,31 @@ Cozy Tavern cause this?"
   never trip it. The page already in his story is history: Edit it and cut from the garbled line to the end.
 - TESTS: harness m469.mjs — 3 laws (label + copy, a bare re-typed message, the never-trips).
 - version.js -> m469-001.
+
+# M470 — the referee: two against one is a battle; a companion can join; every ruling carries its account; the check's domain
+He: "make sure everything of Arbiter is integrated with no bugs or regression. Why is it only success and fail
+without explanation or justification? And why does my team fighting someone look like 1 vs 1 instead of 2 vs 1?"
+- 2 vs 1 (referee.js, engine/duels.js, engine/apply.js): the contract said duel_start = "combat against ONE named
+  person", battle_start = "against SEVERAL opponents" — so a team against one enemy opened a DUEL and the duel engine,
+  one seat a side, dropped the companion. And a running duel had no door for a third fighter. Now: two against one is
+  a battle (the contract says so; a duel_start naming companions under its new `allies` is drawn up as a battle with
+  that one enemy, the referee's estimate riding as opponentRating); every fight beat has `joins` {allies, enemies} —
+  a companion stepping in or reinforcements — carried by a new `combat.join` mutation (a take-back like any fight
+  change; the founders never write it): a duel widens into a battle carrying both duellists exactly as they stand
+  (rating, poise, hurts, momentum, composure, the round; grewFrom:'duel'), a battle takes newcomers once, ten a side,
+  never the player, a war takes none. The widened beat is fought at once as a battle round.
+- THE ACCOUNT (referee.js ruling(kind, tier, directive, account), drawer.js verdictPanel): every ruling carries what
+  the referee read and what the dice did — what (a lone check / duel round N / battle round N / a war / armed / a lull
+  / over), the attempt, who against whom at what ratings, the tilt and the referee's own reason for it (a new `why`
+  field in all four contracts), the odds, the roll, the tier, at stake; in a duel both fighters' poise/hurts/momentum;
+  in a battle the field and every pairing. The ledger's "The house has ruled" shows it, with "What the storyteller was
+  told" folded and "The rulings before it" (the last eight, from refHistory). The storyteller still hears only the
+  words a person says — M345 holds, the numbers never reach the wire (M470-4 asserts it).
+- A REGRESSION FOUND ON THE WAY: normalizeAdj never read the `domain` the contract asked the referee for, so every
+  lone check rolled on the character's DEFAULT rating (a melee 8 forcing a door, a social 9 persuading — all at 5).
+  checkDomain() keeps melee|ranged|social|intellect|stealth|craft; fights were never affected (their own domain).
+- TESTS: harness m470.mjs — 4 laws (the opening call routes companions to a battle; joinFight carries state, dedupes,
+  caps, refuses a war; combat.join with its take-back; the account of a lone check with its numbers, a battle's field,
+  a duel widened through the referee's own beat, the wire still numberless). Harness 909/909 (every M11/M345/M400
+  referee law green), walk 137/137 (DOM-68 the referee in the app), long play 8/8, lint 0. The panel photographed.
+- version.js -> m470-001.

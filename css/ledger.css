@@ -430,6 +430,12 @@
   line-height: 1.5;
 }
 
+/* M470: the account behind a ruling */
+#drawer .verdict-account { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; }
+#drawer .verdict-row { font-size: 0.88rem; line-height: 1.45; color: var(--text); padding: 0.3rem 0.55rem; border-radius: var(--ledger-slot-radius); background: var(--ledger-slot); border: 1px solid var(--ledger-line); }
+#drawer .verdict-row .page-key { color: var(--muted); font-family: var(--font); font-size: 0.78rem; font-weight: 600; margin-right: 0.2rem; }
+#drawer .verdict-past { margin-top: 0.5rem; }
+
 /* the world agent's word */
 #drawer .world-brief {
   margin: 0 0 0.5rem;

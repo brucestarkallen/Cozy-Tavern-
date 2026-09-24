@@ -716,6 +716,50 @@ export function startBattle(state, { allies, enemies, domain, scaleMismatch, opp
   return state.battle;
 }
 
+/* M470: SOMEONE JOINS A RUNNING FIGHT. The writer: "I have a team fighting someone and it seems like 1 vs 1 instead
+ * of 2 vs 1." A duel had no door for a third fighter: an ally stepping in was not modelled at all. Now — a duel with
+ * anyone joining on either side becomes a BATTLE that carries both duellists exactly as they stand (poise, hurts,
+ * momentum, composure, the opponent's estimated rating, the round count); a battle takes the newcomers as units,
+ * ten a side at most, never twice the same person, never the player. A war is army scale and takes no walk-ins
+ * (null). Returns the fight now running, or null when nothing changed. */
+export function joinFight(state, { allies, enemies }, eng) {
+  const al = (allies || []).filter((n) => n && !isMcAlias(state, n));
+  const en = (enemies || []).filter((n) => n && !isMcAlias(state, n));
+  if (!al.length && !en.length) return null;
+  if (state.duel && state.duel.active && !state.duel.over) {
+    const duel = state.duel;
+    const b = startBattle(state, {
+      allies: al, enemies: [duel.opp.name].concat(en.filter((n) => !samePersonName(n, duel.opp.name))),
+      domain: duel.domain, scaleMismatch: duel.scaleMismatch,
+      oppEstimate: duel.opp.estimated && Number.isFinite(duel.opp.rating) ? duel.opp.rating : null,
+    }, eng);
+    if (!b) { state.duel = duel; return null; }
+    const carry = (to, from, keys) => { for (const k of keys) if (from[k] !== undefined) to[k] = from[k]; };
+    const mc = b.allies.find((u) => u && u.isPlayer);
+    if (mc) carry(mc, duel.player, ['rating', 'poise', 'maxPoise', 'injuries', 'momentum', 'opening']);
+    const opp = b.enemies.find((u) => u && samePersonName(u.name, duel.opp.name));
+    if (opp) carry(opp, duel.opp, ['rating', 'poise', 'maxPoise', 'injuries', 'momentum', 'opening', 'estimated', 'composure', 'composureMax']);
+    b.round = duel.round || 0;
+    b.grewFrom = 'duel';
+    return b;
+  }
+  if (state.battle && state.battle.active && !state.battle.over && state.battle.kind !== 'war') {
+    const b = state.battle;
+    const known = (side, n) => side.some((u) => u && samePersonName(u.name, n));
+    const newA = buildUnits(state, al.filter((n) => !known(b.allies, n) && !known(b.enemies, n)), b.domain, false, null, eng);
+    const newE = buildUnits(state, en.filter((n) => !known(b.enemies, n) && !known(b.allies, n)), b.domain, true, null, eng);
+    const roomA = Math.max(0, 10 - b.allies.length);
+    const roomE = Math.max(0, 10 - b.enemies.length);
+    const addA = newA.slice(0, roomA);
+    const addE = newE.slice(0, roomE);
+    if (!addA.length && !addE.length) return null;
+    b.allies.push(...addA);
+    b.enemies.push(...addE);
+    return b;
+  }
+  return null;
+}
+
 /* One ally-vs-enemy pairing, from the ally's perspective. Openings are
  * SYMMETRIC — both sides consume and spend what they earned. */
 function resolvePairing(a, e, extraDelta, eng) {

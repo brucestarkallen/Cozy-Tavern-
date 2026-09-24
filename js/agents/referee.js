@@ -240,8 +240,8 @@ const SITUATION_FIELD = [
 const TIER_FIELD = '"tier": for a task, the difficulty — ' + TIER_LIST.split(', ').slice(0, 5).join(', ') + '. For opposed or a fight, the opposition — mook, trained, elite, formidable, or relative to the actor: inferior, peer, superior.';
 
 const SCALE_FIELD = '"scale": integer -4..4 — ONLY when the two sides are CATEGORICALLY mismatched in size, mass or power (a human against a dragon, a foot soldier against a war-machine, a child against a bear), from the PLAYER\'s side: strongly negative when the player is hopelessly outmatched by something vast (a normal human attacking a dragon head-on: -3 or -4), strongly positive when the player is the vast one; 0 when both are roughly the same scale, however their skill differs. An equalizer in the story (a dragon-slaying spear, a machine of their own, an exposed weak point) shrinks it.';
-const DUEL_START_FIELD = '"duel_start": null, or {"opponent": name, "domain": melee|ranged|null, "rating": 0-10|null, ' + SCALE_FIELD + '} — when combat against ONE named person truly OPENS: an actual strike, lunge, shot, grapple or power unleashed AT them (even a quick or lopsided one), OR both sides clearly squared up — blades drawn, stances taken, the duel accepted — though nothing has been swung yet (then check:false: the fight joins, nothing is decided). For an actual attack on a person, prefer the duel to a lone check.';
-const BATTLE_START_FIELD = '"battle_start": null, or {' + TEAM_ROSTER_FIELD('allies') + ', ' + TEAM_ROSTER_FIELD('enemies') + ', "domain": melee|ranged|null, "scale": -4..4} — when combat begins against SEVERAL opponents at once, or the player attacks a GROUP ("sweep through the guards"); unnamed foes get a fitting squad with a count ("Guard x3"). Skirmish scale, a handful a side — not armies.';
+const DUEL_START_FIELD = '"duel_start": null, or {"opponent": name, "domain": melee|ranged|null, "rating": 0-10|null, "allies": array of named characters fighting BESIDE the player against this opponent (empty when the player fights alone), ' + SCALE_FIELD + '} — when combat between the player and ONE named person truly OPENS: an actual strike, lunge, shot, grapple or power unleashed AT them (even a quick or lopsided one), OR both sides clearly squared up — blades drawn, stances taken, the duel accepted — though nothing has been swung yet (then check:false: the fight joins, nothing is decided). For an actual attack on a person, prefer the duel to a lone check.';
+const BATTLE_START_FIELD = '"battle_start": null, or {' + TEAM_ROSTER_FIELD('allies') + ', ' + TEAM_ROSTER_FIELD('enemies') + ', "domain": melee|ranged|null, "scale": -4..4} — when MORE THAN TWO people are in the fight: several opponents at once, the player attacking a GROUP ("sweep through the guards"), OR anyone fighting BESIDE the player against even one enemy (two against one is a battle, never a duel — list the companions under allies); unnamed foes get a fitting squad with a count ("Guard x3"). Skirmish scale, a handful a side — not armies.';
 const WAR_START_FIELD = '"war_start": null, or {' + TEAM_ROSTER_FIELD('allies') + ', ' + TEAM_ROSTER_FIELD('enemies') + ', ' + WAR_COMMANDER_FIELD + ', "scale": -4..4} — when the player takes COMMAND of army-scale fighting, ordering formations; name formations from the story (2-5 a side), inventing sensible ones if unnamed. Both lists must be filled.';
 
 /* The micro-referee's whole brief — Arbiter's ADJ_SYSTEM (v0.42), in Cozy's JSON shape.
@@ -274,6 +274,7 @@ export const ADJ_SYSTEM = [
   TIER_FIELD,
   '"circumstance": integer -3..+3 for this beat\'s immediate physical tilt (positioning, surprise, exhaustion, help). 0 unless the story clearly argues otherwise,',
   '"stakes": one short phrase on what failure costs, or null,',
+  '"why": one short clause on what tilts this beat — the reason behind circumstance and tier (positioning, surprise, the opponent\'s edge, help at hand), or null,',
   GUARD_FIELD,
   COUNTER_FIELD,
   OPP_RATING_FIELD,
@@ -295,6 +296,8 @@ export const DUEL_SYSTEM = [
   '- For "recover", circumstance is how SAFELY they can recover: unopposed with a reliable method +2; snatched under pressure with the enemy closing -2. Recovery never fails into damage — at worst it barely helps.',
   '- "sequence": fill it ONLY when the player\'s single message is a genuine CHAIN of 2+ distinct offensive sub-actions meant to land in order (disrupt his spell, THEN a groin kick, THEN an elbow). Each strike gets its own circumstance, judged on its OWN footing given what came before AND the opponent reacting between strikes. A chain is HIGH-RISK: a late strike is only as good as the setup that survived to it. 2-4 strikes; null for a single action — never invent a chain the player did not write, and still fill "action"/"circumstance" for the move as a whole.',
   '- "opponent_switch": null, or the new opponent\'s name if the player disengages and squares up against someone else.',
+  '- "joins": null, or {"allies": [names], "enemies": [names]} — named characters who ENTER the fight THIS beat on either side (a companion stepping in beside the player, reinforcements arriving for the opponent), the player left out. null when nobody new joins. A duel with a companion in it is a battle from then on.',
+  '- "why": one short clause on what tilts this beat — the reason behind circumstance (the press, the footing, surprise, help at hand), or null.',
   DIRTY_RULE,
   TWO_SIDED_RULE,
   GUARD_RULE,
@@ -303,20 +306,22 @@ export const DUEL_SYSTEM = [
   '- composure_change works both ways: the player\'s action frightening, awing or demoralizing the opponent ("who": the opponent, negative), or terror and horror shaking the player.',
   NARRATIVE_RULES,
   JSON_ONLY,
-  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": "attack"|"recover"|"talk", "circumstance": -3..+3, "sequence": null|[{"strike": short label, "circumstance": -3..+3}], "opponent_switch": null|name, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
+  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": "attack"|"recover"|"talk", "circumstance": -3..+3, "why": null|short clause, "sequence": null|[{"strike": short label, "circumstance": -3..+3}], "opponent_switch": null|name, "joins": null|{"allies": [names], "enemies": [names]}, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
 ].join('\n');
 
 export const BATTLE_SYSTEM = [
   'You are the referee of a battle already in progress — a party-scale fight. Read the player\'s beat. You NEVER decide who wins — only the parameters.',
   '- "exchange": false only for talk, councils, pauses and anything that risks nothing while nobody presses; under attack, a talking or hesitant turn is still an exchange at negative circumstance. "combat_ended": true only when the story has already closed the engagement.',
   '- "move": {"kind": "attack"|"command", "target": enemy name|null, "circumstance": -3..+3} — command means the player directs allies rather than striking; target is the enemy the player engages, if named or clearly meant.',
+  '- "joins": null, or {"allies": [names], "enemies": [names]} — named characters who ENTER the fight THIS beat on either side, the player left out; null when nobody new joins.',
+  '- "why": one short clause on what tilts this beat — the reason behind circumstance, or null.',
   DIRTY_RULE,
   TWO_SIDED_RULE,
   GUARD_RULE,
   COND_RECONCILE_RULE,
   NARRATIVE_RULES,
   JSON_ONLY,
-  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "attack"|"command", "target": null|name, "circumstance": -3..+3}, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
+  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "attack"|"command", "target": null|name, "circumstance": -3..+3}, "why": null|short clause, "joins": null|{"allies": [names], "enemies": [names]}, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
 ].join('\n');
 
 export const WAR_SYSTEM = [
@@ -329,7 +334,7 @@ export const WAR_SYSTEM = [
   COND_RECONCILE_RULE,
   NARRATIVE_RULES,
   JSON_ONLY,
-  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "maneuver"|"stratagem"|"personal", "acting": null|name, "target": null|name, "circumstance": -3..+3}, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
+  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "maneuver"|"stratagem"|"personal", "acting": null|name, "target": null|name, "circumstance": -3..+3}, "why": null|short clause, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
 ].join('\n');
 
 /* M345: THE CAST SHEET, SEEDED WITH ITS EYES OPEN. The writer's sheet had his main character missing and the paper bag
@@ -523,6 +528,12 @@ function normalizeComposureChange(v, state) {
 /* The opening-call normalization, with the identity hardening ported
  * wholesale: the actor is ALWAYS the player, the opposition is NEVER an MC
  * alias (a self-target gets rewritten to the world). */
+const CHECK_DOMAINS = new Set(['melee', 'ranged', 'social', 'intellect', 'stealth', 'craft']);
+function checkDomain(d) {
+  const x = String(d == null ? '' : d).toLowerCase().trim();
+  return CHECK_DOMAINS.has(x) ? x : null;
+}
+
 export function normalizeAdj(obj, state) {
   if (!obj || typeof obj !== 'object') return null;
   const out = {
@@ -530,6 +541,11 @@ export function normalizeAdj(obj, state) {
     actor: mcName(state),
     action: cleanName(obj.action, 280),
     kind: obj.kind === 'actor' ? 'actor' : 'task',
+    /* M470: THE DOMAIN THE REFEREE NAMED WAS THROWN AWAY. The contract asked for "the arena this attempt plays in"
+     * and the normaliser never read it, so every lone check rolled on the character's DEFAULT rating — a melee 8
+     * swordsman forcing a door, a social 9 diplomat persuading, all at the default. Fights took their own domain and
+     * were never affected. */
+    domain: checkDomain(obj.domain),
     opposition: cleanName(obj.opposition, 60) || 'moderate',
     tier: cleanName(obj.tier, 20) || null,
     circumstance: clampInt(obj.circumstance, -3, 3, 0),
@@ -548,15 +564,31 @@ export function normalizeAdj(obj, state) {
     out.kind = 'task';
     out.opposition = out.tier || 'moderate';
   }
+  out.why = cleanName(obj.why, 160); /* M470: the referee's reason, for the ledger's account */
   const ds = obj.duel_start;
   if (ds && typeof ds === 'object' && cleanName(ds.opponent, 60) && !isMcAlias(state, ds.opponent)) {
-    out.duel_start = {
-      opponent: cleanName(ds.opponent, 60),
-      domain: combatDomain(ds.domain),
-      rating: Number.isFinite(Number(ds.rating)) ? clamp(Number(ds.rating), 0, 10) : null,
-      scale: clampInt(ds.scale, -4, 4, 0),
-      scaleMismatch: clampInt(ds.scale, -4, 4, 0), /* M176: one spelling, every fight */
-    };
+    /* M470: TWO AGAINST ONE IS A BATTLE. A duel_start that names companions beside the player is drawn up as a battle
+     * with those allies and this one enemy — the duel engine has one seat a side, so an ally named there was simply
+     * dropped and the writer's team fought one at a time. */
+    const companions = normalizeRoster(ds.allies).filter((n) => !isMcAlias(state, n) && !samePersonName(n, ds.opponent));
+    if (companions.length && !(obj.battle_start && typeof obj.battle_start === 'object')) {
+      out.battle_start = {
+        allies: companions,
+        enemies: [cleanName(ds.opponent, 60)],
+        domain: combatDomain(ds.domain),
+        scale: clampInt(ds.scale, -4, 4, 0),
+        scaleMismatch: clampInt(ds.scale, -4, 4, 0),
+        oppEstimate: Number.isFinite(Number(ds.rating)) ? clamp(Number(ds.rating), 0, 10) : null,
+      };
+    } else {
+      out.duel_start = {
+        opponent: cleanName(ds.opponent, 60),
+        domain: combatDomain(ds.domain),
+        rating: Number.isFinite(Number(ds.rating)) ? clamp(Number(ds.rating), 0, 10) : null,
+        scale: clampInt(ds.scale, -4, 4, 0),
+        scaleMismatch: clampInt(ds.scale, -4, 4, 0), /* M176: one spelling, every fight */
+      };
+    }
   }
   const bs = obj.battle_start;
   if (bs && typeof bs === 'object') {
@@ -612,6 +644,14 @@ function normalizeMove(raw, kinds, fallbackKind) {
   return out;
 }
 
+/* M470: who enters the fight this beat — names only, the player never, nobody twice */
+function normalizeJoins(raw, state) {
+  if (!raw || typeof raw !== 'object') return null;
+  const allies = normalizeRoster(raw.allies).filter((n) => !isMcAlias(state, n));
+  const enemies = normalizeRoster(raw.enemies).filter((n) => !isMcAlias(state, n) && !allies.some((a) => samePersonName(a, n)));
+  return allies.length || enemies.length ? { allies, enemies } : null;
+}
+
 export function normalizeDuelAdj(obj, state) {
   if (!obj || typeof obj !== 'object') return null;
   const out = {
@@ -622,6 +662,8 @@ export function normalizeDuelAdj(obj, state) {
     circumstance: clampInt(obj.circumstance, -3, 3, 0),
     sequence: null,
     opponent_switch: cleanName(obj.opponent_switch, 60),
+    joins: normalizeJoins(obj.joins, state), /* M470 */
+    why: cleanName(obj.why, 160), /* M470 */
     playerGuard: cleanName(obj.playerGuard, 120),
     counterPath: cleanName(obj.counterPath, 120),
     condition_change: normalizeConditionChange(obj.condition_change, state),
@@ -650,6 +692,8 @@ export function normalizeBattleAdj(obj, state) {
     combat_ended: obj.combat_ended === true,
     action: cleanName(obj.action, 280) || 'fights on',
     move: mv,
+    joins: normalizeJoins(obj.joins, state), /* M470 */
+    why: cleanName(obj.why, 160), /* M470 */
     playerGuard: cleanName(obj.playerGuard, 120),
     counterPath: cleanName(obj.counterPath, 120),
     condition_change: normalizeConditionChange(obj.condition_change, state),
@@ -665,6 +709,7 @@ export function normalizeWarAdj(obj, state) {
     combat_ended: obj.combat_ended === true,
     action: cleanName(obj.action, 280) || 'holds the line',
     move: mv,
+    why: cleanName(obj.why, 160), /* M470 */
     condition_change: normalizeConditionChange(obj.condition_change, state),
     composure_change: normalizeComposureChange(obj.composure_change, state),
   };
@@ -933,19 +978,42 @@ export async function refereeStep({ connection, userText, userId, history, state
       return cutAt !== -1 ? directive.slice(0, cutAt) + ' ' + notes + directive.slice(cutAt) : directive + ' ' + notes;
     };
 
-    const ruling = (kind, tier, directive) => ({ kind, tier, words: TIER_MEANING[tier] || String(tier || ''), directive, at: Date.now() });
+    /* M470: THE ACCOUNT BEHIND A RULING — the writer: "why is it only success and fail, without explanation or
+     * justification?" Every ruling now carries what the referee read and what the dice did: the attempt, who against
+     * whom at what ratings, the tilt and the referee's reason for it, the odds, the roll, the tier — and in a battle,
+     * every pairing on the field. The storyteller still hears only the words a person says (M345); the account is
+     * the ledger's ("The house has ruled"). */
+    const account = (what, res, extra = {}) => {
+      const a = { what, action: adj.action || '', why: adj.why || '', circumstance: Number.isFinite(adj.circumstance) ? adj.circumstance : (adj.move && Number.isFinite(adj.move.circumstance) ? adj.move.circumstance : 0), ...extra };
+      if (res && typeof res === 'object') {
+        if (Number.isFinite(res.aR)) a.actorRating = Math.round(res.aR * 10) / 10;
+        if (Number.isFinite(res.oR)) a.oppositionRating = Math.round(res.oR * 10) / 10;
+        if (res.oppLabel) a.opposition = res.oppLabel;
+        if (Number.isFinite(res.delta)) a.delta = Math.round(res.delta * 10) / 10;
+        if (Number.isFinite(res.P)) a.chance = Math.round(res.P * 100);
+        if (Number.isFinite(res.u)) a.roll = Math.round(res.u * 100);
+        if (res.tier) a.tier = res.tier;
+        if (res.command === true) a.command = true;
+        if (Array.isArray(res.reports)) a.reports = res.reports.slice(0, 12).map((rep) => (typeof rep === 'string' ? rep : (rep && rep.words) || JSON.stringify(rep)));
+      }
+      a.actor = mcName(state);
+      if (state.duel) a.fight = { kind: 'duel', round: state.duel.round, player: { poise: state.duel.player.poise, maxPoise: state.duel.player.maxPoise, injuries: state.duel.player.injuries, momentum: state.duel.player.momentum }, opp: { name: state.duel.opp.name, poise: state.duel.opp.poise, maxPoise: state.duel.opp.maxPoise, injuries: state.duel.opp.injuries, momentum: state.duel.opp.momentum, composure: state.duel.opp.composure } };
+      else if (state.battle) a.fight = { kind: state.battle.kind === 'war' ? 'war' : 'battle', round: state.battle.round, allies: (state.battle.allies || []).map((u) => ({ name: u.name, rating: u.rating, standing: u.standing !== false, injuries: u.injuries, poise: u.poise })), enemies: (state.battle.enemies || []).map((u) => ({ name: u.name, rating: u.rating, standing: u.standing !== false, injuries: u.injuries, poise: u.poise })) };
+      return a;
+    };
+    const ruling = (kind, tier, directive, acct) => ({ kind, tier, words: TIER_MEANING[tier] || String(tier || ''), directive, account: acct || null, at: Date.now() });
 
     const closeFight = async (kindLabel) => {
       const applied = applyMutations(state, [{ type: 'combat.end', engine: engineForMutations(eng, settings) }]);
       state = applied.state;
       state.seedDueAfterFight = true;
-      const v = ruling(kindLabel, 'CLOSED', buildFightOverDirective(adj.action));
+      const v = ruling(kindLabel, 'CLOSED', buildFightOverDirective(adj.action), account('the fight is over — the story ended it', null));
       commit(v);
       return { state, ruling: v, status: 'ruled', why: 'combat ended by the story' };
     };
 
     const lull = (kindLabel) => {
-      const v = ruling(kindLabel, 'LULL', buildLullDirective(state, adj.action));
+      const v = ruling(kindLabel, 'LULL', buildLullDirective(state, adj.action), account('a lull — nobody pressed, nothing rolled', null));
       commit(v);
       return { state, ruling: v, status: 'ruled', why: 'a beat without risk' };
     };
@@ -956,7 +1024,7 @@ export async function refereeStep({ connection, userText, userId, history, state
       if (!adj.exchange) return lull('war');
       const out = resolveWarRound(state, adj.move, eng);
       const tier = out.focalRes ? out.focalRes.tier : 'STALEMATE';
-      const v = ruling('war', tier, withNotes(buildWarDirective(state, adj, out)));
+      const v = ruling('war', tier, withNotes(buildWarDirective(state, adj, out)), account('war, round ' + (state.battle ? state.battle.round : ''), out.focalRes ? { ...out.focalRes, reports: out.reports } : { reports: out.reports }));
       commit(v);
       return { state, ruling: v, status: 'ruled', why: 'war round' };
     }
@@ -964,10 +1032,14 @@ export async function refereeStep({ connection, userText, userId, history, state
     /* ---- a battle in progress ---- */
     if (inBattle) {
       if (adj.combat_ended) return closeFight('battle');
+      if (adj.joins) { /* M470: newcomers take the field before the round is fought */
+        const applied = applyMutations(state, [{ type: 'combat.join', ...adj.joins, engine: engineForMutations(eng, settings) }]);
+        state = applied.state;
+      }
       if (!adj.exchange) return lull('battle');
       const out = resolveBattleRound(state, adj.move, eng);
       const tier = out.mcRes ? out.mcRes.tier : 'STALEMATE';
-      const v = ruling('battle', tier, withNotes(buildBattleDirective(state, adj, out)));
+      const v = ruling('battle', tier, withNotes(buildBattleDirective(state, adj, out)), account('battle, round ' + (state.battle ? state.battle.round : ''), out.mcRes ? { ...out.mcRes, reports: out.reports } : { reports: out.reports }));
       commit(v);
       return { state, ruling: v, status: 'ruled', why: 'battle round' };
     }
@@ -975,6 +1047,21 @@ export async function refereeStep({ connection, userText, userId, history, state
     /* ---- a duel in progress ---- */
     if (inDuel) {
       if (adj.combat_ended) return closeFight('duel');
+      if (adj.joins) {
+        /* M470: a companion steps in (or reinforcements arrive) — the duel widens into a battle carrying both
+         * duellists as they stand, and this beat is fought as a battle round */
+        const applied = applyMutations(state, [{ type: 'combat.join', ...adj.joins, engine: engineForMutations(eng, settings) }]);
+        state = applied.state;
+        if (state.battle && !state.duel) {
+          if (!adj.exchange) return lull('battle');
+          const mv = { kind: adj.move === 'recover' ? 'attack' : 'attack', target: null, circumstance: adj.circumstance };
+          const out = resolveBattleRound(state, mv, eng);
+          const tier = out.mcRes ? out.mcRes.tier : 'STALEMATE';
+          const v = ruling('battle', tier, withNotes(buildBattleDirective(state, { ...adj, move: mv }, out)), account('the duel widened into a battle, round ' + state.battle.round, out.mcRes ? { ...out.mcRes, reports: out.reports } : { reports: out.reports }));
+          commit(v);
+          return { state, ruling: v, status: 'ruled', why: 'a duel widened into a battle' };
+        }
+      }
       if (!adj.exchange) return lull('duel');
       if (adj.opponent_switch && !isMcAlias(state, adj.opponent_switch)) {
         startDuel(state, {
@@ -992,7 +1079,7 @@ export async function refereeStep({ connection, userText, userId, history, state
         res = resolveDuelExchange(state, adj.circumstance, adj.move, eng);
         directive = buildDuelDirective(state, adj, res);
       }
-      const v = ruling('duel', res.tier, withNotes(directive));
+      const v = ruling('duel', res.tier, withNotes(directive), account('duel, round ' + (state.duel ? state.duel.round : ''), res));
       commit(v);
       return { state, ruling: v, status: 'ruled', why: 'duel round' };
     }
@@ -1009,7 +1096,7 @@ export async function refereeStep({ connection, userText, userId, history, state
         const applied = applyMutations(state, [begin]);
         state = applied.state;
         if (state.duel || state.battle) {
-          const v = ruling('armed', 'ARMED', withNotes(buildArmedDirective(state, adj)));
+          const v = ruling('armed', 'ARMED', withNotes(buildArmedDirective(state, adj)), account('the fight is joined — armed, nothing rolled yet', null));
           commit(v);
           return { state, ruling: v, status: 'ruled', why: 'fight joined — armed, nothing rolled' };
         }
@@ -1026,20 +1113,20 @@ export async function refereeStep({ connection, userText, userId, history, state
         const mv = { kind: 'maneuver', acting: null, target: null, circumstance: adj.circumstance };
         const out = resolveWarRound(state, mv, eng);
         const tier = out.focalRes ? out.focalRes.tier : 'STALEMATE';
-        const v = ruling('war', tier, withNotes(buildWarDirective(state, adj, out)));
+        const v = ruling('war', tier, withNotes(buildWarDirective(state, adj, out)), account('a war opens', out.focalRes ? { ...out.focalRes, reports: out.reports } : { reports: out.reports }));
         commit(v);
         return { state, ruling: v, status: 'ruled', why: 'war opens' };
       }
     }
 
     if (adj.battle_start) {
-      const applied = applyMutations(state, [{ type: 'combat.begin', kind: 'battle', ...adj.battle_start, engine: engineForMutations(eng, settings) }]);
+      const applied = applyMutations(state, [{ type: 'combat.begin', kind: 'battle', ...adj.battle_start, opponentRating: adj.battle_start.oppEstimate != null ? adj.battle_start.oppEstimate : adj.opponent_rating, engine: engineForMutations(eng, settings) }]);
       state = applied.state;
       if (state.battle) {
         const mv = { kind: 'attack', target: null, circumstance: adj.circumstance };
         const out = resolveBattleRound(state, mv, eng);
         const tier = out.mcRes ? out.mcRes.tier : 'STALEMATE';
-        const v = ruling('battle', tier, withNotes(buildBattleDirective(state, adj, out)));
+        const v = ruling('battle', tier, withNotes(buildBattleDirective(state, adj, out)), account('a battle opens — ' + state.battle.allies.length + ' against ' + state.battle.enemies.length, out.mcRes ? { ...out.mcRes, reports: out.reports } : { reports: out.reports }));
         commit(v);
         return { state, ruling: v, status: 'ruled', why: 'battle opens' };
       }
@@ -1056,14 +1143,14 @@ export async function refereeStep({ connection, userText, userId, history, state
       state = applied.state;
       if (state.duel) {
         const res = resolveDuelExchange(state, adj.circumstance, 'attack', eng);
-        const v = ruling('duel', res.tier, withNotes(buildDuelDirective(state, adj, res)));
+        const v = ruling('duel', res.tier, withNotes(buildDuelDirective(state, adj, res)), account('a duel opens', res));
         commit(v);
         return { state, ruling: v, status: 'ruled', why: 'duel opens' };
       }
     }
 
     const res = resolveCheck(state, adj, eng);
-    const v = ruling('check', res.tier, withNotes(buildDirective(adj, res)));
+    const v = ruling('check', res.tier, withNotes(buildDirective(adj, res)), account('a lone check' + (adj.kind === 'actor' ? ' against ' + (adj.opposition || 'someone') : ' — ' + (adj.tier || adj.opposition || 'moderate') + ' difficulty'), { ...res, oppLabel: adj.kind === 'actor' ? adj.opposition : (adj.tier || adj.opposition || 'moderate') }, { stakes: adj.stakes || '', domain: adj.domain || '' }));
     commit(v);
     return { state, ruling: v, status: 'ruled', why: 'a lone check' };
   } catch (err) {

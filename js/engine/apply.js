@@ -44,7 +44,7 @@ import { addInjury, addStrain, findBodyKey, findInjury, SEV_WORDS } from './bodi
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
 import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
-import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName } from './duels.js';
+import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight } from './duels.js';
 import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson } from './people.js';
 import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
@@ -1202,6 +1202,30 @@ const HANDLERS = {
     } else {
       words = 'A war is joined — ' + (state.battle.allies.length - 1) + ' formations against ' + state.battle.enemies.length + '.';
     }
+    return { words, undo: { kind: 'combat.restore', before } };
+  },
+
+  /* M470: someone joins the fight on either side — a duel grows into a battle carrying both duellists as they stand;
+   * a battle takes the newcomers. Reversible like any fight change (combat.restore). */
+  'combat.join'(state, m) {
+    if (!state.duel && !state.battle) return { why: 'no fight was on for anyone to join' };
+    const eng = engineSettings(m.engine && typeof m.engine === 'object' ? m.engine : {});
+    const roster = (v) => (Array.isArray(v) ? v.map((x) => normalizeName(String(x))).filter(Boolean) : []);
+    const allies = roster(m.allies);
+    const enemies = roster(m.enemies);
+    if (!allies.length && !enemies.length) return { why: 'nobody was named as joining' };
+    const before = {
+      duel: state.duel ? cloneMap({ d: state.duel }).d : null,
+      battle: state.battle ? cloneMap({ b: state.battle }).b : null,
+      combat: state.mode.combat === true,
+      sheet: cloneMap(state.sheet),
+    };
+    const wasDuel = Boolean(state.duel && state.duel.active);
+    const joined = joinFight(state, { allies, enemies }, eng);
+    if (!joined) return { why: wasDuel ? 'the duel could not be widened from what was said' : 'they were already on the field, or it is a war' };
+    state.mode.combat = true;
+    const who = [].concat(allies.map((n) => n + ' beside ' + mcName(state)), enemies.map((n) => n + ' against'));
+    const words = (wasDuel ? 'The duel widens into a battle — ' : 'The battle grows — ') + who.join(', ') + '. Now ' + state.battle.allies.length + ' against ' + state.battle.enemies.length + '.';
     return { words, undo: { kind: 'combat.restore', before } };
   },
 

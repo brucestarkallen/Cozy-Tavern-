@@ -48,7 +48,7 @@ const VOCABULARY = [
 /* M46: the scene is the extractor's. The founder founds the WORLD — never the
  * scene's ground, hour, presence or mood (it set "the scene now stands in"
  * once per place the brief mentioned). */
-export const NOT_THE_FOUNDERS = new Set(['place.set', 'clock.set', 'clock.advance', 'presence.enter', 'presence.leave', 'presence.update', 'mode.set', 'mode.clear', 'body.injure', 'body.strain', 'body.heal', 'combat.begin', 'combat.end']);
+export const NOT_THE_FOUNDERS = new Set(['place.set', 'clock.set', 'clock.advance', 'presence.enter', 'presence.leave', 'presence.update', 'mode.set', 'mode.clear', 'body.injure', 'body.strain', 'body.heal', 'combat.begin', 'combat.join', 'combat.end']); /* M470: a join is a fight's, never a founder's */
 
 function law({ mc }) {
   return [
