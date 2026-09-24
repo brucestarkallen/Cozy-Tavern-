@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m468-001)
+# Cozy Tavern — handoff for the next session (state at m468-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 1g. SETTINGS FOLD LIKE THE LEDGER (M468): settings.js buildQuickNav — folded is a class on .settings-section, the h3 is the
@@ -261,6 +261,7 @@ founding design lives in AGENTS.md's first entries.)
 - `node tests/harness/run.mjs` — 893 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `python3 tests/paint_coats.py` — every coat on a seeded ledger, every text surface held to AA (M465); run it for any change to a coat, to css/ledger.css or to the drawer's markup.
+- `python3 tests/pagemark.py` — the page mark in a real Chromium: the last page named at the end, the first at the top, the drag to both (M468-2); jsdom lays nothing out, so this is the only proof of the number.
 - `cd tests/dom && node run.mjs` — the walk: 132 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models

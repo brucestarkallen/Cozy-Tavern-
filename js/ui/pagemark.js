@@ -41,11 +41,16 @@ export function initPageMark(ctx) {
     numbers = [];
     for (const n of nodes) { tops.push(n.offsetTop); numbers.push(Number(n.dataset.page) || 0); }
   }
-  /* the page whose top is the last one above the reading line (45% down the visible thread) */
+  /* the page whose top is the last one above the reading line. M468-2: THE LINE SLIDES WITH THE SCROLL — at the
+   * top of the tale it sits 45% down the screen (the page under the eye), and it moves to the screen's foot as the
+   * scroll reaches the end, so the LAST page is the one named when the thread stands at its end. A fixed 45% line
+   * named page 154 of 155 at the very bottom whenever the last page was shorter than half the screen. */
   function pageUnderEye() {
     measure();
     if (!tops.length) return 0;
-    const line = thread.scrollTop + thread.clientHeight * 0.45;
+    const room = Math.max(0, thread.scrollHeight - thread.clientHeight);
+    const ratio = room ? Math.min(1, Math.max(0, thread.scrollTop / room)) : 1;
+    const line = thread.scrollTop + thread.clientHeight * (0.45 + 0.55 * ratio) - (ratio >= 1 ? 1 : 0);
     let lo = 0; let hi = tops.length - 1; let at = 0;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;

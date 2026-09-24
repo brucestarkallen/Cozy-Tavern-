@@ -11067,3 +11067,16 @@ He: "can you make the settings tidy too? So many opened subsections make my head
   without remembering it as his choice. The house reset puts the folds back as shipped (nav.applyFolds).
 - TESTS: walk DOM-119 (first open / rest folded, tap opens and folds, remembered, a deep link unfolds). Walk 137/137.
 - version.js -> m468-001.
+
+# M468-2 — the page mark names the last page at the end
+He: "why does the scroll page number count 154 of 155 at the end — 155 is counted as 154?"
+- WHAT WAS WRONG (M466, mine): the page under the eye was the page whose top was above a reading line fixed 45% down
+  the screen. At the very end of a tale whose last page is shorter than half the screen, that line still sat inside
+  the page before it — so the end read "154 of 155". Reproduced in a real Chromium (tests/pagemark.py on the old
+  code: 39 of 40 at the end and after a drag to the foot).
+- NOW (ui/pagemark.js pageUnderEye): the reading line slides with the scroll — 45% down the screen at the top of the
+  tale, the screen's foot at the end — so the last page is named when the thread stands at its end, the first at the
+  top, and every page between as its top crosses the line.
+- TESTS: tests/pagemark.py (new, real Chromium, forty pages, the last one short): the end names 40, the top 1, halfway
+  20, a drag to the foot 40 and back to the head 1; the page throws nothing.
+- version.js -> m468-002.
