@@ -233,7 +233,8 @@ test('M86-1 the absent are ranked by who can reach the scene (the writer’s ACW
   for (let i = 0; i < 16; i += 1) st.present.push({ name: 'Guest' + i, position: 'standing at the long table by the far window', attire: 'a dark coat' });
   for (let i = 0; i < 16; i += 1) {
     st.canon['Guest' + i] = { facts: [{ key: 'eyes', value: 'grey, one clouded from a childhood fever', atMinutes: 0 }, { key: 'home', value: 'the tenements past the east gate', atMinutes: 0 }] };
-    st.knowledge['Guest' + i] = [{ fact: 'saw the captain leave with the ledger under his coat', atTurn: 3 }];
+    /* M459: each guest's own fact — one fact shared by all is said once now, and would not overfill the ledger */
+    st.knowledge['Guest' + i] = [{ fact: 'saw the captain leave with the ledger under his coat, from door ' + i, atTurn: 3 }];
   }
   const facts = renderStateFacts(st);
   assert(facts.length <= STATE_BUDGET, 'the budget holds: ' + facts.length);

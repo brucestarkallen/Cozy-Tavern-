@@ -305,7 +305,14 @@ export function findKnowledgeKey(knowledge, name) {
   if (!wanted) return null;
   const safe = knowledge && typeof knowledge === 'object' ? knowledge : {};
   const near = nearKey(Object.keys(safe), name);
-  if (near) return near;
+  /* M459: A LOOSE MATCH IS HELD TO THE ONE MATCHER. nearKey's last rule takes any shared word — so "Byakuya Kuchiki", with
+   * no book of his own, was found in RUKIA's: his facts written into hers, and her whole block drawn a second time for
+   * him in Who knows what. Two given names are two people. */
+  const given = (n) => keyOf(n).replace(/^the\s+/, '').split(/\s+/).filter(Boolean);
+  const w = given(name);
+  const k = near ? given(near) : [];
+  const twoPeople = w.length > 1 && k.length > 1 && w[0] !== k[0] && !samePersonName(near, name);
+  if (near && !twoPeople) return near;
   /* M420: AND THE ONE MATCHER (engine/names.js). With "Suì-Fēng" in the scene and her knowledge under "Sui-Feng", her
    * own facts were missing from Who knows what — and the notes told the storyteller she "hasn’t found out" her own
    * secret ("Sui-Feng knows"), as if they were two people. Folded letters, a rank, canon's other name — when exactly
@@ -446,10 +453,13 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   const ignoreBase = new Set();
   for (const n of (scene && Array.isArray(scene.ignore) ? scene.ignore : [])) for (const w of String(n || '').toLowerCase().split(/\s+/)) if (w) ignoreBase.add(w.replace(/['’]s$/, ''));
   const lines = [];
+  const drawn = new Set(); /* M459: a book is drawn once, whoever else answers to it */
+  const picked = [];
   for (const name of names) {
     const key = findKnowledgeKey(safe, name);
-    if (!key || !safe[key].length) continue;
-    const list = safe[key];
+    if (!key || !safe[key].length || drawn.has(key)) continue;
+    drawn.add(key);
+    const list = sameFactsOnce(safe[key]);
     const newest = list.slice(-recent).reverse().map(aged);
     const older = list.slice(0, Math.max(0, list.length - recent));
     let recalled = [];
@@ -464,11 +474,56 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
         .map((x) => aged(x.k));
     }
     const rest = older.length - recalled.length;
-    lines.push(key + ' knows: ' + newest.join('; ') + '.'
-      + (recalled.length ? ' From much earlier — each is about ITS OWN moment, not this scene; use one only where it truly fits: ' + recalled.join('; ') + '.' : '')
-      + (rest > 0 ? ' (and ' + rest + ' older ' + (rest === 1 ? 'thing' : 'things') + ' they know, kept in the ledger)' : ''));
+    picked.push({ key, newest, recalled, rest });
+  }
+  /* M459: WHAT MANY HERE KNOW IS SAID ONCE. One sword stopped an inch from Zaraki's face in front of the whole courtyard,
+   * and the notes said so thirteen times, a line for each witness. A fact three or more people here share rides once,
+   * with who knows it; each person's line keeps what is theirs. */
+  const norm = (f) => f.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const holders = new Map();
+  for (const p of picked) for (const f of [...p.newest, ...p.recalled]) { const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [] }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
+  const shared = [...holders.values()].filter((h) => h.who.length >= 3);
+  const sharedKeys = new Set(shared.map((h) => norm(h.text)));
+  const bySet = new Map();
+  for (const h of shared) { const everyone = h.who.length === picked.length; const sig = everyone ? '*' : h.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { everyone, who: h.who, facts: [] }); bySet.get(sig).facts.push(h.text); }
+  for (const g of [...bySet.values()].sort((a, b) => (b.everyone - a.everyone) || (b.who.length - a.who.length))) {
+    const but = picked.map((p) => p.key).filter((k) => !g.who.includes(k));
+    lines.push((g.everyone ? 'Everyone here knows' : but.length <= g.who.length / 2 ? 'Everyone here but ' + but.join(', ') + ' knows' : 'Known to ' + g.who.join(', ')) + ': ' + g.facts.join('; ') + '.');
+  }
+  for (const p of picked) {
+    const own = p.newest.filter((f) => !sharedKeys.has(norm(f)));
+    const ownOld = p.recalled.filter((f) => !sharedKeys.has(norm(f)));
+    if (!own.length && !ownOld.length && p.rest <= 0) continue;
+    lines.push(p.key + ' knows' + (own.length ? ': ' + own.join('; ') + '.' : ' what is shared above.')
+      + (ownOld.length ? ' From much earlier — each is about ITS OWN moment, not this scene; use one only where it truly fits: ' + ownOld.join('; ') + '.' : '')
+      + (p.rest > 0 ? ' (and ' + p.rest + ' older ' + (p.rest === 1 ? 'thing' : 'things') + ' they know, kept in the ledger)' : ''));
   }
   return lines.join('\n');
+}
+
+/* M459: THE SAME FACT IN NEW WORDS IS ONE FACT. The page reader writes what a person learned on every page, and over
+ * twenty pages "Shunsui accepted Jovan through his own office and named him captain of the 13th" gathered five
+ * wordings in each witness's book. When two facts share nearly all their words, the newer wording stands for both. */
+function sameFactsOnce(list) {
+  const words = (f) => new Set(String(f || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').split(' ').filter((w) => w.length > 2 || /\d/.test(w)));
+  const numbers = (set) => [...set].filter((w) => /\d/.test(w)).sort().join(' ');
+  const out = [];
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const k = list[i];
+    const a = words(k && k.fact);
+    const at = out.findIndex((o) => {
+      const b = words(o.fact);
+      if (numbers(a) !== numbers(b)) return false; /* page 43 and page 44, 150 years and 160: never the same fact */
+      let both = 0;
+      for (const w of a) if (b.has(w)) both += 1;
+      const small = Math.min(a.size, b.size);
+      return small >= 4 && both / small >= 0.8;
+    });
+    if (at === -1) out.push(k);
+    /* the richer wording stands (the one that says more), dated as the newer — nothing a wording adds is lost */
+    else if (a.size > words(out[at].fact).size) out[at] = { ...k, atTurn: Math.max(Number(k.atTurn) || 0, Number(out[at].atTurn) || 0) };
+  }
+  return out.reverse();
 }
 
 /* ---------- factions ---------- */
