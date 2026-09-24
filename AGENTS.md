@@ -10906,3 +10906,21 @@ and asked for the preset "perfectly optimized", masterful, and no bugs.
 - TESTS: m461.mjs (1). Harness 891/891, walk 130/130, long play 8/8, lint no new warnings.
 - version.js -> m461-001.
 
+# M462 — a card says who someone is: never where they once stood, never the series' look twice
+The two things M461 left open in his "On their mind", closed:
+- A MOMENT IN A CORE: "Byakuya Kuchiki — Captain of the 6th Division; assembled at 1st Division HQ with the available
+  captains" (the same on Hitsugaya and Rose) while they stood in the Tenth's courtyard; Mayuri's core was a whole scene
+  ("gliding along…; at the corridor outside the Assembly Hall, moving toward the 12th Division"). Written by the world
+  agent before M445 taught it a core is who someone is. engine/people.js cardCore drops a clause that opens as a moment
+  (a posture or a motion verb with a place after it, or "at/in/on the corridor|hall|courtyard|gate|…"); a clause that
+  only mentions one ("a tall woman who stands by her captain") stays.
+- THE SERIES' LOOK TWICE: Rukia's and Shunsui's cores still carried "petite, slender, black hair, large violet eyes" and
+  "tall, lean, wavy brown hair, stubble, perpetually relaxed expression", which True of them carries from the series in
+  the same request (the canon tidy had left them). cardCore lets go of a comma item of four words or fewer whose every
+  word the series' own look lines say (seriesLookWords: source 'canon' only — his own truths are never a reason); her
+  uniform and her duty, his kimono and his charisma stay.
+- On the card only: the ledger's page is never rewritten, so nothing is lost if a rule here is too eager.
+- TESTS: m462.mjs (2) on his exact cores and through the real people block. Harness 893/893, walk 130/130, long play
+  8/8, lint no new warnings.
+- version.js -> m462-001.
+

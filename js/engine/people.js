@@ -474,8 +474,37 @@ export function stateLabel(entry, turn) {
   return 'Now: ';
 }
 
-function cardText(name, entry, turn, cap, here = null) {
-  const head = name + (entry.core ? ' — ' + entry.core : '');
+/* M462: WHO THEY ARE, NEVER WHERE THEY ONCE STOOD, AND NEVER TWICE. A core is who someone is to the story. Some cores the
+ * world agent wrote before M445 carry a moment ("Captain of the 6th Division; assembled at 1st Division HQ with the
+ * available captains" — while he stands in the Tenth's courtyard; Mayuri's is a whole scene), and some still repeat the
+ * series' own look that "True of them" carries in the same request (Rukia's "petite, slender, black hair, large violet
+ * eyes"). On the card, a clause that is a moment goes, and a look already said by the series goes; what the story made
+ * of them stays, and the page itself is never rewritten. */
+const MOMENT_CLAUSE = /^(?:(?:assembled|gathered|seated|sitting|kneeling|standing|waiting|walking|gliding|pressed|leaning|pacing|lingering|hovering)\b[^;]*?\b(?:at|in|on|along|by|beside|outside|inside|toward|towards)\b|(?:at|in|on|outside|inside) the (?:corridor|hall|courtyard|gate|rail|door|doorway|room|office|road)\b)/i;
+const LOOK_STOP = new Set(['the', 'and', 'with', 'his', 'her', 'their', 'a', 'an', 'of', 'in', 'wears', 'wearing', 'has', 'is']);
+export function cardCore(core, lookWords = null) {
+  const text = String(core || '').trim();
+  if (!text) return '';
+  const clauses = text.split(/;\s*/).filter((c) => c && !MOMENT_CLAUSE.test(c.trim()));
+  const kept = !lookWords || !lookWords.size ? clauses : clauses.map((c) => c.split(/,\s*/).filter((item) => {
+    const w = item.toLowerCase().replace(/[^\p{L}\p{N}' ]+/gu, ' ').split(/\s+/).filter((x) => x && !LOOK_STOP.has(x));
+    return !(w.length && w.length <= 4 && w.every((x) => lookWords.has(x)));
+  }).join(', ')).filter((c) => c.trim());
+  return (kept.length ? kept : clauses.length ? clauses : [text]).join('; ');
+}
+function seriesLookWords(state, name) {
+  const out = new Set();
+  const canon = state && state.canon && typeof state.canon === 'object' ? state.canon : {};
+  for (const [k, e] of Object.entries(canon)) {
+    if (!e || !Array.isArray(e.facts) || !(k === name || samePersonName(k, name))) continue;
+    for (const f of e.facts) if (f && f.source === 'canon') for (const x of (String(f.key || '') + ' ' + String(f.value || '')).toLowerCase().replace(/[^\p{L}\p{N}' ]+/gu, ' ').split(/\s+/)) if (x) out.add(x);
+  }
+  return out;
+}
+
+function cardText(name, entry, turn, cap, here = null, lookWords = null) {
+  const core = entry.core ? cardCore(entry.core, lookWords) : '';
+  const head = name + (core ? ' — ' + core : '');
   /* M408: never a blank now for someone here — what the ledger knows for certain (where they stand in the scene) until
    * a reader writes more */
   const now = entry.state ? stateLabel(entry, turn) + entry.state : (here ? 'Now: here' + (here.position ? ' — ' + here.position : '') + '.' : '');
@@ -730,7 +759,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     if (!keys.includes(key)) continue;
     /* M408: the scene's own entry for them (their position), for a card with no now yet */
     const here = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && p.name && (findPersonKey(characters, p.name) || p.name) === key) || null;
-    sections.push({ shed: 0, text: cardText(key, characters[key], turn, undefined, here) });
+    sections.push({ shed: 0, text: cardText(key, characters[key], turn, undefined, here, seriesLookWords(state, key)) }); /* M462 */
     tiers.cards += 1;
   }
   const also = overflow.map(compactLine)
