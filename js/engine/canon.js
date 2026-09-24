@@ -105,6 +105,20 @@ export function unlockFact(canon, name, key) {
 /* The compact render: present characters only, one line each —
  * "Mara — hair: black; eyes: grey." Returns '' when no one present carries
  * a locked fact, so the state-of-things slot can omit the section. */
+/* M460: WHAT THE SERIES SAYS, WITHOUT THE WIKI'S LEFTOVERS. Canon's look came in with the page's scraps — "look: .]] Renji
+ * has…", "white headpieces called ." (a link that left no word), "his main source being , the same shop…" — and with
+ * how they looked long ago ("110 years ago, her hair was shoulder-length", "While she was lieutenant under Isshin…",
+ * "Even as a child…"): not how they look on this page. Only the series' own lines are cleaned; his are his. A
+ * sentence set in the past goes; a scrap is mended; nothing else is touched. */
+const PAST_OPENING = /^(?:[\w\s-]*\byears? ago\b|while (?:she|he|they) (?:was|were)\b|(?:even )?as an? (?:child|kid|youth|teenager)\b|in (?:the|her|his|their) (?:past|youth|childhood)\b|formerly\b|originally\b|previously\b|before (?:the|her|his|their) [\w-]+,)/i;
+export function cleanWikiWords(value) {
+  let t = String(value || '').replace(/\[\[|\]\]|\{\{|\}\}/g, ' ').replace(/^[\s.,;:]+/, '');
+  t = t.replace(/\b(?:called|named|known as|titled|being)\s*(?=[.,;])/gi, '').replace(/\s+([.,;:!?])/g, '$1').replace(/,\s*,/g, ',').replace(/([.,;:])\1+/g, '$1');
+  const sentences = t.split(/(?<=[.!?])\s+(?=[A-Z0-9])/);
+  const kept = sentences.filter((x) => !PAST_OPENING.test(x.trim()));
+  return (kept.length ? kept : sentences).join(' ').replace(/\s{2,}/g, ' ').replace(/,\./g, '.').trim();
+}
+
 export function renderCanon(canon, presentNames, perPerson = FACTS_SHOWN) {
   if (!canon || typeof canon !== 'object') return '';
   const names = Array.isArray(presentNames) ? presentNames : [];
@@ -124,7 +138,8 @@ export function renderCanon(canon, presentNames, perPerson = FACTS_SHOWN) {
     const valid = facts.filter((f) => f && typeof f.key === 'string' && typeof f.value === 'string' && f.key.trim() && f.value.trim());
     const shown = [...valid.filter((f) => f.source !== 'canon'), ...valid.filter((f) => f.source === 'canon')]
       .slice(0, perPerson)
-      .map((f) => f.key.trim() + ': ' + f.value.trim());
+      .map((f) => f.key.trim() + ': ' + (f.source === 'canon' ? cleanWikiWords(f.value) : f.value.trim())) /* M460 */
+      .filter((line) => !/:\s*$/.test(line));
     if (shown.length) { const said = shown.join('; '); lines.push(canonKey + ' — ' + said + (/[.!?…]$/.test(said) ? '' : '.')); } /* M386: never "eyes.." */
   }
   return lines.join('\n');

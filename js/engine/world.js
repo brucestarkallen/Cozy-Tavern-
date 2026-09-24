@@ -774,5 +774,16 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
 export function renderBlindSpots(spots) {
   const list = (Array.isArray(spots) ? spots : []).filter((s) => s && Array.isArray(s.lacks) && s.lacks.length);
   if (!list.length) return '';
-  return list.map((s) => s.name + BLIND_LINE + s.lacks.map((l) => l.fact + ' (' + l.from + ' knows)').join('; ') + '.').join('\n'); /* M416 */
+  /* M460: A FACT THEY LACK IS SAID ONCE, WITH EVERYONE WHO LACKS IT. The same four facts rode under sixteen names, the
+   * whole fact each time; now each fact is said once, after the names of all who have not found it out — the same marker
+   * (" hasn’t found out: "), the same names, the same knower. Facts lacked by the very same people share a line. */
+  const byFact = new Map();
+  for (const s of list) for (const l of s.lacks) {
+    const k = String(l.fact) + '\u0000' + String(l.from);
+    if (!byFact.has(k)) byFact.set(k, { fact: l.fact, from: l.from, who: [] });
+    if (!byFact.get(k).who.includes(s.name)) byFact.get(k).who.push(s.name);
+  }
+  const bySet = new Map();
+  for (const f of byFact.values()) { const sig = f.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { who: f.who, facts: [] }); bySet.get(sig).facts.push(f.fact + ' (' + f.from + ' knows)'); }
+  return [...bySet.values()].map((g) => g.who.join(', ') + BLIND_LINE + g.facts.join('; ') + '.').join('\n'); /* M416 */
 }

@@ -10867,3 +10867,18 @@ Read line by line, "Who knows what" was most of it, and three faults made it so:
   findKnowledgeKey); this commit renames it and bumps the version. Behaviour identical.
 - version.js -> m459-001.
 
+# M460 — the last repeats in his notes: each lacked fact once; the series' look without wiki scraps or the past
+He: "is it done or not — give me the final perfected version". The two repeats left after M459:
+- WHAT THEY HAVEN'T FOUND OUT: the same four facts rode under sixteen names, the whole fact each time. renderBlindSpots
+  now says each fact once, after the names of everyone who lacks it ("A, B, C hasn't found out: F (X knows)"), facts
+  lacked by the very same people sharing a line — the same marker (BLIND_LINE), names and knower the second reader and
+  the storyteller read. On his own lines: 10,135 → 1,460 characters.
+- TRUE OF THEM: canon's look came in with the wiki's scraps (".]] Renji has…", "headpieces called .", "his main source
+  being , the same shop…") and with how people looked long ago ("110 years ago…", "While she was lieutenant under
+  Isshin…", "Even as a child…"). canon.js cleanWikiWords, in renderCanon for the series' own lines only (source
+  'canon'): markup scraps gone, a link that left no word mended, a sentence that opens in the past dropped (the latest
+  look — "Seventeen months after Aizen's defeat…" — stays; "Later, he would…" stays). His own truths never touched.
+- TESTS: m460.mjs (2): every name, fact and knower kept, each fact once, far shorter; his exact lines cleaned, his own
+  truth as written. Harness 890/890, walk 130/130, long play 8/8, lint no new warnings.
+- version.js -> m460-001.
+
