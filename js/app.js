@@ -27,7 +27,12 @@ let themeMode = 'dark';
  * is a name here, a token block in base.css and a radio in Settings — the
  * three names were written out four times in this file, so a fourth coat
  * would have been chosen in Settings and resolved to "follow the sky". */
-const COATS = { dark: '#16120f', light: '#f5efe4', deep: '#0a0f12', magma: '#070c0e' };
+/* M465: five more — each value is that coat's --bg in base.css, so the phone's
+ * own bar wears the room's ground. */
+const COATS = {
+  dark: '#16120f', light: '#f5efe4', deep: '#0a0f12', magma: '#070c0e',
+  fantasy: '#0c1210', cyberpunk: '#0b0714', academy: '#14100b', aurora: '#070b14', starship: '#0a0d12',
+};
 
 function resolveTheme() {
   if (Object.prototype.hasOwnProperty.call(COATS, themeMode)) return themeMode;

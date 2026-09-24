@@ -1,0 +1,453 @@
+/* Cozy Tavern — the coats' own dress (M465).
+ * base.css holds each coat's TOKENS (every control reads those). This file
+ * holds what a coat paints beyond its tokens: the room's glow (on the column
+ * that never scrolls, M301's law), the composer's light, the swatches in
+ * Settings, and the ledger dressed in the coat's own idiom — a tome, a
+ * dashboard, obsidian, a parchment map, a frosted journal, a ship's console.
+ * Nothing here touches the DOM or the housekeeper's sheet; every ledger rule
+ * hangs on #drawer and the tokens ledger.css declares there.
+ *
+ * COST: a gradient is painted once on a layer that does not scroll; no
+ * backdrop-filter anywhere (a phone re-blurs it on every frame); no transform
+ * or will-change on the drawer (M146); the one animation (the academy's
+ * footprints) is opacity only, on a handful of rows, and still under the
+ * house's reduced-motion law. */
+
+/* ---------- the swatches in Settings ---------- */
+
+.coat-row { align-items: center; gap: 0.6rem; }
+.coat-row input { flex: 0 0 auto; }
+.coat-words { font-size: 0.93rem; line-height: 1.4; }
+.coat-words strong { font-weight: 650; }
+.coat-swatch {
+  flex: 0 0 auto;
+  width: 24px; height: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 2px var(--surface), 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.coat-swatch[data-coat="fantasy"]   { background: linear-gradient(135deg, #16221d 0%, #0c1210 55%, #e2b45f 56%, #e2b45f 100%); }
+.coat-swatch[data-coat="cyberpunk"] { background: linear-gradient(135deg, #1d1433 0%, #0b0714 55%, #d27bff 56%, #7ef0ff 100%); }
+.coat-swatch[data-coat="magma"]     { background: linear-gradient(135deg, #142329 0%, #070c0e 55%, #f0673c 56%, #ff8a5c 100%); }
+.coat-swatch[data-coat="academy"]   { background: linear-gradient(135deg, #2b2217 0%, #14100b 55%, #efe1bf 56%, #8a2f1e 100%); }
+.coat-swatch[data-coat="aurora"]    { background: linear-gradient(135deg, #152238 0%, #070b14 55%, #62e6b5 56%, #c4b6f0 100%); }
+.coat-swatch[data-coat="starship"]  { background: linear-gradient(135deg, #19222d 0%, #0a0d12 55%, #ff8a2a 56%, #ffa64d 100%); }
+.coat-swatch[data-coat="deep"]      { background: linear-gradient(135deg, #17262c 0%, #0a0f12 55%, #e4813a 56%, #7fe3d0 100%); }
+.coat-swatch[data-coat="dark"]      { background: linear-gradient(135deg, #2e2620 0%, #16120f 55%, #e9a13b 56%, #e8c98a 100%); }
+.coat-swatch[data-coat="light"]     { background: linear-gradient(135deg, #f2ebdd 0%, #f5efe4 55%, #8a5205 56%, #2f5f7e 100%); }
+.coat-swatch[data-coat="system"]    { background: linear-gradient(135deg, #f5efe4 0%, #f5efe4 50%, #16120f 50%, #16120f 100%); }
+
+/* =====================================================================
+   FANTASY — the old realm: a forest night, gilding for what acts; the
+   ledger is a tome.
+   ===================================================================== */
+
+html[data-theme='fantasy'] .thread-wrap {
+  background:
+    radial-gradient(70% 45% at 8% 0%, rgba(226, 180, 95, 0.11), transparent 62%),
+    radial-gradient(60% 40% at 100% 100%, rgba(52, 110, 84, 0.26), transparent 70%),
+    radial-gradient(40% 30% at 0% 100%, rgba(52, 110, 84, 0.14), transparent 70%),
+    linear-gradient(180deg, #0c1210 0%, #0d1613 60%, #0e1a15 100%);
+}
+html[data-theme='fantasy'] .thread,
+html[data-theme='fantasy'] .composer-zone { background: transparent; }
+html[data-theme='fantasy'] .topbar { box-shadow: 0 1px 0 rgba(226, 180, 95, 0.16); }
+html[data-theme='fantasy'] .send-btn { box-shadow: 0 0 16px -4px rgba(226, 180, 95, 0.55); }
+html[data-theme='fantasy'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 18px -8px rgba(226, 180, 95, 0.5); }
+html[data-theme='fantasy'] .ember-fill { box-shadow: 0 0 8px 0 rgba(226, 180, 95, 0.4); }
+html[data-theme='fantasy'] .msg-user .msg-body { border-left-color: #e2b45f; box-shadow: inset 0 -1px 0 rgba(226, 180, 95, 0.3); }
+
+html[data-theme='fantasy'] #drawer {
+  --ledger-card: #152019;
+  --ledger-slot: #0f1814;
+  --ledger-line: rgba(226, 180, 95, 0.2);
+  --ledger-glyph: #e2b45f;
+  --ledger-title: #f0e3c2;
+  --ledger-radius: 10px;
+  --ledger-slot-radius: 8px;
+  --ledger-pill-radius: 999px;
+  background-color: #101a16;
+  background-image:
+    radial-gradient(120% 70% at 50% 0%, rgba(38, 60, 50, 0.55) 0%, transparent 60%),
+    radial-gradient(80% 50% at 50% 100%, rgba(226, 180, 95, 0.06) 0%, transparent 60%);
+  border-color: rgba(226, 180, 95, 0.35);
+  box-shadow: inset 0 0 0 4px #101a16, inset 0 0 0 5px rgba(226, 180, 95, 0.22), var(--shadow);
+}
+html[data-theme='fantasy'] #drawer .drawer-head { border-bottom-color: rgba(226, 180, 95, 0.28); }
+html[data-theme='fantasy'] #drawer .drawer-head h2 { font-variant: small-caps; letter-spacing: 0.05em; font-size: 1.25em; }
+html[data-theme='fantasy'] #drawer .ledger-panel {
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.04);
+}
+/* gilded corners */
+html[data-theme='fantasy'] #drawer .ledger-panel::before,
+html[data-theme='fantasy'] #drawer .ledger-panel::after {
+  content: '';
+  position: absolute;
+  width: 12px; height: 12px;
+  border: 1px solid rgba(226, 180, 95, 0.55);
+  pointer-events: none;
+}
+html[data-theme='fantasy'] #drawer .ledger-panel::before { top: 5px; left: 5px; border-right: 0; border-bottom: 0; border-top-left-radius: 6px; }
+html[data-theme='fantasy'] #drawer .ledger-panel::after { bottom: 5px; right: 5px; border-left: 0; border-top: 0; border-bottom-right-radius: 6px; }
+html[data-theme='fantasy'] #drawer .ledger-panel > h3 { font-variant: small-caps; letter-spacing: 0.06em; font-size: 1.08rem; }
+html[data-theme='fantasy'] #drawer .drawer-rooms { background: #121c17; border-color: rgba(226, 180, 95, 0.22); }
+html[data-theme='fantasy'] #drawer .drawer-rooms .nav-chip.current { box-shadow: inset 0 0 0 1px rgba(226, 180, 95, 0.45), 0 0 12px -6px rgba(226, 180, 95, 0.6); }
+html[data-theme='fantasy'] #drawer .text-btn { border-color: rgba(226, 180, 95, 0.3); }
+
+/* =====================================================================
+   CYBERPUNK — a violet-black room lit by neon; the ledger is a dashboard.
+   ===================================================================== */
+
+html[data-theme='cyberpunk'] .thread-wrap {
+  background:
+    repeating-linear-gradient(0deg, rgba(210, 123, 255, 0.035) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(90deg, rgba(210, 123, 255, 0.035) 0 1px, transparent 1px 44px),
+    radial-gradient(55% 35% at 100% 0%, rgba(210, 123, 255, 0.18), transparent 70%),
+    radial-gradient(50% 30% at 0% 100%, rgba(126, 240, 255, 0.11), transparent 70%),
+    linear-gradient(180deg, #0b0714 0%, #0d0919 60%, #100b1d 100%);
+}
+html[data-theme='cyberpunk'] .thread,
+html[data-theme='cyberpunk'] .composer-zone { background: transparent; }
+html[data-theme='cyberpunk'] .topbar { box-shadow: 0 1px 0 rgba(210, 123, 255, 0.28), 0 2px 14px -8px rgba(210, 123, 255, 0.6); }
+html[data-theme='cyberpunk'] .send-btn { box-shadow: 0 0 18px -4px rgba(210, 123, 255, 0.7); }
+html[data-theme='cyberpunk'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 20px -8px rgba(210, 123, 255, 0.6); }
+html[data-theme='cyberpunk'] .ember-fill { box-shadow: 0 0 8px 0 rgba(210, 123, 255, 0.45); }
+html[data-theme='cyberpunk'] .msg-user .msg-body { border-left-color: #7ef0ff; box-shadow: inset 0 -1px 0 rgba(126, 240, 255, 0.35); }
+html[data-theme='cyberpunk'] .composer { border-color: rgba(210, 123, 255, 0.35); }
+
+html[data-theme='cyberpunk'] #drawer {
+  --ledger-card: #140d24;
+  --ledger-slot: #0e0919;
+  --ledger-line: rgba(210, 123, 255, 0.22);
+  --ledger-glyph: #7ef0ff;
+  --ledger-title: #e69dff;
+  --ledger-radius: 3px;
+  --ledger-slot-radius: 3px;
+  --ledger-pill-radius: 5px;
+  --ledger-head-font: var(--mono);
+  background-color: #0d0919;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px),
+    radial-gradient(70% 40% at 100% 0%, rgba(210, 123, 255, 0.16), transparent 70%),
+    radial-gradient(60% 40% at 0% 100%, rgba(126, 240, 255, 0.08), transparent 70%);
+  border-color: rgba(210, 123, 255, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(126, 240, 255, 0.08), 0 0 28px -10px rgba(210, 123, 255, 0.55), var(--shadow);
+}
+html[data-theme='cyberpunk'] #drawer .drawer-head { border-bottom-color: rgba(210, 123, 255, 0.35); }
+html[data-theme='cyberpunk'] #drawer .drawer-head h2 { font-family: var(--mono); font-size: 0.86em; letter-spacing: 0.16em; text-transform: uppercase; text-shadow: 0 0 6px rgba(230, 157, 255, 0.3); }
+html[data-theme='cyberpunk'] #drawer .ledger-panel {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(210, 123, 255, 0.3), inset 0 0 26px -14px rgba(210, 123, 255, 0.5);
+}
+html[data-theme='cyberpunk'] #drawer .ledger-panel > h3 {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-bottom: 0;
+  padding-bottom: 0.5rem;
+  background: linear-gradient(90deg, rgba(126, 240, 255, 0.7), rgba(210, 123, 255, 0.5) 45%, transparent 90%) left bottom / 100% 1px no-repeat;
+}
+html[data-theme='cyberpunk'] #drawer .drawer-rooms { border-radius: 4px; background: #110c1f; border-color: rgba(210, 123, 255, 0.25); }
+html[data-theme='cyberpunk'] #drawer .drawer-rooms .nav-chip { border-radius: 3px; font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; }
+html[data-theme='cyberpunk'] #drawer .drawer-rooms .nav-chip.current { color: #e69dff; text-shadow: 0 0 8px rgba(210, 123, 255, 0.7); box-shadow: inset 0 0 0 1px rgba(210, 123, 255, 0.5), inset 0 -2px 0 #d27bff; }
+html[data-theme='cyberpunk'] #drawer .present-row { box-shadow: inset 2px 0 0 rgba(126, 240, 255, 0.5); border-color: rgba(210, 123, 255, 0.14); }
+html[data-theme='cyberpunk'] #drawer .text-btn { border-color: rgba(210, 123, 255, 0.4); text-shadow: 0 0 6px rgba(210, 123, 255, 0.35); }
+html[data-theme='cyberpunk'] #drawer .log-list { border-left-color: rgba(126, 240, 255, 0.3); }
+html[data-theme='cyberpunk'] #drawer .log-row::before { box-shadow: 0 0 0 2px var(--ledger-card), 0 0 8px rgba(126, 240, 255, 0.6); }
+html[data-theme='cyberpunk'] #drawer .clock-label { font-family: var(--mono); font-size: 0.88rem; letter-spacing: 0.04em; color: #7ef0ff; }
+
+/* =====================================================================
+   MAGMA — the tokens are M301–M303's, untouched; the ledger is obsidian.
+   ===================================================================== */
+
+html[data-theme='magma'] #drawer {
+  --ledger-card: #0e181c;
+  --ledger-slot: #0a1114;
+  --ledger-line: rgba(86, 207, 192, 0.14);
+  --ledger-glyph: #f0673c;
+  --ledger-title: #e6e1d6;
+  --ledger-radius: 4px;
+  --ledger-slot-radius: 4px;
+  --ledger-pill-radius: 6px;
+  --ledger-head-font: var(--font);
+  background-color: #0a1114;
+  background-image:
+    radial-gradient(60% 30% at 0% 100%, rgba(110, 24, 8, 0.32), transparent 72%),
+    radial-gradient(60% 30% at 100% 100%, rgba(110, 24, 8, 0.32), transparent 72%),
+    linear-gradient(180deg, #0a1114 0%, #0b1316 70%, #110d0c 100%);
+  border-color: rgba(240, 103, 60, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(86, 207, 192, 0.06), var(--shadow);
+}
+html[data-theme='magma'] #drawer .drawer-head { border-bottom-color: rgba(240, 103, 60, 0.3); }
+html[data-theme='magma'] #drawer .drawer-head h2 { font-family: var(--font); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.92em; }
+html[data-theme='magma'] #drawer .ledger-panel {
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(86, 207, 192, 0.14), inset 0 -18px 28px -26px rgba(240, 103, 60, 0.7);
+}
+html[data-theme='magma'] #drawer .ledger-panel > h3 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 0;
+  background: linear-gradient(90deg, rgba(240, 103, 60, 0.75), rgba(240, 103, 60, 0.2) 55%, transparent 90%) left bottom / 100% 2px no-repeat;
+}
+html[data-theme='magma'] #drawer .drawer-rooms { border-radius: 5px; background: #0c1417; }
+html[data-theme='magma'] #drawer .drawer-rooms .nav-chip { border-radius: 3px; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; }
+html[data-theme='magma'] #drawer .drawer-rooms .nav-chip.current { box-shadow: inset 0 0 0 1px rgba(240, 103, 60, 0.5), inset 0 -2px 0 #f0673c, 0 0 12px -6px rgba(240, 103, 60, 0.7); }
+html[data-theme='magma'] #drawer .present-row { box-shadow: inset 2px 0 0 rgba(240, 103, 60, 0.45); }
+html[data-theme='magma'] #drawer .text-btn { border-color: rgba(240, 103, 60, 0.4); }
+html[data-theme='magma'] #drawer .log-list { border-left-color: rgba(240, 103, 60, 0.3); }
+
+/* =====================================================================
+   THE ACADEMY — a night library; the ledger opens as a parchment map.
+   The map's own inks: every token re-scoped on #drawer, so each control
+   in it reads dark ink on parchment while the room stays oak-dark.
+   ===================================================================== */
+
+html[data-theme='academy'] .thread-wrap {
+  background:
+    radial-gradient(70% 50% at 50% 0%, rgba(224, 151, 90, 0.11), transparent 62%),
+    radial-gradient(50% 40% at 0% 100%, rgba(224, 151, 90, 0.05), transparent 70%),
+    linear-gradient(180deg, #14100b 0%, #17120c 60%, #1a150e 100%);
+}
+html[data-theme='academy'] .thread,
+html[data-theme='academy'] .composer-zone { background: transparent; }
+html[data-theme='academy'] .topbar { box-shadow: 0 1px 0 rgba(224, 151, 90, 0.2); }
+html[data-theme='academy'] .send-btn { box-shadow: 0 0 16px -4px rgba(224, 151, 90, 0.55); }
+html[data-theme='academy'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 18px -8px rgba(224, 151, 90, 0.5); }
+html[data-theme='academy'] .ember-fill { box-shadow: 0 0 8px 0 rgba(224, 151, 90, 0.4); }
+html[data-theme='academy'] .msg-user .msg-body { border-left-color: #e0975a; box-shadow: inset 0 -1px 0 rgba(224, 151, 90, 0.3); }
+
+html[data-theme='academy'] #drawer {
+  /* the map's inks — every token a control in the ledger can read */
+  --bg: #e8d9b3;
+  --bg-2: #efe1bf;
+  --surface: #f6ecd4;
+  --surface-2: #e7d6b0;
+  --border: #b89a6a;
+  --border-soft: #d3bd94;
+  --text: #2b1d10;
+  --text-2: #54412c;
+  --muted: #665238;
+  --ember: #8a2f1e;
+  --ember-hot: #a33a26;
+  --ember-dim: #d7b48e;
+  --on-ember: #fff4e3;
+  --spoken: #2a4d6b;
+  --thought: #5a3f7a;
+  --user-tint: #e6d5ad;
+  --danger: #9c3320;
+  --ok: #345f2c;
+  --warn: #6f4c06;
+  --shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+  --pk-card-1: #f4ecdc; --pk-card-2: #efe6d4; --pk-card-3: #f2ecdf; --pk-chip-bg: #e7dcc6; --pk-box-bg: #f6efe2; --pk-box-edge: #d8c9ae; --pk-rule: #e0d3ba;
+  --pk-place: #2a2018; --pk-body: #33291f; --pk-body-2: #33291f; --pk-body-3: #2f261d; --pk-body-4: #3a2f24;
+  --pk-quiet: #5c4e42; --pk-quiet-2: #5f5040; --pk-quiet-3: #5f5040; --pk-quiet-4: #6b5c4c; --pk-quiet-5: #6b5c4c; --pk-quiet-6: #6b5c4c; --pk-quiet-7: #7a6a58; --pk-quiet-8: #7a6a58;
+  --pk-gold: #8a5205; --pk-gold-2: #8a5205; --pk-gold-dim: #9a7434; --pk-red: #b23a2a; --pk-red-2: #b8452f; --pk-red-dim: #8f3626; --pk-amber: #9a5a10;
+  --pk-sky: #2f5f7e; --pk-rose: #8e4658; --pk-violet: #5f4288; --pk-violet-2: #6f4d8f; --pk-violet-3: #5a3a8a; --pk-teal: #1f6a5c;
+  --ledger-card: #f6ecd4;
+  --ledger-slot: #ece0c0;
+  --ledger-line: #cdb48a;
+  --ledger-glyph: #8a2f1e;
+  --ledger-title: #3a2814;
+  --ledger-radius: 6px;
+  --ledger-slot-radius: 5px;
+  --ledger-pill-radius: 999px;
+  color: var(--text);
+  background-color: #efe1bf;
+  background-image:
+    radial-gradient(120% 90% at 50% 45%, rgba(255, 250, 236, 0.45) 0%, transparent 62%),
+    radial-gradient(90% 90% at 0% 0%, rgba(122, 82, 32, 0.2), transparent 55%),
+    radial-gradient(90% 90% at 100% 100%, rgba(122, 82, 32, 0.24), transparent 55%);
+  border: 2px solid #8a6b3d;
+  box-shadow: inset 0 0 0 1px #d3bd94, inset 0 0 40px rgba(122, 82, 32, 0.2), var(--shadow);
+}
+html[data-theme='academy'] #drawer .drawer-head { border-bottom: 1px solid #b89a6a; box-shadow: 0 1px 0 rgba(255, 250, 236, 0.5); }
+html[data-theme='academy'] #drawer .drawer-head h2 { font-variant: small-caps; letter-spacing: 0.08em; font-size: 1.25em; color: #3a2814; }
+html[data-theme='academy'] #drawer .ledger-panel {
+  border: 1px solid #b89a6a;
+  outline: 1px dashed rgba(90, 60, 30, 0.35);
+  outline-offset: -5px;
+  box-shadow: 0 1px 0 rgba(255, 250, 236, 0.6) inset;
+}
+html[data-theme='academy'] #drawer .ledger-panel > h3 { font-variant: small-caps; letter-spacing: 0.08em; font-size: 1.06rem; border-bottom: 1px solid #b89a6a; }
+html[data-theme='academy'] #drawer .drawer-rooms { background: #e7d6b0; border-color: #b89a6a; border-radius: 6px; }
+html[data-theme='academy'] #drawer .drawer-rooms .nav-chip { color: #54412c; border-radius: 4px; font-family: var(--font-prose); font-size: 0.78rem; }
+html[data-theme='academy'] #drawer .drawer-rooms .nav-chip:hover { color: #2b1d10; background: #f6ecd4; }
+html[data-theme='academy'] #drawer .drawer-rooms .nav-chip.current { color: #8a2f1e; background: #f6ecd4; box-shadow: inset 0 -2px 0 #8a2f1e; }
+html[data-theme='academy'] #drawer .present-row { border-color: #cdb48a; color: #2b1d10; }
+html[data-theme='academy'] #drawer .text-btn { background: #e7d6b0; border-color: #b89a6a; color: #8a2f1e; }
+html[data-theme='academy'] #drawer .text-btn:hover { border-color: #8a2f1e; background: #f6ecd4; }
+html[data-theme='academy'] #drawer .story-mini { background: #f6ecd4; border-color: #cdb48a; color: #665238; }
+html[data-theme='academy'] #drawer .log-list { border-left: 2px dashed #a58a5e; }
+html[data-theme='academy'] #drawer .log-row::before { box-shadow: 0 0 0 2px var(--ledger-card); }
+html[data-theme='academy'] #drawer .present-form { border-color: #a58a5e; }
+html[data-theme='academy'] #drawer input, html[data-theme='academy'] #drawer select, html[data-theme='academy'] #drawer textarea { color: #2b1d10; background: #fbf4e4; border-color: #b89a6a; }
+html[data-theme='academy'] #drawer option { color: #2b1d10; background: #fbf4e4; }
+html[data-theme='academy'] #drawer ::placeholder { color: #8a7554; }
+html[data-theme='academy'] #drawer .work-banner { background: #e7d6b0; color: #2b1d10; border-bottom-color: #b89a6a; }
+html[data-theme='academy'] #drawer .icon-btn:hover { background: #e7d6b0; }
+/* footprints: whoever is in the scene walks the map; the absent stand where the world seated them */
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row { position: relative; padding-left: 2.35rem; }
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::before,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::after,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::before,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::after,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::before,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::after {
+  content: '';
+  position: absolute;
+  width: 15px; height: 15px;
+  background: #3a2814;
+  opacity: 0.7;
+  pointer-events: none;
+  -webkit-mask: center / contain no-repeat;
+  mask: center / contain no-repeat;
+}
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::before,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::before,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::before {
+  left: 8px; top: 0.35rem; transform: rotate(-18deg);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cg fill=%22%23000%22 stroke=%22none%22%3E%3Cellipse cx=%229.5%22 cy=%2214.5%22 rx=%223.1%22 ry=%225.2%22/%3E%3Ccircle cx=%226.4%22 cy=%227.2%22 r=%221.05%22/%3E%3Ccircle cx=%228.8%22 cy=%226.1%22 r=%221.2%22/%3E%3Ccircle cx=%2211.4%22 cy=%226.4%22 r=%221.05%22/%3E%3Ccircle cx=%2213.4%22 cy=%227.9%22 r=%22.95%22/%3E%3C/g%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cg fill=%22%23000%22 stroke=%22none%22%3E%3Cellipse cx=%229.5%22 cy=%2214.5%22 rx=%223.1%22 ry=%225.2%22/%3E%3Ccircle cx=%226.4%22 cy=%227.2%22 r=%221.05%22/%3E%3Ccircle cx=%228.8%22 cy=%226.1%22 r=%221.2%22/%3E%3Ccircle cx=%2211.4%22 cy=%226.4%22 r=%221.05%22/%3E%3Ccircle cx=%2213.4%22 cy=%227.9%22 r=%22.95%22/%3E%3C/g%3E%3C/svg%3E");
+}
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::after,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::after,
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::after {
+  left: 19px; top: 0.95rem; transform: rotate(-18deg);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cg fill=%22%23000%22 stroke=%22none%22%3E%3Cellipse cx=%2214.5%22 cy=%2214.5%22 rx=%223.1%22 ry=%225.2%22/%3E%3Ccircle cx=%2217.6%22 cy=%227.2%22 r=%221.05%22/%3E%3Ccircle cx=%2215.2%22 cy=%226.1%22 r=%221.2%22/%3E%3Ccircle cx=%2212.6%22 cy=%226.4%22 r=%221.05%22/%3E%3Ccircle cx=%2210.6%22 cy=%227.9%22 r=%22.95%22/%3E%3C/g%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cg fill=%22%23000%22 stroke=%22none%22%3E%3Cellipse cx=%2214.5%22 cy=%2214.5%22 rx=%223.1%22 ry=%225.2%22/%3E%3Ccircle cx=%2217.6%22 cy=%227.2%22 r=%221.05%22/%3E%3Ccircle cx=%2215.2%22 cy=%226.1%22 r=%221.2%22/%3E%3Ccircle cx=%2212.6%22 cy=%226.4%22 r=%221.05%22/%3E%3Ccircle cx=%2210.6%22 cy=%227.9%22 r=%22.95%22/%3E%3C/g%3E%3C/svg%3E");
+}
+/* the ones in the room are walking: the two prints take turns (opacity only; stilled by the reduced-motion law in base.css) */
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::before { animation: map-step-l 2.4s ease-in-out infinite; }
+html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::after { animation: map-step-r 2.4s ease-in-out infinite; }
+@keyframes map-step-l { 0%, 40% { opacity: 0.75; } 50%, 90% { opacity: 0.22; } 100% { opacity: 0.75; } }
+@keyframes map-step-r { 0%, 40% { opacity: 0.22; } 50%, 90% { opacity: 0.75; } 100% { opacity: 0.22; } }
+
+/* =====================================================================
+   AURORA — a northern night with the lights over it; the ledger is a
+   frosted field journal.
+   ===================================================================== */
+
+html[data-theme='aurora'] .thread-wrap {
+  background:
+    radial-gradient(1.5px 1.5px at 12% 4%, rgba(255, 255, 255, 0.32), transparent 3px),
+    radial-gradient(1px 1px at 31% 9%, rgba(255, 255, 255, 0.28), transparent 2.5px),
+    radial-gradient(1.5px 1.5px at 58% 3%, rgba(255, 255, 255, 0.3), transparent 3px),
+    radial-gradient(1px 1px at 84% 7%, rgba(255, 255, 255, 0.28), transparent 2.5px),
+    radial-gradient(70% 42% at 18% -12%, rgba(98, 230, 181, 0.24), transparent 62%),
+    radial-gradient(60% 36% at 66% -8%, rgba(196, 182, 240, 0.22), transparent 62%),
+    radial-gradient(50% 30% at 100% 8%, rgba(98, 230, 181, 0.1), transparent 62%),
+    linear-gradient(180deg, #070b14 0%, #080d18 45%, #0a1120 100%);
+}
+html[data-theme='aurora'] .thread,
+html[data-theme='aurora'] .composer-zone { background: transparent; }
+html[data-theme='aurora'] .topbar { box-shadow: 0 1px 0 rgba(98, 230, 181, 0.2); }
+html[data-theme='aurora'] .send-btn { box-shadow: 0 0 18px -4px rgba(98, 230, 181, 0.6); }
+html[data-theme='aurora'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 20px -8px rgba(98, 230, 181, 0.55); }
+html[data-theme='aurora'] .ember-fill { box-shadow: 0 0 8px 0 rgba(98, 230, 181, 0.45); }
+html[data-theme='aurora'] .msg-user .msg-body { border-left-color: #62e6b5; box-shadow: inset 0 -1px 0 rgba(98, 230, 181, 0.32); }
+
+html[data-theme='aurora'] #drawer {
+  --ledger-card: #101a2c;
+  --ledger-slot: #0c1424;
+  --ledger-line: rgba(139, 176, 186, 0.18);
+  --ledger-glyph: #62e6b5;
+  --ledger-title: #e6f1f4;
+  --ledger-radius: 12px;
+  --ledger-slot-radius: 9px;
+  background-color: #0b1120;
+  background-image:
+    radial-gradient(80% 30% at 20% 0%, rgba(98, 230, 181, 0.16), transparent 70%),
+    radial-gradient(70% 28% at 80% 0%, rgba(196, 182, 240, 0.14), transparent 70%),
+    linear-gradient(180deg, #0b1120 0%, #0a1020 100%);
+  border-color: rgba(98, 230, 181, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 30px -12px rgba(98, 230, 181, 0.45), var(--shadow);
+}
+html[data-theme='aurora'] #drawer .drawer-head { border-bottom-color: rgba(98, 230, 181, 0.22); }
+html[data-theme='aurora'] #drawer .ledger-panel {
+  padding-top: 0.95rem;
+  background-image: linear-gradient(90deg, rgba(98, 230, 181, 0.75), rgba(196, 182, 240, 0.65) 55%, transparent 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 2px;
+  background-position: left top;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 0 40px -30px rgba(98, 230, 181, 0.35);
+}
+html[data-theme='aurora'] #drawer .drawer-rooms { background: #0e1729; border-color: rgba(139, 176, 186, 0.18); }
+html[data-theme='aurora'] #drawer .drawer-rooms .nav-chip.current { box-shadow: inset 0 0 0 1px rgba(98, 230, 181, 0.4), inset 0 -2px 0 #62e6b5, 0 0 12px -6px rgba(98, 230, 181, 0.6); }
+html[data-theme='aurora'] #drawer .text-btn { border-color: rgba(98, 230, 181, 0.32); }
+html[data-theme='aurora'] #drawer .log-row::before { box-shadow: 0 0 0 2px var(--ledger-card), 0 0 8px rgba(98, 230, 181, 0.55); }
+
+/* =====================================================================
+   STARSHIP — a ship's console in charcoal and orange; the ledger is the
+   console.
+   ===================================================================== */
+
+html[data-theme='starship'] .thread-wrap {
+  background:
+    linear-gradient(0deg, rgba(255, 138, 42, 0.11) 0, transparent 16%),
+    radial-gradient(70% 45% at 50% 110%, rgba(255, 138, 42, 0.16), transparent 70%),
+    repeating-linear-gradient(-45deg, rgba(255, 138, 42, 0.028) 0 2px, transparent 2px 14px),
+    linear-gradient(180deg, #0a0d12 0%, #0c1017 60%, #0e131a 100%);
+}
+html[data-theme='starship'] .thread,
+html[data-theme='starship'] .composer-zone { background: transparent; }
+html[data-theme='starship'] .topbar { box-shadow: 0 1px 0 rgba(255, 138, 42, 0.38); }
+html[data-theme='starship'] .send-btn { box-shadow: 0 0 18px -4px rgba(255, 138, 42, 0.65); border-radius: 6px; }
+html[data-theme='starship'] .composer { border-radius: 6px; }
+html[data-theme='starship'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 20px -8px rgba(255, 138, 42, 0.55); }
+html[data-theme='starship'] .ember-fill { box-shadow: 0 0 8px 0 rgba(255, 138, 42, 0.45); }
+html[data-theme='starship'] .msg-user .msg-body { border-left-color: #ff8a2a; border-radius: 0 6px 6px 0; box-shadow: inset 0 -1px 0 rgba(255, 138, 42, 0.32); }
+
+html[data-theme='starship'] #drawer {
+  --ledger-card: #111821;
+  --ledger-slot: #0c1118;
+  --ledger-line: rgba(255, 138, 42, 0.2);
+  --ledger-glyph: #ff8a2a;
+  --ledger-title: #ffb066;
+  --ledger-radius: 3px;
+  --ledger-slot-radius: 3px;
+  --ledger-pill-radius: 4px;
+  --ledger-head-font: var(--mono);
+  background-color: #0c1118;
+  background-image:
+    repeating-linear-gradient(-45deg, rgba(255, 138, 42, 0.03) 0 2px, transparent 2px 14px),
+    linear-gradient(180deg, rgba(255, 138, 42, 0.07), transparent 18%);
+  border-color: rgba(255, 138, 42, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 138, 42, 0.12), var(--shadow);
+}
+html[data-theme='starship'] #drawer .drawer-head { border-bottom: 1px solid rgba(255, 138, 42, 0.45); background: linear-gradient(90deg, rgba(255, 138, 42, 0.14), transparent 70%); }
+html[data-theme='starship'] #drawer .drawer-head h2 { font-family: var(--mono); font-size: 0.86em; letter-spacing: 0.18em; text-transform: uppercase; color: #ff8a2a; }
+html[data-theme='starship'] #drawer #btn-drawer-close { border-radius: 4px; }
+html[data-theme='starship'] #drawer .ledger-panel {
+  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+  border: 0;
+  padding-top: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 138, 42, 0.22), inset 3px 0 0 rgba(255, 138, 42, 0.85);
+}
+html[data-theme='starship'] #drawer .ledger-panel > h3 {
+  margin: 0 -0.85rem 0.65rem;
+  padding: 0.5rem 0.85rem 0.45rem 1.05rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ff8a2a;
+  border-bottom: 1px solid rgba(255, 138, 42, 0.35);
+  background: linear-gradient(90deg, rgba(255, 138, 42, 0.16), rgba(255, 138, 42, 0.03) 80%);
+}
+html[data-theme='starship'] #drawer .drawer-rooms { border-radius: 3px; background: #0e141c; border-color: rgba(255, 138, 42, 0.3); }
+html[data-theme='starship'] #drawer .drawer-rooms .nav-chip { border-radius: 2px; font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; }
+html[data-theme='starship'] #drawer .drawer-rooms .nav-chip.current { background: #ff8a2a; color: #1a0c02; box-shadow: none; }
+html[data-theme='starship'] #drawer .drawer-rooms .nav-chip.current::before { background: #1a0c02; }
+html[data-theme='starship'] #drawer .present-row { box-shadow: inset 2px 0 0 rgba(255, 138, 42, 0.5); border-color: rgba(255, 138, 42, 0.12); }
+html[data-theme='starship'] #drawer .text-btn { border-color: rgba(255, 138, 42, 0.5); background: rgba(255, 138, 42, 0.08); }
+html[data-theme='starship'] #drawer .text-btn:hover { background: rgba(255, 138, 42, 0.16); }
+html[data-theme='starship'] #drawer .log-list { border-left-color: rgba(255, 138, 42, 0.35); }
+html[data-theme='starship'] #drawer .clock-label { font-family: var(--mono); font-size: 0.88rem; letter-spacing: 0.06em; color: #ffb066; }
+html[data-theme='starship'] #drawer .present-form { border-radius: 3px; }

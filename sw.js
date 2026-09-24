@@ -15,6 +15,8 @@ const SHELL = [
   'css/base.css',
   'css/chat.css',
   'css/drawer.css',
+  'css/ledger.css',
+  'css/coats.css',
   'js/app.js',
   'js/store.js',
   'js/providers/index.js',

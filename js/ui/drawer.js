@@ -1945,7 +1945,20 @@ function peoplePanel(ctx) {
       const ago = Number.isFinite(c.updatedAtTurn) ? Math.max(0, turnNow - c.updatedAtTurn) : 0;
       const isHere = present.has(name.toLowerCase());
       const mine = isMc(state, name);
-      const addLine = (text) => { const p = document.createElement('div'); p.className = 'quiet'; p.textContent = text; li.appendChild(p); };
+      /* M465: the line's KEY ("Who they are", "Now", "Between you", "Loose ends") wears the whisper voice and the words
+       * stay in ink — two nodes, the same textContent, so nothing that reads the page by its text sees a change. */
+      const addLine = (text) => {
+        const p = document.createElement('div');
+        p.className = 'quiet';
+        const m = /^([^:]{2,40}): ([\s\S]*)$/.exec(text);
+        if (m) {
+          const key = document.createElement('span');
+          key.className = 'page-key';
+          key.textContent = m[1] + ': ';
+          p.append(key, document.createTextNode(m[2]));
+        } else p.textContent = text;
+        li.appendChild(p);
+      };
       if (typeof c.core === 'string' && c.core.trim()) addLine('Who they are: ' + c.core.trim());
       /* M299: THE MAIN CHARACTER'S NOW IS THE SCENE'S — ONE WRITER PER FACT. The
        * writer's own page had a "Now:" only the scribe could write, and the

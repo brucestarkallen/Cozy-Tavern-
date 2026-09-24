@@ -757,8 +757,14 @@ body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-selec
   color: var(--muted);
 }
 
-.meta-left { min-width: 0; }
+/* M465: the line under the composer wraps as a ROW, never as a column. At a
+ * phone's width the links (nowrap) took theirs and the words on the left were
+ * folded into a five-line sliver beside them. The words keep one line and
+ * fade at the end; the links drop under them when the two will not share. */
+.composer-meta { flex-wrap: wrap; row-gap: 2px; }
+.meta-left { min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meta-left.hot { color: var(--ember-hot); }
+.meta-links { margin-left: auto; }
 
 .meta-links {
   white-space: nowrap;

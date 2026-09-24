@@ -12,6 +12,8 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/chat.css">
   <link rel="stylesheet" href="css/drawer.css">
+  <link rel="stylesheet" href="css/ledger.css">
+  <link rel="stylesheet" href="css/coats.css">
 </head>
 <body>
   <header class="topbar">
@@ -704,13 +706,19 @@
 
         <section class="settings-section" id="section-appearance">
           <h3>Appearance</h3>
+          <p class="quiet">The coat the whole house wears — the room, the page and the ledger. Each ledger is dressed in its coat's own way: a tome, a dashboard, a map, a journal, a console.</p>
           <fieldset class="theme-field">
             <legend class="visually-hidden">Theme</legend>
-            <label class="radio-row"><input type="radio" name="theme" value="system"> Follow the sky — light by day, dark by night</label>
-            <label class="radio-row"><input type="radio" name="theme" value="light"> Daylight</label>
-            <label class="radio-row"><input type="radio" name="theme" value="dark"> Lamplight</label>
-            <label class="radio-row"><input type="radio" name="theme" value="deep"> The deep — near-black, prose lit teal, ember for what acts</label>
-            <label class="radio-row"><input type="radio" name="theme" value="magma"> Magma — a near-black room with magma in its corners, speech in a soft orange, ember for what acts</label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="fantasy"> <span class="coat-swatch" data-coat="fantasy" aria-hidden="true"></span><span class="coat-words"><strong>Fantasy</strong> — a forest night in the old realm, gilded; the ledger is a tome</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="cyberpunk"> <span class="coat-swatch" data-coat="cyberpunk" aria-hidden="true"></span><span class="coat-words"><strong>Cyberpunk</strong> — violet neon, cyan speech; the ledger is a dashboard</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="magma"> <span class="coat-swatch" data-coat="magma" aria-hidden="true"></span><span class="coat-words"><strong>Magma</strong> — a near-black room with magma in its corners, speech in a soft orange; the ledger is obsidian</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="academy"> <span class="coat-swatch" data-coat="academy" aria-hidden="true"></span><span class="coat-words"><strong>The academy</strong> — a night library in oak and candlelight; the ledger opens as a parchment map with footprints</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="aurora"> <span class="coat-swatch" data-coat="aurora" aria-hidden="true"></span><span class="coat-words"><strong>Aurora</strong> — a northern night with the lights over it; the ledger is a frosted field journal</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="starship"> <span class="coat-swatch" data-coat="starship" aria-hidden="true"></span><span class="coat-words"><strong>Starship</strong> — a ship's console in charcoal and orange; the ledger is the console</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="deep"> <span class="coat-swatch" data-coat="deep" aria-hidden="true"></span><span class="coat-words"><strong>The deep</strong> — near-black, prose lit teal, ember for what acts</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="dark"> <span class="coat-swatch" data-coat="dark" aria-hidden="true"></span><span class="coat-words"><strong>Lamplight</strong> — the hearth at night</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="light"> <span class="coat-swatch" data-coat="light" aria-hidden="true"></span><span class="coat-words"><strong>Daylight</strong> — parchment by day</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="system"> <span class="coat-swatch" data-coat="system" aria-hidden="true"></span><span class="coat-words"><strong>Follow the sky</strong> — daylight by day, lamplight by night</span></label>
           </fieldset>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="colour-speech"> Colour the spoken lines and the thoughts</label>

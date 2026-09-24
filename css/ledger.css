@@ -1,0 +1,436 @@
+/* Cozy Tavern — the ledger's dress (M465).
+ * The ledger drawer (#drawer, and only it — the housekeeper's sheet shares the
+ * .drawer class and is left as it was) drawn as a thing to look at: one card a
+ * panel with a name and a glyph, four rooms as a tab bar, every button a pill,
+ * every row a slot, the by-hand forms in their own boxes, "What changed" as a
+ * timeline, drift with a bar of its own colour.
+ *
+ * LAWS KEPT: nothing here changes the DOM the walk clicks — every rule hangs
+ * on the ids, classes and data attributes drawer.js already writes. The outer
+ * (#drawer) stays a fading, non-scrolling, non-transformed layer (M146) and is
+ * the only thing that paints a texture; .drawer-panels scrolls plain.
+ * Glyphs are CSS masks over currentColor, so every coat colours them itself.
+ * Each coat's own dress (a tome, a dashboard, a map, a journal, a console)
+ * lives in coats.css and only adds to this. */
+
+/* ---------- the outer ---------- */
+
+#drawer {
+  padding: 0;
+  border-width: 1px;
+  background-color: var(--bg-2);
+  --ledger-card: var(--surface);
+  --ledger-slot: var(--bg-2);
+  --ledger-line: var(--border-soft);
+  --ledger-glyph: var(--ember);
+  --ledger-title: var(--text);
+  --ledger-radius: 14px;
+  --ledger-slot-radius: 10px;
+  --ledger-pill-radius: 999px;
+  --ledger-head-font: var(--font-prose);
+}
+
+#drawer .drawer-head {
+  margin: 0;
+  padding: calc(0.85rem + env(safe-area-inset-top)) 1rem 0.55rem;
+  border-bottom: 1px solid var(--ledger-line);
+}
+#drawer .drawer-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--ledger-head-font);
+  font-size: 1.12em;
+  letter-spacing: 0.01em;
+  color: var(--ledger-title);
+}
+#drawer .drawer-head h2::before {
+  content: '';
+  width: 20px; height: 20px;
+  flex: 0 0 auto;
+  background: var(--ledger-glyph);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z%22/%3E%3Cpath d=%22M4 18.5A2.5 2.5 0 0 1 6.5 16H20%22/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z%22/%3E%3Cpath d=%22M4 18.5A2.5 2.5 0 0 1 6.5 16H20%22/%3E%3C/svg%3E") center / contain no-repeat;
+}
+#drawer #btn-drawer-close {
+  border: 1px solid var(--ledger-line);
+  border-radius: 999px;
+  background: var(--ledger-card);
+  width: 34px; height: 34px;
+  padding: 0;
+  color: var(--text-2);
+}
+#drawer #btn-drawer-close:hover { color: var(--ember); border-color: var(--ember-dim); }
+
+#drawer .drawer-panels {
+  gap: 0.7rem;
+  padding: 0 0.85rem calc(1rem + var(--safe-b));
+  padding-right: calc(0.85rem + env(safe-area-inset-right));
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+#drawer .drawer-panels::-webkit-scrollbar { width: 6px; }
+#drawer .drawer-panels::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+
+@media (max-width: 720px) {
+  /* a bottom sheet never reaches the notch */
+  #drawer .drawer-head { padding-top: 0.75rem; }
+}
+
+/* ---------- the four rooms: a tab bar ---------- */
+
+#drawer .drawer-rooms {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin: 0.6rem 0 0.2rem;
+  padding: 4px;
+  background: var(--ledger-card);
+  border: 1px solid var(--ledger-line);
+  border-radius: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+#drawer .drawer-rooms .nav-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin: 0;
+  padding: 0.42rem 0.15rem 0.38rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#drawer .drawer-rooms .nav-chip::before {
+  content: '';
+  width: 18px; height: 18px;
+  background: currentColor;
+  opacity: 0.85;
+  -webkit-mask: center / contain no-repeat;
+  mask: center / contain no-repeat;
+}
+#drawer .drawer-rooms .nav-chip[data-room="scene"]::before  { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3c2 3 5 5.5 5 9a5 5 0 0 1-10 0c0-1.5.5-2.6 1.3-3.6.6 1.3 1.6 2 2.7 2.3C10.6 8.5 11 5.5 12 3z%22/%3E%3C/svg%3E");  mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3c2 3 5 5.5 5 9a5 5 0 0 1-10 0c0-1.5.5-2.6 1.3-3.6.6 1.3 1.6 2 2.7 2.3C10.6 8.5 11 5.5 12 3z%22/%3E%3C/svg%3E"); }
+#drawer .drawer-rooms .nav-chip[data-room="people"]::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%229%22 cy=%228%22 r=%223.2%22/%3E%3Cpath d=%22M3.5 19c.6-3.3 2.8-5 5.5-5s4.9 1.7 5.5 5%22/%3E%3Ccircle cx=%2217%22 cy=%229.5%22 r=%222.4%22/%3E%3Cpath d=%22M15.6 14.2c2.3.2 4.1 1.7 4.6 4.6%22/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%229%22 cy=%228%22 r=%223.2%22/%3E%3Cpath d=%22M3.5 19c.6-3.3 2.8-5 5.5-5s4.9 1.7 5.5 5%22/%3E%3Ccircle cx=%2217%22 cy=%229.5%22 r=%222.4%22/%3E%3Cpath d=%22M15.6 14.2c2.3.2 4.1 1.7 4.6 4.6%22/%3E%3C/svg%3E"); }
+#drawer .drawer-rooms .nav-chip[data-room="world"]::before  { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M3.5 12h17M12 3.5c2.6 2.5 3.9 5.3 3.9 8.5s-1.3 6-3.9 8.5c-2.6-2.5-3.9-5.3-3.9-8.5s1.3-6 3.9-8.5z%22/%3E%3C/svg%3E");  mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M3.5 12h17M12 3.5c2.6 2.5 3.9 5.3 3.9 8.5s-1.3 6-3.9 8.5c-2.6-2.5-3.9-5.3-3.9-8.5s1.3-6 3.9-8.5z%22/%3E%3C/svg%3E"); }
+#drawer .drawer-rooms .nav-chip[data-room="books"]::before  { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z%22/%3E%3Cpath d=%22M4 18.5A2.5 2.5 0 0 1 6.5 16H20%22/%3E%3C/svg%3E");  mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z%22/%3E%3Cpath d=%22M4 18.5A2.5 2.5 0 0 1 6.5 16H20%22/%3E%3C/svg%3E"); }
+#drawer .drawer-rooms .nav-chip:hover { color: var(--text); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+#drawer .drawer-rooms .nav-chip.current {
+  color: var(--ember);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--ember-dim);
+}
+#drawer .drawer-rooms .nav-chip.current::before { opacity: 1; }
+
+/* ---------- a panel is a card ---------- */
+
+#drawer .ledger-panel {
+  margin: 0;
+  padding: 0.8rem 0.85rem 0.9rem;
+  border: 1px solid var(--ledger-line);
+  border-radius: var(--ledger-radius);
+  background: var(--ledger-card);
+}
+
+#drawer .ledger-panel > h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  padding: 0 0 0.55rem;
+  border-bottom: 1px solid var(--ledger-line);
+  font-family: var(--ledger-head-font);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0.005em;
+  text-transform: none;
+  color: var(--ledger-title);
+}
+#drawer .ledger-panel > h3::before {
+  content: '';
+  width: 19px; height: 19px;
+  flex: 0 0 auto;
+  background: var(--ledger-glyph);
+  -webkit-mask: center / contain no-repeat;
+  mask: center / contain no-repeat;
+}
+#drawer .ledger-panel[data-panel="the-clock"] > h3::before         { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M12 7.5V12l3 2%22/%3E%3C/svg%3E");   mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M12 7.5V12l3 2%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="the-ruling"] > h3::before        { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 4v16M6 20h12%22/%3E%3Cpath d=%22M4 9l4-4 4 4M12 9l4-4 4 4%22/%3E%3Cpath d=%22M4 9a4 4 0 0 0 8 0M12 9a4 4 0 0 0 8 0%22/%3E%3C/svg%3E");  mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 4v16M6 20h12%22/%3E%3Cpath d=%22M4 9l4-4 4 4M12 9l4-4 4 4%22/%3E%3Cpath d=%22M4 9a4 4 0 0 0 8 0M12 9a4 4 0 0 0 8 0%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="how-they-measure"] > h3::before  { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 20V10M10 20V4M16 20v-8M22 20H2%22/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 20V10M10 20V4M16 20v-8M22 20H2%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="whos-here"] > h3::before         { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z%22/%3E%3Ccircle cx=%2212%22 cy=%2211%22 r=%222.2%22/%3E%3C/svg%3E");    mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z%22/%3E%3Ccircle cx=%2212%22 cy=%2211%22 r=%222.2%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="the-mood"] > h3::before          { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z%22/%3E%3Cpath d=%22M19 17l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z%22/%3E%3C/svg%3E");    mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z%22/%3E%3Cpath d=%22M19 17l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="whats-true"] > h3::before        { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%225%22 y=%2210.5%22 width=%2214%22 height=%2210%22 rx=%222%22/%3E%3Cpath d=%22M8 10.5V7.5a4 4 0 0 1 8 0v3%22/%3E%3Ccircle cx=%2212%22 cy=%2215.5%22 r=%221.2%22/%3E%3C/svg%3E");    mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%225%22 y=%2210.5%22 width=%2214%22 height=%2210%22 rx=%222%22/%3E%3Cpath d=%22M8 10.5V7.5a4 4 0 0 1 8 0v3%22/%3E%3Ccircle cx=%2212%22 cy=%2215.5%22 r=%221.2%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="what-canon-says"] > h3::before   { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 4h10a2 2 0 0 1 2 2v14l-4-2.5-4 2.5-4-2.5-2 1.2V6a2 2 0 0 1 2-2z%22/%3E%3Cpath d=%22M8 8h8M8 11.5h8%22/%3E%3C/svg%3E");   mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 4h10a2 2 0 0 1 2 2v14l-4-2.5-4 2.5-4-2.5-2 1.2V6a2 2 0 0 1 2-2z%22/%3E%3Cpath d=%22M8 8h8M8 11.5h8%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="holding-up"] > h3::before        { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M12 8v8M8 12h8%22/%3E%3C/svg%3E");    mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M12 8v8M8 12h8%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="on-their-mind"] > h3::before     { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 20s-7.5-4.6-7.5-10A4 4 0 0 1 12 7.6 4 4 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z%22/%3E%3C/svg%3E");   mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 20s-7.5-4.6-7.5-10A4 4 0 0 1 12 7.6 4 4 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="elsewhere"] > h3::before         { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M15.5 8.5l-2 5-5 2 2-5z%22/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M15.5 8.5l-2 5-5 2 2-5z%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="the-world-beyond"] > h3::before  { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M3.5 12h17M12 3.5c2.6 2.5 3.9 5.3 3.9 8.5s-1.3 6-3.9 8.5c-2.6-2.5-3.9-5.3-3.9-8.5s1.3-6 3.9-8.5z%22/%3E%3C/svg%3E");   mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22M3.5 12h17M12 3.5c2.6 2.5 3.9 5.3 3.9 8.5s-1.3 6-3.9 8.5c-2.6-2.5-3.9-5.3-3.9-8.5s1.3-6 3.9-8.5z%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="voices"] > h3::before            { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5z%22/%3E%3Cpath d=%22M8 9h8M8 12h5%22/%3E%3C/svg%3E");  mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5z%22/%3E%3Cpath d=%22M8 9h8M8 12h5%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="the-record"] > h3::before        { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 3h9l4 4v14H6z%22/%3E%3Cpath d=%22M15 3v4h4M9 12h6M9 15.5h6M9 8.5h2%22/%3E%3C/svg%3E");  mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M6 3h9l4 4v14H6z%22/%3E%3Cpath d=%22M15 3v4h4M9 12h6M9 15.5h6M9 8.5h2%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="what-changed"] > h3::before      { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%223%22/%3E%3Cpath d=%22M12 3v6M12 15v6%22/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%223%22/%3E%3Cpath d=%22M12 3v6M12 15v6%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="something-drifted"] > h3::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 4l9 16H3z%22/%3E%3Cpath d=%22M12 10v4M12 17h.01%22/%3E%3C/svg%3E");   mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 4l9 16H3z%22/%3E%3Cpath d=%22M12 10v4M12 17h.01%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="the-people"] > h3::before        { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%228%22 r=%223.6%22/%3E%3Cpath d=%22M5 20c.7-3.8 3.4-6 7-6s6.3 2.2 7 6%22/%3E%3C/svg%3E");  mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%228%22 r=%223.6%22/%3E%3Cpath d=%22M5 20c.7-3.8 3.4-6 7-6s6.3 2.2 7 6%22/%3E%3C/svg%3E"); }
+#drawer .ledger-panel[data-panel="the-workers"] > h3::before       { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%223%22/%3E%3Cpath d=%22M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z%22/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%223%22/%3E%3Cpath d=%22M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z%22/%3E%3C/svg%3E"); }
+
+/* the order a room reads in: what the room is FOR comes first (the people's
+ * pages lead the people room, who is here follows the clock), the by-hand and
+ * the rarely-read after. Visual order only — the DOM keeps drawer.js's order,
+ * so nothing the walk clicks moves. The rooms strip keeps order 0. */
+#drawer .ledger-panel[data-panel="the-clock"]         { order: 10; }
+#drawer .ledger-panel[data-panel="whos-here"]         { order: 11; }
+#drawer .ledger-panel[data-panel="the-mood"]          { order: 12; }
+#drawer .ledger-panel[data-panel="the-ruling"]        { order: 13; }
+#drawer .ledger-panel[data-panel="how-they-measure"]  { order: 14; }
+#drawer .ledger-panel[data-panel="the-people"]        { order: 20; }
+#drawer .ledger-panel[data-panel="on-their-mind"]     { order: 21; }
+#drawer .ledger-panel[data-panel="holding-up"]        { order: 22; }
+#drawer .ledger-panel[data-panel="whats-true"]        { order: 23; }
+#drawer .ledger-panel[data-panel="what-canon-says"]   { order: 24; }
+#drawer .ledger-panel[data-panel="elsewhere"]         { order: 30; }
+#drawer .ledger-panel[data-panel="the-world-beyond"]  { order: 31; }
+#drawer .ledger-panel[data-panel="voices"]            { order: 32; }
+#drawer .ledger-panel[data-panel="the-record"]        { order: 40; }
+#drawer .ledger-panel[data-panel="what-changed"]      { order: 41; }
+#drawer .ledger-panel[data-panel="something-drifted"] { order: 42; }
+#drawer .ledger-panel[data-panel="the-workers"]       { order: 43; }
+#drawer .ledger-panel                                 { order: 50; }
+
+/* the notes under a name: smaller, quieter, so the rows lead */
+#drawer .ledger-panel > div > p.quiet,
+#drawer .ledger-panel > p.quiet {
+  margin: 0 0 0.55rem;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+#drawer .ledger-panel p { margin: 0; }
+#drawer .ledger-panel .cast-head { margin-top: 0.7rem !important; margin-bottom: 0.35rem; }
+#drawer .ledger-subhead { margin: 0.85rem 0 0.35rem; }
+
+/* ---------- rows are slots ---------- */
+
+#drawer .present-list { gap: 0.32rem; }
+#drawer .present-row {
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--ledger-line);
+  border-radius: var(--ledger-slot-radius);
+  background: var(--ledger-slot);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+#drawer .present-row:hover { background: var(--ledger-slot); border-color: var(--border); }
+#drawer .present-row > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+#drawer .present-row > strong { font-family: var(--font-prose); font-weight: 650; color: var(--text); }
+#drawer .present-row.mind-row { align-items: flex-start; }
+#drawer .mind-row small { flex-basis: 100%; padding-left: 0; color: var(--text-2); font-size: 0.84rem; line-height: 1.4; }
+#drawer .measure-row small { color: var(--muted); font-size: 0.82rem; padding-left: 0; }
+#drawer .present-row .quiet { font-size: 0.86rem; color: var(--text-2); line-height: 1.45; }
+#drawer .present-row .carry-line { color: var(--muted); font-size: 0.8rem; font-style: italic; }
+#drawer .people-row { flex-direction: column; align-items: stretch; gap: 0.2rem; }
+#drawer .people-row > strong { font-size: 1rem; }
+#drawer .record-row { flex-direction: column; align-items: stretch; gap: 0.3rem; }
+#drawer .record-row > strong { font-size: 0.86rem; color: var(--text-2); font-family: var(--font); font-weight: 600; }
+#drawer .record-row > .quiet { color: var(--text); font-family: var(--font-prose); font-size: 0.95rem; }
+#drawer .record-row > .row { justify-content: flex-end; gap: 0.35rem; }
+
+/* the small × on a row — a round mark of its own */
+#drawer .story-mini {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  border: 1px solid var(--ledger-line);
+  border-radius: 999px;
+  background: var(--ledger-card);
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+#drawer .story-mini:hover { color: var(--danger); border-color: var(--danger); background: var(--ledger-card); }
+
+/* the timeline: what changed, what drifted, what the workers did */
+#drawer .log-list { gap: 0.3rem; padding-left: 0.85rem; border-left: 2px solid var(--ledger-line); margin-left: 0.35rem; }
+#drawer .log-row {
+  position: relative;
+  padding: 0.35rem 0.55rem 0.35rem 0.6rem;
+  border-radius: 8px;
+  background: var(--ledger-slot);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+#drawer .log-row::before {
+  content: '';
+  position: absolute;
+  left: -1.05rem;
+  top: 0.78rem;
+  width: 8px; height: 8px;
+  border-radius: 999px;
+  background: var(--ledger-glyph);
+  box-shadow: 0 0 0 2px var(--ledger-card);
+}
+#drawer .log-row.undone { color: var(--muted); font-style: italic; }
+#drawer .log-row.undone::before { background: var(--muted); }
+#drawer .log-row.drift-warn { box-shadow: inset 3px 0 0 var(--warn, #d9a441); }
+#drawer .log-row.drift-warn::before { background: var(--warn, #d9a441); }
+#drawer .log-row.worker-live::before { background: var(--ember-hot); }
+#drawer .log-row .text-btn { margin-top: 0.25rem; }
+#drawer .log-row .run-mark { margin-right: 0.35rem; }
+#drawer .log-row .run-fix { margin-left: 0; margin-top: 0.3rem; }
+
+/* "Something drifted": the copy button sits at the top right, small, not over the note */
+#drawer .drift-editor { position: relative; }
+#drawer .drift-editor > .text-btn:first-child { align-self: flex-end; order: 99; margin-top: 0.4rem; }
+
+/* ---------- buttons are pills ---------- */
+
+#drawer .text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.36rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ledger-pill-radius);
+  background: var(--surface-2);
+  color: var(--ember);
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+#drawer .text-btn:hover { border-color: var(--ember); background: var(--surface-2); }
+#drawer .present-row > .text-btn, #drawer .present-row .row .text-btn { padding: 0.22rem 0.6rem; font-size: 0.74rem; flex: 0 0 auto; }
+#drawer .row { gap: 0.4rem; }
+#drawer .workers-panel > .row { margin-bottom: 0.4rem; }
+#drawer .clock-editor > .row .text-btn { padding: 0.42rem 0.95rem; font-size: 0.9rem; }
+#drawer .thinking-copy { margin-top: 0.4rem; }
+
+/* ---------- the by-hand boxes ---------- */
+
+#drawer .present-form {
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.6rem 0.65rem;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--ledger-slot);
+}
+#drawer .present-form::before {
+  content: 'By hand';
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+#drawer .present-form:not(.ledger-form) { flex-wrap: wrap; }
+#drawer .present-form:not(.ledger-form)::before { flex-basis: 100%; }
+#drawer .present-form:not(.ledger-form) input { flex: 1 1 8rem; }
+#drawer .present-form input, #drawer .present-form select, #drawer .clock-set-form input, #drawer .present-form textarea {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+  background: var(--ledger-card);
+}
+#drawer .present-form .radio-row { padding: 0.15rem 0; font-size: 0.88rem; }
+#drawer .present-form .text-btn { align-self: flex-end; }
+#drawer .present-form:not(.ledger-form) .text-btn { align-self: center; }
+#drawer .ledger-form .text-btn { align-self: flex-end; }
+
+/* the clock */
+#drawer .clock-editor { gap: 0.55rem; }
+#drawer .clock-editor > .radio-row { font-size: 0.86rem; color: var(--text-2); padding: 0; }
+#drawer .clock-label {
+  font-family: var(--font-prose);
+  font-size: 1.18rem;
+  line-height: 1.3;
+  letter-spacing: 0.005em;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--ledger-slot-radius);
+  background: var(--ledger-slot);
+  border: 1px solid var(--ledger-line);
+}
+#drawer details > summary.lbl { cursor: pointer; padding: 0.25rem 0; }
+#drawer .clock-set-form { padding: 0.5rem 0 0; }
+#drawer .clock-field { font-size: 0.74rem; }
+
+/* the mood */
+#drawer .mood-rows { gap: 0.3rem; }
+#drawer .mood-row {
+  margin: 0;
+  padding: 0.38rem 0.55rem;
+  border: 1px solid var(--ledger-line);
+  border-radius: var(--ledger-slot-radius);
+  background: var(--ledger-slot);
+  font-size: 0.9rem;
+}
+#drawer .mood-row:has(input:checked) { border-color: var(--ember-dim); color: var(--text); box-shadow: inset 3px 0 0 var(--ember); }
+#drawer .mood-row input { accent-color: var(--ember); }
+#drawer .radio-row input[type="checkbox"], #drawer .radio-row input[type="radio"] { accent-color: var(--ember); }
+
+/* the ruling */
+#drawer .verdict-line {
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--ledger-slot-radius);
+  background: var(--ledger-slot);
+  border-left: 3px solid var(--ember);
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+/* the world agent's word */
+#drawer .world-brief {
+  margin: 0 0 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--ledger-slot-radius);
+  background: var(--ledger-slot);
+  border-left: 3px solid var(--ember);
+}
+#drawer .world-line { margin: 0.15rem 0; color: var(--text); font-size: 0.94rem; }
+#drawer .worker-raw { background: var(--ledger-slot); border: 1px solid var(--ledger-line); border-radius: 8px; }
+
+/* the voices elsewhere */
+#drawer .voices-panel .msg-voices { margin-top: 0.3rem; }
+
+/* the record's lines */
+#drawer .record-list { gap: 0.4rem; }
+
+/* passers-through, folded */
+#drawer .resting-shelf { margin-top: 0.5rem; padding: 0.45rem 0.6rem; border: 1px dashed var(--ledger-line); border-radius: 10px; }
+#drawer .resting-shelf > summary { font-size: 10px; }
+#drawer .resting-shelf .log-row { margin-top: 0.35rem; }
+#drawer .resting-shelf .log-row::before { display: none; }
+#drawer .resting-shelf .present-form::before { display: none; } /* the fold already says "by hand" */
+#drawer .resting-shelf .present-form { margin-top: 0.45rem; }
+
+/* canon: the library chips and the notes */
+#drawer .lib-chip { font-size: 0.8rem; padding: 0.25rem 0.7rem; }
+#drawer .lib-chip.current, #drawer .lib-chip[aria-pressed="true"] { color: var(--ember); border-color: var(--ember); background: var(--surface-2); }
+#drawer .canon-card { padding: 0.5rem 0.6rem; margin: 0.35rem 0; border: 1px solid var(--ledger-line); border-radius: var(--ledger-slot-radius); background: var(--ledger-slot); }
+#drawer .canon-line { margin: 0.15rem 0; font-size: 0.9rem; }
+
+/* the work banner at the top of the ledger keeps its place, in the coat */
+#drawer .work-banner { margin: 0; border-radius: 0; }
+
+/* "Who's here": the note ("In the scene right now:") reads above the rows it introduces (the DOM keeps it after) */
+#drawer .present-editor > p.quiet { order: -1; }
+
+/* a character page's lines: the key ("Who they are", "Now", "Between you") in the whisper, the words in ink */
+#drawer .people-row .page-key { color: var(--muted); font-family: var(--font); font-size: 0.8rem; font-weight: 600; margin-right: 0.2rem; }
+
+/* the small print of a row's second line never fights the name */
+#drawer .present-row small { overflow-wrap: anywhere; }

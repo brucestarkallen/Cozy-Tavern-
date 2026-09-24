@@ -69,7 +69,7 @@ fails = {}
 try:
     with sync_playwright() as p:
         browser = p.chromium.launch(args=['--no-sandbox'])
-        for coat in ('dark', 'light', 'deep', 'magma'):   # M254: the third coat is held to the same law
+        for coat in ('dark', 'light', 'deep', 'magma', 'fantasy', 'cyberpunk', 'academy', 'aurora', 'starship'):   # M254: the third coat is held to the same law; M465: every coat
             ctx = browser.new_context(viewport={'width': 412, 'height': 915})
             page = ctx.new_page()
             page.goto(BASE, wait_until='load')
@@ -106,5 +106,5 @@ finally:
     srv.terminate()
 
 print()
-print('every text surface meets AA in both coats' if not fails
+print('every text surface meets AA in every coat' if not fails
       else 'surfaces under AA: ' + ', '.join('%s %d' % (k, len(v)) for k, v in fails.items()))

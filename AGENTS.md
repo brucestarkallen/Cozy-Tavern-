@@ -10954,3 +10954,38 @@ He: "you give me a way to select but no way to deselect all, so I can't tell it 
   (Automatic). DOM-113 still passes. Harness 893/893, walk 132/132, long play 8/8, lint no new warnings.
 - version.js -> m464-001.
 
+
+# M465 — the coats, and the ledger dressed in each one
+He: "I want multiple themes that are beautiful… fantasy first, second cyberpunk purple, third gaming magma, fourth fantasy
+academy (like the Harry Potter map with footsteps), five aurora borealis, six a spaceship Mass Effect 3 orange. And tidy
+up the ledger UI — it's not intuitive and ugly; everything is ugly. Carefully, without breaking anything."
+- THE LEDGER (css/ledger.css, #drawer only — the housekeeper's sheet shares .drawer and keeps its look): each panel is a
+  card with a glyph and a readable serif name (the mono-caps whisper and the doubled hairline between panels — a
+  border-top from drawer.css AND a border-bottom from base.css — are gone); the four rooms are an icon tab bar; rows are
+  slots; every action is a pill; the × on a row is a round mark; "What changed", "Something drifted" and "The workers"
+  are a timeline with dots (drift gets an amber bar; "Copy all of this" moved to the card's foot); the by-hand forms sit
+  in dashed "By hand" boxes; the mood flags are slots; a room reads in the order it is FOR (the people's pages lead the
+  people room, who is here follows the clock) by CSS `order` alone — drawer.js's DOM order is untouched, so nothing the
+  walk clicks moved. Glyphs are SVG masks over currentColor (never emoji), so every coat colours them itself.
+- THE COATS (base.css tokens + css/coats.css dress + app.js COATS + index.html coat rows with swatches): fantasy (a forest
+  night, gilded; the ledger a tome with gilded corners), cyberpunk (violet neon, cyan speech; the ledger a cut-corner
+  dashboard with a scanline), magma (M301–M303's tokens untouched; the ledger obsidian with an ember seam), academy (a
+  night library; the ledger opens as a PARCHMENT MAP — every token re-scoped on #drawer to brown ink, walking footprints
+  on "Who's here", opacity only, stilled by reduced-motion), aurora (a northern night with the lights over it; a frosted
+  journal with an aurora hairline), starship (charcoal and ME3 orange; an angular console). Every ink of every coat holds
+  4.5:1 on every ground it can stand on, including the 🎨 header card's own tokens (checked in code before base.css was
+  written). The room's glow is painted on .thread-wrap, the column that never scrolls (M301's law); no transform,
+  will-change or backdrop-filter on the drawer (M146).
+- TWO FAULTS FIXED ON THE WAY: the line under the composer folded into a five-line sliver beside the links on a phone
+  (chat.css: it wraps as a row now, the words on one line, the links under them); the light coat's hour chip on the
+  header card stood at 4.07:1 (--pk-amber #9a5a10 → #86500a, 4.9). A tick or a radio wears the ember, never the
+  browser's blue.
+- THE ONE JS CHANGE: peoplePanel's addLine puts a page line's key ("Who they are", "Now", "Between you") in a
+  .page-key span and the words after it — the same textContent, two nodes.
+- TESTS: tests/paint_coats.py (new) — every coat on a seeded ledger: 0 text surfaces under AA in all nine coats, the
+  page threw nothing; tests/contrast.py and tests/coat.py walk all nine coats (0 under AA; the header card follows every
+  coat). Measured at 6× CPU throttle on a phone viewport: the people room scrolls at a 16.6 ms median in every coat
+  (dark 16.7); the ledger opens in 205–510 ms and closes in 26–70 ms (perf_rooms.py within budget); paint_magma.py:
+  the magma room glowing, readable, no slower (median 16.5 vs 16.7 deep). Harness 893/893, walk 132/132, long play
+  8/8, twobrowsers all green (sw.js's shell gained the two stylesheets), lint 0 errors.
+- version.js -> m465-001.

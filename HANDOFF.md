@@ -1,6 +1,21 @@
-# Cozy Tavern — handoff for the next session (state at m464-001)
+# Cozy Tavern — handoff for the next session (state at m465-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1d. THE COATS AND THE LEDGER'S DRESS (M465). Nine coats: fantasy, cyberpunk, magma, academy, aurora, starship, deep, dark, light
+   (+ system). A coat is FOUR things now: a COATS entry in app.js (its --bg, for the phone's bar), a token block in base.css
+   defining EVERY token :root defines (51 colours — beauty.mjs fails a coat missing one), a coat-row radio + swatch in
+   index.html, and its dress in css/coats.css (the room's glow on .thread-wrap — the column that never scrolls — and the
+   ledger in the coat's idiom). css/ledger.css is the ledger's structure for every coat, scoped to #drawer ONLY (the
+   housekeeper's sheet shares .drawer and is untouched): one card a panel with a glyph (SVG masks over currentColor, keyed
+   on data-panel), the four rooms as a tab bar (keyed on data-room), pill buttons, slot rows, a timeline for What changed /
+   drifted / the workers, "By hand" boxes for the forms, and the reading order of a room set with CSS `order` — the DOM is
+   drawer.js's, so the walk clicks nothing new. The academy coat re-scopes every token on #drawer (parchment, brown ink)
+   and walks footprints on "Who's here" (opacity only, stilled by reduced-motion). NEVER: a transform, will-change or
+   backdrop-filter on #drawer (M146); a gradient on .thread or .drawer-panels (they scroll); a glyph as an emoji. TESTS:
+   `python3 tests/paint_coats.py` — every coat on a SEEDED ledger, every text surface of the story and all four rooms
+   held to AA, shots in /tmp/coats/; tests/contrast.py and tests/coat.py now walk all nine coats; paint_magma.py and
+   perf_rooms.py still hold the magma glow and the open/close budget. The only JS change: peoplePanel's addLine splits a
+   page line into a .page-key span + text (same textContent).
 1c. AUTOMATIC IS A SWITCH YOU CAN SEE AND TAP (M464): Settings (canon-lib-auto) and the story room (canon-room-auto) have an
    "Automatic" chip, checked when the story finds its own wiki (the line says which); a wiki is checked only when he CHOSE it
    (meta.canon_grounding_wiki_ok.manual) — what it found by itself is never shown as his pick. Tap Automatic = let the choice
@@ -218,6 +233,7 @@ founding design lives in AGENTS.md's first entries.)
 ## Run the tests before any commit (all three; all must be green)
 - `node tests/harness/run.mjs` — 893 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
+- `python3 tests/paint_coats.py` — every coat on a seeded ledger, every text surface held to AA (M465); run it for any change to a coat, to css/ledger.css or to the drawer's markup.
 - `cd tests/dom && node run.mjs` — the walk: 132 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
@@ -549,7 +565,8 @@ founding design lives in AGENTS.md's first entries.)
   its thinking in `cutThinking:<tale>` (the housekeeper's in `hkCut:<tale>`) until the next page/answer
   lands; never a page, never in a request. Connections read A to Z through providers/order.js byName —
   DISPLAY only; db.connections.list() stays as made (the resolvers' fallback). A coat is a COATS entry
-  in app.js + a token block in base.css + a radio; tests/paint_magma.py measures the magma room (the
+  in app.js + a token block in base.css + a coat-row radio with a swatch + its dress in css/coats.css
+  (M465, see 1d); tests/paint_magma.py measures the magma room (the
   glow, the words over it against real pixels, the scroll against the deep coat) — run it before any
   change to a coat that paints a gradient, because contrast.py cannot see one.
 - Every reader that writes or checks the ledger sees ALL of it (engine/whole.js), never the

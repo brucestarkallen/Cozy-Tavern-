@@ -230,6 +230,295 @@ html[data-theme='magma'] {
   --pk-teal: #56cfc0;
 }
 
+/* M465: FANTASY — a forest night in the old realm: near-black green, prose in candle-warm parchment ink, gilding for what acts (the ember is gold), speech in a soft amber, a thought in lavender. The ledger is a tome. Every token every other coat defines is defined here (M168, held by beauty.mjs). */
+html[data-theme='fantasy'] {
+  --bg: #0c1210;
+  --bg-2: #111a16;
+  --surface: #16221d;
+  --surface-2: #1c2c25;
+  --border: #2b4034;
+  --border-soft: #1f3128;
+  --text: #ece4cf;
+  --text-2: #c4ba9f;
+  --muted: #9aab95;
+  --ember: #e2b45f;
+  --ember-hot: #f3cc7a;
+  --ember-dim: #6e5424;
+  --spoken: #f0cd8a;
+  --thought: #c0b7ea;
+  --user-tint: #16211b;
+  --danger: #e8836e;
+  --ok: #86cf90;
+  --on-ember: #1c1406;
+  --pk-card-1: #141f1b;
+  --pk-card-2: #172420;
+  --pk-card-3: #13211e;
+  --pk-chip-bg: #172420;
+  --pk-box-bg: #0f1714;
+  --pk-box-edge: #2f4a3c;
+  --pk-rule: #23372d;
+  --pk-place: #f4e7c8;
+  --pk-body: #e6dcc4;
+  --pk-body-2: #e6dcc4;
+  --pk-body-3: #ece4cf;
+  --pk-body-4: #d8cfb6;
+  --pk-quiet: #c4ba9f;
+  --pk-quiet-2: #c0b8a0;
+  --pk-quiet-3: #b3bba3;
+  --pk-quiet-4: #9fad99;
+  --pk-quiet-5: #93a28e;
+  --pk-quiet-6: #8fa5ab;
+  --pk-quiet-7: #7c9591;
+  --pk-quiet-8: #94a387;
+  --pk-gold: #e2b45f;
+  --pk-gold-2: #e8bd6a;
+  --pk-gold-dim: #9a7c3d;
+  --pk-red: #e8836e;
+  --pk-red-2: #ee9a86;
+  --pk-red-dim: #a04b3c;
+  --pk-amber: #e69a4a;
+  --pk-sky: #8bc1de;
+  --pk-rose: #dc9fae;
+  --pk-violet: #c0b7ea;
+  --pk-violet-2: #cac2ee;
+  --pk-violet-3: #7a6fbf;
+  --pk-teal: #6fcfba;
+  --warn: #e6c25a;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  --scrim: rgba(3, 8, 6, 0.74);
+}
+
+/* M465: CYBERPUNK — a violet-black room lit by neon: the ember a soft violet, speech in cyan, a thought in pink; the ledger a dashboard with cut corners and a scanline. Every token every other coat defines is defined here (M168, held by beauty.mjs). */
+html[data-theme='cyberpunk'] {
+  --bg: #0b0714;
+  --bg-2: #100b1d;
+  --surface: #160f27;
+  --surface-2: #1d1433;
+  --border: #3a2a5c;
+  --border-soft: #2a1e45;
+  --text: #ece6fa;
+  --text-2: #c1b6dd;
+  --muted: #a294c7;
+  --ember: #d27bff;
+  --ember-hot: #e69dff;
+  --ember-dim: #5c2f8a;
+  --spoken: #7ef0ff;
+  --thought: #eba6dc;
+  --user-tint: #17102b;
+  --danger: #ff7b98;
+  --ok: #5ef2a8;
+  --on-ember: #1a0b28;
+  --pk-card-1: #140d24;
+  --pk-card-2: #170f2a;
+  --pk-card-3: #120e27;
+  --pk-chip-bg: #160f27;
+  --pk-box-bg: #0e0919;
+  --pk-box-edge: #3f2d63;
+  --pk-rule: #2a1e45;
+  --pk-place: #f3ecff;
+  --pk-body: #e4dcf5;
+  --pk-body-2: #e4dcf5;
+  --pk-body-3: #ece6fa;
+  --pk-body-4: #d6cdec;
+  --pk-quiet: #c1b6dd;
+  --pk-quiet-2: #c7bcd4;
+  --pk-quiet-3: #b3a8d2;
+  --pk-quiet-4: #a294c7;
+  --pk-quiet-5: #9a8cc0;
+  --pk-quiet-6: #9d93cf;
+  --pk-quiet-7: #8378b8;
+  --pk-quiet-8: #9c90bd;
+  --pk-gold: #f2d06b;
+  --pk-gold-2: #f6d87e;
+  --pk-gold-dim: #a58d3e;
+  --pk-red: #ff7b98;
+  --pk-red-2: #ff94ab;
+  --pk-red-dim: #b04a66;
+  --pk-amber: #ffa657;
+  --pk-sky: #7ef0ff;
+  --pk-rose: #ff8ad4;
+  --pk-violet: #c9a0ff;
+  --pk-violet-2: #d3b0ff;
+  --pk-violet-3: #7d4fd8;
+  --pk-teal: #5ef2d4;
+  --warn: #ffd166;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+  --scrim: rgba(4, 2, 10, 0.78);
+}
+
+/* M465: THE ACADEMY — a night library in old oak and candlelight; the ledger opens as a parchment map with brown ink and footprints (its own tokens re-scoped on #drawer in coats.css). Every token every other coat defines is defined here (M168, held by beauty.mjs). */
+html[data-theme='academy'] {
+  --bg: #14100b;
+  --bg-2: #1a150e;
+  --surface: #221b12;
+  --surface-2: #2b2217;
+  --border: #4a3a26;
+  --border-soft: #352a1b;
+  --text: #f0e3c6;
+  --text-2: #cdbc9c;
+  --muted: #ad9c81;
+  --ember: #e0975a;
+  --ember-hot: #f0ad72;
+  --ember-dim: #6b4426;
+  --spoken: #e9c284;
+  --thought: #c9b0e3;
+  --user-tint: #211a11;
+  --danger: #ea7f68;
+  --ok: #93c98a;
+  --on-ember: #1e1006;
+  --pk-card-1: #1f1810;
+  --pk-card-2: #241c13;
+  --pk-card-3: #1d1911;
+  --pk-chip-bg: #241c13;
+  --pk-box-bg: #17120c;
+  --pk-box-edge: #54432c;
+  --pk-rule: #3a2e1e;
+  --pk-place: #f7ead0;
+  --pk-body: #eadcbe;
+  --pk-body-2: #eadcbe;
+  --pk-body-3: #f0e3c6;
+  --pk-body-4: #dccfb0;
+  --pk-quiet: #cdbc9c;
+  --pk-quiet-2: #c9bb9d;
+  --pk-quiet-3: #c2b294;
+  --pk-quiet-4: #ad9c81;
+  --pk-quiet-5: #a6957b;
+  --pk-quiet-6: #a49b95;
+  --pk-quiet-7: #8f857e;
+  --pk-quiet-8: #a09079;
+  --pk-gold: #e0b35c;
+  --pk-gold-2: #e6bb68;
+  --pk-gold-dim: #9c7c3f;
+  --pk-red: #ea7f68;
+  --pk-red-2: #ef957f;
+  --pk-red-dim: #a34f3b;
+  --pk-amber: #e0975a;
+  --pk-sky: #8ec0dc;
+  --pk-rose: #dc9cad;
+  --pk-violet: #c9b0e3;
+  --pk-violet-2: #d1bce7;
+  --pk-violet-3: #7f63b5;
+  --pk-teal: #74c9b3;
+  --warn: #e5bb55;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  --scrim: rgba(8, 5, 2, 0.74);
+}
+
+/* M465: AURORA — a deep northern night; the ember an aurora green, speech mint, a thought a violet ribbon; the ledger a frosted field journal. Every token every other coat defines is defined here (M168, held by beauty.mjs). */
+html[data-theme='aurora'] {
+  --bg: #070b14;
+  --bg-2: #0b1120;
+  --surface: #101a2c;
+  --surface-2: #152238;
+  --border: #26405a;
+  --border-soft: #1b2f45;
+  --text: #e6f1f4;
+  --text-2: #b2cdd5;
+  --muted: #8bb0ba;
+  --ember: #62e6b5;
+  --ember-hot: #8cf3cc;
+  --ember-dim: #1f5c49;
+  --spoken: #9fe8d0;
+  --thought: #c4b6f0;
+  --user-tint: #0f1c30;
+  --danger: #f28a8a;
+  --ok: #7fe0a0;
+  --on-ember: #05221a;
+  --pk-card-1: #0e1828;
+  --pk-card-2: #111c2e;
+  --pk-card-3: #0d1a2c;
+  --pk-chip-bg: #111c2e;
+  --pk-box-bg: #0a1222;
+  --pk-box-edge: #2b4763;
+  --pk-rule: #1e3349;
+  --pk-place: #eef7ff;
+  --pk-body: #dcebf0;
+  --pk-body-2: #dcebf0;
+  --pk-body-3: #e6f1f4;
+  --pk-body-4: #cfe0e6;
+  --pk-quiet: #b2cdd5;
+  --pk-quiet-2: #bcc9c3;
+  --pk-quiet-3: #a5c2cb;
+  --pk-quiet-4: #8fb2bc;
+  --pk-quiet-5: #87acb6;
+  --pk-quiet-6: #8fb0cc;
+  --pk-quiet-7: #7597b0;
+  --pk-quiet-8: #8aaea0;
+  --pk-gold: #e6d27a;
+  --pk-gold-2: #ead98a;
+  --pk-gold-dim: #9a8b46;
+  --pk-red: #f28a8a;
+  --pk-red-2: #f5a0a0;
+  --pk-red-dim: #a45050;
+  --pk-amber: #f0b46b;
+  --pk-sky: #8ad4f0;
+  --pk-rose: #e9a0c4;
+  --pk-violet: #b7a6ec;
+  --pk-violet-2: #c4b6f0;
+  --pk-violet-3: #6f5fc0;
+  --pk-teal: #62e6b5;
+  --warn: #f2cf6b;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  --scrim: rgba(2, 5, 12, 0.74);
+}
+
+/* M465: STARSHIP — a ship's console in charcoal and orange: the ember the console's own orange, speech a soft apricot, a thought steel blue; the ledger an angular console. Every token every other coat defines is defined here (M168, held by beauty.mjs). */
+html[data-theme='starship'] {
+  --bg: #0a0d12;
+  --bg-2: #0e131a;
+  --surface: #131a23;
+  --surface-2: #19222d;
+  --border: #2f3f52;
+  --border-soft: #22303f;
+  --text: #e8edf2;
+  --text-2: #b6c3cf;
+  --muted: #91a1b0;
+  --ember: #ff8a2a;
+  --ember-hot: #ffa64d;
+  --ember-dim: #6b3a12;
+  --spoken: #f5b36b;
+  --thought: #a4c6e8;
+  --user-tint: #17202a;
+  --danger: #ff7373;
+  --ok: #7bdaa0;
+  --on-ember: #1a0c02;
+  --pk-card-1: #111821;
+  --pk-card-2: #131b25;
+  --pk-card-3: #101a22;
+  --pk-chip-bg: #131b25;
+  --pk-box-bg: #0c1118;
+  --pk-box-edge: #34465a;
+  --pk-rule: #243343;
+  --pk-place: #fff3e6;
+  --pk-body: #dfe6ec;
+  --pk-body-2: #dfe6ec;
+  --pk-body-3: #e8edf2;
+  --pk-body-4: #d1dae3;
+  --pk-quiet: #b6c3cf;
+  --pk-quiet-2: #bfc4b8;
+  --pk-quiet-3: #a9b8c6;
+  --pk-quiet-4: #95a5b3;
+  --pk-quiet-5: #8e9eac;
+  --pk-quiet-6: #8fa3ba;
+  --pk-quiet-7: #7689a0;
+  --pk-quiet-8: #95a29b;
+  --pk-gold: #ffb347;
+  --pk-gold-2: #ffbd5c;
+  --pk-gold-dim: #a8742e;
+  --pk-red: #ff7373;
+  --pk-red-2: #ff8c8c;
+  --pk-red-dim: #a84545;
+  --pk-amber: #ff8a2a;
+  --pk-sky: #6ec6ff;
+  --pk-rose: #e79cb8;
+  --pk-violet: #a9b8ff;
+  --pk-violet-2: #b8c5ff;
+  --pk-violet-3: #5f6fd0;
+  --pk-teal: #5ad0c8;
+  --warn: #ffc857;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+  --scrim: rgba(3, 5, 8, 0.76);
+}
 html[data-theme='light'] {
   /* Parchment (light) */
   --bg: #f5efe4;
@@ -288,7 +577,7 @@ html[data-theme='light'] {
   --pk-red: #b23a2a;
   --pk-red-2: #b8452f;
   --pk-red-dim: #8f3626;
-  --pk-amber: #9a5a10;
+  --pk-amber: #86500a; /* M465: the header's hour chip (amber on chip-bg) stood at 4.07:1 in daylight; 4.9 now */
   --pk-sky: #2f5f7e;
   --pk-rose: #8e4658;
   --pk-violet: #5f4288;
@@ -355,6 +644,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--ember); }
 /* M168: a native <option> takes the UA's own ink unless the page says
  * otherwise — black type on the lamplight coat's dark field, 4.2:1. */
 option { color: var(--text); background: var(--surface); }
+
+/* M465: a tick or a radio wears the coat's ember, never the browser's blue. */
+input[type="checkbox"], input[type="radio"] { accent-color: var(--ember); }
 
 textarea {
   resize: vertical;
