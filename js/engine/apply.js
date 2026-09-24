@@ -792,7 +792,10 @@ const HANDLERS = {
       ? m.stance.trim().toLowerCase() : '';
     /* M396: an arrival never rides a stance that stays put — "taken up with someone else, due now" said both */
     const eta = Number(m.etaMinutes);
-    const etaMinutes = stance !== 'busy' && stance !== 'waiting' && Number.isFinite(eta) && eta >= 0 ? Math.min(60 * 24 * 30, Math.round(eta)) : undefined;
+    /* M456: ONLY SOMEONE ON THEIR WAY HAS AN ARRIVAL (the world agent's own law). M396 kept it off "busy" and "waiting"
+     * only — so Rukia, at her desk in the 13th's barracks with "unresolved tension" and an ETA, read "due now" for
+     * scene after scene: an arrival nothing would ever bring, told to the storyteller every page. "tense" stays put too. */
+    const etaMinutes = !STAYS_PUT.has(stance) && Number.isFinite(eta) && eta >= 0 ? Math.min(60 * 24 * 30, Math.round(eta)) : undefined;
     state.offscreen = seat(
       state.offscreen, key,
       { location, activity, agenda: capText(m.agenda, 1000), stance, etaMinutes },
@@ -1504,6 +1507,9 @@ export function goneAtTheEnd(state, pageText, name) {
   }
   return false;
 }
+
+/* M456: the stances that stay where they are — no arrival ever rides them (a seat with no stance keeps its ETA, M29) */
+const STAYS_PUT = new Set(['busy', 'waiting', 'tense']);
 
 /* M455: THE HOUR A HEADER GIVES, ON THE DAY IT NAMES. With the same day words as the clock's (or none), the same day —
  * a header a few minutes behind the clock sets it back (the header is the truth for the hour); an hour far earlier with

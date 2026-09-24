@@ -10772,3 +10772,20 @@ Hanami 5, 1001 AG | 09:20" — "and lag by one page??"
   open heal.
 Harness 877/877, walk 127/127, long play 8/8, lint 0 errors (no new warnings).
 - version.js -> m455-001.
+
+# M456 — only someone on their way has an arrival: "unresolved tension … due now" is never said
+He: "Rukia Kuchiki — 13th Division barracks, her office desk, pulling the roster … (meaning to find the exact wording of
+Jovan's placement before the courtyard fight ends) — unresolved tension with the main character, due now — this is
+normal? It's been three scenes and she's still not coming back."
+- ROOT: the world agent's own law is "only someone on their way has an arrival", but the engine enforced it only for
+  "busy" and "waiting" (M396). A "tense" seat — tension with him, not a road to him — kept its ETA, so the storyteller was
+  told every page that Rukia, at her desk in another division, was "due now": an arrival nothing would ever bring (the
+  world agent keeps her at the desk for her agenda; the storyteller cannot walk her in from there).
+- NOW: "tense" stays put too — no ETA is written on it (apply.js offscreen.set, STAYS_PUT) and none is said of a seat
+  already stored with one (world.js renderArrival), so his ledger reads right at once. "toward" and "seeking" keep their
+  arrivals; a seat with no stance keeps its ETA as M29 always had it (M29-3 unchanged). She comes when the world agent
+  turns her toward him (her agenda done, a reason on the page), with an ETA the clock — now his headers' (M455) — counts.
+- TESTS: m456.mjs (2): tense with an ETA seated without one, toward/seeking/no-stance keep theirs; her seat as his ledger
+  holds it, in the storyteller's own request — the tension said, no arrival. NEGATIVE-TESTED: each gate.
+Harness 879/879, walk 127/127, long play 8/8, lint 0 errors (no new warnings).
+- version.js -> m456-001.

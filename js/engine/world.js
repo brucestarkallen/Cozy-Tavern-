@@ -529,7 +529,9 @@ export function renderArrival(entry, clockMinutes) {
   const bits = [];
   if (STANCES.includes(entry.stance)) bits.push(STANCE_WORDS[entry.stance]);
   /* M396: an arrival is never said of someone whose stance stays put — never "taken up with someone else, due now" */
-  if (entry.stance === 'busy' || entry.stance === 'waiting') return bits.join(', ');
+  /* M456: nor of "tense" — tension with him is not a road to him; a seat stored with one ("unresolved tension …, due now")
+   * is read right */
+  if (entry.stance === 'busy' || entry.stance === 'waiting' || entry.stance === 'tense') return bits.join(', ');
   const at = entry.arrivesAtMinutes;
   if (Number.isFinite(at)) {
     if (Number.isFinite(clockMinutes)) {

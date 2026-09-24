@@ -1,6 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m455-001)
+# Cozy Tavern — handoff for the next session (state at m456-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0u. ONLY SOMEONE ON THEIR WAY HAS AN ARRIVAL (M456): "tense" joins "busy" and "waiting" as stances that stay put — no ETA is
+   written on them (apply.js offscreen.set, STAYS_PUT) and none is said of a seat stored with one (world.js
+   renderArrival). Rukia at her desk read "unresolved tension with the main character, due now" for scenes. A seat with
+   no stance keeps its ETA (M29).
 0t. THE HEADER'S HOUR IS THE HOUR, ON ANY CALENDAR (M455). state.js headerMutations sets the clock from a header's time
    even with no real month ("Sunday, Hanami 5, 1001 AG | 09:20"), carrying the day words; apply.js clock.set takes a
    time of day (setTimeOfDay: same day words → same day, back or forth; other words → on by the day number, else the
@@ -168,7 +172,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 877 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 879 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 127 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
