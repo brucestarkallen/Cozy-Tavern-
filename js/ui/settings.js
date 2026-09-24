@@ -48,6 +48,7 @@ import { WORKER_ROWS } from '../agents/assign.js';
 import { VERSION } from '../version.js';
 import { loadRules, saveRules, tryRule, applyRules, builtinOriginal, importSillyTavernRegex, MODE_WORDS, VOICE_WORDS } from '../regex.js'; /* M30: the regex shelf; M31: bring your SillyTavern regex */
 import { pageText } from '../assemble/stack.js';
+import { renderUsage } from './usage.js'; /* M457 */
 
 let workerRowsGeneration = 0;
 
@@ -57,7 +58,7 @@ let workerRowsGeneration = 0;
  * page (the room of the section after it, else the one before it), where a writer looks for it; the last room is only
  * ever the fallback of a page that has no rooms at all. */
 export const SETTINGS_ROOMS = [
-  ['storyteller', 'Storyteller', ['section-connections', 'section-workers', 'section-thinking']],
+  ['storyteller', 'Storyteller', ['section-connections', 'section-usage', 'section-workers', 'section-thinking']], /* M457 */
   ['story', 'This story', ['section-brief', 'section-cast', 'section-frame', 'section-note', 'section-shelf']],
   ['craft', 'The craft', ['section-rulebook', 'section-engine', 'section-regex']],
   ['world', 'People & lore', ['section-people', 'section-lore', 'section-oldchats']],
@@ -75,6 +76,14 @@ export function roomForSection(id, orderedIds = []) {
     for (let i = at - 1; i >= 0; i -= 1) { const r = listed(orderedIds[i]); if (r) return r; }
   }
   return SETTINGS_ROOMS[SETTINGS_ROOMS.length - 1][0];
+}
+
+/* M457: a price is a plain number ($ per million tokens) — a comma for a point is read as a point; blank or nonsense is unset */
+function priceOrUnset(input) {
+  const v = input && typeof input.value === 'string' ? input.value.trim().replace(',', '.') : '';
+  if (!v) return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
 export function initSettings(ctx) {
@@ -122,6 +131,8 @@ export function initSettings(ctx) {
     connTemperature: document.getElementById('conn-temperature'),
     connTopP: document.getElementById('conn-topp'),
     connMaxTokens: document.getElementById('conn-maxtokens'),
+    connPriceIn: document.getElementById('conn-price-in'), /* M457 */
+    connPriceOut: document.getElementById('conn-price-out'),
     connContextSize: document.getElementById('conn-contextsize'),
     btnCancel: document.getElementById('btn-conn-cancel'),
     frameGlobal: document.getElementById('frame-global'),
@@ -665,6 +676,8 @@ export function initSettings(ctx) {
       els.connTemperature.value = typeof conn.temperature === 'number' ? String(conn.temperature) : '';
       els.connTopP.value = typeof conn.topP === 'number' ? String(conn.topP) : '';
       els.connMaxTokens.value = typeof conn.maxTokens === 'number' ? String(conn.maxTokens) : '';
+      if (els.connPriceIn) els.connPriceIn.value = Number.isFinite(conn.priceIn) ? String(conn.priceIn) : ''; /* M457 */
+      if (els.connPriceOut) els.connPriceOut.value = Number.isFinite(conn.priceOut) ? String(conn.priceOut) : '';
       els.connContextSize.value = typeof conn.contextSize === 'number' ? String(conn.contextSize) : '';
       /* M289: left empty, the room the provider reports for this model is what the house plans in — say it */
       if (typeof conn.contextSize !== 'number' && Number(conn.detectedContext) > 0 && conn.detectedFor === detectKey(conn)) {
@@ -698,6 +711,8 @@ export function initSettings(ctx) {
       els.connTemperature.value = '';
       els.connTopP.value = '';
       els.connMaxTokens.value = '';
+      if (els.connPriceIn) els.connPriceIn.value = ''; /* M457 */
+      if (els.connPriceOut) els.connPriceOut.value = '';
       els.connContextSize.value = '';
       els.search.checked = false;
       els.searchCount.value = '';
@@ -872,6 +887,8 @@ export function initSettings(ctx) {
       topP: numOrUnset(els.connTopP),
       maxTokens: numOrUnset(els.connMaxTokens),
       contextSize: numOrUnset(els.connContextSize),
+      priceIn: priceOrUnset(els.connPriceIn), /* M457: $ per million tokens, for Usage and cost */
+      priceOut: priceOrUnset(els.connPriceOut),
     };
     /* M22-C/D: the search switch and its ceiling, and the prefill —
      * kept only when they're on/filled. */
@@ -899,7 +916,7 @@ export function initSettings(ctx) {
     if (editingId) {
       /* update() treats null as "let the dial go" (store.js, M8). */
       const patch = { ...fields };
-      for (const key of ['temperature', 'topP', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
+      for (const key of ['priceIn', 'priceOut', 'temperature', 'topP', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
         if (patch[key] === undefined) patch[key] = null;
       }
       /* M22-A/D: the refusal memories stand until the model field
@@ -1647,7 +1664,7 @@ export function initSettings(ctx) {
     if (!(els.canonOn && els.canonOn.checked)) { els.canonControls.textContent = ''; els.canonControls.hidden = true; return; }
     els.canonControls.hidden = false;
     try {
-      await drawCanonControls(els.canonControls, { selfTest: () => (ctx.chat && typeof ctx.chat.canonTest === 'function' ? ctx.chat.canonTest() : { ok: false, ms: 0, error: 'open a story first' }) });
+      await drawCanonControls(els.canonControls, { storyId: ctx.getActiveStoryId(), /* M457: this story's own */ selfTest: () => (ctx.chat && typeof ctx.chat.canonTest === 'function' ? ctx.chat.canonTest() : { ok: false, ms: 0, error: 'open a story first' }) });
     } catch (err) {
       els.canonControls.textContent = 'Its settings could not be drawn just now (' + String((err && err.message) || err).slice(0, 120) + ').';
     }
@@ -2712,7 +2729,7 @@ export function initSettings(ctx) {
    * interactive the moment it appears. A room the writer switches to renders
    * whatever is still pending for it first. */
   const ROOM_RENDERS = {
-    storyteller: () => [renderConnections, renderWorkers, renderThinking],
+    storyteller: () => [renderConnections, () => renderUsage(document.getElementById('usage-box')), renderWorkers, renderThinking], /* M457 */
     story: () => [loadPromptSlots],
     craft: () => [renderRulebook, renderRegex],
     world: () => [renderCast, renderLore],

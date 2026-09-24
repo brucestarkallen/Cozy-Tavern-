@@ -10790,3 +10790,36 @@ normal? It's been three scenes and she's still not coming back."
 Harness 879/879, walk 127/127, long play 8/8, lint 0 errors (no new warnings).
 - version.js -> m456-001.
 - m456-002: STAYS_PUT declared above its first use (lint no-use-before-define — a new warning m456-001 shipped; no change in behaviour). Harness 879/879, walk 127/127, lint no new warnings.
+
+# M457 — usage and cost for every call; canon settings per story; one wiki library; discovery reads the ledger
+He asked: (1) canon's "where to look" and every setting saved per story, not for every story; (2) an empty one found
+automatically from the brief, the pages and the ledger, skipping when nothing fits; (3) a library of wikis like the
+SillyTavern extension's, so a saved fandom goes back in the box with a tap; (4) token input/output history for every API
+call — storyteller and workers — per day, week and month, with each connection's own prices and the total.
+- (4) THE METER: providers/meter.js on relay.js houseFetch (every provider call passes it): POSTs to /chat/completions or
+  /messages with messages are metered; a stream is teed (the caller gets its own branch, byte for byte — M457-1), a JSON
+  answer read from a clone; usage as the provider reports it (OpenAI/DeepSeek usage; Claude's message_start input plus
+  cache tokens and message_delta output), else estimated at four characters a token and marked ≈; a model list is not a
+  call to a model. Day books under db.settings 'usage:YYYY-MM-DD', one write after another. engine/usage.js: today, the
+  last 7 and 30 days per connection and model and the total; the per-day rate over the days used, a week and a month at
+  that rate; money from priceIn/priceOut ($ per million), "no price" said, never guessed. UI: Settings → Storyteller →
+  Usage and cost (ui/usage.js); the connection editor's two price boxes; store.js add keeps them (a NEW connection lost
+  its prices — found by DOM-110).
+- (1) PER STORY: canon/bridge.js useStorySettings — the extension's live settings object is the open story's own copy
+  (canonGroundingSettings:<storyId>), made from the old shared settings the first time the story opens; a story that
+  never looked anything up starts with nowhere to look. enterStory and the Settings canon room (drawCanonControls with
+  the active story) both make it live; the save hook writes it to that story.
+- (2) DISCOVERY: the card the extension's discovery reads carries "People in this story: …" from the ledger (the brief
+  and the first and last pages already rode); nothing found, nothing runs for that story.
+- (3) THE LIBRARY: one list for every story (db.settings canonLibrary; the wikis any story used join it). Settings →
+  canon → "Wiki library" with "Add to library" and a remove for each; each story's "What canon says" room offers it as
+  chips (a tap puts it in the box and keeps it) and an "Add to library" for the box's own. The shared "first-look" box is
+  gone (where to look is each story's own).
+- TESTS: m457.mjs (3): a DeepSeek stream metered as reported with the caller's stream untouched; Claude's stream with
+  cache, a JSON answer, a silent provider estimated, a model list not counted; the sums, rates and money. m457b.mjs (2):
+  each story its own settings; one library. Walk DOM-110 (the Usage and cost room, priced), DOM-111 (the library chips
+  and Add to library). M386-8 and M346-1, DOM-69 and DOM-87 moved to the per-story model (where the change is kept, and
+  the wiki named in the story's own room). NEGATIVE-TESTED: the meter unwired, the per-story swap removed.
+Harness 884/884, walk 129/129, long play 8/8, real browser (relay, two browsers, holds one, kept thinking, housekeeper
+rounds) green, lint 0 errors (no new warnings).
+- version.js -> m457-001.

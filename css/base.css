@@ -626,7 +626,7 @@ button:active { transform: scale(0.96); transition-duration: 0.12s; }
 
 .settings-quicknav:empty { display: none; }
 
-.nav-chip {
+.nav-chip, .usage-period, .lib-chip { /* M457: the period and library chips wear the rooms' look, not their class */
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -635,12 +635,12 @@ button:active { transform: scale(0.96); transition-duration: 0.12s; }
   color: var(--muted);
 }
 
-.nav-chip:hover {
+.nav-chip:hover, .usage-period:hover, .lib-chip:hover {
   color: var(--ember);
   border-color: var(--ember-dim);
 }
 /* M105: the open room keeps the ember; the strips stick to the top of their scroll */
-.nav-chip.current { color: var(--ember); border-color: var(--ember); background: var(--surface-2); }
+.nav-chip.current, .usage-period.current { color: var(--ember); border-color: var(--ember); background: var(--surface-2); }
 .settings-quicknav, .drawer-rooms {
   display: flex; flex-wrap: wrap; gap: 0.4rem;
   position: sticky; top: 0; z-index: 3;
@@ -878,3 +878,15 @@ body.plain-speech .thought { font-style: italic; }
 .glossary li { margin: 0.3rem 0; line-height: 1.5; }
 .glossary code { font-family: var(--mono); font-size: 0.85em; background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 4px; }
 .show-earlier { display: block; margin: 0.4rem auto 1rem; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* M457: Usage and cost */
+.usage-periods { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 8px; }
+.usage-shown { overflow-x: auto; }
+.usage-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+.usage-table th, .usage-table td { padding: 4px 6px; text-align: left; border-bottom: 1px solid rgba(128, 128, 128, 0.25); }
+.usage-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.usage-total td { font-weight: 600; }
+.usage-averages { margin-top: 10px; }
+.usage-avg-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+.canon-library-chips { flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+

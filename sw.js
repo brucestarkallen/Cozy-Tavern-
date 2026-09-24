@@ -55,6 +55,9 @@ const SHELL = [
   'js/agents/referee.js',
   'js/sent.js',
   'js/providers/relay.js',
+  'js/providers/meter.js', /* M457 */
+  'js/engine/usage.js',
+  'js/ui/usage.js',
   'js/providers/latesystem.js',
   'js/providers/speed.js',
   'js/assemble/plain.js',

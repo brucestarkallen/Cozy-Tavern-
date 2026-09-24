@@ -104,6 +104,58 @@ const SHIPPED_WIKI = 'the-eminence-in-shadow';
 
 let ready = null;
 let lastStory = null;
+
+/* ---------- M457: EACH STORY ITS OWN CANON SETTINGS; ONE LIBRARY OF WIKIS FOR ALL ----------
+ * He: "where to look and everything on the setting supposed to be saved in each story, not on every story". The
+ * extension keeps one settings object (SillyTavern's, global); here the live object is the open story's own copy —
+ * made the first time the story is opened, from the old shared settings (a story that never looked anything up starts
+ * with nowhere to look: it finds its own, or skips). The library of wikis ("add to library") is shared by every story. */
+let settingsStory = null;
+const storySettingsKey = (id) => CANON_SETTINGS_KEY + ':' + id;
+const LIBRARY_KEY = 'canonLibrary';
+export async function useStorySettings(storyId) {
+  await canonReady();
+  if (!storyId || settingsStory === storyId) return api().settings();
+  let own = await db.settings.get(storySettingsKey(storyId));
+  if (!own || typeof own !== 'object') {
+    const template = (await db.settings.get(CANON_SETTINGS_KEY)) || api().settings();
+    own = JSON.parse(JSON.stringify(template));
+    const meta = await loadMeta(storyId);
+    const lookedUp = meta && meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' && Object.keys(meta.canon_grounding_cache).length > 0;
+    if (!lookedUp) own.wikis = ''; /* where to look is each story's own */
+    await db.settings.set(storySettingsKey(storyId), own);
+  }
+  extension_settings.canon_grounding = own;
+  settingsStory = storyId;
+  return api().settings();
+}
+export async function canonLibrary() {
+  const lib = await db.settings.get(LIBRARY_KEY);
+  const tpl = (await db.settings.get(CANON_SETTINGS_KEY)) || {};
+  const live = extension_settings.canon_grounding || {};
+  const all = [...(Array.isArray(lib) ? lib : []), ...(Array.isArray(tpl.savedWikis) ? tpl.savedWikis : []), ...(Array.isArray(live.savedWikis) ? live.savedWikis : [])];
+  const seen = new Set();
+  return all.map((w) => wikiName(String(w || ''))).filter((w) => w && !seen.has(w) && seen.add(w));
+}
+export async function addToLibrary(...wikis) {
+  const now = await canonLibrary();
+  const add = wikis.flatMap((w) => String(w || '').split(',')).map((w) => wikiName(w)).filter(Boolean);
+  const next = [...now, ...add.filter((w) => !now.includes(w))];
+  await db.settings.set(LIBRARY_KEY, next);
+  return next;
+}
+export async function removeFromLibrary(wiki) {
+  const w = wikiName(String(wiki || ''));
+  const next = (await canonLibrary()).filter((x) => x !== w);
+  await db.settings.set(LIBRARY_KEY, next);
+  /* the copies the old settings kept, so it does not come back */
+  for (const key of [CANON_SETTINGS_KEY, ...(settingsStory ? [storySettingsKey(settingsStory)] : [])]) {
+    const s = await db.settings.get(key);
+    if (s && Array.isArray(s.savedWikis) && s.savedWikis.includes(w)) await db.settings.set(key, { ...s, savedWikis: s.savedWikis.filter((x) => x !== w) });
+  }
+  if (extension_settings.canon_grounding && Array.isArray(extension_settings.canon_grounding.savedWikis)) extension_settings.canon_grounding.savedWikis = extension_settings.canon_grounding.savedWikis.filter((x) => x !== w);
+  return next;
+}
 /* Load it once: its settings (the wiki facts it has kept live in them, as in ST), then the extension, then its boot
  * (which starts its own settings and listens for the events Cozy sends). */
 export function canonReady() {
@@ -111,7 +163,13 @@ export function canonReady() {
     ready = (async () => {
       const saved = await db.settings.get(CANON_SETTINGS_KEY);
       if (saved && typeof saved === 'object') extension_settings.canon_grounding = saved;
-      onSettingsSave((s) => (s && typeof s === 'object' ? db.settings.set(CANON_SETTINGS_KEY, s) : null));
+      /* M457: saved to the story whose settings are live (useStorySettings) — the old shared key is only the template a
+       * story copies the first time it is opened; the wikis it used go to the one library every story shares */
+      onSettingsSave((s) => {
+        if (!s || typeof s !== 'object') return null;
+        if (Array.isArray(s.savedWikis) && s.savedWikis.length) addToLibrary(...s.savedWikis).catch(() => {});
+        return db.settings.set(settingsStory ? storySettingsKey(settingsStory) : CANON_SETTINGS_KEY, s);
+      });
       await import('./grounding.js');
       await runBoot();
       const s = extension_settings.canon_grounding;
@@ -277,7 +335,10 @@ export async function canonSaveMeta(storyId) {
 
 function contextFor({ story, state, messages, connection, meta }) {
   const mc = mcName(state);
-  const card = { name: story.title || '', description: story.brief || '', personality: '', scenario: story.castNotes || '', first_mes: '', mes_example: '' };
+  /* M457: where to look is found from the brief, the pages AND the ledger — the people the story knows ride on the card
+   * the extension's discovery reads (its first pages and last pages ride as the chat) */
+  const known = [...new Set([...Object.keys((state && state.characters) || {}), ...((state && state.present) || []).map((p) => p && p.name), ...Object.keys((state && state.offscreen) || {})].filter((n) => n && n !== mc))].slice(0, 30);
+  const card = { name: story.title || '', description: story.brief || '', personality: known.length ? 'People in this story: ' + known.join(', ') : '', scenario: story.castNotes || '', first_mes: '', mes_example: '' };
   card.data = { ...card };
   meta.summaryception = { ledger: ledgerOf(state, { brief: String(story.brief || '') + '\n' + String(story.castNotes || '') }) };
   return {
@@ -319,6 +380,7 @@ function contextFor({ story, state, messages, connection, meta }) {
 async function enterStory(bundle) {
   const { story } = bundle;
   await canonReady();
+  await useStorySettings(story.id); /* M457: its own settings, live while it is open */
   const meta = await loadMeta(story.id);
   setContext(contextFor({ ...bundle, meta }));
   /* M396: every book of the ledger asks "the same person?" of one matcher — and canon knows who answers to which names
@@ -466,8 +528,7 @@ export async function canonPinnedKeys(storyId) {
 
 /* the wikis the extension has used — offered in each story's room */
 export async function canonSavedWikis() {
-  const s = extension_settings.canon_grounding || (await db.settings.get(CANON_SETTINGS_KEY)) || {};
-  return Array.isArray(s.savedWikis) ? s.savedWikis.filter((w) => typeof w === 'string' && w.trim()) : [];
+  return canonLibrary(); /* M457: the one library */
 }
 
 /* what went with the last page of THIS story (the extension keeps one chat's worth of it) — the note and why each rode */
@@ -478,12 +539,14 @@ export function canonLast(storyId) {
 
 /* ---------- M386: Settings — the extension's own settings object, live ---------- */
 
-export async function canonSettings() {
+export async function canonSettings(storyId) {
   await canonReady();
+  if (storyId) await useStorySettings(storyId); /* M457: the open story's own */
   return api().settings();
 }
-export async function setCanonSetting(key, value) {
+export async function setCanonSetting(key, value, storyId) {
   await canonReady();
+  if (storyId) await useStorySettings(storyId);
   const s = api().settings();
   s[key] = value;
   await flushSettings();

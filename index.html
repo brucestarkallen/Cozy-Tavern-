@@ -200,6 +200,12 @@
             <label>Longest reply, in tokens
               <input id="conn-maxtokens" type="number" min="1" step="256" placeholder="The house default" autocomplete="off">
             </label>
+            <label>Input price, $ per million tokens (for Usage and cost)
+              <input id="conn-price-in" type="text" inputmode="decimal" placeholder="e.g. 3" autocomplete="off">
+            </label>
+            <label>Output price, $ per million tokens
+              <input id="conn-price-out" type="text" inputmode="decimal" placeholder="e.g. 15" autocomplete="off">
+            </label>
             <label>The model's room, in tokens (feeds the ember bar)
               <input id="conn-contextsize" type="number" min="1000" step="1000" placeholder="200000" autocomplete="off">
             </label>
@@ -248,6 +254,12 @@
               <button type="button" id="btn-conn-cancel" class="text-btn">Not now</button>
             </div>
           </form>
+        </section>
+
+        <section class="settings-section" id="section-usage">
+          <h3>Usage and cost</h3>
+          <p class="quiet">Every call to a model — the storyteller and every worker — counted as it lands: tokens in and out, per connection and model. Set each connection's prices in its editor above to see the money.</p>
+          <div id="usage-box" class="usage-box"></div>
         </section>
 
         <section class="settings-section" id="section-frame">

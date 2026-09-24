@@ -159,6 +159,8 @@ import './m452.mjs';
 import './m453.mjs';
 import './m455.mjs';
 import './m456.mjs';
+import './m457.mjs';
+import './m457b.mjs';
 import './record-fuzz.mjs';
 import { runAll } from './lib.mjs';
 

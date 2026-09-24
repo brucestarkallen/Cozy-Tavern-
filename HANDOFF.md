@@ -1,6 +1,18 @@
-# Cozy Tavern — handoff for the next session (state at m456-002)
+# Cozy Tavern — handoff for the next session (state at m457-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0v. USAGE AND COST; CANON PER STORY; ONE WIKI LIBRARY (M457). providers/meter.js meters EVERY call on the one road
+   (relay.js houseFetch → watchUsage: a stream is teed, the caller's branch untouched; JSON read from a clone; the
+   provider's usage as reported, else four characters a token, marked ≈) into day books (db.settings 'usage:YYYY-MM-DD',
+   one write after another); engine/usage.js sums today / 7 / 30 days and the per-day rate (over the days used) × 7 ×
+   30, priced from each connection's priceIn/priceOut ($ per million; store.js add keeps them). Settings → Storyteller →
+   Usage and cost (ui/usage.js). Canon: each story its own settings (bridge.js useStorySettings: the live object is the
+   open story's copy, saved under canonGroundingSettings:<id>; the old shared key is only the template; a story that
+   never looked anything up starts with nowhere to look); discovery reads the ledger's people too (the card); the wiki
+   library (canonLibrary/addToLibrary/removeFromLibrary, key canonLibrary) is shared — Settings adds and removes, each
+   story's room offers it as chips with "Add to library". Chip classes: usage-period, lib-chip — never nav-chip (a
+   Settings room). A walk test must drive the canon bridge through the app's own UI: a test's own import of bridge.js
+   is a second instance with its own live settings.
 0u. ONLY SOMEONE ON THEIR WAY HAS AN ARRIVAL (M456): "tense" joins "busy" and "waiting" as stances that stay put — no ETA is
    written on them (apply.js offscreen.set, STAYS_PUT) and none is said of a seat stored with one (world.js
    renderArrival). Rukia at her desk read "unresolved tension with the main character, due now" for scenes. A seat with
@@ -172,9 +184,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 879 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 884 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 127 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 129 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

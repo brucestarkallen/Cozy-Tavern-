@@ -9,7 +9,7 @@
  * ✒ Advanced, LLM-curated dossiers, Parser self-test), each with its plain meaning. Drawn only with the switch on: off,
  * the extension is never loaded. */
 import {
-  canonSettings, setCanonSetting, canonDefaults, canonPromptDefault, canonResetKeywords, canonResetAll, canonWikis, setCanonWikis,
+  canonSettings, setCanonSetting as setCanonSettingOf, canonDefaults, canonLibrary, addToLibrary, removeFromLibrary, canonPromptDefault, canonResetKeywords, canonResetAll,
 } from '../canon/bridge.js';
 
 /* [key, label, what it means] — the extension's own toggles */
@@ -84,9 +84,11 @@ function el(tag, props = {}, ...kids) {
 function quiet(text) { return el('p', { className: 'quiet', text }); }
 
 /* Draw every lever into `host`. `selfTest` asks through the open story's canon worker (ctx.chat.canonTest). */
-export async function drawCanonControls(host, { selfTest } = {}) {
+export async function drawCanonControls(host, { selfTest, storyId } = {}) {
   if (!host) return;
-  const s = await canonSettings();
+  /* M457: these are the OPEN story's own settings — each story keeps its own */
+  const s = await canonSettings(storyId);
+  const setCanonSetting = (key, value) => setCanonSettingOf(key, value, storyId);
   const defaults = await canonDefaults();
   host.textContent = '';
 
@@ -143,25 +145,26 @@ export async function drawCanonControls(host, { selfTest } = {}) {
   });
   group('How much rides, and how long a page waits', 'The page is never held longer than these; what is not ready in time rides with the next page.', numbers);
 
-  /* where it looks */
-  const wikiIn = el('input', { type: 'text', id: 'canon-wikis', maxlength: '200', placeholder: 'e.g. bleach — from bleach.fandom.com; several with commas' });
-  wikiIn.value = await canonWikis();
-  wikiIn.addEventListener('change', async () => { wikiIn.value = await setCanonWikis(wikiIn.value); });
+  /* M457: THE LIBRARY — the wikis every story can pick from in its own room ("This story's wiki"); a story's own wiki is
+   * set there, never here: where to look is each story's own, and an empty one finds itself or skips */
+  const libIn = el('input', { type: 'text', id: 'canon-library-add', maxlength: '200', placeholder: 'e.g. bleach -- from bleach.fandom.com' });
+  const libAdd = el('button', { type: 'button', className: 'text-btn', id: 'canon-library-add-btn', text: 'Add to library' });
   const library = el('div', { className: 'canon-library', id: 'canon-library' });
-  const drawLibrary = () => {
+  const drawLibrary = async () => {
     library.textContent = '';
-    const list = Array.isArray(s.savedWikis) ? s.savedWikis.filter(Boolean) : [];
-    if (!list.length) { library.appendChild(quiet('No wiki used yet — each one a story finds is kept here.')); return; }
-    library.appendChild(quiet('Wikis it has used — offered in each story’s room:'));
+    const list = await canonLibrary();
+    if (!list.length) { library.appendChild(quiet('The library is empty -- add a wiki above, or each one a story finds is kept here.')); return; }
+    library.appendChild(quiet('In the library -- offered in each story\'s room, one tap to use:'));
     for (const w of list) {
-      const x = el('button', { type: 'button', className: 'story-mini', title: 'Forget ' + w, 'aria-label': 'Forget ' + w, text: '×' });
-      x.addEventListener('click', async () => { await setCanonSetting('savedWikis', list.filter((y) => y !== w)); drawLibrary(); });
+      const x = el('button', { type: 'button', className: 'story-mini', title: 'Take ' + w + ' out of the library', 'aria-label': 'Take ' + w + ' out of the library', text: 'x' });
+      x.addEventListener('click', async () => { await removeFromLibrary(w); await drawLibrary(); });
       library.appendChild(el('div', { className: 'present-row' }, el('span', { text: w }), x));
     }
   };
-  drawLibrary();
-  group('Where it looks', 'Each story finds its own wiki (or keeps the one you name in its room, “What canon says”).', [
-    el('label', { className: 'stack-label', for: 'canon-wikis', text: 'Where a story that has not found its own looks first (optional)' }), wikiIn, library,
+  libAdd.addEventListener('click', async () => { if (!libIn.value.trim()) return; await addToLibrary(libIn.value); libIn.value = ''; await drawLibrary(); });
+  await drawLibrary();
+  group('Where it looks', 'Each story has its own: name it in the story\'s room ("What canon says"), or leave it empty and it finds it from the brief, the pages and the ledger -- and skips when nothing fits. These settings are this story\'s own.', [
+    el('label', { className: 'stack-label', for: 'canon-library-add', text: 'Wiki library' }), el('div', { className: 'row' }, libIn, libAdd), library,
   ]);
 
   /* his notes for every story */
@@ -207,7 +210,7 @@ export async function drawCanonControls(host, { selfTest } = {}) {
   resetAll.addEventListener('click', async () => {
     if (!window.confirm('Put every canon verification setting and instruction back as it came? What each story has looked up, its wiki, and your notes for every story are kept.')) return;
     await canonResetAll();
-    await drawCanonControls(host, { selfTest });
+    await drawCanonControls(host, { selfTest, storyId });
   });
   host.appendChild(el('div', { className: 'row' }, resetAll));
 }

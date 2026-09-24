@@ -8,6 +8,7 @@
  * house. The key rides in the headers of one request to his own phone and is never written down.
  * Nothing changes for a provider that answers a page: the direct call is made first, every time, until one fails. */
 import { db } from '../store.js';
+import { watchUsage } from './meter.js'; /* M457 */
 
 const RELAY_PATH = '/api/relay';
 let houseHasRelay = null; /* asked once a session */
@@ -60,8 +61,12 @@ async function rememberRelay(conn) {
   if (conn.id) { try { await db.connections.update(conn.id, { viaRelay: true }); } catch (err) { /* it stands for this session either way */ } }
 }
 
-/* Every call to a provider goes through here. A connection already known to be refused by pages starts at the house. */
+/* Every call to a provider goes through here. A connection already known to be refused by pages starts at the house.
+ * M457: and every one is metered on its way back (providers/meter.js) — tokens in and out, per connection and model. */
 export async function houseFetch(url, init, conn) {
+  return watchUsage(url, init, conn, await houseFetchUnmetered(url, init, conn));
+}
+async function houseFetchUnmetered(url, init, conn) {
   if (conn && conn.viaRelay && (await relayStands())) {
     const [path, wrapped] = throughHouse(url, init);
     return fetch(path, wrapped);

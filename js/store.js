@@ -269,6 +269,9 @@ const connections = {
     if (typeof conn.topP === 'number') row.topP = conn.topP;
     if (typeof conn.maxTokens === 'number') row.maxTokens = conn.maxTokens;
     if (typeof conn.contextSize === 'number') row.contextSize = conn.contextSize;
+    /* M457: its prices ($ per million tokens), for Usage and cost */
+    if (typeof conn.priceIn === 'number') row.priceIn = conn.priceIn;
+    if (typeof conn.priceOut === 'number') row.priceOut = conn.priceOut;
     /* M8.5: the thinking voice — {effort:'low|…|max', budgetTokens?}.
      * 'off' (or absence) sends nothing. */
     if (conn.reasoning && typeof conn.reasoning === 'object') row.reasoning = conn.reasoning;

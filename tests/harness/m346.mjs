@@ -4,7 +4,7 @@
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { db } from '../../js/store.js';
-import { canonBeforeSend, canonMetaKey, canonKnown, canonForget, setCanonWikis, ledgerOf, stChat } from '../../js/canon/bridge.js';
+import { canonBeforeSend, canonMetaKey, canonKnown, canonForget, setCanonWikis, ledgerOf, stChat, setCanonSetting } from '../../js/canon/bridge.js';
 import { injectionFor } from '../../js/canon/host.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 import { emptyState } from '../../js/engine/state.js';
@@ -32,7 +32,7 @@ test('M346-1 CANON VERIFICATION IN COZY: the story is its chat, Cozy’s ledger 
   try {
     const st = await db.stories.create({ title: 'Soul Society', brief: 'A Bleach story. Jovan, a new Shinigami, trains under Rukia Kuchiki.' });
     const story = await db.stories.get(st.id);
-    await setCanonWikis('bleach');
+    await setCanonSetting('wikis', 'bleach', st.id); /* M457: where to look is the story's own */
     const state = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
     state.characters = { 'Rukia Kuchiki': { core: 'Rukia, his instructor.', state: 'drilling him', threads: [] } };
     eq(JSON.stringify(Object.keys(ledgerOf(state)).sort()), JSON.stringify(['Jovan', 'Rukia Kuchiki']), 'Cozy’s ledger is the cast list it reads');

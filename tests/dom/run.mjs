@@ -3692,6 +3692,7 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
   const { saveState, emptyState } = await import('../../js/engine/state.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
   const H = '[Soul Society training ground — Monday, September 7, 2026 | 09:00 | clear | shihakusho | kneeling]\n\n';
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
   const st = await db.stories.create({ title: 'Soul Society' });
   await db.stories.update(st.id, { keeper: false, brief: 'A Bleach story. Jovan, a new Shinigami, trains under Rukia Kuchiki.' });
   await db.messages.append(st.id, { role: 'user', text: 'I kneel on the training ground.' });
@@ -3723,10 +3724,20 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
     if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    /* M386: the first-look wiki is one of the levers drawn once the switch is on */
-    if (typeof wiki === 'string') { const w = await until(() => q('#canon-wikis'), 'the first-look wiki box, drawn with the switch on', 10000); w.value = wiki; w.dispatchEvent(new env.window.Event('change', { bubbles: true })); await until(async () => ((await db.settings.get('canonGroundingSettings')) || {}).wikis === wiki, 'the wiki kept', 5000); }
     await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 5000);
     await closeSettings();
+    /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
+    if (typeof wiki === 'string') {
+      if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+      await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+      const inRoom = (sel) => { const r = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says'); return r ? r.querySelector(sel) : null; };
+      const box = await until(() => inRoom('#canon-story-wiki'), 'the story’s wiki box', 10000);
+      box.value = wiki;
+      submit(box.closest('form'));
+      const { canonMeta } = await import('../../js/canon/bridge.js');
+      await until(async () => String((await canonMeta(st.id)).canon_grounding_wiki || '').includes(wiki), 'the story’s wiki kept', 15000);
+      click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'the drawer closed');
+    }
   };
   const was = await db.settings.get('canonOn:' + st.id);
   try {
@@ -4600,7 +4611,7 @@ test('DOM-87 EVERY KIND OF CANON CONTROL IN SETTINGS WRITES THROUGH: a switch, a
   const before = errors.length;
   const open87 = await db.settings.get('activeStoryId'); /* M399: the switch is the open story's */
   const was = await db.settings.get('canonOn:' + open87);
-  const kept = async () => (await db.settings.get('canonGroundingSettings')) || {};
+  const kept = async () => (await db.settings.get('canonGroundingSettings:' + open87)) || {}; /* M457: the open story's own */
   const change = (el, value) => { if (typeof value === 'boolean') el.checked = value; else el.value = value; el.dispatchEvent(new env.window.Event('change', { bubbles: true })); };
   try {
     await openSettings();
@@ -5642,6 +5653,63 @@ test('DOM-109 THE CLOCK FOLLOWS HIS NEWEST PAGE ON HIS OWN CALENDAR, THROUGH THE
     house.state.storyAnswer = null;
     house.state.workerAnswer = walkDefaultWorker;
   }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-110 USAGE AND COST, IN SETTINGS: what the calls took today, over 7 and 30 days, and per day, week and month — each connection and model on its own row, priced from its own prices; the price boxes stand in the connection editor (M457)', async () => {
+  const before = errors.length;
+  const { dayKey, addToDay, USAGE_PREFIX } = await import('../../js/engine/usage.js');
+  const conn = await db.connections.add({ name: 'Claude', label: 'Claude', type: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: 'k', model: 'claude-opus-5-5', priceIn: 3, priceOut: 15 });
+  const connId = conn && conn.id ? conn.id : (await db.connections.list()).find((c) => c.label === 'Claude').id;
+  await db.settings.set(USAGE_PREFIX + dayKey(Date.now()), addToDay({}, { connId, connName: 'Claude', model: 'claude-opus-5-5', inTok: 2000000, outTok: 100000 }));
+  await openSettings();
+  click(q('[data-room="storyteller"]'));
+  const box = await until(() => { const b = q('#usage-box'); return b && b.querySelector('.usage-total') ? b : null; }, 'the usage room', 10000);
+  const total = box.querySelector('.usage-total').textContent;
+  assert(/2M/.test(total) && /100k/.test(total) && /\$7\.50/.test(total), 'today: 2M in, 100k out, $7.50 — ' + total);
+  const avg = [...box.querySelectorAll('.usage-avg-row')].map((r) => r.textContent);
+  eq(avg.length, 3, 'per day, per week, per month');
+  assert(/\$7\.50/.test(avg[0]) && /\$52\.50/.test(avg[1]) && /\$225/.test(avg[2]), avg.join(' | '));
+  click([...box.querySelectorAll('.usage-periods button')].find((b) => b.dataset.period === 'month'));
+  assert(/Claude · claude-opus-5-5/.test(box.querySelector('.usage-table').textContent), 'its row, by connection and model');
+  assert(q('#conn-price-in') && q('#conn-price-out'), 'the price boxes stand in the connection editor');
+  await closeSettings();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-111 THE WIKI LIBRARY, ONE TAP: in a story’s own canon room the library is offered as chips — a tap puts it in the story’s wiki box and keeps it; "Add to library" saves the box’s wiki for every story (M457)', async () => {
+  const before = errors.length;
+  const { addToLibrary, canonLibrary, canonMeta } = await import('../../js/canon/bridge.js');
+  const st = await db.stories.create({ title: 'Library tale' });
+  await db.messages.append(st.id, { role: 'user', text: 'I arrive.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'Rukia Kuchiki bowed.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await db.settings.set('canonOn:' + st.id, true);
+  await addToLibrary('bleach');
+  const openRoom = async (title) => {
+    if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+    const sec = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === title);
+    assert(sec, 'the room “' + title + '” is in the ledger');
+    return sec;
+  };
+  const room = await openRoom('What canon says');
+  const chips = await until(() => room.querySelector('#canon-library-chips'), 'the library chips', 10000);
+  const chip = [...chips.querySelectorAll('button.lib-chip')].find((b) => b.textContent === 'bleach');
+  assert(chip, 'the library is offered in the story’s room');
+  click(chip);
+  await until(async () => String((await canonMeta(st.id)).canon_grounding_wiki || '').includes('bleach'), 'the story to keep the wiki it was handed', 15000);
+  await openRoom('What canon says');
+  /* the room draws itself again after the wiki is kept — found afresh each look, never a stale copy */
+  const inRoom = (sel) => { const r = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says'); return r ? r.querySelector(sel) : null; };
+  /* the room is busy while the wiki it was handed is checked, and draws again after — waited out, however long */
+  const box = await until(() => inRoom('#canon-story-wiki'), 'the box', 40000);
+  box.value = 'highschooldxd';
+  click(await until(() => { const b = inRoom('#canon-add-library'); return b && inRoom('#canon-story-wiki') === box ? b : null; }, 'Add to library', 40000));
+  await until(async () => (await canonLibrary()).includes('highschooldxd'), 'the library to hold it', 10000);
+  if (!q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'the drawer closed'); }
+  await db.settings.set('canonOn:' + st.id, false);
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

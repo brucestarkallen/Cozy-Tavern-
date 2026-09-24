@@ -55,7 +55,7 @@ import { pageText } from '../assemble/stack.js';
 import { withCardNames, cleanName } from '../assemble/voice.js'; /* M435 */
 import { mcName } from '../engine/duels.js'; /* M435: whose name {{user}} is */
 import { db } from '../store.js';
-import { canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys, canonNotes } from '../canon/bridge.js'; /* M386: what canon says; M395: its own notes */
+import { canonLibrary, addToLibrary, canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys, canonNotes } from '../canon/bridge.js'; /* M386: what canon says; M395: its own notes */
 import { overlayFor, throughLens, lensHeld } from '../agents/canonlens.js'; /* M392: canon through his story */
 import { isHere, samePersonName } from '../engine/names.js'; /* M396/M398: one answer to "the same person?" */
 
@@ -1289,6 +1289,26 @@ function canonSaysPanel(ctx) {
       render();
     });
     body.appendChild(wikiForm);
+    /* M457: THE LIBRARY, ONE TAP — a wiki from it goes in the box and is kept for this story; the box's own goes in it */
+    const libRow = document.createElement('div');
+    libRow.className = 'canon-library-chips row';
+    libRow.id = 'canon-library-chips';
+    for (const w of await canonLibrary()) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'lib-chip';
+      chip.textContent = w;
+      chip.addEventListener('click', () => { wikiIn.value = w; wikiBtn.click(); });
+      libRow.appendChild(chip);
+    }
+    const addLib = document.createElement('button');
+    addLib.type = 'button';
+    addLib.className = 'text-btn';
+    addLib.id = 'canon-add-library';
+    addLib.textContent = 'Add to library';
+    addLib.addEventListener('click', async () => { if (!wikiIn.value.trim()) return; await addToLibrary(wikiIn.value); answer('Added to the library.'); render(); });
+    libRow.appendChild(addLib);
+    body.appendChild(libRow);
 
     /* ask canon, in plain words */
     const askForm = document.createElement('form');

@@ -263,7 +263,8 @@ test('M386-8 SETTINGS ARE THE EXTENSION’S OWN, LIVE: a switch changed is in fo
     const withFace = await canonBeforeSend({ story, state, messages, connection: null });
     assert(/Appearance:/.test(withFace), 'her face rides: ' + withFace.slice(0, 400));
     await setCanonSetting('physical', false);
-    eq((await db.settings.get(CANON_SETTINGS_KEY)).physical, false, 'kept in the store at once');
+    /* M457: each story keeps its own canon settings — the change is kept in THIS story's store at once */
+    eq((await db.settings.get(CANON_SETTINGS_KEY + ':' + story.id)).physical, false, 'kept in the story’s own store at once');
     const noFace = await canonBeforeSend({ story, state, messages: [...messages, { id: 'a2', role: 'assistant', text: 'Rukia waits.' }, { id: 'u3', role: 'user', text: 'I bow.' }], connection: null });
     assert(/Rukia Kuchiki:/.test(noFace) && !/Appearance:/.test(noFace), 'switched off, the next page has no face lines: ' + noFace.slice(0, 400));
     assert(s.cozyStamp386 === true && String(s.wikis || '').toLowerCase() !== 'the-eminence-in-shadow', 'the author’s example wiki is not a default here');
