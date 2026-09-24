@@ -10789,3 +10789,4 @@ normal? It's been three scenes and she's still not coming back."
   holds it, in the storyteller's own request — the tension said, no arrival. NEGATIVE-TESTED: each gate.
 Harness 879/879, walk 127/127, long play 8/8, lint 0 errors (no new warnings).
 - version.js -> m456-001.
+- m456-002: STAYS_PUT declared above its first use (lint no-use-before-define — a new warning m456-001 shipped; no change in behaviour). Harness 879/879, walk 127/127, lint no new warnings.

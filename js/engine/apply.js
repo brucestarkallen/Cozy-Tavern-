@@ -49,6 +49,8 @@ import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameO
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
+/* M456: the stances that stay where they are — no arrival ever rides them (a seat with no stance keeps its ETA, M29) */
+const STAYS_PUT = new Set(['busy', 'waiting', 'tense']);
 
 const LOG_CAP = 200;
 
@@ -1507,9 +1509,6 @@ export function goneAtTheEnd(state, pageText, name) {
   }
   return false;
 }
-
-/* M456: the stances that stay where they are — no arrival ever rides them (a seat with no stance keeps its ETA, M29) */
-const STAYS_PUT = new Set(['busy', 'waiting', 'tense']);
 
 /* M455: THE HOUR A HEADER GIVES, ON THE DAY IT NAMES. With the same day words as the clock's (or none), the same day —
  * a header a few minutes behind the clock sets it back (the header is the truth for the hour); an hour far earlier with

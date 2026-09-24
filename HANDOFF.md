@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m456-001)
+# Cozy Tavern — handoff for the next session (state at m456-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0u. ONLY SOMEONE ON THEIR WAY HAS AN ARRIVAL (M456): "tense" joins "busy" and "waiting" as stances that stay put — no ETA is
