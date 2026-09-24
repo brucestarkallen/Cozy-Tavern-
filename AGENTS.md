@@ -10823,3 +10823,27 @@ call — storyteller and workers — per day, week and month, with each connecti
 Harness 884/884, walk 129/129, long play 8/8, real browser (relay, two browsers, holds one, kept thinking, housekeeper
 rounds) green, lint 0 errors (no new warnings).
 - version.js -> m457-001.
+
+# M458 — another language in the page's own letters is the story's voice; the marks of speech are made whole in code
+He: (1) "the drift fix — she moans in Japanese when my MC told her to, yet it changes it to English ('yamete' became
+'stop stop') because the character is not established to speak Japanese"; (2) "the storyteller creates formatting
+issues — missing quotation marks, *\"\"* — why is nothing fixing that?"
+- (1) ROOT: the second reader's law made "words in another language" drift unless the ledger, brief or page established
+  the speaker as speaking it — and it never saw his turn. Its warn mends the page. NOW: another language in the page's own
+  letters (romaji, a French phrase) is never drift; only a sudden run of another SCRIPT with no reason is the wire's
+  glitch; his turn rides as "what the writer asked for — the story itself, never drift"; and in code
+  continuity.js languageFinding lets go any finding naming a language unless the page truly has a run of another script
+  (and even then when he asked for that language). M85's old "language law" line was the fault; it now asserts the new law.
+- (2) ROOT: tidyPage (every kept page) mended brackets, place and paragraphs only. NOW ui/pageshape.js mendMarks: speech
+  wrapped in asterisks unwrapped, empty quotes removed (with only the spaces they leave), a curly or straight quote opened
+  and never closed at its paragraph's end closed (not when the next paragraph goes on speaking), an asterisk opened and
+  never closed closed — marks only, never a word; a whole page (and its own white space) comes back to the letter; feet
+  and inches (5'9") are not a quote.
+- TESTS: m458.mjs (2): the real reader shown his turn, the romaji finding let go, a blue-eyes finding and a real script
+  glitch standing; the marks table and whole pages to the letter. Walk DOM-112: through the real app he asks for Japanese —
+  "Yamete" stands, the mender is never asked, and the storyteller's *"…"* is kept as "…". NEGATIVE-TESTED: the guard off
+  (the mender is asked), the marks off (the asterisks stay). DOM-111 now adds to the library from a second story's room
+  (the first room goes on checking its wiki).
+Harness 886/886 (885 + M121-1 on the new law), walk 130/130, long play 8/8, lint 0 errors (no new warnings).
+- version.js -> m458-001.
+

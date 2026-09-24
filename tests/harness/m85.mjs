@@ -639,7 +639,10 @@ test('M121-1 the second reader knows a lie from a slip and a language from a gli
   const { buildContinuityMessages } = await import('../../js/agents/continuity.js');
   const m = buildContinuityMessages({ state: emptyState(), assistantText: 'x' });
   assert(/a lie, a joke, a tease, an exaggeration, sarcasm/.test(m.system) && /the NARRATION saying she is nineteen when the ledger locks/.test(m.system), 'the joke law');
-  assert(/WORDS IN ANOTHER LANGUAGE are drift only when nobody in the scene would speak them/.test(m.system), 'the language law');
+  /* M458: the old law ("drift only when nobody in the scene would speak them") was the fault — her romaji "yamete", which
+   * he asked for, was called drift and mended to "stop, stop". Another language in the page's own letters is never drift;
+   * a run of another SCRIPT with no reason is still the wire's glitch (M458-1 runs it) */
+  assert(/ANOTHER LANGUAGE IS NEVER DRIFT when it is written in the page/.test(m.system) && /a sudden run of ANOTHER/.test(m.system), 'the language law');
   const { lintPage } = await import('../../js/agents/lint.js');
   const english = 'She caught herself, deleted something structural. '.repeat(8);
   const r = lintPage({ assistantText: '[X — Friday, March 14, 2025 | 14:20 | clear | hoodie | seated]\n\n' + english + '"你到底在说什么呢，我不明白"', userText: 'x' });

@@ -3082,7 +3082,8 @@ export function initChat(ctx) {
       /* M450: the story so far — the record and the pages before this one, as the page reader reads them — so a telling
        * the ledger missed is never called untold (and the page mended) */
       let soFar = { before: [], record: '' };
-      try { soFar = storySoFar(await db.messages.list(story.id), await loadMemory(story.id), msg.id, { least: 4, recordCap: Math.floor(roomChars(connection) * 0.35) }); } catch (err) { soFar = { before: [], record: '' }; }
+      const msgsForTurn = await db.messages.list(story.id).catch(() => []);
+      try { soFar = storySoFar(msgsForTurn, await loadMemory(story.id), msg.id, { least: 4, recordCap: Math.floor(roomChars(connection) * 0.35) }); } catch (err) { soFar = { before: [], record: '' }; }
       const { findings } = await checkTurn({
         connection,
         state: fresh,
@@ -3092,6 +3093,8 @@ export function initChat(ctx) {
         record: soFar.record,
         before: soFar.before,
         renew,
+        /* M458: what he asked for on his turn — a page doing it is never drift */
+        userText: (() => { const all = visiblePages(msgsForTurn || []); const at = all.findIndex((m) => m.id === msg.id); const u = at > 0 ? [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user') : null; return u ? pageText(u) : ''; })(),
       });
       const list = Array.isArray(findings) ? findings : [];
       if (stale()) return { silent: true };

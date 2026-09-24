@@ -5700,16 +5700,63 @@ test('DOM-111 THE WIKI LIBRARY, ONE TAP: in a story’s own canon room the libra
   assert(chip, 'the library is offered in the story’s room');
   click(chip);
   await until(async () => String((await canonMeta(st.id)).canon_grounding_wiki || '').includes('bleach'), 'the story to keep the wiki it was handed', 15000);
+  /* "Add to library" in another story's room — the first room goes on checking the wiki it was handed (its own business,
+   * however long the wiki takes to answer) */
+  const st2 = await db.stories.create({ title: 'Library tale, two' });
+  await db.messages.append(st2.id, { role: 'user', text: 'I arrive.' });
+  await db.messages.append(st2.id, { role: 'assistant', text: 'Issei grinned.' });
+  await db.settings.set('canonOn:' + st2.id, true);
+  if (!q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'the drawer closed'); }
+  env.window.__cozy.setActiveStoryId(st2.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
   await openRoom('What canon says');
-  /* the room draws itself again after the wiki is kept — found afresh each look, never a stale copy */
   const inRoom = (sel) => { const r = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says'); return r ? r.querySelector(sel) : null; };
-  /* the room is busy while the wiki it was handed is checked, and draws again after — waited out, however long */
-  const box = await until(() => inRoom('#canon-story-wiki'), 'the box', 40000);
+  const box = await until(() => inRoom('#canon-story-wiki'), 'the box', 20000);
   box.value = 'highschooldxd';
-  click(await until(() => { const b = inRoom('#canon-add-library'); return b && inRoom('#canon-story-wiki') === box ? b : null; }, 'Add to library', 40000));
+  click(await until(() => inRoom('#canon-add-library'), 'Add to library', 20000));
   await until(async () => (await canonLibrary()).includes('highschooldxd'), 'the library to hold it', 10000);
   if (!q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'the drawer closed'); }
   await db.settings.set('canonOn:' + st.id, false);
+  await db.settings.set('canonOn:' + st2.id, false);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-112 HER JAPANESE STANDS AND THE MARKS ARE MADE WHOLE, THROUGH THE REAL APP: he asks her to moan in Japanese; the page keeps "Yamete" (the second reader’s "not established to speak Japanese" is let go, the mender never asked), and the storyteller’s *"…"* is kept as "…" (M458)', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'Yamete' });
+  await db.stories.update(st.id, { keeper: false });
+  const ledger = applyMutations({ ...emptyState(), page: -1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: 'Her quarters' }, ...['Jovan Oda', 'Rukia Kuchiki'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
+  await saveState(st.id, { ...ledger, readTo: -1, tidiedGen: 999, healedGen: 999 });
+  house.state.storyAnswer = '[Her quarters | 23:10]\n\nRukia arched against him, breath breaking. *"Yamete… yamete—"* The word dissolved into a gasp.';
+  let mended = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/continuity reader/i.test(sys)) return JSON.stringify({ findings: [{ severity: 'warn', words: 'Rukia moans in Japanese ("yamete"); she is not established as speaking Japanese', fix: 'Stop… stop—' }] });
+    if (/You mend a story/i.test(sys)) { mended += 1; return '{"pages":[]}'; }
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: ['intimate'] }], here: ['Jovan Oda', 'Rukia Kuchiki'] });
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
+    return walkDefaultWorker(body, sys);
+  };
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    type(q('#composer-input'), 'I whisper to her: moan for me in Japanese.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
+    await until(async () => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    await settled();
+    const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    const text = page.text || (page.swipes && page.swipes[page.swipeIdx || 0]) || '';
+    assert(/"Yamete… yamete—"/.test(text), 'her Japanese stands, its marks whole: ' + text);
+    assert(!/\*"/.test(text) && !/Stop… stop/.test(text), 'no asterisks around her speech, and never "stop, stop"');
+    eq(mended, 0, 'the mender was never asked');
+  } finally {
+    house.state.storyAnswer = null;
+    house.state.workerAnswer = walkDefaultWorker;
+  }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

@@ -54,12 +54,51 @@ export function shapeOf(text) {
   return { header: Boolean(h), whole: Boolean(h && h.bracketed && h.hasPlace), bracketed: Boolean(h && h.bracketed), missingPlace: Boolean(h && h.missingPlace), paragraphs, sound: Boolean(h && h.bracketed && h.hasPlace) && (paragraphs === 'parted' || paragraphs === 'short' || paragraphs === 'none') };
 }
 
+/* M458: THE MARKS OF SPEECH AND STRESS, MADE WHOLE IN CODE. He: "the storyteller creates formatting issues: missing
+ * quotation marks, *""*... why is nothing fixing that?" Only marks, never a word, and only what is plainly broken: speech
+ * wrapped in asterisks (*"..."* becomes "..."), an empty pair of quotes, a quote opened and never closed at the end of
+ * its paragraph (unless the next paragraph goes on speaking, the old way of long speech), an asterisk opened and never
+ * closed. A page whose marks are whole comes back to the letter. */
+export function mendMarks(text) {
+  const src = String(text == null ? '' : text);
+  if (!src.trim() || FENCED.test(src)) return { text: src, changed: false };
+  const parts = src.split(/(\n[ \t]*\n)/);
+  let changed = false;
+  for (let k = 0; k < parts.length; k += 2) {
+    let p = parts[k];
+    const was = p;
+    const nextSpeaks = k + 2 < parts.length && /^\s*[\u201c"]/.test(parts[k + 2]);
+    p = p.replace(/\*+[ \t]*(["\u201c][^"\u201c\u201d\n]*["\u201d])[ \t]*\*+/g, '$1');
+    /* an empty pair of quotes goes, and only the spaces it leaves behind with it (a page's own white space is its own) */
+    const noEmpty = p.replace(/(^|[ \t(])(?:""|\u201c[ \t]*\u201d)(?=[ \t.,!?;:)]|$)/g, '$1');
+    if (noEmpty !== p) p = noEmpty.replace(/([^ \t\n])[ \t]{2,}(?=\S)/g, '$1 ').replace(/[ \t]+(?=[.,!?;:])/g, '').replace(/[ \t]+$/g, '');
+    const tail = (p.match(/\s*$/) || [''])[0];
+    const core = p.slice(0, p.length - tail.length);
+    let fixed = core;
+    const opens = (core.match(/\u201c/g) || []).length;
+    const closes = (core.match(/\u201d/g) || []).length;
+    if (opens === closes + 1 && core.lastIndexOf('\u201c') > core.lastIndexOf('\u201d') && !nextSpeaks) fixed += '\u201d';
+    const straight = (core.match(/"/g) || []).length;
+    if (straight % 2 === 1 && !nextSpeaks) {
+      const at = core.lastIndexOf('"');
+      if ((at === 0 || /[\s(\[\u2014\u2013-]/.test(core[at - 1])) && /\S/.test(core[at + 1] || '')) fixed += '"';
+    }
+    let single = -1;
+    let count = 0;
+    for (let i = 0; i < core.length; i += 1) if (core[i] === '*' && core[i - 1] !== '*' && core[i + 1] !== '*') { count += 1; single = i; }
+    if (count % 2 === 1 && single !== -1 && (single === 0 || /\s/.test(core[single - 1])) && /\S/.test(core[single + 1] || '')) fixed += '*';
+    p = fixed + tail;
+    if (p !== was) { parts[k] = p; changed = true; }
+  }
+  return { text: changed ? parts.join('') : src, changed };
+}
+
 /* before the page is kept: brackets, the place the ledger already holds, white space — never a word */
 export function tidyPage(text, { place = '' } = {}) {
   const src = String(text == null ? '' : text);
   const did = [];
   const h = readHeader(src);
-  if (!h) return { text: src, did };
+  if (!h) { const m = mendMarks(src); return m.changed ? { text: m.text, did: ['marks'] } : { text: src, did }; } /* M458 */
   let inner = h.inner;
   const ground = String(place || '').replace(/[\[\]|\n]/g, ' ').replace(/\s+/g, ' ').trim();
   if (h.missingPlace && ground) { inner = ground + ' — ' + inner; did.push('place'); }
@@ -76,6 +115,8 @@ export function tidyPage(text, { place = '' } = {}) {
     }
   }
   /* nothing of substance to mend: the page as it came, to the letter (white space alone is nobody's business) */
+  const marked = mendMarks(body); /* M458 */
+  if (marked.changed) { body = marked.text; did.push('marks'); }
   if (!did.length) return { text: src, did };
   const out = h.lead + '[' + inner + ']' + (body.trim() ? '\n\n' + body.replace(/\s+$/, '') : '');
   return { text: out, did };

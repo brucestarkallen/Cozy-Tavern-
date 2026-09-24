@@ -78,12 +78,17 @@ const SYSTEM_PROMPT = [
   'drift: the narrator\'s facts, and a character stating their own age, home, name or',
   'kin plainly and wrongly with nothing in the scene to explain it.',
   '',
-  'WORDS IN ANOTHER LANGUAGE are drift only when nobody in the scene would speak them:',
-  'a character the ledger, the brief or the page establishes as speaking that language',
-  'may speak it; a sudden run of another script inside an English sentence, from a',
-  'character with no reason, is a glitch of the wire — a warn, with `fix` giving the',
-  'words the sentence meant in the page\'s own language (or "remove" when they were',
-  'noise).',
+  /* M458: a word of another language in the page's own letters ("yamete", "senpai", "merci") is the story's voice —
+   * he told her to moan in Japanese, and this reader called it drift and the mender made it "stop, stop" */
+  'ANOTHER LANGUAGE IS NEVER DRIFT when it is written in the page\'s own letters — a',
+  'Japanese word in romaji ("yamete", "senpai", "-kun"), a French phrase: that is the',
+  'story\'s voice, whoever says it. The one glitch of the wire is a sudden run of ANOTHER',
+  'SCRIPT (Chinese or Cyrillic characters, say) inside an English sentence, with no reason',
+  'in the scene — a warn, with `fix` giving the words the sentence meant (or "remove"',
+  'when they were noise).',
+  '',
+  'WHAT THE WRITER ASKED FOR ON HIS TURN (shown below) is the story: a page doing what he',
+  'asked — a word, a language, an act, a way of speaking — is never drift.',
   '',
   'UNTOLD KNOWLEDGE — the one case where what is NOT written counts (M338). The ledger lists, for the',
   /* M416: the marker is the storyteller's own notes' words (engine/world.js BLIND_LINE), read from the one home */
@@ -108,7 +113,7 @@ const SYSTEM_PROMPT = [
 /* Exported for the harness: the two messages any provider flavor receives.
  * The check reads ALL canon (not only who's present — a locked truth about
  * someone off-page still binds the page that speaks of them). */
-export function buildContinuityMessages({ state, assistantText, brief = '', record = '', before = [], contextBudget = Infinity }) {
+export function buildContinuityMessages({ state, assistantText, brief = '', record = '', before = [], contextBudget = Infinity, userText = '' }) {
   /* M267: THE SECOND READER IS SHOWN WHAT LASTS. Told that posture, position
    * and what is on a foot are the story moving, it still reported them — and
    * the mender wrote the page back to the ledger's older moment ("Rias's arms
@@ -148,6 +153,7 @@ export function buildContinuityMessages({ state, assistantText, brief = '', reco
       return ['THE PAGES JUST BEFORE THIS ONE (already read — who was told or shown what):', '"""', w.shown.join('\n\n') || '(none fit)', '"""',
         ...(w.index.length ? ['Earlier pages not shown whole:', ...w.index] : []), ''];
     })() : []),
+    ...(String(userText || '').trim() ? ['WHAT THE WRITER ASKED FOR ON HIS TURN — the story itself, never drift:', '"""', String(userText).trim().slice(0, 4000), '"""', ''] : []), /* M458 */
     'The page just finished:',
     '"""',
     wholePage(assistantText),
@@ -212,11 +218,11 @@ export function parseContinuityAnswer(raw) {
 /* Read one finished page against canon and the ledgers. M28: a transport
  * failure THROWS so the queue retries with backoff; a garbled answer is
  * {findings:[]}. A missing connection or an empty page: {findings:[]}. */
-export async function checkTurn({ connection, state, assistantText, signal, brief = '', record = '', before = [], renew } = {}) {
+export async function checkTurn({ connection, state, assistantText, signal, brief = '', record = '', before = [], renew, userText = '' } = {}) {
   if (!connection || typeof connection !== 'object') return { findings: [] };
   if (!assistantText || !String(assistantText).trim()) return { findings: [] };
-  const bare = buildContinuityMessages({ state, assistantText, brief, record });
-  const prompt = buildContinuityMessages({ state, assistantText, brief, record, before, contextBudget: viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length) });
+  const bare = buildContinuityMessages({ state, assistantText, brief, record, userText });
+  const prompt = buildContinuityMessages({ state, assistantText, brief, record, before, userText, contextBudget: viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length) });
   if (typeof renew === 'function') renew(leashFor(prompt.system.length + prompt.user.length)); /* M450: a long reading is given the time to read it (M261) */
   const { text } = await callWorker(connection, {
     system: prompt.system,
@@ -230,6 +236,9 @@ export async function checkTurn({ connection, state, assistantText, signal, brie
    * M444); a finding that sets the page against the ledger's whereabouts is let go here, whatever the reader wrote. */
   const read = parseContinuityAnswer(text);
   read.findings = read.findings.filter((f) => !whereFinding(f));
+  /* M458: a finding about a language holds only when the page truly has a run of another script (the wire's glitch) —
+   * never a word of another language in the page's own letters, never one the writer asked for */
+  read.findings = read.findings.filter((f) => !languageFinding(f, assistantText, userText));
   return read;
 }
 
@@ -237,6 +246,18 @@ export async function checkTurn({ connection, state, assistantText, signal, brie
  * here") — never one that only says someone was away when something was said (that is who could know, M338) */
 const WHERE_FINDING = /\b(?:ledger|record|written|notes?)\b[^.;]{0,90}\b(?:elsewhere|away|absent|not (?:here|present|in the scene)|last seen)\b|\b(?:elsewhere|absent|last seen)\b[^.;]{0,90}\b(?:ledger|record|written)\b|\b(?:should(?:n['’]?t| not) be|is not|isn['’]?t|cannot be|can['’]?t be) (?:here|present|in the (?:scene|room|office))\b/i;
 const ABOUT_KNOWING = /\b(?:know|knew|known|knows|learn|learned|learnt|told|tell|heard|overheard|could not|couldn['’]t|never saw)\b/i;
+const LANGUAGE_WORDS = /\b(language|languages|japanese|english|chinese|korean|russian|french|spanish|german|foreign|translat\w*|tongue|romaji|kanji|dialect|accent)\b/i;
+const OTHER_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Cyrillic}\p{Script=Arabic}\p{Script=Thai}\p{Script=Hebrew}\p{Script=Devanagari}\p{Script=Greek}]{2,}/u;
+export function languageFinding(finding, pageText = '', userText = '') {
+  const f = finding && typeof finding === 'object' ? finding : {};
+  const said = String(f.words || '') + ' ' + String(f.fix || '');
+  const named = said.match(LANGUAGE_WORDS);
+  if (!named) return false;
+  if (new RegExp('\\b' + named[1] + '\\b', 'i').test(String(userText || ''))) return true; /* he asked for it */
+  const body = String(pageText || '').replace(/^\s*\[[^\n]*\]\s*/, '');
+  return !OTHER_SCRIPT.test(body); /* no other script on the page: a word in its own letters — the story's voice */
+}
+
 export function whereFinding(finding) {
   const text = String((finding && finding.words) || '') + ' ' + String((finding && finding.fix) || '');
   return WHERE_FINDING.test(text) && !ABOUT_KNOWING.test(text); /* a finding about who could know stays (M338) */

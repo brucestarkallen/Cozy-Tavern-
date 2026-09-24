@@ -1,6 +1,11 @@
-# Cozy Tavern — handoff for the next session (state at m457-001)
+# Cozy Tavern — handoff for the next session (state at m458-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0w. ANOTHER LANGUAGE IS THE STORY'S VOICE; THE MARKS ARE MADE WHOLE (M458). The second reader is shown his turn and told a word of
+   another language in the page's own letters is never drift (only a run of another SCRIPT is the wire's glitch);
+   continuity.js languageFinding lets such a finding go in code (never mended). ui/pageshape.js mendMarks (run by tidyPage on
+   every kept page): *"…"* → "…", empty quotes, a quote or asterisk opened and never closed — marks only, never a word; a
+   whole page to the letter.
 0v. USAGE AND COST; CANON PER STORY; ONE WIKI LIBRARY (M457). providers/meter.js meters EVERY call on the one road
    (relay.js houseFetch → watchUsage: a stream is teed, the caller's branch untouched; JSON read from a clone; the
    provider's usage as reported, else four characters a token, marked ≈) into day books (db.settings 'usage:YYYY-MM-DD',
@@ -184,9 +189,9 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 884 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 886 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 129 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 130 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).
