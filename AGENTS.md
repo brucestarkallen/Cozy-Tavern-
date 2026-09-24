@@ -11080,3 +11080,22 @@ He: "why does the scroll page number count 154 of 155 at the end — 155 is coun
 - TESTS: tests/pagemark.py (new, real Chromium, forty pages, the last one short): the end names 40, the top 1, halfway
   20, a drag to the foot 40 and back to the head 1; the page throws nothing.
 - version.js -> m468-002.
+
+# M469 — the turn that ran past its end
+He, of his teller's thinking: "history has a weird repeated block in the middle of my own message — a garbled line,
+an embedded re-typed copy of my opener plus some note about 'USER sent you this again'. Provider error, or could
+Cozy Tavern cause this?"
+- WHAT IT IS: provider-side. A model that misses its end-of-turn keeps going and writes the NEXT turn itself — a role
+  label ("USER:", "Human:"), a re-typed copy of the writer's message, and a reply to it; a garbled line at the seam is
+  the run-past point. The house never sends any such note and never repeats his message (searched: stack.js, voice.js,
+  the providers, the engine — the only things beside his message are "Go on." on a continue, the "[… middle of this
+  page not shown …]" line on an over-long page, and the closing message; since M377 no ask-again lines exist). M117
+  cut a leak only at a control token; this one leaked none, so the page was kept whole and every later turn read it.
+- NOW (agents/director.js stripControlLeak, chat.js): the page ends at the first of — a leaked control token; a
+  chat-template role label at a line start followed within 300 characters by forty verbatim characters of his
+  message; his whole message (sixty characters or more, whitespace aside) standing as a paragraph. The tail is never
+  a page; the toast says the storyteller ran past its turn and the words before were kept. A quoted line of his
+  inside prose, a label followed by other words, the word "User" without a colon, and a short message ("Go on.")
+  never trip it. The page already in his story is history: Edit it and cut from the garbled line to the end.
+- TESTS: harness m469.mjs — 3 laws (label + copy, a bare re-typed message, the never-trips).
+- version.js -> m469-001.

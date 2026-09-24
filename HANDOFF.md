@@ -1,6 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m468-002)
+# Cozy Tavern — handoff for the next session (state at m469-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1h. A TURN THAT RAN PAST ITS END IS CUT (M469): director.js stripControlLeak(text, { writerText }) ends a page where a
+   model began writing the writer's next turn (a role label + his words, or his whole message as a paragraph) — the
+   provider's fault, the house's repair. Keep the two guards (label AND his words) — one alone trips on prose.
 1g. SETTINGS FOLD LIKE THE LEDGER (M468): settings.js buildQuickNav — folded is a class on .settings-section, the h3 is the
    handle (role=button), `settingsFolds` remembers his taps, a deep link's unfold is never remembered, nav.applyFolds
    re-reads the store (the reset, the walk). Never use `hidden` for a fold — the rooms own `hidden`.

@@ -57,11 +57,58 @@ const RECENT_PAGE_ROOM = 12000; /* M288: a recent page, read whole to this (the 
  * whatever came before the first one; the rest is never a page. Returns the
  * cleaned text and whether anything leaked. */
 export const CONTROL_TOKEN = /<\|[a-zA-Z_][a-zA-Z0-9_]{0,31}\|>/;
-export function stripControlLeak(text) {
+/* M469: THE TURN THAT RAN PAST ITS END. A model that misses its end-of-turn writes the NEXT turn itself: a role label
+ * ("USER:", "Human:") and a re-typed copy of the writer's own message, then a reply to that — and no control token
+ * leaks, so M117 saw nothing and the page was kept whole. The writer, of his teller's thinking: "the history has a
+ * weird repeated block — an embedded re-typed copy of my opener plus some note about 'USER sent you this again'".
+ * The page is what came before the first of: a leaked control token; a chat-template role label at a line start
+ * followed within 300 characters by forty verbatim characters of the writer's message; or a paragraph that IS the
+ * writer's message (sixty characters or more, whitespace aside). A quoted line of his inside prose never trips it —
+ * it takes a label AND his words, or his whole message standing as a paragraph. The tail is never a page. */
+const ROLE_LABEL = /(?:^|\n)[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*)?(?:USER|User|HUMAN|Human|ASSISTANT|Assistant)(?:\*\*)?[ \t]*:/g;
+const squash = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+function runPastAt(str, writerText) {
+  const his = squash(writerText);
+  const flat = str.replace(/\s+/g, ' ');
+  /* the flat text keeps one character per source character only when whitespace runs are single; map through a
+   * squashed copy with an index table instead */
+  const map = []; let out = '';
+  for (let i = 0; i < str.length; i += 1) {
+    const ch = str[i];
+    if (/\s/.test(ch)) { if (out.length && out[out.length - 1] !== ' ') { out += ' '; map.push(i); } }
+    else { out += ch; map.push(i); }
+  }
+  const at = (flatIndex) => (flatIndex < map.length ? map[flatIndex] : str.length);
+  let cut = -1;
+  if (his.length >= 40) {
+    ROLE_LABEL.lastIndex = 0;
+    let m;
+    while ((m = ROLE_LABEL.exec(str))) {
+      const labelAt = m.index + (m[0].startsWith('\n') ? 1 : 0);
+      const after = squash(str.slice(m.index + m[0].length, m.index + m[0].length + 300));
+      if (after && (his.includes(after.slice(0, 40)) || after.includes(his.slice(0, 40)))) { cut = labelAt; break; }
+    }
+    if (cut === -1 && his.length >= 60) {
+      const i = out.indexOf(his);
+      if (i !== -1) {
+        /* his whole message as a paragraph of the page: the cut is at its line's start */
+        const src = at(i);
+        const lineStart = str.lastIndexOf('\n', src) + 1;
+        if (!squash(str.slice(lineStart, src))) cut = lineStart;
+      }
+    }
+  }
+  void flat;
+  return cut;
+}
+export function stripControlLeak(text, opts = {}) {
   const str = String(text || '');
   const m = str.match(CONTROL_TOKEN);
-  if (!m) return { text: str, leaked: false };
-  return { text: str.slice(0, m.index).replace(/\s+$/, ''), leaked: true };
+  let cut = m ? m.index : -1;
+  const past = runPastAt(str, opts.writerText);
+  if (past !== -1 && (cut === -1 || past < cut)) cut = past;
+  if (cut === -1) return { text: str, leaked: false };
+  return { text: str.slice(0, cut).replace(/\s+$/, ''), leaked: true, ranPast: past !== -1 && past === cut };
 }
 
 export function stripEpisodeEnd(text) {

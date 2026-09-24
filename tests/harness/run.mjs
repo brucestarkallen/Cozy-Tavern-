@@ -169,6 +169,7 @@ import './m462.mjs';
 import './record-fuzz.mjs';
 import './m466.mjs';
 import './m467.mjs';
+import './m469.mjs';
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

@@ -3739,6 +3739,7 @@ export function initChat(ctx) {
      * behind the missing imports). */
     let episodeEnded = false;
     let leakedControl = false; /* M117: the provider let control tokens through */
+    let ranPast = false; /* M469: the model ran past its end-of-turn and began the writer's next turn */
     try {
       const story = await activeStory();
       if (!story) return;
@@ -4272,10 +4273,11 @@ export function initChat(ctx) {
          * content ends the page at the first one; the leak is named on the
          * page's receipt, and a page left with nothing is answered again
          * once, by the house, not the writer's hand. */
-        const leak = stripControlLeak(full);
+        const leak = stripControlLeak(full, { writerText: userText }); /* M469: a turn that ran past its end is cut where the next turn began */
         if (leak.leaked) {
           full = leak.text;
           leakedControl = true;
+          ranPast = leak.ranPast === true;
         }
         const episodeMark = stripEpisodeEnd(full);
         if (episodeMark.ended) {
@@ -4390,7 +4392,7 @@ export function initChat(ctx) {
         } catch (err) { /* a reading of the page is never worth the page */ }
       }
 
-      if (leakedControl) toast('The words before the provider’s leak were kept.');
+      if (leakedControl) toast(ranPast ? 'The storyteller ran past the end of its turn and began writing yours — the words before that were kept.' : 'The words before the provider’s leak were kept.');
 
       /* M120, as M377 changed it: the page came back INSIDE the thinking and the answer is (nearly) empty. Nothing is asked
        * again; where the thinking plainly holds the page — from its last header line on — the page is taken from it,
