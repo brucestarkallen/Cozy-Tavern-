@@ -10882,3 +10882,27 @@ He: "is it done or not — give me the final perfected version". The two repeats
   truth as written. Harness 890/890, walk 130/130, long play 8/8, lint no new warnings.
 - version.js -> m460-001.
 
+# M461 — canon's words come through whole; his V177 preset audited against what the storyteller actually reads
+He sent his full V177 preset (50 prompts, ~49k tokens; ~40k switched on) and everything the storyteller saw on a page,
+and asked for the preset "perfectly optimized", masterful, and no bugs.
+- THE BUG: his canon note read "The  is one of the Gotei 13, headed by Captain Tōshirō Hitsugaya", "The , is one of the
+  Gotei 13", "a white , a black , a black , a white hakama-himo, white , and ." — the canon extension's template stripper
+  (grounding.js stripTemplates, a depth walker) deleted the Bleach wiki's Japanese-term templates whole, and the term
+  lives in their first parameter. cleanWikitext now keeps it ({{Nihongo|Tenth Division|十番隊|Jūbantai}} → Tenth Division;
+  the romaji when the English is empty; {{lang|ja|X}} → X) before the walker runs; every other template still goes.
+  Verified on the template shapes; the live wiki is not reachable from this sandbox (fandom.com is outside its network).
+- THE PRESET: in Cozy the storyteller does not read V177 — it reads the house craft (assemble/craft.js CRAFT_TEXT,
+  70,109 characters, ~17.5k tokens: The Telling, CORE Contract, The House's Truth, Simulation Core, The Turn, Character
+  Integrity, NPC Psychology, Information Quarantine, Continuity, The Prose, Intimacy, The Page, The Pass), distilled from
+  V177 in M36, plus the rulebook the scene wakes (V177's NSFW Mode when intimate; the commands). V177's trackers, Scene
+  Pulse, Watchlist, Factions, Voices, TWB, Contested Resolution and three CoT variants are the house's workers now (the
+  import map, import/v176map.js). MEASURED: the craft shares 3 eight-word runs between sections out of 70k characters (no
+  copy-paste left to cut), and states each point of his taste explicitly — interruption (CORE: every MC action is an
+  attempt; NPCs can interrupt), continuous onomatopoeia (The Prose: two lanes, REQUIRED on every contact beat, a
+  self-check every few sentences), anatomy (anatomical and medical nouns required; Injury Resolution; the intimate
+  rule's detail targets), the world not bending, earned warmth, arcs (NPC Psychology), the living world (the House's
+  Truth and the world agent). It rides the cached prefix. Left as it is: a rewrite would risk the quality he reports,
+  for tokens that are cheap and already distilled.
+- TESTS: m461.mjs (1). Harness 891/891, walk 130/130, long play 8/8, lint no new warnings.
+- version.js -> m461-001.
+

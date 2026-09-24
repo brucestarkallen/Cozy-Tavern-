@@ -972,7 +972,7 @@ function stripTemplates(text) {
 }
 
 /** Strip common wiki markup down to readable prose. */
-function cleanWikitext(wt) {
+export function cleanWikitext(wt) { /* exported for the harness (M460) */
     if (!wt) return "";
     let s = wt;
     // BLOCK CONSTRUCTS FIRST — containers whose CONTENT is markup, not prose. The
@@ -1030,6 +1030,15 @@ function cleanWikitext(wt) {
     // depth walker deleting them whole is exactly how "haircolor" disappears while
     // a plain "eyecolor" survives. Keep the LAST parameter (the display text).
     s = s.replace(/\{\{\s*(?:colou?r|font ?colou?r|nowrap|small|big|tt|abbr|tooltip)\s*\|(?:[^{}]*\|)?([^{}|]*)\}\}/gi, "$1");
+    // M460 (Cozy): the JAPANESE-TERM templates carry the English term in their FIRST parameter — {{Nihongo|Tenth
+    // Division|十番隊|Jūbantai}}, {{nihongo|kosode|小袖}}. The depth walker deleted them whole, and the Bleach wiki's
+    // prose came through as "The  is one of the Gotei 13" and "a white , a black , a black ,". Keep the term (the
+    // romaji when the English is left empty). {{lang|ja|X}} keeps X.
+    s = s.replace(/\{\{\s*(?:nihongo(?:\s*(?:foot|krt|title)|[234])?|japanese|jap|j)\s*\|([^{}]*)\}\}/gi, (m, inner) => {
+        const p = inner.split("|").map((x) => x.trim());
+        return p[0] || p[2] || p[1] || "";
+    });
+    s = s.replace(/\{\{\s*lang\s*\|\s*[a-z-]{2,8}\s*\|([^{}|]*)(?:\|[^{}]*)?\}\}/gi, "$1");
     // Remove remaining templates with a real DEPTH WALKER. The old regex loop
     // could never match an outer template whose body held a stray brace (the
     // {{{param|}}} triple-brace pattern in big infoboxes like Classroom of the

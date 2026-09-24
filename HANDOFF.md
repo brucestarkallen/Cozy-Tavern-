@@ -1,6 +1,12 @@
-# Cozy Tavern — handoff for the next session (state at m460-001)
+# Cozy Tavern — handoff for the next session (state at m461-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0z. CANON'S WORDS WHOLE (M461): canon/grounding.js cleanWikitext keeps the term of the wiki's Japanese-term templates
+   ({{Nihongo|Tenth Division|十番隊|Jūbantai}} → "Tenth Division"; the romaji when the English is empty; {{lang|ja|X}} → X) —
+   his canon note read "The  is one of the Gotei 13", "a white , a black ,". AUDIT OF HIS V177 PRESET: in Cozy the storyteller
+   reads the house craft (assemble/craft.js, 17.5k tokens, distilled from V177 in M36), not the 40k preset; measured, the
+   craft repeats itself in 3 eight-word runs out of 70k characters and carries every point of his taste explicitly — it was
+   left as it is (a rewrite risks the quality he has, for tokens that ride the cached prefix).
 0y. THE LAST REPEATS (M460): world.js renderBlindSpots says each lacked fact ONCE, after the names of all who lack it (same
    marker, names and knower; facts lacked by the same people share a line) — his lines: 10,135 → 1,460 characters.
    canon.js cleanWikiWords (renderCanon, the series' own lines only): wiki scraps (".]]", "called .", "being ,") mended
@@ -198,7 +204,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
-- `node tests/harness/run.mjs` — 890 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
+- `node tests/harness/run.mjs` — 891 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `cd tests/dom && node run.mjs` — the walk: 130 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
