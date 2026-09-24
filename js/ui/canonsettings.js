@@ -9,7 +9,7 @@
  * ✒ Advanced, LLM-curated dossiers, Parser self-test), each with its plain meaning. Drawn only with the switch on: off,
  * the extension is never loaded. */
 import {
-  canonSettings, setCanonSetting as setCanonSettingOf, canonDefaults, canonLibrary, addToLibrary, removeFromLibrary, canonPromptDefault, canonResetKeywords, canonResetAll,
+  canonMeta, canonSettings, setCanonSetting as setCanonSettingOf, canonDefaults, canonLibrary, addToLibrary, removeFromLibrary, canonPromptDefault, canonResetKeywords, canonResetAll,
 } from '../canon/bridge.js';
 
 /* [key, label, what it means] — the extension's own toggles */
@@ -84,7 +84,7 @@ function el(tag, props = {}, ...kids) {
 function quiet(text) { return el('p', { className: 'quiet', text }); }
 
 /* Draw every lever into `host`. `selfTest` asks through the open story's canon worker (ctx.chat.canonTest). */
-export async function drawCanonControls(host, { selfTest, storyId } = {}) {
+export async function drawCanonControls(host, { selfTest, storyId, act } = {}) {
   if (!host) return;
   /* M457: these are the OPEN story's own settings — each story keeps its own */
   const s = await canonSettings(storyId);
@@ -150,15 +150,31 @@ export async function drawCanonControls(host, { selfTest, storyId } = {}) {
   const libIn = el('input', { type: 'text', id: 'canon-library-add', maxlength: '200', placeholder: 'e.g. bleach -- from bleach.fandom.com' });
   const libAdd = el('button', { type: 'button', className: 'text-btn', id: 'canon-library-add-btn', text: 'Add to library' });
   const library = el('div', { className: 'canon-library', id: 'canon-library' });
+  /* M463: A WIKI IN THE LIBRARY IS A SWITCH FOR THIS STORY. He: "one tap what? I can't tap anything … and can't do
+   * crossovers". The rows were plain text, and the story's own room REPLACED its wiki with the one tapped. Now a tap adds the
+   * wiki to where this story looks, or takes it away — two or more at once is a crossover (the extension's binding is a
+   * list) — and the line above says where this story looks now. */
+  const inUse = async () => (storyId ? String(((await canonMeta(storyId)) || {}).canon_grounding_wiki || '') : '').split(',').map((w) => w.trim()).filter(Boolean);
   const drawLibrary = async () => {
     library.textContent = '';
     const list = await canonLibrary();
+    const using = await inUse();
+    library.appendChild(quiet(using.length ? 'This story looks in: ' + using.join(' + ') + (using.length > 1 ? ' (a crossover)' : '') : 'This story has not settled on a wiki yet -- it finds its own, or tap one below.'));
     if (!list.length) { library.appendChild(quiet('The library is empty -- add a wiki above, or each one a story finds is kept here.')); return; }
-    library.appendChild(quiet('In the library -- offered in each story\'s room, one tap to use:'));
+    library.appendChild(quiet('Tap a wiki to use it in this story -- tap more than one for a crossover, tap again to stop using it:'));
     for (const w of list) {
+      const on = using.includes(w);
+      const pick = el('button', { type: 'button', className: 'lib-chip' + (on ? ' current' : ''), id: 'canon-lib-use-' + w, 'aria-pressed': on ? 'true' : 'false', text: (on ? '✓ ' : '') + w });
+      pick.addEventListener('click', async () => {
+        if (typeof act !== 'function') return;
+        const now = await inUse();
+        const next = now.includes(w) ? now.filter((x) => x !== w) : [...now, w];
+        pick.disabled = true;
+        try { await act('wiki', next.join(',')); } finally { await drawLibrary(); }
+      });
       const x = el('button', { type: 'button', className: 'story-mini', title: 'Take ' + w + ' out of the library', 'aria-label': 'Take ' + w + ' out of the library', text: 'x' });
       x.addEventListener('click', async () => { await removeFromLibrary(w); await drawLibrary(); });
-      library.appendChild(el('div', { className: 'present-row' }, el('span', { text: w }), x));
+      library.appendChild(el('div', { className: 'present-row' }, pick, x));
     }
   };
   libAdd.addEventListener('click', async () => { if (!libIn.value.trim()) return; await addToLibrary(libIn.value); libIn.value = ''; await drawLibrary(); });
@@ -210,7 +226,7 @@ export async function drawCanonControls(host, { selfTest, storyId } = {}) {
   resetAll.addEventListener('click', async () => {
     if (!window.confirm('Put every canon verification setting and instruction back as it came? What each story has looked up, its wiki, and your notes for every story are kept.')) return;
     await canonResetAll();
-    await drawCanonControls(host, { selfTest, storyId });
+    await drawCanonControls(host, { selfTest, storyId, act });
   });
   host.appendChild(el('div', { className: 'row' }, resetAll));
 }

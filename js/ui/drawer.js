@@ -1293,12 +1293,16 @@ function canonSaysPanel(ctx) {
     const libRow = document.createElement('div');
     libRow.className = 'canon-library-chips row';
     libRow.id = 'canon-library-chips';
+    /* M463: a tap adds the wiki to where this story looks, or takes it away — more than one is a crossover */
+    const using = String(wikiIn.value || '').split(',').map((x) => x.trim()).filter(Boolean);
     for (const w of await canonLibrary()) {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'lib-chip';
-      chip.textContent = w;
-      chip.addEventListener('click', () => { wikiIn.value = w; wikiBtn.click(); });
+      const on = using.includes(w);
+      chip.className = 'lib-chip' + (on ? ' current' : '');
+      chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+      chip.textContent = (on ? '✓ ' : '') + w;
+      chip.addEventListener('click', () => { const next = on ? using.filter((x) => x !== w) : [...using, w]; wikiIn.value = next.join(', '); wikiBtn.click(); });
       libRow.appendChild(chip);
     }
     const addLib = document.createElement('button');

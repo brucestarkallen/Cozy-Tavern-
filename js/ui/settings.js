@@ -1664,7 +1664,7 @@ export function initSettings(ctx) {
     if (!(els.canonOn && els.canonOn.checked)) { els.canonControls.textContent = ''; els.canonControls.hidden = true; return; }
     els.canonControls.hidden = false;
     try {
-      await drawCanonControls(els.canonControls, { storyId: ctx.getActiveStoryId(), /* M457: this story's own */ selfTest: () => (ctx.chat && typeof ctx.chat.canonTest === 'function' ? ctx.chat.canonTest() : { ok: false, ms: 0, error: 'open a story first' }) });
+      await drawCanonControls(els.canonControls, { storyId: ctx.getActiveStoryId(), /* M457: this story's own */ act: (a, arg) => ctx.chat.canonAct(a, arg), /* M463 */ selfTest: () => (ctx.chat && typeof ctx.chat.canonTest === 'function' ? ctx.chat.canonTest() : { ok: false, ms: 0, error: 'open a story first' }) });
     } catch (err) {
       els.canonControls.textContent = 'Its settings could not be drawn just now (' + String((err && err.message) || err).slice(0, 120) + ').';
     }

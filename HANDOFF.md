@@ -1,6 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m462-001)
+# Cozy Tavern — handoff for the next session (state at m463-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1b. THE WIKI LIBRARY IS A SWITCH FOR THIS STORY (M463): in Settings (canonsettings.js drawLibrary) and in the story's room
+   (drawer.js), each library wiki is a button: a tap adds it to where THIS story looks (the extension's binding,
+   meta.canon_grounding_wiki — a list), a second tap takes it away; two or more = a crossover; the line above says where
+   the story looks. Never a plain-text list promising "one tap", never a tap that replaces the story's wiki.
 1a. A CARD SAYS WHO THEY ARE (M462): engine/people.js cardCore, on the storyteller's cards only (the page is never rewritten):
    a core clause that is a moment ("assembled at 1st Division HQ with the available captains", "at the corridor outside…")
    goes, and a comma item of the series' own look that True of them carries in the same request goes (Rukia's "petite,
@@ -210,7 +214,7 @@ founding design lives in AGENTS.md's first entries.)
 ## Run the tests before any commit (all three; all must be green)
 - `node tests/harness/run.mjs` — 893 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
-- `cd tests/dom && node run.mjs` — the walk: 130 scenarios of the real app in jsdom (every button,
+- `cd tests/dom && node run.mjs` — the walk: 131 scenarios of the real app in jsdom (every button,
   the random checkpoint walk, branches on old stores, the ripple, the housekeeper, resume).
 - `cd tests/dom && node longplay.mjs` — ninety turns of the real app against scripted models
   (flat context, the clock, arrivals, windows, the audit, the record's lines).

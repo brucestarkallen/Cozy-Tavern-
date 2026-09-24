@@ -10924,3 +10924,18 @@ The two things M461 left open in his "On their mind", closed:
   8/8, lint no new warnings.
 - version.js -> m462-001.
 
+# M463 — the wiki library is a switch for this story: tap to use, tap two for a crossover, tap again to stop
+He, on Settings → The readers: "One tap what? I can't tap anything and it's not being put on canon verification and
+can't do crossovers — do you even read canon verification code?"
+- WHAT WAS WRONG (M457, mine): the Settings library rows were plain text under a line promising "one tap to use"; the
+  tappable chips lived only in the story's own ledger room, and there a tap REPLACED the story's wiki. The extension's
+  binding is a LIST (grounding.js activeWikis reads the chat's binding, a CSV; bridge.js wikiName keeps a CSV), so a
+  crossover was always possible — M457 gave him no way to make one.
+- NOW: in Settings (the open story's canon section, M457) and in the story's room, each library wiki is a button: a tap
+  adds it to where this story looks (ctx.chat.canonAct('wiki', list) — the extension's own manual binding), a second tap
+  takes it away, two or more is a crossover; the one in use shows a check. A line says "This story looks in: bleach + jjk
+  (a crossover)" or that it finds its own. The x still takes a wiki out of the library.
+- TESTS: walk DOM-113 through the real app: tap bleach, tap jjk (both, "a crossover"), tap bleach again (jjk alone).
+  Harness 893/893, walk 131/131, long play 8/8, lint: no new warnings (one old warning's line moved).
+- version.js -> m463-001.
+

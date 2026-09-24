@@ -5760,6 +5760,34 @@ test('DOM-112 HER JAPANESE STANDS AND THE MARKS ARE MADE WHOLE, THROUGH THE REAL
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-113 THE WIKI LIBRARY IS A SWITCH FOR THIS STORY, IN SETTINGS: a tap on "bleach" uses it here, a tap on "jjk" makes it a crossover (the story looks in both), a second tap on "bleach" stops using it — and the line above says where it looks (M463)', async () => {
+  const before = errors.length;
+  const { addToLibrary, canonMeta } = await import('../../js/canon/bridge.js');
+  const st = await db.stories.create({ title: 'Crossover' });
+  await db.messages.append(st.id, { role: 'user', text: 'I arrive.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'Rukia bowed; Gojo grinned.' });
+  await db.settings.set('canonOn:' + st.id, true);
+  await addToLibrary('bleach', 'jjk');
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const binding = async () => String((await canonMeta(st.id)).canon_grounding_wiki || '');
+  try {
+    await openSettings();
+    click([...qa('#view-settings .nav-chip')].find((c) => /The readers/.test(c.textContent)));
+    click(await until(() => q('#canon-lib-use-bleach'), 'bleach, tappable', 15000));
+    await until(async () => (await binding()) === 'bleach', 'the story to look in bleach', 40000);
+    click(await until(() => { const b = q('#canon-lib-use-jjk'); return b && !b.disabled ? b : null; }, 'jjk, tappable', 15000));
+    await until(async () => /bleach/.test(await binding()) && /jjk/.test(await binding()), 'a crossover — both', 40000);
+    await until(() => /This story looks in: bleach \+ jjk \(a crossover\)/.test((q('#canon-library') || {}).textContent || ''), 'the line to say so', 15000);
+    click(await until(() => { const b = q('#canon-lib-use-bleach'); return b && !b.disabled && /✓/.test(b.textContent) ? b : null; }, 'bleach, marked in use', 15000));
+    await until(async () => (await binding()) === 'jjk', 'bleach let go, jjk kept', 40000);
+    await closeSettings();
+  } finally {
+    await db.settings.set('canonOn:' + st.id, false);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
