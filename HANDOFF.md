@@ -1,6 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m467-001)
+# Cozy Tavern — handoff for the next session (state at m468-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1g. SETTINGS FOLD LIKE THE LEDGER (M468): settings.js buildQuickNav — folded is a class on .settings-section, the h3 is the
+   handle (role=button), `settingsFolds` remembers his taps, a deep link's unfold is never remembered, nav.applyFolds
+   re-reads the store (the reset, the walk). Never use `hidden` for a fold — the rooms own `hidden`.
 1f. THE WINDOW'S MARKER HAS ONE DEFINITION (M467): engine/window.js (WINDOW_MARK, WINDOW_LINE, windowCutAt,
    normalizeWindowMark). NEVER look for the literal '*** The World Beyond ***' again — a model writes it bare, bold or as
    a heading, and every literal look-up missed his page at once. tidyPage writes the exact form on keep; the 🎨 style,

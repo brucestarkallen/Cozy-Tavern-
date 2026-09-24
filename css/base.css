@@ -945,6 +945,33 @@ button:active { transform: scale(0.96); transition-duration: 0.12s; }
 .ledger-panel h3 { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.45rem; }
 .thinking-copy { display: inline-block; margin-top: 0.35rem; font-size: 0.8rem; }
 
+/* M468: A ROOM IS A LIST OF FOLDED SECTIONS (the ledger's law, M466). The name is
+ * the fold's handle; folded is a class, never hidden — everything inside is still
+ * drawn and reachable by id, only not shown. */
+.settings-section > h3:first-child {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  padding-right: 2rem;
+}
+.settings-section > h3:first-child::after {
+  content: '';
+  position: absolute;
+  right: 0.15rem;
+  top: 50%;
+  width: 16px; height: 16px;
+  margin-top: -8px;
+  background: var(--muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform 0.15s;
+}
+.settings-section.folded > h3:first-child::after { transform: rotate(-90deg); }
+.settings-section.folded > :not(h3:first-child) { display: none; }
+.settings-section.folded { padding: 14px 18px; gap: 0; }
+.settings-section > h3:first-child:hover { color: var(--ember); }
+
 /* M18: where a chip lands, the room's left edge glows ember for a breath
  * so the eye follows. An inset shadow, not a real border — nothing shifts.
  * (The reduced-motion law in this file stills it like everything else.) */

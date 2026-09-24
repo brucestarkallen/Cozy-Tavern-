@@ -11056,3 +11056,14 @@ He, with a window from his page: "The World Beyond / [The Room Next to Aria — 
   page's FIRST line only (state.js headerMutations), so a window's own [Location — Day, Time] line never sets the scene.
 - TESTS: harness m467.mjs (3 laws over eight dressings): found and cut, kept exact, boxed with the scene left outside.
 - version.js -> m467-001.
+
+# M468 — Settings folds, the ledger's law
+He: "can you make the settings tidy too? So many opened subsections make my head hurt."
+- NOW (settings.js buildQuickNav, base.css): every settings section folds to its name and a chevron; a tap (or Enter)
+  opens it; a room's first section stands open the first time (connections, the brief, the rulebook, bring your people,
+  how much the story remembers, appearance, the glossary); his taps are remembered in `settingsFolds`. Folded is a
+  class, never `hidden` — the rooms still use hidden, everything inside a folded section is drawn and reachable by id.
+  A deep link into a section (the composer's frame/note/rulebook links, "add a connection") unfolds it for the visit
+  without remembering it as his choice. The house reset puts the folds back as shipped (nav.applyFolds).
+- TESTS: walk DOM-119 (first open / rest folded, tap opens and folds, remembered, a deep link unfolds). Walk 137/137.
+- version.js -> m468-001.

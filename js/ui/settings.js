@@ -2559,7 +2559,7 @@ export function initSettings(ctx) {
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
     'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'groundingPhrase', 'afterRole', /* M399: canon's switch is each story's own, not a setting of the house */
-    'speechColours', 'shelfSort', 'ledgerFolds', /* M466: the coats' own colours and the rooms' shapes go back; his own words (ownWords) are his writing and stay */
+    'speechColours', 'shelfSort', 'ledgerFolds', 'settingsFolds', /* M466/M468: the coats' own colours and the rooms' shapes go back; his own words (ownWords) are his writing and stay */
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
   ];
@@ -2567,6 +2567,7 @@ export function initSettings(ctx) {
     for (const key of RESET_KEYS) {
       try { await db.settings.delete(key); } catch (err) { /* a key that isn't there is already at its default */ }
     }
+    if (els.quicknav && typeof els.quicknav.applyFolds === 'function') await els.quicknav.applyFolds(); /* M468: the rooms fold as shipped again */
     /* the regex shelf: built-ins back to shipped, the writer's own rules kept */
     const rules = await loadRules();
     const kept = rules.filter((r) => !r.builtin);
@@ -2714,8 +2715,41 @@ export function initSettings(ctx) {
       nav.appendChild(chip);
     }
     db.settings.get('settingsRoom').then((room) => show(ROOMS.some(([r]) => r === room) ? room : 'storyteller', false)).catch(() => show('storyteller', false));
-    /* a jump by id (the drawer's "Settings → …" links) opens the right room */
-    nav.openRoomFor = (sectionId) => show(roomOf(sectionId));
+
+    /* M468: A ROOM IS A LIST OF FOLDED SECTIONS — the ledger's law (M466), for Settings. The writer: "so many opened
+     * subsections make my head hurt". Every section folds to its name and a chevron; a tap on the name opens it; what a
+     * room is FOR stands open the first time (its first section); his taps are remembered (settingsFolds). Folded is a
+     * class, never `hidden` (the rooms use hidden — a folded section is still IN its room, and everything in it is
+     * still drawn and reachable by id). A deep link into a section unfolds it. */
+    const OPEN_BY_DEFAULT = new Set(['section-connections', 'section-brief', 'section-rulebook', 'section-people', 'section-memory', 'section-appearance', 'section-help']);
+    let folds = {};
+    const isFolded = (id) => (typeof folds[id] === 'boolean' ? folds[id] : !OPEN_BY_DEFAULT.has(id));
+    const setFold = (section, folded, keep = true) => {
+      section.classList.toggle('folded', folded);
+      const h = section.querySelector(':scope > h3');
+      if (h) h.setAttribute('aria-expanded', folded ? 'false' : 'true');
+      if (keep) { folds[section.id] = folded; db.settings.set('settingsFolds', { ...folds }).catch(() => {}); }
+    };
+    for (const section of sections) {
+      const h = section.querySelector(':scope > h3');
+      if (!h) continue;
+      h.setAttribute('role', 'button');
+      h.tabIndex = 0;
+      h.addEventListener('click', () => setFold(section, !section.classList.contains('folded')));
+      h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFold(section, !section.classList.contains('folded')); } });
+      setFold(section, isFolded(section.id), false);
+    }
+    const applyFolds = async () => {
+      const f = await db.settings.get('settingsFolds').catch(() => null);
+      folds = f && typeof f === 'object' ? { ...f } : {};
+      for (const section of sections) setFold(section, isFolded(section.id), false);
+    };
+    applyFolds().catch(() => {});
+    nav.applyFolds = applyFolds; /* the house reset and the walk put the folds back as stored */
+    /* a jump by id (the drawer's "Settings → …" links) opens the right room — and the section itself */
+    /* a deep link's unfold is a visit, not his choice: shown now, never remembered as a fold */
+    nav.openRoomFor = (sectionId) => { show(roomOf(sectionId)); const s = document.getElementById(sectionId); if (s && s.classList.contains('settings-section')) setFold(s, false, false); };
+    nav.unfold = (sectionId) => { const s = document.getElementById(sectionId); if (s && s.classList.contains('settings-section')) setFold(s, false, false); };
   }
 
   buildQuickNav();

@@ -6009,6 +6009,33 @@ test('DOM-118 HIS OWN-VOICE WORDS, THROUGH THE REAL APP: added in Settings, kept
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+
+test('DOM-119 SETTINGS FOLDS: a room opens with its first section unfolded and the rest folded; a tap on a name opens or folds; remembered; a deep link unfolds its section', async () => {
+  const before = errors.length;
+  await db.settings.delete('settingsFolds').catch(() => {});
+  await openSettings();
+  await q('#settings-quicknav').applyFolds(); /* earlier scenarios visited sections by deep link — the folds as stored */
+  click([...qa('#view-settings .nav-chip')].find((c) => /This story/.test(c.textContent))); await tick(200);
+  const sec = (id) => q('#' + id);
+  await until(() => sec('section-brief') && !sec('section-brief').hidden, 'the story room', 5000);
+  assert(!sec('section-brief').classList.contains('folded'), 'the brief — what the room is for — stands open');
+  assert(sec('section-frame').classList.contains('folded') && sec('section-note').classList.contains('folded') && sec('section-own-words').classList.contains('folded'), 'the rest wait folded');
+  eq(sec('section-frame').querySelector('h3').getAttribute('aria-expanded'), 'false');
+  eq(sec('section-frame').querySelector('h3').textContent.trim(), 'The frame', 'the name is still the name');
+  click(sec('section-frame').querySelector('h3')); await tick(50);
+  assert(!sec('section-frame').classList.contains('folded'), 'a tap on the name opens it');
+  click(sec('section-brief').querySelector('h3')); await tick(50);
+  assert(sec('section-brief').classList.contains('folded'), 'and folds it');
+  await until(async () => { const f = await db.settings.get('settingsFolds'); return f && f['section-frame'] === false && f['section-brief'] === true; }, 'both remembered', 5000);
+  /* a deep link (the composer's "The note" link) opens the room and the section */
+  const nav = q('#settings-quicknav');
+  nav.openRoomFor('section-note'); await tick(50);
+  assert(!sec('section-note').hidden && !sec('section-note').classList.contains('folded'), 'the deep link unfolds its section');
+  await closeSettings();
+  await db.settings.delete('settingsFolds').catch(() => {});
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
