@@ -10939,3 +10939,18 @@ can't do crossovers — do you even read canon verification code?"
   Harness 893/893, walk 131/131, long play 8/8, lint: no new warnings (one old warning's line moved).
 - version.js -> m463-001.
 
+# M464 — Automatic is a switch you can see and tap; only what he chose is checked
+He: "you give me a way to select but no way to deselect all, so I can't tell it to look automatically — half-baked."
+- WHAT WAS WRONG (M463, mine): tapping the last chosen wiki off DID send the story back to finding its own — but the wiki
+  it then found came straight back with a check, as though he had picked it, so there was no visible way to be on
+  Automatic and no control named for it. The extension already told the two apart (canon_grounding_wiki_ok.manual on a
+  choice; "via"/"fp" on a find).
+- NOW: an "Automatic" chip of its own, in Settings and in the story's room: checked when the story finds its own wiki (the
+  line says which it found, or that nothing fits yet and it skips until the story names something); tapping it lets his
+  choice go (the extension rediscovers). A wiki is checked only when he chose it; tapping one while on Automatic starts a
+  new choice with that wiki; tapping the last chosen one off is Automatic again.
+- TESTS: walk DOM-114: Automatic checked at the start; choose bleach, add jjk (crossover, Automatic unchecked); tap
+  Automatic (choice let go, Automatic checked, neither wiki shown as picked); tap jjk (a new choice); tap it off
+  (Automatic). DOM-113 still passes. Harness 893/893, walk 132/132, long play 8/8, lint no new warnings.
+- version.js -> m464-001.
+

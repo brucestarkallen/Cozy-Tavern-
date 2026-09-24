@@ -5788,6 +5788,43 @@ test('DOM-113 THE WIKI LIBRARY IS A SWITCH FOR THIS STORY, IN SETTINGS: a tap on
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-114 AUTOMATIC IS A SWITCH YOU CAN SEE AND TAP: with bleach and jjk chosen (a crossover), a tap on "Automatic" lets the choice go and the story finds its own — the wiki it finds is never shown as his pick; the last chosen wiki tapped off is Automatic again (M464)', async () => {
+  const before = errors.length;
+  const { addToLibrary, canonMeta } = await import('../../js/canon/bridge.js');
+  const st = await db.stories.create({ title: 'Automatic' });
+  await db.messages.append(st.id, { role: 'user', text: 'I arrive.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'Rukia bowed.' });
+  await db.settings.set('canonOn:' + st.id, true);
+  await addToLibrary('bleach', 'jjk');
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const meta = async () => (await canonMeta(st.id)) || {};
+  const manual = async () => Boolean(((await meta()).canon_grounding_wiki_ok || {}).manual);
+  try {
+    await openSettings();
+    click([...qa('#view-settings .nav-chip')].find((c) => /The readers/.test(c.textContent)));
+    const auto0 = await until(() => q('#canon-lib-auto'), 'Automatic, drawn', 15000);
+    assert(/✓/.test(auto0.textContent), 'a story nobody chose for is Automatic');
+    click(await until(() => q('#canon-lib-use-bleach'), 'bleach', 15000));
+    await until(async () => (await manual()) && (await meta()).canon_grounding_wiki === 'bleach', 'his pick', 40000);
+    click(await until(() => { const b = q('#canon-lib-use-jjk'); return b && !b.disabled ? b : null; }, 'jjk', 15000));
+    await until(async () => /bleach/.test((await meta()).canon_grounding_wiki) && /jjk/.test((await meta()).canon_grounding_wiki), 'the crossover', 40000);
+    const autoOff = await until(() => { const b = q('#canon-lib-auto'); return b && !/✓/.test(b.textContent) ? b : null; }, 'Automatic unchecked while he chooses', 15000);
+    click(autoOff);
+    await until(async () => !(await manual()), 'his choice let go — the story finds its own', 40000);
+    await until(() => { const b = q('#canon-lib-auto'); return b && /✓/.test(b.textContent); }, 'Automatic checked again', 15000);
+    assert(!/✓/.test((q('#canon-lib-use-bleach') || {}).textContent || '') && !/✓/.test((q('#canon-lib-use-jjk') || {}).textContent || ''), 'what it found by itself is never shown as his pick');
+    click(await until(() => { const b = q('#canon-lib-use-jjk'); return b && !b.disabled ? b : null; }, 'jjk again', 15000));
+    await until(async () => (await manual()) && (await meta()).canon_grounding_wiki === 'jjk', 'a pick from Automatic starts a new choice', 40000);
+    click(await until(() => { const b = q('#canon-lib-use-jjk'); return b && !b.disabled && /✓/.test(b.textContent) ? b : null; }, 'jjk checked', 15000));
+    await until(async () => !(await manual()), 'the last one off is Automatic again', 40000);
+    await closeSettings();
+  } finally {
+    await db.settings.set('canonOn:' + st.id, false);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

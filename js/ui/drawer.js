@@ -1293,8 +1293,17 @@ function canonSaysPanel(ctx) {
     const libRow = document.createElement('div');
     libRow.className = 'canon-library-chips row';
     libRow.id = 'canon-library-chips';
-    /* M463: a tap adds the wiki to where this story looks, or takes it away — more than one is a crossover */
-    const using = String(wikiIn.value || '').split(',').map((x) => x.trim()).filter(Boolean);
+    /* M463: a tap adds the wiki to where this story looks, or takes it away — more than one is a crossover. M464: only
+     * what he CHOSE is checked (what it found by itself is Automatic), and Automatic is a chip of its own */
+    const using = ok && ok.manual ? String(binding || '').split(',').map((x) => x.trim()).filter(Boolean) : [];
+    const autoChip = document.createElement('button');
+    autoChip.type = 'button';
+    autoChip.id = 'canon-room-auto';
+    autoChip.className = 'lib-chip' + (!(ok && ok.manual) ? ' current' : '');
+    autoChip.setAttribute('aria-pressed', !(ok && ok.manual) ? 'true' : 'false');
+    autoChip.textContent = (!(ok && ok.manual) ? '✓ ' : '') + 'Automatic';
+    autoChip.addEventListener('click', () => { if (!(ok && ok.manual)) return; wikiIn.value = ''; wikiBtn.click(); });
+    libRow.appendChild(autoChip);
     for (const w of await canonLibrary()) {
       const chip = document.createElement('button');
       chip.type = 'button';

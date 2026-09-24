@@ -154,14 +154,30 @@ export async function drawCanonControls(host, { selfTest, storyId, act } = {}) {
    * crossovers". The rows were plain text, and the story's own room REPLACED its wiki with the one tapped. Now a tap adds the
    * wiki to where this story looks, or takes it away — two or more at once is a crossover (the extension's binding is a
    * list) — and the line above says where this story looks now. */
-  const inUse = async () => (storyId ? String(((await canonMeta(storyId)) || {}).canon_grounding_wiki || '') : '').split(',').map((w) => w.trim()).filter(Boolean);
+  /* M464: AUTOMATIC IS A CHOICE YOU CAN SEE AND TAP. He: "you give me a way to select but no way to deselect all, so I
+   * can't tell it to look automatically". Letting go of the last wiki did send it back to finding its own — and the wiki
+   * it found came back with a check, as though he had picked it. The extension marks his choices (canon_grounding_wiki_ok
+   * .manual); what it found by itself is not his pick. Now "Automatic" is a button of its own, checked when the story
+   * finds its own wiki (and saying which it found), and a wiki is checked only when he chose it. */
+  const where = async () => {
+    const meta = storyId ? ((await canonMeta(storyId)) || {}) : {};
+    const list = String(meta.canon_grounding_wiki || '').split(',').map((w) => w.trim()).filter(Boolean);
+    const manual = Boolean(meta.canon_grounding_wiki_ok && meta.canon_grounding_wiki_ok.manual);
+    return { manual, picked: manual ? list : [], found: manual ? [] : list };
+  };
+  const inUse = async () => (await where()).picked;
   const drawLibrary = async () => {
     library.textContent = '';
     const list = await canonLibrary();
-    const using = await inUse();
-    library.appendChild(quiet(using.length ? 'This story looks in: ' + using.join(' + ') + (using.length > 1 ? ' (a crossover)' : '') : 'This story has not settled on a wiki yet -- it finds its own, or tap one below.'));
+    const w0 = await where();
+    const using = w0.picked;
+    library.appendChild(quiet(w0.manual && using.length ? 'This story looks in: ' + using.join(' + ') + (using.length > 1 ? ' (a crossover)' : '') + ', as you chose.'
+      : w0.found.length ? 'Automatic -- it found this story\'s wiki by itself: ' + w0.found.join(' + ') + '.' : 'Automatic -- nothing fits yet; it looks again as the story names people and places, and skips until then.'));
+    const auto = el('button', { type: 'button', className: 'lib-chip' + (!w0.manual ? ' current' : ''), id: 'canon-lib-auto', 'aria-pressed': !w0.manual ? 'true' : 'false', text: (!w0.manual ? '✓ ' : '') + 'Automatic' });
+    auto.addEventListener('click', async () => { if (typeof act !== 'function' || !w0.manual) return; auto.disabled = true; try { await act('wiki', ''); } finally { await drawLibrary(); } });
+    library.appendChild(el('div', { className: 'present-row' }, auto));
     if (!list.length) { library.appendChild(quiet('The library is empty -- add a wiki above, or each one a story finds is kept here.')); return; }
-    library.appendChild(quiet('Tap a wiki to use it in this story -- tap more than one for a crossover, tap again to stop using it:'));
+    library.appendChild(quiet('Or choose: tap a wiki to use it in this story -- tap more than one for a crossover, tap again to stop (the last one off is Automatic again):'));
     for (const w of list) {
       const on = using.includes(w);
       const pick = el('button', { type: 'button', className: 'lib-chip' + (on ? ' current' : ''), id: 'canon-lib-use-' + w, 'aria-pressed': on ? 'true' : 'false', text: (on ? '✓ ' : '') + w });
