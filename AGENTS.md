@@ -11036,3 +11036,23 @@ and right after the notes'?" — "the notes" in the place's name read as the not
 briefing (the one user message the tracker rides in). The three places now say: "after the ledger's briefing (the
 tracker) — before the first story page", "after the newest story page — right before your message", "after your
 message — before the note at the end". Keys unchanged; harness M466-3 reads the new words. version.js -> m466-002.
+
+# M467 — the window's marker, in any dressing the model gives it
+He, with a window from his page: "The World Beyond / [The Room Next to Aria — same 4th floor, Monday, April 8, Year
+1130 | 21:51] — why is it not rendered by the regex, and why did the agent not fix it so it got rendered?"
+- WHAT WAS WRONG: the house asks for a line reading *** The World Beyond *** and FOUR readers looked for exactly those
+  characters — the 🎨 boxed style (regex-styles.js style-twb), the page reader's "seen only inside the window = elsewhere"
+  guard (chat.js, M129), the scene-before-the-window cut (apply.js scenePartOf, M444) and the lint's one-window count
+  (agents/lint.js, M116). His model wrote the marker as a bare line. All four missed it at once: no box, and the window's
+  people could be seated into the scene and its place could pass for the scene's. The page repair (pageshape.js tidyPage)
+  mended brackets, blank lines and marks, but not this.
+- NOW: engine/window.js is the ONE definition — WINDOW_MARK, WINDOW_LINE (a whole line that is the three words with any
+  marks around them: bare, **bold**, ***bold***, a # heading, dashes, ✦, any case), windowCutAt, normalizeWindowMark.
+  tidyPage writes every kept page's marker in the exact form (marks only; the words, the window's line and the blank
+  lines around it to the letter — did: 'window'); scenePartOf, the M129 guard and the lint read through windowCutAt /
+  WINDOW_LINE, so a page kept BEFORE today (his) is cut right when it is read again; the boxed style's find takes any
+  dressing with flags gim, so his stored plain page is boxed at display without a re-read. A prose mention ("the world
+  beyond the walls") and a title with more words are never a marker. The header's ground and hour still come from the
+  page's FIRST line only (state.js headerMutations), so a window's own [Location — Day, Time] line never sets the scene.
+- TESTS: harness m467.mjs (3 laws over eight dressings): found and cut, kept exact, boxed with the scene left outside.
+- version.js -> m467-001.

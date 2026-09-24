@@ -1,3 +1,5 @@
+import { WINDOW_LINE } from '../engine/window.js'; /* M467 */
+const WINDOW_LINE_ALL = new RegExp(WINDOW_LINE.source, 'gim');
 /* Cozy Tavern — agents/lint.js
  * M88: the house's eye — the craft's mechanical laws, checked in CODE on
  * every finished page, with no call and no judgment. The second reader
@@ -129,7 +131,7 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
   }
   /* M116: the same window twice on one page */
   {
-    const windows = (page.match(/\*\*\* The World Beyond \*\*\*/g) || []).length;
+    const windows = (page.match(WINDOW_LINE_ALL) || []).length; /* M467: the marker in any dressing */
     const plainHeaders = (page.match(/^\s*\[[^\]\n]+ — [^\]\n]+\]\s*$/gm) || []).length;
     if (windows >= 2 || /The Window Beyond [Tt]he Page/.test(page)) push('warn', 'The Window Beyond The Page', 'The window was written twice (or titled after the rule) — one window, in the exact form, and nothing follows it.');
     else if (windows === 1 && plainHeaders >= 3) push('note', 'The Window Beyond The Page', 'More than one [Location — Day, Time] line beyond the header — a window is one cut, not two.');

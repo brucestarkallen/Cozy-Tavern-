@@ -41,6 +41,7 @@
  */
 
 import { tidyPeople, tidyDue, tidyRunWords } from '../agents/tidy.js'; /* M291: the character pages, tidied once */
+import { windowCutAt } from '../engine/window.js'; /* M467 */
 import { streamText } from './streamtext.js'; /* M279 */
 import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
@@ -2838,7 +2839,7 @@ export function initChat(ctx) {
        * refused here, whatever the model wrote (the window about Chloe's
        * kitchen had seated Chloe in the scene) */
       const pageWhole = pageText(msg);
-      const cutAt = pageWhole.indexOf('*** The World Beyond ***');
+      const cutAt = windowCutAt(pageWhole); /* M467: the marker in any dressing */
       const scenePart = (cutAt === -1 ? pageWhole : pageWhole.slice(0, cutAt)).toLowerCase();
       const onlyInWindow = (name) => {
         if (cutAt === -1) return false;

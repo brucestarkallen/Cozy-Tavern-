@@ -722,7 +722,8 @@ test('M129-1 a person who appears only inside the window is never seated present
   assert(/COUNTS AS WRITTEN/.test(m.user) && /older sister/.test(m.user), 'the brief rides');
   assert(/ABSENCE IS NEVER DRIFT/.test(m.system), 'absence law');
   const src = (await import('node:fs')).readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/onlyInWindow\(m\.name\)/.test(src) && /indexOf\('\*\*\* The World Beyond \*\*\*'\)/.test(src), 'a presence.enter for a window-only name is refused in code');
+  /* M467: the cut is found by engine/window.js in any dressing of the marker — a literal look-up missed a bare "The World Beyond" */
+  assert(/onlyInWindow\(m\.name\)/.test(src) && /const cutAt = windowCutAt\(pageWhole\)/.test(src) && !/indexOf\('\*\*\* The World Beyond \*\*\*'\)/.test(src), 'a presence.enter for a window-only name is refused in code, the window found in any dressing');
   const ex = (await import('node:fs')).readFileSync(new URL('../../js/agents/extractor.js', import.meta.url), 'utf8');
   assert(/A WINDOW IS ELSEWHERE/.test(ex), 'and the extractor is told');
   const { applyRules, BUILTIN_RULES } = await import('../../js/regex.js');

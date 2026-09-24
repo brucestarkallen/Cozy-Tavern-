@@ -39,6 +39,7 @@
  */
 
 import { createClock, setClock, advanceClock, renderClock, MAX_ADVANCE_MINUTES } from './clock.js';
+import { windowCutAt } from './window.js'; /* M467: one definition of the window's marker */
 import { addInjury, addStrain, findBodyKey, findInjury, SEV_WORDS } from './bodies.js';
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
 import { seat, findSeat } from './offscreen.js';
@@ -1443,7 +1444,7 @@ export function shownOnPage(state, text, name) {
  * another place, M129) */
 export function scenePartOf(pageText) {
   const t = String(pageText || '');
-  const cut = t.indexOf('*** The World Beyond ***');
+  const cut = windowCutAt(t); /* M467: the marker in any dressing the model gave it */
   return cut === -1 ? t : t.slice(0, cut);
 }
 /* M444: the telling without its spoken lines — someone only talked about ("Byakuya would never allow it") is not shown

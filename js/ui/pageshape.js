@@ -20,6 +20,7 @@
  *   3. a display rule for the five-field header (regex-styles.js), for the one page where nobody knows the place yet.
  * Pure: no store, no DOM. */
 import { isHeaderLine } from './headergate.js';
+import { normalizeWindowMark } from '../engine/window.js'; /* M467 */
 
 const DATEISH = /^(?:\p{Extended_Pictographic}\s*)?(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d|^\d{4}-\d{2}-\d{2}|^\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/iu;
 const FENCED = /<!--\s*GFX_START|\{PULSE\}|\{WATCHLIST\}|\{VOICES\}|```/;
@@ -95,8 +96,11 @@ export function mendMarks(text) {
 
 /* before the page is kept: brackets, the place the ledger already holds, white space — never a word */
 export function tidyPage(text, { place = '' } = {}) {
-  const src = String(text == null ? '' : text);
-  const did = [];
+  /* M467: the window's marker in the exact form, whatever dressing the model gave it ("The World Beyond" bare, bold, a
+   * heading) — marks only, the three words as they are — so the 🎨 box, the readers' cut and the lint all see it */
+  const given = String(text == null ? '' : text);
+  const src = normalizeWindowMark(given);
+  const did = src !== given ? ['window'] : [];
   const h = readHeader(src);
   if (!h) { const m = mendMarks(src); return m.changed ? { text: m.text, did: ['marks'] } : { text: src, did }; } /* M458 */
   let inner = h.inner;

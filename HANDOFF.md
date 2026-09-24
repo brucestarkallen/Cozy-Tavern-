@@ -1,6 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m466-001)
+# Cozy Tavern — handoff for the next session (state at m467-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1f. THE WINDOW'S MARKER HAS ONE DEFINITION (M467): engine/window.js (WINDOW_MARK, WINDOW_LINE, windowCutAt,
+   normalizeWindowMark). NEVER look for the literal '*** The World Beyond ***' again — a model writes it bare, bold or as
+   a heading, and every literal look-up missed his page at once. tidyPage writes the exact form on keep; the 🎨 style,
+   scenePartOf, the M129 guard and the lint read any dressing. Any NEW reader of the window goes through window.js.
 1e. THE LEDGER FOLDS; THE PAGE MARK; THE SHELVES SORT AND REST; HIS OWN-VOICE WORDS; THE COAT'S SPEECH COLOURS (M466).
    (a) drawer.js: every panel folds to its name + a chevron + a live row count (.fold-count, a span AFTER the h3 — the
    h3's textContent stays exactly the title, the walk reads it); `folded` is a CLASS, never `hidden`; OPEN_BY_DEFAULT =

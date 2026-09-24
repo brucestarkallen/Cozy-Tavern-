@@ -10,15 +10,15 @@ export const STYLE_PACK = [
   {
     "id": "style-twb",
     "name": "🎨 The World Beyond (the cut-away, boxed)",
-    "find": "\\*\\*\\*\\s*The World Beyond\\s*\\*\\*\\*\\s*\\n(?:\\s*(\\[[^\\]\\n]*\\])\\s*\\n)?([^\\n][\\s\\S]*?)(?=\\n\\s*\\n|$)",
-    "flags": "g",
+    "find": "^[*#_~—–\\-✦•= \\t]*The[ \\t]+World[ \\t]+Beyond[*#_~—–\\-✦•= \\t]*\\n(?:\\s*(\\[[^\\]\\n]*\\])\\s*\\n)?([^\\n][\\s\\S]*?)(?=\\n\\s*\\n|$)",
+    "flags": "gim",
     "replace": "<details style=\"margin:12px 0;border:1px solid var(--pk-box-edge,var(--pk-box-edge,#353545));border-radius:6px;overflow:hidden;background:var(--pk-box-bg,#15101a);\" open><summary style=\"padding:8px 14px;font-size:0.75em;text-transform:uppercase;letter-spacing:0.15em;font-weight:700;color:var(--pk-gold,#c9a24e);font-family:Georgia,serif;border-bottom:1px solid var(--pk-rule,var(--pk-rule,#252530));list-style:none;text-align:center;cursor:pointer;\">✦ The World Beyond ✦</summary><div style=\"color:var(--pk-quiet-6,#7a7a8a);font-size:0.75em;text-align:center;padding:6px 10px;border-bottom:1px solid var(--pk-rule,var(--pk-rule,#252530));\">$1</div><div style=\"padding:8px 14px;color:var(--pk-body-4,#d8d0c4);font-size:0.9em;line-height:1.5;font-style:italic;\">$2</div></details>",
     "on": "storyteller",
     "mode": "display",
     "enabled": true,
     "builtin": true,
     "pack": "styles",
-    "note": "The house’s own version: it boxes the marker, the optional [Location — Day, Time] line, and the paragraph that follows, and closes itself. (The SillyTavern pair relied on a tracker block coming after it.)"
+    "note": "The house’s own version: it boxes the marker, the optional [Location — Day, Time] line, and the paragraph that follows, and closes itself. (The SillyTavern pair relied on a tracker block coming after it.) M467: the marker is taken in any dressing — *** The World Beyond ***, a bare line, bold, a heading — so a page the model wrote plainly is boxed too."
   },
   {
     "id": "style-header-6-pipe",
