@@ -11248,3 +11248,14 @@ window `…closer to the towers than Dev likes —\n and the thought…` (a line
   vs the speech-verb rule vs a closed pair; wraps joined only where they should). M340/M458 laws green beside them.
   Harness 921/921, walk 137/137, long play 8/8, lint 0.
 - version.js -> m476-001.
+
+# M477 — "Mend the pages' marks"
+He: "so to fix my current page should I tap Read the pages again, or what?" — no: the page repair ran on arrival
+only, "Read the pages again" is the ledger's readers, and nothing re-mended a page already kept.
+- NOW: The workers → "Mend the pages' marks" (drawer.js; chat.js mendAllPages) runs tidyPage over every kept page —
+  brackets, the window's marker, a stray or open quote, an asterisk, a soft wrap — marks and white space only, never
+  a word; a page it would not change is not written (no sync churn); the current swipe is the one mended; the thread
+  redraws; a toast counts the pages mended. No model call, no ledger work: a mark needs no re-read.
+- TESTS: walk DOM-120 — a stray quote gone, a soft wrap joined, a phone screen to the letter, a whole page not
+  written (its updatedAt unchanged), the thread redrawn. Walk 138/138, lint 0.
+- version.js -> m477-001.

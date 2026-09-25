@@ -2260,7 +2260,17 @@ function workersPanel(ctx) {
   });
   const row = document.createElement('div');
   row.className = 'row';
-  row.append(found, rescan, audit);
+  /* M477: the page repair over the pages already kept — marks and white space only, no model */
+  const mendMarksBtn = document.createElement('button');
+  mendMarksBtn.type = 'button';
+  mendMarksBtn.className = 'text-btn';
+  mendMarksBtn.textContent = 'Mend the pages’ marks';
+  mendMarksBtn.title = 'Runs the page repair over every page kept so far — brackets, a stray or open quote, an asterisk, a soft wrap, the window’s marker. Marks and white space only; never a word.';
+  mendMarksBtn.addEventListener('click', async () => {
+    mendMarksBtn.disabled = true;
+    try { if (ctx.chat && typeof ctx.chat.mendAllPages === 'function') await ctx.chat.mendAllPages(); } finally { mendMarksBtn.disabled = false; }
+  });
+  row.append(found, rescan, audit, mendMarksBtn);
   const row2 = document.createElement('div');
   row2.className = 'row';
   row2.append(catchUp, refold, unfold);

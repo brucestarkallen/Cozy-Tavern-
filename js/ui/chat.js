@@ -2622,6 +2622,34 @@ export function initChat(ctx) {
     return true;
   }
 
+  /* M477: "Mend the pages' marks" — the page repair over every page already kept, by hand. tidyPage is marks and
+   * white space only (brackets, the window's marker, a stray or open quote, an asterisk, a soft wrap); a page it would
+   * not change is not written. No model, no ledger work; the readers need no re-read for a mark. */
+  async function mendAllPages() {
+    const story = await activeStory();
+    if (!story) return { mended: 0, of: 0 };
+    const pages = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden);
+    let mended = 0;
+    for (const page of pages) {
+      const before = String(pageText(page) || '');
+      if (!before.trim()) continue;
+      const t = tidyPage(before, {});
+      if (t.text === before) continue;
+      const patch = { text: t.text };
+      if (Array.isArray(page.swipes) && page.swipes.length) {
+        const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
+        const swipes = page.swipes.slice();
+        swipes[idx] = { ...swipes[idx], text: t.text };
+        patch.swipes = swipes;
+      }
+      await db.messages.update(story.id, page.id, patch);
+      mended += 1;
+    }
+    if (mended) await renderThread({ structural: true });
+    toast(mended ? (mended === 1 ? 'One page’s marks mended.' : mended + ' pages’ marks mended.') : 'Every page’s marks are whole already.');
+    return { mended, of: pages.length };
+  }
+
   /* M35: the mend — the second reader (and the record's verifier) may edit
    * a storyteller page by the smallest amount so it stops contradicting the
    * record. The page remembers its earlier words (msg.mended) and shows a
@@ -6110,6 +6138,7 @@ export function initChat(ctx) {
     rescanLedger,
     auditNow,
     weighCast, /* M474 */
+    mendAllPages, /* M477 */
     rippleAfterEdit,
     noteOlderModel, /* M343: Settings tells the thread the moment the switch moves */
     pageReinked, /* M296 */

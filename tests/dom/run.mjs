@@ -6036,6 +6036,38 @@ test('DOM-119 SETTINGS FOLDS: a room opens with its first section unfolded and t
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+
+test('DOM-120 "Mend the pages’ marks": the page repair over the pages already kept — a stray quote goes, a soft wrap joins, a phone screen stays to the letter, a whole page is not written, the thread redraws', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'Marks tale' });
+  const gfx = '<!-- GFX_START -->\n<div style="color:#fff;">\n<div>jovan answer ur phone "NOW"</div>\n</div>\n<!-- GFX_END -->';
+  const bad = '[Metropolis — Tuesday, March 18, 2025 | 18:05 | gold spill | scarf | on the sofa]\n\nKara looks over.\n\n' + gfx + '\n\nShe watches the bay, then another, "like someone reading the skyline.\n\nThe spotlight sweeps the waterline —\n and the thought that surfaces is: pay.';
+  const good = '[Metropolis — Tuesday, March 18, 2025 | 18:06 | gold spill | scarf | on the sofa]\n\n"Fine," she said. "Go on."';
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  const p1 = await db.messages.append(st.id, { role: 'assistant', text: bad });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait more.' });
+  const p2 = await db.messages.append(st.id, { role: 'assistant', text: good });
+  const stampBefore = (await db.messages.list(st.id)).find((m) => m.id === p2.id).updatedAt;
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+  await tick(300);
+  click(qa('#drawer-panels .nav-chip').find((c) => c.dataset.room === 'books')); await tick(400);
+  const btn = qa('#drawer-panels button').find((b) => b.textContent === 'Mend the pages’ marks');
+  assert(btn, 'the button is in The workers');
+  click(btn);
+  await until(async () => { const m = (await db.messages.list(st.id)).find((x) => x.id === p1.id); return !/"like someone/.test(m.text); }, 'the stray quote gone', 5000);
+  const after = (await db.messages.list(st.id)).find((m) => m.id === p1.id).text;
+  assert(after.includes('then another, like someone reading the skyline.'), 'the stray quote is gone: ' + JSON.stringify(after.slice(-140)));
+  assert(after.includes('waterline — and the thought that surfaces is: pay.'), 'the soft wrap joined');
+  assert(after.includes(gfx), 'the phone screen to the letter, its own quotes untouched');
+  const whole = (await db.messages.list(st.id)).find((m) => m.id === p2.id);
+  eq(whole.text, good, 'a whole page is not touched'); eq(whole.updatedAt, stampBefore, 'and not written');
+  await until(() => qa('#thread .msg-assistant').some((n) => /then another, like someone/.test(n.textContent)), 'the thread redrew', 5000);
+  click(q('#btn-drawer-close')); await tick(200);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
