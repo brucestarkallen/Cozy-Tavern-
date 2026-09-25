@@ -106,7 +106,9 @@ export function inlineMarks(text) {
   if (!codeSpans.length) codeSpans.push({ k: 'text', text });
 
   /* **strong** inside the remaining text spans */
-  const strongRe = /\*\*([^*\n]+)\*\*/g;
+  /* M490: an emphasis starts and ends on a visible character (markdown's flanking rule) — "* * *", a scene break, was
+   * read as an italic SPACE followed by a lone "*", and every scene break in every tale showed as an indented "*" */
+  const strongRe = /\*\*(?=\S)([^*\n]*?\S)\*\*/g;
   const strongSpans = [];
   for (const span of codeSpans) {
     if (span.k !== 'text') { strongSpans.push(span); continue; }
@@ -125,7 +127,7 @@ export function inlineMarks(text) {
   /* *emphasis* inside what is still plain text */
   /* A lone `*` never borrows a neighbor's asterisk (so "**unclosed" stays
    * plain text rather than pairing its first mark with an earlier one). */
-  const emRe = /(?<!\*)\*([^*\n]+)\*(?!\*)/g;
+  const emRe = /(?<!\*)\*(?=\S)([^*\n]*?\S)\*(?!\*)/g; /* M490: flanking, as strongRe */
   for (const span of strongSpans) {
     if (span.k !== 'text') { out.push(span); continue; }
     last = 0;

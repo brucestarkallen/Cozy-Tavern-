@@ -77,8 +77,12 @@ export function mendMarks(text) {
   const { safe: shielded, restore } = shieldObjects(given);
   /* M489-3: a line that is only one, two or three asterisks — with single newlines around it, or a non-breaking space
    * before it — is the scene break that lost its shape: its own paragraph, "* * *" */
+  /* M490: every space a model sends (any white space but a newline — em, thin, ideographic, NBSP, a CR), the zero-width
+   * marks, and the asterisk look-alikes (∗ ⁎ ＊ ✱) */
   const src = shielded
-    .replace(/(^|\n)[ \t\u00a0]*\*(?:[ \t\u00a0]*\*){0,2}[ \t\u00a0]*(\n|$)/g, (m, lead, end) => (lead ? '\n\n' : '') + '* * *' + (end ? '\n\n' : ''))
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n[^\S\n]+(?=\n)/g, '\n') /* a line of spaces alone is a blank line (the gap round his break) */
+    .replace(/(^|\n)(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*[*\u2217\u204e\uff0a\u2731](?:(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*[*\u2217\u204e\uff0a\u2731]){0,2}(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*(\n|$)/g, (m, lead, end) => (lead ? '\n\n' : '') + '* * *' + (end ? '\n\n' : ''))
     .replace(/\n{3,}/g, '\n\n')
     .replace(/^\n+/, (m) => (/^\n/.test(shielded) ? m : ''))
     .replace(/\n+$/, (m) => (/\n$/.test(shielded) ? '\n' : ''));
@@ -92,8 +96,8 @@ export function mendMarks(text) {
     /* M482: the eye's two findings, mended instead of only named — bold marks in the prose go; an ACTION wrapped in
      * asterisks (four words or more — never a sound: *bzz*, *pt-pt*, *thud-thud-thud*) loses its asterisks. Marks
      * only; the words stay to the letter. The craft: asterisks wrap contact sounds and nothing else. */
-    p = p.replace(/\*\*([^*\n]+)\*\*/g, '$1');
-    p = p.replace(/(?<!\*)\*([^*\n]{4,140})\*(?!\*)/g, (m, inner) => (inner.trim().split(/\s+/).length >= 4 ? inner : m));
+    p = p.replace(/\*\*(?=\S)([^*\n]*?\S)\*\*/g, '$1'); /* M490: flanking — never a span of spaces */
+    p = p.replace(/(?<!\*)\*(?=\S)([^*\n]{4,140})(?<=\S)\*(?!\*)/g, (m, inner) => (inner.trim().split(/\s+/).length >= 4 ? inner : m)); /* M490: flanking */
     /* an empty pair of quotes goes, and only the spaces it leaves behind with it (a page's own white space is its own) */
     const noEmpty = p.replace(/(^|[ \t(])(?:""|\u201c[ \t]*\u201d)(?=[ \t.,!?;:)]|$)/g, '$1');
     if (noEmpty !== p) p = noEmpty.replace(/([^ \t\n])[ \t]{2,}(?=\S)/g, '$1 ').replace(/[ \t]+(?=[.,!?;:])/g, '').replace(/[ \t]+$/g, '');
@@ -136,7 +140,7 @@ export function joinSoftWraps(text) {
   const { safe, restore } = shieldObjects(given);
   /* M489-3: a line that is only marks (a scene break "*", "* * *", "---") is its own thing — never glued to the line
    * above it nor swallowed into the one below; it was joined as "…know you.\" *" and no mark rule could see it after */
-  const MARK_LINE = /^[ \t\u00a0]*(?:[*_~—–-]+[ \t\u00a0]*)+$/;
+  const MARK_LINE = /^(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*(?:[*\u2217\u204e\uff0a\u2731_~—–-]+(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*)+$/; /* M490: every space and zero-width mark */
   const out = safe.split('\n').reduce((acc, line, i, arr) => {
     if (i === 0) return line;
     const prev = arr[i - 1];

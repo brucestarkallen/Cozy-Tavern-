@@ -97,7 +97,7 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
   const opens = (page.match(/~t~\*/g) || []).length; const closes = (page.match(/\*~\/t~/g) || []).length;
   if (opens !== closes) push('warn', 'NPC Private Thoughts', `A private thought's markup is unbalanced (${opens} opened, ${closes} closed).`);
   /* an action wrapped in asterisks: a span of four or more words that is not a sound */
-  const spans = page.replace(/~t~\*[^\n]*?\*~\/t~/g, '').match(/(?<!\*)\*([^*\n]{4,140})\*(?!\*)/g) || [];
+  const spans = page.replace(/~t~\*[^\n]*?\*~\/t~/g, '').match(/(?<!\*)\*(?=\S)([^*\n]{4,140})(?<=\S)\*(?!\*)/g) /* M490: flanking */ || [];
   const actions = spans.filter((s) => s.slice(1, -1).trim().split(/\s+/).length >= 4);
   if (actions.length) push('warn', 'Sound As Onomatopoeia', `An action is wrapped in asterisks (${actions[0].slice(0, 60)}) — asterisks wrap contact sounds and nothing else.`);
 

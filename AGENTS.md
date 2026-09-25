@@ -11474,3 +11474,26 @@ a non-breaking space before it escaped the rule too.
 - TESTS: m476.mjs M489-3 — four shapes of the lone asterisk, a whole page untouched, a rule line beside a joined
   wrap. Harness 936/936, walk 141/141, lint 0.
 - version.js -> m489-003.
+
+# M490 — the scene break was drawn as a lone "*" — the renderer, not the page
+He, with a screenshot on the latest build: "PLEASE WHY YOU CAN'T LITERALLY FIX THIS! It's still *" — after three rounds of
+repair rules that could not have helped.
+- FOUND BY REPRODUCTION, NOT REASONING (tests/mend_marks.py, new: a real Chromium, the real "Mend the pages' marks"
+  button and the on-open mend, fourteen character shapes, text and swiped pages, read back from the STORE and from the
+  SCREEN): the store held "* * *" and the screen showed "  *". js/ui/prose.js read emphasis as \*([^*\n]+)\* — a
+  span whose inside may be a SPACE — so "* * *" rendered as <em> </em> * : an italic space and a lone asterisk. Every
+  scene break in every tale has always displayed that way; the page was right, and every mend truthfully said "whole
+  already". M489/M489-3 fixed shapes of a lone asterisk that were real but were not his.
+- THE SAME FLAW EVERYWHERE AN ASTERISK PAIR IS READ (five sites): prose.js strongRe and emRe, pageshape.js's bold
+  strip and action unwrap, lint.js's asterisk-action finding — all take markdown's flanking rule now: an emphasis
+  starts and ends on a visible character (\*(?=\S)…(?<=\S)\*).
+- THE SHAPES THE BROWSER TEST EXPOSED (store misses): CRLF, em/thin/narrow-NBSP/ideographic spaces, zero-width marks
+  (one of which made M458's open-asterisk closer ADD an asterisk: "*\u200b*"), a BOM, and look-alike asterisks (＊ ∗ ⁎
+  ✱). mendMarks now normalises CR, empties space-only lines, and writes a line of one to three asterisk-likes amid any
+  white space or zero-width marks as "* * *"; joinSoftWraps' mark line reads the same classes. Zero-width marks by
+  alternation (a joiner inside a class is lint's no-misleading-character-class).
+- TESTS: tests/mend_marks.py (real browser, 14 shapes, store and screen, button and open — all ok); harness m490.mjs
+  (the renderer: * * * is text, spaces inside asterisks are not emphasis, real emphasis/sound/thought/bold still
+  render; the repair on nine exotic shapes, never adding an asterisk). Harness 938/938, walk 141/141, long play 8/8,
+  lint 0.
+- version.js -> m490-001.
