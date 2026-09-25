@@ -11497,3 +11497,13 @@ repair rules that could not have helped.
   render; the repair on nine exotic shapes, never adding an asterisk). Harness 938/938, walk 141/141, long play 8/8,
   lint 0.
 - version.js -> m490-001.
+
+# M490-2 — the regression M490 made, found by a differential and closed
+He: "does your previous fix break anything?" — it did. A differential of the renderer before and after M490 over 32
+asterisk patterns showed 7 intended changes and 2 regressions: "***" rendered as an italic "*" and "*****" as a bold
+"*" — M490's trailing \S could itself be an asterisk. prose.js strongRe/emRe and pageshape.js's bold strip now require
+the first and last letter of an emphasis to be neither a space nor an asterisk ([^\s*]). After: the renderer differs
+from pre-M490 on exactly the 7 intended cases (asterisks with spaces inside are text), every real emphasis identical;
+the page repair differs on 1 of 13 realistic pages (CRLF made LF). TESTS: m490.mjs M490-2 (runs of 3-6 asterisks are
+text, ***both*** as before, the bold strip leaves a run); tests/mend_marks.py gained "***" and an existing break (16
+shapes, store and screen ok). Harness 939/939, walk 141/141, long play 8/8, lint 0. version.js -> m490-002.

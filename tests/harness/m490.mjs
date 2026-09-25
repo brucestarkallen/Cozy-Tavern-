@@ -28,3 +28,12 @@ test('M490-2 the repair takes every shape of a lone break — CR, every space, z
   }
   eq(mendMarks('** **').text, '** **', 'the bold strip never takes a span of spaces');
 });
+
+test('M490-2 the regression M490 made is closed: "***", "*****" and every run of asterisks are text — an emphasis never has an asterisk for its first or last letter; the repair never strips a run of asterisks', () => {
+  for (const run of ['***', '****', '*****', '******']) {
+    assert(!inlineMarks(run).some((s) => s.k !== 'text'), run + ' is text: ' + kinds(run));
+    eq(inlineMarks(run).map((s) => s.text).join(''), run, run + ' shown whole');
+  }
+  eq(kinds('***both***'), 'text:* | strong:both | text:*', 'as it rendered before M490');
+  eq(mendMarks('Text *****.').text, 'Text *****.', 'the bold strip leaves a run of asterisks');
+});

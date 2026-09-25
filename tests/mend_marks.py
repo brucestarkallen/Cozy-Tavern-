@@ -31,6 +31,8 @@ SHAPES = {
   'fullwidth asterisk':      '\n\n  \uff0a\n\n',
   'asterisk operator':       '\n\n  \u2217\n\n',
   'trailing tab':            '\n\n  *\t\n\n',
+  'three, no spaces':        '\n\n***\n\n',
+  'already a break':         '\n\n* * *\n\n',
 }
 fails = []
 try:

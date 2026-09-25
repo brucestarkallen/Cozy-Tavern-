@@ -1,9 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m490-001)
+# Cozy Tavern — handoff for the next session (state at m490-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 1x. A DISPLAY FAULT IS PROVEN ON THE SCREEN (M490): tests/mend_marks.py reads the STORE and the SCREEN in a real
    Chromium. Every asterisk-pair regex (prose.js, pageshape.js, lint.js) keeps markdown's flanking rule — an emphasis
-   never starts or ends on a space. When he says 'it's still there', compare store vs screen before touching a rule.
+   never starts or ends on a space OR an asterisk ([^\\s*]; M490-2). Diff the renderer before/after any change to it. When he says 'it's still there', compare store vs screen before touching a rule.
 1w. THE PAGES' MARKS HEAL ON OPEN (M488): chat.js mendPagesOnOpen, once per tale per build (pagesMended:<id>); a new
    mark rule in pageshape.js reaches old pages by itself on the next open — no button needed.
 1v. THE CANON NOTE READS CLEAN (M487): grounding.js stripTemplates keeps a template's display text (never drop a

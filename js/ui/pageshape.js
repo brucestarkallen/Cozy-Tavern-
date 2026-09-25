@@ -96,7 +96,7 @@ export function mendMarks(text) {
     /* M482: the eye's two findings, mended instead of only named — bold marks in the prose go; an ACTION wrapped in
      * asterisks (four words or more — never a sound: *bzz*, *pt-pt*, *thud-thud-thud*) loses its asterisks. Marks
      * only; the words stay to the letter. The craft: asterisks wrap contact sounds and nothing else. */
-    p = p.replace(/\*\*(?=\S)([^*\n]*?\S)\*\*/g, '$1'); /* M490: flanking — never a span of spaces */
+    p = p.replace(/\*\*(?=[^\s*])([^*\n]*?[^\s*])\*\*/g, '$1'); /* M490/M490-2: flanking — never a span of spaces or of asterisks */
     p = p.replace(/(?<!\*)\*(?=\S)([^*\n]{4,140})(?<=\S)\*(?!\*)/g, (m, inner) => (inner.trim().split(/\s+/).length >= 4 ? inner : m)); /* M490: flanking */
     /* an empty pair of quotes goes, and only the spaces it leaves behind with it (a page's own white space is its own) */
     const noEmpty = p.replace(/(^|[ \t(])(?:""|\u201c[ \t]*\u201d)(?=[ \t.,!?;:)]|$)/g, '$1');
