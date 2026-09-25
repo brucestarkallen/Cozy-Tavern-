@@ -11632,3 +11632,17 @@ He: "do the housekeeper, the director and the critique talk naturally, so they d
   form; m29.mjs M29-9's order check was VACUOUS (it looked for a phrase the world's word no longer has, indexOf -1, so it
   could never fail) — it now finds both by their own words. Harness 952/952, walk 142/142, long play 8/8, lint 0.
 - version.js -> m495-001.
+
+# M496 — a Stop keeps the line in hand; stop-then-Try-again proven end to end
+He: "everything is foolproof, right — when I stop an output (the marker) and press Try again, it's safe?"
+- WALK DOM-125 (new): a page streamed, stopped MID-PROSE, then Try again — through the real app (the fake storyteller
+  learned to hang mid-prose: tests/dom/env.mjs thinkHang = 'prose').
+- FOUND A REAL LOSS: the header gate (ui/headergate.js) holds the unfinished line — it may yet be the header — and let
+  it go only when the stream FINISHED (gate.end() after streamChat returned). A Stop throws past that line, so whatever
+  was mid-line when he pressed Stop was dropped from the kept page — and a model that writes a paragraph as one line
+  lost the whole paragraph (DOM-125 kept only the header). chat.js now ends the gate on a Stop before the page is kept.
+  (A dropped wire still keeps its thinking and no page, M301, unchanged.)
+- NOW PROVEN: the half page is kept and marked stopped; Try again asks the same turn with his own words (never "Go on.",
+  one request, his message once); one page stands for the turn; the new page shows, unmarked; the readers settle.
+  The ledger's side of a stopped version is DOM-47's law (a stopped new version gives the ledger back).
+- GATES: harness 952/952, walk 143/143, long play 8/8, lint 0, two-browser proof. version.js -> m496-001.

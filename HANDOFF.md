@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m495-001)
+# Cozy Tavern — handoff for the next session (state at m496-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 1zb. NO THIRD AUTHORITY ON THE WIRE (M495): every text a side agent adds to the storyteller's request must read as the

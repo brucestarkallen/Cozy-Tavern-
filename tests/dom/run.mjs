@@ -6202,6 +6202,55 @@ test('DOM-124 "#time" ALONE IS NO TURN: typed, it answers the story’s hour in 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+
+test('DOM-125 STOP MID-PAGE, THEN TRY AGAIN: the half page is kept and marked stopped; Try again asks the same turn with his own words (never "Go on.", never twice), one page stands for the turn, the mark is gone, the house is idle', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const H = '[The kitchen — Monday, March 3, 2025 | 09:05 | clear | apron | by the stove]\n\n';
+  const prior = house.state.storyAnswer;
+  const st = await db.stories.create({ title: 'stop mid-page' });
+  await db.messages.append(st.id, { role: 'user', text: 'We sit in the kitchen.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'The kettle sang and nobody moved.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+  try {
+    house.state.thinkHang = 'prose';
+    type(q('#composer-input'), 'I open the door.'); submit(q('#composer'));
+    await until(() => /The kitchen/.test((q('.msg.pending') || {}).textContent || ''), 'the page streaming (its header on screen; an unfinished line is held back from the live view)', 10000);
+    await tick(200);
+    click(q('#btn-stop'));
+    await until(() => !env.ctx.chat.isBusy(), 'stopped', 10000);
+    house.state.thinkHang = null;
+    let list = await db.messages.list(st.id);
+    const half = list.filter((m) => m.role === 'assistant' && !m.hidden).pop();
+    assert(/and the door/.test(half.text) && half.stopped === true, 'the half page is kept, marked stopped: ' + JSON.stringify({ text: half.text.slice(-40), stopped: half.stopped }));
+    eq(list.filter((m) => m.role === 'user' && m.text === 'I open the door.').length, 1, 'his message once');
+    /* Try again */
+    house.state.storyAnswer = () => H + 'She turns the handle, and the door opens onto rain.';
+    const from = house.state.calls.length;
+    await until(() => !q('#btn-retry').hidden, 'Try again offered after the stop', 10000);
+    click(q('#btn-retry'));
+    await until(async () => { const a = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden).pop(); return a && /opens onto rain/.test(a.swipes && a.swipes.length ? a.swipes[Number.isFinite(a.swipeIdx) ? a.swipeIdx : a.swipes.length - 1].text : a.text) && !env.ctx.chat.isBusy(); }, 'the new page landed', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers settled', 30000);
+    const told = house.state.calls.slice(from).filter((c) => !c.isWorker && Array.isArray(c.body.messages));
+    eq(told.length, 1, 'one request to the storyteller');
+    const lastUser = told[0].body.messages.filter((m) => m.role === 'user').pop();
+    eq(String(lastUser.content), 'I open the door.', 'asked with his own words, not "Go on."');
+    list = await db.messages.list(st.id);
+    eq(list.filter((m) => m.role === 'user' && m.text === 'I open the door.').length, 1, 'his message still once');
+    const visible = list.filter((m) => !m.hidden).map((m) => m.role).join(' ');
+    eq(visible, 'user assistant user assistant', 'one page stands for the turn: ' + visible);
+    const now = list.filter((m) => m.role === 'assistant' && !m.hidden).pop();
+    assert(!now.stopped || (Array.isArray(now.swipes) && now.swipes[Number.isFinite(now.swipeIdx) ? now.swipeIdx : now.swipes.length - 1].stopped !== true), 'the page on screen is not marked stopped');
+    assert(qa('#thread .msg-assistant').pop().textContent.includes('opens onto rain'), 'the thread shows the new page');
+  } finally {
+    house.state.thinkHang = null;
+    house.state.storyAnswer = prior;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

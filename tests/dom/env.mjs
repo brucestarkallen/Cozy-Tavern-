@@ -66,8 +66,13 @@ export function makeHouse() {
       const enc = new TextEncoder();
       const piece = (t) => enc.encode('data: ' + JSON.stringify({ choices: [{ delta: { reasoning_content: t } }] }) + '\n\n');
       const body = new ReadableStream({ start(c) {
+        if (hangMode === 'prose') {
+          /* M496: a storyteller stopped MID-PROSE — a real header and half a sentence, then the stream waits */
+          c.enqueue(enc.encode('data: ' + JSON.stringify({ choices: [{ delta: { content: '[The kitchen — Monday, March 3, 2025 | 09:05 | clear | apron | by the stove]\n\nShe turns the handle slowly, and the door ' } }] }) + '\n\n'));
+        } else {
         c.enqueue(piece('Let me weigh the room. '));
         c.enqueue(piece('Liara is guarded, and the rain has not stopped.'));
+        }
         if (hangMode === 'drop') { setTimeout(() => { try { c.error(new Error('the wire dropped')); } catch (err) { /* closed */ } }, 40); return; }
         const gone = () => { const e = new Error('The operation was aborted.'); e.name = 'AbortError'; try { c.error(e); } catch (err) { /* closed */ } };
         if (opts.signal) { if (opts.signal.aborted) gone(); else opts.signal.addEventListener('abort', gone); }
