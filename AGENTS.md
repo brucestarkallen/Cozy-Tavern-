@@ -11334,3 +11334,21 @@ He, with the auditor's findings: "can this be fixed before the auditor finds it?
   seat let go; the mends with the sound, the short thought and the private thought kept, the rule on the contract).
   Harness 927/927, walk 140/140, long play 8/8, lint 0.
 - version.js -> m482-001.
+
+# M483 — the landed page is numbered; the light is never simply gone
+He, with a screenshot at the end of a tale: "still 18 of 19"; "is it normal that the light goes yellow on a retry and
+green when the output ends?"; "sometimes the light is gone and I need to refresh."
+- 18 OF 19 (the real one): renderThread stamped every node it drew (M466), but two other builders built nodes with no
+  number — the page that LANDS in place of its pending node, and a page redrawn in place after a worker re-inked it —
+  so the newest page was invisible to the page mark until the next full redraw. chat.js numberPage (one counter from
+  the tale's list) stamps both; pagemark.js re-measures when the last page's number or the count changes, not only
+  the height. M468-2's sliding line was right and stays.
+- THE LIGHT: blue-ish pulsing = working (the readers at the retried page), green = everything read and folded — by
+  design (M255). GONE: behind with nothing running — the readers held off for another hand at the tale (M293), or
+  waiting out a failed try's backoff — showed no light at all, and the ledger-gap backoff booked no look-again (the
+  record's did, M317), so nothing looked until a worker moved or he refreshed. Now a fourth light, WAITING (a hollow
+  ring, the reason in the button's title: another browser, unread pages, a record gap), and the ledger-gap wait books
+  its own look, so the light comes back by itself.
+- TESTS: walk DOM-116 — the landed page carries its number and the tale counts it, a re-ink keeps it (rerenderMessage
+  exposed for the walk); tests/pagemark.py still names both ends. Harness 927/927, walk 140/140, lint 0.
+- version.js -> m483-001.

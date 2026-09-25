@@ -1,6 +1,8 @@
-# Cozy Tavern — handoff for the next session (state at m482-001)
+# Cozy Tavern — handoff for the next session (state at m483-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1s. EVERY PAGE NODE IS NUMBERED (M483): any new builder of a .msg node must call numberPage (chat.js) — renderThread,
+   the landed page, rerenderMessage do. The ledger light has four states: working, trouble, well, WAITING (is-waiting).
 1r. A DESCRIPTOR IS NOT A PERSON (M482): people.js resolveDescriptor at every name door (pages, seats, knowledge,
    standings, threads, presence.enter). Two answers are none. pageshape.js SHIELD_RE also shields ~t~*…*~/t~ and the
    window's marker — any new asterisk rule in mendMarks must keep it so.

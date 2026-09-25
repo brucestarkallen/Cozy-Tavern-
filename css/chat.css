@@ -1146,7 +1146,20 @@ body.settings-open .jump-pill { display: none; }
  * burns when all four of its conditions hold. */
 .room-btn.has-trouble,
 .room-btn.is-working,
+.room-btn.is-waiting,
 .room-btn.all-well { position: relative; }
+/* M483: the fourth light — waiting: a hollow ring, the reason in the button's title */
+.room-btn.is-waiting::after {
+  content: '';
+  position: absolute;
+  top: 0.26rem; right: 0.26rem;
+  width: 0.46rem; height: 0.46rem;
+  border-radius: 999px;
+  border: 2px solid var(--muted);
+  background: transparent;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 2px var(--surface);
+}
 
 .room-btn.has-trouble::after,
 .room-btn.is-working::after,

@@ -32,11 +32,14 @@ export function initPageMark(ctx) {
   let numbers = [];
   let seenHeight = -1;
   let seenCount = -1;
+  let seenLast = '';
   function measure() {
     const nodes = thread.querySelectorAll('.msg[data-page]');
-    if (thread.scrollHeight === seenHeight && nodes.length === seenCount) return;
+    const last = nodes.length ? nodes[nodes.length - 1].dataset.page + ':' + (thread.dataset.pages || '') : '';
+    if (thread.scrollHeight === seenHeight && nodes.length === seenCount && last === seenLast) return;
     seenHeight = thread.scrollHeight;
     seenCount = nodes.length;
+    seenLast = last; /* M483: a page replaced in place (a landed page, a re-ink) is measured again */
     tops = [];
     numbers = [];
     for (const n of nodes) { tops.push(n.offsetTop); numbers.push(Number(n.dataset.page) || 0); }

@@ -5891,6 +5891,19 @@ test('DOM-116 THE PAGE MARK: every storyteller page is numbered over the whole t
   await db.settings.set('turnsShown', 30);
   await env.window.__cozy.chat.renderThread({ structural: true });
   eq(qa('#thread .msg[data-page]').map((n) => n.dataset.page).join(','), '1,2,3,4,5,6,7,8', 'all eight, numbered from one');
+  /* M483: the page that LANDS (in place of its pending node) is numbered too — it was the one page the mark never saw */
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+  type(q('#composer-input'), 'I go on.'); submit(q('#composer'));
+  await until(() => qa('#thread .msg-assistant').length === 9 && !q('.msg-pending'), 'the ninth page landed', 30000);
+  await until(() => !env.ctx.chat.isBusy() && qa('#thread .msg-assistant').pop().dataset.id, 'the landed node in place of the pending one', 20000);
+  const nodes = qa('#thread .msg-assistant');
+  eq(nodes[nodes.length - 1].dataset.page, '9', 'the landed page carries its number');
+  eq(q('#thread').dataset.pages, '9', 'and the tale knows it has nine');
+  await until(() => !env.ctx.chat.isBusy(), 'idle', 20000);
+  /* and a page redrawn in place after a worker re-inked it keeps its number */
+  const last = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+  await env.window.__cozy.chat.rerenderMessage(st.id, last.id);
+  eq(qa('#thread .msg-assistant').pop().dataset.page, '9', 'a re-ink keeps the number');
   await db.settings.delete('turnsShown').catch(() => {});
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

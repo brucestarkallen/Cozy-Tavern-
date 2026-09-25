@@ -1464,6 +1464,20 @@ export function initChat(ctx) {
    * thrown the editor and his words away. It waits, and runs the moment the editor closes (his words kept or let go).
    * Opening a story is his own move away from the page, and is never held. */
   let threadRedrawOwed = null;
+  /* M483: THE PAGE'S NUMBER, WHEREVER THE NODE IS BUILT. renderThread stamps every node it draws (M466); the two other
+   * builders — a page redrawn in place after a worker re-inked it, and the page that just LANDED in place of its pending
+   * node — built nodes without a number, so the newest page was invisible to the page mark and the end of a tale read
+   * "18 of 19" until the next full redraw. One counter, from the tale's own list. */
+  function numberPage(node, msg, history) {
+    if (!node || !msg) return node;
+    const list = Array.isArray(history) ? history.filter((m) => m && !m.hidden) : [];
+    let n = 0; let found = 0;
+    for (const m of list) { if (m.role === 'assistant') { n += 1; if (m.id === msg.id) found = n; } }
+    if (msg.role === 'assistant' && found) node.dataset.page = String(found); else delete node.dataset.page;
+    if (n) els.thread.dataset.pages = String(n);
+    return node;
+  }
+
   async function renderThread({ structural = false, opening = false } = {}) {
     if (!opening && els.thread.querySelector('textarea.edit-box')) {
       threadRedrawOwed = { structural: Boolean(structural || (threadRedrawOwed && threadRedrawOwed.structural)) };
@@ -1614,6 +1628,7 @@ export function initChat(ctx) {
       isLastAssistant: lastAssistant ? lastAssistant.id === messageId : false,
       mastheadOn,
     });
+    numberPage(fresh, msg, history); /* M483: a page redrawn in place keeps its number */
     if (node) node.replaceWith(fresh);
     else {
       /* M136: a page above the drawn window stays off screen — never appended at the tail */
@@ -1978,17 +1993,26 @@ export function initChat(ctx) {
       const busy = runningWorkers(storyId).length > 0 || queuedCount(storyId) > 0;
       const allWell = !busy && !trouble && !partly && !behind && ran > 0 && told > 0;
 
+      /* M483: THE LIGHT IS NEVER SIMPLY GONE. Behind with nothing running — the readers held off for another hand at
+       * this tale, or waiting out a failed try — showed no light at all, and the writer refreshed the page to find out.
+       * A fourth state, waiting, says why in its title and comes back by itself when the wait ends. */
+      const waiting = !busy && !trouble && !partly && behind && told > 0;
+      const waitingWhy = waiting ? (otherHandAt(storyId) ? 'another browser wrote this tale a moment ago — its readers may still be at it; this one looks again in a few minutes'
+        : ledgerBehind ? 'the last pages are not read into the ledger yet — the readers go at them when the house is idle'
+          : 'a gap in the record is waiting for the keeper — it folds when the house is idle') : '';
       btn.classList.toggle('is-working', busy);
       btn.classList.toggle('has-trouble', !busy && (trouble || partly));
       btn.classList.toggle('all-well', allWell);
+      btn.classList.toggle('is-waiting', waiting);
       btn.setAttribute('title', busy
         ? 'The ledger — reading this scene now'
         : trouble
         ? 'The ledger — ' + sore.join(', ') + ' stumbled; the pages are safe and will be folded when it comes back'
         : partly ? 'The ledger — ' + part.join(', ') + ' stopped partway; it will carry on by itself'
           : allWell ? 'The ledger — everything is read and folded. Nothing is waiting. Write on.'
-            : 'The ledger — the house’s memory of the scene and the world');
-      ledgerMark = busy ? 'working' : trouble ? 'trouble' : partly ? 'partly' : allWell ? 'well' : null;
+            : waiting ? 'The ledger — waiting: ' + waitingWhy
+              : 'The ledger — the house’s memory of the scene and the world');
+      ledgerMark = busy ? 'working' : trouble ? 'trouble' : partly ? 'partly' : allWell ? 'well' : waiting ? 'waiting' : null;
       /* M275: THE HOUSE FILLS WHAT THE LIGHT SEES. A gap in the record (a line
        * let go by a mend, an edit or a delete of an old page) kept the light
        * dark until the writer's next page — detection without repair. Seen
@@ -2058,11 +2082,19 @@ export function initChat(ctx) {
   }
   const ledgerFilledAt = new Map();
   const ledgerTries = new Map();
+  const ledgerLookAgain = new Map(); /* M483 */
   async function fillLedgerGap(storyId) {
     try {
       if (otherHandAt(storyId)) return; /* M293: another browser's readers may still be at it */
       const tries = ledgerTries.get(storyId) || 0;
-      if (Date.now() - (ledgerFilledAt.get(storyId) || 0) < Math.min(30 * 60000, 60000 * 2 ** tries)) return;
+      const waitLeft = Math.min(30 * 60000, 60000 * 2 ** tries) - (Date.now() - (ledgerFilledAt.get(storyId) || 0));
+      if (waitLeft > 0) {
+        /* M483: the wait books its own look, as the record's gap does (M317) — the light went dark for the wait and
+         * nothing looked again until a worker moved; he refreshed the page to see it green */
+        clearTimeout(ledgerLookAgain.get(storyId));
+        ledgerLookAgain.set(storyId, setTimeout(() => { ledgerLookAgain.delete(storyId); if (ctx.getActiveStoryId() === storyId) markLedgerTrouble(storyId); }, waitLeft + 500));
+        return;
+      }
       if (workIsRunning(storyId) || queuedCount(storyId) > 0) return;
       const story = await db.stories.get(storyId);
       if (!story || story.extraction === false) return;
@@ -4579,7 +4611,9 @@ export function initChat(ctx) {
           /* M22-C: where it looked things up, folded under the page. */
           sources: streamSources || undefined,
         });
-        pending.replaceWith(msgNode(saved, showThinking, { isLastAssistant: true, mastheadOn: (await db.settings.get('masthead')) !== false }));
+        const landedNode = msgNode(saved, showThinking, { isLastAssistant: true, mastheadOn: (await db.settings.get('masthead')) !== false });
+        numberPage(landedNode, saved, await db.messages.list(story.id)); /* M483: the page that just landed is numbered — it was the one page the mark never saw ("18 of 19" at the end) */
+        pending.replaceWith(landedNode);
         await clearCutThinking(story.id); /* M301: a page landed — it carries its own thinking */
         /* The pending node was never in the walker's ids; the saved page
          * takes its place at the tail. Record the id — do NOT clear the
@@ -6188,6 +6222,7 @@ export function initChat(ctx) {
     auditNow,
     weighCast, /* M474 */
     mendAllPages, /* M477 */
+    rerenderMessage, /* M483: the walk proves a re-ink keeps the page's number */
     briefFromConcept, /* M478/M479 */
     rippleAfterEdit,
     noteOlderModel, /* M343: Settings tells the thread the moment the switch moves */
