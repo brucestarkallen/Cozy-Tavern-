@@ -334,16 +334,20 @@ export function addKnowledge(knowledge, name, fact, atTurn) {
   /* M484: ONE WORDING FOR ONE FACT, HOUSE-WIDE. A fact someone else already holds is written for this person in
    * THOSE words — so the briefing can say "Everyone here but X knows: …" once instead of the same moment nine times
    * in nine paraphrases. */
+  /* the same moment: learned on the same page or the one beside it — a paraphrase is one moment in other words */
+  const near = (t) => Number.isFinite(t) && Number.isFinite(atTurn) && Math.abs(t - atTurn) <= 1;
   let canon = what;
   for (const [other, theirs] of Object.entries(next)) {
     if (other === key || !Array.isArray(theirs)) continue;
-    const held = theirs.find((k) => k && sameFact(k.fact, what));
+    const held = theirs.find((k) => k && (sameFact(k.fact, what) || (near(k.atTurn) && sameFact(k.fact, what, { fuzzy: true }))));
     if (held) { canon = held.fact; break; }
   }
   /* M92: the same fact in different clothes is the same fact — quotes and
    * apostrophes normalized, punctuation gone, one fact wholly inside another
    * (the shorter a prefix or a clipping of the longer) — the longer stays */
-  const dup = list.findIndex((k) => sameFact(k.fact, canon));
+  /* within one person: the paraphrase fold only for a line from the page BESIDE this one — two lines the reader wrote
+   * for one person on one page are two facts on purpose */
+  const dup = list.findIndex((k) => sameFact(k.fact, canon) || (Number.isFinite(k.atTurn) && Number.isFinite(atTurn) && Math.abs(k.atTurn - atTurn) === 1 && sameFact(k.fact, canon, { fuzzy: true })));
   if (dup !== -1) {
     if (canon === what && what.length > list[dup].fact.length) list[dup] = { ...list[dup], fact: what };
     next[key] = list;
@@ -380,12 +384,16 @@ export function undoubled(text) {
 export function factKey(f) {
   return String(f || '').toLowerCase().replace(/[‘’´`]/g, "'").replace(/[“”]/g, '"').replace(/[^\p{L}\p{N}\s']/gu, ' ').replace(/\s+/g, ' ').trim();
 }
-export function sameFact(a, b) {
+/* M490-3: the paraphrase fold is OPT-IN ({ fuzzy: true }) and only for the same moment. As the default it merged
+ * "…told Jovan about the cult…" with "…about the owls…" (a fact lost), and knowledge.forget — which asks sameFact what
+ * to erase — would have erased the other fact too. M92's rule (the same words, or one inside the other) is the default. */
+export function sameFact(a, b, { fuzzy = false } = {}) {
   const x = factKey(a); const y = factKey(b);
   if (!x || !y) return false;
   if (x === y) return true;
   const [short, long] = x.length <= y.length ? [x, y] : [y, x];
   if (short.length >= 24 && long.includes(short)) return true;
+  if (!fuzzy) return false;
   /* M484: THE SAME FACT IN OTHER WORDS. The page reader wrote "Jovan's red-glowing punch drove Zaraki three yards
    * through the sand" one page and "observed the force of Jovan's red punch leave Zaraki's body and the skid furrows
    * run three yards" the next, and both stood, and the storyteller read one moment three times. Two facts sharing
@@ -420,7 +428,7 @@ export function dedupeKnowledge(knowledge) {
   for (const [name, list] of Object.entries(safe)) {
     const kept = [];
     for (const k of list) {
-      const at = kept.findIndex((x) => sameFact(x.fact, k.fact));
+      const at = kept.findIndex((x) => sameFact(x.fact, k.fact) || (Number.isFinite(x.atTurn) && Number.isFinite(k.atTurn) && Math.abs(x.atTurn - k.atTurn) === 1 && sameFact(x.fact, k.fact, { fuzzy: true })));
       if (at === -1) kept.push({ ...k });
       else if (k.fact.length > kept[at].fact.length) kept[at] = { ...kept[at], fact: k.fact };
     }

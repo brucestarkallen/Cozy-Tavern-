@@ -35,3 +35,8 @@ test('M471-3 a piece of gear with no modifier is a boon (+1), a condition a hand
   applyConditionChange(s, { who: 'constructor', add: 'poisoned', mod: -2 }, eng);
   assert(!Object.prototype.hasOwnProperty.call(s.sheet.actors, 'constructor'), 'and its kin');
 });
+
+test('M490-3 the reverse name match is one person only: a surname added or a title in front — never a different person whose name contains a short sheet name', () => {
+  const s = { sheet: { playerName: 'Jovan Arden', actors: { Kaelen: {}, Red: {}, Guard: {}, 'Jovan Arden': {}, Rukia: {}, 'Claire Wessex': {} } } };
+  for (const [n, want] of [['Kaelen Stahl', 'Kaelen'], ['Red Guard captain', null], ['Guard captain Holt', null], ["Jovan Arden's sister", null], ['Rukia Kuchiki', 'Rukia'], ['Captain Rukia', 'Rukia'], ['the Red', 'Red'], ['Claire', 'Claire Wessex'], ['Marcus Wessex', null]]) eq(findActorKey(s, n), want, n);
+});

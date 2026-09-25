@@ -89,12 +89,17 @@ function runPastAt(str, writerText) {
       if (after && (his.includes(after.slice(0, 40)) || after.includes(his.slice(0, 40)))) { cut = labelAt; break; }
     }
     if (cut === -1 && his.length >= 60) {
-      const i = out.indexOf(his);
+      const i = out.lastIndexOf(his);
       if (i !== -1) {
-        /* his whole message as a paragraph of the page: the cut is at its line's start */
+        /* his whole message as a paragraph of the page: the cut is at its line's start — but only AFTER a page has
+         * happened (600 characters of story past the header). A storyteller often OPENS a page by restating his line
+         * before it goes on; that echo is the page, never a run past its end (M469-2: an echo cut the page to its
+         * header and the house asked again) */
         const src = at(i);
         const lineStart = str.lastIndexOf('\n', src) + 1;
-        if (!squash(str.slice(lineStart, src))) cut = lineStart;
+        const headerEnd = /^\s*\[[^\]\n]{6,}\]/.test(str) ? str.indexOf('\n') + 1 : 0;
+        const storyBefore = squash(str.slice(headerEnd, lineStart)).length;
+        if (!squash(str.slice(lineStart, src)) && storyBefore >= 600) cut = lineStart;
       }
     }
   }

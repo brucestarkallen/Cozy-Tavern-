@@ -11507,3 +11507,36 @@ from pre-M490 on exactly the 7 intended cases (asterisks with spaces inside are 
 the page repair differs on 1 of 13 realistic pages (CRLF made LF). TESTS: m490.mjs M490-2 (runs of 3-6 asterisks are
 text, ***both*** as before, the bold strip leaves a run); tests/mend_marks.py gained "***" and an existing break (16
 shapes, store and screen ok). Harness 939/939, walk 141/141, long play 8/8, lint 0. version.js -> m490-002.
+
+# M490-3 — the session audit (M466 → M490-2): eight faults of this session's own making, found by probing and closed
+He: "this is the final session here — audit everything, every fix; no bugs, no regression." Every change of the
+session was re-read for what it could do OUTSIDE the case it was built for, and each suspicion was probed before it
+was touched. Found and fixed:
+1. M469 (the run-past cut) — a page that OPENS by restating his line was cut to its header (the whole page lost). The
+   bare-copy rule now needs 600 characters of story before the copy; the labelled "USER:" rule is unchanged.
+2. M484/M485 (crowds) — nineteen real people's names ("Captain of the guards", "Squad Leader Hayes", "Tōma of the
+   guards", "Unit 01"…) tested as crowds, and M485 DELETES a crowd's page on load. isGroupName is grammar now: a
+   determiner + a people-noun that ends the phrase, or a bare plural; "of" before it, a possessive, or a name after it
+   is a person. healGhosts never folds a canon face or the main character.
+3. M482/M484 (identity doors) — "the driver" became Vivi (her STATE mentioned her driver), "his friend" became Kara.
+   The doors read only a page's identity (the first 140 characters of its core); a pronoun owner counts only in the
+   first clause; a step/half form also answers a plain relation; any ambiguity resolves to nobody (a duplicate the
+   auditor folds is recoverable, a wrong merge is not). Roles must open the core.
+4. M484 (fact folding) — "…told Jovan about the cult…" and "…about the owls…" were folded (a fact lost), and
+   knowledge.forget, which asks sameFact what to erase, would have erased both. The paraphrase fold is opt-in and only
+   for the same moment (another person: the same or the next page; one person: the next page); M92's rule stays the
+   default for every other caller.
+5. M487 (canon trim) — a living Kara whose core said "her parents died…" was trimmed as dead. Death comes only from a
+   dead seat now.
+6. M487 (template reader) — image file names, a URL, a reference ("Chapter 50") and a SPOILER's text were written into
+   the note; reference/media/link/spoiler templates drop, and a file or link is never display text.
+7. M472 (orders) — "Let's not fight, we can talk" forced a battle round; "tell Rukia to take cover" was an attack.
+   An order is grammar now (verb … to attack-verb; unleash/sic … on; "Name, attack!"), negation scoped to its own
+   sentence. 18 lines pinned.
+8. M471 (reverse name match) — "Red Guard captain" took the summon Red's rating, "Guard captain Holt" the Guard's.
+   Only a surname added or a title in front is the same person now.
+VERIFIED CLEAN, no change: the seeder's brief (both callers pass it), the light's variables, refHistory's cap, the
+M490 prelude's spacing (M340 already evens it; a phone-screen page identical before/after).
+GATES: harness 946/946, walk 141/141, long play 8/8, lint 0, two-browser proof green, tests/pagemark.py,
+tests/mend_marks.py (16 shapes, store and screen), tests/paint_coats.py (nine coats, 0 under AA), perf_rooms within
+budget. version.js -> m490-003.

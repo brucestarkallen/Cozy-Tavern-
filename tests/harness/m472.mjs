@@ -151,3 +151,10 @@ test('M475 one person once on a roster, and a weighing never throws a considered
   mergeSeed(t, { actors: [{ name: 'Jovan Arden', default: 5, domains: { sorcery: 10 } }] }, { heal: true });
   eq(t.sheet.actors['Jovan Arden'].domains.sorcery, 10); eq(t.sheet.actors['Jovan Arden'].domains.summoning, undefined, 'a heal is the one replace');
 });
+
+test('M490-3 an order is grammar: eight lines that are not orders never force a round; ten orders do', () => {
+  const s = mkState();
+  const fought = (action) => normalizeBattleAdj({ exchange: false, combat_ended: false, action, move: { kind: 'attack', target: null, circumstance: 0 } }, s).exchange;
+  for (const t of ["Let's not fight — we can talk this out", 'I tell Rukia to take cover behind the wall', 'I tell her the truth and she takes it hard', "Don't attack, I order them to stand down", 'I signal the medics to take the wounded', 'He lets the fire burn out', 'I order them not to attack', 'Kara, stop!']) eq(fought(t), false, t);
+  for (const t of ['I order Mahoraga, Fenrir and Void to strike together', 'I tell Fenrir to tear into Varkhos', 'I send my summons to attack his flank', 'I command the troops to charge', 'Mahoraga, attack!', 'Mahoraga and Fenrir — tear him apart!', 'I unleash Mahoraga on Varkhos', "Don't let him escape. I order the summons to attack!", 'I signal the archers to fire', 'I tell Rukia to take him down']) eq(fought(t), true, t);
+});

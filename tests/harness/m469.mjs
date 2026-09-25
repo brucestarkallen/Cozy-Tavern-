@@ -17,13 +17,18 @@ test('M469-1 a role label and a re-typed copy of his message end the page there;
   assert(stripControlLeak(bold, { writerText: OPENER }).text === PAGE, 'a bold label, a partial re-typing (forty characters are enough)');
 });
 
-test('M469-2 his whole message standing as a paragraph of the page — no label — ends the page there', () => {
-  const junk = PAGE + '\n\n' + OPENER + '\n\nThe rain kept on. Rias smiled.';
+const LONG = PAGE + '\n\n' + 'The bar settled into its evening; the fire ticked; somebody laughed at the far end and was told to hush. '.repeat(6).trim();
+test('M469-2 his whole message standing as a paragraph AFTER a page has happened — no label — ends the page there; an echo that OPENS the page never does', () => {
+  const junk = LONG + '\n\n' + OPENER + '\n\nThe rain kept on. Rias smiled.';
   const r = stripControlLeak(junk, { writerText: OPENER });
   assert(r.leaked && r.ranPast, 'seen');
-  eq(r.text, PAGE, 'the page is what came before his re-typed message');
-  const spaced = PAGE + '\n\n' + OPENER.replace(/ /g, '  ') + '\n\nMore.';
-  eq(stripControlLeak(spaced, { writerText: OPENER }).text, PAGE, 'whitespace aside');
+  eq(r.text, LONG, 'the page is what came before his re-typed message');
+  const spaced = LONG + '\n\n' + OPENER.replace(/ /g, '  ') + '\n\nMore.';
+  eq(stripControlLeak(spaced, { writerText: OPENER }).text, LONG, 'whitespace aside');
+  const echo = '[The Lantern — Monday | 21:40 | rain | a coat | by the door]\n\n' + OPENER + '\n\nRias looked up from her glass. "Just us," she said, and the rain agreed.';
+  const e = stripControlLeak(echo, { writerText: OPENER });
+  assert(!e.leaked, 'a page that opens by restating his line is the page: ' + JSON.stringify(e.text.slice(0, 80)));
+  eq(e.text, echo, 'kept whole');
 });
 
 test('M469-3 a quoted line of his inside prose, a short message, a label with other words, and prose with the word User never trip it', () => {

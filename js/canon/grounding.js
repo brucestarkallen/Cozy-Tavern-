@@ -968,7 +968,9 @@ function extractFromProse(text) {
  * way, inside out. The known templates are still handled by their own rules above. */
 function templateText(inner) {
     const name = inner.split("|")[0].trim().toLowerCase();
-    if (/^(?:infobox|navbox|character|main|see also|reflist|cite|clear|clr|stub|for|hatnote|about|redirect|quote|cquote|quote box|efn|sfn|notelist|refn|anchor|toc|portal|defaultsort|category)/.test(name)) return "";
+    /* M490-3: reference, media, link and spoiler templates are never prose — a spoiler is canon's LATER events, the
+     * very thing a story that diverges from canon must not be told as fact */
+    if (/^(?:infobox|navbox|character|main|see also|reflist|ref|cite|clear|clr|stub|for\b|hatnote|about|redirect|quote|cquote|quote box|efn|sfn|notelist|note|source|anchor|toc|portal|defaultsort|category|image|img|file|gallery|link|url|external|spoiler|ep\b|episode|chapter|cn\b|citation)/.test(name)) return "";
     const parts = [];
     let depth = 0; let cur = "";
     for (let i = 0; i < inner.length; i++) {
@@ -982,6 +984,7 @@ function templateText(inner) {
     for (const p of parts.slice(1)) {
         const t = p.trim();
         if (!t || /^[\w\s-]+=/.test(t)) continue;
+        if (/\.(?:png|jpe?g|gif|webp|svg|bmp|ogg|mp3|mp4|webm)\b/i.test(t) || /^(?:https?:)?\/\//i.test(t) || /^(?:www\.)/i.test(t)) continue; /* never a file name or a link */
         if (/\p{L}/u.test(t)) return t;
     }
     return "";

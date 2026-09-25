@@ -1,6 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m490-002)
+# Cozy Tavern — handoff for the next session (state at m490-003)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1y. THE SESSION AUDIT'S LAWS (M490-3) — each was a real fault of this session: a heuristic that can DELETE or MERGE
+   (isGroupName, resolveDescriptor/resolveRole, sameFact, findActorKey, the run-past cut, the canon trim) must answer
+   "nobody / keep it" on doubt; probe it with real names shaped like the thing it catches before shipping. Laws in
+   m469, m471, m472, m482, m484 pin every case found.
 1x. A DISPLAY FAULT IS PROVEN ON THE SCREEN (M490): tests/mend_marks.py reads the STORE and the SCREEN in a real
    Chromium. Every asterisk-pair regex (prose.js, pageshape.js, lint.js) keeps markdown's flanking rule — an emphasis
    never starts or ends on a space OR an asterisk ([^\\s*]; M490-2). Diff the renderer before/after any change to it. When he says 'it's still there', compare store vs screen before touching a rule.

@@ -23,10 +23,10 @@ test('M484-1 one wound per body part: a wound written again on the same part is 
 });
 
 test('M484-2 one fact in one wording: paraphrases are one fact (the longer stays); a fact someone else holds is written for the next person in those very words; two facts that merely share a subject stay two', () => {
-  assert(sameFact('that Jovan Oda treats her as a child — rubbed her hair and asked her age in front of the whole courtyard', 'that Jovan Oda rubbed Rukia Kuchiki\'s hair and asked her age in front of the courtyard'));
-  assert(sameFact('Jovan Oda said he is not here to replace anyone but to continue Captain Ukitake\'s legacy, so that when their times come they can smile', 'that Jovan Oda intends to tell the Thirteenth Division he is not there to replace anyone but to continue Captain Ukitake\'s legacy'));
-  assert(!sameFact('heard the intercom buzzer go off twice, then a third time, while Kara was kneeling at the sofa', 'that her name is Kara Zor-El, offered plainly as an introduction'));
-  assert(!sameFact('that Jovan lives in the Arden tower with a sun panel', 'that Jovan kept his stepsister\'s sun panel and turned it on'), 'a shared subject is not the same fact');
+  assert(sameFact('that Jovan Oda treats her as a child — rubbed her hair and asked her age in front of the whole courtyard', 'that Jovan Oda rubbed Rukia Kuchiki\'s hair and asked her age in front of the courtyard', { fuzzy: true }));
+  assert(sameFact('Jovan Oda said he is not here to replace anyone but to continue Captain Ukitake\'s legacy, so that when their times come they can smile', 'that Jovan Oda intends to tell the Thirteenth Division he is not there to replace anyone but to continue Captain Ukitake\'s legacy', { fuzzy: true }));
+  assert(!sameFact('heard the intercom buzzer go off twice, then a third time, while Kara was kneeling at the sofa', 'that her name is Kara Zor-El, offered plainly as an introduction', { fuzzy: true }));
+  assert(!sameFact('that Jovan lives in the Arden tower with a sun panel', 'that Jovan kept his stepsister\'s sun panel and turned it on', { fuzzy: true }), 'a shared subject is not the same fact');
   let k = {};
   k = addKnowledge(k, 'Rukia', 'that Jovan Oda rubbed Rukia Kuchiki\'s hair and asked her age in front of the courtyard', 3);
   k = addKnowledge(k, 'Renji', 'that Jovan Oda rubbed Rukia\'s hair and asked her age in front of the whole courtyard', 3);
@@ -149,4 +149,55 @@ test('M487 canon reads clean: a template keeps its display text (the walker drop
   assert(/Kiyone serves as lieutenant\.\nSentarō/.test(t), 'a cut block ends at its last whole sentence: ' + JSON.stringify(t));
   assert(/- With Kiyone Kotetsu: He argues with her\./.test(t), 'the living untouched');
   eq(trimCanonNote('', {}), '', 'nothing stays nothing');
+});
+
+test('M490-3 a crowd is grammar, not a word: nineteen people shaped like crowds stay people (M485 would have deleted their pages on load); eleven crowds are crowds; a canon face and the main character are never folded', async () => {
+  const { healGhosts } = await import('../../js/engine/people.js');
+  for (const n of ['Tōma of the guards', 'Captain of the guards', 'Squad Leader Hayes', 'Team Rocket Jessie', 'Band Captain Ito', 'Head of the servants', 'Mob Boss Carmine', 'Unit 01', 'Rest', 'Gang leader Vex', 'Pair of Hands', 'Couple Counselor Ann', 'the first officer', 'The man whose knees buckled', 'the woman in scrubs', 'Old Pell', 'Kara Zor-El', '1st Division runner', "Kiyone's runners"]) assert(!isGroupName(n), n + ' is a person');
+  for (const n of ['the onlookers behind the taped line', 'The two police officers at the barricade', 'Onmitsukidō runners', 'the Onmitsukidō runners', 'a few villagers', 'the crowd', 'the people of Karakura', 'The rest', 'several guards', 'Men of the North', 'the guests watching from the rail']) assert(isGroupName(n), n + ' is a crowd');
+  const s = emptyState(); s.sheet = { actors: {}, playerName: 'Jovan' };
+  s.characters = { 'Captain of the guards': { core: 'a stern woman', updatedAtTurn: 1 }, 'Squad Leader Hayes': { core: 'leads the squad', updatedAtTurn: 1 }, 'the crowd': { core: 'people watching', updatedAtTurn: 1 } };
+  s.canon = { 'the crowd': { facts: [] } };
+  const h = healGhosts(s);
+  assert(h.characters['Captain of the guards'] && h.characters['Squad Leader Hayes'], 'people keep their pages');
+  assert(h.characters['the crowd'], 'a name canon knows is never folded, even crowd-shaped');
+});
+
+test('M490-3 the identity doors match who someone IS, exactly one or nobody: a word in someone’s state never makes a new person them; an ambiguous relation is nobody', () => {
+  const s = emptyState(); s.sheet = { actors: {}, playerName: 'Jovan Arden' };
+  s.characters = { Vivi: { core: 'Jovan’s rich younger stepsister; college student', state: 'says her driver is William’s spy', updatedAtTurn: 1 }, 'Kara Zor-El': { core: 'Kryptonian; Superman’s cousin', state: 'his friend now', updatedAtTurn: 1 }, 'Dev Okafor': { core: 'news drone operator; flew the drone', updatedAtTurn: 1 }, Marta: { core: 'the woman in scrubs who broke the line', updatedAtTurn: 1 }, Rukia: { core: 'Lieutenant of the 13th Division; his lieutenant', updatedAtTurn: 1 }, Claire: { core: 'His older sister.', updatedAtTurn: 1 }, Mara: { core: 'the innkeeper; her sister runs the ferry', updatedAtTurn: 1 } };
+  for (const [n, want] of [['the driver', null], ['his friend', null], ["Jovan's stepsister", 'Vivi'], ['his stepsister', 'Vivi'], ["Superman's cousin", 'Kara Zor-El'], ['The news drone operator', 'Dev Okafor'], ['the woman in scrubs', 'Marta'], ['the lieutenant', 'Rukia'], ['the older sister', 'Claire'], ["Jovan's sister", null], ['his sister', null], ['the innkeeper', 'Mara']]) eq(resolveDescriptor(s, n), want, n);
+});
+
+test('M490-3 the paraphrase fold is the same moment only, and never the default: two facts one word apart from different pages stay two; knowledge.forget erases only the fact named', () => {
+  let k = {};
+  k = addKnowledge(k, 'Kara', 'that the ninja told Jovan about the cult three months ago', 3);
+  k = addKnowledge(k, 'Kara', 'that the ninja told Jovan about the owls three months ago', 9);
+  eq(k.Kara.length, 2, 'cult and owls are two facts');
+  assert(!sameFact('that the ninja told Jovan about the cult three months ago', 'that the ninja told Jovan about the owls three months ago'), 'not the same by default');
+  const r = applyMutations({ knowledge: { Kara: k.Kara } }, [{ type: 'knowledge.forget', name: 'Kara', fact: 'that the ninja told Jovan about the owls three months ago' }]);
+  eq(r.state.knowledge.Kara.length, 1); assert(/cult/.test(r.state.knowledge.Kara[0].fact), 'forget took only the owls');
+  let h = {};
+  h = addKnowledge(h, 'Rukia', "that Jovan Oda rubbed Rukia Kuchiki's hair and asked her age in front of the courtyard", 3);
+  h = addKnowledge(h, 'Renji', "that Jovan Oda rubbed Rukia's hair and asked her age in front of the whole courtyard", 3);
+  eq(h.Renji[0].fact, h.Rukia[0].fact, 'the same moment for another person: one wording');
+});
+
+test('M490-3 the canon trim takes death only from the world’s own word (a dead seat) — a living face whose past holds a death keeps her canon whole', async () => {
+  const { trimCanonNote } = await import('../../js/canon/bridge.js');
+  const note = 'What canon says.\nKara Zor-El:\n  Kara is Superman\'s cousin, sent to Earth as a girl. She hides her powers behind a lab job.\n  - With Clark Kent: She trusts him.';
+  const living = trimCanonNote(note, { offscreen: {}, characters: { 'Kara Zor-El': { core: 'Kryptonian; her parents died in the explosion of Krypton' } } });
+  eq(living, note, 'kept whole');
+  const dead = trimCanonNote(note, { offscreen: { 'Kara Zor-El': { location: 'dead — fell in the crater', atTurn: 1 } }, characters: {} });
+  assert(/\(Dead, in our story\.\)/.test(dead), 'a dead seat still trims');
+});
+
+test('M490-3 the canon template reader keeps a term, never a file, a link, a reference or a spoiler (a spoiler is canon’s later events)', async () => {
+  const { cleanWikitext } = await import('../../js/canon/grounding.js');
+  eq(cleanWikitext('She stands. {{Image|Rukia portrait.png|thumb|left}} She waits.'), 'She stands. She waits.');
+  eq(cleanWikitext('See {{Link|https://bleach.fandom.com/wiki/Rukia}} there.'), 'See there.');
+  eq(cleanWikitext('Fact.{{Ref|Chapter 50}} More.'), 'Fact. More.');
+  eq(cleanWikitext('{{Spoiler|She becomes captain.}} Now.'), 'Now.');
+  eq(cleanWikitext('A {{Translation|Tenth Division|十番隊}} captain.'), 'A Tenth Division captain.');
+  eq(cleanWikitext('An {{Unknown|thing.png|real words}} end.'), 'An real words end.', 'a file skipped, the words kept');
 });

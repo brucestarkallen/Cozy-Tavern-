@@ -708,8 +708,25 @@ function continuedBeat(state, kind) {
  * stupid" — his three summons were sent to strike and the beat was ruled a lull because the player himself swung
  * nothing. When the referee's own answer names a command (move.kind "command" in a battle; an acting unit or a target
  * in a war) or the words are an order to attack, the beat is an exchange, whatever exchange said. */
-const ORDER_RE = /\b(?:order|orders|ordered|command|commands|commanded|direct|directs|directed|send|sends|sent|sic|sics|unleash|unleashes|unleashed|signal|signals|tell|tells|told|let|lets)\b[^.!?\n]{0,80}\b(?:attack|strike|charge|hit|kill|engage|fight|tear|rush|maul|fire|shoot|loose|flank|take)\b/i;
-function isOrder(action) { return ORDER_RE.test(String(action || '')); }
+/* M490-3: AN ORDER IS GRAMMAR, NOT TWO WORDS NEAR EACH OTHER. The first rule matched "let"/"tell" within 80 characters of
+ * "fight"/"take" — "Let's not fight, we can talk" forced a round in a battle, "tell Rukia to take cover" counted as an
+ * attack. Now: an order verb … TO an attack verb; unleash/sic … ON someone; or a call by name ("Mahoraga, attack!").
+ * "take" only as take down/out; a negation in the order's own clause cancels it. */
+const ATTACK_VERB = '(?:attack|strike|charge|hit|kill|engage|tear|rush|maul|fire|shoot|loose|flank|pounce|slash|crush|bite|smash|destroy|finish|go for|go after|get (?:him|her|them|it)|take (?:him|her|them|it) (?:down|out)|take (?:down|out))';
+const ORDER_RE = new RegExp('\\b(?:order(?:s|ed)?|command(?:s|ed)?|direct(?:s|ed)?|sends?|sent|tells?|told|signal(?:s|l?ed)?|urge[sd]?)\\b[^.!?\\n]{0,60}?\\bto\\s+' + ATTACK_VERB + '\\b', 'i');
+const UNLEASH_RE = /\b(?:unleash(?:es|ed)?|sic(?:s|ced)?)\b[^.!?\n]{0,60}?\b(?:on|at|against|upon)\b/i;
+const NEG_RE = /\b(?:not|don['’]t|do not|never|stand down|hold (?:fire|back)|stop|cease|retreat)\b/i;
+function isOrder(action) {
+  const t = String(action || '');
+  for (const re of [ORDER_RE, UNLEASH_RE]) {
+    const m = re.exec(t);
+    if (!m) continue;
+    const from = Math.max(t.lastIndexOf('.', m.index), t.lastIndexOf('!', m.index), t.lastIndexOf('?', m.index)) + 1; /* its own sentence */
+    if (!NEG_RE.test(t.slice(from, m.index + m[0].length))) return true;
+  }
+  const call = /^\s*[A-Z][\p{L}'’-]+(?:(?:,\s*|\s+and\s+)[A-Z][\p{L}'’-]+)*\s*[,!—-]\s*(.*)$/u.exec(t);
+  return Boolean(call && new RegExp('^' + ATTACK_VERB + '\\b', 'i').test(call[1]) && !NEG_RE.test(call[1].slice(0, 40)));
+}
 
 /* M470: who enters the fight this beat — names only, the player never, nobody twice */
 function normalizeJoins(raw, state) {
@@ -1140,7 +1157,7 @@ export async function refereeStep({ connection, userText, userId, history, state
         state = applied.state;
         if (state.battle && !state.duel) {
           if (!adj.exchange) return lull('battle');
-          const mv = { kind: adj.move === 'recover' ? 'attack' : 'attack', target: null, circumstance: adj.circumstance };
+          const mv = { kind: 'attack', target: null, circumstance: adj.circumstance }; /* the widened beat is fought as an attack */
           const out = resolveBattleRound(state, mv, eng);
           const tier = out.mcRes ? out.mcRes.tier : 'STALEMATE';
           const v = ruling('battle', tier, withNotes(buildBattleDirective(state, { ...adj, move: mv }, out)), account('the duel widened into a battle, round ' + state.battle.round, out.mcRes ? { ...out.mcRes, reports: out.reports } : { reports: out.reports }));

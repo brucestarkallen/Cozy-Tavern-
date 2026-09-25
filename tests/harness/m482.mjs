@@ -20,7 +20,7 @@ test('M482-1 resolveDescriptor: the relation to a named person finds the one pag
   eq(resolveDescriptor(s, 'my stepsister'), 'Vivi');
   eq(resolveDescriptor(s, 'the older sister'), 'Claire', 'the adjective narrows it');
   eq(resolveDescriptor(s, "Mara's sister"), 'Nell', 'by her name, not by Claire’s "his"');
-  eq(resolveDescriptor(s, "Jovan's sister"), null, 'two sisters answer: nobody — a page of its own may stand');
+  eq(resolveDescriptor(s, "Jovan's sister"), null, 'his sister or his stepsister: two answer, so nobody — a page of its own may stand');
   eq(resolveDescriptor(s, "Kara's cousin"), null, 'nobody carries it');
   eq(resolveDescriptor(s, 'Vivi'), null, 'a name is not a descriptor');
   eq(resolveDescriptor(s, 'Ivo the ferryman'), null);

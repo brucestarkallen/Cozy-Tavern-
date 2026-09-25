@@ -397,25 +397,31 @@ function relationOf(name) {
   if (!m) return null;
   return { owner: m[2] || null, pronoun: m[1] ? m[1].toLowerCase() : null, adjectives: String(m[3] || '').trim().toLowerCase(), relation: m[4].toLowerCase() };
 }
+/* M490-3: a descriptor or a role is matched against who someone IS — the opening of their core line — never against
+ * what they are doing (state), where they sit, or what canon says of others: "the driver" matched Vivi because her
+ * STATE said "her driver is William's spy", and a new person would have been written into her page */
 function personTexts(state, key) {
-  const bits = [];
   const c = state.characters && state.characters[key];
-  if (c && typeof c === 'object') for (const f of ['core', 'state', 'arc', 'why']) if (typeof c[f] === 'string') bits.push(c[f]);
-  const canon = state.canon && state.canon[key];
-  if (canon && Array.isArray(canon.facts)) for (const f of canon.facts) if (f) bits.push(String(f.key || '') + ' ' + String(f.value || ''));
-  const seat = state.offscreen && state.offscreen[key];
-  if (seat && typeof seat === 'object') for (const f of ['location', 'activity', 'agenda']) if (typeof seat[f] === 'string') bits.push(seat[f]);
-  return bits.join('\n');
+  return c && typeof c.core === 'string' ? c.core.slice(0, 140) : '';
 }
 /* M484: A GROUP IS NOT A PERSON. "the onlookers behind the taped line", "The two police officers at the barricade",
  * "several guards" — a crowd got a person's page, a seat with an agenda and a standing, and rode in the briefing as
  * a character. A group is a faction's business (faction.set), never a page or a seat. */
-const GROUP_HEAD = '(?:onlookers|bystanders|crowd|crowds|people|passers-?by|guards|officers|soldiers|troops|villagers|townsfolk|men|women|children|kids|students|runners|attendants|servants|thugs|bandits|goons|mob|patrol|squad|unit|team|band|gang|pair|couple|group|handful|dozen|others|rest)';
-const GROUP_RE = new RegExp('^(?:(?:the|a|some|several|a few|two|three|four|five|six|seven|eight|nine|ten|\\d+)\\s+)?(?:[\\p{L}-]+\\s+){0,3}' + GROUP_HEAD + '\\b', 'iu');
+/* M484/M490-3: a crowd is a DETERMINER + a people-noun that ENDS the phrase ("the onlookers behind the taped line",
+ * "several guards", "The rest"), or a bare PLURAL people-noun ("Onmitsukidō runners"). "of" before the noun ("Captain
+ * of the guards"), a possessive, or anything but a place/relative phrase after it ("Squad Leader Hayes", "Team Rocket
+ * Jessie") is a PERSON — the first version called all of those crowds, and M485 deletes a crowd's page on load. */
+const GROUP_PLURAL = '(?:onlookers|bystanders|crowds|people|passers-?by|guards|officers|soldiers|troops|villagers|townsfolk|townspeople|men|women|children|kids|students|runners|attendants|servants|thugs|bandits|goons|others|spectators|reporters|guests|patrons|workers|refugees|civilians)';
+const GROUP_COLLECTIVE = '(?:crowd|mob|patrol|squad|unit|team|band|gang|pair|couple|group|handful|dozen|rest)';
+const GROUP_AFTER = '(?:\\s+(?:behind|at|by|near|in|on|from|outside|inside|around|along|under|over|beside|across|with|of|who|that|watching|waiting)\\b.*)?';
+const GROUP_BEFORE = "(?:(?!of\\b)[\\p{L}-]+\\s+)";
+const GROUP_DET = '(?:the|a|an|some|several|a few|many|two|three|four|five|six|seven|eight|nine|ten|\\d+)';
+const GROUP_WITH_DET = new RegExp('^' + GROUP_DET + '\\s+' + GROUP_BEFORE + '{0,3}(?:' + GROUP_PLURAL + '|' + GROUP_COLLECTIVE + ')' + GROUP_AFTER + '$', 'iu');
+const GROUP_BARE = new RegExp('^' + GROUP_BEFORE + '{0,2}' + GROUP_PLURAL + GROUP_AFTER + '$', 'iu');
 export function isGroupName(name) {
-  const n = String(name || '').trim();
-  if (!n || /^(?:the|a)\s+\w+$/i.test(n) && !new RegExp('^(?:the|a)\\s+' + GROUP_HEAD + '$', 'i').test(n)) return false;
-  return GROUP_RE.test(n);
+  const n = String(name || '').trim().replace(/\s+/g, ' ');
+  if (!n || /['’]s\b/i.test(n)) return false;
+  return GROUP_WITH_DET.test(n) || GROUP_BARE.test(n);
 }
 
 /* M484: A ROLE IS THE PERSON WHO HOLDS IT. "The news drone operator" walked the ledger beside "Dev Okafor", whose page
@@ -434,8 +440,9 @@ function resolveRole(state, name) {
   const hits = [];
   for (const key of Object.keys(state.characters && typeof state.characters === 'object' ? state.characters : {})) {
     if (roleOf(key) || relationOf(key) || samePersonName(key, name)) continue;
-    const text = personTexts(state, key).toLowerCase();
-    if (text.includes(role)) hits.push(key);
+    const text = personTexts(state, key).toLowerCase().trim();
+    /* the role must OPEN the core ("news drone operator; flew…", "the woman in scrubs who…") */
+    if (new RegExp('^(?:the |an? )?' + role.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(text)) hits.push(key);
   }
   return hits.length === 1 ? hits[0] : null;
 }
@@ -448,7 +455,10 @@ export function resolveDescriptor(state, name) {
   const ownerIsMc = !rel.owner || isMc(state, rel.owner);
   /* the relation with its adjectives when the descriptor gave them ("older sister" — not any sister) */
   const phrase = (rel.adjectives ? rel.adjectives + ' ' : '') + rel.relation;
-  const relRe = new RegExp('\\b' + phrase.replace(/[-]/g, '\\-').replace(/\s+/g, '\\s+') + 's?\\b', 'i');
+  /* a plain relation is also answered by its step/half/foster form ("Jovan's sister" is his sister OR his stepsister —
+   * two candidates, so nobody) */
+  const stepable = !/^(?:step|half|foster)/.test(rel.relation);
+  const relRe = new RegExp('\\b' + (rel.adjectives ? phrase : (stepable ? '(?:step|half-?|foster)?' : '') + rel.relation).replace(/[-](?!\?)/g, '\\-').replace(/\s+/g, '\\s+') + 's?\\b', 'i');
   /* the owner by any word of his name three letters or longer ("Jovan" for "Jovan Arden"); for the main character a
    * pronoun stands for him too — for anyone else a pronoun on a page is the page's own subject, never the owner */
   const ownerWords = owner && owner !== 'the player' ? owner.split(/\s+/).filter((w) => w.length >= 3).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) : [];
@@ -460,20 +470,21 @@ export function resolveDescriptor(state, name) {
     ...Object.keys(state.canon && typeof state.canon === 'object' ? state.canon : {}),
     ...Object.keys(state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {}),
   ]);
-  const byName = [];
-  const byPronoun = [];
+  const hits = [];
   for (const key of names) {
     if (relationOf(key)) continue; /* another descriptor is never the person */
     if (samePersonName(key, name) || (owner && samePersonName(key, owner))) continue;
     const text = personTexts(state, key);
     if (!text) continue;
-    /* the relation and the owner within one clause of each other */
     const clauses = text.split(/[.;\n]/);
-    if (nameRe && clauses.some((s) => relRe.test(s) && nameRe.test(s))) byName.push(key);
-    else if (clauses.some((s) => relRe.test(s) && ownerRe.test(s))) byPronoun.push(key);
+    /* the owner NAMED with the relation in one clause of the identity; or — for the main character only — a pronoun
+     * with it in the FIRST clause ("His older sister."), never a later one ("the innkeeper; her sister runs the
+     * ferry" is Mara's sister, not his) */
+    if ((nameRe && clauses.some((s) => relRe.test(s) && nameRe.test(s))) || (ownerIsMc && relRe.test(clauses[0] || '') && /\b(?:his|her|their)\b/i.test(clauses[0] || ''))) hits.push(key);
   }
-  if (byName.length === 1) return byName[0];
-  if (!byName.length && byPronoun.length === 1) return byPronoun[0];
+  /* M490-3: exactly one, or nobody — a missed merge leaves a duplicate the auditor folds; a wrong one corrupts a page */
+  if (hits.length === 1) return hits[0];
+  if (!hits.length) return resolveRole(state, name);
   return null;
 }
 
@@ -494,8 +505,10 @@ export function healGhosts(state) {
   const rels = s.relationships && typeof s.relationships === 'object' ? s.relationships : {};
   const factions = s.factions && typeof s.factions === 'object' ? s.factions : {};
   let changed = false;
+  const canon = s.canon && typeof s.canon === 'object' ? s.canon : {};
   for (const k of names) {
     if (!characters[k]) continue;
+    if (canon[k] || isMc(s, k)) continue; /* M490-3: a face canon knows, and the main character, are never folded */
     if (isGroupName(k)) {
       const seat = off[k];
       if (!Object.keys(factions).some((f) => samePersonName(f, k))) {

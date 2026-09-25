@@ -134,9 +134,21 @@ export function findActorKey(state, name) {
    * and the fight took a stranger's rating. Arbiter (v0.27) matched on any shared word; M345's stricter rule stands
    * here instead: one name's words all inside the other's, either way round — a shared surname alone is never one
    * person ("Marcus Wessex" is not "Claire Wessex"). */
+  /* M490-3: only the shapes of ONE person — the sheet's name with a SURNAME added ("Kaelen" → "Kaelen Stahl": one or two
+   * capitalised words after it) or a TITLE in front ("Captain Rukia"). "Red Guard captain" is not the summon "Red",
+   * "Guard captain Holt" is not "Guard". */
+  const raw = String(name || '').trim().replace(/^(?:the|a|an)\s+/i, '').split(/[\s,]+/).filter(Boolean);
+  const TITLE = /^(?:captain|lieutenant|commander|general|lord|lady|sir|dame|master|mistress|doctor|dr\.?|professor|prof\.?|mr\.?|mrs\.?|ms\.?|miss|king|queen|prince|princess|sergeant|officer|agent|detective|chief|elder|father|mother|sister|brother|saint|st\.?)$/i;
   for (const key of Object.keys(actors)) {
-    const kt = key.toLowerCase().trim().split(/[\s,]+/).filter(Boolean);
-    if (kt.length && kt.every((w) => toks.includes(w))) return key;
+    const kt = key.trim().split(/[\s,]+/).filter(Boolean);
+    const lower = (a) => a.map((w) => w.toLowerCase());
+    if (kt.length && lower(kt).join(' ') === lower(raw).join(' ')) return key; /* "the Red" is Red */
+    if (!kt.length || kt.length >= raw.length) continue;
+    const tail = raw.slice(kt.length);
+    const head = raw.slice(0, raw.length - kt.length);
+    const surnameAdded = lower(raw.slice(0, kt.length)).join(' ') === lower(kt).join(' ') && tail.length <= 2 && tail.every((w) => /^[A-Z\p{Lu}]/u.test(w) && !TITLE.test(w));
+    const titleFirst = lower(raw.slice(raw.length - kt.length)).join(' ') === lower(kt).join(' ') && head.length <= 2 && head.every((w) => TITLE.test(w));
+    if (surnameAdded || titleFirst) return key;
   }
   return null;
 }

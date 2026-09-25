@@ -453,10 +453,10 @@ export function trimCanonNote(note, state) {
   const lines = text.split('\n');
   const isHead = (l) => /^[^\s][^\n:]{0,80}:$/.test(l);
   const seats = state && state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
-  const pages = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  /* M490-3: dead only by the world's own word — a seat written "dead — …" (offscreen.isDeadSeat). A page's core is
+   * not asked: "her parents died in the explosion of Krypton" made a LIVING Kara dead and trimmed her canon */
   const dead = (name) => {
     for (const [k, seat] of Object.entries(seats)) if (samePersonName(k, name) && isDeadSeat(seat)) return true;
-    for (const [k, page] of Object.entries(pages)) if (samePersonName(k, name) && page && /^(?:dead|deceased|killed|died|kia)\b|\b(?:killed|died|dead|deceased) (?:in|during|at|by|of)\b/i.test(String(page.core || '').slice(0, 200))) return true;
     return false;
   };
   const wholeSentence = (l) => {
