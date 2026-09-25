@@ -41,13 +41,13 @@
 
 import { db } from '../store.js';
 import { renderClock } from './clock.js';
-import { renderBodies } from './bodies.js';
+import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen } from './offscreen.js';
 import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindSpots, renderBlindSpots } from './world.js'; /* M29: the world beyond the page */
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
-import { migrateCharacters } from './people.js';
+import { migrateCharacters, healGhosts } from './people.js'; /* M485: the ghosts folded on load */
 import { storyTurn } from './apply.js';
 
 const KEY_PREFIX = 'state:';
@@ -326,7 +326,7 @@ function normalize(saved) {
     ? saved.log.filter((e) => e && typeof e === 'object' && typeof e.words === 'string')
     : [];
   next.threads = Array.isArray(saved.threads) ? saved.threads : [];
-  next.bodies = migrateBodies(saved.bodies);
+  next.bodies = dedupeInjuries(migrateBodies(saved.bodies)); /* M485 */
   next.relationships = migrateRelationships(saved.relationships);
   next.offscreen = migrateOffscreen(saved.offscreen);
   next.groundWas = saved.groundWas && typeof saved.groundWas === 'object' && typeof saved.groundWas.name === 'string' && Number.isInteger(saved.groundWas.page) ? { name: saved.groundWas.name, page: saved.groundWas.page } : null; /* M304 */
@@ -362,6 +362,7 @@ function normalize(saved) {
   next.seedDueAfterFight = saved.seedDueAfterFight === true;
   /* M12 (v6): the character ledger — no-loss, coerced by engine/people.js. */
   next.characters = migrateCharacters(saved.characters);
+  healGhosts(next); /* M485: a relation, a role or a crowd that was a page of its own is folded where it belongs */
   return next;
 }
 

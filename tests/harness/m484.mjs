@@ -74,3 +74,49 @@ test('M484-4 the dead are one line at the foot of Elsewhere, no clock; the peopl
   assert(/Ukitake[^"]*Now: dead/.test(text), 'the dead are dead, not away: ' + text.slice(0, 400));
   assert(!/Ikkaku — Now: away/.test(text), 'a bare card never reads "Now: away" under a name');
 });
+
+test('M485 the ledger heals itself on load: six wound lines fold to three; a role’s page folds into its holder (seat, loose ends, knowledge, standing carried); a crowd’s page and seat go and a faction of its name stands', async () => {
+  const { dedupeInjuries } = await import('../../js/engine/bodies.js');
+  const { healGhosts } = await import('../../js/engine/people.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { db } = await import('../../js/store.js');
+  const bodies = { Zaraki: { injuries: [
+    { what: 'left shoulder run through by Kaiten', sev: 2, atMinutes: 100, atTurn: 1, treated: false, healed: false },
+    { what: 'left shoulder wound torn wider by the shock', sev: 1, atMinutes: 103, atTurn: 3, treated: false, healed: false },
+    { what: 'kidney struck twice through the back', sev: 2, atMinutes: 104, atTurn: 4, treated: false, healed: false },
+    { what: 'kidney struck three more times', sev: 2, atMinutes: 105, atTurn: 5, treated: false, healed: false },
+    { what: 'old cut on the left shoulder', sev: 1, atMinutes: 1, atTurn: 0, treated: true, healed: true },
+  ], strain: [] } };
+  const d = dedupeInjuries(bodies);
+  eq(d.Zaraki.injuries.filter((i) => !i.healed).length, 2, 'two unhealed wounds');
+  eq(d.Zaraki.injuries.length, 3, 'the healed line is history and stays');
+  eq(d.Zaraki.injuries[0].what, 'left shoulder wound torn wider by the shock'); eq(d.Zaraki.injuries[0].atMinutes, 100); eq(d.Zaraki.injuries[0].sev, 2);
+  const s = emptyState(); s.sheet = { actors: {}, playerName: 'Jovan Arden' }; s.turn = 20;
+  s.characters = {
+    'Dev Okafor': { core: 'news drone operator; flew the drone over the crater', threads: ['post the wings clip'], updatedAtTurn: 12 },
+    'The news drone operator': { core: 'news drone operator', state: 'bent over the telemetry map', threads: ['send the corrected tower placement'], updatedAtTurn: 14 },
+    Vivi: { core: 'Jovan’s rich younger stepsister', updatedAtTurn: 12 },
+    "Jovan's stepsister": { core: 'his stepsister', state: 'furious', threads: ['a full explanation tomorrow'], updatedAtTurn: 13 },
+    'the onlookers behind the taped line': { core: 'crowd behind the tape', state: 'shifting north', updatedAtTurn: 14 },
+    Marta: { core: 'the woman in scrubs', updatedAtTurn: 10 },
+  };
+  s.offscreen = { 'The news drone operator': { location: 'the rented truck on Lombard', activity: 'bent over the map', agenda: 'confirm the tower', atTurn: 14 }, 'the onlookers behind the taped line': { location: 'the buckled sidewalk', activity: 'recording the north skyline', agenda: 'upload the roar clip', atTurn: 14 } };
+  s.knowledge = { 'The news drone operator': [{ fact: 'that the wings landed on a tower by the water', atTurn: 12 }], "Jovan's stepsister": [{ fact: 'that Jovan answered after fourteen missed calls', atTurn: 13 }] };
+  s.relationships = { "Jovan's stepsister": { p: 8, r: 0, s: 0, history: [] } };
+  const h = healGhosts(s);
+  assert(!h.characters['The news drone operator'] && !h.characters["Jovan's stepsister"] && !h.characters['the onlookers behind the taped line'], 'the ghosts are gone: ' + Object.keys(h.characters).join(','));
+  assert(h.characters['Dev Okafor'].threads.includes('send the corrected tower placement'), 'the role’s loose end is Dev’s');
+  eq(h.offscreen['Dev Okafor'].location, 'the rented truck on Lombard', 'his seat carried'); assert(!h.offscreen['The news drone operator']);
+  assert(h.knowledge['Dev Okafor'].some((f) => /wings landed/.test(f.fact)), 'his knowledge carried');
+  eq(h.relationships.Vivi.p, 8, 'her standing carried'); eq(h.characters.Vivi.state, 'furious', 'her state carried');
+  assert(h.factions['the onlookers behind the taped line'] && /shifting north/.test(h.factions['the onlookers behind the taped line'].stance), 'a crowd stands as a faction');
+  assert(!h.offscreen['the onlookers behind the taped line'], 'and holds no seat');
+  /* and through the store: a saved ledger comes back healed */
+  const st = await db.stories.create({ title: 'ghosts' });
+  const raw = emptyState(); raw.sheet = { actors: {}, playerName: 'Jovan Arden' }; raw.characters = { Vivi: { core: 'Jovan’s stepsister', updatedAtTurn: 1 }, "Jovan's stepsister": { core: 'his stepsister', threads: ['the call'], updatedAtTurn: 2 } }; raw.bodies = bodies;
+  await saveState(st.id, raw);
+  const back = await loadState(st.id);
+  assert(!back.characters["Jovan's stepsister"] && back.characters.Vivi.threads.includes('the call'), 'healed on load');
+  eq(back.bodies.Zaraki.injuries.filter((i) => !i.healed).length, 2, 'the wounds folded on load');
+  await db.stories.remove(st.id);
+});

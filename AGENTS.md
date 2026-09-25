@@ -11382,3 +11382,15 @@ to fix.
   never "away", a bare card a name, "meaning to" once). Harness 931/931 (M259's nine-fact fixtures held), walk
   140/140, long play 8/8, lint 0.
 - version.js -> m484-001.
+
+# M485 — the ledger heals itself on load
+He: "will it automatically self-heal the next scene?" — M484's doors stop new bloat; what a ledger had gathered before
+them waited for the auditor. Now the same laws run when a ledger is loaded: bodies.js dedupeInjuries folds the wound
+lines of one body part (the oldest keeps its hour, takes the newest words and the highest severity; healed lines are
+history and stay); people.js healGhosts folds a page whose name is a relation or a role into its holder (loose ends
+appended, seat, knowledge and standing carried where the holder has none) and turns a crowd's page into a faction of
+its name (its stance from the page, its move from the seat), letting the page and seat go. Both in state.js
+normalize, so the next open of a tale — or the next page — reads clean, and the knowledge fold (M92/M484) runs there
+already. TESTS: m484.mjs M485 (six lines → two unhealed + one healed kept; the role's and the relation's ghosts folded
+with everything carried; the crowd a faction; a saved ledger back healed). Harness 932/932, walk 140/140, long play
+8/8, lint 0. version.js -> m485-001.

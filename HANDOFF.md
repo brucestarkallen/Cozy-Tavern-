@@ -1,7 +1,7 @@
-# Cozy Tavern — handoff for the next session (state at m484-001)
+# Cozy Tavern — handoff for the next session (state at m485-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
-1t. THE BRIEFING'S ANTI-BLOAT LAWS (M484): one wound per body part (bodies.js bodyPartOf), one fact in one wording
+1t. THE BRIEFING'S ANTI-BLOAT LAWS (M484/M485 — and the same folds run on LOAD in state.js normalize): one wound per body part (bodies.js bodyPartOf), one fact in one wording
    house-wide (world.js sameFact — numbers strict, names nested), a role is its holder and a group is never a person
    (people.js resolveRole / isGroupName), the dead one line (offscreen.js isDeadSeat), a bare card a name. Any new
    writer of wounds, facts, people or seats goes through these doors.

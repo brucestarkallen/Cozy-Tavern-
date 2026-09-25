@@ -145,6 +145,31 @@ export function addInjury(bodies, name, { what, sev, treated } = {}, clockMinute
   return next;
 }
 
+/* M485: THE WOUNDS ALREADY WRITTEN, FOLDED ON LOAD — the same law as addInjury's (M484), for a ledger that gathered
+ * six lines for three wounds before it: the oldest unhealed line of a body part keeps its hour and takes the newest
+ * words and the highest severity; the others go. Healed lines are history and stay as they are. */
+export function dedupeInjuries(bodies) {
+  const next = copyBodies(bodies);
+  for (const body of Object.values(next)) {
+    if (!body || !Array.isArray(body.injuries)) continue;
+    const kept = [];
+    const byPart = new Map();
+    for (const inj of body.injuries) {
+      if (!inj || inj.healed) { kept.push(inj); continue; }
+      const part = bodyPartOf(inj.what);
+      if (!part) { kept.push(inj); continue; }
+      const first = byPart.get(part);
+      if (!first) { byPart.set(part, inj); kept.push(inj); continue; }
+      first.what = inj.what || first.what;
+      first.sev = Math.max(clampSev(first.sev), clampSev(inj.sev));
+      first.treated = Boolean(inj.treated);
+      if (Number.isFinite(inj.atTurn)) first.worsenedAtTurn = inj.atTurn;
+    }
+    body.injuries = kept;
+  }
+  return next;
+}
+
 export function addStrain(bodies, name, { what } = {}, clockMinutes, atTurn) {
   const next = copyBodies(bodies);
   const who = cleanText(name);

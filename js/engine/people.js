@@ -478,6 +478,51 @@ export function resolveDescriptor(state, name) {
 }
 
 
+/* M485: THE GHOSTS ALREADY IN THE LEDGER, FOLDED ON LOAD. Before M482/M484 a relation ("Jovan's stepsister"), a role
+ * ("The news drone operator") or a crowd ("the onlookers behind the taped line") could be a page of its own beside the
+ * person, or beside nobody. On load: a page whose name resolves to another page is folded into it — its loose ends
+ * appended, its seat kept only if the holder has none, its knowledge written in the holder's book, its standing
+ * kept only if the holder has none — and let go; a crowd's page and seat go, and a faction of its name stands in its
+ * place when there was none (its stance from the page's state, its move from the seat). Pure: a fresh state out. */
+export function healGhosts(state) {
+  const s = state && typeof state === 'object' ? state : {};
+  const characters = s.characters && typeof s.characters === 'object' ? s.characters : {};
+  const names = Object.keys(characters);
+  if (!names.length) return s;
+  const off = s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {};
+  const know = s.knowledge && typeof s.knowledge === 'object' ? s.knowledge : {};
+  const rels = s.relationships && typeof s.relationships === 'object' ? s.relationships : {};
+  const factions = s.factions && typeof s.factions === 'object' ? s.factions : {};
+  let changed = false;
+  for (const k of names) {
+    if (!characters[k]) continue;
+    if (isGroupName(k)) {
+      const seat = off[k];
+      if (!Object.keys(factions).some((f) => samePersonName(f, k))) {
+        factions[k] = { stance: (characters[k].state || characters[k].core || '').slice(0, 300), agenda: seat && seat.agenda ? String(seat.agenda) : '', move: seat && seat.activity ? String(seat.activity) : '', atTurn: Number.isFinite(characters[k].updatedAtTurn) ? characters[k].updatedAtTurn : 0 };
+      }
+      delete characters[k]; delete off[k]; delete know[k]; delete rels[k];
+      changed = true;
+      continue;
+    }
+    const holder = resolveDescriptor(s, k);
+    if (!holder || holder === k || !characters[holder]) continue;
+    const ghost = characters[k]; const real = characters[holder];
+    const ends = [...(Array.isArray(real.threads) ? real.threads : [])];
+    for (const t of Array.isArray(ghost.threads) ? ghost.threads : []) if (!ends.some((e) => sameLooseEnd(e, t))) ends.push(t);
+    if (ends.length) real.threads = ends.slice(-8);
+    if (!real.state && ghost.state) real.state = ghost.state;
+    if (!real.arc && ghost.arc) real.arc = ghost.arc;
+    if (off[k] && !off[holder]) off[holder] = off[k];
+    if (Array.isArray(know[k])) { const list = Array.isArray(know[holder]) ? know[holder] : []; for (const f of know[k]) if (f && !list.some((g) => g && g.fact === f.fact)) list.push(f); know[holder] = list; }
+    if (rels[k] && !rels[holder]) rels[holder] = rels[k];
+    delete characters[k]; delete off[k]; delete know[k]; delete rels[k];
+    changed = true;
+  }
+  if (changed) { s.characters = characters; s.offscreen = off; s.knowledge = know; s.relationships = rels; s.factions = factions; }
+  return s;
+}
+
 export function setPersonField(state, characters, name, field, text, turn, { clear = false } = {}) {
   const cleanName = normalizeName(name);
   if (!cleanName) return { why: 'no name came with it' };
