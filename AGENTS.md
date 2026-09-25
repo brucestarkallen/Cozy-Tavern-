@@ -11154,3 +11154,23 @@ it fully into Cozy Tavern, adjusted, without breaking my persona."
   name finds the sheet's entry, a surname is nobody; gear +1 / condition -1, __proto__ and constructor refused).
   Harness 912/912 (every M11/M345/M400/M470 referee law green), walk 137/137, lint 0.
 - version.js -> m471-001.
+
+# M472 — an order is a move; "#p" in a fight is the last beat again
+He, with the ledger's account: "if my MC doesn't fight and just orders an attack, the referee becomes stupid and
+confused, especially while I wait by typing #p" — LULL, "Orders the three summons to strike together", round 0,
+4 against 1.
+- WHAT WAS WRONG: (1) the battle contract left "exchange" to the model, and a model that saw the player swing nothing
+  said false — the three summons' strike was ruled a lull and the round never moved. (2) "#p" means "the main character
+  continues his last action for exactly one beat"; in a fight the gate let it through and the micro-call read a bare
+  "#p" as nothing happening — another lull.
+- NOW (referee.js): a command in the referee's own answer (move.kind "command" in a battle; a formation or target named
+  in a war) or the words of an order ("orders … to strike", "tells Fenrir to tear into") make the beat an exchange
+  whatever exchange said, in command — the allies act on it that round; a real pause stays a pause, the fight ending
+  wins, and "I … strike" keeps the player's own attack. A "#p" in a running fight is the last committed beat scored
+  again — its move, its target, its words ("goes on with it — …"), no micro-call; with no beat scored yet, the words the
+  fight was joined on: an order continues as a command, anything else as a plain attack. The account carries the move
+  (and `continued`) so the next #p can follow it. The battle contract says it too: an order is a move, never a pause.
+- TESTS: harness m472.mjs — 3 laws (the normaliser's order rule; the field joined on the order, the order ruled as a
+  command round, #p continuing it with no call, a declared order continuing as a command; #p outside a fight stays the
+  gate's, #p in a duel presses the last move). Harness 915/915, walk 137/137, lint 0.
+- version.js -> m472-001.

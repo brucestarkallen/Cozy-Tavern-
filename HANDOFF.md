@@ -1,6 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m471-001)
+# Cozy Tavern — handoff for the next session (state at m472-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1k. AN ORDER IS A MOVE; #p IN A FIGHT IS THE LAST BEAT (M472): referee.js isOrder/ORDER_RE, continuedBeat, BEAT_RE. A
+   beat the referee's answer calls a command is an exchange whatever `exchange` said; #p never reaches the micro-call
+   inside a fight. The account's `move` is what a #p continues — keep writing it.
 1j. THE ARBITER AUDIT (M471): the engine is a faithful port of Arbiter v0.42 — diff it by AST when Arbiter moves
    (/home/claude/astkit was the tool: parse both, normalise meta→state / getSettings()→eng, diff per function). Four
    divergences were real and are fixed (the gate's apostrophes, findActorKey's other direction, gear's default, the

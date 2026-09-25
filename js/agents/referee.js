@@ -316,6 +316,7 @@ export const BATTLE_SYSTEM = [
   'You are the referee of a battle already in progress — a party-scale fight. Read the player\'s beat. You NEVER decide who wins — only the parameters.',
   '- "exchange": false only for talk, councils, pauses and anything that risks nothing while nobody presses; under attack, a talking or hesitant turn is still an exchange at negative circumstance. "combat_ended": true only when the story has already closed the engagement.',
   '- "move": {"kind": "attack"|"command", "target": enemy name|null, "circumstance": -3..+3} — command means the player directs allies rather than striking; target is the enemy the player engages, if named or clearly meant.',
+  '- AN ORDER IS A MOVE, NEVER A PAUSE: when the player sends, commands, unleashes or directs anyone on their side to attack — summons, companions, troops — that beat is "exchange": true with "move": {"kind": "command"}, even though the player swings nothing themselves. The allies act on the order this round.',
   '- "joins": null, or {"allies": [names], "enemies": [names]} — named characters who ENTER the fight THIS beat on either side, the player left out; null when nobody new joins.',
   '- "why": one short clause on what tilts this beat — the reason behind circumstance, or null.',
   DIRTY_RULE,
@@ -648,6 +649,45 @@ function normalizeMove(raw, kinds, fallbackKind) {
   return out;
 }
 
+/* M472: "#p" — exactly one beat (commands.js BEAT_RE, one definition kept here for the referee's own read) */
+const BEAT_RE = /^\s*#p\s*$/i;
+
+/* M472: the last committed beat of THIS fight, to be scored again — its move and target, its words; a fight with no
+ * beat yet (joined on a declaration) takes a plain attack */
+function continuedBeat(state, kind) {
+  const hist = Array.isArray(state.refHistory) ? state.refHistory : [];
+  let last = null;
+  let declared = null; /* the words the fight was joined or paused on, when no beat has been scored yet */
+  for (let i = hist.length - 1; i >= 0; i -= 1) {
+    const v = hist[i] && hist[i].verdict;
+    if (!v || !v.account || !v.account.fight) continue;
+    if (['LULL', 'ARMED', 'CLOSED'].includes(v.tier)) { if (!declared && v.account.action) declared = v.account; continue; }
+    last = v.account;
+    break;
+  }
+  /* a fight joined on an order ("orders the summons to strike") continues as that order — a command, not a swing */
+  if (!last && declared && isOrder(declared.action)) last = { action: declared.action, move: { kind: 'command', target: (declared.move && declared.move.target) || null } };
+  const action = last && last.action ? 'goes on with it — ' + last.action : 'presses on';
+  const why = 'the last beat, continued (#p)';
+  if (kind === 'duel') {
+    const move = last && typeof last.move === 'string' && ['attack', 'recover'].includes(last.move) ? last.move : 'attack';
+    return { exchange: true, combat_ended: false, action, move, circumstance: 0, sequence: null, opponent_switch: null, joins: null, why, playerGuard: null, counterPath: null, condition_change: null, composure_change: null, continued: true };
+  }
+  if (kind === 'war') {
+    const mv = last && last.move && typeof last.move === 'object' ? { kind: ['maneuver', 'stratagem', 'personal'].includes(last.move.kind) ? last.move.kind : 'maneuver', acting: last.move.acting || null, target: last.move.target || null, circumstance: 0 } : { kind: 'maneuver', acting: null, target: null, circumstance: 0 };
+    return { exchange: true, combat_ended: false, action, move: mv, why, condition_change: null, composure_change: null, continued: true };
+  }
+  const mv = last && last.move && typeof last.move === 'object' ? { kind: last.move.kind === 'command' ? 'command' : 'attack', target: last.move.target || null, circumstance: 0 } : { kind: 'attack', target: null, circumstance: 0 };
+  return { exchange: true, combat_ended: false, action, move: mv, joins: null, why, playerGuard: null, counterPath: null, condition_change: null, composure_change: null, continued: true };
+}
+
+/* M472: AN ORDER IS A MOVE. The writer: "if my MC doesn't fight and just orders an attack, the referee becomes
+ * stupid" — his three summons were sent to strike and the beat was ruled a lull because the player himself swung
+ * nothing. When the referee's own answer names a command (move.kind "command" in a battle; an acting unit or a target
+ * in a war) or the words are an order to attack, the beat is an exchange, whatever exchange said. */
+const ORDER_RE = /\b(?:order|orders|ordered|command|commands|commanded|direct|directs|directed|send|sends|sent|sic|sics|unleash|unleashes|unleashed|signal|signals|tell|tells|told|let|lets)\b[^.!?\n]{0,80}\b(?:attack|strike|charge|hit|kill|engage|fight|tear|rush|maul|fire|shoot|loose|flank|take)\b/i;
+function isOrder(action) { return ORDER_RE.test(String(action || '')); }
+
 /* M470: who enters the fight this beat — names only, the player never, nobody twice */
 function normalizeJoins(raw, state) {
   if (!raw || typeof raw !== 'object') return null;
@@ -691,10 +731,14 @@ export function normalizeDuelAdj(obj, state) {
 export function normalizeBattleAdj(obj, state) {
   if (!obj || typeof obj !== 'object') return null;
   const mv = normalizeMove(obj.move, ['attack', 'command'], 'attack');
+  const action = cleanName(obj.action, 280) || 'fights on';
+  /* M472: an order to the allies is a move — a command in the answer, or the words of an order, make it an exchange */
+  const ordered = mv.kind === 'command' || isOrder(action);
+  if (ordered && mv.kind !== 'command' && !/\b(?:i|me|my|myself)\b[^.!?\n]{0,40}\b(?:strike|attack|hit|charge|lunge|swing|stab|slash|shoot)\b/i.test(action)) mv.kind = 'command';
   return {
-    exchange: obj.exchange !== false,
+    exchange: obj.exchange !== false || (ordered && obj.combat_ended !== true),
     combat_ended: obj.combat_ended === true,
-    action: cleanName(obj.action, 280) || 'fights on',
+    action,
     move: mv,
     joins: normalizeJoins(obj.joins, state), /* M470 */
     why: cleanName(obj.why, 160), /* M470 */
@@ -708,10 +752,13 @@ export function normalizeBattleAdj(obj, state) {
 export function normalizeWarAdj(obj, state) {
   if (!obj || typeof obj !== 'object') return null;
   const mv = normalizeMove(obj.move, ['maneuver', 'stratagem', 'personal'], 'maneuver');
+  const action = cleanName(obj.action, 280) || 'holds the line';
+  /* M472: an order with a formation or a target named is a move, whatever exchange said */
+  const ordered = Boolean(mv.acting || mv.target) || isOrder(action);
   return {
-    exchange: obj.exchange !== false,
+    exchange: obj.exchange !== false || (ordered && obj.combat_ended !== true),
     combat_ended: obj.combat_ended === true,
-    action: cleanName(obj.action, 280) || 'holds the line',
+    action,
     move: mv,
     why: cleanName(obj.why, 160), /* M470 */
     condition_change: normalizeConditionChange(obj.condition_change, state),
@@ -928,22 +975,31 @@ export async function refereeStep({ connection, userText, userId, history, state
       return { state, ruling: null, status: 'no-check', why: gate.reason };
     }
 
-    if (!connection) {
-      return { state, ruling: null, status: 'degraded', why: 'no worker connection' };
-    }
-
-    const fightLine = renderFightLine(state);
-    const user = buildRefereeUser({ state, userText: text, history, fightLine, brief, castNotes });
     const inWar = battleActive(state) && state.battle.kind === 'war';
     const inBattle = battleActive(state) && !inWar;
     const inDuel = duelActive(state);
-    const system = withFictionFrame(inWar ? WAR_SYSTEM : inBattle ? BATTLE_SYSTEM : inDuel ? DUEL_SYSTEM : ADJ_SYSTEM);
-    const normalize = inWar ? normalizeWarAdj : inBattle ? normalizeBattleAdj : inDuel ? normalizeDuelAdj : normalizeAdj;
 
-    const raw = await callReferee(connection, system, user, signal, callLLM);
-    if (!raw) return { state, ruling: null, status: 'degraded', why: 'no usable answer' };
-    if (signal && signal.aborted) return { state, ruling: null, status: 'degraded', why: 'timed out' };
-    const adj = normalize(raw, state);
+    /* M472: "#p" IN A FIGHT IS THE LAST BEAT AGAIN. The writer: "I'm waiting by typing #p and the referee becomes
+     * stupid and confused". #p means "the main character continues his last action for exactly one beat" — the
+     * micro-call read a bare "#p" as nothing happening and ruled a lull, and the fight stood still. Now a #p during a
+     * fight is scored as the last committed beat once more (its move, its target, the same words), no call made;
+     * with no beat committed yet (the fight joined on a declaration), a plain attack. */
+    let adj = null;
+    if (fightOn && BEAT_RE.test(text)) {
+      adj = continuedBeat(state, inWar ? 'war' : inBattle ? 'battle' : 'duel');
+    } else {
+      if (!connection) {
+        return { state, ruling: null, status: 'degraded', why: 'no worker connection' };
+      }
+      const fightLine = renderFightLine(state);
+      const user = buildRefereeUser({ state, userText: text, history, fightLine, brief, castNotes });
+      const system = withFictionFrame(inWar ? WAR_SYSTEM : inBattle ? BATTLE_SYSTEM : inDuel ? DUEL_SYSTEM : ADJ_SYSTEM);
+      const normalize = inWar ? normalizeWarAdj : inBattle ? normalizeBattleAdj : inDuel ? normalizeDuelAdj : normalizeAdj;
+      const raw = await callReferee(connection, system, user, signal, callLLM);
+      if (!raw) return { state, ruling: null, status: 'degraded', why: 'no usable answer' };
+      if (signal && signal.aborted) return { state, ruling: null, status: 'degraded', why: 'timed out' };
+      adj = normalize(raw, state);
+    }
     if (!adj) return { state, ruling: null, status: 'degraded', why: 'answer failed identity checks' };
 
     /* Lasting consequences the referee recorded land BEFORE the roll, so a
@@ -989,6 +1045,8 @@ export async function refereeStep({ connection, userText, userId, history, state
      * the ledger's ("The house has ruled"). */
     const account = (what, res, extra = {}) => {
       const a = { what, action: adj.action || '', why: adj.why || '', circumstance: Number.isFinite(adj.circumstance) ? adj.circumstance : (adj.move && Number.isFinite(adj.move.circumstance) ? adj.move.circumstance : 0), ...extra };
+      if (adj.move) a.move = typeof adj.move === 'string' ? adj.move : { kind: adj.move.kind || null, target: adj.move.target || null, acting: adj.move.acting || null }; /* M472: a #p continues it */
+      if (adj.continued) a.continued = true;
       if (res && typeof res === 'object') {
         if (Number.isFinite(res.aR)) a.actorRating = Math.round(res.aR * 10) / 10;
         if (Number.isFinite(res.oR)) a.oppositionRating = Math.round(res.oR * 10) / 10;
