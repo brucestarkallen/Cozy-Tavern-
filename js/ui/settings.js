@@ -154,6 +154,8 @@ export function initSettings(ctx) {
     noteStory: document.getElementById('note-story'),
     noteStoryName: document.getElementById('note-story-name'),
     briefStory: document.getElementById('brief-story'),
+    briefFromConcept: document.getElementById('btn-brief-from-concept'), /* M479 */
+    conceptToBrief: document.getElementById('concept-to-brief'), /* M479 */
     briefStoryName: document.getElementById('brief-story-name'),
     castStory: document.getElementById('cast-story'),
     castStoryName: document.getElementById('cast-story-name'),
@@ -961,6 +963,12 @@ export function initSettings(ctx) {
   if (els.tellerName) els.tellerName.addEventListener('change', () => keepName('tellerName', els.tellerName));
   if (els.writerName) els.writerName.addEventListener('change', () => keepName('writerName', els.writerName));
   if (els.afterRole) els.afterRole.addEventListener('change', async () => { await db.settings.set('afterRole', els.afterRole.value === 'user' ? 'user' : 'system'); }); /* M380 */
+  /* M479: the switch and the hand for a #story concept becoming the brief */
+  if (els.conceptToBrief) els.conceptToBrief.addEventListener('change', async () => { await db.settings.set('conceptToBrief', els.conceptToBrief.checked); });
+  if (els.briefFromConcept) els.briefFromConcept.addEventListener('click', async () => {
+    els.briefFromConcept.disabled = true;
+    try { if (ctx.chat && typeof ctx.chat.briefFromConcept === 'function') await ctx.chat.briefFromConcept({ manual: true }); } finally { els.briefFromConcept.disabled = false; }
+  });
   /* M358: the grounding phrase is kept the same way — the moment the box is left, and forgotten when it is emptied */
   /* M359: his own standing words, read for an assistant's voice — mechanically, nothing rewritten, nothing sent */
   if (els.frameVoiceCheck && els.frameVoiceFound) els.frameVoiceCheck.addEventListener('click', async () => {
@@ -1081,6 +1089,7 @@ export function initSettings(ctx) {
   async function loadPromptSlots() {
     if (els.groundingPhrase) els.groundingPhrase.value = String((await db.settings.get('groundingPhrase')) || ''); /* M358 */
     if (els.afterRole) els.afterRole.value = (await db.settings.get('afterRole')) === 'user' ? 'user' : 'system'; /* M380 */
+    if (els.conceptToBrief) els.conceptToBrief.checked = (await db.settings.get('conceptToBrief')) !== false; /* M479: on by default */
     if (els.tellerName) els.tellerName.value = cleanName(await db.settings.get('tellerName'));
     if (els.writerName) els.writerName.value = cleanName(await db.settings.get('writerName'));
     if (els.tellerPerson) { const p = await db.settings.get('tellerPerson'); els.tellerPerson.value = p === 'first' || p === 'second' ? p : 'follow'; }
@@ -1115,6 +1124,7 @@ export function initSettings(ctx) {
     els.frameStory.disabled = !hasStory;
     els.noteStory.disabled = !hasStory;
     els.briefStory.disabled = !hasStory;
+    if (els.briefFromConcept) els.briefFromConcept.disabled = !hasStory; /* M479 */
     els.castStory.disabled = !hasStory;
     /* M16: the shelf picker — every shelf the house knows, plus loose. */
     if (els.storyShelf) {
@@ -2560,6 +2570,7 @@ export function initSettings(ctx) {
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
     'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'groundingPhrase', 'afterRole', /* M399: canon's switch is each story's own, not a setting of the house */
     'speechColours', 'shelfSort', 'ledgerFolds', 'settingsFolds', /* M466/M468: the coats' own colours and the rooms' shapes go back; his own words (ownWords) are his writing and stay */
+    'conceptToBrief', /* M479 */
     'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
     'shelfCollapsed',
   ];

@@ -11279,3 +11279,17 @@ smartly fix the grammar, because sometimes I just put garbled words."
   written brief is never overwritten). Harness 923/923, walk 139/139, lint 0, twobrowsers green (sw.js's shell gained
   concept.js).
 - version.js -> m478-001.
+
+# M479 — the brief from a #story concept: by hand, and a switch
+He: "for my current story, where the #story was ten pages ago, is there a manual button? And can you add automatic
+on/off? Off, it's back to normal — nothing happens, or I tap manually."
+- NOW: Settings → This story → The brief: "Write it from my #story concept" — finds the first #story he sent on the
+  tale's own pages (the typed form, or the text), writes the raw concept into the brief at once, then the polished
+  words (agents/concept.js, names and facts guarded); a brief already written is replaced only after the question
+  (No keeps it); no #story on the pages → a toast, nothing written. The switch "A #story concept becomes the brief by
+  itself, when the brief is empty" (`conceptToBrief`, on by default; in the house reset): off, a #story leaves the brief
+  alone and the button is the only way. One path for both (chat.js briefFromConcept); the brief box in Settings follows
+  a write.
+- TESTS: walk DOM-122 — the button writes the brief from a #story ten pages back and the box follows; a written
+  brief asks first and No keeps it; the switch off leaves an empty brief empty on a #story. Walk 140/140, lint 0.
+- version.js -> m479-001.

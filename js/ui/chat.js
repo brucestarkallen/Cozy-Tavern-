@@ -2651,6 +2651,46 @@ export function initChat(ctx) {
     return { mended, of: pages.length };
   }
 
+  /* M478/M479: THE BRIEF FROM A #STORY CONCEPT. The raw words are written first (this very turn's founder and seeder
+   * read them), then a worker sets their spelling and grammar right — names and facts kept exactly, or the raw words
+   * stand (agents/concept.js). By hand ("Write it from my #story concept") the concept is found on the tale's own
+   * pages — the first #story he sent — and a brief already written is replaced only after he says so. */
+  async function briefFromConcept({ story: given, concept: givenConcept, manual = false } = {}) {
+    const story = given || await activeStory();
+    if (!story) return { ok: false, why: 'no story' };
+    let concept = String(givenConcept || '').trim();
+    if (!concept) {
+      const pages = await db.messages.list(story.id);
+      const first = pages.find((m) => m && m.role === 'user' && /^#story\s+\S/i.test(String(m.typed || m.text || '').trim()));
+      concept = first ? String(first.typed || first.text).trim().replace(/^#story\s*/i, '').trim() : '';
+    }
+    if (!concept) { if (manual) toast('No #story concept on this tale’s pages — write the brief by hand.'); return { ok: false, why: 'no concept' }; }
+    if (manual && String(story.brief || '').trim()) {
+      const yes = typeof window !== 'undefined' && typeof window.confirm === 'function'
+        ? window.confirm('Replace the brief with your #story concept, its grammar set right? The brief as it stands is lost.')
+        : true;
+      if (!yes) return { ok: false, why: 'kept' };
+    }
+    try { await db.stories.update(story.id, { brief: concept }); story.brief = concept; } catch (err) { return { ok: false, why: 'the brief would not save' }; }
+    if (ctx.settings && typeof ctx.settings.onStoriesChanged === 'function') ctx.settings.onStoriesChanged();
+    const connection = await resolveWorkerConnection(story, 'founder');
+    const r = await polishConcept({ connection, concept });
+    if (r.polished && r.text && r.text !== concept) {
+      const now = await db.stories.get(story.id);
+      /* only if the brief is still the raw concept — never over words he wrote meanwhile */
+      if (now && String(now.brief || '').trim() === concept) {
+        await db.stories.update(story.id, { brief: r.text });
+        story.brief = r.text;
+        if (ctx.settings && typeof ctx.settings.onStoriesChanged === 'function') ctx.settings.onStoriesChanged();
+        toast('Your concept is the brief now, its grammar set right — Settings → This story → The brief.');
+        return { ok: true, polished: true };
+      }
+      return { ok: true, polished: false };
+    }
+    toast(r.refused ? 'Your concept is the brief now, as you typed it — the polish lost a name, so it was refused.' : 'Your concept is the brief now — Settings → This story → The brief.');
+    return { ok: true, polished: false };
+  }
+
   /* M35: the mend — the second reader (and the record's verifier) may edit
    * a storyteller page by the smallest amount so it stops contradicting the
    * record. The page remembers its earlier words (msg.mended) and shows a
@@ -4736,30 +4776,11 @@ export function initChat(ctx) {
         restoreComposer(text);
         return;
       }
-      /* M478: A #STORY CONCEPT BECOMES THE BRIEF. The raw words now, so the founder and the seeder read them on this very
-       * turn; then, while the storyteller writes the first scene, a worker sets their spelling and grammar right and the
-       * brief is written again — names, numbers and facts kept exactly, or the raw words stand. Only an EMPTY brief. */
-      if (parsed.kind === 'story' && !(story.brief || '').trim()) {
+      /* M478/M479: A #STORY CONCEPT BECOMES THE BRIEF — by itself only with the switch on (conceptToBrief, on by
+       * default) and only into an EMPTY brief; the raw words now, the polished ones when the worker is done. */
+      if (parsed.kind === 'story' && !(story.brief || '').trim() && (await db.settings.get('conceptToBrief')) !== false) {
         const concept = String(text).trim().replace(/^#story\s*/i, '').trim();
-        if (concept) {
-          try { await db.stories.update(story.id, { brief: concept }); story.brief = concept; } catch (err) { /* the brief is a courtesy */ }
-          (async () => {
-            try {
-              const connection = await resolveWorkerConnection(story, 'founder');
-              const r = await polishConcept({ connection, concept });
-              if (r.polished && r.text && r.text !== concept) {
-                const now = await db.stories.get(story.id);
-                /* only if the brief is still the raw concept — never over words he wrote meanwhile */
-                if (now && String(now.brief || '').trim() === concept) {
-                  await db.stories.update(story.id, { brief: r.text });
-                  story.brief = r.text;
-                  toast('Your concept is the brief now, its grammar set right — Settings → This story → The brief.');
-                  if (ctx.settings && typeof ctx.settings.onStoriesChanged === 'function') ctx.settings.onStoriesChanged();
-                }
-              } else toast('Your concept is the brief now — Settings → This story → The brief.');
-            } catch (err) { /* the raw words stand */ }
-          })();
-        }
+        if (concept) briefFromConcept({ story, concept, manual: false }).catch(() => {});
       }
       if (!parsed.hidden) {
         /* M383: ONE PAGE OF HIS, SHOWN ONCE. A #story opens a new tale, and opening it draws that tale — which, once his
@@ -6167,6 +6188,7 @@ export function initChat(ctx) {
     auditNow,
     weighCast, /* M474 */
     mendAllPages, /* M477 */
+    briefFromConcept, /* M478/M479 */
     rippleAfterEdit,
     noteOlderModel, /* M343: Settings tells the thread the moment the switch moves */
     pageReinked, /* M296 */

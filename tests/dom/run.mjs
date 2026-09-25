@@ -6094,6 +6094,46 @@ test('DOM-121 A #STORY CONCEPT BECOMES THE BRIEF: sent on a tale with an empty b
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+
+test('DOM-122 THE BRIEF FROM A #STORY CONCEPT, BY HAND AND BY SWITCH: the button finds the first #story on the tale’s pages and writes the brief; a written brief is replaced only after the question; with the switch off a #story leaves the brief alone', async () => {
+  const before = errors.length;
+  await db.settings.delete('conceptToBrief').catch(() => {});
+  const st = await db.stories.create({ title: 'Old concept tale' });
+  await db.messages.append(st.id, { role: 'user', text: '#story a world where DC and Marvel share one Earth. Jovan Arden, white hair, age 19, summons from another realm.', typed: '#story a world where DC and Marvel share one Earth. Jovan Arden, white hair, age 19, summons from another realm.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Metropolis — Monday | 09:00 | sun | coat | street]\n\nThe city hummed.' });
+  for (let i = 0; i < 3; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I walk on.' }); await db.messages.append(st.id, { role: 'assistant', text: '[Metropolis — Monday | 09:0' + (i + 1) + ' | sun | coat | street]\n\nMore city.' }); }
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await openSettings();
+  click([...qa('#view-settings .nav-chip')].find((c) => /This story/.test(c.textContent))); await tick(200);
+  const btn = q('#btn-brief-from-concept'); assert(btn && !btn.disabled, 'the button is there, live');
+  assert(q('#concept-to-brief').checked, 'the switch is on by default');
+  click(btn);
+  await until(async () => /Jovan Arden/.test(String((await db.stories.get(st.id)).brief || '')), 'the brief written from the tale’s own #story', 8000);
+  await until(() => /Jovan Arden/.test(q('#brief-story').value), 'the brief box follows', 5000);
+  /* a written brief: the question, and No keeps it */
+  await db.stories.update(st.id, { brief: 'His own brief.' });
+  const realConfirm = env.window.confirm; const asked = [];
+  env.window.confirm = (m) => { asked.push(m); return false; };
+  try { click(btn); await tick(300); } finally { env.window.confirm = realConfirm; }
+  assert(asked.length === 1 && /Replace the brief/.test(asked[0]), 'asked first');
+  eq((await db.stories.get(st.id)).brief, 'His own brief.', 'No keeps it');
+  /* the switch off: a #story on an empty brief leaves it empty */
+  q('#concept-to-brief').checked = false; q('#concept-to-brief').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+  await until(async () => (await db.settings.get('conceptToBrief')) === false, 'the switch kept', 5000);
+  await closeSettings();
+  const st2 = await db.stories.create({ title: 'Switch off tale' });
+  env.window.__cozy.setActiveStoryId(st2.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+  type(q('#composer-input'), '#story a concept that stays off the brief'); submit(q('#composer'));
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 30000);
+  await tick(500);
+  eq(String((await db.stories.get(st2.id)).brief || ''), '', 'the switch off: nothing happens');
+  await db.settings.delete('conceptToBrief').catch(() => {});
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
