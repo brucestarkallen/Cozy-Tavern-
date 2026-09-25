@@ -1520,10 +1520,14 @@ const LEFT_THING = /^\s+(?:the|his|her|their|a|an|it|them|him|my|your|its|our)\b
 const NOT_YET = /(?:\b(?:not|never|to|would|could|should|might|must|will|can|cannot|shall|didn['’]?t|don['’]?t|doesn['’]?t|won['’]?t|can['’]?t|couldn['’]?t|wouldn['’]?t|shouldn['’]?t|refused\s+to|about\s+to|ready\s+to|wanted\s+to|wants\s+to|tried\s+to)\s+)$/i;
 /* M491: the ways a page walks someone out that GOING never knew — "is out the door", "the door shuts behind her",
  * "steps into the elevator", "heads for the elevator/stairs/exit/door", "the elevator doors close on her" */
-const OUT_THE_DOOR = /\b(?:(?:is|was|were|are|and)\s+out\s+(?:the|of the)\s+(?:door|room|apartment|house|building|gate|hall|office)|(?:door|doors|gate)\s+(?:shuts?|closes?|clicks?|swings?)\s+(?:shut\s+)?(?:behind|after|on)\b|step(?:s|ped|ping)?\s+into\s+the\s+(?:elevator|lift|car|cab|taxi|stairwell)|head(?:s|ed|ing)?\s+for\s+the\s+(?:elevator|lift|stairs|exit|door|front door)|(?:elevator|lift)\s+doors?\s+(?:close|closes|slide shut|shut)\s+on)\b/i;
+const OUT_THE_DOOR = /\b(?:(?:is|was|were|are|and)\s+out\s+(?:the|of the)\s+(?:door|room|apartment|house|building|gate|hall|office)|step(?:s|ped|ping)?\s+into\s+the\s+(?:elevator|lift|car|cab|taxi|stairwell)|head(?:s|ed|ing)?\s+for\s+the\s+(?:elevator|lift|stairs|exit|door|front door)|(?:elevator|lift)\s+doors?\s+(?:close|closes|slide shut|shut)\s+on)\b/i;
+/* M497: a door shutting behind someone is a going only when they did not just come IN ("she steps in and the door shuts
+ * behind her" is an arrival) */
+const DOOR_BEHIND = /\b(?:door|doors|gate)\s+(?:shuts?|closes?|clicks?|swings?)\s+(?:shut\s+)?(?:behind|after|on)\b/i;
+const CAME_IN = /\b(?:steps?|stepped|stepping|walks?|walked|comes?|came|coming|lets?|let)\s+(?:(?:herself|himself|themselves)\s+)?in\b|\b(?:enters?|entered|entering|arriv\w+)\b/i;
 export function showsDeparture(sentence) {
   const said = String(sentence || '').replace(/"[^"]*"|“[^”]*”|«[^»]*»|「[^」]*」/g, ' ');
-  if (GOING.test(said) || OUT_THE_DOOR.test(said)) return true;
+  if (GOING.test(said) || OUT_THE_DOOR.test(said) || (DOOR_BEHIND.test(said) && !CAME_IN.test(said))) return true;
   for (const m of said.matchAll(LEAVE_WORD)) {
     const before = said.slice(0, m.index);
     const after = said.slice(m.index + m[0].length);
@@ -1686,7 +1690,16 @@ export function hereByTheNewestPage(state, pageText) {
  * newest page does not show, is taken out of the scene and seated where that page says. The leaving the house missed
  * (a guard that read a possessive as her, a reader that wrote the state and not the leave) is repaired in code, on
  * the next page and on opening, without waiting for the auditor. Never the main character. */
-const LEFT_RE = /^\s*(?:leaving|left|gone|walked out|walking out|headed (?:out|home|back|off)|heading (?:out|home|back|off)|went (?:home|out|back)|going home|on (?:her|his|their) way (?:out|home|back)|out the door|departing|departed|back home|home now)\b/i;
+/* M497: a departure is grammar — "Left for the airport", "Gone home", "Leaving the apartment building" — never a state
+ * that merely STARTS with the word ("Left arm in a sling", "Left alone with the kettle", "Gone quiet", "Gone pale",
+ * "Leaving her coffee untouched, she watches him"): the first version took those people out of the scene */
+const PLACE_WORDS = 'apartment|building|house|home|room|office|city|town|hall|party|scene|clinic|school|campus|station|tower|flat|place|bar|inn|tavern|palace|barracks|compound|courtyard|gate|district|kitchen|lab|diner|shop|store';
+const LEFT_RE = new RegExp('^\\s*(?:'
+  + 'left(?=\\s+(?:for|the|to|with|without|after|at|through|by|on|early|already|quietly|home|town|work|school)\\b|\\s*[,—–.;]|\\s*$)'
+  + '|gone(?=\\s+(?:home|out|off|away|back|to|for|from)\\b|\\s*[,—–.;]|\\s*$)'
+  + '|leaving(?=\\s+(?:for|now|soon|early|at)\\b|\\s*[,—–.;]|[^.;—–]{0,60}\\b(?:' + PLACE_WORDS + ')\\b)'
+  + '|walked out|walking out|headed (?:out|home|back|off)|heading (?:out|home|back|off)|went (?:home|out|back)|going home'
+  + '|on (?:her|his|their) way (?:out|home|back)|out the door|departing|departed|back home|home now)', 'i');
 export function goneByTheirOwnPage(state, pageText) {
   const s = state && typeof state === 'object' ? state : {};
   const present = Array.isArray(s.present) ? s.present : [];

@@ -293,6 +293,9 @@ export function makeHeaderGate({ onThinking, onProse, onGiveBack, onRestart, giv
       if (buf.length > giveUpAt) { giveBack(); return; }
       if (whole.trim()) flushLead(whole.length);
     },
+    /* M497: stopped by hand — the line in hand is the page's only if the page has BEGUN (its header was seen); a stop
+     * before the header drops what the gate holds, as ever (M322: it is a plan, not a page) */
+    endIfOpen() { if (open) this.end(); },
     /* the stream is over: the finished text decides */
     end() {
       if (open) { if (line.slice(lineOut)) { if (lineOut === 0) judge(true); hand(line.slice(lineOut)); line = ''; lineOut = 0; } return; }

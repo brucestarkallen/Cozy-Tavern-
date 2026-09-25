@@ -40,3 +40,18 @@ test('M491-3 gone by their own page: listed here, her page says she is leaving, 
   const mc = mk(); mc.characters['Jovan Arden'] = { state: 'Leaving for the lab' };
   assert(!goneByTheirOwnPage(mc, '[X — Monday | 09:00 | sun | coat | here]\n\nKara reads.').some((m) => m.name === 'Jovan Arden'), 'never the main character');
 });
+
+test('M497 a departure is grammar: twelve states and five door lines — "Left arm in a sling", "Gone quiet", "Leaving her coffee untouched", an arrival through a door that shuts behind her — never take anyone out', async () => {
+  const mkS = (st) => { const s = emptyState(); s.sheet = { actors: {}, playerName: 'Jovan' }; s.present = [{ name: 'Jovan' }, { name: 'Kara' }]; s.characters = { Kara: { core: 'Kryptonian', state: st } }; return s; };
+  const page = '[X — Monday | 09:00 | sun | coat | here]\n\nThe rain keeps on.';
+  for (const [st, want] of [['Left arm in a sling, glaring at the rain', false], ['Left alone with the kettle', false], ['Gone quiet, staring at the window', false], ['Gone pale at the news', false], ['Leaving her coffee untouched, she watches him', false], ['Left behind to guard the door', false], ['Left for the airport', true], ['Leaving Jovan’s apartment building — tote on her shoulder', true], ['Gone home to change', true], ['Headed out for groceries', true], ['Left the apartment without a word', true], ['Gone — the window open behind her', true]]) eq(goneByTheirOwnPage(mkS(st), page).length > 0, want, st);
+  const { showsDeparture } = await import('../../js/engine/apply.js');
+  for (const [t, want] of [['She steps in and the door shuts behind her.', false], ['Vivi lets herself in; the door clicks shut behind her.', false], ['The door shuts behind Vivi.', true], ['Vivi walks out and the door shuts behind her.', true], ['Vivi hugs him goodbye and is out the door.', true]]) eq(showsDeparture(t), want, t);
+});
+
+test('M497 a Stop keeps the line in hand only once the page has begun: stopped mid-page the half sentence stays; stopped mid-plan (before the header) nothing becomes the page', async () => {
+  const { makeHeaderGate } = await import('../../js/ui/headergate.js');
+  const run = (chunks) => { const handed = []; const g = makeHeaderGate({ onProse: (t) => handed.push(t), onThinking: () => {} }); chunks.forEach((c) => g.feed(c)); g.endIfOpen(); return handed.join(''); };
+  eq(run(['Okay, the plan: Kara stays quiet.\n', 'I should open on the rain']), '', 'a plan is never a page');
+  assert(/and the door $/.test(run(['[The kitchen — Monday, March 3, 2025 | 09:05 | clear | apron | by the stove]\n\nShe turns the handle slowly, and the door '])), 'the half page is kept');
+});

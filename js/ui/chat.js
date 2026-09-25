@@ -4486,7 +4486,7 @@ export function initChat(ctx) {
            * go only on a normal finish — gate.end() after the stream returns. A Stop threw past it, so whatever was mid-line
            * when he pressed Stop was dropped from the kept page, and a model that writes a paragraph as one line lost the
            * whole paragraph. The gate hands back what it holds before the page is kept. */
-          try { if (typeof gate !== 'undefined' && gate) gate.end(); } catch (e) { /* the page as it stands */ }
+          try { if (typeof gate !== 'undefined' && gate) gate.endIfOpen(); } catch (e) { /* the page as it stands */ } /* M497: never a plan written before the header */
         } else {
           /* M301: ONE word from the house, with its way to ask again. The wire's
            * own words used to stand as one note and "the storyteller went quiet"

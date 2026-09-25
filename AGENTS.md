@@ -11653,3 +11653,19 @@ chain generation turns on every rewind; every reader checks stale() before it sa
 Walk DOM-126 (new): a reader HELD on the page being replaced (the fake house holds its answer) while Try again lands a
 new page; released afterwards with "Ghost entered" from the old page — refused; the new page's reading ("Lin")
 stands; his message once; no errors. Test-only: the app needed no change. Walk 144/144, lint 0.
+
+# M497 — the final audit of M491 → M496: two faults of the last changes, found by probing and closed
+He: "the final session — audit everything deeply, make sure it's perfect." Each change since the M490-3 audit was probed
+for what it does OUTSIDE the case it was built for.
+1. M491's departure heal (goneByTheirOwnPage) took a PRESENT person out of the scene when their state merely started
+   with the word — "Left arm in a sling…", "Left alone with the kettle", "Gone quiet…", "Gone pale…", "Leaving her
+   coffee untouched, she watches him" — and M491's door rule read an ARRIVAL ("she steps in and the door shuts behind
+   her") as a going. LEFT_RE is grammar now (left/gone followed by where-to or a departure form; leaving followed by
+   for/now or a place within the clause); DOOR_BEHIND counts only when nobody came in (CAME_IN). 17 lines pinned.
+2. M496's Stop fix released the held line with gate.end() — and end() on a reply with no header yet hands the held
+   text back AS THE PAGE: a Stop while the model was still writing its plan would have kept "Okay, the plan: …" as the
+   story. headergate.js endIfOpen() releases only once the page has begun (its header seen); chat.js uses it.
+VERIFIED CLEAN: M493's #time toast reads the ledger's clock ("Monday, March 3, 2025 — 09:05"); M494 and M495 (laws
+and the whole-wire scan); M492's simulation; DOM-125/126.
+GATES: harness 954/954, walk 144/144, long play 8/8, lint 0, two-browser proof, pagemark.py, mend_marks.py (16 shapes,
+store and screen), paint_coats.py (nine coats, 0 under AA), perf_rooms within budget. version.js -> m497-001.
