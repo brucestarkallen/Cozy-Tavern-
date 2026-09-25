@@ -11409,3 +11409,23 @@ canon row: "the canon literally has this — where is it in what the storyteller
 - TESTS: m484.mjs M486 (off: no row; on and empty: the row with the reason; on with a note: the note on the row and
   in the request). Harness 933/933, walk 140/140, lint 0.
 - version.js -> m486-001.
+
+# M487 — the canon note reads clean
+He, with a page and its canon note: "does the canon verification include good important information and no bloat?"
+- THE GARBLED LINES ("The is one of the Gotei 13", "composed of a white , a black , a black", "the Northern , the
+  Eastern"): the wikitext cleaner's template walker dropped every template it did not know WHOLE, and this wiki wraps
+  names and terms in templates of its own — the word went with the template. Now stripTemplates keeps an unknown
+  template's display text (its first positional parameter with letters; key=value-only templates — infoboxes,
+  navboxes — and hatnotes/quotes still drop whole; nested templates read inside out), and the tt/abbr/tooltip rule
+  keeps the FIRST parameter (the word), not the last (the tooltip). Every consumer heals at once: identity,
+  appearance, personality, the dossier.
+- THE DEAD IN THE PRESENT TENSE: Ukitake, dead in the story, rode as a whole living profile with a "With Yamamoto"
+  line. bridge.js trimCanonNote (on every note the bridge hands the request): a face the ledger holds dead keeps its
+  first sentence alone, marked "(Dead, in our story.)", no With lines; a block the extension cut mid-sentence at its
+  own cap ends at its last whole sentence. The header, the living and the places are untouched.
+- LEFT AS DESIGNED: "Thirteenth Division — headed by Captain Rukia Kuchiki" against the story's own captaincy — the
+  header says our story wins, the ledger's state says who the captain is, and M393's lens keeps canon's later
+  events out of the present; the places' Identity lines (small, and the storyteller's ground).
+- TESTS: m484.mjs M487 — the cleaner on a wrapped name, a tt term, an infobox/hatnote/quote, plain markup; the trim
+  on a dead face, a cut block, the living. Harness 934/934, walk 140/140, lint 0.
+- version.js -> m487-001.

@@ -1,6 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m486-001)
+# Cozy Tavern — handoff for the next session (state at m487-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1v. THE CANON NOTE READS CLEAN (M487): grounding.js stripTemplates keeps a template's display text (never drop a
+   template whole unless it is key=value only or a hatnote/quote); bridge.js trimCanonNote trims the dead and closes
+   a cut block — every note the bridge hands out goes through it.
 1u. THE CANON ROW ALWAYS STANDS WHEN CANON IS ON (M486): stack.js pushes 'What canon says' with the note, or empty with
    canonWhy (canon/bridge.js, from grounding.js lastInjectionReport — the extension loads lazily; read it through
    groundingMod, never a static import).

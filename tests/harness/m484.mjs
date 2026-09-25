@@ -134,3 +134,19 @@ test('M486 the receipt says what canon did: the row stands whenever canon is on 
   assert(full && /Rukia/.test(full.text) && !full.reason, 'on, with a note: the note rides');
   assert(buildRequest({ ...base, canonOn: true, canonNote: 'Rukia Kuchiki:\nLieutenant.' }).messages.some((m) => /Rukia Kuchiki:/.test(String(m.content))), 'and it is in the request');
 });
+
+test('M487 canon reads clean: a template keeps its display text (the walker dropped it whole — "The is one of the Gotei 13"); a dead face is one sentence; a cut block ends at a whole sentence', async () => {
+  const { cleanWikitext } = await import('../../js/canon/grounding.js');
+  const { trimCanonNote } = await import('../../js/canon/bridge.js');
+  eq(cleanWikitext("The {{Translation|'''Tenth Division'''|十番隊|jūbantai}} is one of the [[Gotei 13]], headed by Captain [[Tōshirō Hitsugaya]]."), 'The Tenth Division is one of the Gotei 13, headed by Captain Tōshirō Hitsugaya.');
+  eq(cleanWikitext('composed of a white {{tt|[[shitagi]]|下着}}, a black {{Nihongo|kosode|小袖}}, and {{tt|waraji|草鞋}}.'), 'composed of a white shitagi, a black kosode, and waraji.', 'tt keeps its first parameter, the word, not the tooltip');
+  eq(cleanWikitext('{{Character|name=Rukia|division=13th}}\nRukia is the lieutenant. {{Main|Elsewhere}}{{Quote|Long words|Speaker}}'), 'Rukia is the lieutenant.', 'an infobox, a hatnote and a quote still drop whole');
+  eq(cleanWikitext("The '''Tenth Division''' (十番隊, ''jūbantai'') is one of the [[Gotei 13]]."), 'The Tenth Division (十番隊, jūbantai) is one of the Gotei 13.', 'plain markup as before');
+  const note = 'What canon says about the people here.\nJūshirō Ukitake:\n  A tall, emaciated captain, Ukitake carries himself with courtesy. His illness forces him to rely on Reiatsu.\n  - With Yamamoto: Respects him.\nKiyone Kotetsu:\n  Open and excitable, Kiyone serves as lieutenant. At ease she is bubbly; under strain, especially when…\nSentarō Kotsubaki:\n  Loud and loyal.\n  - With Kiyone Kotetsu: He argues with her.';
+  const t = trimCanonNote(note, { offscreen: { Ukitake: { location: 'dead — his grave on the Kuchiki plot', atTurn: 1 } }, characters: {} });
+  assert(/Jūshirō Ukitake:\n  A tall, emaciated captain, Ukitake carries himself with courtesy\. \(Dead, in our story\.\)\n/.test(t), 'the dead face: one sentence, marked: ' + JSON.stringify(t));
+  assert(!/With Yamamoto/.test(t), 'no With lines for the dead');
+  assert(/Kiyone serves as lieutenant\.\nSentarō/.test(t), 'a cut block ends at its last whole sentence: ' + JSON.stringify(t));
+  assert(/- With Kiyone Kotetsu: He argues with her\./.test(t), 'the living untouched');
+  eq(trimCanonNote('', {}), '', 'nothing stays nothing');
+});

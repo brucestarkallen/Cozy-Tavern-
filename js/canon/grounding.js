@@ -960,13 +960,48 @@ function extractFromProse(text) {
 // ---------------------------------------------------------------------------
 
 /** Drop everything inside {{ … }} at any nesting, stray braces included. */
+/* M487: A TEMPLATE'S OWN WORDS ARE KEPT. The walker dropped every template it did not know WHOLE — and a wiki that wraps
+ * a name or a term in one ({{Translation|Tenth Division|十番隊}}, {{Ruby|shitagi|下着}}, a house template of its own)
+ * lost the word: "The is one of the Gotei 13", "composed of a white , a black , a black". Now an unknown template is
+ * read for its DISPLAY TEXT: the first positional parameter (one with no "=") that carries letters; a template of
+ * key=value parameters alone (an infobox, a navbox) still drops whole, and a template inside another is read the same
+ * way, inside out. The known templates are still handled by their own rules above. */
+function templateText(inner) {
+    const name = inner.split("|")[0].trim().toLowerCase();
+    if (/^(?:infobox|navbox|character|main|see also|reflist|cite|clear|clr|stub|for|hatnote|about|redirect|quote|cquote|quote box|efn|sfn|notelist|refn|anchor|toc|portal|defaultsort|category)/.test(name)) return "";
+    const parts = [];
+    let depth = 0; let cur = "";
+    for (let i = 0; i < inner.length; i++) {
+        const ch = inner[i];
+        if (ch === "[" && inner[i + 1] === "[") depth++;
+        if (ch === "]" && inner[i + 1] === "]") depth = Math.max(0, depth - 1);
+        if (ch === "|" && depth === 0) { parts.push(cur); cur = ""; continue; }
+        cur += ch;
+    }
+    parts.push(cur);
+    for (const p of parts.slice(1)) {
+        const t = p.trim();
+        if (!t || /^[\w\s-]+=/.test(t)) continue;
+        if (/\p{L}/u.test(t)) return t;
+    }
+    return "";
+}
 function stripTemplates(text) {
     let out = "";
     let depth = 0;
+    let buf = "";
     for (let i = 0; i < text.length; i++) {
-        if (text[i] === "{" && text[i + 1] === "{") { depth++; i++; continue; }
-        if (text[i] === "}" && text[i + 1] === "}") { if (depth > 0) { depth--; i++; continue; } i++; continue; }
-        if (depth === 0) out += text[i];
+        if (text[i] === "{" && text[i + 1] === "{") { depth++; i++; if (depth > 1) buf += "{{"; continue; }
+        if (text[i] === "}" && text[i + 1] === "}") {
+            if (depth > 0) {
+                depth--; i++;
+                if (depth === 0) { out += templateText(depth === 0 ? stripTemplates(buf) : buf); buf = ""; }
+                else buf += "}}";
+                continue;
+            }
+            i++; continue;
+        }
+        if (depth === 0) out += text[i]; else buf += text[i];
     }
     return out;
 }
@@ -1034,7 +1069,10 @@ export function cleanWikitext(wt) { /* exported for the harness (M460) */
     // {{small|X}}, {{tooltip|term|text}} — must yield their text, not vanish: the
     // depth walker deleting them whole is exactly how "haircolor" disappears while
     // a plain "eyecolor" survives. Keep the LAST parameter (the display text).
-    s = s.replace(/\{\{\s*(?:colou?r|font ?colou?r|nowrap|small|big|tt|abbr|tooltip)\s*\|(?:[^{}]*\|)?([^{}|]*)\}\}/gi, "$1");
+    s = s.replace(/\{\{\s*(?:colou?r|font ?colou?r)\s*\|(?:[^{}]*\|)?([^{}|]*)\}\}/gi, "$1");
+    /* M487: for tt/abbr/tooltip/nowrap/small/big the DISPLAY text is the first parameter ({{tt|shitagi|下着}} shows
+     * "shitagi"); the old rule kept the last — the tooltip — and lost the word */
+    s = s.replace(/\{\{\s*(?:nowrap|small|big|tt|abbr|tooltip)\s*\|([^{}|]*)(?:\|[^{}]*)?\}\}/gi, "$1");
     // M460 (Cozy): the JAPANESE-TERM templates carry the English term in their FIRST parameter — {{Nihongo|Tenth
     // Division|十番隊|Jūbantai}}, {{nihongo|kosode|小袖}}. The depth walker deleted them whole, and the Bleach wiki's
     // prose came through as "The  is one of the Gotei 13" and "a white , a black , a black ,". Keep the term (the

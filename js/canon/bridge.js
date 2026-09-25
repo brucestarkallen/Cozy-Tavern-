@@ -34,6 +34,8 @@ import { contextOf } from '../providers/room.js';
 import { pageText } from '../assemble/stack.js';
 import { mcName } from '../engine/duels.js';
 import { findPersonKey } from '../engine/people.js';
+import { isDeadSeat } from '../engine/offscreen.js'; /* M487: the dead get a line, not a life */
+import { samePersonName } from '../engine/names.js';
 import { findCanonKey, findFact, FACTS_SHOWN } from '../engine/canon.js';
 import { applyMutations, letGoMark } from '../engine/apply.js';
 import { setAliasSource } from '../engine/names.js'; /* M396: canon knows who answers to which names */
@@ -436,7 +438,52 @@ export async function canonBeforeSend({ story, state, messages, connection, type
   } catch (err) { /* the note stands as built */ }
   /* kept now, not only on its own 400 ms timer — a phone that reloads the page would lose what it just found */
   try { await saveMeta(story.id, meta); } catch (err) { /* its own timer still saves */ }
-  return injectionFor(story.id);
+  return trimCanonNote(injectionFor(story.id), state);
+}
+
+/* M487: THE NOTE, TRIMMED WHERE THE LEDGER KNOWS BETTER. The extension writes a canon face whole and in the present —
+ * "Ukitake carries himself with unfailing courtesy… under strain his coughing fits can bring him to his knees", and a
+ * "With Yamamoto" line — for a man the ledger holds as dead: a life, in the present tense, for someone the story buried.
+ * A block whose face the ledger holds dead keeps its first sentence alone (who he was), no "With" lines. And a block
+ * the extension cut at its own cap mid-sentence ("…especially when…") ends at its last whole sentence. The header,
+ * the living, the places: untouched. */
+export function trimCanonNote(note, state) {
+  const text = String(note || '');
+  if (!text.trim()) return text;
+  const lines = text.split('\n');
+  const isHead = (l) => /^[^\s][^\n:]{0,80}:$/.test(l);
+  const seats = state && state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
+  const pages = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const dead = (name) => {
+    for (const [k, seat] of Object.entries(seats)) if (samePersonName(k, name) && isDeadSeat(seat)) return true;
+    for (const [k, page] of Object.entries(pages)) if (samePersonName(k, name) && page && /^(?:dead|deceased|killed|died|kia)\b|\b(?:killed|died|dead|deceased) (?:in|during|at|by|of)\b/i.test(String(page.core || '').slice(0, 200))) return true;
+    return false;
+  };
+  const wholeSentence = (l) => {
+    if (!/…\s*$/.test(l)) return l;
+    const cut = l.replace(/…\s*$/, '');
+    const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+    return stop > 20 ? cut.slice(0, stop + 1) : cut.replace(/\s+\S*$/, '') + '.';
+  };
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!isHead(line)) { out.push(line); i += 1; continue; }
+    const name = line.slice(0, -1).trim();
+    const block = [];
+    i += 1;
+    while (i < lines.length && !isHead(lines[i])) { block.push(lines[i]); i += 1; }
+    const body = block.map(wholeSentence);
+    if (dead(name)) {
+      const prose = body.find((l) => /\S/.test(l) && !/^\s*-\s/.test(l)) || '';
+      const first = prose.trim().match(/^[^.!?]*[.!?]/);
+      out.push(line, '  ' + (first ? first[0].trim() : prose.trim()) + ' (Dead, in our story.)');
+      continue;
+    }
+    out.push(line, ...body);
+  }
+  return out.join('\n');
 }
 
 /* The canon people a built note carries — its blocks open with "Name:" on a line of its own */
