@@ -60,9 +60,21 @@ export function shapeOf(text) {
  * wrapped in asterisks (*"..."* becomes "..."), an empty pair of quotes, a quote opened and never closed at the end of
  * its paragraph (unless the next paragraph goes on speaking, the old way of long speech), an asterisk opened and never
  * closed. A page whose marks are whole comes back to the letter. */
+/* M476: A READABLE OBJECT IS SHIELDED, NOT THE WHOLE PAGE. A page that carried a phone screen (<!-- GFX_START -->…) or
+ * a tracker block was skipped by every mend — so a stray quote three paragraphs above the screen stood forever, and
+ * the writer asked why the agent fixes nothing. The object's own quotes and asterisks are HTML, not marks: it is
+ * lifted out whole, the prose around it is mended, and it is put back to the letter. */
+const SHIELD_RE = /<!--\s*GFX_START[\s\S]*?(?:<!--\s*GFX_END\s*-->|$)|```[\s\S]*?(?:```|$)|[^\n]*\{(?:PULSE|WATCHLIST|VOICES)\}[\s\S]*?(?=\n[ \t]*\n|$)/g;
+export function shieldObjects(text) {
+  const kept = [];
+  const safe = String(text == null ? '' : text).replace(SHIELD_RE, (m) => { kept.push(m); return '\uE000' + (kept.length - 1) + '\uE001'; });
+  return { safe, restore: (t) => String(t).replace(/\uE000(\d+)\uE001/g, (_, i) => kept[Number(i)] || '') };
+}
+
 export function mendMarks(text) {
-  const src = String(text == null ? '' : text);
-  if (!src.trim() || FENCED.test(src)) return { text: src, changed: false };
+  const given = String(text == null ? '' : text);
+  if (!given.trim()) return { text: given, changed: false };
+  const { safe: src, restore } = shieldObjects(given);
   const parts = src.split(/(\n[ \t]*\n)/);
   let changed = false;
   for (let k = 0; k < parts.length; k += 2) {
@@ -82,7 +94,11 @@ export function mendMarks(text) {
     const straight = (core.match(/"/g) || []).length;
     if (straight % 2 === 1 && !nextSpeaks) {
       const at = core.lastIndexOf('"');
-      if ((at === 0 || /[\s(\[\u2014\u2013-]/.test(core[at - 1])) && /\S/.test(core[at + 1] || '')) fixed += '"';
+      /* M476: a lone quote opened after a COMMA onto a lowercase word ("…, "like someone reading the skyline…") is a
+       * stray mark in narration, not speech left open — it goes; after a speech verb ('He said "stop') or onto a
+       * capital it is speech and is closed, as M458 does */
+      if (at > 1 && core[at - 1] === ' ' && core[at - 2] === ',' && /[a-z]/.test(core[at + 1] || '')) fixed = core.slice(0, at) + core.slice(at + 1);
+      else if ((at === 0 || /[\s(\[\u2014\u2013-]/.test(core[at - 1])) && /\S/.test(core[at + 1] || '')) fixed += '"';
     }
     let single = -1;
     let count = 0;
@@ -91,7 +107,20 @@ export function mendMarks(text) {
     p = fixed + tail;
     if (p !== was) { parts[k] = p; changed = true; }
   }
-  return { text: changed ? parts.join('') : src, changed };
+  return { text: changed ? restore(parts.join('')) : given, changed };
+}
+
+/* M476: A SOFT WRAP IS JOINED. Inside a page whose paragraphs are parted by blank lines, a lone line break followed by
+ * an indent ("…closer to the towers than Dev likes —\n and the thought…"), or one that leaves a sentence hanging and
+ * goes on in lowercase, is a wrap the model let through, not a paragraph: joined with one space. White space only. */
+export function joinSoftWraps(text) {
+  const given = String(text == null ? '' : text);
+  if (!/\n[ \t]*\n/.test(given)) return { text: given, changed: false };
+  const { safe, restore } = shieldObjects(given);
+  const out = safe
+    .replace(/([^\n])\n[ \t]+(?=[^\s\n])/g, '$1 ')
+    .replace(/([a-z,;:\u2014\u2013-])\n(?=[a-z])/g, '$1 ');
+  return out === safe ? { text: given, changed: false } : { text: restore(out), changed: true };
 }
 
 /* before the page is kept: brackets, the place the ledger already holds, white space — never a word */
@@ -102,7 +131,11 @@ export function tidyPage(text, { place = '' } = {}) {
   const src = normalizeWindowMark(given);
   const did = src !== given ? ['window'] : [];
   const h = readHeader(src);
-  if (!h) { const m = mendMarks(src); return m.changed ? { text: m.text, did: ['marks'] } : { text: src, did }; } /* M458 */
+  if (!h) { /* M458/M476 */
+    const j = joinSoftWraps(src); const m = mendMarks(j.text);
+    const done = [...did]; if (j.changed) done.push('wraps'); if (m.changed) done.push('marks');
+    return done.length ? { text: m.text, did: done } : { text: src, did };
+  }
   let inner = h.inner;
   const ground = String(place || '').replace(/[\[\]|\n]/g, ' ').replace(/\s+/g, ' ').trim();
   if (h.missingPlace && ground) { inner = ground + ' — ' + inner; did.push('place'); }
@@ -118,6 +151,8 @@ export function tidyPage(text, { place = '' } = {}) {
       if (parted !== trimmed) { body = parted; did.push('paragraphs'); }
     }
   }
+  const wrapped = joinSoftWraps(body); /* M476 */
+  if (wrapped.changed) { body = wrapped.text; did.push('wraps'); }
   /* nothing of substance to mend: the page as it came, to the letter (white space alone is nobody's business) */
   const marked = mendMarks(body); /* M458 */
   if (marked.changed) { body = marked.text; did.push('marks'); }

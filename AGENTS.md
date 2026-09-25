@@ -11227,3 +11227,24 @@ MC is like Gojo Satoru but he's weak: melee 4, social 7, willpower 8" (his earli
   with no sheet entry keep the shorter; a fight-made entry keeps summoning 9 and grows; an estimate gives way; a
   hand-kept number stays; a heal is the one replace. Harness 918/918, walk 137/137, lint 0.
 - version.js -> m475-001.
+
+# M476 — a readable object is shielded, not the whole page; a stray quote goes; a soft wrap is joined
+He, with a page: "the agent doesn't fix this weird formatting — there's a missing quote, and at the bottom I'm
+confused what it is." The page: a phone-screen object (<!-- GFX_START -->…), a paragraph ending `…then another,
+"like someone reading the skyline one name at a time.` (a quote opened onto narration, never closed), and in the
+window `…closer to the towers than Dev likes —\n and the thought…` (a line break with an indent mid-sentence).
+- WHY NOTHING WAS FIXED: pageshape.js FENCED skipped EVERY mend on a page carrying a GFX block, a code fence or a
+  tracker block — to keep the object's own quotes and asterisks (HTML) untouched, the whole page was left as it came.
+- NOW: shieldObjects lifts each object out whole (GFX blocks, fences, {PULSE}/{WATCHLIST}/{VOICES} paragraphs), the
+  prose around it is mended, the object is put back to the letter. mendMarks: a lone quote opened after a COMMA onto
+  a lowercase word is a stray mark in narration and goes (after a speech verb or onto a capital it is speech and is
+  closed, as M458 did). joinSoftWraps (new, in tidyPage): inside a page whose paragraphs are parted by blank lines, a
+  lone line break followed by an indent, or one leaving a sentence hanging that goes on in lowercase, is joined with
+  one space — never inside an object, never a page with no paragraph breaks (its single newlines are its paragraphs),
+  never a line that ends a sentence and starts with a capital. The paragraph shaping still skips a page holding an
+  object (M340-1 holds). His page through tidyPage: did [wraps, marks]; the quote gone, the wrap joined, the phone
+  screen and the window's marker and header to the letter.
+- TESTS: harness m476.mjs — 3 laws (the object whole and the prose mended, fences/trackers shielded; the comma rule
+  vs the speech-verb rule vs a closed pair; wraps joined only where they should). M340/M458 laws green beside them.
+  Harness 921/921, walk 137/137, long play 8/8, lint 0.
+- version.js -> m476-001.

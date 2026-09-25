@@ -1,6 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m475-001)
+# Cozy Tavern — handoff for the next session (state at m476-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1o. THE PAGE REPAIR SHIELDS OBJECTS (M476): pageshape.js shieldObjects — never skip a whole page for a GFX block or a
+   fence again; mendMarks and joinSoftWraps run around the object. The comma rule (a stray quote) vs the speech-verb
+   rule (close it) is deliberate: M458-2 holds 'He said "stop' → closed.
 1n. ROSTERS ARE READ WHOLE AND DEDUPED (M475): normalizeRoster(v, state) — never cut a name before the twin check.
    mergeSeed grows every `_auto` entry; only a heal or an `_estimated` guess is replaced. The seeder's contract names
    a power as its own domain.
