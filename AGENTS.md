@@ -11610,3 +11610,25 @@ job. Two more, both "one meaning, two rules":
 - TESTS: m85.mjs M494 (one out-of-character line with the full law; Go on. carries #continue's law; an aside's
   directive the same); m379's expectation names the new line. Harness 951/951, walk 142/142, long play 8/8, lint 0.
 - version.js -> m494-001.
+
+# M495 — every side voice speaks as the writer's own notes
+He: "do the housekeeper, the director and the critique talk naturally, so they don't break my storyteller persona?"
+- CHECKED ON THE WIRE (a full request, every side voice through its real renderer, Tony Stark / Bruce): the house's
+  eye (M321), the referee (M345), the sensors (toTeller), canon, the world's word and the ledger's briefing already
+  speak as the writer's notes. The HOUSEKEEPER never reaches the request at all (it talks to him; what it changes rides
+  only through the ledger's briefing). Two did not: the DIRECTOR ("The director's note: Episode 2 — the director's
+  marching orders:" over PREMISE —, BEATS —, NPC & WORLD INITIATIVE —, LANDING — in capitals) and the EDITOR ("The
+  editor's eye: NORTH STAR:" over a numbered critique) — a third authority issuing orders in a system-shaped form, the
+  shape his teller once called "an assistant system" (M379).
+- NOW (assemble/stack.js naturalDirector / naturalEditor, at the point they enter the request — the receipt and the
+  wire stay identical, the ledger's own panels keep their working labels): "Episode 2 — where I want this episode to go
+  (my plan; the scene still moves by what people want):" with the labels as plain words ("What it is about:", "The
+  beats:", "What the world does on its own:", "How it can land:"…), and "My notes on the telling, for the pages ahead —
+  never something to mention on the page:" with "What matters most right now:" and a plain list; both through the same
+  voice pass as the craft; the briefing's third-party labels are gone. The episode mark the director needs still rides.
+- TESTS: m495.mjs (the whole wire with every side voice filled carries none of: assistant, an AI, language model, LLM,
+  system prompt, the system, worker, JSON, mutation, marching orders, NORTH STAR, PREMISE —, BEATS —, NPC & WORLD, the
+  director, the editor, the auditor, the referee, the house). showrunners.mjs M10 now reads the words in their natural
+  form; m29.mjs M29-9's order check was VACUOUS (it looked for a phrase the world's word no longer has, indexOf -1, so it
+  could never fail) — it now finds both by their own words. Harness 952/952, walk 142/142, long play 8/8, lint 0.
+- version.js -> m495-001.

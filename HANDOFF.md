@@ -1,6 +1,8 @@
-# Cozy Tavern — handoff for the next session (state at m494-001)
+# Cozy Tavern — handoff for the next session (state at m495-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1zb. NO THIRD AUTHORITY ON THE WIRE (M495): every text a side agent adds to the storyteller's request must read as the
+   writer's own notes — m495.mjs scans the whole wire; a new agent's slot must pass it (voice it, no capitals-form labels).
 1za. THE LIVING LEDGER SIMULATION (M492): tests/harness/livingledger.mjs runs a story through the real gate and heals
    and checks the truth page by page. Any change to presence, seats, the heals, knowledge, wounds or names must keep
    it green — extend its pages with every new failure he reports.

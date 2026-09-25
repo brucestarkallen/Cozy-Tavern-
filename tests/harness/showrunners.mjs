@@ -248,8 +248,8 @@ test('M10 stack: the director’s note and the editor’s eye ride the dynamic t
   /* before history: the injection sits at the FRONT of the messages */
   const injection = r.messages[0];
   assert(injection.content.startsWith(STATE_MARKER), 'the dynamic tail rides first');
-  assert(injection.content.includes('PREMISE — the debt.'), 'the director’s words are in it');
-  assert(injection.content.includes('NORTH STAR: trust the quiet'), 'the editor’s words are in it');
+  assert(injection.content.includes('What it is about: the debt.'), 'the director’s words are in it — as his plan, never a third party’s capitals (M495)');
+  assert(injection.content.includes('What matters most right now: trust the quiet'), 'the editor’s words are in it — as his notes (M495)');
   const firstHistory = r.messages.findIndex((m) => m.content === 'a page');
   assert(firstHistory > 0, 'history comes after the dynamic tail');
 });

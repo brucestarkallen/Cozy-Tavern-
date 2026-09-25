@@ -624,8 +624,32 @@ export function buildRequest({
    * apart from dialogue. All empty → no injection at all. M10: the
    * showrunners' standing texts ride in the same dynamic tail, after the
    * lore shelf, still before history. */
-  const directorText = typeof directorNote === 'string' ? directorNote.trim() : '';
-  const editorText = typeof editorEye === 'string' ? editorEye.trim() : '';
+  /* M495: THE SIDE VOICES SPEAK AS THE WRITER'S NOTES, NEVER AS A THIRD AUTHORITY. "Episode 2 — the director's marching
+   * orders:" over a screenplay form in capitals (PREMISE —, BEATS —, NPC & WORLD INITIATIVE —), and "NORTH STAR:" over
+   * a numbered critique, reached the storyteller as another system issuing orders — the shape his teller's thinking
+   * once called "an assistant system" (M379). They are his plan and his notes, said in his voice, through the same
+   * voice pass as the craft; the ledger's own panels keep their working labels. */
+  const DIRECTOR_LABELS = [[/^PREMISE\s*[—–:-]\s*/gm, 'What it is about: '], [/^QUESTION\s*[—–:-]\s*/gm, 'The question it answers: '], [/^BEATS\s*[—–:-]\s*/gm, 'The beats: '],
+    [/^NPC\s*&\s*WORLD\s+INITIATIVE\s*[—–:-]\s*/gm, 'What the world does on its own: '], [/^LANDING\s*[—–:-]\s*/gm, 'How it can land: '], [/^HOOK\s*[—–:-]\s*/gm, 'The thread to plant early: '], [/^ARC\s*[—–:-]\s*/gm, 'The longer arc, one step: ']];
+  const naturalDirector = (t) => {
+    let out = String(t || '').trim();
+    if (!out) return '';
+    out = out.replace(/^Episode\s+(\d+)\s+—\s+the director[’']s marching orders:\s*/i, 'Episode $1 — where I want this episode to go (my plan; the scene still moves by what people want):\n');
+    for (const [re, words] of DIRECTOR_LABELS) out = out.replace(re, words);
+    return inPerson(inVoice(out, voice), person);
+  };
+  const naturalEditor = (t) => {
+    const lines = String(t || '').trim().split('\n').filter((l) => l.trim());
+    if (!lines.length) return '';
+    const out = ['My notes on the telling, for the pages ahead — never something to mention on the page:'];
+    for (const l of lines) {
+      if (/^NORTH STAR:\s*/i.test(l)) out.push('What matters most right now: ' + l.replace(/^NORTH STAR:\s*/i, ''));
+      else out.push('- ' + l.replace(/^\d+[.)]\s*/, ''));
+    }
+    return inPerson(inVoice(out.join('\n'), voice), person);
+  };
+  const directorText = typeof directorNote === 'string' ? naturalDirector(directorNote) : '';
+  const editorText = typeof editorEye === 'string' ? naturalEditor(editorEye) : '';
   /* M88: the house's eye — the last page's slips against the craft's
    * mechanical laws (agents/lint.js), for this one turn's recolor. */
   const eyeText = typeof houseEye === 'string' ? houseEye.trim() : '';
@@ -654,8 +678,8 @@ export function buildRequest({
   if (memoryText) stateParts.push('What remains of the older pages:\n' + memoryText);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name */
-  if (directorText) stateParts.push('The director’s note:\n' + directorText);
-  if (editorText) stateParts.push('The editor’s eye:\n' + editorText);
+  if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
+  if (editorText) stateParts.push(editorText); /* M495: "My notes on the telling…" — his, not an editor's */
   if (eyeText) stateParts.push(toTeller(eyeWithoutRuleNames(eyeText, voice, person), voice)); /* the eye speaks its own name — M327: and the teller's */
   const stateInjection = stateParts.length
     ? { role: 'user', content: briefingOpening(voice) + '\n\n' + stateParts.join('\n\n') }

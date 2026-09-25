@@ -203,7 +203,7 @@ test('M29-9 the assembler carries the world’s word, receipt-named, in the dyna
   const r = buildRequest({ story: {}, messages: pages(2), settings: {}, state, modules: [], memory: '', window: { keeperOn: true }, worldBrief: brief, directorNote: 'Episode one.' });
   const inj = r.messages[0].content;
   assert(inj.startsWith(STATE_MARKER), 'rides the state injection');
-  assert(inj.indexOf('world beyond this page') < inj.indexOf('The director’s note'), 'the world’s word precedes the director');
+  assert(inj.indexOf('Aurora at 18:40') !== -1 && inj.indexOf('Aurora at 18:40') < inj.indexOf('Episode one.'), 'the world’s word precedes the director (M495: both found by their own words — the old check looked for a phrase the brief no longer has, so it could never fail)');
   assert(slot(r, 'The world’s word'), 'receipt-named');
   const none = buildRequest({ story: {}, messages: pages(2), settings: {}, state, modules: [], memory: '', window: { keeperOn: true }, worldBrief: '' });
   assert(!slot(none, 'The world’s word'), 'empty = omitted');
