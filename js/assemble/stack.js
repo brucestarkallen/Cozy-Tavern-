@@ -419,7 +419,7 @@ export function refereeCraft(text, on) {
 
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
-  window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '', sensorNote = '',
+  window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '', canonOn = false, canonWhy = '', sensorNote = '',
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -678,7 +678,10 @@ export function buildRequest({
 
   /* --- M10: the showrunners' slots — their own receipt names, in the
    * dynamic tail before history; empty = omitted (the slot-7 law). --- */
+  /* M486: the row stands whenever canon verification is ON for the tale — with the note, or empty with the reason it
+   * had nothing to say (the writer could not tell whether canon ran at all) */
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
+  else if (canonOn) pushSlot('What canon says', '', '', canonWhy || 'canon verification gave no note this turn');
   if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */
   if (worldText) {
     pushSlot('The world’s word', worldText, 'the world agent’s brief — what could reach this scene, what ripened out of sight');

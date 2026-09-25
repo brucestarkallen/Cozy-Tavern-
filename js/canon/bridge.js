@@ -26,6 +26,7 @@
  *     again, withdrawn when he blocks the name or forgets the page.
  *   - A BRANCH KEEPS ITS CANON (carryCanonMemory), as ST copies chat metadata on a branch.
  *   - THE WORKERS THAT WRITE FROM "THE REAL RECORD" ARE HANDED IT (canonRecordFor). */
+let groundingMod = null; /* M486: the extension, once it has booted (it loads lazily — never at the top) */
 import { db } from '../store.js';
 import { callWorker } from '../agents/call.js';
 import { workerSignal } from '../agents/status.js';
@@ -170,7 +171,7 @@ export function canonReady() {
         if (Array.isArray(s.savedWikis) && s.savedWikis.length) addToLibrary(...s.savedWikis).catch(() => {});
         return db.settings.set(settingsStory ? storySettingsKey(settingsStory) : CANON_SETTINGS_KEY, s);
       });
-      await import('./grounding.js');
+      groundingMod = await import('./grounding.js');
       await runBoot();
       const s = extension_settings.canon_grounding;
       /* Cozy always has a worker to ask: the model reads the scene (the extension's recommended way) rather than a
@@ -319,6 +320,19 @@ export async function canonLensLedger(story, { state = null, connection = null, 
  * page after page. They are kept here instead (the newest first, a few dozen) and shown in its room, where he looks
  * when he wants to know what it did. */
 const notes = [];
+/* M486: WHY CANON HAD NOTHING TO SAY. The receipt showed no canon row at all when the note came back empty — and the
+ * writer, with nineteen canon faces looked up and fifteen in the scene, could not tell whether canon ran. The
+ * extension keeps its own account of the last generation: what it injected, from which cast, and the last error of
+ * its reader. Read here, said on the receipt, never sent. */
+export function canonWhy() {
+  let report = null;
+  try { report = groundingMod && typeof groundingMod.lastInjectionReport === 'function' ? groundingMod.lastInjectionReport() : null; } catch (err) { report = null; }
+  if (!report) return 'canon verification gave no note this turn';
+  if (report.error) return 'canon’s reader stumbled — ' + String(report.error).slice(0, 160);
+  if (report.note) return 'canon built a note (' + (report.source || 'scene scan') + ') but it was not ready when the page was asked for — it rides with the next page';
+  return 'canon found no canon face to speak of in the latest pages (' + (report.source || 'scene scan') + ')';
+}
+
 export function canonNote(words) {
   const w = String(words || '').trim();
   if (!w) return;

@@ -972,6 +972,11 @@ function stripTemplates(text) {
 }
 
 /** Strip common wiki markup down to readable prose. */
+/* M486: what the last generation's note was, and why — for Cozy Tavern's receipt ("What canon says — not part of this
+ * turn: …"), never for the storyteller */
+export function lastInjectionReport() {
+  return { note: lastInjection || '', at: lastInjectionAt || 0, source: lastSource || '', error: lastLlmError || '', reasons: Array.isArray(lastReasons) ? lastReasons.slice(0, 6) : [] };
+}
 export function cleanWikitext(wt) { /* exported for the harness (M460) */
     if (!wt) return "";
     let s = wt;

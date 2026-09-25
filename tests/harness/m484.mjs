@@ -120,3 +120,17 @@ test('M485 the ledger heals itself on load: six wound lines fold to three; a rol
   eq(back.bodies.Zaraki.injuries.filter((i) => !i.healed).length, 2, 'the wounds folded on load');
   await db.stories.remove(st.id);
 });
+
+test('M486 the receipt says what canon did: the row stands whenever canon is on — with its note, or empty with the reason; off, no row', async () => {
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  const story = { title: 't', brief: 'a brief', castNotes: '' };
+  const pages = [{ id: 'u1', role: 'user', text: 'I walk in.' }, { id: 'a1', role: 'assistant', text: '[The Lantern — Tuesday | 21:00] The door swung.' }, { id: 'u2', role: 'user', text: 'I sit.' }];
+  const base = { story, messages: pages, settings: { frameText: 'F' }, state: emptyState(), modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { mode: 'keeper', window: 30, budgetTokens: 200000 } };
+  const row = (req) => req.receipt.slots.find((s) => s.name === 'What canon says');
+  assert(!row(buildRequest({ ...base })), 'off: no row');
+  const empty = row(buildRequest({ ...base, canonOn: true, canonWhy: 'canon found no canon face to speak of in the latest pages (scene scan)' }));
+  assert(empty && empty.text === '' && /no canon face/.test(empty.reason), 'on, empty: the row with the reason — ' + JSON.stringify(empty));
+  const full = row(buildRequest({ ...base, canonOn: true, canonNote: 'Rukia Kuchiki:\nLieutenant of the 13th, petite, violet eyes.' }));
+  assert(full && /Rukia/.test(full.text) && !full.reason, 'on, with a note: the note rides');
+  assert(buildRequest({ ...base, canonOn: true, canonNote: 'Rukia Kuchiki:\nLieutenant.' }).messages.some((m) => /Rukia Kuchiki:/.test(String(m.content))), 'and it is in the request');
+});

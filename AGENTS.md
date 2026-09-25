@@ -11394,3 +11394,18 @@ normalize, so the next open of a tale — or the next page — reads clean, and 
 already. TESTS: m484.mjs M485 (six lines → two unhealed + one healed kept; the role's and the relation's ghosts folded
 with everything carried; the crowd a faction; a saved ledger back healed). Harness 932/932, walk 140/140, long play
 8/8, lint 0. version.js -> m485-001.
+
+# M486 — the receipt says what canon did
+He, with the ledger's canon panel (bleach named, 19 people looked up, fifteen in the scene) beside a receipt with no
+canon row: "the canon literally has this — where is it in what the storyteller saw?"
+- WHAT WAS WRONG: the "What canon says" row was pushed only when the note had words. When the extension's note came
+  back empty for a turn — its reader timed out inside its own immersion ceiling, it found no canon face in the latest
+  pages, or its note landed after the page was asked for — the receipt showed NO row at all, and he could not tell
+  whether canon had run.
+- NOW: the row stands whenever canon verification is on for the tale — with the note when it rode, or empty with the
+  reason in its place. The reason comes from the extension's own account of the last generation (grounding.js
+  lastInjectionReport: the note, its cast source, its reader's last error), read through canon/bridge.js canonWhy
+  (the extension loads lazily — never a top import) and passed by chat.js on both send paths. Nothing new is sent.
+- TESTS: m484.mjs M486 (off: no row; on and empty: the row with the reason; on with a note: the note on the row and
+  in the request). Harness 933/933, walk 140/140, lint 0.
+- version.js -> m486-001.

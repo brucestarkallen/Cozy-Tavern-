@@ -59,7 +59,7 @@ import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canonti
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
 import { readSensors, takeWordForTurn, keepPageWord, sensorLine } from '../agents/sensors.js'; /* M356/M357: the readings, and the one line they earn */
 import { onToast as onCanonToast } from '../canon/host.js';
-import { canonNote as keepCanonNote } from '../canon/bridge.js'; /* M395: canon's own notes go to its room, never onto the screen */
+import { canonNote as keepCanonNote, canonWhy } from '../canon/bridge.js'; /* M395: canon's own notes go to its room, never onto the screen; M486: why it had nothing to say */
 import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
 import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../agents/queue.js';
@@ -4073,6 +4073,7 @@ export function initChat(ctx) {
         worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
+        canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4119,6 +4120,7 @@ export function initChat(ctx) {
          * and this call never handed the ruling on — the storyteller never once read it. */
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
+        canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
