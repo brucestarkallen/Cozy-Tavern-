@@ -52,6 +52,7 @@ import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the hous
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
+import { renderClock } from '../engine/clock.js'; /* M493 */
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
 import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, lastingOnly, groundLooksStale, goneByTheirOwnPage } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
@@ -4770,6 +4771,16 @@ export function initChat(ctx) {
    * house command first (commands.js) — the chip says what the house
    * understood; the instruction rides the request hidden. */
   async function send(text) {
+    /* M493: "#time" alone is no longer a turn — the header and The clock already say the hour, and it spent a page. Typed
+     * out of habit it is answered here, from the ledger's clock, and nothing is sent. ("#time skip …" is a turn.) */
+    if (/^\s*#time\s*$/i.test(String(text || ''))) {
+      const sid = ctx.getActiveStoryId();
+      const st = sid ? await loadState(sid).catch(() => null) : null;
+      const hour = st ? renderClock(st.clock || st) : '';
+      els.input.value = '';
+      toast(hour ? 'In the story it is ' + hour + '.' : 'The story has no hour yet — the first page’s header sets it.');
+      return;
+    }
     /* M68: a send while the house is busy keeps the words and says so —
      * it used to drop them silently, a message that simply vanished. */
     if (busy) { restoreComposer(text); toast('The storyteller is still busy — one moment.'); return; }

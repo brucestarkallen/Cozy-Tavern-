@@ -4335,7 +4335,7 @@ test('DOM-83 EVERY SHORTCUT, THROUGH THE REAL APP: typed in the tale he is in, e
     env.window.__cozy.setActiveStoryId(tale.id);
     await env.window.__cozy.chat.renderThread({ structural: true });
     const talesBefore = (await db.stories.list()).length;
-    for (const typed of ['#story', '#story a lighthouse keeper who stops sleeping', '#question what does she want', '#time', '#p', '#continue']) {
+    for (const typed of ['#story', '#story a lighthouse keeper who stops sleeping', '#question what does she want', '#time skip to noon', '#p', '#continue']) { /* M493: #time alone is no turn now */
       const from = house.state.calls.length;
       type(q('#composer-input'), typed); submit(q('#composer'));
       await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
@@ -6180,6 +6180,25 @@ test('DOM-123 THE PAGES’ MARKS HEAL ON OPEN: a tale kept by an older build ope
   const stamp = (await db.messages.list(st.id)).find((m) => m.id === p1.id).updatedAt;
   await env.ctx.chat.openStory(st.id); await tick(400);
   eq((await db.messages.list(st.id)).find((m) => m.id === p1.id).updatedAt, stamp, 'once per tale per build');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+
+test('DOM-124 "#time" ALONE IS NO TURN: typed, it answers the story’s hour in a toast and sends nothing — no page, no request; "#time skip" is still a turn', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'the hour' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\nThe kettle sang.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+  const pagesBefore = (await db.messages.list(st.id)).length;
+  const callsBefore = house.state.calls.length;
+  type(q('#composer-input'), '#time'); submit(q('#composer'));
+  await tick(600);
+  eq((await db.messages.list(st.id)).length, pagesBefore, 'no page written');
+  eq(house.state.calls.filter((c, i) => i >= callsBefore && !c.isWorker).length, 0, 'nothing sent to the storyteller');
+  eq(q('#composer-input').value, '', 'the composer is cleared');
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

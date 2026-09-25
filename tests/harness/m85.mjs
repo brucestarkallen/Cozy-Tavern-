@@ -108,7 +108,7 @@ test('M85-4 the command parser hears the writer’s whole table', () => {
   eq(skip.kind, 'timeSkip'); assert(/3 days$/.test(skip.directive) && /Party Gate/.test(skip.directive) && skip.clean === '#time skip 3 days');
   eq(parseCommand('#timeskip').kind, 'timeSkip'); assert(/the next morning$/.test(parseCommand('#timeskip').directive), 'a bare skip goes to the next morning');
   eq(parseCommand('#skip to the tournament finals').kind, 'timeSkip');
-  eq(parseCommand('#time').kind, 'time', 'the bare #time still asks the hour');
+  eq(parseCommand('#time').kind, null, 'M493: the bare #time is no command — the composer answers it without a turn');
   const story = parseCommand('#story A mecha tournament in Tokyo, 2037, and a boy who lost his sister to the last one');
   /* M391: his page is what he typed, "#story" and all — and no new tale is named, because none is opened */
   eq(story.kind, 'story'); assert(/No proposals|no proposals/i.test(story.directive)); eq(story.clean, '#story A mecha tournament in Tokyo, 2037, and a boy who lost his sister to the last one');

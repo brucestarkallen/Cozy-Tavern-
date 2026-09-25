@@ -9,7 +9,7 @@
  *
  *   parseCommand(text) -> Command
  *   Command = {
- *     kind: null | 'question' | 'beat' | 'skip' | 'continue' | 'time'
+ *     kind: null | 'question' | 'beat' | 'skip' | 'continue'
  *           | 'ooc' | 'nextScene' | 'timeSkip' | 'story' | 'window' | 'referee',
  *     clean,        // the words to store/send (command stripped; OOC kept whole)
  *     directive,    // the hidden instruction for the wire ('' when none)
@@ -26,7 +26,7 @@
  *   #continue        play the current situation forward to its natural stop
  *   #q               the next scene — the director's preview, then the scene
  *   #time skip X     jump to X (also #timeskip X, #skip to X)
- *   #time            say the hour, briefly (the house's own)
+ *   (#time alone was removed in M493 — the header and The clock say the hour; the composer answers it locally)
  *   #story concept   a story begun from the concept — IN THE TALE HE IS IN (M391: the house opens nothing)
  *   #Put TWB name    one window beyond the page on that person (also #twb name)
  *   #roll / #skip / # no roll / # roll this — the referee's overrides; the
@@ -51,7 +51,6 @@ const DIRECTIVES = {
   continue: '#continue — play the CURRENT situation forward to its natural stop: full prose, no time skip, no transit summary, as many beats as the situation needs (the walk continues, the escort keeps talking, someone intercepts or nobody does, MC arrives); casual questions and small talk are texture it carries through; it ends where an intervention window returns control — a demand, a loaded question left hanging for him, a decision only he can make — or when the in-progress action completes (arrival reached, door closed), whichever comes first. Still one significant beat: the extra beats are transit and texture, never consequences stacked.',
   nextScene: '#q — the next scene, presented the way a director presents the next episode: scan every alive thread — the ledger\'s open threads, the absent and their agendas, what the world\'s word says has ripened — and select the single most compelling scene. Time Horizon = RIGHT NOW (MC walks into it), LATER TODAY (MC arrives as it begins), or TOMORROW (next day, fresh context) — whichever lands hardest; the jump bills proportional world advancement and the header carries the new hour. It produces an active, playable scene MC responds to or walks past — a bully in the hallway, a loaded message, allies arguing in earshot, a rival\'s public move, a quiet weighted moment — NEVER a status report, a travelogue, or "you arrive and nothing is different." Selection order: hot thread agenda -> cold thread returning -> ripening consequence -> living cast hook -> stagnation -> arc milestone -> world momentum. Tone spectrum: quiet | warm | tense | escalation | a pivot between two; intense scenes chain only while a hot thread presses, and three in a row means the next one breathes. Write, in this order: 1) the preview ON THE PAGE, first — one short director paragraph: what is happening, why it matters, who is there, the horizon; a preview, never a request for approval — the scene starts without waiting for one; 2) the bridge — one to three sentences, transit in a clause, ' + PARTY_GATE + ' cut straight to the destination mid-motion; 3) the scene opens with MC arriving AT it, the world already moving; 4) it plays under every law; 5) the intervention window fires -> STOP. Complexity Ratchet = scenes that ADD to the world outrank scenes that resolve neatly; a good #q leaves MC with MORE — new information, tensions, relationships. Earned resolutions land (a goal dead by the Goal Death Test, a debt paid, a timeline concluded by board state); refusing one is manufactured struggle; unearned ease is the ban, never good news. #q is NOT drama injection, not biased toward MC, not a rule bypass, not always big: antagonists do not soften, hard negotiations stay hard, an antagonist\'s arc ends only when the board has already earned it, and a #q that makes the writer\'s next turn easier without board-state cause is the wrong direction.',
   timeSkip: '#time skip — jump to the time or moment named below: a logical transit summary proportional to the delta (the world moved in the gap — show it in proportion; a week skipped is a week of the world), ' + PARTY_GATE + ' Quarantine holds across the skip: MC arrives knowing only the transit summary and the visible scene. Then a new scene at the destination already in motion. The header carries the new date and hour. The destination: ',
-  time: 'Out of the flow of the scene, say briefly what hour it is in the story right now, from what the ledger knows — then wait.',
   story: '#story — a new story begins from the concept below. Write the first scene immediately: the header, then the scene, with every unspecified detail (the date, the ground, who is there, what MC is doing) chosen and committed on the page — no proposals, no options, no plan spoken first. The concept: ',
   window: '#Put TWB — this turn, open one window beyond the page on the person named below, from where the ledger says they are and what they want. ' + WINDOW_FORM + ' Then the scene as usual, if there is a scene to write. The person: ',
   ooc: 'The writer is speaking out of character. Answer them plainly and briefly, without advancing the scene.',
@@ -78,7 +77,6 @@ export function shortcutsText() {
     DIRECTIVES.continue,
     DIRECTIVES.nextScene,
     tail(DIRECTIVES.timeSkip).replace('the time or moment named below', 'the time or moment named after the shortcut'),
-    '#time (alone) \u2014 ' + DIRECTIVES.time,
     tail(DIRECTIVES.story).replace('from the concept below', 'from the concept written after the shortcut (or, with none, of your own choosing)'),
     tail(DIRECTIVES.window).replace('on the person named below', 'on the person named after the shortcut'),
     '#question <his question> \u2014 ' + tail(DIRECTIVES.question) + '.',
@@ -91,7 +89,6 @@ const BEAT_RE = /^#p\s*$/i;
 const SKIP_RE = /^#pp\s*$/i;
 const CONTINUE_RE = /^#continue\s*$/i;
 const NEXT_RE = /^#q\s*$/i;
-const TIME_RE = /^#time\s*$/i;
 const TIMESKIP_RE = /^#(?:time\s*skip|timeskip|skip\s+to)\s*([\s\S]*)$/i;
 const STORY_RE = /^#story(?:\s+([\s\S]+))?\s*$/i; /* M359: with no concept at all, the storyteller chooses that too — but #storyteller is not the command */
 const WINDOW_RE = /^#(?:put\s*twb|twb)\s+([^\n]+?)\s*$/i;
@@ -140,10 +137,6 @@ export function parseCommand(text) {
   }
   if (NEXT_RE.test(trimmed)) {
     return { kind: 'nextScene', clean: trimmed, directive: DIRECTIVES.nextScene, chip: 'the next scene — the director’s pick', hidden: false, ooc: false };
-  }
-  if (TIME_RE.test(trimmed)) {
-    /* M382: "#time" is kept as he typed it — an empty page would travel as the house's "Go on." */
-    return { kind: 'time', clean: '#time', directive: DIRECTIVES.time, chip: 'what hour is it?', hidden: false, ooc: false };
   }
   m = trimmed.match(TIMESKIP_RE);
   if (m) {

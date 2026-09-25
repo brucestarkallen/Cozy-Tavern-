@@ -11580,3 +11580,15 @@ He: "audit the whole ledger — the scene, the people, the world, the books — 
   is not a reason to keep someone. Everything else held: the people briefing grew 149 → 474 characters over fifteen
   pages (bounded), the world agent runs after every page when on, the auditor after every page.
 - GATES: harness 950/950, walk 141/141, long play 8/8, lint 0, two-browser proof. version.js -> m492-001.
+
+# M493 — "#time" alone removed
+He: "what's #time for if there's already the header and the ledger? Should we just delete it?" — yes: with the masthead
+on, the header and The clock already say the hour, "#time" spent a whole turn (a page in the tale, read by every
+reader) to say it again, and its definition rode in the craft on every request.
+- commands.js: the lone #time is no command (TIME_RE, DIRECTIVES.time and its line in the shortcuts sent with the
+  craft are gone). "#time skip X" / "#timeskip X" / "#skip to X" are unchanged.
+- chat.js send: "#time" typed alone is answered in the composer from the ledger's clock ("In the story it is …") and
+  nothing is sent — so habit never turns it into a literal message to the storyteller.
+- TESTS: m85/engine expect no command for a lone "#time"; walk DOM-83 sends "#time skip to noon" in its place; DOM-124
+  (a lone "#time": no page, no request, the composer cleared). Harness 950/950, walk 142/142, long play 8/8, lint 0.
+- version.js -> m493-001.
