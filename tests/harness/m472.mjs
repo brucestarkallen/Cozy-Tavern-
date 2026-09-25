@@ -93,3 +93,32 @@ test('M473 the domain of the beat: a summoner known for summoning 9 (3 for anyth
   const a = normalizeBattleAdj({ exchange: true, action: 'orders the summons to strike', move: { kind: 'command', target: 'Varkhos', domain: 'Summoning', circumstance: 0 } }, s);
   eq(a.move.domain, 'summoning');
 });
+
+test('M474 the brief changed: the sheet is due again on the next page; asked by hand it runs on any number of pages; a raised skill reaches the sheet, a hand-kept number never moves', async () => {
+  const { seedDue, briefMark, maybeSeedSheet } = await import('../../js/agents/referee.js');
+  const { db } = await import('../../js/store.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const s = mkState();
+  s.sheet.actors = { 'Jovan Arden': { default: 3, domains: { summoning: 6 }, _auto: true, seed: (await import('../../js/agents/referee.js')).SEED_VERSION }, Varkhos: { default: 4, domains: { melee: 7 }, _hand: true } };
+  s.sheet.seedVersion = (await import('../../js/agents/referee.js')).SEED_VERSION;
+  s.sheet.seededAtPage = 5; s.sheet.briefMark = briefMark('the old brief', '');
+  eq(seedDue(s, 6, { brief: 'the old brief', castNotes: '' }), '', 'the same brief: not due');
+  eq(seedDue(s, 6, { brief: 'the NEW brief — Jovan summons at the level of a master', castNotes: '' }), 'the brief changed');
+  eq(seedDue(s, 6), '', 'no brief handed in (an older caller): the mark is not judged');
+  /* by hand, through the seeder, the numbers rise and the hand-kept stays */
+  const st = await db.stories.create({ title: 'weighed' });
+  await db.messages.append(st.id, { role: 'user', text: 'I raise my hand.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'The summons answer.' });
+  await saveState(st.id, s);
+  const seedLLM = async () => JSON.stringify({ actors: [{ name: 'Jovan Arden', default: 4, domains: { summoning: 9, willpower: 8 } }, { name: 'Varkhos', default: 2, domains: { melee: 3 } }] });
+  const r = await maybeSeedSheet({ connection: conn, storyId: st.id, brief: 'the NEW brief', castNotes: '', force: true, callLLM: seedLLM });
+  assert(r.ok, 'ran by hand on one page: ' + JSON.stringify(r));
+  const after = await loadState(st.id);
+  eq(after.sheet.actors['Jovan Arden'].domains.summoning, 9, 'the raised skill reached the sheet');
+  eq(after.sheet.actors['Jovan Arden'].domains.willpower, 8, 'a new domain too');
+  eq(after.sheet.actors['Jovan Arden'].default, 4, 'and the default rose');
+  eq(after.sheet.actors.Varkhos.domains.melee, 7, 'a hand-kept number never moves');
+  eq(after.sheet.briefMark, briefMark('the NEW brief', ''), 'the brief’s mark is kept, so the same brief is not weighed again');
+  eq(seedDue(after, 6, { brief: 'the NEW brief', castNotes: '' }), '', 'not due now');
+  await db.stories.remove(st.id);
+});

@@ -279,6 +279,7 @@ function migrateSheet(sheet) {
   if (Number.isFinite(sheet.seedVersion)) out.seedVersion = sheet.seedVersion;
   if (Number.isFinite(sheet.seededAtPage)) out.seededAtPage = sheet.seededAtPage;
   if (Array.isArray(sheet.seenPresent)) out.seenPresent = sheet.seenPresent.filter((n) => typeof n === 'string').slice(0, 40);
+  if (typeof sheet.briefMark === 'string') out.briefMark = sheet.briefMark.slice(0, 16); /* M474: the brief the cast was last weighed against */
   return out;
 }
 

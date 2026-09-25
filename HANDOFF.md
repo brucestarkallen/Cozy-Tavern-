@@ -1,6 +1,8 @@
-# Cozy Tavern — handoff for the next session (state at m473-001)
+# Cozy Tavern — handoff for the next session (state at m474-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1m. THE CAST IS WEIGHED AGAIN BY HAND OR WHEN THE BRIEF CHANGES (M474): drawer.js measurePanel "Weigh them again" →
+   chat.js weighCast → maybeSeedSheet({ force: true }); seedDue(state, told, { brief, castNotes }) reads sheet.briefMark.
 1l. THE DOMAIN OF THE BEAT (M473): battle moves carry `domain`; duels.js beatRating rates the PLAYER's beat by it from
    his sheet (a summoner commands at summoning 9, not his melee 3). Units keep the battle's domain. The measure panel's
    headline is `default` — "for anything not listed".

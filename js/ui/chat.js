@@ -2602,6 +2602,26 @@ export function initChat(ctx) {
     return true;
   }
 
+  /* M474: "Weigh them again" — the writer raised a skill in the brief and asked how to refresh the measure. The seeder
+   * runs now, by hand, on the brief and the pages as they stand; a considered rating of the seeder's still only rises
+   * (growth), and a number he set by hand is never touched. */
+  async function weighCast() {
+    const banner = beginWork('Weighing the cast', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the sheet is as it was'); });
+    const story = await activeStory();
+    if (!story) return false;
+    if (!(await refereeSettings()).on) { banner.failed('The referee is off — the sheet is the referee’s'); return false; }
+    const connection = await resolveWorkerConnection(story, 'referee');
+    if (!connection) { banner.failed('The referee needs a connection first'); return false; }
+    const promise = enqueueWork(story.id, { name: 'seeder', run: async ({ signal, renew }) => {
+      const result = await maybeSeedSheet({ connection, storyId: story.id, signal, renew, force: true, brief: story.brief || '', castNotes: story.castNotes || '' });
+      return { silent: false, detail: result && result.ok ? 'the cast weighed again — ' + (result.touched || 0) + ' considered' : 'the weighing brought nothing usable' };
+    } });
+    noteWork(story.id, promise);
+    banner.say('reading the brief and the pages');
+    bannerFollows(banner, story, 'The cast was weighed again', promise);
+    return true;
+  }
+
   /* M35: the mend — the second reader (and the record's verifier) may edit
    * a storyteller page by the smallest amount so it stops contradicting the
    * record. The page remembers its earlier words (msg.mended) and shows a
@@ -6089,6 +6109,7 @@ export function initChat(ctx) {
     repairTimeline,
     rescanLedger,
     auditNow,
+    weighCast, /* M474 */
     rippleAfterEdit,
     noteOlderModel, /* M343: Settings tells the thread the moment the switch moves */
     pageReinked, /* M296 */

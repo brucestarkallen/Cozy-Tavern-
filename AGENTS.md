@@ -11191,3 +11191,18 @@ intellect 6, social 5."
 - TESTS: m472.mjs M473 — summoning 9 commands at 9, a blade at 3, an unlisted domain at the unit's 3, the domain rides
   the normaliser. Harness 916/916, walk 137/137, lint 0.
 - version.js -> m473-001.
+
+# M474 — "Weigh them again", and the brief's mark
+He: "I just updated my brief to raise my character's skill — how can I restart or refresh How they measure?"
+- THERE WAS NO WAY: the cast was weighed on the first pages, after a fight, and when a new face entered; a changed brief
+  waited for the next fight, and there was no button (a control he cannot find does not exist).
+- NOW: (1) the ledger's "How they measure" has "Weigh them again" — chat.js weighCast runs the seeder by hand (force:
+  true — on any number of pages), under the work banner, on the brief and the pages as they stand; a considered rating
+  still only rises (growth) and a hand-kept number never moves. (2) The sheet keeps the brief's mark (referee.js
+  briefMark — a hash of brief + cast notes, kept through state.js); seedDue says 'the brief changed' when it differs,
+  so a raised skill reaches the sheet on the next page without the button. Older callers that hand no brief are not
+  judged on it.
+- TESTS: m472.mjs M474 — the same brief not due, a changed brief due, no brief handed in not judged; by hand on one
+  page the raised skill and a new domain reach the sheet, the default rises, a hand-kept number stays, the mark is
+  kept and the same brief is not weighed twice. Harness 917/917, walk 137/137, lint 0.
+- version.js -> m474-001.

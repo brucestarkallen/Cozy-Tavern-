@@ -1660,7 +1660,19 @@ function measurePanel(ctx) {
   const note = quietNote('');
   const list = document.createElement('ul');
   list.className = 'present-list';
-  wrap.append(note, list);
+  /* M474: "Weigh them again" — the brief was changed by hand; the sheet follows now, not on the next fight */
+  const weigh = document.createElement('button');
+  weigh.type = 'button';
+  weigh.className = 'text-btn';
+  weigh.textContent = 'Weigh them again';
+  weigh.addEventListener('click', async () => {
+    weigh.disabled = true;
+    try { if (ctx.chat && typeof ctx.chat.weighCast === 'function') await ctx.chat.weighCast(); } finally { weigh.disabled = false; }
+  });
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.appendChild(weigh);
+  wrap.append(note, list, row);
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);
@@ -1678,7 +1690,7 @@ function measurePanel(ctx) {
       note.textContent = 'No one is weighed yet. After the tale’s first pages — and after every fight — the cast is weighed from the whole ledger, 0 to 10, and written here.';
       return;
     }
-    note.textContent = 'How each of them measures, 0 to 10 — what they’re known for, and what they carry. The referee rules from these numbers; they are weighed again after every fight and whenever someone new is in the scene.';
+    note.textContent = 'How each of them measures, 0 to 10 — what they’re known for, and what they carry. The referee rules from these numbers; they are weighed again after every fight, whenever someone new is in the scene, and when the brief changes — or now, by hand.';
     if (mcNamed && !names.some((n) => isMc(state, n))) {
       const li = document.createElement('li');
       li.className = 'present-row measure-row';

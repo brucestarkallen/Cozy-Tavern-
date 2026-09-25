@@ -1242,7 +1242,15 @@ const lower = (x) => String(x || '').trim().toLowerCase();
 const isHandKept = (e) => Boolean(e && (e._hand || (!e._auto && !e._estimated)));
 
 /* why the sheet wants a seeding now — '' when it does not */
-export function seedDue(state, pagesTold) {
+/* M474: the brief's mark — the cast is weighed again when the brief or the cast notes change (a skill raised in the
+ * brief reaches the sheet on the next page, not the next fight) */
+export function briefMark(brief, castNotes) {
+  const s = String(brief || '') + '\u0000' + String(castNotes || '');
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i += 1) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h.toString(36);
+}
+export function seedDue(state, pagesTold, { brief, castNotes } = {}) {
   const sheet = state && state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {} };
   const actors = sheet.actors && typeof sheet.actors === 'object' ? sheet.actors : {};
   if ((Number(pagesTold) || 0) < 2) return '';
@@ -1250,6 +1258,7 @@ export function seedDue(state, pagesTold) {
   if (!names.length) return 'first';
   if (sheet.seedVersion !== SEED_VERSION) return 'heal';
   if (state.seedDueAfterFight === true) return 'after a fight';
+  if ((brief !== undefined || castNotes !== undefined) && typeof sheet.briefMark === 'string' && sheet.briefMark !== briefMark(brief, castNotes)) return 'the brief changed'; /* M474 */
   const now = storyTurn(state);
   const since = now - (Number.isFinite(sheet.seededAtPage) ? sheet.seededAtPage : 0);
   const mc = mcName(state);
@@ -1469,14 +1478,15 @@ export function mergeSeed(state, parsed, { heal = false } = {}) {
 /* Seed the actor sheet: on the first pages, after a fight lets go, when someone in the scene (or the main character)
  * is not on it, when the blind seeder made it, and every SEED_EVERY pages. Background only — never on the critical
  * path, never throws. */
-export async function maybeSeedSheet({ connection, storyId, signal, callLLM, brief = '', castNotes = '', renew } = {}) {
+export async function maybeSeedSheet({ connection, storyId, signal, callLLM, brief = '', castNotes = '', renew, force = false } = {}) {
   try {
     if (!connection || !storyId) return { ok: false };
     const state = await loadState(storyId);
     if (!state) return { ok: false };
     const messages = (await db.messages.list(storyId)).filter((m) => m && !m.hidden);
     const told = messages.filter((m) => m.role === 'assistant').length;
-    const why = seedDue(state, told);
+    /* M474: asked by hand ("Weigh them again") it runs whatever seedDue says, on any number of pages */
+    const why = seedDue(state, told, { brief, castNotes }) || (force ? 'asked by hand' : '');
     if (!why) return { ok: false, why: 'not due' };
     let record = '';
     try { record = recordFor(await loadMemory(storyId), 1, 120000); } catch (err) { record = ''; }
@@ -1499,6 +1509,7 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM, bri
     }
     fresh.sheet.seedVersion = SEED_VERSION;
     fresh.sheet.seededAtPage = storyTurn(fresh);
+    fresh.sheet.briefMark = briefMark(brief, castNotes); /* M474 */
     fresh.sheet.seenPresent = (Array.isArray(fresh.present) ? fresh.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean).slice(0, 40);
     fresh.seedDueAfterFight = false;
     await saveState(storyId, fresh);
