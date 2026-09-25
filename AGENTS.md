@@ -11293,3 +11293,13 @@ on/off? Off, it's back to normal — nothing happens, or I tap manually."
 - TESTS: walk DOM-122 — the button writes the brief from a #story ten pages back and the box follows; a written
   brief asks first and No keeps it; the switch off leaves an empty brief empty on a #story. Walk 140/140, lint 0.
 - version.js -> m479-001.
+
+# M480 — the automatic brief is OFF unless he switches it on
+He: "I still need a button to stop the automatic thing fully so everything is back to normal — just pure #story for a
+short story, no need for a brief." The switch existed (M479) but was ON by default; his normal is a plain #story.
+- NOW: `conceptToBrief` is OFF by default — a #story is just a #story; "Write it from my #story concept" is the way
+  unless he switches the automatic path on (Settings → This story → The brief, the tick under the button; the label
+  says what off means). The house reset puts it back to off.
+- TESTS: walk DOM-122 — off by default and a #story leaves an empty brief empty; switched on, a #story writes it;
+  DOM-121 (the automatic path) switches it on for itself. Walk 140/140, lint 0.
+- version.js -> m480-001.

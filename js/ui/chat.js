@@ -4776,9 +4776,9 @@ export function initChat(ctx) {
         restoreComposer(text);
         return;
       }
-      /* M478/M479: A #STORY CONCEPT BECOMES THE BRIEF — by itself only with the switch on (conceptToBrief, on by
-       * default) and only into an EMPTY brief; the raw words now, the polished ones when the worker is done. */
-      if (parsed.kind === 'story' && !(story.brief || '').trim() && (await db.settings.get('conceptToBrief')) !== false) {
+      /* M478/M479/M480: A #STORY CONCEPT BECOMES THE BRIEF — by itself only with the switch ON (conceptToBrief, OFF by
+       * default: "just pure #story for a short story, no need for a brief") and only into an EMPTY brief. */
+      if (parsed.kind === 'story' && !(story.brief || '').trim() && (await db.settings.get('conceptToBrief')) === true) { /* M480: OFF unless he switched it on — a plain #story stays a plain #story */
         const concept = String(text).trim().replace(/^#story\s*/i, '').trim();
         if (concept) briefFromConcept({ story, concept, manual: false }).catch(() => {});
       }

@@ -1089,7 +1089,7 @@ export function initSettings(ctx) {
   async function loadPromptSlots() {
     if (els.groundingPhrase) els.groundingPhrase.value = String((await db.settings.get('groundingPhrase')) || ''); /* M358 */
     if (els.afterRole) els.afterRole.value = (await db.settings.get('afterRole')) === 'user' ? 'user' : 'system'; /* M380 */
-    if (els.conceptToBrief) els.conceptToBrief.checked = (await db.settings.get('conceptToBrief')) !== false; /* M479: on by default */
+    if (els.conceptToBrief) els.conceptToBrief.checked = (await db.settings.get('conceptToBrief')) === true; /* M480: OFF by default — the button is the way unless he switches it on */
     if (els.tellerName) els.tellerName.value = cleanName(await db.settings.get('tellerName'));
     if (els.writerName) els.writerName.value = cleanName(await db.settings.get('writerName'));
     if (els.tellerPerson) { const p = await db.settings.get('tellerPerson'); els.tellerPerson.value = p === 'first' || p === 'second' ? p : 'follow'; }
