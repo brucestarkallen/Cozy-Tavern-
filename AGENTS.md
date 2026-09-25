@@ -11456,3 +11456,8 @@ doesn't it fix it automatically, or the mend page doesn't work?"
 - TESTS: m476.mjs M489 — one, two and three lone asterisks become the break, a whole break stays, the typo stays, the
   sound stays. Harness 935/935, walk 141/141, lint 0.
 - version.js -> m489-001.
+
+# M489-2 — the mend's toast names the build
+He: "I mend the page, it's still the same" — on the build before M489 that was true and nothing said so. The toast of
+"Mend the pages' marks" and of the mend on open now ends with "(the repair of m489-002)", so a page that stays the same
+under an older repair names its cause. version.js -> m489-002.

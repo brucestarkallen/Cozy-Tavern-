@@ -1017,7 +1017,7 @@ export function initChat(ctx) {
     if ((await db.settings.get(mark)) === VERSION) return;
     const r = await mendAllPages({ quiet: true, story });
     await db.settings.set(mark, VERSION).catch(() => {});
-    if (r && r.mended) toast(r.mended === 1 ? 'One page’s marks were mended on opening.' : r.mended + ' pages’ marks were mended on opening.');
+    if (r && r.mended) toast((r.mended === 1 ? 'One page’s marks were mended on opening' : r.mended + ' pages’ marks were mended on opening') + ' (the repair of ' + VERSION + ').');
   }
 
   /* M452: THE LEDGER HEALS WHEN A STORY OPENS — nothing to press. A ledger an older reader left (someone "elsewhere" at the
@@ -2695,7 +2695,7 @@ export function initChat(ctx) {
       mended += 1;
     }
     if (mended && ctx.getActiveStoryId() === story.id) await renderThread({ structural: true });
-    if (!quiet) toast(mended ? (mended === 1 ? 'One page’s marks mended.' : mended + ' pages’ marks mended.') : 'Every page’s marks are whole already.');
+    if (!quiet) toast((mended ? (mended === 1 ? 'One page’s marks mended' : mended + ' pages’ marks mended') : 'Every page’s marks are whole already') + ' (the repair of ' + VERSION + ').'); /* M489-2: the build says which repair ran — "still the same" then names its cause */
     return { mended, of: pages.length };
   }
 
