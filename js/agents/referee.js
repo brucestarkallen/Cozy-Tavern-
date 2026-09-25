@@ -353,6 +353,8 @@ export const SEED_SYSTEM = [
   'CALIBRATE TO THE STORY\'S OWN HIERARCHY: if the setting has ranks, tiers, classes or a pecking order (school rankings, tournament seeding, dueling classes, a military chain, a stated power scale), place each person WITHIN it — someone at or near the top belongs at 7-9 even when words like "student" or "young" make them sound junior. Read the ranking, not the job title. The brief outranks every page.',
   'Rate each person at their CURRENT level as of the newest page. If the story shows someone has trained, grown or unlocked new power since <sheet> was written, rate the new, higher level.',
   'Domains are lowercase single words — melee, ranged, stealth, social, athletics, intellect, willpower, pilot, craft; others only when the story clearly needs them. 2-4 per person is plenty.',
+  'A POWER IS A DOMAIN OF ITS OWN: when the brief or the pages give a person a sorcery, a cursed technique, a summoning, a psychic art, a martial school, a signature weapon art — name it as its own domain (one word where you can: sorcery, summoning, cursed, psionics) and rate it as the story shows it, up to 10 for someone the brief calls the strongest of their world. NEVER fold a power into melee; a sorcerer with melee 4 and sorcery 10 is right, a sorcerer with melee 4 and no sorcery is wrong. The referee rolls a person\'s act in the domain it rests on, so a power left off the sheet is a power that does not exist in a fight.',
+  'ONE PERSON, ONE LINE, BY THE NAME THE STORY USES: a title, an epithet or a full formal name ("Eight-Handled Sword Divergent Sila Divine General Mahoraga") is the same person as the short name the pages use ("Mahoraga") — never a second entry.',
   '"lasting": ONLY what the story has established that changes what a person can DO in a contest — a wound still carried, an illness, a curse, exhaustion that lasts, or signature gear (a masterwork blade, enchanted armour). NEVER clothing, a disguise, a mask, a look, a mood or a habit. mod -4..+3 (harm negative, good gear positive); domain = the ONE domain it touches (a sword: melee), null for the whole body; gear true for equipment. File each on the person who actually carries it.',
   'WHO IS WHO: <player> names the main character — the person the writer plays. The writer\'s pages ARE that person acting: "I", "me" and "you" in them mean the main character, never anyone else, and anything the writer\'s pages do or wear is the main character\'s. The FIRST entry in "actors" is always the main character, under exactly the name <player> gives. Never make an entry for "you", "I", "the player" or "the writer".',
   'Include EVERY named person in <people> and <brief> — allies, rivals, mentors, family, anyone who recurs — not only those on the newest pages. A large cast is expected; nobody is dropped to save space. Merge obvious duplicates and aliases into one entry, under the name <people> uses.',
@@ -501,9 +503,26 @@ function cleanName(v, max) {
   return s || null;
 }
 
-function normalizeRoster(v) {
+/* M475: ONE PERSON ONCE ON A ROSTER. The referee listed "Eight Handled Sword Divergent Sila Divine General" and
+ * "Mahoraga" as two allies and the field held Mahoraga twice, one of them a stranger at 5. Two roster names whose
+ * words are one inside the other (either way round) are one person; the name the sheet knows wins, else the shorter.
+ * A title with none of the name's words in it cannot be caught here — the contract now forbids it. */
+function normalizeRoster(v, state) {
   if (!Array.isArray(v)) return [];
-  return v.map((x) => cleanName(x, 50)).filter(Boolean).slice(0, 12);
+  /* the names are read WHOLE first (the old 50-character cut was the very fault: "Eight Handled Sword Divergent Sila
+   * Divine General Mahoraga" lost its "Mahoraga" and no longer shared a word with the short name) */
+  const names = v.map((x) => cleanName(x, 160)).filter(Boolean);
+  const out = [];
+  for (const n of names) {
+    const twin = out.findIndex((o) => samePersonName(o, n));
+    if (twin === -1) { out.push(n); continue; }
+    const known = state ? findActorKeySamePerson(state, n) : null;
+    const knownOld = state ? findActorKeySamePerson(state, out[twin]) : null;
+    if (known && !knownOld) out[twin] = n;
+    else if (known === knownOld && n.length < out[twin].length) out[twin] = n;
+  }
+  /* a name the sheet knows is written as the sheet writes it; a long stranger's name is cut at sixty */
+  return out.map((n) => (state && findActorKeySamePerson(state, n)) || cleanName(n, 60)).filter(Boolean).slice(0, 12);
 }
 
 function normalizeConditionChange(v, state) {
@@ -575,7 +594,7 @@ export function normalizeAdj(obj, state) {
     /* M470: TWO AGAINST ONE IS A BATTLE. A duel_start that names companions beside the player is drawn up as a battle
      * with those allies and this one enemy — the duel engine has one seat a side, so an ally named there was simply
      * dropped and the writer's team fought one at a time. */
-    const companions = normalizeRoster(ds.allies).filter((n) => !isMcAlias(state, n) && !samePersonName(n, ds.opponent));
+    const companions = normalizeRoster(ds.allies, state).filter((n) => !isMcAlias(state, n) && !samePersonName(n, ds.opponent));
     if (companions.length && !(obj.battle_start && typeof obj.battle_start === 'object')) {
       out.battle_start = {
         allies: companions,
@@ -597,10 +616,10 @@ export function normalizeAdj(obj, state) {
   }
   const bs = obj.battle_start;
   if (bs && typeof bs === 'object') {
-    const enemies = normalizeRoster(bs.enemies).filter((n) => !isMcAlias(state, n));
+    const enemies = normalizeRoster(bs.enemies, state).filter((n) => !isMcAlias(state, n));
     if (enemies.length) {
       out.battle_start = {
-        allies: normalizeRoster(bs.allies).filter((n) => !isMcAlias(state, n)),
+        allies: normalizeRoster(bs.allies, state).filter((n) => !isMcAlias(state, n)),
         enemies,
         domain: combatDomain(bs.domain),
         scale: clampInt(bs.scale, -4, 4, 0),
@@ -622,8 +641,8 @@ export function normalizeAdj(obj, state) {
      * writer's own character among the enemy formations had them build a
      * unit out of him and the writer fought himself. The hardening this file
      * calls "ported wholesale" had a hole in exactly one of the three. */
-    const enemies = normalizeRoster(ws.enemies).filter((n) => !isMcAlias(state, n));
-    const allies = normalizeRoster(ws.allies).filter((n) => !isMcAlias(state, n));
+    const enemies = normalizeRoster(ws.enemies, state).filter((n) => !isMcAlias(state, n));
+    const allies = normalizeRoster(ws.allies, state).filter((n) => !isMcAlias(state, n));
     if (enemies.length && allies.length) {
       out.war_start = {
         allies,
@@ -695,8 +714,8 @@ function isOrder(action) { return ORDER_RE.test(String(action || '')); }
 /* M470: who enters the fight this beat — names only, the player never, nobody twice */
 function normalizeJoins(raw, state) {
   if (!raw || typeof raw !== 'object') return null;
-  const allies = normalizeRoster(raw.allies).filter((n) => !isMcAlias(state, n));
-  const enemies = normalizeRoster(raw.enemies).filter((n) => !isMcAlias(state, n) && !allies.some((a) => samePersonName(a, n)));
+  const allies = normalizeRoster(raw.allies, state).filter((n) => !isMcAlias(state, n));
+  const enemies = normalizeRoster(raw.enemies, state).filter((n) => !isMcAlias(state, n) && !allies.some((a) => samePersonName(a, n)));
   return allies.length || enemies.length ? { allies, enemies } : null;
 }
 
@@ -1436,11 +1455,16 @@ export function mergeSeed(state, parsed, { heal = false } = {}) {
     const otherHands = existing && Array.isArray(existing.conditions)
       ? existing.conditions.filter((c) => c && (c.by === 'referee' || c.by === 'hand' || (!heal && existing.seed === SEED_VERSION && c.by !== 'seed')))
       : [];
-    if (existing && existing._auto && existing.seed === SEED_VERSION && !heal) {
+    /* M475: growth for EVERY considered entry that is not the writer's own — the referee's fight-made entries (_auto
+     * with no seed stamp) were REPLACED by a weighing and lost their domains (a summoning 9 gone, melee 4 in its
+     * place). A replace is a heal's — and an ESTIMATE's: a guess made in a fight gives way to a considered rating,
+     * up or down (M345-4), so an estimated foe is never held above what the story shows. */
+    if (existing && existing._auto && !existing._estimated && !heal) {
       /* growth: a considered rating of this seeder's only ever rises */
       if (fresh.default > (Number(existing.default) || 0)) existing.default = fresh.default;
       existing.domains = existing.domains && typeof existing.domains === 'object' ? existing.domains : {};
       for (const [d, v] of Object.entries(fresh.domains)) if (existing.domains[d] === undefined || v > existing.domains[d]) existing.domains[d] = v;
+      existing.seed = SEED_VERSION; /* M475: considered by this seeder now, whatever made it */
       existing.conditions = [...otherHands, ...lasting].slice(-8);
       if (!existing.conditions.length) delete existing.conditions;
       seen.add(key);

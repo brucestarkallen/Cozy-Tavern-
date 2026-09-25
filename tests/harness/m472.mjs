@@ -122,3 +122,32 @@ test('M474 the brief changed: the sheet is due again on the next page; asked by 
   eq(seedDue(after, 6, { brief: 'the NEW brief', castNotes: '' }), '', 'not due now');
   await db.stories.remove(st.id);
 });
+
+test('M475 one person once on a roster, and a weighing never throws a considered entry’s domains away', async () => {
+  const { mergeSeed, SEED_VERSION } = await import('../../js/agents/referee.js');
+  const s = mkState();
+  s.sheet.actors = { Mahoraga: { default: 9, domains: { melee: 9 }, _auto: true, seed: SEED_VERSION } };
+  /* the roster: the title and the name are one person, the sheet's name wins */
+  const b = normalizeBattleAdj({ exchange: true, action: 'we press him', move: { kind: 'command', target: null, circumstance: 0 }, joins: { allies: ['Eight Handled Sword Divergent Sila Divine General Mahoraga', 'Mahoraga', 'Fenrir'], enemies: ['Varkhos', 'varkhos'] } }, s);
+  eq(b.joins.allies.join('|'), 'Mahoraga|Fenrir', 'the title and the name are one; the sheet’s name kept');
+  eq(b.joins.enemies.join('|'), 'Varkhos', 'a case-twin is one');
+  const { normalizeAdj: na } = await import('../../js/agents/referee.js');
+  const open = na({ check: true, kind: 'actor', action: 'x', opposition: 'Varkhos', battle_start: { allies: ['Kaelen Stahl', 'Kaelen'], enemies: ['Varkhos'] } }, s);
+  eq(open.battle_start.allies.join('|'), 'Kaelen', 'with no sheet entry, the shorter name stands for both');
+  /* the merge: a fight-made entry (no seed stamp) keeps its summoning 9 and grows; an estimated foe likewise */
+  const t = mkState();
+  t.sheet.actors = {
+    'Jovan Arden': { default: 3, domains: { summoning: 9, willpower: 8 }, _auto: true },
+    Varkhos: { default: 6, domains: { melee: 6 }, _estimated: true },
+    Kara: { default: 5, domains: { melee: 8 }, _hand: true },
+  };
+  t.sheet.playerName = 'Jovan Arden';
+  mergeSeed(t, { actors: [{ name: 'Jovan Arden', default: 4, domains: { melee: 4, social: 7 } }, { name: 'Varkhos', default: 9, domains: { melee: 9 } }, { name: 'Kara', default: 2, domains: { melee: 2 } }] });
+  const j = t.sheet.actors['Jovan Arden'];
+  eq(j.domains.summoning, 9, 'the summoning stays'); eq(j.domains.willpower, 8); eq(j.domains.melee, 4, 'the new domain lands'); eq(j.default, 4, 'the default rose'); eq(j.seed, SEED_VERSION, 'considered now');
+  eq(t.sheet.actors.Varkhos.domains.melee, 9, 'an estimated foe gives way to the considered rating'); assert(!t.sheet.actors.Varkhos._estimated, 'and is the seeder’s now (M345-4)');
+  eq(t.sheet.actors.Kara.domains.melee, 8, 'a hand-kept number never moves');
+  /* a heal still rebuilds */
+  mergeSeed(t, { actors: [{ name: 'Jovan Arden', default: 5, domains: { sorcery: 10 } }] }, { heal: true });
+  eq(t.sheet.actors['Jovan Arden'].domains.sorcery, 10); eq(t.sheet.actors['Jovan Arden'].domains.summoning, undefined, 'a heal is the one replace');
+});

@@ -11206,3 +11206,24 @@ He: "I just updated my brief to raise my character's skill — how can I restart
   page the raised skill and a new domain reach the sheet, the default rises, a hand-kept number stays, the mark is
   kept and the same brief is not weighed twice. Harness 917/917, walk 137/137, lint 0.
 - version.js -> m474-001.
+
+# M475 — one person once on the field; a weighing never throws a considered entry's domains away; a power is a domain
+He: "it makes Mahoraga two persons — 'Eight Handled Sword Divergent Sila Divine General 5 · Mahoraga 9'; and I said my
+MC is like Gojo Satoru but he's weak: melee 4, social 7, willpower 8" (his earlier sheet had summoning 9).
+- TWO OF MAHORAGA: the referee's roster carried the full formal name and the short one; normalizeRoster cut every
+  name at FIFTY characters before anything else, so "…Divine General Mahoraga" lost its "Mahoraga" and no longer
+  shared a word with the short name — two units, one a stranger at 5. Now the names are read whole (160), twins by
+  the same-person rule are one (the name the sheet knows wins, else the shorter), a known name is written as the
+  sheet writes it, a long stranger's name is cut at sixty. The seeder's contract says it too: one person, one line,
+  by the name the story uses — a title or formal name is never a second entry.
+- THE SUMMONING 9 GONE: mergeSeed grew only entries stamped `seed === SEED_VERSION`; an entry the referee made in a
+  fight (`_auto`, no stamp) was REPLACED by the next weighing and lost its domains. Now every `_auto` entry grows
+  (domains kept and raised, the default never lowered) and is stamped as considered; a replace is a heal's — and an
+  estimate's (a fight's guess gives way to a considered rating, up or down; M345-4 holds).
+- GOJO-LIKE AT MELEE 4: the seeder folded a power into melee or left it off. The contract now says a power is a
+  domain of its own (sorcery, summoning, cursed, psionics — up to 10 for the strongest of their world), never folded
+  into melee, because a power left off the sheet does not exist in a fight (M473 rolls the beat in its domain).
+- TESTS: m472.mjs M475 — the title and the name are one (the sheet's name kept), a case-twin is one, two spellings
+  with no sheet entry keep the shorter; a fight-made entry keeps summoning 9 and grows; an estimate gives way; a
+  hand-kept number stays; a heal is the one replace. Harness 918/918, walk 137/137, lint 0.
+- version.js -> m475-001.
