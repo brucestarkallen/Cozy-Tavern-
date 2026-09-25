@@ -33,7 +33,7 @@ import { isMcAlias, mcName } from './duels.js';
 import { foldName, canonAliasOf, samePersonName, titlesConflict, isTitleWord } from './names.js'; /* M398: one person, one page; M414: one list of titles */
 import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
-import { seatNowWords, findSeat, setSeatResolver } from './offscreen.js'; /* M300: a seat says its age; M304: one wording for every reader; M320: a seat is found the way a page is */
+import { seatNowWords, findSeat, setSeatResolver, isDeadSeat } from './offscreen.js'; /* M300: a seat says its age; M304: one wording for every reader; M320: a seat is found the way a page is; M484: the dead */
 
 /* Field caps — the ledger holds brushstrokes, not chapters. */
 /* M266: A NOTE IS KEPT WHOLE. These were 300, 240, 240 and 140 — so a "now"
@@ -407,9 +407,42 @@ function personTexts(state, key) {
   if (seat && typeof seat === 'object') for (const f of ['location', 'activity', 'agenda']) if (typeof seat[f] === 'string') bits.push(seat[f]);
   return bits.join('\n');
 }
+/* M484: A GROUP IS NOT A PERSON. "the onlookers behind the taped line", "The two police officers at the barricade",
+ * "several guards" — a crowd got a person's page, a seat with an agenda and a standing, and rode in the briefing as
+ * a character. A group is a faction's business (faction.set), never a page or a seat. */
+const GROUP_HEAD = '(?:onlookers|bystanders|crowd|crowds|people|passers-?by|guards|officers|soldiers|troops|villagers|townsfolk|men|women|children|kids|students|runners|attendants|servants|thugs|bandits|goons|mob|patrol|squad|unit|team|band|gang|pair|couple|group|handful|dozen|others|rest)';
+const GROUP_RE = new RegExp('^(?:(?:the|a|some|several|a few|two|three|four|five|six|seven|eight|nine|ten|\\d+)\\s+)?(?:[\\p{L}-]+\\s+){0,3}' + GROUP_HEAD + '\\b', 'iu');
+export function isGroupName(name) {
+  const n = String(name || '').trim();
+  if (!n || /^(?:the|a)\s+\w+$/i.test(n) && !new RegExp('^(?:the|a)\\s+' + GROUP_HEAD + '$', 'i').test(n)) return false;
+  return GROUP_RE.test(n);
+}
+
+/* M484: A ROLE IS THE PERSON WHO HOLDS IT. "The news drone operator" walked the ledger beside "Dev Okafor", whose page
+ * says "news drone operator; flew the drone over the crater…" — two seats, two threads, two people. A name that is an
+ * article and a role ("the news drone operator", "the woman in scrubs") is the one named person whose page carries
+ * that very phrase; two pages, or none: nobody. */
+function roleOf(name) {
+  const m = /^(?:the|a|an)\s+([a-z][a-z' -]{2,60})$/i.exec(String(name || '').trim());
+  if (!m) return null;
+  const role = m[1].trim().toLowerCase();
+  return role.split(/\s+/).length >= 2 || role.length >= 6 ? role : null;
+}
+function resolveRole(state, name) {
+  const role = roleOf(name);
+  if (!role || isGroupName(name)) return null;
+  const hits = [];
+  for (const key of Object.keys(state.characters && typeof state.characters === 'object' ? state.characters : {})) {
+    if (roleOf(key) || relationOf(key) || samePersonName(key, name)) continue;
+    const text = personTexts(state, key).toLowerCase();
+    if (text.includes(role)) hits.push(key);
+  }
+  return hits.length === 1 ? hits[0] : null;
+}
+
 export function resolveDescriptor(state, name) {
   const rel = relationOf(name);
-  if (!rel) return null;
+  if (!rel) return resolveRole(state, name);
   /* a pronoun owner ("his", "my", "the") is the main character */
   const owner = rel.owner || mcName(state);
   const ownerIsMc = !rel.owner || isMc(state, rel.owner);
@@ -456,6 +489,7 @@ export function setPersonField(state, characters, name, field, text, turn, { cle
   if (forMc && (f === 'core' || f === 'arc')) {
     return { why: 'the main character’s ledger is record-only — state and threads, nothing more' };
   }
+  if (isGroupName(cleanName)) return { why: '“' + cleanName + '” is a group, not a person — a faction, if anything' }; /* M484 */
   /* The persona redirect holds for the hand as it does for the scribe: a
    * page addressed to "you" is the main character's record. */
   const key = forMc ? mcKey(state) : (findPersonKey(characters, cleanName) || resolveDescriptor(state, cleanName) || cleanName); /* M482 */
@@ -758,13 +792,18 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   const awayNow = (k) => {
     const seat = seatOf(k);
     if (!seat) return null;
+    if (isDeadSeat(seat)) return 'dead'; /* M484 */
     if (seatsInState) return 'away'; /* M416: said plainly — where, is in Elsewhere a few lines on (M292: once) */
     if (![seat.location, seat.activity].filter(Boolean).length) return null;
     /* M300: a seat says its age; M304: and a sighting says it is one — the same words every reader gets */
     return seatNowWords(seat, state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null);
   };
+  /* M484: A CARD WITH NOTHING ON IT IS NOT A CARD. "Ikkaku — Now: away" told the storyteller nothing but a name; a
+   * page with no core, no arc and no loose ends is the name alone on its line. */
+  const bareCard = (k) => { const e = characters[k] || {}; return !e.core && !e.arc && !(Array.isArray(e.threads) && e.threads.length); };
   const awayCard = (k) => {
     const now = awayNow(k);
+    if (bareCard(k)) return k + (now && now !== 'away' ? ' — ' + now : '');
     const entry = now ? { ...characters[k], state: now, updatedAtTurn: turn } : characters[k];
     return cardText(k, entry, turn, RECALL_CARD_CAP);
   };
@@ -885,7 +924,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
       const lines = shown.map((k) => {
         const who = shortClause(characters[k].core, 90);
         const seated = awayNow(k);
-        const now = seated && seatsInState ? 'away' : shortClause(seated || characters[k].state, 70); /* M416 */
+        const now = seated && isDeadSeat(seatOf(k) || {}) ? 'dead' : seated && seatsInState ? 'away' : shortClause(seated || characters[k].state, 70); /* M416; M484 */
         return '- ' + k + (who ? ' \u2014 ' + who : '') + (now ? ' \u00b7 now: ' + now : '') + ' (' + agoOf(k) + ')';
       });
       sections.push({ shed: 3, text: 'Elsewhere in the tale:\n' + lines.join('\n') + (moreWords ? '\n' + moreWords.charAt(0).toUpperCase() + moreWords.slice(1) + '.' : '') });

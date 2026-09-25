@@ -155,7 +155,7 @@ export function seatNowWords(entry, clockMinutes, { agenda = false, arrival = fa
   let words = e.lastSeen === true
     ? 'last seen ' + (where ? 'at ' + where.replace(/^(at|in|on)\s+/i, '') : 'where the scene stood') + (what ? ', ' + what : '')
     : ([where, what].filter(Boolean).join(', ') || 'somewhere out of sight');
-  if (agenda && cleanText(e.agenda)) words += ' (meaning to ' + cleanText(e.agenda).replace(/\.+$/, '') + ')';
+  if (agenda && cleanText(e.agenda)) words += ' (meaning to ' + cleanText(e.agenda).replace(/^to\s+/i, '').replace(/\.+$/, '') + ')'; /* M484: never "meaning to to" */
   if (arrival) { const approach = renderArrival(e, clockMinutes); if (approach) words += ' — ' + approach; }
   const age = seatAgeWords(e, clockMinutes);
   if (age) words += ' (' + age + ')';
@@ -168,12 +168,27 @@ function seatWords(name, entry, clockMinutes) {
 
 /* The six most recently seated who are NOT in the scene right now.
  * `present` is state.present ([{name}] — plain strings tolerated). */
+/* M484: THE DEAD ARE NOT ELSEWHERE. A seat the world agent wrote as "dead — his grave on the Kuchiki plot, gone" rode
+ * the Elsewhere list like anyone's, with an arrival and "(as of 31 minutes ago)" — four graves a briefing, aged by
+ * the clock. A seat whose words begin with dead, deceased, died, killed or KIA is a death: one line for all of them,
+ * at the foot, where they lie, no age, no arrival — and the people list says "dead", not "away". */
+export function isDeadSeat(entry) {
+  const e = entry && typeof entry === 'object' ? entry : {};
+  return /^\s*(?:dead|deceased|died|killed|kia|k\.i\.a\.|slain|perished)\b/i.test(cleanText(e.location)) || /^\s*(?:dead|deceased|died|killed|kia|slain|perished)\b/i.test(cleanText(e.activity));
+}
+function deadWords(name, entry) {
+  const e = entry && typeof entry === 'object' ? entry : {};
+  const rest = cleanText(e.location).replace(/^(?:dead|deceased|died|killed|kia|k\.i\.a\.|slain|perished)\b[\s—:,-]*/i, '').replace(/\bgone\b[.;,\s]*$/i, '').replace(/[;,\s]+$/, '');
+  return name + (rest ? ' (' + rest + ')' : '');
+}
 export function renderOffscreen(offscreen, present, clockMinutes, top = RENDER_TOP, characters = {}) {
   const safe = offscreen && typeof offscreen === 'object' ? offscreen : {};
   const rows = [];
+  const dead = [];
   for (const [name, entry] of Object.entries(safe)) {
     if (!entry || typeof entry !== 'object') continue;
     if (isHere({ present, offscreen: safe, characters }, name)) continue; // they're in the scene — under any form of their name (M396)
+    if (isDeadSeat(entry)) { dead.push(deadWords(name, entry)); continue; } /* M484 */
     rows.push({ line: seatWords(name, entry, clockMinutes), recency: recencyKey(entry), rank: stanceRank(entry, clockMinutes) });
   }
   /* M86: the writer's ACW rotation, not recency alone — whoever is moving
@@ -182,7 +197,9 @@ export function renderOffscreen(offscreen, present, clockMinutes, top = RENDER_T
    * waiting; recency breaks ties. The storyteller's six lines are the six
    * that can reach the scene, never the six most recently written. */
   rows.sort((a, b) => (a.rank - b.rank) || (b.recency - a.recency));
-  return rows.slice(0, top).map((r) => r.line).join('\n');
+  const lines = rows.slice(0, top).map((r) => r.line);
+  if (dead.length) lines.push('Dead: ' + dead.join('; ') + '.'); /* M484: one line, no clock */
+  return lines.join('\n');
 }
 
 /* M304: the same order, as names — the drawer lists the absent the way the

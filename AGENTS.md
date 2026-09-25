@@ -11352,3 +11352,33 @@ green when the output ends?"; "sometimes the light is gone and I need to refresh
 - TESTS: walk DOM-116 — the landed page carries its number and the tale counts it, a re-ink keeps it (rerenderMessage
   exposed for the walk); tests/pagemark.py still names both ends. Harness 927/927, walk 140/140, lint 0.
 - version.js -> m483-001.
+
+# M484 — what the storyteller saw, without the bloat
+He, with two whole briefings pasted: "make sure it's the best and most efficient ever — no bloat, nothing that
+isn't needed, the best quality." Read line by line, the waste was of five kinds, and none of it was the storyteller's
+to fix.
+- ONE WOUND PER BODY PART (engine/bodies.js addInjury, bodyPartOf): the page reader wrote a wound again on every page
+  that showed it — Zaraki carried six lines for three wounds, Jovan two for one knee — and the referee's math counted
+  every line. A wound written on a part that already carries an unhealed one is that wound gone worse: the newer
+  words, the higher severity, the first hour. The part is the one the words lead with; no part named, its own line.
+- ONE FACT IN ONE WORDING, HOUSE-WIDE (engine/world.js sameFact, addKnowledge): paraphrases of one moment stood as
+  separate lines, and nine people held the hair-rubbing in nine wordings, so "Everyone here knows" could never fold
+  them. Two facts sharing most of their content words are one (the longer stays); numbers must agree, the names one
+  carries must all be in the other; a fact someone else holds is written for the next person in those very words.
+  The old ledger is folded on load by the same rule (M92's dedupeKnowledge).
+- A ROLE IS ITS HOLDER; A GROUP IS NOT A PERSON (engine/people.js resolveRole, isGroupName): "The news drone
+  operator" walked beside Dev Okafor, whose page says "news drone operator" — one seat now, one thread. "the
+  onlookers behind the taped line", "The two police officers at the barricade", "Onmitsukidō runners" had pages,
+  seats with agendas and standings; a group is refused at the page, the seat and the walk-in, and stays a faction.
+- THE DEAD ARE NOT ELSEWHERE (engine/offscreen.js isDeadSeat): four graves rode the Elsewhere list with arrivals and
+  "(as of 31 minutes ago)"; a seat whose words begin with dead/died/killed/KIA is one line at the foot — "Dead:
+  Ukitake (his grave…); …" — no clock, and the people list says "dead", not "away". "meaning to to" is gone.
+- A CARD WITH NOTHING ON IT IS A NAME (people.js awayCard): "Ikkaku — Now: away" told the storyteller nothing.
+- NOT TOUCHED, ON PURPOSE: the knowledge lines' ages and the "From much earlier" divider (M-laws: a twenty-page-old
+  fact is not fresh); "What they haven't found out" (a secret's fence); the brief's raw words (his, and the polish is
+  his switch); the world's word; the threads. The waste was duplicates and non-people, not the design.
+- TESTS: harness m484.mjs — 4 laws (six lines → three wounds; paraphrases one, numbers and names apart, one wording
+  house-wide; a role its holder and a group refused at every door while a faction stands; the dead one line and
+  never "away", a bare card a name, "meaning to" once). Harness 931/931 (M259's nine-fact fixtures held), walk
+  140/140, long play 8/8, lint 0.
+- version.js -> m484-001.

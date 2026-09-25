@@ -100,14 +100,42 @@ export function findInjury(body, what) {
 
 /* ---------- the contract ---------- */
 
+/* M484: ONE WOUND PER PLACE. The page reader wrote a wound on every page that showed it — "left shoulder run through",
+ * "left shoulder wound torn wider", "left shoulder wound torn wider by the shock" — and the referee's math counted every
+ * line: six wounds on one man, six points off his rating, and the briefing read like a butcher's list. A new wound on
+ * a body part that already carries an unhealed one is that wound GONE WORSE: the newer words (they say what it is
+ * now), the higher severity, the first hour it was taken, treated only if the new line says so. A wound with no
+ * body part named ("a graze"), or on another part, is its own. */
+const BODY_PARTS = ['forehead', 'temple', 'skull', 'head', 'face', 'cheekbone', 'cheek', 'jaw', 'chin', 'nose', 'eye', 'ear', 'lip', 'mouth', 'teeth', 'neck', 'throat', 'collarbone', 'shoulder', 'upper arm', 'forearm', 'elbow', 'wrist', 'hand', 'palm', 'knuckle', 'finger', 'thumb', 'chest', 'breast', 'rib', 'sternum', 'back', 'spine', 'flank', 'side', 'stomach', 'belly', 'abdomen', 'gut', 'kidney', 'liver', 'lung', 'hip', 'pelvis', 'groin', 'thigh', 'knee', 'shin', 'calf', 'ankle', 'foot', 'heel', 'toe', 'arm', 'leg', 'torso', 'scalp', 'brow'];
+export function bodyPartOf(what) {
+  const w = String(what || '').toLowerCase();
+  const side = /\b(left|right)\b/.exec(w);
+  /* the part the words LEAD with ("kidney struck twice through the back" is a kidney wound) */
+  let part = ''; let at = Infinity;
+  for (const p of BODY_PARTS) { const m = new RegExp('\\b' + p + 's?\\b').exec(w); if (m && m.index < at) { at = m.index; part = p; } }
+  if (!part) return '';
+  return (side && side.index < at + 24 ? side[1] + ' ' : '') + part;
+}
 export function addInjury(bodies, name, { what, sev, treated } = {}, clockMinutes, atTurn) {
   const next = copyBodies(bodies);
   const who = cleanText(name);
   if (!who) return next;
   const key = findBodyKey(next, who) || who;
   if (!next[key]) next[key] = { injuries: [], strain: [] };
+  const words = cleanText(what);
+  const part = bodyPartOf(words);
+  if (part) {
+    const same = next[key].injuries.find((i) => i && !i.healed && bodyPartOf(i.what) === part);
+    if (same) {
+      same.what = words || same.what;
+      same.sev = Math.max(clampSev(same.sev), clampSev(sev));
+      same.treated = Boolean(treated);
+      same.worsenedAtTurn = Number.isFinite(atTurn) ? atTurn : same.worsenedAtTurn;
+      return next;
+    }
+  }
   next[key].injuries.push({
-    what: cleanText(what),
+    what: words,
     sev: clampSev(sev),
     atMinutes: minutesOrNull(clockMinutes),
     atTurn: Number.isFinite(atTurn) ? atTurn : null,

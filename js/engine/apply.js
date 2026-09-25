@@ -45,7 +45,7 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight } from './duels.js';
-import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor } from './people.js'; /* M482: the descriptor door */
+import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
@@ -443,6 +443,7 @@ const HANDLERS = {
   'presence.enter'(state, m) {
     const given = normalizeName(m.name);
     if (!given) return { why: 'no name came with it' };
+    if (isGroupName(given)) return { why: '“' + given + '” is a group, not a person — the scene’s company is a mood, not a seat' }; /* M484 */
     const name = resolveDescriptor(state, given) || given; /* M482: "his stepsister" walks in as Vivi */
     if (findPresent(state, name, { strict: true }) !== -1) { /* M414 */
       /* M259: someone already here who "comes in" at a new spot has MOVED —
@@ -747,6 +748,7 @@ const HANDLERS = {
   'offscreen.set'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
+    if (isGroupName(name)) return { why: '“' + name + '” is a group, not a person — a faction sits nowhere' }; /* M484 */
     const location = capText(m.location, 500);
     const activity = capText(m.activity, 1000);
     if (!location && !activity) {

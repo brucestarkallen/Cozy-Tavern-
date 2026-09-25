@@ -331,16 +331,25 @@ export function addKnowledge(knowledge, name, fact, atTurn) {
   if (!who || !what) return next;
   const key = findKnowledgeKey(next, who) || who;
   const list = next[key] || [];
+  /* M484: ONE WORDING FOR ONE FACT, HOUSE-WIDE. A fact someone else already holds is written for this person in
+   * THOSE words — so the briefing can say "Everyone here but X knows: …" once instead of the same moment nine times
+   * in nine paraphrases. */
+  let canon = what;
+  for (const [other, theirs] of Object.entries(next)) {
+    if (other === key || !Array.isArray(theirs)) continue;
+    const held = theirs.find((k) => k && sameFact(k.fact, what));
+    if (held) { canon = held.fact; break; }
+  }
   /* M92: the same fact in different clothes is the same fact — quotes and
    * apostrophes normalized, punctuation gone, one fact wholly inside another
    * (the shorter a prefix or a clipping of the longer) — the longer stays */
-  const dup = list.findIndex((k) => sameFact(k.fact, what));
+  const dup = list.findIndex((k) => sameFact(k.fact, canon));
   if (dup !== -1) {
-    if (what.length > list[dup].fact.length) list[dup] = { ...list[dup], fact: what };
+    if (canon === what && what.length > list[dup].fact.length) list[dup] = { ...list[dup], fact: what };
     next[key] = list;
     return next;
   }
-  list.push({ fact: what, atTurn: Number.isFinite(atTurn) ? atTurn : null });
+  list.push({ fact: canon, atTurn: Number.isFinite(atTurn) ? atTurn : null });
   next[key] = list.slice(-KNOWLEDGE_GUARD);
   return next;
 }
@@ -376,7 +385,32 @@ export function sameFact(a, b) {
   if (!x || !y) return false;
   if (x === y) return true;
   const [short, long] = x.length <= y.length ? [x, y] : [y, x];
-  return short.length >= 24 && long.includes(short);
+  if (short.length >= 24 && long.includes(short)) return true;
+  /* M484: THE SAME FACT IN OTHER WORDS. The page reader wrote "Jovan's red-glowing punch drove Zaraki three yards
+   * through the sand" one page and "observed the force of Jovan's red punch leave Zaraki's body and the skid furrows
+   * run three yards" the next, and both stood, and the storyteller read one moment three times. Two facts sharing
+   * most of their content words are one fact: six of ten of the shorter one's words in the longer, or five words
+   * shared and half; the longer wording stays. Two facts that merely share a subject ("Jovan", "the courtyard") do
+   * not reach it. */
+  const words = (t) => new Set(String(t).split(' ').filter((s) => s.length > 3 || /\d/.test(s)));
+  const ws = words(x); const wl = words(y);
+  if (ws.size < 4 || wl.size < 4) return false;
+  /* what tells two near facts apart — a number, a name (a capitalised word inside the sentence) — must agree: "told
+   * Vivi" is not "told Claire", "fact 1" is not "fact 2" */
+  const nums = (t) => new Set(String(t || '').match(/\b\d+\b/g) || []);
+  const names = (t) => new Set((String(t || '').match(/(?<=[^.!?]\s)[A-Z][\p{L}-]+/gu) || []).map((m) => m.toLowerCase()));
+  const na = nums(a); const nb = nums(b);
+  for (const n of na) if (!nb.has(n)) return false;
+  for (const n of nb) if (!na.has(n)) return false;
+  /* the names one carries must all be in the other ("her" against "Rukia Kuchiki" is the same girl; "Vivi" against
+   * "Claire" is two) */
+  const pa = names(a); const pb = names(b);
+  const within = (s, t) => [...s].every((n) => t.has(n));
+  if (!within(pa, pb) && !within(pb, pa)) return false;
+  let hit = 0;
+  for (const s of ws) if (wl.has(s)) hit += 1;
+  const small = Math.min(ws.size, wl.size);
+  return hit / small >= 0.6 || (hit >= 5 && hit / small >= 0.5);
 }
 /* M92: an existing book of knowledge with its duplicates folded — run on load,
  * so a store that gathered them before this law is clean the next time it is
