@@ -11311,3 +11311,26 @@ He: "is this broken? On the receipt the order of my own words is weird, but the 
   that ride behind the pages after it and before "The note at the end". Not one byte of the request changed.
 - TESTS: m466.mjs M481 — the rows' order in the receipt, the wire as before. Harness 924/924, walk 140/140, lint 0.
 - version.js -> m481-001.
+
+# M482 — a descriptor is not a person; the eye's marks are mended; knowledge in the page's own terms
+He, with the auditor's findings: "can this be fixed before the auditor finds it? The auditor is the last fence."
+- THE DUPLICATE ("Vivi" and "Jovan's stepsister", two seats, two pages, two sets of loose ends): the scribe named a
+  person by her RELATION to someone and the ledger took it as a new name. Now every door resolves a descriptor —
+  "Jovan's stepsister", "his older sister", "the stepmother", "Kara's cousin", adjectives allowed — to the one page
+  that already carries that relation to that person (people.js resolveDescriptor: the relation word with its
+  adjectives and the owner's name — any word of it three letters or longer — within one clause of each other on the
+  page's core/state/arc, in canon, or on the seat; a pronoun stands for the owner only when the owner is the main
+  character; two answers are none, so a page of its own may stand when the ledger cannot tell). Through the door:
+  pages (setPersonField), seats (offscreen.set), knowledge, standings and threads (personBookKey/newBookKey), and a
+  walk-in (presence.enter). The auditor's fold stays as the last fence.
+- THE EYE'S TWO MARKS, MENDED (pageshape.js mendMarks): bold marks in the prose go; an action wrapped in asterisks
+  (four words or more — never a sound, *bzz-bzz*, nor a short thought, *He is lying,*) loses its asterisks; a
+  private thought's ~t~*…*~/t~ and the window's *** The World Beyond *** are shielded like objects. The eye still
+  names the dead phrase and the dialogue share — words, the storyteller's to mend next turn.
+- THE KNOWLEDGE LINES that overstated (a stepmother the page called their mother; who said what to whom): the
+  page reader's contract now says a knowledge line is written in the page's own terms — what was said, seen or
+  overheard exactly, never what the person would conclude, never a fact the page did not put in front of them.
+- TESTS: harness m482.mjs — 3 laws (the resolver's ten cases; five doors landing on Vivi and a walk-in as her, her
+  seat let go; the mends with the sound, the short thought and the private thought kept, the rule on the contract).
+  Harness 927/927, walk 140/140, long play 8/8, lint 0.
+- version.js -> m482-001.

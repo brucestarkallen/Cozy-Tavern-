@@ -64,7 +64,7 @@ export function shapeOf(text) {
  * a tracker block was skipped by every mend — so a stray quote three paragraphs above the screen stood forever, and
  * the writer asked why the agent fixes nothing. The object's own quotes and asterisks are HTML, not marks: it is
  * lifted out whole, the prose around it is mended, and it is put back to the letter. */
-const SHIELD_RE = /<!--\s*GFX_START[\s\S]*?(?:<!--\s*GFX_END\s*-->|$)|```[\s\S]*?(?:```|$)|[^\n]*\{(?:PULSE|WATCHLIST|VOICES)\}[\s\S]*?(?=\n[ \t]*\n|$)/g;
+const SHIELD_RE = /<!--\s*GFX_START[\s\S]*?(?:<!--\s*GFX_END\s*-->|$)|```[\s\S]*?(?:```|$)|~t~\*[^\n]*?\*~\/t~|(?<=^|\n)[ \t]*\*\*\* The World Beyond \*\*\*(?=[ \t]*(?:\n|$))|[^\n]*\{(?:PULSE|WATCHLIST|VOICES)\}[\s\S]*?(?=\n[ \t]*\n|$)/g; /* M482: a private thought's markup, and the window's marker, are objects too */
 export function shieldObjects(text) {
   const kept = [];
   const safe = String(text == null ? '' : text).replace(SHIELD_RE, (m) => { kept.push(m); return '\uE000' + (kept.length - 1) + '\uE001'; });
@@ -82,6 +82,11 @@ export function mendMarks(text) {
     const was = p;
     const nextSpeaks = k + 2 < parts.length && /^\s*[\u201c"]/.test(parts[k + 2]);
     p = p.replace(/\*+[ \t]*(["\u201c][^"\u201c\u201d\n]*["\u201d])[ \t]*\*+/g, '$1');
+    /* M482: the eye's two findings, mended instead of only named — bold marks in the prose go; an ACTION wrapped in
+     * asterisks (four words or more — never a sound: *bzz*, *pt-pt*, *thud-thud-thud*) loses its asterisks. Marks
+     * only; the words stay to the letter. The craft: asterisks wrap contact sounds and nothing else. */
+    p = p.replace(/\*\*([^*\n]+)\*\*/g, '$1');
+    p = p.replace(/(?<!\*)\*([^*\n]{4,140})\*(?!\*)/g, (m, inner) => (inner.trim().split(/\s+/).length >= 4 ? inner : m));
     /* an empty pair of quotes goes, and only the spaces it leaves behind with it (a page's own white space is its own) */
     const noEmpty = p.replace(/(^|[ \t(])(?:""|\u201c[ \t]*\u201d)(?=[ \t.,!?;:)]|$)/g, '$1');
     if (noEmpty !== p) p = noEmpty.replace(/([^ \t\n])[ \t]{2,}(?=\S)/g, '$1 ').replace(/[ \t]+(?=[.,!?;:])/g, '').replace(/[ \t]+$/g, '');

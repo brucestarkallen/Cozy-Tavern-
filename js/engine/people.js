@@ -384,6 +384,67 @@ export function mergeDeltas(state, characters, deltas, turn) {
 /* The hand's door (people.set in engine/apply.js): write one field
  * outright. Same validation, same MC law. `threads` takes the whole list,
  * separated by semicolons or newlines. Returns {entry, key} or {why}. */
+/* M482: A DESCRIPTOR IS NOT A PERSON. The scribe seated "Jovan's stepsister" beside "Vivi" — two seats, two pages, two
+ * sets of loose ends for one person, until the auditor folded them a turn later. A name that is a RELATION to someone
+ * ("Jovan's stepsister", "his older sister", "the stepmother", "Kara's cousin", with any adjectives before the
+ * relation word) is resolved at the door to the one named person whose page, canon or seat already carries that
+ * relation to that someone — exactly one, or nobody (then the descriptor may stand as a page of its own, as an unnamed
+ * character does). Every book goes through this door: pages, seats, standings, knowledge, threads. */
+const RELATION_WORDS = '(?:step|half|grand|god|foster|great-)?(?:sister|brother|mother|father|mom|dad|mum|son|daughter|wife|husband|aunt|uncle|cousin|niece|nephew|sibling|twin|parent|child|kid|friend|boss|teacher|mentor|butler|maid|driver|guard|bodyguard|assistant|secretary|roommate|neighbou?r|partner|girlfriend|boyfriend|fianc[ée]e?|ex|lover|rival|captain|lieutenant|master|servant|apprentice)(?:-in-law)?';
+const DESCRIPTOR_RE = new RegExp('^(?:(the|his|her|their|my|your)\\s+|([A-Z][\\w\'’-]+(?:\\s+[A-Z][\\w\'’-]+)*)(?:\'s|’s)\\s+)((?:[a-z-]+\\s+){0,3})(' + RELATION_WORDS + ')$', 'i');
+function relationOf(name) {
+  const m = DESCRIPTOR_RE.exec(String(name || '').trim());
+  if (!m) return null;
+  return { owner: m[2] || null, pronoun: m[1] ? m[1].toLowerCase() : null, adjectives: String(m[3] || '').trim().toLowerCase(), relation: m[4].toLowerCase() };
+}
+function personTexts(state, key) {
+  const bits = [];
+  const c = state.characters && state.characters[key];
+  if (c && typeof c === 'object') for (const f of ['core', 'state', 'arc', 'why']) if (typeof c[f] === 'string') bits.push(c[f]);
+  const canon = state.canon && state.canon[key];
+  if (canon && Array.isArray(canon.facts)) for (const f of canon.facts) if (f) bits.push(String(f.key || '') + ' ' + String(f.value || ''));
+  const seat = state.offscreen && state.offscreen[key];
+  if (seat && typeof seat === 'object') for (const f of ['location', 'activity', 'agenda']) if (typeof seat[f] === 'string') bits.push(seat[f]);
+  return bits.join('\n');
+}
+export function resolveDescriptor(state, name) {
+  const rel = relationOf(name);
+  if (!rel) return null;
+  /* a pronoun owner ("his", "my", "the") is the main character */
+  const owner = rel.owner || mcName(state);
+  const ownerIsMc = !rel.owner || isMc(state, rel.owner);
+  /* the relation with its adjectives when the descriptor gave them ("older sister" — not any sister) */
+  const phrase = (rel.adjectives ? rel.adjectives + ' ' : '') + rel.relation;
+  const relRe = new RegExp('\\b' + phrase.replace(/[-]/g, '\\-').replace(/\s+/g, '\\s+') + 's?\\b', 'i');
+  /* the owner by any word of his name three letters or longer ("Jovan" for "Jovan Arden"); for the main character a
+   * pronoun stands for him too — for anyone else a pronoun on a page is the page's own subject, never the owner */
+  const ownerWords = owner && owner !== 'the player' ? owner.split(/\s+/).filter((w) => w.length >= 3).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) : [];
+  const nameRe = ownerWords.length ? new RegExp('\\b(?:' + ownerWords.join('|') + ')\\b', 'i') : null;
+  const ownerRe = ownerIsMc ? new RegExp('\\b(?:' + (ownerWords.length ? ownerWords.join('|') + '|' : '') + 'his|her|their)\\b', 'i') : nameRe;
+  if (!ownerRe) return null;
+  const names = new Set([
+    ...Object.keys(state.characters && typeof state.characters === 'object' ? state.characters : {}),
+    ...Object.keys(state.canon && typeof state.canon === 'object' ? state.canon : {}),
+    ...Object.keys(state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {}),
+  ]);
+  const byName = [];
+  const byPronoun = [];
+  for (const key of names) {
+    if (relationOf(key)) continue; /* another descriptor is never the person */
+    if (samePersonName(key, name) || (owner && samePersonName(key, owner))) continue;
+    const text = personTexts(state, key);
+    if (!text) continue;
+    /* the relation and the owner within one clause of each other */
+    const clauses = text.split(/[.;\n]/);
+    if (nameRe && clauses.some((s) => relRe.test(s) && nameRe.test(s))) byName.push(key);
+    else if (clauses.some((s) => relRe.test(s) && ownerRe.test(s))) byPronoun.push(key);
+  }
+  if (byName.length === 1) return byName[0];
+  if (!byName.length && byPronoun.length === 1) return byPronoun[0];
+  return null;
+}
+
+
 export function setPersonField(state, characters, name, field, text, turn, { clear = false } = {}) {
   const cleanName = normalizeName(name);
   if (!cleanName) return { why: 'no name came with it' };
@@ -397,7 +458,7 @@ export function setPersonField(state, characters, name, field, text, turn, { cle
   }
   /* The persona redirect holds for the hand as it does for the scribe: a
    * page addressed to "you" is the main character's record. */
-  const key = forMc ? mcKey(state) : (findPersonKey(characters, cleanName) || cleanName);
+  const key = forMc ? mcKey(state) : (findPersonKey(characters, cleanName) || resolveDescriptor(state, cleanName) || cleanName); /* M482 */
   const before = characters[key] ? { ...characters[key], threads: (characters[key].threads || []).slice() } : null;
   const entry = before ? { ...before, threads: before.threads.slice() } : emptyPerson();
   const atTurn = Number.isFinite(turn) ? turn : (Number.isFinite(state && state.turn) ? state.turn : 0);

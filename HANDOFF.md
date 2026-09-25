@@ -1,6 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m481-001)
+# Cozy Tavern — handoff for the next session (state at m482-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1r. A DESCRIPTOR IS NOT A PERSON (M482): people.js resolveDescriptor at every name door (pages, seats, knowledge,
+   standings, threads, presence.enter). Two answers are none. pageshape.js SHIELD_RE also shields ~t~*…*~/t~ and the
+   window's marker — any new asterisk rule in mendMarks must keep it so.
 1q. A #STORY CONCEPT IS THE BRIEF (M478/M479): chat.js briefFromConcept — by itself on send (switch `conceptToBrief`,
    default OFF since M480, EMPTY brief only) or by hand from Settings → The brief (asks before replacing); agents/concept.js
    polishes (acceptablePolish guards names and size); the founder re-reads the brief at run time.

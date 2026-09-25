@@ -45,7 +45,7 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight } from './duels.js';
-import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson } from './people.js';
+import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor } from './people.js'; /* M482: the descriptor door */
 import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
@@ -187,6 +187,8 @@ export function personBookKey(state, book, name, finder) {
   const map = book && typeof book === 'object' ? book : {};
   const found = typeof finder === 'function' ? finder(map, name) : null;
   if (found) return found;
+  const who = resolveDescriptor(state, name); /* M482 */
+  if (who) return (typeof finder === 'function' ? finder(map, who) : null) || Object.keys(map).find((k) => samePersonName(k, who)) || null;
   /* "you", "I", "the player" and his story name are one person: the main character's own entry */
   if (isMc(state, name) && mcName(state) !== 'the player') return Object.keys(map).find((k) => isMc(state, k)) || null;
   const same = Object.keys(map).filter((k) => samePersonName(k, name));
@@ -209,7 +211,7 @@ function strictPageKey(state, name) {
 export function pageNameFor(state, name) { return strictPageKey(state, name); }
 function newBookKey(state, name) {
   if (isMc(state, name) && mcName(state) !== 'the player') return strictPageKey(state, mcName(state)) || mcName(state);
-  return strictPageKey(state, name) || name;
+  return strictPageKey(state, name) || resolveDescriptor(state, name) || name; /* M482 */
 }
 const relKeyOf = (map, name) => { const f = findRelationship(map, name); return f ? f.key : null; };
 function findPersonRel(state, name) {
@@ -439,8 +441,9 @@ const HANDLERS = {
   },
 
   'presence.enter'(state, m) {
-    const name = normalizeName(m.name);
-    if (!name) return { why: 'no name came with it' };
+    const given = normalizeName(m.name);
+    if (!given) return { why: 'no name came with it' };
+    const name = resolveDescriptor(state, given) || given; /* M482: "his stepsister" walks in as Vivi */
     if (findPresent(state, name, { strict: true }) !== -1) { /* M414 */
       /* M259: someone already here who "comes in" at a new spot has MOVED —
        * the position or dress the page gave is written, not thrown away
@@ -759,7 +762,7 @@ const HANDLERS = {
     /* M320: THE SEAT IS WRITTEN UNDER THE PERSON'S OWN NAME — the name their page stands under, when they have
      * one ("Rias" is seated as "Rias Gremory"); a seat they already hold under another form of their name is
      * taken over, never left beside the new one. */
-    const pageKey = findPersonKey(state.characters || {}, name);
+    const pageKey = findPersonKey(state.characters || {}, name) || resolveDescriptor(state, name); /* M482 */
     if (findPresent(state, name, { strict: true }) !== -1 || (pageKey && findPresent(state, pageKey, { strict: true }) !== -1) || isHere(state, name) || (pageKey && isHere(state, pageKey))) { /* M414: strict */
       return { why: (pageKey || name) + ' is in the scene — they cannot be written elsewhere' };
     }
