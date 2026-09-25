@@ -6251,6 +6251,54 @@ test('DOM-125 STOP MID-PAGE, THEN TRY AGAIN: the half page is kept and marked st
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+
+test('DOM-126 TRY AGAIN WHILE THE READERS ARE STILL READING: a reader held on the replaced page answers after the new page lands — its words are refused (the page it read was let go); the new page’s reading stands; nothing is doubled', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadState } = await import('../../js/engine/state.js');
+  const H = '[The hall — Monday, March 3, 2025 | 09:05 | clear | coat | by the door]\n\n';
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  const st = await db.stories.create({ title: 'retry while reading' });
+  await db.messages.append(st.id, { role: 'user', text: 'We wait in the hall.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'The hall was cold and nobody spoke.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+  let release; const held = new Promise((r) => { release = r; });
+  const answerFor = (name) => JSON.stringify({ mutations: [{ type: 'presence.enter', name }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+  let heldCalls = 0;
+  try {
+    house.state.workerAnswer = (body) => {
+      const text = JSON.stringify(body);
+      if (/OLDPAGE-MARK/.test(text)) { heldCalls += 1; return held.then(() => answerFor('Ghost')); }
+      if (/NEWPAGE-MARK/.test(text)) return answerFor('Lin');
+      return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+    };
+    house.state.storyAnswer = () => H + 'OLDPAGE-MARK Ghost waits at the door, dripping.';
+    type(q('#composer-input'), 'I knock.'); submit(q('#composer'));
+    await until(() => heldCalls > 0, 'a reader reading the page (the light working)', 20000);
+    /* Try again while it reads */
+    house.state.storyAnswer = () => H + 'NEWPAGE-MARK Lin opens the door and lets the rain in.';
+    await until(() => !env.ctx.chat.isBusy() && !q('#btn-retry').hidden, 'Try again offered', 10000);
+    click(q('#btn-retry'));
+    await until(async () => { const a = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden).pop(); const t = a && (Array.isArray(a.swipes) && a.swipes.length ? a.swipes[Number.isFinite(a.swipeIdx) ? a.swipeIdx : a.swipes.length - 1].text : a.text); return /NEWPAGE-MARK/.test(t || '') && !env.ctx.chat.isBusy(); }, 'the new page landed', 30000);
+    /* the old reader answers now — after its page was let go */
+    release();
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'every reader settled', 40000);
+    await tick(300);
+    const s = await loadState(st.id);
+    const here = (s.present || []).map((p) => p.name);
+    assert(!here.includes('Ghost') && !Object.keys(s.characters || {}).includes('Ghost'), 'the replaced page’s reader wrote nothing: ' + here.join(', '));
+    assert(here.includes('Lin'), 'the new page’s reading stands: ' + here.join(', '));
+    const users = (await db.messages.list(st.id)).filter((m) => m.role === 'user' && m.text === 'I knock.');
+    eq(users.length, 1, 'his message once');
+  } finally {
+    release && release();
+    house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

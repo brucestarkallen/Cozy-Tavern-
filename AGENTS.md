@@ -11646,3 +11646,10 @@ He: "everything is foolproof, right — when I stop an output (the marker) and p
   one request, his message once); one page stands for the turn; the new page shows, unmarked; the readers settle.
   The ledger's side of a stopped version is DOM-47's law (a stopped new version gives the ledger back).
 - GATES: harness 952/952, walk 143/143, long play 8/8, lint 0, two-browser proof. version.js -> m496-001.
+
+# M496-2 — proven: Try again while the readers are still reading
+He: "so the ledger is safe even if I press Try again while the light is still working?" — the design said yes (M72's
+chain generation turns on every rewind; every reader checks stale() before it saves, M290), but no scenario drove it.
+Walk DOM-126 (new): a reader HELD on the page being replaced (the fake house holds its answer) while Try again lands a
+new page; released afterwards with "Ghost entered" from the old page — refused; the new page's reading ("Lin")
+stands; his message once; no errors. Test-only: the app needed no change. Walk 144/144, lint 0.
