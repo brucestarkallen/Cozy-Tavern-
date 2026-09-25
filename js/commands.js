@@ -53,7 +53,7 @@ const DIRECTIVES = {
   timeSkip: '#time skip — jump to the time or moment named below: a logical transit summary proportional to the delta (the world moved in the gap — show it in proportion; a week skipped is a week of the world), ' + PARTY_GATE + ' Quarantine holds across the skip: MC arrives knowing only the transit summary and the visible scene. Then a new scene at the destination already in motion. The header carries the new date and hour. The destination: ',
   story: '#story — a new story begins from the concept below. Write the first scene immediately: the header, then the scene, with every unspecified detail (the date, the ground, who is there, what MC is doing) chosen and committed on the page — no proposals, no options, no plan spoken first. The concept: ',
   window: '#Put TWB — this turn, open one window beyond the page on the person named below, from where the ledger says they are and what they want. ' + WINDOW_FORM + ' Then the scene as usual, if there is a scene to write. The person: ',
-  ooc: 'The writer is speaking out of character. Answer them plainly and briefly, without advancing the scene.',
+  ooc: 'The writer is speaking out of character. Step out of the story and answer them plainly, briefly, without advancing the scene — no header, no notes, no markers.', /* M494: the same law as #question */
 };
 
 /* M391: WHAT HE TYPES IS WHAT HAPPENS. "#story start the opening scene" in his Bleach story opened a NEW TALE — a
@@ -74,13 +74,12 @@ export function shortcutsText() {
     'SHORTCUTS. When the writer\u2019s whole message is one of these, this is what it asks of you \u2014 the message is the shortcut itself, never something to discuss:',
     DIRECTIVES.beat,
     DIRECTIVES.skip,
-    DIRECTIVES.continue,
+    DIRECTIVES.continue.replace(/^#continue\b/, '#continue, or a bare \u201cGo on.\u201d'), /* M494: one meaning for continuing */
     DIRECTIVES.nextScene,
     tail(DIRECTIVES.timeSkip).replace('the time or moment named below', 'the time or moment named after the shortcut'),
     tail(DIRECTIVES.story).replace('from the concept below', 'from the concept written after the shortcut (or, with none, of your own choosing)'),
     tail(DIRECTIVES.window).replace('on the person named below', 'on the person named after the shortcut'),
-    '#question <his question> \u2014 ' + tail(DIRECTIVES.question) + '.',
-    '((\u2026)) or a line opening with // \u2014 ' + DIRECTIVES.ooc,
+    '#question <his question>, ((\u2026)), or a line opening with // \u2014 ' + tail(DIRECTIVES.question) + '.', /* M494: one law for out of character — the asides had a weaker one */
   ].join('\n');
 }
 

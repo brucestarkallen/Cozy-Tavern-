@@ -26,7 +26,7 @@ test('M379-1 A SHORTCUT TRAVELS AS HE TYPED IT, AND NOTHING FOLLOWS IT — its m
   eq(last(hidden).content, '#continue', 'a shortcut the thread keeps hidden still travels, as typed');
   const standing = JSON.stringify(build([{ id: 'u1', role: 'user', text: 'I walk in.' }]).systemBlocks);
   assert(/SHORTCUTS\. When Bruce/.test(standing), 'the shortcuts are in the standing words, said to his name');
-  for (const k of ['#p — exactly ONE beat', '#pp — arc transit', '#continue — play the CURRENT situation', '#q — the next scene', '#time skip — jump', '#story — a new story', '#question <his question>']) assert(standing.includes(k), 'explained: ' + k);
+  for (const k of ['#p — exactly ONE beat', '#pp — arc transit', '#continue, or a bare \u201cGo on.\u201d — play the CURRENT situation', '#q — the next scene', '#time skip — jump', '#story — a new story', '#question <his question>']) assert(standing.includes(k), 'explained: ' + k);
   assert(!/You are the director/.test(shortcutsText()), 'and they hand the teller no second identity');
 });
 

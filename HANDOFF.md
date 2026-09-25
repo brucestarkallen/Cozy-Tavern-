@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m493-001)
+# Cozy Tavern — handoff for the next session (state at m494-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 1za. THE LIVING LEDGER SIMULATION (M492): tests/harness/livingledger.mjs runs a story through the real gate and heals

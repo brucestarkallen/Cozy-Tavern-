@@ -863,3 +863,13 @@ test('M162: a brief from before the page stamp still ages the old way', () => {
   assert(renderWorldBrief(old, 4, 99), 'an old brief within its turns still speaks');
   assert(!renderWorldBrief(old, 40, 99), 'and an old brief long past still goes quiet');
 });
+
+test('M494 one act, one rule: out of character (#question, ((…)), //) shares one law with no header or notes; "Go on." is #continue', async () => {
+  const { shortcutsText, parseCommand } = await import('../../js/commands.js');
+  const t = shortcutsText();
+  const ooc = t.split('\n').filter((l) => /out of character/i.test(l));
+  eq(ooc.length, 1, 'one line for out of character');
+  assert(/#question/.test(ooc[0]) && /\(\(/.test(ooc[0]) && /\/\//.test(ooc[0]) && /no header, no notes, no markers/.test(ooc[0]), ooc[0]);
+  assert(/#continue, or a bare \u201cGo on\.\u201d/.test(t), 'Go on. carries the #continue law');
+  assert(/no header, no notes, no markers/.test(parseCommand('((stop for a second))').directive), 'the aside carries the same law');
+});

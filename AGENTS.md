@@ -11592,3 +11592,21 @@ reader) to say it again, and its definition rode in the craft on every request.
 - TESTS: m85/engine expect no command for a lone "#time"; walk DOM-83 sends "#time skip to noon" in its place; DOM-124
   (a lone "#time": no page, no request, the composer cleared). Harness 950/950, walk 142/142, long play 8/8, lint 0.
 - version.js -> m493-001.
+
+# M494 — one act, one rule: out of character, and continuing
+He: "is it only #time that's genuinely redundant?" Every shortcut was checked against everything else that does its
+job. Two more, both "one meaning, two rules":
+- OUT OF CHARACTER: #question, ((…)) and // do the same act (step out, answer plainly, no scene, no ledger work), but
+  the standing words gave the asides a weaker line than #question's ("no header, no notes, no markers" missing) — so
+  the same act could come back dressed as a page. One line now for all three, #question's law; DIRECTIVES.ooc says
+  the same. The inputs stay (a ((…)) typed out of habit must never become an in-story message).
+- CONTINUING: the page's "go on" sends a bare "Go on." (the continue nudge), #continue sends its full law — the
+  standing line now reads "#continue, or a bare “Go on.” — play the CURRENT situation forward…", so a tap and the
+  typed shortcut ask the same thing. (Worded without "the house" — the voice pass turns it into "Bruce's notebook".)
+- LOOKED AT AND KEPT: #p (one beat) vs #continue (to the natural stop) vs #pp (the arc's next beat) vs #q (the
+  director's next scene) vs #time skip (a named time) — five different targets; "#skip to X" and "#timeskip X" are
+  spellings of #time skip; #roll/#skip/#noroll are the referee's and "#skip to" is told apart in code; #Put TWB is the
+  hand beside the world agent's own windows.
+- TESTS: m85.mjs M494 (one out-of-character line with the full law; Go on. carries #continue's law; an aside's
+  directive the same); m379's expectation names the new line. Harness 951/951, walk 142/142, long play 8/8, lint 0.
+- version.js -> m494-001.
