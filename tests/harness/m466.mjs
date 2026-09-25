@@ -111,3 +111,18 @@ test('M466-6 a shelf put to rest keeps its id, name and tales; woken, it is as i
   eq(await db.projects.update('no-such-shelf', { archived: true }), undefined, 'an unknown shelf is left alone');
   await db.projects.remove(shelf.id); await db.stories.remove(tale.id);
 });
+
+test('M481 the receipt shows each own-voice row AT ITS LANDMARK — before "The story so far" for the front one, after it for the two that ride behind the pages; the wire is unchanged', () => {
+  const req = build({ frameText: 'F', noteText: 'NOTE-MARK', ownWords: [
+    { name: 'front', role: 'teller', place: 'before-pages', text: 'FRONT-MARK' },
+    { name: 'mid', role: 'teller', place: 'before-your-message', text: 'MID-MARK' },
+    { name: 'tail', role: 'you', place: 'after-your-message', text: 'TAIL-MARK' },
+  ] });
+  const names = req.receipt.slots.map((s) => s.name);
+  const at = (n) => names.indexOf(n);
+  assert(at('Own words — front') !== -1 && at('Own words — front') < at('The story so far'), 'the front row before the pages: ' + names.join(' | '));
+  assert(at('Own words — mid') > at('The story so far') && at('Own words — mid') < at('The note at the end'), 'the mid row after the pages, before the note');
+  assert(at('Own words — tail') > at('Own words — mid') && at('Own words — tail') < at('The note at the end'), 'the tail row after the mid, before the note');
+  const msgs = req.messages;
+  eq(msgs.findIndex((m) => /FRONT-MARK/.test(m.content)), msgs.findIndex((m) => /I walk in\./.test(m.content)) + 1, 'the wire as M466-3 holds (no notes message here: the front entry steps behind his first page)');
+});

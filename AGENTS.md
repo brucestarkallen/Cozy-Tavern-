@@ -11303,3 +11303,11 @@ short story, no need for a brief." The switch existed (M479) but was ON by defau
 - TESTS: walk DOM-122 — off by default and a #story leaves an empty brief empty; switched on, a #story writes it;
   DOM-121 (the automatic path) switches it on for itself. Walk 140/140, lint 0.
 - version.js -> m480-001.
+
+# M481 — the receipt shows an own-voice row at its landmark
+He: "is this broken? On the receipt the order of my own words is weird, but the raw order is correct."
+- The wire was right (M466-3); the receipt's rows were pushed at its foot, after the note and the nudge, and read as
+  if the words rode last. Now each row is pushed at its landmark: the front one before "The story so far", the two
+  that ride behind the pages after it and before "The note at the end". Not one byte of the request changed.
+- TESTS: m466.mjs M481 — the rows' order in the receipt, the wire as before. Harness 924/924, walk 140/140, lint 0.
+- version.js -> m481-001.

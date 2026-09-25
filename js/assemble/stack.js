@@ -760,7 +760,15 @@ export function buildRequest({
       ? `${win.carried} pages carried word for word, the rest rests (the keeper is off — only what fits the room)`
       : `${win.carried} pages carried word for word (the keeper is off — everything fit the room)`;
   }
+  /* M466/M481: each of his own-voice entries is a row of its own, AT ITS LANDMARK in the receipt (the wire is the
+   * same; the rows stood at the receipt's foot and read as if they rode last — his report: "the raw order is correct,
+   * what the storyteller saw is weird") */
+  const ownWords = ownWordsFor(safeSettings, voice);
+  const ownRows = (place) => { for (const w of ownWords) if (w.place === place) pushSlot('Own words — ' + w.name, w.text, (w.role === 'assistant' ? 'the storyteller’s own words' : w.role === 'user' ? 'your words' : 'the house’s words') + ', ' + OWN_WORDS_PLACES[w.place]); };
+  ownRows('before-pages');
   pushSlot('The story so far', historyText, win.total ? historySource : '');
+  ownRows('before-your-message');
+  ownRows('after-your-message');
 
   /* The receipt rows for the echo (M21), 9 and 10 were computed above;
    * push them in law order now that slot 8 is counted. The echo's row sits
@@ -770,9 +778,6 @@ export function buildRequest({
   }
   pushSlot('The note at the end', hasNote ? note.text : '', note.source, hasNote ? '' : 'left empty — nothing slipped in');
   pushSlot('The continue nudge', nudges ? CONTINUE_NUDGE : '', '', nudges ? 'you only asked it to go on — sent as your own message, never a second one' : '');
-  /* M466: each of his own-voice entries is a row of its own, so the receipt shows exactly where each rides */
-  const ownWords = ownWordsFor(safeSettings, voice);
-  for (const w of ownWords) pushSlot('Own words — ' + w.name, w.text, (w.role === 'assistant' ? 'the storyteller’s own words' : w.role === 'user' ? 'your words' : 'the house’s words') + ', ' + OWN_WORDS_PLACES[w.place]);
 
   /* Assemble the wire in slot order: state injection first, then the
    * window, then the command directive (when spoken), then the nudge (when

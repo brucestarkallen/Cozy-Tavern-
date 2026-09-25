@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m480-001)
+# Cozy Tavern — handoff for the next session (state at m481-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 1q. A #STORY CONCEPT IS THE BRIEF (M478/M479): chat.js briefFromConcept — by itself on send (switch `conceptToBrief`,
