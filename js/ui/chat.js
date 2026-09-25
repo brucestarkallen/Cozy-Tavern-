@@ -1002,6 +1002,22 @@ export function initChat(ctx) {
     /* M69: a ledger from a longer telling is caught by its own stamps on open */
     const story = await db.stories.get(id);
     if (story) repairTimeline(story).then(() => resumeUnfinishedChain(story)).then((resumed) => (resumed ? null : healLedgerOnOpen(story))).catch(() => {});
+    if (story) mendPagesOnOpen(story).catch(() => {});
+  }
+
+  /* M488: THE PAGES' MARKS HEAL WHEN A STORY OPENS — nothing to press. The page repair runs when a page ARRIVES; a
+   * page kept by an older build (a browser that had not taken the new coat yet) kept the marks it came with, and the
+   * writer read a stray asterisk under a green light with a button he had to know about. Now, once per tale per
+   * build, the same repair runs over every page already kept: marks and white space only, a page it would not change
+   * is not written, the thread redraws only if something moved, a toast says how many. Never mid-turn. */
+  async function mendPagesOnOpen(story) {
+    if (!story || !story.id) return;
+    if (busy) return; /* never mid-turn */
+    const mark = 'pagesMended:' + story.id;
+    if ((await db.settings.get(mark)) === VERSION) return;
+    const r = await mendAllPages({ quiet: true, story });
+    await db.settings.set(mark, VERSION).catch(() => {});
+    if (r && r.mended) toast(r.mended === 1 ? 'One page’s marks were mended on opening.' : r.mended + ' pages’ marks were mended on opening.');
   }
 
   /* M452: THE LEDGER HEALS WHEN A STORY OPENS — nothing to press. A ledger an older reader left (someone "elsewhere" at the
@@ -2658,8 +2674,8 @@ export function initChat(ctx) {
   /* M477: "Mend the pages' marks" — the page repair over every page already kept, by hand. tidyPage is marks and
    * white space only (brackets, the window's marker, a stray or open quote, an asterisk, a soft wrap); a page it would
    * not change is not written. No model, no ledger work; the readers need no re-read for a mark. */
-  async function mendAllPages() {
-    const story = await activeStory();
+  async function mendAllPages({ quiet = false, story: given = null } = {}) {
+    const story = given || await activeStory();
     if (!story) return { mended: 0, of: 0 };
     const pages = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden);
     let mended = 0;
@@ -2678,8 +2694,8 @@ export function initChat(ctx) {
       await db.messages.update(story.id, page.id, patch);
       mended += 1;
     }
-    if (mended) await renderThread({ structural: true });
-    toast(mended ? (mended === 1 ? 'One page’s marks mended.' : mended + ' pages’ marks mended.') : 'Every page’s marks are whole already.');
+    if (mended && ctx.getActiveStoryId() === story.id) await renderThread({ structural: true });
+    if (!quiet) toast(mended ? (mended === 1 ? 'One page’s marks mended.' : mended + ' pages’ marks mended.') : 'Every page’s marks are whole already.');
     return { mended, of: pages.length };
   }
 

@@ -11429,3 +11429,17 @@ He, with a page and its canon note: "does the canon verification include good im
 - TESTS: m484.mjs M487 — the cleaner on a wrapped name, a tt term, an infobox/hatnote/quote, plain markup; the trim
   on a dead face, a cut block, the living. Harness 934/934, walk 140/140, lint 0.
 - version.js -> m487-001.
+
+# M488 — the pages' marks heal when a story opens
+He, with a page carrying a stray asterisk span under a green light: "why doesn't it fix it, why do I need to tap
+manually, it's from the latest version."
+- WHY IT STOOD: the repair runs when a page ARRIVES. His page was kept by the build his browser was still running
+  (a new coat is offered, never forced), so it kept the marks it came with; the light is the readers' — nothing
+  watched old marks; and "Mend the pages' marks" was a button he had to know about.
+- NOW (chat.js mendPagesOnOpen): once per tale per build (settings pagesMended:<id> = VERSION), opening a tale runs
+  the page repair over every page already kept — marks and white space only, a page it would not change is not
+  written, the thread redraws only if something moved, a toast says how many — never mid-turn. The button stays for
+  a mend by hand. Proven on his page: the *tup — … skf* span unwrapped, *twhnn*, * * * and *bus* kept.
+- TESTS: walk DOM-123 (a tale kept by an older build opens mended, the mark set for this build, a second open on the
+  same build writes nothing). Harness 934/934, walk 141/141, long play 8/8, lint 0.
+- version.js -> m488-001.

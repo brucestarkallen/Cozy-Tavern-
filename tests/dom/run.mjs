@@ -6160,6 +6160,29 @@ test('DOM-122 THE BRIEF FROM A #STORY CONCEPT, BY HAND AND BY SWITCH: the button
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+
+test('DOM-123 THE PAGES’ MARKS HEAL ON OPEN: a tale kept by an older build opens with its stray asterisks unwrapped — once per tale per build, sounds and the scene break kept, the whole page untouched', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'Old marks tale' });
+  await db.messages.append(st.id, { role: 'user', text: 'I sit.' });
+  const bad = '[Metropolis — Wednesday, March 19, 2025 | 07:34 | pale gold | a shirt | on the sofa]\n\nHe drops onto the sofa with a *twhnn* of springs.\n\n* * *\n\nThen she sets the mug down — *tup — crosses the parquet, and folds onto the sofa beside him with one leg tucked under herself, skf* of cushion, sitting neither far nor close.\n\n"I take the *bus*, Jovan."';
+  const p1 = await db.messages.append(st.id, { role: 'assistant', text: bad });
+  await db.settings.delete('pagesMended:' + st.id).catch(() => {});
+  await env.ctx.chat.openStory(st.id);
+  await until(async () => !/\*tup — crosses/.test((await db.messages.list(st.id)).find((m) => m.id === p1.id).text), 'mended on open', 8000);
+  const after = (await db.messages.list(st.id)).find((m) => m.id === p1.id).text;
+  assert(after.includes('mug down — tup — crosses the parquet, and folds onto the sofa beside him with one leg tucked under herself, skf of cushion'), 'the stray span lost its asterisks: ' + JSON.stringify(after));
+  assert(after.includes('*twhnn*') && after.includes('* * *') && after.includes('*bus*'), 'the sound, the break and the emphasis kept');
+  const V = (await import('../../js/version.js')).VERSION;
+  await until(async () => (await db.settings.get('pagesMended:' + st.id)) === V, 'marked as mended for this build', 5000);
+  /* a second open of the same tale on the same build does not write again */
+  await db.messages.update(st.id, p1.id, { text: after + '\n\n*a new stray span with more than four words*' });
+  const stamp = (await db.messages.list(st.id)).find((m) => m.id === p1.id).updatedAt;
+  await env.ctx.chat.openStory(st.id); await tick(400);
+  eq((await db.messages.list(st.id)).find((m) => m.id === p1.id).updatedAt, stamp, 'once per tale per build');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
