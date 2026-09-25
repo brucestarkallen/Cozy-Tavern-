@@ -48,3 +48,16 @@ test('M489 a lone asterisk on a line is the scene break that lost its shape; the
   assert(t.did.includes('marks'));
   eq(mendMarks('* * *').text, '* * *', 'a whole break is left as it is');
 });
+
+test('M489-3 the lone asterisk in every shape the storyteller writes it — single newlines around it, a non-breaking space before it, alone — is the break; a mark line is never glued to the line above; a whole page is left whole', () => {
+  const H = '[X — Monday | 09:00 | sun | coat | here]\n\n';
+  for (const shape of ['"Know you."\n  *\nKara moves.', '"Know you."\n\n\u00a0 *\n\nKara moves.', '"Know you."\n*\nKara moves.', '"Know you."\n\n  *\n\nKara moves.']) {
+    const t = tidyPage(H + shape, {});
+    assert(t.text.includes('"Know you."\n\n* * *\n\nKara moves.'), 'the break stands alone: ' + JSON.stringify(t.text));
+  }
+  const whole = H + '"Fine."\n\n* * *\n\nEnd.';
+  eq(tidyPage(whole, {}).did.length, 0, 'a whole page is not touched');
+  eq(tidyPage(whole, {}).text, whole);
+  const wrap = H + 'The spotlight —\n and the thought.\n\n---\n\nEnd.';
+  assert(tidyPage(wrap, {}).text.includes('The spotlight — and the thought.\n\n---\n\nEnd.'), 'a soft wrap joins; a rule line stays its own');
+});

@@ -74,7 +74,14 @@ export function shieldObjects(text) {
 export function mendMarks(text) {
   const given = String(text == null ? '' : text);
   if (!given.trim()) return { text: given, changed: false };
-  const { safe: src, restore } = shieldObjects(given);
+  const { safe: shielded, restore } = shieldObjects(given);
+  /* M489-3: a line that is only one, two or three asterisks — with single newlines around it, or a non-breaking space
+   * before it — is the scene break that lost its shape: its own paragraph, "* * *" */
+  const src = shielded
+    .replace(/(^|\n)[ \t\u00a0]*\*(?:[ \t\u00a0]*\*){0,2}[ \t\u00a0]*(\n|$)/g, (m, lead, end) => (lead ? '\n\n' : '') + '* * *' + (end ? '\n\n' : ''))
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\n+/, (m) => (/^\n/.test(shielded) ? m : ''))
+    .replace(/\n+$/, (m) => (/\n$/.test(shielded) ? '\n' : ''));
   const parts = src.split(/(\n[ \t]*\n)/);
   let changed = false;
   for (let k = 0; k < parts.length; k += 2) {
@@ -116,7 +123,8 @@ export function mendMarks(text) {
     p = fixed + tail;
     if (p !== was) { parts[k] = p; changed = true; }
   }
-  return { text: changed ? restore(parts.join('')) : given, changed };
+  const out = restore(parts.join(''));
+  return out === given ? { text: given, changed: false } : { text: out, changed: true };
 }
 
 /* M476: A SOFT WRAP IS JOINED. Inside a page whose paragraphs are parted by blank lines, a lone line break followed by
@@ -126,9 +134,17 @@ export function joinSoftWraps(text) {
   const given = String(text == null ? '' : text);
   if (!/\n[ \t]*\n/.test(given)) return { text: given, changed: false };
   const { safe, restore } = shieldObjects(given);
-  const out = safe
-    .replace(/([^\n])\n[ \t]+(?=[^\s\n])/g, '$1 ')
-    .replace(/([a-z,;:\u2014\u2013-])\n(?=[a-z])/g, '$1 ');
+  /* M489-3: a line that is only marks (a scene break "*", "* * *", "---") is its own thing — never glued to the line
+   * above it nor swallowed into the one below; it was joined as "…know you.\" *" and no mark rule could see it after */
+  const MARK_LINE = /^[ \t\u00a0]*(?:[*_~—–-]+[ \t\u00a0]*)+$/;
+  const out = safe.split('\n').reduce((acc, line, i, arr) => {
+    if (i === 0) return line;
+    const prev = arr[i - 1];
+    if (MARK_LINE.test(line) || MARK_LINE.test(prev)) return acc + '\n' + line;
+    if (/^[ \t]+\S/.test(line) && /\S/.test(prev)) return acc + ' ' + line.replace(/^[ \t]+/, '');
+    if (/[a-z,;:\u2014\u2013-]$/.test(prev) && /^[a-z]/.test(line)) return acc + ' ' + line;
+    return acc + '\n' + line;
+  }, '');
   return out === safe ? { text: given, changed: false } : { text: restore(out), changed: true };
 }
 

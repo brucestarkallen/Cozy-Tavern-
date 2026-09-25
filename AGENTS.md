@@ -11461,3 +11461,16 @@ doesn't it fix it automatically, or the mend page doesn't work?"
 He: "I mend the page, it's still the same" — on the build before M489 that was true and nothing said so. The toast of
 "Mend the pages' marks" and of the mend on open now ends with "(the repair of m489-002)", so a page that stays the same
 under an older repair names its cause. version.js -> m489-002.
+
+# M489-3 — the lone asterisk, in every shape it comes
+He, on the latest build: "I mend the page, it's still the same" — and he was right. M489's rule saw a lone asterisk only
+as its own paragraph (blank lines round it, plain spaces). His storyteller wrote it with SINGLE newlines — and M476's
+soft-wrap join glued the indented "  *" onto the line above ("…know you.\" *"), so no mark rule could see it after;
+a non-breaking space before it escaped the rule too.
+- NOW (pageshape.js): joinSoftWraps never glues a line that is only marks (*, * * *, ---) to the line above nor
+  swallows one below; mendMarks first writes any line that is only one to three asterisks — single newlines, NBSP,
+  alone — as its own "* * *" paragraph (no newline added at the page's ends), then the paragraph rules run; the
+  change flag is the page's own (a whole page is not touched, its did is empty).
+- TESTS: m476.mjs M489-3 — four shapes of the lone asterisk, a whole page untouched, a rule line beside a joined
+  wrap. Harness 936/936, walk 141/141, lint 0.
+- version.js -> m489-003.
