@@ -37,3 +37,14 @@ test('M476-3 a soft wrap is joined — an indented line, or a sentence left hang
   const j = joinSoftWraps(withObject);
   assert(j.text.includes('<div>\n jovan') && j.text.includes('b — c'), 'inside the object nothing moves; outside it the wrap is joined');
 });
+
+test('M489 a lone asterisk on a line is the scene break that lost its shape; the words beside it are never touched', () => {
+  const page = '[X — Monday | 09:00 | sun | coat | here]\n\n"Know you."\n\n  *\n\nKara doesn\'t move right a way.\n\n**\n\nShe slides closer — *skf* — and sits.\n\n* * *\n\nEnd.';
+  const t = tidyPage(page, {});
+  const lines = t.text.split('\n');
+  eq(lines.filter((l) => l === '* * *').length, 3, 'one, two or three asterisks alone on a line are the break: ' + JSON.stringify(lines));
+  assert(t.text.includes("Kara doesn't move right a way."), 'a typo is a word — the repair never touches it');
+  assert(t.text.includes('*skf*'), 'a sound keeps its asterisks');
+  assert(t.did.includes('marks'));
+  eq(mendMarks('* * *').text, '* * *', 'a whole break is left as it is');
+});

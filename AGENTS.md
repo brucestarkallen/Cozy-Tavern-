@@ -11443,3 +11443,16 @@ manually, it's from the latest version."
 - TESTS: walk DOM-123 (a tale kept by an older build opens mended, the mark set for this build, a second open on the
   same build writes nothing). Harness 934/934, walk 141/141, long play 8/8, lint 0.
 - version.js -> m488-001.
+
+# M489 — a lone asterisk on a line is the scene break that lost its shape
+He, with the storyteller's own lines: a bare "  *" between a closing line and the next beat, and "right a way" — "why
+doesn't it fix it automatically, or the mend page doesn't work?"
+- THE ASTERISK: the repair had no rule for a line that is only one, two or three asterisks — a scene break the model
+  wrote short (its own earlier pages wrote "* * *"). Now such a line is written as "* * *" (pageshape.js mendMarks,
+  after core/tail are read — the rule uses them). A whole "* * *" is left as it is.
+- THE WORDS: "right a way" for "right away" is a WORD, and the repair never touches a word — the law that lets it run on
+  every page and every kept page without ever changing what the storyteller said. A typo is the mender's or his: the
+  second reader (with its switch on) rewrites a page against the ledger, and Edit is a tap. This is said, not hidden.
+- TESTS: m476.mjs M489 — one, two and three lone asterisks become the break, a whole break stays, the typo stays, the
+  sound stays. Harness 935/935, walk 141/141, lint 0.
+- version.js -> m489-001.

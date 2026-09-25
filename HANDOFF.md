@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m488-001)
+# Cozy Tavern — handoff for the next session (state at m489-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 1w. THE PAGES' MARKS HEAL ON OPEN (M488): chat.js mendPagesOnOpen, once per tale per build (pagesMended:<id>); a new

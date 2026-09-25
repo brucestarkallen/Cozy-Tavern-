@@ -92,6 +92,10 @@ export function mendMarks(text) {
     if (noEmpty !== p) p = noEmpty.replace(/([^ \t\n])[ \t]{2,}(?=\S)/g, '$1 ').replace(/[ \t]+(?=[.,!?;:])/g, '').replace(/[ \t]+$/g, '');
     const tail = (p.match(/\s*$/) || [''])[0];
     const core = p.slice(0, p.length - tail.length);
+    /* M489: A LONE ASTERISK ON A LINE IS A SCENE BREAK THAT LOST ITS SHAPE. The storyteller wrote "  *" between a
+     * closing line and a new beat where its own earlier pages wrote "* * *"; one, two or three asterisks with nothing
+     * else on the line are written as the break — marks only */
+    if (/^[ \t]*\*(?:[ \t]*\*){0,2}[ \t]*$/.test(core)) { parts[k] = '* * *' + tail; changed = true; continue; }
     let fixed = core;
     const opens = (core.match(/\u201c/g) || []).length;
     const closes = (core.match(/\u201d/g) || []).length;
