@@ -1,6 +1,10 @@
-# Cozy Tavern — handoff for the next session (state at m470-001)
+# Cozy Tavern — handoff for the next session (state at m471-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1j. THE ARBITER AUDIT (M471): the engine is a faithful port of Arbiter v0.42 — diff it by AST when Arbiter moves
+   (/home/claude/astkit was the tool: parse both, normalise meta→state / getSettings()→eng, diff per function). Four
+   divergences were real and are fixed (the gate's apostrophes, findActorKey's other direction, gear's default, the
+   seeder's safeKey). The directives differ on purpose (M345). Never re-import Arbiter's directives or its HUD.
 1i. THE REFEREE'S FIELD AND ITS ACCOUNT (M470): two against one is a BATTLE (duel_start.allies → battle_start in
    normalizeAdj); `joins` on every fight beat → `combat.join` (apply.js) → duels.joinFight (a duel widens into a
    battle carrying both fighters; a battle grows; a war refuses). Every ruling carries `account` (what, action, why,

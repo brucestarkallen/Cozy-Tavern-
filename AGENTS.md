@@ -11127,3 +11127,30 @@ without explanation or justification? And why does my team fighting someone look
   a duel widened through the referee's own beat, the wire still numberless). Harness 909/909 (every M11/M345/M400
   referee law green), walk 137/137 (DOM-68 the referee in the app), long play 8/8, lint 0. The panel photographed.
 - version.js -> m470-001.
+
+# M471 — the Arbiter audit: the whole extension against the port
+He: "check my SillyTavern Arbiter extension, the whole code — a culmination of many updates and bugs — and integrate
+it fully into Cozy Tavern, adjusted, without breaking my persona."
+- METHOD: Arbiter v0.42.0 (83 commits, 5,086 lines) parsed by AST beside the port (agents/referee.js, engine/duels.js,
+  engine/referee-math.js); 62 functions shared by name, each diffed after comments, whitespace and the ST-vs-Cozy
+  renames (meta→state, getSettings()→eng, getPreset()→eng.preset) were normalised; the 87 Arbiter functions with no
+  counterpart classified. THE ENGINE IS A FAITHFUL PORT: probFromDelta, sliceOutcome, tieCheck, applyExchangeEffects,
+  the duel/battle/war resolvers, recovery, sequences, pairings, morale, composure, conditions, ratings, growth-aware
+  seeding (ratings only rise), the timeline rewind with composure in the snapshot, estimates persisted on every
+  teardown, the mutual-knockout DRAW — identical logic. The 87 absent functions are ST's own (HUD, settings panels,
+  slash commands, World Info, the ambient event/thread engines — Cozy's world agent and ledger stand in their place)
+  or already covered by another name (persistDuelEstimates→persistFightEstimates, resolveAdj→resolveCheck,
+  interceptorBody→refereeStep, mathLine→M470's account). The directives differ ON PURPOSE (M345: words a person says).
+- FOUR REAL DIVERGENCES, FIXED: (1) stripDialogue stripped '…' between STRAIGHT apostrophes — "I don't hesitate — I
+  lunge at him and slash low, and I won't stop" reached the gate as "I don t stop" and no fight opened; Arbiter never
+  touched apostrophes. Now as Arbiter: "…"/“…” (and ‘…’) on one line, ≤400 chars, never an unclosed quote eating the
+  message. (2) findActorKey wanted every word of the target in the key, so the sheet's "Kaelen" was not found by
+  "Kaelen Stahl" — a second entry, a stranger's rating; now the same-person rule either way round (M345's, stricter
+  than Arbiter's any-shared-word), a shared surname alone still nobody. (3) normalizeConditionChange defaulted a
+  piece of GEAR with no modifier to -1; Arbiter: +1 for gear, -1 for a condition. (4) the seeder's write took a
+  model's name unchecked; safeKey now guards it (Arbiter v0.37's magic-key hardening; applyConditionChange already
+  had it). The persona path is untouched: no directive changed, the account never reaches the wire.
+- TESTS: harness m471.mjs — 3 laws (the gate through contractions, quotes still speech, an unclosed quote; the fuller
+  name finds the sheet's entry, a surname is nobody; gear +1 / condition -1, __proto__ and constructor refused).
+  Harness 912/912 (every M11/M345/M400/M470 referee law green), walk 137/137, lint 0.
+- version.js -> m471-001.

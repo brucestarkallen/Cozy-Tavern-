@@ -129,6 +129,15 @@ export function findActorKey(state, name) {
     const kt = key.toLowerCase().trim().split(/[\s,]+/).filter(Boolean);
     if (toks.length && toks.every((t) => kt.includes(t))) return key;
   }
+  /* M471: THE SAME PERSON, THE OTHER WAY ROUND. The sheet held "Kaelen" and the referee named "Kaelen Stahl": the
+   * first pass wants every word of the target in the key, so the fuller name found nobody — a second entry was made
+   * and the fight took a stranger's rating. Arbiter (v0.27) matched on any shared word; M345's stricter rule stands
+   * here instead: one name's words all inside the other's, either way round — a shared surname alone is never one
+   * person ("Marcus Wessex" is not "Claire Wessex"). */
+  for (const key of Object.keys(actors)) {
+    const kt = key.toLowerCase().trim().split(/[\s,]+/).filter(Boolean);
+    if (kt.length && kt.every((w) => toks.includes(w))) return key;
+  }
   return null;
 }
 
@@ -370,7 +379,7 @@ export function applyConditionChange(state, cc) {
     const live = liveCombatant(state, name);
     if (live && Number.isFinite(live.rating)) base = clamp(live.rating, 0, 10);
     entry = { default: base, domains: {}, _auto: true, conditions: [] };
-    state.sheet.actors[name] = entry;
+    state.sheet.actors[name] = entry; /* name is safeKey'd above (M471 checked: a magic key never reaches here) */
   }
   entry.conditions = Array.isArray(entry.conditions) ? entry.conditions : [];
   const notes = [];

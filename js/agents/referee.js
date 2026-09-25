@@ -128,13 +128,16 @@ export const OOC_RE = /\([^)]*\)|\[[^\]]*\]/g;
 
 /* The cast's lines can't trip the gate: strip quoted dialogue before
  * scanning, so "he growls 'I could kill you'" never reads as an attempt. */
+/* M471: THE GATE READ THROUGH CONTRACTIONS. The port stripped '…' between straight apostrophes as if it were speech,
+ * so "I don't hesitate — I lunge at him and slash low, and I won't stop" reached the gate as "I don t stop" and no
+ * fight opened. Arbiter never touched straight apostrophes. As Arbiter (v0.42): a spoken run is "…" or “…” on one
+ * line, four hundred characters at most (an unclosed quote can never eat the rest of the message); the curly single
+ * pair ‘…’ is speech too (a right single quote alone — I’m, won’t — never opens one). */
 export function stripDialogue(text) {
   return String(text || '')
-    .replace(/"[^"]*"/g, ' ')
-    .replace(/“[^”]*”/g, ' ')
-    .replace(/‘[^’]*’/g, ' ')
-    .replace(/\*[^*]*\*/g, (m) => m) // asterisk action beats stay — they ARE action
-    .replace(/'[^']*'/g, ' ');
+    .replace(/"[^"\n]{0,400}"/g, ' ')
+    .replace(/\u201C[^\u201D\n]{0,400}\u201D/g, ' ')
+    .replace(/\u2018[^\u2019\n]{0,400}\u2019/g, ' ');
 }
 
 function verbHits(text, sensitivity) {
@@ -509,7 +512,8 @@ function normalizeConditionChange(v, state) {
   if (v.remove) out.remove = cleanName(v.remove, 50);
   if (v.add) {
     out.add = cleanName(v.add, 50);
-    out.mod = clampInt(v.mod, -4, 3, -1);
+    /* M471: as Arbiter — a piece of gear with no modifier given is a boon (+1), a condition a handicap (-1) */
+    out.mod = clampInt(v.mod, -4, 3, v.gear === true ? 1 : -1);
     if (v.domain && typeof v.domain === 'string') out.domain = v.domain.toLowerCase().trim().slice(0, 20);
     if (v.gear === true) out.gear = true;
   }
@@ -1376,6 +1380,7 @@ export function mergeSeed(state, parsed, { heal = false } = {}) {
     if (conds.length) entry.conditions = conds;
     if (existing && Number.isFinite(Number(existing.poise))) entry.poise = existing.poise;
     if (key && key !== name) delete actors[key];
+    if (!safeKey(name)) continue; /* M471: never a magic key (__proto__ and kin) from a model's answer */
     actors[name] = entry;
     seen.add(name);
     touched += 1;
