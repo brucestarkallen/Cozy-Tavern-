@@ -1452,9 +1452,31 @@ export function clearsThatArrive(state, mutations, sceneText) {
 /* M444: IS THIS PERSON THEMSELF NAMED IN THIS TEXT — by their whole name, or by a word of it no one else the ledger
  * knows shares. "Kuchiki-taichō nodded" names Byakuya, never Rukia Kuchiki; "Rukia" names her. (nameOnPage counts a
  * shared family name for both — right for "might they be here?", wrong for writing someone into the scene.) */
+/* M491: A POSSESSIVE IS NOT A PRESENCE. "Kara curls up in Vivi's rolled gray pants" named Vivi — and a person was
+ * "shown" wherever her name stood, so goneAtTheEnd read the pants sentence as the last sight of her, found no leaving
+ * in it, and threw the page reader's presence.leave away; with Kara in her clothes every page after did the same, and
+ * Vivi stood in "Who's here" pages after she had gone home. Her name inside dialogue, or as the owner of anything but
+ * her own body or voice ("Vivi's pants", "Vivi's panel", "Vivi's texts"), does not show her; "Vivi's hand on his arm"
+ * does. */
+const BODY_AFTER_POSSESSIVE = /^(?:\s+(?:own\s+)?(?:hand|hands|eyes|eye|face|voice|arm|arms|shoulder|shoulders|head|hair|mouth|lips|fingers|finger|gaze|laugh|breath|smile|knee|knees|back|feet|foot|palm|grip|body|shadow|footsteps|steps|silhouette|chin|brow|cheek|cheeks|temple|jaw|neck|wrist|hip|hips|heel|heels|reflection))\b/i;
+function onlyNamedAway(text, name) {
+  const t = narrationOf(text);
+  const words = String(name || '').split(/\s+/).filter((w) => w.length >= 2).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (!words.length) return false;
+  const re = new RegExp('(?<![\\p{L}])(?:' + words.join('|') + ')(?![\\p{L}])(?:[\'’]s\\b)?', 'giu');
+  let m; let seen = 0;
+  while ((m = re.exec(t))) {
+    seen += 1;
+    const possessive = /['’]s$/i.test(m[0]);
+    if (!possessive) return false;
+    if (BODY_AFTER_POSSESSIVE.test(t.slice(m.index + m[0].length, m.index + m[0].length + 24))) return false;
+  }
+  return true; /* every mention in narration is a possessive of a thing — or she is named only inside dialogue */
+}
 export function shownOnPage(state, text, name) {
   const s = state && typeof state === 'object' ? state : {};
   if (!nameOnPage(text, name)) return false;
+  if (onlyNamedAway(text, name)) return false; /* M491 */
   const bare = nameCore(name);
   if (bare && bare.includes(' ') && nameOnPage(text, bare)) {
     const folded = ' ' + foldName(text) + ' ';
@@ -1496,9 +1518,12 @@ const LEFT_PASSIVE = /\b(?:was|were|is|are|been|being|be|get|gets|got)\s+$/i;
 /* "left the door open", "left the sword on the table" — a thing left in a state, nobody going */
 const LEFT_THING = /^\s+(?:the|his|her|their|a|an|it|them|him|my|your|its|our)\b[^.,;!?]{0,40}?\b(?:untouched|open|unopened|ajar|unlocked|unsaid|unspoken|unanswered|unfinished|uneaten|half[- ]eaten|alone|intact|lying|standing|hanging|cold|running|burning|on\s+the\s+(?:table|floor|desk|counter|ground|bench|bed|chair|shelf|sand))\b/i;
 const NOT_YET = /(?:\b(?:not|never|to|would|could|should|might|must|will|can|cannot|shall|didn['’]?t|don['’]?t|doesn['’]?t|won['’]?t|can['’]?t|couldn['’]?t|wouldn['’]?t|shouldn['’]?t|refused\s+to|about\s+to|ready\s+to|wanted\s+to|wants\s+to|tried\s+to)\s+)$/i;
+/* M491: the ways a page walks someone out that GOING never knew — "is out the door", "the door shuts behind her",
+ * "steps into the elevator", "heads for the elevator/stairs/exit/door", "the elevator doors close on her" */
+const OUT_THE_DOOR = /\b(?:(?:is|was|were|are|and)\s+out\s+(?:the|of the)\s+(?:door|room|apartment|house|building|gate|hall|office)|(?:door|doors|gate)\s+(?:shuts?|closes?|clicks?|swings?)\s+(?:shut\s+)?(?:behind|after|on)\b|step(?:s|ped|ping)?\s+into\s+the\s+(?:elevator|lift|car|cab|taxi|stairwell)|head(?:s|ed|ing)?\s+for\s+the\s+(?:elevator|lift|stairs|exit|door|front door)|(?:elevator|lift)\s+doors?\s+(?:close|closes|slide shut|shut)\s+on)\b/i;
 export function showsDeparture(sentence) {
   const said = String(sentence || '').replace(/"[^"]*"|“[^”]*”|«[^»]*»|「[^」]*」/g, ' ');
-  if (GOING.test(said)) return true;
+  if (GOING.test(said) || OUT_THE_DOOR.test(said)) return true;
   for (const m of said.matchAll(LEAVE_WORD)) {
     const before = said.slice(0, m.index);
     const after = said.slice(m.index + m[0].length);
@@ -1652,6 +1677,33 @@ export function hereByTheNewestPage(state, pageText) {
     if (goneAtTheEnd(s, pageText, name)) continue;
     if (out.some((m) => samePersonName(m.name, name))) continue;
     out.push({ type: 'presence.enter', name, cause: 'the page shows them here' });
+  }
+  return out;
+}
+
+/* M491: GONE BY THEIR OWN PAGE. Someone "here" whose own page — written by the page reader after the page that shows
+ * them going — says they left ("Leaving Jovan's apartment building — …", "went home", "on her way out"), and whom the
+ * newest page does not show, is taken out of the scene and seated where that page says. The leaving the house missed
+ * (a guard that read a possessive as her, a reader that wrote the state and not the leave) is repaired in code, on
+ * the next page and on opening, without waiting for the auditor. Never the main character. */
+const LEFT_RE = /^\s*(?:leaving|left|gone|walked out|walking out|headed (?:out|home|back|off)|heading (?:out|home|back|off)|went (?:home|out|back)|going home|on (?:her|his|their) way (?:out|home|back)|out the door|departing|departed|back home|home now)\b/i;
+export function goneByTheirOwnPage(state, pageText) {
+  const s = state && typeof state === 'object' ? state : {};
+  const present = Array.isArray(s.present) ? s.present : [];
+  const pages = s.characters && typeof s.characters === 'object' ? s.characters : {};
+  const told = narrationOf(scenePartOf(pageText || ''));
+  const out = [];
+  for (const p of present) {
+    const name = p && typeof p.name === 'string' ? p.name : '';
+    if (!name || isMc(s, name)) continue;
+    const key = strictPageKey(s, name) || Object.keys(pages).find((k) => samePersonName(k, name));
+    const page = key ? pages[key] : null;
+    const now = page && typeof page.state === 'string' ? page.state.trim() : '';
+    if (!now || !LEFT_RE.test(now)) continue;
+    if (told.trim() && shownOnPage(s, told, name)) continue; /* the newest page has them here: their note is old */
+    const clause = now.split(/\s+[—–-]\s+|;|\.\s/)[0].trim().slice(0, 120);
+    out.push({ type: 'presence.leave', name, cause: 'their own page says they left' });
+    out.push({ type: 'offscreen.set', name, location: clause, activity: now.slice(clause.length).replace(/^[\s—–;.,-]+/, '').slice(0, 160) });
   }
   return out;
 }

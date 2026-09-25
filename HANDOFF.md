@@ -1,6 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m490-003)
+# Cozy Tavern — handoff for the next session (state at m491-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1z. A POSSESSIVE IS NOT A PRESENCE (M491): shownOnPage is the one test of "shown" for the page reader's leave gate,
+   the auditor's leave gate and the walk-back heal — keep possessives-of-things and dialogue out of it. goneByTheirOwnPage
+   repairs a missed leave from the person's own page. showsDeparture's OUT_THE_DOOR is the vocabulary to extend.
 1y. THE SESSION AUDIT'S LAWS (M490-3) — each was a real fault of this session: a heuristic that can DELETE or MERGE
    (isGroupName, resolveDescriptor/resolveRole, sameFact, findActorKey, the run-past cut, the canon trim) must answer
    "nobody / keep it" on doubt; probe it with real names shaped like the thing it catches before shipping. Laws in

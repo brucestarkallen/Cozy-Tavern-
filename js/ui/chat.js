@@ -53,7 +53,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
-import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, lastingOnly, groundLooksStale } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
+import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, lastingOnly, groundLooksStale, goneByTheirOwnPage } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
@@ -1036,7 +1036,7 @@ export function initChat(ctx) {
     const state = await loadState(story.id);
     let healed = false;
     /* M455: and the hour the newest page's header gives, on the day it names — a clock a page behind is put right */
-    const muts = [...headerMutations(pageText(newest)).filter((m) => m.type === 'clock.set'), ...wrongWalkIns(state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest))];
+    const muts = [...headerMutations(pageText(newest)).filter((m) => m.type === 'clock.set'), ...wrongWalkIns(state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest))]; /* M491: on opening too */
     if (muts.length && !busy && !isReplaying() && queuedCount(story.id) === 0) { /* M314: a queued moment is re-checked before it writes */
       const { state: next, applied } = applyMutations(state, muts);
       if (applied.length) { await saveState(story.id, next); notify(story.id); healed = true; }
@@ -3090,7 +3090,9 @@ export function initChat(ctx) {
       const walkIns = wrongWalkIns(clearedNows.state, storyPages);
       /* M452: and whoever a note has elsewhere at the scene's own place, whom this page shows here, is written in */
       const hereAgain = msg && msg.role === 'assistant' && !msg.ooc ? hereByTheNewestPage(clearedNows.state, pageText(msg)) : [];
-      const walkedBack = walkIns.length || hereAgain.length ? applyMutations(clearedNows.state, [...walkIns, ...hereAgain]) : { state: clearedNows.state, applied: [] };
+      /* M491: and whoever is listed here though their own page says they left, and this page does not show, is seated away */
+      const goneAway = msg && msg.role === 'assistant' && !msg.ooc ? goneByTheirOwnPage(clearedNows.state, pageText(msg)) : [];
+      const walkedBack = walkIns.length || hereAgain.length || goneAway.length ? applyMutations(clearedNows.state, [...walkIns, ...hereAgain, ...goneAway]) : { state: clearedNows.state, applied: [] };
       const cleared = { state: walkedBack.state, applied: clearedNows.applied };
       const sentBack = [...new Set(walkedBack.applied.filter((a) => a.mutation.type === 'presence.leave').map((a) => a.mutation.name))];
       const writtenIn = [...new Set(walkedBack.applied.filter((a) => a.mutation.type === 'presence.enter').map((a) => a.mutation.name))];

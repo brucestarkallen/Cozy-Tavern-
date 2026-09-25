@@ -11540,3 +11540,26 @@ M490 prelude's spacing (M340 already evens it; a phone-screen page identical bef
 GATES: harness 946/946, walk 141/141, long play 8/8, lint 0, two-browser proof green, tests/pagemark.py,
 tests/mend_marks.py (16 shapes, store and screen), tests/paint_coats.py (nine coats, 0 under AA), perf_rooms within
 budget. version.js -> m490-003.
+
+# M491 — Vivi stood in "Who's here" pages after she went home, and the auditor could not take her out
+He: "why is Vivi still in the scene when she left many scenes ago? She's not in Elsewhere either, and why didn't the
+auditor catch it?" Her page read "Leaving Jovan's apartment building — …" four pages back; Kara was wearing her clothes.
+- ROOT CAUSE, REPRODUCED: engine/apply.js shownOnPage counted a POSSESSIVE as the person — "Kara curls up in Vivi's
+  rolled gray pants" showed Vivi. goneAtTheEnd judges a leave by the LAST sentence that shows the person; that sentence
+  was about pants, no leaving in it, so the page reader's presence.leave was thrown away in code (extractor.js, the
+  scene-didn't-move gate). With Kara in her clothes every later page did the same. The AUDITOR runs after every page
+  and its presence.leave goes through the same gate (showsGoing → shownOnPage → goneAtTheEnd); refused, and "a finding
+  that was only a refused leave is no finding" — it was dropped silently. Her seat was never written, so Elsewhere
+  held nothing of her.
+- A SECOND GAP UNDER IT: showsDeparture did not know "is out the door", "the door shuts behind her", "steps into the
+  elevator", "heads for the elevator/stairs/exit"; OUT_THE_DOOR joins GOING (a quoted "I'm out the door" is speech).
+- NOW: shownOnPage — a name only as the owner of a thing ("Vivi's pants/panel/texts") or only inside dialogue does
+  not show the person; her hand, voice, eyes, face… do. And a new consistency heal, goneByTheirOwnPage, beside
+  hereByTheNewestPage after every page and on opening: someone listed here (never the main character) whose own
+  page says they left ("Leaving…", "went home", "on her way out", "out the door"…) and whom the newest page does not
+  show is taken out and seated where their page says. His Vivi is out on the next page or the next open, with no
+  audit, and the auditor's own leaves pass the gate again.
+- TESTS: harness m491.mjs — possessives and dialogue vs body and voice; the leave kept when the page goes on to name
+  her pants; the heal (taken out and seated, left alone when the newest page shows her, never the main character);
+  eight departure sentences. Harness 949/949, walk 141/141, long play 8/8, lint 0, two-browser proof, mend_marks.py.
+- version.js -> m491-001.
