@@ -82,6 +82,7 @@ import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/w
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
+import { polishConcept } from '../agents/concept.js'; /* M478: a #story concept becomes the brief, its grammar set right */
 import { renderWorldBrief, threadHousekeeping } from '../engine/world.js';
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory, castNamesFor } from '../import/cards.js';
@@ -2763,6 +2764,8 @@ export function initChat(ctx) {
      * state.founded). The extractor then founds the scene on top of it. */
     enqueue('founder', async ({ signal, stale }) => {
       if (story.extraction === false) return { silent: true };
+      /* M478: the brief as it stands NOW — a #story concept may have been written into it while the page was told */
+      try { const now = await db.stories.get(story.id); if (now) { story.brief = now.brief; story.castNotes = now.castNotes; } } catch (err) { /* the copy in hand */ }
       const cast = await castForStory(story);
       const lore = await loadLore(story.id);
       const print = founderFingerprint({ brief: story.brief || '', castNotes: story.castNotes || '', cast, lore });
@@ -4732,6 +4735,31 @@ export function initChat(ctx) {
         showComposerNote(err && err.message ? err.message : 'The page wouldn’t save.');
         restoreComposer(text);
         return;
+      }
+      /* M478: A #STORY CONCEPT BECOMES THE BRIEF. The raw words now, so the founder and the seeder read them on this very
+       * turn; then, while the storyteller writes the first scene, a worker sets their spelling and grammar right and the
+       * brief is written again — names, numbers and facts kept exactly, or the raw words stand. Only an EMPTY brief. */
+      if (parsed.kind === 'story' && !(story.brief || '').trim()) {
+        const concept = String(text).trim().replace(/^#story\s*/i, '').trim();
+        if (concept) {
+          try { await db.stories.update(story.id, { brief: concept }); story.brief = concept; } catch (err) { /* the brief is a courtesy */ }
+          (async () => {
+            try {
+              const connection = await resolveWorkerConnection(story, 'founder');
+              const r = await polishConcept({ connection, concept });
+              if (r.polished && r.text && r.text !== concept) {
+                const now = await db.stories.get(story.id);
+                /* only if the brief is still the raw concept — never over words he wrote meanwhile */
+                if (now && String(now.brief || '').trim() === concept) {
+                  await db.stories.update(story.id, { brief: r.text });
+                  story.brief = r.text;
+                  toast('Your concept is the brief now, its grammar set right — Settings → This story → The brief.');
+                  if (ctx.settings && typeof ctx.settings.onStoriesChanged === 'function') ctx.settings.onStoriesChanged();
+                }
+              } else toast('Your concept is the brief now — Settings → This story → The brief.');
+            } catch (err) { /* the raw words stand */ }
+          })();
+        }
       }
       if (!parsed.hidden) {
         /* M383: ONE PAGE OF HIS, SHOWN ONCE. A #story opens a new tale, and opening it draws that tale — which, once his

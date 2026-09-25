@@ -53,6 +53,7 @@ const SHELL = [
   'js/agents/world.js',
   'js/agents/auditor.js',
   'js/agents/founder.js',
+  'js/agents/concept.js', /* M478 */
   'js/agents/rebuild.js',
   'js/agents/scribe.js',
   'js/agents/referee.js',

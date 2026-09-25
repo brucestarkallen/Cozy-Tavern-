@@ -6068,6 +6068,32 @@ test('DOM-120 "Mend the pages’ marks": the page repair over the pages already 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+
+test('DOM-121 A #STORY CONCEPT BECOMES THE BRIEF: sent on a tale with an empty brief, the concept is the brief at once (the founder and the seeder read it); a brief the writer wrote is never touched', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'Concept tale' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+  const concept = 'the world where DC and Marvel live together. Jovan Arden, white hair, age 19, summoning from another realm. He see Supergirl fighting an omega threat.';
+  type(q('#composer-input'), '#story ' + concept); submit(q('#composer'));
+  await until(async () => String((await db.stories.get(st.id)).brief || '').trim().length > 0, 'the brief written at once', 5000);
+  const brief = String((await db.stories.get(st.id)).brief || '');
+  assert(brief === concept || (/Jovan Arden/.test(brief) && /Supergirl/.test(brief)), 'the concept is the brief (raw, or polished with its names kept): ' + brief.slice(0, 80));
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 30000);
+  /* a written brief is never overwritten */
+  const st2 = await db.stories.create({ title: 'Briefed tale' });
+  await db.stories.update(st2.id, { brief: 'His own brief, kept.' });
+  env.window.__cozy.setActiveStoryId(st2.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+  type(q('#composer-input'), '#story a second concept that must not land'); submit(q('#composer'));
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 30000);
+  await tick(500);
+  eq((await db.stories.get(st2.id)).brief, 'His own brief, kept.');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

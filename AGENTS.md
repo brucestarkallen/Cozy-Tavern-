@@ -11259,3 +11259,23 @@ only, "Read the pages again" is the ledger's readers, and nothing re-mended a pa
 - TESTS: walk DOM-120 — a stray quote gone, a soft wrap joined, a phone screen to the letter, a whole page not
   written (its updatedAt unchanged), the thread redrawn. Walk 138/138, lint 0.
 - version.js -> m477-001.
+
+# M478 — a #story concept becomes the brief, its grammar set right
+He: "if the story starts with #story <concept> … it should automatically be put on the brief or the record, and
+smartly fix the grammar, because sometimes I just put garbled words."
+- BEFORE: a tale opened on a concept had an EMPTY brief — the founder founded nothing, the seeder weighed the main
+  character from page 1 alone, and the concept slid out of the forty-page window in time.
+- NOW (chat.js send path, agents/concept.js): when a #story carries a concept and the tale's brief is empty, the raw
+  concept is written into the brief AT ONCE (so this very turn's founder and seeder read it — the founder now re-reads
+  the brief from the store at run time), and while the storyteller writes the first scene a worker (the founder's
+  connection) sets its spelling and grammar right: every name, number, age, power, bond and event kept exactly,
+  nothing added, nothing removed, his blunt register, third person. acceptablePolish refuses a polish that drops a
+  name (the capitalised words inside sentences), a refusal, a stub or a runaway — the raw words stand. The polished
+  brief is written only if the brief still holds the raw concept (never over words he wrote meanwhile). A brief he
+  already wrote is never touched. A toast says where the brief is. The brief, not the record: the record folds the
+  pages; the brief is what the founder, the seeder and every request read, and it never leaves the window.
+- TESTS: harness m478.mjs (acceptablePolish's five refusals and the faithful pass; polishConcept through a thinking
+  house, no connection, a refused polish, nothing to polish); walk DOM-121 (the concept is the brief at once; a
+  written brief is never overwritten). Harness 923/923, walk 139/139, lint 0, twobrowsers green (sw.js's shell gained
+  concept.js).
+- version.js -> m478-001.
