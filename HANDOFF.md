@@ -1,6 +1,9 @@
-# Cozy Tavern — handoff for the next session (state at m491-001)
+# Cozy Tavern — handoff for the next session (state at m492-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+1za. THE LIVING LEDGER SIMULATION (M492): tests/harness/livingledger.mjs runs a story through the real gate and heals
+   and checks the truth page by page. Any change to presence, seats, the heals, knowledge, wounds or names must keep
+   it green — extend its pages with every new failure he reports.
 1z. A POSSESSIVE IS NOT A PRESENCE (M491): shownOnPage is the one test of "shown" for the page reader's leave gate,
    the auditor's leave gate and the walk-back heal — keep possessives-of-things and dialogue out of it. goneByTheirOwnPage
    repairs a missed leave from the person's own page. showsDeparture's OUT_THE_DOOR is the vocabulary to extend.

@@ -11563,3 +11563,20 @@ auditor catch it?" Her page read "Leaving Jovan's apartment building — …" fo
   her pants; the heal (taken out and seated, left alone when the newest page shows her, never the main character);
   eight departure sentences. Harness 949/949, walk 141/141, long play 8/8, lint 0, two-browser proof, mend_marks.py.
 - version.js -> m491-001.
+
+# M492 — the living ledger, simulated through the real engine
+He: "audit the whole ledger — the scene, the people, the world, the books — is it alive, smart, efficient?"
+- tests/harness/livingledger.mjs (new, in the harness): a fifteen-page tale in the shape of his DC story — a crater
+  fight, a flight to the apartment, Vivi arriving and leaving with Kara in her clothes, Claire leaving where the reader
+  wrote only her state, the world moving Dev Okafor and a crowd and a role offstage, wounds re-reported, a death, Vivi
+  back and gone again, facts written for several people on one page. Each page: the reader's mutations through the
+  REAL leave gate, then the REAL heals (wrongWalkIns, hereByTheNewestPage, goneByTheirOwnPage); after each page the
+  ledger is checked against the story's truth (who is here, who is away) and ten invariants (nobody here and away,
+  the MC here, no crowd as a person, one page per person, one wound per body part, no fact twice, the dead never here
+  and on the Dead line, the cult and the owls both kept, no seat for a role beside its holder, the people briefing's
+  size per page).
+- FOUND: page 10 — Claire "steps into the elevator" and the reader wrote only her state ("Left for the airport");
+  goneByTheirOwnPage skipped her because the newest page SHOWED her — showed her going. Now shown-and-gone-at-the-end
+  is not a reason to keep someone. Everything else held: the people briefing grew 149 → 474 characters over fifteen
+  pages (bounded), the world agent runs after every page when on, the auditor after every page.
+- GATES: harness 950/950, walk 141/141, long play 8/8, lint 0, two-browser proof. version.js -> m492-001.

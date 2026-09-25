@@ -1700,7 +1700,7 @@ export function goneByTheirOwnPage(state, pageText) {
     const page = key ? pages[key] : null;
     const now = page && typeof page.state === 'string' ? page.state.trim() : '';
     if (!now || !LEFT_RE.test(now)) continue;
-    if (told.trim() && shownOnPage(s, told, name)) continue; /* the newest page has them here: their note is old */
+    if (told.trim() && shownOnPage(s, told, name) && !goneAtTheEnd(s, pageText, name)) continue; /* the newest page has them here — unless it shows them going (M492: Claire stepped into the elevator and stayed listed) */
     const clause = now.split(/\s+[—–-]\s+|;|\.\s/)[0].trim().slice(0, 120);
     out.push({ type: 'presence.leave', name, cause: 'their own page says they left' });
     out.push({ type: 'offscreen.set', name, location: clause, activity: now.slice(clause.length).replace(/^[\s—–;.,-]+/, '').slice(0, 160) });
