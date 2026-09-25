@@ -11174,3 +11174,20 @@ confused, especially while I wait by typing #p" — LULL, "Orders the three summ
   command round, #p continuing it with no call, a declared order continuing as a command; #p outside a fight stays the
   gate's, #p in a duel presses the last move). Harness 915/915, walk 137/137, lint 0.
 - version.js -> m472-001.
+
+# M473 — the domain of the beat: a summoner commands at his summoning
+He, from the measure panel: "Why is it only 3? Jovan Arden (you) — 3 of 10, known for summoning 9, willpower 8,
+intellect 6, social 5."
+- THE NUMBER: the headline is `default` — the rating for anything NOT on his list (a blade in his hand, a climb, a
+  lie) — and the panel never said so. It says so now: "3 of 10 for anything not listed".
+- THE BUG BEHIND IT: a battle rates every unit by the battle's domain (melee, ranged) — so the summoner stood on the
+  field at 3 and every order he gave his summons was rolled at 3 (Arbiter does the same; the war alone read a
+  commander's tactics/command/intellect). Now the battle contract asks for the move's `domain` — the skill the
+  player's OWN act rests on this beat: melee/ranged when he strikes, and for a command the skill the order rests on
+  (summoning for summoned creatures, tactics for troops, a magic domain for a spell), always one from his sheet when
+  one fits — and engine/duels.js beatRating takes that rating from his sheet for the player's number this beat
+  (conditions applied); a domain not on the sheet, or none named, leaves the unit's rating. Only the player's number
+  moves; the field's units keep the battle's domain. The account names the domain; a #p continues it.
+- TESTS: m472.mjs M473 — summoning 9 commands at 9, a blade at 3, an unlisted domain at the unit's 3, the domain rides
+  the normaliser. Harness 916/916, walk 137/137, lint 0.
+- version.js -> m473-001.

@@ -315,7 +315,7 @@ export const DUEL_SYSTEM = [
 export const BATTLE_SYSTEM = [
   'You are the referee of a battle already in progress — a party-scale fight. Read the player\'s beat. You NEVER decide who wins — only the parameters.',
   '- "exchange": false only for talk, councils, pauses and anything that risks nothing while nobody presses; under attack, a talking or hesitant turn is still an exchange at negative circumstance. "combat_ended": true only when the story has already closed the engagement.',
-  '- "move": {"kind": "attack"|"command", "target": enemy name|null, "circumstance": -3..+3} — command means the player directs allies rather than striking; target is the enemy the player engages, if named or clearly meant.',
+  '- "move": {"kind": "attack"|"command", "target": enemy name|null, "domain": the skill the player\'s OWN act rests on this beat, "circumstance": -3..+3} — command means the player directs allies rather than striking; target is the enemy the player engages, if named or clearly meant; domain is melee or ranged when the player strikes, and for a command the skill the order rests on — summoning for summoned creatures, tactics or command for troops, a magic or power domain for a spell — ALWAYS a domain the player has on <sheet> when one fits.',
   '- AN ORDER IS A MOVE, NEVER A PAUSE: when the player sends, commands, unleashes or directs anyone on their side to attack — summons, companions, troops — that beat is "exchange": true with "move": {"kind": "command"}, even though the player swings nothing themselves. The allies act on the order this round.',
   '- "joins": null, or {"allies": [names], "enemies": [names]} — named characters who ENTER the fight THIS beat on either side, the player left out; null when nobody new joins.',
   '- "why": one short clause on what tilts this beat — the reason behind circumstance, or null.',
@@ -325,7 +325,7 @@ export const BATTLE_SYSTEM = [
   COND_RECONCILE_RULE,
   NARRATIVE_RULES,
   JSON_ONLY,
-  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "attack"|"command", "target": null|name, "circumstance": -3..+3}, "why": null|short clause, "joins": null|{"allies": [names], "enemies": [names]}, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
+  '{ "exchange": true|false, "combat_ended": true|false, ' + ACTION_FIELD + ' "move": {"kind": "attack"|"command", "target": null|name, "domain": null|skill, "circumstance": -3..+3}, "why": null|short clause, "joins": null|{"allies": [names], "enemies": [names]}, ' + GUARD_FIELD + ' ' + COUNTER_FIELD + ' ' + CONDITION_FIELD + ' ' + COMPOSURE_FIELD + ' }',
 ].join('\n');
 
 export const WAR_SYSTEM = [
@@ -646,6 +646,9 @@ function normalizeMove(raw, kinds, fallbackKind) {
     target: cleanName(mv.target, 60),
     acting: cleanName(mv.acting, 60),
   };
+  /* M473: the skill the player's own act rests on this beat (a sheet domain, free-form: summoning, tactics, melee) */
+  const domain = typeof mv.domain === 'string' ? mv.domain.trim().toLowerCase().slice(0, 24) : '';
+  if (domain) out.domain = domain;
   return out;
 }
 
@@ -678,6 +681,7 @@ function continuedBeat(state, kind) {
     return { exchange: true, combat_ended: false, action, move: mv, why, condition_change: null, composure_change: null, continued: true };
   }
   const mv = last && last.move && typeof last.move === 'object' ? { kind: last.move.kind === 'command' ? 'command' : 'attack', target: last.move.target || null, circumstance: 0 } : { kind: 'attack', target: null, circumstance: 0 };
+  if (last && last.move && typeof last.move === 'object' && last.move.domain) mv.domain = last.move.domain; /* M473 */
   return { exchange: true, combat_ended: false, action, move: mv, joins: null, why, playerGuard: null, counterPath: null, condition_change: null, composure_change: null, continued: true };
 }
 
@@ -1045,7 +1049,8 @@ export async function refereeStep({ connection, userText, userId, history, state
      * the ledger's ("The house has ruled"). */
     const account = (what, res, extra = {}) => {
       const a = { what, action: adj.action || '', why: adj.why || '', circumstance: Number.isFinite(adj.circumstance) ? adj.circumstance : (adj.move && Number.isFinite(adj.move.circumstance) ? adj.move.circumstance : 0), ...extra };
-      if (adj.move) a.move = typeof adj.move === 'string' ? adj.move : { kind: adj.move.kind || null, target: adj.move.target || null, acting: adj.move.acting || null }; /* M472: a #p continues it */
+      if (adj.move) a.move = typeof adj.move === 'string' ? adj.move : { kind: adj.move.kind || null, target: adj.move.target || null, acting: adj.move.acting || null, domain: adj.move.domain || null }; /* M472: a #p continues it */
+      if (adj.move && adj.move.domain && !a.domain) a.domain = adj.move.domain; /* M473 */
       if (adj.continued) a.continued = true;
       if (res && typeof res === 'object') {
         if (Number.isFinite(res.aR)) a.actorRating = Math.round(res.aR * 10) / 10;

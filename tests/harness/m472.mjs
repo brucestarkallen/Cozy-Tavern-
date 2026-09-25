@@ -72,3 +72,24 @@ test('M472-3 a "#p" with no fight on is not the referee’s (the gate still deci
   eq(called, 0); eq(r2.status, 'ruled'); assert(r2.ruling.tier !== 'LULL'); eq(r2.state.duel.round, 1, 'a round fought');
   eq(r2.ruling.account.move, 'attack');
 });
+
+test('M473 the domain of the beat: a summoner known for summoning 9 (3 for anything not listed) commands his summons at 9, strikes with a blade at 3, and a domain not on his sheet leaves the unit’s rating', async () => {
+  const { engineSettings: es, startBattle: sb, resolveBattleRound } = await import('../../js/engine/duels.js');
+  const s = mkState();
+  s.sheet.actors['Jovan Arden'] = { default: 3, domains: { summoning: 9, willpower: 8, intellect: 6, social: 5 } };
+  sb(s, { allies: ['Mahoraga', 'Fenrir', 'Void'], enemies: ['Varkhos'], domain: 'melee', scaleMismatch: 0 }, es({}));
+  eq(s.battle.allies[0].rating, 3, 'on the field, the battle’s domain: 3');
+  const cmd = resolveBattleRound(s, { kind: 'command', target: null, domain: 'summoning', circumstance: 0 }, es({}));
+  eq(cmd.mcRes.aR, 9, 'an order to his summons is rolled at his summoning 9');
+  const s2 = mkState(); s2.sheet.actors['Jovan Arden'] = { default: 3, domains: { summoning: 9 } };
+  sb(s2, { allies: ['Mahoraga'], enemies: ['Varkhos'], domain: 'melee', scaleMismatch: 0 }, es({}));
+  const blade = resolveBattleRound(s2, { kind: 'attack', target: 'Varkhos', domain: 'melee', circumstance: 0 }, es({}));
+  eq(blade.mcRes.aR, 3, 'a blade in his own hand: 3');
+  const s3 = mkState(); s3.sheet.actors['Jovan Arden'] = { default: 3, domains: { summoning: 9 } };
+  sb(s3, { allies: ['Mahoraga'], enemies: ['Varkhos'], domain: 'melee', scaleMismatch: 0 }, es({}));
+  const none = resolveBattleRound(s3, { kind: 'command', target: null, domain: 'tactics', circumstance: 0 }, es({}));
+  eq(none.mcRes.aR, 3, 'a domain not on his sheet: the unit’s rating stands');
+  /* through the normaliser: the domain rides */
+  const a = normalizeBattleAdj({ exchange: true, action: 'orders the summons to strike', move: { kind: 'command', target: 'Varkhos', domain: 'Summoning', circumstance: 0 } }, s);
+  eq(a.move.domain, 'summoning');
+});

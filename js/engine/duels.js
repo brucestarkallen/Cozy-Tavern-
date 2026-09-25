@@ -813,6 +813,22 @@ function playerUnit(b) {
   return mc || null;
 }
 
+/* M473: THE DOMAIN OF THE BEAT. A unit's rating is the battle's domain (melee, ranged) — a summoner known for
+ * summoning 9 stood on the field at his "anything not listed" 3, and every order he gave was rolled at 3. When the
+ * referee names the skill the player's own act rests on this beat (mv.domain — summoning, tactics, command, magic,
+ * melee), the player's base for the beat is that rating from his sheet; a domain not on his sheet, or none named,
+ * leaves the unit's rating as it was. Only the player's number moves — the field's units keep the battle's domain. */
+function beatRating(state, mc, mv) {
+  const domain = mv && typeof mv.domain === 'string' ? mv.domain.trim().toLowerCase() : '';
+  if (!domain || !mc) return mc ? mc.rating : 0;
+  const entry = findActor(state, mc.name);
+  if (!entry || !entry.domains || typeof entry.domains !== 'object') return mc.rating;
+  for (const key of Object.keys(entry.domains)) {
+    if (key.toLowerCase() === domain) return clamp(clamp(entry.domains[key], 0, 10) + conditionMod(entry, domain), 0, 10);
+  }
+  return mc.rating;
+}
+
 export function resolveBattleRound(state, mv, eng) {
   const b = state.battle;
   const mAll = clamp(Math.round((moraleOf(b.allies) - moraleOf(b.enemies)) * 2) / 2, -1, 1);
@@ -837,7 +853,7 @@ export function resolveBattleRound(state, mv, eng) {
      * storyteller — nothing here ticks or concludes. */
     if (mv.kind === 'command') {
       const oppLead = Math.max(3, ...standing(b.enemies).map((u) => u.rating));
-      const aR = mc.rating - mc.injuries;
+      const aR = beatRating(state, mc, mv) - mc.injuries; /* M473 */
       const delta = clamp(aR - oppLead + mv.circumstance + eng.preset.bonus + mAll + composurePenalty(state, eng) + (b.scaleMismatch || 0), -13, 13);
       const P = probFromDelta(delta);
       const u = rngFloat();
@@ -846,7 +862,7 @@ export function resolveBattleRound(state, mv, eng) {
       let target = standing(b.enemies).find((u) => mv.target && u.name.toLowerCase() === mv.target.toLowerCase());
       if (!target) target = standing(b.enemies).slice().sort((x, y) => y.rating - x.rating)[0];
       if (target) {
-        const aR = mc.rating - mc.injuries + mc.momentum;
+        const aR = beatRating(state, mc, mv) - mc.injuries + mc.momentum; /* M473 */
         const oR = target.rating - target.injuries + target.momentum;
         const delta = clamp(aR - oR + mv.circumstance + eng.preset.bonus + mAll + composurePenalty(state, eng) - combatantComposurePenalty(target, eng) + (b.scaleMismatch || 0), -13, 13);
         const P = probFromDelta(delta);
@@ -862,7 +878,7 @@ export function resolveBattleRound(state, mv, eng) {
     const oppLead = Math.max(3, ...standing(b.enemies).map((u) => u.rating));
     const openingBonus = mc.opening ? 1 : 0;
     mc.opening = false;
-    const aR = mc.rating - mc.injuries + openingBonus;
+    const aR = beatRating(state, mc, mv) - mc.injuries + openingBonus; /* M473 */
     const delta = clamp(aR - oppLead + mv.circumstance + eng.preset.bonus + mAll + composurePenalty(state, eng) + (b.scaleMismatch || 0), -13, 13);
     const P = probFromDelta(delta);
     const u = rngFloat();
@@ -883,7 +899,7 @@ export function resolveBattleRound(state, mv, eng) {
       mc.opening = false;
       const tOpeningBonus = target.opening ? 1 : 0;
       target.opening = false;
-      const aR = mc.rating - mc.injuries + mc.momentum + openingBonus;
+      const aR = beatRating(state, mc, mv) - mc.injuries + mc.momentum + openingBonus; /* M473 */
       const oR = target.rating - target.injuries + target.momentum + tOpeningBonus;
       const delta = clamp(aR - oR + mv.circumstance + eng.preset.bonus + mAll + composurePenalty(state, eng) - combatantComposurePenalty(target, eng) + (b.scaleMismatch || 0), -13, 13);
       const P = probFromDelta(delta);

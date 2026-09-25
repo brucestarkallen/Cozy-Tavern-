@@ -1694,7 +1694,8 @@ function measurePanel(ctx) {
       li.className = 'present-row measure-row';
       const words = document.createElement('span');
       const standing = Number.isFinite(actor.default) ? actor.default : 5;
-      words.textContent = name + (isMc(state, name) ? ' (you)' : '') + ' — ' + standing + ' of 10';
+      /* M473: the headline number is the rating for anything NOT listed — said so, since a summoner's 3 beside his summoning 9 read as "only 3" */
+      words.textContent = name + (isMc(state, name) ? ' (you)' : '') + ' — ' + standing + ' of 10 for anything not listed';
       li.appendChild(words);
       const extras = [];
       const domains = actor.domains && typeof actor.domains === 'object' ? actor.domains : {};
