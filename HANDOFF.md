@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m503-001)
+# Cozy Tavern — handoff for the next session (state at m505-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. OPEN, UNCONFIRMED — BRANCH WHILE A READER IS STILL OUT (found at the end of the m498 session). M112 intends: branching

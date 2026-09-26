@@ -363,7 +363,7 @@ test('M11 armed: a fight opening on a declaration binds the standoff, nothing ro
   });
   eq(r.status, 'ruled', 'the standoff binds');
   eq(r.ruling.tier, 'ARMED', 'armed — nothing rolled');
-  assert(r.ruling.directive.includes('nothing is decided yet') || r.ruling.directive.includes('nothing has succeeded'), 'the directive says nothing is decided');
+  assert(r.ruling.directive.includes('no blow lands from it') || r.ruling.directive.includes('nothing has succeeded'), 'the directive says nothing is decided — no blow lands from a squaring-up (M505)');
   assert(r.state.duel && r.state.duel.active && r.state.duel.round === 0, 'the duel state exists at round zero');
   eq(r.state.mode.combat, true, 'the combat mood rides the mode ledger');
   /* the next beat is round one — the in-fight bypass carries it */

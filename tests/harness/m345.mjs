@@ -221,9 +221,9 @@ test('M345-8 EVERY OUTCOME IS SAID THE WAY A PERSON SAYS IT: no tier in capitals
   assert(/only through that one way in — the ground can be broken/.test(txt('duel FAILURE')), 'the guard’s one honest path');
   assert(/lasting wound/.test(txt('duel DECISIVE')) && /carrying two lasting wounds/.test(txt('duel SUCCESS')), 'wounds, in words');
   assert(/Kaelen is beaten — Jovan takes the fight/.test(txt('duel won')) && /both down/.test(txt('duel draw')), 'the called end, and the draw');
-  assert(/nobody is calling a winner/.test(txt('duel outcome-only')), 'the fight the story ends');
+  assert(/What happens after is the story’s\./.test(txt('duel outcome-only')), 'the fight the story ends — M505: one line hands it back');
   assert(/first disrupt the spell — lands; then a groin kick — fails; and last an elbow — lands cleanly and hard/.test(txt('duel sequence')), 'the chain strike by strike');
-  assert(/nothing is decided yet/.test(txt('armed')), 'the standoff binds');
+  assert(/no blow lands from it/.test(txt('armed')) && /What happens after is the story’s\./.test(txt('armed')), 'the standoff binds — no free blow; the rest is the story’s (M505)');
 });
 
 test('M345-9 THE SETTLED OUTCOME RIDES FIRST IN THE CLOSING WORDS, in the writer’s voice led by the teller’s name, never through the notebook swap; OFF: not one byte of it — no outcome, no craft line, no fight kept', () => {

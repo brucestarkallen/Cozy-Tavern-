@@ -11750,6 +11750,22 @@ misses… keep every consequence in proportion… in secret… it's settled…")
 sat over a last strike that "lands, at a price". Arbiter's own text is the source of that bulk; the fix is the
 outcome-only contract itself: in outcome-only (res.outcome) buildDuelSequenceDirective returns each strike's result in
 order, any guard line the referee set, and "What happens after is the story's. Keep this between us." — no summary tier
-(the combining rule can contradict the strikes), no boilerplate. Tallied mode keeps its full ruling. OPEN for the next
-session: the single-exchange duel and the battle/war outcome-only tails (duels.js buildDuelDirective, battle, war) still
-carry the long sentences — cut them the same way. Harness 957/957, lint 0. version.js -> m505-001.
+(the combining rule can contradict the strikes), no boilerplate. Tallied mode keeps its full ruling.
+
+# M505-2 — outcome only, finished: one hand-back for every ruling that decides nothing further
+He: "you don't run out of room — make sure there is no flex tape, and audit everything." Done in full:
+- duels.js HAND_BACK = "What happens after is the story's. Keep this between us." — ONE definition. In outcome-only mode
+  the single strike, the chain, the battle and the war state what was settled (each strike's own result; "Only X's own
+  part was settled"; "Only this order was settled") and end with HAND_BACK — no summary tier, no "nothing is tallied",
+  no "the fight goes on until…", no "nobody is calling a winner/the field", no "It's settled", no secret or proportion
+  boilerplate. The old outcome tails were REMOVED (unreachable code deleted, the chain returns before the tallied lines
+  are built), not overwritten.
+- The rulings that roll nothing no longer order the pacing: the lull (M503) and now the squaring-up ("end on the brink,
+  not past it" is gone) — each keeps the one guarantee it owes (no blow lands from it) and ends with HAND_BACK.
+- VERIFIED CLEAN: in outcome-only mode a "recover" move never resolves as a recovery (resolveDuelExchange skips it), so
+  its "the fight goes on — end on a live beat" cannot reach the page; the fight-over ruling already hands the ending to
+  the story. Tallied mode keeps its full rulings (the engine ends those fights).
+- TESTS: m505.mjs builds all four outcome-only rulings through the engine and fails on any boilerplate, any
+  fight-forcing phrase, any persona-breaking word, or a missing HAND_BACK; M345-8 and referee.mjs M11 now read the
+  guarantees in their new words (they had pinned phrases, not behaviour). Harness 958/958, walk 144/144, long play 8/8,
+  lint 0, two-browser proof. version.js -> m505-002.

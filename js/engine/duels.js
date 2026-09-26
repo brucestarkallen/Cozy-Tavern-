@@ -1266,6 +1266,11 @@ const secretLine = (who, onlyFailure) => (onlyFailure
   : 'Keep every consequence in proportion. If ' + who + ' was acting in secret or under cover, a win doesn’t give it away — at most a faint, deniable flicker of suspicion.');
 
 /* A lone check: what was tried, how it went, what rides on it. */
+/* M505: OUTCOME ONLY — every ruling in outcome-only mode states what happened and hands the story back in ONE line;
+ * what comes after (a yield, a truce, someone stepping in, a body that can't go on) is the storyteller's, by the people
+ * in it. No summary tier, no boilerplate, no "the fight goes on". */
+export const HAND_BACK = 'What happens after is the story’s. Keep this between us.';
+
 export function buildDirective(adj, res) {
   const stakes = adj.stakes ? ' What’s riding on it: ' + clause(adj.stakes) + '.' : '';
   return [
@@ -1298,12 +1303,11 @@ export function buildDuelDirective(state, adj, res) {
   const lines = [head + me + ' goes for it — ' + clause(adj.action) + ' — and ' + say(res.tier) + '.'];
   lines.push(...guardLines(adj, me, foe, res.tier));
   if (res.opening) lines.push(me + ' is pressing the opening the last exchange left.');
+  if (res.outcome) return [...lines, HAND_BACK].join(' '); /* M505 */
   if (!res.outcome && fx.injureOpp) lines.push(foe + ' takes a real, lasting wound from it — name it in the telling; it weakens them from here on.');
   if (!res.outcome && fx.injureSelf && !(adj.playerGuard && !adj.counterPath)) lines.push(me + ' takes a real, lasting wound from it — name it in the telling; it weakens them from here on.');
   if (!res.outcome && res.tier === 'SETBACK' && !duel.over) lines.push(me + ' loses this exchange but sees a real opening to use next — show it.');
-  if (res.outcome) {
-    lines.push('Nothing is being tallied in this fight — each exchange stands on its own, and a hurt lasts only as long as the story carries it. The fight goes on until the story itself ends it: when everything so far makes a yield, a truce, a flight, someone with the standing to stop it stepping in, a body that can’t go on, or a finish the honest next beat, write that ending yourself — nobody is calling a winner.');
-  } else if (duel.over) {
+  if (duel.over) {
     if (duel.victor === 'draw') {
       lines.push('They take each other down in the same exchange — ' + me + ' and ' + foe + ' are both down. Tell the double finish the story has earned; neither wins, neither can rally, and it stands.');
     } else {
@@ -1324,12 +1328,14 @@ export function buildDuelSequenceDirective(state, adj, res) {
   const me = duel.player.name;
   const foe = duel.opp.name;
   const chain = res.steps.map((st, i) => (i === 0 ? 'first ' : i === res.steps.length - 1 ? 'and last ' : 'then ') + clause(st.strike) + ' — ' + (SAY_SHORT[st.tier] || SAY_SHORT.FAILURE)).join('; ');
+  if (res.outcome) { /* M505: what each strike did, then the story's */
+    const g = guardLines(adj, me, foe, res.overall).join(' ');
+    return 'About the fight between ' + me + ' and ' + foe + ': ' + me + '’s chain of strikes, in order — ' + chain + '.' + (g ? ' ' + g : '') + ' ' + HAND_BACK;
+  }
   const lines = ['About the fight between ' + me + ' and ' + foe + ': ' + me + ' commits to a chain of strikes, and each goes exactly so, in order: ' + chain + '. Taken together, ' + say(res.overall) + '.'];
   lines.push(...guardLines(adj, me, foe, res.overall));
   if (!res.outcome && !duel.over) lines.push(sideStatus(duel.opp) + '; ' + sideStatus(duel.player) + '.');
-  if (res.outcome) {
-    lines.push('Nothing is being tallied in this fight — each exchange stands on its own. The fight goes on until the story itself ends it; when everything so far makes a yield, a truce, a flight, someone with the standing to stop it stepping in, a body that can’t go on, or a finish the honest next beat, write that ending yourself — nobody is calling a winner.');
-  } else if (duel.over) {
+  if (duel.over) {
     if (res.victor === 'draw') lines.push('The chain ends with both of them down — ' + me + ' and ' + foe + ' take each other out in the same flurry. Tell the double finish the story has earned; neither wins, and it stands.');
     else lines.push(res.victor === 'player'
       ? foe + ' is beaten — tell the finish the story has earned, and it stands.'
@@ -1340,27 +1346,15 @@ export function buildDuelSequenceDirective(state, adj, res) {
   lines.push('A strike that misses or goes wrong really did — show ' + foe + ' reading it, slipping it or making ' + me + ' pay; never let a failed strike quietly land.');
   lines.push(secretLine(me, false));
   lines.push(SETTLED);
-  /* M505: OUTCOME ONLY SAYS WHAT HAPPENED AND STOPS. The writer: "it's yapping and yapping — it should just let Hulk or
-   * Iron Man decide what happened after", and "success as intended" sat over a strike that "lands, at a price". In
-   * outcome-only the ruling is each strike's result, in order, and one line handing the story back — no summary tier
-   * (a combining rule could contradict the strikes), no boilerplate. */
-  if (res.outcome) {
-    const g = guardLines(adj, me, foe, res.overall).join(' ');
-    return 'About the fight between ' + me + ' and ' + foe + ': ' + me + '’s chain of strikes, in order — ' + chain + '.' + (g ? ' ' + g : '') + ' What happens after is the story’s. Keep this between us.';
-  }
   return lines.join(' ');
 }
 
 /* A fight joined on a declaration or a squaring-up: the standoff binds, and nothing is decided. */
 export function buildArmedDirective(state, adj) {
   const duel = state.duel;
-  const who = duel ? duel.player.name + ' and ' + duel.opp.name : 'the two sides';
-  const kind = duel ? 'fight' : (state.battle && state.battle.kind === 'war' ? 'war' : 'battle');
-  return [
-    'About ' + who + ': the ' + kind + ' is joined, but they’re only squaring up so far — ' + clause(adj.action || 'the squaring-up') + '. No blow has landed and nothing is decided yet.',
-    'Tell the standoff, the words and the readying exactly as written — a declaration, a taunt or drawn steel is not an attack, and neither side gains or loses anything yet. The first real attempt is where it begins; end on the brink, not past it.',
-    'Keep all of this between us.',
-  ].join(' ');
+  /* M505: squaring up rolls nothing and decides nothing — no blow lands from it — and it no longer orders the page to
+   * "end on the brink, not past it": what happens after is the story's, like every ruling that rolled nothing */
+  return 'About ' + duel.player.name + ' and ' + duel.opp.name + ': the fight is joined, but they’re only squaring up so far — ' + clause(adj.action) + '. Tell it as written; a declaration, a taunt or drawn steel is not an attack, and no blow lands from it. ' + HAND_BACK;
 }
 
 export function buildBattleDirective(state, adj, out) {
@@ -1384,7 +1378,8 @@ export function buildBattleDirective(state, adj, out) {
   if (rep.length) lines.push('Elsewhere on the field, and true: ' + rep.join(' '));
   if (out.reports.length > 4) lines.push('The rest of the clashes hold without a decision.');
   if (out.outcome) {
-    lines.push('Only ' + mc.name + '’s own part was settled. Who falls, who holds and how the nerve of each side sways follows the story, and the battle goes on until the story ends it — write the rout, the stand-down, the escape, or someone with the standing calling it off, yourself, when it’s earned; nobody is calling the field.');
+    lines.push('Only ' + mc.name + '’s own part was settled.', HAND_BACK); /* M505 */
+    return lines.join(' ');
   } else if (b.over) {
     if (b.mcDown) lines.push(mc.name + ' is taken out of the fight — tell it (downed, disarmed or dragged clear, whatever fits) — and then the field resolves: ' + (b.victor === 'allies' ? 'their side still wins the day.' : 'their side is beaten.'));
     else lines.push('It’s decisive: ' + (b.victor === 'allies' ? mc.name + '’s side has won' : 'the enemy has won') + '. Tell the ending the story has earned — a rout, a surrender, a retreat, a capture or worse — and it stands.');
@@ -1420,7 +1415,8 @@ export function buildWarDirective(state, adj, out) {
     lines.push('Still shaping the field: ' + b.conditions.map((c) => clause(c.name) + ' (in ' + (c.favors === 'allies' ? mc.name + '’s favour' : 'the enemy’s favour') + ')').join('; ') + '.');
   }
   if (out.outcome) {
-    lines.push('Only this order was settled. The losses, the tide of the line and the end of the day follow the story — the engagement goes on until the story ends it; nobody is calling the field.');
+    lines.push('Only this order was settled.', HAND_BACK); /* M505 */
+    return lines.join(' ');
   } else if (b.over) {
     if (b.mcDown) lines.push(mc.name + ' falls in the fighting — tell it (struck down, disabled, dragged from the field, whatever fits) — and command collapses: the enemy takes the day.');
     else lines.push('It’s decisive: ' + (b.victor === 'allies' ? 'the enemy line shatters and ' + mc.name + '’s side takes the field' : 'the allied line breaks and the enemy takes the field') + '. Tell the rout, the surrender or the withdrawal the story has earned, and it stands.');
