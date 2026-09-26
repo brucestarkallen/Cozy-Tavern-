@@ -11769,3 +11769,54 @@ He: "you don't run out of room — make sure there is no flex tape, and audit ev
   fight-forcing phrase, any persona-breaking word, or a missing HAND_BACK; M345-8 and referee.mjs M11 now read the
   guarantees in their new words (they had pinned phrases, not behaviour). Harness 958/958, walk 144/144, long play 8/8,
   lint 0, two-browser proof. version.js -> m505-002.
+
+# M506 — the deep audit of the m498 session's hand-off: five faults found by reading and probing, each fixed at its root
+He: "deep audit everything from version 1 until version final… everything autonomous and self-healing… perfection." The
+work began where the last session left off — its open finding — and then every change since the M497 audit (M498–M505-2)
+was read line by line and probed with real shapes, the M491 rules included.
+1. THE OPEN FINDING (branch while a reader is still out) — CLOSED, cause (a). chat.js branchFrom: M112 marked the copy
+   inexact (exact = !chainStillRunning) — and M66's later line `exact = exact || Boolean(carried)` ran for that door too
+   and overrode the mark: the branch was called exact, its incomplete ledger became the last page's own checkpoint (M127),
+   and nothing ever read the page again — the branch kept a ledger without that page's reads. A second fault under it:
+   pendingWork returns false BOTH for "nothing was pending" and "the wait ran out", so every branch from a settled tale's
+   newest page was read as "the readers are still on it" (harmless only because fault one then called it exact anyway).
+   NOW: extractor.js workInFlight(storyId); still running = the wait ran out AND a reader is still noted. Such a branch
+   carries the BOUNDARY before the page's turn (M21's snapshot keyed by the page's own user message — the referee's fate
+   in it, the page's reads not; pendingVerdict nulled, M72) when it exists, else the ledger as it stands; it is marked
+   inexact, M66's line is `(exact || carried) && !mustReread`, and the branch re-reads its last page (deep:false, audit).
+   A settled tale's newest page carries the ledger as it stands, exact, and sends no reader. WALK DOM-127 (new) drives
+   it through the real app with a held reader: the branch's own reading (Lin) lands in the branch, the origin's held
+   reader (Ghost) lands only in the origin, a second branch from the settled branch reads nothing — fails on the old code
+   at "the branch reads its last page itself". The source laws M43-2, M112-1, M72-8 pin the new lines.
+2. M505-2 CRASHED THE REFEREE ON AN ARMED BATTLE OR WAR. duels.js buildArmedDirective read state.duel for every kind;
+   a battle or war squaring up (two against one is a battle since M470; a declared war) threw on duel.player, the
+   outer catch answered `degraded` ("referee fault"), the fight had begun in the ledger with no ruling. Now the sides
+   are named as the fight has them (the two sides / battle / war), the words as written or "the squaring-up" when none
+   came. m505.mjs M506 builds all three armed rulings through the engine.
+3. M498'S THOUGHT MEND MANGLED A WELL-FORMED THOUGHT WITH A ~ IN ITS WORDS. "~t~*Nya~*~/t~" → "~t~*Nya*~/t~*~/t~",
+   "~t~*Hello~ she thinks*~/t~" cut in half, "*~t~Hmm~ what now~/t~*" broken — its one regex judged "exact" only after
+   it had matched, and a bare ~ inside the words was taken as the closer; the repair runs on every kept page and on
+   every open (M488), so it rewrote pages that were right. NOW: pageshape.js mendThoughts shields both exact forms
+   first (EXACT_THOUGHT_RE), mends only the broken shapes after (a broken opener before an exact thought ends before it;
+   two bare openers keep their space), and a recovery rule puts back the exact mangled shape (~t~*W*~/t~ + R + *~/t~
+   on one line, R with no emphasis → ~t~*W~R*~/t~; the second form likewise) — so any page the last builds touched heals
+   on the next open (pagesMended is per build). m476.mjs M506: seven exact shapes untouched through tidyPage, three
+   mangled shapes healed. mend_marks.py (real Chromium) green.
+4. M491 READ EVERY "NAME'S" AS THE OWNER OF A THING. "Vivi's already at the counter", "Vivi's laughing at him", "Vivi's
+   here", "Vivi's the one who answers", "Vivi's gone quiet", "Vivi's coming up the stairs" showed nobody — a present
+   person judged unseen by the leave gate, the auditor's gate and the walk-back heal. apply.js CONTRACTION_NEXT: an
+   adverb, determiner, preposition of place or present participle after the 's is the person; BODY_AFTER_POSSESSIVE
+   now takes a word or two before the body ("Vivi's left hand", "Vivi's dark eyes"). Her pants, her ring, her wedding
+   photo and "the jacket is Vivi's" are still things. m491.mjs M506 pins fifteen sentences.
+5. goneByTheirOwnPage TRUSTED A "LEFT…" LINE OLDER THAN THE PERSON'S RETURN. Her page said "Left for the airport" (page
+   30, the reader wrote only her state); she walked back in on page 45 and the scribe left the old line; a quiet page
+   46 would have sent her away again. apply.js nowPredatesTheirReturn reads the journal: the last presence.enter for
+   the person stamped after the last write of their now (or with no write of it in the journal's reach) means the line
+   is from before they came back, and it is not a departure. m491.mjs M506 runs the sequence (page 31 out, page 46
+   kept, page 47 out on a fresh line).
+- VERIFIED CLEAN by probing: an arrival under a short form lets its seat go (seatForPerson, M320); M257 refuses a seat
+  for someone present under any form of the name; M502's Now/Doing/Last-noted logic; a full turn's wire read as the
+  teller reads it (one system message, the briefing in his voice, his message last, the ruling after it as system);
+  every outcome-only ruling text for every tier, the lull, the squaring-up and a battle round.
+- GATES: harness 962/962 (three source laws re-pinned to the new lines), walk 145/145, long play 8/8, lint 0,
+  holdsone.py, twobrowsers.py, mend_marks.py. version.js -> m506-001.

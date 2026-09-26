@@ -1465,7 +1465,14 @@ export function clearsThatArrive(state, mutations, sceneText) {
  * Vivi stood in "Who's here" pages after she had gone home. Her name inside dialogue, or as the owner of anything but
  * her own body or voice ("Vivi's pants", "Vivi's panel", "Vivi's texts"), does not show her; "Vivi's hand on his arm"
  * does. */
-const BODY_AFTER_POSSESSIVE = /^(?:\s+(?:own\s+)?(?:hand|hands|eyes|eye|face|voice|arm|arms|shoulder|shoulders|head|hair|mouth|lips|fingers|finger|gaze|laugh|breath|smile|knee|knees|back|feet|foot|palm|grip|body|shadow|footsteps|steps|silhouette|chin|brow|cheek|cheeks|temple|jaw|neck|wrist|hip|hips|heel|heels|reflection))\b/i;
+/* M506: her body with a word or two before it too — "Vivi's left hand", "Vivi's dark eyes", "Vivi's bare feet" */
+const BODY_AFTER_POSSESSIVE = /^(?:\s+(?:own\s+)?(?:[\p{L}-]+\s+){0,2}(?:hand|hands|eyes|eye|face|voice|arm|arms|shoulder|shoulders|head|hair|mouth|lips|fingers|finger|gaze|laugh|breath|smile|knee|knees|back|feet|foot|palm|grip|body|shadow|footsteps|steps|silhouette|chin|brow|cheek|cheeks|temple|jaw|neck|wrist|hip|hips|heel|heels|reflection))\b/iu;
+/* M506: "VIVI'S" IS OFTEN "VIVI IS". M491 read every "Name's" as the owner of a thing — so "Vivi's already at the counter",
+ * "Vivi's laughing at him", "Vivi's here", "Vivi's the one who answers" showed nobody, and a person standing in the room
+ * was judged unseen (the leave gate, the auditor's gate and the walk-back heal all ask this). What follows the 's says
+ * which: an adverb, a determiner, a preposition of place or a present participle is the person herself doing or being
+ * something; a noun is a thing of hers. */
+const CONTRACTION_NEXT = /^\s+(?:already|still|not|never|just|here|there|too|also|now|only|always|almost|about|really|quite|so|very|barely|hardly|nearly|probably|definitely|clearly|suddenly|finally|again|off|out|in|on|up|down|over|away|gone|left|home|late|early|right|wrong|fine|okay|ok|done|sure|ready|awake|asleep|alone|busy|quiet|silent|pale|tired|close|near|nowhere|somewhere|everywhere|halfway|a|an|the|no|some|one|been|got|had|back|inside|outside|upstairs|downstairs|behind|beside|next|across|at|by|with|without|under|beneath|above|between|among|beyond|into|onto|through|toward|towards|around|halfway|standing|sitting|laughing|watching|leaning|looking|talking|smiling|waiting|holding|staring|coming|going|leaving|walking|moving|pointing|nodding|shaking|crying|lying|reading|writing|sleeping|eating|drinking|cooking|listening|speaking|saying|telling|asking|answering|thinking|wondering|trying|working|playing|running|pacing|kneeling|crouching|hovering|lingering|frowning|grinning|blushing|breathing|shivering|trembling|humming|typing|texting|scrolling|glancing|gazing|studying|pretending|ignoring|pushing|pulling|reaching|stepping|turning|stopping|starting|getting|being|having|doing|making|taking|giving|keeping|putting|letting|wearing|carrying|climbing|driving|dancing|singing|fighting|bleeding|dying|living|fading|sweating|screaming|shouting|whispering|muttering|mumbling|giggling|sobbing|weeping|yawning|sighing|chewing|sipping|stirring|folding|wiping|rubbing|scratching|tapping|fidgeting|twisting|tilting|shrugging|rolling|blinking|squinting|flinching|wincing|gripping|clutching|tugging|brushing|dressing|undressing|tying|kicking|punching|swinging|ducking|dodging|bracing|bending|stretching|curling|resting|lounging|sprawling|slumping|straightening|rising|settling|waking|dozing|snoring|dreaming|hesitating|considering|deciding|refusing|agreeing|arguing|teasing|flirting|joking|yelling|sobbing|hugging|kissing|touching|grabbing|throwing|catching|falling|lifting|dropping|opening|closing|locking|knocking|calling|shouting|waving|smoking|checking|counting|packing|unpacking|cleaning|washing|showering|changing|hiding|searching|digging|fixing|building|breaking|cutting|pouring|serving|sweeping|mopping|scrubbing|painting|drawing|sketching|sewing|knitting|gardening|training|practicing|stretching|jogging|swimming|surfing|skating|riding|flying|sailing|rowing|hunting|fishing|camping|resting|recovering|healing|bleeding|shaking|sweating|panting|gasping|coughing|sneezing|vomiting|choking|drowning|burning|freezing|starving|praying|meditating|chanting|humming|whistling|clapping|cheering|booing|laughing|grieving|mourning|celebrating|toasting|drinking|feasting|starving|fasting|dieting|exercising|lifting|squatting|benching|sparring|boxing|wrestling|grappling|striking|blocking|parrying|dodging|guarding|defending|attacking|charging|retreating|fleeing|chasing|following|leading|guiding|escorting|carrying|dragging|hauling|shoving|nudging|elbowing|poking|prodding)\b/i;
 function onlyNamedAway(text, name) {
   const t = narrationOf(text);
   const words = String(name || '').split(/\s+/).filter((w) => w.length >= 2).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
@@ -1476,7 +1483,9 @@ function onlyNamedAway(text, name) {
     seen += 1;
     const possessive = /['’]s$/i.test(m[0]);
     if (!possessive) return false;
-    if (BODY_AFTER_POSSESSIVE.test(t.slice(m.index + m[0].length, m.index + m[0].length + 24))) return false;
+    const after = t.slice(m.index + m[0].length, m.index + m[0].length + 40);
+    if (BODY_AFTER_POSSESSIVE.test(after)) return false;
+    if (CONTRACTION_NEXT.test(after)) return false; /* M506: "Vivi's already…" is Vivi */
   }
   return true; /* every mention in narration is a possessive of a thing — or she is named only inside dialogue */
 }
@@ -1707,6 +1716,22 @@ const LEFT_RE = new RegExp('^\\s*(?:'
   + '|leaving(?=\\s+(?:for|now|soon|early|at)\\b|\\s*[,—–.;]|[^.;—–]{0,60}\\b(?:' + PLACE_WORDS + ')\\b)'
   + '|walked out|walking out|headed (?:out|home|back|off)|heading (?:out|home|back|off)|went (?:home|out|back)|going home'
   + '|on (?:her|his|their) way (?:out|home|back)|out the door|departing|departed|back home|home now)', 'i');
+/* M506: A DEPARTURE WRITTEN BEFORE THEY CAME BACK IS NOT A DEPARTURE. The journal says when a line was written: if the
+ * person's last presence.enter is stamped later than the last write of their "now", the "Left for the airport" on
+ * their page is from before they walked back in (the scribe writes a now for someone the page shows; a page that shows
+ * her return without a new now leaves the old line standing) — and a quiet page after her return must not send her
+ * away on it. With no journal word either way, the page's line is taken as it stands (M491). */
+function nowPredatesTheirReturn(s, name) {
+  const journal = Array.isArray(s.journal) ? s.journal : [];
+  let cameIn = null; let written = null;
+  for (const j of journal) {
+    const m = j && j.m; if (!m || typeof m.name !== 'string' || !samePersonName(m.name, name)) continue;
+    const at = Number.isFinite(j.p) ? j.p : null; if (at === null) continue;
+    if (m.type === 'presence.enter') cameIn = at;
+    else if (m.type === 'people.set' && String(m.field || '').toLowerCase() === 'state') written = at;
+  }
+  return cameIn !== null && (written === null || cameIn > written); /* an entrance the journal holds with no write of the now after it: the now is older than the journal's reach */
+}
 export function goneByTheirOwnPage(state, pageText) {
   const s = state && typeof state === 'object' ? state : {};
   const present = Array.isArray(s.present) ? s.present : [];
@@ -1720,6 +1745,7 @@ export function goneByTheirOwnPage(state, pageText) {
     const page = key ? pages[key] : null;
     const now = page && typeof page.state === 'string' ? page.state.trim() : '';
     if (!now || !LEFT_RE.test(now)) continue;
+    if (nowPredatesTheirReturn(s, name)) continue; /* M506 */
     if (told.trim() && shownOnPage(s, told, name) && !goneAtTheEnd(s, pageText, name)) continue; /* the newest page has them here — unless it shows them going (M492: Claire stepped into the elevator and stayed listed) */
     const clause = now.split(/\s+[—–-]\s+|;|\.\s/)[0].trim().slice(0, 120);
     out.push({ type: 'presence.leave', name, cause: 'their own page says they left' });

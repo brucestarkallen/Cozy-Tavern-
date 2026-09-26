@@ -61,7 +61,7 @@ import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page w
 import { readSensors, takeWordForTurn, keepPageWord, sensorLine } from '../agents/sensors.js'; /* M356/M357: the readings, and the one line they earn */
 import { onToast as onCanonToast } from '../canon/host.js';
 import { canonNote as keepCanonNote, canonWhy } from '../canon/bridge.js'; /* M395: canon's own notes go to its room, never onto the screen; M486: why it had nothing to say */
-import { extractTurn, noteWork, pendingWork, isYoungLedger } from '../agents/extractor.js';
+import { extractTurn, noteWork, pendingWork, workInFlight, isYoungLedger } from '../agents/extractor.js'; /* M506: workInFlight */
 import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/status.js';   /* M250/M255 */
 import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
@@ -5386,7 +5386,10 @@ export function initChat(ctx) {
      * still running — the ledger copied now would lack that page's reads,
      * so the branch re-reads its last page itself (a light read, not the
      * deep one). The origin's own chain finishes in the origin, untouched. */
-    chainStillRunning = (await pendingWork(story.id, 8000)) === false;
+    /* M506: pendingWork says false both for "nothing was pending" and "the wait ran out" — read as "still running", a
+     * settled tale's branch was marked inexact too (and re-read its last page for nothing). Still running means: the
+     * wait ran out AND a reader is still out. */
+    chainStillRunning = (await pendingWork(story.id, 8000)) === false && workInFlight(story.id);
     const nowState = await loadState(story.id);
     const kBranch = pages.filter((m) => m.role === 'assistant').length - 1;
     fromTheTail = isLastAssistantPage(history, target.id) || !history.slice(at + 1).some((m) => m && !m.hidden);
@@ -5397,9 +5400,25 @@ export function initChat(ctx) {
      * from NOTHING: the writer branched from his newest page and the whole
      * ledger was gone. The fold is for OLDER pages, and only where the
      * journal reaches them. */
-    if (fromTheTail) {
+    /* M506: A BRANCH WHILE THE READERS ARE STILL ON THE NEWEST PAGE RE-READS IT FROM BEFORE THEM. M112 meant: the ledger
+     * copied now lacks that page's reads, so mark the copy inexact and let the branch read its last page itself. Two
+     * faults undid it. (1) M66's line below (exact = exact || carried) ran for this door too and overrode the mark —
+     * the branch was called exact, its incomplete ledger became the page's own checkpoint (M127), and nothing ever read
+     * the page again: the open finding of the m498 handoff, reproduced in DOM-127. (2) The re-read starts from the
+     * ledger AS IT STANDS — which, when the origin's page reader had already written and only a later reader was still
+     * out, holds that page's reads once and would take them twice. So the copy is the BOUNDARY before the page's turn
+     * (M21's snapshot keyed by the page's own user message — the referee's fate in it, the page's reads not) when it
+     * exists, the ledger as it stands otherwise; the branch's readers then read the page fresh. */
+    let mustReread = false;
+    if (fromTheTail && chainStillRunning) {
+      const own = [...pages].reverse().find((m) => m && m.role === 'user' && !m.hidden);
+      const boundary = own ? (await loadSnapshots(story.id)).find((e) => e.id === own.id) : null;
+      carried = boundary && boundary.snap ? { ...boundary.snap, pendingVerdict: null } : nowState; /* M72: the ruling rode once */
+      exact = false;
+      mustReread = true;
+    } else if (fromTheTail) {
       carried = nowState;
-      exact = !chainStillRunning;
+      exact = true;
     } else if ((nowState.journal || []).length && journalReaches(nowState, await loadSnapshots(story.id), kBranch)) {
       carried = foldJournal(nowState, await loadSnapshots(story.id), kBranch, applyMutations);
       exact = true;
@@ -5432,7 +5451,7 @@ export function initChat(ctx) {
      * of the carried pages rebuild it in the branch. The old fallback was
      * the ledger as it stands now, which for a branch at the start carried
      * everything that happened afterwards. */
-    exact = exact || Boolean(carried);
+    exact = (exact || Boolean(carried)) && !mustReread; /* M506: never over M112's mark */
     if (!carried) {
       const snaps = await loadSnapshots(story.id);
       const carriedOrder = pages.filter((m) => m.role === 'user').map((m) => m.id);

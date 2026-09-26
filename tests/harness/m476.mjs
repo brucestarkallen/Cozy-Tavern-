@@ -80,3 +80,15 @@ test('M501 a thought-closer fragment left by a split line ("/t Shunsui stood…"
   eq(mendMarks('Shunsui stood. ~/t').text, 'Shunsui stood.');
   for (const keep of ['~t~*Fine.*~/t~ Shunsui stood.', 'He wrote and/or read it at http://t.co today.']) eq(mendMarks(keep).text, keep, keep);
 });
+
+test('M506 a well-formed thought with a ~ inside its words ("~t~*Nya~*~/t~", "~t~*Hello~ she thinks*~/t~") is left to the letter — M498 read the ~ as its closer and cut it — and the shape that cut made of one is put back together on the next repair', async () => {
+  const { mendThoughts, tidyPage } = await import('../../js/ui/pageshape.js');
+  for (const exact of ['~t~*Nya~*~/t~ he says.', '~t~*Hello~ she thinks*~/t~', '*~t~Hmm~ what now~/t~*', 'She hums, ~t~*not now — not ever~*~/t~ and turns.', '~t~*He’s ~ maybe*~/t~', '~t~*a*~/t~ ~t~*b*~/t~', '~t~*a*~/t~ she says. *emph*~/t~']) {
+    eq(mendThoughts(exact), exact, 'untouched: ' + exact);
+    eq(tidyPage('[X — Monday | 09:00 | sun | coat | here]\n\n' + exact + '\n\nThe rain.', {}).text, '[X — Monday | 09:00 | sun | coat | here]\n\n' + exact + '\n\nThe rain.', 'the page repair leaves it: ' + exact);
+  }
+  for (const [mangled, whole] of [['~t~*Hello*~/t~ she thinks*~/t~', '~t~*Hello~ she thinks*~/t~'], ['~t~*Nya*~/t~*~/t~ he says.', '~t~*Nya~*~/t~ he says.'], ['*~t~*Hmm*~/t~ what now~/t~*', '*~t~Hmm~ what now~/t~*']]) eq(mendThoughts(mangled), whole, 'healed: ' + mangled);
+  /* a broken opener before an exact thought on the same line ends before it, and two bare openers keep their space */
+  eq(mendThoughts('~t~Hmm she thinks, ~t~*fine*~/t~ and goes.'), '~t~*Hmm she thinks,*~/t~ ~t~*fine*~/t~ and goes.');
+  eq(mendThoughts('~t~a ~t~b'), '~t~*a*~/t~ ~t~*b*~/t~');
+});

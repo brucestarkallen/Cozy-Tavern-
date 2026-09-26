@@ -1351,10 +1351,15 @@ export function buildDuelSequenceDirective(state, adj, res) {
 
 /* A fight joined on a declaration or a squaring-up: the standoff binds, and nothing is decided. */
 export function buildArmedDirective(state, adj) {
-  const duel = state.duel;
+  const duel = state && state.duel;
   /* M505: squaring up rolls nothing and decides nothing — no blow lands from it — and it no longer orders the page to
    * "end on the brink, not past it": what happens after is the story's, like every ruling that rolled nothing */
-  return 'About ' + duel.player.name + ' and ' + duel.opp.name + ': the fight is joined, but they’re only squaring up so far — ' + clause(adj.action) + '. Tell it as written; a declaration, a taunt or drawn steel is not an attack, and no blow lands from it. ' + HAND_BACK;
+  /* M506: a BATTLE or a WAR squares up too (two against one is a battle since M470; a declared war) — M505-2 read
+   * state.duel for every kind and threw on a battle's, so the fight began in the ledger with no ruling and the referee
+   * was marked "stumbled". The sides are named as the fight has them. */
+  const who = duel ? duel.player.name + ' and ' + duel.opp.name : 'the two sides';
+  const kind = duel ? 'fight' : (state && state.battle && state.battle.kind === 'war' ? 'war' : 'battle');
+  return 'About ' + who + ': the ' + kind + ' is joined, but they’re only squaring up so far — ' + clause((adj && adj.action) || 'the squaring-up') + '. Tell it as written; a declaration, a taunt or drawn steel is not an attack, and no blow lands from it. ' + HAND_BACK;
 }
 
 export function buildBattleDirective(state, adj, out) {

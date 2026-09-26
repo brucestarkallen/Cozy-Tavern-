@@ -20,7 +20,10 @@ test('M43-2 a branch carries its checkpoint: the ledger after the branch page, t
   assert(!/if \(!carried\) carried = await loadState\(story\.id\);/.test(b), 'the old fallback to the ledger as it stands is gone');
   /* M91: the fold rides where the journal reaches; near the tail of a store it does not reach, the ledger as it stands */
   assert(/carriedOrder\[i\]/.test(b) && /foldJournal\(now, snaps, k === -1 \? -1 : k, applyMutations\)/.test(b) && /journalReaches\(now, snaps/.test(b), 'nearest earlier checkpoint, else the FOLD of the journal (M69), gated by reach (M91)');
-  assert(/if \(fromTheTail\) \{\s*carried = nowState;\s*exact = !chainStillRunning;/.test(b), 'the newest page carries the ledger as it stands, first, exact once the readers landed (M91, M112)');
+  /* M506: the settled newest page carries the ledger as it stands, exact; while its readers are still out the copy is the
+   * boundary before the page's turn (else the ledger as it stands), inexact, and M66's line below never overrides that mark */
+  assert(/if \(fromTheTail && chainStillRunning\) \{[\s\S]*?carried = boundary && boundary\.snap \? \{ \.\.\.boundary\.snap, pendingVerdict: null \} : nowState;[^\n]*\n\s*exact = false;\s*mustReread = true;\s*\} else if \(fromTheTail\) \{\s*carried = nowState;\s*exact = true;/.test(b), 'the newest page carries the ledger as it stands, first, exact once the readers landed (M91, M112, M506)');
+  assert(/exact = \(exact \|\| Boolean\(carried\)\) && !mustReread;/.test(b), 'M66’s checkpoint mark never overrides M112’s (M506)');
   assert(/startBackgroundWork\(branchStory, last, lastUser \? pageText\(lastUser\) : '', \{ deep: true, audit: true \}\)/.test(b), 'an inexact carry is re-read at once');
   /* M337: the carried ledger passes through dropTheFuture on its way — nothing dated past the branch page rides along */
   assert(/const carriedNow = dropTheFuture\(JSON\.parse\(JSON\.stringify\(carried\)\), kBranch \+ 1\)\.state;[\s\S]*msgId: idMap\[e\.msgId\][\s\S]*await saveState\(branch\.id, carriedNow\);/.test(b), 'written to the branch, the referee’s timeline re-keyed (M72)');
@@ -36,7 +39,7 @@ test('M43-2 a branch carries its checkpoint: the ledger after the branch page, t
 test('M112-1 a branch taken while the readers are still on the newest page re-reads that page itself; an origin\'s chain is never touched', () => {
   const c = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   const b = c.slice(c.indexOf('async function branchFrom('), c.indexOf('async function branchFrom(') + 15000); /* M332: the function grew */
-  assert(/chainStillRunning = \(await pendingWork\(story\.id, 8000\)\) === false;/ /* M332: declared above the branch's try, assigned here */.test(b), 'the wait says whether the chain settled');
-  assert(/if \(fromTheTail\) \{\s*carried = nowState;\s*exact = !chainStillRunning;/.test(b), 'the newest page is exact only once the readers landed');
+  assert(/chainStillRunning = \(await pendingWork\(story\.id, 8000\)\) === false && workInFlight\(story\.id\);/ /* M332: declared above the branch's try, assigned here; M506: a settled tale is not "still running" */.test(b), 'the wait says whether the chain settled — and only a reader still out means still running (M506)');
+  assert(/\} else if \(fromTheTail\) \{\s*carried = nowState;\s*exact = true;/.test(b) && /if \(fromTheTail && chainStillRunning\) \{[\s\S]*?exact = false;\s*mustReread = true;/.test(b), 'the newest page is exact only once the readers landed (the behaviour: walk DOM-127)');
   assert(/if \(fromTheTail && chainStillRunning\) \{\s*startBackgroundWork\(branchStory, last, lastUser \? pageText\(lastUser\) : '', \{ deep: false, audit: true \}\)/.test(b), 'a light re-read of the last page, not the deep one');
 });

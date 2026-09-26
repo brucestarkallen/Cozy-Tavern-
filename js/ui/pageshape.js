@@ -76,18 +76,31 @@ export function shieldObjects(text) {
  * "t", showed the raw marks. Within one line: an opener ~t~ (with or without its asterisk), the words, and whatever
  * closer the model wrote — ~/t~, ~\t~, /t~, a bare ~, *~/t~ without the opener's asterisk — or none before the line
  * ends, is written in the exact form. The two exact forms (~t~*…*~/t~ and *~t~…~/t~*) are left to the letter. Marks
- * only; the thought's words stay as they are. */
+ * only; the thought's words stay as they are.
+ * M506: THE EXACT FORMS ARE SHIELDED FIRST. M498 judged "exact" only after its one regex had matched — and a bare "~"
+ * INSIDE a well-formed thought's words ("~t~*Nya~*~/t~", "~t~*Hello~ she thinks*~/t~") was taken as the closer, so the
+ * thought was cut there and its real closer left standing as an orphan; the page repair runs on every kept page and on
+ * every open (M488), so it rewrote pages that were right. Now both exact forms are taken out of the text before the
+ * broken shapes are looked at, and the shape that mend made of such a thought (~t~*W*~/t~ + R + *~/t~ on one line, the
+ * lost character being the ~ itself) is put back together, so a page it had already touched heals on the next open. */
+const EXACT_THOUGHT_RE = /~t~\*[^\n]*?\*~\/t~|\*~t~[^\n]*?~\/t~\*/g;
+const MANGLED_ONE_RE = /~t~\*([^\n]*?)\*~\/t~((?:(?!~t~)[^\n*])*?)\*~\/t~/g; /* ~t~*W*~/t~R*~/t~ → ~t~*W~R*~/t~ (R carries no emphasis: a second thought written with its closer only is left as it was) */
+const MANGLED_TWO_RE = /\*~t~\*([^\n]*?)\*~\/t~((?:(?!~t~)[^\n*])*?)~\/t~\*/g; /* *~t~*W*~/t~R~/t~* → *~t~W~R~/t~* */
 export function mendThoughts(text) {
   const src = String(text == null ? '' : text);
   if (!/~t~/i.test(src)) return src;
-  return src.replace(/(\*?)~t~(\*?)([^\n]*?)(\*?)(~[\/\\]t~|[\/\\]t~|~t~|~(?![\/\\]?t~)|$)(\*?)/gim, (m, pre, openStar, words, closeStar, closer, post, offset, whole) => {
-    if (pre === '*' && !openStar && /^~[\/\\]t~$/.test(closer) && post === '*') return m; /* *~t~…~/t~* — exact */
-    if (openStar === '*' && closeStar === '*' && closer === '~/t~' && !pre && !post) return m; /* ~t~*…*~/t~ — exact */
+  const kept = [];
+  const shielded = src
+    .replace(MANGLED_ONE_RE, (m, w, r) => '~t~*' + w + '~' + r + '*~/t~')
+    .replace(MANGLED_TWO_RE, (m, w, r) => '*~t~' + w + '~' + r + '~/t~*')
+    .replace(EXACT_THOUGHT_RE, (m) => { kept.push(m); return '\uE002' + (kept.length - 1) + '\uE003'; });
+  const mended = shielded.replace(/(\*?)~t~(\*?)((?:(?!~t~)[^\n\uE002])*?)(\*?)(~[\/\\]t~|[\/\\]t~|~(?![\/\\]?t~)|(?=~t~)|(?=\uE002)|$)(\*?)/gim, (m, pre, openStar, words, closeStar, closer, post) => {
     const inner = String(words || '').trim();
     if (!inner) return m; /* nothing to wrap */
-    if (!closer && /\n/.test(whole.slice(offset, offset + m.length + 1)) === false && offset + m.length < whole.length && whole[offset + m.length] !== '\n') return m;
-    return (pre && post ? '' : pre) + '~t~*' + inner + '*~/t~' + (pre && post ? '' : post);
+    const trail = closer ? '' : String(words || '').slice(String(words || '').trimEnd().length); /* a closer that is the next thought or the line's end keeps the space before it */
+    return (pre && post ? '' : pre) + '~t~*' + inner + '*~/t~' + (pre && post ? '' : post) + trail;
   });
+  return mended.replace(/\uE002(\d+)\uE003/g, (_, i) => kept[Number(i)] || '');
 }
 
 export function mendMarks(text) {

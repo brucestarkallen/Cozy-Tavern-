@@ -94,6 +94,14 @@ export async function pendingWork(storyId, timeoutMs = 5000) {
   }
 }
 
+/* M506: IS ANYTHING STILL OUT FOR THIS STORY? pendingWork answers false both when nothing was pending and when the
+ * wait ran out — a branch from the newest page read a settled tale as "the readers are still on it". This is the
+ * other half of the answer: true only while a noted piece of work has not settled. */
+export function workInFlight(storyId) {
+  const list = inFlight.get(storyId);
+  return Boolean(list && list.length);
+}
+
 /* The M3 names, kept: an extraction noted is one link of work; awaiting an
  * extraction is awaiting the chain. */
 export function noteExtraction(storyId, promise) {

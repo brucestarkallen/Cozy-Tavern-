@@ -6299,6 +6299,86 @@ test('DOM-126 TRY AGAIN WHILE THE READERS ARE STILL READING: a reader held on th
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-127 A BRANCH WHILE THE READERS ARE STILL ON THE NEWEST PAGE: the branch re-reads that page itself from the ledger before its turn (M112/M506) — its reading stands in the branch, the origin’s held reader lands only in the origin; a branch from a settled tale’s newest page re-reads nothing', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadState } = await import('../../js/engine/state.js');
+  const H = '[The hall — Monday, March 3, 2025 | 09:05 | clear | coat | by the door]\n\n';
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'branch while reading' });
+  await db.messages.append(st.id, { role: 'user', text: 'We wait in the hall.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'The hall was cold and nobody spoke.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+  let release; const held = new Promise((r) => { release = r; });
+  const answerFor = (name) => JSON.stringify({ mutations: [{ type: 'presence.enter', name }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+  let pageCalls = 0; let calls = 0; let branching = false;
+  try {
+    house.state.workerAnswer = (body) => {
+      calls += 1;
+      const text = JSON.stringify(body);
+      if (/OLDPAGE-MARK/.test(text)) {
+        pageCalls += 1;
+        if (pageCalls === 1) return held.then(() => answerFor('Ghost')); /* the origin's page reader, held — its later readers wait behind it */
+        if (branching) return answerFor('Lin'); /* the branch's own reading of the same page (the origin's queue is stuck behind the held read) */
+      }
+      return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+    };
+    house.state.storyAnswer = () => H + 'OLDPAGE-MARK Ghost waits at the door, dripping.';
+    type(q('#composer-input'), 'I knock.'); submit(q('#composer'));
+    await until(() => pageCalls > 0, 'a reader reading the page (the light working)', 20000);
+    await until(() => !env.ctx.chat.isBusy(), 'the page landed', 20000);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await tick(200);
+    const pagesNow = assistantPages();
+    branching = true;
+    click(q('.msg-act[data-act="branch"]', pagesNow[pagesNow.length - 1]));
+    await until(async () => (await storyId()) !== st.id, 'the branch is open (after the eight-second wait)', 30000);
+    const bid = await storyId();
+    const branch = await db.stories.get(bid);
+    assert(branch && !branch.building, 'the branch is whole');
+    await until(() => pageCalls >= 2, 'the branch reads its last page itself, while the origin’s reader is still held', 30000);
+    await until(() => queuedCount(bid) === 0 && !workIsRunning(bid), 'the branch’s readers settled', 40000);
+    await tick(300);
+    const bs = await loadState(bid);
+    const bhere = (bs.present || []).map((p) => p.name);
+    assert(bhere.includes('Lin') && !bhere.includes('Ghost'), 'the branch holds its own reading of the page: ' + bhere.join(', '));
+    const os0 = await loadState(st.id);
+    assert(!(os0.present || []).some((p) => p.name === 'Lin'), 'the branch’s reading never reached the origin');
+    /* the origin's held reader answers now — into the origin only */
+    branching = false;
+    release();
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the origin’s readers settled', 40000);
+    await tick(300);
+    const os = await loadState(st.id);
+    const ohere = (os.present || []).map((p) => p.name);
+    assert(ohere.includes('Ghost') && !ohere.includes('Lin'), 'the origin holds its own reader’s words: ' + ohere.join(', '));
+    const bs2 = await loadState(bid);
+    assert(!(bs2.present || []).some((p) => p.name === 'Ghost'), 'the origin’s late reader wrote nothing into the branch');
+    eq((await db.messages.list(bid)).filter((m) => m.role === 'assistant' && !m.hidden).length, 2, 'the branch has its two pages');
+    /* a settled tale: a branch from its newest page carries the ledger as it stands and asks no reader */
+    const callsBefore = calls; const pageCallsBefore = pageCalls;
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await tick(200);
+    const bpages = assistantPages();
+    click(q('.msg-act[data-act="branch"]', bpages[bpages.length - 1]));
+    await until(async () => (await storyId()) !== bid, 'the second branch is open', 30000);
+    const bid2 = await storyId();
+    await tick(500);
+    await until(() => queuedCount(bid2) === 0 && !workIsRunning(bid2), 'nothing left to settle', 20000);
+    eq(pageCalls, pageCallsBefore, 'a settled tale’s newest page is not read again');
+    eq(calls, callsBefore, 'no reader was sent at all');
+    const b2 = await loadState(bid2);
+    assert((b2.present || []).some((p) => p.name === 'Lin'), 'the second branch carries the ledger exactly');
+  } finally {
+    release && release();
+    house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

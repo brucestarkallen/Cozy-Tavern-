@@ -66,3 +66,30 @@ test('M499 the auditor’s clear finds a seat under any form of the same person�
   const r2 = applyMutations(r1.state, [{ type: 'offscreen.clear', name: 'Vanessa Reynolds' }]);
   assert(r2.state.offscreen.Vanessa, 'a different Vanessa keeps her seat');
 });
+
+test('M506 "Vivi\'s already at the counter" is Vivi in the room (M491 read every "Name\'s" as the owner of a thing); her left hand and dark eyes are her; her pants, her ring and "the jacket is Vivi\'s" are not', async () => {
+  const { shownOnPage, applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  const st = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the apartment' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Vivi' }]).state;
+  const H = '[the apartment — Monday | 09:00 | x | y | z]\n\n';
+  for (const her of ["Vivi's already at the counter, still in his shirt.", "Vivi's laughing at him now.", "Vivi's here.", "Vivi's the one who answers.", "Vivi's gone quiet.", "Vivi's coming up the stairs.", "Vivi's left hand rests on his arm.", "Vivi's dark eyes narrow.", "Vivi's not here yet, then she is."]) assert(shownOnPage(st, H + her, 'Vivi'), 'shows her: ' + her);
+  for (const thing of ["Vivi's pants lie on the floor.", "Kara curls up in Vivi's rolled gray pants.", "Vivi's ring is on the table.", "Vivi's wedding photo hangs there.", "The jacket is Vivi's.", "He picks up Vivi's jacket."]) assert(!shownOnPage(st, H + thing, 'Vivi'), 'a thing of hers: ' + thing);
+});
+
+test('M506 a departure line written before the person walked back in never sends them away again: the journal dates the entrance after the now', async () => {
+  const { goneByTheirOwnPage, applyMutations } = await import('../../js/engine/apply.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  const H = '[the apartment — Monday | 09:00 | x | y | z]\n\n';
+  let st = applyMutations({ ...emptyState(), page: 20 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the apartment' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Vivi' }]).state;
+  st.page = 30;
+  st = applyMutations(st, [{ type: 'people.set', name: 'Vivi', field: 'state', text: 'Left for the airport — her flight is at noon.' }]).state;
+  const gone = goneByTheirOwnPage(st, H + 'Jovan makes coffee alone.');
+  eq(gone.map((m) => m.type).join(','), 'presence.leave,offscreen.set', 'a now written after her last entrance sends her away (M491)');
+  st = applyMutations(st, gone).state;
+  st.page = 45;
+  st = applyMutations(st, [{ type: 'presence.enter', name: 'Vivi', position: 'in the doorway' }]).state;
+  eq(goneByTheirOwnPage(st, H + 'Jovan reads the paper. Kara yawns.').length, 0, 'back in the room on page 45 with her page still saying "Left…" from page 30: a quiet page 46 keeps her');
+  st.page = 46;
+  st = applyMutations(st, [{ type: 'people.set', name: 'Vivi', field: 'state', text: 'Left for work.' }]).state;
+  eq(goneByTheirOwnPage(st, H + 'Jovan reads on.').map((m) => m.type).join(','), 'presence.leave,offscreen.set', 'a departure written after her return sends her away');
+});
