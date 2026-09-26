@@ -11697,3 +11697,16 @@ could not clear them. The storyteller's briefing already hid them (renderOffscre
   (M320-3); a door refusal duplicated M257's. Prevention stays where it was: M257 refuses a seat for someone present,
   M320 lets an arrival's seat go under any form of the name.
 - TESTS: m491.mjs M499. Harness 956/956, walk 144/144, long play 8/8, lint 0. version.js -> m499-001.
+
+# M500 — what the world can see or hear reaches it now
+He: his Bleach MC flew a sword supersonic over the Seireitei, and Elsewhere never heard the boom — "stale for 5 pages,
+not advancing, no life of their own". The world agent is ON by default and runs after every page; it moves an offstage
+person when the house marks their line stale by STORY time ("[last placed … ago — where are they now?]") — five pages
+over a few minutes marked nobody, and no rule carried a public event beyond the room to the people in range.
+- NOW (agents/world.js contract, after the seating rule): an event on the newest page that the world can see or hear
+  (a sonic boom, an explosion, a pillar of spiritual pressure, sirens, a fire, a scream across the square) reaches every
+  offstage person within range by world logic on THIS page — each reacts in their own way and stake, with a real
+  offscreen.set, however few minutes have passed; factions and threads it touches move; nobody out of range reacts, and
+  nobody learns more than the sight or sound gave (the voices' witness law stands).
+- NOT PROVEN by a test: a contract rule is read by a model; the gates prove only that nothing else broke. Harness
+  956/956, walk 144/144, lint 0. version.js -> m500-001.
