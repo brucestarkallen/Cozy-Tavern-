@@ -11669,3 +11669,16 @@ VERIFIED CLEAN: M493's #time toast reads the ledger's clock ("Monday, March 3, 2
 and the whole-wire scan); M492's simulation; DOM-125/126.
 GATES: harness 954/954, walk 144/144, long play 8/8, lint 0, two-browser proof, pagemark.py, mend_marks.py (16 shapes,
 store and screen), paint_coats.py (nine coats, 0 under AA), perf_rooms within budget. version.js -> m497-001.
+
+# M498 — a private thought in its exact form
+He, with a page: "~t~Okay — okay, he's — oh.~" — why doesn't the agent fix the storyteller's mistake? (the closer lacks
+its "/t", the asterisks are missing). The craft asks for ~t~*…*~/t~, "exact markup, no variations"; the display (prose.js
+THOUGHT_RE, the 🎨 style) needs the closing "t", so the raw marks showed. The page repair had only a SHIELD for the
+well-formed thought and no rule for a broken one.
+- NOW: pageshape.js mendThoughts (run first in mendMarks, so the mended thought is then shielded): within one line an
+  opener ~t~ (with or without its asterisk), the words, and whatever closer was written — ~/t~, ~\t~, /t~, a bare ~,
+  *~/t~ without the opener's asterisk — or none before the line ends, become ~t~*…*~/t~. The two exact forms
+  (~t~*…*~/t~ and *~t~…~/t~*) stay to the letter; the thought's words never change. His page mends on the next open
+  (M488) or with "Mend the pages' marks"; new pages on arrival.
+- TESTS: m476.mjs M498 (six broken shapes drawn as thoughts, both exact forms untouched, his page through tidyPage).
+  Harness 955/955, walk 144/144, long play 8/8, lint 0, mend_marks.py. version.js -> m498-001.

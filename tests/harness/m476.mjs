@@ -61,3 +61,15 @@ test('M489-3 the lone asterisk in every shape the storyteller writes it — sing
   const wrap = H + 'The spotlight —\n and the thought.\n\n---\n\nEnd.';
   assert(tidyPage(wrap, {}).text.includes('The spotlight — and the thought.\n\n---\n\nEnd.'), 'a soft wrap joins; a rule line stays its own');
 });
+
+test('M498 a private thought in its exact form: "~t~Okay — okay, he’s — oh.~" and six other broken shapes become ~t~*…*~/t~ (the form the display draws); both exact forms stay to the letter; the words never change', async () => {
+  const { mendThoughts } = await import('../../js/ui/pageshape.js');
+  const THOUGHT = /~t~\*[^\n]*?\*~\/t~|\*~t~[^\n]*?~\/t~\*/;
+  for (const [i, want] of [["~t~Okay — okay, he's — oh.~", "~t~*Okay — okay, he's — oh.*~/t~"], ['~t~He is lying.~/t~ she thinks.', '~t~*He is lying.*~/t~ she thinks.'], ['~t~*He is lying.~', '~t~*He is lying.*~/t~'], ['~t~He is lying.*~/t~', '~t~*He is lying.*~/t~'], ['~t~He is lying', '~t~*He is lying*~/t~'], ['Kara looks away. ~t~Not now.~\n\nThe rain.', 'Kara looks away. ~t~*Not now.*~/t~\n\nThe rain.']]) {
+    eq(mendThoughts(i), want, i); assert(THOUGHT.test(mendThoughts(i)), 'drawn as a thought: ' + i);
+  }
+  for (const exact of ["~t~*She can't find out.*~/t~", "*~t~She can't find out.~/t~*"]) eq(mendThoughts(exact), exact, 'exact stays: ' + exact);
+  const page = "[X — Monday | 09:00 | sun | coat | here]\n\nKara goes still.\n\n~t~Okay — okay, he's — oh.~\n\nBecause she knows this feeling.";
+  const t = tidyPage(page, {});
+  assert(t.text.includes("~t~*Okay — okay, he's — oh.*~/t~") && t.did.includes('marks'), 'the page repair mends it: ' + JSON.stringify(t.text.slice(-80)));
+});

@@ -71,9 +71,29 @@ export function shieldObjects(text) {
   return { safe, restore: (t) => String(t).replace(/\uE000(\d+)\uE001/g, (_, i) => kept[Number(i)] || '') };
 }
 
+/* M498: A PRIVATE THOUGHT IN ITS EXACT FORM. The craft asks for ~t~*…*~/t~ ("exact markup, no variations"); the model
+ * wrote "~t~Okay — okay, he's — oh.~" — no asterisks, closed with a bare "~" — and the display, which needs the closing
+ * "t", showed the raw marks. Within one line: an opener ~t~ (with or without its asterisk), the words, and whatever
+ * closer the model wrote — ~/t~, ~\t~, /t~, a bare ~, *~/t~ without the opener's asterisk — or none before the line
+ * ends, is written in the exact form. The two exact forms (~t~*…*~/t~ and *~t~…~/t~*) are left to the letter. Marks
+ * only; the thought's words stay as they are. */
+export function mendThoughts(text) {
+  const src = String(text == null ? '' : text);
+  if (!/~t~/i.test(src)) return src;
+  return src.replace(/(\*?)~t~(\*?)([^\n]*?)(\*?)(~[\/\\]t~|[\/\\]t~|~t~|~(?![\/\\]?t~)|$)(\*?)/gim, (m, pre, openStar, words, closeStar, closer, post, offset, whole) => {
+    if (pre === '*' && !openStar && /^~[\/\\]t~$/.test(closer) && post === '*') return m; /* *~t~…~/t~* — exact */
+    if (openStar === '*' && closeStar === '*' && closer === '~/t~' && !pre && !post) return m; /* ~t~*…*~/t~ — exact */
+    const inner = String(words || '').trim();
+    if (!inner) return m; /* nothing to wrap */
+    if (!closer && /\n/.test(whole.slice(offset, offset + m.length + 1)) === false && offset + m.length < whole.length && whole[offset + m.length] !== '\n') return m;
+    return (pre && post ? '' : pre) + '~t~*' + inner + '*~/t~' + (pre && post ? '' : post);
+  });
+}
+
 export function mendMarks(text) {
-  const given = String(text == null ? '' : text);
-  if (!given.trim()) return { text: given, changed: false };
+  const original = String(text == null ? '' : text);
+  const given = mendThoughts(original); /* M498: a thought in its exact form first, so the shield below keeps it */
+  if (!given.trim()) return { text: original, changed: false };
   const { safe: shielded, restore } = shieldObjects(given);
   /* M489-3: a line that is only one, two or three asterisks — with single newlines around it, or a non-breaking space
    * before it — is the scene break that lost its shape: its own paragraph, "* * *" */
@@ -128,7 +148,7 @@ export function mendMarks(text) {
     if (p !== was) { parts[k] = p; changed = true; }
   }
   const out = restore(parts.join(''));
-  return out === given ? { text: given, changed: false } : { text: out, changed: true };
+  return out === original ? { text: original, changed: false } : { text: out, changed: true };
 }
 
 /* M476: A SOFT WRAP IS JOINED. Inside a page whose paragraphs are parted by blank lines, a lone line break followed by
