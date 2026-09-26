@@ -11725,3 +11725,11 @@ scene's own ledger only for the main character (M299); everyone else showed thei
 present whose presence entry has a position gets "Now: <position> — at <place> — <hour>", the old note shown beneath
 only while fresh (≤ 2 pages) as "Doing:" (drawer.js, the seat lookup for everyone). Walk 144/144, lint 0.
 version.js -> m502-001.
+
+# M503 — a lull decides nothing but free blows
+He: "I only chose outcome only, but the storyteller's thinking decides when the fight is over by the referee's words" —
+the lull directive for "Sitting down on the ground, proposing an end" said "nobody lands, YIELDS or falls… END ON THE LIVE
+TENSION": a referee that rolled nothing was keeping the fight open and forbidding Zaraki to take the truce. duels.js
+buildLullDirective now keeps the one guarantee a lull owes (no blow lands and nobody falls from it unless the words did)
+and hands the answer back to the characters: "How the others answer is theirs, by who they are — they may press on, or
+take what was offered and let the fight end." Harness 957/957, walk 144/144, lint 0. version.js -> m503-001.

@@ -1429,7 +1429,11 @@ export function buildFightOverDirective(action) {
 }
 export function buildLullDirective(state, action) {
   const who = state && state.duel ? state.duel.player.name + ' and ' + state.duel.opp.name : 'the two sides';
-  return 'About the fight between ' + who + ': this moment risks nothing in it — ' + clause(action) + '. Tell it exactly as written, but the fight itself isn’t decided now: nobody lands, yields or falls unless the words already did it. End on the live tension.'
+  /* M503: a lull rolls nothing, so it decides nothing — no free blow lands and nobody falls from it; but whether the
+   * others press on or take what was offered (a truce, a yield, a man sitting down to end it) is theirs, by who they
+   * are. It said "nobody … yields" and "End on the live tension": a referee that rolled nothing was keeping the fight
+   * open against the story ("I only chose outcome — the storyteller's thinking decided the fight by the referee's words"). */
+  return 'About the fight between ' + who + ': this moment risks nothing in it — ' + clause(action) + '. Tell it as written; no blow lands and nobody falls from it unless the words already did. How the others answer is theirs, by who they are — they may press on, or take what was offered and let the fight end.'
     + ' Keep all of this between us.';
 }
 
