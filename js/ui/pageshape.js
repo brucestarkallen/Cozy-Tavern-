@@ -101,6 +101,10 @@ export function mendMarks(text) {
    * marks, and the asterisk look-alikes (∗ ⁎ ＊ ✱) */
   const src = shielded
     .replace(/\r\n?/g, '\n')
+    /* M501: a thought's closer split across a line break leaves a fragment — "/t Shunsui stood…" at a line's start, or
+     * "…he said. ~/t" at its end — outside any thought (the exact thoughts are shielded here): the fragment goes */
+    .replace(/(^|\n)[ \t]*~?[\/\\]t~?[ \t]+(?=\S)/g, '$1')
+    .replace(/[ \t]+~?[\/\\]t~?[ \t]*(?=\n|$)/g, '')
     .replace(/\n[^\S\n]+(?=\n)/g, '\n') /* a line of spaces alone is a blank line (the gap round his break) */
     .replace(/(^|\n)(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*[*\u2217\u204e\uff0a\u2731](?:(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*[*\u2217\u204e\uff0a\u2731]){0,2}(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*(\n|$)/g, (m, lead, end) => (lead ? '\n\n' : '') + '* * *' + (end ? '\n\n' : ''))
     .replace(/\n{3,}/g, '\n\n')

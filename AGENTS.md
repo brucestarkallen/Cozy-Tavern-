@@ -11710,3 +11710,10 @@ over a few minutes marked nobody, and no rule carried a public event beyond the 
   nobody learns more than the sight or sound gave (the voices' witness law stands).
 - NOT PROVEN by a test: a contract rule is read by a model; the gates prove only that nothing else broke. Harness
   956/956, walk 144/144, lint 0. version.js -> m500-001.
+
+# M501 — a thought-closer fragment left by a split line goes
+He: "/t Shunsui stood without deciding to stand…" — the storyteller split a thought's closer ~/t~ across a line break;
+M498's mend works within a line, so the "/t" stood at the next paragraph's start. mendMarks now drops a closer fragment
+(~/t, /t~, /t) standing alone at a line's start (before prose) or end — on the shielded text, so an exact thought is
+never touched; "and/or" and a link stay. His page mends on the next open (M488) or with "Mend the pages' marks".
+TESTS: m476.mjs M501. Harness 957/957, walk 144/144, lint 0, mend_marks.py. version.js -> m501-001.

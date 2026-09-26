@@ -73,3 +73,10 @@ test('M498 a private thought in its exact form: "~t~Okay — okay, he’s — oh
   const t = tidyPage(page, {});
   assert(t.text.includes("~t~*Okay — okay, he's — oh.*~/t~") && t.did.includes('marks'), 'the page repair mends it: ' + JSON.stringify(t.text.slice(-80)));
 });
+
+test('M501 a thought-closer fragment left by a split line ("/t Shunsui stood…", "…stood. ~/t") goes; exact thoughts, "and/or" and a link stay', () => {
+  eq(mendMarks('~t~*She knows.*~\n/t Shunsui stood without deciding to stand.').text, '~t~*She knows.*~/t~\nShunsui stood without deciding to stand.');
+  eq(mendMarks('/t Shunsui stood without deciding to stand.').text, 'Shunsui stood without deciding to stand.');
+  eq(mendMarks('Shunsui stood. ~/t').text, 'Shunsui stood.');
+  for (const keep of ['~t~*Fine.*~/t~ Shunsui stood.', 'He wrote and/or read it at http://t.co today.']) eq(mendMarks(keep).text, keep, keep);
+});
