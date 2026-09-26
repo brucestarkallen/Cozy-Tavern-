@@ -46,6 +46,7 @@ async function putBook(id, json, base) {
   return res.ok;
 }
 const stampOf = (json) => (/"exportedAt"\s*:\s*"([^"]+)"/.exec(String(json).slice(0, 4096)) || [])[1] || '';
+const snapshotAtOf = (json) => (/"snapshotAt"\s*:\s*"([^"]*)"/.exec(String(json).slice(0, 4096)) || [])[1] || ''; /* M507 */
 
 async function localStamps() {
   const keys = await db.settings.keys();
@@ -190,7 +191,16 @@ async function pullBooks(books, { all = false, replace = false, recent = null, o
     const json = await getBook(b.id);
     if (!json) continue;
     const keep = own && Array.isArray(own[b.id]) ? own[b.id] : [];
-    if (b.id === HOUSE) await db.importHouse(json, { dropMissing: replace, keep }); else await db.importStory(json, { dropMissing: replace, keep });
+    /* M507: A PAGE APPENDED MOVES THE BOOK'S STAMP — NOT ITS LEDGER. The device stamps the book with its newest appended
+     * page, so a book this browser itself pushed looks newer the moment a page lands; when the whole push that carries
+     * the newer ledger has not landed (the app closed within its twenty seconds), the next open pulled the book and
+     * importStory wrote the snapshot's OLDER state and record over this browser's newer ones. The served book carries
+     * the snapshot's own stamp (serve.py snapshotAt): a snapshot no newer than what this browser last took in or pushed
+     * is one it already holds — only its pages are taken. A snapshot pushed by another browser since is newer, and is
+     * taken whole, as before. */
+    const snapAt = b.id === HOUSE ? '' : (snapshotAtOf(json) || stampOf(json));
+    const pagesOnly = !all && b.id !== HOUSE && Boolean(mine) && Boolean(snapAt) && (Date.parse(snapAt) || 0) <= (Date.parse(mine) || 0);
+    if (b.id === HOUSE) await db.importHouse(json, { dropMissing: replace, keep }); else await db.importStory(json, { dropMissing: replace, keep, pagesOnly });
     await db.settings.set('bookStamp:' + b.id, stampOf(json));
     if (pushing[b.id]) await notePushing(b.id, null); /* M332: a note of a push that never landed (the device moved on past it) is let go with the pull */
     count += 1;

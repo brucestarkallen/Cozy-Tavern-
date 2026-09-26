@@ -11868,3 +11868,25 @@ the press — his page on screen, the request leaving the browser, the first wor
   parts, a full base row never rewritten; a rewind rewrites no unchanged row). m314's laws re-pinned to the rows; the
   walk's checkpoint tampering goes through loadSnapshots/saveSnapshots. GATES: harness 966/966, walk 145/145, long play
   8/8, lint 0, holdsone.py, twobrowsers.py, foldcrash.py, perf_send.py. version.js -> m507-001.
+
+# M507-2 — a page appended moves the book's stamp, not its ledger: the boot pull takes pages only
+He, standing order: storage as robust as SillyTavern's. AGENTS M507 (c), now built and proven.
+- THE FAULT, REPRODUCED IN A REAL CHROMIUM (tests/bootpull.py, new): a tale pushed whole; then a turn — two pages
+  appended at once through the page door, the ledger moved on — with the whole push held off (the app closed within
+  its twenty seconds, here the POST refused); the next open pulled the book (the device's stamp had moved with the
+  appended pages) and importStory wrote the snapshot's older `state:` over the browser's newer one — Newcomer gone
+  from the room. The light's catch-up then re-reads the page, so only the page reader's part heals; the world agent's,
+  the scribe's and the auditor's writes of that turn were lost.
+- NOW: serve.py _merge_log keeps the snapshot's own stamp as `snapshotAt` (at the front of the served book) beside
+  the moved `exportedAt`; sync-worker.js pullBooks reads it (snapshotAtOf) and, when the snapshot is no newer than
+  what this browser last took in or pushed (bookStamp), imports PAGES ONLY (store.js importStory pagesOnly: the pages
+  and the shelf row come in, the settings rows are neither written nor let go); the moved stamp is recorded so the
+  book is not pulled again. A snapshot pushed by another browser since IS newer and is taken whole, as before (the
+  two-browser limit stands: last push wins on the ledger). A "Bring the books from the device" (all: true) and an
+  opened shallow tale (no stamp) still take the book whole.
+- PROOF: tests/bootpull.py — eleven checks: the browser keeps its newer ledger and all ten pages across the open, records
+  the moved stamp, the whole push then carries the ledger to the device and the next open keeps it, another browser's
+  newer snapshot is taken whole, no page errors. Five checks fail on the old code. (The test gives the last page its
+  version checkpoint: without one the next open re-reads it by M127, which is right, not this fault.)
+- GATES: harness 966/966, lint 0, holdsone.py, foldcrash.py, relay.py, twobrowsers.py, twohands.py, bootpull.py.
+  version.js -> m507-002.

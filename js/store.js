@@ -939,7 +939,10 @@ function mergeStoryRow(incoming, local) {
  * mineFor): those it neither writes over nor lets go, so a row written here
  * a moment ago is never taken by a pull. The sync's own stamps (bookStamp:)
  * are never in scope. */
-async function importStory(json, { dropMissing = false, keep = [] } = {}) {
+/* M507: `pagesOnly` — the book's pages and its shelf row come in; its settings rows (the ledger, the record, the
+ * checkpoints) are neither written nor let go: the browser already holds this snapshot, and what it has written since
+ * is newer than the book's. */
+async function importStory(json, { dropMissing = false, keep = [], pagesOnly = false } = {}) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || data.kind !== 'story' || !data.story || !data.story.id) throw new Error('not a story book');
   const id = data.story.id;
@@ -950,7 +953,7 @@ async function importStory(json, { dropMissing = false, keep = [] } = {}) {
    * the book does not speak for it: neither written over nor let go. */
   const mine = new Set(Array.isArray(keep) ? keep : []);
   const incoming = new Set((data.settings || []).filter((r) => r && typeof r.key === 'string').map((r) => r.key));
-  const gone = dropMissing
+  const gone = dropMissing && !pagesOnly
     ? (await storyKeys(id)).filter((k) => !incoming.has(k) && !mine.has(k) && !k.startsWith('bookStamp:'))
     : [];
   await new Promise((resolve, reject) => {
@@ -964,7 +967,7 @@ async function importStory(json, { dropMissing = false, keep = [] } = {}) {
     const req = idx.getAllKeys(id);
     req.onsuccess = () => { for (const k of req.result || []) ms.delete(k); for (const m of (data.messages || [])) ms.put(m); };
     const ss = t.objectStore('settings');
-    for (const r of (data.settings || [])) if (r && typeof r.key === 'string' && !mine.has(r.key)) ss.put(r);
+    if (!pagesOnly) for (const r of (data.settings || [])) if (r && typeof r.key === 'string' && !mine.has(r.key)) ss.put(r);
     for (const k of gone) ss.delete(k);
     t.oncomplete = () => resolve(); t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
   });

@@ -175,6 +175,10 @@ def _merge_log(book_bytes, log_path):
         return book_bytes
     book['messages'] = [by_id[i] for i in order]
     if newest:
+        # M507: the snapshot's own stamp is kept beside the moved one — a browser that already holds this snapshot
+        # (its own push, or a pull it recorded) takes only the appended pages and never the snapshot's older ledger
+        # (at the front of the book, where the browser reads stamps without parsing the whole file)
+        book = {'snapshotAt': book.get('exportedAt', ''), **{k: v for k, v in book.items() if k != 'snapshotAt'}}
         book['exportedAt'] = newest
     return json.dumps(book).encode('utf-8')
 
