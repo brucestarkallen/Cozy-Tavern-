@@ -11733,3 +11733,13 @@ TENSION": a referee that rolled nothing was keeping the fight open and forbiddin
 buildLullDirective now keeps the one guarantee a lull owes (no blow lands and nobody falls from it unless the words did)
 and hands the answer back to the characters: "How the others answer is theirs, by who they are — they may press on, or
 take what was offered and let the fight end." Harness 957/957, walk 144/144, lint 0. version.js -> m503-001.
+
+# M504 — outcome-only names every way the story can end a fight
+He: "in outcome only, does everything let the fight end by the simulation — the characters, their condition, superiors
+or others — never forced on indefinitely, and is the wording natural?" Checked every ruling text: the tallied mode's
+"end on a live beat, not a resolution" lines belong to the engine that tracks wear and ends the fight itself; the
+outcome-only lines already said "the fight goes on until the story itself ends it… write that ending yourself — nobody
+is calling a winner". Now they name the ways explicitly: "a yield, a truce, a flight, someone with the standing to stop
+it stepping in, a body that can't go on, or a finish" (duel), and "the rout, the stand-down, the escape, or someone with
+the standing calling it off" (battle). No dice, rolls, tiers or "the referee" in any ruling text (M345, M495's scan).
+Harness 957/957, lint 0. version.js -> m504-001.

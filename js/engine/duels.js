@@ -1302,7 +1302,7 @@ export function buildDuelDirective(state, adj, res) {
   if (!res.outcome && fx.injureSelf && !(adj.playerGuard && !adj.counterPath)) lines.push(me + ' takes a real, lasting wound from it — name it in the telling; it weakens them from here on.');
   if (!res.outcome && res.tier === 'SETBACK' && !duel.over) lines.push(me + ' loses this exchange but sees a real opening to use next — show it.');
   if (res.outcome) {
-    lines.push('Nothing is being tallied in this fight — each exchange stands on its own, and a hurt lasts only as long as the story carries it. The fight goes on until the story itself ends it: when everything so far makes a yield, a flight, an interruption or a finish the honest next beat, write that ending yourself — nobody is calling a winner.');
+    lines.push('Nothing is being tallied in this fight — each exchange stands on its own, and a hurt lasts only as long as the story carries it. The fight goes on until the story itself ends it: when everything so far makes a yield, a truce, a flight, someone with the standing to stop it stepping in, a body that can’t go on, or a finish the honest next beat, write that ending yourself — nobody is calling a winner.');
   } else if (duel.over) {
     if (duel.victor === 'draw') {
       lines.push('They take each other down in the same exchange — ' + me + ' and ' + foe + ' are both down. Tell the double finish the story has earned; neither wins, neither can rally, and it stands.');
@@ -1328,7 +1328,7 @@ export function buildDuelSequenceDirective(state, adj, res) {
   lines.push(...guardLines(adj, me, foe, res.overall));
   if (!res.outcome && !duel.over) lines.push(sideStatus(duel.opp) + '; ' + sideStatus(duel.player) + '.');
   if (res.outcome) {
-    lines.push('Nothing is being tallied in this fight — each exchange stands on its own. The fight goes on until the story itself ends it; when everything so far makes a yield, a flight, an interruption or a finish the honest next beat, write that ending yourself — nobody is calling a winner.');
+    lines.push('Nothing is being tallied in this fight — each exchange stands on its own. The fight goes on until the story itself ends it; when everything so far makes a yield, a truce, a flight, someone with the standing to stop it stepping in, a body that can’t go on, or a finish the honest next beat, write that ending yourself — nobody is calling a winner.');
   } else if (duel.over) {
     if (res.victor === 'draw') lines.push('The chain ends with both of them down — ' + me + ' and ' + foe + ' take each other out in the same flurry. Tell the double finish the story has earned; neither wins, and it stands.');
     else lines.push(res.victor === 'player'
@@ -1376,7 +1376,7 @@ export function buildBattleDirective(state, adj, out) {
   if (rep.length) lines.push('Elsewhere on the field, and true: ' + rep.join(' '));
   if (out.reports.length > 4) lines.push('The rest of the clashes hold without a decision.');
   if (out.outcome) {
-    lines.push('Only ' + mc.name + '’s own part was settled. Who falls, who holds and how the nerve of each side sways follows the story, and the battle goes on until the story ends it — write the rout, the stand-down or the escape yourself when it’s earned; nobody is calling the field.');
+    lines.push('Only ' + mc.name + '’s own part was settled. Who falls, who holds and how the nerve of each side sways follows the story, and the battle goes on until the story ends it — write the rout, the stand-down, the escape, or someone with the standing calling it off, yourself, when it’s earned; nobody is calling the field.');
   } else if (b.over) {
     if (b.mcDown) lines.push(mc.name + ' is taken out of the fight — tell it (downed, disarmed or dragged clear, whatever fits) — and then the field resolves: ' + (b.victor === 'allies' ? 'their side still wins the day.' : 'their side is beaten.'));
     else lines.push('It’s decisive: ' + (b.victor === 'allies' ? mc.name + '’s side has won' : 'the enemy has won') + '. Tell the ending the story has earned — a rout, a surrender, a retreat, a capture or worse — and it stands.');
