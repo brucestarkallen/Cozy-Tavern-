@@ -11717,3 +11717,11 @@ M498's mend works within a line, so the "/t" stood at the next paragraph's start
 (~/t, /t~, /t) standing alone at a line's start (before prose) or end — on the shielded text, so an exact thought is
 never touched; "and/or" and a link stay. His page mends on the next open (M488) or with "Mend the pages' marks".
 TESTS: m476.mjs M501. Harness 957/957, walk 144/144, lint 0, mend_marks.py. version.js -> m501-001.
+
+# M502 — anyone here with a place in the room has a Now
+He: the auditor walked Shinji in ("at the inner gate, inside the wall, watching the examination") but the People panel
+read "Shinji — here · Last noted 26 pages ago: … walking his way toward the Fifth". The drawer built "Now" from the
+scene's own ledger only for the main character (M299); everyone else showed their page's last note, aged. Now anyone
+present whose presence entry has a position gets "Now: <position> — at <place> — <hour>", the old note shown beneath
+only while fresh (≤ 2 pages) as "Doing:" (drawer.js, the seat lookup for everyone). Walk 144/144, lint 0.
+version.js -> m502-001.

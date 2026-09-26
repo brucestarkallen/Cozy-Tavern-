@@ -2066,8 +2066,11 @@ function peoplePanel(ctx) {
        * His now is written in code from the ledger the page reader keeps every
        * page — where he is in the room, the ground, the hour; the scribe's note
        * rides beneath it only while it is fresh, and is never shown stale. */
-      const seat = mine ? ((state.present || []).find((p) => p && String(p.name || '').toLowerCase() === name.toLowerCase()) || (state.present || []).find((p) => p && samePersonName(p.name, name))) : null; /* M398 */
-      if (mine && (seat || (state.place && state.place.name))) {
+      const seat = ((state.present || []).find((p) => p && String(p.name || '').toLowerCase() === name.toLowerCase()) || (state.present || []).find((p) => p && samePersonName(p.name, name))); /* M398; M502: anyone here, not only him */
+      /* M502: ANYONE HERE WITH A PLACE IN THE ROOM HAS A NOW. Shinji, walked in by the auditor "at the inner gate, inside
+       * the wall, watching the examination", showed "Last noted 26 pages ago: walking toward the Fifth" — M299's rule for
+       * the main character (now from where the scene places him; the old note only while fresh) holds for everyone here */
+      if ((mine && (seat || (state.place && state.place.name))) || (!mine && seat && seat.position)) {
         const bits = [seat && seat.position ? String(seat.position).trim() : '', state.place && state.place.name ? 'at ' + String(state.place.name).trim() : '', state.clock ? renderClock(state.clock) : ''].filter(Boolean);
         addLine('Now: ' + bits.join(' — '));
         if (typeof c.state === 'string' && c.state.trim() && ago <= 2) addLine('Doing: ' + c.state.trim());
