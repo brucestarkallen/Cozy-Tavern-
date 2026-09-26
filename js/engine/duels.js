@@ -1340,6 +1340,14 @@ export function buildDuelSequenceDirective(state, adj, res) {
   lines.push('A strike that misses or goes wrong really did — show ' + foe + ' reading it, slipping it or making ' + me + ' pay; never let a failed strike quietly land.');
   lines.push(secretLine(me, false));
   lines.push(SETTLED);
+  /* M505: OUTCOME ONLY SAYS WHAT HAPPENED AND STOPS. The writer: "it's yapping and yapping — it should just let Hulk or
+   * Iron Man decide what happened after", and "success as intended" sat over a strike that "lands, at a price". In
+   * outcome-only the ruling is each strike's result, in order, and one line handing the story back — no summary tier
+   * (a combining rule could contradict the strikes), no boilerplate. */
+  if (res.outcome) {
+    const g = guardLines(adj, me, foe, res.overall).join(' ');
+    return 'About the fight between ' + me + ' and ' + foe + ': ' + me + '’s chain of strikes, in order — ' + chain + '.' + (g ? ' ' + g : '') + ' What happens after is the story’s. Keep this between us.';
+  }
   return lines.join(' ');
 }
 

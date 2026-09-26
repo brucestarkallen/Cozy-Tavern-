@@ -11743,3 +11743,13 @@ is calling a winner". Now they name the ways explicitly: "a yield, a truce, a fl
 it stepping in, a body that can't go on, or a finish" (duel), and "the rout, the stand-down, the escape, or someone with
 the standing calling it off" (battle). No dice, rolls, tiers or "the referee" in any ruling text (M345, M495's scan).
 Harness 957/957, lint 0. version.js -> m504-001.
+
+# M505 — outcome-only says what happened and stops
+He, furious: the chain-of-strikes ruling ran seven sentences ("nothing is tallied… the fight goes on until… a strike that
+misses… keep every consequence in proportion… in secret… it's settled…") and "Taken together, it works, just as meant"
+sat over a last strike that "lands, at a price". Arbiter's own text is the source of that bulk; the fix is the
+outcome-only contract itself: in outcome-only (res.outcome) buildDuelSequenceDirective returns each strike's result in
+order, any guard line the referee set, and "What happens after is the story's. Keep this between us." — no summary tier
+(the combining rule can contradict the strikes), no boilerplate. Tallied mode keeps its full ruling. OPEN for the next
+session: the single-exchange duel and the battle/war outcome-only tails (duels.js buildDuelDirective, battle, war) still
+carry the long sentences — cut them the same way. Harness 957/957, lint 0. version.js -> m505-001.
