@@ -214,7 +214,10 @@ const cloneValue = (v) => {
   if (v === undefined || v === null || typeof v !== 'object') return v;
   try { return typeof structuredClone === 'function' ? structuredClone(v) : JSON.parse(JSON.stringify(v)); } catch (err) { return JSON.parse(JSON.stringify(v)); }
 };
-export function dropCaches() { settingsCache.clear(); messagesCache.clear(); }
+const dropListeners = new Set();
+/* M507: a module that keeps its own cache over the store (the checkpoint bank's keys) hears when a pull replaced rows */
+export function onDropCaches(fn) { if (typeof fn === 'function') dropListeners.add(fn); }
+export function dropCaches() { settingsCache.clear(); messagesCache.clear(); for (const fn of dropListeners) { try { fn(); } catch (err) { /* a listener's own trouble */ } } }
 
 const settings = {
   async get(key) {
@@ -733,7 +736,7 @@ async function exportStory(storyId) {
  * twice: the house book refuses them for a tale that no longer stands, and
  * the boot sweep lets those orphans go for good. `cast:` is NOT here — the
  * cast library is app-wide and its suffix is a card's id, not a tale's. */
-const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'versionState', 'ckptBank', /* M314: the tale's bank of journal and log entries its checkpoints name */ 'hk', 'director', 'editor', 'memoryBackup', 'peopleBackup', 'bookStamp', 'cutThinking', 'hkCut', 'hkDraft',
+const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'snap', /* M507: one row per boundary checkpoint */ 'versionState', 'ckptBank', 'ckptBankPart', /* M507: the bank's parts */ /* M314: the tale's bank of journal and log entries its checkpoints name */ 'hk', 'director', 'editor', 'memoryBackup', 'peopleBackup', 'bookStamp', 'cutThinking', 'hkCut', 'hkDraft',
   /* M389: the audit found two tales' rows the list never learned — canon verification's memory (M346) and the sensors'
    * readings (M356): a gone tale's copy rode the house book on every push and was never swept */
   'canonMeta', 'sensors',
@@ -757,7 +760,7 @@ async function sweepOrphans() {
   const keys = await run('settings', 'readonly', (s) => s.getAllKeys());
   const doomed = (keys || []).filter((k) => {
     if (typeof k !== 'string' || !STORY_PREFIXED.test(k)) return false;
-    const at = k.indexOf(':');
+    const at = k.lastIndexOf(':'); /* M507: a tale's row wears its id as the SUFFIX (storyKeys, STORY_ROW) — a checkpoint row snap:<turn>:<tale> was read from the first colon and swept as an orphan at every boot */
     const id = k.slice(at + 1);
     return Boolean(id) && !living.has(id);
   });

@@ -697,7 +697,18 @@ export function spokenNames(name) {
   if (words.length > 1 && words[0].replace(/[^\p{L}]/gu, '').length >= 3) out.push(words[0]);
   return out;
 }
-const wordRe = (n) => new RegExp('(^|[^\\p{L}\\p{N}_])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^\\p{L}\\p{N}_]|$)', 'iu');
+/* M507: one compiled pattern per name, kept — importanceOf asks it for every person on every render, and a fresh
+ * RegExp each time was thousands of compilations a send (tests/perf_send.py) */
+const WORD_RES = new Map();
+const wordRe = (n) => {
+  let re = WORD_RES.get(n);
+  if (!re) {
+    re = new RegExp('(^|[^\\p{L}\\p{N}_])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^\\p{L}\\p{N}_]|$)', 'iu');
+    if (WORD_RES.size > 4000) WORD_RES.clear();
+    WORD_RES.set(n, re);
+  }
+  return re;
+};
 function namedIn(pages, name) {
   const res = spokenNames(name).map(wordRe);
   return (pages || []).some((p) => res.some((re) => re.test(String(p || ''))));
@@ -731,6 +742,18 @@ export function placeWords(state) {
     .map((w) => w.replace(/['’]s$/i, ''))
     .filter((w) => /^\p{Lu}/u.test(w) && w.replace(/[^\p{L}]/gu, '').length >= 4 && !PLACE_STOP.has(w.toLowerCase()) && !mine.has(w.toLowerCase())))];
 }
+/* M507: whether the writer's material names a person is asked for every person on every render (renderPeopleTiers, the
+ * world agent's roster, the referee's cast) against the same brief — the answer is kept per name for as long as the
+ * material is the very same string (a changed brief is a new string, and misses) */
+const NAMED_IN = new Map();
+function namedInMaterial(name, material) {
+  const hit = NAMED_IN.get(name);
+  if (hit && hit.material === material) return hit.named;
+  const named = spokenNames(name).some((n) => wordRe(n).test(material));
+  if (NAMED_IN.size > 2000) NAMED_IN.clear();
+  NAMED_IN.set(name, { material, named });
+  return named;
+}
 export function importanceOf(state, name, briefText = '', turn = 0, scene = {}) {
   const k = String(name || '').trim().toLowerCase();
   if (!k) return 0;
@@ -747,7 +770,7 @@ export function importanceOf(state, name, briefText = '', turn = 0, scene = {}) 
     if (t && same(t.owner)) score += t.heat === 'cold' ? 15 : 40;
   }
   const material = String(briefText || '');
-  if (material.trim() && spokenNames(name).some((n) => wordRe(n).test(material))) score += 30;
+  if (material.trim() && namedInMaterial(name, material)) score += 30;
   if (state && state.canon && typeof state.canon === 'object' && Object.keys(state.canon).some(same)) score += 20;
   const entry = state && state.characters ? state.characters[name] : null;
   /* what lasts wanes a little for every page away — never below nothing */

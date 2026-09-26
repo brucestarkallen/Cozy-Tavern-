@@ -107,12 +107,17 @@ export function findInjury(body, what) {
  * now), the higher severity, the first hour it was taken, treated only if the new line says so. A wound with no
  * body part named ("a graze"), or on another part, is its own. */
 const BODY_PARTS = ['forehead', 'temple', 'skull', 'head', 'face', 'cheekbone', 'cheek', 'jaw', 'chin', 'nose', 'eye', 'ear', 'lip', 'mouth', 'teeth', 'neck', 'throat', 'collarbone', 'shoulder', 'upper arm', 'forearm', 'elbow', 'wrist', 'hand', 'palm', 'knuckle', 'finger', 'thumb', 'chest', 'breast', 'rib', 'sternum', 'back', 'spine', 'flank', 'side', 'stomach', 'belly', 'abdomen', 'gut', 'kidney', 'liver', 'lung', 'hip', 'pelvis', 'groin', 'thigh', 'knee', 'shin', 'calf', 'ankle', 'foot', 'heel', 'toe', 'arm', 'leg', 'torso', 'scalp', 'brow'];
+/* M507: the sixty part patterns are compiled ONCE — they were compiled on every call, and the fold that keeps one wound
+ * per body part (M484) asks for every wound of every person on every render: sixty thousand compilations in one send,
+ * measured in tests/perf_send.py */
+const BODY_PART_RES = BODY_PARTS.map((p) => new RegExp('\\b' + p + 's?\\b'));
 export function bodyPartOf(what) {
   const w = String(what || '').toLowerCase();
+  if (!w) return '';
   const side = /\b(left|right)\b/.exec(w);
   /* the part the words LEAD with ("kidney struck twice through the back" is a kidney wound) */
   let part = ''; let at = Infinity;
-  for (const p of BODY_PARTS) { const m = new RegExp('\\b' + p + 's?\\b').exec(w); if (m && m.index < at) { at = m.index; part = p; } }
+  for (let i = 0; i < BODY_PARTS.length; i += 1) { const m = BODY_PART_RES[i].exec(w); if (m && m.index < at) { at = m.index; part = BODY_PARTS[i]; } }
   if (!part) return '';
   return (side && side.index < at + 24 ? side[1] + ' ' : '') + part;
 }

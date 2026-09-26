@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m506-001)
+# Cozy Tavern — handoff for the next session (state at m507-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -12,6 +12,13 @@
    first version made of a thought with a ~ inside (pages mend on the next open, per build); shownOnPage reads "Vivi's
    already…" as Vivi (CONTRACTION_NEXT) and "Vivi's left hand" as her body; goneByTheirOwnPage never trusts a "Left…"
    line the journal dates before the person's last presence.enter (nowPredatesTheirReturn).
+0a. THE SEND IS MEASURED, NEVER REASONED (M507): `python3 tests/perf_send.py` (PROFILE=1 for the top functions before the
+   request, PHASES=1 for the isolated costs, store reads/writes by key, regex compilations) — run it for ANY change to
+   the send path, the checkpoint store or the assembler, and compare against AGENTS M507's numbers. The checkpoints are
+   one row each (snap:<turn>:<tale> + the index snapshots:<tale>), the bank is in parts (ckptBankPart:<n>:<tale>); never
+   read or write those rows directly — loadSnapshots / saveSnapshots / snapshotState. sweepOrphans reads a tale's id from
+   the row's SUFFIX. OPEN (found, unbuilt): the boot pull after a page append can write the device's older ledger rows
+   over the browser's newer ones when the app is closed before the twenty-second whole push lands — see AGENTS M507 (c).
 1zb. NO THIRD AUTHORITY ON THE WIRE (M495): every text a side agent adds to the storyteller's request must read as the
    writer's own notes — m495.mjs scans the whole wire; a new agent's slot must pass it (voice it, no capitals-form labels).
 1za. THE LIVING LEDGER SIMULATION (M492): tests/harness/livingledger.mjs runs a story through the real gate and heals

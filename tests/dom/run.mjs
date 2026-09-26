@@ -767,8 +767,9 @@ test('DOM-8e THE WRITER’S REPORT: a store from before the journal, played on, 
   const keepFrom = Math.max(0, (rich.journal || []).length - 2);
   rich.journal = (rich.journal || []).slice(keepFrom); /* the journal began late */
   await db.settings.set('state:' + sid, rich);
-  const snaps = (await db.settings.get('snapshots:' + sid)) || [];
-  await db.settings.set('snapshots:' + sid, snaps.map((e) => ({ ...e, snap: (() => { const c = { ...e.snap }; delete c.page; delete c.journalSeq; c.journal = []; return c; })() })));
+  { const { loadSnapshots, saveSnapshots } = await import('../../js/engine/state.js'); /* M507: the checkpoints live one to a row — read and written through their own doors */
+    const snaps = await loadSnapshots(sid);
+    await saveSnapshots(sid, snaps.map((e) => ({ ...e, snap: (() => { const c = { ...e.snap }; delete c.page; delete c.journalSeq; c.journal = []; return c; })() }))); }
   await db.settings.delete('versionState:' + sid);
   await env.ctx.chat.renderThread({ structural: true });
   await tick(200);
@@ -814,8 +815,9 @@ test('DOM-8f THE WRITER’S SECOND REPORT: a store whose journal began while the
   rich.present = [...(rich.present || []), { name: 'Old Aunt' }];
   rich.journal = [{ id: 1, p: -1, m: { type: 'presence.enter', name: 'Old Aunt' } }, ...(rich.journal || []).slice(-2)];
   await db.settings.set('state:' + sid, rich);
-  const snaps = (await db.settings.get('snapshots:' + sid)) || [];
-  await db.settings.set('snapshots:' + sid, snaps.map((e) => ({ ...e, snap: (() => { const c = { ...e.snap, present: [...(e.snap.present || []), { name: 'Old Aunt' }] }; delete c.page; delete c.journalSeq; c.journal = []; return c; })() })));
+  { const { loadSnapshots, saveSnapshots } = await import('../../js/engine/state.js'); /* M507 */
+    const snaps = await loadSnapshots(sid);
+    await saveSnapshots(sid, snaps.map((e) => ({ ...e, snap: (() => { const c = { ...e.snap, present: [...(e.snap.present || []), { name: 'Old Aunt' }] }; delete c.page; delete c.journalSeq; c.journal = []; return c; })() }))); }
   /* play two more turns on the real path */
   for (let i = 0; i < 2; i += 1) {
     const n = assistantPages().length;
@@ -826,7 +828,6 @@ test('DOM-8f THE WRITER’S SECOND REPORT: a store whose journal began while the
   const all = (await db.messages.list(sid)).filter((m) => !m.hidden);
   const assistants = all.filter((m) => m.role === 'assistant');
   const twoBack = assistants[assistants.length - 3];
-  const expectedNames = (() => { const s2 = (snaps.length ? null : null); return null; })();
   /* branch at the page two back */
   const row = assistantPages().find((a) => a.dataset.id === twoBack.id);
   click(q('.msg-act[data-act="branch"]', row));

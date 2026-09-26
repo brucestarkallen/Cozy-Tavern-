@@ -11820,3 +11820,51 @@ was read line by line and probed with real shapes, the M491 rules included.
   every outcome-only ruling text for every tier, the lull, the squaring-up and a battle round.
 - GATES: harness 962/962 (three source laws re-pinned to the new lines), walk 145/145, long play 8/8, lint 0,
   holdsone.py, twobrowsers.py, mend_marks.py. version.js -> m506-001.
+
+# M507 — the send, measured at his phone's speed, and the checkpoint store that made it lag
+He: "after 80k tokens Cozy Tavern lags every time I press send; SillyTavern is smooth — make this the most optimized
+frontend, no regression." Measured, never reasoned: tests/perf_send.py (new gate) — a real Chromium, phone viewport,
+CPU 6x, the real serve.py, a fake model, 160 pages (~130k tokens on the wire), and a ledger shaped like his (20 people
+with pages, 20 seats, 774 journal entries, 41 boundary checkpoints, a checkpoint per turn). It times three moments from
+the press — his page on screen, the request leaving the browser, the first word painted — with every long task between.
+- THE TOKENS WERE NOT THE CAUSE: the same 130k-token request left in 0.65 s with an EMPTY ledger and in 2.7 s with the
+  rich one, the screen frozen 1.1 s of it. The cost grew with the ledger and its checkpoints — what a tale has by 80k.
+- ROOT CAUSE 1 (state.js snapshotState, run on every send before the request, 658 ms isolated): it loaded EVERY
+  boundary checkpoint (up to 120 whole ledgers, each unbanked), banked them all again, and rewrote the ONE row
+  `snapshots:<tale>` that held them all — megabytes structured-cloned and written on the main thread, every send.
+  NOW: one row per checkpoint, snap:<turnId>:<tale> (the tale's suffix — the book, the sync, the export and the sweep
+  see it as the tale's; 'snap' in store.js STORY_PREFIXES per M389) and a small index under snapshots:<tale>
+  [{id, at, page, seq}]; a send writes one ~40 KB row and the index. A list stored whole before M507 is read as it is
+  and moved to its own rows at the next send. loadSnapshots remembers what it handed out, so a rewind that drops the
+  newer checkpoints rewrites no row it did not change (only the index and the deletions).
+- ROOT CAUSE 2 (the bank, ckptBank:<tale>): 543 KB on the perf tale, growing to its cap, read, cloned and rewritten
+  whole on every send for the dozen entries a new checkpoint adds. NOW: the base row lists parts (ckptBankPart:<n>:<tale>,
+  up to PART_CAP entries each); a send appends its few entries to the newest part (6 ms). Which keys the bank holds is
+  remembered per tale (bankKeysOf), forgotten when a pull replaces rows (store.js onDropCaches); the whole bank is merged
+  only where a checkpoint is handed back whole. Over BANK_CAP the bank is rewritten compacted, every stored row asked.
+- ROOT CAUSE 3: 60,000 regular expressions compiled in one send — bodies.js bodyPartOf compiled sixty part patterns on
+  every call (the one-wound-per-part fold asks it for every wound on every render); people.js wordRe compiled a name's
+  pattern for every person on every render; engine/world.js blindSpots compiled a name's words for every fact of every
+  book. Hoisted, memoized (WORD_RES, NAMED_IN keyed by name for the same material string), and blindSpots reads each
+  fact's words, age and nearness once. 1,129 compilations now.
+- A REAL BUG THE SPLIT EXPOSED: store.js sweepOrphans read a row's tale from the FIRST colon (snap:<turn>:<tale> →
+  "<turn>:<tale>", no such tale) and swept every new checkpoint row at every boot. It reads the suffix now, the rule
+  storyKeys and STORY_ROW already use.
+- MEASURED (same harness, same seed, CPU 6x): m506 → m507: the request out 2326 → 1491 ms; main thread frozen in
+  total 1934 → 1169 ms; the whole send done 3194 → 2315 ms; his own page on screen 95 → 97 ms. On his real ledger
+  (journal at its cap, a bigger bank, more checkpoints) the checkpoint and bank costs were larger still.
+- STILL OPEN, MEASURED AND FOUND: (a) the assembly of a 130k-token request itself (applyRules over every page, the
+  people and knowledge renders, estimateTokens) is the remaining ~750 ms freeze — attributed, not yet cut; (b) the store's
+  read cache clones every row it hands out — loadState is asked 43 times per send (3 before the request, the rest by
+  the readers), 12.8 ms a clone on this ledger; (c) THE BOOT PULL CAN WRITE THE DEVICE'S OLDER LEDGER OVER THE
+  BROWSER'S NEWER ONE: a page append moves the device's book stamp at once, the browser's stamp moves only when its next
+  WHOLE push lands (twenty seconds after the last ledger write) — close the app before that and the next open pulls
+  the device's book, and importStory writes its older state/record rows over the browser's newer ones (the light then
+  re-reads the page, so only the page reader's part heals). Reproduced twice in tests/perf_send.py's seeding. The fix:
+  serve.py keeps the snapshot's own stamp (snapshotAt) when it folds the log; the worker pulls PAGES ONLY when that
+  snapshot is this browser's own push. Not yet built.
+- TESTS: harness m507.mjs (four laws through the real store: one row per checkpoint and every checkpoint back whole; a
+  legacy list migrates at the next send, cap and sparse retention hold, a pruned checkpoint takes its row; the bank's
+  parts, a full base row never rewritten; a rewind rewrites no unchanged row). m314's laws re-pinned to the rows; the
+  walk's checkpoint tampering goes through loadSnapshots/saveSnapshots. GATES: harness 966/966, walk 145/145, long play
+  8/8, lint 0, holdsone.py, twobrowsers.py, foldcrash.py, perf_send.py. version.js -> m507-001.

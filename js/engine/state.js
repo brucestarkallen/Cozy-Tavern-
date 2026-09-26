@@ -39,7 +39,7 @@
  * need no schema migration.
  */
 
-import { db } from '../store.js';
+import { db, onDropCaches } from '../store.js'; /* M507: the bank's key cache hears a pull */
 import { renderClock } from './clock.js';
 import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
 import { axisWords, AXES } from './relationships.js';
@@ -421,28 +421,93 @@ function contentKey(obj) {
   return a.toString(36) + '.' + b.toString(36) + '.' + text.length.toString(36);
 }
 function emptyBank() { return { j: {}, l: {} }; }
-async function loadBank(storyId) {
+/* M507: THE BANK IS KEPT IN PARTS. One row held every journal and log entry of every checkpoint of the tale (543 KB on
+ * the perf tale, growing to the cap) and was read, cloned and written whole on every send for the dozen entries the new
+ * checkpoint adds. Now the base row ckptBank:<tale> (the row older stores already have) lists its parts, each part
+ * ckptBankPart:<n>:<tale> holds up to PART_CAP entries, and a send appends its few entries to the newest part — one
+ * small row read and written. The whole bank is merged only where a checkpoint is handed back whole (a rewind, a
+ * branch, a version walk). Which keys the bank holds is remembered per tale, so a send reads no part it does not write. */
+const BANK_PART = (storyId, n) => 'ckptBankPart:' + n + ':' + storyId;
+const PART_CAP = 1200;
+const bankKeysOf = new Map(); /* storyId -> Set of every key the bank holds (j and l) */
+async function bankBase(storyId) {
   const row = await db.settings.get(BANK_PREFIX + storyId);
-  return row && typeof row === 'object' && row.j && row.l ? { j: { ...row.j }, l: { ...row.l } } : emptyBank();
+  const base = row && typeof row === 'object' && row.j && row.l ? { j: { ...row.j }, l: { ...row.l } } : emptyBank();
+  base.parts = row && Array.isArray(row.parts) ? row.parts.filter((n) => Number.isInteger(n) && n > 0) : [];
+  return base;
 }
+async function loadBank(storyId) {
+  const base = await bankBase(storyId);
+  const bank = { j: base.j, l: base.l };
+  for (const n of base.parts) {
+    const part = await db.settings.get(BANK_PART(storyId, n));
+    if (part && typeof part === 'object') { Object.assign(bank.j, part.j || {}); Object.assign(bank.l, part.l || {}); }
+  }
+  bankKeysOf.set(storyId, new Set([...Object.keys(bank.j), ...Object.keys(bank.l)]));
+  return bank;
+}
+async function knownBankKeys(storyId) {
+  if (!bankKeysOf.has(storyId)) await loadBank(storyId);
+  return bankKeysOf.get(storyId);
+}
+/* the new entries go to the newest part with room (the base row, when it has no parts yet and room), else a new part */
+async function bankAppend(storyId, fresh) {
+  const jn = Object.keys(fresh.j).length; const ln = Object.keys(fresh.l).length;
+  if (!jn && !ln) return;
+  const base = await bankBase(storyId);
+  const known = bankKeysOf.get(storyId) || new Set();
+  const size = (b) => Object.keys(b.j || {}).length + Object.keys(b.l || {}).length;
+  if (!base.parts.length && size(base) + jn + ln <= PART_CAP) {
+    Object.assign(base.j, fresh.j); Object.assign(base.l, fresh.l);
+    await db.settings.set(BANK_PREFIX + storyId, { j: base.j, l: base.l, parts: [] });
+  } else {
+    let n = base.parts.length ? base.parts[base.parts.length - 1] : 0;
+    let part = n ? (await db.settings.get(BANK_PART(storyId, n))) : null;
+    if (!part || typeof part !== 'object' || size(part) + jn + ln > PART_CAP) {
+      n += 1; part = emptyBank();
+      base.parts.push(n);
+      await db.settings.set(BANK_PREFIX + storyId, { j: base.j, l: base.l, parts: base.parts });
+    }
+    await db.settings.set(BANK_PART(storyId, n), { j: { ...(part.j || {}), ...fresh.j }, l: { ...(part.l || {}), ...fresh.l } });
+  }
+  for (const k of Object.keys(fresh.j)) known.add(k);
+  for (const k of Object.keys(fresh.l)) known.add(k);
+  bankKeysOf.set(storyId, known);
+}
+/* the bank rewritten whole — only when it is over its cap: what no stored checkpoint names any more goes */
+async function bankRewrite(storyId, bank) {
+  const base = await bankBase(storyId);
+  for (const n of base.parts) { try { await db.settings.delete(BANK_PART(storyId, n)); } catch (err) { /* the sweep gets it */ } }
+  const parts = [];
+  let cur = emptyBank(); let n = 0; let count = 0;
+  const flush = async () => { if (!count) return; n += 1; parts.push(n); await db.settings.set(BANK_PART(storyId, n), cur); cur = emptyBank(); count = 0; };
+  for (const [k, e] of Object.entries(bank.j)) { cur.j[k] = e; count += 1; if (count >= PART_CAP) await flush(); }
+  for (const [k, e] of Object.entries(bank.l)) { cur.l[k] = e; count += 1; if (count >= PART_CAP) await flush(); }
+  await flush();
+  await db.settings.set(BANK_PREFIX + storyId, { j: {}, l: {}, parts });
+  bankKeysOf.set(storyId, new Set([...Object.keys(bank.j), ...Object.keys(bank.l)]));
+}
+export function forgetBankCache(storyId) { if (storyId) bankKeysOf.delete(storyId); else bankKeysOf.clear(); }
+onDropCaches(() => { forgetBankCache(); handedOut.clear(); }); /* a pull replaced rows under us: remember nothing of them */
 /* a checkpoint handed back whole remembers the keys it was built from: saved again with the same two
  * lists (the usual case — forty old checkpoints and one new one, after every page) it is not hashed
  * again. Only while every key is in the bank being written: a branch saves its parent's checkpoints
  * into its OWN bank, which does not hold them yet. */
 const BUILT_FROM = new WeakMap();
-function bankInto(bank, state) {
+/* `known` is the set of keys the bank already holds; every entry not in it is put into `fresh` (j / l) for bankAppend */
+function bankInto(known, fresh, state) {
   if (!state || typeof state !== 'object' || state.slim === 2) return state;
   const { journal, log, ...rest } = state;
   const was = BUILT_FROM.get(state);
-  if (was && was.journal === journal && was.log === log && was.jk.every((k) => bank.j[k]) && was.lk.every((p) => bank.l[p[0]])) return { ...rest, slim: 2, jk: was.jk, lk: was.lk };
+  if (was && was.journal === journal && was.log === log && was.jk.every((k) => known.has(k) || fresh.j[k]) && was.lk.every((p) => known.has(p[0]) || fresh.l[p[0]])) return { ...rest, slim: 2, jk: was.jk, lk: was.lk };
   const jk = [];
-  for (const e of Array.isArray(journal) ? journal : []) { const k = contentKey(e); if (!bank.j[k]) bank.j[k] = e; jk.push(k); }
+  for (const e of Array.isArray(journal) ? journal : []) { const k = contentKey(e); if (!known.has(k) && !fresh.j[k]) fresh.j[k] = e; jk.push(k); }
   const lk = [];
   for (const e of Array.isArray(log) ? log : []) {
     if (!e || typeof e !== 'object') continue;
     const { undone, ...core } = e;
     const k = contentKey(core);
-    if (!bank.l[k]) bank.l[k] = core;
+    if (!known.has(k) && !fresh.l[k]) fresh.l[k] = core;
     lk.push([k, undone === true]);
   }
   return { ...rest, slim: 2, jk, lk };
@@ -474,7 +539,6 @@ function withBank(storyId, fn) {
   bankTurn.set(storyId, next.catch(() => {}));
   return next;
 }
-const SNAP_ROW = (storyId) => 'snapshots:' + storyId;
 const VERSION_ROW = (storyId) => 'versionState:' + storyId;
 function keysUsedBy(row) {
   const used = { j: new Set(), l: new Set() };
@@ -482,23 +546,73 @@ function keysUsedBy(row) {
   for (const c of each) { if (!c || c.slim !== 2) continue; for (const k of c.jk || []) used.j.add(k); for (const p of c.lk || []) used.l.add(p[0]); }
   return used;
 }
-async function saveBank(storyId, bank, fresh, otherRowKey) {
-  if (Object.keys(bank.j).length + Object.keys(bank.l).length > BANK_CAP) {
-    /* let go of what no stored checkpoint names any more (both rows are asked) */
-    const mine = keysUsedBy(fresh); const theirs = keysUsedBy(await db.settings.get(otherRowKey));
-    for (const k of Object.keys(bank.j)) if (!mine.j.has(k) && !theirs.j.has(k)) delete bank.j[k];
-    for (const k of Object.keys(bank.l)) if (!mine.l.has(k) && !theirs.l.has(k)) delete bank.l[k];
+/* M507: every slim checkpoint of the tale, as stored — the boundary rows and the version rows — read only when the
+ * bank is over its cap (a rare moment), never on the ordinary write */
+async function storedCheckpoints(storyId) {
+  const out = [];
+  const index = await db.settings.get(SNAP_PREFIX + storyId);
+  for (const e of (Array.isArray(index) ? index : [])) {
+    if (!e || typeof e.id !== 'string') continue;
+    if (e.snap && typeof e.snap === 'object') { out.push(e.snap); continue; } /* a row written whole (before M507) */
+    const row = await db.settings.get(SNAP_ROW_OF(storyId, e.id)); if (row && typeof row === 'object') out.push(row);
   }
-  await db.settings.set(BANK_PREFIX + storyId, bank);
+  const versions = await db.settings.get(VERSION_ROW(storyId));
+  for (const v of Object.values(versions && typeof versions === 'object' ? versions : {})) if (v && typeof v === 'object') out.push(v);
+  return out.map((snap) => ({ snap }));
+}
+async function saveBank(storyId, known, fresh, rows) {
+  const total = known.size + Object.keys(fresh.j).length + Object.keys(fresh.l).length;
+  if (total <= BANK_CAP) { await bankAppend(storyId, fresh); return; }
+  /* over the cap: the whole bank, and what no stored checkpoint names any more goes (every row is asked) */
+  const bank = await loadBank(storyId);
+  Object.assign(bank.j, fresh.j); Object.assign(bank.l, fresh.l);
+  const mine = keysUsedBy(rows); const theirs = keysUsedBy(await storedCheckpoints(storyId));
+  for (const k of Object.keys(bank.j)) if (!mine.j.has(k) && !theirs.j.has(k)) delete bank.j[k];
+  for (const k of Object.keys(bank.l)) if (!mine.l.has(k) && !theirs.l.has(k)) delete bank.l[k];
+  await bankRewrite(storyId, bank);
 }
 
-export async function loadSnapshots(storyId) {
+/* M507: ONE ROW PER CHECKPOINT. Measured in a real Chromium at his phone's speed (tests/perf_send.py): with a ledger
+ * shaped like his, the request left the browser 2.7 s after the press, the screen frozen for 1.1 s of it — and the
+ * same request left in 0.65 s with an empty ledger. The cost was snapshotState, run on every send: it loaded every
+ * boundary checkpoint (up to 120 whole ledgers, each unbanked), banked them all again, and rewrote the ONE row
+ * `snapshots:<tale>` that held them all — megabytes structured-cloned and written on the main thread, every send,
+ * growing with the tale. Now the index row `snapshots:<tale>` holds only [{id, at, page, seq}] and each checkpoint
+ * lives in its own row `snap:<turnId>:<tale>` (the tale's suffix — the book, the sync, the sweep and the export see it
+ * as the tale's; the prefix is in store.js STORY_PREFIXES); a send writes ONE row and the small index. A row written
+ * whole before M507 (an entry carrying `snap`) is read as it is and moved to its own row the next time the list is
+ * written — a store from before this heals itself on its first send. */
+const SNAP_ROW_OF = (storyId, turnId) => 'snap:' + turnId + ':' + storyId;
+async function snapshotIndex(storyId) {
   const saved = await db.settings.get(SNAP_PREFIX + storyId);
-  const list = (Array.isArray(saved) ? saved : [])
-    .filter((e) => e && typeof e === 'object' && typeof e.id === 'string' && e.snap && typeof e.snap === 'object');
-  if (!list.some((e) => e.snap.slim === 2)) return list;
-  const bank = await loadBank(storyId);
-  return list.map((e) => (e.snap.slim === 2 ? { ...e, snap: wholeFromBank(bank, e.snap) } : e));
+  return (Array.isArray(saved) ? saved : []).filter((e) => e && typeof e === 'object' && typeof e.id === 'string');
+}
+/* the checkpoints handed out whole, by tale and id: a list saved again with the very same objects (a rewind that drops
+ * the newer ones, a page let go) writes only the index and the deletions, never the unchanged rows again */
+const handedOut = new Map(); /* storyId -> Map(id -> the whole snap object) */
+export async function loadSnapshots(storyId) {
+  const index = await snapshotIndex(storyId);
+  const list = [];
+  for (const e of index) {
+    if (e.snap && typeof e.snap === 'object') { list.push({ id: e.id, at: e.at, snap: e.snap }); continue; } /* stored whole (before M507) */
+    const snap = await db.settings.get(SNAP_ROW_OF(storyId, e.id));
+    if (snap && typeof snap === 'object') list.push({ id: e.id, at: e.at, snap, stored: true });
+  }
+  let out = list;
+  if (list.some((e) => e.snap.slim === 2)) {
+    const bank = await loadBank(storyId);
+    out = list.map((e) => (e.snap.slim === 2 ? { ...e, snap: wholeFromBank(bank, e.snap) } : e));
+  }
+  const seen = new Map();
+  for (const e of out) if (e.stored) seen.set(e.id, e.snap);
+  handedOut.set(storyId, seen);
+  return out.map(({ stored, ...e }) => e);
+}
+const indexEntryOf = (e, slim) => ({ id: e.id, at: Number.isFinite(e.at) ? e.at : Date.now(), page: Number.isInteger(slim && slim.page) ? slim.page : -1, seq: Number.isInteger(slim && slim.journalSeq) ? slim.journalSeq : 0 });
+/* the rows of checkpoints no longer in the index go */
+async function dropSnapshotRows(storyId, keptIds) {
+  const keep = new Set(keptIds);
+  for (const e of await snapshotIndex(storyId)) if (!keep.has(e.id)) { try { await db.settings.delete(SNAP_ROW_OF(storyId, e.id)); } catch (err) { /* the sweep gets it */ } }
 }
 
 /* M44: sparse retention — the newest SNAP_DENSE stay dense, every
@@ -516,19 +630,30 @@ export function pruneSnapshots(list) {
 }
 export async function saveSnapshots(storyId, list) {
   await withBank(storyId, async () => {
-    const bank = await loadBank(storyId);
-    const fresh = pruneSnapshots(list).map((e) => (e && e.snap ? { ...e, snap: bankInto(bank, e.snap) } : e));
-    await saveBank(storyId, bank, fresh, VERSION_ROW(storyId));
-    await db.settings.set(SNAP_PREFIX + storyId, fresh);
+    const known = await knownBankKeys(storyId); const add = emptyBank();
+    const kept = pruneSnapshots((Array.isArray(list) ? list : []).filter((e) => e && typeof e.id === 'string' && e.snap && typeof e.snap === 'object'));
+    const fresh = [];
+    const index = [];
+    const seen = handedOut.get(storyId) || new Map();
+    for (const e of kept) {
+      const slim = bankInto(known, add, e.snap);
+      fresh.push({ snap: slim });
+      index.push(indexEntryOf(e, slim));
+      if (seen.get(e.id) === e.snap) continue; /* the row holds exactly this checkpoint already */
+      await db.settings.set(SNAP_ROW_OF(storyId, e.id), slim);
+    }
+    await saveBank(storyId, known, add, fresh);
+    await dropSnapshotRows(storyId, index.map((e) => e.id));
+    await db.settings.set(SNAP_PREFIX + storyId, index);
   });
 }
 /* M314: the version ledgers (one per version of a page, up to sixty a tale) are checkpoints too */
 export async function saveVersionStates(storyId, all) {
   await withBank(storyId, async () => {
-    const bank = await loadBank(storyId);
+    const known = await knownBankKeys(storyId); const add = emptyBank();
     const fresh = {};
-    for (const [k, v] of Object.entries(all && typeof all === 'object' ? all : {})) fresh[k] = bankInto(bank, v);
-    await saveBank(storyId, bank, fresh, SNAP_ROW(storyId));
+    for (const [k, v] of Object.entries(all && typeof all === 'object' ? all : {})) fresh[k] = bankInto(known, add, v);
+    await saveBank(storyId, known, add, fresh);
     await db.settings.set(VERSION_ROW(storyId), fresh);
   });
 }
@@ -580,12 +705,31 @@ export async function restoreNearestSnapshot(storyId, order, turnId) {
 export async function snapshotState(storyId, turnId, state) {
   if (!storyId || typeof turnId !== 'string' || !turnId) return;
   const current = state && typeof state === 'object' ? state : await loadState(storyId);
-  const list = await loadSnapshots(storyId);
-  const entry = { id: turnId, snap: deepCopy(current), at: Date.now() };
-  const at = list.findIndex((e) => e.id === turnId);
-  if (at === -1) list.push(entry);
-  else list[at] = entry;
-  await saveSnapshots(storyId, list);
+  const index = await snapshotIndex(storyId);
+  if (index.some((e) => e.snap && typeof e.snap === 'object')) {
+    /* a row from before M507: the whole list is moved to its own rows once, with this checkpoint in it */
+    const list = await loadSnapshots(storyId);
+    const entry = { id: turnId, snap: deepCopy(current), at: Date.now() };
+    const at = list.findIndex((e) => e.id === turnId);
+    if (at === -1) list.push(entry); else list[at] = entry;
+    await saveSnapshots(storyId, list);
+    return;
+  }
+  /* M507: the one new checkpoint is banked and written to its own row; the index grows by one line; nothing else is
+   * read, unbanked or rewritten. The copy is of the ledger WITHOUT its journal and log — the bank holds those by key. */
+  await withBank(storyId, async () => {
+    const known = await knownBankKeys(storyId); const add = emptyBank();
+    const { journal, log, ...rest } = current;
+    const slim = bankInto(known, add, { ...deepCopy(rest), journal, log });
+    const entry = indexEntryOf({ id: turnId, at: Date.now() }, slim);
+    const list = index.filter((e) => e.id !== turnId).map((e) => ({ id: e.id, at: e.at, page: e.page, seq: e.seq }));
+    list.push(entry);
+    const kept = pruneSnapshots(list);
+    await db.settings.set(SNAP_ROW_OF(storyId, turnId), slim);
+    await saveBank(storyId, known, add, [{ snap: slim }]);
+    await dropSnapshotRows(storyId, kept.map((e) => e.id));
+    await db.settings.set(SNAP_PREFIX + storyId, kept);
+  });
 }
 
 /* Restore the snapshot taken at the boundary BEFORE the given user

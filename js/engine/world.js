@@ -787,22 +787,26 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
   const mcKey = String(mc || '').trim().toLowerCase();
   const sceneWords = sceneWordsOf(scenePages);
   const out = [];
+  /* M507: each fact's words, age and nearness to the scene are read ONCE, not once per person in the room; a name's own
+   * word patterns are compiled once per name, not once per fact (tests/perf_send.py: thousands of compilations a send) */
+  const books = Object.entries(safe).map(([other, list]) => [other, (Array.isArray(list) ? list : []).map((k) => {
+    const fact = String(k.fact || '').trim();
+    if (!fact) return null;
+    const age = Number.isFinite(turn) && Number.isFinite(k.atTurn) ? turn - k.atTurn : null;
+    const words = factWords(fact);
+    const score = sceneWords.size ? [...words].filter((w) => sceneWords.has(w)).length : 0;
+    return { fact, age, words, score };
+  }).filter((f) => f && (f.score >= 2 || (f.age != null && f.age <= BLIND_RECENT_PAGES)))]); /* near the scene, or recent */
   for (const name of names) {
     if (name.trim().toLowerCase() === mcKey || (mc && samePersonName(name, mc))) continue; /* the main character is the writer's — under any form of his name (M449: "Oda" in the scene is Jovan Oda) */
     const mineKey = findKnowledgeKey(safe, name);
     const mine = (mineKey ? safe[mineKey] : []).map((k) => ({ fact: k.fact, words: factWords(k.fact) }));
-    const selfWords = new Set(name.toLowerCase().split(/\s+/).filter((w) => w.length >= 3));
+    const selfRes = [...new Set(name.toLowerCase().split(/\s+/).filter((w) => w.length >= 3))].map((w) => new RegExp('(^|[^\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'iu'));
     const found = [];
-    for (const [other, list] of Object.entries(safe)) {
+    for (const [other, list] of books) {
       if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase() || samePersonName(other, name)) continue; /* M449: their own lines under another form of their name are theirs — never "Rukia hasn't found out (Rukia knows)" */
-      for (const k of (Array.isArray(list) ? list : [])) {
-        const fact = String(k.fact || '').trim();
-        if (!fact) continue;
-        const age = Number.isFinite(turn) && Number.isFinite(k.atTurn) ? turn - k.atTurn : null;
-        const words = factWords(fact);
-        const score = sceneWords.size ? [...words].filter((w) => sceneWords.has(w)).length : 0;
-        if (!(score >= 2 || (age != null && age <= BLIND_RECENT_PAGES))) continue;             /* near the scene, or recent */
-        if ([...selfWords].some((w) => new RegExp('(^|[^\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'iu').test(fact))) continue; /* about them: they were there */
+      for (const { fact, age, words, score } of list) {
+        if (selfRes.some((re) => re.test(fact))) continue; /* about them: they were there */
         if (mine.some((m) => sameFact(m.fact, fact) || overlap(m.words, words) >= 0.6)) continue; /* they hold it, in these words or others */
         if (found.some((f) => sameFact(f.fact, fact) || overlap(f.words, words) >= 0.6)) continue; /* once is enough */
         found.push({ fact: fact.replace(/\.+$/, ''), from: other, age, score, words });
