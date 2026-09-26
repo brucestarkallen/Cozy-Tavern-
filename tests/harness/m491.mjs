@@ -55,3 +55,14 @@ test('M497 a Stop keeps the line in hand only once the page has begun: stopped m
   eq(run(['Okay, the plan: Kara stays quiet.\n', 'I should open on the rain']), '', 'a plan is never a page');
   assert(/and the door $/.test(run(['[The kitchen — Monday, March 3, 2025 | 09:05 | clear | apron | by the stove]\n\nShe turns the handle slowly, and the door '])), 'the half page is kept');
 });
+
+test('M499 the auditor’s clear finds a seat under any form of the same person’s name ("Hitsugaya" clears "Tōshirō Hitsugaya") — never a different person who shares a first name', () => {
+  const s = emptyState(); s.sheet = { actors: {}, playerName: 'Jovan Oda' };
+  s.present = [{ name: 'Jovan Oda' }, { name: 'Hitsugaya' }];
+  s.characters = { 'Tōshirō Hitsugaya': { core: 'Captain of the 10th' }, 'Suì-Fēng': { core: 'Captain of the 2nd' }, 'Vanessa Reynolds': { core: 'a reporter' }, Vanessa: { core: 'a cook' } };
+  s.offscreen = { 'Tōshirō Hitsugaya': { location: "the Tenth's veranda", atTurn: 30 }, 'Suì-Fēng': { location: 'post station two', atTurn: 30 }, Vanessa: { location: 'the kitchen', atTurn: 30 } };
+  const r1 = applyMutations(s, [{ type: 'offscreen.clear', name: 'Hitsugaya' }]);
+  assert(!r1.state.offscreen['Tōshirō Hitsugaya'] && r1.state.offscreen['Suì-Fēng'], 'the clear found the full-name seat; the absent keep theirs');
+  const r2 = applyMutations(r1.state, [{ type: 'offscreen.clear', name: 'Vanessa Reynolds' }]);
+  assert(r2.state.offscreen.Vanessa, 'a different Vanessa keeps her seat');
+});

@@ -366,6 +366,7 @@ function normalize(saved) {
   return next;
 }
 
+
 export async function loadState(storyId) {
   if (!storyId) return emptyState();
   const saved = await db.settings.get(KEY_PREFIX + storyId);

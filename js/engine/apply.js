@@ -42,7 +42,7 @@ import { createClock, setClock, advanceClock, renderClock, MAX_ADVANCE_MINUTES }
 import { windowCutAt } from './window.js'; /* M467: one definition of the window's marker */
 import { addInjury, addStrain, findBodyKey, findInjury, SEV_WORDS } from './bodies.js';
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
-import { seat, findSeat } from './offscreen.js';
+import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight } from './duels.js';
 import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
@@ -838,7 +838,14 @@ const HANDLERS = {
   'offscreen.clear'(state, m) {
     const name = normalizeName(m.name);
     if (!name) return { why: 'no name came with it' };
-    const seated = seatForPerson(state, name); /* M320 */
+    let seated = seatForPerson(state, name); /* M320 */
+    if (!seated) {
+      /* M499: the seat under ANY form of the name ("Tōshirō Hitsugaya" for "Hitsugaya") — the auditor saw fourteen people
+       * both here and seated away and every one of its clears was refused, so the duplicates stood forever */
+      const chars = state.characters || {}; const owner = findPersonKey(chars, name);
+      const key = owner ? Object.keys(state.offscreen || {}).find((k) => !isDeadSeat(state.offscreen[k]) && findPersonKey(chars, k) === owner) : null; /* the same PAGE — never a shared first name (M320) */
+      if (key) seated = { key, entry: state.offscreen[key] };
+    }
     if (!seated) return { why: 'the ledger has no elsewhere note for ' + name };
     delete state.offscreen[seated.key];
     return {

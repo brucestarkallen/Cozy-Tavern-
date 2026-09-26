@@ -11682,3 +11682,18 @@ well-formed thought and no rule for a broken one.
   (M488) or with "Mend the pages' marks"; new pages on arrival.
 - TESTS: m476.mjs M498 (six broken shapes drawn as thoughts, both exact forms untouched, his page through tidyPage).
   Harness 955/955, walk 144/144, long play 8/8, lint 0, mend_marks.py. version.js -> m498-001.
+
+# M499 — the auditor's clear finds the seat under any form of the same person's name
+He, with an audit: "found 20, set 6 right, 14 refused" — duplicate seats (both Here now and Elsewhere); "should mistakes
+be prevented before the auditor, the last line of defense?" The fourteen refused were "the ledger has no elsewhere note
+for Hitsugaya" (and Zaraki, Byakuya, Shunsui…): their seats were keyed under another form of the name ("Tōshirō
+Hitsugaya") and seatForPerson (M320, exact or page-owner) found nothing for the short form — every audit saw them and
+could not clear them. The storyteller's briefing already hid them (renderOffscreen skips anyone here).
+- NOW: offscreen.clear falls back to the seat whose name resolves to the SAME PAGE as the name asked (findPersonKey
+  owner equality) — never a shared first name (M320-3's two Vanessas hold). The next audit clears his fourteen as
+  recorded, replayable writes.
+- TRIED AND WITHDRAWN (the gates caught them): a load-time sweep of seats of the present made the saved ledger differ
+  from its replayed journal (the two FUZZ fold laws); an arrival sweep by samePersonName cleared a different Vanessa
+  (M320-3); a door refusal duplicated M257's. Prevention stays where it was: M257 refuses a seat for someone present,
+  M320 lets an arrival's seat go under any form of the name.
+- TESTS: m491.mjs M499. Harness 956/956, walk 144/144, long play 8/8, lint 0. version.js -> m499-001.
