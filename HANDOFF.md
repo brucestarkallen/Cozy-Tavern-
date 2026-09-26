@@ -1,6 +1,19 @@
 # Cozy Tavern — handoff for the next session (state at m498-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0. OPEN, UNCONFIRMED — BRANCH WHILE A READER IS STILL OUT (found at the end of the m498 session). M112 intends: branching
+   from the newest page while its readers run waits up to 8s (pendingWork), then marks the copy inexact and the branch
+   re-reads its own last page (chat.js branchFrom: fromTheTail && chainStillRunning → startBackgroundWork(branch, …,
+   { deep: false })). A walk scenario (held first worker call on the origin's newest page via house.state.workerAnswer
+   returning a promise; click the page's "branch"; expect a worker call for the branch's page before the origin's is
+   released) saw NO branch read: the branch was complete (building null) and active, and no call carried the page's
+   text. Not yet known whether (a) pendingWork returned true (the held job not registered with noteWork → exact=true →
+   no re-read, so the branch keeps a ledger without that page's reads) or (b) the branch's read runs but its request
+   lacks the page text. Also note: pendingWork returns false when NOTHING was in flight, so chainStillRunning is true
+   for a settled tale and a branch from the tail always re-reads (wasteful, maybe harmless). Rebuild the scenario (it
+   is described here; it was reverted to keep the walk green), find which, fix at the root. Until then he was told:
+   going back to the ORIGINAL while the light works is safe (its readers write only to it, per-story channel, stale
+   guard, DOM-126); for a BRANCH from the newest page, wait for the light to turn green first.
 1zb. NO THIRD AUTHORITY ON THE WIRE (M495): every text a side agent adds to the storyteller's request must read as the
    writer's own notes — m495.mjs scans the whole wire; a new agent's slot must pass it (voice it, no capitals-form labels).
 1za. THE LIVING LEDGER SIMULATION (M492): tests/harness/livingledger.mjs runs a story through the real gate and heals
