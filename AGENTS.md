@@ -11917,3 +11917,21 @@ render: every fact against every fact of every person in the room; the fuzzy fol
 tests/perf_send.py: blindSpots 130–170 → 113–129 ms; the request out 1299–1311 ms, the worst freeze 480–483 ms, the whole
 send 2022–2240 ms (m506: 2326 / 761 / 3194). GATES: harness 966/966, walk 145/145, long play 8/8, lint 0.
 version.js -> m507-004.
+
+# M507-5 — the light looked at once per burst; the sent words hashed once per text; the steady-state send measured
+tests/perf_send.py takes SENDS=2 now: the second send is his steady state (the module caches warm, every page seen
+before), and the profile covers the measured send alone; the harness no longer races the stream for `.msg.pending`
+(the page's own observer marks `done`). Profiling the steady state showed two costs the first send hid:
+- chat.js markLedgerTrouble ran on EVERY worker start and settle (onWorkerChange) — the worker shelf, the pages, a
+  clone of the 248 KB ledger, the record and the settings, some twenty times a page while the readers ran, fifty
+  milliseconds each at his speed: a second of main thread per page, felt as a stutter while he read the page. It is
+  looked at once per burst now, a quarter second after the last change (a change during a look books one more); the
+  light's four truths are re-read exactly as before, only less often.
+- sent.js hashed the whole request again on every send for M347's kept words (130k tokens of unchanged pages): the
+  pieces a text cuts into and each piece's hash are remembered by the text (keepSentNow 171 → 22 ms).
+- MEASURED, THE STEADY STATE (second send, same harness, same seed, CPU 6x), m506 → m507-5: his page on screen
+  701–965 → 45–90 ms; the request out 2191–2522 → 391–481 ms; the worst single freeze 489–510 → 100–111 ms; main
+  thread frozen in total 1931–2123 → 255–284 ms; the whole send done 3066–3206 → 1060–1156 ms. (The first send after
+  an open still pays V8's compilation and the cold reads: ~1.3 s to the request, a ~480 ms worst freeze.)
+- GATES: harness 966/966, walk 145/145, long play 8/8, lint 0, housekeeper_rounds.py, perf_housekeeper.py.
+  version.js -> m507-005.

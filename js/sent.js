@@ -60,20 +60,39 @@ export function hash53(str, seed = 0) {
 
 /* Pieces cut where the text itself says: after a paragraph whose own hash falls on the mark (once a piece is long
  * enough), or at the size limit — so the same pages cut the same way in every request, wherever they sit in it. */
+/* M507: A HASH IS COMPUTED ONCE PER TEXT. Every page of the tale rides every request, and keeping the words (M347)
+ * hashed the whole request again on every send — 130k tokens of pages that had not changed. The pieces a text cuts into
+ * and each piece's hash are remembered by the text itself (a Map keyed by the string: V8 hashes a string once and keeps
+ * it), so a page seen before costs a look-up; bounded, the oldest let go. */
+const PIECES_OF = new Map();
+const HASHES = new Map();
+const hashOf = (piece) => {
+  let h = HASHES.get(piece);
+  if (h === undefined) {
+    h = hash53(piece);
+    if (HASHES.size > 6000) HASHES.clear();
+    HASHES.set(piece, h);
+  }
+  return h;
+};
 export function piecesOf(text) {
   const s = String(text || '');
   if (!s) return [];
+  const hit = PIECES_OF.get(s);
+  if (hit) return hit.slice();
   const paras = s.split(/(?<=\n\n)/);
   const out = [];
   let cur = '';
   for (const p of paras) {
     cur += p;
-    if (cur.length >= PIECE_MAX || (cur.length >= PIECE_MIN && hash53(p) % 4 === 0)) { out.push(cur); cur = ''; }
+    if (cur.length >= PIECE_MAX || (cur.length >= PIECE_MIN && hashOf(p) % 4 === 0)) { out.push(cur); cur = ''; }
   }
   if (cur) out.push(cur);
+  if (PIECES_OF.size > 3000) PIECES_OF.clear();
+  PIECES_OF.set(s, out.slice());
   return out;
 }
-const pieceKey = (storyId, piece) => storyId + '|' + hash53(piece).toString(36) + '|' + piece.length;
+const pieceKey = (storyId, piece) => storyId + '|' + hashOf(piece).toString(36) + '|' + piece.length;
 
 /* the keys of every piece a tale already keeps — read once a session, then kept current */
 const knownPieces = new Map();

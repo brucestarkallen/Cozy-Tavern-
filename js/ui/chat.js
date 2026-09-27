@@ -1961,7 +1961,29 @@ export function initChat(ctx) {
    * running, and drops it the moment one succeeds. Nothing interrupts the
    * scene; the mark is simply there, or it is not. */
   let ledgerMark = null;
-  async function markLedgerTrouble(storyId) {
+  /* M507: THE LIGHT IS LOOKED AT ONCE PER BURST. Every worker's start and settle asked for the whole check — the worker
+   * shelf, the pages, a clone of the ledger, the record, the settings — twenty times a page while the readers ran, and
+   * each look was fifty milliseconds on his phone: a second of the main thread per page, felt as a stutter while he
+   * read. A burst of changes is one look now, a quarter second after the last of them; a change that lands while a
+   * look is under way books one more. The light's four truths are unchanged — only how often they are re-read. */
+  const troubleLook = new Map(); /* storyId -> { timer, running, again } */
+  function markLedgerTrouble(storyId) {
+    if (!storyId) return Promise.resolve();
+    let look = troubleLook.get(storyId);
+    if (!look) { look = { timer: null, running: false, again: false }; troubleLook.set(storyId, look); }
+    if (look.running) { look.again = true; return Promise.resolve(); }
+    if (look.timer) return Promise.resolve();
+    return new Promise((resolve) => {
+      look.timer = setTimeout(async () => {
+        look.timer = null;
+        look.running = true;
+        try { await markLedgerTroubleNow(storyId); } finally { look.running = false; }
+        if (look.again) { look.again = false; markLedgerTrouble(storyId); }
+        resolve();
+      }, 250);
+    });
+  }
+  async function markLedgerTroubleNow(storyId) {
     try {
       const btn = document.getElementById('btn-ledger');
       if (!btn || !storyId) return;

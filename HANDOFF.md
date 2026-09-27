@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m507-004)
+# Cozy Tavern — handoff for the next session (state at m507-005)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -12,7 +12,7 @@
    first version made of a thought with a ~ inside (pages mend on the next open, per build); shownOnPage reads "Vivi's
    already…" as Vivi (CONTRACTION_NEXT) and "Vivi's left hand" as her body; goneByTheirOwnPage never trusts a "Left…"
    line the journal dates before the person's last presence.enter (nowPredatesTheirReturn).
-0a. THE SEND IS MEASURED, NEVER REASONED (M507): `python3 tests/perf_send.py` (PROFILE=1 for the top functions before the
+0a. THE SEND IS MEASURED, NEVER REASONED (M507): `python3 tests/perf_send.py` (SENDS=2 for his steady state — the number that matters; PROFILE=1 for the top functions before the
    request, PHASES=1 for the isolated costs, store reads/writes by key, regex compilations) — run it for ANY change to
    the send path, the checkpoint store or the assembler, and compare against AGENTS M507's numbers. The checkpoints are
    one row each (snap:<turn>:<tale> + the index snapshots:<tale>), the bank is in parts (ckptBankPart:<n>:<tale>); never

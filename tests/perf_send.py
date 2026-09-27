@@ -133,9 +133,10 @@ SEED = '''async ([fake, pages, words, keeper]) => {
 }'''
 
 WATCH = '''() => {
-  window.__send = { t0: null, userPage: null, request: null, firstToken: null, long: [], frames: [] };
+  window.__send = { t0: null, userPage: null, request: null, firstToken: null, done: null, long: [], frames: [] };
   const mo = new MutationObserver(() => {
     if (window.__send.t0 === null) return;
+    if (window.__send.done === null && window.__send.firstToken !== null && !document.querySelector('.msg.pending, .msg.streaming') && [...document.querySelectorAll('.msg-assistant')].some((n) => /word0119/.test(n.textContent))) window.__send.done = performance.now() - window.__send.t0;
     if (window.__send.userPage === null && document.querySelector('.msg-user[data-id]') && [...document.querySelectorAll('.msg-user')].some((n) => /PERF-SEND-MARK/.test(n.textContent))) window.__send.userPage = performance.now() - window.__send.t0;
     if (window.__send.firstToken === null) { const p = document.querySelector('.msg.pending .msg-body, .msg.streaming .msg-body'); if (p && /word0000/.test(p.textContent)) window.__send.firstToken = performance.now() - window.__send.t0; }
   });
@@ -200,6 +201,15 @@ def main():
             page.evaluate(WATCH)
             page.evaluate('''async () => { const { db } = await import('/js/store.js'); const real = db.settings.get.bind(db.settings); window.__send.gets = {}; window.__send.sets = {}; const realSet = db.settings.set.bind(db.settings); db.settings.set = async (key, val) => { const a = performance.now(); const r = await realSet(key, val); if (window.__send.t0 !== null && window.__send.request === null) { const k = String(key).replace(/:[^:]*$/, ':*').replace(/^snap:[^:]*/, 'snap:*'); const e = window.__send.sets[k] = window.__send.sets[k] || { n: 0, ms: 0, bytes: 0 }; e.n += 1; e.ms += performance.now() - a; try { e.bytes += JSON.stringify(val).length; } catch (x) {} } return r; };
 window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = performance.now(); if (window.__send.t0 !== null && /^state:/.test(key) && window.__send.request === null) { const st = String(new Error().stack).split(String.fromCharCode(10)).slice(2, 6).map((l) => l.trim().replace(/^at /, '').replace(/https?:[^ )]*[/]/, '').replace(/[()]/g, '')).join(' < '); window.__send.stateCallers[st] = (window.__send.stateCallers[st] || 0) + 1; } const r = await real(key); if (window.__send.t0 !== null) { const k = String(key).replace(/:[^:]*$/, ':*').replace(/^snap:[^:]*/, 'snap:*'); const e = window.__send.gets[k] = window.__send.gets[k] || { n: 0, ms: 0 }; e.n += 1; e.ms += performance.now() - a; } return r; }; }''')
+            # SENDS=2: the second send is his steady state — the module caches warm, every page seen before
+            for n in range(int(os.environ.get('SENDS', '1')) - 1):
+                page.fill('#composer-input', 'I look around the kitchen. WARMUP-' + str(n))
+                page.evaluate("document.getElementById('composer').requestSubmit()")
+                page.wait_for_function("[...document.querySelectorAll('.msg-assistant')].some((n) => /word0119/.test(n.textContent) && n.dataset.warm !== '1')", timeout=120000, polling=100)
+                page.evaluate("[...document.querySelectorAll('.msg-assistant')].forEach((n) => { n.dataset.warm = '1'; })")
+                page.wait_for_function('!window.__cozy.chat.isBusy()', timeout=60000)
+                time.sleep(4.0)
+                page.evaluate("window.__send.long = []; window.__send.frames = []; window.__send.idb = []; window.__send.regexps = 0; window.__send.clones = 0; window.__send.cloneMs = 0;")
             if PROFILE:
                 cdp.send('Profiler.enable'); cdp.send('Profiler.setSamplingInterval', {'interval': 250}); cdp.send('Profiler.start')
             page.fill('#composer-input', 'I walk into the kitchen. PERF-SEND-MARK')
@@ -230,10 +240,10 @@ window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = pe
                         node = parent.get(node)
                 total_before = [(round(v), k) for k, v in sorted(total_ms.items(), key=lambda kv: -kv[1]) if not k.startswith(('(root)', '(program)', '(idle)', '(garbage'))][:40]
                 cdp.send('Profiler.start')
-            page.wait_for_selector('.msg.pending, .msg.streaming', timeout=60000)
-            page.wait_for_function('!document.querySelector(".msg.pending") && !document.querySelector(".msg.streaming")', timeout=300000, polling=200)
-            done_ms = page.evaluate('performance.now() - window.__send.t0')
+            page.wait_for_function('window.__send.done !== null', timeout=300000, polling=100)
+            done_ms = page.evaluate('window.__send.done')
             top = []
+            total_after = []
             if PROFILE:
                 prof = cdp.send('Profiler.stop')['profile']
                 nodes = {n['id']: n for n in prof['nodes']}
@@ -243,6 +253,18 @@ window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = pe
                     key = (fn.get('functionName') or '(anon)') + ' ' + fn.get('url', '').split('/')[-1] + ':' + str(fn.get('lineNumber', 0) + 1)
                     self_ms[key] = self_ms.get(key, 0) + dt / 1000
                 top = [(round(v), k) for k, v in sorted(self_ms.items(), key=lambda kv: -kv[1])[:25]]
+                parent = {}
+                for n in prof['nodes']:
+                    for c in n.get('children', []) or []: parent[c] = n['id']
+                keyof = {n['id']: (n['callFrame'].get('functionName') or '(anon)') + ' ' + n['callFrame'].get('url', '').split('/')[-1] + ':' + str(n['callFrame'].get('lineNumber', 0) + 1) for n in prof['nodes']}
+                total_ms = {}
+                for sid, dt in zip(prof.get('samples', []), prof.get('timeDeltas', [])):
+                    seen = set(); node = sid
+                    while node is not None:
+                        k = keyof[node]
+                        if k not in seen: seen.add(k); total_ms[k] = total_ms.get(k, 0) + dt / 1000
+                        node = parent.get(node)
+                total_after = [(round(v), k) for k, v in sorted(total_ms.items(), key=lambda kv: -kv[1]) if not k.startswith(('(root)', '(program)', '(idle)', '(garbage'))][:40]
             stats = page.evaluate('''() => {
               const s = window.__send;
               const upTo = (t) => s.long.filter((e) => e.at - s.t0 <= t);
@@ -295,6 +317,7 @@ window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = pe
                 result['profile_top_self_ms'] = top
                 result['profile_before_request_ms'] = top_before
                 result['profile_total_before_ms'] = total_before
+                result['profile_total_after_ms'] = total_after
             if phases:
                 result.update(phases)
             browser.close()
