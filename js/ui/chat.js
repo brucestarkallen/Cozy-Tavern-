@@ -3658,7 +3658,27 @@ export function initChat(ctx) {
    * mid-chain snapshot, M72); for a store from before the journal, the
    * boundary snapshot itself (M21/M44), with an audit owed when only a
    * nearer one survived. */
-  async function rewindTo(story, history, userMsgId) {
+  let rereadOwed = null; /* M509-10: { storyId, pageId } — the page before, to be read again by the house itself */
+  /* M509-10: NO CHECKPOINT OF THAT MOMENT → THE HOUSE REBUILDS IT. The ledger folds to the page before the page before
+   * (its own boundary, no check — the check is what brought us here), that page's readers run over it again, and the
+   * retry waits for them: the ledger it is built from is that page's, read fresh. Nothing is asked of the writer. Done
+   * inline (rereadPage steps aside while the house is busy, and its replay would read the page let go as well). */
+  async function settleRereadOwed(story) {
+    const owed = rereadOwed; rereadOwed = null;
+    if (!owed || !story || owed.storyId !== story.id) return;
+    try {
+      const history = await db.messages.list(story.id);
+      const msg = history.find((m) => m && m.id === owed.pageId);
+      if (!msg || msg.role !== 'assistant') return;
+      const boundary = boundaryFor(history, msg.id);
+      if (boundary) await rewindTo(story, history, boundary.id, { checkless: true });
+      const before = history.slice(0, history.indexOf(msg));
+      const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
+      startBackgroundWork(story, msg, lastUser ? pageText(lastUser) : '');
+      await pendingWork(story.id, 180000); /* the read lands before the retry is built from it */
+    } catch (err) { /* the ledger stands as rewound */ }
+  }
+  async function rewindTo(story, history, userMsgId, { checkless = false } = {}) {
     if (!userMsgId) return false;
     const list = Array.isArray(history) ? history : [];
     const at = list.findIndex((m) => m && m.id === userMsgId);
@@ -3686,13 +3706,16 @@ export function initChat(ctx) {
      * (M21) — the room, the books, the hour together. If that is not there either, the writer is told; nothing is
      * dressed up. */
     try {
-      const prev = at !== -1 ? [...list.slice(0, at)].reverse().find((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && pageText(m).trim()) : null;
+      const prev = !checkless && at !== -1 ? [...list.slice(0, at)].reverse().find((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && pageText(m).trim()) : null;
       const headerClock = prev ? headerMutations(pageText(prev)).find((m) => m && m.type === 'clock.set' && [m.year, m.month, m.day, m.hour, m.minute].every(Number.isInteger)) : null;
       if (headerClock) {
-        /* the same hour is "already so" (M259): a clock.set that changes nothing is refused with same: true */
+        /* the same hour is "already so" (M259): a clock.set that changes nothing is refused with same: true. A ledger with
+         * no clock at all is not a failed rewind — the page before was never read (a tale seeded by hand) — so only a
+         * clock that stands and disagrees is a mismatch. */
         const sameHour = (st) => { const probe = applyMutations(st, [{ ...headerClock }]); return !probe.applied.length && probe.rejected.some((r) => r && r.same); };
+        const hasClock = (st) => Boolean(st && st.clock && Number.isFinite(st.clock.minutes));
         let after = await loadState(story.id);
-        if (!sameHour(after)) {
+        if (hasClock(after) && !sameHour(after)) {
           if (boundarySnap && sameHour(boundarySnap)) {
             const restored = healFold({ ...boundarySnap, pendingVerdict: null }); /* the whole ledger of that moment, its own heals with it */
             bumpChain(story.id);
@@ -3700,7 +3723,10 @@ export function initChat(ctx) {
             notify(story.id);
             after = restored;
           }
-          if (!sameHour(after)) toast('Try again could not set the ledger back to before this page — the page before’s hour and the rewound ledger disagree, and no checkpoint of that moment is kept.');
+          /* M509-10: NO CHECKPOINT OF THAT MOMENT → THE HOUSE REBUILDS IT ITSELF. The page before is read again from
+           * its own boundary (what an unfinished chain gets on open, M127) once the page let go is gone — the caller
+           * owes that read before it builds the retry; nothing is asked of the writer */
+          if (hasClock(after) && !sameHour(after) && prev) rereadOwed = { storyId: story.id, pageId: prev.id };
         }
       }
     } catch (err) { /* the check is a courtesy over the fold, never a crisis */ }
@@ -5139,6 +5165,7 @@ export function initChat(ctx) {
       }
       await refreshPreview(story.id); // M21: the shelf re-reads what's left
       await renderThread({ structural: true, opening: true });
+      await settleRereadOwed(story); /* M509-10 */
       /* M302: asked again as it was asked — the turn's own words, read for their command */
       await generate(turnArgsBefore(history, target.role === 'assistant' ? at : at + 1));
       stories = await db.stories.list();
@@ -5255,6 +5282,7 @@ export function initChat(ctx) {
       }
       /* M44: a swiped page's record line is let go (a hole, refilled) */
       { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
+      if (lastPage) await settleRereadOwed(story); /* M509-10 */
       const landed = await generate({ ...turnArgsBefore(historyNow, historyNow.findIndex((m) => m.id === msg.id)), swipeTarget: msg, replayAfter: !lastPage }); /* M302: a new version of an out-of-character answer is out of character */
       /* M72: a new version on an OLDER page is history changed at that page —
        * fold back, read the new words once, re-apply the rest (it used to be

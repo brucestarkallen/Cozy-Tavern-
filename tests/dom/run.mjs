@@ -6672,6 +6672,61 @@ test('DOM-133 A JOIN SURVIVES TRY AGAIN: a tale whose pages wrote "the courier" 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-134 NO CHECKPOINT OF THAT MOMENT: the fold keeps the replaced page’s hour and walk-in AND the boundary checkpoint before that page is gone — the house reads the page before again by itself, and the retry is built from that read: its hour, its room; nothing is asked of the writer (M509-10)', async () => {
+  const before = errors.length;
+  const { loadState, saveState, loadSnapshots, saveSnapshots } = await import('../../js/engine/state.js');
+  const { renderClock } = await import('../../js/engine/clock.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'rebuilt by itself' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy(), 'free', 20000);
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  const H = (hh, mm) => '[The kitchen — Monday, March 3, 2025 | ' + hh + ':' + mm + ' | clear | coat | by the stove]\n\n';
+  const seen = []; let reads = 0;
+  let hour = ['09', '05']; let who = 'Mara Vell';
+  try {
+    /* the page reader answers by the page it is handed: Mara for page one, Tobin for page two */
+    house.state.workerAnswer = (body, sys) => {
+      if (!/keep the ledger/i.test(sys)) return '{"mutations":[],"deltas":[],"findings":[],"issues":[]}';
+      reads += 1;
+      const page = String((body.messages.find((m) => m.role === 'user') || {}).content || '');
+      const name = /Tobin Ashcombe/.test(page) ? 'Tobin Ashcombe' : /Nell Pike/.test(page) ? 'Nell Pike' : 'Mara Vell';
+      return JSON.stringify({ mutations: [{ type: 'presence.enter', name, position: 'by the stove' }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+    };
+    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + who + ' came in. The kettle ticked.'; };
+    type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
+    await settled();
+    hour = ['09', '20']; who = 'Tobin Ashcombe';
+    type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
+    await settled();
+    /* a hand on the store: page two’s clock and walk-in re-stamped on page one, AND the checkpoint before page two gone */
+    const broken = await loadState(st.id);
+    for (const e of broken.journal) if (e && e.m && e.p === 1 && (e.m.type === 'clock.set' || (e.m.type === 'presence.enter' && e.m.name === 'Tobin Ashcombe'))) e.p = 0;
+    await saveState(st.id, broken);
+    const users = (await db.messages.list(st.id)).filter((m) => m.role === 'user');
+    const snaps = await loadSnapshots(st.id);
+    assert(snaps.some((e) => e.id === users[1].id), 'fixture: the checkpoint before page two stood');
+    await saveSnapshots(st.id, snaps.filter((e) => e.id !== users[1].id));
+    const readsBefore = reads;
+    hour = ['09', '30']; who = 'Nell Pike';
+    click(q('#btn-retry'));
+    await until(() => seen.length >= 3, 'the retry’s request went out', 60000);
+    assert(reads > readsBefore, 'the house read page one again by itself before building the retry: ' + reads + ' vs ' + readsBefore);
+    const req = seen[seen.length - 1];
+    assert(/The hour: [^\n]*09:05/.test(req), 'the retry is told page one’s hour: ' + (req.match(/The hour:[^\n]*/) || [''])[0]);
+    const here = (req.match(/Here now:[^\n]*/) || [''])[0];
+    assert(/Mara Vell/.test(here) && !/Tobin Ashcombe/.test(here), 'and page one’s room, read fresh: ' + here);
+    await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
+    await settled();
+    const last = await loadState(st.id);
+    assert(/09:30/.test(renderClock(last.clock)) && last.present.some((p) => p.name === 'Nell Pike') && !last.present.some((p) => p.name === 'Tobin Ashcombe'), 'the new version stands: ' + renderClock(last.clock) + ' ' + last.present.map((p) => p.name).join(','));
+  } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

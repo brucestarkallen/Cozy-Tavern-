@@ -12185,3 +12185,17 @@ patch never had a case.
   keeps 09:20 and Tobin; the retry is told 09:05 AND page one's room (Mara, no Tobin) — the whole ledger, not an hour
   over the wrong room.
 - GATES: harness 976/976, walk 151/151, long play 8/8, lint 0. version.js -> m509-009.
+
+# M509-10 — no checkpoint of that moment: the house rebuilds it, nothing is asked
+He: after five hundred versions of "autonomous, self-healing", "it tells you" is handing him a task. Right. The last
+branch of M509-9 (no boundary checkpoint kept, the fold disagreeing with the previous page's header) no longer says a
+word: rewindTo notes the page before as owed (rereadOwed); regenerateFrom, once the page let go is deleted, and
+swipeRegenerate, before the new version, settle it (settleRereadOwed): the ledger folds to that page's own boundary
+(checkless — the check is what brought us here), that page's readers run over it again, and the retry waits for them
+(pendingWork, up to three minutes) so it is built from that page read fresh. Done inline: rereadPage steps aside while
+the house is busy, and its replay would read the page let go as well. A ledger with no clock at all is not a failed
+rewind (a tale seeded by hand, its first page never read): only a clock that stands and disagrees is a mismatch —
+the eager form stalled DOM-126's held reader for three minutes.
+- Walk DOM-134 (new): page two's clock and walk-in re-stamped on page one AND the checkpoint before page two removed
+  → the page reader is asked page one again before the retry is built; the retry is told 09:05 and page one's room.
+- GATES: harness 976/976, walk 152/152, long play 8/8, lint 0. version.js -> m509-010.
