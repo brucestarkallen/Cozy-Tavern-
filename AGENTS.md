@@ -12387,3 +12387,29 @@ present, continuously") said the opposite from 70,000 characters back; the scene
   was invisible to the id check), the ledger's intimate mode, or a live fight; a register pinned for a whole arc is not.
 - Law M510-10 (the woken rule on the wire; the old pinned copy follows; his edit stands; a pin keeps no copy; heatedNow).
 
+# M510-4 — a sound is long, repeated and written as sound; muffled is still continuous
+He sent the page: "Nnnh—", teeth on the cotton, "Mmf—", "Ah—", "Creak, the frame bowing", "the wet slap of skin on skin
+louder than the ceiling fan" — and not one word ("no please, baby, a name, fuck"). "If the onomatopoeia can't be fixed
+the writing isn't good." Read against what the small model was handed, the page is M510-3's own examples written back:
+the rule's pillow-biter ("bites the pillow … *mmf*, "hnn—""), its shy one ("escape despite her"), "sounds that break",
+and the heated block's hushed line ("stifled, bitten back, half-escaped" -> "bitten, broken, escaping"). "Rotate the
+palette so no sound repeats three beats running" shrank each sound to one syllable, and a sound narrated in prose was
+never named as a failure.
+- Acoustics Are Simulation (modules.js): voiced lines stretch and repeat inside the quotes with words, names and pleas
+  breaking through ("Ahh—ahh—AHH—!", "please—please—don't stop—"); a lone "Ah—"/"Mmf—" is a failed voiced line; contact
+  sounds written AS SOUND in asterisks, repeated to the rhythm; narrating a sound ("the wet slap of skin on skin", "the
+  frame creaked") is a failed sound; every paragraph of the act carries a voiced line and a contact sound; repetition
+  inside a sound IS the sound (rotate between beats, never within one); muffled only when the scene forces it, still
+  continuous and long; who she is changes the texture, never the amount. The archetype imagery is gone. Sound Carries kept.
+- Intimate Dialogue: words break through the sounds every few beats; never a whole passage of the act without a word.
+- planwords.js renderSounds: "This one has to stay muffled — …: the sounds are still continuous and still long — muffled,
+  never shortened, never missing"; every heated block ends on "Every paragraph: a voiced line that stretches or repeats
+  (never a lone "Ah—"), words or a name breaking through it, and the contact sounds written as sound in asterisks — never
+  described in the narration." planner.js: shyness, inexperience or a quiet person is never a reason for loud: false;
+  the sounds it lists stretch and repeat.
+- SHIPPED_BEFORE nsfw gains the M510-3 fingerprint (1wkzq1s; fixture nsfw-as-shipped-at-m510-3.txt): a copy pinned then
+  follows too. Laws M510-6 (the hushed and the per-paragraph lines) and M510-10 (the new words on the wire; both old
+  copies follow) re-pinned.
+- NOT IN THE HOUSE'S HANDS: a presence/frequency/repetition penalty on his connection punishes exactly this — a sound
+  said again — and turns every moan into one syllable; his dials are sent as he set them (his law).
+

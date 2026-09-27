@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-003)
+# Cozy Tavern — handoff for the next session (state at m510-004)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -451,6 +451,12 @@ founding design lives in AGENTS.md's first entries.)
   fingerprints) rides the built-in as it stands, an edited copy keeps his words, and a pin stores no copy (text null).
   When a built-in's words change, add the old words' fingerprint to SHIPPED_BEFORE. heatedNow (stack.js) reads a heated
   scene from what woke (any intimacy/contest rule — his imported ones too), the ledger's intimate mode, or a live fight.
+  M510-4 (his page: lone "Nnnh—", "Mmf—", "Ah—", the slap and the creak NARRATED, not one word): a sound law's examples
+  are what a model copies — the M510-3 text's pillow-biter and shy one, and the hushed block's "stifled, bitten back,
+  half-escaped", came back almost word for word. Now: voiced lines stretch and repeat with words, names and pleas breaking
+  through; a lone "Ah—" and a narrated sound are failures by name; repetition inside a sound IS the sound (rotate between
+  beats); muffled = the same continuous sound, muffled, only when the scene forces it (shyness never does — planner);
+  every heated block ends on what each paragraph carries (planwords.js). Copies pinned at M510-2 or M510-3 follow.
 - THE FRAME SWITCHED OFF IS OFF WHOLE (M510): no teller name leading the house's lines, no grounding phrase planted.
   Frame on: nothing changed.
 - db.connections.add KEEPS EVERY FIELD IT IS GIVEN (M510): it kept an M22-era list and a NEW connection lost its prefill

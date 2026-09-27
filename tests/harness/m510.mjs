@@ -148,6 +148,10 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   const tail = hot.messages[hot.messages.length - 1].content;
   const planAt = tail.indexOf('What I have in mind'); const soundAt = tail.indexOf('The last page went quiet'); const lawAt = tail.indexOf('Sound As Onomatopoeia = two lanes, never mixed');
   assert(planAt > -1 && soundAt > planAt && lawAt > soundAt && tail.includes('High Intensity Scenes = ') && tail.includes('This one is loud — the whole yard is watching') && tail.includes('The sounds here: *CRACK!*, "Gkh—!".'), 'heated: the plan, then the sounds and his two laws, last: ' + tail.slice(soundAt, soundAt + 300));
+  assert(tail.includes('Every paragraph: a voiced line that stretches or repeats'), 'a heated page ends on what every paragraph carries');
+  const hushed = build({ smallModelNow: true, frameOn: false, noteOn: false }, { smallPlan: { ...PLAN, loud: false, loudWhy: 'her sister is in the next room' }, smallIntense: true });
+  const hTail = hushed.messages[hushed.messages.length - 1].content;
+  assert(hTail.includes('This one has to stay muffled — her sister is in the next room: the sounds are still continuous and still long — muffled, never shortened, never missing.') && !/bitten back|half-escaped/.test(hTail), 'muffled is the same continuous sound, muffled: ' + hTail.slice(hTail.indexOf('This one'), hTail.indexOf('This one') + 160));
   const withNote = build({ smallModelNow: true, noteOn: true }, { smallPlan: PLAN, smallIntense: true });
   assert(withNote.messages[withNote.messages.length - 1].content.trimEnd().endsWith('MY NOTE.'), 'his note, switched on for a small model, still has the last word');
   assert(small.receipt.slots.some((s) => s.name === 'The plan for this page') && hot.receipt.slots.some((s) => s.name === 'The sounds'), 'each wears its own receipt row');
@@ -213,14 +217,17 @@ test('M510-10 A HEATED PAGE IS NEVER SILENT: the intimacy rule that wakes in a s
     /* on the wire, for the frontier model: the woken rule as it rides */
     const r = buildRequest({ story: {}, messages: pages(3), settings: {}, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }, { mod: nsfw, reason: 'the scene has turned intimate' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
     const w = wireOf(r);
-    for (const gone of ['Porn volume as baseline is slop', 'hotter than screaming', 'wall-to-wall moaning', 'characters talk through intimacy']) assert(!w.includes(gone), 'no longer said: ' + gone);
-    for (const said of ['sex is never silent', 'Forced quiet changes the sound; it never removes it', 'a paragraph of the act with no sound in it is a failed paragraph', 'never a conversation paragraph in the middle of the act']) assert(w.includes(said), 'said: ' + said);
+    for (const gone of ['Porn volume as baseline is slop', 'hotter than screaming', 'wall-to-wall moaning', 'characters talk through intimacy', 'bites the pillow', 'no sound repeats three beats running']) assert(!w.includes(gone), 'no longer said: ' + gone);
+    for (const said of ['A lone "Ah—" or "Mmf—" is a failed voiced line', 'Narrating a sound instead of writing it', 'muffling changes the sound, never shortens or removes it', 'Repetition inside a sound IS the sound', 'never a whole passage of the act without a word']) assert(w.includes(said), 'said: ' + said);
     /* a copy he pinned before M510-3 — the old words, never edited — follows the built-in as it stands */
     const OLD = readFileSync(new URL('./fixtures/nsfw-as-shipped-to-m510.txt', import.meta.url), 'utf8');
     assert(/Porn volume as baseline is slop/.test(OLD), 'the fixture is the old rule');
     await db.settings.set(KEY, [{ id: 'nsfw', name: nsfw.name, text: OLD, pinned: true, whenKey: 'intimate', note: '', custom: false }]);
     const pinned = (await listModules()).find((m) => m.id === 'nsfw');
     assert(pinned.text === nsfw.text && pinned.pinned === true && pinned.overridden === false, 'the pinned old copy rides the rule as it stands now, still pinned');
+    const OLD3 = readFileSync(new URL('./fixtures/nsfw-as-shipped-at-m510-3.txt', import.meta.url), 'utf8');
+    await db.settings.set(KEY, [{ id: 'nsfw', name: nsfw.name, text: OLD3, pinned: true, whenKey: 'intimate', note: '', custom: false }]);
+    eq((await listModules()).find((m) => m.id === 'nsfw').text, nsfw.text, 'and so does a copy pinned at M510-3');
     /* a copy he EDITED keeps his words */
     await db.settings.set(KEY, [{ id: 'nsfw', name: nsfw.name, text: OLD + '\nMY-OWN-LINE', pinned: true, whenKey: 'intimate', note: '', custom: false }]);
     const edited = (await listModules()).find((m) => m.id === 'nsfw');

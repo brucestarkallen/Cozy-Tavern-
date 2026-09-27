@@ -38,9 +38,12 @@ export function renderPlan(plan, { voice = null, anchor = [], cores = {}, mc = '
 export function renderSounds(plan, { voice = null, laws = '', wentQuiet = false } = {}) {
   const out = [];
   if (wentQuiet) out.push('The last page went quiet where it should have been heard — not this one.');
-  if (plan && plan.loud === false) out.push('This one stays hushed' + (plan.loudWhy ? ' — ' + plan.loudWhy.replace(/[.]+$/, '') : '') + ': the sounds come stifled, bitten back, half-escaped — but they are on the page.');
-  else out.push('This one is loud' + (plan && plan.loudWhy ? ' — ' + plan.loudWhy.replace(/[.]+$/, '') : '') + ': let it be heard, continuously, braided through the action.');
+  /* M510-4: "stifled, bitten back, half-escaped" was written back to him as a page of lone "Mmf—" and "Ah—": muffled is
+   * said as what it is — the same continuous sound, muffled — and every heated page ends on what each paragraph carries */
+  if (plan && plan.loud === false) out.push('This one has to stay muffled' + (plan.loudWhy ? ' — ' + plan.loudWhy.replace(/[.]+$/, '') : '') + ': the sounds are still continuous and still long — muffled, never shortened, never missing.');
+  else out.push('This one is loud' + (plan && plan.loudWhy ? ' — ' + plan.loudWhy.replace(/[.]+$/, '') : '') + ': continuous, long, repeated sounds braided through every beat.');
   if (plan && plan.sounds.length) out.push('The sounds here: ' + plan.sounds.join(', ') + '.');
+  out.push('Every paragraph: a voiced line that stretches or repeats (never a lone "Ah—"), words or a name breaking through it, and the contact sounds written as sound in asterisks — never described in the narration.');
   const head = out.join(' ');
   const said = voice && voice.teller ? toTeller(head, voice) : head;
   return [said, laws].filter((t) => String(t || '').trim()).join('\n');
