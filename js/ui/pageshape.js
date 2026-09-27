@@ -86,8 +86,16 @@ export function shieldObjects(text) {
 const EXACT_THOUGHT_RE = /~t~\*[^\n]*?\*~\/t~|\*~t~[^\n]*?~\/t~\*/g;
 const MANGLED_ONE_RE = /~t~\*([^\n]*?)\*~\/t~((?:(?!~t~)[^\n*])*?)\*~\/t~/g; /* ~t~*W*~/t~R*~/t~ → ~t~*W~R*~/t~ (R carries no emphasis: a second thought written with its closer only is left as it was) */
 const MANGLED_TWO_RE = /\*~t~\*([^\n]*?)\*~\/t~((?:(?!~t~)[^\n*])*?)~\/t~\*/g; /* *~t~*W*~/t~R~/t~* → *~t~W~R~/t~* */
+/* M509-16: AN OPENER THAT LOST ITS SECOND TILDE. "~tHe's very handsome. They wouldn't believe this.~" — the model wrote
+ * "~t" straight into the words and closed with a bare "~"; there was no "~t~" anywhere on the page, so the mend never
+ * looked, and the marks stood on the page under a green light. Within one line, "~t" followed by the thought's first
+ * letter (or its asterisk or quote) and closed by any closer the model writes — a bare ~, ~/t~, /t~ — is given back its
+ * opener, and the mend below writes it in the exact form. A "~t" with no closer on its line is left alone (a tilde
+ * before a word is not a thought). */
+const LOST_OPENER_RE = /~t(?!~)(?=[*\p{L}\u2018\u2019'"“”])((?:(?!~t~)[^\n~])*?)(~[\/\\]t~|[\/\\]t~|~)(?!~)/gu;
 export function mendThoughts(text) {
-  const src = String(text == null ? '' : text);
+  const src0 = String(text == null ? '' : text);
+  const src = /~t(?!~)(?=[*\p{L}\u2018\u2019'"“”])/u.test(src0) ? src0.replace(LOST_OPENER_RE, (m, words, closer) => '~t~' + words + closer) : src0;
   if (!/~t~/i.test(src)) return src;
   const kept = [];
   const shielded = src

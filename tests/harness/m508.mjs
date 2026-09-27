@@ -235,3 +235,16 @@ test('M509-15 a moment the whole room saw is in every book in the room, and nobo
   const facts = renderStateFacts({ ...st, present: st.present }, { whole: true, budget: 60000, scenePages: ['the courtyard'] });
   assert(/Everyone here but Late Vale knows: watched Jovan bow/.test(facts) || /Everyone here but Late Vale knows:[^\n]*watched Jovan bow/.test(facts), 'and the shared line counts the room: ' + (facts.match(/[^\n]*watched Jovan bow[^\n]*/) || [''])[0]);
 });
+
+test('M509-16 a thought whose opener lost its second tilde ("~tHe’s very handsome…~") is written in the exact form; a tilde before a word ("~tomorrow") is not a thought; the exact form is untouched', async () => {
+  const { mendThoughts, mendMarks } = await import('../../js/ui/pageshape.js');
+  eq(mendThoughts('~tHe’s very handsome. They wouldn’t believe this.~ "I want you to look at me while you do it."'), '~t~*He’s very handsome. They wouldn’t believe this.*~/t~ "I want you to look at me while you do it."');
+  eq(mendThoughts('He thought ~tthis is bad/t~ and ran.'), 'He thought ~t~*this is bad*~/t~ and ran.');
+  eq(mendThoughts('She smiled. ~t*Not again.*~/t~ Then she left.'), 'She smiled. ~t~*Not again.*~/t~ Then she left.');
+  eq(mendThoughts('A tilde ~tomorrow means nothing here.'), 'A tilde ~tomorrow means nothing here.');
+  eq(mendThoughts('~t~*Already exact.*~/t~ fine'), '~t~*Already exact.*~/t~ fine');
+  /* through the page repair that runs on arrival and on open */
+  const page = '[The room — Monday, March 3, 2025 | 09:05 | clear | coat | by the door]\n\n~tHe’s very handsome. They wouldn’t believe this.~ "I want you to look at me while you do it."';
+  const r = mendMarks(page);
+  assert(r.changed && /~t~\*He’s very handsome\. They wouldn’t believe this\.\*~\/t~/.test(r.text), 'the page repair mends it: ' + r.text.split('\n').pop());
+});

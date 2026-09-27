@@ -12268,3 +12268,13 @@ He: "why are you just not trying to fix it?" Fixed on both sides:
   here but Late Vale knows: watched Jovan bow…") instead of one witness's. Law M509-15 (both sides, the whisper still a
   blind spot, one who walked in after still blind).
 - GATES: harness 980/980, walk 153/153, long play 8/8, lint 0. version.js -> m509-015.
+
+# M509-16 — a thought whose opener lost its second tilde
+He: "~tHe's very handsome. They wouldn't believe this.~ — the frontend doesn't fix this and mend the pages doesn't
+work". The model wrote "~t" straight into the words and closed with a bare "~"; there was no "~t~" on the page, so
+mendThoughts' first line (`if (!/~t~/.test(src)) return`) sent it back untouched — on arrival, on open, and under
+"Mend the pages". ui/pageshape.js: within one line, "~t" followed by the thought's first letter (or asterisk or quote)
+and closed by any closer the model writes (a bare ~, ~/t~, /t~) is given its opener back (LOST_OPENER_RE), and the
+mend writes the exact form; "~tomorrow" (no closer on its line) is not a thought. His page heals on the next open
+(M488 runs once per tale per build). Law M509-16. GATES: harness 981/981, walk 153/153, long play 8/8, lint 0.
+version.js -> m509-016.
