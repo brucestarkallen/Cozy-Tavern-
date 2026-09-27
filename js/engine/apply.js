@@ -1756,7 +1756,11 @@ export function withoutAttire(position, attire) {
  * shape (two or three clauses, the last "at …" or one "wants …"), never the writer's own hand, is cleared: the
  * card shows the name, the seat and the now say where they are, and the scribe writes the core when the page shows
  * them. */
-const SEAT_CORE_RE = /^(?:[^;]{1,300}; )?(?:wants [^;]{1,300}; at [^;]{1,300}|wants [^;]{1,300}|at [^;]{1,300})$/i;
+/* The seat's shapes, and only the ones no hand would write as who someone is: three clauses ("<doing>; wants <x>; at
+ * <place>"), two with a want ("<doing>; wants <x>" / "wants <x>; at <place>"), or a doing (a participle: "signing…",
+ * "pushing…") before a place ("<doing>; at <place>"). One clause alone ("at ease in any company", "wants nothing but
+ * quiet") is prose as often as a seat, and is left alone. */
+const SEAT_CORE_RE = /^(?:[^;]{1,300}; wants [^;]{1,300}; at [^;]{1,300}|[^;]{1,300}; wants [^;]{1,300}|wants [^;]{1,300}; at [^;]{1,300}|[a-z][a-z'’-]*ing\b[^;]{0,300}; at [^;]{1,300})$/i;
 export function seatMadeCores(state) {
   const s = state && typeof state === 'object' ? state : {};
   const pages = s.characters && typeof s.characters === 'object' ? s.characters : {};
@@ -1764,9 +1768,10 @@ export function seatMadeCores(state) {
   for (const [name, page] of Object.entries(pages)) {
     if (!page || typeof page !== 'object') continue;
     const core = typeof page.core === 'string' ? page.core.trim() : '';
-    if (!core || core === 'seated by the world agent' ? !core : !SEAT_CORE_RE.test(core)) continue;
+    if (!core) continue;
+    const seatMade = core === 'seated by the world agent' || (SEAT_CORE_RE.test(core) && core.split('; ').length <= 3);
+    if (!seatMade) continue;
     if (page.hand && page.hand.core) continue; /* the writer wrote it — his */
-    if (core.split('; ').length > 3) continue;
     out.push({ type: 'people.set', name, field: 'core', clear: true });
   }
   return out;

@@ -174,3 +174,33 @@ test('M509-12 the crowd does not ride to the new ground: when the page moves the
   const renji = moved.present.find((p) => p.name === 'Renji Abarai');
   eq(renji.position, 'at the inner gate shadow'); eq(renji.attire, 'black, headband dark with sweat');
 });
+
+test('M509-13 a one-clause core is prose as often as a seat and is never cleared: "at ease in any company", "wants nothing but quiet"; the seat’s own shapes still go', () => {
+  let st = H([]);
+  st = applyMutations(st, [
+    { type: 'people.set', name: 'Ease', field: 'core', text: 'at ease in any company, quick to laugh' },
+    { type: 'people.set', name: 'Quiet', field: 'core', text: 'wants nothing but quiet and a full larder' },
+    { type: 'people.set', name: 'Iba', field: 'core', text: 'signing requisitions with a blunt brush; at 7th Division barracks' },
+    { type: 'people.set', name: 'Smith', field: 'core', text: 'the village smith; at odds with the miller' },
+    { type: 'people.set', name: 'Runner', field: 'core', text: 'gone white as paper; wants reach the division; at a corridor outside the hall' },
+    { type: 'people.set', name: 'Stub', field: 'core', text: 'seated by the world agent' },
+  ]).state;
+  eq(seatMadeCores(st).map((m) => m.name).sort().join(','), 'Iba,Runner,Stub', 'the seat shapes go; one clause, and a noun before a place, stay');
+});
+
+test('M509-13b the crowd is left behind only on a move to another place altogether: "the Tenth’s courtyard" written "Tenth Division courtyard" leaves nobody behind, nor does a room of the same compound', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  let st = applyMutations({ ...emptyState(), page: 50 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: 'the Tenth’s courtyard' }, { type: 'presence.enter', name: 'Jovan Oda' }, ...['Rukia Kuchiki', 'Renji Abarai', 'the cook'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
+  const h = HOUSES[0];
+  const answer = JSON.stringify({ mutations: [], here: ['Jovan Oda', 'Rukia Kuchiki'], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+  const same = '[Tenth Division courtyard — Sunday, Hanami 5, 1001 | 12:16 | clear | shihakushō | by the bench]\n\nThe courtyard held its breath.';
+  const r1 = await withHouse(thinkingHouse({ answer }), () => extractTurn({ connection: h.conn, state: st, userText: 'I wait.', assistantText: same, pageNumber: 50 }));
+  eq(r1.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'the same courtyard by another name: nobody left behind');
+  const room = '[Tenth Division HQ — captain’s office — Sunday, Hanami 5, 1001 | 12:16 | clear | shihakushō | at the desk]\n\nThe office was cold.';
+  const r2 = await withHouse(thinkingHouse({ answer }), () => extractTurn({ connection: h.conn, state: st, userText: 'I go in.', assistantText: room, pageNumber: 50 }));
+  eq(r2.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'a room of the same compound: the reader’s own leaves only');
+  const far = '[the approach road to the Thirteenth — Sunday, Hanami 5, 1001 | 12:16 | clear | shihakushō | on the road]\n\nJovan ran.';
+  const r3 = await withHouse(thinkingHouse({ answer }), () => extractTurn({ connection: h.conn, state: st, userText: 'I run.', assistantText: far, pageNumber: 50 }));
+  eq(r3.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort().join(','), 'Renji Abarai,the cook', 'another place altogether: the two the room does not name are left behind');
+});

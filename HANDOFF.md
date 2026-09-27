@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m509-012)
+# Cozy Tavern — handoff for the next session (state at m509-013)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -23,10 +23,32 @@
    the row's SUFFIX. M507-2: a boot pull after a page append takes PAGES ONLY when the served book's snapshotAt (serve.py) is
    no newer than this browser's bookStamp — never the device's older ledger over the browser's newer one; run
    `python3 tests/bootpull.py` for any change to the pull, importStory, or serve.py's fold.
-0b. THE STATE OF THINGS IS READ ONCE (M508): the main character's book is the writer's (newest four, never "but"),
-   four called-back facts a person, a sixteen-page blind window with clipped facts; a seated person's page opens EMPTY
-   and a seat-shaped core is cleared on opening (seatMadeCores). If he pastes the blocks again, measure them against
-   AGENTS M508 before touching the renderers.
+0b. THE STATE OF THINGS IS READ ONCE (M508–M509): the main character's book is the writer's (newest four, never "but"),
+   four called-back facts a person, a sixteen-page blind window with clipped facts, the shorter list names a shared
+   fact, a blind spot never repeats a shared line, a word in most facts calls nothing back, one next move rides once;
+   a seated person's page opens EMPTY and a seat-shaped core (two or three clauses, never one) is cleared on opening
+   (seatMadeCores). If he pastes the blocks again, measure them against AGENTS M508/M509 before touching the renderers.
+0c. ONE MAN, ONE NAME (M509-2..8): a role the ledger names in apposition ("the courier Hachigorō") resolves to the
+   named page (people.js roleOwnersNamed — once per ledger object and role, NFC-safe; NEVER search the ledger's words
+   on every render again, that was the m509-002 lag); present descriptors join their person on opening, in the page
+   reader's upkeep, before the checkpoint, AND in the fold (chat.js healFold) — a heal written on the newest page is
+   otherwise thrown away by every Try again (that was the courier doubled in every retry block). people.rename says a
+   name once ("Hachigorō Hachigorō" no more).
+0d. TRY AGAIN IS CHECKED WHOLE (M509-9/10): after a rewind the ledger's hour is checked against the previous page's
+   header; a mismatch restores the whole boundary ledger, or, with no checkpoint kept, the house reads the page before
+   again by itself before the retry is built (settleRereadOwed). Never patch the hour alone; never tell the writer to
+   do something. The rewind itself (M21/M72) was never broken — walk DOM-129/130/131 drive it through the real app.
+0e. THE ROOM MOVES RIGHT (M509-12/13): when the page moves to another place altogether and names its room, everyone
+   not named is left behind at the old ground (extractor.js, farMove — not for "the Tenth's courtyard" written
+   "Tenth Division courtyard", not for a room of the same compound); a spot within the same ground does not let the
+   nows go (staleNows + seatAtScene); the dress is never said twice in a position (withoutAttire). The drawer says
+   which page the ledger belongs to (ledgerStandingWords, #ledger-standing).
+0f. STILL OPEN, KNOWN, LEFT: a public moment the reader wrote into ONE witness's book stands as a blind spot for the
+   others who were there ("watched Jovan bow… (Shunsui knows)"); the rule that would fix it (a moment known to many of
+   those present at that page is nobody's blind spot who was there) cannot tell a whisper from a shout. Needs a
+   reading, not a rule. Also: the perf gate's steady send at the end of this session — request 605 ms, his page 84 ms,
+   worst freeze 270 ms, whole send 1280 ms (CPU 6×) — a shade over m507-007's 430–520 / 45–90 / 100–240 / ~1100 on a
+   busier VM; nothing attributable in the profile (structuredClone 281 ms self, the store's clone, is the known cost).
 1zb. NO THIRD AUTHORITY ON THE WIRE (M495): every text a side agent adds to the storyteller's request must read as the
    writer's own notes — m495.mjs scans the whole wire; a new agent's slot must pass it (voice it, no capitals-form labels).
 1za. THE LIVING LEDGER SIMULATION (M492): tests/harness/livingledger.mjs runs a story through the real gate and heals

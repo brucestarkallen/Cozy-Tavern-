@@ -483,7 +483,11 @@ export async function extractTurn(args = {}) {
      * present person (never the main character, never one the page's room names, never one already leaving); the
      * leave door seats them at the old ground (M304). Only when the page's room is actually named: an empty "here" is
      * a reader that said nothing, not a room with nobody in it. */
-    if (moved && args.state && Array.isArray(read.here) && read.here.length) {
+    /* a move to another place altogether — not "the Tenth's courtyard" written "Tenth Division courtyard" (one place
+     * matcher and the other both miss that), nor a room of the same compound: the two names share no telling word */
+    const tellingWords = (t) => new Set(String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').split(' ').filter((w) => w.length >= 4 && !/^(?:the|division|district|street|road|hall|house|room|floor|gate|north|south|east|west|upper|lower|inner|outer|main|back|front|side)$/.test(w)));
+    const farMove = moved && ![...tellingWords(was)].some((w) => tellingWords(ground).has(w));
+    if (farMove && args.state && Array.isArray(read.here) && read.here.length) {
       const leaving = new Set(read.mutations.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
       for (const p of (Array.isArray(args.state.present) ? args.state.present : [])) {
         const n = p && typeof p.name === 'string' ? p.name.trim() : '';

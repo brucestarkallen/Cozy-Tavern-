@@ -541,7 +541,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
       const ignore = new Set(ignoreBase);
       for (const w of key.toLowerCase().split(/\s+/)) if (w) ignore.add(w);
       recalled = older
-        .map((k, i) => ({ k, i, score: factScore(k.fact, sceneWords, ignore), age: nowTurn != null && Number.isFinite(k.atTurn) ? nowTurn - k.atTurn : 0 }))
+        .map((k, i) => ({ k, i, score: factScore(k.fact, sceneWords, ignore) }))
         .filter((x) => x.score >= 2)
         .sort((a, b) => (b.score - a.score) || (b.i - a.i))
         .slice(0, recallMax)

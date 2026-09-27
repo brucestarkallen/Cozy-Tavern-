@@ -12229,3 +12229,17 @@ hour 12:15 (the retry told the page before's hour), the standing line in the dra
   with sweat)" — the reader put his dress inside the position while the dress stood in its own field. apply.js
   withoutAttire: a position's clauses less any that are the dress or a clause of it (presence.enter and .update).
 - LAWS: m508.mjs M509-12. GATES: harness 978/978, walk 153/153, long play 8/8, lint 0. version.js -> m509-012.
+
+# M509-13 — the final audit of the session
+Read every code line changed since m507-007 as if someone else wrote it. Found and fixed:
+- seatMadeCores cleared ONE-CLAUSE cores that begin "at …" or "wants …" — prose as often as a seat ("at ease in any
+  company", "wants nothing but quiet") — a real core could have been erased on opening. Now only the seat's own
+  shapes: three clauses; two with a want; a participle before a place. Law M509-13.
+- The leave-behind (M509-12) fired on any header the two place matchers call a move — "the Tenth's courtyard" written
+  "Tenth Division courtyard" would have left the whole room behind. Now only a move to another place altogether (the
+  two names share no telling word, extractor.js farMove); a room of the same compound keeps the reader's own leaves
+  only. Law M509-13b.
+- A leftover field in renderKnowledge's recall (from the withdrawn age rule) removed.
+GATES at the end: harness 980/980, walk 153/153, long play 8/8, lint 0, holdsone, bootpull, migrate_checkpoints,
+twobrowsers, relay 11/11, foldcrash, perf_send SENDS=2 within budget (request 605 ms, his page 84 ms, worst freeze
+270 ms, done 1280 ms at CPU 6×). version.js -> m509-013.
