@@ -98,7 +98,7 @@ import { shortcutsText } from '../commands.js'; /* M379 */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { voiceOf, inVoice, toTeller, briefingOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
-import { renderPeopleTiers, peopleView, findPersonKey } from '../engine/people.js';
+import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
 import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, SOUND_LAWS, LOAD_BEARING } from './laws.js'; /* M510: his craft, law by law */
 import { renderPlan, renderSounds } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
@@ -413,6 +413,13 @@ const NEW_RULED_LINE = /^[ \t]*An outcome already settled = [^\n]*\n?/m;
 /* M510: the last `n` of the storyteller's pages with his messages between them — starting on his message, never on a
  * page of the storyteller's (a request must not open on the storyteller's own turn) */
 export const SMALL_PAGES = 8;
+/* M510-2: WHAT THE LEDGER KNOWS OF THE PEOPLE IN THE SCENE RIDES IN THE LEDGER'S OWN WORDS. M510 left a small model the
+ * helper's summary alone — a hurt, a secret someone saw, a live grudge of someone standing right there reached it only
+ * if the helper happened to name it (measured: Kaelen's cracked wrist, what Rukia saw at dawn and Kaelen's rematch
+ * thread rode for the frontier model and not for the small one). The cards of who is here and the ledger's compact
+ * view (the scene first) ride now, with anyone the latest pages NAMED (the recall tier — they are in the scene's words);
+ * the rest of the absent — the roster, "away and much on the story's mind" — stay with the helper. */
+export const SMALL_PEOPLE_VIEW = { budget: PEOPLE_BUDGET, cards: PRESENT_CARDS_MAX, recall: RECALL_MAX, roster: 0, important: 0 };
 export function lastPagesOf(pages, n = SMALL_PAGES) {
   const list = Array.isArray(pages) ? pages : [];
   let seen = 0;
@@ -617,9 +624,9 @@ export function buildRequest({
    * the roster steps once per turn with no writes of its own. --- */
   const recentPages = wireable(history).slice(-3).map((m) => m.content);
   const scenePages = wireable(history).slice(-10).map((m) => m.content); /* M283: who the story keeps naming */
-  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
+  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: smallB ? SMALL_PEOPLE_VIEW : peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
   const peopleText = people ? people.text : '';
-  if (peopleText && !smallB) {
+  if (peopleText) {
     const t = people.tiers;
     const said = [];
     if (t.cards) said.push(t.cards + (t.cards === 1 ? ' card' : ' cards') + ' for who is here');
@@ -631,8 +638,9 @@ export function buildRequest({
   }
 
   /* --- 5. The state of things --- */
-  const facts = renderStateFacts(state, { ...stateView(windowInfo && windowInfo.budgetTokens), scenePages: recentPages, noFight: safeSettings.refereeOn === false }); /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
-  pushSlot('The state of things', smallB ? '' : facts, smallB ? 'read by the planning helper — small model' : '');
+  /* M510-2: a small model gets the ledger's own compact view (the scene first) — the whole ledger stays with the helper */
+  const facts = renderStateFacts(state, { ...(smallB ? {} : stateView(windowInfo && windowInfo.budgetTokens)), scenePages: recentPages, noFight: safeSettings.refereeOn === false }); /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
+  pushSlot('The state of things', facts, smallB ? 'the ledger, its compact view — the scene first; the helper read the rest (small model)' : '');
 
   /* --- 6. Active modules (everything selected that isn't the craft) --- */
   const active = selected.filter(({ mod }) => mod && mod.id !== 'core-craft');
@@ -700,8 +708,8 @@ export function buildRequest({
    * on the receipt as "On their mind", since M12 — and never put in the
    * request: the storyteller has told every page without the people's pages.
    * It leads the story-state, just before the state of things. */
-  if (peopleText && !smallB) stateParts.push('On their mind:\n' + peopleText);
-  if (facts && !smallB) stateParts.push(facts);
+  if (peopleText) stateParts.push('On their mind:\n' + peopleText);
+  if (facts) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
   if (memoryText && !smallB) stateParts.push('What remains of the older pages:\n' + memoryText);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);

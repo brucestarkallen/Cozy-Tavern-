@@ -131,7 +131,7 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   assert(craftOf(small) * 3 < craftOf(full), 'the craft is the scene’s laws: ' + craftOf(full) + ' → ' + craftOf(small));
   assert(small.receipt.totalTokens * 2 < full.receipt.totalTokens, 'the whole request is far smaller: ' + full.receipt.totalTokens + ' → ' + small.receipt.totalTokens);
   for (const line of ['Header Protocol = every story response begins with one line', 'MC Agency = ', 'Marks On The Page = prose renders as plain text', 'Combat Calibration = ', 'Voice Fingerprints = ']) assert(wire.includes(line), 'rides, in his words: ' + line);
-  for (const gone of ['Pathway Laundering = ', 'CASTNOTES-MARK', 'RECORD-MARK', 'WORLD-MARK', 'The hour: Monday, September 7, 2026 — 09:20. The ground: Training yard.\nHere now', 'PAGE-0.', 'PAGE-11.']) assert(!wire.includes(gone), 'stays with the helper: ' + gone);
+  for (const gone of ['Pathway Laundering = ', 'CASTNOTES-MARK', 'RECORD-MARK', 'WORLD-MARK', 'PAGE-0.', 'PAGE-11.']) assert(!wire.includes(gone), 'stays with the helper: ' + gone);
   for (const kept of ['PAGE-12.', 'PAGE-19.', 'I raise my staff.']) assert(wire.includes(kept), 'the last eight pages and his message: ' + kept);
   eq(small.messages.filter((m) => m.role === 'assistant').length, 8, 'eight of the storyteller’s pages');
   const last = small.messages[small.messages.length - 1].content;
@@ -173,4 +173,26 @@ test('M510-8 WHERE THE PAGE BEGAN PLAYING HIM: the sentence that gave him words,
   eq(mineCutAt('[Jovan stepped | 09:00]\n\n' + scene, { mc: 'Jovan' }), -1, 'the header row is furniture');
   const heard = soundCount(head + 'The staff hit. *CRACK!* "Gkh—!" He spat. *drip… drip…* "Hah… hah…" *He swings the sword at the post.* "Fine," she said.');
   eq(JSON.stringify(heard), JSON.stringify({ effects: 2, voiced: 2 }), 'two contact sounds, two voiced — an asterisked sentence and a spoken word are not sounds');
+});
+
+test('M510-9 WHAT THE LEDGER KNOWS OF THE PEOPLE IN THE SCENE REACHES A SMALL MODEL IN THE LEDGER’S OWN WORDS — their hurts, what they saw, their live threads — whatever the helper chose to say; the absent crowd stays with the helper, and the ledger’s part stays small', () => {
+  const muts = [{ type: 'mc.set', name: 'Jovan' }, { type: 'clock.set', year: 2026, month: 9, day: 7, hour: 9, minute: 20 }, { type: 'place.set', name: 'Training yard' },
+    { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kaelen' }, { type: 'presence.enter', name: 'Rukia Kuchiki' },
+    { type: 'people.set', name: 'Kaelen', field: 'core', text: 'fourth seat, proud, fights with a staff' },
+    { type: 'body.injure', name: 'Kaelen', what: 'WOUND-MARK cracked left wrist from the spar two days ago' },
+    { type: 'knowledge.add', name: 'Rukia Kuchiki', fact: 'KNOWS-MARK saw Jovan leave the captain’s quarters at dawn' },
+    { type: 'thread.set', name: 'Kaelen', title: 'THREAD-MARK wants a public rematch before the seat trial', heat: 3 }];
+  for (let i = 0; i < 30; i += 1) muts.push({ type: 'people.set', name: ['Aster','Bramble','Cinder','Dune','Ember','Fennel','Gale','Hollow','Iris','Juniper','Kestrel','Lark','Moss','Nettle','Onyx','Pike','Quill','Reed','Sorrel','Thorn','Umber','Vale','Wren','Yarrow','Zinnia','Birch','Cedar','Flint','Hazel','Rook'][i], field: 'core', text: 'AWAY-MARK-' + i + ' a clerk of the ninth division who keeps the ledgers of the barracks and remembers every debt owed to him' }, { type: 'thread.set', name: ['Aster','Bramble','Cinder','Dune','Ember','Fennel','Gale','Hollow','Iris','Juniper','Kestrel','Lark','Moss','Nettle','Onyx','Pike','Quill','Reed','Sorrel','Thorn','Umber','Vale','Wren','Yarrow','Zinnia','Birch','Cedar','Flint','Hazel','Rook'][i], title: 'AWAYTHREAD-' + i + ' chasing a debt across the Rukongai', heat: 2 });
+  const st = { ...applyMutations({ ...emptyState(), page: 20 }, muts).state, page: 20 };
+  const calm = { ...PLAN, people: [], unknown: [], pressing: [], earlier: [], intense: false }; /* a helper that named none of it */
+  const msgs = pages(20);
+  msgs[msgs.length - 2] = { ...msgs[msgs.length - 2], text: msgs[msgs.length - 2].text + ' Aster called his name from the gate.' }; /* one absent person, named on the latest page */
+  const r = buildRequest({ story: { brief: 'Bleach.' }, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, smallPlan: calm });
+  const w = wireOf(r);
+  for (const mark of ['WOUND-MARK cracked left wrist', 'KNOWS-MARK saw Jovan leave', 'THREAD-MARK wants a public rematch', 'fourth seat, proud']) assert(w.includes(mark), 'the ledger’s own words ride: ' + mark);
+  assert(w.includes('AWAY-MARK-0 '), 'someone the latest page named rides, though away (the recall tier)');
+  eq((w.match(/AWAY-MARK-\d+/g) || []).filter((m) => m !== 'AWAY-MARK-0').length, 0, 'the rest of the absent crowd stays with the helper');
+  const facts = r.receipt.slots.find((s) => s.name === 'The state of things');
+  const minds = r.receipt.slots.find((s) => s.name === 'On their mind');
+  assert(facts && facts.tokens > 0 && facts.tokens <= 1100 && minds && minds.tokens <= 1300, 'and the ledger’s part stays small: ' + (facts && facts.tokens) + ' + ' + (minds && minds.tokens) + ' tokens');
 });

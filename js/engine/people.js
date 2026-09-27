@@ -1066,7 +1066,11 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     let room = lim.budget - used - reserve;
     const pool = offScene.filter((k) => !recalled.includes(k) && (weigh.get(k) || 0) >= IMPORTANT_AT).sort(byWeight);
     const cards = [];
+    /* M510-2: a view may cap this tier (a small model's scene view keeps it at none — the absent are the planning
+     * helper's to weigh); a view that does not say keeps it as it was */
+    const importantMax = Number.isFinite(lim.important) ? lim.important : Infinity;
     for (const k of pool) {
+      if (cards.length >= importantMax) break;
       const card = awayCard(k);
       if (card.length + 2 > room) continue;
       cards.push(card);

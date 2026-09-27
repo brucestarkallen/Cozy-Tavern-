@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-001)
+# Cozy Tavern — handoff for the next session (state at m510-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -472,8 +472,11 @@ founding design lives in AGENTS.md's first entries.)
   the plan in his voice (planwords.js renderPlan — the hour, ground and who is here are the LEDGER's lines, never the
   helper's), sensor, think line, and on a heated scene (the combat/intimacy rules woke, a live fight, or the plan says so)
   THE SOUNDS — his two sound laws verbatim with the scene's own sounds, and "the last page went quiet" when it did (plain.js
-  soundCount after each page). The notes, the record, the world, the director, the editor, the eye and older pages stay
-  with the helper. NO PLAN (first page, helper not back in the five seconds, an unusable answer, a craft without the
+  soundCount after each page). M510-2: the ledger's own compact view (the scene first) and the cards of who is here —
+  with anyone the latest pages named — ride too (before, a hurt, a secret seen or a live thread of someone standing in the
+  room reached a small model only if the helper happened to name it); the cast notes, the record, the absent crowd (the
+  roster, "away and much on the story's mind"), the world, the director, the editor, the eye and older pages stay with the
+  helper. NO PLAN (first page, helper not back in the five seconds, an unusable answer, a craft without the
   load-bearing laws): the whole request with the scene said once more (A: anchor.js + the M344 recall). With no teller
   (the frame off, a small model's default) that line opens "Right now, …" — match it case-blind.
   The frame, the note and his own-voice words reach a small model only through their own switches (frameOnSmall,

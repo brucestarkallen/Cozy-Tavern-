@@ -12347,3 +12347,19 @@ lines fought them ("in your own plain words") and his #p ("several real exchange
   CPU 6x slower) within budget, the request 519,733 bytes on both trees, request 505 -> 521 ms, first word 714 -> 755
   ms, worst long task 226 -> 216 ms (one run each). DOM-62 now waits for the note it checks (sayPerson writes it after one
   more read; the Quick switch's reads on opening Settings made the old at-once check lose). version.js -> m510-001.
+
+# M510-2 — what the ledger knows of the people in the scene reaches the small model in the ledger's own words
+He asked whether switching between his frontier model and the small one stays coherent. Measured through the assembler
+on one scene: Kaelen's cracked wrist (body.injure), what Rukia saw at dawn (knowledge.add) and Kaelen's rematch thread
+(thread.set) rode for the frontier model and NOT for the small one — M510's small request carried the ledger only through
+the helper's plan, so a fact about someone standing in the room reached it only if the helper happened to name it.
+- stack.js: with smallB the ledger's own compact view rides (renderStateFacts at its default budget, the scene first —
+  never the room-sized whole) and "On their mind" rides through SMALL_PEOPLE_VIEW: the cards of who is here, anyone the
+  latest pages named (recall), no roster, none of "away and much on the story's mind".
+- engine/people.js: that tier takes a cap from the view (lim.important); a view that does not say keeps it exactly as it
+  was (the frontier request is byte for byte m509-016's on the nine fixtures).
+- Law M510-9 (a helper that named none of it: the hurt, the knowledge and the thread ride in the ledger's words; someone
+  named on the latest page rides though away; the other twenty-nine absent stay out; the ledger's part stays small).
+  The small request on the 55-page tale: 16,204 -> 16,235 tokens (its ledger is small; the two parts are capped at the
+  ledger's own budgets, 4,000 and 4,800 characters).
+
