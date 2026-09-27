@@ -12169,3 +12169,19 @@ He: "are we trying to prevent regress that should never happen or fix the proble
   on the old code the request reads "Jovan Oda, the courier, Hachigorō". M72-8 (a source law) reads foldTo's first
   900 characters, so the heal lives in healFold beside it.
 - GATES: harness 976/976, walk 151/151, long play 8/8, lint 0. version.js -> m509-008.
+
+# M509-9 — a rewind is checked whole, never patched (M509-7 withdrawn)
+He: "if you make the hour the previous page's header, how do I know the WHOLE ledger is the previous page's and not
+the one already gone?" He was right: M509-7 set the hour alone after a rewind, which would have hidden a rewind that
+failed — the hour right, the room and the books still the page let go. And M509-8 had shown the rewind itself works
+on his tale (the join vanished on every retry precisely because the fold went back to the page before), so the hour
+patch never had a case.
+- NOW: chat.js rewindTo holds the boundary checkpoint of the page let go BEFORE the fold (the fold lets the later
+  boundaries go), folds, then CHECKS: if the rewound ledger's hour is not the previous page's header hour (a clock.set
+  that changes nothing is "already so", M259), the fold did not land on that page, and the WHOLE boundary ledger of
+  that moment is restored — room, books, hour together, its own heals with it (healFold). If that checkpoint is not
+  kept either, the writer is told; nothing is dressed up.
+- Walk DOM-132 (rewritten): page two's clock AND its walk-in re-stamped on page one by a hand on the store, so a fold
+  keeps 09:20 and Tobin; the retry is told 09:05 AND page one's room (Mara, no Tobin) — the whole ledger, not an hour
+  over the wrong room.
+- GATES: harness 976/976, walk 151/151, long play 8/8, lint 0. version.js -> m509-009.

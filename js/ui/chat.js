@@ -3663,6 +3663,9 @@ export function initChat(ctx) {
     const list = Array.isArray(history) ? history : [];
     const at = list.findIndex((m) => m && m.id === userMsgId);
     const current = await loadState(story.id);
+    /* M509-9: the boundary checkpoint before the page let go, held before the fold lets the later boundaries go */
+    let boundarySnap = null;
+    try { const held = (await loadSnapshots(story.id)).find((e) => e && e.id === userMsgId); boundarySnap = held && held.snap ? JSON.parse(JSON.stringify(held.snap)) : null; } catch (err) { boundarySnap = null; }
     let rewound = false;
     if (at !== -1 && (current.journal || []).length) {
       const target = list.slice(0, at).filter((m) => m && m.role === 'assistant' && !m.hidden).length - 1;
@@ -3676,25 +3679,31 @@ export function initChat(ctx) {
       if (!r.exact) pendingAudit.add(story.id);
       rewound = true;
     }
-    /* M509-7: THE PREVIOUS PAGE'S HEADER IS THE TRUTH FOR THE HOUR AND THE GROUND AFTER A REWIND. He saw Try again keep
-     * the hour of the page it was replacing (12:16 → the retry told 12:16 → the new version wrote 12:17), and no test
-     * of the fold reproduces it. Whatever the fold did, the storyteller's own header on the page BEFORE the one let go
-     * says where and when the story stood — M455's rule ("the header is the truth for the hour"), applied at the
-     * rewind and not only at the open: if the rewound ledger's hour or ground is not that header's, the header sets it,
-     * journaled on that page's own stamp so a later fold keeps it. */
+    /* M509-9: A REWIND IS CHECKED WHOLE, NEVER PATCHED. M509-7 set the hour from the previous page's header after a
+     * rewind — which would have hidden a rewind that failed (the hour right, the room and the books still the page
+     * let go). The header is a CHECK: if the rewound ledger's hour is not the previous page's header hour, the fold
+     * did not land on that page, and the whole ledger is taken from the boundary checkpoint before the page let go
+     * (M21) — the room, the books, the hour together. If that is not there either, the writer is told; nothing is
+     * dressed up. */
     try {
       const prev = at !== -1 ? [...list.slice(0, at)].reverse().find((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && pageText(m).trim()) : null;
-      if (prev) {
-        const after = await loadState(story.id);
-        const fromHeader = headerMutations(pageText(prev)).filter((m) => m && (m.type === 'clock.set' || m.type === 'place.set'));
-        if (fromHeader.length) {
-          const pageOf = list.slice(0, at).filter((m) => m && m.role === 'assistant' && !m.hidden).length - 1;
-          const stamped = { ...after, page: Number.isInteger(pageOf) && pageOf >= 0 ? pageOf : after.page };
-          const { state: put, applied } = applyMutations(stamped, fromHeader);
-          if (applied.some((a) => !(a && a.same))) { put.page = after.page; await saveState(story.id, put); notify(story.id); }
+      const headerClock = prev ? headerMutations(pageText(prev)).find((m) => m && m.type === 'clock.set' && [m.year, m.month, m.day, m.hour, m.minute].every(Number.isInteger)) : null;
+      if (headerClock) {
+        /* the same hour is "already so" (M259): a clock.set that changes nothing is refused with same: true */
+        const sameHour = (st) => { const probe = applyMutations(st, [{ ...headerClock }]); return !probe.applied.length && probe.rejected.some((r) => r && r.same); };
+        let after = await loadState(story.id);
+        if (!sameHour(after)) {
+          if (boundarySnap && sameHour(boundarySnap)) {
+            const restored = healFold({ ...boundarySnap, pendingVerdict: null }); /* the whole ledger of that moment, its own heals with it */
+            bumpChain(story.id);
+            await saveState(story.id, restored);
+            notify(story.id);
+            after = restored;
+          }
+          if (!sameHour(after)) toast('Try again could not set the ledger back to before this page — the page before’s hour and the rewound ledger disagree, and no checkpoint of that moment is kept.');
         }
       }
-    } catch (err) { /* the header's word is a courtesy over the fold, never a crisis */ }
+    } catch (err) { /* the check is a courtesy over the fold, never a crisis */ }
     return rewound;
   }
 

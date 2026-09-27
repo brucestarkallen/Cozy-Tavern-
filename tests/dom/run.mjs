@@ -6577,43 +6577,47 @@ test('DOM-131 TRY AGAIN WHILE THE OLD PAGE’S LATER READERS (world agent, scrib
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-132 THE PREVIOUS PAGE’S HEADER IS THE TRUTH AFTER A REWIND: a fold that keeps the replaced page’s hour (its clock stamped on the page before, by a hand on the store) is put right by the header of the page before — the retry is told that page’s hour (M509-7)', async () => {
+test('DOM-132 A REWIND IS CHECKED WHOLE, NEVER PATCHED: when a fold keeps the replaced page’s hour AND its walk-in (both stamped on the page before, by a hand on the store), the previous page’s header shows the fold wrong and the WHOLE ledger of the moment before the page is restored — the retry is told that page’s hour and its room, not a corrected hour over the wrong room (M509-9)', async () => {
   const before = errors.length;
   const { loadState, saveState } = await import('../../js/engine/state.js');
   const { renderClock } = await import('../../js/engine/clock.js');
   if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
-  const st = await db.stories.create({ title: 'the header is the truth' });
+  const st = await db.stories.create({ title: 'checked whole' });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   await until(() => !env.ctx.chat.isBusy(), 'free', 20000);
   const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
   const H = (hh, mm) => '[The kitchen — Monday, March 3, 2025 | ' + hh + ':' + mm + ' | clear | coat | by the stove]\n\n';
   const seen = [];
-  let hour = ['09', '05'];
+  let hour = ['09', '05']; let who = 'Mara Vell';
   try {
-    house.state.workerAnswer = () => '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[],"issues":[]}';
-    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + 'The kettle ticked.'; };
+    house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [{ type: 'presence.enter', name: who, position: 'by the stove' }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] }) : '{"mutations":[],"deltas":[],"findings":[],"issues":[]}');
+    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + who + ' came in. The kettle ticked.'; };
     type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
     await settled();
-    hour = ['09', '20'];
+    hour = ['09', '20']; who = 'Tobin Ashcombe';
     type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
     await settled();
-    /* a hand on the store: page two’s clock, stamped on page one — a fold to page one would keep 09:20 */
+    /* a hand on the store: page two’s clock AND its walk-in re-stamped on page one — a fold to page one keeps 09:20 and Tobin */
     const broken = await loadState(st.id);
     let bent = 0;
-    for (const e of broken.journal) if (e && e.m && e.m.type === 'clock.set' && e.p === 1) { e.p = 0; bent += 1; }
-    assert(bent >= 1, 'fixture: page two’s clock re-stamped on page one');
+    for (const e of broken.journal) if (e && e.m && e.p === 1 && (e.m.type === 'clock.set' || (e.m.type === 'presence.enter' && e.m.name === 'Tobin Ashcombe'))) { e.p = 0; bent += 1; }
+    assert(bent >= 2, 'fixture: page two’s clock and walk-in re-stamped on page one: ' + bent);
     await saveState(st.id, broken);
-    hour = ['09', '30'];
+    hour = ['09', '30']; who = 'Nell Pike';
     click(q('#btn-retry'));
     await until(() => seen.length >= 3, 'the retry’s request went out', 30000);
     const req = seen[seen.length - 1];
-    assert(/The hour: [^\n]*09:05/.test(req), 'the retry is told page one’s hour from its own header, not the bent fold’s 09:20: ' + (req.match(/The hour:[^\n]*/) || [''])[0]);
+    assert(/The hour: [^\n]*09:05/.test(req), 'the retry is told page one’s hour: ' + (req.match(/The hour:[^\n]*/) || [''])[0]);
+    const here = (req.match(/Here now:[^\n]*/) || [''])[0];
+    assert(/Mara Vell/.test(here) && !/Tobin Ashcombe/.test(here), 'and page one’s room — the whole ledger of that moment, not an hour over the wrong room: ' + here);
     await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
     await settled();
-    assert(/09:30/.test(renderClock((await loadState(st.id)).clock)), 'the new version’s hour stands');
+    const last = await loadState(st.id);
+    assert(/09:30/.test(renderClock(last.clock)), 'the new version’s hour stands');
+    assert(last.present.some((p) => p.name === 'Nell Pike') && !last.present.some((p) => p.name === 'Tobin Ashcombe'), 'the new version’s room: ' + last.present.map((p) => p.name).join(','));
   } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
