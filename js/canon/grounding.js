@@ -1016,6 +1016,7 @@ export function lastInjectionReport() {
   return { note: lastInjection || '', at: lastInjectionAt || 0, source: lastSource || '', error: lastLlmError || '', reasons: Array.isArray(lastReasons) ? lastReasons.slice(0, 6) : [] };
 }
 export function isEpisodeOrChapterPage(wt) { return isEpisodePage(wt); } /* exported for the harness (M509) */
+export function isCastListLook(t) { return castListLook(t); } /* exported for the harness (M509-2) */
 export function cleanWikitext(wt) { /* exported for the harness (M460) */
     if (!wt) return "";
     let s = wt;
@@ -1531,10 +1532,22 @@ function physicalImplausible(physical) {
         return !!val && !plausibleFieldValue(part.slice(0, i).trim(), val);
     });
 }
+/** M509-2: a "look" that is a CAST LIST — six or more capitalised names and not one lowercase sentence — is an episode's
+ *  Appearance field, not a face. Such an entry (grounded before the episode gate) is poisoned: the heal below re-reads
+ *  its page and lets it go. */
+function castListLook(text) {
+    const t = String(text || "").replace(/^\s*(?:look|appearance)\s*:\s*/i, "").trim();
+    if (t.length < 40) return false;
+    const words = t.split(/\s+/).filter(Boolean);
+    const caps = words.filter(w => /^[\p{Lu}][\p{L}'’.-]*$/u.test(w)).length;
+    return words.length >= 8 && caps / words.length >= 0.85 && !/[.!?]\s/.test(t);
+}
 function entryPoisoned(entry) {
     const sec = entry && entry.sections;
     if (!sec) return false;
     if (physicalImplausible(sec.physical)) return true;
+    if (castListLook(sec.look) || castListLook(sec.physical)) return true;
+    if (/\bis the\s+(?:\S+\s+){0,3}(?:episode|chapter|volume)\b/i.test(String(sec.identity || ""))) return true;
     return ["look", "physical", "identity", "personality", "relationship", "biography", "abilities", "trivia", "voice"]
         .some(k => sec[k] && SECTION_JUNK.test(sec[k]));
 }
@@ -4956,6 +4969,14 @@ globalThis.CanonGrounding_intercept = async function (chat, contextSize, abort, 
                     try {
                         const wt = await fetchWikitext(e.wiki, e.name);
                         if (!wt) return;
+                        // M509-2: a page that is an episode, a chapter, a disambiguation or the series itself is
+                        // not an entity — the entry goes, and the gate keeps it out when the name is asked again
+                        if (isEpisodePage(wt) || isDisambiguation(wt) || isMetaSeriesPage(wt)) {
+                            delete store[key];
+                            debug(`♻ not an entity, let go: ${e.name}`);
+                            saveCache();
+                            return;
+                        }
                         const rebuilt = await buildEntrySections(e.wiki, e.name, wt, s, e.kind !== "place");
                         if (Object.values(rebuilt).some(Boolean)) {
                             e.sections = rebuilt;

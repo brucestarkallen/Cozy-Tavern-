@@ -54,7 +54,7 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
-import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
+import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
@@ -1037,7 +1037,7 @@ export function initChat(ctx) {
     const state = await loadState(story.id);
     let healed = false;
     /* M455: and the hour the newest page's header gives, on the day it names — a clock a page behind is put right */
-    const muts = [...headerMutations(pageText(newest)).filter((m) => m.type === 'clock.set'), ...wrongWalkIns(state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest)), ...seatMadeCores(state)]; /* M491: on opening too; M508: a core made of a seat is let go */
+    const muts = [...headerMutations(pageText(newest)).filter((m) => m.type === 'clock.set'), ...wrongWalkIns(state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest)), ...seatMadeCores(state), ...descriptorsThatAreNamed(state)]; /* M491: on opening too; M508: a core made of a seat is let go; M509-2: a descriptor that is a named person */
     if (muts.length && !busy && !isReplaying() && queuedCount(story.id) === 0) { /* M314: a queued moment is re-checked before it writes */
       const { state: next, applied } = applyMutations(state, muts);
       if (applied.length) { await saveState(story.id, next); notify(story.id); healed = true; }
@@ -3115,7 +3115,8 @@ export function initChat(ctx) {
       const hereAgain = msg && msg.role === 'assistant' && !msg.ooc ? hereByTheNewestPage(clearedNows.state, pageText(msg)) : [];
       /* M491: and whoever is listed here though their own page says they left, and this page does not show, is seated away */
       const goneAway = msg && msg.role === 'assistant' && !msg.ooc ? goneByTheirOwnPage(clearedNows.state, pageText(msg)) : [];
-      const walkedBack = walkIns.length || hereAgain.length || goneAway.length ? applyMutations(clearedNows.state, [...walkIns, ...hereAgain, ...goneAway]) : { state: clearedNows.state, applied: [] };
+      const oneMan = descriptorsThatAreNamed(clearedNows.state); /* M509-2: "the courier" beside "Hachigorō" is one man */
+      const walkedBack = walkIns.length || hereAgain.length || goneAway.length || oneMan.length ? applyMutations(clearedNows.state, [...walkIns, ...hereAgain, ...goneAway, ...oneMan]) : { state: clearedNows.state, applied: [] };
       const cleared = { state: walkedBack.state, applied: clearedNows.applied };
       const sentBack = [...new Set(walkedBack.applied.filter((a) => a.mutation.type === 'presence.leave').map((a) => a.mutation.name))];
       const writtenIn = [...new Set(walkedBack.applied.filter((a) => a.mutation.type === 'presence.enter').map((a) => a.mutation.name))];

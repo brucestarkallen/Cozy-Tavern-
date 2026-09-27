@@ -1,7 +1,7 @@
 /* M508 — the state of things, leaner and truer: the main character's book is the writer's; a core made of a seat is
  * let go; a blind spot names a long fact in its first words. */
 import { test, assert, eq } from './lib.mjs';
-import { applyMutations, seatMadeCores } from '../../js/engine/apply.js';
+import { applyMutations, seatMadeCores, descriptorsThatAreNamed } from '../../js/engine/apply.js';
 import { emptyState, renderStateFacts } from '../../js/engine/state.js';
 import { renderKnowledge, KNOWLEDGE_MC, BLIND_CLIP, renderBlindSpots, blindSpots } from '../../js/engine/world.js';
 import { renderPeopleTiers } from '../../js/engine/people.js';
@@ -101,4 +101,36 @@ test('M509-3 an episode or a chapter page is never a person: its cast list is no
   const plain = "'''Kensei Muguruma''' is a captain.\n\n==Personality==\nDecisive, serious.";
   eq(isEpisodeOrChapterPage(ep), true); eq(isEpisodeOrChapterPage(chapter), true);
   eq(isEpisodeOrChapterPage(person), false); eq(isEpisodeOrChapterPage(plain), false);
+});
+
+test('M509-4 "the courier" is Hachigorō: a role the ledger names in apposition resolves to the named page (unicode names too), the descriptor walks in as him, and one already standing beside him is joined on the next look', () => {
+  let st = H(['Hachigorō']);
+  st = applyMutations(st, [
+    { type: 'people.set', name: 'Hachigorō', field: 'core', text: 'sitting with his back to the wall, a borrowed straw hat low over his face, turning a folded paper over in his hands' },
+    { type: 'thread.set', title: 'Suì-Fēng and the intercepted mail', owner: 'Suì-Fēng', next: 'take custody of the paper and the courier Hachigorō before the trail goes cold' },
+    { type: 'knowledge.add', name: 'Byakuya', fact: 'saw the courier Hachigorō ride into the Tenth’s courtyard and call out' },
+  ]).state;
+  const r = applyMutations(st, [{ type: 'presence.enter', name: 'the courier', position: 'hauled along the path' }]);
+  eq(r.state.present.map((p) => p.name).join(','), 'Jovan Oda,Hachigorō', 'the descriptor is the man: ' + r.applied.map((a) => a.words).join(' | '));
+  /* a store where both already stand */
+  const both = { ...st, present: [...st.present, { name: 'the courier', position: 'on the path' }] };
+  both.characters = { ...both.characters, 'the courier': { core: 'road-beaten', state: 'hauled along', arc: '', threads: [] } };
+  const muts = descriptorsThatAreNamed(both);
+  eq(muts.map((m) => m.type + ' ' + m.from + ' → ' + m.to).join(','), 'people.rename the courier → Hachigorō');
+  const joined = applyMutations(both, muts).state;
+  eq(joined.present.map((p) => p.name).join(','), 'Jovan Oda,Hachigorō');
+  assert(!joined.characters['the courier'] && joined.characters['Hachigorō'], 'one page');
+  eq(descriptorsThatAreNamed(joined).length, 0, 'nothing left to join');
+  /* a role nobody is named for stays a person of their own; a short role ("the cook") is never resolved */
+  const lone = applyMutations(st, [{ type: 'presence.enter', name: 'the postmaster', position: 'at the counter' }]).state;
+  assert(lone.present.some((p) => p.name === 'the postmaster'), 'a postmaster the ledger names no one for is his own man');
+  eq(descriptorsThatAreNamed(lone).length, 0);
+});
+
+test('M509-5 a cached canon entry that is an episode (its look a cast list) is poison, and its page read again is let go', async () => {
+  const { isCastListLook, isEpisodeOrChapterPage } = await import('../../js/canon/grounding.js');
+  eq(isCastListLook('Shinji Hirako Sousuke Aizen Hiyori Sarugaki Kisuke Urahara Mayuri Kurotsuchi Kensei Muguruma Heizō Kasaki Kaname Tōsen Izaemon Tōdō Shinobu Eishima Mashiro Kuna Shūhei Hisagi Torahiko Gyūji Akon'), true);
+  eq(isCastListLook('A tall, muscular man with sharp features, short light-gray/silver hair and brown eyes. He has a tattoo of the number "69" on his chest.'), false);
+  eq(isCastListLook('Silver hair, brown eyes'), false);
+  eq(isEpisodeOrChapterPage("{{Episode\n| number = 313\n| airdate = March 8, 2011\n}}\n'''Muguruma's 9th Division, Moves Out''' is the three hundred thirteenth episode of the ''Bleach'' anime."), true);
 });

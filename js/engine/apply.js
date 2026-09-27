@@ -1754,6 +1754,26 @@ export function seatMadeCores(state) {
   }
   return out;
 }
+/* M509-2: A DESCRIPTOR THAT IS A NAMED PERSON IS THAT PERSON. "the courier" came into the scene beside "Hachigorō" and
+ * stood as a second man on every card and in every list, while the ledger's own words called him "the courier
+ * Hachigorō". A present descriptor that resolves (people.js resolveDescriptor: the role opens their core, or the
+ * ledger names them in apposition, or the relation is written on their page) to a named person is renamed onto them
+ * — people.rename merges the page, the seat, the books and the presence (M163). Run on opening and after every page. */
+export function descriptorsThatAreNamed(state) {
+  const s = state && typeof state === 'object' ? state : {};
+  const present = Array.isArray(s.present) ? s.present : [];
+  const out = [];
+  for (const p of present) {
+    const name = p && typeof p.name === 'string' ? p.name.trim() : '';
+    if (!name || isMc(s, name)) continue;
+    let to = null;
+    try { to = resolveDescriptor(s, name); } catch (err) { to = null; }
+    if (!to || typeof to !== 'string' || samePersonName(to, name) || isMc(s, to)) continue;
+    if (resolveDescriptor(s, to)) continue; /* the target is a descriptor itself — never */
+    out.push({ type: 'people.rename', from: name, to });
+  }
+  return out;
+}
 export function goneByTheirOwnPage(state, pageText) {
   const s = state && typeof state === 'object' ? state : {};
   const present = Array.isArray(s.present) ? s.present : [];

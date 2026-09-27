@@ -530,7 +530,10 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     const key = findKnowledgeKey(safe, name);
     if (!key || !safe[key].length || drawn.has(key)) continue;
     drawn.add(key);
-    const list = sameFactsOnce(safe[key]);
+    /* M509-2: NEWEST BY THE PAGE IT WAS LEARNED ON. The list is in order of writing, and a 46-page-old fact written into a
+     * book late (the auditor's hand, a merge) sat among the "newest" while it carried its true age. Facts with a page
+     * stamp order by it; those without keep their place at the front. */
+    const list = sameFactsOnce(safe[key]).map((k, i) => ({ k, i })).sort((a, b) => ((Number.isFinite(a.k.atTurn) ? a.k.atTurn : -1) - (Number.isFinite(b.k.atTurn) ? b.k.atTurn : -1)) || (a.i - b.i)).map((x) => x.k);
     const mine = isMcKey(key);
     const take = mine ? Math.min(recent, KNOWLEDGE_MC) : recent;
     const newest = list.slice(-take).reverse().map(aged);
@@ -835,6 +838,14 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
   const mcKey = String(mc || '').trim().toLowerCase();
   const sceneWords = sceneWordsOf(scenePages);
   const out = [];
+  /* M509-2: as in the recall (renderKnowledge), a word in more than a quarter of the books' facts says nothing about
+   * nearness — "courtyard", "captain", "Tenth" made a 46-page-old report "near the scene" for a warden */
+  const df = new Map(); let factCount = 0;
+  for (const list of Object.values(safe)) for (const k of (Array.isArray(list) ? list : [])) {
+    factCount += 1;
+    for (const w of factWords(k && k.fact)) df.set(w, (df.get(w) || 0) + 1);
+  }
+  const common = new Set(); if (factCount >= 20) for (const [w, n] of df) if (n > factCount * 0.25) common.add(w);
   /* M507: each fact's words, age and nearness to the scene are read ONCE, not once per person in the room; a name's own
    * word patterns are compiled once per name, not once per fact (tests/perf_send.py: thousands of compilations a send) */
   const books = Object.entries(safe).map(([other, list]) => [other, (Array.isArray(list) ? list : []).map((k) => {
@@ -842,7 +853,7 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     if (!fact) return null;
     const age = Number.isFinite(turn) && Number.isFinite(k.atTurn) ? turn - k.atTurn : null;
     const words = factWords(fact);
-    const score = sceneWords.size ? [...words].filter((w) => sceneWords.has(w)).length : 0;
+    const score = sceneWords.size ? [...words].filter((w) => sceneWords.has(w) && !common.has(w)).length : 0;
     return { fact, age, words, score };
   }).filter((f) => f && (f.score >= 2 || (f.age != null && f.age <= BLIND_RECENT_PAGES)))]); /* near the scene, or recent */
   for (const name of names) {

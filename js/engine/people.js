@@ -438,13 +438,42 @@ function resolveRole(state, name) {
   const role = roleOf(name);
   if (!role || isGroupName(name)) return null;
   const hits = [];
-  for (const key of Object.keys(state.characters && typeof state.characters === 'object' ? state.characters : {})) {
+  const esc = role.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pages = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  for (const key of Object.keys(pages)) {
     if (roleOf(key) || relationOf(key) || samePersonName(key, name)) continue;
     const text = personTexts(state, key).toLowerCase().trim();
     /* the role must OPEN the core ("news drone operator; flew…", "the woman in scrubs who…") */
-    if (new RegExp('^(?:the |an? )?' + role.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(text)) hits.push(key);
+    if (new RegExp('^(?:the |an? )?' + esc + '\\b').test(text)) hits.push(key);
   }
-  return hits.length === 1 ? hits[0] : null;
+  if (hits.length === 1) return hits[0];
+  if (hits.length > 1) return null;
+  /* M509-2: THE LEDGER NAMES THE ROLE'S OWNER IN APPOSITION. Hachigorō's core said nothing of couriers — "sitting with
+   * his back to the wall, a straw hat low over his face" — but a thread said "the courier Hachigorō" and a fact "saw the
+   * courier Hachigorō ride in"; still "the courier" walked in as a second man and stood beside him. A named page that
+   * the ledger's own words call "the <role> <Name>", "<Name>, the <role>" or "<Name> the <role>" — and no other — is the
+   * person. Named pages only; a descriptor is never another descriptor. */
+  const named = Object.keys(pages).filter((k) => !roleOf(k) && !relationOf(k) && !samePersonName(k, name));
+  if (!named.length) return null;
+  const texts = [];
+  for (const k of Object.keys(pages)) texts.push(personTexts(state, k));
+  for (const t of (Array.isArray(state.threads) ? state.threads : [])) texts.push([t && t.title, t && t.next, t && t.note].filter((x) => typeof x === 'string').join(' '));
+  for (const list of Object.values(state.knowledge && typeof state.knowledge === 'object' ? state.knowledge : {})) for (const f of (Array.isArray(list) ? list : [])) if (f && typeof f.fact === 'string') texts.push(f.fact);
+  for (const seat of Object.values(state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {})) texts.push([seat && seat.location, seat && seat.activity, seat && seat.agenda].filter((x) => typeof x === 'string').join(' '));
+  if (typeof state.worldBrief === 'string') texts.push(state.worldBrief);
+  const body = texts.join('\n');
+  const owners = new Set();
+  for (const k of named) {
+    const first = k.split(/\s+/)[0];
+    const forms = [k, first].filter((w) => w && w.length >= 3).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    if (!forms.length) continue;
+    const who = '(?:' + forms.join('|') + ')';
+    /* unicode boundaries — \b is ASCII-only in JS, and "Hachigorō" ends past it */
+    const L = '(?<![\\p{L}\\p{N}])'; const R = '(?![\\p{L}\\p{N}])';
+    const re = new RegExp('(?:' + L + '(?:the|an?)\\s+' + esc + '\\s+' + who + R + ')|(?:' + L + who + ',?\\s+(?:the|an?)\\s+' + esc + R + ')', 'iu');
+    if (re.test(body)) owners.add(k);
+  }
+  return owners.size === 1 ? [...owners][0] : null;
 }
 
 export function resolveDescriptor(state, name) {

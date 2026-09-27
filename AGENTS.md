@@ -12039,3 +12039,30 @@ and with the block smaller the standings, the factions and the threads fit again
   the page reader's leave gate (M402/M491) needs them shown gone at a page's end; the next page's reads settle it.
   A courier's own view of the courtyard listed as a blind spot for four captains — a fact about the scene everyone is
   in is not a secret; not fixed (it needs a reading, not a regex).
+
+# M509-2 — the third reading (m509-001): what still read wrong, and the courier who was two men
+He pasted the blocks again after a retry on m509-001. The M509 changes held ("Everyone here but eight", no blind spot
+repeating a shared line, the joint-custody thread once). Still wrong, now fixed:
+- "Hachigorō, the courier" — ONE man standing twice in Here now and on two cards: the page reader wrote "the courier"
+  once and "Hachigorō" once; resolveRole matched a role only where it OPENS a core, and his core said nothing of
+  couriers though a thread and a fact said "the courier Hachigorō". people.js resolveRole now also takes the ledger's
+  own apposition — "the <role> <Name>", "<Name>, the <role>", "<Name> the <role>" in any page, thread, fact, seat or the
+  world's word — when exactly one named page answers (unicode boundaries: \\b is ASCII-only and "Hachigorō" ends past
+  it). apply.js descriptorsThatAreNamed(state): a present descriptor that resolves to a named person becomes a
+  people.rename onto them (M163 merges page, seat, books, presence) — on opening (healLedgerOnOpen) and in the page
+  reader's upkeep after every page. A short role ("the cook") or one nobody is named for stays their own person.
+- The cached canon entry for the EPISODE still rode (the M509 gate keeps new ones out; the cache is permanent):
+  grounding.js entryPoisoned now counts a look that is a CAST LIST (eight-plus capitalised names, no sentence) and an
+  identity "is the Nth episode/chapter", and the once-per-entity self-heal, reading the page again, lets an episode,
+  chapter, disambiguation or series page GO instead of rebuilding it. His pack loses it on the next canon turn.
+- A 46-page-old fact among a person's "newest": renderKnowledge orders a book by the page each fact was learned on
+  before taking the newest (a fact written late into a book — an auditor's hand, a merge — sat at the end with its
+  true age). And blindSpots' "near the scene" uses the same words-in-most-facts rule as the recall (a warden's
+  46-page-old Nanao report was "near" on "captain"/"courtyard"/"Tenth").
+- LAWS: m508.mjs M509-4 (the courier resolves, walks in as him, and a store with both is joined), M509-5 (the cast-list
+  look and the episode page). GATES: harness 976/976, walk 145/145, long play 8/8, lint 0. version.js -> m509-002.
+- STILL SEEN, LEFT (needs a reading, not a rule): a public moment the reader wrote into ONE witness's book stands as a
+  blind spot for the thirteen who were there ("watched Jovan bow… whisper to Rukia (Shunsui knows)"); the fix that
+  would be right — a moment known to many of those present at that page is nobody's blind spot who was in the scene
+  then, from the journal's presence — cannot tell a courtyard's whisper from its shout, and a whisper's blind spots
+  are the point.
