@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m509-003)
+# Cozy Tavern — handoff for the next session (state at m509-004)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode

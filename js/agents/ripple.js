@@ -68,7 +68,13 @@ export function isNameLike(text) {
 function escapeRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 export function wordRe(from) { return new RegExp('(?<![\\p{L}\\p{N}])' + escapeRe(from) + '(?![\\p{L}\\p{N}])', 'gu'); }
 export function hasWord(text, from) { return wordRe(from).test(String(text || '')); }
-export function replaceWord(text, from, to) { return String(text || '').replace(wordRe(from), to); }
+/* M509-4: a descriptor renamed onto a name it stood beside — "the courier Hachigorō" → "Hachigorō Hachigorō",
+ * "Hachigorō, the courier" → "Hachigorō, Hachigorō" — is said once */
+export function replaceWord(text, from, to) {
+  const out = String(text || '').replace(wordRe(from), to);
+  const esc = String(to || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return esc ? out.replace(new RegExp('(?<![\\p{L}\\p{N}])(' + esc + ')(?:,?\\s+)\\1(?![\\p{L}\\p{N}])', 'giu'), '$1') : out;
+}
 
 /* The ledger renamed, pure: keys and text fields alike. Returns the new state
  * and a count of what moved. */

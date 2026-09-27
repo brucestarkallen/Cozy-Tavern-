@@ -12075,3 +12075,17 @@ now, arc and loose ends too (his "the courier Hachigorō" stood in Suì-Fēng's 
 exact shape (a courier with a page of its own, the apposition only in a loose end and a fact): one man, four places
 follow. CG_VERSION 0.68.1 → 0.68.2 so the canon self-heal takes one more look at every poisoned entry — the cached
 episode page goes on the next canon turn. GATES: harness 976/976, lint 0. version.js -> m509-003.
+
+# M509-4 — his fifth paste, and the live path proven end to end
+The fifth paste was again the old build's output (the courier doubled, the same two 46-page-old facts in the "newest"
+lines); the hour and the standings had moved (a page was read), so the readers ran on an unrelit server. To be
+certain the M509-2 join reaches the LIVE path and not only the engine: walk DOM-128 (new) — a tale whose ledger holds
+"the courier" beside "Hachigorō" (the role named in apposition only in a fact and a loose end, the last page finished)
+is opened the way tapping the shelf opens it (openStory): one man in the room, one page, his book his, the courtyard's
+books read on; then the two stand again by a hand on the store and a page is sent: the page reader's upkeep joins them
+(the walk's own reader lets Liara in, so the law asks for the courier's absence, not a count).
+- FOUND BY THE WALK: people.rename swaps the descriptor for the name in every text, so "the courier Hachigorō" became
+  "Hachigorō Hachigorō" and "the trail to the courier Hachigorō" "the trail to Hachigorō Hachigorō". ripple.js
+  replaceWord now says a name once where the swap doubled it ("X X", "X, X" → "X").
+- The launcher (cozytavern.sh) does `git pull --ff-only` and douses this folder's serve.py before relighting; Settings'
+  last line reads "the shelves · <build>". GATES: harness 976/976, walk 146/146, lint 0. version.js -> m509-004.

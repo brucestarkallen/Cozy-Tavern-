@@ -6381,6 +6381,62 @@ test('DOM-127 A BRANCH WHILE THE READERS ARE STILL ON THE NEWEST PAGE: the branc
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-128 ONE MAN, ONE NAME, ON OPENING: a tale whose ledger holds "the courier" beside "Hachigorō" (the role named in apposition only in a fact and a loose end) opens with one man in the room — the descriptor joined onto his page, the courtyard’s books unbroken (M509-2)', async () => {
+  const before = errors.length;
+  const { loadState, saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'the courier who was two men' });
+  await db.stories.update(st.id, { createdAt: Date.now() - 10 * 60 * 1000 }); /* an older tale: the opening heals run */
+  const H = '[Tenth Division courtyard — Sunday, Hanami 5, 1001 | 12:15 | clear | shihakushō | before the bench]\n\n';
+  await db.messages.append(st.id, { role: 'user', text: 'I wait for the courier.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'Hachigorō stood between Sentarō and Kiyone, the paper gone from his hands. The courtyard watched.' });
+  let ledger = applyMutations({ ...emptyState(), page: 0 }, [
+    { type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: 'Tenth Division courtyard' }, { type: 'presence.enter', name: 'Jovan Oda' },
+    { type: 'people.set', name: 'Hachigorō', field: 'core', text: 'sitting with his back to the wall, a borrowed straw hat low over his face, turning a folded paper over in his hands' },
+    { type: 'presence.enter', name: 'Hachigorō', position: 'walking toward the mess' },
+    { type: 'people.set', name: 'the courier', field: 'state', text: 'Hauled along the mess path by Sentarō’s grip on his sleeve' },
+    { type: 'presence.enter', name: 'the courier', position: 'hauled along' },
+    { type: 'people.set', name: 'Suì-Fēng', field: 'threads', text: 'The receiving clerk’s cipher has been demanded of the postmaster under threat — the trail to the courier Hachigorō, five days gone, is now hers to run.' },
+    { type: 'knowledge.add', name: 'Byakuya', fact: 'saw the courier Hachigorō ride into the Tenth’s courtyard and call out that he carried something meant for the Thirteenth’s desk' },
+    { type: 'knowledge.add', name: 'Hachigorō', fact: 'rode into a battlefield that had already ended' },
+  ]).state;
+  ledger.readTo = 0;
+  await saveState(st.id, ledger);
+  eq(ledger.present.map((p) => p.name).join(','), 'Jovan Oda,Hachigorō,the courier', 'fixture: two men');
+  /* the last page's readers finished: its version checkpoint stands, so the opening heals (not a resume) */
+  { const { saveVersionStates } = await import('../../js/engine/state.js'); const last = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop(); await saveVersionStates(st.id, { [last.id + ':0']: JSON.parse(JSON.stringify(ledger)) }); }
+  /* opened the way he opens a tale — what tapping it on the shelf does */
+  await env.ctx.chat.openStory(st.id);
+  await until(async () => (await storyId()) === st.id, 'the tale is open', 10000);
+  await until(async () => (await loadState(st.id)).present.length === 2, 'the opening joins them', 20000);
+  const after = await loadState(st.id);
+  eq(after.present.map((p) => p.name).join(','), 'Jovan Oda,Hachigorō', 'one man in the room');
+  assert(!after.characters['the courier'] && after.characters['Hachigorō'], 'one page');
+  assert((after.knowledge['Hachigorō'] || []).some((k) => /battlefield/.test(k.fact)), 'his book is his');
+  assert((after.knowledge['Byakuya'] || []).some((k) => /saw Hachigorō ride into/.test(k.fact)), 'the courtyard’s books read on, the name said once: ' + JSON.stringify((after.knowledge['Byakuya'] || []).map((k) => k.fact)));
+  /* and after a page, when the opening could not (the readers were still out): the two stand again by a hand on the
+   * store; the next page's upkeep joins them */
+  const again = await loadState(st.id);
+  again.present.push({ name: 'the courier', position: 'on the path' });
+  again.characters['the courier'] = { core: '', state: 'hauled along the path', arc: '', threads: [] };
+  again.knowledge['Kiyone'] = [{ fact: 'heard the courier Hachigorō say the paper never arrived', atTurn: 2 }];
+  await saveState(st.id, again);
+  eq((await loadState(st.id)).present.length, 3, 'fixture: two men again');
+  const priorStory = house.state.storyAnswer;
+  house.state.storyAnswer = () => H + 'The courtyard held its breath while Hachigorō was walked toward the mess.';
+  try {
+    type(q('#composer-input'), 'I watch him go.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'the page', 20000);
+    await settled();
+    await until(async () => !(await loadState(st.id)).present.some((p) => p.name === 'the courier'), 'the page’s upkeep joins them', 20000);
+  } finally { house.state.storyAnswer = priorStory; }
+  const last = await loadState(st.id);
+  assert(last.present.some((p) => p.name === 'Hachigorō') && !last.present.some((p) => p.name === 'the courier') && !last.characters['the courier'], 'one man in the room after the page (the walk’s own reader may have let Liara in): ' + last.present.map((p) => p.name).join(','));
+  assert((last.knowledge['Kiyone'] || []).some((k) => /heard Hachigorō say/.test(k.fact)), 'her book reads on');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
