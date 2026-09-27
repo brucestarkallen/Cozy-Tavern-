@@ -65,3 +65,40 @@ test('M508-4 a blind spot names a long fact in its first words; the whole fact s
   assert(facts.includes(long), 'the whole fact stands under Renji');
   assert(BLIND_CLIP >= 120, 'a blind spot still says what the fact is about');
 });
+
+test('M509-1 the shorter list names a shared fact ("Everyone here but" eight, not "Known to" twelve); a fact that stands as a shared line is not said again as a blind spot; a word in most facts calls nothing back', () => {
+  const present = Array.from({ length: 20 }, (_, i) => 'Person' + String.fromCharCode(65 + i) + ' Vale');
+  let st = H(present);
+  const fact = 'heard Jovan Oda thank the courtyard and promise to do his duty and his best to serve, and saw him run out of the Tenth’s ground';
+  st = applyMutations(st, present.slice(0, 12).map((n) => ({ type: 'knowledge.add', name: n, fact }))).state;
+  const facts = renderStateFacts(st, { whole: true, budget: 60000, scenePages: ['The courtyard watched him run.'] });
+  const line = facts.split('\n').find((l) => l.includes('thank the courtyard')).replace(/^Who knows what: /, '');
+  assert(/^Everyone here but /.test(line) && (line.match(/Vale/g) || []).length === 8, 'eight named, not twelve: ' + line);
+  assert(!/hasn’t found out: heard Jovan Oda thank the courtyard/.test(facts), 'the eight are out of it by the line above — not again as a blind spot: ' + facts.split('\n').filter((l) => /hasn’t found out/.test(l)).join(' | '));
+  /* a private word to one person is still a blind spot for the rest */
+  st = applyMutations(st, [{ type: 'knowledge.add', name: present[0], fact: 'heard Hitsugaya say, close, that whatever he just remembered stays out of the stones' }]).state;
+  const facts2 = renderStateFacts(st, { whole: true, budget: 60000, scenePages: ['The stones and the courtyard.'] });
+  assert(/hasn’t found out: heard Hitsugaya say, close/.test(facts2), 'a private word stays a blind spot');
+});
+
+test('M509-2 a word that is in most facts is not what makes an old fact bear on the scene: a 46-page-old report is called back for "post station", never for "courtyard"', () => {
+  let st = H(['Rukia Kuchiki']);
+  const old = 'heard Nanao Ise report that the roster acceptance was penned at the post station, five days in transit, in the Tenth’s courtyard before the captain';
+  st = applyMutations({ ...st, page: 2 }, [{ type: 'knowledge.add', name: 'Rukia Kuchiki', fact: old }]).state;
+  for (let p = 3; p < 48; p += 1) st = applyMutations({ ...st, page: p }, [{ type: 'knowledge.add', name: 'Rukia Kuchiki', fact: 'saw the captain in the Tenth’s courtyard on page ' + p }]).state;
+  st.page = 48;
+  const byPlace = renderKnowledge(st.knowledge, st.present, Infinity, { pages: ['The captain stood in the Tenth’s courtyard and looked at the bench.'], ignore: ['Jovan Oda'], mc: 'Jovan Oda', turn: 49 });
+  assert(!/Nanao Ise report/.test(byPlace), '"courtyard", "captain", "Tenth" are in every fact — they call nothing back: ' + byPlace.slice(0, 200));
+  const byWord = renderKnowledge(st.knowledge, st.present, Infinity, { pages: ['A runner came from the post station with word of the transit.'], ignore: ['Jovan Oda'], mc: 'Jovan Oda', turn: 49 });
+  assert(/From much earlier[^\n]*Nanao Ise report/.test(byWord), 'its own words still call it back, dated: ' + byWord.slice(0, 300));
+});
+
+test('M509-3 an episode or a chapter page is never a person: its cast list is not a face, its lead says what it is', async () => {
+  const { isEpisodeOrChapterPage } = await import('../../js/canon/grounding.js');
+  const ep = "{{Episode\n| title = Muguruma's 9th Division, Moves Out\n| number = 313\n| airdate = March 8, 2011\n| appearance = [[Shinji Hirako]] [[Sōsuke Aizen]] [[Hiyori Sarugaki]] [[Kisuke Urahara]]\n}}\n'''Muguruma's 9th Division, Moves Out''' is the three hundred thirteenth episode of the ''[[Bleach (anime)|Bleach]]'' anime.\n\n==Summary==\nShinji Hirako carries himself with a casual air…";
+  const person = "{{Infobox character\n| name = Kensei Muguruma\n| gender = Male\n| hair = Silver\n| eyes = Brown\n}}\n'''Kensei Muguruma''' is the captain of the [[9th Division]].\n\n==Appearance==\nA tall, muscular man…";
+  const chapter = "{{Chapter\n| number = 214\n}}\n'''Immanent God Blues''' is the two hundred fourteenth chapter of the ''Bleach'' manga.";
+  const plain = "'''Kensei Muguruma''' is a captain.\n\n==Personality==\nDecisive, serious.";
+  eq(isEpisodeOrChapterPage(ep), true); eq(isEpisodeOrChapterPage(chapter), true);
+  eq(isEpisodeOrChapterPage(person), false); eq(isEpisodeOrChapterPage(plain), false);
+});

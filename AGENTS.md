@@ -12012,3 +12012,30 @@ whether the structure is right, whether it is bloated, and how to keep the telle
   card healed; an opened page is empty and never over a real core; a blind spot clipped, the whole above). M40-5 and
   M259-38 re-pinned to the empty page and the whole seat. GATES: harness 971/971, walk 145/145, long play 8/8, lint 0.
   version.js -> m508-001.
+
+# M509 — the second reading of his blocks (turn 52, the state of things 14k → 10k), and what still read wrong
+He pasted the three blocks again after one send on m508-001. Read whole. What M508 changed held: the main character in
+no "but", his line four facts, four called-back facts a person at most, the blind spots clipped, Renji's card clean —
+and with the block smaller the standings, the factions and the threads fit again (they had been shed). Still wrong:
+- "Known to <twelve names>" where "Everyone here but <eight>" is shorter: renderKnowledge names the line by the
+  SHORTER list now (it asked for half or fewer). And "Everyone here knows" stood over a room where people with no book
+  yet were not counted at all — the roster is everyone present but the main character; someone without a book is named
+  among the "but" (M459's law with the main character taken from the ignore list when unnamed).
+- A blind spot repeating a fact that stood above as a shared line ("Rukia, Isane hasn't found out: 'I love you, brotha'"
+  under "Everyone here but Rukia, Isane knows: …"): renderKnowledge hands the shared facts back (out.shared), and
+  renderStateFacts keeps as blind spots only what the lines above do not already place; a private word to one person
+  stays a blind spot for the rest (M338).
+- A 46-page-old, 120-word report called back for Rukia on "Thirteenth", "courtyard", "captain": a word in more than a
+  quarter of the books' facts is set aside for the recall (df over the books, when there are twenty facts or more);
+  M336's two telling words still call an old fact back, dated.
+- Two threads with one next move ("take custody of both the paper and the boy" under two titles): renderThreads rides
+  a next move once (M86-1's fixture given six distinct next moves).
+- CANON: "Muguruma's 9th Division, Moves Out" — a Bleach EPISODE page, found for a trusted name — rode the pack as a
+  person with the episode's cast list as its Appearance. grounding.js isEpisodePage (the lead "is the Nth episode /
+  chapter", an {{Episode}}/{{Chapter}} infobox, airdate/episode-number fields) joins the disambiguation/series gate
+  that trust cannot overrule; exported as isEpisodeOrChapterPage for the law.
+- LAWS: m508.mjs M509-1..3. GATES: harness 974/974, walk 145/145, long play 8/8, lint 0. version.js -> m509-001.
+- STILL SEEN, LEFT: "Here now" keeps Rukia (walking out) and Jovan (running out) as present with leaving positions —
+  the page reader's leave gate (M402/M491) needs them shown gone at a page's end; the next page's reads settle it.
+  A courier's own view of the courtyard listed as a blind spot for four captains — a fact about the scene everyone is
+  in is not a secret; not fixed (it needs a reading, not a regex).

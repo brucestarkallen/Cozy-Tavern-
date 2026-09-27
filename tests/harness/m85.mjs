@@ -245,7 +245,7 @@ test('M86-1 the absent are ranked by who can reach the scene (the writer’s ACW
   assert(/Guest0 — eyes/.test(facts) && !/Guest15 — eyes/.test(facts), 'the first present keep their facts; the sixteenth is counted, not written');
   /* still overfull after trimming: the factions go before the arrivals */
   for (let i = 0; i < 12; i += 1) st.offscreen = seat(st.offscreen, 'Traveler' + i, { location: 'the long road past the mill and the drowned fields', activity: 'walking with the mule and the cart', agenda: 'sell the winter grain at the market before the frost', stance: 'busy' }, 600, 20 + i);
-  for (let i = 0; i < 6; i += 1) st.threads.push({ title: 'thread ' + i, owner: 'Traveler' + i, heat: 'hot', next: 'do the long thing they were going to do before the frost comes to the fields', atTurn: 2 });
+  for (let i = 0; i < 6; i += 1) st.threads.push({ title: 'thread ' + i, owner: 'Traveler' + i, heat: 'hot', next: 'do the long thing number ' + i + ' they were going to do before the frost comes to the fields', atTurn: 2 }); /* M509: six threads with one next move would ride once */
   const tight = renderStateFacts(st);
   assert(tight.length <= STATE_BUDGET, 'the budget still holds: ' + tight.length);
   assert(/Runner/.test(tight), 'the arrival outlives the knife: ' + tight.slice(0, 200));

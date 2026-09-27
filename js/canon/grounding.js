@@ -1015,6 +1015,7 @@ function stripTemplates(text) {
 export function lastInjectionReport() {
   return { note: lastInjection || '', at: lastInjectionAt || 0, source: lastSource || '', error: lastLlmError || '', reasons: Array.isArray(lastReasons) ? lastReasons.slice(0, 6) : [] };
 }
+export function isEpisodeOrChapterPage(wt) { return isEpisodePage(wt); } /* exported for the harness (M509) */
 export function cleanWikitext(wt) { /* exported for the harness (M460) */
     if (!wt) return "";
     let s = wt;
@@ -1443,6 +1444,20 @@ function isMetaSeriesPage(wikitext) {
     return /\bis an?\s+(?:japanese\s+)?(?:light novel|web novel|manga|anime|novel|visual novel|video game|television|tv)\s+(?:series|franchise)\b/i.test(lead);
 }
 
+/** M509: AN EPISODE OR A CHAPTER IS AN EVENT, NOT A WHO. "Muguruma's 9th Division, Moves Out" — a Bleach episode page,
+ * found for a trusted name — rode the canon pack as a person: its infobox "Appearance" is the episode's CAST LIST
+ * (fourteen names), its lead says it "is the Nth episode of the anime". A trusted name lands here too: the caller
+ * vouched for the name, we chose the page. */
+function isEpisodePage(wikitext) {
+    if (!wikitext) return false;
+    const lead = extractLead(wikitext, 400);
+    if (/\bis the\s+(?:\S+\s+){0,3}(?:episode|chapter|volume|arc|season|opening|ending)\b/i.test(lead) || /\b(?:episode|chapter)\s+(?:no\.?|number|#)?\s*\d+\b.{0,60}\b(?:anime|manga|series)\b/i.test(lead)) return true;
+    const head = wikitext.slice(0, 4000);
+    if (/\{\{\s*(?:episode|chapter|anime episode|manga chapter|infobox episode|infobox chapter|volume)\b/i.test(head)) return true;
+    const fields = extractInfoboxFields(wikitext, ["airdate", "air date", "original airdate", "episode number", "episode no", "chapter number", "chapters covered", "manga chapters", "previous episode", "next episode", "opening theme", "ending theme", "eyecatch"]);
+    return Boolean(fields && String(fields).trim());
+}
+
 /** A disambiguation page injected as canon is pure wrong-info — detect and skip. */
 function isDisambiguation(wikitext) {
     if (!wikitext) return false;
@@ -1700,9 +1715,9 @@ async function ensureGrounded(name, trusted = false) {
             // "not-character" is the reason that gets re-fetched for trusted callers
             // (a place/org is still valid lore) — a meta page never becomes valid, so
             // it must settle instead of re-fetching the same dead page every turn.
-            if (isDisambiguation(wikitext) || isMetaSeriesPage(wikitext)) {
+            if (isDisambiguation(wikitext) || isMetaSeriesPage(wikitext) || isEpisodePage(wikitext)) {
                 missReason = "meta-page";
-                debug(`⚠ "${title}" is a disambiguation/series page, not an entity — skipped`);
+                debug(`⚠ "${title}" is a disambiguation/series/episode page, not an entity — skipped`);
                 continue;
             }
 

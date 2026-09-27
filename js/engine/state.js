@@ -959,10 +959,17 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M29: who knows what — the present only, so the storyteller never has
    * to search the transcript for whether Liara was in the room. */
   /* M305: the newest, and the older facts that bear on the scene the last pages tell */
-  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null }); /* M336: the present page, so an old fact can say its age; M508: the main character's book is the writer's */
+  const known = {};
+  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null }, known); /* M336: the present page, so an old fact can say its age; M508: the main character's book is the writer's */
   if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'Who knows what: ' });
   /* M338: and what each person here has NOT been shown learning — computed from the same lines, no model */
-  const blind = renderBlindSpots(blindSpots(state.knowledge, present, { scenePages, turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, mc: mcName(state) }));
+  /* M509: a fact that stands above as a shared line — "Everyone here but X knows" / "Known to A, B, C" — has already
+   * said who is out of it; the blind spots name only what the lines above do not */
+  const normFact = (f) => String(f || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const spots = blindSpots(state.knowledge, present, { scenePages, turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, mc: mcName(state) })
+    .map((s) => ({ ...s, lacks: s.lacks.filter((l) => !(known.shared && known.shared.has(normFact(l.fact)))) }))
+    .filter((s) => s.lacks.length);
+  const blind = renderBlindSpots(spots);
   if (blind) sections.push({ shed: 2, text: BLIND_HEAD + blind, trimTo: whole ? Infinity : 8, head: BLIND_HEAD });
 
   /* M86: the living world is not the first thing the budget drops — who is

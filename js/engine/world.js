@@ -232,7 +232,11 @@ export function renderThreads(threads, top = THREADS_RENDER, scene = null) {
   const near = (t) => (names.length && threadTouches(t, names) ? 0 : 1);
   const rank = (t) => (t.heat === 'cold' ? 1 : 0);
   list.sort((a, b) => near(a) - near(b) || rank(a) - rank(b) || (b.atTurn ?? -1) - (a.atTurn ?? -1));
-  return list.slice(0, top).map((t) => {
+  /* M509: two threads with the very same next move ("take custody of both the paper and the boy" under two titles)
+   * ride once — the first by rank; the other still stands in the ledger */
+  const seenNext = new Set();
+  const once = list.filter((t) => { const key = String(t.next || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim(); if (!key) return true; if (seenNext.has(key)) return false; seenNext.add(key); return true; });
+  return once.slice(0, top).map((t) => {
     let line = (t.heat === 'cold' ? '(cold) ' : '') + t.title;
     if (t.owner) line += ' — ' + t.owner + (t.with ? ' (with ' + t.with + ')' : '');
     if (t.next) line += threadNextWords(t.owner, t.next); /* M416 */
@@ -481,7 +485,7 @@ function factScore(fact, sceneWords, ignore) {
  * COUNTED, never silently dropped. `scene` = { pages, ignore:[names] }. */
 export const KNOWLEDGE_OLD_AFTER = 6; /* pages: older than this, a fact says its age */
 export const KNOWLEDGE_MC = 4;        /* M508: the main character's newest few */
-export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scene = null) {
+export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scene = null, out = null) {
   const safe = copyKnowledge(knowledge);
   const names = (Array.isArray(present) ? present : [])
     .map((p) => (typeof p === 'string' ? p : p && p.name))
@@ -503,6 +507,16 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   };
   const ignoreBase = new Set();
   for (const n of (scene && Array.isArray(scene.ignore) ? scene.ignore : [])) for (const w of String(n || '').toLowerCase().split(/\s+/)) if (w) ignoreBase.add(w.replace(/['’]s$/, ''));
+  /* M509: A WORD IN MOST FACTS TELLS NOTHING. In a courtyard fifty pages long, "courtyard", "captain", "Tenth" and
+   * "Zaraki" are in nearly every fact and every page — on them a 46-page-old report was "bearing on the scene". A word
+   * found in more than a quarter of the books' facts is set aside for the recall (M336's two telling words stand). */
+  const df = new Map(); let factCount = 0;
+  for (const list of Object.values(safe)) for (const k of (Array.isArray(list) ? list : [])) {
+    factCount += 1;
+    const seen = new Set();
+    for (const w of String(k && k.fact || '').toLowerCase().split(/[^\p{L}\p{N}'’-]+/u)) { const word = w.replace(/['’]s$/, '').replace(/^['’-]+|['’-]+$/g, ''); if (word.length >= 4 && !seen.has(word)) { seen.add(word); df.set(word, (df.get(word) || 0) + 1); } }
+  }
+  if (factCount >= 20) for (const [w, n] of df) if (n > factCount * 0.25) ignoreBase.add(w);
   const lines = [];
   const drawn = new Set(); /* M459: a book is drawn once, whoever else answers to it */
   const picked = [];
@@ -510,7 +524,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
    * is told), and when the reader left a public moment out of it he stood in every "Everyone here but Jovan …" as
    * someone who had not seen what happened in front of him. His newest few ride, nothing older is called back, and
    * his book never counts in what is shared or what he is "but". */
-  const mc = scene && typeof scene.mc === 'string' && scene.mc.trim() ? scene.mc.trim() : '';
+  const mc = scene && typeof scene.mc === 'string' && scene.mc.trim() ? scene.mc.trim() : (scene && Array.isArray(scene.ignore) && typeof scene.ignore[0] === 'string' ? scene.ignore[0].trim() : ''); /* the main character: named, or the first name every fact is asked to ignore */
   const isMcKey = (key) => Boolean(mc) && (key.trim().toLowerCase() === mc.toLowerCase() || samePersonName(key, mc));
   for (const name of names) {
     const key = findKnowledgeKey(safe, name);
@@ -526,7 +540,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
       const ignore = new Set(ignoreBase);
       for (const w of key.toLowerCase().split(/\s+/)) if (w) ignore.add(w);
       recalled = older
-        .map((k, i) => ({ k, i, score: factScore(k.fact, sceneWords, ignore) }))
+        .map((k, i) => ({ k, i, score: factScore(k.fact, sceneWords, ignore), age: nowTurn != null && Number.isFinite(k.atTurn) ? nowTurn - k.atTurn : 0 }))
         .filter((x) => x.score >= 2)
         .sort((a, b) => (b.score - a.score) || (b.i - a.i))
         .slice(0, recallMax)
@@ -544,11 +558,22 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   for (const p of others) for (const f of [...p.newest, ...p.recalled]) { const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [] }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
   const shared = [...holders.values()].filter((h) => h.who.length >= 3);
   const sharedKeys = new Set(shared.map((h) => norm(h.text)));
+  if (out && typeof out === 'object') out.shared = new Set(shared.map((h) => norm(h.text.replace(/ \(learned about \d+ pages ago\)$/, '')))); /* M509: the blind spots need not say them again */
+  /* M509: "EVERYONE HERE" IS EVERYONE HERE. A person with no book yet was not counted — "Everyone here knows" stood over a
+   * room where eight had learned nothing. The roster is everyone present but the main character, under the key their
+   * book is filed by; someone without a book is named among the "but". */
+  const roster = [];
+  for (const name of names) {
+    if (isMcKey(name)) continue;
+    const key = findKnowledgeKey(safe, name) || name;
+    if (!roster.some((r) => r === key || samePersonName(r, key))) roster.push(key);
+  }
   const bySet = new Map();
-  for (const h of shared) { const everyone = h.who.length === others.length; const sig = everyone ? '*' : h.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { everyone, who: h.who, facts: [] }); bySet.get(sig).facts.push(h.text); }
+  for (const h of shared) { const everyone = h.who.length >= roster.length; const sig = everyone ? '*' : h.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { everyone, who: h.who, facts: [] }); bySet.get(sig).facts.push(h.text); }
   for (const g of [...bySet.values()].sort((a, b) => (b.everyone - a.everyone) || (b.who.length - a.who.length))) {
-    const but = others.map((p) => p.key).filter((k) => !g.who.includes(k));
-    lines.push((g.everyone ? 'Everyone here knows' : but.length <= g.who.length / 2 ? 'Everyone here but ' + but.join(', ') + ' knows' : 'Known to ' + g.who.join(', ')) + ': ' + g.facts.join('; ') + '.');
+    const but = roster.filter((k) => !g.who.includes(k));
+    /* M509: the SHORTER list names the line — "Everyone here but" eight names beats "Known to" twelve */
+    lines.push((g.everyone ? 'Everyone here knows' : but.length < g.who.length ? 'Everyone here but ' + but.join(', ') + ' knows' : 'Known to ' + g.who.join(', ')) + ': ' + g.facts.join('; ') + '.');
   }
   for (const p of picked) {
     const own = p.newest.filter((f) => !sharedKeys.has(norm(f)));
