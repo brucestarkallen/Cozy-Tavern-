@@ -456,7 +456,7 @@ function resolveRole(state, name) {
   const named = Object.keys(pages).filter((k) => !roleOf(k) && !relationOf(k) && !samePersonName(k, name));
   if (!named.length) return null;
   const texts = [];
-  for (const k of Object.keys(pages)) texts.push(personTexts(state, k));
+  for (const k of Object.keys(pages)) { const c = pages[k] || {}; texts.push([c.core, c.state, c.arc, ...(Array.isArray(c.threads) ? c.threads : [])].filter((x) => typeof x === 'string').join(' ')); } /* the whole page, its loose ends too */
   for (const t of (Array.isArray(state.threads) ? state.threads : [])) texts.push([t && t.title, t && t.next, t && t.note].filter((x) => typeof x === 'string').join(' '));
   for (const list of Object.values(state.knowledge && typeof state.knowledge === 'object' ? state.knowledge : {})) for (const f of (Array.isArray(list) ? list : [])) if (f && typeof f.fact === 'string') texts.push(f.fact);
   for (const seat of Object.values(state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {})) texts.push([seat && seat.location, seat && seat.activity, seat && seat.agenda].filter((x) => typeof x === 'string').join(' '));

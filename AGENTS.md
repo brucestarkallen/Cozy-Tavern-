@@ -12066,3 +12066,12 @@ repeating a shared line, the joint-custody thread once). Still wrong, now fixed:
   would be right — a moment known to many of those present at that page is nobody's blind spot who was in the scene
   then, from the journal's presence — cannot tell a courtyard's whisper from its shout, and a whisper's blind spots
   are the point.
+
+# M509-3 — the fourth reading: the same blocks, so the build had not changed
+His fourth paste (a retry) was the m509-001 output line for line — the two 46-page-old facts still among seven people's
+"newest" (M509-2 orders a book by the page learned), "the courier" still beside "Hachigorō" — and one new blind line
+from the retry's reading. The build had not been relit. Meanwhile: resolveRole's apposition search reads a page's
+now, arc and loose ends too (his "the courier Hachigorō" stood in Suì-Fēng's loose ends), replayed on his ledger's
+exact shape (a courier with a page of its own, the apposition only in a loose end and a fact): one man, four places
+follow. CG_VERSION 0.68.1 → 0.68.2 so the canon self-heal takes one more look at every poisoned entry — the cached
+episode page goes on the next canon turn. GATES: harness 976/976, lint 0. version.js -> m509-003.
