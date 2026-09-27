@@ -1319,7 +1319,11 @@ export function staleNows(state, { ground = '' } = {}) {
      * matcher (samePlace — the rule a place.set moves by), not by the place's first part: "10th Division HQ — training
      * courtyard" to "10th Division HQ — captain's office" is a move (it lets every position go), so a now written in the
      * courtyard ("at the rail, watching the sand") is of a place the scene has left, not of the HQ it is still in */
-    if (entry.nowAt && String(entry.nowAt).trim() && !samePlace(entry.nowAt, where)) { out.push(k); continue; }
+    /* M509-6: A SPOT IN THE SAME ROOM IS NOT A MOVE. A header "Tenth Division courtyard, before the First's bench" over nows
+     * written on "Tenth Division courtyard" let go of thirteen people's nows in his courtyard at once — the storyteller
+     * had named a spot within the ground, not another room. The ONE place matcher (M421) stands for a move between
+     * rooms; a ground that names every part of the other (seatAtScene, M444) is that ground with a spot named. */
+    if (entry.nowAt && String(entry.nowAt).trim() && !samePlace(entry.nowAt, where) && !seatAtScene(where, entry.nowAt) && !seatAtScene(entry.nowAt, where)) { out.push(k); continue; }
     if (entry.nowAt) continue;
     const now = foldName(entry.state);
     if (past.some((g) => now.includes(g)) && !now.includes(here)) out.push(k);

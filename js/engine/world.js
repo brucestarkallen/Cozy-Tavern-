@@ -412,13 +412,11 @@ export function sameFact(a, b, { fuzzy = false } = {}) {
    * most of their content words are one fact: six of ten of the shorter one's words in the longer, or five words
    * shared and half; the longer wording stays. Two facts that merely share a subject ("Jovan", "the courtyard") do
    * not reach it. */
-  const words = (t) => new Set(String(t).split(' ').filter((s) => s.length > 3 || /\d/.test(s)));
-  const ws = words(x); const wl = words(y);
+  const ws = keyWords(x); const wl = keyWords(y); /* M509-6: remembered per key */
   if (ws.size < 4 || wl.size < 4) return false;
   /* what tells two near facts apart — a number, a name (a capitalised word inside the sentence) — must agree: "told
    * Vivi" is not "told Claire", "fact 1" is not "fact 2" */
-  const nums = (t) => new Set(String(t || '').match(/\b\d+\b/g) || []);
-  const names = (t) => new Set((String(t || '').match(/(?<=[^.!?]\s)[A-Z][\p{L}-]+/gu) || []).map((m) => m.toLowerCase()));
+  const nums = factNums; const names = factNames; /* M509-6: remembered per text */
   const na = nums(a); const nb = nums(b);
   for (const n of na) if (!nb.has(n)) return false;
   for (const n of nb) if (!na.has(n)) return false;
@@ -592,9 +590,20 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
 /* M459: THE SAME FACT IN NEW WORDS IS ONE FACT. The page reader writes what a person learned on every page, and over
  * twenty pages "Shunsui accepted Jovan through his own office and named him captain of the 13th" gathered five
  * wordings in each witness's book. When two facts share nearly all their words, the newer wording stands for both. */
+/* M509-6: THE WORDS OF A FACT ARE CUT ONCE. sameFactsOnce compares every fact of a book with every other on every render
+ * of the room, and cut both into words each time — with forty facts a person and twenty people in a courtyard, two
+ * thirds of a render went to cutting the same strings again (tests: 10 renders 2,892 → ~600 ms). Every helper below
+ * remembers its answer by the text, bounded. */
+const ONCE_WORDS = new Map(); const ONCE_NUMS = new Map(); const KEY_WORDS = new Map(); const FACT_NUMS = new Map(); const FACT_NAMES = new Map();
+const remember = (map, key, make) => { if (map.has(key)) return map.get(key); const v = make(); if (map.size > 20000) map.clear(); map.set(key, v); return v; };
+const onceWords = (f) => remember(ONCE_WORDS, String(f || ''), () => new Set(String(f || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').split(' ').filter((w) => w.length > 2 || /\d/.test(w))));
+const onceNumbers = (set) => remember(ONCE_NUMS, set, () => [...set].filter((w) => /\d/.test(w)).sort().join(' '));
+const keyWords = (t) => remember(KEY_WORDS, String(t), () => new Set(String(t).split(' ').filter((s) => s.length > 3 || /\d/.test(s))));
+const factNums = (t) => remember(FACT_NUMS, String(t || ''), () => new Set(String(t || '').match(/\b\d+\b/g) || []));
+const factNames = (t) => remember(FACT_NAMES, String(t || ''), () => new Set((String(t || '').match(/(?<=[^.!?]\s)[A-Z][\p{L}-]+/gu) || []).map((m) => m.toLowerCase())));
 function sameFactsOnce(list) {
-  const words = (f) => new Set(String(f || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').split(' ').filter((w) => w.length > 2 || /\d/.test(w)));
-  const numbers = (set) => [...set].filter((w) => /\d/.test(w)).sort().join(' ');
+  const words = onceWords;
+  const numbers = onceNumbers;
   const out = [];
   for (let i = list.length - 1; i >= 0; i -= 1) {
     const k = list[i];

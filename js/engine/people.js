@@ -460,29 +460,59 @@ function resolveRole(state, name) {
 }
 /* M509-5: the named pages the ledger's own words call "the <role> <Name>" / "<Name>, the <role>" — the join's evidence,
  * kept apart so the light can say why a descriptor stands alone (none named; two named) */
-export function roleOwnersNamed(state, role, namedPages = null) {
-  const esc = String(role || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  if (!esc) return [];
+/* M509-6: THE SEARCH IS DONE ONCE PER LEDGER AND ROLE, AND IN ONE PASS. The first cut joined every text of the ledger and
+ * ran one regex per named page on every call — and resolveDescriptor is asked for every descriptor on every render of
+ * the room (the drawer, the briefing, each reader), so a courtyard with eight descriptors and forty books stalled the
+ * drawer for seconds on his phone. Now the ledger's words are joined once per ledger object, one regex per role
+ * captures the names that follow or precede the role, the captured names are matched to the pages, and the answer is
+ * kept per ledger object and role. Names are compared NFC-normalised (a page key and a fact can spell "ō" two ways). */
+const BODY_OF = new WeakMap(); /* state -> the ledger's words, joined once */
+const OWNERS_OF = new WeakMap(); /* state -> Map(role -> owners) */
+const nfc = (t) => String(t || '').normalize('NFC');
+function ledgerWords(state) {
+  const hit = BODY_OF.get(state);
+  if (hit !== undefined) return hit;
   const pages = state.characters && typeof state.characters === 'object' ? state.characters : {};
-  const named = Array.isArray(namedPages) ? namedPages : Object.keys(pages).filter((k) => !roleOf(k) && !relationOf(k));
   const texts = [];
   for (const k of Object.keys(pages)) { const c = pages[k] || {}; texts.push([c.core, c.state, c.arc, ...(Array.isArray(c.threads) ? c.threads : [])].filter((x) => typeof x === 'string').join(' ')); } /* the whole page, its loose ends too */
   for (const t of (Array.isArray(state.threads) ? state.threads : [])) texts.push([t && t.title, t && t.next, t && t.note].filter((x) => typeof x === 'string').join(' '));
   for (const list of Object.values(state.knowledge && typeof state.knowledge === 'object' ? state.knowledge : {})) for (const f of (Array.isArray(list) ? list : [])) if (f && typeof f.fact === 'string') texts.push(f.fact);
   for (const seat of Object.values(state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {})) texts.push([seat && seat.location, seat && seat.activity, seat && seat.agenda].filter((x) => typeof x === 'string').join(' '));
   if (typeof state.worldBrief === 'string') texts.push(state.worldBrief);
-  const body = texts.join('\n');
+  const body = nfc(texts.join('\n'));
+  if (state && typeof state === 'object') BODY_OF.set(state, body);
+  return body;
+}
+export function roleOwnersNamed(state, role, namedPages = null) {
+  const esc = String(role || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!esc || !state || typeof state !== 'object') return [];
+  let byRole = OWNERS_OF.get(state);
+  if (!byRole) { byRole = new Map(); OWNERS_OF.set(state, byRole); }
+  const key = role + '|' + (Array.isArray(namedPages) ? namedPages.join('|') : '*');
+  if (byRole.has(key)) return byRole.get(key).slice();
+  const pages = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const named = Array.isArray(namedPages) ? namedPages : Object.keys(pages).filter((k) => !roleOf(k) && !relationOf(k));
+  const body = ledgerWords(state);
+  /* one pass: the capitalised name (one or two words) after "the <role>", and the one before ", the <role>" */
+  const NAME = '([\\p{Lu}][\\p{L}\\p{N}\'’.-]*(?:\\s+[\\p{Lu}][\\p{L}\\p{N}\'’.-]*)?)';
+  /* no `i` flag: it would make \p{Lu} match any letter and the capture swallow the next word ("Hachigorō ride"); the
+   * article and the role are matched in either case by hand */
+  const anyCase = (w) => w.replace(/\p{L}/gu, (ch) => { const lo = ch.toLowerCase(); const up = ch.toUpperCase(); return lo === up ? ch : '[' + lo + up + ']'; });
+  const article = '(?:[Tt]he|[Aa]n?)';
+  const after = new RegExp('(?<![\\p{L}\\p{N}])' + article + '\\s+' + anyCase(esc) + '\\s+' + NAME + '(?![\\p{L}\\p{N}])', 'gu');
+  const before = new RegExp('(?<![\\p{L}\\p{N}])' + NAME + ',?\\s+' + article + '\\s+' + anyCase(esc) + '(?![\\p{L}\\p{N}])', 'gu');
+  const seen = new Set();
+  for (const re of [after, before]) { let m; while ((m = re.exec(body))) { const cand = m[1].trim(); if (cand) seen.add(cand); if (seen.size > 200) break; } }
   const owners = [];
   for (const k of named) {
-    const first = k.split(/\s+/)[0];
-    const forms = [k, first].filter((w) => w && w.length >= 3 && !/^(?:the|an?)$/i.test(w)).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const kn = nfc(k); const first = kn.split(/\s+/)[0];
+    const forms = [kn, first].filter((w) => w && w.length >= 3 && !/^(?:the|an?)$/i.test(w)).map((w) => w.toLowerCase());
     if (!forms.length) continue;
-    const who = '(?:' + forms.join('|') + ')';
-    /* unicode boundaries — \b is ASCII-only in JS, and "Hachigorō" ends past it */
-    const L = '(?<![\\p{L}\\p{N}])'; const R = '(?![\\p{L}\\p{N}])';
-    const re = new RegExp('(?:' + L + '(?:the|an?)\\s+' + esc + '\\s+' + who + R + ')|(?:' + L + who + ',?\\s+(?:the|an?)\\s+' + esc + R + ')', 'iu');
-    if (re.test(body)) owners.push(k);
+    let hit = false;
+    for (const cand of seen) { const c = cand.toLowerCase(); const cFirst = c.split(/\s+/)[0]; if (forms.includes(c) || forms.includes(cFirst) || c.startsWith(forms[0] + ' ')) { hit = true; break; } }
+    if (hit) owners.push(k);
   }
+  byRole.set(key, owners.slice());
   return owners;
 }
 export function roleWordOf(name) { return roleOf(name); } /* M509-5: for the light's word */

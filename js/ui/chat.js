@@ -5075,7 +5075,10 @@ export function initChat(ctx) {
        * turn's user page; the newer snapshots drop with it. The undo log
        * stays independent. */
       const boundary = boundaryFor(history, target.id);
-      if (boundary) await rewindTo(story, history, boundary.id);
+      const rewound = boundary ? await rewindTo(story, history, boundary.id) : false;
+      /* M509-6: a Try again that could NOT set the ledger back says so — before this the page's own reads stayed in
+       * silence and the retry was told the hour and the room of the page it was replacing */
+      if (!rewound) toast('Try again could not set the ledger back to before this page — no checkpoint reaches it; the page’s own reads stayed.');
 
       /* M44: the record lets go of every line that reached the pages now gone */
       const firstGone = target.role === 'assistant' ? target : history[at + 1];

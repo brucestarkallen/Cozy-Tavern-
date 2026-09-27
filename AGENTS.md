@@ -12105,3 +12105,33 @@ otherHandAt), and a retry's rewind drops a heal stamped on the newest page. So:
   once more (any of them can bring a descriptor back beside the man it is), journaled, silent when there is nothing.
 - GATES: harness 976/976, walk 146/146, long play 8/8, lint 0. version.js -> m509-005. NEXT: his light's workers
   panel after one page on m509-005 — the page reader's line names the courier one way or the other.
+
+# M509-6 — his anger, and what it was: the lag was mine; the nows let go were an old rule; Try again is proven and told
+He: "everything so lagging right now, I can't even open ledger", "when I retry the scene time is still the old latest
+page, not before the page", "did you break anything". Read whole, measured, fixed:
+- THE LAG WAS M509-2's ROLE SEARCH. resolveDescriptor is asked for every descriptor on every render of the room (the
+  drawer, the briefing, each reader) and the apposition search joined every text of the ledger and ran one regex per
+  named page on EVERY call — eight descriptors in his courtyard, forty books, several renders a turn: seconds on his
+  phone. Now people.js joins the ledger's words once per ledger object (a WeakMap), captures the names after and
+  before the role in one pass per role (no `i` flag — it made \\p{Lu} match any letter and the capture swallow the next
+  word), NFC-normalises both sides (a page key and a fact can spell "ō" two ways), and keeps the answer per ledger
+  object and role. And a second cost found under it, older: sameFactsOnce and sameFact cut every fact into words on
+  every comparison of every pair on every render — world.js remembers a fact's words, numbers and names by its text.
+  MEASURED (his room's shape: twenty present, forty facts each, eight descriptors): 10 renders of the state of things
+  and the people block 2,892 → 870 ms.
+- THE NOWS LET GO: his light said the page reader "let go of a now that named a place the scene has left" for
+  thirteen people standing in the courtyard. staleNows (M405/M409/M421) judged the ground by the ONE place matcher
+  and the header "Tenth Division courtyard, before the First's bench" was another place than "Tenth Division
+  courtyard". A ground that names every part of the other (seatAtScene, M444) is the same ground with a spot named;
+  a room of the compound to another room (M421's captain's office) is still a move. Not a change of mine — an old rule
+  that his storyteller's headers tripped; it cost the storyteller every "Now:" line each time it happened.
+- TRY AGAIN: walk DOM-129 (new) drives it through the real app — two pages with their own hours and walk-ins, Try again
+  on the second: the retry's request carries the hour and the room from BEFORE the page (09:05, the first walk-in
+  only), and the new version's own header stands after. It passes; the rewind (foldTo, M21/M72) is not broken here.
+  On his device the hour advanced with each retry, which is what a retry that did not rewind looks like; the retry
+  now SAYS so when rewindTo returns false (a toast: "Try again could not set the ledger back…") instead of keeping the
+  page's own reads in silence. The cause on his device is still unread — the next Try again will either rewind or
+  say why it could not.
+- The courier: the search is NFC-safe and cached now; descriptorsApart names a descriptor standing apart though the
+  ledger names someone for its role. GATES: harness 976/976, walk 147/147, long play 8/8, lint 0.
+  version.js -> m509-006.
