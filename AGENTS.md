@@ -11958,3 +11958,19 @@ checkpoint rewriting the one versionState row: 2.1 MB, a 390 ms write on the mai
   every ledger back whole, one row written per checkpoint, letting two go rewrites nothing, a legacy map migrates).
 - GATES: harness 967/967, walk 145/145, long play 8/8, lint 0, holdsone.py, bootpull.py, twobrowsers.py.
   version.js -> m507-006.
+
+# M507-7 — many rows in one transaction; a store from before M507 moves to the rows on its first send, proven
+- store.js settings.setMany(entries) / deleteMany(keys): one readwrite transaction each (run() resolves on
+  oncomplete, so every put or delete in it lands or none does). state.js saveSnapshots and saveVersionStates write
+  their rows through setMany; dropSnapshotRows / dropVersionRows let go through deleteMany — a branch's hundred
+  checkpoint rows, a rewind's deletions, and the one-time move are one round trip each, not one per row.
+- snapshotState's legacy branch writes the list stored whole to its rows AS STORED (a slim entry is already banked —
+  nothing is unbanked and banked again), in one transaction, then keeps the new checkpoint as usual.
+- PROOF (tests/migrate_checkpoints.py, new, real Chromium + real serve.py + the real app's send): a tale with forty
+  boundary checkpoints and forty version ledgers stored the old way (one list, one map, no rows), pushed to the
+  device that way; one send in the app; then the index rows are indexes, every row is there (41 and 41), EVERY old
+  checkpoint and version ledger reads back byte for byte whole, one asked alone is whole, the device holds the new
+  rows and the index in place of the old list, no page errors. The first send with the move in it: the request out at
+  1555 ms, the worst freeze 423 ms, the page done at 2182 ms (CPU 6x).
+- GATES: harness 967/967, walk 145/145, lint 0, holdsone.py, bootpull.py, migrate_checkpoints.py. version.js ->
+  m507-007.

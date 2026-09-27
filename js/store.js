@@ -253,6 +253,20 @@ const settings = {
     settingsCache.set(key, cloneValue(val));
     return val;
   },
+  /* M507-6: many rows written, and many let go, in ONE transaction each — a branch's hundred checkpoint rows or a
+   * store's move to the rows are one round trip, not a hundred. entries: [[key, value], …]; keys: [key, …]. */
+  async setMany(entries) {
+    const list = (Array.isArray(entries) ? entries : []).filter((e) => Array.isArray(e) && typeof e[0] === 'string');
+    if (!list.length) return;
+    await run('settings', 'readwrite', (s) => { let last = null; for (const [key, value] of list) last = s.put({ key, value }); return last; });
+    for (const [key, value] of list) settingsCache.set(key, cloneValue(value));
+  },
+  async deleteMany(keys) {
+    const list = [...new Set((Array.isArray(keys) ? keys : []).filter((k) => typeof k === 'string'))];
+    if (!list.length) return;
+    await run('settings', 'readwrite', (s) => { let last = null; for (const key of list) last = s.delete(key); return last; });
+    for (const key of list) settingsCache.delete(key);
+  },
   /* Additive helpers (M7, see header): list every key (the cast library
    * lists its `cast:` shelf this way), and let a key go for good. */
   async keys() {

@@ -617,13 +617,13 @@ async function dropSnapshotRows(storyId, keptIds) {
   const keep = new Set(keptIds.map((id) => SNAP_ROW_OF(storyId, id)));
   let rows = [];
   try { rows = (await settingsKeysOf(storyId)).filter((k) => k.startsWith('snap:')); } catch (err) { rows = (await snapshotIndex(storyId)).map((e) => SNAP_ROW_OF(storyId, e.id)); }
-  for (const k of rows) if (!keep.has(k)) { try { await db.settings.delete(k); } catch (err) { /* the sweep gets it */ } }
+  try { await db.settings.deleteMany(rows.filter((k) => !keep.has(k))); } catch (err) { /* the sweep gets it */ }
 }
 async function dropVersionRows(storyId, keptKeys) {
   const keep = new Set(keptKeys.map((k) => VERSION_ROW_OF(storyId, k)));
   let rows = [];
   try { rows = (await settingsKeysOf(storyId)).filter((k) => k.startsWith('ver:')); } catch (err) { rows = (await versionIndex(storyId)).keys.map((k) => VERSION_ROW_OF(storyId, k)); }
-  for (const k of rows) if (!keep.has(k)) { try { await db.settings.delete(k); } catch (err) { /* the sweep gets it */ } }
+  try { await db.settings.deleteMany(rows.filter((k) => !keep.has(k))); } catch (err) { /* the sweep gets it */ }
 }
 
 /* M44: sparse retention — the newest SNAP_DENSE stay dense, every
@@ -646,13 +646,15 @@ export async function saveSnapshots(storyId, list) {
     const fresh = [];
     const index = [];
     const seen = handedOut.get(storyId) || new Map();
+    const writes = [];
     for (const e of kept) {
       const slim = bankInto(known, add, e.snap);
       fresh.push({ snap: slim });
       index.push(indexEntryOf(e, slim));
       if (seen.get(e.id) === e.snap) continue; /* the row holds exactly this checkpoint already */
-      await db.settings.set(SNAP_ROW_OF(storyId, e.id), slim);
+      writes.push([SNAP_ROW_OF(storyId, e.id), slim]);
     }
+    await db.settings.setMany(writes); /* one transaction */
     await saveBank(storyId, known, add, fresh);
     await dropSnapshotRows(storyId, index.map((e) => e.id));
     await db.settings.set(SNAP_PREFIX + storyId, index);
@@ -705,13 +707,15 @@ export async function saveVersionStates(storyId, all) {
     const seen = versionsHandedOut.get(storyId) || new Map();
     const fresh = {};
     const keys = [];
+    const writes = [];
     for (const [k, v] of Object.entries(map)) {
       if (!v || typeof v !== 'object') continue;
       const slim = bankInto(known, add, v);
       fresh[k] = slim; keys.push(k);
       if (seen.get(k) === v && before.includes(k)) continue; /* the row holds exactly this ledger already */
-      await db.settings.set(VERSION_ROW_OF(storyId, k), slim);
+      writes.push([VERSION_ROW_OF(storyId, k), slim]);
     }
+    await db.settings.setMany(writes); /* one transaction */
     await saveBank(storyId, known, add, fresh);
     await dropVersionRows(storyId, keys);
     await db.settings.set(VERSION_ROW(storyId), keys);
@@ -789,15 +793,24 @@ export async function restoreNearestSnapshot(storyId, order, turnId) {
 export async function snapshotState(storyId, turnId, state) {
   if (!storyId || typeof turnId !== 'string' || !turnId) return;
   const current = state && typeof state === 'object' ? state : await loadState(storyId);
-  const index = await snapshotIndex(storyId);
+  let index = await snapshotIndex(storyId);
   if (index.some((e) => e.snap && typeof e.snap === 'object')) {
-    /* a row from before M507: the whole list is moved to its own rows once, with this checkpoint in it */
-    const list = await loadSnapshots(storyId);
-    const entry = { id: turnId, snap: deepCopy(current), at: Date.now() };
-    const at = list.findIndex((e) => e.id === turnId);
-    if (at === -1) list.push(entry); else list[at] = entry;
-    await saveSnapshots(storyId, list);
-    return;
+    /* a row from before M507: the list stored whole is moved to its own rows once, as it is stored (a slim entry is
+     * already banked — nothing is unbanked or banked again), in one transaction; then this checkpoint is kept as usual */
+    await withBank(storyId, async () => {
+      const known = await knownBankKeys(storyId); const add = emptyBank();
+      const writes = []; const moved = [];
+      for (const e of index) {
+        const slim = e.snap && typeof e.snap === 'object' ? bankInto(known, add, e.snap) : null;
+        if (!slim) continue;
+        writes.push([SNAP_ROW_OF(storyId, e.id), slim]);
+        moved.push(indexEntryOf(e, slim));
+      }
+      await db.settings.setMany(writes);
+      await saveBank(storyId, known, add, writes.map(([, snap]) => ({ snap })));
+      await db.settings.set(SNAP_PREFIX + storyId, moved);
+    });
+    index = await snapshotIndex(storyId);
   }
   /* M507: the one new checkpoint is banked and written to its own row; the index grows by one line; nothing else is
    * read, unbanked or rewritten. The copy is of the ledger WITHOUT its journal and log — the bank holds those by key. */
