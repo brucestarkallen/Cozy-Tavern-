@@ -1071,8 +1071,9 @@ const HANDLERS = {
 
   'people.set'(state, m) {
     const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
-    const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state), { clear: m.clear === true });
-    if (!result.entry) return { why: result.why };
+    const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state), { clear: m.open === true ? 'open' : m.clear === true });
+    if (!result.entry) return { why: result.why, same: result.same === true };
+    if (m.open === true) { state.characters[result.key] = result.entry; return { words: result.key + ' — a page opened for them, nothing written on it yet.', undo: { kind: 'people.restore', name: result.key, before: null } }; } /* M508 */
     const before = result.before ? cloneMap({ [result.key]: result.before })[result.key] : null;
     if (result.entry.retired) { const { retired, retiredAtTurn, ...rest } = result.entry; result.entry = rest; } /* M57: a page written wakes them */
     /* M263: WHAT THE WRITER WROTE BY HAND IS MARKED HIS, so no re-reading of
@@ -1096,7 +1097,7 @@ const HANDLERS = {
     const words = result.key + ' — ' + (FIELD_WORDS[field] || 'their page') + (m.clear === true ? ' was let go' : ' was written down')
       + (field === 'threads'
         ? (result.entry.threads.length ? ': ' + result.entry.threads.join('; ') : ' — all let go')
-        : ': ' + result.entry[field])
+        : (m.clear === true ? '' : ': ' + result.entry[field]))
       + '.';
     return { words, undo: { kind: 'people.restore', name: result.key, before } };
   },
@@ -1731,6 +1732,27 @@ function nowPredatesTheirReturn(s, name) {
     else if (m.type === 'people.set' && String(m.field || '').toLowerCase() === 'state') written = at;
   }
   return cameIn !== null && (written === null || cameIn > written); /* an entrance the journal holds with no write of the now after it: the now is older than the journal's reach */
+}
+/* M508: A CORE MADE OF A SEAT IS LET GO. Before M508 the world agent opened a seated person's page with the seat's own
+ * words as their core — "<activity>; wants <agenda>; at <place>" — and it stood as who they are until the scribe
+ * happened to rewrite it, which for someone the pages never dwelt on was never. On opening, a core in exactly that
+ * shape (two or three clauses, the last "at …" or one "wants …"), never the writer's own hand, is cleared: the
+ * card shows the name, the seat and the now say where they are, and the scribe writes the core when the page shows
+ * them. */
+const SEAT_CORE_RE = /^(?:[^;]{1,300}; )?(?:wants [^;]{1,300}; at [^;]{1,300}|wants [^;]{1,300}|at [^;]{1,300})$/i;
+export function seatMadeCores(state) {
+  const s = state && typeof state === 'object' ? state : {};
+  const pages = s.characters && typeof s.characters === 'object' ? s.characters : {};
+  const out = [];
+  for (const [name, page] of Object.entries(pages)) {
+    if (!page || typeof page !== 'object') continue;
+    const core = typeof page.core === 'string' ? page.core.trim() : '';
+    if (!core || core === 'seated by the world agent' ? !core : !SEAT_CORE_RE.test(core)) continue;
+    if (page.hand && page.hand.core) continue; /* the writer wrote it — his */
+    if (core.split('; ').length > 3) continue;
+    out.push({ type: 'people.set', name, field: 'core', clear: true });
+  }
+  return out;
 }
 export function goneByTheirOwnPage(state, pageText) {
   const s = state && typeof state === 'object' ? state : {};

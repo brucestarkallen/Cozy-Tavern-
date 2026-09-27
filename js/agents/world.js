@@ -596,8 +596,9 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
     if (m.type === 'offscreen.set' && typeof m.name === 'string' && m.name.trim()) {
       const key = m.name.trim().toLowerCase();
       if (!hasPage(m.name) && !pagesInAnswer.has(key)) {
-        const bits = [m.activity, m.agenda ? 'wants ' + m.agenda : '', m.location ? 'at ' + m.location : ''].filter(Boolean);
-        withPages.push({ type: 'people.set', name: m.name.trim(), field: 'core', text: (bits.join('; ') || 'seated by the world agent').slice(0, 4000) }); /* M274: a page field is kept whole */
+        /* M508: the page is opened EMPTY — the seat says where they are (Elsewhere); a core made of the seat stood as who
+         * they are long after they had walked in (Renji at the rail, his card still at the Sixth's yard) */
+        withPages.push({ type: 'people.set', name: m.name.trim(), field: 'core', open: true });
         pagesInAnswer.add(key);
       }
     }

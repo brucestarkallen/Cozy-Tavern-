@@ -1468,8 +1468,11 @@ test('M259-38: the last quiet cuts — a correction, the director\u2019s brief a
   const activity = 'walking the long way round the lake ' + 'w'.repeat(400) + ' SEAT-TAIL-SEEN';
   const wh = thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Maya Bell', location: 'the lake path', activity, stance: 'busy' }], brief: { pressure: [], ripe: [], twb: null, voices: [] } }) });
   await withHouse(wh, () => worldTurn({ connection: CONN, storyId: wsid, userText: 'u', assistantText: 'Maya Bell went to the lake.', stale: () => false }));
-  const maya = (await loadState(wsid)).characters['Maya Bell'];
-  assert(maya && /SEAT-TAIL-SEEN/.test(maya.core || ''), 'a person the world agent seats gets a whole first page (it was cut at 280): ' + JSON.stringify(maya && maya.core).slice(0, 80));
+  const wst = await loadState(wsid);
+  const maya = wst.characters['Maya Bell'];
+  /* M508: the page is opened empty; the seat itself is kept whole (it was the seat's activity that was cut at 280) */
+  assert(maya && maya.core === '', 'a person the world agent seats gets a page, opened empty: ' + JSON.stringify(maya && maya.core).slice(0, 80));
+  assert(wst.offscreen['Maya Bell'] && /SEAT-TAIL-SEEN/.test(wst.offscreen['Maya Bell'].activity || ''), 'and the seat’s words whole (it was cut at 280)');
 
   const { rebuildStandings } = await import('../../js/agents/auditor.js');
   const rsid = 'm259-lastcuts-rebuild';

@@ -11974,3 +11974,41 @@ checkpoint rewriting the one versionState row: 2.1 MB, a 390 ms write on the mai
   1555 ms, the worst freeze 423 ms, the page done at 2182 ms (CPU 6x).
 - GATES: harness 967/967, walk 145/145, lint 0, holdsone.py, bootpull.py, migrate_checkpoints.py. version.js ->
   m507-007.
+
+# M508 — the state of things, leaner and truer: what the storyteller reads once, not five times
+He pasted the three blocks his storyteller reads at turn 51 (81k on the wire; the state of things alone 14k) and asked
+whether the structure is right, whether it is bloated, and how to keep the teller understanding at 150k. Read whole.
+- WHAT WAS BLOAT (the state of things): Who knows what said one fact up to FIVE times — in "Everyone here but …", in
+  "Known to …", under each person, and again whole in What they haven't found out; each of twenty people called back
+  up to twelve "from much earlier" facts on a two-word match (a courtyard's fifty pages share every word); the blind
+  window was sixty pages (a warden "hasn't found out" a 45-page-old report); the main character's own book was the
+  longest list, and — the reader leaving a public moment out of it — he stood in every "Everyone here but Jovan …" as
+  one who had not seen what happened before him. The people block's shape (core / now / between you / loose ends) and
+  the canon block are right and stay.
+- NOW: engine/world.js renderKnowledge takes the main character (scene.mc): his newest KNOWLEDGE_MC (4) ride, nothing
+  older is called back, and his book never counts in what is shared or what he is "but"; KNOWLEDGE_RECALL 12 → 4;
+  blindSpots: BLIND_RECENT_PAGES 60 → 16, BLIND_PER_PERSON 4 → 3, and renderBlindSpots clips a fact past BLIND_CLIP
+  (160) to its first words — the whole fact stands above under its knower (the line's shape, its marker and the second
+  reader's contract unchanged, M416/M460). A fact only someone AWAY knows stays a blind spot (M338-1: the pages showed
+  the storyteller what happened out of her sight).
+- A LEDGER DEFECT THE BLOCKS EXPOSED: Renji's card led with "pushing the forms hard; wants find Rukia; at 6th Division
+  training ground" while he stood at the rail — the world agent (M40) opened a seated person's page with the SEAT'S
+  words as their core, a moment's whereabouts standing as who they are until the scribe happened to rewrite it (for
+  someone the pages never dwelt on, never): the runner, Iba and Shūhei the same. NOW: agents/world.js opens the page
+  EMPTY (people.set field core, open: true — engine/people.js setPersonField 'open': creates a page with nothing on it,
+  never touches one that exists; apply.js journals it with an undo that drops the page); a core may be cleared like a
+  now (clear on 'core'); apply.js seatMadeCores(state) finds a core in exactly the seat shape (two or three clauses,
+  the last "at …" or one "wants …", or the old "seated by the world agent" stub), never the writer's own hand, and the
+  open-time heal (chat.js healLedgerOnOpen) clears them — his tales heal on the next open. The seat and the card's now
+  still say where they are; the scribe writes the core when the page shows them.
+- MEASURED (a twenty-person courtyard, forty pages, a book each, public moments most saw and private words to one or
+  two): the state of things 4,797 → 3,601 tokens with every blind spot and private fact kept (Who knows what 13,924 →
+  9,015 chars; "from much earlier" 8 → 4 lines; his own line 2,624 → 612 chars). On his real scene (twelve recalled a
+  person, the sixty-page window, 120-word facts) the cut is larger.
+- ANSWERS GIVEN: 81k at 51 turns is ordinary (pages ~40k, his preset ~12k, the craft ~10k, the ledger ~20k); the size
+  itself does not make the teller stupid at 80–150k — the repetition does (the same fact five times competes with the
+  last pages for attention); fewer, truer lines beat more.
+- LAWS: m508.mjs (the main character never "but"; a seat-made core let go, a real one and a hand-written one kept, the
+  card healed; an opened page is empty and never over a real core; a blind spot clipped, the whole above). M40-5 and
+  M259-38 re-pinned to the empty page and the whole seat. GATES: harness 971/971, walk 145/145, long play 8/8, lint 0.
+  version.js -> m508-001.

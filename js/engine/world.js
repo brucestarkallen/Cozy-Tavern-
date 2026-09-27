@@ -65,7 +65,7 @@ const THREADS_RENDER = 5;
 export const KNOWLEDGE_GUARD = 60;    /* a person's facts, kept (was the newest 12) */
 const KNOWLEDGE_RENDER = 4;           /* a small room: the newest few */
 export const KNOWLEDGE_RECENT = 12;   /* a whole view: the newest shown for each person here */
-export const KNOWLEDGE_RECALL = 12;   /* and at most this many OLDER facts that bear on the scene */
+export const KNOWLEDGE_RECALL = 4;    /* and at most this many OLDER facts that bear on the scene (M508: twelve a person, times twenty in a courtyard, was most of a fourteen-thousand-token block) */
 const FACTIONS_RENDER = 4;
 const BRIEF_LINES = 4;
 
@@ -480,6 +480,7 @@ function factScore(fact, sceneWords, ignore) {
  * the knower's own names aside), the most telling first; what is left is
  * COUNTED, never silently dropped. `scene` = { pages, ignore:[names] }. */
 export const KNOWLEDGE_OLD_AFTER = 6; /* pages: older than this, a fact says its age */
+export const KNOWLEDGE_MC = 4;        /* M508: the main character's newest few */
 export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scene = null) {
   const safe = copyKnowledge(knowledge);
   const names = (Array.isArray(present) ? present : [])
@@ -505,15 +506,23 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   const lines = [];
   const drawn = new Set(); /* M459: a book is drawn once, whoever else answers to it */
   const picked = [];
+  /* M508: THE MAIN CHARACTER'S BOOK IS THE WRITER'S. His list was the longest on the page (the reader writes what he
+   * is told), and when the reader left a public moment out of it he stood in every "Everyone here but Jovan …" as
+   * someone who had not seen what happened in front of him. His newest few ride, nothing older is called back, and
+   * his book never counts in what is shared or what he is "but". */
+  const mc = scene && typeof scene.mc === 'string' && scene.mc.trim() ? scene.mc.trim() : '';
+  const isMcKey = (key) => Boolean(mc) && (key.trim().toLowerCase() === mc.toLowerCase() || samePersonName(key, mc));
   for (const name of names) {
     const key = findKnowledgeKey(safe, name);
     if (!key || !safe[key].length || drawn.has(key)) continue;
     drawn.add(key);
     const list = sameFactsOnce(safe[key]);
-    const newest = list.slice(-recent).reverse().map(aged);
-    const older = list.slice(0, Math.max(0, list.length - recent));
+    const mine = isMcKey(key);
+    const take = mine ? Math.min(recent, KNOWLEDGE_MC) : recent;
+    const newest = list.slice(-take).reverse().map(aged);
+    const older = list.slice(0, Math.max(0, list.length - take));
     let recalled = [];
-    if (older.length && sceneWords && sceneWords.size) {
+    if (!mine && older.length && sceneWords && sceneWords.size) {
       const ignore = new Set(ignoreBase);
       for (const w of key.toLowerCase().split(/\s+/)) if (w) ignore.add(w);
       recalled = older
@@ -524,20 +533,21 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
         .map((x) => aged(x.k));
     }
     const rest = older.length - recalled.length;
-    picked.push({ key, newest, recalled, rest });
+    picked.push({ key, newest, recalled, rest, mc: mine });
   }
   /* M459: WHAT MANY HERE KNOW IS SAID ONCE. One sword stopped an inch from Zaraki's face in front of the whole courtyard,
    * and the notes said so thirteen times, a line for each witness. A fact three or more people here share rides once,
    * with who knows it; each person's line keeps what is theirs. */
   const norm = (f) => f.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const holders = new Map();
-  for (const p of picked) for (const f of [...p.newest, ...p.recalled]) { const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [] }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
+  const others = picked.filter((p) => !p.mc); /* M508: the sharing is among everyone here but the main character */
+  for (const p of others) for (const f of [...p.newest, ...p.recalled]) { const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [] }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
   const shared = [...holders.values()].filter((h) => h.who.length >= 3);
   const sharedKeys = new Set(shared.map((h) => norm(h.text)));
   const bySet = new Map();
-  for (const h of shared) { const everyone = h.who.length === picked.length; const sig = everyone ? '*' : h.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { everyone, who: h.who, facts: [] }); bySet.get(sig).facts.push(h.text); }
+  for (const h of shared) { const everyone = h.who.length === others.length; const sig = everyone ? '*' : h.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { everyone, who: h.who, facts: [] }); bySet.get(sig).facts.push(h.text); }
   for (const g of [...bySet.values()].sort((a, b) => (b.everyone - a.everyone) || (b.who.length - a.who.length))) {
-    const but = picked.map((p) => p.key).filter((k) => !g.who.includes(k));
+    const but = others.map((p) => p.key).filter((k) => !g.who.includes(k));
     lines.push((g.everyone ? 'Everyone here knows' : but.length <= g.who.length / 2 ? 'Everyone here but ' + but.join(', ') + ' knows' : 'Known to ' + g.who.join(', ')) + ': ' + g.facts.join('; ') + '.');
   }
   for (const p of picked) {
@@ -778,8 +788,9 @@ export function renderWorldBrief(brief, turnNow, pageNow) {
  * the scene (its words, then the newest) are put in front of the storyteller BEFORE it writes, as what they are: not
  * "she cannot know" (a ledger can miss a line) but "no page shows her learning it — if she speaks of it, the page
  * must show how she came to know". The second reader holds the finished page to the same list (agents/continuity.js). */
-export const BLIND_PER_PERSON = 4;
-export const BLIND_RECENT_PAGES = 60;
+export const BLIND_PER_PERSON = 3;    /* M508: was 4 */
+export const BLIND_CLIP = 160;        /* M508: a blind spot names the fact in its first words; the whole fact stands under its knower */
+export const BLIND_RECENT_PAGES = 16; /* M508: was 60 — a fact from forty pages back that a warden has not found out is not a blind spot the scene turns on; what bears on the scene is still called back by its words */
 const FACT_WORDS = new Map();
 const factWords = (fact, ignore) => {
   const text = String(fact || '');
@@ -842,6 +853,8 @@ export function renderBlindSpots(spots) {
     if (!byFact.get(k).who.includes(s.name)) byFact.get(k).who.push(s.name);
   }
   const bySet = new Map();
-  for (const f of byFact.values()) { const sig = f.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { who: f.who, facts: [] }); bySet.get(sig).facts.push(f.fact + ' (' + f.from + ' knows)'); }
+  /* M508: a long fact is clipped here — the whole of it stands above, under whoever knows it */
+  const clip = (t) => { const s = String(t); if (s.length <= BLIND_CLIP) return s; const cut = s.slice(0, BLIND_CLIP); const at = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf(','), cut.lastIndexOf(';')); return cut.slice(0, at > BLIND_CLIP / 2 ? at : BLIND_CLIP).replace(/[,;\s]+$/, '') + '…'; };
+  for (const f of byFact.values()) { const sig = f.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { who: f.who, facts: [] }); bySet.get(sig).facts.push(clip(f.fact) + ' (' + f.from + ' knows)'); }
   return [...bySet.values()].map((g) => g.who.join(', ') + BLIND_LINE + g.facts.join('; ') + '.').join('\n'); /* M416 */
 }

@@ -536,6 +536,7 @@ export function healGhosts(state) {
   return s;
 }
 
+const m_open = (clear, text, f) => clear === 'open' && f === 'core' && !String(text || '').trim();
 export function setPersonField(state, characters, name, field, text, turn, { clear = false } = {}) {
   const cleanName = normalizeName(name);
   if (!cleanName) return { why: 'no name came with it' };
@@ -555,6 +556,15 @@ export function setPersonField(state, characters, name, field, text, turn, { cle
   const entry = before ? { ...before, threads: before.threads.slice() } : emptyPerson();
   const atTurn = Number.isFinite(turn) ? turn : (Number.isFinite(state && state.turn) ? state.turn : 0);
   if (!before) entry.firstSeenTurn = atTurn; /* M284: when they came into the tale */
+  /* M508: A PAGE OPENED WITH NOTHING ON IT. The world agent gave everyone it seated a page (M40) with a core made of the
+   * seat — "running forms; wants find Rukia; at the training ground" — a moment's whereabouts standing as who they ARE
+   * for the rest of the tale: Renji stood at the rail with his card still saying he was at the Sixth's yard. A seat is
+   * the seat's to say (Elsewhere, the card's now); the page is opened empty, and the scribe fills the core when the
+   * page shows them. `open` never touches a page that exists. */
+  if (m_open(clear, text, f)) {
+    if (before) return { why: 'they have a page already', same: true };
+    return { entry, key, before: null };
+  }
   if (f === 'threads') {
     /* M236: THE WHOLE-LIST PATH NEVER DEDUPED. mergeDeltas has asked
      * sameLooseEnd before adding a thread since M134 — but this setter, which
@@ -573,8 +583,8 @@ export function setPersonField(state, characters, name, field, text, turn, { cle
       if (list.length >= THREADS_MAX) break;
     }
     entry.threads = list;
-  } else if (clear && (f === 'state' || f === 'arc')) {
-    /* M291: let go on purpose — a now that was never a now, a line that was someone else's */
+  } else if (clear && (f === 'state' || f === 'arc' || f === 'core')) {
+    /* M291: let go on purpose — a now that was never a now, a line that was someone else's; M508: a core made of a seat */
     if (!entry[f]) return { why: 'there was nothing written there' };
     entry[f] = '';
   } else {

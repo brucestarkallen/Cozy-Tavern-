@@ -60,6 +60,9 @@ test('M40-5 everyone the world agent seats has a page', async () => {
   const st = await loadState(storyId);
   const names = Object.keys(st.characters).map((k) => k.toLowerCase());
   assert(names.includes('kim') && names.includes('kris'), 'both seated people have pages: ' + names.join(', '));
-  assert(/scrolling; wants find out who he is with; at her apartment/.test(st.characters.Kim.core), 'a minimal core from the seat: ' + st.characters.Kim.core);
+  /* M508: the page is opened EMPTY — the seat says where she is; a core made of the seat stood as who she is long after
+   * she had walked in (Renji at the rail, his card still at the Sixth's yard) */
+  eq(st.characters.Kim.core, '', 'a page opened with nothing on it — the seat is the seat’s to say');
+  assert(st.offscreen.Kim && /her apartment/.test(st.offscreen.Kim.location), 'and her seat stands');
   eq(st.characters.Kris.core, 'the mother', 'an explicit page is kept as given');
 });

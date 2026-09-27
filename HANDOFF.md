@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m507-007)
+# Cozy Tavern — handoff for the next session (state at m508-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -23,6 +23,10 @@
    the row's SUFFIX. M507-2: a boot pull after a page append takes PAGES ONLY when the served book's snapshotAt (serve.py) is
    no newer than this browser's bookStamp — never the device's older ledger over the browser's newer one; run
    `python3 tests/bootpull.py` for any change to the pull, importStory, or serve.py's fold.
+0b. THE STATE OF THINGS IS READ ONCE (M508): the main character's book is the writer's (newest four, never "but"),
+   four called-back facts a person, a sixteen-page blind window with clipped facts; a seated person's page opens EMPTY
+   and a seat-shaped core is cleared on opening (seatMadeCores). If he pastes the blocks again, measure them against
+   AGENTS M508 before touching the renderers.
 1zb. NO THIRD AUTHORITY ON THE WIRE (M495): every text a side agent adds to the storyteller's request must read as the
    writer's own notes — m495.mjs scans the whole wire; a new agent's slot must pass it (voice it, no capitals-form labels).
 1za. THE LIVING LEDGER SIMULATION (M492): tests/harness/livingledger.mjs runs a story through the real gate and heals
