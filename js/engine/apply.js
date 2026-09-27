@@ -459,8 +459,8 @@ const HANDLERS = {
       return { why: name + ' is already written in', same: true };
     }
     const entry = { name };
-    const position = typeof m.position === 'string' ? m.position.trim() : '';
     const attire = typeof m.attire === 'string' ? m.attire.trim() : '';
+    const position = (typeof m.position === 'string' ? m.position.trim() : '') && attire ? withoutAttire(m.position.trim(), attire) : (typeof m.position === 'string' ? m.position.trim() : ''); /* M509-12 */
     if (position) entry.position = position;
     if (attire) entry.attire = attire;
     state.present.push(entry);
@@ -538,13 +538,18 @@ const HANDLERS = {
       if (same('position') && same('attire')) return { why: entry.name + ' is already so', same: true };
     }
     const changed = [];
-    if (m.position !== undefined) {
-      const position = typeof m.position === 'string' ? m.position.trim() : '';
-      if (position) { entry.position = position; changed.push(position); } else { delete entry.position; }
-    }
     if (m.attire !== undefined) {
       const attire = typeof m.attire === 'string' ? m.attire.trim() : '';
       if (attire) { entry.attire = attire; changed.push('in ' + attire); } else { delete entry.attire; }
+    }
+    if (m.position !== undefined) {
+      /* M509-12: THE DRESS IS NOT SAID TWICE. The reader wrote Renji's position with his dress inside it ("at the inner
+       * gate shadow, black, headband dark with sweat") while his dress stood in its own field, and the room read "…dark
+       * with sweat, black, headband dark with sweat". A clause of the position that is the dress (or a clause of it) is
+       * left to the dress. */
+      let position = typeof m.position === 'string' ? m.position.trim() : '';
+      if (position && entry.attire) position = withoutAttire(position, entry.attire);
+      if (position) { entry.position = position; changed.push(position); } else { delete entry.position; }
     }
     const words = changed.length
       ? entry.name + ' — now ' + changed.join(', ') + '.'
@@ -1736,6 +1741,14 @@ function nowPredatesTheirReturn(s, name) {
     else if (m.type === 'people.set' && String(m.field || '').toLowerCase() === 'state') written = at;
   }
   return cameIn !== null && (written === null || cameIn > written); /* an entrance the journal holds with no write of the now after it: the now is older than the journal's reach */
+}
+/* M509-12: a position's clauses, less any that are the dress or a clause of it */
+export function withoutAttire(position, attire) {
+  const norm = (t) => String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const dress = new Set(String(attire || '').split(/\s*[,;]\s*/).map(norm).filter(Boolean));
+  dress.add(norm(attire));
+  const kept = String(position || '').split(/\s*[,;]\s*/).filter((c) => c.trim() && !dress.has(norm(c)));
+  return kept.join(', ');
 }
 /* M508: A CORE MADE OF A SEAT IS LET GO. Before M508 the world agent opened a seated person's page with the seat's own
  * words as their core — "<activity>; wants <agenda>; at <place>" — and it stood as who they are until the scribe

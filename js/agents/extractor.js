@@ -476,6 +476,21 @@ export async function extractTurn(args = {}) {
       const n = String(m.name || '');
       return moved ? !cameAlong(n) : goneAtTheEnd(args.state, args.assistantText, n);
     });
+    /* M509-12: THE CROWD DOES NOT RIDE TO THE NEW GROUND. When the page MOVES the ground and says who is in the new room
+     * (its "here"), everyone else who was in the old room is left behind there — Jovan ran out of the Tenth's courtyard
+     * onto the approach road with Rukia and the runner, and twenty-one people stood "here now" on the road because the
+     * reader had written no leave for the eighteen it did not name. A leave the reader forgot is written for each
+     * present person (never the main character, never one the page's room names, never one already leaving); the
+     * leave door seats them at the old ground (M304). Only when the page's room is actually named: an empty "here" is
+     * a reader that said nothing, not a room with nobody in it. */
+    if (moved && args.state && Array.isArray(read.here) && read.here.length) {
+      const leaving = new Set(read.mutations.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
+      for (const p of (Array.isArray(args.state.present) ? args.state.present : [])) {
+        const n = p && typeof p.name === 'string' ? p.name.trim() : '';
+        if (!n || isMc(args.state, n) || cameAlong(n) || leaving.has(n.toLowerCase())) continue;
+        read.mutations.push({ type: 'presence.leave', name: n, cause: 'left behind at ' + was + ' when the scene moved to ' + ground });
+      }
+    }
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
     read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));
     read.mutations = [...read.mutations, ...hereFromBoard(args.state, read.here, args.assistantText, read.mutations)];

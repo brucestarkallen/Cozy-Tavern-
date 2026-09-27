@@ -146,3 +146,31 @@ test('M509-11 the ledger says which page it belongs to: even with the story, beh
   eq(ledgerStandingWords(st, 3), 'The ledger stands at page 3 of 3 — even with the story.');
   eq(ledgerStandingWords(st, 2), 'The ledger stands at page 2 of 2 — even with the story.', 'a page let go: never "3 of 2"');
 });
+
+test('M509-12 the crowd does not ride to the new ground: when the page moves the ground and names who is in the new room, everyone else in the old room is left behind there; the dress is not said twice in a position', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const { withoutAttire } = await import('../../js/engine/apply.js');
+  let st = applyMutations({ ...emptyState(), page: 50 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: 'Tenth Division courtyard' }, { type: 'presence.enter', name: 'Jovan Oda' }, ...['Rukia Kuchiki', 'Renji Abarai', 'Byakuya', 'the cook', 'Hachigorō'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
+  const H = '[the approach road to the Thirteenth — Sunday, Hanami 5, 1001 | 12:16 | clear | shihakushō | on the road]\n\n';
+  const page = H + 'Jovan ran. Rukia walked ahead of him on the approach road. The runner skidded to a halt before them.';
+  const answer = JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'the runner', position: 'in the road' }], here: ['Jovan Oda', 'Rukia Kuchiki', 'the runner'], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+  const h = HOUSES[0];
+  const house = thinkingHouse({ answer });
+  const read = await withHouse(house, () => extractTurn({ connection: h.conn, state: st, userText: 'I run.', assistantText: page, pageNumber: 50 }));
+  const leaves = read.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort();
+  eq(leaves.join(','), 'Byakuya,Hachigorō,Renji Abarai,the cook', 'the four the page’s room does not name are left behind; Rukia (named) and Jovan (the main character) are not: ' + JSON.stringify(read.mutations.map((m) => m.type + ' ' + (m.name || ''))));
+  const after = applyMutations(st, read.mutations).state;
+  eq(after.present.map((p) => p.name).sort().join(','), 'Jovan Oda,Rukia Kuchiki,the runner', 'the road holds three');
+  assert(after.offscreen['the cook'] && /courtyard/i.test(after.offscreen['the cook'].location || ''), 'the cook is seated where he was left: ' + JSON.stringify(after.offscreen['the cook']));
+  /* the same page with NO room named leaves nobody behind — a reader that said nothing */
+  const mute = JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+  const read2 = await withHouse(thinkingHouse({ answer: mute }), () => extractTurn({ connection: h.conn, state: st, userText: 'I run.', assistantText: page, pageNumber: 50 }));
+  eq(read2.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'no room named, no leaves written');
+  /* the dress */
+  eq(withoutAttire('at the inner gate shadow, black, headband dark with sweat', 'black, headband dark with sweat'), 'at the inner gate shadow');
+  eq(withoutAttire('at the veranda rail, hands on the wood', 'the Tenth’s armband'), 'at the veranda rail, hands on the wood');
+  const moved = applyMutations(st, [{ type: 'presence.update', name: 'Renji Abarai', attire: 'black, headband dark with sweat' }, { type: 'presence.update', name: 'Renji Abarai', position: 'at the inner gate shadow, black, headband dark with sweat' }]).state;
+  const renji = moved.present.find((p) => p.name === 'Renji Abarai');
+  eq(renji.position, 'at the inner gate shadow'); eq(renji.attire, 'black, headband dark with sweat');
+});

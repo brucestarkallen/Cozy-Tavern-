@@ -12213,3 +12213,19 @@ even with the story". Law M509-11 (never "3 of 2" after a page is let go).
   the ledger in step with the pages — the page index does. A "descriptor" is a person named by a description ("the
   courier", "the cracker boy") instead of a name.
 - GATES: harness 977/977, walk 153/153, long play 8/8, lint 0. version.js -> m509-011.
+
+# M509-12 — his blocks on m509-011: the courier is one man; two things the room still got wrong
+His paste after m509-011: "the courier" gone from every list, Rukia's loose end "walk Hachigorō to the mess", the
+hour 12:15 (the retry told the page before's hour), the standing line in the drawer. Two faults left in the room:
+- THE CROWD RODE TO THE NEW GROUND. His auditor: "the latest page stands on the approach road with only Jovan Oda,
+  Rukia Kuchiki and the Thirteenth runner; everyone else was left behind in the Tenth's courtyard" — and its own fix
+  (seats for present people) was refused (M257). When a page MOVES the ground, the reader's leaves stand unless the
+  page's room names the person (M304/M446) — but a leave the reader never wrote for eighteen people it did not name
+  left them "here now" on the road. agents/extractor.js extractTurn: when the ground moved and the reader named the
+  new room ("here"), every present person not named, not the main character and not already leaving gets a leave
+  ("left behind at <old ground> when the scene moved to <new>"); the leave door seats them at the old ground (M304).
+  A reader that named no room writes no leaves (nothing is guessed).
+- THE DRESS SAID TWICE: "Renji Abarai (at the inner gate shadow, black, headband dark with sweat, black, headband dark
+  with sweat)" — the reader put his dress inside the position while the dress stood in its own field. apply.js
+  withoutAttire: a position's clauses less any that are the dress or a clause of it (presence.enter and .update).
+- LAWS: m508.mjs M509-12. GATES: harness 978/978, walk 153/153, long play 8/8, lint 0. version.js -> m509-012.
