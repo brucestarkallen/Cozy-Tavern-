@@ -439,8 +439,9 @@ async function bankBase(storyId) {
 async function loadBank(storyId) {
   const base = await bankBase(storyId);
   const bank = { j: base.j, l: base.l };
+  const rows = await db.settings.getMany(base.parts.map((n) => BANK_PART(storyId, n)));
   for (const n of base.parts) {
-    const part = await db.settings.get(BANK_PART(storyId, n));
+    const part = rows.get(BANK_PART(storyId, n));
     if (part && typeof part === 'object') { Object.assign(bank.j, part.j || {}); Object.assign(bank.l, part.l || {}); }
   }
   bankKeysOf.set(storyId, new Set([...Object.keys(bank.j), ...Object.keys(bank.l)]));
@@ -551,10 +552,11 @@ function keysUsedBy(row) {
 async function storedCheckpoints(storyId) {
   const out = [];
   const index = await db.settings.get(SNAP_PREFIX + storyId);
-  for (const e of (Array.isArray(index) ? index : [])) {
-    if (!e || typeof e.id !== 'string') continue;
+  const entries = (Array.isArray(index) ? index : []).filter((e) => e && typeof e.id === 'string');
+  const rows = await db.settings.getMany(entries.filter((e) => !(e.snap && typeof e.snap === 'object')).map((e) => SNAP_ROW_OF(storyId, e.id)));
+  for (const e of entries) {
     if (e.snap && typeof e.snap === 'object') { out.push(e.snap); continue; } /* a row written whole (before M507) */
-    const row = await db.settings.get(SNAP_ROW_OF(storyId, e.id)); if (row && typeof row === 'object') out.push(row);
+    const row = rows.get(SNAP_ROW_OF(storyId, e.id)); if (row && typeof row === 'object') out.push(row);
   }
   const versions = await db.settings.get(VERSION_ROW(storyId));
   for (const v of Object.values(versions && typeof versions === 'object' ? versions : {})) if (v && typeof v === 'object') out.push(v);
@@ -593,9 +595,10 @@ const handedOut = new Map(); /* storyId -> Map(id -> the whole snap object) */
 export async function loadSnapshots(storyId) {
   const index = await snapshotIndex(storyId);
   const list = [];
+  const rows = await db.settings.getMany(index.filter((e) => !(e.snap && typeof e.snap === 'object')).map((e) => SNAP_ROW_OF(storyId, e.id))); /* one transaction for them all */
   for (const e of index) {
     if (e.snap && typeof e.snap === 'object') { list.push({ id: e.id, at: e.at, snap: e.snap }); continue; } /* stored whole (before M507) */
-    const snap = await db.settings.get(SNAP_ROW_OF(storyId, e.id));
+    const snap = rows.get(SNAP_ROW_OF(storyId, e.id));
     if (snap && typeof snap === 'object') list.push({ id: e.id, at: e.at, snap, stored: true });
   }
   let out = list;

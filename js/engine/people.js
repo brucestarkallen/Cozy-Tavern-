@@ -710,8 +710,9 @@ const wordRe = (n) => {
   return re;
 };
 function namedIn(pages, name) {
-  const res = spokenNames(name).map(wordRe);
-  return (pages || []).some((p) => res.some((re) => re.test(String(p || ''))));
+  const spoken = spokenNames(name);
+  const res = spoken.map(wordRe);
+  return (pages || []).some((p) => { const t = String(p || ''); const low = t.toLowerCase(); return spoken.some((n, i) => low.includes(n.toLowerCase()) && res[i].test(t)); });
 }
 /* M304: is this person named in a text — by their whole name or the name they
  * are spoken by ("Rias" for "Rias Gremory"), as a word of its own. One matcher
@@ -745,13 +746,26 @@ export function placeWords(state) {
 /* M507: whether the writer's material names a person is asked for every person on every render (renderPeopleTiers, the
  * world agent's roster, the referee's cast) against the same brief — the answer is kept per name for as long as the
  * material is the very same string (a changed brief is a new string, and misses) */
-const NAMED_IN = new Map();
+const NAMED_IN = new Map(); /* name -> Map(material -> named): three renders pass three materials (the brief; the brief with the cast notes; …) */
 function namedInMaterial(name, material) {
-  const hit = NAMED_IN.get(name);
-  if (hit && hit.material === material) return hit.named;
-  const named = spokenNames(name).some((n) => wordRe(n).test(material));
+  let byMaterial = NAMED_IN.get(name);
+  if (byMaterial && byMaterial.has(material)) return byMaterial.get(material);
+  const low = material.toLowerCase(); /* a name not in the text as a substring is not in it as a word: the regex runs only where it can hit */
+  const named = spokenNames(name).some((n) => low.includes(n.toLowerCase()) && wordRe(n).test(material));
   if (NAMED_IN.size > 2000) NAMED_IN.clear();
-  NAMED_IN.set(name, { material, named });
+  if (!byMaterial || byMaterial.size > 8) { byMaterial = new Map(); NAMED_IN.set(name, byMaterial); }
+  byMaterial.set(material, named);
+  return named;
+}
+/* the same for "named in the latest pages": the pages are the same texts on every render of one send */
+const NAMED_LATELY = new Map();
+function namedLately(pages, name) {
+  const list = Array.isArray(pages) ? pages : [];
+  const sig = name + '|' + list.length + '|' + list.map((p) => String(p || '').length).join(',');
+  if (NAMED_LATELY.has(sig)) return NAMED_LATELY.get(sig);
+  const named = namedIn(list, name);
+  if (NAMED_LATELY.size > 4000) NAMED_LATELY.clear();
+  NAMED_LATELY.set(sig, named);
   return named;
 }
 export function importanceOf(state, name, briefText = '', turn = 0, scene = {}) {
@@ -787,7 +801,7 @@ export function importanceOf(state, name, briefText = '', turn = 0, scene = {}) 
     const hay = [entry && entry.core, entry && entry.state, entry && entry.arc, seat && seat.location].filter(Boolean).join(' ');
     if (hay && words.some((w) => wordRe(w).test(hay))) score += 25;
   }
-  if (Array.isArray(scene.lately) && scene.lately.length && namedIn(scene.lately, name)) score += 10;
+  if (Array.isArray(scene.lately) && scene.lately.length && namedLately(scene.lately, name)) score += 10;
   /* M284: A NEWCOMER IS CARRIED WHILE THE STORY MAKES THEM. Someone the tale
    * has just brought in has no bond, no thread, no lock yet — and ranked last
    * in a crowded room, and was a bare name the page they left. For their first

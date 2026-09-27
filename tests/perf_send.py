@@ -216,6 +216,19 @@ window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = pe
                     key = (fn.get('functionName') or '(anon)') + ' ' + fn.get('url', '').split('/')[-1] + ':' + str(fn.get('lineNumber', 0) + 1)
                     self_ms[key] = self_ms.get(key, 0) + dt / 1000
                 top_before = [(round(v), k) for k, v in sorted(self_ms.items(), key=lambda kv: -kv[1])[:25]]
+                # inclusive time per function (each sample credited once to every distinct function on its stack)
+                parent = {}
+                for n in prof['nodes']:
+                    for c in n.get('children', []) or []: parent[c] = n['id']
+                keyof = {n['id']: (n['callFrame'].get('functionName') or '(anon)') + ' ' + n['callFrame'].get('url', '').split('/')[-1] + ':' + str(n['callFrame'].get('lineNumber', 0) + 1) for n in prof['nodes']}
+                total_ms = {}
+                for sid, dt in zip(prof.get('samples', []), prof.get('timeDeltas', [])):
+                    seen = set(); node = sid
+                    while node is not None:
+                        k = keyof[node]
+                        if k not in seen: seen.add(k); total_ms[k] = total_ms.get(k, 0) + dt / 1000
+                        node = parent.get(node)
+                total_before = [(round(v), k) for k, v in sorted(total_ms.items(), key=lambda kv: -kv[1]) if not k.startswith(('(root)', '(program)', '(idle)', '(garbage'))][:40]
                 cdp.send('Profiler.start')
             page.wait_for_selector('.msg.pending, .msg.streaming', timeout=60000)
             page.wait_for_function('!document.querySelector(".msg.pending") && !document.querySelector(".msg.streaming")', timeout=300000, polling=200)
@@ -257,6 +270,18 @@ window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = pe
                   out.push(await t('snapshotState (one more)', async () => { await snapshotState(sid, 'probe-' + Date.now(), st); return 1; }));
                   out.push(await t('keepSent (the body)', async () => keepSent({ id: newSentId(), storyId: sid, slots: [], requests: [{ url: 'x', body: JSON.parse(window.__send.body) }] })));
                   out.push(await t('JSON.stringify body', async () => JSON.stringify(JSON.parse(window.__send.body)).length));
+                  const { applyRules, currentRules } = await import('/js/regex.js');
+                  const { pageOnly } = await import('/js/ui/headergate.js');
+                  const { estimateTokens } = await import('/js/assemble/receipt.js');
+                  const pages = await db.messages.list(sid);
+                  const rules = currentRules();
+                  out.push(await t('applyRules wire, every page (' + rules.length + ' rules)', async () => pages.reduce((a, m) => a + applyRules(m.text, rules, { on: m.role, mode: 'wire' }).length, 0)));
+                  out.push(await t('pageOnly, every page', async () => pages.reduce((a, m) => a + pageOnly(m.text).length, 0)));
+                  out.push(await t('estimateTokens, the body', async () => estimateTokens(window.__send.body)));
+                  const { buildRequest } = await import('/js/assemble/stack.js');
+                  out.push(await t('renderWholeLedger', async () => (await import('/js/engine/whole.js')).renderWholeLedger(st).length));
+                  const { blindSpots } = await import('/js/engine/world.js');
+                  out.push(await t('blindSpots', async () => JSON.stringify(blindSpots(st.knowledge, st.present, { scenePages: pages.slice(-6).map((m) => m.text), turn: st.page, mc: 'Jovan' })).length));
                   const idb = window.__send.idb; const req = window.__send.request;
                   const sum = (list) => { const by = {}; for (const e of list) { const k = e.store + ':' + e.op; by[k] = by[k] || { n: 0, ms: 0, rows: 0 }; by[k].n += 1; by[k].ms += e.ms; by[k].rows += e.n; } return Object.entries(by).map(([k, v]) => [k, v.n, Math.round(v.ms), v.rows]).sort((a, b) => b[2] - a[2]); };
                   const gets = window.__send.gets || {};
@@ -269,6 +294,7 @@ window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = pe
             if PROFILE:
                 result['profile_top_self_ms'] = top
                 result['profile_before_request_ms'] = top_before
+                result['profile_total_before_ms'] = total_before
             if phases:
                 result.update(phases)
             browser.close()

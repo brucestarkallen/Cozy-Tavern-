@@ -227,6 +227,27 @@ const settings = {
     settingsCache.set(key, cloneValue(value));
     return value;
   },
+  /* M507: MANY ROWS IN ONE TRANSACTION. Reading a tale's checkpoints one row at a time cost a round trip each (3.8 s for
+   * forty-one rows at a phone's speed); asked together they are one transaction with every request in flight at once.
+   * Rows the cache holds are answered from it; the rest are cached as they arrive. Returns a Map(key -> value). */
+  async getMany(keys) {
+    const want = [...new Set((Array.isArray(keys) ? keys : []).filter((k) => typeof k === 'string'))];
+    const out = new Map();
+    const missing = [];
+    for (const k of want) { if (settingsCache.has(k)) out.set(k, cloneValue(settingsCache.get(k))); else missing.push(k); }
+    if (missing.length) {
+      const d = await openDB();
+      const rows = await new Promise((resolve, reject) => {
+        const t = d.transaction('settings', 'readonly');
+        const s = t.objectStore('settings');
+        const got = new Map();
+        for (const k of missing) { const req = s.get(k); req.onsuccess = () => { got.set(k, req.result ? req.result.value : undefined); }; }
+        t.oncomplete = () => resolve(got); t.onerror = () => reject(t.error); t.onabort = () => reject(t.error);
+      });
+      for (const k of missing) { const v = rows.get(k); settingsCache.set(k, cloneValue(v)); out.set(k, v); }
+    }
+    return out;
+  },
   async set(key, val) {
     await run('settings', 'readwrite', (s) => s.put({ key, value: val }));
     settingsCache.set(key, cloneValue(val));

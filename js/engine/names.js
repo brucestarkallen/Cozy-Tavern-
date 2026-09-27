@@ -24,9 +24,19 @@ export function setAliasSource(fn, storyId = null) { aliasSource = typeof fn ===
 export function setAliasScope(fn) { openStoryOf = typeof fn === 'function' ? fn : () => null; }
 
 /* a name with its letters folded: accents off, case off, punctuation to spaces */
+/* M507: folded and parsed names are remembered — the one matcher is asked for every pair of names in every book on
+ * every render, and the normalize/regex work was a tenth of a send (tests/perf_send.py) */
+const FOLDED = new Map();
 export function foldName(name) {
-  return String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const key = String(name || '');
+  const hit = FOLDED.get(key);
+  if (hit !== undefined) return hit;
+  const out = key.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  if (key.length <= 200) { /* names are remembered; a whole page folded (shownOnPage) is not */
+    if (FOLDED.size > 20000) FOLDED.clear();
+    FOLDED.set(key, out);
+  }
+  return out;
 }
 
 function aliased(a, b) {
@@ -85,7 +95,19 @@ function nameFold(name) {
  * M414: a courtesy or a rank AFTER the name is one only when it is joined to it the Japanese way — "Kyōraku-san",
  * "Hitsugaya-taichō". Standing on its own it is a name: Jackie Chan is not "Jackie", Li Kun is not "Li". */
 const TRAILING = /[-‐‑–]\s*(san|sama|kun|chan|dono|sensei|senpai|taich[oō]u?|fukutaich[oō]u?|s[oō]taich[oō]u?)\s*$/iu;
+const PARSED = new Map();
 function parseName(name) {
+  const key = String(name || '');
+  const hit = PARSED.get(key);
+  if (hit) return { words: hit.words.slice(), bare: hit.bare, titles: new Set(hit.titles) }; /* callers may take the set apart */
+  const out = parseNameFresh(key);
+  if (key.length <= 200) {
+    if (PARSED.size > 20000) PARSED.clear();
+    PARSED.set(key, { words: out.words.slice(), bare: out.bare, titles: new Set(out.titles) });
+  }
+  return out;
+}
+function parseNameFresh(name) {
   let raw = String(name || '').trim();
   const titles = new Set();
   for (let m = TRAILING.exec(raw); m && raw.slice(0, m.index).trim(); m = TRAILING.exec(raw)) {

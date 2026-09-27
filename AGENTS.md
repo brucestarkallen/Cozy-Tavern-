@@ -11890,3 +11890,23 @@ He, standing order: storage as robust as SillyTavern's. AGENTS M507 (c), now bui
   version checkpoint: without one the next open re-reads it by M127, which is right, not this fault.)
 - GATES: harness 966/966, lint 0, holdsone.py, foldcrash.py, relay.py, twobrowsers.py, twohands.py, bootpull.py.
   version.js -> m507-002.
+
+# M507-3 — the send's assembly, attributed and cut; a tale's checkpoints read in one transaction
+Measured on (tests/perf_send.py, PROFILE=1 now also lists INCLUSIVE time per function before the request): buildRequest
+871 ms, of it renderPeopleTiers 400 (importanceOf 303: the name-in-the-brief test 171, the name-in-the-latest-pages test
+101) and renderStateFacts 388 (blindSpots 174, renderOffscreen 96 with samePersonName/isHere/parseName/foldName under
+it). A Chrome trace of the same stretch showed the freeze as ONE 805 ms RunMicrotasks (the assembly's promise chain),
+V8 compiling 467 functions (213 ms, once per process) and 202 IndexedDB deserializations (135 ms).
+- engine/names.js: foldName and parseName remember their answers (names only — a whole page folded by shownOnPage is
+  never cached); the one matcher is asked for every pair of names in every book on every render.
+- engine/people.js: a name not in a text as a substring is never tested as a word (the `iu` regex over a 7 KB brief
+  was 3 ms a test at his speed); namedInMaterial keeps its answer per name AND material (three renders pass three
+  materials); namedLately keeps the name-in-the-latest-pages answer for the same pages.
+- store.js settings.getMany(keys): many rows in ONE transaction (rows the cache holds answered from it); state.js
+  loadSnapshots, storedCheckpoints and loadBank read their rows through it — a rewind's or a branch's read of
+  forty-one checkpoints 3845 → 356 ms.
+- MEASURED (same harness, same seed, CPU 6x): request out 1491 → 1188–1351 ms (m506: 2326); main thread frozen in
+  total 1169 → 759–959 ms (m506: 1934); the worst single freeze 761 → 473–519 ms; his page on screen ~80 ms.
+  What remains before the request: renderStateFacts ~230–290 ms (blindSpots 130–170), renderPeopleTiers ~145, the
+  store's row clones ~105, the fetch itself ~100.
+- GATES: harness 966/966, walk 145/145, long play 8/8, lint 0, holdsone.py, bootpull.py. version.js -> m507-003.
