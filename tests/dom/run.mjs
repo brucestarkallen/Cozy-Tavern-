@@ -6618,6 +6618,56 @@ test('DOM-132 THE PREVIOUS PAGE’S HEADER IS THE TRUTH AFTER A REWIND: a fold t
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-133 A JOIN SURVIVES TRY AGAIN: a tale whose pages wrote "the courier" and "Hachigorō" as two men long before the house could join them is joined on opening (stamped on the newest page); a Try again folds to the page before — and the fold joins them again, so the retry’s request has one man (M509-8)', async () => {
+  const before = errors.length;
+  const { loadState, saveState, emptyState, snapshotState, markPageRead, saveVersionStates } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'the courier through a retry' });
+  await db.stories.update(st.id, { createdAt: Date.now() - 10 * 60 * 1000 });
+  const H = (mm) => '[The courtyard — Monday, March 3, 2025 | 09:' + mm + ' | clear | coat | by the gate]\n\n';
+  /* three pages, read by a house that had no join yet: page 0 writes both men, page 1 the fact naming him, page 2 nothing */
+  let state = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: 'The courtyard' }, { type: 'presence.enter', name: 'Jovan Oda' }]).state;
+  const reads = [
+    [{ type: 'presence.enter', name: 'the courier', position: 'on the path' }, { type: 'presence.enter', name: 'Hachigorō', position: 'at the gate' }, { type: 'people.set', name: 'Hachigorō', field: 'core', text: 'a rider with a straw hat' }],
+    [{ type: 'knowledge.add', name: 'Byakuya', fact: 'saw the courier Hachigorō ride into the courtyard with the paper' }],
+    [{ type: 'knowledge.add', name: 'Byakuya', fact: 'saw the paper change hands' }],
+  ];
+  let lastId = null;
+  for (let k = 0; k < 3; k += 1) {
+    const u = await db.messages.append(st.id, { role: 'user', text: 'I watch, page ' + k + '.' });
+    state.page = k;
+    await snapshotState(st.id, u.id, state);
+    const a = await db.messages.append(st.id, { role: 'assistant', text: H(String(5 + k * 10).padStart(2, '0')) + 'The courtyard held its breath, page ' + k + '.' });
+    state = applyMutations(state, [{ type: 'clock.set', year: 2025, month: 3, day: 3, hour: 9, minute: 5 + k * 10 }, ...reads[k]]).state;
+    markPageRead(state, k);
+    await saveState(st.id, state);
+    lastId = a.id;
+  }
+  await saveVersionStates(st.id, { [lastId + ':0']: JSON.parse(JSON.stringify(state)) });
+  eq((await loadState(st.id)).present.map((p) => p.name).join(','), 'Jovan Oda,the courier,Hachigorō', 'fixture: two men, journaled on page 0, the naming fact on page 1');
+  /* opened the way tapping the shelf opens it: the opening heal joins them, stamped on the newest page */
+  await env.ctx.chat.openStory(st.id);
+  await until(async () => (await storyId()) === st.id, 'open', 10000);
+  await until(async () => !(await loadState(st.id)).present.some((p) => p.name === 'the courier'), 'the opening joined them', 20000);
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  const seen = [];
+  try {
+    house.state.workerAnswer = () => '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[],"issues":[]}';
+    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H('40') + 'The kettle ticked.'; };
+    click(q('#btn-retry'));
+    await until(() => seen.length >= 1, 'the retry’s request went out', 30000);
+    const here = (seen[0].match(/Here now:[^\n]*/) || [''])[0];
+    assert(/Hachigorō/.test(here) && !/the courier/.test(here), 'the retry is told one man: ' + here);
+    assert(/The hour: [^\n]*09:15/.test(seen[0]), 'and the hour of the page before: ' + (seen[0].match(/The hour:[^\n]*/) || [''])[0]);
+    await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
+    await settled();
+    const last = await loadState(st.id);
+    assert(!last.present.some((p) => p.name === 'the courier') && !last.characters['the courier'], 'one man after the new version: ' + last.present.map((p) => p.name).join(','));
+  } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

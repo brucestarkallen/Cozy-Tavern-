@@ -12152,3 +12152,20 @@ differs in is unread, and he will not — and should not have to — hunt it.
 - The "could not rewind" word (M509-6) stands for the case the fold itself refuses; it is an ordinary toast at the
   foot of the page, like "the storyteller is still busy".
 - GATES: harness 976/976, walk 150/150, long play 8/8, lint 0. version.js -> m509-007.
+
+# M509-8 — THE CAUSE: the join was written on the newest page, and every Try again threw it away
+He: "are we trying to prevent regress that should never happen or fix the problem". Found, reproduced, fixed.
+- THE CAUSE. A heal — the join of "the courier" onto Hachigorō (M509-2), the clearing of a seat-made core (M508) —
+  is journaled on the ledger's current page: the NEWEST one (the opening heal at state.page = the last page; the page
+  reader's upkeep at its own page). Try again folds to the page BEFORE the one let go, and the fold drops everything
+  stamped on that page — the join with it. So: the house joined him after every page; the next retry undid it; the
+  blocks he pasted were always the retry's request, built right after the fold, so he saw him doubled every time. The
+  engine and the live paths were right; the walk fixtures joined him on page ONE (the end-of-chain join runs there) so
+  the join was stamped on an earlier page and survived every fold — which is why none of them showed it.
+- THE FIX: chat.js healFold — foldTo heals what it folds to (seatMadeCores, descriptorsThatAreNamed) before saving, on
+  the folded page's own stamp. Walk DOM-133 (rewritten): a tale seeded the way his was read — both men journaled on
+  page 0 by a house with no join, the naming fact on page 1, page 2 finished — opened from the shelf (the opening heal
+  joins them, stamped on page 2), then Try again: the retry's request has one man and the hour of the page before;
+  on the old code the request reads "Jovan Oda, the courier, Hachigorō". M72-8 (a source law) reads foldTo's first
+  900 characters, so the heal lives in healFold beside it.
+- GATES: harness 976/976, walk 151/151, long play 8/8, lint 0. version.js -> m509-008.

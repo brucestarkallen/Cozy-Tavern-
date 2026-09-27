@@ -3630,10 +3630,22 @@ export function initChat(ctx) {
    * call), saved; the boundary snapshots that belong to the pages beyond it
    * are let go; the chain generation turns so any reader still working on
    * the pages beyond writes nothing. Returns the folded ledger. */
+  /* M509-8: THE HOUSE'S OWN HEALS SURVIVE A REWIND. The join of "the courier" onto Hachigorō (M509-2) and the clearing
+   * of a seat-made core (M508) are written on the NEWEST page — and a Try again folds to the page before it, which
+   * drops everything stamped on the page let go: the courier stood twice again in every retry's request, and the
+   * page reader joined him again after every new version, and the next retry threw it away again. A heal is derived
+   * from the ledger, not read from a page: the fold heals what it folds to, on that page's own stamp (healFold). */
+  function healFold(folded) {
+    try {
+      const heals = [...seatMadeCores(folded), ...descriptorsThatAreNamed(folded)];
+      if (heals.length) { const healed = applyMutations(folded, heals); if (healed.applied.length) return healed.state; }
+    } catch (err) { /* the fold stands as folded */ }
+    return folded;
+  }
   async function foldTo(story, targetPage) {
     const current = await loadState(story.id);
     const snaps = await loadSnapshots(story.id);
-    const folded = foldJournal(current, snaps, targetPage, applyMutations);
+    const folded = healFold(foldJournal(current, snaps, targetPage, applyMutations)); /* M509-8 */
     bumpChain(story.id);
     await saveState(story.id, folded);
     await saveSnapshots(story.id, snaps.filter((e) => !(e.snap && Number.isInteger(e.snap.page) && e.snap.page > targetPage)));
