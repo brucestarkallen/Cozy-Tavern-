@@ -12243,3 +12243,28 @@ Read every code line changed since m507-007 as if someone else wrote it. Found a
 GATES at the end: harness 980/980, walk 153/153, long play 8/8, lint 0, holdsone, bootpull, migrate_checkpoints,
 twobrowsers, relay 11/11, foldcrash, perf_send SENDS=2 within budget (request 605 ms, his page 84 ms, worst freeze
 270 ms, done 1280 ms at CPU 6×). version.js -> m509-013.
+
+# M509-14 — the frame and the note can be switched off; the purpose line is gone
+He: "add turn off for frame and turn off for notes, and just delete 'Its purpose, spoken after it' — I never use it".
+- index.html/settings.js: "Send the frame" (frameOn) in the frame section, "Send the note at the end" (noteOn) in the
+  note section — saved the moment they are touched, on by default, carried in the book's settings list. The purpose
+  textarea and its switch are gone; FRAME_PURPOSE and voice.js purposeLine with them.
+- stack.js: frameOn false → slot 1 empty ("switched off" on the receipt) and no echo; noteOn false → no note at the end
+  and no starter note in the standing words. Laws M21-B, M327-1/3, M334-1, DOM-58 re-pinned (no purpose line follows
+  the frame; the two switches persist and reach the send path).
+
+# M509-15 — a moment the whole room saw is nobody's blind spot who was in the room (the thing I had left)
+He: "why are you just not trying to fix it?" Fixed on both sides:
+- READ: agents/extractor.js broadcastPublicMoments — a fact public by its own words (engine/world.js publicMoment:
+  SEEN — "saw", "watched", "witnessed" — is public whatever it saw; HEARD is public only when the fact says it was
+  said before all — "in front of the whole courtyard", "aloud", "shouted", "in open court" — and carries no mark of
+  privacy — "whisper", "close", "quietly", "aside", "in his ear", "alone", "privately") is written for everyone in the
+  room on that page (the page's own room when the reader named it, else everyone present after the walk-ins and
+  leaves), never the main character. A whisper stays with those the reader gave it to.
+- RENDER, for books already written: state.js wasThereFn(state) reads the ledger's own journal — the scene's ground
+  was last set on some page; within the scene, someone present now was there unless the journal shows them walking in
+  AFTER the page; before the journal's reach or in another scene the answer is no. blindSpots skips a public fact for
+  a lacker who was there; renderKnowledge counts them among its knowers first, so it becomes a shared line ("Everyone
+  here but Late Vale knows: watched Jovan bow…") instead of one witness's. Law M509-15 (both sides, the whisper still a
+  blind spot, one who walked in after still blind).
+- GATES: harness 980/980, walk 153/153, long play 8/8, lint 0. version.js -> m509-015.

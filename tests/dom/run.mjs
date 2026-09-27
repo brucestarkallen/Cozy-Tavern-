@@ -3171,7 +3171,7 @@ test('DOM-58 who tells, and who listens: two names typed in Settings → The fra
     const tony = await send('We sit down.');
     const briefing = tony.find((m) => m.role === 'user' && /^Tony Stark — Bruce here\./.test(m.content));
     assert(briefing, 'the briefing greets Tony, as Bruce: ' + JSON.stringify(tony.filter((m) => m.role === 'user').map((m) => String(m.content).slice(0, 40))));
-    assert(/Tony Stark, that is how Bruce wants this story told/.test(tony[0].content) && /Bruce authors the fiction/.test(tony[0].content), 'the frame’s purpose and the craft say his name');
+    assert(!/that is how Bruce wants this story told/.test(tony[0].content) && /Bruce authors the fiction/.test(tony[0].content), 'the craft says his name; no purpose line follows the frame (M509-14)');
     assert(!/\bthe writer\b|\bthe house\b|\bpersona\b/i.test(tony[0].content + briefing.content.split('\n\n')[0]), 'and none of the form-speak');
     await setName('teller-name', 'Steve');
     const steve = await send('I look around.');
@@ -4927,7 +4927,7 @@ test('DOM-94 HIS WORDS ARE NEVER LOST ON THE WAY OUT: the frame, the note and th
   try {
     await openSettings(); await tick(300);
     await closeSettings(); await tick(400);
-    eq(writes.filter((w) => /frameText|noteText|framePurpose|brief|castNotes|frameOverride|noteOverride/.test(w)).length, 0, 'a plain open and close keeps nothing: ' + writes.join(' '));
+    eq(writes.filter((w) => /frameText|noteText|frameOn|noteOn|brief|castNotes|frameOverride|noteOverride/.test(w)).length, 0, 'a plain open and close keeps nothing: ' + writes.join(' '));
     /* another hand changes the brief while Settings stands open (a housekeeper card, a name the ripple carries): the box,
      * drawn before it and never typed in, never writes its stale words back over it */
     await openSettings(); await tick(300);

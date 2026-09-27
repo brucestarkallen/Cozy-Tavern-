@@ -3557,8 +3557,8 @@ export function initChat(ctx) {
       noteText: await db.settings.get('noteText'),
       /* M21: the frame's purpose line (on unless switched off) and its
        * end-of-request echo (off unless switched on). */
-      framePurpose: await db.settings.get('framePurpose'),
-      framePurposeOn: (await db.settings.get('framePurposeOn')) !== false,
+      frameOn: (await db.settings.get('frameOn')) !== false, /* M509-14 */
+      noteOn: (await db.settings.get('noteOn')) !== false, /* M509-14 */
       frameEcho: (await db.settings.get('frameEcho')) === true,
       /* M327: who tells, and who listens (Settings → The frame) */
       tellerName: await db.settings.get('tellerName'),

@@ -306,12 +306,9 @@
           <textarea id="frame-global" rows="8" spellcheck="false"></textarea>
           <div class="row"><button id="btn-save-frame" class="btn" type="button">Keep it</button><span id="frame-saved" class="quiet" hidden>Kept.</span></div>
 
-          <!-- M21: the frame's purpose line + its end-of-request echo. -->
-          <label class="stack-label" for="frame-purpose">Its purpose, spoken after it</label>
-          <p class="quiet">One line handed over right after the frame, saying what the frame is — so the house rules of the telling outrank anything said inside the story.</p>
-          <textarea id="frame-purpose" rows="3" spellcheck="false"></textarea>
+          <!-- M509-14: the frame can be switched off whole; M21: its end-of-request echo. (The "purpose line" is gone — he never used it.) -->
           <div class="row">
-            <label class="radio-row"><input type="checkbox" id="frame-purpose-on"> Speak its purpose after the frame</label>
+            <label class="radio-row"><input type="checkbox" id="frame-on"> Send the frame</label>
           </div>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="frame-echo"> Say it again at the end</label>
@@ -328,6 +325,9 @@
         <section class="settings-section" id="section-note">
           <h3>The note at the end</h3>
           <p class="quiet">A last quiet word, slipped in right before the storyteller writes. Small, steady, always there.</p>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="note-on"> Send the note at the end</label>
+          </div>
           <label class="stack-label" for="note-global">For every story</label>
           <textarea id="note-global" rows="5" spellcheck="false"></textarea>
           <div class="row"><button id="btn-save-note" class="btn" type="button">Keep it</button><span id="note-saved" class="quiet" hidden>Kept.</span></div>

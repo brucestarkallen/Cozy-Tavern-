@@ -41,6 +41,7 @@
 
 import { db, onDropCaches, settingsKeysOf } from '../store.js'; /* M507: the bank's key cache hears a pull; M507-6: the tale's rows */
 import { renderClock } from './clock.js';
+import { samePersonName } from './names.js'; /* M509-15: was this person in the room */
 import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen } from './offscreen.js';
@@ -960,13 +961,14 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
    * to search the transcript for whether Liara was in the room. */
   /* M305: the newest, and the older facts that bear on the scene the last pages tell */
   const known = {};
-  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null }, known); /* M336: the present page, so an old fact can say its age; M508: the main character's book is the writer's */
+  const wasThere = wasThereFn(state); /* M509-15 */
+  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, wasThere }, known); /* M336: the present page, so an old fact can say its age; M508: the main character's book is the writer's */
   if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'Who knows what: ' });
   /* M338: and what each person here has NOT been shown learning — computed from the same lines, no model */
   /* M509: a fact that stands above as a shared line — "Everyone here but X knows" / "Known to A, B, C" — has already
    * said who is out of it; the blind spots name only what the lines above do not */
   const normFact = (f) => String(f || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-  const spots = blindSpots(state.knowledge, present, { scenePages, turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, mc: mcName(state) })
+  const spots = blindSpots(state.knowledge, present, { scenePages, turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, mc: mcName(state), wasThere })
     .map((s) => ({ ...s, lacks: s.lacks.filter((l) => !(known.shared && known.shared.has(normFact(l.fact)))) }))
     .filter((s) => s.lacks.length);
   const blind = renderBlindSpots(spots);
@@ -1251,6 +1253,36 @@ export function timelineAhead(state, pages) {
  * page it stands at against the pages on the shelf, so a ledger still catching up (a rebuild reading page after page,
  * a retry re-reading the page before) is seen moving, and one that is even with the story says so. From the read mark
  * (the last page read, a contiguous prefix) and the count of the story's own pages. */
+/* M509-15: WAS THIS PERSON IN THE ROOM WHEN A FACT WAS LEARNED? From the ledger's own journal: the scene's ground was
+ * last set on some page (the newest place.set entry); a fact from before that page belongs to another scene, and the
+ * answer is no. Within this scene, someone present now was there unless the journal shows them walking in AFTER the
+ * page (their newest presence.enter later than the fact's turn). The journal is capped, so a scene older than it
+ * answers no for anything before the journal's reach — the blind spot stands, as before. */
+export function wasThereFn(state) {
+  const journal = Array.isArray(state && state.journal) ? state.journal : [];
+  const present = Array.isArray(state && state.present) ? state.present : [];
+  let groundSince = null;
+  for (const e of journal) if (e && e.m && e.m.type === 'place.set' && Number.isInteger(e.p) && (groundSince === null || e.p >= groundSince)) groundSince = e.p;
+  const firstP = journal.length && Number.isInteger(journal[0].p) ? journal[0].p : null;
+  const entered = new Map(); /* name (lower) -> the newest page they walked in on */
+  for (const e of journal) {
+    if (!(e && e.m && e.m.type === 'presence.enter' && typeof e.m.name === 'string' && Number.isInteger(e.p))) continue;
+    const k = e.m.name.trim().toLowerCase();
+    if (!entered.has(k) || e.p >= entered.get(k)) entered.set(k, e.p);
+  }
+  return (name, atTurn) => {
+    if (!Number.isFinite(atTurn)) return false;
+    const factPage = atTurn - 1; /* a fact's turn is its page's index plus one (storyTurn) */
+    const here = present.some((p) => p && typeof p.name === 'string' && (p.name === name || samePersonName(p.name, name)));
+    if (!here) return false;
+    if (groundSince !== null && factPage < groundSince) return false; /* another scene */
+    if (groundSince === null && (firstP === null || factPage < firstP)) return false; /* before the journal's reach: unknown, so no */
+    const k = String(name).trim().toLowerCase();
+    const cameIn = entered.has(k) ? entered.get(k) : null;
+    if (cameIn !== null && cameIn > factPage) return false; /* they walked in after */
+    return true;
+  };
+}
 export function ledgerStandingWords(state, pagesCount) {
   const total = Number.isInteger(pagesCount) && pagesCount >= 0 ? pagesCount : 0;
   const read = Math.max(0, readMark(state) + 1);

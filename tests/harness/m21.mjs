@@ -3,7 +3,7 @@
 import './idb-shim.mjs';
 import { readFileSync } from 'node:fs';
 import { test, assert, eq } from './lib.mjs';
-import { buildRequest, FRAME_PURPOSE, pageText } from '../../js/assemble/stack.js';
+import { buildRequest, pageText } from '../../js/assemble/stack.js';
 import { makePreview, boundaryFor } from '../../js/ui/chat.js';
 import {
   emptyState, loadState, saveState, snapshotState, restoreSnapshot, SNAP_CAP,
@@ -59,21 +59,18 @@ test('M21-A: the shelf row gains the preview on append, swipe, and delete', () =
 
 const B_OPTS = () => ({ story: {}, messages: [{ role: 'user', text: 'hello there' }], state: {}, modules: [], memory: '', window: { keeperOn: true } });
 
-test('M21-B: the purpose line rides slot 1 by default, named on the receipt', () => {
-  const r = buildRequest({ ...B_OPTS(), settings: {} });
-  assert(r.systemBlocks[0].text.includes(FRAME_PURPOSE), 'slot 1 = frame + purpose by default');
-  const slotRow = r.receipt.slots.find((s) => s.name === 'The frame');
-  assert(/purpose spoken after it/.test(slotRow.reason), 'the receipt names the purpose line');
-});
-
-test('M21-B: switched off, the frame stands alone; a cleared line stays cleared', () => {
-  const off = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words', framePurposeOn: false } });
-  eq(off.systemBlocks[0].text, 'frame words', 'no purpose when switched off');
-  eq(off.receipt.slots.find((s) => s.name === 'The frame').reason, '', 'no purpose reason either');
-  const own = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words', framePurpose: 'My own line.' } });
-  assert(own.systemBlocks[0].text === 'frame words\n\nMy own line.', 'the writer’s own line rides');
-  const cleared = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words', framePurpose: '' } });
-  eq(cleared.systemBlocks[0].text, 'frame words', 'a cleared line stays cleared');
+test('M21-B (M509-14): the frame rides slot 1 alone — the purpose line is gone; switched off, slot 1 is empty and nothing echoes', () => {
+  const r = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words' } });
+  eq(r.systemBlocks[0].text, 'frame words', 'slot 1 = the frame, nothing after it');
+  eq(r.receipt.slots.find((s) => s.name === 'The frame').reason, '', 'no purpose reason');
+  const off = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words', frameOn: false, frameEcho: true, noteText: 'the note' } });
+  assert(!off.systemBlocks.some((b) => String(b.text).includes('frame words')), 'off: the frame is not sent');
+  assert(!off.messages.some((m) => String(m.content).includes('frame words')), 'off: nor echoed');
+  eq(off.receipt.slots.find((s) => s.name === 'The frame').source, 'switched off', 'the receipt says so');
+  assert(off.messages[off.messages.length - 1].content.endsWith('the note'), 'the note still stands at the end');
+  const noNote = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words', noteText: 'the note', noteOn: false } });
+  assert(!noNote.messages.some((m) => String(m.content).includes('the note')), 'note off: no note at the end');
+  assert(!noNote.systemBlocks.some((b) => /reread the last few exchanges/i.test(String(b.text))), 'note off: no starter note in the standing words either');
 });
 
 test('M21-B: the echo repeats the whole frame just before the note', () => {
@@ -82,7 +79,7 @@ test('M21-B: the echo repeats the whole frame just before the note', () => {
   const closing = r.messages[r.messages.length - 1].content;
   const echoAt = closing.indexOf('frame words');
   const noteAt = closing.lastIndexOf('the note');
-  assert(echoAt !== -1 && closing.includes(FRAME_PURPOSE) && noteAt !== -1, 'both ride the wire');
+  assert(echoAt !== -1 && noteAt !== -1, 'both ride the wire');
   assert(echoAt < noteAt && closing.endsWith('the note'), 'the mirror sits immediately before the note, which is still the last word');
   const echoRow = r.receipt.slots.find((s) => s.name === 'The frame, said again');
   assert(echoRow && echoRow.tokens > 0, 'the receipt names the echo');
@@ -97,13 +94,14 @@ test('M21-B: echo off by default — nothing repeats', () => {
   eq(tails.length, 0, 'the frame rides slot 1 only');
 });
 
-test('M21-B: the settings surface carries the controls and the wiring', () => {
+test('M21-B (M509-14): the settings surface carries the two switches and the echo, and the purpose line is gone', () => {
   const html = src('index.html');
-  assert(html.includes('id="frame-purpose"') && html.includes('id="frame-purpose-on"') && html.includes('id="frame-echo"'), 'the frame section gains the three controls');
+  assert(html.includes('id="frame-on"') && html.includes('id="note-on"') && html.includes('id="frame-echo"'), 'the switches and the echo');
+  assert(!html.includes('frame-purpose'), 'no purpose control');
   const settings = src('js/ui/settings.js');
-  assert(settings.includes("db.settings.set('framePurpose'") && settings.includes("db.settings.set('framePurposeOn'") && settings.includes("db.settings.set('frameEcho'"), 'all three persist');
+  assert(settings.includes("db.settings.set('frameOn'") && settings.includes("db.settings.set('noteOn'") && settings.includes("db.settings.set('frameEcho'"), 'all three persist');
   const chat = src('js/ui/chat.js');
-  assert(chat.includes('framePurposeOn') && chat.includes('frameEcho'), 'the send path gathers them');
+  assert(chat.includes('frameOn') && chat.includes('noteOn') && chat.includes('frameEcho'), 'the send path gathers them');
 });
 
 /* ---------- C. TRUE rollback — state snapshots ---------- */

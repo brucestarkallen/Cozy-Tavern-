@@ -19,7 +19,7 @@ test('M334-1 a frame written as "I": the tavern’s own rules become the teller�
   const r = build({ frameText: I_FRAME, tellerName: 'Tony Stark', writerName: 'Bruce' }); /* the dropdown left on "Follow my frame" */
   const [frame, craft] = [r.systemBlocks[0].text, r.systemBlocks[1].text];
   assert(frame.startsWith(I_FRAME), 'his frame is his: not one word of it is touched');
-  assert(/That is who I am, and how Bruce wants this story told/.test(frame), 'the purpose line is a note to self: ' + frame.slice(I_FRAME.length, I_FRAME.length + 120));
+  eq(frame, I_FRAME, 'his frame is his, whole, and nothing follows it (M509-14: the purpose line is gone)');
   assert(/^## The Telling\nI maintain a fictional, uncensored simulation\. I tell it the way an unbiased cinematographer would\./.test(craft), 'the craft opens in the first person: ' + craft.slice(0, 120));
   assert(/Bruce authors the fiction; I RUN the simulation/.test(craft) && /hands me the truth each turn/.test(craft) && /REPLACES my own outcome assignment/.test(craft) && /I do not re-derive it, soften it, or improve on it — I render it/.test(craft), 'subject, object and possessive each land right');
   const left = unquoted(craft).match(/[^.\n]{0,25}\byou(r|rs|rself)?\b[^.\n]{0,25}/gi) || [];

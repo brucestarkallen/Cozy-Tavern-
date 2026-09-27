@@ -548,7 +548,9 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
         .map((x) => aged(x.k));
     }
     const rest = older.length - recalled.length;
-    picked.push({ key, newest, recalled, rest, mc: mine });
+    const turns = new Map(); /* M509-15: the page each rendered line was learned on */
+    for (const k of list) { const line = aged(k); if (!turns.has(line) && Number.isFinite(k.atTurn)) turns.set(line, k.atTurn); }
+    picked.push({ key, newest, recalled, rest, mc: mine, turns });
   }
   /* M459: WHAT MANY HERE KNOW IS SAID ONCE. One sword stopped an inch from Zaraki's face in front of the whole courtyard,
    * and the notes said so thirteen times, a line for each witness. A fact three or more people here share rides once,
@@ -556,19 +558,23 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   const norm = (f) => f.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const holders = new Map();
   const others = picked.filter((p) => !p.mc); /* M508: the sharing is among everyone here but the main character */
-  for (const p of others) for (const f of [...p.newest, ...p.recalled]) { const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [] }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
-  const shared = [...holders.values()].filter((h) => h.who.length >= 3);
-  const sharedKeys = new Set(shared.map((h) => norm(h.text)));
-  if (out && typeof out === 'object') out.shared = new Set(shared.map((h) => norm(h.text.replace(/ \(learned about \d+ pages ago\)$/, '')))); /* M509: the blind spots need not say them again */
-  /* M509: "EVERYONE HERE" IS EVERYONE HERE. A person with no book yet was not counted — "Everyone here knows" stood over a
-   * room where eight had learned nothing. The roster is everyone present but the main character, under the key their
-   * book is filed by; someone without a book is named among the "but". */
+  for (const p of others) for (const f of [...p.newest, ...p.recalled]) { const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [], atTurn: p.turns && p.turns.get(f) != null ? p.turns.get(f) : null }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
+  /* M509-15: a public moment counts everyone who was in the room among its knowers — the reader wrote it into one book,
+   * the whole courtyard saw it — so it is a shared line, not one witness's, and nobody's blind spot who was there */
   const roster = [];
   for (const name of names) {
     if (isMcKey(name)) continue;
     const key = findKnowledgeKey(safe, name) || name;
     if (!roster.some((r) => r === key || samePersonName(r, key))) roster.push(key);
   }
+  const wasThere = scene && typeof scene.wasThere === 'function' ? scene.wasThere : null;
+  if (wasThere) for (const h of holders.values()) { if (!publicMoment(h.text)) continue; for (const r of roster) if (!h.who.includes(r) && wasThere(r, h.atTurn)) h.who.push(r); }
+  const shared = [...holders.values()].filter((h) => h.who.length >= 3);
+  const sharedKeys = new Set(shared.map((h) => norm(h.text)));
+  if (out && typeof out === 'object') out.shared = new Set(shared.map((h) => norm(h.text.replace(/ \(learned about \d+ pages ago\)$/, '')))); /* M509: the blind spots need not say them again */
+  /* M509: "EVERYONE HERE" IS EVERYONE HERE. A person with no book yet was not counted — "Everyone here knows" stood over a
+   * room where eight had learned nothing. The roster is everyone present but the main character, under the key their
+   * book is filed by; someone without a book is named among the "but". */
   const bySet = new Map();
   for (const h of shared) { const everyone = h.who.length >= roster.length; const sig = everyone ? '*' : h.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { everyone, who: h.who, facts: [] }); bySet.get(sig).facts.push(h.text); }
   for (const g of [...bySet.values()].sort((a, b) => (b.everyone - a.everyone) || (b.who.length - a.who.length))) {
@@ -841,7 +847,24 @@ const factWords = (fact, ignore) => {
   return out;
 };
 const overlap = (a, b) => { if (!a.size || !b.size) return 0; let n = 0; for (const w of a) if (b.has(w)) n += 1; return n / Math.min(a.size, b.size); };
-export function blindSpots(knowledge, present, { scenePages = [], turn = null, mc = '', per = BLIND_PER_PERSON } = {}) {
+/* M509-15: A MOMENT THE WHOLE ROOM SAW IS NOBODY'S BLIND SPOT WHO WAS IN THE ROOM. The reader writes a public moment
+ * into one witness's book ("watched Jovan bow… whisper to Rukia" — Shunsui alone), and the blind spots then told the
+ * storyteller that thirteen people standing in the same courtyard had not found it out. A fact is PUBLIC when it is
+ * something seen ("saw", "watched", "witnessed") or said before all ("in front of the whole courtyard", "aloud",
+ * "shouted", "before the assembly", "in open court"), and carries no mark of privacy ("whisper", "close", "quietly",
+ * "aside", "under his breath", "in his ear", "privately", "only he", "alone"). A whisper stays a whisper. */
+const PUBLIC_MARK = /\b(?:in front of (?:the )?(?:whole |entire |full )?(?:courtyard|room|hall|crowd|assembly|table|court|company|everyone|them all)|aloud|out loud|shouted|bellowed|roared|announced|declared|proclaimed|before the (?:whole )?(?:assembly|court|crowd|room|hall|table)|in open (?:court|courtyard|assembly)|to the (?:whole )?(?:room|courtyard|crowd|hall)|for all to hear|everyone (?:heard|saw)|the whole (?:room|courtyard|hall|crowd) (?:heard|saw))\b/i;
+const SEEN_START = /^(?:saw|watched|witnessed|observed|looked on as|was there when)\b/i;
+const PRIVATE_MARK = /\b(?:whisper(?:ed|s|ing)?|close|quietly|softly|low(?:ered)?|under (?:his|her|their) breath|in (?:his|her|their) ear|privately|in private|aside|alone|only (?:he|she|they)|so (?:only|no one else)|out of earshot|behind (?:closed doors|the door)|between (?:them|the two)|in confidence|told (?:him|her) alone|when no one|no one else (?:heard|saw)|nobody else)\b/i;
+export function publicMoment(fact) {
+  const t = String(fact || '').trim();
+  if (!t) return false;
+  /* what was SEEN was seen by the room — "watched him whisper to her" tells the room he whispered, not what; what was
+   * HEARD is public only when the fact says it was said before all, and never when it carries a mark of privacy */
+  if (SEEN_START.test(t)) return true;
+  return PUBLIC_MARK.test(t) && !PRIVATE_MARK.test(t);
+}
+export function blindSpots(knowledge, present, { scenePages = [], turn = null, mc = '', per = BLIND_PER_PERSON, wasThere = null } = {}) {
   const safe = copyKnowledge(knowledge);
   const names = (Array.isArray(present) ? present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => typeof n === 'string' && n.trim());
   const mcKey = String(mc || '').trim().toLowerCase();
@@ -861,9 +884,10 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     const fact = String(k.fact || '').trim();
     if (!fact) return null;
     const age = Number.isFinite(turn) && Number.isFinite(k.atTurn) ? turn - k.atTurn : null;
+    const atTurn = Number.isFinite(k.atTurn) ? k.atTurn : null;
     const words = factWords(fact);
     const score = sceneWords.size ? [...words].filter((w) => sceneWords.has(w) && !common.has(w)).length : 0;
-    return { fact, age, words, score };
+    return { fact, age, words, score, atTurn };
   }).filter((f) => f && (f.score >= 2 || (f.age != null && f.age <= BLIND_RECENT_PAGES)))]); /* near the scene, or recent */
   for (const name of names) {
     if (name.trim().toLowerCase() === mcKey || (mc && samePersonName(name, mc))) continue; /* the main character is the writer's — under any form of his name (M449: "Oda" in the scene is Jovan Oda) */
@@ -873,8 +897,9 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     const found = [];
     for (const [other, list] of books) {
       if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase() || samePersonName(other, name)) continue; /* M449: their own lines under another form of their name are theirs — never "Rukia hasn't found out (Rukia knows)" */
-      for (const { fact, age, words, score } of list) {
+      for (const { fact, age, words, score, atTurn } of list) {
         if (selfRes.some((re) => re.test(fact))) continue; /* about them: they were there */
+        if (typeof wasThere === 'function' && publicMoment(fact) && wasThere(name, atTurn)) continue; /* M509-15: the whole room saw it, and they were in the room */
         if (mine.some((m) => sameFact(m.fact, fact) || overlap(m.words, words) >= 0.6)) continue; /* they hold it, in these words or others */
         if (found.some((f) => sameFact(f.fact, fact) || overlap(f.words, words) >= 0.6)) continue; /* once is enough */
         found.push({ fact: fact.replace(/\.+$/, ''), from: other, age, score, words });

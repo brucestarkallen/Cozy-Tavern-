@@ -39,6 +39,7 @@ import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.
 import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, samePlace, seatAtScene } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc } from '../engine/people.js';
+import { publicMoment } from '../engine/world.js'; /* M509-15: a moment the whole room saw */
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
@@ -498,8 +499,39 @@ export async function extractTurn(args = {}) {
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
     read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));
     read.mutations = [...read.mutations, ...hereFromBoard(args.state, read.here, args.assistantText, read.mutations)];
+    /* M509-15: A MOMENT THE WHOLE ROOM SAW GOES INTO EVERY BOOK IN THE ROOM. The reader writes a public moment into one
+     * witness's book — "watched Jovan bow… whisper to Rukia" for Shunsui alone — and every other book stands blind to it.
+     * A fact that is public by its own words (engine/world.js publicMoment: seen, or said before all, with no mark of
+     * privacy) is written for everyone in the room on this page — the page's own room when the reader named it, else
+     * everyone present after this page's walk-ins and leaves — never the main character. A whisper stays with those the
+     * reader gave it to. */
+    if (args.state) read.mutations = broadcastPublicMoments(args.state, read.mutations, read.here);
   }
   return read;
+}
+export function broadcastPublicMoments(state, mutations, here) {
+  const list = Array.isArray(mutations) ? mutations : [];
+  const facts = list.filter((m) => m && m.type === 'knowledge.add' && typeof m.fact === 'string' && typeof m.name === 'string' && publicMoment(m.fact));
+  if (!facts.length) return list;
+  const leaving = new Set(list.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
+  const room = [];
+  const add = (n) => { const t = String(n || '').trim(); if (!t || isMc(state, t) || leaving.has(t.toLowerCase())) return; if (!room.some((r) => r === t || samePersonName(r, t))) room.push(t); };
+  if (Array.isArray(here) && here.length) for (const n of here) add(n);
+  else {
+    for (const p of (Array.isArray(state.present) ? state.present : [])) add(p && p.name);
+    for (const m of list) if (m && m.type === 'presence.enter' && typeof m.name === 'string') add(m.name);
+  }
+  if (room.length < 2) return list;
+  const out = list.slice();
+  for (const f of facts) {
+    const holders = new Set(list.filter((m) => m && m.type === 'knowledge.add' && m.fact === f.fact).map((m) => String(m.name).trim().toLowerCase()));
+    for (const n of room) {
+      if (holders.has(n.toLowerCase()) || [...holders].some((h) => samePersonName(h, n))) continue;
+      out.push({ type: 'knowledge.add', name: n, fact: f.fact, ...(f.at ? { at: f.at } : {}) });
+      holders.add(n.toLowerCase());
+    }
+  }
+  return out;
 }
 
 async function extractTurnRead({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew, storyId = '', story = null, pageNumber = 0, moodOwed = true } = {}) {

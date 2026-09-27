@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m509-013)
+# Cozy Tavern — handoff for the next session (state at m509-015)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -43,10 +43,11 @@
    "Tenth Division courtyard", not for a room of the same compound); a spot within the same ground does not let the
    nows go (staleNows + seatAtScene); the dress is never said twice in a position (withoutAttire). The drawer says
    which page the ledger belongs to (ledgerStandingWords, #ledger-standing).
-0f. STILL OPEN, KNOWN, LEFT: a public moment the reader wrote into ONE witness's book stands as a blind spot for the
-   others who were there ("watched Jovan bow… (Shunsui knows)"); the rule that would fix it (a moment known to many of
-   those present at that page is nobody's blind spot who was there) cannot tell a whisper from a shout. Needs a
-   reading, not a rule. Also: the perf gate's steady send at the end of this session — request 605 ms, his page 84 ms,
+0f. CLOSED (M509-15): a public moment the reader wrote into ONE witness's book is now everyone's who was in the room
+   (extractor.js broadcastPublicMoments at read; world.js publicMoment + state.js wasThereFn at render) — seen is
+   public, heard is public only when said before all and never with a mark of privacy; a whisper stays a whisper.
+   M509-14: the frame and the note can be switched off (frameOn/noteOn); the purpose line is gone for good.
+   Also: the perf gate's steady send at the end of this session — request 605 ms, his page 84 ms,
    worst freeze 270 ms, whole send 1280 ms (CPU 6×) — a shade over m507-007's 430–520 / 45–90 / 100–240 / ~1100 on a
    busier VM; nothing attributable in the profile (structuredClone 281 ms self, the store's clone, is the known cost).
 1zb. NO THIRD AUTHORITY ON THE WIRE (M495): every text a side agent adds to the storyteller's request must read as the

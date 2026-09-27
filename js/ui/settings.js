@@ -29,7 +29,7 @@ import { learnContext } from '../providers/detect.js'; /* M289 */
 import { byName } from '../providers/order.js'; /* M301: every list of names the writer picks from, A to Z */
 import { EFFORT_RANK, reasonStyle, reasoningIsDown, spokenAs, thinkingHint, prefillIsDown, budgetFor, prefillSilencesThinking, describePrefill, prefillFields, alwaysThinks, learnedFacts } from '../providers/effort.js';
 import { download } from './download.js';
-import { STARTER_FRAME, STARTER_NOTE, FRAME_PURPOSE } from '../assemble/stack.js';
+import { STARTER_FRAME, STARTER_NOTE } from '../assemble/stack.js';
 import { cleanName, framePerson } from '../assemble/voice.js'; /* M327, M334 */
 import { listModules, saveModule, removeModule, WHEN_WORDS } from '../assemble/modules.js';
 import { parsePreset, decompose, applyPlan, summaryWords } from '../import/sillytavern.js';
@@ -147,8 +147,8 @@ export function initSettings(ctx) {
     frameStory: document.getElementById('frame-story'),
     frameStoryName: document.getElementById('frame-story-name'),
     /* M21: the frame's purpose line and its end-of-request echo. */
-    framePurpose: document.getElementById('frame-purpose'),
-    framePurposeOn: document.getElementById('frame-purpose-on'),
+    frameOn: document.getElementById('frame-on'), /* M509-14 */
+    noteOn: document.getElementById('note-on'), /* M509-14 */
     frameEcho: document.getElementById('frame-echo'),
     noteGlobal: document.getElementById('note-global'),
     noteStory: document.getElementById('note-story'),
@@ -1050,12 +1050,12 @@ export function initSettings(ctx) {
    * whose kept value was changed by another hand while Settings stood open (a housekeeper card on the brief, a name
    * the ripple carried), which a stale box must not write back over */
   const typedBoxes = new Set();
-  for (const box of [els.frameGlobal, els.framePurpose, els.noteGlobal, els.frameStory, els.noteStory, els.briefStory, els.castStory]) {
+  for (const box of [els.frameGlobal, els.noteGlobal, els.frameStory, els.noteStory, els.briefStory, els.castStory]) {
     if (box) box.addEventListener('input', () => typedBoxes.add(box));
   }
   /* a box he kept with its own button is no draft any more (a later change by another hand is then drawn, never
    * written over) */
-  for (const [id, boxes] of [['btn-save-frame', [els.frameGlobal, els.framePurpose]], ['btn-save-note', [els.noteGlobal]], ['btn-save-frame-story', [els.frameStory]],
+  for (const [id, boxes] of [['btn-save-frame', [els.frameGlobal]], ['btn-save-note', [els.noteGlobal]], ['btn-save-frame-story', [els.frameStory]],
     ['btn-save-note-story', [els.noteStory]], ['btn-save-brief', [els.briefStory]], ['btn-save-cast', [els.castStory]]]) {
     const button = document.getElementById(id);
     if (button) button.addEventListener('click', () => { for (const b of boxes) typedBoxes.delete(b); });
@@ -1066,7 +1066,6 @@ export function initSettings(ctx) {
       const same = Boolean(story && promptSlotsStory && story.id === promptSlotsStory);
       const boxes = [
         [els.frameGlobal, async () => (await db.settings.get('frameText')) ?? STARTER_FRAME, 'btn-save-frame', true],
-        [els.framePurpose, async () => (await db.settings.get('framePurpose')) ?? FRAME_PURPOSE, 'btn-save-frame', true],
         [els.noteGlobal, async () => (await db.settings.get('noteText')) ?? STARTER_NOTE, 'btn-save-note', true],
         [els.frameStory, async () => (story && story.frameOverride) || '', 'btn-save-frame-story', same],
         [els.noteStory, async () => (story && story.noteOverride) || '', 'btn-save-note-story', same],
@@ -1100,8 +1099,8 @@ export function initSettings(ctx) {
     if (!drafting(els.noteGlobal)) els.noteGlobal.value = (await db.settings.get('noteText')) ?? STARTER_NOTE;
     /* M21: the frame's purpose line (?? — a cleared line stays cleared) and
      * the two toggles: purpose on by default, the echo off by default. */
-    if (els.framePurpose && !drafting(els.framePurpose)) els.framePurpose.value = (await db.settings.get('framePurpose')) ?? FRAME_PURPOSE;
-    if (els.framePurposeOn) els.framePurposeOn.checked = (await db.settings.get('framePurposeOn')) !== false;
+    if (els.frameOn) els.frameOn.checked = (await db.settings.get('frameOn')) !== false; /* M509-14 */
+    if (els.noteOn) els.noteOn.checked = (await db.settings.get('noteOn')) !== false; /* M509-14 */
     if (els.frameEcho) els.frameEcho.checked = (await db.settings.get('frameEcho')) === true;
 
     const story = await activeStory();
@@ -1153,14 +1152,17 @@ export function initSettings(ctx) {
 
   document.getElementById('btn-save-frame').addEventListener('click', async () => {
     await db.settings.set('frameText', els.frameGlobal.value);
-    /* M21: the purpose line keeps with the frame — one "Keep it" for both. */
-    if (els.framePurpose) await db.settings.set('framePurpose', els.framePurpose.value);
     flash('frame-saved');
   });
-  /* M21: the two frame toggles save the moment they're touched. */
-  if (els.framePurposeOn) {
-    els.framePurposeOn.addEventListener('change', async () => {
-      await db.settings.set('framePurposeOn', els.framePurposeOn.checked);
+  /* M21: the frame toggles save the moment they're touched; M509-14: the frame and the note can be switched off whole. */
+  if (els.frameOn) {
+    els.frameOn.addEventListener('change', async () => {
+      await db.settings.set('frameOn', els.frameOn.checked);
+    });
+  }
+  if (els.noteOn) {
+    els.noteOn.addEventListener('change', async () => {
+      await db.settings.set('noteOn', els.noteOn.checked);
     });
   }
   if (els.frameEcho) {
@@ -2571,7 +2573,7 @@ export function initSettings(ctx) {
     'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'groundingPhrase', 'afterRole', /* M399: canon's switch is each story's own, not a setting of the house */
     'speechColours', 'shelfSort', 'ledgerFolds', 'settingsFolds', /* M466/M468: the coats' own colours and the rooms' shapes go back; his own words (ownWords) are his writing and stay */
     'conceptToBrief', /* M479 */
-    'frameText', 'noteText', 'framePurposeOn', 'framePurpose', 'frameEcho',
+    'frameText', 'noteText', 'frameOn', 'noteOn', 'frameEcho', /* M509-14: the two switches ride the book */
     'shelfCollapsed',
   ];
   async function resetSettings() {

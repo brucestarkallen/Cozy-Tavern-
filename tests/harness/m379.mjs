@@ -130,7 +130,7 @@ test('M380-3 A HOUSE THAT REFUSES A SYSTEM MESSAGE AFTER THE STORY is remembered
 test('M384-1 HIS TWO ALWAYS CLOSE IT: whatever else rides after his message comes first — the repeated main instructions, then his note, are the last two things the storyteller reads', () => {
   const r = buildRequest({
     story: { brief: '' }, messages: [...base, { id: 'u1', role: 'user', text: 'I swing at him.' }],
-    settings: { tellerName: 'Tony Stark', writerName: 'Bruce', frameText: 'MAIN: You are Tony Stark.', framePurposeOn: false, frameEcho: true, noteText: 'NOTE: keep it funny.' },
+    settings: { tellerName: 'Tony Stark', writerName: 'Bruce', frameText: 'MAIN: You are Tony Stark.', frameEcho: true, noteText: 'NOTE: keep it funny.' },
     state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 1000000 },
     directive: '', directorNote: '', editorEye: '', ruling: 'RULING: the blow lands.', sensorNote: 'SENSOR: something is at stake.',
   });

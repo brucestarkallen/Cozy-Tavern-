@@ -16,7 +16,7 @@ test('M327-1 with both names: every word the HOUSE wrote is said to Tony, as Bru
   const r = build({ tellerName: 'Tony Stark', writerName: 'Bruce' });
   const said = houseWords(r);
   assert(/^Tony Stark — Bruce here\. This is where things stand in our story right now/.test(r.messages[0].content), 'the briefing opens as Bruce speaking to Tony: ' + r.messages[0].content.slice(0, 70));
-  assert(/Tony Stark, that is how Bruce wants this story told/.test(r.systemBlocks[0].text), 'the frame’s purpose line');
+  assert(!/that is how Bruce wants this story told/.test(r.systemBlocks[0].text), 'no purpose line follows the frame (M509-14)');
   assert(/You tell Bruce stories\./.test(r.systemBlocks[0].text), 'his own frame says his name where it said "the writer"');
   assert(/Bruce authors the fiction; you RUN the simulation/.test(r.systemBlocks[1].text), 'the craft: ' + (r.systemBlocks[1].text.match(/[^.\n]*authors the fiction[^.\n]*/) || [''])[0]);
   assert(/Bruce’s notebook keeps the world between turns/.test(r.systemBlocks[1].text) && /Bruce’s closing words say how an attempt of his turns out/.test(r.systemBlocks[1].text) /* M345: the craft teaches the words the outcome opens with */, '"the house" is his notebook — in the craft’s teaching…');
@@ -39,7 +39,7 @@ test('M327-2 the STORY is never touched: a house in a page, in the brief, in the
 test('M327-3 change the name and the next request is for Steve; clear both and every word is exactly what it was', () => {
   const steve = build({ tellerName: 'Steve', writerName: 'Jovan' });
   assert(/^Steve — Jovan here\./.test(steve.messages[0].content), 'the briefing greets Steve, as Jovan');
-  assert(/Jovan authors the fiction/.test(steve.systemBlocks[1].text) && /Steve, that is how Jovan wants/.test(steve.systemBlocks[0].text), 'the craft and the purpose line');
+  assert(/Jovan authors the fiction/.test(steve.systemBlocks[1].text) && !/that is how Jovan wants/.test(steve.systemBlocks[0].text), 'the craft, for Jovan; no purpose line (M509-14)');
   assert(!/Bruce/.test(houseWords(steve)) && !/Tony/.test(steve.systemBlocks[1].text + steve.messages[0].content), 'nothing of the names before is left (his frame is his own to change)');
   const none = build({});
   const was = build({ tellerName: '   ', writerName: '' });
