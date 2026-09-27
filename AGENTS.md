@@ -12135,3 +12135,20 @@ page, not before the page", "did you break anything". Read whole, measured, fixe
 - The courier: the search is NFC-safe and cached now; descriptorsApart names a descriptor standing apart though the
   ledger names someone for its role. GATES: harness 976/976, walk 147/147, long play 8/8, lint 0.
   version.js -> m509-006.
+
+# M509-7 — Try again: the previous page's header is the truth after any rewind
+He, after m509-006: "I press retry again, the time is still the latest page's — the one already gone — not the
+previous page's"; no "could not rewind" word had shown (so the fold ran and returned true). Three walk scenarios drive
+his flow through the real app and every one rewinds right: DOM-129 (two pages, Try again on the second), DOM-130 (the
+tale opened again first — its opening heals run — then Try again), DOM-131 (Try again while the replaced page's world
+agent, scribe and auditor are still out; their late answers write nothing over the new version). What his phone
+differs in is unread, and he will not — and should not have to — hunt it.
+- THE REPAIR AT THE SOURCE OF TRUTH: the storyteller's own header on the page BEFORE the one let go says where and
+  when the story stood; M455's rule ("the header is the truth for the hour") now runs at the rewind and not only at
+  the open. chat.js rewindTo: after the fold (or the nearest snapshot), if the rewound ledger's hour or ground is not
+  that header's, the header sets them — journaled on that page's own stamp, so a later fold keeps it. DOM-132 (new)
+  bends a store by hand so the fold keeps the replaced page's hour, and the retry is still told the page before's
+  hour; the law fails on the old code.
+- The "could not rewind" word (M509-6) stands for the case the fold itself refuses; it is an ordinary toast at the
+  foot of the page, like "the storyteller is still busy".
+- GATES: harness 976/976, walk 150/150, long play 8/8, lint 0. version.js -> m509-007.

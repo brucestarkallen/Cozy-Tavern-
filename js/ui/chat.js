@@ -3651,17 +3651,39 @@ export function initChat(ctx) {
     const list = Array.isArray(history) ? history : [];
     const at = list.findIndex((m) => m && m.id === userMsgId);
     const current = await loadState(story.id);
+    let rewound = false;
     if (at !== -1 && (current.journal || []).length) {
       const target = list.slice(0, at).filter((m) => m && m.role === 'assistant' && !m.hidden).length - 1;
       await foldTo(story, target);
-      return true;
+      rewound = true;
+    } else {
+      const order = list.filter((m) => m && m.role === 'user').map((m) => m.id);
+      bumpChain(story.id);
+      const r = await restoreNearestSnapshot(story.id, order, userMsgId);
+      if (!r) return false;
+      if (!r.exact) pendingAudit.add(story.id);
+      rewound = true;
     }
-    const order = list.filter((m) => m && m.role === 'user').map((m) => m.id);
-    bumpChain(story.id);
-    const r = await restoreNearestSnapshot(story.id, order, userMsgId);
-    if (!r) return false;
-    if (!r.exact) pendingAudit.add(story.id);
-    return true;
+    /* M509-7: THE PREVIOUS PAGE'S HEADER IS THE TRUTH FOR THE HOUR AND THE GROUND AFTER A REWIND. He saw Try again keep
+     * the hour of the page it was replacing (12:16 → the retry told 12:16 → the new version wrote 12:17), and no test
+     * of the fold reproduces it. Whatever the fold did, the storyteller's own header on the page BEFORE the one let go
+     * says where and when the story stood — M455's rule ("the header is the truth for the hour"), applied at the
+     * rewind and not only at the open: if the rewound ledger's hour or ground is not that header's, the header sets it,
+     * journaled on that page's own stamp so a later fold keeps it. */
+    try {
+      const prev = at !== -1 ? [...list.slice(0, at)].reverse().find((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && pageText(m).trim()) : null;
+      if (prev) {
+        const after = await loadState(story.id);
+        const fromHeader = headerMutations(pageText(prev)).filter((m) => m && (m.type === 'clock.set' || m.type === 'place.set'));
+        if (fromHeader.length) {
+          const pageOf = list.slice(0, at).filter((m) => m && m.role === 'assistant' && !m.hidden).length - 1;
+          const stamped = { ...after, page: Number.isInteger(pageOf) && pageOf >= 0 ? pageOf : after.page };
+          const { state: put, applied } = applyMutations(stamped, fromHeader);
+          if (applied.some((a) => !(a && a.same))) { put.page = after.page; await saveState(story.id, put); notify(story.id); }
+        }
+      }
+    } catch (err) { /* the header's word is a courtesy over the fold, never a crisis */ }
+    return rewound;
   }
 
   /* M68: THE REPLAY. When history changes at an older page — a version walked

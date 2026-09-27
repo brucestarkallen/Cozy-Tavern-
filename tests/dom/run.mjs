@@ -6481,6 +6481,143 @@ test('DOM-129 TRY AGAIN REWINDS THE LEDGER TO BEFORE THE PAGE: the storyteller�
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-130 TRY AGAIN AFTER THE TALE WAS OPENED AGAIN (its opening heals run, the last page finished): the retry still carries the hour and the room from before the page', async () => {
+  const before = errors.length;
+  const { loadState, saveVersionStates } = await import('../../js/engine/state.js');
+  const { renderClock } = await import('../../js/engine/clock.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'retry after open' });
+  await db.stories.update(st.id, { createdAt: Date.now() - 10 * 60 * 1000 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy(), 'free', 20000);
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  const H = (hh, mm) => '[The kitchen — Monday, March 3, 2025 | ' + hh + ':' + mm + ' | clear | coat | by the stove]\n\n';
+  const seen = [];
+  let hour = ['09', '05']; let who = 'Mara Vell';
+  try {
+    house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [{ type: 'presence.enter', name: who, position: 'by the stove' }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] }) : '{"mutations":[],"deltas":[],"findings":[],"issues":[]}');
+    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + who + ' came in and stood by the stove. The kettle ticked.'; };
+    type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
+    await settled();
+    hour = ['09', '20']; who = 'Tobin Ashcombe';
+    type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
+    await settled();
+    /* the app closed and opened again: the tale is opened from the shelf, its heals run on the ledger as it stands */
+    await env.ctx.chat.openStory(st.id);
+    await until(async () => (await storyId()) === st.id, 'open again', 10000);
+    await tick(800); await settled();
+    const opened = await loadState(st.id);
+    assert(/09:20/.test(renderClock(opened.clock)), 'after the open the hour is page two’s: ' + renderClock(opened.clock));
+    hour = ['09', '30']; who = 'Nell Pike';
+    click(q('#btn-retry'));
+    await until(() => seen.length >= 3, 'the retry’s request went out', 30000);
+    const req = seen[seen.length - 1];
+    assert(/The hour: [^\n]*09:05/.test(req), 'the retry is told the hour BEFORE the page (09:05): ' + (req.match(/The hour:[^\n]*/) || [''])[0] + ' | journal stamps: ' + JSON.stringify((opened.journal || []).slice(-6).map((e) => [e.p, e.m && e.m.type])));
+    assert(/Here now:[^\n]*Mara Vell/.test(req) && !/Here now:[^\n]*Tobin Ashcombe/.test(req), 'and the room before the page: ' + (req.match(/Here now:[^\n]*/) || [''])[0]);
+    await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
+    await settled();
+  } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-131 TRY AGAIN WHILE THE OLD PAGE’S LATER READERS (world agent, scribe, auditor) ARE STILL OUT: the retry carries the hour before the page; when the old readers answer late they write nothing over the new version', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const { renderClock } = await import('../../js/engine/clock.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  await db.settings.set('worldAgent', true);
+  const st = await db.stories.create({ title: 'retry under slow readers' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy(), 'free', 20000);
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  const H = (hh, mm) => '[The kitchen — Monday, March 3, 2025 | ' + hh + ':' + mm + ' | clear | coat | by the stove]\n\n';
+  const seen = [];
+  let hour = ['09', '05']; let who = 'Mara Vell'; let holdLate = false; let release; const held = new Promise((r) => { release = r; }); let heldCalls = 0;
+  try {
+    house.state.workerAnswer = (body, sys) => {
+      if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'presence.enter', name: who, position: 'by the stove' }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+      const late = '{"mutations":[{"type":"offscreen.set","name":"Kim","location":"her flat","activity":"scrolling","stance":"busy"}],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[{"name":"Tobin Ashcombe","state":"still by the stove, late word"}],"findings":[],"issues":[]}';
+      if (holdLate) { heldCalls += 1; return held.then(() => late); }
+      return '{"mutations":[],"deltas":[],"findings":[],"issues":[]}';
+    };
+    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + who + ' came in and stood by the stove. The kettle ticked.'; };
+    type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
+    await settled();
+    /* page two: its page reader answers at once; its later readers are held */
+    hour = ['09', '20']; who = 'Tobin Ashcombe'; holdLate = true;
+    type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
+    await until(() => heldCalls > 0, 'a later reader of page two is out', 20000);
+    await tick(300);
+    assert(/09:20/.test(renderClock((await loadState(st.id)).clock)), 'the page reader landed page two’s hour');
+    /* Try again while they are still out (the app waits five seconds for them, then rewinds) */
+    hour = ['09', '30']; who = 'Nell Pike'; holdLate = false;
+    click(q('#btn-retry'));
+    await until(() => seen.length >= 3, 'the retry’s request went out', 40000);
+    const req = seen[seen.length - 1];
+    assert(/The hour: [^\n]*09:05/.test(req), 'the retry is told the hour BEFORE the page (09:05): ' + (req.match(/The hour:[^\n]*/) || [''])[0]);
+    assert(/Here now:[^\n]*Mara Vell/.test(req) && !/Here now:[^\n]*Tobin Ashcombe/.test(req), 'and the room before the page: ' + (req.match(/Here now:[^\n]*/) || [''])[0]);
+    await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
+    /* the old readers answer now, late — they stood before the new version’s in the queue */
+    release();
+    await tick(1500);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'everything settled', 40000);
+    await until(async () => /09:30/.test(renderClock((await loadState(st.id)).clock)), 'the new version’s hour stands', 20000);
+    const last = await loadState(st.id);
+    assert(/09:30/.test(renderClock(last.clock)), 'the old page’s late readers did not put its hour back: ' + renderClock(last.clock));
+    assert(!last.present.some((p) => p.name === 'Tobin Ashcombe') && last.present.some((p) => p.name === 'Nell Pike'), 'nor its room: ' + last.present.map((p) => p.name).join(','));
+    assert(!(last.offscreen && last.offscreen.Kim), 'nor its late world (Kim seated by the old page’s world agent)');
+  } finally { release && release(); house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-132 THE PREVIOUS PAGE’S HEADER IS THE TRUTH AFTER A REWIND: a fold that keeps the replaced page’s hour (its clock stamped on the page before, by a hand on the store) is put right by the header of the page before — the retry is told that page’s hour (M509-7)', async () => {
+  const before = errors.length;
+  const { loadState, saveState } = await import('../../js/engine/state.js');
+  const { renderClock } = await import('../../js/engine/clock.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'the header is the truth' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy(), 'free', 20000);
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  const H = (hh, mm) => '[The kitchen — Monday, March 3, 2025 | ' + hh + ':' + mm + ' | clear | coat | by the stove]\n\n';
+  const seen = [];
+  let hour = ['09', '05'];
+  try {
+    house.state.workerAnswer = () => '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[],"issues":[]}';
+    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + 'The kettle ticked.'; };
+    type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
+    await settled();
+    hour = ['09', '20'];
+    type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
+    await settled();
+    /* a hand on the store: page two’s clock, stamped on page one — a fold to page one would keep 09:20 */
+    const broken = await loadState(st.id);
+    let bent = 0;
+    for (const e of broken.journal) if (e && e.m && e.m.type === 'clock.set' && e.p === 1) { e.p = 0; bent += 1; }
+    assert(bent >= 1, 'fixture: page two’s clock re-stamped on page one');
+    await saveState(st.id, broken);
+    hour = ['09', '30'];
+    click(q('#btn-retry'));
+    await until(() => seen.length >= 3, 'the retry’s request went out', 30000);
+    const req = seen[seen.length - 1];
+    assert(/The hour: [^\n]*09:05/.test(req), 'the retry is told page one’s hour from its own header, not the bent fold’s 09:20: ' + (req.match(/The hour:[^\n]*/) || [''])[0]);
+    await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
+    await settled();
+    assert(/09:30/.test(renderClock((await loadState(st.id)).clock)), 'the new version’s hour stands');
+  } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
