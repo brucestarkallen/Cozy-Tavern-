@@ -63,7 +63,9 @@ test('M314-3 two versions of one page are sibling timelines: the same ids, diffe
   eq(v0.journal.map((e) => e.id).join(','), v1.journal.map((e) => e.id).join(','), 'fixture: the two versions’ entries share their ids');
   await saveState(vid, v1); /* version 1 is the one on the page now */
   await saveVersionStates(vid, { 'a1:0': v0, 'a1:1': v1 });
-  const stored = await db.settings.get('versionState:' + vid);
+  /* M507-6: the index names the versions; each lives in its own slim row */
+  eq((await db.settings.get('versionState:' + vid)).join(','), 'a1:0,a1:1');
+  const stored = { 'a1:0': await db.settings.get('ver:a1:0:' + vid), 'a1:1': await db.settings.get('ver:a1:1:' + vid) };
   assert(stored['a1:0'].slim === 2 && stored['a1:1'].slim === 2);
   const back = await wholeVersions(vid, stored);
   eq(canon(back['a1:0']), canon(v0), 'version 0: Liara’s entries, not Kim’s');

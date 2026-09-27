@@ -11935,3 +11935,26 @@ before), and the profile covers the measured send alone; the harness no longer r
   an open still pays V8's compilation and the cold reads: ~1.3 s to the request, a ~480 ms worst freeze.)
 - GATES: harness 966/966, walk 145/145, long play 8/8, lint 0, housekeeper_rounds.py, perf_housekeeper.py.
   version.js -> m507-005.
+
+# M507-6 — one row per version ledger; the readers' phase measured; index writes clean up after themselves
+tests/perf_send.py measures the READERS' PHASE now (from the page landing until the chain settles: the freezes he feels
+while reading) and seeds sixty version ledgers the way a long tale has them. That showed the chain's end-of-page
+checkpoint rewriting the one versionState row: 2.1 MB, a 390 ms write on the main thread, every page.
+- state.js: versionState:<tale> is an ARRAY of keys in insertion order (the newest sixty kept as before); each ledger
+  lives in ver:<messageId>:<swipe>:<tale> ('ver' in STORY_PREFIXES); saveOneVersion (the chain's checkpoint,
+  chat.js saveVersionState) writes one row and the index; versionStateOf reads one; loadVersionStates /
+  saveVersionStates keep their whole-map contract (a branch, a rebuild, pages let go) and rewrite no row handed out
+  unchanged; a legacy map moves to rows at the next write. storedCheckpoints (the bank's cap) reads the rows.
+  PART_CAP 1200 → 400: a page's two appends rewrite a small part; a rewind reads them all in one transaction.
+- SELF-CLEANING INDEXES: the walk's consistency check now also flags a snap:/ver: row the index does not name, and
+  found them at once (scenarios that delete an index row by hand to simulate an old store). dropSnapshotRows and
+  dropVersionRows ask the store for every row of the tale (store.js settingsKeysOf, the suffix rule) and let go of any
+  the index does not name — a row orphaned by a lost index never lingers. Walk scenarios that tampered with the
+  versions map go through loadVersionStates/saveVersionStates/versionStateOf.
+- MEASURED (steady state, CPU 6x): the checkpoint write 2,139,057 bytes / 390 ms → 42,011 bytes / 45 ms; the bank's
+  append 349 KB → 69 KB; the readers' phase 648 → 433–777 ms of long tasks (the machine's noise is ±150 ms here); the
+  press-to-request stretch unchanged (434–523 ms).
+- LAW: m507.mjs M507-6 (sixty-four versions through saveOneVersion: sixty stand, the four dropped take their rows,
+  every ledger back whole, one row written per checkpoint, letting two go rewrites nothing, a legacy map migrates).
+- GATES: harness 967/967, walk 145/145, long play 8/8, lint 0, holdsone.py, bootpull.py, twobrowsers.py.
+  version.js -> m507-006.

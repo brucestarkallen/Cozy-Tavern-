@@ -45,10 +45,18 @@ export async function checkStoreConsistency(db, storyId) {
   }
   /* every checkpoint keys a message that stands */
   const ids = new Set(messages.map((m) => m.id));
-  const versions = (await db.settings.get('versionState:' + storyId)) || {};
-  for (const key of Object.keys(versions)) if (!ids.has(key.split(':')[0])) problems.push('a version checkpoint for a page that is gone: ' + key);
+  /* M507-6: the index rows name the checkpoints; a row without its name in the index is a leak too */
+  const vrow = (await db.settings.get('versionState:' + storyId)) || [];
+  const versionKeys = Array.isArray(vrow) ? vrow : Object.keys(vrow);
+  for (const key of versionKeys) if (!ids.has(key.split(':')[0])) problems.push('a version checkpoint for a page that is gone: ' + key);
   const snaps = (await db.settings.get('snapshots:' + storyId)) || [];
   for (const e of snaps) if (e && e.id && !ids.has(e.id)) problems.push('a boundary snapshot for a message that is gone: ' + e.id);
+  const allKeys = await db.settings.keys();
+  for (const k of allKeys) {
+    if (!k.endsWith(':' + storyId)) continue;
+    if (k.startsWith('ver:') && !versionKeys.includes(k.slice(4, -(storyId.length + 1)))) problems.push('a version row the index does not name: ' + k);
+    if (k.startsWith('snap:') && !snaps.some((e) => e && e.id === k.slice(5, -(storyId.length + 1)))) problems.push('a checkpoint row the index does not name: ' + k);
+  }
   /* a mended page keeps its earlier words */
   for (const m of visible) if (m.mended && !(m.mended.before && typeof m.mended.before === 'string')) problems.push('a mend without its earlier words on page ' + m.id);
   return problems;

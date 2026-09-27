@@ -361,7 +361,7 @@ test('DOM-14 a refused house is said out loud, the words are kept, and the next 
 test('DOM-7b a version keeps its own ledger: walking back restores it; the people panel shows everyone seated; rescan works', async () => {
   const before = errors.length;
   const sid = await storyId();
-  await until(async () => ((await db.settings.get('versionState:' + sid)) || {}) && Object.keys((await db.settings.get('versionState:' + sid)) || {}).length >= 1, 'a version checkpoint exists', 15000);
+  { const { loadVersionStates } = await import('../../js/engine/state.js'); await until(async () => Object.keys(await loadVersionStates(sid)).length >= 1, 'a version checkpoint exists', 15000); } /* M507-6 */
   const a = assistantPages()[0];
   const counter = q('.swipe-count', a);
   const idxBefore = counter.textContent;
@@ -488,7 +488,7 @@ test('DOM-8a branch 0→0 keeps the ledger; branch N→0 carries page 0’s ledg
   click(q('.swipe-bar .msg-act[data-act="swipe-next"]', first) || q('.msg-act[data-act="swipe"]', first));
   await until(() => q('.swipe-count', assistantPages()[0]) && /2/.test(q('.swipe-count', assistantPages()[0]).textContent), 'a second version of page 0', 15000);
   await settled();
-  const versions = (await db.settings.get('versionState:' + sid)) || {};
+  const versions = await (await import('../../js/engine/state.js')).loadVersionStates(sid); /* M507-6 */
   const page0 = assistantPages()[0].dataset.id;
   for (const [key, st] of Object.entries(versions)) {
     if (key.startsWith(page0 + ':')) assert(!(st.present || []).some((p) => /Kim/.test(p.name)), 'page 0’s checkpoint never holds the later Kim: ' + key);
@@ -885,14 +885,15 @@ test('DOM-6d THE READERS FINISH WHAT THEY STARTED: a last page whose chain never
   const ran0 = await env.ctx.chat.resumeUnfinishedChain(await db.stories.get(sid));
   eq(ran0, false, 'a page with its checkpoint is not re-read');
   /* the app closed mid-chain: the last page has no checkpoint */
-  const vs = (await db.settings.get('versionState:' + sid)) || {};
-  delete vs[last.dataset.id + ':' + idx];
-  await db.settings.set('versionState:' + sid, vs);
+  { const { loadVersionStates, saveVersionStates } = await import('../../js/engine/state.js'); /* M507-6: through the store's own doors */
+    const vs = await loadVersionStates(sid);
+    delete vs[last.dataset.id + ':' + idx];
+    await saveVersionStates(sid, vs); }
   const ran1 = await env.ctx.chat.resumeUnfinishedChain(await db.stories.get(sid));
   eq(ran1, true, 'an unfinished last page is read again');
   await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.extractor && w.extractor.at > at0; }, 'the extractor read it', 15000);
   await settled();
-  assert(await db.settings.get('versionState:' + sid) && ((await db.settings.get('versionState:' + sid))[last.dataset.id + ':' + idx]), 'and the checkpoint stands again');
+  assert(await (await import('../../js/engine/state.js')).versionStateOf(sid, last.dataset.id + ':' + idx), 'and the checkpoint stands again');
   { const problems = await checkStoreConsistency(db, sid); eq(problems.length, 0, 'the store agrees with itself: ' + problems.join(' | ')); }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

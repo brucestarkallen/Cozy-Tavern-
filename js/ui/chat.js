@@ -53,7 +53,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, wholeVersions, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js';
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
 import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, lastingOnly, groundLooksStale, goneByTheirOwnPage } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
@@ -3859,21 +3859,14 @@ export function initChat(ctx) {
     } catch (err) { /* best-effort housekeeping */ }
   }
 
-  async function loadVersionStates(storyId) {
-    const saved = await db.settings.get('versionState:' + storyId);
-    return wholeVersions(storyId, saved && typeof saved === 'object' ? saved : {}); /* M314: handed back whole, stored without their journals */
-  }
+  /* M507-6: the version ledgers live one to a row (state.js); these doors keep their names */
+  const loadVersionStates = (storyId) => loadAllVersionStates(storyId); /* M314: handed back whole, stored without their journals */
   const writeVersionStates = (storyId, all) => saveVersionStates(storyId, all); /* M314: stored as ledgers plus keys into the tale's bank */
   async function saveVersionState(storyId, messageId, swipeIdx, state) {
-    const all = await loadVersionStates(storyId);
-    all[messageId + ':' + swipeIdx] = JSON.parse(JSON.stringify(state));
-    const keys = Object.keys(all);
-    if (keys.length > 60) for (const k of keys.slice(0, keys.length - 60)) delete all[k];
-    await writeVersionStates(storyId, all);
+    await saveOneVersion(storyId, messageId + ':' + swipeIdx, state); /* one row and the index — never the sixty */
   }
   async function versionStateFor(storyId, messageId, swipeIdx) {
-    const all = await loadVersionStates(storyId);
-    return all[messageId + ':' + swipeIdx] || null;
+    return versionStateOf(storyId, messageId + ':' + swipeIdx);
   }
 
   function restoreComposer(text) {

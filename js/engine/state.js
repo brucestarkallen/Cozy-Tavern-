@@ -39,7 +39,7 @@
  * need no schema migration.
  */
 
-import { db, onDropCaches } from '../store.js'; /* M507: the bank's key cache hears a pull */
+import { db, onDropCaches, settingsKeysOf } from '../store.js'; /* M507: the bank's key cache hears a pull; M507-6: the tale's rows */
 import { renderClock } from './clock.js';
 import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
 import { axisWords, AXES } from './relationships.js';
@@ -428,7 +428,7 @@ function emptyBank() { return { j: {}, l: {} }; }
  * small row read and written. The whole bank is merged only where a checkpoint is handed back whole (a rewind, a
  * branch, a version walk). Which keys the bank holds is remembered per tale, so a send reads no part it does not write. */
 const BANK_PART = (storyId, n) => 'ckptBankPart:' + n + ':' + storyId;
-const PART_CAP = 1200;
+const PART_CAP = 400; /* M507-6: smaller parts — a page's two appends rewrite a small row; a rewind reads them all in one transaction */
 const bankKeysOf = new Map(); /* storyId -> Set of every key the bank holds (j and l) */
 async function bankBase(storyId) {
   const row = await db.settings.get(BANK_PREFIX + storyId);
@@ -489,7 +489,7 @@ async function bankRewrite(storyId, bank) {
   bankKeysOf.set(storyId, new Set([...Object.keys(bank.j), ...Object.keys(bank.l)]));
 }
 export function forgetBankCache(storyId) { if (storyId) bankKeysOf.delete(storyId); else bankKeysOf.clear(); }
-onDropCaches(() => { forgetBankCache(); handedOut.clear(); }); /* a pull replaced rows under us: remember nothing of them */
+onDropCaches(() => { forgetBankCache(); handedOut.clear(); versionsHandedOut.clear(); }); /* a pull replaced rows under us: remember nothing of them */
 /* a checkpoint handed back whole remembers the keys it was built from: saved again with the same two
  * lists (the usual case — forty old checkpoints and one new one, after every page) it is not hashed
  * again. Only while every key is in the bank being written: a branch saves its parent's checkpoints
@@ -558,8 +558,7 @@ async function storedCheckpoints(storyId) {
     if (e.snap && typeof e.snap === 'object') { out.push(e.snap); continue; } /* a row written whole (before M507) */
     const row = rows.get(SNAP_ROW_OF(storyId, e.id)); if (row && typeof row === 'object') out.push(row);
   }
-  const versions = await db.settings.get(VERSION_ROW(storyId));
-  for (const v of Object.values(versions && typeof versions === 'object' ? versions : {})) if (v && typeof v === 'object') out.push(v);
+  for (const v of Object.values(await versionRowsSlim(storyId))) if (v && typeof v === 'object') out.push(v);
   return out.map((snap) => ({ snap }));
 }
 async function saveBank(storyId, known, fresh, rows) {
@@ -612,10 +611,19 @@ export async function loadSnapshots(storyId) {
   return out.map(({ stored, ...e }) => e);
 }
 const indexEntryOf = (e, slim) => ({ id: e.id, at: Number.isFinite(e.at) ? e.at : Date.now(), page: Number.isInteger(slim && slim.page) ? slim.page : -1, seq: Number.isInteger(slim && slim.journalSeq) ? slim.journalSeq : 0 });
-/* the rows of checkpoints no longer in the index go */
+/* the rows of checkpoints the index no longer names go — every snap: row of the tale is asked, not only the ones the
+ * old index named, so a row orphaned by a lost index (M507-6) never lingers */
 async function dropSnapshotRows(storyId, keptIds) {
-  const keep = new Set(keptIds);
-  for (const e of await snapshotIndex(storyId)) if (!keep.has(e.id)) { try { await db.settings.delete(SNAP_ROW_OF(storyId, e.id)); } catch (err) { /* the sweep gets it */ } }
+  const keep = new Set(keptIds.map((id) => SNAP_ROW_OF(storyId, id)));
+  let rows = [];
+  try { rows = (await settingsKeysOf(storyId)).filter((k) => k.startsWith('snap:')); } catch (err) { rows = (await snapshotIndex(storyId)).map((e) => SNAP_ROW_OF(storyId, e.id)); }
+  for (const k of rows) if (!keep.has(k)) { try { await db.settings.delete(k); } catch (err) { /* the sweep gets it */ } }
+}
+async function dropVersionRows(storyId, keptKeys) {
+  const keep = new Set(keptKeys.map((k) => VERSION_ROW_OF(storyId, k)));
+  let rows = [];
+  try { rows = (await settingsKeysOf(storyId)).filter((k) => k.startsWith('ver:')); } catch (err) { rows = (await versionIndex(storyId)).keys.map((k) => VERSION_ROW_OF(storyId, k)); }
+  for (const k of rows) if (!keep.has(k)) { try { await db.settings.delete(k); } catch (err) { /* the sweep gets it */ } }
 }
 
 /* M44: sparse retention — the newest SNAP_DENSE stay dense, every
@@ -650,14 +658,87 @@ export async function saveSnapshots(storyId, list) {
     await db.settings.set(SNAP_PREFIX + storyId, index);
   });
 }
-/* M314: the version ledgers (one per version of a page, up to sixty a tale) are checkpoints too */
+/* M314: the version ledgers (one per version of a page, up to sixty a tale) are checkpoints too.
+ * M507-6: ONE ROW PER VERSION LEDGER. The chain's checkpoint at the end of every page rewrote the one row that held all
+ * sixty (2.1 MB on the perf tale, a 390 ms write on the main thread while he read the page). Now versionState:<tale>
+ * is an ARRAY of keys in insertion order (the newest sixty kept, as before) and each ledger lives in its own row
+ * ver:<messageId>:<swipe>:<tale>; the end of a page writes one row and the small index. A row written whole before
+ * (an object map of ledgers) is read as it is and moved to its own rows at the next write. */
+const VERSION_ROW_OF = (storyId, key) => 'ver:' + key + ':' + storyId;
+const VERSION_CAP = 60;
+async function versionIndex(storyId) {
+  const row = await db.settings.get(VERSION_ROW(storyId));
+  if (Array.isArray(row)) return { keys: row.filter((k) => typeof k === 'string'), legacy: null };
+  return { keys: Object.keys(row && typeof row === 'object' ? row : {}), legacy: row && typeof row === 'object' ? row : null };
+}
+/* every version ledger as stored (slim), keyed — the legacy map itself, or the rows the index names */
+async function versionRowsSlim(storyId) {
+  const { keys, legacy } = await versionIndex(storyId);
+  if (legacy) return legacy;
+  const rows = await db.settings.getMany(keys.map((k) => VERSION_ROW_OF(storyId, k)));
+  const out = {};
+  for (const k of keys) { const v = rows.get(VERSION_ROW_OF(storyId, k)); if (v && typeof v === 'object') out[k] = v; }
+  return out;
+}
+const versionsHandedOut = new Map(); /* storyId -> Map(key -> the whole ledger object), as loadSnapshots remembers */
+export async function loadVersionStates(storyId) {
+  const slim = await versionRowsSlim(storyId);
+  const whole = await wholeVersions(storyId, slim);
+  const seen = new Map();
+  for (const [k, v] of Object.entries(whole)) seen.set(k, v);
+  versionsHandedOut.set(storyId, seen);
+  return whole;
+}
+export async function versionStateOf(storyId, key) {
+  const { keys, legacy } = await versionIndex(storyId);
+  if (legacy) { const whole = await wholeVersions(storyId, legacy); return whole[key] || null; }
+  if (!keys.includes(key)) return null;
+  const v = await db.settings.get(VERSION_ROW_OF(storyId, key));
+  if (!v || typeof v !== 'object') return null;
+  return v.slim === 2 ? wholeFromBank(await loadBank(storyId), v) : v;
+}
 export async function saveVersionStates(storyId, all) {
   await withBank(storyId, async () => {
     const known = await knownBankKeys(storyId); const add = emptyBank();
+    const map = all && typeof all === 'object' ? all : {};
+    const { keys: before } = await versionIndex(storyId);
+    const seen = versionsHandedOut.get(storyId) || new Map();
     const fresh = {};
-    for (const [k, v] of Object.entries(all && typeof all === 'object' ? all : {})) fresh[k] = bankInto(known, add, v);
+    const keys = [];
+    for (const [k, v] of Object.entries(map)) {
+      if (!v || typeof v !== 'object') continue;
+      const slim = bankInto(known, add, v);
+      fresh[k] = slim; keys.push(k);
+      if (seen.get(k) === v && before.includes(k)) continue; /* the row holds exactly this ledger already */
+      await db.settings.set(VERSION_ROW_OF(storyId, k), slim);
+    }
     await saveBank(storyId, known, add, fresh);
-    await db.settings.set(VERSION_ROW(storyId), fresh);
+    await dropVersionRows(storyId, keys);
+    await db.settings.set(VERSION_ROW(storyId), keys);
+  });
+}
+/* the hot path: the end of a page keeps ONE version ledger — its row, and the index grown by one key */
+export async function saveOneVersion(storyId, key, state) {
+  if (!storyId || typeof key !== 'string' || !key || !state || typeof state !== 'object') return;
+  const { keys, legacy } = await versionIndex(storyId);
+  if (legacy) { /* a row from before: the whole map moves to its own rows once, with this ledger in it */
+    const all = await wholeVersions(storyId, legacy);
+    all[key] = JSON.parse(JSON.stringify(state));
+    const ks = Object.keys(all); if (ks.length > VERSION_CAP) for (const k of ks.slice(0, ks.length - VERSION_CAP)) delete all[k];
+    await saveVersionStates(storyId, all);
+    return;
+  }
+  await withBank(storyId, async () => {
+    const known = await knownBankKeys(storyId); const add = emptyBank();
+    const { journal, log, ...rest } = state;
+    const slim = bankInto(known, add, { ...deepCopy(rest), journal, log });
+    const list = keys.filter((k) => k !== key); list.push(key);
+    const dropped = list.length > VERSION_CAP ? list.slice(0, list.length - VERSION_CAP) : [];
+    const kept = list.slice(dropped.length);
+    await db.settings.set(VERSION_ROW_OF(storyId, key), slim);
+    await saveBank(storyId, known, add, { [key]: slim });
+    await dropVersionRows(storyId, kept);
+    await db.settings.set(VERSION_ROW(storyId), kept);
   });
 }
 export async function wholeVersions(storyId, all) {

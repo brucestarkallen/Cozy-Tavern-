@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m507-005)
+# Cozy Tavern — handoff for the next session (state at m507-006)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -15,8 +15,10 @@
 0a. THE SEND IS MEASURED, NEVER REASONED (M507): `python3 tests/perf_send.py` (SENDS=2 for his steady state — the number that matters; PROFILE=1 for the top functions before the
    request, PHASES=1 for the isolated costs, store reads/writes by key, regex compilations) — run it for ANY change to
    the send path, the checkpoint store or the assembler, and compare against AGENTS M507's numbers. The checkpoints are
-   one row each (snap:<turn>:<tale> + the index snapshots:<tale>), the bank is in parts (ckptBankPart:<n>:<tale>); never
-   read or write those rows directly — loadSnapshots / saveSnapshots / snapshotState. sweepOrphans reads a tale's id from
+   one row each (snap:<turn>:<tale> + the index snapshots:<tale>; the version ledgers ver:<msg>:<swipe>:<tale> + the
+   index versionState:<tale>, an array of keys), the bank is in parts (ckptBankPart:<n>:<tale>); never read or write
+   those rows directly — loadSnapshots / saveSnapshots / snapshotState / loadVersionStates / saveVersionStates /
+   saveOneVersion / versionStateOf. An index write lets go of every row of its kind the index does not name. sweepOrphans reads a tale's id from
    the row's SUFFIX. M507-2: a boot pull after a page append takes PAGES ONLY when the served book's snapshotAt (serve.py) is
    no newer than this browser's bookStamp — never the device's older ledger over the browser's newer one; run
    `python3 tests/bootpull.py` for any change to the pull, importStory, or serve.py's fold.

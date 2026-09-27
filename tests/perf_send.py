@@ -87,7 +87,7 @@ class Threaded(ThreadingMixIn, HTTPServer):
 SEED = '''async ([fake, pages, words, keeper]) => {
   const { db } = await import('/js/store.js');
   const { applyMutations } = await import('/js/engine/apply.js');
-  const { saveState, emptyState, snapshotState, markPageRead } = await import('/js/engine/state.js');
+  const { saveState, emptyState, snapshotState, markPageRead, saveVersionStates } = await import('/js/engine/state.js');
   const conn = await db.connections.add({ label: 'fake', type: 'openai', baseUrl: fake, apiKey: 'x', model: 'fake', contextSize: 500000, maxTokens: 30000 });
   await db.settings.set('activeConnectionId', conn.id);
   await db.settings.set('memoryKeeper', keeper);
@@ -100,7 +100,7 @@ SEED = '''async ([fake, pages, words, keeper]) => {
   const places = ['the kitchen', 'the great hall', 'the garden', 'the library', 'the stables', 'the west wing'];
   let state = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: places[0] }, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 9, minute: 5 }, { type: 'presence.enter', name: 'Jovan', position: 'by the door' }]).state;
   const body = (i) => 'page ' + i + ' in ' + places[i % places.length] + '. ' + names[i % 40] + ' spoke to Jovan about the day. ' + ('the words of a long page go on and on, with names and hours and things carried and said. ').repeat(Math.max(1, Math.floor(words / 16)));
-  let k = 0;
+  let k = 0; const versions = {};
   for (let i = 0; i < pages; i += 1) {
     const role = i % 2 ? 'assistant' : 'user';
     const text = role === 'assistant' ? '[' + places[i % places.length] + ' — Monday, March 3, 2025 | ' + String(9 + Math.floor(i / 12)).padStart(2, '0') + ':' + String((i * 5) % 60).padStart(2, '0') + ' | clear | coat | by the door]\\n\\n' + body(i) : body(i);
@@ -127,6 +127,10 @@ SEED = '''async ([fake, pages, words, keeper]) => {
     state = applyMutations(state, muts).state;
     markPageRead(state, k); k += 1;
     await saveState(st.id, state);
+    /* the chain's checkpoint at the end of every page: the version ledger, the newest sixty kept (as chat.js saveVersionState does) */
+    versions[saved.id + ':0'] = JSON.parse(JSON.stringify(state));
+    const vkeys = Object.keys(versions); if (vkeys.length > 60) for (const vk of vkeys.slice(0, vkeys.length - 60)) delete versions[vk];
+    await saveVersionStates(st.id, versions);
   }
   await db.settings.set('activeStoryId', st.id);
   return { pages, people: Object.keys(state.characters).length, seats: Object.keys(state.offscreen).length, journal: (state.journal || []).length, log: (state.log || []).length, knowledge: Object.values(state.knowledge || {}).reduce((a, b) => a + (Array.isArray(b) ? b.length : (b && b.facts ? b.facts.length : 0)), 0), threads: (state.threads || []).length };
@@ -199,7 +203,7 @@ def main():
             cdp = ctx.new_cdp_session(page)
             cdp.send('Emulation.setCPUThrottlingRate', {'rate': THROTTLE})
             page.evaluate(WATCH)
-            page.evaluate('''async () => { const { db } = await import('/js/store.js'); const real = db.settings.get.bind(db.settings); window.__send.gets = {}; window.__send.sets = {}; const realSet = db.settings.set.bind(db.settings); db.settings.set = async (key, val) => { const a = performance.now(); const r = await realSet(key, val); if (window.__send.t0 !== null && window.__send.request === null) { const k = String(key).replace(/:[^:]*$/, ':*').replace(/^snap:[^:]*/, 'snap:*'); const e = window.__send.sets[k] = window.__send.sets[k] || { n: 0, ms: 0, bytes: 0 }; e.n += 1; e.ms += performance.now() - a; try { e.bytes += JSON.stringify(val).length; } catch (x) {} } return r; };
+            page.evaluate('''async () => { const { db } = await import('/js/store.js'); const real = db.settings.get.bind(db.settings); window.__send.gets = {}; window.__send.sets = {}; window.__send.setsAfter = {}; const realSet = db.settings.set.bind(db.settings); db.settings.set = async (key, val) => { const a = performance.now(); const r = await realSet(key, val); if (window.__send.t0 !== null) { const bucket = window.__send.request === null ? window.__send.sets : window.__send.setsAfter; const k = String(key).replace(/:[^:]*$/, ':*').replace(/^snap:[^:]*/, 'snap:*'); const e = bucket[k] = bucket[k] || { n: 0, ms: 0, bytes: 0 }; e.n += 1; e.ms += performance.now() - a; try { e.bytes += JSON.stringify(val).length; } catch (x) {} } return r; };
 window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = performance.now(); if (window.__send.t0 !== null && /^state:/.test(key) && window.__send.request === null) { const st = String(new Error().stack).split(String.fromCharCode(10)).slice(2, 6).map((l) => l.trim().replace(/^at /, '').replace(/https?:[^ )]*[/]/, '').replace(/[()]/g, '')).join(' < '); window.__send.stateCallers[st] = (window.__send.stateCallers[st] || 0) + 1; } const r = await real(key); if (window.__send.t0 !== null) { const k = String(key).replace(/:[^:]*$/, ':*').replace(/^snap:[^:]*/, 'snap:*'); const e = window.__send.gets[k] = window.__send.gets[k] || { n: 0, ms: 0 }; e.n += 1; e.ms += performance.now() - a; } return r; }; }''')
             # SENDS=2: the second send is his steady state — the module caches warm, every page seen before
             for n in range(int(os.environ.get('SENDS', '1')) - 1):
@@ -242,6 +246,10 @@ window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = pe
                 cdp.send('Profiler.start')
             page.wait_for_function('window.__send.done !== null', timeout=300000, polling=100)
             done_ms = page.evaluate('window.__send.done')
+            # the readers' phase: from the page landing until the chain settles — the freezes he feels while reading
+            page.wait_for_function('''async () => { const { queuedCount, workIsRunning } = await import('/js/agents/queue.js'); const { db } = await import('/js/store.js'); const sid = await db.settings.get('activeStoryId'); return queuedCount(sid) === 0 && !workIsRunning(sid) && !window.__cozy.chat.isBusy(); }''', timeout=300000, polling=300)
+            time.sleep(2.0)
+            readers = page.evaluate('''() => { const s = window.__send; const after = s.long.filter((e) => e.at - s.t0 > s.done); return { readers_worst_long_task_ms: Math.round(Math.max(0, ...after.map((e) => e.ms))), readers_long_ms_total: Math.round(after.reduce((a, e) => a + e.ms, 0)), readers_long_tasks: after.length, readers_ms: Math.round(performance.now() - s.t0 - s.done) }; }''')
             top = []
             total_after = []
             if PROFILE:
@@ -307,11 +315,11 @@ window.__send.stateCallers = {}; db.settings.get = async (key) => { const a = pe
                   const idb = window.__send.idb; const req = window.__send.request;
                   const sum = (list) => { const by = {}; for (const e of list) { const k = e.store + ':' + e.op; by[k] = by[k] || { n: 0, ms: 0, rows: 0 }; by[k].n += 1; by[k].ms += e.ms; by[k].rows += e.n; } return Object.entries(by).map(([k, v]) => [k, v.n, Math.round(v.ms), v.rows]).sort((a, b) => b[2] - a[2]); };
                   const gets = window.__send.gets || {};
-                  return { set_top: Object.entries(window.__send.sets || {}).map(([k, v]) => [k, v.n, Math.round(v.ms), v.bytes]).sort((a, b) => b[2] - a[2]).slice(0, 10), state_callers: Object.entries(window.__send.stateCallers || {}).sort((a, b) => b[1] - a[1]).slice(0, 20), regexp_top: Object.entries(window.__send.regexpBy).sort((a, b) => b[1] - a[1]).slice(0, 12), get_top: Object.entries(gets).map(([k, v]) => [k, v.n, Math.round(v.ms)]).sort((a, b) => b[2] - a[2]).slice(0, 12), regexps: window.__send.regexps, regexp_ms: Math.round(window.__send.regexpMs), clones: window.__send.clones, clone_ms: Math.round(window.__send.cloneMs), phases: out, idb_before_request: sum(idb.filter((e) => e.at <= req)), idb_after_request: sum(idb.filter((e) => e.at > req)).slice(0, 12), long_tasks: window.__send.long.map((e) => [Math.round(e.at - window.__send.t0), Math.round(e.ms)]) };
+                  return { set_after_top: Object.entries(window.__send.setsAfter || {}).map(([k, v]) => [k, v.n, Math.round(v.ms), v.bytes]).sort((a, b) => b[3] - a[3]).slice(0, 10), set_top: Object.entries(window.__send.sets || {}).map(([k, v]) => [k, v.n, Math.round(v.ms), v.bytes]).sort((a, b) => b[2] - a[2]).slice(0, 10), state_callers: Object.entries(window.__send.stateCallers || {}).sort((a, b) => b[1] - a[1]).slice(0, 20), regexp_top: Object.entries(window.__send.regexpBy).sort((a, b) => b[1] - a[1]).slice(0, 12), get_top: Object.entries(gets).map(([k, v]) => [k, v.n, Math.round(v.ms)]).sort((a, b) => b[2] - a[2]).slice(0, 12), regexps: window.__send.regexps, regexp_ms: Math.round(window.__send.regexpMs), clones: window.__send.clones, clone_ms: Math.round(window.__send.cloneMs), phases: out, idb_before_request: sum(idb.filter((e) => e.at <= req)), idb_after_request: sum(idb.filter((e) => e.at > req)).slice(0, 12), long_tasks: window.__send.long.map((e) => [Math.round(e.at - window.__send.t0), Math.round(e.ms)]) };
                 }''')
             cdp.send('Emulation.setCPUThrottlingRate', {'rate': 1})
             story_calls = [g for g in Fake.got if g['stream'] and g['messages'] > 3]
-            result = {'pages': PAGES, 'words': WORDS, 'keeper': KEEPER, 'throttle': THROTTLE, 'seeded': seeded, **stats, 'done_ms': round(done_ms),
+            result = {'pages': PAGES, 'words': WORDS, 'keeper': KEEPER, 'throttle': THROTTLE, 'seeded': seeded, **stats, 'done_ms': round(done_ms), **readers,
                       'request_bytes': story_calls[0]['bytes'] if story_calls else None, 'request_tokens_est': (story_calls[0]['bytes'] // 4) if story_calls else None, 'page_errors': errors[:3]}
             if PROFILE:
                 result['profile_top_self_ms'] = top

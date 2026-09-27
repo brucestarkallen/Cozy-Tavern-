@@ -109,3 +109,52 @@ test('M507-4 a rewind drops the newer checkpoints, writes the index and deletes 
   const st = await loadState(sid);
   eq(st.present.map((p) => p.name).join(','), 'Person0 Vale,Person1 Vale,Person2 Vale', 'the ledger is the boundary before the fourth page');
 });
+
+test('M507-6 the end of a page keeps ONE version ledger in its own row: the newest sixty stand, the sixty-first drops with its row, every ledger comes back whole, and a row written whole before (the map of sixty) moves to its own rows at the next write', async () => {
+  const { saveOneVersion, versionStateOf, loadVersionStates, saveVersionStates } = await import('../../js/engine/state.js');
+  const sid = 'm507-versions';
+  let st = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the hall' }]).state;
+  await saveState(sid, st);
+  const wholes = {};
+  for (let i = 0; i < 64; i += 1) {
+    st.page = i;
+    st = applyMutations(st, [{ type: 'presence.enter', name: 'Voice' + i + ' Adair' }]).state;
+    await saveOneVersion(sid, 'm' + i + ':0', st);
+    wholes['m' + i + ':0'] = JSON.parse(JSON.stringify(st));
+  }
+  const index = await db.settings.get('versionState:' + sid);
+  assert(Array.isArray(index) && index.length === 60 && index[0] === 'm4:0' && index[59] === 'm63:0', 'the newest sixty, in order: ' + index[0] + ' … ' + index[59]);
+  const rows = (await db.settings.keys()).filter((k) => k.startsWith('ver:') && k.endsWith(':' + sid));
+  eq(rows.length, 60, 'sixty rows, the dropped four gone with theirs');
+  assert(!(await db.settings.get('ver:m0:0:' + sid)) && !(await db.settings.get('ver:m3:0:' + sid)), 'the oldest rows are gone');
+  for (const k of ['m4:0', 'm40:0', 'm63:0']) eq(canon(await versionStateOf(sid, k)), canon(wholes[k]), 'whole, journal and log included: ' + k);
+  eq(await versionStateOf(sid, 'm2:0'), null, 'a dropped version is not there');
+  const all = await loadVersionStates(sid);
+  eq(Object.keys(all).length, 60);
+  eq(canon(all['m30:0']), canon(wholes['m30:0']));
+  /* writing one more touches ONE new row and no older one */
+  const before = new Map(); for (const k of rows) before.set(k, JSON.stringify(await db.settings.get(k)));
+  let writes = 0; const realSet = db.settings.set; db.settings.set = async function (key, val) { if (String(key).startsWith('ver:')) writes += 1; return realSet.call(this, key, val); };
+  try { st.page = 64; await saveOneVersion(sid, 'm64:0', st); } finally { db.settings.set = realSet; }
+  eq(writes, 1, 'one version row written');
+  for (const [k, v] of before) { const now = await db.settings.get(k); if (now) eq(JSON.stringify(now), v, 'an older row untouched: ' + k); }
+  /* the whole-map door: a version let go (a page deleted) takes its row, the others are not rewritten */
+  const kept = await loadVersionStates(sid);
+  delete kept['m64:0']; delete kept['m63:0'];
+  writes = 0; db.settings.set = async function (key, val) { if (String(key).startsWith('ver:')) writes += 1; return realSet.call(this, key, val); };
+  try { await saveVersionStates(sid, kept); } finally { db.settings.set = realSet; }
+  eq(writes, 0, 'letting two go rewrites nothing');
+  assert(!(await db.settings.get('ver:m64:0:' + sid)) && !(await db.settings.get('ver:m63:0:' + sid)), 'their rows are gone');
+  eq((await db.settings.get('versionState:' + sid)).length, 58);
+  /* a legacy map moves to rows at the next write */
+  const lid = 'm507-versions-legacy';
+  await saveState(lid, st);
+  const legacy = {}; for (let i = 0; i < 3; i += 1) legacy['L' + i + ':0'] = JSON.parse(JSON.stringify(wholes['m' + (10 + i) + ':0']));
+  await db.settings.set('versionState:' + lid, legacy);
+  eq(canon(await versionStateOf(lid, 'L1:0')), canon(legacy['L1:0']), 'read as it was');
+  await saveOneVersion(lid, 'L3:0', st);
+  const li = await db.settings.get('versionState:' + lid);
+  assert(Array.isArray(li) && li.join(',') === 'L0:0,L1:0,L2:0,L3:0', 'the old ones and the new: ' + JSON.stringify(li));
+  eq(canon(await versionStateOf(lid, 'L0:0')), canon(legacy['L0:0']), 'an old ledger is the ledger it was');
+  assert((await db.settings.get('ver:L2:0:' + lid)).slim === 2, 'in its own row, banked');
+});
