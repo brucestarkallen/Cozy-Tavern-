@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m509-016)
+# Cozy Tavern — handoff for the next session (state at m510-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -393,7 +393,7 @@ founding design lives in AGENTS.md's first entries.)
   standing words (commands.js shortcutsText, with the craft) and his message travels AS TYPED (messages keep `typed`; a
   hidden shortcut still travels); the house's starter note is in the standing words; the continue nudge ("Go on.") stands
   in HIS place when nothing of his travels. What may still follow his message, only when it fires: a note HE wrote, the
-  referee's settled outcome, and the switches he turns on (think-on-page, the sensors, derestricted, the frame echo) —
+  referee's settled outcome, and the switches he turns on (think-on-page, the sensors, a small model's plan and sounds, the frame echo) —
   and THAT goes as a SYSTEM message by default (M380, SillyTavern's post-history instructions; setting afterRole, beside
   the note at the end; Claude always gets it as user; a house that refuses a late system message is remembered and asked
   again with it as user). NEVER add a house line after his message again.
@@ -434,22 +434,55 @@ founding design lives in AGENTS.md's first entries.)
   line at the end ("open your thinking with…") and the quotation glued to a command's law: his teller's thinking started
   narrating them in an assistant's voice ("the user wants…", "the wrapper"). On a provider with no continuation flag
   (Synthetic) a seed is an empty extra turn the model reads — never send one there. Empty box = not one byte.
-- SMALL-MODEL WORK IS ON HOLD (his word, at m358): he tells with his frontier model. M354/M355 stay behind the derestricted
-  switch, off; M356's sensors behind their own, off. Build nothing further for weak models unless he asks again.
+- THE DIALS (M510, providers/knobs.js): top-k, min-p, presence/frequency/repetition penalty, stop texts, a seed — each
+  sent only when he filled it in; hidden for Claude's house. A refusal that names one (knobRefused — read BEFORE the
+  thinking's lesson, so a refused dial never costs him his thinking) is learned per model and address (learnFact drop)
+  and the turn goes again without it. A worker never rides a penalty or a stop text (call.js WORKER_UNSAFE: they corrupt
+  JSON) — the one override his law allows.
+- THE FRAME SWITCHED OFF IS OFF WHOLE (M510): no teller name leading the house's lines, no grounding phrase planted.
+  Frame on: nothing changed.
+- db.connections.add KEEPS EVERY FIELD IT IS GIVEN (M510): it kept an M22-era list and a NEW connection lost its prefill
+  dials (M328), its learned model facts (M348) and every M510 field until saved a second time (update() always kept all).
+- SMALL-MODEL WORK RESUMED AT HIS ASK (M510): he tells on a small model again (Hemmingway on hemmingway.io, a Qwen 27B
+  finetune) as well as his frontier model. Everything for the small one hangs on the connection's own tick (below); the
+  frontier request is byte for byte what it was. M356's sensors stay behind their own switch, off.
 - THE SENSORS READ, THEY NEVER WRITE (M356, agents/sensors.js): after each page, narrow true/false questions about it,
   answered as numbers by a decisions model (Jev: {model, state, questions} -> {answers:{id:{noul}}}) or by any model as
   JSON — the same questions either way. Averages over the last four readings; when one falls under its floor the
   storyteller is told ONE line on the NEXT turn, in the writer's voice, taken once and let go, and that sensor stays quiet
   until its average climbs back. Never touches the page it read. Own switch (`sensorsOn`), OFF as it ships = nothing asked,
   nothing sent, nothing kept.
-- EVERY HELP FOR A SMALL MODEL LIVES BEHIND THE DERESTRICTED SWITCH, AND NOWHERE ELSE (M343, M344, M354). settings key
-  `olderModel`; chat.js reads it per story turn into `settingsValues.olderModelNow`. ON it adds — a page that repeats the
-  last pages asked for again once, its reused phrases named (M355, plain.js staleLeak); the scene said once more
-  at the end with what each person here is in the middle of (assemble/anchor.js), the record's far line called back
-  (M344), the five plain lines (assemble/plain.js plainRules), and ONE re-ask of a page that took his character
-  (plain.js mineLeak -> voice.js askAgain('mine')). OFF it adds NOTHING: the request is byte for byte what it was, and no
-  check runs. ANY future help for a weak model goes behind this switch too — his frontier model's persona is the thing
-  that breaks first, and M340/M341/M342 are what that costs. M354-1 fails if one byte of it leaks into an OFF turn.
+- EVERY HELP FOR A SMALL MODEL LIVES BEHIND THE CONNECTION'S OWN "Small model (derestricted mode)" TICK, AND NOWHERE ELSE
+  (M343, M344, M354, M510). `conn.smallModel === true`; chat.js isSmallModel(connection) -> settingsValues.smallModelNow
+  (story pages only). The old global `olderModel` switch is RETIRED — one switch for the whole house leaked the small-model
+  words into his frontier model. THE QUICK SWITCH (main screen, its own item on the line under the message box — never
+  inside the links row, which never wraps: there it made the page wider than a phone) IS Settings -> "Who tells this
+  story" (story.connectionId) — one field, two places; the house's option leads with its connection's name ("Kimi (the
+  house's)"); small models wear " · small model" there and in Settings. Settings' renderConnections refreshes it.
+  ON: THE PLANNING HELPER (agents/planner.js, worker row 'planner') reads EVERYTHING — the whole craft, the ledger, the
+  people's pages, the record, lore, the world's word, the director, thirty storyteller pages — after each page (the
+  chain's last link), when the Quick switch or Settings hands a tale to a small model, and on opening such a tale. Its
+  answer is DATA (readPlan: present people only, never the MC, the craft's own law names only, clipped); an unusable
+  answer is asked for once more with a word why, then let go (never thrown: a throw is the queue's minute of retries).
+  Plans are kept per page key (id:version:hash of the page it followed; the last four, so Try again finds the one before).
+  WITH A PLAN — THE SMALL REQUEST (stack.js smallB, his choice B): the craft rides as laws.js ALWAYS_LAWS (The Telling,
+  Header Protocol, MC Agency and its companions, Intent Horizon, the Page's three laws) plus the helper's laws, WORD FOR
+  WORD (lawsOf/joinLaws never reword); the shortcuts; the cards of who is here; woken rules, lore, canon, the ruling, the
+  sensors; the last 8 storyteller pages (SMALL_PAGES, trimmed to the room); his message; then the closing words: ruling,
+  the plan in his voice (planwords.js renderPlan — the hour, ground and who is here are the LEDGER's lines, never the
+  helper's), sensor, think line, and on a heated scene (the combat/intimacy rules woke, a live fight, or the plan says so)
+  THE SOUNDS — his two sound laws verbatim with the scene's own sounds, and "the last page went quiet" when it did (plain.js
+  soundCount after each page). The notes, the record, the world, the director, the editor, the eye and older pages stay
+  with the helper. NO PLAN (first page, helper not back in the five seconds, an unusable answer, a craft without the
+  load-bearing laws): the whole request with the scene said once more (A: anchor.js + the M344 recall). With no teller
+  (the frame off, a small model's default) that line opens "Right now, …" — match it case-blind.
+  The frame, the note and his own-voice words reach a small model only through their own switches (frameOnSmall,
+  noteOnSmall, ownWordsOnSmall — off as shipped; in his tests they made it dumber). A page that put words in his mouth or a
+  thought in his head ENDS THERE before it is kept (plain.js mineCutAt; a window after the cut is kept; under 400
+  characters of scene it stands and the next turn hears it); a MOVE is never cut — a paraphrase of his typed move is the
+  craft — it gets the next-turn note (mineLeak/mineWord). The five plain lines and the "same words again" note are
+  retired. OFF (a connection without the tick): byte for byte the old request — M354-1 and M510-7 fail if one byte leaks,
+  and M510 was checked against m509-016's own code on nine fixtures (identical).
 - THE REFEREE'S OUTCOME REACHES THE STORYTELLER (M345) — it never did from M11 to M344: chat.js never passed `ruling:`. It rides
   FIRST IN THE CLOSING WORDS (toTeller, never inVoice), only for THIS page of the writer's (pendingVerdict.forUser), in words a
   person says (no tier names, numbers, rounds, poise). The referee OFF = not one byte of it, no referee or seeder call, a standing
@@ -540,7 +573,7 @@ founding design lives in AGENTS.md's first entries.)
   M395: WHERE THE SCENE IS belongs to the ledger (state.place, from the header) — lent as canonScenePlace; the
   extension's setting follows it (Canon Grounding v0.68.0), a known canon place or none. Canon's own notices NEVER
   pop up: chat.js routes the extension's toasts to canonNote, shown in its room ("What it noted lately").
-- THREE OPT-IN SWITCHES, EACH "OFF = NOT ONE BYTE" AND HELD BY A BYTE-FOR-BYTE LAW: think-on-page (M339), older model (M343), and the
+- THREE OPT-IN SWITCHES, EACH "OFF = NOT ONE BYTE" AND HELD BY A BYTE-FOR-BYTE LAW: think-on-page (M339), the Small model tick (M343 -> M510: on the connection now), and the
   cut-before-header tick. Anything that adds words to what the storyteller reads goes behind a switch like these, in the
   writer's voice, one line — or it does not go in (M341/M342). The storyteller's room is read through chat.js roomOf ONLY, and roomOf is the provider's room: NO switch may ever take a page, the note or the record out of a request (M344) — help a weaker model by ADDING what is far (assemble/anchor.js), never by removing.
 - WHATEVER THE HOUSE SAYS TO THE TELLER IS ONE SHORT SENTENCE IN THE WRITER'S VOICE (M341) — never a block, a heading, a template

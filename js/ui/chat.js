@@ -78,7 +78,12 @@ import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, pageOnly } from './headergate.js';
 import { tidyPage } from './pageshape.js'; /* M340: the page made whole before it is kept */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName, isMcAlias } from '../engine/duels.js';
-import { mineLeak, staleLeak, mineWord, staleWord } from '../assemble/plain.js'; /* M354/M355: did the page take his character, or say what was already said? (derestricted only) */
+import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
+import { plannerAsk, runPlanner, loadPlan, loadPlans, keepSound, planKey, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper */
+import { lawsOf } from '../assemble/laws.js'; /* M510 */
+import { lastPagesOf } from '../assemble/stack.js'; /* M510 */
+import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
+import { renderPeopleTiers as planPeople, peopleView as planPeopleView } from '../engine/people.js'; /* M510 */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
@@ -291,6 +296,8 @@ export function initChat(ctx) {
     emberBar: document.getElementById('ember-bar'),
     emberFill: document.getElementById('ember-fill'),
     metaContext: document.getElementById('meta-context'),
+    quickSwitch: document.getElementById('quick-switch'), /* M510 */
+    quickSwitchWrap: document.getElementById('quick-switch-wrap'),
     menu: document.getElementById('msg-menu'),
     /* M22-E1/E3/E4: the prompt library chips, the jump-to-latest pill,
      * the per-story export menu, and a chip's manage menu. */
@@ -1614,11 +1621,12 @@ export function initChat(ctx) {
     }
     updateJump();
     refreshEmber();
+    refreshQuickSwitch(); /* M510 */
+    if (opening) planAhead(); /* M510: a tale told by a small model has its plan before the first send */
     markLedgerTrouble(story.id);   /* M250 */
     /* M330: once for each tale a session: the house's own notes are taken back out of its record (nobody's hand needed) */
     if (!healedNotes.has(story.id)) { healedNotes.add(story.id); takeBackHouseNotes(story).then(() => putBackAgainstBrief(story)); }
     healInterruptedBranches(); /* M332: once per load */
-    if (!olderModelRead) { olderModelRead = true; noteOlderModel(); } /* M343: the room line is true from the first look */
     if (!healedFuture.has(story.id)) { healedFuture.add(story.id); takeOutTheFuture(story); } /* M337 */
   }
 
@@ -2480,9 +2488,88 @@ export function initChat(ctx) {
    * remove details of the story; it has 200k of room and I rarely reach 150k." He is right: a page out of the request is
    * a detail the model cannot have, whatever it would have done with it. The cap is gone — the room is the provider's, as
    * ever (roomOf is contextOf). What the switch does now is only ever ADD, at the end (assemble/anchor.js). */
-  let olderModelOn = false;
-  let olderModelRead = false;
-  async function noteOlderModel() { try { olderModelOn = (await db.settings.get('olderModel')) === true; } catch (err) { olderModelOn = false; } return olderModelOn; }
+  /* M510: THE SMALL-MODEL MODE FOLLOWS THE STORYTELLER. It was one switch for the whole house (M343's `olderModel`), so a
+   * tale told by his frontier model after a night on the small one still carried the small-model words — the very break
+   * the switch existed to prevent. It is a property of the connection now: choosing the connection is choosing the mode,
+   * and a connection without the tick never gets one byte of it. */
+  const isSmallModel = (conn) => Boolean(conn && conn.smallModel === true);
+  /* M510: THE QUICK SWITCH — who tells this story, one tap from the page. The SAME choice as Settings → "Who tells this
+   * story" (story.connectionId; empty follows the house's active connection), never a second setting: both read and
+   * write that one field. Sorted by name, as his connection list is (M301); a small model wears its mark. */
+  const connectionName = (c) => String((c && (c.label || c.model)) || 'a connection') + (isSmallModel(c) ? ' · small model' : '');
+  async function refreshQuickSwitch() {
+    if (!els.quickSwitch || !els.quickSwitchWrap) return;
+    try {
+      const story = await activeStory();
+      const all = (await db.connections.list()).slice().sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { sensitivity: 'base' }));
+      if (!story || !all.length) { els.quickSwitchWrap.hidden = true; return; }
+      const houseId = await db.settings.get('activeConnectionId');
+      const house = all.find((c) => c.id === houseId) || all[0];
+      /* the house's own choice leads with its name — on a phone the box shows the first words, and the name is what he reads */
+      const options = [['', connectionName(house) + ' (the house’s)'], ...all.map((c) => [c.id, connectionName(c)])];
+      els.quickSwitch.textContent = '';
+      for (const [value, text] of options) { const o = document.createElement('option'); o.value = value; o.textContent = text; els.quickSwitch.appendChild(o); }
+      els.quickSwitch.value = typeof story.connectionId === 'string' && all.some((c) => c.id === story.connectionId) ? story.connectionId : '';
+      els.quickSwitchWrap.hidden = false;
+    } catch (err) { /* the switch waits for the next look */ }
+  }
+  if (els.quickSwitch) els.quickSwitch.addEventListener('change', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    await db.stories.update(story.id, { connectionId: els.quickSwitch.value || null });
+    await refreshQuickSwitch();
+    refreshEmber(); /* the room line is the new storyteller's */
+    planAhead(); /* M510: a small model taking the tale gets its plan now, while he types */
+  });
+  /* M510: THE PLANNING HELPER, READING AHEAD. After each page (the chain's last link), the moment the Quick switch or
+   * Settings hands a tale to a small model, and on opening such a tale: the helper reads the whole story and keeps what
+   * the next page needs, under the page it was made after. Only when this tale's storyteller is a small model — for any
+   * other connection nothing is asked, nothing is kept. Noted like every reader, so a send waits for it (the M3 five
+   * seconds) and otherwise goes with the whole request. */
+  async function planNext(story, { signal, stale = () => false } = {}) {
+    const teller = await resolveConnection(story);
+    if (!isSmallModel(teller)) return { silent: true };
+    const connection = await resolveWorkerConnection(story, 'planner');
+    if (!connection) return { silent: true };
+    const pagesAll = visiblePages(await db.messages.list(story.id));
+    const lastPage = [...pagesAll].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
+    const forKey = planKey(lastPage, lastPage ? pageText(lastPage) : '');
+    if (await loadPlan(story.id, forKey)) return { silent: true };
+    const state = await loadState(story.id);
+    const fresh = (await db.stories.get(story.id)) || story;
+    const mods = await listModules();
+    const craftMod = mods.find((m) => m && m.id === 'core-craft');
+    const craft = craftMod && typeof craftMod.text === 'string' ? craftMod.text : '';
+    const lawNames = lawsOf(craft).filter((l) => !l.preamble).map((l) => l.name);
+    const big = 400000;
+    const recentText = pagesAll.slice(-3).map((m) => pageText(m));
+    const facts = planFacts(state, { ...planStateView(big), scenePages: recentText });
+    const people = (planPeople(state, { recentPages: recentText, rotation: pagesAll.length, view: planPeopleView(big), brief: String(fresh.brief || '') + '\n' + String(fresh.castNotes || '') }) || {}).text || '';
+    const record = wholeRecord(await loadMemory(story.id), 400000);
+    const lore = matchLoreDetailed(await loadLore(story.id), recentText).text || '';
+    const world = renderWorldBrief(state.worldBrief, state.turn, state.page) || '';
+    const director = renderDirectorNote(await loadDirector(story.id)) || '';
+    const kept = await loadPlans(story.id);
+    const ls = kept && kept.lastSound;
+    const lastSound = ls && ls.intense ? 'The last page was a fight or a heated scene; it carried ' + (ls.effects || 0) + ' contact sounds and ' + (ls.voiced || 0) + ' voiced sounds' + (!ls.effects && !ls.voiced ? ' — it went quiet where it should have been heard.' : '.') : '';
+    const pages = lastPagesOf(pagesAll, PLAN_PAGES).map((m) => (m.role === 'user' ? 'The writer: ' : '') + pageText(m)); /* thirty of the storyteller's pages, his messages between them */
+    const mc = mcName(state);
+    const present = (Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
+    const ask = plannerAsk({ craft, brief: fresh.brief || '', castNotes: fresh.castNotes || '', facts, people, record, lore, world, director, pages, mc, lastSound });
+    if (stale()) return { silent: true };
+    const { plan, raw } = await runPlanner({ connection, storyId: story.id, forKey, ask, present, mc, lawNames, signal });
+    if (stale()) return { silent: true };
+    if (!plan) return { detail: 'its answer could not be used', raw }; /* the next page goes whole, as before a plan existed */
+    return { detail: 'read the story and planned the next page' + (plan.intense ? ' — a heated one' : '') };
+  }
+  function planAhead() {
+    (async () => {
+      const story = await activeStory();
+      if (!story || !isSmallModel(await resolveConnection(story))) return;
+      const promise = enqueueWork(story.id, { name: 'planner', run: async ({ signal, stale }) => planNext(story, { signal, stale }) });
+      noteWork(story.id, promise);
+    })().catch(() => {});
+  }
   const roomOf = (connection) => contextOf(connection);
 
   /* M337: a ledger holding lines dated after its tale's last page is healed on open — never while a page is being written or
@@ -3539,6 +3626,12 @@ export function initChat(ctx) {
       return { silent: true };
     });
 
+    /* 8. M510: THE PLANNING HELPER — last, so it reads the ledger this page just wrote. Only for a small model. */
+    enqueue('planner', async ({ signal, stale }) => {
+      if (stale()) return { silent: true };
+      return planNext(story, { signal, stale });
+    });
+
     /* 6. M346: canon verification after the page — ST's MESSAGE_RECEIVED: the people this page brought in are looked up
      * now, so the next page has them. Only with its switch on. */
     enqueue('canon', async ({ stale }) => {
@@ -3987,6 +4080,7 @@ export function initChat(ctx) {
     let episodeEnded = false;
     let leakedControl = false; /* M117: the provider let control tokens through */
     let ranPast = false; /* M469: the model ran past its end-of-turn and began the writer's next turn */
+    let cutMine = false; /* M510: the small model began playing him, and the page ended there */
     try {
       const story = await activeStory();
       if (!story) return;
@@ -4022,7 +4116,16 @@ export function initChat(ctx) {
        * changes. ON: on a turn whose connection has its thinking OFF (a story page, never an out-of-character answer) the
        * closing message asks the teller to think first inside a think-tag and then write the page. A connection that
        * thinks natively is left alone — it already has somewhere to think. */
-      settingsValues.olderModelNow = !ooc && (await noteOlderModel()); /* M343: the scene said once more, last — story pages only */
+      /* M510: the small-model mode is the storyteller connection's own (the Small model tick) — its help on story pages
+       * only; what a small model is sent of the frame, the note and his own-voice words follows his three small-model
+       * switches (off unless he turns them on — in his tests they made a small model dumber), on every turn it tells. */
+      const smallTeller = isSmallModel(connection);
+      settingsValues.smallModelNow = !ooc && smallTeller;
+      if (smallTeller) {
+        settingsValues.frameOn = (await db.settings.get('frameOnSmall')) === true;
+        settingsValues.noteOn = (await db.settings.get('noteOnSmall')) === true;
+        if ((await db.settings.get('ownWordsOnSmall')) !== true) settingsValues.ownWords = [];
+      }
       const thinkingOffNow = String((effectiveReasoning(connection, story) || {}).effort || 'off') === 'off';
       settingsValues.thinkOnPageNow = !ooc && thinkingOffNow && (await db.settings.get('thinkOnPage')) === true;
       /* M3 (the latency law): if the workers are still reading the previous
@@ -4189,6 +4292,15 @@ export function initChat(ctx) {
       const canonNote = canonPending ? ((await canonPending) || '') : ''; /* M346: its windows have closed — whatever it holds rides */
       /* M356: what the sensors noticed, once — taken and let go, so it never rides twice */
       const sensorNote = ooc ? '' : await takeWordForTurn(story.id); /* M356/M357: a reading's word, or what the house saw in the last page */
+      /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
+       * plan for the page before the one it replaces); none yet → the whole request goes, as before */
+      let smallPlan = null; let smallIntense = false; let lastSound = null;
+      if (settingsValues.smallModelNow === true) {
+        const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
+        smallPlan = await loadPlan(story.id, planKey(before, before ? pageText(before) : ''));
+        smallIntense = selected.some(({ mod }) => mod && (mod.id === 'contested-resolution' || mod.id === 'nsfw')) || Boolean(state && (state.duel || state.battle || state.war));
+        lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
+      }
       const probeReceipt = buildRequest({
         story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,
@@ -4198,6 +4310,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
+        smallPlan, smallIntense, lastSound, /* M510 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4245,6 +4358,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
+        smallPlan, smallIntense, lastSound, /* M510 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
@@ -4272,7 +4386,8 @@ export function initChat(ctx) {
        * out-of-character turns are exactly where a teller slides into an assistant's register. It is planted whatever the
        * model did last time, never remembered, never announced (M370). His OWN prefill wins on a page of the story; on an
        * out-of-character turn his prefill is a page's opening and stays off (as it always has), and the phrase rides. */
-      const grounding = groundingSeed(settingsValues);
+      /* M510: the frame switched off takes its phrase with it */
+      const grounding = settingsValues.frameOn === false ? '' : groundingSeed(settingsValues);
       const ownPrefill = String(connection.prefill || '').trim();
       /* M375: and only where the provider truly continues a started thought — anywhere else the seed is an empty extra
        * turn the model reads, and reasons about in an assistant's voice */
@@ -4528,6 +4643,23 @@ export function initChat(ctx) {
           leakedControl = true;
           ranPast = leak.ranPast === true;
         }
+        /* M510: A PAGE THAT BEGAN PLAYING HIM ENDS WHERE IT BEGAN — the small-model mode only. The page stops at the
+         * sentence that first gave him words, thoughts or a move he did not make (his own message never counted), before
+         * it is kept: neither the page nor the ledger holds what he never did. A window beyond the page after the cut is
+         * kept. Too little left to stand as a page (under 400 characters of scene): the page stands and the next turn
+         * hears it instead (below). */
+        if (settingsValues.smallModelNow === true && full.trim()) {
+          try {
+            const alsoKnown = Object.keys((state && state.characters) || {}).filter((n) => { try { return isMcAlias(state, n); } catch (err) { return false; } });
+            const at = mineCutAt(full, { mc: mcName(state), also: alsoKnown, writerText: userText });
+            const windowAt = windowCutAt(full);
+            const scene = at > -1 ? full.slice(0, windowAt > -1 && windowAt < at ? windowAt : at).replace(/^\s*\[[^\]\n]*\]\s*/, '') : '';
+            if (at > -1 && (windowAt === -1 || at < windowAt) && scene.trim().length >= 400) {
+              full = full.slice(0, at).trimEnd() + (windowAt > at ? '\n\n' + full.slice(windowAt).trim() : '');
+              cutMine = true;
+            }
+          } catch (err) { /* a reading of the page is never worth the page */ }
+        }
         const episodeMark = stripEpisodeEnd(full);
         if (episodeMark.ended) {
           episodeEnded = true;
@@ -4635,17 +4767,21 @@ export function initChat(ctx) {
        * writer feels. So the page stands, and the house keeps ONE line — his character taken, or the same words again —
        * for the end of the next turn, in his voice. Only with the derestricted switch on; his frontier model never
        * has either check run. */
-      if (settingsValues.olderModelNow === true && !stoppedByHand && full.trim()) {
+      if (settingsValues.smallModelNow === true && !stoppedByHand && full.trim()) {
         try {
           const alsoKnown = Object.keys((state && state.characters) || {}).filter((n) => { try { return isMcAlias(state, n); } catch (err) { return false; } });
           const took = mineLeak(full, { mc: mcName(state), also: alsoKnown, writerText: userText });
-          const before = history.filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc && m.id !== (swipeTarget && swipeTarget.id)).slice(-6).map((m) => pageText(m));
-          const again = took ? [] : staleLeak(full, before, { writerText: userText, names: [mcName(state), ...alsoKnown, ...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : [])].filter(Boolean) });
-          const word = took ? mineWord(took, mcName(state)) : staleWord(again);
+          /* M510: the "same words again" note is retired — it quoted the repeated phrase back to the model; the
+           * connection's own repetition penalties (the dials M510 opened) do that job while the page is written */
+          const word = took && !cutMine ? mineWord(took, mcName(state)) : '';
           if (word) await keepPageWord(story.id, word);
+          /* M510: what the page sounded like, for the helper's next plan (a heated page that went quiet is heard) */
+          const heard = soundCount(full);
+          await keepSound(story.id, { intense: smallIntense === true || Boolean(smallPlan && smallPlan.intense), effects: heard.effects, voiced: heard.voiced });
         } catch (err) { /* a reading of the page is never worth the page */ }
       }
 
+      if (cutMine) toast('The storyteller began playing your character — the page ends where it started.');
       if (leakedControl) toast(ranPast ? 'The storyteller ran past the end of its turn and began writing yours — the words before that were kept.' : 'The words before the provider’s leak were kept.');
 
       /* M120, as M377 changed it: the page came back INSIDE the thinking and the answer is (nearly) empty. Nothing is asked
@@ -6390,7 +6526,8 @@ export function initChat(ctx) {
     rerenderMessage, /* M483: the walk proves a re-ink keeps the page's number */
     briefFromConcept, /* M478/M479 */
     rippleAfterEdit,
-    noteOlderModel, /* M343: Settings tells the thread the moment the switch moves */
+    refreshQuickSwitch, /* M510: Settings tells the main screen when a storyteller or a connection changes */
+    planAhead, /* M510: Settings hands a tale to a small model → the helper reads ahead */
     pageReinked, /* M296 */
     resumeUnfinishedChain,
     healLedgerOnOpen, /* M452 */

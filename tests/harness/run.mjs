@@ -184,6 +184,7 @@ import './m495.mjs';
 import './m505.mjs';
 import './m507.mjs';
 import './m508.mjs';
+import './m510.mjs'; /* M510: the small-model mode */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

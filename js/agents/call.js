@@ -34,6 +34,7 @@
 
 import { createProvider } from '../providers/index.js';
 import { alwaysThinks } from '../providers/effort.js';
+import { WORKER_UNSAFE } from '../providers/knobs.js'; /* M510 */
 
 export const WORKER_MAX_TOKENS = 1200;
 export const ALWAYS_THINKS_FLOOR = 16000; /* M303 */
@@ -68,6 +69,10 @@ export function workerConnection(connection, { maxTokens, effort, temperature } 
    * prefill the story's: then it stays home, unless the connection says "Workers riding this connection get
    * it too". */
   if (c.prefillForWorkers !== true && c.id && c.id === tellerConnectionId) delete c.prefill;
+  /* M510: A WORKER'S JSON NEVER RIDES A PENALTY OR A STOP TEXT — the one override his law allows, a floor against
+   * corruption: a penalty pushes the model off the quotes and keys it has already written, and a stop text can end the
+   * object mid-way. The rest of his dials (top-k, min-p, a seed) still ride. */
+  for (const k of WORKER_UNSAFE) delete c[k];
   /* M232: NOTHING SET MEANS THE PROVIDER'S DEFAULT, NOT THE HOUSE'S ZERO.
    * M231 stopped overriding a temperature the connection HAD and then still
    * imposed 0 on one that had none — which is the same overruling, only

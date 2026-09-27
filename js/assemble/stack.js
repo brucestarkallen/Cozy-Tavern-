@@ -95,11 +95,12 @@ import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { sceneAnchor, recallFromRecord, recallLine } from './anchor.js'; /* M343, M344 */
 import { shortcutsText } from '../commands.js'; /* M379 */
-import { plainRules } from './plain.js'; /* M354: the five plain lines, behind the derestricted switch */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { voiceOf, inVoice, toTeller, briefingOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
-import { renderPeopleTiers, peopleView } from '../engine/people.js';
+import { renderPeopleTiers, peopleView, findPersonKey } from '../engine/people.js';
+import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, SOUND_LAWS, LOAD_BEARING } from './laws.js'; /* M510: his craft, law by law */
+import { renderPlan, renderSounds } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
 
@@ -409,6 +410,21 @@ function isContinueTurn(history) {
  * is not sent at all: nothing is ever settled for the storyteller, so nothing needs teaching. */
 const OLD_RULED_LINE = /^[ \t]*The house has ruled = [^\n]*\n?/m;
 const NEW_RULED_LINE = /^[ \t]*An outcome already settled = [^\n]*\n?/m;
+/* M510: the last `n` of the storyteller's pages with his messages between them — starting on his message, never on a
+ * page of the storyteller's (a request must not open on the storyteller's own turn) */
+export const SMALL_PAGES = 8;
+export function lastPagesOf(pages, n = SMALL_PAGES) {
+  const list = Array.isArray(pages) ? pages : [];
+  let seen = 0;
+  let from = 0;
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    if (list[i] && list[i].role === 'assistant') seen += 1;
+    if (seen === n) { from = i; break; }
+  }
+  while (from > 0 && list[from] && list[from].role !== 'user') from -= 1;
+  return list.slice(from);
+}
+
 export function refereeCraft(text, on) {
   const s = String(text == null ? '' : text);
   if (!on) return s.replace(OLD_RULED_LINE, '').replace(NEW_RULED_LINE, '');
@@ -419,6 +435,7 @@ export function refereeCraft(text, on) {
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
   window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '', canonOn = false, canonWhy = '', sensorNote = '',
+  smallPlan = null, smallIntense = false, lastSound = null, /* M510: the small request — the helper's plan, whether the scene is heated, what the last page sounded like */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -451,7 +468,10 @@ export function buildRequest({
   };
 
   /* M327: who tells, and who listens — the names the house's own words are said in (assemble/voice.js) */
-  const voice = { ...voiceOf(safeSettings), mc: mcNameOf(state) }; /* M361: {{user}} is the one he plays */
+  /* M510: THE FRAME SWITCHED OFF IS OFF WHOLE. The teller's name leading the house's own lines ("Tony Stark — Bruce
+   * here…") and the grounding phrase are the frame's too: with the frame gone they read as a name nobody introduced. */
+  const frameOn = safeSettings.frameOn !== false;
+  const voice = { ...voiceOf(safeSettings), mc: mcNameOf(state), ...(frameOn ? {} : { teller: '', grounding: '' }) }; /* M361: {{user}} is the one he plays */
 
   /* --- 1. The frame --- */
   const framePicked = pickText(safeStory.frameOverride, safeSettings.frameText, STARTER_FRAME);
@@ -463,7 +483,6 @@ export function buildRequest({
   const person = personOf(safeSettings, framePicked.text);
   /* M509-14: THE FRAME CAN BE SWITCHED OFF WHOLE (Settings → "Send the frame"); off, slot 1 is empty and nothing of it
    * echoes. The "purpose line" that once followed the frame is gone — he never used it. */
-  const frameOn = safeSettings.frameOn !== false;
   const frameText = frameOn ? frame.text : '';
   pushSlot('The frame', frameText, frameOn ? frame.source : 'switched off', '');
   /* M21: "say it again at the end" — the whole frame repeats at the tail,
@@ -485,8 +504,20 @@ export function buildRequest({
   const noteOn = safeSettings.noteOn !== false;
   const notePickedEarly = noteOn ? resolveNote(safeStory.noteOverride, safeSettings.noteText) : { text: '', source: 'switched off' };
   const starterStanding = notePickedEarly.source === 'the starter text' ? inPerson(inVoice(notePickedEarly.text, voice), person) : '';
-  const craftWhole = [craftText, shortcuts, starterStanding].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
-  pushSlot('The craft', craftWhole, 'the rulebook, with the shortcuts', craft ? craft.reason : '');
+  /* M510: THE SMALL REQUEST (his choice B). A small model loses what stands far back in a long request — his own
+   * onomatopoeia law went unheard 70,000 characters behind the page. With the storyteller a small model AND a plan in
+   * hand (the planning helper read the whole story), the craft rides as the laws this scene needs, in his exact words:
+   * the ones every page needs (laws.js ALWAYS_LAWS) and the ones the helper chose; the notes, the record and the older
+   * pages stay with the helper who read them. No plan, or a craft that no longer holds the laws a page stands on: the
+   * whole request, as before. */
+  const smallLaws = safeSettings.smallModelNow === true && smallPlan && typeof smallPlan === 'object' ? lawsOf(craftText) : [];
+  const smallB = smallLaws.length > 0 && LOAD_BEARING.every((n) => lawsNamed(smallLaws, [n]).length > 0);
+  const soundKeys = new Set(SOUND_LAWS.map(lawKey));
+  const craftForTurn = smallB
+    ? joinLaws(lawsNamed(smallLaws, [...ALWAYS_LAWS, ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))))
+    : craftText;
+  const craftWhole = [craftForTurn, shortcuts, starterStanding].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
+  pushSlot('The craft', craftWhole, smallB ? 'the laws this scene needs, word for word, with the shortcuts — small model' : 'the rulebook, with the shortcuts', craft ? craft.reason : '');
 
   /* --- 3. The brief --- */
   const brief = typeof safeStory.brief === 'string' ? safeStory.brief : '';
@@ -540,7 +571,7 @@ export function buildRequest({
   /* M451: WHO IS HERE IS SAID ONCE. This block said "Here right now: …" and the notes that open the story said "Here now:
    * …" — the same names twice on every page (measured through the app). The notes keep it, with where each stands and
    * what they wear; this block keeps the cast notes and the cards of whoever is here. */
-  let whosHere = [castNotes].filter(Boolean).join('\n\n');
+  let whosHere = [smallB ? '' : castNotes].filter(Boolean).join('\n\n'); /* M510: the helper read the cast notes */
   if (whosHere.length > slot4Room) whosHere = atLine(whosHere, slot4Room);
   for (const line of cardLines) {
     const candidate = whosHere ? whosHere + '\n' + line : line;
@@ -588,7 +619,7 @@ export function buildRequest({
   const scenePages = wireable(history).slice(-10).map((m) => m.content); /* M283: who the story keeps naming */
   const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
   const peopleText = people ? people.text : '';
-  if (peopleText) {
+  if (peopleText && !smallB) {
     const t = people.tiers;
     const said = [];
     if (t.cards) said.push(t.cards + (t.cards === 1 ? ' card' : ' cards') + ' for who is here');
@@ -601,7 +632,7 @@ export function buildRequest({
 
   /* --- 5. The state of things --- */
   const facts = renderStateFacts(state, { ...stateView(windowInfo && windowInfo.budgetTokens), scenePages: recentPages, noFight: safeSettings.refereeOn === false }); /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
-  pushSlot('The state of things', facts);
+  pushSlot('The state of things', smallB ? '' : facts, smallB ? 'read by the planning helper — small model' : '');
 
   /* --- 6. Active modules (everything selected that isn't the craft) --- */
   const active = selected.filter(({ mod }) => mod && mod.id !== 'core-craft');
@@ -669,15 +700,15 @@ export function buildRequest({
    * on the receipt as "On their mind", since M12 — and never put in the
    * request: the storyteller has told every page without the people's pages.
    * It leads the story-state, just before the state of things. */
-  if (peopleText) stateParts.push('On their mind:\n' + peopleText);
-  if (facts) stateParts.push(facts);
+  if (peopleText && !smallB) stateParts.push('On their mind:\n' + peopleText);
+  if (facts && !smallB) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
-  if (memoryText) stateParts.push('What remains of the older pages:\n' + memoryText);
+  if (memoryText && !smallB) stateParts.push('What remains of the older pages:\n' + memoryText);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
-  if (worldText) stateParts.push(worldText); /* the brief leads with its own name */
-  if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
-  if (editorText) stateParts.push(editorText); /* M495: "My notes on the telling…" — his, not an editor's */
-  if (eyeText) stateParts.push(toTeller(eyeWithoutRuleNames(eyeText, voice, person), voice)); /* the eye speaks its own name — M327: and the teller's */
+  if (worldText && !smallB) stateParts.push(worldText); /* the brief leads with its own name */
+  if (directorText && !smallB) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
+  if (editorText && !smallB) stateParts.push(editorText); /* M495: "My notes on the telling…" — his, not an editor's */
+  if (eyeText && !smallB) stateParts.push(toTeller(eyeWithoutRuleNames(eyeText, voice, person), voice)); /* the eye speaks its own name — M327: and the teller's */
   const stateInjection = stateParts.length
     ? { role: 'user', content: briefingOpening(voice) + '\n\n' + stateParts.join('\n\n') }
     : null;
@@ -685,7 +716,7 @@ export function buildRequest({
   /* --- 7. What remains (M6) — the newest memory nodes; then (M7) the lore
    * hits, sharing the slot's budget. The receipt lists each sub-part only
    * when it has something to say; M9 names the lore entries that fired. --- */
-  if (memoryText) {
+  if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
   }
   if (loreText) {
@@ -704,16 +735,16 @@ export function buildRequest({
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
   else if (canonOn) pushSlot('What canon says', '', '', canonWhy || 'canon verification gave no note this turn');
   if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */
-  if (worldText) {
+  if (worldText && !smallB) {
     pushSlot('The world’s word', worldText, 'the world agent’s brief — what could reach this scene, what ripened out of sight');
   }
-  if (directorText) {
+  if (directorText && !smallB) {
     pushSlot('The director’s note', directorText, 'the showrunner’s marching orders for the episode that stands');
   }
-  if (editorText) {
+  if (editorText && !smallB) {
     pushSlot('The editor’s eye', editorText, 'the standing craft critique');
   }
-  if (eyeText) {
+  if (eyeText && !smallB) {
     pushSlot('The house’s eye', eyeText, 'the last page’s slips against the craft, checked in code — recolored this turn');
   }
   if (rulingText && safeSettings.refereeOn !== false) {
@@ -756,7 +787,21 @@ export function buildRequest({
     budgetTokens: w.budgetTokens,
     prefixTokens,
   });
-  const wire = win.window.map((m) => ({ role: m.role, content: m.content }));
+  /* M510: the small request carries the last SMALL_PAGES of his story's pages word for word (and his message between
+   * them), never opening on the storyteller's page; the planning helper read the rest */
+  let smallWindow = smallB ? lastPagesOf(pages, SMALL_PAGES) : null;
+  /* and never past the room the connection names (M285/M343): the oldest of the eight go first, the window still
+   * opening on his message; his message and the page before it always ride */
+  if (smallWindow && Number.isFinite(w.budgetTokens) && w.budgetTokens > 0) {
+    const cost = (list) => list.reduce((sum, m) => sum + estimateTokens(typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')), 0);
+    while (smallWindow.length > 2 && prefixTokens + cost(smallWindow) > w.budgetTokens) {
+      let cut = 1;
+      while (cut < smallWindow.length - 1 && smallWindow[cut].role !== 'user') cut += 1;
+      if (cut >= smallWindow.length - 1) break;
+      smallWindow = smallWindow.slice(cut);
+    }
+  }
+  const wire = (smallWindow || win.window).map((m) => ({ role: m.role, content: m.content }));
   const historyText = wire.map((m) => m.content).join('\n');
   let historySource;
   if (win.mode === 'keeper') {
@@ -790,6 +835,7 @@ export function buildRequest({
   const ownWords = ownWordsFor(safeSettings, voice);
   const ownRows = (place) => { for (const w of ownWords) if (w.place === place) pushSlot('Own words — ' + w.name, w.text, (w.role === 'assistant' ? 'the storyteller’s own words' : w.role === 'user' ? 'your words' : 'the house’s words') + ', ' + OWN_WORDS_PLACES[w.place]); };
   ownRows('before-pages');
+  if (smallWindow) historySource = 'the last ' + smallWindow.filter((m) => m.role === 'assistant').length + ' pages word for word — small model; the planning helper read the whole story';
   pushSlot('The story so far', historyText, win.total ? historySource : '');
   ownRows('before-your-message');
   ownRows('after-your-message');
@@ -856,11 +902,25 @@ export function buildRequest({
    * just normal as ever: my system instruction, then all normal, no persona-breaking words, then my first message." He is
    * right, and the repair IS the house's doing: ui/pageshape.js makes the page whole AFTER it arrives (brackets, the ledger's
    * ground, blank lines) and a header with no place wears its card — none of which needs one word in the request. */
-  /* M343: the older-model switch — the scene said once more, LAST (assemble/anchor.js). Only when chat.js says the switch is on. */
+  /* M343/M510: the small-model mode — the scene said once more, LAST (assemble/anchor.js). Only when chat.js says the
+   * storyteller's connection is a small model. M510: the five plain lines are gone — one fought his #p ("several real
+   * exchanges" against "exactly ONE beat"), one asked for "plain words" against his own onomatopoeia law, one said
+   * "nothing else from me" right before his own instructions. */
   let anchorLine = '';
-  let plainLine = ''; /* M354: what a small model needs — only with the switch on */
-  if (safeSettings.olderModelNow === true) {
-    plainLine = toTeller(plainRules(mcNameOf(state)), voice);
+  let soundsLine = ''; /* M510: his two sound laws and this scene's sounds, right before the page — heated scenes only */
+  if (smallB) {
+    /* M510: the plan — the ledger's own hour, ground and who is here (never the helper's), then what the helper read */
+    const lines = (renderStateFacts(state, { scenePages: recentPages }) || '').split('\n').map((l) => l.trim());
+    const anchor = ['The hour: ', 'The ground: ', 'Here now: '].map((h) => lines.find((l) => l.startsWith(h)) || '').filter(Boolean);
+    const chars = (state && state.characters) || {};
+    const cores = {};
+    for (const p of smallPlan.people || []) { const k = findPersonKey(chars, p.name) || p.name; const c = chars[k] && typeof chars[k].core === 'string' ? chars[k].core : ''; if (c) cores[p.name] = c; }
+    anchorLine = renderPlan(smallPlan, { voice, anchor, cores, mc: mcNameOf(state) });
+    if (smallIntense === true || smallPlan.intense === true) {
+      const wentQuiet = Boolean(lastSound && lastSound.intense === true && !lastSound.effects && !lastSound.voiced);
+      soundsLine = renderSounds(smallPlan, { voice, laws: joinLaws(lawsNamed(smallLaws, SOUND_LAWS)), wentQuiet });
+    }
+  } else if (safeSettings.smallModelNow === true) {
     /* M344: the scene's words = the last pages AND what the writer just wrote; the record's lines come from the window's nodes */
     const lastUser = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
     const sceneNow = [...recentPages, lastUser ? String(lastUser.text || '') : ''].filter(Boolean);
@@ -882,10 +942,21 @@ export function buildRequest({
    * storyteller reads, in that order — whatever else rides after his message (the referee's outcome, a switch's line)
    * comes BEFORE them. The repeat stood second, ahead of the switches, so a think-on-page line or the sensors' word
    * could sit between his instructions and his note. (M21 always meant it "just before the note at the end".) */
-  const closing = [rulingLine, directiveText, anchorLine, plainLine, sensorLine, groundLine, thinkLine, echoOn ? frameText : '', hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  const closing = [rulingLine, directiveText, anchorLine, sensorLine, groundLine, thinkLine, soundsLine, echoOn ? frameText : '', hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   /* M380: WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE — SillyTavern's post-history instructions — unless he chooses
    * otherwise. As a user message it read as HIM writing a second message of instructions, and his teller answered it as
    * an assistant answers a user. */
+  /* M510: the plan and the sounds wear receipt rows of their own, where they ride — just before his two */
+  {
+    const rows = [];
+    if (smallB && anchorLine) rows.push({ name: 'The plan for this page', tokens: estimateTokens(anchorLine), source: 'the planning helper read the whole story and wrote what this scene needs — small model', reason: '', text: anchorLine });
+    if (soundsLine) rows.push({ name: 'The sounds', tokens: estimateTokens(soundsLine), source: 'your two sound laws, word for word, and the sounds of this scene — a fight, sex or a raw peak', reason: '', text: soundsLine });
+    if (rows.length) {
+      let at = slots.findIndex((s) => s.name === 'The frame, said again' || s.name === 'The note at the end');
+      if (at === -1) at = slots.length;
+      slots.splice(at, 0, ...rows);
+    }
+  }
   const afterRole = safeSettings.afterRole === 'user' ? 'user' : 'system';
   if (closing.length) out.push({ role: afterRole, content: closing.join('\n\n') });
 

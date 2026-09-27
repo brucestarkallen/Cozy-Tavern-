@@ -4,7 +4,7 @@
  * plain lines at the end, and a page that took his character asked for again, once. With it OFF: not one byte of it. */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
-import { plainRules, mineLeak, mineNames, echoesWriter } from '../../js/assemble/plain.js';
+import { mineLeak, mineNames, echoesWriter } from '../../js/assemble/plain.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 import { emptyState } from '../../js/engine/state.js';
 import { applyMutations } from '../../js/engine/apply.js';
@@ -16,22 +16,21 @@ const build = (settings) => buildRequest({
   directive: '', directorNote: '', editorEye: '', ruling: '',
 });
 
-test('M354-1 THE FIVE PLAIN LINES RIDE ONLY WITH THE SWITCH ON — and the turn with it off is byte for byte the turn before any of this existed', () => {
+/* M510 retired the five lines (one fought his #p — "several real exchanges" against "exactly ONE beat" —, one asked for
+ * "plain words" against his onomatopoeia law, one said "nothing else from me" before his own instructions). What stands
+ * of this law: the small-model mode ON adds ONLY its closing words — everything before them is the OFF turn, byte for
+ * byte — and not one of the five lines rides. */
+test('M354-1 (as M510 changed it) THE SMALL-MODEL MODE ADDS ONLY ITS CLOSING WORDS — the turn with it off is byte for byte the turn before any of this existed, and the five plain lines never ride again', () => {
   const off = build({ tellerName: 'Iron Man', writerName: 'Bruce' });
-  const on = build({ tellerName: 'Iron Man', writerName: 'Bruce', olderModelNow: true });
-  const offAll = JSON.stringify({ system: off.systemBlocks, messages: off.messages });
-  assert(!/is mine\./.test(offAll) && !/five things/.test(offAll), 'OFF: not one word of it');
+  const on = build({ tellerName: 'Iron Man', writerName: 'Bruce', smallModelNow: true });
+  const onAll = JSON.stringify({ system: on.systemBlocks, messages: on.messages });
+  for (const law of ['five things', 'is mine.', 'stays set against him', 'Let the room talk', 'End where I can act', 'Stay in the moment', 'plain words']) assert(!onAll.includes(law), 'retired, never sent: ' + law);
   const closing = on.messages[on.messages.length - 1].content;
-  assert(/Iron Man — while we tell this one, five things/.test(closing), 'ON: said to the teller by name, in his own voice: ' + closing.slice(0, 90));
-  for (const law of ['Jovan is mine', 'stays set against him', 'Let the room talk', 'End where I can act', 'Stay in the moment']) assert(closing.includes(law), 'ON: ' + law);
-  /* and nothing else moved: the turn is the OFF turn plus the scene line and these lines */
-  const offClosing = off.messages[off.messages.length - 1].content;
-  /* M379: with no note of his own, the OFF turn ends on his message — the ON turn is the OFF turn plus its one closing message */
+  assert(/right now, so it is in front of you/i.test(closing), 'ON (no plan yet): the scene said once more, last: ' + closing.slice(0, 90));
   const onRest = on.messages.slice(0, -1);
   eq(JSON.stringify(off.messages.slice(0, onRest.length)), JSON.stringify(onRest), 'every other message is untouched');
   eq(JSON.stringify(off.systemBlocks), JSON.stringify(on.systemBlocks), 'and so is everything standing');
   eq(String(off.messages[off.messages.length - 1].content), 'I step into the courtyard.', 'OFF: his own words are the last thing it reads (M379)');
-  void offClosing;
 });
 
 test('M354-2 HIS CHARACTER’S OWN WORDS, THOUGHTS AND MOVES ARE SEEN — in every shape a page writes them', () => {
@@ -68,47 +67,7 @@ test('M354-4 (as M357 changed it) WHAT THE HOUSE SAW IS SAID BEFORE THE NEXT PAG
   assert(!/again|rewrite|same beat/i.test(words), 'and never asks for that page back');
   assert(!/format|template|example|paragraph|word count/i.test(words), 'nor says anything about shape');
   eq(mineWord('', 'Jovan'), '', 'nothing seen, nothing said');
-  const plain = plainRules('Jovan');
-  assert(!/\d/.test(plain) && !/format|structure|template/i.test(plain), 'nor do the five lines');
 });
 
-/* ---- M355: the same words again ---- */
-/* filler with no six-word run in common, and none inside itself — the detector is meant to catch a repeated frame, so
- * the fixtures must not have one */
-const LINES = [
-  'Rain found the gutters first.', 'A dog barked twice somewhere past the wall.', 'Someone had left a bucket upturned by the well.',
-  'The bell in the tower was three minutes fast, as always.', 'Wool smoke hung low over the roofs of the lower town.',
-  'Two apprentices argued about a broken strap.', 'Salt crusted the step where the fish cart stood at dawn.',
-  'A shutter banged, then quieted.', 'The baker’s boy went by with his tray held high.', 'Somebody was singing badly, four streets off.',
-  'Ash drifted from a chimney that should have been cold.', 'An old woman counted coppers into her palm.',
-  'Pigeons lifted off the granary roof together.', 'A cart wheel had shed its iron rim near the fountain.',
-  'Chalk numbers climbed the wall beside the cooper’s door.', 'Nobody had swept the arcade since the feast.',
-  'A cat considered the fish cart from under a bench.', 'The well rope creaked in its bracket.',
-  'Someone’s laundry snapped like a flag above the lane.', 'Bees worked the vine over the south arch.',
-];
-const fresh = (n, from = 0) => LINES.slice(from, from + n).join(' ');
-
-test('M355-1 A PAGE THAT SAYS WHAT WAS ALREADY SAID IS SEEN, and the phrase it reused is named — his own words and the room’s names never count', async () => {
-  const { staleLeak, echoedPhrases } = await import('../../js/assemble/plain.js');
-  const before = ['The air was thick with the smell of wet stone, and Kaelen waited by the gate. ' + fresh(10, 10)];
-  const said = staleLeak('The air was thick with the smell of wet stone again, and he knew it. ' + fresh(10, 0), before, { names: ['Kaelen', 'Jovan'] });
-  eq(said.length, 1, 'one phrase, not the three overlapping ways to say it: ' + JSON.stringify(said));
-  assert(/air was thick with the smell of wet stone/.test(said[0]), 'named as it was written: ' + said[0]);
-  eq(staleLeak('Rain found the gutters first, and the practice swords went back on their rack. ' + fresh(10, 0), before, { names: ['Kaelen', 'Jovan'] }).length, 0, 'a page that says something new is left alone');
-  eq(staleLeak('The air was thick with the smell of wet stone.', before).length, 0, 'a short page is not judged for repeating itself');
-  const his = 'I step into the courtyard where the practice swords lay stacked.';
-  eq(echoedPhrases('He stepped into the courtyard where the practice swords lay stacked, and the rain went on. ' + fresh(10, 0), ['He stepped into the courtyard where the practice swords lay stacked by the wall.'], { writerText: his }).length, 0, 'the page giving HIS words back is not a repeat');
-  const twice = 'She turned the lamp down until the room was the colour of weak tea, and said nothing. ' + fresh(5, 0) + ' She turned the lamp down until the room was the colour of weak tea. ' + fresh(5, 10);
-  assert(echoedPhrases(twice, []).some((p) => /turned the lamp down until the room/.test(p)), 'and a page that repeats ITSELF is seen too: ' + JSON.stringify(echoedPhrases(twice, [])));
-});
-
-test('M355-2 (as M357 changed it) THE PHRASES ARE NAMED IN THE LINE SAID BEFORE THE NEXT PAGE — one sentence, his voice, nothing about shape', async () => {
-  const { staleWord } = await import('../../js/assemble/plain.js');
-  const words = staleWord(['air was thick with the smell of wet stone', 'a long moment passed between them']);
-  assert(/^The last page said what we had already said — “air was thick/.test(words), 'it names the phrase: ' + words.slice(0, 80));
-  assert(words.includes('a long moment passed between them'), 'both of them');
-  assert(/Find other words for it this time/.test(words), 'and asks for other words next time');
-  assert(!/same beat|write it again/i.test(words), 'never for that page again');
-  assert(!/format|paragraph|template|word count|\d/.test(words), 'and nothing about the page’s shape');
-  eq(staleWord([]), '', 'nothing repeated, nothing said');
-});
+/* M355 (the same words again) was retired at M510 with its detector: it quoted the repeated phrase back to the model, and
+ * the connection's own repetition penalties (M510's dials) do that job while the page is written. */

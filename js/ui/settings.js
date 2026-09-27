@@ -129,6 +129,14 @@ export function initSettings(ctx) {
     connReasoning: document.getElementById('conn-reasoning'),
     connBudget: document.getElementById('conn-budget'),
     connTemperature: document.getElementById('conn-temperature'),
+    connTopK: document.getElementById('conn-topk'), /* M510: the rest of the dials */
+    connMinP: document.getElementById('conn-minp'),
+    connPresence: document.getElementById('conn-presence'),
+    connFrequency: document.getElementById('conn-frequency'),
+    connRepetition: document.getElementById('conn-repetition'),
+    connStop: document.getElementById('conn-stop'),
+    connSeed: document.getElementById('conn-seed'),
+    connSmall: document.getElementById('conn-small'), /* M510: the small-model mode lives on the connection */
     connTopP: document.getElementById('conn-topp'),
     connMaxTokens: document.getElementById('conn-maxtokens'),
     connPriceIn: document.getElementById('conn-price-in'), /* M457 */
@@ -148,6 +156,9 @@ export function initSettings(ctx) {
     frameStoryName: document.getElementById('frame-story-name'),
     /* M21: the frame's purpose line and its end-of-request echo. */
     frameOn: document.getElementById('frame-on'), /* M509-14 */
+    frameOnSmall: document.getElementById('frame-on-small'), /* M510: the same three, for a small model — off unless he turns them on */
+    noteOnSmall: document.getElementById('note-on-small'),
+    ownWordsOnSmall: document.getElementById('own-words-on-small'),
     noteOn: document.getElementById('note-on'), /* M509-14 */
     frameEcho: document.getElementById('frame-echo'),
     noteGlobal: document.getElementById('note-global'),
@@ -264,7 +275,6 @@ export function initSettings(ctx) {
     showThinking: document.getElementById('show-thinking'),
     cutBeforeHeader: document.getElementById('cut-before-header'),
     thinkOnPage: document.getElementById('think-on-page'), /* M339 */
-    olderModel: document.getElementById('older-model'), /* M343 */
     turnsShown: document.getElementById('turns-shown'), /* M136 */
     /* M16: the version line, and the shelf a story sits on. */
     versionLine: document.getElementById('settings-version'),
@@ -302,6 +312,10 @@ export function initSettings(ctx) {
   let shownConnId = null;
   let connRenderGeneration = 0;
   async function renderConnections() {
+    /* M510: every change to the connections — kept, used, copied, let go — is shown on the Quick switch at once, and a
+     * tale now told by a small model reads ahead (one place: every such change redraws this room) */
+    if (ctx.chat && typeof ctx.chat.refreshQuickSwitch === 'function') ctx.chat.refreshQuickSwitch();
+    if (ctx.chat && typeof ctx.chat.planAhead === 'function') ctx.chat.planAhead();
     const mine = ++connRenderGeneration;
     const made = await db.connections.list();
     const all = byName(made);
@@ -643,6 +657,15 @@ export function initSettings(ctx) {
   }
 
   els.preset.addEventListener('change', fillFromPreset);
+  /* M510: the extra dials are shown only for a house that can take them (Claude's cannot) */
+  function syncDialRows() {
+    const claude = presetById(els.preset.value).type === 'anthropic';
+    for (const id of ['conn-topk-label', 'conn-minp-label', 'conn-presence-label', 'conn-frequency-label', 'conn-repetition-label', 'conn-penalty-note', 'conn-stop-label', 'conn-seed-label']) {
+      const row = document.getElementById(id);
+      if (row) row.hidden = claude;
+    }
+  }
+  els.preset.addEventListener('change', syncDialRows);
   els.label.addEventListener('input', () => { els.label.dataset.autofill = '0'; });
   /* M22-B: the address courtesy is live as you type. */
   els.baseUrl.addEventListener('input', () => { refreshAddressHint(); refreshSearchRow(); });
@@ -677,6 +700,17 @@ export function initSettings(ctx) {
       els.connBudget.value = typeof r.budgetTokens === 'number' && r.budgetTokens > 0 ? String(r.budgetTokens) : '';
       els.connTemperature.value = typeof conn.temperature === 'number' ? String(conn.temperature) : '';
       els.connTopP.value = typeof conn.topP === 'number' ? String(conn.topP) : '';
+      /* M510: the rest of the dials, and the small-model mode */
+      const dialText = (v) => (typeof v === 'number' && Number.isFinite(v) ? String(v) : '');
+      if (els.connTopK) els.connTopK.value = dialText(conn.topK);
+      if (els.connMinP) els.connMinP.value = dialText(conn.minP);
+      if (els.connPresence) els.connPresence.value = dialText(conn.presencePenalty);
+      if (els.connFrequency) els.connFrequency.value = dialText(conn.frequencyPenalty);
+      if (els.connRepetition) els.connRepetition.value = dialText(conn.repetitionPenalty);
+      if (els.connSeed) els.connSeed.value = dialText(conn.seed);
+      if (els.connStop) els.connStop.value = Array.isArray(conn.stop) ? conn.stop.join('\n') : '';
+      if (els.connSmall) els.connSmall.checked = conn.smallModel === true;
+      syncDialRows();
       els.connMaxTokens.value = typeof conn.maxTokens === 'number' ? String(conn.maxTokens) : '';
       if (els.connPriceIn) els.connPriceIn.value = Number.isFinite(conn.priceIn) ? String(conn.priceIn) : ''; /* M457 */
       if (els.connPriceOut) els.connPriceOut.value = Number.isFinite(conn.priceOut) ? String(conn.priceOut) : '';
@@ -712,6 +746,9 @@ export function initSettings(ctx) {
       els.connBudget.value = '';
       els.connTemperature.value = '';
       els.connTopP.value = '';
+      for (const box of [els.connTopK, els.connMinP, els.connPresence, els.connFrequency, els.connRepetition, els.connSeed, els.connStop]) if (box) box.value = ''; /* M510 */
+      if (els.connSmall) els.connSmall.checked = false;
+      syncDialRows();
       els.connMaxTokens.value = '';
       if (els.connPriceIn) els.connPriceIn.value = ''; /* M457 */
       if (els.connPriceOut) els.connPriceOut.value = '';
@@ -872,6 +909,9 @@ export function initSettings(ctx) {
       const n = parseFloat(raw);
       return raw !== '' && Number.isFinite(n) ? n : undefined;
     };
+    /* M510: a whole number where the house wants one (top-k, a seed); stop texts one per line, kept exactly as typed */
+    const wholeOrUnset = (input) => { const n = numOrUnset(input); return n === undefined ? undefined : Math.round(n); };
+    const stopsOrUnset = (box) => { const list = String((box && box.value) || '').split('\n').map((l) => l.replace(/\r$/, '')).filter((l) => l.trim() !== ''); return list.length ? list : undefined; };
     /* M22-B: the SillyTavern courtesy — the address is normalized as it's
      * kept (trailing slashes stripped, a known house's missing /v1 added).
      * Claude's address is left exactly as typed. */
@@ -887,11 +927,21 @@ export function initSettings(ctx) {
       model: els.model.value.trim(),
       temperature: numOrUnset(els.connTemperature),
       topP: numOrUnset(els.connTopP),
+      topK: wholeOrUnset(els.connTopK), /* M510 */
+      minP: numOrUnset(els.connMinP),
+      presencePenalty: numOrUnset(els.connPresence),
+      frequencyPenalty: numOrUnset(els.connFrequency),
+      repetitionPenalty: numOrUnset(els.connRepetition),
+      stop: stopsOrUnset(els.connStop),
+      seed: wholeOrUnset(els.connSeed),
+      smallModel: els.connSmall && els.connSmall.checked ? true : undefined,
       maxTokens: numOrUnset(els.connMaxTokens),
       contextSize: numOrUnset(els.connContextSize),
       priceIn: priceOrUnset(els.connPriceIn), /* M457: $ per million tokens, for Usage and cost */
       priceOut: priceOrUnset(els.connPriceOut),
     };
+    /* M510: Claude's house takes none of the extra dials — they are not offered for it, and never kept for it */
+    if (p.type === 'anthropic') for (const key of ['topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'stop', 'seed']) fields[key] = undefined;
     /* M22-C/D: the search switch and its ceiling, and the prefill —
      * kept only when they're on/filled. */
     fields.searchOn = searchOffered() && els.search.checked ? true : undefined;
@@ -918,7 +968,7 @@ export function initSettings(ctx) {
     if (editingId) {
       /* update() treats null as "let the dial go" (store.js, M8). */
       const patch = { ...fields };
-      for (const key of ['priceIn', 'priceOut', 'temperature', 'topP', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
+      for (const key of ['priceIn', 'priceOut', 'temperature', 'topP', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'stop', 'seed', 'smallModel', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
         if (patch[key] === undefined) patch[key] = null;
       }
       /* M22-A/D: the refusal memories stand until the model field
@@ -1101,6 +1151,9 @@ export function initSettings(ctx) {
      * the two toggles: purpose on by default, the echo off by default. */
     if (els.frameOn) els.frameOn.checked = (await db.settings.get('frameOn')) !== false; /* M509-14 */
     if (els.noteOn) els.noteOn.checked = (await db.settings.get('noteOn')) !== false; /* M509-14 */
+    if (els.frameOnSmall) els.frameOnSmall.checked = (await db.settings.get('frameOnSmall')) === true; /* M510: off unless he turns it on */
+    if (els.noteOnSmall) els.noteOnSmall.checked = (await db.settings.get('noteOnSmall')) === true;
+    if (els.ownWordsOnSmall) els.ownWordsOnSmall.checked = (await db.settings.get('ownWordsOnSmall')) === true;
     if (els.frameEcho) els.frameEcho.checked = (await db.settings.get('frameEcho')) === true;
 
     const story = await activeStory();
@@ -1164,6 +1217,10 @@ export function initSettings(ctx) {
     els.noteOn.addEventListener('change', async () => {
       await db.settings.set('noteOn', els.noteOn.checked);
     });
+  }
+  /* M510: what a small model is sent of the frame, the note and his own-voice words — each its own switch, off as it ships */
+  for (const [box, key] of [[els.frameOnSmall, 'frameOnSmall'], [els.noteOnSmall, 'noteOnSmall'], [els.ownWordsOnSmall, 'ownWordsOnSmall']]) {
+    if (box) box.addEventListener('change', async () => { await db.settings.set(key, box.checked); });
   }
   if (els.frameEcho) {
     els.frameEcho.addEventListener('change', async () => {
@@ -1487,7 +1544,7 @@ export function initSettings(ctx) {
     for (const conn of all) {
       const opt = document.createElement('option');
       opt.value = conn.id;
-      opt.textContent = conn.label;
+      opt.textContent = conn.label + (conn.smallModel === true ? ' · small model' : ''); /* M510: the same mark the Quick switch shows */
       els.storyConn.appendChild(opt);
     }
     els.storyConn.value = story && typeof story.connectionId === 'string'
@@ -1535,6 +1592,8 @@ export function initSettings(ctx) {
     const story = await activeStory();
     if (!story) return;
     await db.stories.update(story.id, { connectionId: els.storyConn.value || null });
+    if (ctx.chat && typeof ctx.chat.refreshQuickSwitch === 'function') await ctx.chat.refreshQuickSwitch(); /* M510: one choice, two places — both show it */
+    if (ctx.chat && typeof ctx.chat.planAhead === 'function') ctx.chat.planAhead(); /* M510: a small model taking the tale reads ahead now */
   });
 
   els.workerKeeper.addEventListener('change', async () => {
@@ -2499,7 +2558,6 @@ export function initSettings(ctx) {
     els.showThinking.checked = (await db.settings.get('showThinking')) !== false;
     if (els.cutBeforeHeader) els.cutBeforeHeader.checked = (await db.settings.get('cutBeforeHeader')) !== false; /* M322: on unless the writer says otherwise */
     if (els.thinkOnPage) els.thinkOnPage.checked = (await db.settings.get('thinkOnPage')) === true; /* M339: off unless he turns it on */
-    if (els.olderModel) els.olderModel.checked = (await db.settings.get('olderModel')) === true; /* M343: off unless he turns it on */
     if (els.turnsShown) { const ts = Number(await db.settings.get('turnsShown')); els.turnsShown.value = String(Number.isFinite(ts) && ts > 0 ? ts : 30); }
   }
 
@@ -2514,8 +2572,6 @@ export function initSettings(ctx) {
   });
   /* M339: the switch — off unless he turns it on; unset again when he turns it off */
   if (els.thinkOnPage) els.thinkOnPage.addEventListener('change', async () => { if (els.thinkOnPage.checked) await db.settings.set('thinkOnPage', true); else await db.settings.delete('thinkOnPage'); });
-  /* M343: the older-model switch — a whole line of its own (M339's lesson), and the thread is told at once so the room line is true */
-  if (els.olderModel) els.olderModel.addEventListener('change', async () => { if (els.olderModel.checked) await db.settings.set('olderModel', true); else await db.settings.delete('olderModel'); if (ctx.chat && typeof ctx.chat.noteOlderModel === 'function') await ctx.chat.noteOlderModel(); });
 
   els.showThinking.addEventListener('change', async () => {
     await db.settings.set('showThinking', els.showThinking.checked);
@@ -2573,7 +2629,7 @@ export function initSettings(ctx) {
     'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'groundingPhrase', 'afterRole', /* M399: canon's switch is each story's own, not a setting of the house */
     'speechColours', 'shelfSort', 'ledgerFolds', 'settingsFolds', /* M466/M468: the coats' own colours and the rooms' shapes go back; his own words (ownWords) are his writing and stay */
     'conceptToBrief', /* M479 */
-    'frameText', 'noteText', 'frameOn', 'noteOn', 'frameEcho', /* M509-14: the two switches ride the book */
+    'frameText', 'noteText', 'frameOn', 'noteOn', 'frameEcho', 'frameOnSmall', 'noteOnSmall', 'ownWordsOnSmall', /* M509-14: the two switches ride the book */
     'shelfCollapsed',
   ];
   async function resetSettings() {

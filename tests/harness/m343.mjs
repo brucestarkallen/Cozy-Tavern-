@@ -17,13 +17,13 @@ const build = (settings) => buildRequest({ story: { brief: 'Jovan, 16.' }, messa
 
 test('M343-1 THE SWITCH, OFF (as it ships): not one byte of the request changes', () => {
   const plain = JSON.stringify(build({}));
-  eq(JSON.stringify(build({ olderModelNow: false })), plain);
-  eq(JSON.stringify(build({ olderModelNow: 'on' })), plain, 'only a true `true` turns it on');
+  eq(JSON.stringify(build({ smallModelNow: false })), plain);
+  eq(JSON.stringify(build({ smallModelNow: 'on' })), plain, 'only a true `true` turns it on');
   assert(!/right now, so it is in front of you/.test(plain));
 });
 
 test('M343-2 ON: the last thing the storyteller reads before the note is the scene in one breath — the hour, the ground, who is here, and what each was never shown learning — in the LEDGER’S OWN WORDS, in the writer’s voice, as facts and never as orders', () => {
-  const r = build({ olderModelNow: true });
+  const r = build({ smallModelNow: true });
   const last = r.messages[r.messages.length - 1].content;
   assert(last.trimEnd().endsWith('MY NOTE, AS I WROTE IT.'), 'the note keeps the last word');
   /* M354: with the switch on, the closing words carry the five plain lines too — the scene is its own part, still one breath */
@@ -34,7 +34,6 @@ test('M343-2 ON: the last thing the storyteller reads before the note is the sce
   assert(/Claire Maxwell hasn’t found out: Jovan agreed by text to walk with her at four o’clock/.test(anchor), 'and her blind spot, where an older model looks hardest');
   eq(anchor.split('\n').length, 1, 'one breath — never a block');
   const parts = last.split('\n\n');
-  assert(parts.indexOf(anchor) < parts.findIndex((p) => /five things/.test(p)), 'M354: the scene first, then the five plain lines');
   assert(last.trimEnd().endsWith('MY NOTE, AS I WROTE IT.'), 'and his note still last of all');
   assert(anchor.length < 900, 'and short: ' + anchor.length);
   assert(!/\b(must|never|always|do not|don't|should|remember to)\b/i.test(anchor.replace(/hasn’t found out/g, '')), 'facts, not orders: ' + anchor);
@@ -46,7 +45,7 @@ test('M343-3 with nothing in the ledger there is nothing to say; with no teller 
   eq(sceneAnchor({ ...emptyState(), page: 0 }, {}), '');
   eq(sceneAnchor(null, {}), '');
   assert(/^Right now, so it is in front of you — The hour: /.test(sceneAnchor(lakeside(), {})), sceneAnchor(lakeside(), {}).slice(0, 60));
-  const both = build({ olderModelNow: true, thinkOnPageNow: true });
+  const both = build({ smallModelNow: true, thinkOnPageNow: true });
   const last = both.messages[both.messages.length - 1].content;
   assert(last.indexOf('right now, so it is in front of you') < last.indexOf('<think>') && last.indexOf('<think>') < last.indexOf('MY NOTE'), 'the scene, then the think-line, then his note');
 });
@@ -65,7 +64,7 @@ const RECORD = [
 test('M344-1 THE WRITER: "never drop… I asked to make it SMART, not to remove details." The switch removes NOTHING: with it on, every page and the whole record ride exactly as with it off — the request only GROWS, by the anchor', () => {
   const pages = []; for (let i = 0; i < 40; i += 1) { pages.push({ id: 'u' + i, role: 'user', text: 'turn ' + i }); pages.push({ id: 'a' + i, role: 'assistant', text: '[Lakeside — Friday, August 21, 2026 | 16:0' + (i % 10) + ' | gold | tee | walking]\n\nPAGE-' + i + '. They walked.' }); }
   pages.push({ id: 'uN', role: 'user', text: 'Tell me about the fence, Aurora asks.' });
-  const mk = (on) => buildRequest({ story: {}, messages: pages, settings: { noteText: 'MY NOTE.', olderModelNow: on }, state: lakeside(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: RECORD.filter((n) => !n.correction).map((n) => n.text).join('\n'), window: { keeperOn: false, budgetTokens: 200000, nodes: RECORD } });
+  const mk = (on) => buildRequest({ story: {}, messages: pages, settings: { noteText: 'MY NOTE.', smallModelNow: on }, state: lakeside(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: RECORD.filter((n) => !n.correction).map((n) => n.text).join('\n'), window: { keeperOn: false, budgetTokens: 200000, nodes: RECORD } });
   const off = mk(false); const on = mk(true);
   const count = (r, re) => (JSON.stringify(r.messages).match(re) || []).length;
   eq(count(on, /PAGE-\d+\./g), count(off, /PAGE-\d+\./g), 'every page that rode still rides');
@@ -94,7 +93,7 @@ test('M344-2 THE SMART PART: the record’s FAR line that holds the scene’s ow
 });
 
 test('M344-3 it rides inside the one breath, after the scene and before his note', () => {
-  const r = buildRequest({ story: {}, messages: [{ id: 'u1', role: 'user', text: 'Tell me about the fence — the stick on the path looked like a movie.' }], settings: { noteText: 'MY NOTE.', olderModelNow: true, tellerName: 'Tony Stark' }, state: lakeside(), modules: [], memory: '', window: { keeperOn: false, budgetTokens: 200000, nodes: RECORD } });
+  const r = buildRequest({ story: {}, messages: [{ id: 'u1', role: 'user', text: 'Tell me about the fence — the stick on the path looked like a movie.' }], settings: { noteText: 'MY NOTE.', smallModelNow: true, tellerName: 'Tony Stark' }, state: lakeside(), modules: [], memory: '', window: { keeperOn: false, budgetTokens: 200000, nodes: RECORD } });
   const last = r.messages[r.messages.length - 1].content;
   assert(/^Tony Stark — right now, so it is in front of you — The hour: /.test(last) && /And from our story so far, each from its own time — \(pages 1–6\) \[Aug 19\] Jovan fenced/.test(last) && last.endsWith('MY NOTE.'), last.slice(0, 400));
   eq((last.split('\n\n').find((part) => /right now, so it is in front of you/.test(part)) || '').split('\n').length, 1, 'still one breath (M354: the five plain lines are their own part after it)');

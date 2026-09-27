@@ -25,6 +25,7 @@ const SHELL = [
   'js/providers/order.js',
   'js/providers/anthropic.js',
   'js/providers/openai.js',
+  'js/providers/knobs.js', /* M510 */
   'js/assemble/stack.js',
   'js/assemble/voice.js',
   'js/assemble/anchor.js',
@@ -65,8 +66,11 @@ const SHELL = [
   'js/providers/latesystem.js',
   'js/providers/speed.js',
   'js/assemble/plain.js',
+  'js/assemble/laws.js', /* M510 */
+  'js/assemble/planwords.js', /* M510 */
   'js/assemble/plainvoice.js',
   'js/agents/sensors.js',
+  'js/agents/planner.js', /* M510 */
   'js/canon/host.js',
   'js/canon/bridge.js',
   'js/canon/grounding.js',

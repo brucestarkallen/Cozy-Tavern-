@@ -16,6 +16,7 @@ export const WORKER_ROWS = [
   ['referee', 'The referee — rules on contested moments, fast and cold, and weighs the cast it rules from'],
   ['canon', 'Canon verification — reads who is in the scene and writes each canon person’s dossier from the series’ wiki'],
   ['sensors', 'The sensors — read each finished page and answer a few narrow questions about it (a decisions model such as Jev belongs here)'],
+  ['planner', 'The planning helper — for a small model: reads the whole story after each page and writes down what the next page needs'],
   ['showrunner', 'The showrunners — the director and the editor'],
   ['housekeeper', 'The housekeeper — the one you talk to, who tidies everything'],
 ];

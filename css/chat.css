@@ -1279,3 +1279,10 @@ html[data-theme='magma'] .msg-user .msg-body {
 .raw-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; }
 .raw-msg { border-left: 3px solid var(--border-soft); padding-left: 8px; }
 .raw-role { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; font-family: var(--mono); font-size: .85em; text-transform: lowercase; opacity: .85; }
+
+/* M510: the Quick switch — who tells this story, one tap from the page (the same choice as Settings → Who tells this story) */
+.quick-switch { display: inline-flex; align-items: baseline; gap: 0.35em; white-space: nowrap; flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.quick-switch[hidden] { display: none; }
+.quick-switch label { color: inherit; font: inherit; cursor: pointer; flex: none; }
+.quick-switch select { font: inherit; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 6px; padding: 0 0.3em; min-width: 0; max-width: 16em; text-overflow: ellipsis; cursor: pointer; }
+.quick-switch select option { color: #111; background: #fff; }

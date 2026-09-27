@@ -5,7 +5,7 @@ import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { readFileSync } from 'node:fs';
 import { db } from '../../js/store.js';
-import { stripFurniture, staleLeak, mineLeak, mineWord, staleWord } from '../../js/assemble/plain.js';
+import { stripFurniture, mineLeak, mineWord } from '../../js/assemble/plain.js';
 import { voiceOf, groundingOf, groundingLine, groundingSeed } from '../../js/assemble/voice.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 import { keepPageWord, takeWordForTurn, loadSensors } from '../../js/agents/sensors.js';
@@ -32,9 +32,8 @@ const B = [
 
 test('M357-1 THE PAGE’S FURNITURE IS NOT ITS PROSE: the header is the same shape on every page by design, and is never counted as a phrase said twice — nor as him acting', () => {
   eq(stripFurniture(HEAD + '\n\nKaelen waited.').trim(), 'Kaelen waited.', 'the bracketed row is cut');
-  eq(staleLeak(HEAD + '\n\n' + A, [HEAD + '\n\n' + B]).length, 0, 'the same header twice is not a repeat');
-  const stale = staleLeak(HEAD + '\n\n' + A, [HEAD + '\n\n' + B + ' Rain found the gutters first, and then the low sill under the shutter.']);
-  assert(stale.length >= 1 && /rain found the gutters first and then the low sill/.test(stale[0]), 'and what the prose really repeats is still seen: ' + JSON.stringify(stale));
+  /* M510: the repeat reading is retired; the header is still furniture for the reading that stands (him acting) */
+  eq(stripFurniture(HEAD + '\n\n' + A + '\n' + HEAD + '\n\n' + B).includes('[The courtyard'), false, 'every bracketed row is cut, however many');
   eq(mineLeak('[Jovan’s room — Monday | 09:00 | clear | coat | at the window]\n\nKaelen waited by the door.', { mc: 'Jovan' }), '', 'his name in the header is not him acting');
 });
 
@@ -75,8 +74,9 @@ test('M358-1 (as M375 changed it) THE GROUNDING PHRASE lives in who the teller i
 
 test('M358-2 (as M371 widened it) HIS OWN PREFILL WINS ON A PAGE OF THE STORY, and an out-of-character turn takes the grounding phrase — never his story prefill', () => {
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  const at = chat.indexOf('const grounding = groundingSeed(settingsValues);');
-  assert(at > 0, 'the phrase is made for every turn, in character or out of it');
+  /* M510: the phrase is the frame's — with the frame switched off it is not planted (this line is the gate; M510-3 proves the request side) */
+  const at = chat.indexOf("const grounding = settingsValues.frameOn === false ? '' : groundingSeed(settingsValues);");
+  assert(at > 0, 'the phrase is made for every turn while the frame rides, in character or out of it');
   const near = chat.slice(at, at + 600);
   assert(/const seeded = grounding && \(ooc \|\| !ownPrefill\)/.test(near), 'planted where he has set no prefill, and on every out-of-character turn');
   assert(/\.\.\.\(ooc \? \{ prefill: seeded\.prefill \|\| '' \} : \{\}\)/.test(near), 'an out-of-character turn carries the phrase and never his story prefill');

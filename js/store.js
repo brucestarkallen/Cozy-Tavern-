@@ -291,38 +291,40 @@ const connections = {
     return rows.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   },
   async add(conn) {
-    const row = {
-      id: conn.id || uid(),
-      label: conn.label || 'A connection',
-      type: conn.type === 'anthropic' ? 'anthropic' : 'openai',
-      baseUrl: conn.baseUrl || '',
-      apiKey: conn.apiKey || '',
-      model: conn.model || '',
-      createdAt: conn.createdAt || Date.now(),
-    };
-    /* M8: sampling dials and the ember bar's idea of the model's room.
-     * Unset means "the storyteller's own defaults" — the providers send
-     * nothing for a dial that was never turned. */
-    if (typeof conn.temperature === 'number') row.temperature = conn.temperature;
-    if (typeof conn.topP === 'number') row.topP = conn.topP;
-    if (typeof conn.maxTokens === 'number') row.maxTokens = conn.maxTokens;
-    if (typeof conn.contextSize === 'number') row.contextSize = conn.contextSize;
-    /* M457: its prices ($ per million tokens), for Usage and cost */
-    if (typeof conn.priceIn === 'number') row.priceIn = conn.priceIn;
-    if (typeof conn.priceOut === 'number') row.priceOut = conn.priceOut;
-    /* M8.5: the thinking voice — {effort:'low|…|max', budgetTokens?}.
-     * 'off' (or absence) sends nothing. */
-    if (conn.reasoning && typeof conn.reasoning === 'object') row.reasoning = conn.reasoning;
-    /* M22: the preset the form started from (the ladder reads it), the
-     * per-connection web-search switch and its ceiling, and the prefill
-     * ("start the reply for it"). The refusal memories (reasoningDownAt /
-     * prefillDownAt) land later through update(). */
-    if (typeof conn.preset === 'string' && conn.preset) row.preset = conn.preset;
-    if (conn.searchOn === true) row.searchOn = true;
-    if (typeof conn.searchMaxUses === 'number' && conn.searchMaxUses > 0) {
-      row.searchMaxUses = Math.round(conn.searchMaxUses);
+    const c = conn && typeof conn === 'object' ? conn : {};
+    /* M510: EVERY FIELD THE CALLER SET IS KEPT. add() kept a list of the fields known by M22 and dropped the rest, while
+     * update() keeps everything — so a connection made new lost its prefill dials (M328), what it learned of its model
+     * (M348), and every M510 dial and its Small model tick, until it was edited and saved a second time. Only an unset
+     * field stays unset (undefined and null are never kept); the old shapes are still enforced below. */
+    const row = {};
+    for (const [key, value] of Object.entries(c)) if (value !== undefined && value !== null) row[key] = value;
+    Object.assign(row, {
+      id: c.id || uid(),
+      label: c.label || 'A connection',
+      type: c.type === 'anthropic' ? 'anthropic' : 'openai',
+      baseUrl: c.baseUrl || '',
+      apiKey: c.apiKey || '',
+      model: c.model || '',
+      createdAt: c.createdAt || Date.now(),
+    });
+    /* M8: sampling dials and the ember bar's idea of the model's room — a number or nothing; M457: its prices. Unset
+     * means "the storyteller's own defaults" — the providers send nothing for a dial that was never turned. */
+    for (const key of ['temperature', 'topP', 'maxTokens', 'contextSize', 'priceIn', 'priceOut', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'seed']) {
+      if (key in row && !(typeof row[key] === 'number' && Number.isFinite(row[key]))) delete row[key];
     }
-    if (typeof conn.prefill === 'string' && conn.prefill) row.prefill = conn.prefill;
+    /* M8.5: the thinking voice — {effort, budgetTokens?}; 'off' (or absence) sends nothing */
+    if ('reasoning' in row && !(row.reasoning && typeof row.reasoning === 'object')) delete row.reasoning;
+    /* M22: the preset the form started from, the web-search switch and its ceiling, the prefill */
+    if ('preset' in row && !(typeof row.preset === 'string' && row.preset)) delete row.preset;
+    if ('searchOn' in row && row.searchOn !== true) delete row.searchOn;
+    if ('searchMaxUses' in row) {
+      if (typeof row.searchMaxUses === 'number' && row.searchMaxUses > 0) row.searchMaxUses = Math.round(row.searchMaxUses);
+      else delete row.searchMaxUses;
+    }
+    if ('prefill' in row && !(typeof row.prefill === 'string' && row.prefill)) delete row.prefill;
+    /* M510: stop texts are a list of strings; the Small model tick is a true or nothing */
+    if ('stop' in row && !(Array.isArray(row.stop) && row.stop.every((t) => typeof t === 'string'))) delete row.stop;
+    if ('smallModel' in row && row.smallModel !== true) delete row.smallModel;
     await run('connections', 'readwrite', (s) => s.put(row));
     return row;
   },

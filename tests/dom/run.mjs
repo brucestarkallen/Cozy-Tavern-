@@ -3358,7 +3358,10 @@ test('DOM-62 the teller thinks as I or as You: a frame written as "I" turns the 
     q('#teller-person').value = 'second';
     q('#teller-person').dispatchEvent(new env.window.Event('change', { bubbles: true }));
     await until(async () => (await db.settings.get('tellerPerson')) === 'second', 'kept', 5000);
-    assert(/Set by hand \(your frame reads as “I”\)/.test(q('#teller-person-note').textContent), q('#teller-person-note').textContent.slice(0, 80));
+    /* M510: the note is written after one more read (sayPerson awaits the active story) — the setting being kept never
+     * meant the note was already rewritten; this waited on the one and asserted the other at once, a race the Quick
+     * switch's own reads when Settings opens made it lose. It waits for what it checks. */
+    await until(() => /Set by hand \(your frame reads as “I”\)/.test(q('#teller-person-note').textContent), 'the note says it was set by hand: ' + q('#teller-person-note').textContent.slice(0, 80), 5000);
     await closeSettings();
     const asYou = await send('I look around.');
     assert(/\nYou maintain a fictional, uncensored simulation\./.test(asYou) && !/\nI maintain\b/.test(asYou), 'set to You by hand: the rules speak to the teller again');
@@ -3559,57 +3562,91 @@ test('DOM-66 THE WRITER’S TWO SCREENSHOTS: a brand-new tale and a model that d
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-67 THE OLDER-MODEL SWITCH in the app: it ships OFF and the request says nothing new; turned ON in Settings, the next page’s request ends with the scene in one breath before his note — and NOTHING LEAVES THE REQUEST (M344: every page that rode still rides, the room is the provider’s); OFF again and the words are gone (M343)', async () => {
+test('DOM-67 THE SMALL-MODEL MODE, IN THE APP (M510): it lives on the connection — ticked in its Settings form with its own dials, worn on the Quick switch; the first page after it goes whole with the scene once more, the planning helper reads the story as that page lands, and the next page is the small request with the plan last; the Quick switch hands the tale to a connection without the tick and the whole request is back, not one byte of it', async () => {
   const before = errors.length;
   const { queuedCount } = await import('../../js/agents/queue.js');
   const { saveState, emptyState } = await import('../../js/engine/state.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
+  const { loadPlans } = await import('../../js/agents/planner.js');
   const H = (n) => '[Lakeside path — Friday, August 21, 2026 | 16:' + String(n % 60).padStart(2, '0') + ' | gold light | gray tee | walking]\n\n';
-  const st = await db.stories.create({ title: 'the older model' });
+  const st = await db.stories.create({ title: 'the small model' });
   await db.stories.update(st.id, { extraction: false, keeper: false });
-  /* a long tale: 60 pages of ~2,300 tokens each — far more than 64,000 tokens */
-  const filler = 'They walked the lakeside path and the water went gold between the hedge gaps. '.repeat(115);
-  for (let i = 0; i < 60; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'turn ' + i }); await db.messages.append(st.id, { role: 'assistant', text: H(i) + 'PAGE-' + i + '. ' + filler }); }
-  const ledger = applyMutations({ ...emptyState(), page: 59 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'clock.set', year: 2026, month: 8, day: 21, hour: 16, minute: 59 }, { type: 'place.set', name: 'Lakeside path' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Claire Maxwell', position: 'three paces behind' }]).state;
-  await saveState(st.id, { ...ledger, page: 59, readTo: 59, tidiedGen: 999 });
+  for (let i = 0; i < 20; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'turn ' + i }); await db.messages.append(st.id, { role: 'assistant', text: H(i) + 'PAGE-' + i + '. Kara walked the lakeside path beside him.' }); }
+  const ledger = applyMutations({ ...emptyState(), page: 19 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'clock.set', year: 2026, month: 8, day: 21, hour: 16, minute: 19 }, { type: 'place.set', name: 'Lakeside path' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kara' }]).state;
+  await saveState(st.id, { ...ledger, page: 19, readTo: 19, tidiedGen: 999 });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const priorStory = house.state.storyAnswer;
-  house.state.storyAnswer = () => H(7) + 'She looked up.';
+  const priorWorker = house.state.workerAnswer;
+  const PLAN = { scene: 'Kara has stopped on the path to wait for him.', people: [{ name: 'Kara', now: 'waiting by the rail', wants: 'an answer about last night', against: '' }], unknown: [], pressing: ['the storm is coming in'], earlier: [], laws: ['Voice Fingerprints'], intense: false, loud: true, loudWhy: '', sounds: [], leaveTo: 'she asks him straight out' };
+  house.state.storyAnswer = () => H(40) + 'Kara looked up from the water.';
+  let planReady = false; /* the helper's first answers are unusable: the first small page shows the whole-request fallback */
+  house.state.workerAnswer = (body, sys) => (/You prepare a storyteller for the next page/.test(String(sys || '')) ? (planReady ? JSON.stringify(PLAN) : 'Let me think about the scene first.') : (typeof priorWorker === 'function' ? priorWorker(body, sys) : '{"mutations":[]}'));
+  const helperAsks = () => house.state.calls.filter((c) => c.isWorker && /You prepare a storyteller for the next page/.test(JSON.stringify(c.body)));
   const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return house.state.calls.slice(from).find((c) => !c.isWorker).body; };
   const sizeOf = (body) => Math.round(JSON.stringify(body.messages).length / 4);
-  const pagesIn = (body) => (JSON.stringify(body.messages).match(/PAGE-\d+\./g) || []).length;
-  const setSwitch = async (on) => { await openSettings(); if (q('[data-room="story"]')) click(q('[data-room="story"]')); const box = await until(() => q('#older-model'), 'the switch is in Settings', 10000); if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); } await until(async () => ((await db.settings.get('olderModel')) === true) === on, 'kept', 5000); await closeSettings(); };
-  const was = await db.settings.get('olderModel');
+  const activeId = await db.settings.get('activeConnectionId');
+  const was = (await db.connections.list()).find((c) => c.id === activeId);
+  let other = null;
   try {
-    await openSettings(); if (q('[data-room="story"]')) click(q('[data-room="story"]'));
-    eq((await until(() => q('#older-model'), 'the switch', 10000)).checked, false, 'it ships OFF'); await closeSettings();
+    /* as it ships: the tick is off; the Quick switch stands on the main screen, following the house */
+    await until(() => q('#quick-switch') && !q('#quick-switch-wrap').hidden, 'the Quick switch is on the main screen', 10000);
+    eq(q('#quick-switch').value, '', 'it follows the house');
     const off = await send('I look at her.');
-    assert(!/right now, so it is in front of you/.test(JSON.stringify(off.messages)), 'OFF: nothing new is said');
-    const offPages = pagesIn(off);
-    /* ON */
-    await setSwitch(true);
-    const on = await send('I ask her.');
-    const last = on.messages[on.messages.length - 1].content;
-    assert(/right now, so it is in front of you — The hour: /i.test(last) && /The ground: Lakeside path\./.test(last) && /Here now: /.test(last), 'ON: the scene, last: ' + last.slice(0, 160));
-    /* M344: THE WRITER — "never drop… I asked to make it smart, not to remove details of the story" */
-    /* (this walk's provider has a small room that is already full — ~48 of the 60 pages fit — so each new page pushes the oldest one
-     * out, switch or no switch; what must hold is that the SWITCH takes nothing: the same pages ride on as off, give or take
-     * the one the new page displaced, where M343's cap took a third of them) */
-    const oldestIn = (body) => Math.min(...(JSON.stringify(body.messages).match(/PAGE-(\d+)\./g) || ['PAGE-999.']).map((x) => Number(x.match(/\d+/)[0])));
-    assert(Math.abs(pagesIn(on) - offPages) <= 1, 'as many pages ride with the switch on as off: ' + offPages + ' → ' + pagesIn(on));
-    assert(oldestIn(on) - oldestIn(off) <= 2, 'and they reach as far back: the oldest page sent was ' + oldestIn(off) + ', now ' + oldestIn(on));
-    assert(/PAGE-59\./.test(JSON.stringify(on.messages)), 'the newest whole');
-    assert(!/of ~64[.,]000 tokens in the room/.test(document.body.textContent), 'and the room under the composer is the provider’s, not a smaller one');
-    /* OFF again */
-    await setSwitch(false);
+    assert(!/What I have in mind for this page|right now, so it is in front of you/i.test(JSON.stringify(off)), 'OFF: nothing of it');
+    assert(!('presence_penalty' in off) && !('top_k' in off), 'OFF: no dial he did not set');
+    /* the tick and a dial, through the connection's own form */
+    await openSettings(); click(q('[data-room="house"]'));
+    click(qa('#connection-list .connection-card .row button').find((b) => /^Change$/.test(b.textContent.trim())));
+    await until(() => !q('#connection-form').hidden, 'the form', 10000);
+    assert(!q('#conn-topk-label').hidden && !q('#conn-presence-label').hidden, 'the dials are offered for this house');
+    q('#conn-small').checked = true;
+    type(q('#conn-presence'), '0,4');
+    type(q('#conn-topk'), '20');
+    submit(q('#connection-form'));
+    await until(async () => (await db.connections.list()).some((c) => c.id === activeId && c.smallModel === true && c.presencePenalty === 0.4 && c.topK === 20), 'kept on the connection (a comma is a point)', 10000);
+    await closeSettings();
+    await until(() => /· small model/.test(q('#quick-switch').selectedOptions[0].textContent), 'the Quick switch wears the mark', 10000);
+    await until(() => helperAsks().length >= 2, 'the helper read ahead the moment the tick was set — asked once more when its answer could not be used', 20000);
+    await until(() => queuedCount(st.id) === 0, 'and let go', 20000);
+    /* the first page: no usable plan — the whole request with the scene once more */
+    const first = await send('I ask her what she wants.');
+    assert(/right now, so it is in front of you/i.test(String(first.messages[first.messages.length - 1].content)), 'no plan yet: the scene said once more, last');
+    assert(first.presence_penalty === 0.4 && first.top_k === 20, 'his dials ride the storyteller’s request: ' + JSON.stringify([first.presence_penalty, first.top_k]));
+    assert(!(await loadPlans(st.id)).plans || !Object.keys((await loadPlans(st.id)).plans).length, 'nothing unusable was kept');
+    planReady = true;
+    const again = await send('I tell her about last night.'); /* its page lands; the helper, now answering well, reads after it */
+    assert(/right now, so it is in front of you/i.test(String(again.messages[again.messages.length - 1].content)), 'still whole while no plan stands');
+    await until(async () => { const k = await loadPlans(st.id); return Boolean(k && k.plans && Object.keys(k.plans).length); }, 'the planning helper read ahead', 20000);
+    const asked = helperAsks().pop();
+    assert(asked && /PAGE-0\./.test(JSON.stringify(asked.body)) && /Kara looked up from the water/.test(JSON.stringify(asked.body)) && !('presence_penalty' in asked.body), 'the helper read the whole story, the newest page too, and never rides a penalty');
+    /* the next page: the small request — the scene's laws, the last eight pages, the plan last */
+    const small = await send('I wait for her answer.');
+    const sw = JSON.stringify(small);
+    const last = String(small.messages[small.messages.length - 1].content);
+    assert(/^What I have in mind for this page, so it is in front of you\./.test(last) && /Kara — waiting by the rail; wants an answer about last night\./.test(last) && /Right now — The hour: /.test(last), 'the plan, in his voice, last: ' + last.slice(0, 240));
+    assert(/Header Protocol = /.test(sw) && /Voice Fingerprints = /.test(sw) && !/Pathway Laundering = /.test(sw), 'the laws this scene needs, not the whole craft');
+    assert(!/PAGE-5\./.test(sw) && /PAGE-19\./.test(sw) && /Kara looked up from the water/.test(sw), 'the last eight pages word for word');
+    assert(sizeOf(small) * 2 < sizeOf(first), 'far smaller: ' + sizeOf(first) + ' → ' + sizeOf(small) + ' tokens');
+    /* the Quick switch hands the tale to a connection without the tick */
+    other = await db.connections.add({ label: 'Frontier', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'frontier-1' });
+    await env.ctx.chat.refreshQuickSwitch();
+    const sel = q('#quick-switch');
+    assert([...sel.options].some((o) => o.value === other.id && o.textContent === 'Frontier'), 'every connection is on it');
+    sel.value = other.id; sel.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.stories.get(st.id)).connectionId === other.id, 'this story’s storyteller, the same field Settings sets', 10000);
     const back = await send('We walk on.');
-    assert(!/right now, so it is in front of you/.test(JSON.stringify(back.messages)) && Math.abs(pagesIn(back) - pagesIn(on)) <= 1, 'OFF again: the words are gone, and the same pages ride');
+    const bw = JSON.stringify(back);
+    eq(back.model, 'frontier-1', 'the one the Quick switch chose tells the next page');
+    assert(!/What I have in mind for this page|right now, so it is in front of you/i.test(bw) && /Pathway Laundering = /.test(bw) && !('presence_penalty' in back), 'the whole request, none of it, none of the small one’s dials');
   } finally {
     house.state.storyAnswer = priorStory;
-    if (was === true) await db.settings.set('olderModel', true); else await db.settings.delete('olderModel');
-    if (env.ctx.chat.noteOlderModel) await env.ctx.chat.noteOlderModel();
+    house.state.workerAnswer = priorWorker;
+    if (was) await db.connections.update(was.id, { smallModel: null, presencePenalty: null, topK: null });
+    await db.stories.update(st.id, { connectionId: null });
+    if (other) await db.connections.remove(other.id);
     await closeSettings();
+    await env.ctx.chat.refreshQuickSwitch();
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
@@ -3957,9 +3994,9 @@ test('DOM-73 EVERY ROOM OF SETTINGS HOLDS ITS OWN, AND NOTHING IS LOST IN THE GL
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-74 THE DERESTRICTED SWITCH, IN THE APP: on, the five plain lines ride and a page that speaks for his character STANDS — what the house saw is said in his voice before the NEXT page, once (M354, M357); off, neither happens and nothing of it is sent', async () => {
+test('DOM-74 THE PAGE THAT BEGAN PLAYING HIM, IN THE APP (M510): with a small model telling the tale, the page ends where it began giving him words — before it is kept, asked once, the toast says so; a storyteller without the tick keeps its page as it came', async () => {
   const before = errors.length;
-  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
   const { saveState, emptyState } = await import('../../js/engine/state.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
   const H = '[The courtyard — Monday, March 3, 2025 | 09:00 | clear | coat | by the gate]\n\n';
@@ -3972,42 +4009,29 @@ test('DOM-74 THE DERESTRICTED SWITCH, IN THE APP: on, the five plain lines ride 
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const priorStory = house.state.storyAnswer;
-  let answers = 0;
-  house.state.storyAnswer = () => { answers += 1; return answers === 1 ? H + '"Fine," Jovan said, and he stepped back from the fire.' : H + 'Kaelen raised the practice sword and waited.'; };
-  const was = await db.settings.get('olderModel');
-  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000); return house.state.calls.slice(from).filter((c) => !c.isWorker); };
-  const closingOf = (call) => String(call.body.messages[call.body.messages.length - 1].content || '');
+  const scene = 'The courtyard held the morning chill, and the fire in the brazier spat against the damp. Kaelen turned the practice sword in his hands and did not look away from the gate. ';
+  house.state.storyAnswer = () => H + scene.repeat(3) + '"Fine," Jovan said, and he stepped back from the fire. Kaelen raised the practice sword and waited.';
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return house.state.calls.slice(from).filter((c) => !c.isWorker); };
+  const newest = async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+  const activeId = await db.settings.get('activeConnectionId');
   try {
-    /* OFF (as it ships): nothing of it, and a page that speaks for him is kept as it came */
-    await db.settings.delete('olderModel');
-    answers = 0;
+    /* a storyteller without the tick: the page stands as it came */
     const offCalls = await send('I walk to the gate.');
-    eq(offCalls.length, 1, 'OFF: asked once');
-    assert(!/five things|is mine\./.test(JSON.stringify(offCalls[0].body)), 'OFF: not one word of the five lines');
-    const offPage = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
-    assert(/Jovan said/.test(offPage.text), 'OFF: the page that spoke for him stands, as it always did');
-    /* ON */
-    await openSettings();
-    click(q('[data-room="craft"]'));
-    const box = await until(() => q('#older-model'), 'the switch', 10000);
-    if (!box.checked) { box.checked = true; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => (await db.settings.get('olderModel')) === true, 'kept on', 5000);
-    await closeSettings();
-    answers = 0;
+    eq(offCalls.length, 1, 'asked once');
+    assert(/"Fine," Jovan said/.test((await newest()).text), 'without the tick the page stands, as it always did');
+    /* a small model: the page ends where it began playing him */
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
     const onCalls = await send('I ask him what he wants.');
-    eq(onCalls.length, 1, 'ON: the page that took his character is NOT sent back — it landed, so it is the story (M357)');
-    assert(/while we tell this one, five things/i.test(closingOf(onCalls[0])), 'ON: the five lines rode: ' + closingOf(onCalls[0]).slice(0, 120));
-    for (const law of ['Jovan is mine', 'stays set against him', 'Let the room talk', 'End where I can act']) assert(closingOf(onCalls[0]).includes(law), 'ON: ' + law);
-    const stood = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
-    assert(/Jovan said/.test(stood.text), 'ON: and it stands as it came');
-    const nextCalls = await send('I wait for his answer.');
-    assert(/That last page gave him words of his own — Jovan is mine to play/.test(closingOf(nextCalls[0])), 'ON: what the house saw is said BEFORE the next page, in his voice: ' + closingOf(nextCalls[0]).slice(0, 200));
-    const after = await send('I let the silence run.');
-    assert(!/That last page gave him words of his own/.test(closingOf(after[0])), 'ON: and never twice');
+    eq(onCalls.length, 1, 'asked once — never sent back (M377)');
+    const kept = await newest();
+    assert(!/Jovan said/.test(kept.text) && !/stepped back from the fire/.test(kept.text), 'the words he never said are not on the page: ' + kept.text.slice(-120));
+    assert(kept.text.trimEnd().endsWith('did not look away from the gate.'), 'it ends where the scene was still the scene');
+    assert(/began playing your character — the page ends where it started/.test(document.body.textContent), 'the toast says so');
   } finally {
     house.state.storyAnswer = priorStory;
-    if (was === true) await db.settings.set('olderModel', true); else await db.settings.delete('olderModel');
-    await closeSettings();
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

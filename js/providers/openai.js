@@ -14,6 +14,7 @@
  * durationMs = fetch start to stream end.
  */
 
+import { knobsOf, KNOB_FIELDS, knobRefused } from './knobs.js'; /* M510: the rest of the dials */
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js'; /* M380, M385 */
 import { measureStream, speedWords, pickOpenAI, SPEED_ASK, SPEED_MAX_TOKENS } from './speed.js'; /* M373 */
@@ -168,6 +169,7 @@ function requestBody(connection, wireMessages, opts = {}) {
   };
   if (typeof connection.temperature === 'number') body.temperature = connection.temperature;
   if (typeof connection.topP === 'number') body.top_p = connection.topP;
+  Object.assign(body, knobsOf(connection)); /* M510: top-k, min-p, the penalties, stop texts, a seed — only what he set */
   if (typeof connection.maxTokens === 'number' && connection.maxTokens > 0) {
     body.max_tokens = Math.round(connection.maxTokens);
     /* M376: A FLOOR, NOT A SETTING (his rule: "the only override allowed is a floor that prevents corruption — a minimum
@@ -256,6 +258,9 @@ function requestBody(connection, wireMessages, opts = {}) {
       if (body.reasoning && typeof body.reasoning.effort === 'string') body.reasoning.effort = fitEffort(body.reasoning.effort, learned.efforts);
     }
   }
+  /* M510: a dial this house refused is left out whatever the thinking's state (the block above stands aside when the
+   * thinking is withheld) */
+  { const taught = learnedFacts(connection); if (taught) for (const f of taught.drop) if (KNOB_FIELDS.includes(f)) delete body[f]; }
   /* M22-C: "let it look things up" — OpenRouter's web plugin. Only the
    * openrouter host shape carries it; other openai-compatible addresses
    * hide the control in the form. */
@@ -480,6 +485,20 @@ export function createOpenAIProvider(connection) {
         await rememberLateSystemRefused(connection); /* M385: for THIS model at this address */
         for (let i = 1; i < wire.length; i += 1) if (wire[i] && wire[i].role === 'system') wire[i] = { ...wire[i], role: 'user' };
         continue;
+      }
+      /* M510: A DIAL THIS HOUSE DOES NOT TAKE — read BEFORE the thinking's lesson, so a refusal that names a dial ("top_k
+       * is not supported when thinking is enabled") takes that dial away, never his thinking. The refusal names it; that
+       * one dial is left out from now on (until the model or the address changes) and the turn goes again — the rest of
+       * his dials still ride. */
+      const sentKnobs = KNOB_FIELDS.filter((f) => f in body);
+      if (fourHundred && sentKnobs.length && (opts.knobLessons || 0) < sentKnobs.length) {
+        const refused = knobRefused(detail, sentKnobs);
+        if (refused) {
+          await learnFact(connection, { drop: [refused] });
+          notes.push('This address does not take “' + refused + '”, so the turn went again without it — it is left out from now on, and the rest of your dials still ride.');
+          opts = { ...opts, knobLessons: (opts.knobLessons || 0) + 1 };
+          continue;
+        }
       }
       const sentReasoning = Boolean(
         body.reasoning_effort || body.reasoning || body.thinking

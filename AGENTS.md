@@ -12278,3 +12278,72 @@ and closed by any closer the model writes (a bare ~, ~/t~, /t~) is given its ope
 mend writes the exact form; "~tomorrow" (no closer on its line) is not a thought. His page heals on the next open
 (M488 runs once per tale per build). Law M509-16. GATES: harness 981/981, walk 153/153, long play 8/8, lint 0.
 version.js -> m509-016.
+
+# M510 — the small-model mode on the connection, the Quick switch, the rest of the dials, and the small request (his choice B)
+He: "there's derestricted mode — make this smaller model punch above its weight", then picked B: the small model reads a
+short request, a smarter helper reads everything. Measured before building: the craft alone is 19,332 tokens (70,109
+characters, 131 laws), his Bleach tale ~81k tokens at page 51; a small model loses what stands far back — his own
+"Sound As Onomatopoeia" and "High Intensity Scenes" laws sat ~70,000 characters behind the page, and the old mode's own
+lines fought them ("in your own plain words") and his #p ("several real exchanges" vs "exactly ONE beat").
+- THE MODE IS THE CONNECTION'S (conn.smallModel, "Small model (derestricted mode)" in its form). The global `olderModel`
+  switch is retired — one switch for the house leaked the small-model words into his frontier model. No migration marks
+  any connection. chat.js isSmallModel(connection) -> settingsValues.smallModelNow (story pages only).
+- THE QUICK SWITCH (index.html #quick-switch, chat.js refreshQuickSwitch): its own item on the line under the message
+  box, before the links — the same field as Settings -> "Who tells this story" (story.connectionId; '' = the house's,
+  shown as "<its name> (the house's)"), sorted by name, small models marked " · small model" (Settings' picker wears the
+  same mark). Settings' renderConnections refreshes it on every kept/used/copied/removed connection and reads ahead; a
+  choice in either place reads ahead (planAhead). FIRST PLACED INSIDE .meta-links (white-space: nowrap) — the contrast
+  gate's phone screen caught the line wider than 412px and the whole page scrolling sideways (the ledger drawer cut off,
+  a chip under another); measured after the move: page width 412 of 412 and 360 of 360, the links where they were.
+- THE DIALS (providers/knobs.js): top-k, min-p, presence/frequency/repetition penalty, stop texts (one per line), seed —
+  sent only when set (openai.js requestBody knobsOf), hidden and never kept for Claude's house (settings syncDialRows).
+  A refusal that names one (knobRefused) is learned per model+address (learnFact drop) and the turn goes again; it is
+  read BEFORE the thinking's lesson, so "top_k is not supported when reasoning is enabled" takes top-k, never his
+  thinking (M510-2 drives the storyteller's own stream). Workers never ride a penalty or a stop text (call.js
+  WORKER_UNSAFE — they corrupt JSON). A note in the form says the penalties also punish repeated sound effects.
+- THREE SMALL-MODEL SWITCHES (frameOnSmall, noteOnSmall, ownWordsOnSmall; off as shipped, they ride the book): what a
+  small model is sent of the frame, the note and his own-voice words. THE FRAME OFF IS OFF WHOLE (both modes): no teller
+  name leading the house's lines (stack.js voice teller/grounding blanked), no grounding seed (chat.js).
+- THE PLANNING HELPER (agents/planner.js; worker row 'planner'): after each page (the chain's last link), when a tale is
+  handed to a small model, and on opening one — only then — it reads the whole craft, the ledger, the people's pages, the
+  record, woken lore, the world's word, the director and thirty storyteller pages (lastPagesOf), and answers as JSON. The
+  answer is data: readPlan keeps present people only (never the MC; a first name finds its person), the craft's own law
+  names only, clipped. Unusable: asked once more with a word why, then let go (a throw was the queue's five retries on
+  the 2–32s backoff — a minute of the tale's one channel; found when both walk scenes timed out waiting for readers).
+  Plans kept per page key (id:version:hash), the last four (Try again finds the one before).
+- THE SMALL REQUEST (stack.js smallB, only with the mode on AND a plan AND the craft holding laws.js LOAD_BEARING): the
+  craft as ALWAYS_LAWS + the helper's laws, word for word (assemble/laws.js lawsOf/joinLaws — every law line checked
+  verbatim against the craft), the shortcuts, the cards of who is here, woken rules, lore, canon, the ruling, the
+  sensors, the last 8 storyteller pages (SMALL_PAGES, trimmed to the room, never opening on the storyteller's page), his
+  message; closing: ruling, the plan in his voice (assemble/planwords.js renderPlan — hour/ground/here are the ledger's
+  own lines), sensor, think line, THE SOUNDS on a heated scene (woken combat/intimacy rules, a live fight, or the plan
+  says so: his two sound laws verbatim + the scene's sounds + "the last page went quiet" from plain.js soundCount), echo
+  and note only with their small switches. Receipt rows "The plan for this page" and "The sounds". No plan: the whole
+  request with the scene said once more (A — anchor.js + M344 recall, unchanged; with no teller it opens "Right now, …").
+- THE CUT (plain.js mineCutAt; chat.js before the page is kept): a page that put words in his mouth or a thought/decision
+  in his head ENDS at that sentence, a window after it kept, a toast says so; under 400 characters of scene it stands and
+  the next turn hears it (mineWord). A MOVE is never cut — the craft asks for his typed move narrated in the teller's own
+  words, and "Jovan stepped inside the swing" for his "I dodge in" is that, not a theft — it keeps the next-turn note.
+- RETIRED: plainRules (the five lines), staleLeak/staleWord/echoedPhrases (the note that quoted the repeated phrase back
+  — the penalties do that job now). Laws re-pinned: M354-1 (the mode adds only its closing words; the five lines never
+  ride), M354-4 (no five lines to check), M355-1/2 deleted with their detector, M357-1 (the header is still furniture for
+  the mine reading), M343 (smallModelNow), M358-2 (the anchor line is now the frame-gated seed; the distance its window
+  reads was kept by putting the M510 comment on its own line), DOM-67 and DOM-74 rewritten through the app (the tick in
+  the connection form with a comma dial, the helper reading ahead at once, an unusable plan falling back to the whole
+  request, a usable one giving the small request, the Quick switch handing the tale to a frontier connection that gets
+  the whole request with none of it; the cut, asked once, the toast).
+- ROOT FIXES FOUND ON THE WAY: store.js connections.add kept an M22-era field list — a NEW connection lost its prefill
+  dials (M328), its learned model facts (M348) and every M510 field until saved a second time; it keeps every field it is
+  given now (update() always did). effort.js lessonFrom only knows thinking fields — the dials got their own reader.
+  sw.js: the offline shell carries the four new modules (M30-8 caught it). The walk's house (env.mjs) knew the helper as
+  the storyteller (a worker is told by its prompt) and knew the storyteller only by the frame's first line — with the
+  frame off (M509-14, a small model's default) it took the storyteller for a worker; the craft's opening marks it too.
+- OFF IS BYTE FOR BYTE: M354-1 and M510-7, and a one-off run of m509-016's own stack.js against this one on nine
+  fixtures (plain, note off, echo, think-on-page, referee off, own words, keeper off in a small room, second person,
+  after-role user): 9 of 9 identical. Frame off: 3 of 284 lines differ — exactly the three "Iron Man — " openings.
+- GATES: harness 987/987; walk 153/153 (on a quiet machine — DOM-135 lost its own read's race once while three browser
+  gates ran beside it); long play 8/8; lint 0 errors, 170 warnings (173 before; none new); every coat 0 surfaces under
+  AA (paint_coats, the Quick switch on screen); page mark and mend marks exit 0; the send (perf_send, SENDS=2, 160 pages,
+  CPU 6x slower) within budget, the request 519,733 bytes on both trees, request 505 -> 521 ms, first word 714 -> 755
+  ms, worst long task 226 -> 216 ms (one run each). DOM-62 now waits for the note it checks (sayPerson writes it after one
+  more read; the Quick switch's reads on opening Settings made the old at-once check lose). version.js -> m510-001.

@@ -9,28 +9,18 @@
  * with nobody answering is not "finished". That is exactly what he sees: cringe words in his character's mouth, his
  * character moved for him, and everyone in the room agreeing with him.
  *
- * So, behind the switch only:
- *   - THE PLAIN RULES: five short lines in his own voice, at the end where a small model looks hardest — his character
- *     is his; people set against him stay set against him; let the room speak; end where he can act; stay in the moment.
- *     Five, not fifteen: a small model keeps a few rules and drops a list.
- *   - THE GUARD: the finished page is read for his character's own speech, thoughts and moves, and a page that took
- *     them is asked for again, ONCE, with those cut. Detection here, the asking in ui/chat.js.
+ * So, behind the small-model mode only (M510: the mode is the storyteller connection's own "Small model" tick):
+ *   - THE GUARD: the finished page is read for his character's own speech, thoughts and moves. M510: where the page
+ *     began writing his side, it ENDS — before it is kept, so neither the page nor the ledger holds what he never did
+ *     (mineCutAt; the same repair M469 makes when a model runs on into his next turn).
+ *   - THE SOUNDS: how many sound effects and voiced sounds a page carried (soundCount) — the planning helper is told
+ *     when a fight or a heated page went quiet.
+ * M510 retired the five plain lines (one fought his #p, one asked for "plain words" against his onomatopoeia law) and
+ * the "same words again" note (it quoted the repeated phrase back to the model; the connection's own penalties do that
+ * job now).
  *
  * THE LAW OF THIS FILE (M354): nothing here is ever sent, counted, or run with the switch OFF. Every help for a small
  * model lives behind it, so his frontier model's turn is byte-for-byte what it was before any of this existed. */
-
-/* the five lines, said as the writer would say them */
-export function plainRules(mcName) {
-  const who = mcName && mcName !== 'the player' ? mcName : 'my character';
-  return [
-    'While we tell this one, five things, and nothing else from me:',
-    who + ' is mine. Never his words, never his thoughts, never a move he did not make — write everyone else and leave his side of it to me.',
-    'Anyone set against him stays set against him: nobody folds, agrees or softens just because he showed up. If someone wants something he is in the way of, they keep wanting it this page.',
-    'Let the room talk. The people here have their own mouths — several real exchanges, each in their own way of speaking, never a line of his.',
-    'End where I can act: on a live beat, mid-moment, with something still open. No winding down, no summing up what just happened.',
-    'Stay in the moment as it is happening — what is seen, heard and touched right now, in your own plain words, and nothing explained afterwards.',
-  ].join('\n');
-}
 
 /* his character's names — the story name he plays under, and the fuller forms of it the ledger knows */
 export function mineNames(mc, also = []) {
@@ -100,71 +90,13 @@ export function mineLeak(page, { mc = '', also = [], writerText = '' } = {}) {
   return '';
 }
 
-/* M355: THE SAME WORDS AGAIN. A 27B tells a good page and then tells it again — the same simile, the same half-sentence,
- * the same opening beat, three pages running. It is not a thinking failure and no instruction fixes it after the fact;
- * it is what a narrow model does when the scene, the ledger and the last pages all say the same thing every turn. What
- * the house CAN do is see it and ask once for the page again, naming the phrases it reused. Mechanical, no model, no
- * sampler touched (his dials are his: M12) — and, like everything else here, only with the derestricted switch on. */
-const SHINGLE = 6;             /* a phrase this long, said twice, is a phrase reused — not a turn of grammar */
-const PLAIN_WORDS = new Set(['the', 'and', 'but', 'for', 'with', 'that', 'this', 'his', 'her', 'him', 'she', 'they', 'them', 'was', 'were', 'had', 'has', 'not', 'you', 'your', 'from', 'into', 'over', 'out', 'are', 'its', 'then', 'than', 'there', 'here', 'what', 'who', 'when', 'where', 'been', 'have', 'will', 'would', 'could', 'should', 'just', 'still', 'like', 'now', 'said', 'says', 'asked', 'asks', 'back', 'down', 'again', 'all', 'one', 'two', 'her', 'their', 'our', 'any', 'off', 'about']);
-const wordsOf = (t) => String(t || '').toLowerCase().match(/[a-z0-9’']+/g) || [];
 /* M357: A PAGE'S FURNITURE IS NOT ITS PROSE. The header line ([the courtyard — Monday | 09:00 | clear | coat | by the
  * gate]) and any bracketed row is the same shape on every page BY DESIGN — the writer: "why the repetition flagged
  * header wtf". It is cut before anything here is counted, in both readings. */
 export const stripFurniture = (t) => String(t || '').split('\n').filter((line) => !/^\s*[[（(].*[\]）)]\s*$/.test(line)).join('\n');
-function shinglesOf(text, n = SHINGLE) {
-  const w = wordsOf(text);
-  const out = [];
-  for (let i = 0; i + n <= w.length; i += 1) out.push(w.slice(i, i + n));
-  return out;
-}
-const worthNaming = (shingle) => new Set(shingle.filter((w) => !PLAIN_WORDS.has(w) && w.length > 2)).size >= 3;
-
-/* the phrases this page says that the pages before it (or it itself) already said — his own words never count, and
- * overlapping runs are one phrase, not three */
-export function echoedPhrases(rawPage, rawBefore = [], { writerText = '', names = [] } = {}) {
-  const page = stripFurniture(rawPage);
-  const before = (Array.isArray(rawBefore) ? rawBefore : []).map(stripFurniture);
-  const older = new Set();
-  for (const past of before) for (const s of shinglesOf(past)) older.add(s.join(' '));
-  const mine = new Set(shinglesOf(writerText).map((s) => s.join(' ')));
-  const ownNames = new Set((Array.isArray(names) ? names : []).flatMap((n) => wordsOf(n)));
-  const shingles = shinglesOf(page);
-  const seen = new Set();
-  const found = [];
-  let i = 0;
-  while (i < shingles.length) {
-    const phrase = shingles[i].join(' ');
-    const worth = worthNaming(shingles[i].filter((w) => !ownNames.has(w)));
-    const again = worth && !mine.has(phrase) && (older.has(phrase) || seen.has(phrase));
-    seen.add(phrase);
-    if (!again) { i += 1; continue; }
-    /* one phrase, however many shingles the run covers */
-    const words = [...shingles[i]];
-    let j = i + 1;
-    while (j < shingles.length && words.length < 14) {
-      const next = shingles[j].join(' ');
-      if (!(older.has(next) || seen.has(next)) || mine.has(next)) break;
-      seen.add(next);
-      words.push(shingles[j][shingles[j].length - 1]);
-      j += 1;
-    }
-    found.push(words.join(' '));
-    if (found.length >= 3) break;
-    i = j + 1;
-  }
-  return found;
-}
-
-/* Did this page say what has already been said? '' when it did not, else the phrases it reused. */
-export function staleLeak(page, before = [], opts = {}) {
-  const text = stripFurniture(page);
-  if (text.trim().length < 400) return [];               /* too short to judge; a brief page repeats nothing much */
-  return echoedPhrases(text, before, opts);
-}
 
 /* M357: SAID BEFORE THE NEXT PAGE, NEVER BY SENDING THE PAGE BACK. The house used to hand a page that took his
- * character (M354) or repeated itself (M355) straight back to the model and ask for it again — the writer: "why the
+ * character (M354) or repeated itself (M355, retired at M510) straight back to the model and ask for it again — the writer: "why the
  * repetition mode is basically make it resend the page again, why not giving it critique before it reply based on
  * previous scene? That's breaking immersion." He is right: a page that has landed is the story. What the house saw is
  * said ONCE at the end of the NEXT turn, in his voice, as a note between the two of them — and then let go. */
@@ -173,8 +105,65 @@ export function mineWord(took, mc) {
   const who = mc && mc !== 'the player' ? mc : 'my character';
   return 'That last page ' + took + ' — ' + who + ' is mine to play. Leave his words, his thoughts and his moves to me from here.';
 }
-export function staleWord(phrases = []) {
-  const said = (Array.isArray(phrases) ? phrases : []).slice(0, 3).filter(Boolean).map((p) => '“' + String(p).trim() + '”');
-  if (!said.length) return '';
-  return 'The last page said what we had already said — ' + said.join(', ') + '. Find other words for it this time, and don’t open the way the last pages opened.';
+
+/* M510: WHERE THE PAGE BEGAN WRITING HIS SIDE — the start of the sentence that first gave him words, thoughts or a move
+ * he did not make (the same three readings as mineLeak, anything his own message said never counted), or -1. Indexes
+ * are the page's own: the header row and quoted speech are blanked to spaces, never cut out, so a position found is a
+ * position in the page as it came. */
+const blankRows = (t) => t.split('\n').map((line) => (/^\s*[[（(].*[\]）)]\s*$/.test(line) ? ' '.repeat(line.length) : line)).join('\n');
+const blankQuotes = (t) => t.replace(/[“"][^”"]{0,600}[”"]/g, (q) => ' '.repeat(q.length)).replace(/[‘'][^’']{0,600}[’']/g, (q) => ' '.repeat(q.length));
+function sentenceStartAt(text, at) {
+  let from = 0;
+  for (const mark of ['. ', '! ', '? ', '.\n', '!\n', '?\n', '\n\n', '—\n', '”\n', '" ', '” ']) {
+    const i = text.lastIndexOf(mark, at - 1);
+    if (i !== -1 && i + mark.length <= at) from = Math.max(from, i + mark.length);
+  }
+  const nl = text.lastIndexOf('\n', at - 1);
+  if (nl !== -1) from = Math.max(from, nl + 1);
+  return from;
+}
+/* The cut reads only what cannot be his action told back: words in his mouth, and a thought, a realisation or a decision
+ * that is his. A MOVE is left to the note on the next turn (mineLeak): the craft asks for his typed move to be narrated
+ * in the storyteller's own words, and a paraphrase ("Jovan stepped inside the swing" for his "I dodge in") is not a theft
+ * — cutting there would end a good page. Sensing and knowing (felt, knew) are the world reaching him, not his mind. */
+const THINKS = INNER.split('|').filter((v) => !['felt', 'feels', 'knew', 'knows'].includes(v)).join('|');
+export function mineCutAt(page, { mc = '', also = [], writerText = '' } = {}) {
+  const names = mineNames(mc, also);
+  const raw = String(page == null ? '' : page);
+  if (!names.length || !raw.trim()) return -1;
+  const text = blankRows(raw);
+  const who = '(?:' + names.map(escape).join('|') + ')';
+  const hits = [];
+  const after = new RegExp('\\b' + who + '(?:\\s+\\w+){0,2}\\s+(?:' + SAYS + ')\\b[^.!?\\n]{0,40}[“"]([^”"]{1,400})[”"]', 'ig');
+  const before = new RegExp('[“"]([^”"]{1,400})[”"][,\\s]{0,3}[^”"\\n]{0,40}?\\b' + who + '\\s+(?:' + SAYS + ')\\b', 'ig');
+  const flipped = new RegExp('[“"]([^”"]{1,400})[”"][,\\s]{0,3}(?:' + SAYS + ')\\s+' + who + '\\b', 'ig');
+  for (const re of [after, before, flipped]) { let m; while ((m = re.exec(text)) !== null) if (!echoesWriter(m[1], writerText)) hits.push(m.index); }
+  const bare = blankQuotes(text);
+  const thinks = new RegExp('\\b' + who + '\\s+(?:' + THINKS + ')\\b', 'ig');
+  let t;
+  while ((t = thinks.exec(bare)) !== null) if (!echoesWriter(sentenceAround(bare, t.index), writerText)) hits.push(t.index);
+  if (!hits.length) return -1;
+  return sentenceStartAt(raw, Math.min(...hits));
+}
+
+/* M510: THE SOUNDS A PAGE CARRIED — his craft's two lanes: contact sounds in single asterisks (*CRACK!*, *thud thud
+ * thud*, never an asterisked sentence), and voiced ones in quotes that are sound more than words ("Gkh—!", "AHHH—",
+ * "hah… hah…", "Mmm—ahhh—yes—"). A count, for the planning helper to hear when a fight or a heated page went quiet. */
+export function soundCount(page) {
+  const text = stripFurniture(String(page == null ? '' : page)).replace(/<!--\s*GFX_START\s*-->[\s\S]*?<!--\s*GFX_END\s*-->/g, ' ');
+  let effects = 0;
+  for (const m of text.matchAll(/(^|[^*\w])\*(?!\s)([^*\n]{1,48}?)(?<!\s)\*(?!\*)/g)) {
+    const inside = m[2].trim();
+    if (inside.split(/\s+/).length <= 4 && !/^~?t~/.test(inside)) effects += 1;
+  }
+  let voiced = 0;
+  for (const m of text.matchAll(/[“"]([^”"\n]{1,48})[”"]/g)) {
+    const s = m[1].trim();
+    const vocal = /([a-z])\1\1/i.test(s)
+      || /^[^a-z]*[A-Za-z]{1,7}[—–-]+[!?.…]*[^a-z]*$/i.test(s)
+      || /(?:\b[A-Za-z]{1,5}[—–…]+[\s!?.]*){2,}/.test(s)
+      || /^(?:[a-z]{1,4}[—–…!]+\s*)+$/i.test(s);
+    if (vocal) voiced += 1;
+  }
+  return { effects, voiced };
 }
