@@ -1247,6 +1247,18 @@ export function timelineAhead(state, pages) {
  * catch-up read one missed page a turn while the page in hand never counted:
  * the gap stayed exactly as wide for as long as the writer played, and each
  * turn read again a page already read. */
+/* M509-11: WHICH PAGE THE LEDGER BELONGS TO, SAID IN THE DRAWER. He asked for the plain check: the ledger names the
+ * page it stands at against the pages on the shelf, so a ledger still catching up (a rebuild reading page after page,
+ * a retry re-reading the page before) is seen moving, and one that is even with the story says so. From the read mark
+ * (the last page read, a contiguous prefix) and the count of the story's own pages. */
+export function ledgerStandingWords(state, pagesCount) {
+  const total = Number.isInteger(pagesCount) && pagesCount >= 0 ? pagesCount : 0;
+  const read = Math.max(0, readMark(state) + 1);
+  if (!total) return read ? 'The ledger stands at page ' + read + ' — no page is on the shelf yet.' : 'The ledger has no page yet.';
+  if (read >= total) return 'The ledger stands at page ' + total + ' of ' + total + ' — even with the story.';
+  if (!read) return 'The ledger has read none of the ' + total + ' pages yet — the readers are on them.';
+  return 'The ledger stands at page ' + read + ' of ' + total + ' — the readers are on the rest.';
+}
 export function readMark(state) {
   if (!state || typeof state !== 'object') return -1;
   if (Number.isInteger(state.readTo)) return state.readTo;

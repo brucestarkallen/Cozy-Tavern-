@@ -19,7 +19,7 @@
  * the drawer is open.
  */
 
-import { loadState as loadStateFresh, saveState, subscribe, notify } from '../engine/state.js';
+import { loadState as loadStateFresh, saveState, subscribe, notify, ledgerStandingWords } from '../engine/state.js';
 
 /* M147: ONE READ PER RENDER. Sixteen panels each loaded the ledger — sixteen
  * clones of a row that grows with the story (its journal) — every time the
@@ -2749,6 +2749,20 @@ export function initDrawer(ctx) {
     }
 
     panelsEl.textContent = '';
+    /* M509-11: which page the ledger belongs to, above the rooms — filled as the store answers, and again on every
+     * change the drawer is told of (a rebuild is seen moving page by page) */
+    const standing = document.createElement('p');
+    standing.className = 'ledger-standing quiet';
+    standing.id = 'ledger-standing';
+    standing.textContent = '…';
+    panelsEl.appendChild(standing);
+    if (storyId) {
+      Promise.all([loadStateFresh(storyId), db.messages.list(storyId)]).then(([st, msgs]) => {
+        const pages = (Array.isArray(msgs) ? msgs : []).filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc).length;
+        const line = document.getElementById('ledger-standing') || standing; /* the newest line, if a redraw replaced this one */
+        if (line && ctx.getActiveStoryId() === storyId) line.textContent = ledgerStandingWords(st, pages);
+      }).catch(() => { standing.textContent = ''; });
+    } else standing.textContent = '';
     /* M105: the ledger in four rooms, one open at a time — the scene, the
      * people, the world, the books — instead of sixteen panels in one scroll.
      * Every panel keeps its id and its place; a room not open is hidden, not

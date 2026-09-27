@@ -641,3 +641,6 @@
   font-size: 0.74rem;
   font-weight: 600;
 }
+
+/* M509-11: which page the ledger belongs to, above the rooms */
+.ledger-standing { margin: 0.35rem 0.85rem 0.15rem; font-size: 0.86rem; }

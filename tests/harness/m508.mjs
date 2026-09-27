@@ -134,3 +134,15 @@ test('M509-5 a cached canon entry that is an episode (its look a cast list) is p
   eq(isCastListLook('Silver hair, brown eyes'), false);
   eq(isEpisodeOrChapterPage("{{Episode\n| number = 313\n| airdate = March 8, 2011\n}}\n'''Muguruma's 9th Division, Moves Out''' is the three hundred thirteenth episode of the ''Bleach'' anime."), true);
 });
+
+test('M509-11 the ledger says which page it belongs to: even with the story, behind it (a rebuild moving page by page), or with no page yet', async () => {
+  const { ledgerStandingWords, emptyState, markPageRead } = await import('../../js/engine/state.js');
+  let st = { ...emptyState() };
+  eq(ledgerStandingWords(st, 0), 'The ledger has no page yet.');
+  eq(ledgerStandingWords(st, 3), 'The ledger has read none of the 3 pages yet — the readers are on them.');
+  markPageRead(st, 0);
+  eq(ledgerStandingWords(st, 3), 'The ledger stands at page 1 of 3 — the readers are on the rest.');
+  markPageRead(st, 1); markPageRead(st, 2);
+  eq(ledgerStandingWords(st, 3), 'The ledger stands at page 3 of 3 — even with the story.');
+  eq(ledgerStandingWords(st, 2), 'The ledger stands at page 2 of 2 — even with the story.', 'a page let go: never "3 of 2"');
+});

@@ -6727,6 +6727,39 @@ test('DOM-134 NO CHECKPOINT OF THAT MOMENT: the fold keeps the replaced page’s
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-135 THE DRAWER SAYS WHICH PAGE THE LEDGER BELONGS TO: even with the story after a page is read; and when a page is on the shelf unread it says the readers are on the rest (M509-11)', async () => {
+  const before = errors.length;
+  const { loadState, saveState } = await import('../../js/engine/state.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'the standing line' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy(), 'free', 20000);
+  const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  const H = '[The kitchen — Monday, March 3, 2025 | 09:05 | clear | coat | by the stove]\n\n';
+  try {
+    house.state.workerAnswer = () => '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[],"issues":[]}';
+    house.state.storyAnswer = () => H + 'The kettle ticked.';
+    type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
+    await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
+    await settled();
+    click(q('#btn-ledger'));
+    await until(() => q('#ledger-standing') && /page 1 of 1 — even with the story/.test(q('#ledger-standing').textContent), 'even with the story', 10000);
+    /* a page appended by a hand, unread: the line says the readers are on the rest */
+    await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+    await db.messages.append(st.id, { role: 'assistant', text: H + 'Nobody came.' });
+    await env.ctx.chat.renderThread({ structural: true });
+    click(q('#btn-drawer-close')); await tick(50); click(q('#btn-ledger'));
+    /* the line says "page 1 of 2 — the readers are on the rest" until the house reads the page by itself (it does, unasked),
+     * then "page 2 of 2 — even with the story": the ledger is seen catching up, and even */
+    const seenLines = new Set();
+    await until(() => { const t = (q('#ledger-standing') || {}).textContent || ''; seenLines.add(t); return /page 2 of 2 — even with the story/.test(t); }, 'the house read the page and the line says so: ' + [...seenLines].join(' | '), 30000);
+    assert([...seenLines].some((t) => /page 1 of 2 — the readers are on the rest/.test(t) || /page 2 of 2/.test(t)), 'the line named the page throughout: ' + [...seenLines].join(' | '));
+    click(q('#btn-drawer-close'));
+  } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

@@ -12199,3 +12199,17 @@ the eager form stalled DOM-126's held reader for three minutes.
 - Walk DOM-134 (new): page two's clock and walk-in re-stamped on page one AND the checkpoint before page two removed
   → the page reader is asked page one again before the retry is built; the retry is told 09:05 and page one's room.
 - GATES: harness 976/976, walk 152/152, long play 8/8, lint 0. version.js -> m509-010.
+
+# M509-11 — the drawer says which page the ledger belongs to
+He asked for the plain check: does the ledger belong to the page on the shelf, and when it rebuilds, is it seen moving
+page by page to the latest. engine/state.js ledgerStandingWords(state, pagesCount) from the read mark and the count of
+the story's own pages: "The ledger stands at page 52 of 52 — even with the story." / "…page 50 of 52 — the readers are
+on the rest." / "…has read none of the 3 pages yet" / "…has no page yet". The drawer draws it above the rooms
+(#ledger-standing) and every redraw the drawer is told of refreshes it, so a rebuild is seen moving. Walk DOM-135: a
+page appended by hand shows "1 of 2 — the readers are on the rest" until the house reads it by itself, then "2 of 2 —
+even with the story". Law M509-11 (never "3 of 2" after a page is let go).
+- SAID TO HIM, in plain words: the hour is the story's clock, set from each page's header; it is what the storyteller
+  is told the time is, what "arriving in about 4 minutes" and "a wound 3 days old" are counted from; it does not keep
+  the ledger in step with the pages — the page index does. A "descriptor" is a person named by a description ("the
+  courier", "the cracker boy") instead of a name.
+- GATES: harness 977/977, walk 153/153, long play 8/8, lint 0. version.js -> m509-011.
