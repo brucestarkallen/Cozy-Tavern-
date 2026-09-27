@@ -12089,3 +12089,19 @@ books read on; then the two stand again by a hand on the store and a page is sen
   replaceWord now says a name once where the swap doubled it ("X X", "X, X" → "X").
 - The launcher (cozytavern.sh) does `git pull --ff-only` and douses this folder's serve.py before relighting; Settings'
   last line reads "the shelves · <build>". GATES: harness 976/976, walk 146/146, lint 0. version.js -> m509-004.
+
+# M509-5 — his blocks WERE from m509-003, and the courier still stood twice: the light now says why
+He corrected me: the fifth paste came from m509-003. So on his device the join did not happen, though the engine joins
+a replica of his room (every present name, the away names, the apposition only in Suì-Fēng's loose ends and in the
+books: one man, thirteen places follow) and walk DOM-128 joins it on the app's own opening and after a page. What is
+left is his device: the opening heal steps aside when the readers are still out (queuedCount, workIsRunning,
+otherHandAt), and a retry's rewind drops a heal stamped on the newest page. So:
+- THE LIGHT SAYS WHAT IT DID WITH A DESCRIPTOR. The upkeep's word names a join ("one man, one name: the courier is
+  Hachigorō"), a refusal with its reason, and any descriptor standing apart though the ledger names someone for its
+  role (apply.js descriptorsApart: "two pages the ledger names for the role: A and B", or "named for X but not
+  joined"); a descriptor nobody is named for — the cook, the cracker boy — is their own person and gets no word.
+  people.js roleOwnersNamed holds the join's evidence for both.
+- ONE LAST LOOK BEFORE THE CHECKPOINT: a chain link after the world agent, the scribe and the auditor joins the room
+  once more (any of them can bring a descriptor back beside the man it is), journaled, silent when there is nothing.
+- GATES: harness 976/976, walk 146/146, long play 8/8, lint 0. version.js -> m509-005. NEXT: his light's workers
+  panel after one page on m509-005 — the page reader's line names the courier one way or the other.

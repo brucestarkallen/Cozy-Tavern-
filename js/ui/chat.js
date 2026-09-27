@@ -54,7 +54,7 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
-import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
+import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
@@ -3116,18 +3116,22 @@ export function initChat(ctx) {
       /* M491: and whoever is listed here though their own page says they left, and this page does not show, is seated away */
       const goneAway = msg && msg.role === 'assistant' && !msg.ooc ? goneByTheirOwnPage(clearedNows.state, pageText(msg)) : [];
       const oneMan = descriptorsThatAreNamed(clearedNows.state); /* M509-2: "the courier" beside "Hachigorō" is one man */
+      const apart = descriptorsApart(clearedNows.state); /* M509-5: the ones that stand apart, and why — so the light can say it */
       const walkedBack = walkIns.length || hereAgain.length || goneAway.length || oneMan.length ? applyMutations(clearedNows.state, [...walkIns, ...hereAgain, ...goneAway, ...oneMan]) : { state: clearedNows.state, applied: [] };
       const cleared = { state: walkedBack.state, applied: clearedNows.applied };
       const sentBack = [...new Set(walkedBack.applied.filter((a) => a.mutation.type === 'presence.leave').map((a) => a.mutation.name))];
       const writtenIn = [...new Set(walkedBack.applied.filter((a) => a.mutation.type === 'presence.enter').map((a) => a.mutation.name))];
       const groundMoved = cleared.state.place && fresh.place && cleared.state.place.name !== (await loadState(story.id)).place?.name;
-      if (!joined.applied.length && !cleared.applied.length && !walkedBack.applied.length && !groundMoved) return { silent: true };
+      if (!joined.applied.length && !cleared.applied.length && !walkedBack.applied.length && !groundMoved && !apart.length) return { silent: true };
+      if (!joined.applied.length && !cleared.applied.length && !walkedBack.applied.length && !groundMoved) return { silent: false, detail: 'standing apart: ' + apart.map((d) => d.name + ' — ' + d.why).join('; ') }; /* nothing written; the word alone */
       /* M414: M290's law, which this job alone skipped — a page a rewind (Try again, read again) let go while these
        * reads were out writes nothing: checked the moment before the save, like every other reader's save */
       if (stale() || !(await stillThere(story.id, msg.id))) return { silent: true };
       await saveState(story.id, cleared.state);
       notify(story.id);
-      return { silent: false, detail: [joined.applied.length ? 'joined ' + joins.map((j) => j.from + ' into ' + j.to).join(', ') : '', cleared.applied.length ? 'let go of a “now” that named a place the scene has left: ' + who.join(', ') : '', sentBack.length ? 'put back where the world had them (never in the scene — seated in another part of the same place): ' + sentBack.join(', ') : '', writtenIn.length ? 'written back into the scene (the page shows them here; a note had them elsewhere at this very place): ' + writtenIn.join(', ') : ''].filter(Boolean).join(' · ') };
+      const oneManDone = walkedBack.applied.filter((a) => a.mutation.type === 'people.rename' && oneMan.some((m) => m.from === a.mutation.from));
+      const oneManRefused = walkedBack.rejected ? walkedBack.rejected.filter((r) => r.mutation && r.mutation.type === 'people.rename' && oneMan.some((m) => m.from === r.mutation.from)) : [];
+      return { silent: false, detail: [joined.applied.length ? 'joined ' + joins.map((j) => j.from + ' into ' + j.to).join(', ') : '', oneManDone.length ? 'one man, one name: ' + oneManDone.map((a) => a.mutation.from + ' is ' + a.mutation.to).join(', ') : '', oneManRefused.length ? 'could not join ' + oneManRefused.map((r) => r.mutation.from + ' (' + r.why + ')').join(', ') : '', apart.length ? 'standing apart: ' + apart.map((d) => d.name + ' — ' + d.why).join('; ') : '', cleared.applied.length ? 'let go of a “now” that named a place the scene has left: ' + who.join(', ') : '', sentBack.length ? 'put back where the world had them (never in the scene — seated in another part of the same place): ' + sentBack.join(', ') : '', writtenIn.length ? 'written back into the scene (the page shows them here; a note had them elsewhere at this very place): ' + writtenIn.join(', ') : ''].filter(Boolean).join(' · ') };
     });
 
     /* M394: CANON THROUGH HIS STORY, BEFORE THE WORLD AND THE SCRIBE WRITE. Everyone canon knows in this ledger with no lens
@@ -3469,6 +3473,22 @@ export function initChat(ctx) {
 
     /* 4b. M40: the version's checkpoint — the ledger as it stands once the
      * readers have finished, kept for this version of this page. */
+    /* M509-5: ONE LAST LOOK BEFORE THE CHECKPOINT. The world agent, the scribe and the auditor write after the upkeep,
+     * and any of them can bring a descriptor back beside the man it is ("the courier" seated, written to, walked in);
+     * the room is joined once more here, so the ledger the checkpoint keeps — and the next send reads — has one man
+     * under one name. Journaled like the upkeep's own; silent when there is nothing to join. */
+    enqueue('extractor', async ({ stale }) => {
+      if (story.extraction === false || stale()) return { silent: true };
+      const fresh = await loadState(story.id);
+      const again = descriptorsThatAreNamed(fresh);
+      if (!again.length) return { silent: true };
+      const { state: next, applied } = applyMutations(fresh, again);
+      if (!applied.length) return { silent: true };
+      if (stale() || !(await stillThere(story.id, msg.id))) return { silent: true };
+      await saveState(story.id, next);
+      notify(story.id);
+      return { silent: false, detail: 'one man, one name (after the readers): ' + applied.map((a) => a.mutation.from + ' is ' + a.mutation.to).join(', ') };
+    });
     enqueue('checkpoint', async ({ stale }) => {
       if (stale()) return { silent: true };
       if (!(await stillThere(story.id, msg.id))) return { silent: true };

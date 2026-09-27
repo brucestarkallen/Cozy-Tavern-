@@ -455,6 +455,16 @@ function resolveRole(state, name) {
    * person. Named pages only; a descriptor is never another descriptor. */
   const named = Object.keys(pages).filter((k) => !roleOf(k) && !relationOf(k) && !samePersonName(k, name));
   if (!named.length) return null;
+  const owners = roleOwnersNamed(state, role, named);
+  return owners.length === 1 ? owners[0] : null;
+}
+/* M509-5: the named pages the ledger's own words call "the <role> <Name>" / "<Name>, the <role>" — the join's evidence,
+ * kept apart so the light can say why a descriptor stands alone (none named; two named) */
+export function roleOwnersNamed(state, role, namedPages = null) {
+  const esc = String(role || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!esc) return [];
+  const pages = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const named = Array.isArray(namedPages) ? namedPages : Object.keys(pages).filter((k) => !roleOf(k) && !relationOf(k));
   const texts = [];
   for (const k of Object.keys(pages)) { const c = pages[k] || {}; texts.push([c.core, c.state, c.arc, ...(Array.isArray(c.threads) ? c.threads : [])].filter((x) => typeof x === 'string').join(' ')); } /* the whole page, its loose ends too */
   for (const t of (Array.isArray(state.threads) ? state.threads : [])) texts.push([t && t.title, t && t.next, t && t.note].filter((x) => typeof x === 'string').join(' '));
@@ -462,19 +472,20 @@ function resolveRole(state, name) {
   for (const seat of Object.values(state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {})) texts.push([seat && seat.location, seat && seat.activity, seat && seat.agenda].filter((x) => typeof x === 'string').join(' '));
   if (typeof state.worldBrief === 'string') texts.push(state.worldBrief);
   const body = texts.join('\n');
-  const owners = new Set();
+  const owners = [];
   for (const k of named) {
     const first = k.split(/\s+/)[0];
-    const forms = [k, first].filter((w) => w && w.length >= 3).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const forms = [k, first].filter((w) => w && w.length >= 3 && !/^(?:the|an?)$/i.test(w)).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     if (!forms.length) continue;
     const who = '(?:' + forms.join('|') + ')';
     /* unicode boundaries — \b is ASCII-only in JS, and "Hachigorō" ends past it */
     const L = '(?<![\\p{L}\\p{N}])'; const R = '(?![\\p{L}\\p{N}])';
     const re = new RegExp('(?:' + L + '(?:the|an?)\\s+' + esc + '\\s+' + who + R + ')|(?:' + L + who + ',?\\s+(?:the|an?)\\s+' + esc + R + ')', 'iu');
-    if (re.test(body)) owners.add(k);
+    if (re.test(body)) owners.push(k);
   }
-  return owners.size === 1 ? [...owners][0] : null;
+  return owners;
 }
+export function roleWordOf(name) { return roleOf(name); } /* M509-5: for the light's word */
 
 export function resolveDescriptor(state, name) {
   const rel = relationOf(name);

@@ -45,7 +45,7 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight } from './duels.js';
-import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
+import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
@@ -1771,6 +1771,27 @@ export function descriptorsThatAreNamed(state) {
     if (!to || typeof to !== 'string' || samePersonName(to, name) || isMc(s, to)) continue;
     if (resolveDescriptor(s, to)) continue; /* the target is a descriptor itself — never */
     out.push({ type: 'people.rename', from: name, to });
+  }
+  return out;
+}
+/* M509-5: the present descriptors that stand apart, each with the reason — for the light's own word, so a room where
+ * "the courier" still stands beside a named man says why */
+export function descriptorsApart(state) {
+  const s = state && typeof state === 'object' ? state : {};
+  const present = Array.isArray(s.present) ? s.present : [];
+  const out = [];
+  for (const p of present) {
+    const name = p && typeof p.name === 'string' ? p.name.trim() : '';
+    if (!name || isMc(s, name)) continue;
+    const role = roleWordOf(name);
+    if (!role) continue; /* a plain name, or a role too short to be one ("the cook") — their own person */
+    let to = null; let why = '';
+    try { to = resolveDescriptor(s, name); } catch (err) { to = null; why = 'the look-up faulted: ' + (err && err.message); }
+    if (to && !samePersonName(to, name)) continue; /* joins */
+    let owners = [];
+    try { owners = roleOwnersNamed(s, role); } catch (err) { owners = []; }
+    if (!why) { if (owners.length > 1) why = 'two pages the ledger names for the role: ' + owners.join(' and '); else if (!owners.length) continue; /* nobody named for the role: their own person, no word needed */ else why = 'named for ' + owners[0] + ' but not joined'; }
+    out.push({ name, why });
   }
   return out;
 }
