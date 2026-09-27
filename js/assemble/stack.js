@@ -413,6 +413,14 @@ const NEW_RULED_LINE = /^[ \t]*An outcome already settled = [^\n]*\n?/m;
 /* M510: the last `n` of the storyteller's pages with his messages between them — starting on his message, never on a
  * page of the storyteller's (a request must not open on the storyteller's own turn) */
 export const SMALL_PAGES = 8;
+/* M510-3: IS THIS A HEATED SCENE — read from what woke, never from two built-in ids (his own imported intimacy rule wakes
+ * by the same key and was not seen): any rule that woke for intimacy or a contest, the ledger's own intimate mode, a
+ * live fight. A rule he pinned on for a whole arc (spectacle combat) is not a heated page by itself. */
+export function heatedNow(selected, state) {
+  const woke = (Array.isArray(selected) ? selected : []).some((s) => s && s.mod && (s.mod.whenKey === 'intimate' || s.mod.whenKey === 'combat' || s.mod.id === 'nsfw' || s.mod.id === 'contested-resolution'));
+  const st = state && typeof state === 'object' ? state : {};
+  return woke || Boolean(st.mode && st.mode.intimate) || Boolean(st.duel || st.battle || st.war);
+}
 /* M510-2: WHAT THE LEDGER KNOWS OF THE PEOPLE IN THE SCENE RIDES IN THE LEDGER'S OWN WORDS. M510 left a small model the
  * helper's summary alone — a hurt, a secret someone saw, a live grudge of someone standing right there reached it only
  * if the helper happened to name it (measured: Kaelen's cracked wrist, what Rukia saw at dawn and Kaelen's rematch

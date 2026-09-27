@@ -156,10 +156,15 @@ export async function loadPlan(storyId, forKey) {
   const hit = kept.plans && kept.plans[forKey];
   return hit && hit.plan ? hit.plan : null;
 }
+/* M510-3: the newest are kept by ORDER, never by clock: two plans kept in the same millisecond tied on `at`, the sort kept
+ * the older of them and let the newest go (the full harness caught it; alone it passed). A plan's key is re-set last, and
+ * the last PLAN_KEEP stand. */
 export async function keepPlan(storyId, forKey, plan) {
   const kept = await loadPlans(storyId);
-  const plans = { ...(kept.plans || {}), [forKey]: { plan, at: Date.now() } };
-  const newest = Object.entries(plans).sort((a, b) => (b[1].at || 0) - (a[1].at || 0)).slice(0, PLAN_KEEP);
+  const plans = { ...(kept.plans || {}) };
+  delete plans[forKey];
+  plans[forKey] = { plan, at: Date.now() };
+  const newest = Object.entries(plans).slice(-PLAN_KEEP);
   await db.settings.set(PLAN_KEY(storyId), { ...kept, plans: Object.fromEntries(newest) });
 }
 export async function keepSound(storyId, sound) {

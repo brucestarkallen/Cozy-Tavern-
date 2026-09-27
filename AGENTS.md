@@ -12363,3 +12363,27 @@ the helper's plan, so a fact about someone standing in the room reached it only 
   The small request on the 55-page tale: 16,204 -> 16,235 tokens (its ledger is small; the two parts are capped at the
   ledger's own budgets, 4,000 and 4,800 characters).
 
+# M510-3 — a heated page is never silent
+He: "why the sex scene still so shit — like a boring novel, no slap slap slap and continuous moan, just boring dialog
+and an occasional ahh; in a movie the sex scene is always rendered". Found in his own rulebook, not in the model: the
+rule that wakes when a scene turns intimate (NSFW_TEXT) — the rule the craft itself hands a sex scene's acoustics to
+("Rendering At Full Resolution … the rule the house wakes … owns them") — said "volume is … never a genre default. Porn
+volume as baseline is slop … Forced quiet is an eros ENGINE … hotter than screaming … wall-to-wall moaning is
+claustrophobic noise, not heat", and "characters talk through intimacy … plain communication". His Sound As
+Onomatopoeia ("a sex … output with zero effects is a failed draft") and High Intensity Scenes ("sound present, dialogue
+present, continuously") said the opposite from 70,000 characters back; the scene's own rule won, for every model.
+- Acoustics Are Simulation rewritten: a continuous soundtrack, both lanes, every beat; character/state/setting shape the
+  sound, never its absence; forced quiet muffles (*mmf*, "hnn—") and never silences; intensity climbs; the palette
+  rotates; a paragraph of the act with no sound is a failed paragraph. Sound Carries (who hears, and what follows) kept
+  word for word. Intimate Dialogue rewritten: in the act voices are mostly sound, words in short bursts, never a
+  conversation paragraph mid-act (Dialogue Ratio gives way); the dissociating/frozen silence and MC-only-what-he-typed
+  kept.
+- THE PIN FROZE THE WORDS: settings' pin toggle saved {id, name, text, pinned}, so a pinned built-in kept the words it
+  had on the day he pinned it and no improvement ever reached it. modules.js followsBuiltin: a saved copy equal to the
+  built-in or to words it shipped with before (SHIPPED_BEFORE fingerprints — nsfw '95zud8', the M510-2 text, kept as the
+  fixture tests/harness/fixtures/nsfw-as-shipped-to-m510.txt) rides the built-in as it stands; an edited copy keeps his
+  words (overridden); saveModule stores no copy of a built-in's own words (text null).
+- stack.js heatedNow: a heated scene is read from what woke (whenKey intimate or combat — his own imported intimacy rule
+  was invisible to the id check), the ledger's intimate mode, or a live fight; a register pinned for a whole arc is not.
+- Law M510-10 (the woken rule on the wire; the old pinned copy follows; his edit stands; a pin keeps no copy; heatedNow).
+

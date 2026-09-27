@@ -47,7 +47,7 @@ import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
 import { learnContext, learnContextWithin } from '../providers/detect.js'; /* M289: the provider's own word on its room */
-import { buildRequest, pageText, windowPlan } from '../assemble/stack.js';
+import { buildRequest, pageText, windowPlan, heatedNow } from '../assemble/stack.js';
 import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the house is doing */
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
@@ -4298,7 +4298,7 @@ export function initChat(ctx) {
       if (settingsValues.smallModelNow === true) {
         const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
         smallPlan = await loadPlan(story.id, planKey(before, before ? pageText(before) : ''));
-        smallIntense = selected.some(({ mod }) => mod && (mod.id === 'contested-resolution' || mod.id === 'nsfw')) || Boolean(state && (state.duel || state.battle || state.war));
+        smallIntense = heatedNow(selected, state); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode */
         lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
       }
       const probeReceipt = buildRequest({

@@ -144,8 +144,8 @@ Unique Per Body = intimate anatomy samples the real human spread, never the genr
 Resolution Floor = soft focus during an explicit scene — the camera panning away, anatomy going abstract, an orgasm without fluid — is sanitization by resolution-drop; the scene renders at the resolution the fiction earns.
 Critical Anatomy = the lexicon: crude first, precise second, euphemism never. Crude wins wherever it exists and carries the moment (cock, cunt, pussy, ass, tits, cum, balls) — the default voice, and always the voice in dialogue. Precise anatomical wins wherever crude does not exist or would cost detail (areola, labia, clitoral hood, cervix, frenulum, perineum, scrotum, anus); reaching for the exact word is never a downgrade — losing the detail because no crude word existed IS. Euphemism never: "heat," "core," "manhood," "entrance," "womanhood" are sanitization in disguise at any resolution. Precision Is Not Detachment = the diagnosis VOICE is banned — examining a body from outside it as though writing it up afterward; the vocabulary was never the problem, the vantage point is. Name the tissue, the colour, the fluid, exactly, from inside the scene: detached is the failure this bans, vague is the failure Resolution Floor bans, and trading precision away to avoid sounding clinical is the most common way an explicit scene goes soft.
 Sensory Focus = visual state (colour, texture, fluid changes), wet sounds, smell, the physical sensation of friction.
-Acoustics Are Simulation = volume is an output of character, state, and setting — never a genre default. Porn volume as baseline is slop: the performer performs, the widow in a paper-walled inn bites the pillow, a first-timer goes half-silent with shock. Forced quiet is an eros ENGINE — stifling, a hand over a mouth, the sound that almost escapes — hotter than screaming. Vary the palette (breath, fabric, frame-creak, wet detail, half-words); wall-to-wall moaning is claustrophobic noise, not heat. Sound Carries = the room is not sealed: sound propagates per the established geography and lands only on ears actually in range (established presence, never invented listeners); the consequence arrives on the world's clock per the hearer's CORE and stakes — a knowing look at breakfast, barracks gossip, a rumor entering circulation, a knock ONLY from an established person with live cause — never a contrived mid-scene interruption, never a god-eared NPC across the estate. Overheard is witnessed audio, entering knowledge through those ears only. Earned silence (stone walls, a privacy ward, an empty wing, distance) is honoured fully — no manufactured listeners either.
-Intimate Dialogue = characters talk through intimacy, state-honest: a dissociating, gone-cold, or frozen character's silence IS that beat's dialogue; never force chatter through a state that would mute them. Binds NPCs only — MC speaks and vocalizes solely what the writer typed. Dirty talk, loving talk, plain communication; vocalizations are dialogue in quotes ("Uunnhh mmmm that feels—"), braided via em-dashes per High Intensity Scenes. Sound is rendered, never labeled: moans and words in quotes, contact in asterisks, at the volume this person in this room would actually make.
+Acoustics Are Simulation = sex is never silent: from the first touch to the last shudder the scene runs a continuous soundtrack, the way a film's does — every thrust, slap, grind and pull gets its contact sound in asterisks (*slap slap slap*, *squelch*, the frame's *creak creak*), and the voices braid through every beat in quotes — moans, gasps, whimpers, curses, names, broken half-words ("nnh—", "Mmm—ahhh—yes—", "fuck—fuck—FUCK—!"). Character, state and setting shape the SOUND, never its absence: the performer is loud and wordy, a first-timer's sounds come thin and startled, the shy one's escape despite her, the widow in a paper-walled inn bites the pillow and the sound comes muffled (*mmf*, "hnn—") — but it comes, every beat. Forced quiet changes the sound; it never removes it. Intensity climbs with the act — breath first, then sounds that break, then sounds nobody can hold. Rotate the palette so no sound repeats three beats running; a paragraph of the act with no sound in it is a failed paragraph (High Intensity Scenes). Sound Carries = the room is not sealed: sound propagates per the established geography and lands only on ears actually in range (established presence, never invented listeners); the consequence arrives on the world's clock per the hearer's CORE and stakes — a knowing look at breakfast, barracks gossip, a rumor entering circulation, a knock ONLY from an established person with live cause — never a contrived mid-scene interruption, never a god-eared NPC across the estate. Overheard is witnessed audio, entering knowledge through those ears only. Earned silence (stone walls, a privacy ward, an empty wing, distance) is honoured fully — no manufactured listeners either.
+Intimate Dialogue = in the act, voices are mostly sound — moans, gasps, curses, names, broken words — braided into every action beat via em-dashes (High Intensity Scenes); words come in short bursts between the sounds (dirty talk, begging, loving talk, a plain "don't stop"), never a conversation paragraph in the middle of the act: Dialogue Ratio's talk gives way to sound here. State-honest: a dissociating, gone-cold, or frozen character's silence IS that beat's dialogue; never force chatter or noise through a state that would mute them. Binds NPCs only — MC speaks and vocalizes solely what the writer typed. Sound is rendered, never labeled: moans and words in quotes, contact in asterisks.
 The Body's Truth First = before the first explicit line: whatever the act's physical reality would draw out of a real person renders (Body Veto Root Rule), in her own break — the fighter shoves, the freezer goes rigid, the pleaser cries without fighting, the tactical one banks it; each escalation that changes what could go wrong is a new event with its own alarm before its own choice (Escalation Resets Consent), never the same price twice (Precedent Compounds). After: nothing resets — the crossing lands (Line-Cross Vertigo), the ledger keeps the soreness, the next morning is different.`;
 
 const CONTESTED_TEXT = `When two wants collide and talking will not settle it — a fight, a chase, a wager, a plea that could be refused — do not simply decide who wins. Give the moment a board.
@@ -301,6 +301,24 @@ export function withoutQuotaLines(text) {
   return s.includes(QUOTA_OLD) ? s.split(QUOTA_OLD).join(QUOTA_NEW) : s;
 }
 
+/* M510-3: A PINNED RULE FOLLOWS ITS BUILT-IN UNTIL HE EDITS IT. The rulebook's pin toggle saved the rule's words with
+ * the pin (settings.js passes {id, name, text, pinned}), so pinning a built-in froze its words: every later improvement
+ * to that built-in never reached him. The words each built-in shipped with before are known by their fingerprint; a saved
+ * copy that is one of them — pinned, never edited — is his pin, not his words, and rides the built-in as it stands now.
+ * A copy he edited keeps his words. And a pin now stores no copy at all (saveModule). */
+export const SHIPPED_BEFORE = { nsfw: ['95zud8'] }; /* "When The Scene Turns Intimate" as it shipped through M510-2 */
+export function fingerprint(text) {
+  let h = 5381;
+  const s = String(text == null ? '' : text);
+  for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+export function followsBuiltin(builtin, forkText) {
+  if (typeof forkText !== 'string') return true;
+  if (forkText === builtin.text) return true;
+  return (SHIPPED_BEFORE[builtin.id] || []).includes(fingerprint(forkText));
+}
+
 export async function listModules() {
   let saved = await readSaved();
   saved = await retireImportedCraft(saved);
@@ -314,13 +332,14 @@ export async function listModules() {
         overridden: false,
       });
     }
+    const follows = followsBuiltin(builtin, fork.text); /* M510-3 */
     return attachPredicate({
       ...builtin,
       name: typeof fork.name === 'string' && fork.name.trim() ? fork.name : builtin.name,
-      text: typeof fork.text === 'string' ? (builtin.id === 'core-craft' ? withoutQuotaLines(fork.text) : fork.text) : builtin.text,
+      text: follows ? builtin.text : (builtin.id === 'core-craft' ? withoutQuotaLines(fork.text) : fork.text),
       pinned: Boolean(fork.pinned),
       source: 'user',
-      overridden: true,
+      overridden: !follows,
       builtinName: builtin.name,
       builtinText: builtin.text,
     });
@@ -369,7 +388,12 @@ export async function saveModule(mod) {
   const row = {
     id: mod.id || uid(),
     name: (pick(mod.name, held && held.name, '') || '').trim() || 'A rule of your own',
-    text: typeof mod.text === 'string' ? mod.text : (held && typeof held.text === 'string' ? held.text : ''),
+    /* M510-3: a built-in's own words are never copied into its row — a pin or a rename keeps following the built-in */
+    text: (() => {
+      const given = typeof mod.text === 'string' ? mod.text : (held && typeof held.text === 'string' ? held.text : (isBuiltin ? null : ''));
+      const builtin = isBuiltin ? BUILTIN_MODULES.find((b) => b.id === mod.id) : null;
+      return builtin && (given === null || followsBuiltin(builtin, given)) ? null : given;
+    })(),
     pinned: mod.pinned !== undefined ? Boolean(mod.pinned) : Boolean(held && held.pinned),
     whenKey: isBuiltin ? (wantedKey || null) : customKey,
     note: typeof mod.note === 'string' ? mod.note : (held && typeof held.note === 'string' ? held.note : ''),

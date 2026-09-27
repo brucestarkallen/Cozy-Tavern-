@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-002)
+# Cozy Tavern — handoff for the next session (state at m510-003)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -439,6 +439,18 @@ founding design lives in AGENTS.md's first entries.)
   thinking's lesson, so a refused dial never costs him his thinking) is learned per model and address (learnFact drop)
   and the turn goes again without it. A worker never rides a penalty or a stop text (call.js WORKER_UNSAFE: they corrupt
   JSON) — the one override his law allows.
+- A HEATED PAGE IS NEVER SILENT (M510-3, his word: "boring novel without slap slap slap and continuous moan… in movie sex
+  scene always rendered"). The intimacy rule (modules.js NSFW_TEXT, the rule that OWNS a sex scene's acoustics per the
+  craft's "Rendering At Full Resolution") said "porn volume as baseline is slop", "forced quiet… hotter than screaming",
+  "wall-to-wall moaning is claustrophobic noise" and "characters talk through intimacy" — against his own Sound As
+  Onomatopoeia and High Intensity Scenes, and it won, being the scene's own rule. Acoustics Are Simulation now asks for a
+  continuous soundtrack in both lanes on every beat — character, state and setting shape the sound, never remove it;
+  forced quiet muffles, never silences; Intimate Dialogue is mostly sound, words in short bursts, no conversation
+  paragraphs mid-act. For every storyteller. PINNED COPIES FOLLOW THEIR BUILT-IN (modules.js followsBuiltin): the pin
+  toggle used to freeze the words; a saved copy equal to words a built-in shipped with before (SHIPPED_BEFORE
+  fingerprints) rides the built-in as it stands, an edited copy keeps his words, and a pin stores no copy (text null).
+  When a built-in's words change, add the old words' fingerprint to SHIPPED_BEFORE. heatedNow (stack.js) reads a heated
+  scene from what woke (any intimacy/contest rule — his imported ones too), the ledger's intimate mode, or a live fight.
 - THE FRAME SWITCHED OFF IS OFF WHOLE (M510): no teller name leading the house's lines, no grounding phrase planted.
   Frame on: nothing changed.
 - db.connections.add KEEPS EVERY FIELD IT IS GIVEN (M510): it kept an M22-era list and a NEW connection lost its prefill

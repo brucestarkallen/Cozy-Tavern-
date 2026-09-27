@@ -120,6 +120,10 @@ test('M510-5 THE PLANNING HELPER READS EVERYTHING, AND ITS ANSWER IS DATA: prese
   eq(await loadPlan('s-plan', 'p-bad'), null, 'and nothing was kept for that page');
   for (let i = 2; i <= 6; i += 1) await keepPlan('s-plan', 'p' + i, PLAN);
   assert(await loadPlan('s-plan', 'p3') && !(await loadPlan('s-plan', 'p1')), 'the last four are kept (Try again finds the one before)');
+  /* kept in the same millisecond, the newest still stands (a clock tie once let it go) */
+  const realNow = Date.now; Date.now = () => 1700000000000;
+  try { for (const k of ['t1', 't2', 't3', 't4', 't5']) await keepPlan('s-tie', k, PLAN); } finally { Date.now = realNow; }
+  assert(await loadPlan('s-tie', 't5') && await loadPlan('s-tie', 't2') && !(await loadPlan('s-tie', 't1')), 'the newest four by order, whatever the clock says');
   assert(planKey({ id: 'a1', swipeIdx: 1 }, 'x') !== planKey({ id: 'a1', swipeIdx: 1 }, 'y'), 'an edited page is a new page to plan after');
 });
 
@@ -195,4 +199,43 @@ test('M510-9 WHAT THE LEDGER KNOWS OF THE PEOPLE IN THE SCENE REACHES A SMALL MO
   const facts = r.receipt.slots.find((s) => s.name === 'The state of things');
   const minds = r.receipt.slots.find((s) => s.name === 'On their mind');
   assert(facts && facts.tokens > 0 && facts.tokens <= 1100 && minds && minds.tokens <= 1300, 'and the ledger’s part stays small: ' + (facts && facts.tokens) + ' + ' + (minds && minds.tokens) + ' tokens');
+});
+
+test('M510-10 A HEATED PAGE IS NEVER SILENT: the intimacy rule that wakes in a sex scene now asks for a continuous soundtrack — no longer "porn volume is slop", "quiet is hotter", "wall-to-wall moaning is noise" — for every storyteller; a copy of that rule he pinned but never edited follows it, one he edited keeps his words; and a heated scene is read from what woke, his own intimacy rule too', async () => {
+  const { listModules, saveModule } = await import('../../js/assemble/modules.js');
+  const { heatedNow } = await import('../../js/assemble/stack.js');
+  const { readFileSync } = await import('node:fs');
+  const KEY = 'modules';
+  const was = await db.settings.get(KEY);
+  try {
+    await db.settings.set(KEY, []);
+    const nsfw = (await listModules()).find((m) => m.id === 'nsfw');
+    /* on the wire, for the frontier model: the woken rule as it rides */
+    const r = buildRequest({ story: {}, messages: pages(3), settings: {}, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }, { mod: nsfw, reason: 'the scene has turned intimate' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
+    const w = wireOf(r);
+    for (const gone of ['Porn volume as baseline is slop', 'hotter than screaming', 'wall-to-wall moaning', 'characters talk through intimacy']) assert(!w.includes(gone), 'no longer said: ' + gone);
+    for (const said of ['sex is never silent', 'Forced quiet changes the sound; it never removes it', 'a paragraph of the act with no sound in it is a failed paragraph', 'never a conversation paragraph in the middle of the act']) assert(w.includes(said), 'said: ' + said);
+    /* a copy he pinned before M510-3 — the old words, never edited — follows the built-in as it stands */
+    const OLD = readFileSync(new URL('./fixtures/nsfw-as-shipped-to-m510.txt', import.meta.url), 'utf8');
+    assert(/Porn volume as baseline is slop/.test(OLD), 'the fixture is the old rule');
+    await db.settings.set(KEY, [{ id: 'nsfw', name: nsfw.name, text: OLD, pinned: true, whenKey: 'intimate', note: '', custom: false }]);
+    const pinned = (await listModules()).find((m) => m.id === 'nsfw');
+    assert(pinned.text === nsfw.text && pinned.pinned === true && pinned.overridden === false, 'the pinned old copy rides the rule as it stands now, still pinned');
+    /* a copy he EDITED keeps his words */
+    await db.settings.set(KEY, [{ id: 'nsfw', name: nsfw.name, text: OLD + '\nMY-OWN-LINE', pinned: true, whenKey: 'intimate', note: '', custom: false }]);
+    const edited = (await listModules()).find((m) => m.id === 'nsfw');
+    assert(edited.text.endsWith('MY-OWN-LINE') && edited.overridden === true, 'his edit stands');
+    /* pinning now stores no copy: the row keeps no words, the rule follows the built-in */
+    await db.settings.set(KEY, []);
+    await saveModule({ id: 'nsfw', name: nsfw.name, text: nsfw.text, pinned: true, whenKey: 'intimate', note: '' });
+    const row = (await db.settings.get(KEY)).find((x) => x.id === 'nsfw');
+    assert(row && row.pinned === true && row.text === null, 'a pin keeps no copy of the words: ' + JSON.stringify(row && row.text).slice(0, 40));
+    eq((await listModules()).find((m) => m.id === 'nsfw').text, nsfw.text, 'and it rides the built-in');
+  } finally { if (was === undefined || was === null) await db.settings.delete(KEY); else await db.settings.set(KEY, was); }
+  /* a heated scene: from what woke — his own imported intimacy rule included — or the ledger's own mode */
+  eq(heatedNow([{ mod: { id: 'mod-his-nsfw', whenKey: 'intimate' } }], {}), true, 'his own intimacy rule woke');
+  eq(heatedNow([], { mode: { intimate: true } }), true, 'the ledger says the scene is intimate');
+  eq(heatedNow([{ mod: { id: 'contested-resolution', whenKey: 'combat' } }], {}), true, 'a contest woke');
+  eq(heatedNow([{ mod: { id: 'spectacle-combat', whenKey: 'manual' } }], {}), false, 'a register pinned for a whole arc is not a heated page by itself');
+  eq(heatedNow([], {}), false, 'a calm page is calm');
 });
