@@ -11910,3 +11910,10 @@ V8 compiling 467 functions (213 ms, once per process) and 202 IndexedDB deserial
   What remains before the request: renderStateFacts ~230–290 ms (blindSpots 130–170), renderPeopleTiers ~145, the
   store's row clones ~105, the fetch itself ~100.
 - GATES: harness 966/966, walk 145/145, long play 8/8, lint 0, holdsone.py, bootpull.py. version.js -> m507-003.
+
+# M507-4 — a fact's key and words remembered
+engine/world.js factKey and factWords keep their answers by the fact's text (sameFact asks for them thousands of times a
+render: every fact against every fact of every person in the room; the fuzzy fold and knowledge.forget unchanged).
+tests/perf_send.py: blindSpots 130–170 → 113–129 ms; the request out 1299–1311 ms, the worst freeze 480–483 ms, the whole
+send 2022–2240 ms (m506: 2326 / 761 / 3194). GATES: harness 966/966, walk 145/145, long play 8/8, lint 0.
+version.js -> m507-004.

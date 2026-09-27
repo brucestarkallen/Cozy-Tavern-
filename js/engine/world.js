@@ -381,8 +381,16 @@ export function undoubled(text) {
   return out;
 }
 
+/* M507: a fact's key and its words are remembered by the fact's own text — sameFact asks for them thousands of times a
+ * render (every fact against every fact of every person in the room) */
+const FACT_KEYS = new Map();
 export function factKey(f) {
-  return String(f || '').toLowerCase().replace(/[‘’´`]/g, "'").replace(/[“”]/g, '"').replace(/[^\p{L}\p{N}\s']/gu, ' ').replace(/\s+/g, ' ').trim();
+  const text = String(f || '');
+  const hit = FACT_KEYS.get(text);
+  if (hit !== undefined) return hit;
+  const out = text.toLowerCase().replace(/[‘’´`]/g, "'").replace(/[“”]/g, '"').replace(/[^\p{L}\p{N}\s']/gu, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length <= 600) { if (FACT_KEYS.size > 20000) FACT_KEYS.clear(); FACT_KEYS.set(text, out); }
+  return out;
 }
 /* M490-3: the paraphrase fold is OPT-IN ({ fuzzy: true }) and only for the same moment. As the default it merged
  * "…told Jovan about the cult…" with "…about the owls…" (a fact lost), and knowledge.forget — which asks sameFact what
@@ -772,12 +780,16 @@ export function renderWorldBrief(brief, turnNow, pageNow) {
  * must show how she came to know". The second reader holds the finished page to the same list (agents/continuity.js). */
 export const BLIND_PER_PERSON = 4;
 export const BLIND_RECENT_PAGES = 60;
+const FACT_WORDS = new Map();
 const factWords = (fact, ignore) => {
+  const text = String(fact || '');
+  if (!ignore && FACT_WORDS.has(text)) return new Set(FACT_WORDS.get(text));
   const out = new Set();
-  for (const w of String(fact || '').toLowerCase().split(/[^\p{L}\p{N}'’-]+/u)) {
+  for (const w of text.toLowerCase().split(/[^\p{L}\p{N}'’-]+/u)) {
     const word = w.replace(/['’]s$/, '').replace(/^['’-]+|['’-]+$/g, '');
     if (word.length >= 4 && !SCENE_STOP.has(word) && !(ignore && ignore.has(word))) out.add(word);
   }
+  if (!ignore && text.length <= 600) { if (FACT_WORDS.size > 20000) FACT_WORDS.clear(); FACT_WORDS.set(text, new Set(out)); }
   return out;
 };
 const overlap = (a, b) => { if (!a.size || !b.size) return 0; let n = 0; for (const w of a) if (b.has(w)) n += 1; return n / Math.min(a.size, b.size); };
