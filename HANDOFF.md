@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-027)
+# Cozy Tavern — handoff for the next session (state at m510-028)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1020,4 +1020,10 @@ founding design lives in AGENTS.md's first entries.)
   for a whole exchange is a failure". The combat predicate wakes on his own typed fight words too (typedCombat, as the
   intimacy rule wakes on his words — M85-002), so the contest rule and this one ride on the page where he draws his blade,
   for every storyteller. A page that is no fight is byte for byte as before (the nine fixtures). Law M510-26/27.
+- M510-28 — THE HOUSEKEEPER HOLDS THE LIVE LEDGER, AND IS TOLD SO: it always was handed the whole ledger, read fresh from
+  the store each time he speaks (housekeeperTurn → loadState → buildHousekeeperContext → renderWholeLedger, "Here now"
+  included) — but the block said only "the scene as the readers keep it", and it told him "the only surface I can't see
+  is the live ledger text, so presence.leave fires blind". The block is headed "THE LEDGER — LIVE: read fresh from the
+  store the moment the writer spoke to you…", and its standing words say the ledger is live, every applied card shows in
+  it, and to look at "Here now" before taking anyone out. Law M510-28.
 

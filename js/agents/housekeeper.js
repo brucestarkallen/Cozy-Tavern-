@@ -748,7 +748,10 @@ function buildHousekeeperContextAt({
   if (fullPages.length) {
     parts.push('The last ' + fullPages.length + ' pages in full:\n\n' + fullPages.join('\n\n'));
   }
-  parts.push('THE LEDGER (the scene as the readers keep it; change it with <ledits>):\n' + ledger);
+  /* M510-28: he asked why it kept saying "the only surface I still can't see is the live ledger text, so presence.leave
+   * fires blind" — it is handed the whole ledger, read fresh from the store the moment he speaks (housekeeperTurn → loadState),
+   * and was never told so: the block said only "the scene as the readers keep it". It says it now. */
+  parts.push('THE LEDGER — LIVE: read fresh from the store the moment the writer spoke to you, exactly as it stands now ("Here now" is who is in the scene at this moment); change it with <ledits>:\n' + ledger);
   /* M74: the pages of the people, WHOLE — the housekeeper was told to sweep
    * them and could not see them */
   const people = Object.entries((state && state.characters) || {}).filter(([, c]) => c && typeof c === 'object');
@@ -829,6 +832,11 @@ const SYSTEM_PROMPT = [
   'THE RECORD, THE LORE SHELF, the rulebook’s names — and the writer talks to you',
   'when something needs a steady hand: a name that drifted, a contradiction to',
   'repair, a passage to re-ink, a truth to write down or let go, the brief to change.',
+  'THE LEDGER you hold is the live one, read fresh every time the writer speaks:',
+  'nothing of it is out of your sight, and every card you applied before shows in it.',
+  'Before you take someone out of the scene, look at "Here now" — a name not there has',
+  'already gone, and a leave for it changes nothing. Never tell the writer a surface is',
+  'hidden from you when it stands above; quote it.',
   '',
   'Answer in plain, warm words. When a change is called for, propose it inside',
   'your reply with these blocks — they are staged as cards the writer must',

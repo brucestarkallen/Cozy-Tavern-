@@ -695,3 +695,27 @@ test('M510-26/27 HOW A FIGHT SOUNDS (his report: sex has its sounds, a brutal fi
   eq((JSON.stringify(small.systemBlocks) + JSON.stringify(small.messages)).split('How A Fight Sounds = a fight is LOUD').length - 1, 1, 'said once to a small model — never twice');
 });
 
+
+test('M510-28 THE HOUSEKEEPER HOLDS THE LIVE LEDGER (he asked why it kept saying "the only surface I can’t see is the live ledger text, so presence.leave fires blind"): read fresh from the store each time he speaks — "Here now" as it stands — and it is told so', async () => {
+  const { housekeeperTurn } = await import('../../js/agents/housekeeper.js');
+  const { saveState } = await import('../../js/engine/state.js');
+  const { db: store } = await import('../../js/store.js');
+  const st = await store.stories.create({ title: 'the live ledger' });
+  const base = [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }, { type: 'presence.enter', name: 'Kaelen' }];
+  const s1 = { ...applyMutations({ ...emptyState(), page: 3 }, base).state, page: 3 };
+  await saveState(st.id, s1);
+  const seen = [];
+  const call = async (req) => { seen.push(JSON.stringify(req).replace(/\\n/g, '\n').replace(/\\"/g, '"')); return { text: 'All is well in the house.' }; };
+  const t1 = await housekeeperTurn({ storyId: st.id, writerText: 'who is here?', connection: { type: 'openai' }, call });
+  assert(t1.ok, t1.error);
+  const first = seen[0];
+  const here1 = (first.match(/Here now: [^\n]*/) || [''])[0];
+  assert(/THE LEDGER — LIVE: read fresh from the store the moment the writer spoke to you/.test(first) && /Kaelen/.test(here1) && /Rukia/.test(here1), 'the live ledger, with who is here: ' + here1);
+  assert(/THE LEDGER you hold is the live one, read fresh every time the writer speaks/.test(first) && /look at "Here now"/.test(first), 'and it is told so, and told to look before a leave');
+  /* a reader writes between his turns: Kaelen leaves */
+  await saveState(st.id, { ...applyMutations(s1, [{ type: 'presence.leave', name: 'Kaelen' }]).state, page: 4 });
+  const t2 = await housekeeperTurn({ storyId: st.id, writerText: 'and now?', connection: { type: 'openai' }, call });
+  assert(t2.ok, t2.error);
+  const here2 = (seen[seen.length - 1].match(/Here now: [^\n]*/) || [''])[0];
+  assert(!/Kaelen/.test(here2) && /Rukia/.test(here2), 'the next turn holds the ledger as it stands now: ' + here2);
+});

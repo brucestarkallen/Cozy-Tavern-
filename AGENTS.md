@@ -12761,3 +12761,17 @@ whole exchange is a failure (a flurry is a burst, a beating a rhythm). The small
 woken rule rides in both, said once. He can pin, edit or turn it off in the rulebook like any built-in. A page that is no
 fight is unchanged (nine fixtures byte for byte). Law M510-26/27.
 
+# M510-28 — the housekeeper holds the live ledger, and is told so
+He: "why does the housekeeper keep saying 'the only surface I still can't see for myself is the live ledger text, so the
+presence.leave ops fire blind on name — if they're already gone it's a harmless no-op'? Is it true? It can see
+everything." Checked the road, not the words (his law 11): housekeeperTurn loads the ledger fresh from the store on every
+turn (loadState), runConversation builds the context from it, and buildHousekeeperContext puts renderWholeLedger(state) —
+the WHOLE ledger, "Here now" first — into the model's reading; the people's pages lean in a small room, the ledger never.
+So no, it was not true. What was missing was the telling: the block was headed "the scene as the readers keep it" and
+nothing said it was live, so the model hedged. The block is now "THE LEDGER — LIVE: read fresh from the store the moment
+the writer spoke to you, exactly as it stands now ('Here now' is who is in the scene at this moment)", and the standing
+words say the ledger it holds is the live one, every card it applied shows in it, look at "Here now" before a leave (a
+name not there has already gone — engine/apply.js refuses a leave for someone not here, with the reason), and never call
+a surface hidden when it stands above. Law M510-28 proves it by behaviour: a reader's write between two of his turns
+shows in the second turn's "Here now".
+
