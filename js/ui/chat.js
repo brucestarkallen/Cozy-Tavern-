@@ -79,7 +79,7 @@ import { makeHeaderGate, splitAtHeader, pageOnly } from './headergate.js';
 import { tidyPage } from './pageshape.js'; /* M340: the page made whole before it is kept */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName, isMcAlias } from '../engine/duels.js';
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
-import { plannerAsk, runPlanner, loadPlan, loadPlans, keepSound, planKey, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper */
+import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
 import { lastPagesOf } from '../assemble/stack.js'; /* M510 */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
@@ -2533,8 +2533,10 @@ export function initChat(ctx) {
     if (!connection) return { silent: true };
     const pagesAll = visiblePages(await db.messages.list(story.id));
     const lastPage = [...pagesAll].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
-    const forKey = planKey(lastPage, lastPage ? pageText(lastPage) : '');
-    if (await loadPlan(story.id, forKey)) return { silent: true };
+    const forKey = planKey(lastPage);
+    const hash = hashText(lastPage ? pageText(lastPage) : '');
+    const have = await planEntry(story.id, forKey);
+    if (have && have.hash === hash) return { silent: true }; /* M510-6: planned, and the page's words have not changed since */
     const state = await loadState(story.id);
     const fresh = (await db.stories.get(story.id)) || story;
     const mods = await listModules();
@@ -2557,7 +2559,7 @@ export function initChat(ctx) {
     const present = (Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
     const ask = plannerAsk({ craft, brief: fresh.brief || '', castNotes: fresh.castNotes || '', facts, people, record, lore, world, director, pages, mc, lastSound });
     if (stale()) return { silent: true };
-    const { plan, raw } = await runPlanner({ connection, storyId: story.id, forKey, ask, present, mc, lawNames, signal });
+    const { plan, raw } = await runPlanner({ connection, storyId: story.id, forKey, hash, ask, present, mc, lawNames, signal });
     if (stale()) return { silent: true };
     if (!plan) return { detail: 'its answer could not be used', raw }; /* the next page goes whole, as before a plan existed */
     return { detail: 'read the story and planned the next page' + (plan.intense ? ' — a heated one' : '') };
@@ -4297,7 +4299,7 @@ export function initChat(ctx) {
       let smallPlan = null; let smallIntense = false; let lastSound = null;
       if (settingsValues.smallModelNow === true) {
         const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
-        smallPlan = await loadPlan(story.id, planKey(before, before ? pageText(before) : ''));
+        smallPlan = await loadPlan(story.id, planKey(before)); /* M510-6: the plan of the page this follows, mended or not */
         smallIntense = heatedNow(selected, state); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode */
         lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
       }

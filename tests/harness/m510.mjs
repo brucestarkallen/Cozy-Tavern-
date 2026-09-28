@@ -124,7 +124,13 @@ test('M510-5 THE PLANNING HELPER READS EVERYTHING, AND ITS ANSWER IS DATA: prese
   const realNow = Date.now; Date.now = () => 1700000000000;
   try { for (const k of ['t1', 't2', 't3', 't4', 't5']) await keepPlan('s-tie', k, PLAN); } finally { Date.now = realNow; }
   assert(await loadPlan('s-tie', 't5') && await loadPlan('s-tie', 't2') && !(await loadPlan('s-tie', 't1')), 'the newest four by order, whatever the clock says');
-  assert(planKey({ id: 'a1', swipeIdx: 1 }, 'x') !== planKey({ id: 'a1', swipeIdx: 1 }, 'y'), 'an edited page is a new page to plan after');
+  /* M510-6: a plan follows its page, not its exact words — a mended page keeps its plan and is read again */
+  const { planEntry, hashText } = await import('../../js/agents/planner.js');
+  eq(planKey({ id: 'a1', swipeIdx: 1 }), planKey({ id: 'a1', swipeIdx: 1 }), 'the same page, whatever its words');
+  assert(planKey({ id: 'a1', swipeIdx: 1 }) !== planKey({ id: 'a1', swipeIdx: 2 }), 'another version is another page');
+  await keepPlan('s-mend', planKey({ id: 'a1', swipeIdx: 0 }), PLAN, hashText('the words as read'));
+  const entry = await planEntry('s-mend', planKey({ id: 'a1', swipeIdx: 0 }));
+  assert(entry && entry.plan && entry.hash === hashText('the words as read') && entry.hash !== hashText('the words, mended'), 'the send still has its plan after a mend, and the helper can see the words changed');
 });
 
 test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the last eight pages, the plan in his voice last — the notes, the record and the older pages stay with the helper; a heated scene hears his two sound laws right before the page', () => {
@@ -139,8 +145,8 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   for (const kept of ['PAGE-12.', 'PAGE-19.', 'I raise my staff.']) assert(wire.includes(kept), 'the last eight pages and his message: ' + kept);
   eq(small.messages.filter((m) => m.role === 'assistant').length, 8, 'eight of the storyteller’s pages');
   const last = small.messages[small.messages.length - 1].content;
-  assert(/^What I have in mind for this page, so it is in front of you\./.test(last) && /Right now — The hour: /.test(last) && /Kaelen \(fourth seat, proud, fights with a staff\) — circling with his staff; wants to humble Jovan\. Set against Jovan: the seat Jovan was given — and that holds this page\./.test(last), 'the plan, in his voice, the ledger’s own hour: ' + last.slice(0, 400));
-  assert(/Leave off where the staff comes down at him — Jovan’s choice is mine to make\./.test(last), 'the page stops at his choice');
+  assert(/^What I have in mind for this page — how things stood before my move above, so it is in front of you\./.test(last) && /Right now — The hour: /.test(last) && /Kaelen \(fourth seat, proud, fights with a staff\) — circling with his staff; wants to humble Jovan\. Set against Jovan: the seat Jovan was given — and that holds this page\./.test(last), 'the plan, in his voice, the ledger’s own hour: ' + last.slice(0, 400));
+  assert(/Leave off where Jovan has the next choice — before my move, that looked like: the staff comes down at him\. Jovan’s choices are mine to make\./.test(last), 'the page stops at his choice, his move above governing');
   assert(!/Sound As Onomatopoeia/.test(last), 'a calm scene hears no sound laws');
   const bad = wire.match(/\b(assistant|an AI|language model|LLM|system prompt|the system|worker|JSON|mutation|marching orders|NORTH STAR|the director|the editor|the auditor|the referee|the house|helper)\b/gi);
   assert(!bad, 'no third authority on the wire (M495): ' + JSON.stringify(bad));

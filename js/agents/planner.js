@@ -42,10 +42,14 @@ export function hashText(t) {
   for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
 }
-export function planKey(msg, text) {
+/* M510-6: A PLAN FOLLOWS ITS PAGE (id and version), NOT ITS EXACT WORDS. Keyed to the words, any mend after the helper
+ * read the page — the second reader's smallest edit, a thought mended on open, his own touch-up — left the next send
+ * with no plan and the small model back on the whole story. The words' fingerprint rides beside the plan instead: the
+ * send uses the plan of its page, and the helper reads the page again when its words have changed. */
+export function planKey(msg) {
   if (!msg || !msg.id) return 'the opening';
   const version = Number.isFinite(msg.swipeIdx) ? msg.swipeIdx : 0;
-  return msg.id + ':' + version + ':' + hashText(text);
+  return msg.id + ':' + version;
 }
 
 const clip = (s, n = LINE) => {
@@ -152,18 +156,23 @@ export async function loadPlans(storyId) {
   return kept && typeof kept === 'object' && !Array.isArray(kept) ? kept : { plans: {}, lastSound: null };
 }
 export async function loadPlan(storyId, forKey) {
+  const hit = await planEntry(storyId, forKey);
+  return hit ? hit.plan : null;
+}
+/* the plan kept for a page and the fingerprint of the words it was made from */
+export async function planEntry(storyId, forKey) {
   const kept = await loadPlans(storyId);
   const hit = kept.plans && kept.plans[forKey];
-  return hit && hit.plan ? hit.plan : null;
+  return hit && hit.plan ? { plan: hit.plan, hash: typeof hit.hash === 'string' ? hit.hash : '' } : null;
 }
 /* M510-3: the newest are kept by ORDER, never by clock: two plans kept in the same millisecond tied on `at`, the sort kept
  * the older of them and let the newest go (the full harness caught it; alone it passed). A plan's key is re-set last, and
  * the last PLAN_KEEP stand. */
-export async function keepPlan(storyId, forKey, plan) {
+export async function keepPlan(storyId, forKey, plan, hash = '') {
   const kept = await loadPlans(storyId);
   const plans = { ...(kept.plans || {}) };
   delete plans[forKey];
-  plans[forKey] = { plan, at: Date.now() };
+  plans[forKey] = { plan, at: Date.now(), hash: typeof hash === 'string' ? hash : '' };
   const newest = Object.entries(plans).slice(-PLAN_KEEP);
   await db.settings.set(PLAN_KEY(storyId), { ...kept, plans: Object.fromEntries(newest) });
 }
@@ -178,7 +187,7 @@ export async function keepSound(storyId, sound) {
  * two-second backoff, a minute of the tale's one channel held for a model that answered badly, while the next send
  * waits on it. A failure to reach the model still throws — that is what the queue's retries are for. */
 export const PLAN_TRIES = 2;
-export async function runPlanner({ connection, storyId, forKey, ask, present = [], mc = '', lawNames = [], signal, callLLM = callWorker } = {}) {
+export async function runPlanner({ connection, storyId, forKey, hash = '', ask, present = [], mc = '', lawNames = [], signal, callLLM = callWorker } = {}) {
   if (!connection || !storyId || !ask) return { plan: null, raw: '' };
   let user = ask.user;
   let raw = '';
@@ -186,7 +195,7 @@ export async function runPlanner({ connection, storyId, forKey, ask, present = [
     const answer = await callLLM(connection, { system: ask.system, user, maxTokens: PLAN_MAX_TOKENS, signal });
     raw = typeof answer === 'string' ? answer : (answer && typeof answer.text === 'string' ? answer.text : '');
     const plan = readPlan(raw, { present, mc, lawNames });
-    if (plan) { await keepPlan(storyId, forKey, plan); return { plan, raw }; }
+    if (plan) { await keepPlan(storyId, forKey, plan, hash); return { plan, raw }; }
     user = ask.user + '\n\nYour last answer was not the JSON object asked for. Answer with that one JSON object only — no words before or after it.';
   }
   return { plan: null, raw };

@@ -14,7 +14,8 @@ const clip = (s, n = 280) => {
 export function renderPlan(plan, { voice = null, anchor = [], cores = {}, mc = '' } = {}) {
   if (!plan) return '';
   const him = mc && mc !== 'the player' ? mc : 'my character';
-  const out = ['What I have in mind for this page, so it is in front of you.'];
+  /* M510-6: the plan was made BEFORE his move — said so, so the move above governs and the plan never overrides it */
+  const out = ['What I have in mind for this page — how things stood before my move above, so it is in front of you.'];
   if (anchor.length) out.push('Right now — ' + anchor.join(' '));
   if (plan.scene) out.push(plan.scene);
   for (const p of plan.people) {
@@ -29,7 +30,7 @@ export function renderPlan(plan, { voice = null, anchor = [], cores = {}, mc = '
   for (const u of plan.unknown) out.push(u.name + ' hasn’t found out: ' + u.fact.replace(/[.]+$/, '') + '.');
   if (plan.pressing.length) out.push('What’s pressing: ' + plan.pressing.map((s) => s.replace(/[.]+$/, '')).join('; ') + '.');
   if (plan.earlier.length) out.push('From earlier, still true: ' + plan.earlier.map((s) => s.replace(/[.]+$/, '')).join('; ') + '.');
-  if (plan.leaveTo) out.push('Leave off where ' + plan.leaveTo.replace(/^(?:at |where )/i, '').replace(/[.]+$/, '') + ' — ' + him + '’s choice is mine to make.');
+  if (plan.leaveTo) out.push('Leave off where ' + him + ' has the next choice — before my move, that looked like: ' + plan.leaveTo.replace(/^(?:at |where )/i, '').replace(/[.]+$/, '') + '. ' + him + '’s choices are mine to make.');
   const text = out.join('\n');
   return voice && voice.teller ? toTeller(text, voice) : text;
 }

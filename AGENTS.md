@@ -12424,3 +12424,19 @@ braided where the action puts it, never parked in the same spot paragraph after 
 bodies (a sound in the same slot of every paragraph is its own formula). SHIPPED_BEFORE gains the M510-4 fingerprint
 (fixture nsfw-as-shipped-at-m510-4.txt). Law M510-11; M510-10 gains the M510-4 copy.
 
+# M510-6 — the audit he asked for: a plan follows its page, and never outranks his move
+He: "audit everything — no bugs, no regression — and brainstorm how the small model punches above its weight; full
+approval to implement". Audited M510–M510-5 end to end (the diff re-read, no debug left in it; the helper's reading of a
+40-person ledger and sixty pages measured at 13.9 ms here, ~83 ms on his phone, once per page in the background). Two
+defects in the design, both fixed:
+- A PLAN WAS KEYED TO ITS PAGE'S EXACT WORDS (id:version:hash): any mend after the helper read the page — the second
+  reader's smallest edit, a thought mended on open, his own touch-up — left the next send with no plan, and the small
+  model back on the whole 80–100k story for that page. planner.js planKey is id:version; the words' fingerprint is kept
+  beside the plan (keepPlan hash, planEntry); the send uses its page's plan; planNext reads the page again only when its
+  words changed.
+- THE PLAN COULD OUTRANK HIS MOVE: it rides after his message (the closing words), was made before his move, and said
+  "What I have in mind for this page … Leave off where <what the scene looked like>" — a small model reads the last
+  words hardest, so a plan written before "I walk away" could pull the page back to the plan's moment. It now says what
+  it is: "how things stood before my move above", and "Leave off where Jovan has the next choice — before my move, that
+  looked like: …". Laws M510-5 (a mend keeps the plan; another version is another page), M510-6 and DOM-67 re-pinned.
+

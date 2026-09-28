@@ -3624,7 +3624,7 @@ test('DOM-67 THE SMALL-MODEL MODE, IN THE APP (M510): it lives on the connection
     const small = await send('I wait for her answer.');
     const sw = JSON.stringify(small);
     const last = String(small.messages[small.messages.length - 1].content);
-    assert(/^What I have in mind for this page, so it is in front of you\./.test(last) && /Kara — waiting by the rail; wants an answer about last night\./.test(last) && /Right now — The hour: /.test(last), 'the plan, in his voice, last: ' + last.slice(0, 240));
+    assert(/^What I have in mind for this page — how things stood before my move above, so it is in front of you\./.test(last) && /Kara — waiting by the rail; wants an answer about last night\./.test(last) && /Right now — The hour: /.test(last), 'the plan, in his voice, last: ' + last.slice(0, 240));
     assert(/Header Protocol = /.test(sw) && /Voice Fingerprints = /.test(sw) && !/Pathway Laundering = /.test(sw), 'the laws this scene needs, not the whole craft');
     assert(!/PAGE-5\./.test(sw) && /PAGE-19\./.test(sw) && /Kara looked up from the water/.test(sw), 'the last eight pages word for word');
     assert(sizeOf(small) * 2 < sizeOf(first), 'far smaller: ' + sizeOf(first) + ' → ' + sizeOf(small) + ' tokens');

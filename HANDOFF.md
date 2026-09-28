@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-005)
+# Cozy Tavern — handoff for the next session (state at m510-006)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -485,7 +485,10 @@ founding design lives in AGENTS.md's first entries.)
   chain's last link), when the Quick switch or Settings hands a tale to a small model, and on opening such a tale. Its
   answer is DATA (readPlan: present people only, never the MC, the craft's own law names only, clipped); an unusable
   answer is asked for once more with a word why, then let go (never thrown: a throw is the queue's minute of retries).
-  Plans are kept per page key (id:version:hash of the page it followed; the last four, so Try again finds the one before).
+  Plans are kept per page (id:version — M510-6: never the words' hash, or any mend dropped the small model back on the
+  whole story; the words' fingerprint rides beside the plan and the helper reads a changed page again), the last four by
+  order, so Try again finds the one before. The plan says it was made BEFORE his move ("how things stood before my move
+  above"; "before my move, that looked like: …") — after his message, a small model must never take it over his move.
   WITH A PLAN — THE SMALL REQUEST (stack.js smallB, his choice B): the craft rides as laws.js ALWAYS_LAWS (The Telling,
   Header Protocol, MC Agency and its companions, Intent Horizon, the Page's three laws) plus the helper's laws, WORD FOR
   WORD (lawsOf/joinLaws never reword); the shortcuts; the cards of who is here; woken rules, lore, canon, the ruling, the
