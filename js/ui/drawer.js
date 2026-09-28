@@ -49,6 +49,7 @@ import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '
 import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices */
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
+import { loadEssentials, recordOf } from '../agents/essentials.js'; /* M510-21: the story essentials, where he can read them */
 import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
 import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
 import { pageText } from '../assemble/stack.js';
@@ -2519,6 +2520,44 @@ function recordPanel(ctx) {
   return wrap;
 }
 
+/* M510-21: THE STORY ESSENTIALS, WHERE HE CAN READ THEM — his word: "why not put them in the ledger, so I can see them".
+ * What a small storyteller reads on every page in place of the whole record; or, when there are none, why. */
+function essentialsPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'record-panel essentials-panel';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list record-list essentials-list';
+  wrap.append(note, list);
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) { note.textContent = 'Open a story and its essentials will be here.'; return; }
+    const kept = await loadEssentials(story.id);
+    const mem = await loadMemory(story.id);
+    if (!kept) {
+      note.textContent = !orderedLines(mem).some((n) => !n.correction)
+        ? 'Not made yet — the record is still empty: the memory keeper folds pages once they are older than its window (' + windowFor(mem, await db.settings.get('memoryWindow')) + ' pages), and the essentials are made from the record.'
+        : 'Not made yet — the essentials keeper makes them while a small model tells this story (a model marked “small model” in the Quick switch); your normal model reads the whole record above.';
+      return;
+    }
+    const current = recordOf(mem.nodes).print === kept.print;
+    note.textContent = 'The whole record, told shorter — what a small storyteller reads on every page; a line of the record comes back word for word when your move names it. Made from the record through page ' + (kept.upTo + 1)
+      + (current ? '.' : ' — the record has grown since; they are made again while a small model tells the story.');
+    for (const line of kept.text.split('\n').map((l) => l.trim()).filter(Boolean)) {
+      const li = document.createElement('li');
+      li.className = 'present-row mind-row record-row essentials-row';
+      const body = document.createElement('div');
+      body.className = 'quiet';
+      body.textContent = line.replace(/^- /, '');
+      li.appendChild(body);
+      list.appendChild(li);
+    }
+  });
+  render();
+  return wrap;
+}
+
 /* M148: draw a pending panel now */
 function drawPendingIn(panelsEl, ctx) {
   for (const sec of panelsEl.querySelectorAll('.ledger-panel[data-pending]')) {
@@ -2539,7 +2578,7 @@ const ROOM_OF = {
   'the-clock': 'scene', 'the-ruling': 'scene', 'how-they-measure': 'scene', 'whos-here': 'scene', 'the-mood': 'scene',
   'the-people': 'people', 'whats-true': 'people', 'what-canon-says': 'people', 'holding-up': 'people', 'on-their-mind': 'people',
   'elsewhere': 'world', 'the-world-beyond': 'world', 'voices': 'world',
-  'the-record': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
+  'the-record': 'books', 'the-essentials': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
 };
 function roomOfPanel(id) { return ROOM_OF[id] || 'books'; }
 let drawerRoomNow = 'scene';
@@ -2633,6 +2672,11 @@ const PANELS = [
     id: 'the-record',
     title: 'Our story so far — the record',
     render: (ctx) => recordPanel(ctx),
+  },
+  {
+    id: 'the-essentials',
+    title: 'Story essentials — the record, told shorter',
+    render: (ctx) => essentialsPanel(ctx),
   },
   {
     id: 'what-changed',

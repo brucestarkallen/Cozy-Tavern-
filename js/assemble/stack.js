@@ -463,8 +463,35 @@ export function refereeCraft(text, on) {
   return line ? s.replace(OLD_RULED_LINE, line[0]) : s;
 }
 
+/* M510-21: the record's lines that name who is here — the newest few per person, the MC left out (he is in every line) */
+export const PRESENT_LINES_EACH = 5;
+export const PRESENT_RECORD_CHARS = 6000;   /* about 1,500 tokens */
+export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRESENT_LINES_EACH, cap = PRESENT_RECORD_CHARS } = {}) {
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const mc = String(mcNameOf(state) || '').trim().toLowerCase();
+  const here = [...new Set((Array.isArray(state && state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => typeof n === 'string' && n.trim()).map((n) => n.trim()))]
+    .filter((n) => n.toLowerCase() !== mc);
+  const lines = (Array.isArray(nodes) ? nodes : []).filter((n) => n && !n.empty && !n.correction && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span)).sort((a, b) => a.span[0] - b.span[0]);
+  const picked = new Set(); const who = [];
+  for (const name of here) {
+    const first = name.split(/\s+/)[0];
+    const parts = first && first.length >= 3 && first !== name ? [name, first] : [name];
+    const re = new RegExp('(?<![\\p{L}\\p{N}])(?:' + parts.map(esc).join('|') + ')(?![\\p{L}\\p{N}])', 'u');
+    let n = 0;
+    for (let i = lines.length - 1; i >= 0 && n < each; i -= 1) {
+      if (!re.test(lines[i].text) || skip(lines[i])) continue;
+      n += 1; picked.add(lines[i]);
+    }
+    if (n) who.push(name);
+  }
+  const render = (l) => '- (pages ' + (l.span[0] + 1) + (l.span[1] !== l.span[0] ? '–' + (l.span[1] + 1) : '') + ') ' + l.text.trim();
+  let chosen = [...picked].sort((a, b) => a.span[0] - b.span[0]);
+  while (chosen.length && chosen.map(render).join('\n').length > cap) chosen = chosen.slice(1);
+  return { text: chosen.map(render).join('\n'), who, lines: chosen.length };
+}
+
 /* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
-export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'The story in short', 'On their mind', 'The state of things', 'Active modules', 'Story essentials', 'What remains', 'What canon says', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The story so far', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
+export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'The story in short', 'On their mind', 'The state of things', 'Active modules', 'Story essentials', 'What remains', 'Who’s here, in the record', 'What canon says', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The story so far', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
 function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
@@ -474,6 +501,7 @@ function emptyWhy(name, c) {
       : !c.keeperOn ? 'the memory keeper is off for this story — there is no record to streamline'
       : !c.hasRecord ? 'not made yet — the record is still empty: the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window'
       : 'being made — the essentials keeper streamlines the record in the background; until then its newest lines ride under What remains';
+    case 'Who’s here, in the record': return !c.small ? 'small model only — your storyteller reads the whole record' : !c.planned ? noPlan + ', with the whole record' : 'no one here is named in the record yet, or their lines already ride above';
     case 'The plan for this page': return !c.small ? 'small model only — the planning helper writes one for a small storyteller' : noPlan + ', with the scene said once more';
     case 'The sounds': return !c.small ? 'small model only — on a heated page' : !c.planned ? noPlan + ', with the whole craft' : 'a calm page — no sound laws needed';
     case 'On their mind': return 'no one’s page to show — the ledger has no one in it yet';
@@ -818,6 +846,14 @@ export function buildRequest({
   if (essentialsText) stateParts.push('What our story holds, in essentials:\n' + essentialsText);
   if (memoryText && !smallB) stateParts.push('What remains of the older pages:\n' + memoryText);
   else if (smallRecord && smallRecord.text) stateParts.push((essentialsText ? 'Folded since the essentials were made' : 'What remains of the older pages' + (smallRecord.rested ? ' (the newest of them; ' + smallRecord.rested + ' older lines rest outside this page)' : '')) + ':\n' + smallRecord.text);
+  /* M510-21: WHO'S HERE, IN THE RECORD — his idea: while someone is in the scene, the record's own lines that name them ride
+   * word for word; once they are gone, not any more. Bounded, the newest few per person (recordOfWhoIsHere): someone who
+   * is always there is named in nearly every line, and all of them would be the whole record again. Lines already riding
+   * are not said twice. Small model only — the frontier model reads the whole record. */
+  const presentRecord = smallB ? recordOfWhoIsHere(windowInfo && windowInfo.nodes, state, {
+    skip: (n) => (essentialsText && n.span[0] > essentialsUpTo) || Boolean(smallRecord && smallRecord.text && smallRecord.text.includes(n.text.trim())),
+  }) : null;
+  if (presentRecord && presentRecord.text) stateParts.push('What the record holds of who is here, word for word:\n' + presentRecord.text);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
   if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
@@ -854,6 +890,7 @@ export function buildRequest({
    * dynamic tail before history; empty = omitted (the slot-7 law). --- */
   /* M486: the row stands whenever canon verification is ON for the tale — with the note, or empty with the reason it
    * had nothing to say (the writer could not tell whether canon ran at all) */
+  if (presentRecord && presentRecord.text) pushSlot('Who’s here, in the record', presentRecord.text, 'the record’s own lines that name who is here — word for word, while they are here (small model)', presentRecord.who.join(', ')); /* M510-21 */
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
   else if (canonOn) pushSlot('What canon says', '', '', canonWhy || 'canon verification gave no note this turn');
   if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */

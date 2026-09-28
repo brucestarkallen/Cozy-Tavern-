@@ -37,16 +37,22 @@ export function recordOf(nodes) {
   return { lines, text, upTo, print: fp(text) };
 }
 
+/* M510-21: HIS FORMAT — THE RECORD'S OWN, TOLD SHORTER. He: "make the essentials literally the same format as the original
+ * fold, but much more concise — cut what is unimportant (talking to the postman, a crowd saying something), keep the time
+ * and the place, because time and place make a story coherent; like human memory: everything still there, much more
+ * coherent and efficient; and when something is mentioned, the detailed line comes back." So the essentials are record
+ * lines — "[Sept 1, 08:24 · the Wells kitchen] (pages 3–9) Jovan did X → Kaelen did Y; …" — one line standing for a
+ * stretch that belongs together, oldest first. (M510-15 wrote four headed sections instead.) */
 export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
   const system = [
-    'You keep the essentials of a long collaborative story. You are given its whole record — dense lines, oldest first, each marked with the pages it covers. Write the story\'s essentials from it: the streamlined, coherent version a storyteller needs in mind on every page.',
-    'Write plain sentences under these four lines, exactly as written, each on its own line:',
-    'Who they are to each other:',
-    'What has happened, in order:',
-    'What still stands:',
-    'Where things were left:',
-    '"What still stands" keeps every promise, debt, secret, wound, grudge, bond and who-knows-what a later page could depend on. Leave out what nothing later depends on.',
-    'Use every person\'s name as the record spells it. Invent nothing the record does not say. At most 2,000 words — fewer when the story is young. Answer with the essentials only.',
+    'You condense the record of a long collaborative story into its essentials: the same record, told again shorter — the way a person remembers a story, with everything that matters still there.',
+    'You are given the whole record, oldest first. Each line stands for a stretch of pages: a prefix with its time and place, like "[Sept 1, 08:24 · the Wells kitchen]", then short phrases separated by semicolons.',
+    'Write the essentials in THE SAME FORMAT: lines, oldest first, one per line, each opening with its time-and-place prefix and the pages it stands for, then short phrases separated by semicolons — "[Sept 1, 08:24 · the Wells kitchen] (pages 3–9) Jovan did X → Kaelen did Y; …".',
+    'One essentials line may stand for several record lines that belong together — one scene, one stretch of days; its prefix is where and when that stretch began, and its pages run from the first to the last.',
+    'Cut what nothing later depends on: small talk, errands, passers-by and crowds, weather and atmosphere, repeated reactions.',
+    'Keep, always: decisions and what caused them (→), who did what to whom, promises, oaths and threats (their exact words in "double quotes", 15 words at most), debts, secrets and who knows them, wounds, bonds and grudges, first meetings and first times, and every correction — written as the fact now stands.',
+    'Names, never pronouns, spelled as the record spells them. Invent nothing the record does not say.',
+    'At most 2,000 words — far fewer while the story is young. Answer with the lines only.',
   ].join('\n');
   const user = [
     mc ? 'The main character (the writer plays him): ' + mc : '',
@@ -56,13 +62,19 @@ export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
   return { system, user };
 }
 
-/* the answer, read as text: no fences, no preface, clipped; too little to be essentials is refused */
+/* the answer, read as lines: no fences, no preface before the first line, clipped at a line's end; too little to be the
+ * essentials — or no line at all — is refused */
 export function readEssentials(raw) {
-  let t = String(raw == null ? '' : raw).replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
-  const at = t.indexOf('Who they are to each other');
-  if (at > 0) t = t.slice(at);
-  if (t.length < 80 || /^[[{]/.test(t)) return '';
-  return t.length > ESSENTIALS_MAX_CHARS ? t.slice(0, ESSENTIALS_MAX_CHARS - 1).trimEnd() + '…' : t;
+  const t = String(raw == null ? '' : raw).replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
+  if (/^[[{]\s*["{\]]/.test(t)) return '';
+  const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
+  const first = lines.findIndex((l) => /^(?:[-*•]\s*)?\[/.test(l) || /^(?:[-*•]\s*)?\(pages?\s/i.test(l));
+  if (first === -1) return '';
+  const kept = lines.slice(first).map((l) => (/^[-*•]\s*/.test(l) ? '- ' + l.replace(/^[-*•]\s*/, '') : '- ' + l));
+  let text = kept.join('\n');
+  if (text.length < 80) return '';
+  if (text.length > ESSENTIALS_MAX_CHARS) { const cut = text.lastIndexOf('\n', ESSENTIALS_MAX_CHARS); text = text.slice(0, cut > 0 ? cut : ESSENTIALS_MAX_CHARS); }
+  return text;
 }
 
 export async function loadEssentials(storyId) {
@@ -86,7 +98,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
       await db.settings.set(ESSENTIALS_KEY(storyId), { text, print: rec.print, upTo: rec.upTo, at: Date.now() });
       return { wrote: true };
     }
-    user = ask.user + '\n\nYour last answer was not the essentials asked for. Answer with the essentials only, under the four lines.';
+    user = ask.user + '\n\nYour last answer was not the essentials asked for. Answer with the lines only, each opening with its time-and-place prefix.';
   }
   return { wrote: false, why: 'its answer could not be used' };
 }

@@ -396,14 +396,14 @@ test('M510-17 THE STORY’S ESSENTIALS (his design): the whole record streamline
   ];
   const rec = recordOf(nodes);
   assert(rec.text.indexOf('OLDEST-LINE') < rec.text.indexOf('NEWEST-LINE') && rec.upTo === 17 && /\(pages 1–6\)/.test(rec.text), 'the whole record, oldest first, with its pages');
-  const ESS = 'Who they are to each other:\nKaelen resents Jovan for the seat.\nWhat has happened, in order:\nJovan arrived; Kaelen swore on the lantern; Jovan was named fourth seat.\nWhat still stands:\nRukia knows about the dawn.\nWhere things were left:\nKaelen alone on the wall.';
+  const ESS = '- [Sept 1 · the Seireitei] (pages 1–12) Jovan arrived; Kaelen swore "I will guard this lantern" on the broken lantern; Rukia witnessed Jovan’s dawn exit from the captain’s quarters → kept it secret.\n- [Sept 9 · the wall] (pages 13–24) The captain named Jovan fourth seat → Kaelen resents Jovan; Kaelen challenged Jovan to a duel at the autumn review.';
   const house = thinkingHouse({ answer: ESS });
   const out = await withHouse(house, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes, brief: 'Bleach.', mc: 'Jovan' }));
   assert(out.wrote && house.calls.length === 1, 'made once');
   const sent = JSON.stringify(house.calls[0].body);
   assert(sent.includes('OLDEST-LINE') && sent.includes('NEWEST-LINE'), 'from the WHOLE record — its beginning too');
   const kept = await loadEssentials('s-ess');
-  assert(kept.text.startsWith('Who they are to each other:') && kept.upTo === 17, 'kept, with how far the record reached');
+  assert(kept.text.startsWith('- [Sept 1 · the Seireitei] (pages 1–12)') && kept.upTo === 17, 'kept in the record’s own format, with how far the record reached');
   const again = await withHouse(house, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes, mc: 'Jovan' }));
   assert(!again.wrote && again.why === 'unchanged' && house.calls.length === 1, 'the record unchanged: nothing asked');
   const grown = [...nodes, { span: [18, 23], text: 'Kaelen challenged Jovan to a duel at the autumn review.', level: 1, at: 4 }];
@@ -412,16 +412,21 @@ test('M510-17 THE STORY’S ESSENTIALS (his design): the whole record streamline
   const bad = thinkingHouse({ answer: '{"sorry": true}' });
   const failed = await withHouse(bad, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes: [...grown, { span: [24, 29], text: 'A new fold.', level: 1, at: 5 }], mc: 'Jovan' }));
   assert(!failed.wrote && bad.calls.length === 2 && (await loadEssentials('s-ess')).upTo === 23, 'an unusable answer: asked once more, then the essentials already kept stand');
-  assert(/Where things were left:/.test(essentialsAsk({ record: 'x' }).system) && /At most 2,000 words/.test(essentialsAsk({ record: 'x' }).system), 'the four lines are asked for, in the room the record’s newest lines had');
+  { const sys = essentialsAsk({ record: 'x' }).system; assert(/THE SAME FORMAT/.test(sys) && /\[Sept 1, 08:24 · the Wells kitchen\]/.test(sys) && /Cut what nothing later depends on: small talk, errands, passers-by and crowds/.test(sys) && /every correction/.test(sys) && /At most 2,000 words/.test(sys), 'M510-21: his format — the record’s own lines, told shorter; trivia cut; time and place kept; in the room the record’s newest lines had'); }
   const { readEssentials, ESSENTIALS_MAX_CHARS } = await import('../../js/agents/essentials.js');
   eq(ESSENTIALS_MAX_CHARS, 16000);
-  const long = readEssentials('Who they are to each other:\n' + 'Kaelen resents Jovan. '.repeat(1500));
-  assert(long.length === ESSENTIALS_MAX_CHARS && long.endsWith('…'), 'a longer answer is kept to about 4,000 tokens: ' + long.length);
+  const long = readEssentials(Array.from({ length: 400 }, (_, i) => '[Day ' + i + ' · the yard] (pages ' + i + '–' + i + ') Kaelen resents Jovan; Rukia watched.').join('\n'));
+  assert(long.length <= ESSENTIALS_MAX_CHARS && long.length > ESSENTIALS_MAX_CHARS - 200 && /Rukia watched\.$/.test(long), 'a longer answer is kept to about 4,000 tokens, cut at a line’s end: ' + long.length);
+  eq(readEssentials('Who they are to each other: Kaelen resents Jovan for the seat, and Rukia knows about the dawn, and more.'), '', 'prose with no line of the record’s shape is refused');
+  eq(readEssentials('Here are the essentials:\n[Sept 1 · gate] (pages 1–3) Jovan arrived; Rukia greeted Jovan at the gate of the Seireitei.').startsWith('- [Sept 1 · gate]'), true, 'a preface before the first line is dropped');
   /* the small request: the essentials in front, the detailed lines only when named or folded since */
   const withLater = [...grown, { span: [24, 29], text: 'LATER-LINE Jovan trained with Rukia at night.', level: 1, at: 5 }];
   const msgs = pages(40);
   msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], text: 'I show Kaelen the broken lantern from the mountain shrine.' };
-  const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: withLater.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: withLater }, smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: ESS, upTo: 23 } });
+  /* M510-21: with Kaelen and Rukia in the scene their own lines ride (who's here, in the record) — here the MC is alone,
+   * so what the essentials stand for is seen standing for it */
+  const alone = { ...applyMutations({ ...emptyState(), page: 20 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 20 };
+  const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: alone, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: withLater.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: withLater }, smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: ESS, upTo: 23 } });
   const notes = String(r.messages[0].content);
   assert(notes.includes('What our story holds, in essentials:\n' + ESS), 'the essentials are in front');
   assert(!notes.includes('NEWEST-LINE') && !notes.includes('Rukia saw Jovan leave'), 'the lines the essentials stand for do not ride as they are');
@@ -492,3 +497,35 @@ test('M510-20 EVERY ROW, EVERY PAGE: "What the storyteller saw" names every part
   const r = mk(false); const sum = r.receipt.slots.reduce((n, s) => n + s.tokens, 0);
   eq(r.receipt.totalTokens, sum, 'the rows added carry nothing: the count is the parts that rode');
 });
+
+test('M510-21 WHO’S HERE, IN THE RECORD (his idea, bounded): while someone is in the scene the record’s own lines that name them ride word for word for a small model — the newest few each, the MC left out, nothing said twice; gone from the scene, gone from the page; the frontier model is untouched', async () => {
+  const { recordOfWhoIsHere, PRESENT_LINES_EACH } = await import('../../js/assemble/stack.js');
+  const lines = [];
+  for (let i = 0; i < 14; i += 1) lines.push({ span: [i * 3, i * 3 + 2], text: '[Day ' + (i + 1) + ' · the yard] ' + (i % 2 === 0 ? 'Rukia Kuchiki sparred Jovan, RUKIA-' + i : 'Renji ate alone, RENJI-' + i) + (i === 3 ? '; Kaelen swore on the broken lantern, KAELEN-3' : '') + '.', level: 1, at: i + 1 });
+  const base = [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the yard' }, { type: 'presence.enter', name: 'Jovan' }];
+  const here = { ...applyMutations({ ...emptyState(), page: 50 }, [...base, { type: 'presence.enter', name: 'Rukia Kuchiki' }, { type: 'presence.enter', name: 'Kaelen' }]).state, page: 50 };
+  const got = recordOfWhoIsHere(lines, here);
+  const ruk = (got.text.match(/RUKIA-\d+/g) || []);
+  eq(ruk.length, PRESENT_LINES_EACH, 'the newest five that name Rukia');
+  assert(ruk.includes('RUKIA-12') && !ruk.includes('RUKIA-0'), 'the newest, not the oldest: ' + ruk.join(','));
+  assert(/KAELEN-3/.test(got.text) && !/RENJI-1\b|RENJI-5\b/.test(got.text.replace(/RUKIA-\d+/g, '')) || /KAELEN-3/.test(got.text), 'Kaelen’s line too; Renji is not here');
+  assert(!got.who.includes('Jovan') && got.who.includes('Rukia Kuchiki') && got.who.includes('Kaelen'), 'the MC is left out — he is in every line: ' + got.who.join(', '));
+  assert(got.text.indexOf('(pages 10–12)') < got.text.indexOf('(pages 37–39)'), 'oldest first, with their pages');
+  const skipped = recordOfWhoIsHere(lines, here, { skip: (n) => n.span[0] > 30 });
+  assert(!/RUKIA-12|RUKIA-11/.test(skipped.text) && /RUKIA-10/.test(skipped.text), 'a line already riding is not said twice');
+  const capped = recordOfWhoIsHere(lines, here, { cap: 200 });
+  assert(capped.text.length <= 200, 'within its room: ' + capped.text.length);
+  const gone = { ...applyMutations({ ...emptyState(), page: 50 }, base).state, page: 50 };
+  eq(recordOfWhoIsHere(lines, gone).text, '', 'gone from the scene, gone from the page');
+  /* through the request */
+  const msgs = pages(40);
+  const mk = (small, state) => buildRequest({ story: {}, messages: msgs, settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: lines.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: lines }, ...(small ? { smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: '- [Day 1 · the yard] (pages 1–42) Jovan trained with Rukia; Kaelen swore on the lantern.', upTo: 41 } } : {}) });
+  const small = mk(true, here);
+  const notes = String(small.messages[0].content);
+  assert(/What the record holds of who is here, word for word:\n- \(pages/.test(notes) && notes.includes('RUKIA-12'), 'it rides for the small model');
+  const row = small.receipt.slots.find((s) => s.name === 'Who’s here, in the record');
+  assert(row && row.tokens > 0 && /Rukia Kuchiki/.test(row.reason), 'with its row: ' + JSON.stringify(row && row.reason));
+  const normal = mk(false, here);
+  assert(!/What the record holds of who is here/.test(JSON.stringify(normal.messages)) && /^small model only/.test(normal.receipt.slots.find((s) => s.name === 'Who’s here, in the record').reason), 'the frontier model is untouched; its row says whose it is');
+});
+

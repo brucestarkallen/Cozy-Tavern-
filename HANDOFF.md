@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-020)
+# Cozy Tavern — handoff for the next session (state at m510-021)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -967,4 +967,13 @@ founding design lives in AGENTS.md's first entries.)
   parts on the normal model say "small model only"; Story essentials on a first scene says the record is still empty and
   the keeper's window. The wire is untouched — rows only. Laws that said "empty = no row" now say "nothing on the wire,
   and the row stands at 0 saying why" (M10, M11, M21-B, M29-9, M88-2, M345-9, M346-1, M356-4, M486, M510-6, M510-13).
+- M510-21 — HIS ESSENTIALS: the record's own format, told shorter (essentials.js essentialsAsk/readEssentials): lines,
+  oldest first, "[time · place] (pages a–b) phrase; phrase; …", one line for a stretch that belongs together; small talk,
+  errands, passers-by, crowds, weather and repeated reactions cut; decisions and causes (→), promises and oaths (exact
+  words, 15 at most), debts, secrets and who knows them, wounds, bonds, firsts and every correction kept. Shown in the
+  drawer's books under the record (drawer.js essentialsPanel, "Story essentials — the record, told shorter"), or why
+  there are none. Only the small storyteller reads them; every worker reads the original record. WHO'S HERE, IN THE
+  RECORD (stack.js recordOfWhoIsHere, small only): while someone is in the scene, the record's own lines that name them,
+  the newest 5 each, 6,000 characters in all, the MC left out, lines already riding skipped; receipt row "Who’s here, in
+  the record" (EVERY_ROW). Laws M510-17 (updated), M510-21, DOM-137.
 

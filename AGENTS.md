@@ -12627,3 +12627,28 @@ untouched (the byte-for-byte check holds); the rows carry 0 tokens, so the total
 row the turn after). The byte-for-byte check compares the wire exactly and every row that existed before exactly; the added
 rows carry 0 tokens (none carries any, on all nine fixtures, under both persona names). Law M510-20.
 
+# M510-21 — his essentials: the record's own format, told shorter; shown in the drawer; who's here, in the record
+He: (1) "why not put the essentials in the ledger so I can see them"; (2) "make them literally the same format as the
+original fold but much more concise — cut the unimportant (talking to the postman, a crowd saying something), keep time
+and place because they make a story coherent; like human memory, everything still there, and the detailed line comes back
+when mentioned — redundant, deliberately, from my Plot Essential Maker's optimize command"; (6) "the world beyond and the
+other agents still see the original folds?"; (7) "when a character is in the scene, inject the record lines that name
+them; once they're gone, not any more — recommend whether to do it".
+- (2) essentials.js: the ask is Summaryception's own line shape told shorter — "[time · place] (pages a–b) phrase; …",
+  oldest first, one line for a stretch that belongs together; small talk, errands, passers-by and crowds, weather,
+  repeated reactions cut; decisions and causes (→), promises/oaths/threats in their exact words (15 at most), debts,
+  secrets and who knows them, wounds, bonds and grudges, firsts, every correction as the fact now stands — kept.
+  readEssentials reads lines: a preface before the first line is dropped, prose with no line of that shape is refused,
+  a long answer is cut at a line's end. (M510-15's four headed sections are gone.)
+- (1) drawer.js essentialsPanel: "Story essentials — the record, told shorter", in The books under the record — the lines,
+  how far the record reached, whether it has grown since; with none, why (record empty and the keeper's window, or made
+  only while a small model tells the story).
+- (6) Verified in code: loadEssentials is read only by the send path for a small storyteller; every worker — the planning
+  helper, the world agent, the keeper, the menders — reads the original record (loadMemory / wholeRecord).
+- (7) Recommended bounded, and built: stack.js recordOfWhoIsHere — while someone is in the scene, the record's own lines
+  that name them (full name or first name, whole words), the newest 5 each, 6,000 characters in all, oldest first with
+  their pages; the MC left out (he is in every line); lines already riding (folded since the essentials, the record's
+  newest lines) not said twice. Unbounded, someone who is always there is named in nearly every line and "all of them" is
+  the whole record again. Small model only; receipt row "Who’s here, in the record". Laws M510-17 (updated), M510-21,
+  DOM-137.
+

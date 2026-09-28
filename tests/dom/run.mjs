@@ -6838,6 +6838,30 @@ test('DOM-136 A FIRST PAGE’S HEADER IN ANOTHER DRESS, IN THE APP (M510-17): ke
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-137 THE STORY ESSENTIALS IN THE LEDGER (M510-21): the drawer’s books show them under the record, in the record’s own format; a story with none says why', async () => {
+  const before = errors.length;
+  const withEss = await db.stories.create({ title: 'the essentials, shown' });
+  await db.settings.set('essentials:' + withEss.id, { text: '- [Sept 1 · the Seireitei] (pages 1–12) Jovan arrived; Kaelen swore "I will guard this lantern".\n- [Sept 9 · the wall] (pages 13–24) The captain named Jovan fourth seat → Kaelen resents Jovan.', print: 'x', upTo: 23, at: Date.now() });
+  const bare = await db.stories.create({ title: 'a first scene' });
+  const panelText = async (id) => {
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); }
+    env.window.__cozy.setActiveStoryId(id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer');
+    await env.ctx.drawer.renderAllRooms(); await tick(400);
+    const panel = qa('#drawer-panels .ledger-panel').find((p) => /Story essentials — the record, told shorter/.test(p.textContent));
+    assert(panel, 'the essentials book stands in the drawer');
+    return panel.textContent;
+  };
+  const shown = await panelText(withEss.id);
+  assert(/\[Sept 1 · the Seireitei\] \(pages 1–12\) Jovan arrived; Kaelen swore "I will guard this lantern"\./.test(shown) && /The captain named Jovan fourth seat → Kaelen resents Jovan/.test(shown), 'its lines, as the keeper made them: ' + shown.slice(0, 200));
+  assert(/Made from the record through page 24/.test(shown), 'and how far the record reached');
+  const none = await panelText(bare.id);
+  assert(/Not made yet — the record is still empty: the memory keeper folds pages once they are older than its window \(\d+ pages\)/.test(none), 'a first scene says why: ' + none.slice(0, 220));
+  click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);
