@@ -12521,3 +12521,21 @@ names (someone on their way, the host of the party) is recalled like someone the
 (SMALL_PEOPLE_VIEW's recall reads the world's word too). The frontier request is unchanged. Laws M510-14; M510-6
 re-pinned (the world's word rides; its receipt row carries it).
 
+# M510-13 — no gap left: the pages in between, and the notes that were still held back
+He: "check the whole thing — no gap any more; it must know the story's context perfectly and keep continuity". Went part
+by part through what the frontier request carries against the small one:
+- THE PAGES IN BETWEEN: the keeper folds only what lies past its own window (30), and the small request carries eight
+  pages whole — so the pages between (ten, twenty pages back) were neither whole nor folded for a small model, and a
+  move that called back to one of them found nothing (M344's recall searches the record only). anchor.js recallFromPages:
+  the paragraphs of those pages (from coveredUntil(nodes) to the eight) whose rare words HIS MESSAGE speaks — at least
+  two, weighed by rarity among them, the strongest two — come back word for word after the plan, each with its page.
+  Only his message calls them: the recent pages, as callers, called back every paragraph that repeated the scene
+  (caught by the law's own first run).
+- THE DIRECTOR'S NOTE, THE EDITOR'S EYE, THE HOUSE'S EYE: held back since M510 (the helper reads only the first); each is
+  short, each his own switch, and the eye — what the last page got wrong — is what a small model most needs. They ride.
+- What still differs by design: the craft is chosen (the always-laws, the helper's twelve, the Intimacy section, the fight
+  laws, the sound laws — all word for word), the story is eight pages whole plus the story in short, the plan, the far
+  folds and the in-between paragraphs his move names; the people are who is here and whoever is named; the frame, the
+  note and his own words follow their small switches. Everything else rides as for the frontier.
+Law M510-15. The frontier request is unchanged.
+

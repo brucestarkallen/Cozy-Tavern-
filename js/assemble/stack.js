@@ -93,7 +93,7 @@
 
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
-import { sceneAnchor, recallFromRecord, recallLine } from './anchor.js'; /* M343, M344 */
+import { sceneAnchor, recallFromRecord, recallLine, recallFromPages, recallPagesLine } from './anchor.js'; /* M343, M344; M510-13 */
 import { shortcutsText } from '../commands.js'; /* M379 */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
@@ -743,9 +743,9 @@ export function buildRequest({
   if (memoryText && !smallB) stateParts.push('What remains of the older pages:\n' + memoryText);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
-  if (directorText && !smallB) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
-  if (editorText && !smallB) stateParts.push(editorText); /* M495: "My notes on the telling…" — his, not an editor's */
-  if (eyeText && !smallB) stateParts.push(toTeller(eyeWithoutRuleNames(eyeText, voice, person), voice)); /* the eye speaks its own name — M327: and the teller's */
+  if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
+  if (editorText) stateParts.push(editorText); /* M495: "My notes on the telling…" — his, not an editor's */
+  if (eyeText) stateParts.push(toTeller(eyeWithoutRuleNames(eyeText, voice, person), voice)); /* the eye speaks its own name — M327: and the teller's */
   const stateInjection = stateParts.length
     ? { role: 'user', content: briefingOpening(voice) + '\n\n' + stateParts.join('\n\n') }
     : null;
@@ -782,15 +782,17 @@ export function buildRequest({
   if (worldText) {
     pushSlot('The world’s word', worldText, 'the world agent’s brief — what could reach this scene, what ripened out of sight');
   }
-  if (directorText && !smallB) {
+  /* M510-13: the episode's plan, his standing notes and the last page's slips ride for a small model too — each short,
+   * each his own switch, and a small model is the one that most needs to hear what its last page got wrong */
+  if (directorText) {
     pushSlot('The director’s note', directorText, 'the showrunner’s marching orders for the episode that stands');
-  } else if (directorText) pushSlot('The director’s note', '', '', 'not sent to the small model — the planning helper reads it every page and passes on what matters in the plan'); /* M510-9 */
-  if (editorText && !smallB) {
+  }
+  if (editorText) {
     pushSlot('The editor’s eye', editorText, 'the standing craft critique');
-  } else if (editorText) pushSlot('The editor’s eye', '', '', 'not sent to the small model'); /* M510-9: the helper does not read the critique */
-  if (eyeText && !smallB) {
+  }
+  if (eyeText) {
     pushSlot('The house’s eye', eyeText, 'the last page’s slips against the craft, checked in code — recolored this turn');
-  } else if (eyeText) pushSlot('The house’s eye', '', '', 'not sent to the small model'); /* M510-9 */
+  }
   if (rulingText && safeSettings.refereeOn !== false) {
     pushSlot('The house has ruled', rulingText, 'the referee’s settled outcome for this turn — first in the closing words, right after your page');
   }
@@ -970,6 +972,10 @@ export function buildRequest({
       const namesB = [...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : []), mcNameOf(state)].filter(Boolean);
       const recallB = recallLine(recallFromRecord(windowInfo && windowInfo.nodes, sceneNowB, { ignore: namesB }));
       if (recallB) anchorLine += '\n' + recallB;
+      /* M510-13: and the pages between the record's reach and the eight — neither whole nor folded for a small model. Called
+       * back by HIS MESSAGE alone: the eight pages it already has would call back every paragraph that repeats the scene */
+      const middle = recallPagesLine(recallFromPages(pages, [lastUserB ? String(lastUserB.text || '') : ''], { ignore: namesB, from: coveredUntil(windowInfo && windowInfo.nodes), to: pages.length - (smallWindow ? smallWindow.length : 0) }));
+      if (middle) anchorLine += '\n' + middle;
     }
     if (smallIntense === true || smallPlan.intense === true) {
       const wentQuiet = Boolean(lastSound && lastSound.intense === true && !lastSound.effects && !lastSound.voiced);

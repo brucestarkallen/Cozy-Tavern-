@@ -343,3 +343,30 @@ test('M510-14 THE WORLD ELSEWHERE REACHES A SMALL MODEL: the world’s word — 
   assert(w.includes('he raised a cup to the new seat before the other captains') && w.includes('The Window Beyond The Page'), 'an open window has its rule AND the word it is written from');
 });
 
+test('M510-15 NO GAP BETWEEN THE EIGHT PAGES AND THE RECORD: a move that names something from the pages in between (neither whole nor folded for a small model) brings that paragraph back word for word, with its page; and the episode plan, his standing notes and the last page’s slips reach a small model too', async () => {
+  const { renderDirectorNote } = await import('../../js/agents/director.js');
+  const { renderEditorNote } = await import('../../js/agents/editor.js');
+  const { houseEyeWords } = await import('../../js/agents/lint.js');
+  const msgs = [];
+  for (let i = 0; i < 40; i += 1) {
+    msgs.push({ id: 'u' + i, role: 'user', text: 'turn ' + i });
+    const body = i === 25 ? 'Rukia knelt by the koi pond and hid the silver comb inside the lacquered box, then set the box under the stone lantern where nobody would look.' : 'Kaelen circled the yard again while the recruits drilled with their spears until the evening bell.';
+    msgs.push({ id: 'a' + i, role: 'assistant', text: H(i) + 'PAGE-' + i + '. ' + body + '\n\nThe dust settled over the packed earth of the yard.' });
+  }
+  msgs.push({ id: 'u-last', role: 'user', text: 'I lift the stone lantern and open the lacquered box.' });
+  const nodes = Array.from({ length: 15 }, (_, k) => ({ span: [k * 2, k * 2 + 1], text: 'Record ' + k + ': drills in the yard, the captain watching.' })); /* the record reaches page 30 of 81 */
+  const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes },
+    smallPlan: { ...PLAN, intense: false },
+    directorNote: renderDirectorNote({ episode: 3, text: 'PREMISE — DIRECTOR-MARK the comb comes back to Rukia.' }),
+    editorEye: renderEditorNote({ enabled: true, critique: { northStar: 'EDITOR-MARK keep it close.', notes: ['Let Rukia drive one beat.'] } }),
+    houseEye: houseEyeWords([{ kind: 'craft', severity: 'warn', words: 'EYE-MARK a dead phrase is on the page.', law: 'Dead Phrases' }]) });
+  const last = String(r.messages[r.messages.length - 1].content);
+  assert(/And from the pages in between, word for word — \(page 52\) PAGE-25\. Rukia knelt by the koi pond and hid the silver comb inside the lacquered box/.test(last), 'the paragraph his move names, with its page: ' + last.slice(last.indexOf('And from the pages'), last.indexOf('And from the pages') + 200));
+  assert(!/PAGE-3[5-9]\. Kaelen circled/.test(last.slice(last.indexOf('And from the pages'))), 'nothing from the eight pages it already has');
+  const w = wireOf(r);
+  for (const mark of ['DIRECTOR-MARK', 'EDITOR-MARK', 'EYE-MARK']) assert(w.includes(mark), 'rides for a small model: ' + mark);
+  const calmMsgs = msgs.slice(0, -1).concat([{ id: 'u-last', role: 'user', text: 'I nod to Kaelen.' }]);
+  const calm = buildRequest({ story: {}, messages: calmMsgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlan: { ...PLAN, intense: false } });
+  assert(!/And from the pages in between/.test(String(calm.messages[calm.messages.length - 1].content)), 'nothing named, nothing brought back');
+});
+

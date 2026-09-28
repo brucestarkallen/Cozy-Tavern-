@@ -101,3 +101,48 @@ export function recallLine(recalled) {
   if (!list.length) return '';
   return 'And from our story so far, each from its own time — ' + list.map((r) => '(pages ' + r.from + (r.to !== r.from ? '–' + r.to : '') + ') ' + r.text).join(' ');
 }
+
+/* M510-13: THE PAGES IN BETWEEN. A small model reads its last eight pages whole and the record's folds; the keeper folds
+ * only what lies past its own window, so the pages between the two — ten, twenty pages back — were neither whole nor
+ * folded for it, and a move that called back to one of them found nothing. The paragraphs of those pages whose rare words
+ * the given words speak (the caller hands it his message alone; at least two words, weighed by how rare each is among the
+ * paragraphs) come back word for word, the strongest two, each with its page. */
+export const PAGE_RECALL_MAX = 2;
+export const PAGE_RECALL_CHARS = 320;
+export function recallFromPages(pages, scenePages, { ignore = [], from = 0, to = 0, max = PAGE_RECALL_MAX } = {}) {
+  const list = Array.isArray(pages) ? pages : [];
+  const scene = sceneWordsOf((Array.isArray(scenePages) ? scenePages : []).filter((t) => typeof t === 'string'));
+  if (!scene.size || to <= from) return [];
+  const skip = new Set();
+  for (const name of ignore) {
+    for (const w of String(name || '').toLowerCase().split(/[^\p{L}\p{N}]+/u)) if (w) skip.add(w);
+    for (const w of sceneWordsOf([String(name || '')])) skip.add(w);
+  }
+  const paras = [];
+  for (let i = Math.max(0, from); i < Math.min(to, list.length); i += 1) {
+    const m = list[i];
+    const text = m && typeof m.content === 'string' ? m.content : '';
+    for (const p of text.split(/\n\s*\n/)) {
+      const t = p.replace(/^\s*\[[^\]\n]*\]\s*$/gm, '').replace(/\s+/g, ' ').trim(); /* the header row is furniture */
+      if (t.length >= 40) paras.push({ page: i + 1, text: t });
+    }
+  }
+  if (!paras.length) return [];
+  const wordsOf = paras.map((p) => sceneWordsOf([p.text]));
+  const df = new Map();
+  for (const ws of wordsOf) for (const w of ws) df.set(w, (df.get(w) || 0) + 1);
+  const scored = [];
+  paras.forEach((p, i) => {
+    let score = 0; let hits = 0;
+    for (const w of wordsOf[i]) { if (skip.has(w) || !scene.has(w)) continue; hits += 1; score += 1 / (df.get(w) || 1); }
+    if (hits >= 2) scored.push({ p, score });
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, max).sort((a, b) => a.p.page - b.p.page).map(({ p }) => ({ page: p.page, text: p.text.length > PAGE_RECALL_CHARS ? p.text.slice(0, PAGE_RECALL_CHARS - 1).trimEnd() + '…' : p.text }));
+}
+export function recallPagesLine(recalled) {
+  const list = (Array.isArray(recalled) ? recalled : []).filter((r) => r && r.text);
+  if (!list.length) return '';
+  return 'And from the pages in between, word for word — ' + list.map((r) => '(page ' + r.page + ') ' + r.text).join(' ');
+}
+

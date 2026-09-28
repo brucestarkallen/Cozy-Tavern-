@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-012)
+# Cozy Tavern — handoff for the next session (state at m510-013)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -503,7 +503,15 @@ founding design lives in AGENTS.md's first entries.)
   rides word for word after the plan — the fold his move names, which the helper planned too early to know.
   M510-12 — THE WORLD ELSEWHERE: the world's word (what could reach this scene and when, what ripened out of sight, an
   open window's who/where/what) rides for a small model too — M510-2 had held it back, and a woken window rule then
-  asked for a cut-away the small model was never told about; whoever the world's word names is recalled with their card. The plan says it was made BEFORE his move ("how things stood before my move
+  asked for a cut-away the small model was never told about; whoever the world's word names is recalled with their card.
+  M510-13 — NO GAP LEFT: the pages between the record's reach (coveredUntil) and the eight were neither whole nor folded
+  for a small model; a paragraph there that HIS MESSAGE names (anchor.js recallFromPages, two at most, each with its
+  page) comes back word for word. The director's note, the editor's eye and the house's eye ride for it too (each
+  short, each his switch). What a small model now gets that the frontier gets differently: the craft (the always-laws,
+  the helper's twelve, the Intimacy section in an intimate scene, the fight laws on a fight, the sound laws on a
+  heated page), the story (eight pages whole; the story in short; the plan; the far folds and in-between paragraphs his
+  move names), the people (who is here and whoever the pages or the world's word name), the frame/note/own words by
+  their small switches. Everything else rides as for the frontier. The plan says it was made BEFORE his move ("how things stood before my move
   above"; "before my move, that looked like: …") — after his message, a small model must never take it over his move.
   WITH A PLAN — THE SMALL REQUEST (stack.js smallB, his choice B): the craft rides as laws.js ALWAYS_LAWS (The Telling,
   Header Protocol, MC Agency and its companions, Intent Horizon, the Page's three laws) plus the helper's laws, WORD FOR
@@ -517,7 +525,7 @@ founding design lives in AGENTS.md's first entries.)
   room reached a small model only if the helper happened to name it); the cast notes, the record, the absent crowd (the
   roster, "away and much on the story's mind"), the world, the director, the editor, the eye and older pages stay with the
   helper — M510-9: and each stands on the receipt as a 0-token row saying it was not sent to the small model and who
-  read it (What remains, the director, the editor, the eye, his own words, the cast notes). NO PLAN
+  read it (What remains, his own words, the cast notes). NO PLAN
   (first page, helper not back in the five seconds, an unusable answer, a craft without the
   load-bearing laws): the whole request with the scene said once more (A: anchor.js + the M344 recall). With no teller
   (the frame off, a small model's default) that line opens "Right now, …" — match it case-blind.
