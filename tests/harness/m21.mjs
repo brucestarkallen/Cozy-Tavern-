@@ -89,7 +89,7 @@ test('M21-B: the echo repeats the whole frame just before the note', () => {
 
 test('M21-B: echo off by default — nothing repeats', () => {
   const r = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words', noteText: 'the note' } });
-  assert(!r.receipt.slots.some((s) => s.name === 'The frame, said again'), 'no echo row');
+  assert(r.receipt.slots.some((s) => s.name === 'The frame, said again' && s.tokens === 0 && s.reason), 'echo off: nothing repeats, and its row stands at 0 saying why (M510-20)');
   const tails = r.messages.filter((m) => String(m.content).includes('frame words'));
   eq(tails.length, 0, 'the frame rides slot 1 only');
 });

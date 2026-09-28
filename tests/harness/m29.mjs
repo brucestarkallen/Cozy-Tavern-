@@ -206,7 +206,7 @@ test('M29-9 the assembler carries the world’s word, receipt-named, in the dyna
   assert(inj.indexOf('Aurora at 18:40') !== -1 && inj.indexOf('Aurora at 18:40') < inj.indexOf('Episode one.'), 'the world’s word precedes the director (M495: both found by their own words — the old check looked for a phrase the brief no longer has, so it could never fail)');
   assert(slot(r, 'The world’s word'), 'receipt-named');
   const none = buildRequest({ story: {}, messages: pages(2), settings: {}, state, modules: [], memory: '', window: { keeperOn: true }, worldBrief: '' });
-  assert(!slot(none, 'The world’s word'), 'empty = omitted');
+  { const w = slot(none, 'The world’s word'); assert(w && w.tokens === 0 && w.reason, 'empty: nothing rides, and the row stands at 0 saying why (M510-20)'); }
   const long = 'x'.repeat(2000);
   const cast = [{ name: 'Mira', description: long, personality: 'y'.repeat(800), scenario: 'z'.repeat(800) }];
   const rr = buildRequest({ story: {}, messages: pages(2), settings: {}, state: { present: [{ name: 'Mira' }] }, modules: [], memory: '', cast, window: { keeperOn: true } });

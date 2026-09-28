@@ -322,7 +322,7 @@ test('LONG-7 the house’s eye: the slipped page carries its findings, the next 
   const eye = eyeTurn.slots.find((s) => s.name === 'The house’s eye');
   assert(eye && eye.tokens > 0, 'the recolor rode the next turn: ' + JSON.stringify(eyeTurn.slots.map((s) => s.name)));
   const after = receipts.find((r) => r.turn === 22).slots.find((s) => s.name === 'The house’s eye');
-  assert(!after, 'and not the turn after');
+  assert(after && after.tokens === 0, 'and not the turn after — its row stands at 0, nothing rode (M510-20: every row, every page)');
   const call = house.state.calls.filter((c) => !c.isWorker)[21];
   assert(/Sure, whatever you say/.test(JSON.stringify(call.body)) && /quietly[\s\\n]+come back to it/.test(JSON.stringify(call.body)) && /Drift Recovery/.test(JSON.stringify(call.body)), 'the storyteller read the slip and the law');
 });

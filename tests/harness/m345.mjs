@@ -251,7 +251,7 @@ test('M345-9 THE SETTLED OUTCOME RIDES FIRST IN THE CLOSING WORDS, in the writer
   assert(!all.includes('sneak into the house: it works'), 'OFF: no outcome rides');
   assert(!/An outcome already settled|The house has ruled =/.test(all), 'OFF: the craft says nothing of settled outcomes');
   assert(!/A duel is joined/.test(all), 'OFF: no fight is kept for the storyteller');
-  assert(!(off.receipt.slots || []).some((s) => s.name === 'The house has ruled'), 'OFF: no slot on the receipt');
+  assert((off.receipt.slots || []).some((s) => s.name === 'The house has ruled' && s.tokens === 0 && s.reason), 'OFF: nothing rides, and the row stands at 0 saying why (M510-20)');
   const onDuel = build({}, withDuel);
   assert(/A duel is joined/.test(JSON.stringify(onDuel.messages)), 'ON: the fight that stands rides as before');
   /* a craft saved before today speaks today's line */

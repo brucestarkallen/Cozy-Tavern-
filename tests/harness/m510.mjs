@@ -174,7 +174,7 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   assert(who && /your cast notes go to the planning helper/.test(who.source + ' ' + who.reason), 'and who is here says where the cast notes went: ' + JSON.stringify(who));
   const ow = held(build({ smallModelNow: true, frameOn: false, noteOn: false, ownWordsHeldForSmall: true }, { smallPlan: PLAN }), 'Own words');
   assert(ow && ow.tokens === 0 && /Send them to a small model/.test(ow.reason), 'and his own-voice words say they were held back, and where the switch is');
-  assert(!held(full, 'Own words'), 'a frontier page never shows that row');
+  assert(!/small model/.test((held(full, 'Own words') || {}).reason || ''), 'a frontier page never says its own words were held for a small model');
 });
 
 test('M510-7 OFF IS BYTE FOR BYTE: a storyteller that is not a small model gets exactly the request it always did, plan or no plan; a small model with no plan yet gets the whole request with the scene said once more', () => {
@@ -324,7 +324,7 @@ test('M510-13 A SMALL MODEL REMEMBERS THE WHOLE STORY: the helper keeps it short
   assert(/And from our story so far, each from its own time — \(pages 1–6\) Kaelen swore an oath on the broken lantern at the mountain shrine/.test(last), 'the fold his move names, word for word, with its pages: ' + last.slice(last.indexOf('And from'), last.indexOf('And from') + 160));
   assert(!/drilled the recruits|flooded the lower barracks/.test(last), 'the folds nothing named stay out');
   const calm = buildRequest({ story: {}, messages: pages(12), settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlan: { ...PLAN, intense: false } });
-  assert(!/And from our story so far/.test(String(calm.messages[calm.messages.length - 1].content)) && !calm.receipt.slots.some((s) => s.name === 'The story in short'), 'nothing named, nothing called back; no story kept, no row');
+  assert(!/And from our story so far/.test(String(calm.messages[calm.messages.length - 1].content)) && calm.receipt.slots.some((s) => s.name === 'The story in short' && s.tokens === 0 && /not written yet/.test(s.reason)), 'nothing named, nothing called back; no story kept — its row stands at 0 saying why (M510-20)');
 });
 
 test('M510-14 THE WORLD ELSEWHERE REACHES A SMALL MODEL: the world’s word — what could reach this scene and why, what ripened out of sight — rides, whoever it names comes with their card, and an open window beyond the page has the word it is written from', async () => {
@@ -474,3 +474,21 @@ test('M510-19 WHO KNOWS WHAT, FOR A SMALL MODEL: the rule every time (his Episte
   assert(!wireOf(normal).includes('Epistemic Law = knowledge inherits') || wireOf(normal).includes('## Information Quarantine'), 'the frontier model reads the rule where it always did — in the whole craft');
 });
 
+
+test('M510-20 EVERY ROW, EVERY PAGE: "What the storyteller saw" names every part the house can send, in the order it rides — one that did not ride stands with 0 tokens and why (on his first scene: the essentials are not made yet, the record is still empty)', async () => {
+  const { EVERY_ROW } = await import('../../js/assemble/stack.js');
+  const st = { ...applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the cemetery' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 1 };
+  const mk = (small, extra = {}) => buildRequest({ story: { brief: 'A grieving story.' }, messages: [{ id: 'u', role: 'user', text: 'I kneel at the grave.' }], settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [] }, ...(small ? { smallPlan: { ...PLAN, intense: false } } : {}), ...extra });
+  for (const [label, r] of [['normal', mk(false)], ['small', mk(true)]]) {
+    eq(r.receipt.slots.map((s) => s.name).join(' | '), EVERY_ROW.join(' | '), label + ': every row, in order');
+    const silent = r.receipt.slots.filter((s) => s.tokens === 0 && !s.reason && !s.source);
+    eq(silent.map((s) => s.name).join(', '), '', label + ': every empty row says why');
+  }
+  const row = (r, n) => r.receipt.slots.find((s) => s.name === n);
+  assert(/^small model only/.test(row(mk(false), 'Story essentials').reason) && /^small model only/.test(row(mk(false), 'The plan for this page').reason), 'on the normal model the small model’s parts say whose they are');
+  assert(/not made yet — the record is still empty: the memory keeper folds pages once they are older than its 30-page window/.test(row(mk(true), 'Story essentials').reason), 'his first scene: ' + row(mk(true), 'Story essentials').reason);
+  const withRecord = mk(true, { memory: '- Jovan arrived.', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [{ span: [0, 5], text: 'Jovan arrived.', level: 1, at: 1 }] } });
+  assert(/^being made/.test(row(withRecord, 'Story essentials').reason), 'a record, no essentials yet: being made');
+  const r = mk(false); const sum = r.receipt.slots.reduce((n, s) => n + s.tokens, 0);
+  eq(r.receipt.totalTokens, sum, 'the rows added carry nothing: the count is the parts that rode');
+});

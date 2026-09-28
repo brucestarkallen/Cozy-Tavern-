@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-019)
+# Cozy Tavern — handoff for the next session (state at m510-020)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -962,3 +962,9 @@ founding design lives in AGENTS.md's first entries.)
 - Playing the same tale in two browsers at the same time is last-push-wins on its ledger (M293
   keeps only the idle repairs and the resume of the second browser off a tale another hand wrote
   within the last ten minutes; the pages themselves merge by id and are never lost).
+- M510-20 — EVERY ROW, EVERY PAGE (his rule): "What the storyteller saw" names every part the house can send, in the order it
+  rides (stack.js EVERY_ROW), on both models. A part that did not ride stands at 0 tokens with why (emptyWhy): small-model
+  parts on the normal model say "small model only"; Story essentials on a first scene says the record is still empty and
+  the keeper's window. The wire is untouched — rows only. Laws that said "empty = no row" now say "nothing on the wire,
+  and the row stands at 0 saying why" (M10, M11, M21-B, M29-9, M88-2, M345-9, M346-1, M356-4, M486, M510-6, M510-13).
+

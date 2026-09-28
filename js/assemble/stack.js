@@ -463,6 +463,53 @@ export function refereeCraft(text, on) {
   return line ? s.replace(OLD_RULED_LINE, line[0]) : s;
 }
 
+/* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
+export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'The story in short', 'On their mind', 'The state of things', 'Active modules', 'Story essentials', 'What remains', 'What canon says', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The story so far', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
+function emptyWhy(name, c) {
+  const noPlan = 'no plan was ready for this page — it went as the full request';
+  switch (name) {
+    case 'The story in short': return !c.small ? 'small model only — your storyteller reads the pages themselves' : !c.planned ? noPlan : 'not written yet — the planning helper writes it with each plan';
+    case 'Story essentials': return !c.small ? 'small model only — your storyteller reads the whole record (What remains)'
+      : !c.planned ? noPlan + ', with the whole record'
+      : !c.keeperOn ? 'the memory keeper is off for this story — there is no record to streamline'
+      : !c.hasRecord ? 'not made yet — the record is still empty: the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window'
+      : 'being made — the essentials keeper streamlines the record in the background; until then its newest lines ride under What remains';
+    case 'The plan for this page': return !c.small ? 'small model only — the planning helper writes one for a small storyteller' : noPlan + ', with the scene said once more';
+    case 'The sounds': return !c.small ? 'small model only — on a heated page' : !c.planned ? noPlan + ', with the whole craft' : 'a calm page — no sound laws needed';
+    case 'On their mind': return 'no one’s page to show — the ledger has no one in it yet';
+    case 'What canon says': return 'canon verification is off';
+    case 'The sensors’ word': return 'nothing from the sensors — off, or nothing drifting';
+    case 'The world’s word': return 'nothing from the world agent — off, or nothing new out of sight';
+    case 'The director’s note': return 'nothing from the director — off, or no episode standing';
+    case 'The editor’s eye': return 'nothing from the editor — off, or no standing critique';
+    case 'The house’s eye': return 'nothing from the house’s eye — off, or no slips on the last page';
+    case 'The house has ruled': return 'nothing settled by the referee for this page';
+    case 'Own words': return 'none — nothing set under Own words in Settings';
+    case 'The frame, said again': return !c.frameOn ? 'the frame is off' : 'off — “Say it again at the end” in Settings';
+    /* rows that always stand, when they came empty */
+    case 'The brief': return 'no brief written for this story';
+    case 'Who’s here': return 'no cast notes written, and no character card for anyone here';
+    case 'Active modules': return 'nothing woke besides the craft';
+    case 'What remains': return !c.keeperOn ? 'the memory keeper is off for this story' : 'the record is still empty — the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window';
+    case 'The story so far': return 'the first page — nothing written yet';
+    case 'The state of things': return 'the ledger holds nothing yet';
+    case 'The continue nudge': return 'you wrote a move — the nudge is only for when you ask it to go on';
+    default: return 'nothing this page';
+  }
+}
+/* a missing row goes in right before the next row that is there, so every row stands where its part would ride */
+export function fillEveryRow(slots, c) {
+  const isRow = (s, name) => s && (s.name === name || (name === 'Own words' && typeof s.name === 'string' && s.name.startsWith('Own words — ')));
+  /* a row that stands empty with nothing to say for itself says why too */
+  for (const s of slots) if (s && s.tokens === 0 && !s.reason && !s.source && EVERY_ROW.includes(s.name)) s.reason = emptyWhy(s.name, c);
+  EVERY_ROW.forEach((name, k) => {
+    if (slots.some((s) => isRow(s, name))) return;
+    let at = slots.length;
+    for (let j = k + 1; j < EVERY_ROW.length; j += 1) { const i = slots.findIndex((s) => isRow(s, EVERY_ROW[j])); if (i !== -1) { at = i; break; } }
+    slots.splice(at, 0, { name, tokens: 0, source: '', reason: emptyWhy(name, c), text: '' });
+  });
+}
+
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
   window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '', canonOn = false, canonWhy = '', sensorNote = '',
@@ -1054,6 +1101,15 @@ export function buildRequest({
   }
   const afterRole = safeSettings.afterRole === 'user' ? 'user' : 'system';
   if (closing.length) out.push({ role: afterRole, content: closing.join('\n\n') });
+
+  /* M510-20: EVERY ROW, EVERY PAGE — his word: "put all of what the storyteller saw, so I know everything that's being put,
+   * even if it's empty". A part that did not ride this page stands in its place as a row of 0 tokens that says why. The
+   * wire is untouched: rows only. */
+  fillEveryRow(slots, {
+    small: safeSettings.smallModelNow === true, planned: Boolean(smallB), frameOn,
+    keeperOn: Boolean(windowInfo && windowInfo.keeperOn), keeperWindow: windowInfo && Number.isFinite(windowInfo.window) ? windowInfo.window : 30,
+    hasRecord: Boolean(String(memoryText || '').trim()),
+  });
 
   const stateSummary = facts ? facts.slice(0, 120) : '';
   const receipt = {

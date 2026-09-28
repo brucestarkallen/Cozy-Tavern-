@@ -78,7 +78,7 @@ test('M356-4 THE WHOLE READING, THROUGH THE STORE: the answers are kept with the
   assert(closing.startsWith('Iron Man — nothing has cost him anything'), 'in his voice, led by the teller’s name: ' + closing.slice(0, 80));
   assert((r.receipt.slots || []).some((s) => s.name === 'The sensors’ word'), 'and named on the receipt');
   const quiet = buildRequest({ story: { brief: '' }, messages: [{ id: 'u1', role: 'user', text: 'I wait.' }], settings: {}, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '' });
-  assert(!/nothing has cost him/i.test(JSON.stringify(quiet.messages)) && !(quiet.receipt.slots || []).some((s) => s.name === 'The sensors’ word'), 'with nothing to say, nothing is said');
+  assert(!/nothing has cost him/i.test(JSON.stringify(quiet.messages)) && (quiet.receipt.slots || []).some((s) => s.name === 'The sensors’ word' && s.tokens === 0 && s.reason), 'with nothing to say, nothing is said — the row stands at 0 saying why (M510-20)');
 });
 
 test('M356-5 IT NEVER BREAKS A TURN: no connection, no page, a house that says nothing — all of it comes back as no reading at all', async () => {

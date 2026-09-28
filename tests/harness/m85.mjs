@@ -289,7 +289,7 @@ test('M88-2 the eye rides the storyteller’s next turn as its own receipt-named
   assert(injected && /The house's eye on the last page/.test(injected.content), 'it rides the dynamic tail, never the cached prefix');
   assert(!withEye.systemBlocks.some((b) => /house's eye on the last page/.test(b.text)), 'not in the system blocks');
   const without = buildRequest({ ...base, houseEye: '' });
-  assert(!without.receipt.slots.some((s) => s.name === 'The house’s eye'), 'a clean last page: no slot at all');
+  assert(without.receipt.slots.some((s) => s.name === 'The house’s eye' && s.tokens === 0 && s.reason), 'a clean last page: nothing rides, and the row stands at 0 saying why (M510-20)');
 });
 
 test('M90-1 the record’s corrections: written by the house, read last, never folded, never verified, deduplicated, capped', async () => {

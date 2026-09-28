@@ -127,7 +127,7 @@ test('M486 the receipt says what canon did: the row stands whenever canon is on 
   const pages = [{ id: 'u1', role: 'user', text: 'I walk in.' }, { id: 'a1', role: 'assistant', text: '[The Lantern — Tuesday | 21:00] The door swung.' }, { id: 'u2', role: 'user', text: 'I sit.' }];
   const base = { story, messages: pages, settings: { frameText: 'F' }, state: emptyState(), modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { mode: 'keeper', window: 30, budgetTokens: 200000 } };
   const row = (req) => req.receipt.slots.find((s) => s.name === 'What canon says');
-  assert(!row(buildRequest({ ...base })), 'off: no row');
+  { const off = row(buildRequest({ ...base })); assert(off && off.tokens === 0 && /canon verification is off/.test(off.reason), 'off: the row stands at 0 and says canon verification is off (M510-20)'); }
   const empty = row(buildRequest({ ...base, canonOn: true, canonWhy: 'canon found no canon face to speak of in the latest pages (scene scan)' }));
   assert(empty && empty.text === '' && /no canon face/.test(empty.reason), 'on, empty: the row with the reason — ' + JSON.stringify(empty));
   const full = row(buildRequest({ ...base, canonOn: true, canonNote: 'Rukia Kuchiki:\nLieutenant of the 13th, petite, violet eyes.' }));

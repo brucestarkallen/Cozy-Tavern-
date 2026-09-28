@@ -61,7 +61,7 @@ test('M346-1 CANON VERIFICATION IN COZY: the story is its chat, Cozy’s ledger 
     assert((on.receipt.slots || []).some((s) => s.name === 'What canon says'), 'the receipt names it');
     if (process.env.SHOW_CANON) console.log('BRIEFING>>>\n' + briefing.content.slice(0, 1400));
     const off = req('');
-    assert(!/Rukia Kuchiki is|violet/i.test(JSON.stringify(off.messages)) && !(off.receipt.slots || []).some((s) => s.name === 'What canon says'), 'no note, nothing of it');
+    assert(!/Rukia Kuchiki is|violet/i.test(JSON.stringify(off.messages)) && (off.receipt.slots || []).some((s) => s.name === 'What canon says' && s.tokens === 0 && s.reason), 'no note: nothing of it on the wire, and its row stands at 0 saying why (M510-20)');
     const key = known.find((k) => /Rukia/.test(k.name)).key;
     eq(await canonForget(story.id, key), true, 'forgotten by hand');
     assert(!(await canonKnown(story.id)).some((k) => k.key === key), 'and gone from the list');

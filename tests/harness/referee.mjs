@@ -403,7 +403,7 @@ test('M11 injection: the ruling rides first in the closing words, the receipt-na
     window: { keeperOn: false, window: 30, budgetTokens: 100000 },
     directive: '', directorNote: '', editorEye: '', ruling: '',
   });
-  assert(!(quiet.receipt.slots || []).some((s) => s.name === 'The house has ruled'), 'no ruling, no slot');
+  assert((quiet.receipt.slots || []).some((s) => s.name === 'The house has ruled' && s.tokens === 0 && s.reason), 'no ruling: nothing rides, and the row stands at 0 saying why (M510-20: every row, every page)');
 });
 
 test('M11 the state of things names a fight that stands', () => {

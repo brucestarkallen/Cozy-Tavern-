@@ -256,11 +256,12 @@ test('M10 stack: the director’s note and the editor’s eye ride the dynamic t
 
 test('M10 stack: empty showrunner texts omit the slots entirely', () => {
   const r = stackWith('', '');
-  assert(!r.receipt.slots.some((s) => s.name === 'The director’s note'), 'no empty director slot');
-  assert(!r.receipt.slots.some((s) => s.name === 'The editor’s eye'), 'no empty editor slot');
+  assert(r.receipt.slots.some((s) => s.name === 'The director’s note' && s.tokens === 0 && s.reason), 'an empty director note: nothing rides, and the row stands at 0 saying why (M510-20)');
+  assert(r.receipt.slots.some((s) => s.name === 'The editor’s eye' && s.tokens === 0 && s.reason), 'an empty editor: nothing rides, and the row stands at 0 saying why (M510-20)');
+  assert(!/The director’s note|The editor’s eye/.test(JSON.stringify(r.messages)) && !JSON.stringify(r.systemBlocks).includes('marching orders'), 'and nothing of either rides on the wire');
   /* a concluded directive and a resting editor render empty, too */
   eq(renderDirectorNote({ text: 'PREMISE — x.', episode: 1, concluded: true }), '', 'concluded omits');
   eq(renderEditorNote({ enabled: false, critique: { northStar: 'x', notes: ['y'] } }), '', 'disabled omits');
   const r2 = stackWith('   ', undefined);
-  assert(!r2.receipt.slots.some((s) => s.name === 'The director’s note'), 'whitespace omits');
+  assert(r2.receipt.slots.some((s) => s.name === 'The director’s note' && s.tokens === 0 && s.reason) && !JSON.stringify(r2.systemBlocks).includes('marching orders'), 'whitespace: nothing rides, and the row stands at 0 saying why (M510-20)');
 });

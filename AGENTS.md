@@ -12612,3 +12612,18 @@ before the first separator (— – | · , or " - ") has letters and is not a da
 Monday, June 1 — 18:40" is still a place). Replayed: the header-less page with the time-skip line is the page, whole.
 Law M510-18 extended.
 
+# M510-20 — every row, every page
+He: "on my first scene there is no Story essentials on What the storyteller saw — is it because the record is still empty?
+Why not put everything on it, so I know everything that's being put, even if it's empty." Yes: the essentials are made
+from the keeper's record, and on a first scene the keeper has folded nothing (it folds pages once they are older than its
+window). And the receipt's own rule was "an empty part has no row" — so an absent part could not be told from one that
+does not exist. stack.js: EVERY_ROW lists every part the house can send, in the order it rides; fillEveryRow puts each
+missing one in its place (before the next row that is there) at 0 tokens with the reason it did not ride (emptyWhy), and
+gives the always-standing rows that came empty their reason too. On the normal model the small model's parts say "small
+model only"; on a small first scene Story essentials says "not made yet — the record is still empty: the memory keeper
+folds pages once they are older than its 30-page window"; with a record and no essentials yet, "being made". The wire is
+untouched (the byte-for-byte check holds); the rows carry 0 tokens, so the total is what rode. Eleven laws asserted "empty
+= no row"; each now asserts that nothing of the part is on the wire and its row stands at 0 saying why — and LONG-7 (the eye's
+row the turn after). The byte-for-byte check compares the wire exactly and every row that existed before exactly; the added
+rows carry 0 tokens (none carries any, on all nine fixtures, under both persona names). Law M510-20.
+
