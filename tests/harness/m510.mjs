@@ -453,3 +453,19 @@ test('M510-18 A FIRST PAGE’S HEADER IN ANOTHER DRESS IS THE HEADER: it opens t
   const parted = partParagraphs(flatText);
   assert(parted.changed && parted.text.split('\n\n').length === 3, 'the paragraph mend a NEW header-less page is given where it is kept');
 });
+
+test('M510-19 WHO KNOWS WHAT, FOR A SMALL MODEL: the rule every time (his Epistemic Law and The 3 Part Trace, word for word), and only the scene’s part of the list — the frontier model keeps the whole list', async () => {
+  const NAMES = ['Rukia Kuchiki', 'Kaelen', 'Renji Abarai', 'Momo Hinamori', 'Izuru Kira', 'Shuhei Hisagi', 'Aster', 'Bramble', 'Cinder', 'Dune', 'Ember', 'Fennel', 'Gale', 'Hollow', 'Iris', 'Juniper'];
+  const muts = [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Kuchiki manor garden' }, { type: 'presence.enter', name: 'Jovan' }];
+  NAMES.forEach((n, i) => { muts.push({ type: 'people.set', name: n, field: 'core', text: n + ' of the Gotei' }); if (i < 6) muts.push({ type: 'presence.enter', name: n }); for (let k = 0; k < 30; k += 1) muts.push({ type: 'knowledge.add', name: n, fact: 'KNOWS-' + i + '-' + k + ' what ' + n.split(' ')[0] + ' learned about the ' + ['shrine', 'lantern', 'captain', 'duel', 'seat', 'debt'][k % 6] + ' on page ' + k }); });
+  const st = { ...applyMutations({ ...emptyState(), page: 90 }, muts).state, page: 90 };
+  const mk = (small) => buildRequest({ story: {}, messages: [{ id: 'u', role: 'user', text: 'I ask about the lantern at the shrine.' }], settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, ...(small ? { smallPlan: { ...PLAN, intense: false, laws: [] } } : {}) });
+  const small = mk(true); const normal = mk(false);
+  const sw = wireOf(small);
+  assert(sw.includes('Epistemic Law = knowledge inherits the RESOLUTION of its pathway') && sw.includes('The 3 Part Trace = the ledger') && sw.includes('All fail -> CUT IT'), 'the rule rides, in his words');
+  const facts = (r) => r.receipt.slots.find((s) => s.name === 'The state of things');
+  const known = (r) => (facts(r).text.match(/KNOWS-\d+-\d+/g) || []).length;
+  assert(known(normal) > known(small) && facts(small).tokens < facts(normal).tokens, 'the list: the frontier model keeps more of it (' + known(normal) + ' facts, ' + facts(normal).tokens + ' tokens), the small one the scene’s part (' + known(small) + ' facts, ' + facts(small).tokens + ' tokens)');
+  assert(!wireOf(normal).includes('Epistemic Law = knowledge inherits') || wireOf(normal).includes('## Information Quarantine'), 'the frontier model reads the rule where it always did — in the whole craft');
+});
+

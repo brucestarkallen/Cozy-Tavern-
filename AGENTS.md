@@ -12592,3 +12592,15 @@ the paragraph mend lived only below a header: exactly the pages that came withou
 - Left as it was: a reply with no header in ANY dress still streams as thinking and is handed back whole (nothing tells
   its thinking from its page; M377: never asked again). Laws M510-18, DOM-136.
 
+# M510-18 — who knows what, for a small model: the rule every page, the scene's part of the list
+He: "is who-knows-what a good idea? On my Bleach tale it reaches 14k tokens. Why not a simple system — NPCs only know what
+they saw. Keep the normal mode as it is (proven); design something smarter for the small one." It is his craft's
+Information Quarantine at work — the ledger writes a fact for a person only when a page shows them witnessing it or being
+told — and the frontier model reads the whole list. The small request already took the ledger's compact view (the scene's
+people, their most relevant lines — measured on a 16-person, 30-facts-each ledger: the frontier's state of things lists
+more facts at more tokens, the small one the scene's part), but it did not carry the RULE: laws.js ALWAYS_LAWS gains his
+own Epistemic Law (witnessed, told by a named on-page source, or one obvious step) and The 3 Part Trace (the ledger's "who
+knows what" first, then the three questions; all fail -> cut it), word for word, about 215 tokens. So a small model keeps
+"only what they saw" for every person, listed or not; the helper's "hasn't found out" lines and the scene's blind spots
+still ride. The frontier request is unchanged. Law M510-19.
+

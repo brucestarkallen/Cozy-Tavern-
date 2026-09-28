@@ -58,7 +58,11 @@ export function joinLaws(chosen) {
 /* WHAT A SMALL MODEL ALWAYS CARRIES: who tells and who plays (The Telling), the header his ledger reads the place and
  * the clock from (Header Protocol — without it the ledger loses the scene), his character left to him (MC Agency and
  * its three companions, Intent Horizon), and what a page may carry (The Page's three laws). */
-export const ALWAYS_LAWS = ['The Telling', 'Header Protocol', 'MC Agency', 'MC Dialogue Is Literal', 'Every MC Action Is An Attempt', 'Intent Horizon', 'Marks On The Page', 'The Window Beyond The Page', 'Readable Media'];
+/* M510-18: and WHAT A PERSON CAN KNOW — his craft's own rule (Epistemic Law: witnessed, told by a named on-page source, or
+ * one obvious step; The 3 Part Trace: the ledger's "who knows what" first, then the three questions, all fail → cut it).
+ * The frontier model reads the whole list of who knows what (on a long tale, thousands of tokens); a small model reads
+ * the scene's part of it and carries the RULE, so no one knows what no page gave them, listed or not. */
+export const ALWAYS_LAWS = ['The Telling', 'Header Protocol', 'MC Agency', 'MC Dialogue Is Literal', 'Every MC Action Is An Attempt', 'Intent Horizon', 'Epistemic Law', 'The 3 Part Trace', 'Marks On The Page', 'The Window Beyond The Page', 'Readable Media'];
 /* his two sound laws — said right before the page whenever the scene is a fight, sex, torture or a raw peak */
 export const SOUND_LAWS = ['Sound As Onomatopoeia', 'High Intensity Scenes'];
 /* the laws a small request cannot stand without: if his craft no longer holds them by these names, the small request

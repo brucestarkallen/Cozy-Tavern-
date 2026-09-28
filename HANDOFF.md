@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-017)
+# Cozy Tavern — handoff for the next session (state at m510-018)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -526,7 +526,8 @@ founding design lives in AGENTS.md's first entries.)
   record's newest lines (M510-14). Worker row 'essentials'; the chain's last link; planAhead runs it too. The plan says it was made BEFORE his move ("how things stood before my move
   above"; "before my move, that looked like: …") — after his message, a small model must never take it over his move.
   WITH A PLAN — THE SMALL REQUEST (stack.js smallB, his choice B): the craft rides as laws.js ALWAYS_LAWS (The Telling,
-  Header Protocol, MC Agency and its companions, Intent Horizon, the Page's three laws) plus the helper's laws, WORD FOR
+  Header Protocol, MC Agency and its companions, Intent Horizon, Epistemic Law and The 3 Part Trace — M510-18: what a
+  person can know, as a RULE beside the scene's part of the list — the Page's three laws) plus the helper's laws, WORD FOR
   WORD (lawsOf/joinLaws never reword); the shortcuts; the cards of who is here; woken rules, lore, canon, the ruling, the
   sensors; the last 8 storyteller pages (SMALL_PAGES, trimmed to the room); his message; then the closing words: ruling,
   the plan in his voice (planwords.js renderPlan — the hour, ground and who is here are the LEDGER's lines, never the
