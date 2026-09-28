@@ -14,6 +14,7 @@
  * and the real thinking control — no placeholders.
  */
 
+import { readVoice, sameVoice, listPresets, savePreset, usePreset, removePreset, PRESET_ACTIVE_KEY } from '../engine/voicepresets.js'; /* M510-35 */
 import { copyWords as copyToClipboard } from './receiptview.js'; /* M510-31: copy that works on the phone's own address too */
 import { withMacros } from '../assemble/voice.js'; /* M361 */
 import { loadState } from '../engine/state.js'; /* M361: whose name {{user}} is */
@@ -151,6 +152,9 @@ export function initSettings(ctx) {
     tellerPersonNote: document.getElementById('teller-person-note'),
     writerName: document.getElementById('writer-name'),
     groundingPhrase: document.getElementById('grounding-phrase'), /* M358 */
+    voicePresetPick: document.getElementById('voice-preset-pick'), /* M510-35 */
+    voicePresetName: document.getElementById('voice-preset-name'),
+    voicePresetNote: document.getElementById('voice-preset-note'),
     afterRole: document.getElementById('after-role'), /* M380 */
     frameVoiceCheck: document.getElementById('frame-voice-check'), /* M359 */
     frameVoiceFound: document.getElementById('frame-voice-found'),
@@ -2882,7 +2886,7 @@ export function initSettings(ctx) {
    * whatever is still pending for it first. */
   const ROOM_RENDERS = {
     storyteller: () => [renderConnections, () => renderUsage(document.getElementById('usage-box')), renderWorkers, renderThinking], /* M457 */
-    story: () => [loadPromptSlots, () => (ctx.ownWords && typeof ctx.ownWords.reload === 'function' ? ctx.ownWords.reload() : undefined)], /* M466: his own-voice entries re-read with the room (a pull may have moved them) */
+    story: () => [loadPromptSlots, () => (ctx.ownWords && typeof ctx.ownWords.reload === 'function' ? ctx.ownWords.reload() : undefined), () => renderPresets()], /* M510-35: the presets with the voice they hold */ /* M466: his own-voice entries re-read with the room (a pull may have moved them) */
     craft: () => [renderRulebook, renderRegex],
     world: () => [renderCast, renderLore],
     readers: () => [renderMemory, renderReferee],
@@ -2911,6 +2915,81 @@ export function initSettings(ctx) {
     setTimeout(step, 0);
   }
 
+  /* M510-35: THE STORYTELLER'S VOICE, SAVED — his presets (Hulk, Batman, Iron Man…): what he sees in the boxes is what a
+   * preset takes (a box typed in and not yet kept is kept first), and using one writes every part back and redraws them */
+  async function keepVoiceBoxes() {
+    for (const [box, key] of [[els.frameGlobal, 'frameText'], [els.noteGlobal, 'noteText']]) {
+      if (box && typedBoxes.has(box)) { await db.settings.set(key, box.value); typedBoxes.delete(box); }
+    }
+    if (els.tellerName) await keepName('tellerName', els.tellerName);
+    if (els.writerName) await keepName('writerName', els.writerName);
+    if (els.groundingPhrase) {
+      const g = String(els.groundingPhrase.value || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      if (g) await db.settings.set('groundingPhrase', g); else await db.settings.delete('groundingPhrase');
+    }
+  }
+  const presetNote = (words) => { if (els.voicePresetNote) els.voicePresetNote.textContent = words; };
+  async function renderPresets(said = '') {
+    const pick = els.voicePresetPick;
+    if (!pick) return;
+    const all = await listPresets();
+    const now = await readVoice();
+    const active = await db.settings.get(PRESET_ACTIVE_KEY);
+    const was = pick.value;
+    pick.textContent = '';
+    if (!all.length) {
+      const o = document.createElement('option'); o.value = ''; o.textContent = 'No presets yet'; pick.appendChild(o);
+    }
+    for (const p of all) { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; pick.appendChild(o); }
+    const match = all.find((p) => sameVoice(p.voice, now));
+    pick.value = (all.find((p) => p.id === was) || match || all.find((p) => p.id === active) || all[0] || { id: '' }).id;
+    for (const id of ['btn-voice-preset-use', 'btn-voice-preset-update', 'btn-voice-preset-delete']) { const b = document.getElementById(id); if (b) b.disabled = !all.length; }
+    presetNote(said || (match ? 'Using “' + match.name + '”.' : (all.length ? 'Your voice right now is not saved in any preset — “Save as a new preset” keeps it.' : 'Save the voice below as a preset, then switch between your presets here.')));
+  }
+  const chosenPreset = async () => (await listPresets()).find((p) => p.id === (els.voicePresetPick && els.voicePresetPick.value));
+  const onPreset = (id, fn) => { const b = document.getElementById(id); if (b) b.addEventListener('click', () => { fn().catch(() => presetNote('That did not go through — nothing was changed.')); }); };
+  onPreset('btn-voice-preset-use', async () => {
+    const p = await chosenPreset();
+    if (!p) return;
+    await keepVoiceBoxes();
+    const now = await readVoice();
+    const saved = (await listPresets()).some((x) => sameVoice(x.voice, now));
+    /* his words are replaced — when they are in no preset, it asks first (M175) */
+    if (!saved && typeof window.confirm === 'function' && !window.confirm('Your voice right now is not saved in any preset — using “' + p.name + '” replaces it. Use it anyway?')) return;
+    await usePreset(p.id);
+    typedBoxes.delete(els.frameGlobal); typedBoxes.delete(els.noteGlobal);
+    await loadPromptSlots();
+    if (ctx.ownWords && typeof ctx.ownWords.reload === 'function') await ctx.ownWords.reload();
+    await renderPresets('Using “' + p.name + '” — the frame, the note, the names and your own words are its now.');
+  });
+  onPreset('btn-voice-preset-save', async () => {
+    const name = String((els.voicePresetName && els.voicePresetName.value) || '').replace(/\s+/g, ' ').trim();
+    if (!name) { presetNote('Name it first — e.g. Hulk.'); if (els.voicePresetName) els.voicePresetName.focus(); return; }
+    const had = (await listPresets()).find((p) => p.name.toLowerCase() === name.toLowerCase());
+    if (had && typeof window.confirm === 'function' && !window.confirm('A preset is already called “' + had.name + '” — save your voice right now over it?')) return;
+    await keepVoiceBoxes();
+    const p = await savePreset(name, await readVoice());
+    if (els.voicePresetName) els.voicePresetName.value = '';
+    if (els.voicePresetPick) els.voicePresetPick.value = p.id;
+    await renderPresets('Saved as “' + p.name + '”.');
+  });
+  onPreset('btn-voice-preset-update', async () => {
+    const p = await chosenPreset();
+    if (!p) return;
+    if (typeof window.confirm === 'function' && !window.confirm('Save your voice right now over “' + p.name + '”?')) return;
+    await keepVoiceBoxes();
+    await savePreset('', await readVoice(), { id: p.id });
+    await renderPresets('“' + p.name + '” now holds your voice as it stands.');
+  });
+  onPreset('btn-voice-preset-delete', async () => {
+    const p = await chosenPreset();
+    if (!p) return;
+    if (typeof window.confirm === 'function' && !window.confirm('Let “' + p.name + '” go? The preset is erased — there is no take-back. Your voice right now stays as it is.')) return;
+    await removePreset(p.id);
+    await renderPresets('“' + p.name + '” is gone. Your voice right now stays as it is.');
+  });
+  if (els.voicePresetPick) els.voicePresetPick.addEventListener('change', () => { renderPresets(); });
+
   /* B7 (M9): when the shelf of stories changes while Settings stands open,
    * the per-story blocks (frame/note/brief/cast names, the workers'
    * switches, the spend line, the lore shelf, the thinking say) refresh
@@ -2918,6 +2997,7 @@ export function initSettings(ctx) {
   function onStoriesChanged() {
     if (document.getElementById('view-settings').hidden) return;
     loadPromptSlots();
+    renderPresets(); /* M510-35 */
     renderWorkers();
     renderMemory();
     renderLore();

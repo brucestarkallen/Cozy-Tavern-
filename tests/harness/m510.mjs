@@ -821,3 +821,36 @@ test('M510-34b the finisher’s two parts in either order: a note under the last
   const r = tidyPage(H + story + '\n\n*** The World Beyond ***\n\n*** The World Beyond ***\n\nWhat will you do next? Let me know!', { mc: 'Jovan' });
   eq(r.text.slice(H.length), story, 'the empty windows and the note under them, all gone: ' + JSON.stringify(r.text.slice(-60)));
 });
+
+test('M510-35 THE STORYTELLER’S VOICE, SAVED (his presets: Hulk, Batman, Iron Man…): a preset takes every part of the voice — names, grounding phrase, how the teller thinks, frame, note, own words — and using one writes every part back exactly, clearing what it kept empty; the switches are not a voice; a name used again is that preset; letting one go leaves the voice as it stands', async () => {
+  const { readVoice, sameVoice, listPresets, savePreset, usePreset, removePreset, VOICE_FIELDS } = await import('../../js/engine/voicepresets.js');
+  const { db: store } = await import('../../js/store.js');
+  for (const k of VOICE_FIELDS) await store.settings.delete(k);
+  await store.settings.set('voicePresets', []);
+  const HULK = { tellerName: 'Hulk', writerName: 'Bruce', groundingPhrase: 'HULK SMASH.', tellerPerson: 'first', frameText: 'I am Hulk. I tell Bruce stories. Loud.', noteText: 'Keep it LOUD.', ownWords: [{ id: 'w1', on: true, name: 'roar', role: 'teller', place: 'after-your-message', text: 'Hulk still here.' }] };
+  for (const [k, v] of Object.entries(HULK)) await store.settings.set(k, v);
+  await store.settings.set('frameOn', true);
+  const hulk = await savePreset('Hulk', await readVoice());
+  const BAT = { tellerName: 'Batman', writerName: 'Bruce', groundingPhrase: null, tellerPerson: null, frameText: 'I am Batman. I tell it in the dark.', noteText: null, ownWords: null };
+  for (const [k, v] of Object.entries(BAT)) { if (v === null) await store.settings.delete(k); else await store.settings.set(k, v); }
+  const bat = await savePreset('Batman', await readVoice());
+  eq((await listPresets()).map((p) => p.name).join(', '), 'Hulk, Batman');
+  await store.settings.set('frameOn', false);
+  await usePreset(hulk.id);
+  const now = await readVoice();
+  for (const [k, v] of Object.entries(HULK)) eq(JSON.stringify(now[k]), JSON.stringify(v), 'Hulk’s ' + k + ', back exactly');
+  eq(await store.settings.get('frameOn'), false, 'the switches are not a voice — they stay as they are');
+  await usePreset(bat.id);
+  const b = await readVoice();
+  assert(b.frameText === 'I am Batman. I tell it in the dark.' && b.noteText === null && b.groundingPhrase === null && b.ownWords === null, 'what Batman kept empty is cleared — the starter note comes back where he had none');
+  assert(sameVoice(b, bat.voice) && !sameVoice(b, hulk.voice), 'the voice as it stands is Batman’s');
+  await store.settings.set('frameText', 'I am Batman. I tell it in the rain.');
+  const again = await savePreset('batman', await readVoice());
+  eq(again.id, bat.id, 'a name used again is that preset, written over');
+  eq((await listPresets()).length, 2);
+  await removePreset(bat.id);
+  eq((await listPresets()).map((p) => p.name).join(', '), 'Hulk', 'let go');
+  eq(await store.settings.get('frameText'), 'I am Batman. I tell it in the rain.', 'the voice as it stands stays');
+  for (const k of VOICE_FIELDS) await store.settings.delete(k);
+  await store.settings.set('voicePresets', []); await store.settings.delete('frameOn');
+});

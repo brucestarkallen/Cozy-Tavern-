@@ -12856,3 +12856,17 @@ which compares it whole, failed; "removed" is there only when something came off
 frame changed for every test after it — the walk's house then took the storyteller's request for a worker's; it now puts
 the frame and the note back as it found them.
 
+# M510-35 — the storyteller's voice, saved: presets
+He: "add saved settings for the frame, the notes and the words in the storyteller's voice, so I can quickly change
+between saved presets — Hulk, Batman, Iron Man…". engine/voicepresets.js keeps presets (settings voicePresets): each
+holds every part that makes the teller who he is — who is telling and his own name, the grounding phrase, how the teller
+thinks (I / you / follow the frame), the frame and the note for every story, and his own words. Settings → The frame opens
+on "Presets — the storyteller's voice, saved together": choose one and "Use it" (every part written back exactly — a part
+the preset kept empty is cleared, so the starter frame or note returns where it had none — then the boxes, the names and
+his own words are drawn again and it says "Using “Hulk”"); "Save as a new preset" takes what he sees in the boxes (a box
+typed in and not yet kept is kept first; a name used again is that preset, after asking); "Save over the chosen one";
+"Let the chosen one go". It asks before replacing a voice that is in no preset, and before erasing one (M175). The
+switches (send the frame, the note, to a small model) and a story's own frame or note are not a voice and are never
+touched. Law M510-35 (every part saved and written back exactly; switches untouched; a reused name overwrites; letting go
+leaves the voice); DOM-141 (through the real Settings screen, putting everything back after).
+

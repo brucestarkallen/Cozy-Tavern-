@@ -6996,6 +6996,43 @@ test('DOM-140 THE PAGE FINISHED, IN THE APP (M510-34): a page that ends in an em
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-141 THE STORYTELLER’S VOICE, SAVED, IN SETTINGS (M510-35): save the voice as “Hulk”, change it, save “Batman”, choose Hulk and Use it — the frame box and the teller’s name are Hulk’s again; everything he had is put back after', async () => {
+  const before = errors.length;
+  const KEYS = ['tellerName', 'writerName', 'groundingPhrase', 'tellerPerson', 'frameText', 'noteText', 'ownWords', 'voicePresets', 'voicePresetActive'];
+  const kept = {};
+  for (const k of KEYS) kept[k] = await db.settings.get(k);
+  const priorConfirm = env.window.confirm;
+  env.window.confirm = () => true;
+  try {
+    await openSettings();
+    const typeIn = (id, words, ev = 'input') => { const box = q(id); box.value = words; box.dispatchEvent(new env.window.Event(ev, { bubbles: true })); };
+    typeIn('#frame-global', 'I am Hulk. I tell Bruce stories. LOUD.');
+    typeIn('#teller-name', 'Hulk', 'change');
+    typeIn('#voice-preset-name', 'Hulk');
+    click(q('#btn-voice-preset-save'));
+    await until(async () => ((await db.settings.get('voicePresets')) || []).some((p) => p.name === 'Hulk'), 'Hulk saved');
+    await until(() => /Saved as “Hulk”/.test(q('#voice-preset-note').textContent), 'it says so');
+    typeIn('#frame-global', 'I am Batman. I tell it in the dark.');
+    typeIn('#teller-name', 'Batman', 'change');
+    typeIn('#voice-preset-name', 'Batman');
+    click(q('#btn-voice-preset-save'));
+    await until(async () => ((await db.settings.get('voicePresets')) || []).some((p) => p.name === 'Batman'), 'Batman saved');
+    const hulk = ((await db.settings.get('voicePresets')) || []).find((p) => p.name === 'Hulk');
+    const pick = q('#voice-preset-pick');
+    pick.value = hulk.id; pick.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    click(q('#btn-voice-preset-use'));
+    await until(() => q('#frame-global').value === 'I am Hulk. I tell Bruce stories. LOUD.', 'the frame box is Hulk’s again');
+    eq(q('#teller-name').value, 'Hulk', 'and who is telling');
+    eq(await db.settings.get('frameText'), 'I am Hulk. I tell Bruce stories. LOUD.', 'kept, not only shown');
+    await until(() => /Using “Hulk”/.test(q('#voice-preset-note').textContent), 'it says which voice is in use: ' + q('#voice-preset-note').textContent);
+  } finally {
+    env.window.confirm = priorConfirm;
+    await closeSettings();
+    for (const k of KEYS) { if (kept[k] == null) await db.settings.delete(k); else await db.settings.set(k, kept[k]); }
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

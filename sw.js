@@ -36,6 +36,7 @@ const SHELL = [
   'js/engine/clock.js',
   'js/engine/apply.js',
   'js/engine/window.js', /* M467 */
+  'js/engine/voicepresets.js', /* M510-35 */
   'js/engine/bodies.js',
   'js/engine/relationships.js',
   'js/engine/offscreen.js',

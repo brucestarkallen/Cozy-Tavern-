@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-034)
+# Cozy Tavern — handoff for the next session (state at m510-035)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1058,4 +1058,10 @@ founding design lives in AGENTS.md's first entries.)
   is returned (removed) and kept as the page's earlier words (msg.mended, "tidied — took off …") — the drawer lists it,
   a tap puts it back — for a new page (chat.js landing) and for stored pages (mendAllPages, once per build on open, never
   over an existing mend). Laws M510-34, DOM-140.
+- M510-35 — THE STORYTELLER'S VOICE, SAVED (engine/voicepresets.js; Settings → The frame → "Presets"): a preset holds
+  tellerName, writerName, groundingPhrase, tellerPerson, frameText, noteText and ownWords (settings voicePresets; the one
+  last used, voicePresetActive). "Use it" writes every part back exactly (a part kept empty is cleared) and redraws the
+  boxes and his own words; it asks first when his voice right now is in no preset. "Save as a new preset" (a name used
+  again is that preset, after asking), "Save over the chosen one", "Let the chosen one go" (asks). What he sees in the
+  boxes is what a preset takes. The switches and a story's own frame/note are not a voice. Laws M510-35, DOM-141.
 

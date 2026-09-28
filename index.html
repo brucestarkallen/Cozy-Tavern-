@@ -310,6 +310,24 @@
         <section class="settings-section" id="section-frame">
           <h3>The frame</h3>
           <p class="quiet">The standing word given to the storyteller before anything else. It shapes every tale.</p>
+          <!-- M510-35: the storyteller's voice, saved — switch between Hulk, Batman, Iron Man… -->
+          <div class="stack voice-presets" id="voice-presets">
+            <label class="stack-label" for="voice-preset-pick">Presets — the storyteller’s voice, saved together</label>
+            <p class="quiet">Who is telling and your name, the grounding phrase, how the teller thinks, the frame and the note for every story, and your own words — all of it, switched in one tap.</p>
+            <div class="row">
+              <select id="voice-preset-pick"></select>
+              <button type="button" id="btn-voice-preset-use" class="btn">Use it</button>
+            </div>
+            <div class="row">
+              <input type="text" id="voice-preset-name" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Name it — e.g. Hulk" aria-label="A name for the new preset">
+              <button type="button" id="btn-voice-preset-save" class="text-btn">Save as a new preset</button>
+            </div>
+            <div class="row">
+              <button type="button" id="btn-voice-preset-update" class="text-btn">Save over the chosen one</button>
+              <button type="button" id="btn-voice-preset-delete" class="text-btn">Let the chosen one go</button>
+            </div>
+            <p class="quiet" id="voice-preset-note"></p>
+          </div>
           <!-- M327: who tells, and who listens -->
           <div class="row names-row">
             <label class="stack-label">Who is telling
