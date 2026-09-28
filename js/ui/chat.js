@@ -81,6 +81,7 @@ import { mcName, isMcAlias } from '../engine/duels.js';
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
 import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
+import { runEssentials, loadEssentials } from '../agents/essentials.js'; /* M510-15: the story's essentials */
 import { lastPagesOf } from '../assemble/stack.js'; /* M510 */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView } from '../engine/people.js'; /* M510 */
@@ -2572,12 +2573,27 @@ export function initChat(ctx) {
     if (!plan) return { detail: 'its answer could not be used', raw }; /* the next page goes whole, as before a plan existed */
     return { detail: 'read the story and planned the next page' + (plan.intense ? ' — a heated one' : '') };
   }
+  /* M510-15: THE ESSENTIALS KEEPER — the whole record streamlined, rebuilt when the record changed; a small model only */
+  async function essentialsNext(story, { signal, stale = () => false } = {}) {
+    if (!isSmallModel(await resolveConnection(story))) return { silent: true };
+    const connection = await resolveWorkerConnection(story, 'essentials');
+    if (!connection) return { silent: true };
+    const mem = await loadMemory(story.id);
+    const fresh = (await db.stories.get(story.id)) || story;
+    if (stale()) return { silent: true };
+    const out = await runEssentials({ connection, storyId: story.id, nodes: mem && mem.nodes, brief: fresh.brief || '', mc: mcName(await loadState(story.id)), signal });
+    if (stale()) return { silent: true };
+    if (out.wrote) return { detail: 'streamlined the whole record into the story’s essentials' };
+    return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
+  }
   function planAhead() {
     (async () => {
       const story = await activeStory();
       if (!story || !isSmallModel(await resolveConnection(story))) return;
       const promise = enqueueWork(story.id, { name: 'planner', run: async ({ signal, stale }) => planNext(story, { signal, stale }) });
       noteWork(story.id, promise);
+      const kept = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale }) => essentialsNext(story, { signal, stale }) }); /* M510-15 */
+      noteWork(story.id, kept);
     })().catch(() => {});
   }
   const roomOf = (connection) => contextOf(connection);
@@ -3641,6 +3657,11 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       return planNext(story, { signal, stale });
     });
+    /* 9. M510-15: THE ESSENTIALS KEEPER — after the keeper folded, the whole record streamlined again. Small model only. */
+    enqueue('essentials', async ({ signal, stale }) => {
+      if (stale()) return { silent: true };
+      return essentialsNext(story, { signal, stale });
+    });
 
     /* 6. M346: canon verification after the page — ST's MESSAGE_RECEIVED: the people this page brought in are looked up
      * now, so the next page has them. Only with its switch on. */
@@ -4308,12 +4329,13 @@ export function initChat(ctx) {
       const sensorNote = ooc ? '' : await takeWordForTurn(story.id); /* M356/M357: a reading's word, or what the house saw in the last page */
       /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
        * plan for the page before the one it replaces); none yet → the whole request goes, as before */
-      let smallPlan = null; let smallIntense = false; let lastSound = null;
+      let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null;
       if (settingsValues.smallModelNow === true) {
         const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
         smallPlan = await loadPlan(story.id, planKey(before)); /* M510-6: the plan of the page this follows, mended or not */
         smallIntense = heatedNow(selected, state, userText); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode; M510-7: his words starting a fight */
         lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
+        smallEssentials = await loadEssentials(story.id); /* M510-15 */
       }
       const probeReceipt = buildRequest({
         story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
@@ -4324,7 +4346,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, /* M510 */
+        smallPlan, smallIntense, lastSound, smallEssentials, /* M510; M510-15 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4372,7 +4394,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, /* M510 */
+        smallPlan, smallIntense, lastSound, smallEssentials, /* M510; M510-15 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),

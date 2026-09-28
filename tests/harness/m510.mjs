@@ -386,3 +386,43 @@ test('M510-16 THE RECORD RIDES FOR A SMALL MODEL — the keeper’s folds, writt
   assert(!bad, 'said in the writer’s words: ' + JSON.stringify(bad));
 });
 
+
+test('M510-17 THE STORY’S ESSENTIALS (his design): the whole record streamlined, rebuilt only when the record changes and always from the record itself, always in front of a small model; the detailed lines ride only when named, or when folded since', async () => {
+  const { recordOf, runEssentials, loadEssentials, essentialsAsk } = await import('../../js/agents/essentials.js');
+  const nodes = [
+    { span: [0, 5], text: 'OLDEST-LINE Jovan arrived at the Seireitei; Kaelen swore an oath on the broken lantern at the mountain shrine.', level: 1, at: 1 },
+    { span: [6, 11], text: 'Rukia saw Jovan leave the captain’s quarters at dawn and told no one.', level: 1, at: 2 },
+    { span: [12, 17], text: 'NEWEST-LINE The captain named Jovan fourth seat; Kaelen walked the wall alone.', level: 1, at: 3 },
+  ];
+  const rec = recordOf(nodes);
+  assert(rec.text.indexOf('OLDEST-LINE') < rec.text.indexOf('NEWEST-LINE') && rec.upTo === 17 && /\(pages 1–6\)/.test(rec.text), 'the whole record, oldest first, with its pages');
+  const ESS = 'Who they are to each other:\nKaelen resents Jovan for the seat.\nWhat has happened, in order:\nJovan arrived; Kaelen swore on the lantern; Jovan was named fourth seat.\nWhat still stands:\nRukia knows about the dawn.\nWhere things were left:\nKaelen alone on the wall.';
+  const house = thinkingHouse({ answer: ESS });
+  const out = await withHouse(house, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes, brief: 'Bleach.', mc: 'Jovan' }));
+  assert(out.wrote && house.calls.length === 1, 'made once');
+  const sent = JSON.stringify(house.calls[0].body);
+  assert(sent.includes('OLDEST-LINE') && sent.includes('NEWEST-LINE'), 'from the WHOLE record — its beginning too');
+  const kept = await loadEssentials('s-ess');
+  assert(kept.text.startsWith('Who they are to each other:') && kept.upTo === 17, 'kept, with how far the record reached');
+  const again = await withHouse(house, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes, mc: 'Jovan' }));
+  assert(!again.wrote && again.why === 'unchanged' && house.calls.length === 1, 'the record unchanged: nothing asked');
+  const grown = [...nodes, { span: [18, 23], text: 'Kaelen challenged Jovan to a duel at the autumn review.', level: 1, at: 4 }];
+  await withHouse(house, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes: grown, mc: 'Jovan' }));
+  assert(house.calls.length === 2 && JSON.stringify(house.calls[1].body).includes('OLDEST-LINE') && (await loadEssentials('s-ess')).upTo === 23, 'the record grew: made again from the whole record, never from the last essentials');
+  const bad = thinkingHouse({ answer: '{"sorry": true}' });
+  const failed = await withHouse(bad, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes: [...grown, { span: [24, 29], text: 'A new fold.', level: 1, at: 5 }], mc: 'Jovan' }));
+  assert(!failed.wrote && bad.calls.length === 2 && (await loadEssentials('s-ess')).upTo === 23, 'an unusable answer: asked once more, then the essentials already kept stand');
+  assert(/Where things were left:/.test(essentialsAsk({ record: 'x' }).system), 'the four lines are asked for');
+  /* the small request: the essentials in front, the detailed lines only when named or folded since */
+  const withLater = [...grown, { span: [24, 29], text: 'LATER-LINE Jovan trained with Rukia at night.', level: 1, at: 5 }];
+  const msgs = pages(40);
+  msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], text: 'I show Kaelen the broken lantern from the mountain shrine.' };
+  const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: withLater.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: withLater }, smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: ESS, upTo: 23 } });
+  const notes = String(r.messages[0].content);
+  assert(notes.includes('What our story holds, in essentials:\n' + ESS), 'the essentials are in front');
+  assert(!notes.includes('NEWEST-LINE') && !notes.includes('Rukia saw Jovan leave'), 'the lines the essentials stand for do not ride as they are');
+  assert(/Folded since the essentials were made:\n- LATER-LINE/.test(notes), 'what was folded since rides as it is');
+  const last = String(r.messages[r.messages.length - 1].content);
+  assert(/\(pages 1–6\) OLDEST-LINE Jovan arrived at the Seireitei; Kaelen swore an oath on the broken lantern/.test(last), 'a line his move names comes back in detail, word for word');
+  assert(r.receipt.slots.some((s) => s.name === 'Story essentials' && s.tokens > 0) && r.receipt.slots.some((s) => s.name === 'What remains' && /folded since the essentials/.test(s.source)), 'each with its receipt row');
+});

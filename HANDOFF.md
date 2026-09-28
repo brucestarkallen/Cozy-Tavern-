@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-014)
+# Cozy Tavern — handoff for the next session (state at m510-015)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -515,7 +515,14 @@ founding design lives in AGENTS.md's first entries.)
   M510-14 — THE RECORD RIDES FOR A SMALL MODEL: the keeper's folds (written once, never rewritten), the newest first,
   up to SMALL_RECORD_CHARS (16,000 characters, about 4,000 tokens); older lines rest (said so on the page and the
   receipt) and still come back when his move names them. "The story in short" stays under 180 words on purpose: the
-  helper rewrites it every page — a long rewrite would take minutes a page and shift its details each time. The plan says it was made BEFORE his move ("how things stood before my move
+  helper rewrites it every page — a long rewrite would take minutes a page and shift its details each time.
+  M510-15 — THE STORY'S ESSENTIALS (his design, like his Plot Essential Maker): agents/essentials.js streamlines the
+  WHOLE record (Summaryception) into four parts — who they are to each other, what has happened in order, what still
+  stands (promises, debts, secrets, wounds, who knows what), where things were left — at most ~2,500 tokens; rebuilt
+  whenever the record's fingerprint changes, always from the record itself (never from its last version, so it cannot
+  drift). It rides in front of a small model on every page (receipt "Story essentials"); the record's detailed lines
+  ride only when a move names them (the recall) or when folded since the essentials were made. No essentials yet: the
+  record's newest lines (M510-14). Worker row 'essentials'; the chain's last link; planAhead runs it too. The plan says it was made BEFORE his move ("how things stood before my move
   above"; "before my move, that looked like: …") — after his message, a small model must never take it over his move.
   WITH A PLAN — THE SMALL REQUEST (stack.js smallB, his choice B): the craft rides as laws.js ALWAYS_LAWS (The Telling,
   Header Protocol, MC Agency and its companions, Intent Horizon, the Page's three laws) plus the helper's laws, WORD FOR

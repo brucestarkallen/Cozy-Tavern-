@@ -71,6 +71,7 @@ const SHELL = [
   'js/assemble/plainvoice.js',
   'js/agents/sensors.js',
   'js/agents/planner.js', /* M510 */
+  'js/agents/essentials.js', /* M510-15 */
   'js/canon/host.js',
   'js/canon/bridge.js',
   'js/canon/grounding.js',

@@ -12550,3 +12550,19 @@ still come back word for word when his move names them (M344's recall). The stor
 for the arc and who everyone is to each other. On the 55-page test tale the small request is 16,720 tokens with its small
 record; a 4,000-token record puts it near 20,000. Law M510-16; M510-6 re-pinned (the record rides, its row carries it).
 
+# M510-15 — the story's essentials: the whole record streamlined, detail only when named
+He (after I answered the wrong question): "the folds can become 11k — the new window is a more coherent, streamlined
+version, like my Plot Essential Maker: the AI sees the Summaryception and creates the streamlined version, the small model
+always sees it, and if something is mentioned it uses the more detailed Summaryception. Why make it see the last 4,000
+words of the record?" He was right: newest-first raw lines spent the small model's memory on detail and hid the story's
+beginning. agents/essentials.js: the essentials keeper reads the WHOLE record (recordOf: the keeper's order, pages marked)
+and writes the story's essentials under four lines — who they are to each other; what has happened, in order; what still
+stands (every promise, debt, secret, wound, grudge, bond, who-knows-what a later page could depend on); where things were
+left — at most 10,000 characters. Rebuilt only when the record's fingerprint changes, and always from the record itself,
+never from its own last version: it cannot drift from the record. stack.js: with essentials, a small model reads them in
+front ("What our story holds, in essentials:"), the record's lines folded since ride as they are, and every other line
+comes back word for word only when a move names it (M344's recall); without essentials, M510-14's newest lines. chat.js:
+the chain's last link and planAhead run it for a small teller only; worker row 'essentials' ("The essentials keeper");
+sw.js carries the module; the walk's house knows its prompt. An unusable answer: asked once more, then the kept
+essentials stand. Law M510-17. The frontier request is unchanged.
+

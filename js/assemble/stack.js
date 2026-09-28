@@ -467,6 +467,7 @@ export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
   window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '', canonOn = false, canonWhy = '', sensorNote = '',
   smallPlan = null, smallIntense = false, lastSound = null, /* M510: the small request — the helper's plan, whether the scene is heated, what the last page sounded like */
+  smallEssentials = null, /* M510-15: the story's essentials, streamlined from the whole record ({text, upTo}) */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -756,10 +757,20 @@ export function buildRequest({
   if (peopleText) stateParts.push('On their mind:\n' + peopleText);
   if (facts) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
-  /* M510-14: a small model reads the record too — its newest folds, within SMALL_RECORD_CHARS */
-  const smallRecord = smallB && memoryText ? newestLines(memoryText, SMALL_RECORD_CHARS) : null;
+  /* M510-15: THE STORY'S ESSENTIALS — his design: the whole record streamlined (agents/essentials.js), always in front of
+   * a small model; the record's own lines only when a move names them (the recall after the plan), and only the few lines
+   * folded since the essentials were made ride as they stand. No essentials yet: the record's newest lines (M510-14). */
+  const essentialsText = smallB && smallEssentials && typeof smallEssentials.text === 'string' ? smallEssentials.text.trim() : '';
+  const essentialsUpTo = essentialsText && Number.isFinite(smallEssentials.upTo) ? smallEssentials.upTo : -1;
+  const sinceEssentials = essentialsText
+    ? (Array.isArray(windowInfo && windowInfo.nodes) ? windowInfo.nodes : [])
+      .filter((n) => n && !n.empty && !n.correction && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span) && n.span[0] > essentialsUpTo)
+      .sort((a, b) => a.span[0] - b.span[0]).map((n) => '- ' + n.text.trim()).join('\n')
+    : '';
+  const smallRecord = smallB && !essentialsText && memoryText ? newestLines(memoryText, SMALL_RECORD_CHARS) : (sinceEssentials ? newestLines(sinceEssentials, SMALL_RECORD_CHARS) : null);
+  if (essentialsText) stateParts.push('What our story holds, in essentials:\n' + essentialsText);
   if (memoryText && !smallB) stateParts.push('What remains of the older pages:\n' + memoryText);
-  else if (smallRecord && smallRecord.text) stateParts.push('What remains of the older pages' + (smallRecord.rested ? ' (the newest of them; ' + smallRecord.rested + ' older lines rest outside this page)' : '') + ':\n' + smallRecord.text);
+  else if (smallRecord && smallRecord.text) stateParts.push((essentialsText ? 'Folded since the essentials were made' : 'What remains of the older pages' + (smallRecord.rested ? ' (the newest of them; ' + smallRecord.rested + ' older lines rest outside this page)' : '')) + ':\n' + smallRecord.text);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
   if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
@@ -774,6 +785,11 @@ export function buildRequest({
    * when it has something to say; M9 names the lore entries that fired. --- */
   if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
+  } else if (essentialsText) {
+    /* M510-15: the essentials stand for the record; only what was folded since rides as it is */
+    pushSlot('Story essentials', essentialsText, 'your whole record (Summaryception), streamlined by the essentials keeper — the detailed lines come back when your move names them (small model)');
+    if (smallRecord && smallRecord.text) pushSlot('What remains', smallRecord.text, 'the lines folded since the essentials were made (small model)');
+    else if (memoryText) pushSlot('What remains', '', '', 'the whole record is in the essentials above; its detailed lines come back word for word when your move names them');
   } else if (smallRecord && smallRecord.text) {
     /* M510-14: the keeper's record rides for a small model too, its newest folds first (M510-9 held it back) */
     pushSlot('What remains', smallRecord.text, 'what the keeper has folded of the older pages — the newest, up to about 4,000 tokens (small model)', smallRecord.rested ? smallRecord.rested + ' older lines rest outside this page — read by the planning helper, and called back when your move names them' : '');
