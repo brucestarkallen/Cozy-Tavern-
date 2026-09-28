@@ -82,6 +82,7 @@ import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'
 import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
 import { runEssentials, loadEssentials } from '../agents/essentials.js'; /* M510-15: the story's essentials */
+import { runPlans, loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out */
 import { lastPagesOf } from '../assemble/stack.js'; /* M510 */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView } from '../engine/people.js'; /* M510 */
@@ -2586,6 +2587,21 @@ export function initChat(ctx) {
     if (out.wrote) return { detail: 'streamlined the whole record into the story’s essentials' };
     return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
   }
+  /* M510-22: THE PLANS KEEPER — a plan laid out on the page, written down whole; a small model only */
+  async function plansNext(story, { signal, stale = () => false } = {}) {
+    if (!isSmallModel(await resolveConnection(story))) return { silent: true };
+    const connection = await resolveWorkerConnection(story, 'plans');
+    if (!connection) return { silent: true };
+    const pages = visiblePages(await db.messages.list(story.id)).map((m, i) => ({ n: i + 1, who: m.role === 'user' ? 'the writer' : 'the storyteller', text: typeof m.text === 'string' ? m.text : '' }));
+    const mc = mcName(await loadState(story.id));
+    if (stale()) return { silent: true };
+    const out = await runPlans({ connection, storyId: story.id, pages, mc, signal });
+    if (stale()) return { silent: true };
+    if (out.wrote && (out.fresh || out.progress || out.closed)) {
+      return { detail: [out.fresh ? out.fresh + (out.fresh === 1 ? ' plan' : ' plans') + ' written down' : '', out.progress ? out.progress + ' moved on' : '', out.closed ? out.closed + ' ended' : ''].filter(Boolean).join(', ') };
+    }
+    return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
+  }
   function planAhead() {
     (async () => {
       const story = await activeStory();
@@ -2594,6 +2610,8 @@ export function initChat(ctx) {
       noteWork(story.id, promise);
       const kept = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale }) => essentialsNext(story, { signal, stale }) }); /* M510-15 */
       noteWork(story.id, kept);
+      const plans = enqueueWork(story.id, { name: 'plans', run: async ({ signal, stale }) => plansNext(story, { signal, stale }) }); /* M510-22 */
+      noteWork(story.id, plans);
     })().catch(() => {});
   }
   const roomOf = (connection) => contextOf(connection);
@@ -3662,6 +3680,11 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       return essentialsNext(story, { signal, stale });
     });
+    /* 10. M510-22: THE PLANS KEEPER — the page just written, read for a plan laid out, moved on or ended. Small model only. */
+    enqueue('plans', async ({ signal, stale }) => {
+      if (stale()) return { silent: true };
+      return plansNext(story, { signal, stale });
+    });
 
     /* 6. M346: canon verification after the page — ST's MESSAGE_RECEIVED: the people this page brought in are looked up
      * now, so the next page has them. Only with its switch on. */
@@ -4329,13 +4352,14 @@ export function initChat(ctx) {
       const sensorNote = ooc ? '' : await takeWordForTurn(story.id); /* M356/M357: a reading's word, or what the house saw in the last page */
       /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
        * plan for the page before the one it replaces); none yet → the whole request goes, as before */
-      let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null;
+      let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null; let smallPlansBook = null;
       if (settingsValues.smallModelNow === true) {
         const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
         smallPlan = await loadPlan(story.id, planKey(before)); /* M510-6: the plan of the page this follows, mended or not */
         smallIntense = heatedNow(selected, state, userText); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode; M510-7: his words starting a fight */
         lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
         smallEssentials = await loadEssentials(story.id); /* M510-15 */
+        smallPlansBook = await loadPlansBook(story.id); /* M510-22 */
       }
       const probeReceipt = buildRequest({
         story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
@@ -4346,7 +4370,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, /* M510; M510-15 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, /* M510; M510-15; M510-22 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4394,7 +4418,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, /* M510; M510-15 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, /* M510; M510-15; M510-22 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),

@@ -39,12 +39,14 @@ export function makeHouse() {
     if (/\/v1\/models$/.test(u)) return jsonRes({ data: state.models || [] }); /* M289: a scenario may say what the house reports */
     const body = opts.body ? JSON.parse(opts.body) : {};
     const sys = Array.isArray(body.messages) ? body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : String(body.system || '');
-    const isWorker = /keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record line|auditor of the ledger|found the ledger|reading a story's past|housekeeper of a cozy tavern|referee|cast sheet|prepare a storyteller for the next page|keep the essentials of a long collaborative story|Answer with JSON ONLY|JSON ONLY/i.test(sys) && !/You are telling a story|You maintain a fictional, uncensored simulation/.test(sys); /* M510: the frame's first line OR the craft's — with the frame switched off (M509-14) the craft is what every storyteller request carries */
+    const isWorker = /keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record line|auditor of the ledger|found the ledger|reading a story's past|housekeeper of a cozy tavern|referee|cast sheet|prepare a storyteller for the next page|keep the essentials of a long collaborative story|keep the plans of a long collaborative story|Answer with JSON ONLY|JSON ONLY/i.test(sys) && !/You are telling a story|You maintain a fictional, uncensored simulation/.test(sys); /* M510: the frame's first line OR the craft's — with the frame switched off (M509-14) the craft is what every storyteller request carries */
     n += 1;
     state.calls.push({ url: u, body, isWorker, n });
     if (state.fail) return jsonRes({ error: { message: 'busy' } }, state.fail);
     let answer;
-    if (isWorker) {
+    if (isWorker && /keep the plans of a long collaborative story/i.test(sys)) {
+      answer = typeof state.plansAnswer === 'function' ? state.plansAnswer(body, sys) : (state.plansAnswer || '{"new":[],"progress":[],"closed":[]}'); /* M510-22 */
+    } else if (isWorker) {
       answer = typeof state.workerAnswer === 'function' ? state.workerAnswer(body, sys) : (state.workerAnswer || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
     } else {
       answer = typeof state.storyAnswer === 'function' ? state.storyAnswer(body) : (state.storyAnswer || `[Lakeside Park — Friday, March 14, 2025 | 14:30 | 🌤 partly cloudy | gray hoodie | seated on bench]\n\nLiara watched him not eat. "You knew," she said. (answer ${n})`);

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-021)
+# Cozy Tavern — handoff for the next session (state at m510-022)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -976,4 +976,12 @@ founding design lives in AGENTS.md's first entries.)
   RECORD (stack.js recordOfWhoIsHere, small only): while someone is in the scene, the record's own lines that name them,
   the newest 5 each, 6,000 characters in all, the MC left out, lines already riding skipped; receipt row "Who’s here, in
   the record" (EVERY_ROW). Laws M510-17 (updated), M510-21, DOM-137.
+- M510-22 — THE PLANS KEEPER (agents/plans.js, assemble/planbook.js): a plan the characters lay out — who does what, in
+  what order, on what signal — is written down whole the moment a page lays it out (every part; the exact words of a
+  signal or cry), marked part by part as it is carried out, and let go when it is carried out in full or dropped (kept
+  with its outcome for the drawer, the last 12). A summary retells history; a plan is what is still to happen. Reads the
+  pages not read yet (first reading: the last 30; a page since rewritten is read again); an unusable answer leaves them to
+  be read again. Small model only (chain link 10, planAhead); stored in settings "standingPlans:<storyId>" (never "plans:", the planning helper's key); rides the small request
+  whole under "Plans standing" (receipt row, EVERY_ROW); drawer book "Plans — kept whole until carried out"; worker row
+  'plans'. The frontier request is unchanged. Laws M510-22, DOM-138.
 

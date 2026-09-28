@@ -3797,7 +3797,7 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
-      if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+      { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); } /* opened fresh for THIS story: an open drawer shows the story it was opened for */
       await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
       const inRoom = (sel) => { const r = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says'); return r ? r.querySelector(sel) : null; };
       const box = await until(() => inRoom('#canon-story-wiki'), 'the story’s wiki box', 10000);
@@ -4480,7 +4480,7 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
   const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); const calls = house.state.calls.slice(from); const told = calls.find((c) => Array.isArray(c.body.messages) && c.body.messages.some((m) => m.role === 'user' && /where things stand/i.test(String(m.content)))); assert(told, 'the storyteller was asked'); return { body: told.body, calls }; };
   const briefingOf = (body) => body.messages.find((m) => m.role === 'user' && /where things stand/i.test(String(m.content)));
   const openRoom = async (title) => {
-    if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+    { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); } /* opened fresh for THIS story: an open drawer shows the story it was opened for */
     await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
     const sec = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === title);
     assert(sec, 'the room “' + title + '” is in the ledger');
@@ -5018,7 +5018,7 @@ test('DOM-94 HIS WORDS ARE NEVER LOST ON THE WAY OUT: the frame, the note and th
 test('DOM-95 THE LEDGER IS NEVER REDRAWN UNDER HIS FINGERS: typing in a field of the drawer while the workers write, the field stays — the same field, his words in it, the focus kept — and the room catches up the moment he leaves it (M428)', async () => {
   const before = errors.length;
   const sid = await storyId();
-  if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); }
+  { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); } /* opened fresh for THIS story */
   await tick(400);
   /* the world's room holds the elsewhere form — a field to type in whatever room the ledger last had open */
   const chip = await until(() => q('#drawer .drawer-rooms [data-room="world"]'), 'the world room', 8000);
@@ -5088,7 +5088,7 @@ test('DOM-97 A CARD\u2019S GREETING OPENS HIS STORY WITH NAMES: invited into an 
   const sid = await until(async () => { const id = await storyId(); const s0 = id && (await db.stories.get(id)); return s0 && s0.title === 'A greeting' ? id : null; }, 'the story', 10000);
   const { saveCastMember } = await import('../../js/import/cards.js');
   await saveCastMember({ id: 'card-rias-greet', name: 'Rias', description: 'the club president', personality: '', scenario: '', firstMes: '*{{char}} waves at {{user}} from the porch.* "You\u2019re late."', importedAt: Date.now() });
-  if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); }
+  { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); } /* opened fresh for THIS story */
   const chip = await until(() => q('#drawer .drawer-rooms [data-room="scene"]'), 'the scene room', 8000);
   click(chip); await tick(500); await env.ctx.drawer.renderAllRooms(); await tick(500);
   const select = await until(() => q('#drawer select[aria-label="Someone from the cast library to invite in"]'), 'the invite list', 8000);
@@ -5744,7 +5744,7 @@ test('DOM-111 THE WIKI LIBRARY, ONE TAP: in a story’s own canon room the libra
   await db.settings.set('canonOn:' + st.id, true);
   await addToLibrary('bleach');
   const openRoom = async (title) => {
-    if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+    { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); } /* opened fresh for THIS story: an open drawer shows the story it was opened for */
     await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
     const sec = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === title);
     assert(sec, 'the room “' + title + '” is in the ledger');
@@ -5897,7 +5897,7 @@ test('DOM-115 THE LEDGER FOLDS: a room opens with only what it is for unfolded; 
   await db.settings.delete('ledgerFolds').catch(() => {});
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
-  if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+  { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); } /* opened fresh for THIS story: an open drawer shows the story it was opened for */
   await tick(300);
   const chip = qa('#drawer-panels .nav-chip').find((c) => c.dataset.room === 'scene'); click(chip); await tick(400);
   const sec = (title) => qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === title);
@@ -6119,7 +6119,7 @@ test('DOM-120 "Mend the pages’ marks": the page repair over the pages already 
   const stampBefore = (await db.messages.list(st.id)).find((m) => m.id === p2.id).updatedAt;
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
-  if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+  { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); } /* opened fresh for THIS story: an open drawer shows the story it was opened for */
   await tick(300);
   click(qa('#drawer-panels .nav-chip').find((c) => c.dataset.room === 'books')); await tick(400);
   const btn = qa('#drawer-panels button').find((b) => b.textContent === 'Mend the pages’ marks');
@@ -6859,6 +6859,54 @@ test('DOM-137 THE STORY ESSENTIALS IN THE LEDGER (M510-21): the drawer’s books
   const none = await panelText(bare.id);
   assert(/Not made yet — the record is still empty: the memory keeper folds pages once they are older than its window \(\d+ pages\)/.test(none), 'a first scene says why: ' + none.slice(0, 220));
   click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-138 A BATTLE PLAN, KEPT WHOLE, THROUGH THE APP (M510-22): laid out on a page, the plans keeper writes it down part by part with the cry to be shouted; the drawer shows it; the small storyteller’s next request carries it word for word', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { loadPlansBook } = await import('../../js/agents/plans.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'the feint at the forest' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the war tent' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Artos' }]).state;
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer, plans: house.state.plansAnswer };
+  const PLAN = { scene: 'The war tent, the night before the battle.', people: [{ name: 'Artos', now: 'at the map', wants: 'the front line', against: '' }], unknown: [], pressing: [], earlier: [], laws: ['Voice Fingerprints'], intense: false, loud: true, loudWhy: '', sounds: [], leaveTo: 'the captains answer' };
+  const BATTLE = { new: [{ title: 'The feint at the forest', by: 'Jovan', page: 2, goal: 'draw the enemy into the forest and burn it', parts: [{ who: 'Artos', does: 'commands the front line; fights, then fakes a retreat', when: 'when the enemy commits' }, { who: 'Arsif', does: 'takes the fake gold convoy into the forest, then runs, leaving it', when: 'at the retreat' }, { who: 'Daros', does: 'burns the forest', when: 'once the enemy is in among the trees' }], words: ['Retreat! Protect the gold convoy!'] }], progress: [], closed: [] };
+  let plansCalls = 0;
+  house.state.plansAnswer = () => { plansCalls += 1; return plansCalls === 1 ? JSON.stringify(BATTLE) : '{"new":[],"progress":[],"closed":[]}'; };
+  house.state.workerAnswer = (body, sys) => (/You prepare a storyteller for the next page/.test(String(sys || '')) ? JSON.stringify(PLAN) : (typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}')));
+  house.state.storyAnswer = () => '[The war tent — Monday, March 3, 2025 | 21:00 | wind | armour | at the map]\n\nThe lamp swung over the map. Artos traced the line of the front with one finger, and Arsif counted the wagons of the false convoy under his breath while Daros said nothing at all.';
+  const activeId = await db.settings.get('activeConnectionId');
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return house.state.calls.slice(from); };
+  try {
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    await send('I lay out the plan to my captains: Artos holds the front and fakes a retreat, Arsif takes the fake convoy into the forest, Daros burns it.');
+    await until(async () => (await loadPlansBook(st.id)).plans.length === 1, 'the plan written down', 20000);
+    const plan = (await loadPlansBook(st.id)).plans[0];
+    eq(plan.parts.map((x) => x.who).join(', '), 'Artos, Arsif, Daros', 'every part, one per commander');
+    eq(plan.words[0], 'Retreat! Protect the gold convoy!', 'the cry, word for word');
+    eq(plan.status, 'standing', 'standing until it is carried out');
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'put away'); }
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer');
+    await env.ctx.drawer.renderAllRooms(); await tick(400);
+    const panel = qa('#drawer-panels .ledger-panel').find((p) => /Plans — kept whole until carried out/.test(p.textContent));
+    assert(panel && /The feint at the forest — Jovan’s plan/.test(panel.textContent) && /Daros — burns the forest/.test(panel.textContent) && /“Retreat! Protect the gold convoy!”/.test(panel.textContent), 'the drawer shows it: ' + (panel ? panel.textContent.slice(0, 240) : 'no panel'));
+    click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'put away');
+    const calls = await send('At dawn I give the signal.');
+    const told = calls.find((c) => !c.isWorker);
+    const wire = JSON.stringify(told.body.messages);
+    assert(/Plans standing — laid out on the page, kept whole until carried out/.test(wire) && wire.includes('Arsif — takes the fake gold convoy into the forest, then runs, leaving it') && wire.includes('“Retreat! Protect the gold convoy!”'), 'the small storyteller reads it word for word');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker; house.state.plansAnswer = prior.plans;
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
+  }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

@@ -50,6 +50,7 @@ import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: t
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
 import { loadEssentials, recordOf } from '../agents/essentials.js'; /* M510-21: the story essentials, where he can read them */
+import { loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole */
 import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
 import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
 import { pageText } from '../assemble/stack.js';
@@ -2558,6 +2559,47 @@ function essentialsPanel(ctx) {
   return wrap;
 }
 
+/* M510-22: THE PLANS, WHERE HE CAN READ THEM — each plan laid out on the page, part by part, until it is carried out;
+ * the ones that ended, with what came of them. */
+function plansPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'record-panel plans-panel';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list record-list plans-list';
+  wrap.append(note, list);
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) { note.textContent = 'Open a story and its plans will be here.'; return; }
+    const book = await loadPlansBook(story.id);
+    const standing = book.plans.filter((p) => p.status === 'standing');
+    const ended = book.plans.filter((p) => p.status !== 'standing');
+    if (!book.plans.length) {
+      note.textContent = 'No plan written down yet — the plans keeper writes one down the moment a page lays it out: who does what, on what signal (while a small model tells the story).';
+      return;
+    }
+    note.textContent = standing.length + (standing.length === 1 ? ' plan standing' : ' plans standing') + (ended.length ? ', ' + ended.length + ' ended' : '') + ' — a small storyteller reads every plan standing, word for word, on every page.';
+    for (const p of [...standing, ...ended]) {
+      const li = document.createElement('li');
+      li.className = 'present-row mind-row record-row plan-row';
+      const head = document.createElement('strong');
+      head.textContent = p.title + (p.by ? ' — ' + p.by + '’s plan' : '') + (p.status === 'standing' ? '' : (p.status === 'dropped' ? ' (dropped)' : ' (carried out)'));
+      li.appendChild(head);
+      const lines = [];
+      if (Number.isFinite(p.from)) lines.push('Laid out on page ' + (p.from + 1) + (Number.isFinite(p.to) && p.to !== p.from ? '–' + (p.to + 1) : '') + (p.goal ? ' — the aim: ' + p.goal : ''));
+      else if (p.goal) lines.push('The aim: ' + p.goal);
+      (p.parts || []).forEach((x, i) => lines.push((i + 1) + '. ' + x.who + ' — ' + x.does + (x.when ? ' (' + x.when + ')' : '') + (x.done ? ' — done' : '')));
+      if (Array.isArray(p.words) && p.words.length) lines.push('The words to be said: ' + p.words.map((w) => '“' + w + '”').join('; '));
+      if (p.status !== 'standing' && p.outcome) lines.push('What came of it: ' + p.outcome);
+      for (const t of lines) { const d = document.createElement('div'); d.className = 'quiet'; d.textContent = t; li.appendChild(d); }
+      list.appendChild(li);
+    }
+  });
+  render();
+  return wrap;
+}
+
 /* M148: draw a pending panel now */
 function drawPendingIn(panelsEl, ctx) {
   for (const sec of panelsEl.querySelectorAll('.ledger-panel[data-pending]')) {
@@ -2578,7 +2620,7 @@ const ROOM_OF = {
   'the-clock': 'scene', 'the-ruling': 'scene', 'how-they-measure': 'scene', 'whos-here': 'scene', 'the-mood': 'scene',
   'the-people': 'people', 'whats-true': 'people', 'what-canon-says': 'people', 'holding-up': 'people', 'on-their-mind': 'people',
   'elsewhere': 'world', 'the-world-beyond': 'world', 'voices': 'world',
-  'the-record': 'books', 'the-essentials': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
+  'the-record': 'books', 'the-essentials': 'books', 'the-plans': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
 };
 function roomOfPanel(id) { return ROOM_OF[id] || 'books'; }
 let drawerRoomNow = 'scene';
@@ -2677,6 +2719,11 @@ const PANELS = [
     id: 'the-essentials',
     title: 'Story essentials — the record, told shorter',
     render: (ctx) => essentialsPanel(ctx),
+  },
+  {
+    id: 'the-plans',
+    title: 'Plans — kept whole until carried out',
+    render: (ctx) => plansPanel(ctx),
   },
   {
     id: 'what-changed',

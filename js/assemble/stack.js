@@ -91,6 +91,7 @@
  * Token estimate per slot = ceil(chars/4) (see assemble/receipt.js).
  */
 
+import { renderStanding, standingPlans } from './planbook.js'; /* M510-22 */
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { sceneAnchor, recallFromRecord, recallLine, recallFromPages, recallPagesLine } from './anchor.js'; /* M343, M344; M510-13 */
@@ -491,7 +492,7 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
 }
 
 /* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
-export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'The story in short', 'On their mind', 'The state of things', 'Active modules', 'Story essentials', 'What remains', 'Who’s here, in the record', 'What canon says', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The story so far', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
+export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'The story in short', 'On their mind', 'The state of things', 'Active modules', 'Story essentials', 'What remains', 'Plans standing', 'Who’s here, in the record', 'What canon says', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The story so far', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
 function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
@@ -501,6 +502,7 @@ function emptyWhy(name, c) {
       : !c.keeperOn ? 'the memory keeper is off for this story — there is no record to streamline'
       : !c.hasRecord ? 'not made yet — the record is still empty: the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window'
       : 'being made — the essentials keeper streamlines the record in the background; until then its newest lines ride under What remains';
+    case 'Plans standing': return !c.small ? 'small model only — your storyteller reads the pages and the record' : !c.planned ? noPlan : 'no plan standing — the plans keeper writes one down the moment a page lays it out';
     case 'Who’s here, in the record': return !c.small ? 'small model only — your storyteller reads the whole record' : !c.planned ? noPlan + ', with the whole record' : 'no one here is named in the record yet, or their lines already ride above';
     case 'The plan for this page': return !c.small ? 'small model only — the planning helper writes one for a small storyteller' : noPlan + ', with the scene said once more';
     case 'The sounds': return !c.small ? 'small model only — on a heated page' : !c.planned ? noPlan + ', with the whole craft' : 'a calm page — no sound laws needed';
@@ -542,6 +544,7 @@ export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
   window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '', canonOn = false, canonWhy = '', sensorNote = '',
   smallPlan = null, smallIntense = false, lastSound = null, /* M510: the small request — the helper's plan, whether the scene is heated, what the last page sounded like */
+  smallPlansBook = null, /* M510-22: the plans standing, kept whole ({plans}) */
   smallEssentials = null, /* M510-15: the story's essentials, streamlined from the whole record ({text, upTo}) */
 }) {
   const safeStory = story || {};
@@ -854,6 +857,10 @@ export function buildRequest({
     skip: (n) => (essentialsText && n.span[0] > essentialsUpTo) || Boolean(smallRecord && smallRecord.text && smallRecord.text.includes(n.text.trim())),
   }) : null;
   if (presentRecord && presentRecord.text) stateParts.push('What the record holds of who is here, word for word:\n' + presentRecord.text);
+  /* M510-22: THE PLANS STANDING — laid out on the page, kept whole by the plans keeper until carried out: part by part, with
+   * the exact words to be said. A summary retells history; a plan is what is still to happen, and every part of it matters. */
+  const standingText = smallB ? renderStanding(smallPlansBook) : '';
+  if (standingText) stateParts.push('Plans standing — laid out on the page, kept whole until carried out:\n' + standingText);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
   if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
@@ -890,6 +897,7 @@ export function buildRequest({
    * dynamic tail before history; empty = omitted (the slot-7 law). --- */
   /* M486: the row stands whenever canon verification is ON for the tale — with the note, or empty with the reason it
    * had nothing to say (the writer could not tell whether canon ran at all) */
+  if (standingText) pushSlot('Plans standing', standingText, 'the plans keeper — each plan laid out on the page, kept whole until it is carried out or dropped (small model)', standingPlans(smallPlansBook).map((p) => p.title).join('; ')); /* M510-22 */
   if (presentRecord && presentRecord.text) pushSlot('Who’s here, in the record', presentRecord.text, 'the record’s own lines that name who is here — word for word, while they are here (small model)', presentRecord.who.join(', ')); /* M510-21 */
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
   else if (canonOn) pushSlot('What canon says', '', '', canonWhy || 'canon verification gave no note this turn');

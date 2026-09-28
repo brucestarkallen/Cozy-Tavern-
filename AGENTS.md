@@ -12652,3 +12652,29 @@ them; once they're gone, not any more — recommend whether to do it".
   the whole record again. Small model only; receipt row "Who’s here, in the record". Laws M510-17 (updated), M510-21,
   DOM-137.
 
+# M510-22 — a plan, kept whole until it is carried out
+He: "can you problem-solve something like a battle plan? Pages 1–5: Artos commands the front line, fights and fakes a
+retreat screaming 'retreat, protect the gold convoy'; Arsif takes the fake gold convoy into the forest and runs, leaving
+it; Daros burns the forest. How does it get this kind of detailed information?" Traced: nothing kept it. The record and
+the essentials are history told shorter (a plan's parts are what gets squeezed); a thread holds one next step for one
+owner; knowledge is per person and trimmed to the scene; and for a small model the pages that laid it out leave its eight
+whole pages long before the battle comes. A plan is not history — it is what is still to happen, and every part matters
+until it has. agents/plans.js, THE PLANS KEEPER: after each page (a small teller only; on the first reading the last 30
+pages), it reads the pages it has not read and answers JSON — new plans laid out (title, whose, the page, the aim, every
+part: who, does, when or on what signal; the exact words to be said), progress (parts carried out, parts changed), plans
+closed (carried out or dropped, with the outcome). Code writes them into the book: a plan laid out again is the newer
+telling, never a second copy; a page since rewritten is read again; an unusable answer is asked once more and the pages
+left to be read again. assemble/planbook.js renders every plan standing, part by part, for the small request ("Plans
+standing — laid out on the page, kept whole until carried out"), with its receipt row; the drawer's books carry "Plans —
+kept whole until carried out" (standing and ended, with what came of each). Worker row 'plans'; sw.js carries both
+modules; the walk's house knows its prompt. Its book is settings "standingPlans:<storyId>" — my first version wrote
+"plans:<storyId>", the planning helper's own key (agents/planner.js PLAN_KEY), and overwrote the helper's per-page plans:
+DOM-67 waited in vain for the helper's plan and DOM-138's second page went whole; M510-22 now proves the helper's plans
+stand untouched. The frontier request is unchanged. Laws M510-22, DOM-138.
+- The walk's drawer checks (found while building this): DOM-111 and DOM-115 had failed twice, sometimes. A probe showed
+  why DOM-115 did: DOM-111 had failed first and left the drawer open, and DOM-115, switching the active story under an
+  open drawer, read the previous story's "Who's here" (4 rows where its own has 3). An open drawer shows the story it was
+  opened for; switching the active story underneath it (a test's shortcut — setActiveStoryId) does not redraw it. The
+  seven places the walk opened the drawer "if it was hidden" now put an open drawer away and open it fresh for their own
+  story, as a person would. Why DOM-111 itself failed first is not proven. Walk 156/156.
+

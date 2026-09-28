@@ -529,3 +529,59 @@ test('M510-21 WHO’S HERE, IN THE RECORD (his idea, bounded): while someone is 
   assert(!/What the record holds of who is here/.test(JSON.stringify(normal.messages)) && /^small model only/.test(normal.receipt.slots.find((s) => s.name === 'Who’s here, in the record').reason), 'the frontier model is untouched; its row says whose it is');
 });
 
+
+test('M510-22 A PLAN, KEPT WHOLE (his battle plan): written down the moment a page lays it out — every part, the words to be said — marked as it is carried out, let go when it ends; a small storyteller reads every plan standing word for word; the frontier model is untouched', async () => {
+  const { readPlansAnswer, applyPlansAnswer, runPlans, loadPlansBook, plansAsk, CATCH_UP_PAGES } = await import('../../js/agents/plans.js');
+  const { renderStanding } = await import('../../js/assemble/planbook.js');
+  const BATTLE = { new: [{ title: 'The feint at the forest', by: 'Jovan', page: 3, goal: 'draw the enemy into the forest and burn it', parts: [
+    { who: 'Artos', does: 'commands the front line; fights, then fakes a retreat', when: 'when the enemy commits' },
+    { who: 'Arsif', does: 'takes the fake gold convoy into the forest, then runs, leaving it', when: 'at the retreat' },
+    { who: 'Daros', does: 'burns the forest', when: 'once the enemy is in among the trees' }], words: ['Retreat! Protect the gold convoy!'] }], progress: [], closed: [] };
+  const read = readPlansAnswer('Here it is:\n```json\n' + JSON.stringify(BATTLE) + '\n```');
+  eq(read.fresh.length, 1); eq(read.fresh[0].parts.length, 3, 'every part');
+  eq(read.fresh[0].words[0], 'Retreat! Protect the gold convoy!', 'the cry, word for word');
+  eq(readPlansAnswer('I think there is a plan here.'), null, 'no JSON: not an answer');
+  eq(readPlansAnswer('{"plans":[]}'), null, 'no "new" list: not the answer asked for');
+  /* written in, moved on, ended */
+  let book = applyPlansAnswer({ plans: [] }, read, { from: 0, to: 4 });
+  eq(book.plans[0].status, 'standing'); eq(book.plans[0].from, 2, 'on the page it was laid out');
+  book = applyPlansAnswer(book, { fresh: [], progress: [{ title: 'the feint at the forest', done: [1], changed: [{ part: 3, who: 'Daros', does: 'burns the forest with pitch arrows', when: '' }] }], closed: [] }, { from: 5, to: 6 });
+  assert(book.plans[0].parts[0].done && /pitch arrows/.test(book.plans[0].parts[2].does), 'a part carried out is marked; a part changed is changed');
+  const again = applyPlansAnswer(book, read, { from: 7, to: 8 });
+  eq(again.plans.length, 1, 'laid out again: the newer telling, never a second copy');
+  const text = renderStanding(book);
+  assert(/^The feint at the forest — Jovan’s plan, laid out on page 3\. The aim: draw the enemy into the forest and burn it\./.test(text), text.slice(0, 120));
+  assert(text.includes('  1. Artos — commands the front line; fights, then fakes a retreat (when the enemy commits) — done.') && text.includes('  2. Arsif — takes the fake gold convoy into the forest, then runs, leaving it (at the retreat).') && text.includes('The words to be said: “Retreat! Protect the gold convoy!”'), 'word for word, part by part:\n' + text);
+  const ended = applyPlansAnswer(book, { fresh: [], progress: [], closed: [{ title: 'The feint at the forest', how: 'done', outcome: 'The enemy broke in the burning forest.' }] }, { from: 9, to: 9 });
+  eq(renderStanding(ended), '', 'carried out: no longer standing');
+  eq(ended.plans[0].outcome, 'The enemy broke in the burning forest.', 'what came of it is kept for the drawer');
+  /* the reading: the last thirty pages first, then only what is new; an unusable answer leaves them to be read again */
+  const pagesOf = (n) => Array.from({ length: n }, (_, i) => ({ n: i + 1, who: i % 2 ? 'the storyteller' : 'the writer', text: 'PAGE-' + (i + 1) + ' words.' }));
+  const { db: store } = await import('../../js/store.js');
+  const helperKept = { plans: { 'a1:0': { plan: { scene: 'HELPER-PLAN' }, hash: 'h' } }, lastSound: null };
+  await store.settings.set('plans:s-plans', helperKept); /* the planning helper's own per-page plans (agents/planner.js) */
+  const house = thinkingHouse({ answer: JSON.stringify(BATTLE) });
+  await withHouse(house, () => runPlans({ connection: CONN, storyId: 's-plans', pages: pagesOf(40), mc: 'Jovan' }));
+  eq(JSON.stringify(await store.settings.get('plans:s-plans')), JSON.stringify(helperKept), 'the planning helper’s plans are untouched — the plans keeper keeps its own book (the shared key overwrote them: DOM-67 and DOM-138 caught it)');
+  const first = JSON.stringify(house.calls[0].body);
+  assert(first.includes('PAGE-11 words') && !first.includes('PAGE-10 words') && first.includes('PAGE-40 words'), 'the first reading: the last ' + CATCH_UP_PAGES + ' pages');
+  eq((await loadPlansBook('s-plans')).readTo, 39);
+  const none = thinkingHouse({ answer: '{"new":[],"progress":[],"closed":[]}' });
+  await withHouse(none, () => runPlans({ connection: CONN, storyId: 's-plans', pages: pagesOf(42), mc: 'Jovan' }));
+  const second = JSON.stringify(none.calls[0].body);
+  assert(second.includes('PAGE-41 words') && second.includes('PAGE-42 words') && !second.includes('PAGE-40 words') && second.includes('The feint at the forest'), 'then only what is new, with the plans standing in front of it');
+  const bad = thinkingHouse({ answer: 'no idea' });
+  const failed = await withHouse(bad, () => runPlans({ connection: CONN, storyId: 's-plans', pages: pagesOf(44), mc: 'Jovan' }));
+  assert(!failed.wrote && bad.calls.length === 2 && (await loadPlansBook('s-plans')).readTo === 41, 'unusable: asked once more, then left to be read again');
+  assert(/A hope, a threat, or one person saying what they will do next is not a plan/.test(plansAsk({}).system), 'what a plan is, said');
+  /* through the request */
+  const plansBook = await loadPlansBook('s-plans');
+  const mk = (small) => buildRequest({ story: {}, messages: pages(40), settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, ...(small ? { smallPlan: { ...PLAN, intense: false }, smallPlansBook: plansBook } : {}) });
+  const small = mk(true);
+  const notes = String(small.messages[0].content);
+  assert(notes.includes('Plans standing — laid out on the page, kept whole until carried out:\nThe feint at the forest — Jovan’s plan') && notes.includes('“Retreat! Protect the gold convoy!”'), 'the small storyteller reads it word for word');
+  const row = small.receipt.slots.find((s) => s.name === 'Plans standing');
+  assert(row && row.tokens > 0 && /The feint at the forest/.test(row.reason), 'with its row');
+  const normal = mk(false);
+  assert(!/Plans standing/.test(JSON.stringify(normal.messages)) && /^small model only/.test(normal.receipt.slots.find((s) => s.name === 'Plans standing').reason), 'the frontier model is untouched');
+});
