@@ -12730,3 +12730,20 @@ recorded, the day each connection and model used the most tokens, that day's tok
 dearest month first. Laws M457-4..6 (Kimi's stream, the cache in every shape, its price, a let-go connection, the
 busiest day), M510-25 (the usage request asked and learned), DOM-110 (the section and the price box in the app).
 
+# M510-26 — how a fight sounds
+He: "on my test, why is my fight scene so boring? Sex has onomatopoeia, but a brutal fight has no sound — no aghh, no
+fuck!! please!!, no slash — on the smaller model." Traced what a small model's fight page carries: the contest rule that
+wakes on a fight (a board, stakes, margins — not a word on sound), his three fight laws (Injury Resolution has one clause
+on an injury's sound) and his two sound laws — which do name combat, but whose every example is sex ("nnh—",
+"FUUUUUCKKK!!!!!!", *Squelch!*, "He thrust deeper—"). An intimate page carries a whole section on how sex sounds (the
+intimacy rule's acoustics, M510-3/4). A small model reads the examples hardest: sound meant sex. laws.js
+FIGHT_SOUND_TEXT, "How A Fight Sounds", rides a small model's fight page after his fight laws: a fight is loud from the
+first blow to the last breath, both lanes on every beat — contact in asterisks repeated to the rhythm of the exchange
+(steel, flesh, fists, bone, the ground and the room, power released) and voices in quotes stretched and broken (the war
+cry, the effort of every swing, pain that climbs with the wound, curses, taunts, names across the field, breath, the
+losing side coming apart into pleading); a lone "Ugh." or a narrated sound is a failure; a fight paragraph without sound is
+a failed paragraph; rotate, never reuse the last page's; silence is a fighter's choice and even then the world sounds;
+onlookers are heard. Palettes to rotate, not lines to copy — the M510-4 lesson. And the fight pattern (typedCombat) missed
+moves: parry, dodge, grapple, counterattack, duel/spar with, block his blade, "we fight" (never "fight for / over / about"),
+choke, strangle, throttle, slam into. The frontier request is unchanged. Law M510-26.
+

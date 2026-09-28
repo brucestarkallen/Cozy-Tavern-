@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-025)
+# Cozy Tavern — handoff for the next session (state at m510-026)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1007,4 +1007,10 @@ founding design lives in AGENTS.md's first entries.)
   writes at 1.25x — it was all priced as full input; (4) the prices a connection had ride with each day's row, so a
   connection let go keeps its money; (5) "Your busiest day, per model — and a month of days like it": of every day
   recorded, each model's day with the most tokens, and that day thirty times. Laws M457-4..6, M510-25, DOM-110.
+- M510-26 — HOW A FIGHT SOUNDS (laws.js FIGHT_SOUND_TEXT, small only): a small model's fight page carries the fight's own
+  acoustics after his fight laws, as an intimate page carries sex's — both lanes every beat (contact in asterisks, voiced
+  in quotes), palettes of steel, flesh, bone, ground, power; war cries, effort, pain that climbs, curses, taunts, breath,
+  the loser's pleading; a lone "Ugh." or a narrated sound is a failure; a fight paragraph without sound is failed; rotate,
+  never reuse the last page's. typedCombat now reads parry, dodge, grapple, counterattack, duel/spar with, block his
+  blade, "we fight" (not "fight for/over/about"), choke/strangle/throttle, slam into. Frontier unchanged. Law M510-26.
 

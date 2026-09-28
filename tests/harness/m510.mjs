@@ -673,3 +673,18 @@ test('M510-25 THE USAGE, ASKED FOR: every streamed call asks the provider for wh
     assert(!later.calls[later.calls.length - 1].body.stream_options, label + ': not asked again');
   }
 });
+
+test('M510-26 HOW A FIGHT SOUNDS (his report: sex has its sounds, a brutal fight had none on the small model): a small model’s fight page carries the fight’s own acoustics after his fight laws — both lanes every beat, voices that stretch and break, nothing narrated; the moves the fight pattern missed are read; a calm page and the frontier model are untouched', async () => {
+  const { FIGHT_SOUND_TEXT, typedCombat } = await import('../../js/assemble/laws.js');
+  for (const m of ['I parry and counter.', 'We fight.', 'I block his blade and slash back.', 'I duel him at dawn.', 'I dodge left.', 'I spar with Renji.', 'I choke him.', 'I slam him into the wall.']) eq(typedCombat(m), true, 'a fight: ' + m);
+  for (const m of ['I fight for her honour.', 'I counter his argument calmly.', 'We talk about the duel.', 'She blocks the door with her body.', 'We fight over the last dumpling.']) eq(typedCombat(m), false, 'not a fight: ' + m);
+  for (const needle of ['both lanes', '*CLANG!*', '"RAAAAAGH—!"', '"FUCK—!"', 'please—PLEASE—!', 'NARRATED', 'a paragraph of a fight with no sound in it is a failed paragraph', 'never reuse the last page']) assert(FIGHT_SOUND_TEXT.includes(needle), 'it says: ' + needle);
+  const st = yard();
+  const mk = (small, text) => buildRequest({ story: {}, messages: [...pages(20).slice(0, -1), { id: 'ux', role: 'user', text }], settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, ...(small ? { smallPlan: { ...PLAN, intense: true }, smallIntense: true } : {}) });
+  const craftOf = (r) => r.receipt.slots.find((s) => s.name === 'The craft').text;
+  const fight = craftOf(mk(true, 'I parry and counter with a slash at his ribs.'));
+  assert(fight.includes('## How a fight sounds\n' + FIGHT_SOUND_TEXT), 'the fight’s own acoustics ride, whole');
+  assert(fight.indexOf('Injury Resolution =') !== -1 && fight.indexOf('Injury Resolution =') < fight.indexOf('How A Fight Sounds ='), 'after his fight laws');
+  assert(!craftOf(mk(true, 'I sit by the pond and listen to the water.')).includes('How A Fight Sounds'), 'a calm page: not a word of it');
+  assert(!JSON.stringify(mk(false, 'I parry and counter with a slash at his ribs.').systemBlocks).includes('How A Fight Sounds'), 'the frontier model is untouched');
+});
