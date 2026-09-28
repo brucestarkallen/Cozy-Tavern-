@@ -12574,3 +12574,21 @@ essentials already kept and the lines folded since carry the page. Answered with
 small model tells the tale (the frontier model reads the whole detailed record, as always) and are made again the moment a
 tale is opened with, or handed to, a small model — his ongoing tale builds them by itself, no button. Law M510-17 extended.
 
+# M510-17 — a first page's header in another dress is the header; a page with no header still gets its paragraphs
+He: "at the start of a story, sometimes good, sometimes it errors: the output is inside the thinking, then suddenly outside
+it, and the format is broken — no header, no paragraphs". Replayed through the real gate (ui/headergate.js) and mend
+(ui/pageshape.js): a reply whose header the gate does not know streams WHOLE into the thinking (the gate holds everything
+before a header as thinking) and is handed back at the end as the page — the flip he saw. On a tale's first page there is
+no earlier header to copy and a model dresses it its own way ("**Hillside cemetery — Tuesday, March 4, 2026 — 22:31**":
+bold, dashes, no brackets, no "|"), which neither the bracket rule nor M340's bare rule (three "|" and a time) knew. And
+the paragraph mend lived only below a header: exactly the pages that came without one kept their single line breaks.
+- headergate.js isHeaderLine: a short line (12–220 characters) holding a clock time AND a weekday or a month, no markup,
+  not ending as a sentence or speech ends, not a plan label, is a header (looseHeader). It opens the page as it streams.
+- pageshape.js readHeader: such a line loses its dress and, with no "|", gains one before its hour —
+  "[Hillside cemetery — Tuesday, March 4, 2026 | 22:31]", the shape headerMutations reads ground and hour from.
+- pageshape.js partParagraphs (the paragraph mend, one function now) — and chat.js gives a NEW story page with no header its
+  paragraphs where it is kept. tidyPage itself still leaves header-less text alone: it also mends every stored page and
+  out-of-character answer (M477/M488), whose line breaks are theirs — M340-1 caught my first version doing it there.
+- Left as it was: a reply with no header in ANY dress still streams as thinking and is handed back whole (nothing tells
+  its thinking from its page; M377: never asked again). Laws M510-18, DOM-136.
+

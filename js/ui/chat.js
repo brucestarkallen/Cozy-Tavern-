@@ -76,7 +76,7 @@ import { loadSessionRoot } from '../agents/housekeeper.js'; /* M331 */
 import { voiceOf, groundingSeed } from '../assemble/voice.js'; /* M327: the two names; M358: the grounding phrase */
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, pageOnly } from './headergate.js';
-import { tidyPage } from './pageshape.js'; /* M340: the page made whole before it is kept */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
+import { tidyPage, readHeader, partParagraphs } from './pageshape.js'; /* M340: the page made whole before it is kept; M510-17 */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName, isMcAlias } from '../engine/duels.js';
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
 import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper */
@@ -4847,6 +4847,10 @@ export function initChat(ctx) {
           const ground = state && state.place && typeof state.place.name === 'string' ? state.place.name : '';
           const tidied = tidyPage(full, { place: ground });
           full = tidied.text;
+          /* M510-17: A NEW STORY PAGE WITH NO HEADER STILL GETS ITS PARAGRAPHS — tidyPage leaves header-less text as it is
+           * (it mends stored pages and out-of-character answers too), and a first page without a header kept its single
+           * line breaks, or one unbroken block */
+          if (!readHeader(full)) { const pp = partParagraphs(full); if (pp.changed) { full = pp.text; tidied.did.push('paragraphs'); } }
           /* the receipt, kept with the page, says what was mended (shown under "What the storyteller saw") */
           if (tidied.did.length && receipt && typeof receipt === 'object') receipt = { ...receipt, shape: tidied.did };
         } catch (err) { /* the page as it came */ }

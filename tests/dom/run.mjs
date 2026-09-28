@@ -6814,6 +6814,30 @@ test('DOM-135 THE DRAWER SAYS WHICH PAGE THE LEDGER BELONGS TO: even with the st
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-136 A FIRST PAGE’S HEADER IN ANOTHER DRESS, IN THE APP (M510-17): kept in the ledger’s shape with its paragraphs; and a first page with no header at all keeps its paragraphs', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const prior = house.state.storyAnswer;
+  const firstPageOf = async (title, answer) => {
+    const st = await db.stories.create({ title });
+    await db.stories.update(st.id, { extraction: false, keeper: false });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true, opening: true });
+    house.state.storyAnswer = () => answer;
+    type(q('#composer-input'), 'I kneel at the grave.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the first page', 30000);
+    await until(() => queuedCount(st.id) === 0, 'readers', 40000);
+    return (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+  };
+  try {
+    const dressed = await firstPageOf('the grave', '**Hillside cemetery — Tuesday, March 4, 2026 — 22:31**\nThe cemetery was empty except for the rain.\nJovan knelt by the stone.\n"You came back," said a voice behind him.');
+    assert(dressed.text.startsWith('[Hillside cemetery — Tuesday, March 4, 2026 | 22:31]\n\nThe cemetery was empty except for the rain.\n\nJovan knelt by the stone.'), 'kept in the ledger’s shape, with its paragraphs: ' + JSON.stringify(dressed.text.slice(0, 140)));
+    const bare = await firstPageOf('the grave, no header', 'The cemetery was empty except for the rain.\nJovan knelt by the stone.\n"You came back," said a voice behind him.');
+    eq(bare.text.split('\n\n').length, 3, 'no header at all: its paragraphs all the same: ' + JSON.stringify(bare.text.slice(0, 120)));
+  } finally { house.state.storyAnswer = prior; }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

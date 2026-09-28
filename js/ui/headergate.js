@@ -45,11 +45,24 @@ const LABEL = new RegExp('^' + DRESS + '(?:planning|plan|beat|last look|the pass
  * again. One line of at least three "|" that carries a clock time is a header, dressed in brackets or not (ui/
  * pageshape.js puts the brackets back before the page is kept). */
 const BARE_HEADER = new RegExp('^' + DRESS + '[^\\[\\]\\n]{6,400}' + '[ \\t*_`]*$');
+/* M510-17: A HEADER IN ANOTHER DRESS IS STILL THE HEADER. On a tale's first page there is no earlier header to copy, and a
+ * model writes it its own way — "**Hillside cemetery — Tuesday, March 4, 2026 — 22:31**": bold, dashes, no brackets, no
+ * "|". The gate knew none of it, so the whole page streamed into the thinking and was handed back at the end with no
+ * header, and the ledger read no ground and no hour from it (his report: "at the start of a story, inside the thinking,
+ * then suddenly outside — no header, no paragraphs"). A short line holding a clock time AND a weekday or a month, that
+ * does not end the way a sentence or a line of speech ends, and holds no markup, is a header. */
+const WEEKDAY_OR_MONTH = /\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December)\b/;
+function looseHeader(s) {
+  const bare = s.replace(/^[ \t>*_#`]+/, '').replace(/[ \t*_`]+$/, '');
+  return bare.length >= 12 && bare.length <= 220 && !/[<>]/.test(bare) && HAS_TIME.test(bare) && WEEKDAY_OR_MONTH.test(bare)
+    && !/[.!?"”’…:;,]$/.test(bare) && !/^["“]/.test(bare) && !LABEL.test(s);
+}
 export function isHeaderLine(line) {
   const s = String(line || '');
   if (!s.trim()) return false;
   if (HEADER_LINE.test(s)) return s.includes('|') || HAS_TIME.test(s);
-  return BARE_HEADER.test(s) && (s.match(/\|/g) || []).length >= 3 && HAS_TIME.test(s) && !LABEL.test(s);
+  if (BARE_HEADER.test(s) && (s.match(/\|/g) || []).length >= 3 && HAS_TIME.test(s) && !LABEL.test(s)) return true;
+  return looseHeader(s); /* M510-17 */
 }
 export function isPlanLabel(line) { return LABEL.test(String(line || '')); }
 

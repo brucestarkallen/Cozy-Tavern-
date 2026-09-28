@@ -34,7 +34,10 @@ export function readHeader(text) {
   const line = (nl === -1 ? rest : rest.slice(0, nl)).trimEnd();
   if (!line || !isHeaderLine(line)) return null;
   const bracketed = /^\[.*\]$/.test(line);
-  const inner = bracketed ? line.slice(1, -1).trim() : line.replace(/^\[|\]$/g, '').trim();
+  /* M510-17: a header in another dress loses the dress (bold, a heading mark) and, with no "|" at all, gains one before
+   * its hour — "[Hillside cemetery — Tuesday, March 4, 2026 | 22:31]", the shape the ledger reads the ground and hour from */
+  let inner = bracketed ? line.slice(1, -1).trim() : line.replace(/^[ \t>*_#`]+/, '').replace(/[ \t*_`]+$/, '').replace(/^\[|\]$/g, '').trim();
+  if (!bracketed && !inner.includes('|')) inner = inner.replace(/[ \t]*(?:[—–,-][ \t]*)?(\b\d{1,2}[:.]\d{2}\b)/, ' | $1').replace(/^ \| /, '');
   const fields = inner.split('|').map((f) => f.trim());
   const first = fields[0] || '';
   const dashed = /\s[—–-]{1,3}\s/.test(first);
@@ -197,6 +200,22 @@ export function joinSoftWraps(text) {
   return out === safe ? { text: given, changed: false } : { text: restore(out), changed: true };
 }
 
+/* the paragraphs a page came without: single line breaks become blank lines (three lines or more), and one unbroken block
+ * is parted where speech begins after a finished sentence — white space only, never a word (M510-17: for a page with a
+ * header and, now, for one without) */
+export function partParagraphs(text) {
+  const given = String(text == null ? '' : text);
+  const trimmed = given.trim();
+  if (!trimmed || FENCED.test(trimmed) || /\n[ \t]*\n/.test(trimmed)) return { text: given, changed: false };
+  const lines = trimmed.split('\n').filter((l) => l.trim());
+  if (lines.length >= 3) return { text: lines.map((l) => l.trim()).join('\n\n'), changed: true };
+  if (lines.length === 1 && trimmed.length > 900) {
+    const parted = trimmed.replace(/([.!?…]["”’)]?)[ \t]+(?=["“][^\s])/g, '$1\n\n');
+    if (parted !== trimmed) return { text: parted, changed: true };
+  }
+  return { text: given, changed: false };
+}
+
 /* before the page is kept: brackets, the place the ledger already holds, white space — never a word */
 export function tidyPage(text, { place = '' } = {}) {
   /* M467: the window's marker in the exact form, whatever dressing the model gave it ("The World Beyond" bare, bold, a
@@ -205,7 +224,9 @@ export function tidyPage(text, { place = '' } = {}) {
   const src = normalizeWindowMark(given);
   const did = src !== given ? ['window'] : [];
   const h = readHeader(src);
-  if (!h) { /* M458/M476 */
+  if (!h) { /* M458/M476 — a text with no header keeps its line breaks here: this mend also runs over every stored page and
+     * out-of-character answer (M477/M488), whose line breaks are theirs (M340-1). A NEW story page with no header is
+     * given its paragraphs where it is kept (chat.js, M510-17). */
     const j = joinSoftWraps(src); const m = mendMarks(j.text);
     const done = [...did]; if (j.changed) done.push('wraps'); if (m.changed) done.push('marks');
     return done.length ? { text: m.text, did: done } : { text: src, did };
@@ -215,16 +236,7 @@ export function tidyPage(text, { place = '' } = {}) {
   if (h.missingPlace && ground) { inner = ground + ' — ' + inner; did.push('place'); }
   if (!h.bracketed) did.push('brackets');
   let body = h.after.replace(/^\s*\n/, '').replace(/^\n+/, '');
-  const trimmed = body.trim();
-  if (trimmed && !FENCED.test(trimmed) && !/\n[ \t]*\n/.test(trimmed)) {
-    const lines = trimmed.split('\n').filter((l) => l.trim());
-    if (lines.length >= 3) { body = lines.map((l) => l.trim()).join('\n\n'); did.push('paragraphs'); }
-    else if (lines.length === 1 && trimmed.length > 900) {
-      /* one unbroken block: a new paragraph where speech begins after a finished sentence */
-      const parted = trimmed.replace(/([.!?…]["”’)]?)[ \t]+(?=["“][^\s])/g, '$1\n\n');
-      if (parted !== trimmed) { body = parted; did.push('paragraphs'); }
-    }
-  }
+  { const pp = partParagraphs(body); if (pp.changed) { body = pp.text; did.push('paragraphs'); } } /* M510-17: one mend, both branches */
   const wrapped = joinSoftWraps(body); /* M476 */
   if (wrapped.changed) { body = wrapped.text; did.push('wraps'); }
   /* nothing of substance to mend: the page as it came, to the letter (white space alone is nobody's business) */

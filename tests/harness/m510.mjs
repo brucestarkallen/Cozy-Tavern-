@@ -430,3 +430,26 @@ test('M510-17 THE STORY’S ESSENTIALS (his design): the whole record streamline
   assert(/\(pages 1–6\) OLDEST-LINE Jovan arrived at the Seireitei; Kaelen swore an oath on the broken lantern/.test(last), 'a line his move names comes back in detail, word for word');
   assert(r.receipt.slots.some((s) => s.name === 'Story essentials' && s.tokens > 0) && r.receipt.slots.some((s) => s.name === 'What remains' && /folded since the essentials/.test(s.source)), 'each with its receipt row');
 });
+
+test('M510-18 A FIRST PAGE’S HEADER IN ANOTHER DRESS IS THE HEADER: it opens the page as it streams (never the whole page into the thinking and back), it is kept in the shape the ledger reads, and a page with no header still gets its paragraphs', async () => {
+  const { makeHeaderGate, isHeaderLine } = await import('../../js/ui/headergate.js');
+  const { tidyPage } = await import('../../js/ui/pageshape.js');
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const run = (reply) => { let thinking = ''; let prose = ''; let back = ''; const g = makeHeaderGate({ onThinking: (t) => { thinking += t; }, onProse: (t) => { prose += t; }, onGiveBack: (t) => { back += t; } }); for (let i = 0; i < reply.length; i += 5) g.feed(reply.slice(i, i + 5)); g.end(); return { thinking, prose, back }; };
+  const PAGE = '**Hillside cemetery — Tuesday, March 4, 2026 — 22:31**\n\nThe cemetery was empty except for the rain.\n\nJovan knelt by the stone.';
+  const a = run(PAGE);
+  assert(a.thinking === '' && a.back === '' && a.prose.startsWith('**Hillside cemetery'), 'the page opens at its header as it streams: ' + JSON.stringify([a.thinking.length, a.back.length]));
+  const b = run('Let me set the scene first, quietly.\n\n' + PAGE);
+  assert(b.thinking.startsWith('Let me set the scene') && b.prose.startsWith('**Hillside cemetery') && b.back === '', 'what came before it is the thinking, as with any header');
+  const kept = tidyPage(PAGE, { place: 'Hillside cemetery' }).text;
+  assert(kept.startsWith('[Hillside cemetery — Tuesday, March 4, 2026 | 22:31]\n\nThe cemetery was empty'), 'kept in the ledger’s shape: ' + kept.slice(0, 70));
+  const muts = headerMutations(kept);
+  assert(muts.some((m) => m.type === 'place.set' && m.name === 'Hillside cemetery') && muts.some((m) => /clock/.test(m.type)), 'and the ledger reads its ground and its hour: ' + JSON.stringify(muts).slice(0, 200));
+  for (const line of ['# The Wayward Lantern — Saturday, June 14 — 08:12', 'Karakura Town, Monday 18:40']) eq(isHeaderLine(line), true, 'a header: ' + line);
+  for (const line of ['At 22:31 on Tuesday, March 4, the rain began.', '"Meet me on Tuesday at 22:31."', '<div>Tuesday 22:31</div>', 'Planning: Tuesday, March 4 — 22:31', 'The rain fell hard that night and nobody came']) eq(isHeaderLine(line), false, 'not a header: ' + line);
+  const { partParagraphs } = await import('../../js/ui/pageshape.js');
+  const flatText = 'The cemetery was empty except for the rain.\nJovan knelt by the stone.\n"You came back," said a voice behind him.';
+  eq(tidyPage(flatText).text, flatText, 'the bulk mend leaves a header-less text’s line breaks alone (M340-1: stored pages and out-of-character answers)');
+  const parted = partParagraphs(flatText);
+  assert(parted.changed && parted.text.split('\n\n').length === 3, 'the paragraph mend a NEW header-less page is given where it is kept');
+});
