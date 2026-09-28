@@ -768,3 +768,23 @@ test('M510-30 THE FALLBACK FOR EVERY WORKER (his word: "if anything is down it m
   assert(!hk.error && hk.fellBack === 'The backup' && hk.text === '{"ok":true}', 'the housekeeper falls back too: ' + JSON.stringify(hk).slice(0, 160));
   await store.settings.set('workerFallbackId', null);
 });
+
+test('M510-32 A THOUGHT’S CLOSER WRITTEN BACK TO FRONT, OR STANDING ALONE (his report: a lone stray "t/~" after an NPC): "~t/~" and "t/~" close a thought like "~/t~"; a closer that belongs to no thought is taken off the page with its space; an exact thought and ordinary words are untouched', async () => {
+  const { tidyPage, mendMarks } = await import('../../js/ui/pageshape.js');
+  const H = '[The yard — Monday, March 3, 2025 | 09:00 | wind | coat | by the gate]\n\n';
+  const page = (t) => tidyPage(H + t).text.slice(H.length);
+  eq(page("~t~*She can't find out.*t/~ Rukia turned away."), "~t~*She can't find out.*~/t~ Rukia turned away.", 'closed back to front');
+  eq(page("~t~She can't find out.t/~ Rukia turned away."), "~t~*She can't find out.*~/t~ Rukia turned away.", 'no stars, closed back to front');
+  eq(page("~t~*She can't find out.~t/~ Rukia turned away."), "~t~*She can't find out.*~/t~ Rukia turned away.", '"~t/~"');
+  eq(page("~t~*She can't find out.*~/t~ t/~ Rukia turned away."), "~t~*She can't find out.*~/t~ Rukia turned away.", 'one closer too many');
+  eq(page('"Fine," Rukia said. t/~'), '"Fine," Rukia said.', 'standing alone after her line');
+  eq(page('t/~ Rukia turned away.'), 'Rukia turned away.', 'standing alone at a line’s start');
+  const exact = "Rukia turned away. ~t~*He knows.*~/t~ She smiled.";
+  eq(mendMarks(exact).text, exact, 'an exact thought, untouched');
+  eq(mendMarks('The path split at the fork, east or west.').text, 'The path split at the fork, east or west.', 'ordinary words untouched');
+});
+test('M510-32b a right-shaped closer standing alone on a line with no thought goes; on a line that holds a thought it is left, as M506 leaves it', async () => {
+  const { mendMarks } = await import('../../js/ui/pageshape.js');
+  eq(mendMarks('"Fine," Rukia said. ~/t~').text, '"Fine," Rukia said.', 'alone on its line: it goes');
+  eq(mendMarks('~t~*a*~/t~ she says. *emph*~/t~').text, '~t~*a*~/t~ she says. *emph*~/t~', 'on a line with a thought: left to the letter');
+});

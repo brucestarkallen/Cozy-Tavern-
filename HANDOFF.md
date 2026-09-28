@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-031)
+# Cozy Tavern — handoff for the next session (state at m510-032)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1041,4 +1041,8 @@ founding design lives in AGENTS.md's first entries.)
   the words" beside "Keep it" (copies the box as it stands); each of his own words has one; "What the storyteller saw"
   puts one Copy on every part's row (no longer only inside the opened part — one per part). All use receiptview.js
   copyWords (works on the phone's own address too). DOM-70 updated, DOM-139.
+- M510-32 — A THOUGHT'S CLOSER BACK TO FRONT, OR ALONE (ui/pageshape.js mendThoughts, mendMarks): "~t/~" and "t/~" close a
+  thought like "~/t~" (the lost-opener mend too); after every exact thought is shielded, any closer left over belongs to no
+  thought and is taken off the page with its space. Stored pages heal on the next open (the once-per-build mend, M488).
+  Law M510-32; the real-browser mend check green.
 

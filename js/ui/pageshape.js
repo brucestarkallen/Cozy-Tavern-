@@ -67,7 +67,7 @@ export function shapeOf(text) {
  * a tracker block was skipped by every mend — so a stray quote three paragraphs above the screen stood forever, and
  * the writer asked why the agent fixes nothing. The object's own quotes and asterisks are HTML, not marks: it is
  * lifted out whole, the prose around it is mended, and it is put back to the letter. */
-const SHIELD_RE = /<!--\s*GFX_START[\s\S]*?(?:<!--\s*GFX_END\s*-->|$)|```[\s\S]*?(?:```|$)|~t~\*[^\n]*?\*~\/t~|(?<=^|\n)[ \t]*\*\*\* The World Beyond \*\*\*(?=[ \t]*(?:\n|$))|[^\n]*\{(?:PULSE|WATCHLIST|VOICES)\}[\s\S]*?(?=\n[ \t]*\n|$)/g; /* M482: a private thought's markup, and the window's marker, are objects too */
+const SHIELD_RE = /<!--\s*GFX_START[\s\S]*?(?:<!--\s*GFX_END\s*-->|$)|```[\s\S]*?(?:```|$)|~t~\*[^\n]*?\*~\/t~|\*~t~[^\n]*?~\/t~\*|(?<=^|\n)[ \t]*\*\*\* The World Beyond \*\*\*(?=[ \t]*(?:\n|$))|[^\n]*\{(?:PULSE|WATCHLIST|VOICES)\}[\s\S]*?(?=\n[ \t]*\n|$)/g; /* M482: a private thought's markup, and the window's marker, are objects too */
 export function shieldObjects(text) {
   const kept = [];
   const safe = String(text == null ? '' : text).replace(SHIELD_RE, (m) => { kept.push(m); return '\uE000' + (kept.length - 1) + '\uE001'; });
@@ -95,7 +95,8 @@ const MANGLED_TWO_RE = /\*~t~\*([^\n]*?)\*~\/t~((?:(?!~t~)[^\n*])*?)~\/t~\*/g; /
  * letter (or its asterisk or quote) and closed by any closer the model writes — a bare ~, ~/t~, /t~ — is given back its
  * opener, and the mend below writes it in the exact form. A "~t" with no closer on its line is left alone (a tilde
  * before a word is not a thought). */
-const LOST_OPENER_RE = /~t(?!~)(?=[*\p{L}\u2018\u2019'"“”])((?:(?!~t~)[^\n~])*?)(~[\/\\]t~|[\/\\]t~|~)(?!~)/gu;
+/* M510-32: …and the closer written back to front — "~t/~", "t/~" — is a closer too */
+const LOST_OPENER_RE = /~t(?!~)(?=[*\p{L}\u2018\u2019'"“”])((?:(?!~t~)[^\n~])*?)(~[\/\\]t~|[\/\\]t~|~t[\/\\]~|(?<![A-Za-z])t[\/\\]~|~)(?!~)/gu;
 export function mendThoughts(text) {
   const src0 = String(text == null ? '' : text);
   const src = /~t(?!~)(?=[*\p{L}\u2018\u2019'"“”])/u.test(src0) ? src0.replace(LOST_OPENER_RE, (m, words, closer) => '~t~' + words + closer) : src0;
@@ -105,7 +106,7 @@ export function mendThoughts(text) {
     .replace(MANGLED_ONE_RE, (m, w, r) => '~t~*' + w + '~' + r + '*~/t~')
     .replace(MANGLED_TWO_RE, (m, w, r) => '*~t~' + w + '~' + r + '~/t~*')
     .replace(EXACT_THOUGHT_RE, (m) => { kept.push(m); return '\uE002' + (kept.length - 1) + '\uE003'; });
-  const mended = shielded.replace(/(\*?)~t~(\*?)((?:(?!~t~)[^\n\uE002])*?)(\*?)(~[\/\\]t~|[\/\\]t~|~(?![\/\\]?t~)|(?=~t~)|(?=\uE002)|$)(\*?)/gim, (m, pre, openStar, words, closeStar, closer, post) => {
+  const mended = shielded.replace(/(\*?)~t~(\*?)((?:(?!~t~)[^\n\uE002])*?)(\*?)(~[\/\\]t~|[\/\\]t~|~t[\/\\]~|(?<![A-Za-z])t[\/\\]~|~(?![\/\\]?t~)|(?=~t~)|(?=\uE002)|$)(\*?)/gim, (m, pre, openStar, words, closeStar, closer, post) => {
     const inner = String(words || '').trim();
     if (!inner) return m; /* nothing to wrap */
     const trail = closer ? '' : String(words || '').slice(String(words || '').trimEnd().length); /* a closer that is the next thought or the line's end keeps the space before it */
@@ -128,6 +129,20 @@ export function mendMarks(text) {
     /* M501: a thought's closer split across a line break leaves a fragment — "/t Shunsui stood…" at a line's start, or
      * "…he said. ~/t" at its end — outside any thought (the exact thoughts are shielded here): the fragment goes */
     .replace(/(^|\n)[ \t]*~?[\/\\]t~?[ \t]+(?=\S)/g, '$1')
+    /* M510-32: A THOUGHT'S CLOSER STANDING ALONE — his report: a lone stray "t/~" after an NPC. The model wrote the closer
+     * back to front ("~t/~", "t/~") or one closer too many ("…*~/t~ t/~", "…she said. t/~"); the mend knew only ~/t~ and
+     * /t~, so the stray stood on the page. Every thought in its exact form is shielded here; any closer left over belongs
+     * to no thought, and goes — with the space it leaves. (Both exact forms are shielded — M506 caught the second,
+     * *~t~…~/t~*, going unshielded here and its closer taken for a stray; and a right-shaped closer on a line that
+     * holds a thought is left, as M506 leaves it.) */
+    /* the closer written back to front is never a thought's own: it goes wherever it stands */
+    .replace(/(^|\n)[ \t]*(?:~t[\/\\]~|t[\/\\]~)[ \t]*/g, '$1')
+    .replace(/[ \t]*(?:~t[\/\\]~|(?<![A-Za-z~*])t[\/\\]~)(?=[ \t\n]|$|[.,!?;:"”’)*])/g, '')
+    /* a closer in its right shape goes only from a line with no thought on it — on a line that has one, it may be that
+     * thought's own, a shape M506 leaves to the letter ("~t~*a*~/t~ she says. *emph*~/t~") */
+    .replace(/(^|\n)([^\n]*)/g, (m, nl, line) => (/~t~|\uE000/.test(line) ? m : nl + line
+      .replace(/^([ \t]*)(?:~[\/\\]t~|[\/\\]t~)[ \t]*/, '$1')
+      .replace(/[ \t]*(?:~[\/\\]t~|(?<![A-Za-z~*])[\/\\]t~)(?=[ \t]|$|[.,!?;:"”’)*])/g, '')))
     .replace(/[ \t]+~?[\/\\]t~?[ \t]*(?=\n|$)/g, '')
     .replace(/\n[^\S\n]+(?=\n)/g, '\n') /* a line of spaces alone is a blank line (the gap round his break) */
     .replace(/(^|\n)(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*[*\u2217\u204e\uff0a\u2731](?:(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*[*\u2217\u204e\uff0a\u2731]){0,2}(?:[^\S\n]|\u200b|\u200c|\u200d|\u2060)*(\n|$)/g, (m, lead, end) => (lead ? '\n\n' : '') + '* * *' + (end ? '\n\n' : ''))

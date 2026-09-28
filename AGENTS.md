@@ -12810,3 +12810,13 @@ message and Copy all. Every one goes through receiptview.js copyWords, which als
 where the clipboard API is refused. DOM-70 now copies from the row; DOM-139 copies the frame, the note and his own words
 through the real Settings screen.
 
+# M510-32 — a thought's closer written back to front, or standing alone
+He: "why doesn't Cozy Tavern fix this lone stray 't/~' after NPCs?" The craft asks for ~t~*…*~/t~; the mend (M498/M501)
+knew the closers ~/t~, ~\t~, /t~ and a bare ~ — not the one written back to front. Replayed seven shapes through the
+real mend: "~t~*…*t/~" left "t/" inside the thought (the "~" alone was taken for the closer); "~t~*…~t/~" left "t/~" after
+it; a closer too many ("…*~/t~ t/~") and one standing alone after a line of speech or at a line's start were never touched.
+mendThoughts (and the lost-opener mend) now read "~t/~" and "t/~" as closers; mendMarks, with every exact thought
+shielded, takes any closer left over off the page, with the space it leaves — it belongs to no thought. An exact thought
+and ordinary words are untouched. His stored pages heal on the next open (the once-per-build mend over every page, M488).
+Law M510-32.
+
