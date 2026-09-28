@@ -585,3 +585,49 @@ test('M510-22 A PLAN, KEPT WHOLE (his battle plan): written down the moment a pa
   const normal = mk(false);
   assert(!/Plans standing/.test(JSON.stringify(normal.messages)) && /^small model only/.test(normal.receipt.slots.find((s) => s.name === 'Plans standing').reason), 'the frontier model is untouched');
 });
+
+test('M510-23 WHO’S HERE, IN THE RECENT PAGES (his duchy): the storyteller’s own paragraphs that name each person in the scene, from the pages between the last eight and the record — the newest two each, word for word, while they are here; never twice; a title is not a name; the frontier model is untouched', async () => {
+  const { pagesOfWhoIsHere, recordOfWhoIsHere } = await import('../../js/assemble/stack.js');
+  const para = (who, what) => who + ' ' + what + ' — the hall of the duchy was cold, the banners of the old house still hung, and every word was weighed against the army at the gate.';
+  const msgs = [];
+  for (let i = 0; i < 40; i += 1) {
+    if (i % 2 === 0) { msgs.push({ id: 'u' + i, role: 'user', text: 'turn ' + i }); continue; }
+    const page = i + 1;
+    const body = {
+      10: para('Lord Varen', 'VAREN-10 did not come to the council; his steward said he was ill.'),
+      16: para('Lord Varen', 'VAREN-16 pressed a purse of gold into Jovan’s hand, and Jovan took it.'),
+      24: para('Lord Varen', 'VAREN-24 swore he would keep his seat whatever it cost.'),
+      12: para('Lady Mira', 'MIRA-12 did not come either, and sent no word at all.'),
+      28: para('Lady Mira', 'MIRA-28 laughed, poured wine, and said she had only wanted to see what kind of lord would come.'),
+      20: para('Lord Aldric', 'ALDRIC-20 counted the grain stores twice.'),
+      36: para('Lord Varen', 'VAREN-36 sat at the end of the table, the purse no longer at his belt.'),
+    }[page] || 'An ordinary page, nothing of note — PAGE-' + page + '.';
+    msgs.push({ id: 'a' + i, role: 'assistant', text: '[The duchy hall — Monday, March 3, 2025 | 09:' + String(i).padStart(2, '0') + ']\n\n' + body });
+  }
+  msgs.push({ id: 'ux', role: 'user', text: 'I begin the interviews for my new council.' });
+  const base = [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The duchy hall' }, { type: 'presence.enter', name: 'Jovan' }];
+  const here = { ...applyMutations({ ...emptyState(), page: 40 }, [...base, { type: 'presence.enter', name: 'Lord Varen' }, { type: 'presence.enter', name: 'Lady Mira' }]).state, page: 40 };
+  const mk = (small, state) => buildRequest({ story: {}, messages: msgs, settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [] }, ...(small ? { smallPlan: { ...PLAN, intense: false } } : {}) });
+  const small = mk(true, here);
+  const notes = String(small.messages[0].content);
+  const part = (notes.split('What the recent pages hold of who is here, word for word:\n')[1] || '');
+  assert(part.includes('(page 16) Lord Varen VAREN-16') && part.includes('(page 24) Lord Varen VAREN-24'), 'Varen’s newest two in the pages between: the purse, the oath:\n' + part.slice(0, 600));
+  assert(!part.includes('VAREN-10'), 'the newest two, not every one');
+  assert(part.includes('(page 12) Lady Mira MIRA-12') && !part.includes('MIRA-28') && JSON.stringify(small.messages).includes('MIRA-28'), 'Mira: she never came (the pages between); her test is within the last eight and rides whole');
+  assert(!part.includes('ALDRIC-20'), 'a title is not a name: “Lord” does not call back Lord Aldric');
+  assert(!part.includes('VAREN-36') && JSON.stringify(small.messages).includes('VAREN-36'), 'a page within the last eight rides whole, never twice');
+  assert(part.indexOf('VAREN-16') < part.indexOf('VAREN-24'), 'oldest first');
+  const row = small.receipt.slots.find((s) => s.name === 'Who’s here, in the recent pages');
+  assert(row && row.tokens > 0 && /Lord Varen/.test(row.reason) && /Lady Mira/.test(row.reason), 'its row, naming whom');
+  const names = small.receipt.slots.map((s) => s.name);
+  eq(names.indexOf('Who’s here, in the recent pages'), names.indexOf('Who’s here, in the record') + 1, 'in its place among the rows');
+  const gone = { ...applyMutations({ ...emptyState(), page: 40 }, base).state, page: 40 };
+  assert(!String(mk(true, gone).messages[0].content).includes('What the recent pages hold'), 'gone from the scene, gone from the page');
+  const normal = mk(false, here);
+  assert(!/What the recent pages hold of who is here/.test(JSON.stringify(normal.messages)) && /^small model only/.test(normal.receipt.slots.find((s) => s.name === 'Who’s here, in the recent pages').reason), 'the frontier model is untouched');
+  /* the record's own lines use the same names: a title is not a name there either (M510-21) */
+  const lines = [{ span: [0, 3], text: 'Lord Aldric counted the grain.' }, { span: [4, 7], text: 'Lord Varen paid Jovan in gold.' }];
+  const rec = recordOfWhoIsHere(lines, here);
+  assert(rec.text.includes('Lord Varen paid') && !rec.text.includes('Aldric'), 'the record’s lines: Varen’s, not every lord’s');
+  eq(pagesOfWhoIsHere([], here, { from: 0, to: 0 }).text, '', 'nothing between: nothing');
+});

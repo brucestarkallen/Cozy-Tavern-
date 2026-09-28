@@ -12678,3 +12678,17 @@ stand untouched. The frontier request is unchanged. Laws M510-22, DOM-138.
   seven places the walk opened the drawer "if it was hidden" now put an open drawer away and open it fresh for their own
   story, as a person would. Why DOM-111 itself failed first is not proven. Walk 156/156.
 
+# M510-23 — who's here, in the recent pages; a title is not a name
+He: "the summary of my story: I come to the conquered duchy and meet the council to ask why they didn't greet me; two
+don't come; I march with the army to them — one is corrupt (I take his money), the second was only testing me (a civil
+talk); the next day I interview my new council. Does small mode address this complicated memory?" Traced it layer by
+layer: the ledger carries each council member's card, standing and what they know; the helper reads the last 30 pages
+and the whole record every page; the last eight pages ride whole; past 30 pages back the record, the essentials and the
+record's lines of who is here take over. The gap: an arc like this sits 9–30 pages back — too old for the eight, too new
+for the record — and for the people sitting in front of him the small model had only the helper's few lines and their
+cards. stack.js pagesOfWhoIsHere: the storyteller's own paragraphs from those pages that name each person in the scene,
+the newest two each, word for word, while they are there; a paragraph his move's recall already brings stays beside his
+move and is not said twice; counted in the room before the eight are trimmed. Found on the way, and fixed for the record's
+lines too (M510-21): a title matched as a name — "Lord Varen" called back every line with "Lord" in it; nameAsWord skips
+titles (Lord, Lady, Sir, Captain, Duke …) to the name itself. The frontier request is unchanged. Law M510-23.
+

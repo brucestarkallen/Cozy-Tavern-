@@ -467,17 +467,64 @@ export function refereeCraft(text, on) {
 /* M510-21: the record's lines that name who is here — the newest few per person, the MC left out (he is in every line) */
 export const PRESENT_LINES_EACH = 5;
 export const PRESENT_RECORD_CHARS = 6000;   /* about 1,500 tokens */
-export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRESENT_LINES_EACH, cap = PRESENT_RECORD_CHARS } = {}) {
-  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/* who is in the scene besides the MC, and a whole-word pattern for each (the full name, or the first name alone) */
+function namesHere(state) {
   const mc = String(mcNameOf(state) || '').trim().toLowerCase();
-  const here = [...new Set((Array.isArray(state && state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => typeof n === 'string' && n.trim()).map((n) => n.trim()))]
+  return [...new Set((Array.isArray(state && state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => typeof n === 'string' && n.trim()).map((n) => n.trim()))]
     .filter((n) => n.toLowerCase() !== mc);
+}
+/* a title is not a name: "Lord Varen" is found as "Lord Varen" or "Varen" — never "Lord", which is every lord */
+const TITLES = new Set(['lord', 'lady', 'sir', 'dame', 'captain', 'duke', 'duchess', 'count', 'countess', 'baron', 'baroness', 'king', 'queen', 'prince', 'princess', 'lieutenant', 'commander', 'general', 'master', 'mistress', 'mr', 'mrs', 'ms', 'miss', 'dr', 'doctor', 'father', 'mother', 'brother', 'sister', 'uncle', 'aunt', 'saint', 'emperor', 'empress', 'marquis', 'marquess', 'earl', 'viscount', 'sergeant', 'major', 'colonel', 'professor', 'elder', 'chief', 'high', 'grand', 'old', 'young', 'little', 'big', 'the']);
+function nameAsWord(name) {
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const words = name.split(/\s+/);
+  let k = 0;
+  while (k < words.length - 1 && TITLES.has(words[k].toLowerCase().replace(/\.$/, ''))) k += 1;
+  const first = words[k];
+  const parts = first && first.length >= 3 && first !== name ? [name, first] : [name];
+  return new RegExp('(?<![\\p{L}\\p{N}])(?:' + parts.map(esc).join('|') + ')(?![\\p{L}\\p{N}])', 'u');
+}
+
+/* M510-23: WHO'S HERE, IN THE RECENT PAGES — the pages between the eight a small model reads whole and the record's reach
+ * are neither whole nor folded for it, and the record's lines of who is here cannot reach them. The storyteller's
+ * paragraphs there that name each person in the scene — the newest two each, capped — ride word for word; gone when the
+ * person leaves. His example: the council he interviews the day after he rode out to the two who never came. */
+export const RECENT_PARAS_EACH = 2;
+export const RECENT_PARAS_CHARS = 6000;   /* about 1,500 tokens */
+export const RECENT_PARA_MIN = 100;        /* "Varen nodded." tells nothing */
+export const RECENT_PARA_MAX = 1200;
+export function pagesOfWhoIsHere(pages, state, { from = 0, to = 0, each = RECENT_PARAS_EACH, cap = RECENT_PARAS_CHARS, skip = () => false } = {}) {
+  const list = Array.isArray(pages) ? pages : [];
+  const here = namesHere(state);
+  if (!here.length || to <= from) return { text: '', who: [], texts: [] };
+  const paras = [];
+  for (let i = Math.max(0, from); i < Math.min(to, list.length); i += 1) {
+    const m = list[i];
+    if (!m || m.role !== 'assistant' || typeof m.content !== 'string') continue;
+    m.content.split(/\n\s*\n/).forEach((p, k) => {
+      const t = p.replace(/^\s*\[[^\]\n]*\]\s*$/gm, '').replace(/\s+/g, ' ').trim(); /* the header row is furniture */
+      if (t.length >= RECENT_PARA_MIN && !skip(t)) paras.push({ page: i + 1, k, text: t.length > RECENT_PARA_MAX ? t.slice(0, RECENT_PARA_MAX - 1).trimEnd() + '…' : t });
+    });
+  }
+  const picked = new Set(); const who = [];
+  for (const name of here) {
+    const re = nameAsWord(name);
+    let n = 0;
+    for (let j = paras.length - 1; j >= 0 && n < each; j -= 1) if (re.test(paras[j].text)) { picked.add(paras[j]); n += 1; }
+    if (n) who.push(name);
+  }
+  const render = (p) => '- (page ' + p.page + ') ' + p.text;
+  let chosen = [...picked].sort((a, b) => (a.page - b.page) || (a.k - b.k));
+  while (chosen.length && chosen.map(render).join('\n').length > cap) chosen = chosen.slice(1);
+  return { text: chosen.map(render).join('\n'), who: who.filter((n) => chosen.some((p) => nameAsWord(n).test(p.text))), texts: chosen.map((p) => p.text) };
+}
+
+export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRESENT_LINES_EACH, cap = PRESENT_RECORD_CHARS } = {}) {
+  const here = namesHere(state);
   const lines = (Array.isArray(nodes) ? nodes : []).filter((n) => n && !n.empty && !n.correction && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span)).sort((a, b) => a.span[0] - b.span[0]);
   const picked = new Set(); const who = [];
   for (const name of here) {
-    const first = name.split(/\s+/)[0];
-    const parts = first && first.length >= 3 && first !== name ? [name, first] : [name];
-    const re = new RegExp('(?<![\\p{L}\\p{N}])(?:' + parts.map(esc).join('|') + ')(?![\\p{L}\\p{N}])', 'u');
+    const re = nameAsWord(name);
     let n = 0;
     for (let i = lines.length - 1; i >= 0 && n < each; i -= 1) {
       if (!re.test(lines[i].text) || skip(lines[i])) continue;
@@ -492,7 +539,7 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
 }
 
 /* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
-export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'The story in short', 'On their mind', 'The state of things', 'Active modules', 'Story essentials', 'What remains', 'Plans standing', 'Who’s here, in the record', 'What canon says', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The story so far', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
+export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'The story in short', 'On their mind', 'The state of things', 'Active modules', 'Story essentials', 'What remains', 'Plans standing', 'Who’s here, in the record', 'Who’s here, in the recent pages', 'What canon says', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The story so far', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
 function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
@@ -503,6 +550,7 @@ function emptyWhy(name, c) {
       : !c.hasRecord ? 'not made yet — the record is still empty: the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window'
       : 'being made — the essentials keeper streamlines the record in the background; until then its newest lines ride under What remains';
     case 'Plans standing': return !c.small ? 'small model only — your storyteller reads the pages and the record' : !c.planned ? noPlan : 'no plan standing — the plans keeper writes one down the moment a page lays it out';
+    case 'Who’s here, in the recent pages': return !c.small ? 'small model only — your storyteller reads those pages whole' : !c.planned ? noPlan + ', with the pages whole' : 'no one here is named in the pages between the last eight and the record (or the story is still short enough for the eight)';
     case 'Who’s here, in the record': return !c.small ? 'small model only — your storyteller reads the whole record' : !c.planned ? noPlan + ', with the whole record' : 'no one here is named in the record yet, or their lines already ride above';
     case 'The plan for this page': return !c.small ? 'small model only — the planning helper writes one for a small storyteller' : noPlan + ', with the scene said once more';
     case 'The sounds': return !c.small ? 'small model only — on a heated page' : !c.planned ? noPlan + ', with the whole craft' : 'a calm page — no sound laws needed';
@@ -538,6 +586,16 @@ export function fillEveryRow(slots, c) {
     for (let j = k + 1; j < EVERY_ROW.length; j += 1) { const i = slots.findIndex((s) => isRow(s, EVERY_ROW[j])); if (i !== -1) { at = i; break; } }
     slots.splice(at, 0, { name, tokens: 0, source: '', reason: emptyWhy(name, c), text: '' });
   });
+}
+
+/* M510-23: a row pushed late goes where its part rides — before the first row that comes after it in EVERY_ROW */
+function placeRow(slots, name) {
+  const at = slots.map((s) => s && s.name).lastIndexOf(name);
+  if (at === -1) return;
+  const [row] = slots.splice(at, 1);
+  const k = EVERY_ROW.indexOf(name);
+  const before = slots.findIndex((s) => s && EVERY_ROW.indexOf(s.name) > k);
+  slots.splice(before === -1 ? slots.length : before, 0, row);
 }
 
 export function buildRequest({
@@ -962,11 +1020,27 @@ export function buildRequest({
   /* M510: the small request carries the last SMALL_PAGES of his story's pages word for word (and his message between
    * them), never opening on the storyteller's page; the planning helper read the rest */
   let smallWindow = smallB ? lastPagesOf(pages, SMALL_PAGES) : null;
+  /* M510-23: who is here, in the pages between the eight and the record — added to the notes, and counted in the room */
+  let recentOfHere = null;
+  if (smallWindow && stateInjection) {
+    /* a paragraph his move names already comes back beside his move (M510-13): not said twice */
+    const zone = { from: coveredUntil(windowInfo && windowInfo.nodes), to: pages.length - smallWindow.length };
+    const lastUserZ = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
+    const namesZ = [...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : []), mcNameOf(state)].filter(Boolean);
+    const byMove = recallFromPages(pages, [lastUserZ ? String(lastUserZ.text || '') : ''], { ignore: namesZ, ...zone }).map((r) => String(r.text || '').slice(0, 80));
+    recentOfHere = pagesOfWhoIsHere(pages, state, { ...zone, skip: (t) => byMove.includes(t.slice(0, 80)) });
+    if (recentOfHere.text) {
+      stateInjection.content += '\n\nWhat the recent pages hold of who is here, word for word:\n' + recentOfHere.text;
+      pushSlot('Who’s here, in the recent pages', recentOfHere.text, 'the storyteller’s own paragraphs that name who is here, from the pages between the last eight and the record — word for word, while they are here (small model)', recentOfHere.who.join(', '));
+      placeRow(slots, 'Who’s here, in the recent pages');
+    }
+  }
+  const recentTokens = recentOfHere && recentOfHere.text ? estimateTokens(recentOfHere.text) + 12 : 0;
   /* and never past the room the connection names (M285/M343): the oldest of the eight go first, the window still
    * opening on his message; his message and the page before it always ride */
   if (smallWindow && Number.isFinite(w.budgetTokens) && w.budgetTokens > 0) {
     const cost = (list) => list.reduce((sum, m) => sum + estimateTokens(typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')), 0);
-    while (smallWindow.length > 2 && prefixTokens + cost(smallWindow) > w.budgetTokens) {
+    while (smallWindow.length > 2 && prefixTokens + recentTokens + cost(smallWindow) > w.budgetTokens) {
       let cut = 1;
       while (cut < smallWindow.length - 1 && smallWindow[cut].role !== 'user') cut += 1;
       if (cut >= smallWindow.length - 1) break;
@@ -1100,7 +1174,7 @@ export function buildRequest({
       if (recallB) anchorLine += '\n' + recallB;
       /* M510-13: and the pages between the record's reach and the eight — neither whole nor folded for a small model. Called
        * back by HIS MESSAGE alone: the eight pages it already has would call back every paragraph that repeats the scene */
-      const middle = recallPagesLine(recallFromPages(pages, [lastUserB ? String(lastUserB.text || '') : ''], { ignore: namesB, from: coveredUntil(windowInfo && windowInfo.nodes), to: pages.length - (smallWindow ? smallWindow.length : 0) }));
+      const middle = recallPagesLine((recallFromPages(pages, [lastUserB ? String(lastUserB.text || '') : ''], { ignore: namesB, from: coveredUntil(windowInfo && windowInfo.nodes), to: pages.length - (smallWindow ? smallWindow.length : 0) })));
       if (middle) anchorLine += '\n' + middle;
     }
     if (smallIntense === true || smallPlan.intense === true) {

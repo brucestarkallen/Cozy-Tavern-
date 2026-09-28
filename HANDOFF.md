@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-022)
+# Cozy Tavern — handoff for the next session (state at m510-023)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -984,4 +984,11 @@ founding design lives in AGENTS.md's first entries.)
   be read again. Small model only (chain link 10, planAhead); stored in settings "standingPlans:<storyId>" (never "plans:", the planning helper's key); rides the small request
   whole under "Plans standing" (receipt row, EVERY_ROW); drawer book "Plans — kept whole until carried out"; worker row
   'plans'. The frontier request is unchanged. Laws M510-22, DOM-138.
+- M510-23 — WHO'S HERE, IN THE RECENT PAGES (stack.js pagesOfWhoIsHere, small only): the pages between the eight a small
+  model reads whole and the record's reach are neither whole nor folded; the storyteller's own paragraphs there that name
+  each person in the scene ride word for word in the notes — the newest 2 each (100–1,200 characters a paragraph), 6,000
+  characters in all, counted in the room before the eight are trimmed; a paragraph his move's recall already brings is
+  skipped (it stays beside his move, M510-13); receipt row "Who’s here, in the recent pages" (placeRow puts a late row
+  where its part rides). A TITLE IS NOT A NAME (nameAsWord, shared with recordOfWhoIsHere): "Lord Varen" is found as
+  "Lord Varen" or "Varen", never "Lord". Law M510-23.
 
