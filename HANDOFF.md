@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-009)
+# Cozy Tavern — handoff for the next session (state at m510-010)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -494,7 +494,8 @@ founding design lives in AGENTS.md's first entries.)
   answer is asked for once more with a word why, then let go (never thrown: a throw is the queue's minute of retries).
   Plans are kept per page (id:version — M510-6: never the words' hash, or any mend dropped the small model back on the
   whole story; the words' fingerprint rides beside the plan and the helper reads a changed page again), the last four by
-  order, so Try again finds the one before. The plan says it was made BEFORE his move ("how things stood before my move
+  order, so Try again finds the one before. M510-10: walking to a version (swipe back or forward on the last page)
+  reads ahead too — a version whose plan was pushed out is read again, never sent whole. The plan says it was made BEFORE his move ("how things stood before my move
   above"; "before my move, that looked like: …") — after his message, a small model must never take it over his move.
   WITH A PLAN — THE SMALL REQUEST (stack.js smallB, his choice B): the craft rides as laws.js ALWAYS_LAWS (The Telling,
   Header Protocol, MC Agency and its companions, Intent Horizon, the Page's three laws) plus the helper's laws, WORD FOR

@@ -5397,6 +5397,9 @@ export function initChat(ctx) {
     await refreshPreview(story.id);
     renderStoryList();
     refreshEmber();
+    /* M510-10: the version walked to may have no plan kept any more (the last four stand) — a small model's helper reads
+     * it now, so the next page is not sent whole; for any other storyteller nothing is asked */
+    planAhead();
   }
 
   /* Write another version of this page: re-ask its turn, keep the old

@@ -3628,6 +3628,23 @@ test('DOM-67 THE SMALL-MODEL MODE, IN THE APP (M510): it lives on the connection
     assert(/Header Protocol = /.test(sw) && /Voice Fingerprints = /.test(sw) && !/Pathway Laundering = /.test(sw), 'the laws this scene needs, not the whole craft');
     assert(!/PAGE-5\./.test(sw) && /PAGE-19\./.test(sw) && /Kara looked up from the water/.test(sw), 'the last eight pages word for word');
     assert(sizeOf(small) * 2 < sizeOf(first), 'far smaller: ' + sizeOf(first) + ' → ' + sizeOf(small) + ' tokens');
+    /* M510-10: SWIPE RIGHT AND BACK — a new version of the last page, then back to the first: the ledger is that version's,
+     * and a version whose plan is no longer kept is read again by the helper */
+    const { loadState: ls } = await import('../../js/engine/state.js');
+    const newestPage = async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    const v0 = await newestPage();
+    const ledgerV0 = JSON.stringify(((await ls(st.id)).present || []).map((p) => p.name).sort());
+    const lastNode = () => assistantPages()[assistantPages().length - 1];
+    click(q('.swipe-bar .msg-act[data-act="swipe-next"]', lastNode()));
+    await until(async () => { const m = await newestPage(); return m && Array.isArray(m.swipes) && m.swipes.length === 2 && !env.ctx.chat.isBusy(); }, 'a second version', 30000);
+    await until(() => queuedCount(st.id) === 0, 'its readers', 40000);
+    const asksBefore = helperAsks().length;
+    await db.settings.delete('plans:' + st.id); /* as if the plan of the first version had been pushed out */
+    click(q('.swipe-bar .msg-act[data-act="swipe-prev"]', lastNode()));
+    await until(async () => { const m = await newestPage(); return m && m.swipeIdx === 0; }, 'back on the first version', 15000);
+    await until(async () => { const k = await loadPlans(st.id); return Boolean(k && k.plans && k.plans[v0.id + ':0']); }, 'the helper read the version walked back to', 20000);
+    assert(helperAsks().length > asksBefore, 'it was asked again for it');
+    eq(JSON.stringify(((await ls(st.id)).present || []).map((p) => p.name).sort()), ledgerV0, 'and the ledger is the first version’s own');
     /* the Quick switch hands the tale to a connection without the tick */
     other = await db.connections.add({ label: 'Frontier', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'frontier-1' });
     await env.ctx.chat.refreshQuickSwitch();

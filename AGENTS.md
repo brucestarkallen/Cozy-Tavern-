@@ -12482,3 +12482,14 @@ the house's eye ("not sent to the small model" — the helper does not read them
 Settings switch; chat.js marks ownWordsHeldForSmall), and "Who's here" names where the cast notes went. The frontier
 receipt is unchanged. Law M510-6 extended.
 
+# M510-10 — swipe right and back: the ledger is the version's own, and its plan is read again when gone
+He: "swipe right and back again, the ledger is safe, right?" Yes, by M40/M67/M72's machinery: walking to a version puts
+ITS checkpoint back (or rewinds to the boundary and reads it afresh), and DOM-8c holds the invariant over a random
+sequence of sends, new versions and walks of the last and old pages, retries, edits and deletes (the standing ledger is
+the shown last page's; a branch at any page carries exactly that page's). None of M510's code writes the ledger (the
+planner reads it; the cut shapes the page before it is kept; the sounds and the plans live in their own row). One small-
+model gap found: plans are kept for the last four pages by order, and a walk back to a version whose plan had been
+pushed out started no reading — the next page went to the small model whole. swipeTo now reads ahead after a walk
+(planAhead; nothing is asked for another storyteller). DOM-67 walks a new version and back with the plans gone: the
+helper reads the version walked back to, and the ledger is that version's.
+
