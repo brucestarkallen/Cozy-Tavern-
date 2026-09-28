@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-004)
+# Cozy Tavern — handoff for the next session (state at m510-005)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -456,7 +456,10 @@ founding design lives in AGENTS.md's first entries.)
   half-escaped", came back almost word for word. Now: voiced lines stretch and repeat with words, names and pleas breaking
   through; a lone "Ah—" and a narrated sound are failures by name; repetition inside a sound IS the sound (rotate between
   beats); muffled = the same continuous sound, muffled, only when the scene forces it (shyness never does — planner);
-  every heated block ends on what each paragraph carries (planwords.js). Copies pinned at M510-2 or M510-3 follow.
+  every heated block ends on what each paragraph carries (planwords.js). Copies pinned at M510-2, -3 or -4 follow.
+  M510-5: an intimate scene on a small model carries the craft's WHOLE Intimacy section (pacing, limits, Body Veto,
+  Erotic Momentum, Power Dynamic, Line-Cross Vertigo, Inexperience…) whatever the helper picked — the woken rule says its
+  people half rides in the craft every turn; the sound is braided where the action puts it, never parked in one spot.
 - THE FRAME SWITCHED OFF IS OFF WHOLE (M510): no teller name leading the house's lines, no grounding phrase planted.
   Frame on: nothing changed.
 - db.connections.add KEEPS EVERY FIELD IT IS GIVEN (M510): it kept an M22-era list and a NEW connection lost its prefill

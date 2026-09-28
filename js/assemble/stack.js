@@ -528,8 +528,14 @@ export function buildRequest({
   const smallLaws = safeSettings.smallModelNow === true && smallPlan && typeof smallPlan === 'object' ? lawsOf(craftText) : [];
   const smallB = smallLaws.length > 0 && LOAD_BEARING.every((n) => lawsNamed(smallLaws, [n]).length > 0);
   const soundKeys = new Set(SOUND_LAWS.map(lawKey));
+  /* M510-5: AN INTIMATE SCENE CARRIES THE CRAFT'S WHOLE INTIMACY SECTION — the woken rule's own word ("the people half of
+   * this law — pacing, limits, Body Veto, Erotic Momentum, Power Dynamic, Escalation Resets Consent, Line-Cross Vertigo —
+   * rides in the craft on every turn"); M510 left those to the helper's twelve, and a small model could write the sound
+   * without the limits, the pacing and the body's truth that keep it real */
+  const intimateNow = selected.some((s) => s && s.mod && (s.mod.whenKey === 'intimate' || s.mod.id === 'nsfw')) || Boolean(state && state.mode && state.mode.intimate);
+  const sceneSection = smallB && intimateNow ? smallLaws.filter((l) => l.section === 'Intimacy') : [];
   const craftForTurn = smallB
-    ? joinLaws(lawsNamed(smallLaws, [...ALWAYS_LAWS, ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))))
+    ? joinLaws([...lawsNamed(smallLaws, [...ALWAYS_LAWS, ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))), ...sceneSection])
     : craftText;
   const craftWhole = [craftForTurn, shortcuts, starterStanding].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
   pushSlot('The craft', craftWhole, smallB ? 'the laws this scene needs, word for word, with the shortcuts — small model' : 'the rulebook, with the shortcuts', craft ? craft.reason : '');

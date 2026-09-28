@@ -228,6 +228,9 @@ test('M510-10 A HEATED PAGE IS NEVER SILENT: the intimacy rule that wakes in a s
     const OLD3 = readFileSync(new URL('./fixtures/nsfw-as-shipped-at-m510-3.txt', import.meta.url), 'utf8');
     await db.settings.set(KEY, [{ id: 'nsfw', name: nsfw.name, text: OLD3, pinned: true, whenKey: 'intimate', note: '', custom: false }]);
     eq((await listModules()).find((m) => m.id === 'nsfw').text, nsfw.text, 'and so does a copy pinned at M510-3');
+    const OLD4 = readFileSync(new URL('./fixtures/nsfw-as-shipped-at-m510-4.txt', import.meta.url), 'utf8');
+    await db.settings.set(KEY, [{ id: 'nsfw', name: nsfw.name, text: OLD4, pinned: true, whenKey: 'intimate', note: '', custom: false }]);
+    eq((await listModules()).find((m) => m.id === 'nsfw').text, nsfw.text, 'and one pinned at M510-4');
     /* a copy he EDITED keeps his words */
     await db.settings.set(KEY, [{ id: 'nsfw', name: nsfw.name, text: OLD + '\nMY-OWN-LINE', pinned: true, whenKey: 'intimate', note: '', custom: false }]);
     const edited = (await listModules()).find((m) => m.id === 'nsfw');
@@ -246,3 +249,18 @@ test('M510-10 A HEATED PAGE IS NEVER SILENT: the intimacy rule that wakes in a s
   eq(heatedNow([{ mod: { id: 'spectacle-combat', whenKey: 'manual' } }], {}), false, 'a register pinned for a whole arc is not a heated page by itself');
   eq(heatedNow([], {}), false, 'a calm page is calm');
 });
+
+test('M510-11 AN INTIMATE SCENE ON A SMALL MODEL CARRIES THE CRAFT’S WHOLE INTIMACY SECTION — pacing, limits, the body’s veto, the power dynamic, the crossing that lands — whatever the helper picked; a calm scene does not', async () => {
+  const { listModules } = await import('../../js/assemble/modules.js');
+  const nsfw = (await listModules()).find((m) => m.id === 'nsfw');
+  const plan = { ...PLAN, laws: ['Voice Fingerprints'], intense: true };
+  const mk = (mods, st) => wireOf(buildRequest({ story: {}, messages: pages(12), settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }, ...mods], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, smallPlan: plan, smallIntense: true }));
+  const hot = mk([{ mod: nsfw, reason: 'the scene has turned intimate' }], yard());
+  for (const law of ['Pacing = ', 'Limits Are Real = ', 'Body Veto Root Rule = ', 'Erotic Momentum Is Not A Filter = ', 'Power Dynamic = ', 'Line-Cross Vertigo = ', 'Rendering At Full Resolution = ']) assert(hot.includes(law), 'rides with the scene: ' + law);
+  assert(hot.includes('Acoustics Are Simulation = ') && hot.includes('Voice Fingerprints = '), 'beside the woken rule and the helper’s pick');
+  const ledgerSays = mk([], { ...yard(), mode: { intimate: true } });
+  assert(ledgerSays.includes('Body Veto Root Rule = '), 'the ledger’s own intimate mode brings it too');
+  const calm = mk([], yard());
+  assert(!calm.includes('Body Veto Root Rule = ') && !calm.includes('Limits Are Real = '), 'a calm scene carries none of it');
+});
+

@@ -12413,3 +12413,14 @@ never named as a failure.
 - NOT IN THE HOUSE'S HANDS: a presence/frequency/repetition penalty on his connection punishes exactly this — a sound
   said again — and turns every moan into one syllable; his dials are sent as he set them (his law).
 
+# M510-5 — the realism half rides with the sound
+He: "does the fix still make everything realistic and natural, not forced?" Read the small request of an intimate scene:
+the woken rule says "the people half of this law — pacing, limits, Body Veto, Erotic Momentum, Power Dynamic, Escalation
+Resets Consent, Line-Cross Vertigo — rides in the craft on every turn", and the small request cut the craft to the
+always-laws and the helper's twelve — the realism laws rode only if the helper happened to pick them. Now (stack.js) an
+intimate scene (a woken intimacy rule, or the ledger's intimate mode) carries the craft's whole Intimacy section on a
+small model (6,830 characters); a calm scene does not. And the sound law's per-paragraph line now says the sound is
+braided where the action puts it, never parked in the same spot paragraph after paragraph — the rhythm follows the
+bodies (a sound in the same slot of every paragraph is its own formula). SHIPPED_BEFORE gains the M510-4 fingerprint
+(fixture nsfw-as-shipped-at-m510-4.txt). Law M510-11; M510-10 gains the M510-4 copy.
+
