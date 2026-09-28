@@ -644,7 +644,10 @@ export function buildRequest({
    * the roster steps once per turn with no writes of its own. --- */
   const recentPages = wireable(history).slice(-3).map((m) => m.content);
   const scenePages = wireable(history).slice(-10).map((m) => m.content); /* M283: who the story keeps naming */
-  const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: smallB ? SMALL_PEOPLE_VIEW : peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
+  /* M510-12: for a small model, whoever the world's word names (on their way, at the party) is recalled like someone the
+   * latest pages named — their card rides, so it knows who they are and why they come */
+  const worldEarly = typeof worldBrief === 'string' ? worldBrief.trim() : '';
+  const people = renderPeopleTiers(state, { recentPages: smallB && worldEarly ? [...recentPages, worldEarly] : recentPages, rotation: history.length, view: smallB ? SMALL_PEOPLE_VIEW : peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
   const peopleText = people ? people.text : '';
   /* M510-11: THE STORY IN SHORT — a small model reads eight pages; the rest of the tale reached it only as the plan's
    * three facts from earlier. The helper keeps the whole story the way a person remembers it (under 180 words, rewritten
@@ -739,7 +742,7 @@ export function buildRequest({
   if (activeText) stateParts.push(activeText);
   if (memoryText && !smallB) stateParts.push('What remains of the older pages:\n' + memoryText);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
-  if (worldText && !smallB) stateParts.push(worldText); /* the brief leads with its own name */
+  if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
   if (directorText && !smallB) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
   if (editorText && !smallB) stateParts.push(editorText); /* M495: "My notes on the telling…" — his, not an editor's */
   if (eyeText && !smallB) stateParts.push(toTeller(eyeWithoutRuleNames(eyeText, voice, person), voice)); /* the eye speaks its own name — M327: and the teller's */
@@ -773,9 +776,12 @@ export function buildRequest({
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
   else if (canonOn) pushSlot('What canon says', '', '', canonWhy || 'canon verification gave no note this turn');
   if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */
-  if (worldText && !smallB) {
+  /* M510-12: THE WORLD'S WORD RIDES FOR A SMALL MODEL TOO. M510-2 left it to the helper — and it is the one brief of
+   * what could reach THIS scene (the party across town, who is on the way, and why) and the only word a window beyond
+   * the page is written from: the window rule woke and asked for a cut-away the small model had never been told about. */
+  if (worldText) {
     pushSlot('The world’s word', worldText, 'the world agent’s brief — what could reach this scene, what ripened out of sight');
-  } else if (worldText) pushSlot('The world’s word', '', '', 'not sent to the small model — the planning helper reads it every page and passes on what matters in the plan'); /* M510-9 */
+  }
   if (directorText && !smallB) {
     pushSlot('The director’s note', directorText, 'the showrunner’s marching orders for the episode that stands');
   } else if (directorText) pushSlot('The director’s note', '', '', 'not sent to the small model — the planning helper reads it every page and passes on what matters in the plan'); /* M510-9 */

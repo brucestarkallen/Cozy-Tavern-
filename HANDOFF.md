@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-011)
+# Cozy Tavern — handoff for the next session (state at m510-012)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -500,7 +500,10 @@ founding design lives in AGENTS.md's first entries.)
   remembers it (under 180 words, rewritten each page from the whole record and thirty pages), riding at the head of
   the notes ("Our story so far, the way I remember it:", receipt row "The story in short"); and at send time the M344
   recall (anchor.js: record lines whose rare words this scene and his message speak, up to three, each with its pages)
-  rides word for word after the plan — the fold his move names, which the helper planned too early to know. The plan says it was made BEFORE his move ("how things stood before my move
+  rides word for word after the plan — the fold his move names, which the helper planned too early to know.
+  M510-12 — THE WORLD ELSEWHERE: the world's word (what could reach this scene and when, what ripened out of sight, an
+  open window's who/where/what) rides for a small model too — M510-2 had held it back, and a woken window rule then
+  asked for a cut-away the small model was never told about; whoever the world's word names is recalled with their card. The plan says it was made BEFORE his move ("how things stood before my move
   above"; "before my move, that looked like: …") — after his message, a small model must never take it over his move.
   WITH A PLAN — THE SMALL REQUEST (stack.js smallB, his choice B): the craft rides as laws.js ALWAYS_LAWS (The Telling,
   Header Protocol, MC Agency and its companions, Intent Horizon, the Page's three laws) plus the helper's laws, WORD FOR
@@ -514,7 +517,7 @@ founding design lives in AGENTS.md's first entries.)
   room reached a small model only if the helper happened to name it); the cast notes, the record, the absent crowd (the
   roster, "away and much on the story's mind"), the world, the director, the editor, the eye and older pages stay with the
   helper — M510-9: and each stands on the receipt as a 0-token row saying it was not sent to the small model and who
-  read it (What remains, the world's word, the director, the editor, the eye, his own words, the cast notes). NO PLAN
+  read it (What remains, the director, the editor, the eye, his own words, the cast notes). NO PLAN
   (first page, helper not back in the five seconds, an unusable answer, a craft without the
   load-bearing laws): the whole request with the scene said once more (A: anchor.js + the M344 recall). With no teller
   (the frame off, a small model's default) that line opens "Right now, …" — match it case-blind.

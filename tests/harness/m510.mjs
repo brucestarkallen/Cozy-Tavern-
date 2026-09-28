@@ -141,7 +141,8 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   assert(craftOf(small) * 3 < craftOf(full), 'the craft is the scene’s laws: ' + craftOf(full) + ' → ' + craftOf(small));
   assert(small.receipt.totalTokens * 2 < full.receipt.totalTokens, 'the whole request is far smaller: ' + full.receipt.totalTokens + ' → ' + small.receipt.totalTokens);
   for (const line of ['Header Protocol = every story response begins with one line', 'MC Agency = ', 'Marks On The Page = prose renders as plain text', 'Combat Calibration = ', 'Voice Fingerprints = ']) assert(wire.includes(line), 'rides, in his words: ' + line);
-  for (const gone of ['Pathway Laundering = ', 'CASTNOTES-MARK', 'RECORD-MARK', 'WORLD-MARK', 'PAGE-0.', 'PAGE-11.']) assert(!wire.includes(gone), 'stays with the helper: ' + gone);
+  for (const gone of ['Pathway Laundering = ', 'CASTNOTES-MARK', 'RECORD-MARK', 'PAGE-0.', 'PAGE-11.']) assert(!wire.includes(gone), 'stays with the helper: ' + gone);
+  assert(wire.includes('WORLD-MARK'), 'M510-12: the world’s word rides');
   for (const kept of ['PAGE-12.', 'PAGE-19.', 'I raise my staff.']) assert(wire.includes(kept), 'the last eight pages and his message: ' + kept);
   eq(small.messages.filter((m) => m.role === 'assistant').length, 8, 'eight of the storyteller’s pages');
   const last = small.messages[small.messages.length - 1].content;
@@ -167,7 +168,7 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   const wr = held(small, 'What remains');
   assert(wr && wr.tokens === 0 && /not sent to the small model — the planning helper reads the whole record every page/.test(wr.reason), 'the small one’s says it was held back and who read it: ' + JSON.stringify(wr));
   const ww = held(small, 'The world’s word');
-  assert(ww && ww.tokens === 0 && /planning helper reads it/.test(ww.reason), 'so does the world’s word');
+  assert(ww && ww.tokens > 0, 'M510-12: the world’s word is sent to the small model, with its row');
   const who = held(small, 'Who’s here');
   assert(who && /your cast notes go to the planning helper/.test(who.source + ' ' + who.reason), 'and who is here says where the cast notes went: ' + JSON.stringify(who));
   const ow = held(build({ smallModelNow: true, frameOn: false, noteOn: false, ownWordsHeldForSmall: true }, { smallPlan: PLAN }), 'Own words');
@@ -323,5 +324,22 @@ test('M510-13 A SMALL MODEL REMEMBERS THE WHOLE STORY: the helper keeps it short
   assert(!/drilled the recruits|flooded the lower barracks/.test(last), 'the folds nothing named stay out');
   const calm = buildRequest({ story: {}, messages: pages(12), settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlan: { ...PLAN, intense: false } });
   assert(!/And from our story so far/.test(String(calm.messages[calm.messages.length - 1].content)) && !calm.receipt.slots.some((s) => s.name === 'The story in short'), 'nothing named, nothing called back; no story kept, no row');
+});
+
+test('M510-14 THE WORLD ELSEWHERE REACHES A SMALL MODEL: the world’s word — what could reach this scene and why, what ripened out of sight — rides, whoever it names comes with their card, and an open window beyond the page has the word it is written from', async () => {
+  const { renderWorldBrief } = await import('../../js/engine/world.js');
+  const { listModules } = await import('../../js/assemble/modules.js');
+  const st0 = applyMutations({ ...emptyState(), page: 20 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kaelen' },
+    { type: 'people.set', name: 'Renji Abarai', field: 'core', text: 'RENJI-CARD lieutenant of the sixth division, loud, loyal' }, { type: 'people.set', name: 'Byakuya Kuchiki', field: 'core', text: 'captain of the sixth division, cold' }]).state;
+  const st = { ...st0, page: 20 };
+  const brief = { pressure: ['Renji Abarai is on his way from the party at the Kuchiki manor to fetch Jovan — Byakuya wants the new seat seen by the other captains tonight'], ripe: ['The party began at dusk; half the captains are there'], twb: { who: 'Byakuya Kuchiki', where: 'the Kuchiki manor', changed: 'he raised a cup to the new seat before the other captains' }, atPage: 20 };
+  const world = renderWorldBrief(brief, 20, 20);
+  assert(/Renji Abarai is on his way from the party at the Kuchiki manor/.test(world) && /A window into the world beyond is open this turn/.test(world), 'the world’s word says where, who and why');
+  const windowRule = (await listModules()).find((m) => m.id === 'world-window');
+  const r = buildRequest({ story: {}, messages: pages(12), settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }, { mod: windowRule, reason: 'a window is open' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, worldBrief: world, smallPlan: { ...PLAN, intense: false } });
+  const w = wireOf(r);
+  assert(w.includes('Renji Abarai is on his way from the party at the Kuchiki manor to fetch Jovan — Byakuya wants the new seat seen'), 'the party, who comes, and why reach the small model');
+  assert(w.includes('RENJI-CARD'), 'the one the world’s word names comes with his card, though away');
+  assert(w.includes('he raised a cup to the new seat before the other captains') && w.includes('The Window Beyond The Page'), 'an open window has its rule AND the word it is written from');
 });
 

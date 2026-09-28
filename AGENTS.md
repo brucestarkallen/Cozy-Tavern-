@@ -12508,3 +12508,16 @@ could pull a far fold back, although M344's recall (anchor.js) does exactly that
   record, so every line of it is far here. Nothing named: nothing called back.
 - Law M510-13. The frontier request is unchanged (its record rides whole, as it always did).
 
+# M510-12 — the world elsewhere reaches a small model
+He: "how does the storyteller deal with NPCs elsewhere in the world — how does it know there's a party, and why?" For the
+frontier model: the world agent moves everyone off the page by the clock (their seats — where, doing what, meaning to do
+what — kept in the ledger), and each page it writes the world's word: what could reach this scene and when, what ripened
+out of sight and whom it reached, and when something elsewhere earns it a window beyond the page (who, where, what
+changed); the storyteller reads all of it, with the away people's cards. For the small model M510-2 had held the world's
+word back ("the helper reads it") — and it is the one brief of what could reach THIS scene, and the only word a window is
+written from: with a window open, the window rule woke and asked the small model for a cut-away it had never been told
+about. Now the world's word rides for a small model too (stack.js; its receipt row is a real row again), and whoever it
+names (someone on their way, the host of the party) is recalled like someone the latest pages named — their card rides
+(SMALL_PEOPLE_VIEW's recall reads the world's word too). The frontier request is unchanged. Laws M510-14; M510-6
+re-pinned (the world's word rides; its receipt row carries it).
+
