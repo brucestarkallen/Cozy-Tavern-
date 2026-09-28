@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-032)
+# Cozy Tavern — handoff for the next session (state at m510-033)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1045,4 +1045,7 @@ founding design lives in AGENTS.md's first entries.)
   thought like "~/t~" (the lost-opener mend too); after every exact thought is shielded, any closer left over belongs to no
   thought and is taken off the page with its space. Stored pages heal on the next open (the once-per-build mend, M488).
   Law M510-32; the real-browser mend check green.
+- M510-33 — MOVE A TALE TO ANOTHER SHELF, ITS OWN BUTTON: each tale's row has ⇄ ("Move to another shelf") opening the
+  shelves alone; ⇩ ("Take this tale with you") shows only the ways to take it; a long press on the row shows both.
+  (Shelves are his "projects" — db.projects.) DOM-10's shelf check updated.
 

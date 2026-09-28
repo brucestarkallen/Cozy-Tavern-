@@ -12820,3 +12820,11 @@ shielded, takes any closer left over off the page, with the space it leaves — 
 and ordinary words are untouched. His stored pages heal on the next open (the once-per-build mend over every page, M488).
 Law M510-32.
 
+# M510-33 — move a tale to another shelf: its own button
+He: "can I move a story from one project to another? I can't find the setting." It existed (M56) — the shelves are his
+projects (db.projects) — but "Move to a shelf" sat inside the menu behind ⇩, "Take this tale with you", the export
+button, where nobody looks for a move ("a control I cannot find does not exist"; "one button, one meaning"). Each tale's
+row now has its own ⇄ button, "Move to another shelf", which opens the shelves alone ("No shelf (loose)" and every shelf
+not at rest); ⇩ shows only the ways to take the tale with you; a long press on the row still shows both. The walk's
+shelf check now moves the tale with ⇄ and proves ⇩ offers no shelf.
+

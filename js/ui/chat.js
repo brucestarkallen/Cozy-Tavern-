@@ -596,7 +596,18 @@ export function initChat(ctx) {
     exportBtn.title = 'Take this tale with you';
     exportBtn.setAttribute('aria-label', `Take “${story.title}” with you`);
     exportBtn.textContent = '⇩';
-    exportBtn.addEventListener('click', (e) => openStoryMenu(e, story));
+    exportBtn.addEventListener('click', (e) => openStoryMenu(e, story, 'export'));
+
+    /* M510-33: MOVE A TALE TO ANOTHER SHELF — its own button. "Move to a shelf" lived inside the export menu behind ⇩
+     * ("Take this tale with you"), where he never looked for it ("can I move a story from one project to another? I
+     * can't find it"). One button, one meaning: ⇄ moves, ⇩ takes it with you. */
+    const moveBtn = document.createElement('button');
+    moveBtn.type = 'button';
+    moveBtn.className = 'story-mini';
+    moveBtn.title = 'Move to another shelf';
+    moveBtn.setAttribute('aria-label', `Move “${story.title}” to another shelf`);
+    moveBtn.textContent = '⇄';
+    moveBtn.addEventListener('click', (e) => openStoryMenu(e, story, 'move'));
 
     /* M22-E2: archive — the tale rests, out of the sidebar's eye, and a
      * resting tale wakes the same way. Nothing is deleted. */
@@ -610,7 +621,7 @@ export function initChat(ctx) {
     archiveBtn.textContent = opts.resting ? '↩' : '☾';
     archiveBtn.addEventListener('click', () => toggleRest(story));
 
-    li.append(openBtn, renameBtn, removeBtn, exportBtn, archiveBtn);
+    li.append(openBtn, renameBtn, removeBtn, moveBtn, exportBtn, archiveBtn);
     return li;
   }
 
@@ -656,14 +667,17 @@ export function initChat(ctx) {
    * menuFor is the message id — these never share). */
   let storyMenuFor = null;
 
-  async function openStoryMenu(e, story) {
+  async function openStoryMenu(e, story, mode = 'all') {
     e.stopPropagation();
     const menu = els.storyMenu;
     if (!menu) return;
     storyMenuFor = story.id;
+    /* M510-33: ⇩ shows the ways to take it with you, ⇄ the shelves; a long press on the row shows both */
+    for (const b of menu.querySelectorAll('[data-act^="export-"]')) b.hidden = mode === 'move';
     projects = await db.projects.list(); /* M56: the shelves as they stand now */
     /* M56: move the tale to a shelf — one button per shelf, and "no shelf" */
     const shelves = menu.querySelector('#story-menu-shelves');
+    if (shelves) shelves.hidden = mode === 'export';
     if (shelves) {
       shelves.textContent = '';
       const head = document.createElement('div');

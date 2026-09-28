@@ -386,10 +386,18 @@ test('DOM-12b a tale moves to a shelf from its menu, and back to loose', async (
   const shelf = await db.projects.create({ name: 'Summer tales' });
   const sid = await storyId();
   const row = await until(() => qa('.story-item').find((li) => li.classList.contains('active')), 'the active row');
-  const menuBtn = qa('.story-mini', row).find((b) => /Take this tale with you/.test(b.title));
-  assert(menuBtn, 'the row’s menu button: ' + qa('.story-mini', row).map((b) => b.title).join(' | '));
+  /* M510-33: the move has its own button on the row (⇄); ⇩ takes the tale with you and offers no shelf */
+  const exportBtn = qa('.story-mini', row).find((b) => /Take this tale with you/.test(b.title));
+  click(exportBtn);
+  await until(() => !q('#story-menu').hidden, 'the take-it-with-you menu');
+  eq(qa('#story-menu button[data-act="move-shelf"]').filter((b) => !b.closest('[hidden]')).length, 0, '⇩ offers no shelf — one button, one meaning');
+  assert(qa('#story-menu button[data-act="export-md"]').some((b) => !b.hidden), 'and its own ways to take it');
+  document.body.dispatchEvent(new env.window.MouseEvent('click', { bubbles: true })); await tick(40);
+  const menuBtn = qa('.story-mini', row).find((b) => /Move to another shelf/.test(b.title));
+  assert(menuBtn, 'the row’s move button: ' + qa('.story-mini', row).map((b) => b.title).join(' | '));
   click(menuBtn);
   await until(() => !q('#story-menu').hidden, 'the story menu');
+  assert(qa('#story-menu button[data-act^="export-"]').every((b) => b.hidden), '⇄ shows only the shelves');
   const move = qa('#story-menu button[data-act="move-shelf"]').find((b) => /Summer tales/.test(b.textContent));
   assert(move, 'the shelf is offered');
   click(move);
