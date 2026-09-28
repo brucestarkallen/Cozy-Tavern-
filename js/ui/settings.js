@@ -14,7 +14,7 @@
  * and the real thinking control — no placeholders.
  */
 
-import { readVoice, sameVoice, listPresets, savePreset, usePreset, removePreset, PRESET_ACTIVE_KEY } from '../engine/voicepresets.js'; /* M510-35 */
+import { readVoice, sameVoice, listPresets, savePreset, usePreset, removePreset, renamePreset } from '../engine/voicepresets.js'; /* M510-35/36 */
 import { copyWords as copyToClipboard } from './receiptview.js'; /* M510-31: copy that works on the phone's own address too */
 import { withMacros } from '../assemble/voice.js'; /* M361 */
 import { loadState } from '../engine/state.js'; /* M361: whose name {{user}} is */
@@ -152,7 +152,7 @@ export function initSettings(ctx) {
     tellerPersonNote: document.getElementById('teller-person-note'),
     writerName: document.getElementById('writer-name'),
     groundingPhrase: document.getElementById('grounding-phrase'), /* M358 */
-    voicePresetPick: document.getElementById('voice-preset-pick'), /* M510-35 */
+    voicePresetList: document.getElementById('voice-preset-list'), /* M510-35/36 */
     voicePresetName: document.getElementById('voice-preset-name'),
     voicePresetNote: document.getElementById('voice-preset-note'),
     afterRole: document.getElementById('after-role'), /* M380 */
@@ -2929,28 +2929,53 @@ export function initSettings(ctx) {
     }
   }
   const presetNote = (words) => { if (els.voicePresetNote) els.voicePresetNote.textContent = words; };
+  /* M510-36: each preset its own row — Use, Update, Rename, Delete, in his words ("is this stupid? where's the rename
+   * and delete button?" — M510-35 hid delete behind "Let the chosen one go" and had no rename at all) */
+  const presetButton = (label, preset, fn, cls = 'text-btn') => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls;
+    b.textContent = label;
+    b.dataset.act = label.toLowerCase().replace(/\s+/g, '-');
+    b.setAttribute('aria-label', label + ' “' + preset.name + '”');
+    b.addEventListener('click', () => { fn().catch(() => presetNote('That did not go through — nothing was changed.')); });
+    return b;
+  };
   async function renderPresets(said = '') {
-    const pick = els.voicePresetPick;
-    if (!pick) return;
+    const list = els.voicePresetList;
+    if (!list) return;
     const all = await listPresets();
     const now = await readVoice();
-    const active = await db.settings.get(PRESET_ACTIVE_KEY);
-    const was = pick.value;
-    pick.textContent = '';
-    if (!all.length) {
-      const o = document.createElement('option'); o.value = ''; o.textContent = 'No presets yet'; pick.appendChild(o);
-    }
-    for (const p of all) { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; pick.appendChild(o); }
     const match = all.find((p) => sameVoice(p.voice, now));
-    pick.value = (all.find((p) => p.id === was) || match || all.find((p) => p.id === active) || all[0] || { id: '' }).id;
-    for (const id of ['btn-voice-preset-use', 'btn-voice-preset-update', 'btn-voice-preset-delete']) { const b = document.getElementById(id); if (b) b.disabled = !all.length; }
-    presetNote(said || (match ? 'Using “' + match.name + '”.' : (all.length ? 'Your voice right now is not saved in any preset — “Save as a new preset” keeps it.' : 'Save the voice below as a preset, then switch between your presets here.')));
+    list.textContent = '';
+    if (!all.length) {
+      const li = document.createElement('li');
+      li.className = 'quiet';
+      li.textContent = 'No presets yet — name the voice below and save it.';
+      list.appendChild(li);
+    }
+    for (const p of all) {
+      const inUse = Boolean(match && match.id === p.id);
+      const li = document.createElement('li');
+      li.className = 'voice-preset-row' + (inUse ? ' in-use' : '');
+      li.dataset.preset = p.id;
+      const name = document.createElement('span');
+      name.className = 'voice-preset-name';
+      name.textContent = p.name + (inUse ? ' — in use' : '');
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.append(
+        presetButton('Use', p, () => usePresetNow(p), 'btn'),
+        presetButton('Update', p, () => updatePresetNow(p)),
+        presetButton('Rename', p, async () => startRename(li, p)),
+        presetButton('Delete', p, () => deletePresetNow(p)),
+      );
+      li.append(name, row);
+      list.appendChild(li);
+    }
+    presetNote(said || (match ? 'Using “' + match.name + '”.' : (all.length ? 'Your voice right now is not saved in any preset — “Save as new preset” keeps it.' : '')));
   }
-  const chosenPreset = async () => (await listPresets()).find((p) => p.id === (els.voicePresetPick && els.voicePresetPick.value));
-  const onPreset = (id, fn) => { const b = document.getElementById(id); if (b) b.addEventListener('click', () => { fn().catch(() => presetNote('That did not go through — nothing was changed.')); }); };
-  onPreset('btn-voice-preset-use', async () => {
-    const p = await chosenPreset();
-    if (!p) return;
+  async function usePresetNow(p) {
     await keepVoiceBoxes();
     const now = await readVoice();
     const saved = (await listPresets()).some((x) => sameVoice(x.voice, now));
@@ -2961,34 +2986,55 @@ export function initSettings(ctx) {
     await loadPromptSlots();
     if (ctx.ownWords && typeof ctx.ownWords.reload === 'function') await ctx.ownWords.reload();
     await renderPresets('Using “' + p.name + '” — the frame, the note, the names and your own words are its now.');
-  });
-  onPreset('btn-voice-preset-save', async () => {
-    const name = String((els.voicePresetName && els.voicePresetName.value) || '').replace(/\s+/g, ' ').trim();
-    if (!name) { presetNote('Name it first — e.g. Hulk.'); if (els.voicePresetName) els.voicePresetName.focus(); return; }
-    const had = (await listPresets()).find((p) => p.name.toLowerCase() === name.toLowerCase());
-    if (had && typeof window.confirm === 'function' && !window.confirm('A preset is already called “' + had.name + '” — save your voice right now over it?')) return;
-    await keepVoiceBoxes();
-    const p = await savePreset(name, await readVoice());
-    if (els.voicePresetName) els.voicePresetName.value = '';
-    if (els.voicePresetPick) els.voicePresetPick.value = p.id;
-    await renderPresets('Saved as “' + p.name + '”.');
-  });
-  onPreset('btn-voice-preset-update', async () => {
-    const p = await chosenPreset();
-    if (!p) return;
-    if (typeof window.confirm === 'function' && !window.confirm('Save your voice right now over “' + p.name + '”?')) return;
+  }
+  async function updatePresetNow(p) {
+    if (typeof window.confirm === 'function' && !window.confirm('Update “' + p.name + '” to your voice as it is right now?')) return;
     await keepVoiceBoxes();
     await savePreset('', await readVoice(), { id: p.id });
-    await renderPresets('“' + p.name + '” now holds your voice as it stands.');
-  });
-  onPreset('btn-voice-preset-delete', async () => {
-    const p = await chosenPreset();
-    if (!p) return;
-    if (typeof window.confirm === 'function' && !window.confirm('Let “' + p.name + '” go? The preset is erased — there is no take-back. Your voice right now stays as it is.')) return;
+    await renderPresets('“' + p.name + '” updated to your voice as it is now.');
+  }
+  function startRename(li, p) {
+    li.textContent = '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 40;
+    input.value = p.name;
+    input.className = 'voice-preset-rename';
+    input.setAttribute('aria-label', 'A new name for “' + p.name + '”');
+    const row = document.createElement('div');
+    row.className = 'row';
+    const keep = async () => {
+      const out = await renamePreset(p.id, input.value);
+      if (out.error) { presetNote('Not renamed — ' + out.error + '.'); input.focus(); return; }
+      await renderPresets('Renamed to “' + out.preset.name + '”.');
+    };
+    row.append(presetButton('Save name', p, keep, 'btn'), presetButton('Cancel', p, async () => renderPresets()));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); keep().catch(() => {}); }
+      else if (e.key === 'Escape') { e.preventDefault(); renderPresets(); }
+    });
+    li.append(input, row);
+    input.focus();
+    input.select();
+  }
+  async function deletePresetNow(p) {
+    if (typeof window.confirm === 'function' && !window.confirm('Delete “' + p.name + '”? The preset is erased — there is no take-back. Your voice right now stays as it is.')) return;
     await removePreset(p.id);
-    await renderPresets('“' + p.name + '” is gone. Your voice right now stays as it is.');
+    await renderPresets('“' + p.name + '” deleted. Your voice right now stays as it is.');
+  }
+  const saveBtn = document.getElementById('btn-voice-preset-save');
+  if (saveBtn) saveBtn.addEventListener('click', () => {
+    (async () => {
+      const name = String((els.voicePresetName && els.voicePresetName.value) || '').replace(/\s+/g, ' ').trim();
+      if (!name) { presetNote('Name it first — e.g. Hulk.'); if (els.voicePresetName) els.voicePresetName.focus(); return; }
+      const had = (await listPresets()).find((x) => x.name.toLowerCase() === name.toLowerCase());
+      if (had && typeof window.confirm === 'function' && !window.confirm('A preset is already called “' + had.name + '” — update it to your voice right now?')) return;
+      await keepVoiceBoxes();
+      const p = await savePreset(name, await readVoice());
+      if (els.voicePresetName) els.voicePresetName.value = '';
+      await renderPresets('Saved as “' + p.name + '”.');
+    })().catch(() => presetNote('That did not go through — nothing was changed.'));
   });
-  if (els.voicePresetPick) els.voicePresetPick.addEventListener('change', () => { renderPresets(); });
 
   /* B7 (M9): when the shelf of stories changes while Settings stands open,
    * the per-story blocks (frame/note/brief/cast names, the workers'

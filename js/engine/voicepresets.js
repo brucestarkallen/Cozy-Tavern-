@@ -8,7 +8,7 @@
  *   VOICE_FIELDS                the settings a preset holds
  *   readVoice()                 the voice as it stands in the store
  *   sameVoice(a, b)             two voices alike, part for part
- *   listPresets() / savePreset(name, voice, {id}) / usePreset(id) / removePreset(id) */
+ *   listPresets() / savePreset(name, voice, {id}) / usePreset(id) / removePreset(id) / renamePreset(id, name) */
 import { db } from '../store.js';
 
 export const PRESETS_KEY = 'voicePresets';
@@ -69,4 +69,17 @@ export async function removePreset(id) {
   await db.settings.set(PRESETS_KEY, left);
   if ((await db.settings.get(PRESET_ACTIVE_KEY)) === id) await db.settings.delete(PRESET_ACTIVE_KEY);
   return true;
+}
+
+/* M510-36: a new name for a preset — never empty, never the name of another */
+export async function renamePreset(id, name) {
+  const clean = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  if (!clean) return { error: 'a preset needs a name' };
+  const all = await listPresets();
+  const at = all.findIndex((p) => p.id === id);
+  if (at === -1) return { error: 'that preset is gone' };
+  if (all.some((p) => p.id !== id && p.name.toLowerCase() === clean.toLowerCase())) return { error: 'another preset is already called “' + clean + '”' };
+  all[at] = { ...all[at], name: clean };
+  await db.settings.set(PRESETS_KEY, all);
+  return { preset: all[at] };
 }

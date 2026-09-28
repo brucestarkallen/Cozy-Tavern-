@@ -848,6 +848,10 @@ test('M510-35 THE STORYTELLER’S VOICE, SAVED (his presets: Hulk, Batman, Iron 
   const again = await savePreset('batman', await readVoice());
   eq(again.id, bat.id, 'a name used again is that preset, written over');
   eq((await listPresets()).length, 2);
+  const { renamePreset } = await import('../../js/engine/voicepresets.js');
+  eq((await renamePreset(bat.id, '  Dark   Knight ')).preset.name, 'Dark Knight', 'renamed (M510-36)');
+  assert(/already called/.test((await renamePreset(bat.id, 'hulk')).error) && /needs a name/.test((await renamePreset(bat.id, '   ')).error), 'never the name of another, never empty');
+  eq((await listPresets()).map((p) => p.name).join(', '), 'Hulk, Dark Knight', 'the rest as they were');
   await removePreset(bat.id);
   eq((await listPresets()).map((p) => p.name).join(', '), 'Hulk', 'let go');
   eq(await store.settings.get('frameText'), 'I am Batman. I tell it in the rain.', 'the voice as it stands stays');

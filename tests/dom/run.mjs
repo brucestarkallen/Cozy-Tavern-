@@ -6996,13 +6996,15 @@ test('DOM-140 THE PAGE FINISHED, IN THE APP (M510-34): a page that ends in an em
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-141 THE STORYTELLER’S VOICE, SAVED, IN SETTINGS (M510-35): save the voice as “Hulk”, change it, save “Batman”, choose Hulk and Use it — the frame box and the teller’s name are Hulk’s again; everything he had is put back after', async () => {
+test('DOM-141 THE STORYTELLER’S VOICE, SAVED, IN SETTINGS (M510-35/36): save “Hulk”, change the voice, save “Batman”; Hulk’s row → Use (the frame box and the teller’s name are Hulk’s again); Batman’s row → Rename to “Dark Knight”; → Delete; everything he had is put back after', async () => {
   const before = errors.length;
   const KEYS = ['tellerName', 'writerName', 'groundingPhrase', 'tellerPerson', 'frameText', 'noteText', 'ownWords', 'voicePresets', 'voicePresetActive'];
   const kept = {};
   for (const k of KEYS) kept[k] = await db.settings.get(k);
   const priorConfirm = env.window.confirm;
   env.window.confirm = () => true;
+  const rowOf = (name) => qa('#voice-preset-list .voice-preset-row').find((li) => li.querySelector('.voice-preset-name') && li.querySelector('.voice-preset-name').textContent.startsWith(name));
+  const tap = (li, act) => click(li.querySelector('button[data-act="' + act + '"]'));
   try {
     await openSettings();
     const typeIn = (id, words, ev = 'input') => { const box = q(id); box.value = words; box.dispatchEvent(new env.window.Event(ev, { bubbles: true })); };
@@ -7010,21 +7012,26 @@ test('DOM-141 THE STORYTELLER’S VOICE, SAVED, IN SETTINGS (M510-35): save the 
     typeIn('#teller-name', 'Hulk', 'change');
     typeIn('#voice-preset-name', 'Hulk');
     click(q('#btn-voice-preset-save'));
-    await until(async () => ((await db.settings.get('voicePresets')) || []).some((p) => p.name === 'Hulk'), 'Hulk saved');
-    await until(() => /Saved as “Hulk”/.test(q('#voice-preset-note').textContent), 'it says so');
+    await until(() => rowOf('Hulk'), 'Hulk’s row');
+    const hulkRow = rowOf('Hulk');
+    for (const act of ['use', 'update', 'rename', 'delete']) assert(hulkRow.querySelector('button[data-act="' + act + '"]'), 'the row has ' + act);
     typeIn('#frame-global', 'I am Batman. I tell it in the dark.');
     typeIn('#teller-name', 'Batman', 'change');
     typeIn('#voice-preset-name', 'Batman');
     click(q('#btn-voice-preset-save'));
-    await until(async () => ((await db.settings.get('voicePresets')) || []).some((p) => p.name === 'Batman'), 'Batman saved');
-    const hulk = ((await db.settings.get('voicePresets')) || []).find((p) => p.name === 'Hulk');
-    const pick = q('#voice-preset-pick');
-    pick.value = hulk.id; pick.dispatchEvent(new env.window.Event('change', { bubbles: true }));
-    click(q('#btn-voice-preset-use'));
+    await until(() => rowOf('Batman'), 'Batman’s row');
+    tap(rowOf('Hulk'), 'use');
     await until(() => q('#frame-global').value === 'I am Hulk. I tell Bruce stories. LOUD.', 'the frame box is Hulk’s again');
     eq(q('#teller-name').value, 'Hulk', 'and who is telling');
-    eq(await db.settings.get('frameText'), 'I am Hulk. I tell Bruce stories. LOUD.', 'kept, not only shown');
-    await until(() => /Using “Hulk”/.test(q('#voice-preset-note').textContent), 'it says which voice is in use: ' + q('#voice-preset-note').textContent);
+    await until(() => /— in use/.test((rowOf('Hulk') || { textContent: '' }).textContent), 'Hulk’s row says it is in use');
+    tap(rowOf('Batman'), 'rename');
+    const box = await until(() => q('#voice-preset-list input.voice-preset-rename'), 'the name box');
+    box.value = 'Dark Knight';
+    click([...box.parentElement.querySelectorAll('button')].find((b) => b.dataset.act === 'save-name'));
+    await until(() => rowOf('Dark Knight'), 'renamed');
+    tap(rowOf('Dark Knight'), 'delete');
+    await until(() => !rowOf('Dark Knight'), 'deleted');
+    assert(rowOf('Hulk'), 'Hulk stays');
   } finally {
     env.window.confirm = priorConfirm;
     await closeSettings();
@@ -7032,6 +7039,7 @@ test('DOM-141 THE STORYTELLER’S VOICE, SAVED, IN SETTINGS (M510-35): save the 
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
+
 
 console.log('Cozy Tavern — the dom walk');
 await runAll();

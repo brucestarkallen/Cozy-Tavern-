@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-035)
+# Cozy Tavern — handoff for the next session (state at m510-036)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1064,4 +1064,8 @@ founding design lives in AGENTS.md's first entries.)
   boxes and his own words; it asks first when his voice right now is in no preset. "Save as a new preset" (a name used
   again is that preset, after asking), "Save over the chosen one", "Let the chosen one go" (asks). What he sees in the
   boxes is what a preset takes. The switches and a story's own frame/note are not a voice. Laws M510-35, DOM-141.
+- M510-36 — PRESETS AS ROWS, IN HIS WORDS: each preset is its own row with Use, Update, Rename (inline — Enter keeps,
+  Escape cancels; never empty, never another's name: renamePreset) and Delete; "Save as new preset" under the list. The
+  row in use says so. (M510-35 had a picker acting on "the chosen one", delete hidden as "Let the chosen one go", no
+  rename.) Laws M510-35 (rename), DOM-141 (Use, Rename, Delete through the rows).
 

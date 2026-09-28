@@ -1227,3 +1227,10 @@ body.plain-speech .thought { font-style: italic; }
 .usage-avg-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
 .canon-library-chips { flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
 
+
+/* M510-36: the storyteller's voice presets — one row each, its buttons beside its name */
+.voice-preset-list { list-style: none; padding: 0; margin: 0.25rem 0 0.5rem; }
+.voice-preset-row { padding: 0.45rem 0; border-bottom: 1px solid var(--line, rgba(127, 127, 127, 0.25)); }
+.voice-preset-row .row { flex-wrap: wrap; gap: 0.35rem; margin-top: 0.25rem; }
+.voice-preset-row.in-use .voice-preset-name { font-weight: 600; }
+.voice-preset-rename { width: 100%; }

@@ -12870,3 +12870,12 @@ switches (send the frame, the note, to a small model) and a story's own frame or
 touched. Law M510-35 (every part saved and written back exactly; switches untouched; a reused name overwrites; letting go
 leaves the voice); DOM-141 (through the real Settings screen, putting everything back after).
 
+# M510-36 — presets as rows: Use, Update, Rename, Delete
+He: "is this stupid? where's the rename and delete button?" It was: M510-35 put the presets in a picker with buttons that
+acted on "the chosen one", called delete "Let the chosen one go" (the house's gentle word, not his — "name controls what I
+call them"), and had no rename at all. Now every preset is its own row: its name ("— in use" on the one his voice
+matches) and four buttons, in his words — Use, Update (to his voice as it is now), Rename (the name turns into a box: Save
+name or Enter keeps it, Cancel or Escape leaves it; engine/voicepresets.js renamePreset refuses an empty name or one
+another preset has), Delete (asks first). "Save as new preset" stands under the list. Law M510-35 now renames; DOM-141
+uses, renames and deletes through the rows.
+
