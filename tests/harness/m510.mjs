@@ -141,7 +141,8 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   assert(craftOf(small) * 3 < craftOf(full), 'the craft is the scene’s laws: ' + craftOf(full) + ' → ' + craftOf(small));
   assert(small.receipt.totalTokens * 2 < full.receipt.totalTokens, 'the whole request is far smaller: ' + full.receipt.totalTokens + ' → ' + small.receipt.totalTokens);
   for (const line of ['Header Protocol = every story response begins with one line', 'MC Agency = ', 'Marks On The Page = prose renders as plain text', 'Combat Calibration = ', 'Voice Fingerprints = ']) assert(wire.includes(line), 'rides, in his words: ' + line);
-  for (const gone of ['Pathway Laundering = ', 'CASTNOTES-MARK', 'RECORD-MARK', 'PAGE-0.', 'PAGE-11.']) assert(!wire.includes(gone), 'stays with the helper: ' + gone);
+  for (const gone of ['Pathway Laundering = ', 'CASTNOTES-MARK', 'PAGE-0.', 'PAGE-11.']) assert(!wire.includes(gone), 'stays with the helper: ' + gone);
+  assert(wire.includes('RECORD-MARK'), 'M510-14: the record rides');
   assert(wire.includes('WORLD-MARK'), 'M510-12: the world’s word rides');
   for (const kept of ['PAGE-12.', 'PAGE-19.', 'I raise my staff.']) assert(wire.includes(kept), 'the last eight pages and his message: ' + kept);
   eq(small.messages.filter((m) => m.role === 'assistant').length, 8, 'eight of the storyteller’s pages');
@@ -166,7 +167,7 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   const held = (r, name) => r.receipt.slots.find((s) => s.name === name);
   assert(held(full, 'What remains') && held(full, 'What remains').tokens > 0, 'the frontier model’s receipt carries the folded record');
   const wr = held(small, 'What remains');
-  assert(wr && wr.tokens === 0 && /not sent to the small model — the planning helper reads the whole record every page/.test(wr.reason), 'the small one’s says it was held back and who read it: ' + JSON.stringify(wr));
+  assert(wr && wr.tokens > 0 && /the newest, up to about 4,000 tokens/.test(wr.source), 'M510-14: the record rides for the small model, with its row: ' + JSON.stringify(wr));
   const ww = held(small, 'The world’s word');
   assert(ww && ww.tokens > 0, 'M510-12: the world’s word is sent to the small model, with its row');
   const who = held(small, 'Who’s here');
@@ -368,5 +369,20 @@ test('M510-15 NO GAP BETWEEN THE EIGHT PAGES AND THE RECORD: a move that names s
   const calmMsgs = msgs.slice(0, -1).concat([{ id: 'u-last', role: 'user', text: 'I nod to Kaelen.' }]);
   const calm = buildRequest({ story: {}, messages: calmMsgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlan: { ...PLAN, intense: false } });
   assert(!/And from the pages in between/.test(String(calm.messages[calm.messages.length - 1].content)), 'nothing named, nothing brought back');
+});
+
+test('M510-16 THE RECORD RIDES FOR A SMALL MODEL — the keeper’s folds, written once and never rewritten, up to about 4,000 tokens, the newest first; older lines past the cap are said to rest, and still come back when his move names them', async () => {
+  const { newestLines, SMALL_RECORD_CHARS } = await import('../../js/assemble/stack.js');
+  const lines = Array.from({ length: 400 }, (_, i) => 'LINE-' + i + ' the yard, the drills, the captain watching from the gallery, nothing more.');
+  const cut = newestLines(lines.join('\n'), SMALL_RECORD_CHARS);
+  assert(cut.text.length <= SMALL_RECORD_CHARS && cut.text.endsWith('LINE-399 the yard, the drills, the captain watching from the gallery, nothing more.') && !cut.text.includes('LINE-0 ') && cut.rested > 0, 'the newest within the cap, the oldest resting: ' + cut.rested);
+  eq(newestLines('A\nB', 100).rested, 0, 'a short record rides whole');
+  const r = build({ smallModelNow: true, frameOn: false, noteOn: false }, { smallPlan: { ...PLAN, intense: false }, memory: lines.join('\n') });
+  const w = wireOf(r);
+  assert(w.includes('LINE-399 ') && !w.includes('LINE-0 ') && /What remains of the older pages \(the newest of them; \d+ older lines rest outside this page\):/.test(w), 'the newest folds ride, the oldest said to rest');
+  const row = r.receipt.slots.find((s) => s.name === 'What remains');
+  assert(row && row.tokens > 3000 && row.tokens <= 4100 && /older lines rest outside this page/.test(row.reason), 'about 4,000 tokens, and the receipt says the rest rests: ' + (row && row.tokens));
+  const bad = w.match(/\b(the house|helper|worker|JSON)\b/gi);
+  assert(!bad, 'said in the writer’s words: ' + JSON.stringify(bad));
 });
 

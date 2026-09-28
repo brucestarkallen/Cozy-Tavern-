@@ -413,6 +413,22 @@ const NEW_RULED_LINE = /^[ \t]*An outcome already settled = [^\n]*\n?/m;
 /* M510: the last `n` of the storyteller's pages with his messages between them — starting on his message, never on a
  * page of the storyteller's (a request must not open on the storyteller's own turn) */
 export const SMALL_PAGES = 8;
+/* M510-14: THE RECORD RIDES FOR A SMALL MODEL, up to this many characters (about 4,000 tokens), the newest folds first.
+ * "The story in short" is rewritten by the helper every page, so it must stay short (a long rewrite would take minutes a
+ * page and shift its details each time); the keeper's record is written once per fold and never rewritten — the long,
+ * steady memory. Older lines past the cap still reach the page when his move names them (the M344 recall). */
+export const SMALL_RECORD_CHARS = 16000;
+export function newestLines(text, cap = SMALL_RECORD_CHARS) {
+  const lines = String(text == null ? '' : text).split('\n');
+  const kept = [];
+  let size = 0;
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    if (size + lines[i].length + 1 > cap && kept.length) break;
+    kept.unshift(lines[i]);
+    size += lines[i].length + 1;
+  }
+  return { text: kept.join('\n'), rested: lines.length - kept.length };
+}
 /* M510-3: IS THIS A HEATED SCENE — read from what woke, never from two built-in ids (his own imported intimacy rule wakes
  * by the same key and was not seen): any rule that woke for intimacy or a contest, the ledger's own intimate mode, a
  * live fight. A rule he pinned on for a whole arc (spectacle combat) is not a heated page by itself. */
@@ -740,7 +756,10 @@ export function buildRequest({
   if (peopleText) stateParts.push('On their mind:\n' + peopleText);
   if (facts) stateParts.push(facts);
   if (activeText) stateParts.push(activeText);
+  /* M510-14: a small model reads the record too — its newest folds, within SMALL_RECORD_CHARS */
+  const smallRecord = smallB && memoryText ? newestLines(memoryText, SMALL_RECORD_CHARS) : null;
   if (memoryText && !smallB) stateParts.push('What remains of the older pages:\n' + memoryText);
+  else if (smallRecord && smallRecord.text) stateParts.push('What remains of the older pages' + (smallRecord.rested ? ' (the newest of them; ' + smallRecord.rested + ' older lines rest outside this page)' : '') + ':\n' + smallRecord.text);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
   if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
@@ -755,10 +774,9 @@ export function buildRequest({
    * when it has something to say; M9 names the lore entries that fired. --- */
   if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
-  } else if (memoryText && smallB) {
-    /* M510-9: A ROW HELD BACK FROM A SMALL MODEL STILL STANDS ON THE RECEIPT, with why — he looked at what the storyteller
-     * saw, found no folded record, and could not tell whether it had been lost */
-    pushSlot('What remains', '', '', 'not sent to the small model — the planning helper reads the whole record every page and passes on what still matters (“From earlier, still true” in the plan)');
+  } else if (smallRecord && smallRecord.text) {
+    /* M510-14: the keeper's record rides for a small model too, its newest folds first (M510-9 held it back) */
+    pushSlot('What remains', smallRecord.text, 'what the keeper has folded of the older pages — the newest, up to about 4,000 tokens (small model)', smallRecord.rested ? smallRecord.rested + ' older lines rest outside this page — read by the planning helper, and called back when your move names them' : '');
   }
   if (loreText) {
     pushSlot(

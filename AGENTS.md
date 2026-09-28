@@ -12539,3 +12539,14 @@ by part through what the frontier request carries against the small one:
   note and his own words follow their small switches. Everything else rides as for the frontier.
 Law M510-15. The frontier request is unchanged.
 
+# M510-14 — the long memory is the record, not a longer rewrite
+He: "why is the story in short only 180 words — why not 3,000 or 5,000?" Because the helper rewrites it from scratch every
+page: 5,000 words is about 6,500 tokens of writing per page — minutes on any provider, so the plan would miss the next
+send and the page go whole — and a text rewritten every page shifts its details every time. The long, steady memory
+already exists: the keeper's record, each line written once per fold and never rewritten. M510-9 had held it back from
+the small model. Now it rides (stack.js newestLines, SMALL_RECORD_CHARS 16,000 characters, about 4,000 tokens), the
+newest folds first; lines past the cap are said to rest ("the newest of them; N older lines rest outside this page") and
+still come back word for word when his move names them (M344's recall). The story in short stays on top, under 180 words,
+for the arc and who everyone is to each other. On the 55-page test tale the small request is 16,720 tokens with its small
+record; a 4,000-token record puts it near 20,000. Law M510-16; M510-6 re-pinned (the record rides, its row carries it).
+
