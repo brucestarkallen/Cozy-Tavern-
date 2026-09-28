@@ -52,10 +52,16 @@ const BARE_HEADER = new RegExp('^' + DRESS + '[^\\[\\]\\n]{6,400}' + '[ \\t*_`]*
  * then suddenly outside — no header, no paragraphs"). A short line holding a clock time AND a weekday or a month, that
  * does not end the way a sentence or a line of speech ends, and holds no markup, is a header. */
 const WEEKDAY_OR_MONTH = /\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December)\b/;
+/* M510-19 (the final audit): …AND IT NAMES A PLACE FIRST. A page with no header whose scene jumps on — "Wednesday, March 5
+ * — 07:10" standing alone between two paragraphs — had that line taken for the header, and everything above it went to
+ * the thinking. A time-skip line opens on the day or the hour; a header opens on the place. */
+const DATE_FIRST = new RegExp('^(?:' + WEEKDAY_OR_MONTH.source.replace(/^\\b\(\?:|\)\\b$/g, '') + ')\\b\\s*(?:,|\\d|$)');
 function looseHeader(s) {
   const bare = s.replace(/^[ \t>*_#`]+/, '').replace(/[ \t*_`]+$/, '');
+  const first = (bare.split(/\s*[—–|·,]\s*|\s+-\s+/)[0] || '').trim();
+  const placeFirst = /\p{L}{3,}/u.test(first) && !DATE_FIRST.test(first) && !HAS_TIME.test(first) && !/^\d/.test(first);
   return bare.length >= 12 && bare.length <= 220 && !/[<>]/.test(bare) && HAS_TIME.test(bare) && WEEKDAY_OR_MONTH.test(bare)
-    && !/[.!?"”’…:;,]$/.test(bare) && !/^["“]/.test(bare) && !LABEL.test(s);
+    && !/[.!?"”’…:;,]$/.test(bare) && !/^["“]/.test(bare) && !LABEL.test(s) && placeFirst;
 }
 export function isHeaderLine(line) {
   const s = String(line || '');

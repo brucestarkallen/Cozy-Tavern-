@@ -12604,3 +12604,11 @@ knows what" first, then the three questions; all fail -> cut it), word for word,
 "only what they saw" for every person, listed or not; the helper's "hasn't found out" lines and the scene's blind spots
 still ride. The frontier request is unchanged. Law M510-19.
 
+# M510-19 — the final audit: a loose header names a place first
+Auditing M510-17 on my own: a page with NO header whose scene jumps on — "Wednesday, March 5 — 07:10" alone between two
+paragraphs — had that line taken for the header (it holds a time and a weekday), and everything above it went to the
+thinking. A time-skip line opens on the day or the hour; a header opens on the place. looseHeader now asks that the part
+before the first separator (— – | · , or " - ") has letters and is not a date, an hour or a number ("Sunday Market —
+Monday, June 1 — 18:40" is still a place). Replayed: the header-less page with the time-skip line is the page, whole.
+Law M510-18 extended.
+

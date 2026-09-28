@@ -446,7 +446,12 @@ test('M510-18 A FIRST PAGE’S HEADER IN ANOTHER DRESS IS THE HEADER: it opens t
   const muts = headerMutations(kept);
   assert(muts.some((m) => m.type === 'place.set' && m.name === 'Hillside cemetery') && muts.some((m) => /clock/.test(m.type)), 'and the ledger reads its ground and its hour: ' + JSON.stringify(muts).slice(0, 200));
   for (const line of ['# The Wayward Lantern — Saturday, June 14 — 08:12', 'Karakura Town, Monday 18:40']) eq(isHeaderLine(line), true, 'a header: ' + line);
-  for (const line of ['At 22:31 on Tuesday, March 4, the rain began.', '"Meet me on Tuesday at 22:31."', '<div>Tuesday 22:31</div>', 'Planning: Tuesday, March 4 — 22:31', 'The rain fell hard that night and nobody came']) eq(isHeaderLine(line), false, 'not a header: ' + line);
+  for (const line of ['At 22:31 on Tuesday, March 4, the rain began.', '"Meet me on Tuesday at 22:31."', '<div>Tuesday 22:31</div>', 'Planning: Tuesday, March 4 — 22:31', 'The rain fell hard that night and nobody came', 'Wednesday, March 5 — 07:10', 'March 5, 07:10', '07:10 — Monday, the courtyard']) eq(isHeaderLine(line), false, 'not a header: ' + line);
+  eq(isHeaderLine('Sunday Market — Monday, June 1 — 18:40'), true, 'a place that begins with a weekday is still a place');
+  /* M510-19: a page with no header and a time-skip line inside it loses nothing to the thinking */
+  const skip = run('The cemetery was empty except for the rain.\nJovan knelt by the stone.\n\nWednesday, March 5 — 07:10\n\nMorning came grey over the hill.');
+  assert(skip.thinking === '' || skip.back.length === skip.thinking.length, 'nothing above the time-skip line stays in the thinking');
+  assert(skip.prose.startsWith('The cemetery was empty'), 'the page is the whole reply: ' + JSON.stringify(skip.prose.slice(0, 40)));
   const { partParagraphs } = await import('../../js/ui/pageshape.js');
   const flatText = 'The cemetery was empty except for the rain.\nJovan knelt by the stone.\n"You came back," said a voice behind him.';
   eq(tidyPage(flatText).text, flatText, 'the bulk mend leaves a header-less text’s line breaks alone (M340-1: stored pages and out-of-character answers)');
