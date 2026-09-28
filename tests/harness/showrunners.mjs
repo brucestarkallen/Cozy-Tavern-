@@ -3,7 +3,7 @@
  * and the auto-next chain), the editor's standing critique and its diff,
  * and the two dynamic-tail injection slots with their receipt names. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { db } from '../../js/store.js';
 import { saveState, emptyState, loadState } from '../../js/engine/state.js';
 import { buildRequest, STATE_MARKER } from '../../js/assemble/stack.js';
@@ -246,12 +246,12 @@ test('M10 stack: the director’s note and the editor’s eye ride the dynamic t
   assert(byName('The editor’s eye'), 'the receipt names the editor’s slot');
 
   /* before history: the injection sits at the FRONT of the messages */
-  const injection = r.messages[0];
+  const injection = { content: notesOf(r) }; /* M510-37: the notes are the last system block, above the story */
   assert(injection.content.startsWith(STATE_MARKER), 'the dynamic tail rides first');
   assert(injection.content.includes('What it is about: the debt.'), 'the director’s words are in it — as his plan, never a third party’s capitals (M495)');
   assert(injection.content.includes('What matters most right now: trust the quiet'), 'the editor’s words are in it — as his notes (M495)');
   const firstHistory = r.messages.findIndex((m) => m.content === 'a page');
-  assert(firstHistory > 0, 'history comes after the dynamic tail');
+  assert(firstHistory === 0 && !r.messages.some((m) => String(m.content).startsWith(STATE_MARKER)), 'the story opens the messages; the notes ride above it, in the system (M510-37)');
 });
 
 test('M10 stack: empty showrunner texts omit the slots entirely', () => {

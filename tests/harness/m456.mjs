@@ -2,7 +2,7 @@
  * the main character, due now", for scene after scene — an arrival nothing would bring. Runs the real engine and the
  * storyteller's own request. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { applyMutations } from '../../js/engine/apply.js';
 import { emptyState } from '../../js/engine/state.js';
 import { renderOffscreen } from '../../js/engine/offscreen.js';
@@ -28,7 +28,7 @@ test('M456-2 HER SEAT AS HIS LEDGER HOLDS IT (stored with an arrival) — the st
   const st = base();
   st.offscreen = { 'Rukia Kuchiki': { ...RUKIA, stance: 'tense', arrivesAtMinutes: st.clock.minutes, sinceMinutes: st.clock.minutes - 20, atTurn: 4 } };
   const r = buildRequest({ story: { brief: 'A Bleach story.' }, messages: [{ role: 'user', content: 'I draw.' }], settings: { noteText: '' }, state: st, modules: [], memory: '', window: { keeperOn: false } });
-  const all = r.messages.map((m) => String(m.content)).join('\n');
+  const all = [notesOf(r), ...r.messages.map((m) => String(m.content))].join('\n');
   const line = (all.match(/Rukia Kuchiki — [^\n]*/) || [''])[0];
   assert(/unresolved tension with the main character/.test(line), 'the tension is said: ' + line);
   assert(!/due now|arriving in|overdue/.test(line), 'and no arrival: ' + line);

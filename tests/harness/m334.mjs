@@ -1,6 +1,6 @@
 /* M334 — first person or second: the person the teller thinks in. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { shortcutsText } from '../../js/commands.js';
 import { buildRequest, STARTER_NOTE } from '../../js/assemble/stack.js';
 import { CRAFT_TEXT } from '../../js/assemble/craft.js';
@@ -37,7 +37,7 @@ test('M334-1 a frame written as "I": the tavern’s own rules become the teller�
 
 test('M334-2 what the WRITER says stays "you": the briefing, the note and the story are his voice and his story — a person says "you" to a friend whichever way that friend thinks of himself', () => {
   const r = build({ frameText: I_FRAME, tellerName: 'Tony Stark', writerName: 'Bruce' });
-  assert(/^Tony Stark — Bruce here\./.test(r.messages[0].content) && /They’re for your eyes only/.test(r.messages[0].content), 'the briefing: ' + r.messages[0].content.slice(0, 90));
+  assert(/^Tony Stark — Bruce here\./.test(notesOf(r)) && /They’re for your eyes only/.test(notesOf(r)), 'the briefing: ' + notesOf(r).slice(0, 90));
   assert(/You look at me\. "You knew," I say\./.test(JSON.stringify(r.messages).replace(/\\"/g, '"')), 'his own page, to the letter');
   assert(/Jovan, 16\. You would like him\./.test(r.systemBlocks[2].text), 'the brief is story, not rules');
   assert(/Before you write/.test(r.messages[r.messages.length - 1].content), 'his note is his');

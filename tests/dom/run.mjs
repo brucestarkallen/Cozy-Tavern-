@@ -2178,6 +2178,23 @@ test('DOM-37 a housekeeper re-ink is a re-ink: the record line over the page is 
 });
 
 /* M301: the thinking of a telling that left no page */
+/* M510-37: the notes ride above the story, in the system — in a provider's body, the system message(s) (or the system
+ * array) after the frame and the craft; in a built request, the last system block. This returns them from their opening
+ * words on ('' when none rode). */
+const NOTES_OPEN = /(^|\n\n)((?:[^\n]{0,80}? — )?(?:[^\n]{0,60} here\. This is where things stand in our story right now|where things stand right now: the writer’s own notes|Where things stand right now — the writer’s own notes))/;
+const notesInBody = (body) => {
+  const b = body || {};
+  const parts = [];
+  if (Array.isArray(b.systemBlocks)) parts.push(...b.systemBlocks.map((x) => String((x && x.text) || '')));
+  if (Array.isArray(b.system)) parts.push(...b.system.map((x) => String((x && x.text) || '')));
+  else if (typeof b.system === 'string') parts.push(b.system);
+  if (Array.isArray(b.messages)) parts.push(...b.messages.filter((m) => m && m.role === 'system').map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))));
+  const all = parts.join('\n\n');
+  const m = NOTES_OPEN.exec(all);
+  return m ? all.slice(m.index + m[1].length) : '';
+};
+const notesInMessages = (messages) => notesInBody({ messages });
+
 const clipboardSpy = () => {
   const taken = [];
   const prior = env.window.navigator.clipboard.writeText;
@@ -3177,17 +3194,17 @@ test('DOM-58 who tells, and who listens: two names typed in Settings → The fra
     await setName('teller-name', '  Tony [Stark]  '); await setName('writer-name', 'Bruce');
     eq(await db.settings.get('tellerName'), 'Tony Stark', 'kept as a plain name, the moment the box is left');
     const tony = await send('We sit down.');
-    const briefing = tony.find((m) => m.role === 'user' && /^Tony Stark — Bruce here\./.test(m.content));
+    const briefing = /^Tony Stark — Bruce here\./.test(notesInMessages(tony)) ? { role: 'system', content: notesInMessages(tony) } : null; /* M510-37 */
     assert(briefing, 'the briefing greets Tony, as Bruce: ' + JSON.stringify(tony.filter((m) => m.role === 'user').map((m) => String(m.content).slice(0, 40))));
     assert(!/that is how Bruce wants this story told/.test(tony[0].content) && /Bruce authors the fiction/.test(tony[0].content), 'the craft says his name; no purpose line follows the frame (M509-14)');
     assert(!/\bthe writer\b|\bthe house\b|\bpersona\b/i.test(tony[0].content + briefing.content.split('\n\n')[0]), 'and none of the form-speak');
     await setName('teller-name', 'Steve');
     const steve = await send('I look around.');
-    assert(steve.some((m) => m.role === 'user' && /^Steve — Bruce here\./.test(m.content)) && !/Tony Stark/.test(steve[0].content), 'the next page is asked of Steve');
+    assert(/^Steve — Bruce here\./.test(notesInMessages(steve)) && !/Tony Stark/.test(steve[0].content), 'the next page is asked of Steve');
     await setName('teller-name', ''); await setName('writer-name', '');
     eq(await db.settings.get('tellerName'), undefined, 'a cleared box is no name at all');
     const plain = await send('I wait.');
-    assert(plain.some((m) => m.role === 'user' && /^Where things stand right now — the writer’s own notes/.test(m.content)) && /the writer authors the fiction/.test(plain[0].content), 'and every word is as it was');
+    assert(/^Where things stand right now — the writer’s own notes/.test(notesInMessages(plain)) && /the writer authors the fiction/.test(plain[0].content), 'and every word is as it was');
   } finally {
     if (tellerBefore == null) await db.settings.delete('tellerName'); else await db.settings.set('tellerName', tellerBefore);
     if (writerBefore == null) await db.settings.delete('writerName'); else await db.settings.set('writerName', writerBefore);
@@ -3422,7 +3439,7 @@ test('DOM-64 THE WRITER’S REPORT, the whole loop in the app: the storyteller i
   const FALSE_LINE = '"You gave me the schedule yesterday," Claire said, level. "It was in the hallway after the audit."';
   const TRUE_LINE = '"Aurora told me the time," Claire said, level. "She has held her four o’clock like a museum piece."';
   let readerSaw = ''; let tellerSaw = '';
-  house.state.storyAnswer = (body) => { tellerSaw = String((body.messages.find((m) => m.role === 'user') || {}).content || ''); return H + '"How did you find us?" Jovan asked.\n\n' + FALSE_LINE + '\n\nAurora’s hand did not let go.'; };
+  house.state.storyAnswer = (body) => { tellerSaw = notesInBody(body); /* M510-37: the notes, above the story */ return H + '"How did you find us?" Jovan asked.\n\n' + FALSE_LINE + '\n\nAurora’s hand did not let go.'; };
   house.state.workerAnswer = (body, sys) => {
     const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
     if (/continuity reader/i.test(sys)) {
@@ -3796,7 +3813,7 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
   };
   /* the storyteller's own request — the one that carries the briefing (the extension's own model calls, its parser and
    * its dossier writer, speak in prompts this walk's house does not know as workers, so "not a worker" is not enough) */
-  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); const told = house.state.calls.slice(from).find((c) => Array.isArray(c.body.messages) && c.body.messages.some((m) => m.role === 'user' && /where things stand/i.test(String(m.content)))); assert(told, 'the storyteller was asked'); return told.body; };
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); const told = house.state.calls.slice(from).find((c) => Array.isArray(c.body.messages) && Boolean(notesInBody(c.body))); assert(told, 'the storyteller was asked'); return told.body; };
   const setCanon = async (on, wiki) => {
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
@@ -3823,7 +3840,7 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     await closeSettings();
     await setCanon(true, 'bleach');
     const on = await send('I bow to Rukia and ask her to teach me kido.');
-    const briefing = on.messages.find((m) => m.role === 'user' && /where things stand/i.test(String(m.content)));
+    const briefing = notesInMessages(on.messages) ? { content: notesInMessages(on.messages) } : null; /* M510-37 */
     assert(briefing, 'the briefing rode: ' + on.messages.map((m) => m.role + ':' + String(m.content).slice(0, 80)).join(' || '));
     /* M386: its opening words are his own now — "What canon says about the people here" — not the extension's "canon from this series' wiki" */
     assert(/What canon says about the people here/.test(briefing.content) && /Violet|Black, chin-length/.test(briefing.content), 'the briefing opens with what canon says of Rukia: ' + String(briefing.content).slice(0, 300));
@@ -4487,8 +4504,8 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
     if (page && !/\//.test(page) && who(page)) return ok({ parse: { title: who(page), wikitext: { '*': who(page) === 'Rukia Kuchiki' ? RUK : BYA } } });
     return ok({});
   };
-  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); const calls = house.state.calls.slice(from); const told = calls.find((c) => Array.isArray(c.body.messages) && c.body.messages.some((m) => m.role === 'user' && /where things stand/i.test(String(m.content)))); assert(told, 'the storyteller was asked'); return { body: told.body, calls }; };
-  const briefingOf = (body) => body.messages.find((m) => m.role === 'user' && /where things stand/i.test(String(m.content)));
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); const calls = house.state.calls.slice(from); const told = calls.find((c) => Array.isArray(c.body.messages) && Boolean(notesInBody(c.body))); assert(told, 'the storyteller was asked'); return { body: told.body, calls }; };
+  const briefingOf = (body) => (notesInBody(body) ? { content: notesInBody(body) } : undefined); /* M510-37 */
   const openRoom = async (title) => {
     { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); } /* opened fresh for THIS story: an open drawer shows the story it was opened for */
     await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
@@ -4763,9 +4780,9 @@ test('DOM-88 CANON THROUGH HIS STORY, IN THE APP: his Bleach premise (Oda is cap
     await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > 1 && !env.ctx.chat.isBusy(), 'the page', 40000);
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
     eq(lensAsked, 1, 'she was read through his story once');
-    const told = house.state.calls.slice(from).find((c) => !c.isWorker && Array.isArray(c.body.messages) && c.body.messages.some((m) => m.role === 'user' && /where things stand/i.test(String(m.content))));
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker && Array.isArray(c.body.messages) && Boolean(notesInBody(c.body)));
     assert(told, 'the storyteller was asked');
-    const briefing = told.body.messages.find((m) => m.role === 'user' && /where things stand/i.test(String(m.content))).content;
+    const briefing = notesInBody(told.body); /* M510-37 */
     assert(/Rukia Kuchiki:/.test(briefing), 'she rides');
     assert(!/married|Ichika|current Captain|leads the 13th/i.test(briefing), 'none of canon’s end-state is sent — not as fact, not as prophecy: ' + briefing.slice(0, 900));
     assert(/Sode no Shirayuki/.test(briefing) && /Ichigo Kurosaki/.test(briefing), 'her sword and her friend still ride');
@@ -4833,7 +4850,7 @@ test('DOM-89 “READ AGAIN” REBUILDS THE LEDGER, NEVER THE PAGE — and the re
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
     eq((await db.messages.list(st.id)).find((m) => m.id === page.id).text, PAGE, 'the page keeps every word');
     /* the storyteller's request is the one carrying his briefing — the parser's own call is a reader's, not a page's */
-    eq(house.state.calls.slice(calls0).filter((c) => Array.isArray(c.body.messages) && c.body.messages.some((m) => m.role === 'user' && /where things stand/i.test(String(m.content)))).length, 0, 'the storyteller was never asked — nothing was rewritten');
+    eq(house.state.calls.slice(calls0).filter((c) => Array.isArray(c.body.messages) && Boolean(notesInBody(c.body))).length, 0, 'the storyteller was never asked — nothing was rewritten');
     assert(scribeSaw.length > 0, 'the scribe read the page again');
     const saw = scribeSaw.join(' ');
     assert(/Rukia Kuchiki —/.test(saw) && /Sode no Shirayuki/.test(saw), 'the scribe is handed her record');
@@ -5358,9 +5375,9 @@ test('DOM-101 ONE HOME FOR A CANON FACT, PLAYED THROUGH THE REAL APP: with canon
     if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null, voices: [] } });
     return walkDefaultWorker(body, sys);
   };
-  const briefingOf = () => {
-    const call = house.state.calls.filter((c) => (c.body.messages || []).some((m) => /Where things stand right now/.test(String(m.content)))).pop();
-    return call ? call.body.messages.filter((m) => m.role === 'user').map((m) => String(m.content)).find((t) => /^Where things stand right now/.test(t)) || '' : ''; /* the briefing — the craft names it too */
+  const briefingOf = () => { /* M510-37: the notes, above the story in the system */
+    const call = house.state.calls.filter((c) => /^Where things stand right now/.test(notesInBody(c.body))).pop();
+    return call ? notesInBody(call.body) : '';
   };
   const count = (text, k) => text.split(k).length - 1;
   env.window.__cozy.setActiveStoryId(st.id);
@@ -6082,8 +6099,20 @@ test('DOM-118 HIS OWN-VOICE WORDS, THROUGH THE REAL APP: added in Settings, kept
   assert(at !== -1, 'his words are in the request, the name filled in: ' + msgs.map((m) => m.role).join(' '));
   eq(msgs[at].role, 'assistant', 'as the storyteller’s own message');
   const his = msgs.findIndex((m) => m.role === 'user' && /I look at the door\./.test(String(m.content)));
-  eq(at, his - 1, 'right before his message');
+  /* M510-37: a tale's first turn — his message opens the request (the notes ride above the story, in the system), and
+   * nothing of the house's stands above it: the entry steps behind it (the M466-4 law) */
+  eq(his, 1, 'his first message opens the story, right after the system');
+  eq(at, his + 1, 'on the first turn, right after his message — never above it');
   await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
+  /* the next turn: the entry stands where he put it, right before his message */
+  const fromMid = house.state.calls.length;
+  type(q('#composer-input'), 'I step closer.'); submit(q('#composer'));
+  await until(() => house.state.calls.slice(fromMid).some((c) => !c.isWorker), 'the storyteller asked again');
+  const mid = house.state.calls.slice(fromMid).find((c) => !c.isWorker).body.messages || [];
+  const atMid = mid.findIndex((m) => /OWN-MARK: Iron Man here — still me\./.test(String(m.content)));
+  const hisMid = mid.findIndex((m) => m.role === 'user' && /I step closer\./.test(String(m.content)));
+  eq(atMid, hisMid - 1, 'right before his message');
+  await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the second page landed', 20000);
   /* switched off: gone from the next request */
   const w = await db.settings.get('ownWords'); await db.settings.set('ownWords', [{ ...w[0], on: false }]);
   const from2 = house.state.calls.length;
@@ -6532,7 +6561,7 @@ test('DOM-129 TRY AGAIN REWINDS THE LEDGER TO BEFORE THE PAGE: the storyteller�
   let hour = ['09', '05']; let who = 'Mara Vell';
   try {
     house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [{ type: 'presence.enter', name: who, position: 'by the stove' }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] }) : '{"mutations":[],"deltas":[],"findings":[],"issues":[]}');
-    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + who + ' came in and stood by the stove. The kettle ticked.'; };
+    house.state.storyAnswer = (body) => { seen.push(notesInBody(body)); /* M510-37: the notes, above the story */ return H(hour[0], hour[1]) + who + ' came in and stood by the stove. The kettle ticked.'; };
     /* page one: 09:05, Mara in */
     type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
@@ -6578,7 +6607,7 @@ test('DOM-130 TRY AGAIN AFTER THE TALE WAS OPENED AGAIN (its opening heals run, 
   let hour = ['09', '05']; let who = 'Mara Vell';
   try {
     house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [{ type: 'presence.enter', name: who, position: 'by the stove' }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] }) : '{"mutations":[],"deltas":[],"findings":[],"issues":[]}');
-    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + who + ' came in and stood by the stove. The kettle ticked.'; };
+    house.state.storyAnswer = (body) => { seen.push(notesInBody(body)); /* M510-37: the notes, above the story */ return H(hour[0], hour[1]) + who + ' came in and stood by the stove. The kettle ticked.'; };
     type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
     await settled();
@@ -6626,7 +6655,7 @@ test('DOM-131 TRY AGAIN WHILE THE OLD PAGE’S LATER READERS (world agent, scrib
       if (holdLate) { heldCalls += 1; return held.then(() => late); }
       return '{"mutations":[],"deltas":[],"findings":[],"issues":[]}';
     };
-    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + who + ' came in and stood by the stove. The kettle ticked.'; };
+    house.state.storyAnswer = (body) => { seen.push(notesInBody(body)); /* M510-37: the notes, above the story */ return H(hour[0], hour[1]) + who + ' came in and stood by the stove. The kettle ticked.'; };
     type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
     await settled();
@@ -6673,7 +6702,7 @@ test('DOM-132 A REWIND IS CHECKED WHOLE, NEVER PATCHED: when a fold keeps the re
   let hour = ['09', '05']; let who = 'Mara Vell';
   try {
     house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [{ type: 'presence.enter', name: who, position: 'by the stove' }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] }) : '{"mutations":[],"deltas":[],"findings":[],"issues":[]}');
-    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + who + ' came in. The kettle ticked.'; };
+    house.state.storyAnswer = (body) => { seen.push(notesInBody(body)); /* M510-37: the notes, above the story */ return H(hour[0], hour[1]) + who + ' came in. The kettle ticked.'; };
     type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
     await settled();
@@ -6739,7 +6768,7 @@ test('DOM-133 A JOIN SURVIVES TRY AGAIN: a tale whose pages wrote "the courier" 
   const seen = [];
   try {
     house.state.workerAnswer = () => '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[],"issues":[]}';
-    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H('40') + 'The kettle ticked.'; };
+    house.state.storyAnswer = (body) => { seen.push(notesInBody(body)); /* M510-37: the notes, above the story */ return H('40') + 'The kettle ticked.'; };
     click(q('#btn-retry'));
     await until(() => seen.length >= 1, 'the retry’s request went out', 30000);
     const here = (seen[0].match(/Here now:[^\n]*/) || [''])[0];
@@ -6775,7 +6804,7 @@ test('DOM-134 NO CHECKPOINT OF THAT MOMENT: the fold keeps the replaced page’s
       const name = /Tobin Ashcombe/.test(page) ? 'Tobin Ashcombe' : /Nell Pike/.test(page) ? 'Nell Pike' : 'Mara Vell';
       return JSON.stringify({ mutations: [{ type: 'presence.enter', name, position: 'by the stove' }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
     };
-    house.state.storyAnswer = (body) => { seen.push(String((body.messages.find((m) => m.role === 'user') || {}).content || '')); return H(hour[0], hour[1]) + who + ' came in. The kettle ticked.'; };
+    house.state.storyAnswer = (body) => { seen.push(notesInBody(body)); /* M510-37: the notes, above the story */ return H(hour[0], hour[1]) + who + ' came in. The kettle ticked.'; };
     type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
     await settled();

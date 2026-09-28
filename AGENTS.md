@@ -12879,3 +12879,32 @@ name or Enter keeps it, Cancel or Escape leaves it; engine/voicepresets.js renam
 another preset has), Delete (asks first). "Save as new preset" stands under the list. Law M510-35 now renames; DOM-141
 uses, renames and deletes through the rows.
 
+# M510-37 — the notes above the story, in the system; the story opens on his page
+He: "making it user could confuse the AI — I start #story, and above me there's another user message; I've never seen a
+SillyTavern preset put instructions in the user role above the user's input — above it is all system. I just realised
+why my scene is sometimes incoherent: there's another user message above me." He was right, and it is structural. Since
+M2 the notes (slots 5–6 and all that joined them since: on their mind, the state of things, the woken rules, the record,
+canon, the director's and editor's words, the house's eye, the small model's parts) rode as ONE user message at the front
+of the messages — so every request opened with the writer apparently speaking before the story, and a tale's first turn
+was two user turns in a row (the notes, then his #story). stack.js now puts the notes as the LAST system block (cache
+false): the frame and the craft remain the cached prefix before it; the openai mapping already joins the blocks into one
+leading system message, Anthropic sends the array. The wire reads as a preset does: system above, then the story, then his
+move.
+Found in doing it: the user-role notes had been hiding a second fault. The keeper's window of thirty, counted back from
+his move, opens on the TELLER's page (thirty is even; the history alternates) — with the notes gone from the messages, the
+conversation would open on the assistant, which strict houses refuse (Anthropic: the first message must be the user's)
+and every model reads oddly. The window now steps back to the move of his that led to its first page (as the small
+window, lastPagesOf, always has) — his short move may also be in a record line (a small duplicate, never a gap); a tale
+that opens on the teller's own page, with nothing of his before it, is opened by "(Our story begins.)".
+Proved against the original code: the four system seats unchanged; the notes word for word from the first user message
+to the last system block; every other message the same, with his one move in front when the window opened on the
+teller's page. Laws M510-37; A1 and M12-coverage state the window as "thirty, opened on his page"; nineteen laws that read
+the notes as the first message read them from the system now (lib.mjs notesOf) — so none of them passes vacuously.
+Settled while finishing it: on a tale's FIRST turn his message opens the story and nothing of the house's stands above it —
+an own-words entry placed "before your message" steps behind it (the M466-4 law, now every first turn); "(Our story
+begins.)" opens a request only when the tale's first page is the teller's own. The walk and the long play read the notes
+where they now ride (a provider body's system message, from their opening words — notesInBody), so the checks that
+looked for them as a user message still prove what they proved. Proof against the original code (/tmp/offcheck_move):
+on the nine fixtures under both persona names, the four system seats, every other message, every receipt row that
+existed and the total are byte for byte; the notes moved word for word; at most his one move stands in front.
+

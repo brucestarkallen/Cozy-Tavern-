@@ -2,7 +2,7 @@
  * SillyTavern stand-in: the story's pages are its chat, Cozy's people ledger is its cast list, the wiki is asked
  * through fetch, and its note leads the storyteller's briefing. OFF sends nothing. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { db } from '../../js/store.js';
 import { canonBeforeSend, canonMetaKey, canonKnown, canonForget, setCanonWikis, ledgerOf, stChat, setCanonSetting } from '../../js/canon/bridge.js';
 import { injectionFor } from '../../js/canon/host.js';
@@ -53,7 +53,7 @@ test('M346-1 CANON VERIFICATION IN COZY: the story is its chat, Cozy’s ledger 
     assert(known.some((k) => k.found && /Rukia/.test(k.name)), 'the Settings list sees it');
     const req = (canonNote) => buildRequest({ story, messages, settings: { tellerName: 'Iron Man', writerName: 'Bruce' }, state, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '', canonNote });
     const on = req(note);
-    const briefing = on.messages.find((m) => /Bruce here/.test(String(m.content)));
+    const briefing = /Bruce here/.test(notesOf(on)) ? { content: notesOf(on) } : null; /* M510-37: the notes, above the story */
     assert(briefing && /Rukia/.test(briefing.content), 'it rides in the writer’s briefing');
     const after = briefing.content.split('\n\n')[1] || '';
     assert(/Rukia|[Cc]anon/.test(after), 'at the top of his notes: ' + after.slice(0, 160));

@@ -1,6 +1,6 @@
 /* M335 — the teller's thinking was ordered to be a checklist; a teller with a self thinks in its own voice. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { buildRequest, STARTER_NOTE } from '../../js/assemble/stack.js';
 import { CRAFT_TEXT } from '../../js/assemble/craft.js';
 import { naturalThinking } from '../../js/assemble/voice.js';
@@ -37,8 +37,8 @@ test('M335-2 in the first person it is the teller’s own habit; with no teller 
 
 test('M335-3 the eye’s note no longer hands the teller a rule’s name to think aloud ("my earlier drift… recolor")', () => {
   assert(/Drift Recovery/.test(EYE), 'fixture: the note names the craft’s rule');
-  const named = build({ tellerName: 'Tony Stark', writerName: 'Bruce' }).messages[0].content;
+  const named = notesOf(build({ tellerName: 'Tony Stark', writerName: 'Bruce' }));
   assert(/Tony Stark — a few things in your last page drifted from the way this story is told\. That page\s+stands as written/.test(named) && !/Drift Recovery/.test(named), 'to a teller with a self: what happened, and no rule’s name: ' + (named.match(/Tony Stark — a few[^\n]{0,160}/) || [''])[0]);
   assert(/Ghost Dialogue: a line was written for Jovan/.test(named), 'what drifted is still said');
-  assert(/\(your craft’s Drift Recovery\)/.test(build({}).messages[0].content), 'no teller to speak of: the note as it was');
+  assert(/\(your craft’s Drift Recovery\)/.test(notesOf(build({}))), 'no teller to speak of: the note as it was');
 });

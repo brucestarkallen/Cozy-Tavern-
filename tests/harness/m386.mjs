@@ -4,7 +4,7 @@
  * workers told to write from the real record are handed it. Every test runs the feature: the real extension on its
  * stand-in, the real ledger engine, a wiki answered over fetch. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { db } from '../../js/store.js';
 import {
   canonBeforeSend, canonAction, canonMetaKey, ledgerOf, canonLocks, canonSyncLedger, canonEntryFor, canonFeatures, carryCanonMemory,
@@ -155,17 +155,16 @@ test('M386-4 WHO’S HERE IS THE CAST: a canon person the ledger has in the scen
   assert(/With Byakuya Kuchiki: .*adoptive brother/i.test(note) || /With Rukia Kuchiki: .*Hisana/i.test(note), 'who they are to each other, from the page itself: ' + note.slice(0, 900));
   assert(note.startsWith(CANON_HEADER), 'it opens with his words');
   const req = buildRequest({ story, messages, settings: { tellerName: 'Iron Man', writerName: 'Bruce', frameText: 'You are Iron Man, telling this story with Bruce.' }, state, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '', canonNote: note });
-  const briefing = req.messages.find((m) => /Bruce here/.test(String(m.content)));
-  eq(briefing.role, 'user', 'it rides in his own briefing — a user message');
+  const briefing = { content: notesOf(req) };
+  assert(/Bruce here/.test(briefing.content) && !req.messages.some((m) => m.role === 'user' && /Bruce here/.test(String(m.content))), 'it rides in his own briefing — the notes above the story, in the system; no user message above his (M510-37)');
   const canonPart = briefing.content.split('\n\n')[1] || '';
   assert(canonPart.startsWith('What canon says about the people here'), 'first in his notes: ' + canonPart.slice(0, 120));
   const opening = canonPart.split('\n')[0];
   assert(!/\bwiki\b|\bnote\b|storyteller|inject|grounding|verification|canon check|\brecord\b|\bsystem\b|\bprompt\b/i.test(opening), 'no machinery in its opening words: ' + opening);
-  const ix = req.messages.indexOf(briefing);
-  /* the frame rides as the system (the providers put systemBlocks on the wire's system); the briefing is the first
-   * message after it, before every page of the story */
+  /* the frame rides as the system; the briefing is the last system block (M510-37: above the story, never a user message
+   * above his), after the frame and before every page of the story */
   assert(req.systemBlocks[0] && /You are Iron Man/.test(req.systemBlocks[0].text), 'the frame is the system');
-  eq(ix, 0, 'after the frame, before every page');
+  eq(req.systemBlocks.map((b) => b.text).indexOf(briefing.content), 4, 'after the frame, before every page');
 }));
 
 test('M386-5 EVERY LEVER, FOR THE STORY IN HAND: always here and never are one list each; the story’s wiki is a decree that lets another universe go; notes, the story position, forget, look again and the preview run the extension’s own functions', async () => withWiki(async () => {

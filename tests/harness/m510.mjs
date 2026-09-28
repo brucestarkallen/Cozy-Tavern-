@@ -2,7 +2,7 @@
  * choice B): the planning helper reads everything, the small model writes from the laws this scene needs, his two sound
  * laws right before a heated page, and a page that began playing him ends where it began. Every law here runs the thing. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { thinkingHouse, withHouse } from './thinkinghouse.mjs';
 import { knobsOf, KNOB_FIELDS } from '../../js/providers/knobs.js';
 import { callWorker, workerConnection } from '../../js/agents/call.js';
@@ -317,7 +317,7 @@ test('M510-13 A SMALL MODEL REMEMBERS THE WHOLE STORY: the helper keeps it short
   const msgs = pages(12);
   msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], text: 'I set the broken lantern from the mountain shrine on the table between us.' };
   const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlan: { ...PLAN, intense: false, story: STORY } });
-  const notes = String(r.messages[0].content);
+  const notes = notesOf(r);
   assert(notes.includes('Our story so far, the way I remember it:\n' + STORY), 'the story in short heads the notes: ' + notes.slice(0, 200));
   assert(r.receipt.slots.some((s) => s.name === 'The story in short' && s.tokens > 0), 'with its own receipt row');
   const last = String(r.messages[r.messages.length - 1].content);
@@ -427,7 +427,7 @@ test('M510-17 THE STORY’S ESSENTIALS (his design): the whole record streamline
    * so what the essentials stand for is seen standing for it */
   const alone = { ...applyMutations({ ...emptyState(), page: 20 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 20 };
   const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: alone, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: withLater.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: withLater }, smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: ESS, upTo: 23 } });
-  const notes = String(r.messages[0].content);
+  const notes = notesOf(r);
   assert(notes.includes('What our story holds, in essentials:\n' + ESS), 'the essentials are in front');
   assert(!notes.includes('NEWEST-LINE') && !notes.includes('Rukia saw Jovan leave'), 'the lines the essentials stand for do not ride as they are');
   assert(/Folded since the essentials were made:\n- LATER-LINE/.test(notes), 'what was folded since rides as it is');
@@ -521,7 +521,7 @@ test('M510-21 WHO’S HERE, IN THE RECORD (his idea, bounded): while someone is 
   const msgs = pages(40);
   const mk = (small, state) => buildRequest({ story: {}, messages: msgs, settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: lines.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: lines }, ...(small ? { smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: '- [Day 1 · the yard] (pages 1–42) Jovan trained with Rukia; Kaelen swore on the lantern.', upTo: 41 } } : {}) });
   const small = mk(true, here);
-  const notes = String(small.messages[0].content);
+  const notes = notesOf(small);
   assert(/What the record holds of who is here, word for word:\n- \(pages/.test(notes) && notes.includes('RUKIA-12'), 'it rides for the small model');
   const row = small.receipt.slots.find((s) => s.name === 'Who’s here, in the record');
   assert(row && row.tokens > 0 && /Rukia Kuchiki/.test(row.reason), 'with its row: ' + JSON.stringify(row && row.reason));
@@ -578,7 +578,7 @@ test('M510-22 A PLAN, KEPT WHOLE (his battle plan): written down the moment a pa
   const plansBook = await loadPlansBook('s-plans');
   const mk = (small) => buildRequest({ story: {}, messages: pages(40), settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, ...(small ? { smallPlan: { ...PLAN, intense: false }, smallPlansBook: plansBook } : {}) });
   const small = mk(true);
-  const notes = String(small.messages[0].content);
+  const notes = notesOf(small);
   assert(notes.includes('Plans standing — laid out on the page, kept whole until carried out:\nThe feint at the forest — Jovan’s plan') && notes.includes('“Retreat! Protect the gold convoy!”'), 'the small storyteller reads it word for word');
   const row = small.receipt.slots.find((s) => s.name === 'Plans standing');
   assert(row && row.tokens > 0 && /The feint at the forest/.test(row.reason), 'with its row');
@@ -609,7 +609,7 @@ test('M510-23 WHO’S HERE, IN THE RECENT PAGES (his duchy): the storyteller’s
   const here = { ...applyMutations({ ...emptyState(), page: 40 }, [...base, { type: 'presence.enter', name: 'Lord Varen' }, { type: 'presence.enter', name: 'Lady Mira' }]).state, page: 40 };
   const mk = (small, state) => buildRequest({ story: {}, messages: msgs, settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [] }, ...(small ? { smallPlan: { ...PLAN, intense: false } } : {}) });
   const small = mk(true, here);
-  const notes = String(small.messages[0].content);
+  const notes = notesOf(small);
   const part = (notes.split('What the recent pages hold of who is here, word for word:\n')[1] || '');
   assert(part.includes('(page 16) Lord Varen VAREN-16') && part.includes('(page 24) Lord Varen VAREN-24'), 'Varen’s newest two in the pages between: the purse, the oath:\n' + part.slice(0, 600));
   assert(!part.includes('VAREN-10'), 'the newest two, not every one');
@@ -622,7 +622,7 @@ test('M510-23 WHO’S HERE, IN THE RECENT PAGES (his duchy): the storyteller’s
   const names = small.receipt.slots.map((s) => s.name);
   eq(names.indexOf('Who’s here, in the recent pages'), names.indexOf('Who’s here, in the record') + 1, 'in its place among the rows');
   const gone = { ...applyMutations({ ...emptyState(), page: 40 }, base).state, page: 40 };
-  assert(!String(mk(true, gone).messages[0].content).includes('What the recent pages hold'), 'gone from the scene, gone from the page');
+  assert(!notesOf(mk(true, gone)).includes('What the recent pages hold'), 'gone from the scene, gone from the page');
   const normal = mk(false, here);
   assert(!/What the recent pages hold of who is here/.test(JSON.stringify(normal.messages)) && /^small model only/.test(normal.receipt.slots.find((s) => s.name === 'Who’s here, in the recent pages').reason), 'the frontier model is untouched');
   /* the record's own lines use the same names: a title is not a name there either (M510-21) */
@@ -857,4 +857,19 @@ test('M510-35 THE STORYTELLER’S VOICE, SAVED (his presets: Hulk, Batman, Iron 
   eq(await store.settings.get('frameText'), 'I am Batman. I tell it in the rain.', 'the voice as it stands stays');
   for (const k of VOICE_FIELDS) await store.settings.delete(k);
   await store.settings.set('voicePresets', []); await store.settings.delete('frameOn');
+});
+
+test('M510-37 THE NOTES ABOVE THE STORY, IN THE SYSTEM (his word: "I have never seen a preset put a user message above my input — above it is all system; another user message sat above my #story"): the notes are the last system block, never cached; the messages open on the story itself; a tale’s first turn is his one message, not two', async () => {
+  const st = yard();
+  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
+  const first = buildRequest({ story: { brief: 'Bleach.' }, messages: [{ id: 'u1', role: 'user', text: '#story Jovan arrives at the Seireitei.' }], settings: {}, state: st, modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
+  eq(first.messages.filter((m) => m.role === 'user').length, 1, 'the first turn: his one message — nothing of the house’s above it');
+  assert(/#story Jovan arrives/.test(String(first.messages[0].content)), 'and it opens the messages');
+  assert(/Where things stand|here\. This is where things stand/.test(notesOf(first)) && first.systemBlocks[4].cache === false, 'the notes: the last system block, never cached');
+  eq(first.systemBlocks[0].cache && first.systemBlocks[1].cache, true, 'the frame and the craft stay the cached prefix before them');
+  const later = buildRequest({ story: {}, messages: pages(20), settings: {}, state: st, modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
+  assert(!later.messages.some((m) => /Where things stand|here\. This is where things stand/.test(String(m.content))), 'no message of the story carries the notes');
+  assert(later.messages[0].role === 'user' && later.messages[1].role === 'assistant', 'the story opens the messages: his page, then the teller’s');
+  const small = buildRequest({ story: {}, messages: pages(20), settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: st, modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, smallPlan: { ...PLAN, intense: false } });
+  assert(notesOf(small) && !small.messages.some((m) => /Where things stand|here\. This is where things stand/.test(String(m.content))), 'a small model’s notes too');
 });

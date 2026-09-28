@@ -1,6 +1,6 @@
 /* M34 — the keeper keeps a record (the Summaryception principle); the keyboard stays down; the 🎨 pack. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { readFileSync } from 'node:fs';
 import {
   nextBatch, overflowEnd, parseMemoryAnswer, renderMemory, recordFor, buildMemoryMessages, buildFoldMessages,
@@ -105,7 +105,7 @@ test('M34-5 end to end: lines are written at the catch-up pace, "(no new state)"
   /* the storyteller sees the record whole, and the covered pages leave the window */
   const history = await db.messages.list(storyId);
   const r = buildRequest({ story: {}, messages: history, settings: {}, state: {}, modules: [], memory: renderMemory(mem), window: { keeperOn: true, nodes: mem.nodes, window: 30 } });
-  const inj = r.messages[0].content;
+  const inj = notesOf(r);
   assert(inj.includes(RECORD_HEADER) && inj.includes('- [Day 1] the player did a thing'), 'the record rides');
   /* promotion: a layer past NOTES_PER_LAYER merges its oldest two; a thin merge is asked again */
   const many = { window: 30, nodes: Array.from({ length: NOTES_PER_LAYER + 1 }, (_, i) => ({ id: 'n' + i, span: [i * 6, i * 6 + 5], text: 'line ' + i + ': ' + 'fact '.repeat(20), level: 1, at: i })) };

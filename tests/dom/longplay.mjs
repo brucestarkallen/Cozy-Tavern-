@@ -48,8 +48,10 @@ let scriptMinutes = 0;
 
 house.state.storyAnswer = (body) => {
   const msgs = Array.isArray(body.messages) ? body.messages : [];
-  const stateMsg = [...msgs].reverse().find((m) => m.role === 'user' && String(m.content).startsWith('Where things stand right now'));
-  const stateText = stateMsg ? String(stateMsg.content) : '';
+  /* M510-37: the notes ride above the story, in the system message (after the frame and the craft) */
+  const sysText = msgs.filter((m) => m.role === 'system').map((m) => String(m.content)).join('\n\n');
+  const notesAt = sysText.indexOf('Where things stand right now');
+  const stateText = notesAt === -1 ? '' : sysText.slice(notesAt);
   const tail = msgs.slice(-3).map((m) => String(m.content)).join('\n');
   const fromLedger = ledgerMinutes(stateText);
   if (fromLedger !== null) script.lastHour = fromLedger;

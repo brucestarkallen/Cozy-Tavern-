@@ -1,6 +1,6 @@
 /* M338 — who could know this? The blind spots of the people in the scene: computed in code before the page, held to by the second reader after it. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { emptyState, renderStateFacts } from '../../js/engine/state.js';
 import { applyMutations } from '../../js/engine/apply.js';
 import { blindSpots } from '../../js/engine/world.js';
@@ -32,7 +32,7 @@ test('M338-1 THE WRITER’S REPORT: Claire "was given the schedule yesterday" �
   assert(/What they haven’t found out — no page has shown them learning these\./.test(facts) && /nobody remembers being told something they never were: /.test(facts) && /Claire Maxwell hasn’t found out: Jovan agreed by text[^.]*\(Aurora Sterling knows\)/.test(facts), 'it rides in the ledger’s words: ' + facts.slice(facts.indexOf('Who does NOT'), facts.indexOf('Who does NOT') + 420));
   /* …and it reaches the storyteller's request */
   const r = buildRequest({ story: {}, messages: [{ id: 'u', role: 'user', text: 'How did you find us?' }], settings: { noteText: STARTER_NOTE }, state: st, modules: [], memory: '', window: { keeperOn: true } });
-  assert(/Claire Maxwell hasn’t found out: Jovan agreed by text/.test(r.messages[0].content), 'in the briefing, before the page is written');
+  assert(/Claire Maxwell hasn’t found out: Jovan agreed by text/.test(notesOf(r)), 'in the briefing, before the page is written');
 });
 
 test('M338-2 after the page, the second reader is GIVEN the duty and the list: a character who speaks of what no page showed them learning is a finding, and the fix is the nearest TRUE way', () => {

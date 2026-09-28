@@ -1,7 +1,7 @@
 /* M484 — what the storyteller saw, without the bloat: one wound per body part; one fact in one wording, house-wide;
  * a role is its holder; a group is not a person. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { addInjury, bodyPartOf } from '../../js/engine/bodies.js';
 import { sameFact, addKnowledge } from '../../js/engine/world.js';
 import { resolveDescriptor, isGroupName } from '../../js/engine/people.js';
@@ -132,7 +132,7 @@ test('M486 the receipt says what canon did: the row stands whenever canon is on 
   assert(empty && empty.text === '' && /no canon face/.test(empty.reason), 'on, empty: the row with the reason — ' + JSON.stringify(empty));
   const full = row(buildRequest({ ...base, canonOn: true, canonNote: 'Rukia Kuchiki:\nLieutenant of the 13th, petite, violet eyes.' }));
   assert(full && /Rukia/.test(full.text) && !full.reason, 'on, with a note: the note rides');
-  assert(buildRequest({ ...base, canonOn: true, canonNote: 'Rukia Kuchiki:\nLieutenant.' }).messages.some((m) => /Rukia Kuchiki:/.test(String(m.content))), 'and it is in the request');
+  assert(/Rukia Kuchiki:/.test(notesOf(buildRequest({ ...base, canonOn: true, canonNote: 'Rukia Kuchiki:\nLieutenant.' }))), 'and it is in the request — in the notes above the story');
 });
 
 test('M487 canon reads clean: a template keeps its display text (the walker dropped it whole — "The is one of the Gotei 13"); a dead face is one sentence; a cut block ends at a whole sentence', async () => {

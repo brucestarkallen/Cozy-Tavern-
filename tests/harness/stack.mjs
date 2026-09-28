@@ -13,8 +13,11 @@ const slot = (r, name) => r.receipt.slots.find((s) => s.name === name);
 test('A1: keeper on — slot 8 carries ONLY the last 30 pages', () => {
   const r = buildRequest({ story: {}, messages: pages(45), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: true } });
   const hist = r.messages.filter((m) => String(m.content).startsWith('page '));
-  eq(hist.length, 30, 'window is 30');
-  assert(hist[0].content.startsWith('page 15'), 'window starts at page 15');
+  /* M510-37: the last 30 pages — and, when the first of them is the teller's, the move of his that led to it: the story
+   * opens on his page now that the notes ride above it in the system */
+  eq(hist.length, 31, 'window is 30, opened on his page');
+  eq(r.messages[0].role, 'user', 'the story opens on his page');
+  assert(hist[0].content.startsWith('page 14') && hist[1].content.startsWith('page 15'), 'the window of thirty starts at page 15 — opened by his move on page 14 that led to it');
   assert(/last 30 of 45/.test(slot(r, 'The story so far').source), 'receipt reports counts');
 });
 
@@ -55,7 +58,8 @@ test('A4: cache breakpoint sits at the END of slot 2, slots 3-4 non-cached', () 
   const story = { brief: 'a brief' };
   const modules = [{ mod: { id: 'core-craft', text: 'the craft text' }, reason: 'the rulebook' }];
   const r = buildRequest({ story, messages: pages(2), settings: { frameText: 'frame words' }, state: { present: [{ name: 'Mira' }] }, modules, memory: '', cast: [], window: { keeperOn: true } });
-  eq(r.systemBlocks.length, 4, 'four system blocks');
+  eq(r.systemBlocks.length, 5, 'the four seats, then the notes — above the story, in the system (M510-37)');
+  eq(r.systemBlocks[4].cache, false, 'the notes are never cached — the frame and the craft stay the stable prefix');
   assert(r.systemBlocks[0].cache === true && r.systemBlocks[1].cache === true, 'slots 1-2 cached');
   assert(r.systemBlocks[2].cache === false && r.systemBlocks[3].cache === false, 'slots 3-4 NOT cached');
 });

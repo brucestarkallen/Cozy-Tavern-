@@ -3,7 +3,7 @@
  * reading and merge (through the store and back), the heal of a sheet the blind seeder made, the referee's reading,
  * every outcome's words, and where the outcome rides on the wire — and that OFF sends nothing of it. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import {
   seedDue, buildSeedUser, mergeSeed, maybeSeedSheet, buildRefereeUser, SEED_VERSION, SEED_SYSTEM,
 } from '../../js/agents/referee.js';
@@ -253,7 +253,7 @@ test('M345-9 THE SETTLED OUTCOME RIDES FIRST IN THE CLOSING WORDS, in the writer
   assert(!/A duel is joined/.test(all), 'OFF: no fight is kept for the storyteller');
   assert((off.receipt.slots || []).some((s) => s.name === 'The house has ruled' && s.tokens === 0 && s.reason), 'OFF: nothing rides, and the row stands at 0 saying why (M510-20)');
   const onDuel = build({}, withDuel);
-  assert(/A duel is joined/.test(JSON.stringify(onDuel.messages)), 'ON: the fight that stands rides as before');
+  assert(/A duel is joined/.test(JSON.stringify(onDuel.messages) + notesOf(onDuel)), 'ON: the fight that stands rides as before');
   /* a craft saved before today speaks today's line */
   const oldCraft = CRAFT_TEXT.replace(/^[ \t]*An outcome already settled = [^\n]*$/m, '    The house has ruled = a verdict injected from outside the story REPLACES your own outcome assignment.');
   assert(/The house has ruled = /.test(oldCraft), 'the old copy carries the old line');

@@ -152,7 +152,8 @@ test('M12 coverage: the receipt says when the window widened past its size', () 
     story: {}, messages: pages(45), settings: { noteText: '' }, state: {}, modules: [],
     memory: '', window: { keeperOn: true, window: 30, nodes: [{ span: [0, 14] }] },
   });
-  eq(covered.messages.length, 30, 'covered pages keep the 30-page window');
+  eq(covered.messages.length, 31, 'covered pages keep the 30-page window — opened on his page (M510-37)');
+  eq(covered.messages[0].role, 'user', 'the story opens on his page');
 });
 
 /* ---------- the workers' channel ---------- */

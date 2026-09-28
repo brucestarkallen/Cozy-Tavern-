@@ -4,7 +4,7 @@
  * alone had carried. */
 import { STATE_MARKER } from '../../js/assemble/stack.js'; /* M321 */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { CRAFT_TEXT, looksLikeImportedCraft } from '../../js/assemble/craft.js';
 import { listModules, selectModules, saveModule, removeModule, typedIntimacy } from '../../js/assemble/modules.js';
 import { parseCommand, commandChip } from '../../js/commands.js';
@@ -286,9 +286,10 @@ test('M88-2 the eye rides the storyteller’s next turn as its own receipt-named
   const withEye = buildRequest({ ...base, houseEye: 'The house\'s eye on the last page — slips: ghost dialogue.' });
   const slot = withEye.receipt.slots.find((s) => s.name === 'The house’s eye');
   assert(slot && slot.tokens > 0, 'the slot rides');
-  const injected = withEye.messages.find((m) => m.role === 'user' && String(m.content).startsWith(STATE_MARKER));
+  const injected = { content: notesOf(withEye) }; /* M510-37 */
+  assert(!withEye.messages.some((m) => m.role === 'user' && String(m.content).startsWith(STATE_MARKER)), 'no user message above the story carries it');
   assert(injected && /The house's eye on the last page/.test(injected.content), 'it rides the dynamic tail, never the cached prefix');
-  assert(!withEye.systemBlocks.some((b) => /house's eye on the last page/.test(b.text)), 'not in the system blocks');
+  assert(!withEye.systemBlocks.filter((b) => b.cache).some((b) => /house's eye on the last page/.test(b.text)), 'never in the cached prefix (the frame and the craft) — it rides in the notes, the last system block, uncached (M510-37)');
   const without = buildRequest({ ...base, houseEye: '' });
   assert(without.receipt.slots.some((s) => s.name === 'The house’s eye' && s.tokens === 0 && s.reason), 'a clean last page: nothing rides, and the row stands at 0 saying why (M510-20)');
 });

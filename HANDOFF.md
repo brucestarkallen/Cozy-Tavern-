@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-036)
+# Cozy Tavern — handoff for the next session (state at m510-037)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1068,4 +1068,15 @@ founding design lives in AGENTS.md's first entries.)
   Escape cancels; never empty, never another's name: renamePreset) and Delete; "Save as new preset" under the list. The
   row in use says so. (M510-35 had a picker acting on "the chosen one", delete hidden as "Let the chosen one go", no
   rename.) Laws M510-35 (rename), DOM-141 (Use, Rename, Delete through the rows).
+- M510-37 — THE NOTES ABOVE THE STORY, IN THE SYSTEM: the notes (on their mind, the state of things, the woken rules, the
+  record, canon, the director's and editor's words, the eye…) are the LAST system block (never cached; the frame and the
+  craft stay the cached prefix), no longer a user message in front of the story. The openai mapping joins every system
+  block into the one leading system message; Anthropic sends them as the system array (cache_control on the craft). THE
+  STORY OPENS ON HIS PAGE: a window whose first page is the teller's steps back to the move of his that led to it (the
+  keeper's window of thirty usually does — thirty back from his move is the teller's page; the user-role notes had hidden
+  it); a tale opening on the teller's own page is opened by "(Our story begins.)" (STORY_BEGINS). On a tale's first turn
+  his message stays first: an own-words entry "before your message" steps behind it (M466-4). The frontier wire
+  changed on purpose: the notes word for word from the first user message to the last system block, and the one move of
+  his in front — nothing else. Laws M510-37; A1, M12-coverage and nineteen laws that read the notes as the first message
+  read them from the system (tests/harness/lib.mjs notesOf).
 

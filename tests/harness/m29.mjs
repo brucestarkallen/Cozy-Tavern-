@@ -1,6 +1,6 @@
 /* M29 — the world beyond the page: the world agent, its ledgers, its brief. */
 import './idb-shim.mjs';
-import { test, assert, eq } from './lib.mjs';
+import { test, assert, eq, notesOf } from './lib.mjs';
 import { readFileSync } from 'node:fs';
 import { thinkingHouse, withHouse, thinkingOff, HOUSES } from './thinkinghouse.mjs';
 import {
@@ -201,7 +201,7 @@ test('M29-9 the assembler carries the world’s word, receipt-named, in the dyna
   const state = emptyState();
   const brief = renderWorldBrief(normalizeBrief({ pressure: ['Aurora at 18:40'], ripe: [], twb: null }, 1), 1);
   const r = buildRequest({ story: {}, messages: pages(2), settings: {}, state, modules: [], memory: '', window: { keeperOn: true }, worldBrief: brief, directorNote: 'Episode one.' });
-  const inj = r.messages[0].content;
+  const inj = notesOf(r);
   assert(inj.startsWith(STATE_MARKER), 'rides the state injection');
   assert(inj.indexOf('Aurora at 18:40') !== -1 && inj.indexOf('Aurora at 18:40') < inj.indexOf('Episode one.'), 'the world’s word precedes the director (M495: both found by their own words — the old check looked for a phrase the brief no longer has, so it could never fail)');
   assert(slot(r, 'The world’s word'), 'receipt-named');
