@@ -2493,9 +2493,15 @@ export function initChat(ctx) {
    * the switch existed to prevent. It is a property of the connection now: choosing the connection is choosing the mode,
    * and a connection without the tick never gets one byte of it. */
   const isSmallModel = (conn) => Boolean(conn && conn.smallModel === true);
-  /* M510: THE QUICK SWITCH — who tells this story, one tap from the page. The SAME choice as Settings → "Who tells this
-   * story" (story.connectionId; empty follows the house's active connection), never a second setting: both read and
-   * write that one field. Sorted by name, as his connection list is (M301); a small model wears its mark. */
+  /* M510: THE QUICK SWITCH — who tells the story, one tap from the page. Sorted by name, as his connection list is (M301);
+   * a small model wears its mark.
+   * M510-8: ONE MODEL CHOICE. It first wrote this story's own storyteller (story.connectionId) while Settings' picker wrote
+   * the house's (activeConnectionId): two choosers, two fields — he picked in one and the other showed another model, and
+   * a story the Quick switch had touched kept telling with it whatever Settings said ("the quick switch is not syncing
+   * with the main one in Settings"). Now the Quick switch, Settings' picker and "Use this one" do ONE thing
+   * (useConnection): this connection tells the stories, and the story he is in follows it (its own storyteller, if one
+   * was set, is let go). The switch SHOWS what the story he is in actually uses; Settings → "Who tells this story" stays
+   * the one deliberate exception, and the switch shows it when it stands. */
   const connectionName = (c) => String((c && (c.label || c.model)) || 'a connection') + (isSmallModel(c) ? ' · small model' : '');
   async function refreshQuickSwitch() {
     if (!els.quickSwitch || !els.quickSwitchWrap) return;
@@ -2503,23 +2509,25 @@ export function initChat(ctx) {
       const story = await activeStory();
       const all = (await db.connections.list()).slice().sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { sensitivity: 'base' }));
       if (!story || !all.length) { els.quickSwitchWrap.hidden = true; return; }
-      const houseId = await db.settings.get('activeConnectionId');
-      const house = all.find((c) => c.id === houseId) || all[0];
-      /* the house's own choice leads with its name — on a phone the box shows the first words, and the name is what he reads */
-      const options = [['', connectionName(house) + ' (the house’s)'], ...all.map((c) => [c.id, connectionName(c)])];
+      const using = await resolveConnection(story); /* M510-8: what this story actually tells with */
       els.quickSwitch.textContent = '';
-      for (const [value, text] of options) { const o = document.createElement('option'); o.value = value; o.textContent = text; els.quickSwitch.appendChild(o); }
-      els.quickSwitch.value = typeof story.connectionId === 'string' && all.some((c) => c.id === story.connectionId) ? story.connectionId : '';
+      for (const c of all) { const o = document.createElement('option'); o.value = c.id; o.textContent = connectionName(c); els.quickSwitch.appendChild(o); }
+      els.quickSwitch.value = using && all.some((c) => c.id === using.id) ? using.id : all[0].id;
       els.quickSwitchWrap.hidden = false;
     } catch (err) { /* the switch waits for the next look */ }
   }
-  if (els.quickSwitch) els.quickSwitch.addEventListener('change', async () => {
+  async function useConnection(id) {
+    if (typeof id !== 'string' || !id) return;
+    await db.settings.set('activeConnectionId', id);
     const story = await activeStory();
-    if (!story) return;
-    await db.stories.update(story.id, { connectionId: els.quickSwitch.value || null });
+    if (story && typeof story.connectionId === 'string' && story.connectionId) await db.stories.update(story.id, { connectionId: null });
     await refreshQuickSwitch();
     refreshEmber(); /* the room line is the new storyteller's */
     planAhead(); /* M510: a small model taking the tale gets its plan now, while he types */
+  }
+  if (els.quickSwitch) els.quickSwitch.addEventListener('change', async () => {
+    if (!(await activeStory())) return;
+    await useConnection(els.quickSwitch.value);
   });
   /* M510: THE PLANNING HELPER, READING AHEAD. After each page (the chain's last link), the moment the Quick switch or
    * Settings hands a tale to a small model, and on opening such a tale: the helper reads the whole story and keeps what
@@ -6529,6 +6537,7 @@ export function initChat(ctx) {
     briefFromConcept, /* M478/M479 */
     rippleAfterEdit,
     refreshQuickSwitch, /* M510: Settings tells the main screen when a storyteller or a connection changes */
+    useConnection, /* M510-8: the one model choice — the Quick switch, Settings' picker and "Use this one" */
     planAhead, /* M510: Settings hands a tale to a small model → the helper reads ahead */
     pageReinked, /* M296 */
     resumeUnfinishedChain,

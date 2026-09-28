@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-007)
+# Cozy Tavern — handoff for the next session (state at m510-008)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -481,9 +481,12 @@ founding design lives in AGENTS.md's first entries.)
   (M343, M344, M354, M510). `conn.smallModel === true`; chat.js isSmallModel(connection) -> settingsValues.smallModelNow
   (story pages only). The old global `olderModel` switch is RETIRED — one switch for the whole house leaked the small-model
   words into his frontier model. THE QUICK SWITCH (main screen, its own item on the line under the message box — never
-  inside the links row, which never wraps: there it made the page wider than a phone) IS Settings -> "Who tells this
-  story" (story.connectionId) — one field, two places; the house's option leads with its connection's name ("Kimi (the
-  house's)"); small models wear " · small model" there and in Settings. Settings' renderConnections refreshes it.
+  inside the links row, which never wraps: there it made the page wider than a phone). M510-8: THE ONE MODEL CHOICE — the
+  Quick switch, Settings' picker and "Use this one" all run chat.js useConnection: the house's activeConnectionId, and
+  the story he is in follows it (its own story.connectionId, if set, is let go). The switch shows what the story he is
+  in actually tells with (resolveConnection); Settings -> "Who tells this story" is the one deliberate exception and the
+  switch shows it while it stands. Settings' picker drops a card from before when the connection in use changed
+  elsewhere (activeWhenShown). Small models wear " · small model" there and in Settings; renderConnections refreshes it.
   ON: THE PLANNING HELPER (agents/planner.js, worker row 'planner') reads EVERYTHING — the whole craft, the ledger, the
   people's pages, the record, lore, the world's word, the director, thirty storyteller pages — after each page (the
   chain's last link), when the Quick switch or Settings hands a tale to a small model, and on opening such a tale. Its

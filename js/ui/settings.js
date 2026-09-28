@@ -310,6 +310,9 @@ export function initSettings(ctx) {
    * one card of the connection picked. `shownConnId` is only which card is
    * under the eye; it changes nothing about who tells the story. */
   let shownConnId = null;
+  /* M510-8: the connection in use when the card under the eye was chosen — if it changed elsewhere since (the Quick
+   * switch), the picker shows the one in use again, never a card from before */
+  let activeWhenShown = null;
   let connRenderGeneration = 0;
   async function renderConnections() {
     /* M510: every change to the connections — kept, used, copied, let go — is shown on the Quick switch at once, and a
@@ -332,6 +335,8 @@ export function initSettings(ctx) {
     if (mine !== connRenderGeneration) return; /* a newer render has the room (M245's race) */
     els.connList.textContent = '';
     els.connEmpty.hidden = all.length > 0;
+    if (shownConnId && activeWhenShown !== null && activeId !== activeWhenShown) shownConnId = null; /* M510-8 */
+    activeWhenShown = activeId;
     const shown = all.find((c) => c.id === shownConnId) || all.find((c) => c.id === activeId) || all[0] || null;
     shownConnId = shown ? shown.id : null;
     if (els.connPick) {
@@ -446,7 +451,7 @@ export function initSettings(ctx) {
       useBtn.textContent = conn.id === activeId ? 'In use' : 'Use this one';
       useBtn.disabled = conn.id === activeId;
       useBtn.addEventListener('click', async () => {
-        await db.settings.set('activeConnectionId', conn.id);
+        await useIt(conn.id); /* M510-8: the one model choice */
         renderConnections();
       });
 
@@ -514,6 +519,12 @@ export function initSettings(ctx) {
     /* keep the workers' picker in step with who's available */
     renderWorkers();
   }
+  /* M510-8: THE ONE MODEL CHOICE — the same as the Quick switch's (chat.js useConnection): the house's connection, and the
+   * story he is in follows it */
+  async function useIt(id) {
+    if (ctx.chat && typeof ctx.chat.useConnection === 'function') await ctx.chat.useConnection(id);
+    else await db.settings.set('activeConnectionId', id);
+  }
   if (els.connPick) {
     /* M321: PICKING IT IS USING IT. M301 made this picker a viewer — "looking at a connection does not start using
      * it" — with the choosing left to a small "Use this one" on the card. The writer picked his model
@@ -525,8 +536,10 @@ export function initSettings(ctx) {
       shownConnId = els.connPick.value || null;
       if (shownConnId) {
         const was = await db.settings.get('activeConnectionId');
-        if (was !== shownConnId) {
-          await db.settings.set('activeConnectionId', shownConnId);
+        const story = await activeStory();
+        const own = story && typeof story.connectionId === 'string' && story.connectionId ? story.connectionId : '';
+        if (was !== shownConnId || (own && own !== shownConnId)) { /* M510-8: the story he is in follows the choice too */
+          await useIt(shownConnId);
           const picked = (await db.connections.list()).find((c) => c.id === shownConnId);
           toast('Stories are now told with “' + ((picked && picked.label) || 'this connection') + '”.');
         }

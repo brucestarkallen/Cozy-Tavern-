@@ -12453,3 +12453,21 @@ the send-time reads cover it); quoting overused phrases back (M355's lesson: quo
 laws such as No Echo or The Pass (no evidence of those failures on his pages, and every always-law thins the rest);
 automatic re-asks of a weak page (M377: never).
 
+# M510-8 — the Quick switch and Settings are one model choice
+He: "fix why the quick changing model is not syncing with the main changing model in Settings". Two choosers wrote two
+fields: the Quick switch wrote this story's own storyteller (story.connectionId), Settings' picker wrote the house's
+(activeConnectionId) — pick in one and the other showed another model; a story the Quick switch had touched went on
+telling with its pick whatever Settings then chose (M321's own lesson — picking must be using — broken again by a second
+picker). And Settings' picker kept showing the card under the eye from before (shownConnId) after the Quick switch moved
+the connection in use.
+- chat.js useConnection (the Quick switch, Settings' picker and "Use this one" all run it): the house's connection, and
+  the story he is in follows it — its own storyteller, if one was set, is let go. The switch shows what the story he is
+  in actually tells with (resolveConnection) — no "the house's" option any more; Settings -> "Who tells this story" stays
+  the one deliberate exception and the switch shows it while it stands.
+- settings.js: the picker and "Use this one" go through useConnection (a story with its own storyteller follows a pick
+  of the house's connection too); activeWhenShown drops the card from before when the connection in use changed
+  elsewhere, so the picker shows the one in use (a fresh copy under the eye is kept, M301).
+- DOM-67 re-pinned: the switch shows the story's storyteller; a Quick switch pick is the house's choice and the story
+  follows; Settings' picker then shows it; a Settings pick moves the Quick switch; a story with its own storyteller is
+  shown as such and a pick lets it go.
+

@@ -3591,7 +3591,7 @@ test('DOM-67 THE SMALL-MODEL MODE, IN THE APP (M510): it lives on the connection
   try {
     /* as it ships: the tick is off; the Quick switch stands on the main screen, following the house */
     await until(() => q('#quick-switch') && !q('#quick-switch-wrap').hidden, 'the Quick switch is on the main screen', 10000);
-    eq(q('#quick-switch').value, '', 'it follows the house');
+    eq(q('#quick-switch').value, activeId, 'it shows the storyteller this story tells with');
     const off = await send('I look at her.');
     assert(!/What I have in mind for this page|right now, so it is in front of you/i.test(JSON.stringify(off)), 'OFF: nothing of it');
     assert(!('presence_penalty' in off) && !('top_k' in off), 'OFF: no dial he did not set');
@@ -3634,16 +3634,29 @@ test('DOM-67 THE SMALL-MODEL MODE, IN THE APP (M510): it lives on the connection
     const sel = q('#quick-switch');
     assert([...sel.options].some((o) => o.value === other.id && o.textContent === 'Frontier'), 'every connection is on it');
     sel.value = other.id; sel.dispatchEvent(new env.window.Event('change', { bubbles: true }));
-    await until(async () => (await db.stories.get(st.id)).connectionId === other.id, 'this story’s storyteller, the same field Settings sets', 10000);
+    await until(async () => (await db.settings.get('activeConnectionId')) === other.id && !(await db.stories.get(st.id)).connectionId, 'M510-8: the one model choice — the house’s, and this story follows it', 10000);
     const back = await send('We walk on.');
     const bw = JSON.stringify(back);
     eq(back.model, 'frontier-1', 'the one the Quick switch chose tells the next page');
     assert(!/What I have in mind for this page|right now, so it is in front of you/i.test(bw) && /Pathway Laundering = /.test(bw) && !('presence_penalty' in back), 'the whole request, none of it, none of the small one’s dials');
+    /* M510-8: THE TWO CHOOSERS STAY IN STEP — Settings shows what the Quick switch chose, and the other way round */
+    await openSettings(); click(q('[data-room="house"]'));
+    await until(() => q('#connection-pick') && q('#connection-pick').value === other.id, 'Settings’ picker shows the model the Quick switch chose: ' + (q('#connection-pick') || {}).value, 10000);
+    const pick = q('#connection-pick'); pick.value = activeId; pick.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('activeConnectionId')) === activeId, 'Settings’ pick kept', 10000);
+    await closeSettings();
+    await until(() => q('#quick-switch').value === activeId, 'the Quick switch shows the model Settings chose', 10000);
+    /* a story given its own storyteller (Settings → Who tells this story): the switch shows it, and a pick lets it go */
+    await db.stories.update(st.id, { connectionId: other.id }); await env.ctx.chat.refreshQuickSwitch();
+    eq(q('#quick-switch').value, other.id, 'the switch shows what this story really tells with');
+    sel.value = activeId; sel.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => !(await db.stories.get(st.id)).connectionId && (await db.settings.get('activeConnectionId')) === activeId, 'a pick lets the story’s own storyteller go', 10000);
   } finally {
     house.state.storyAnswer = priorStory;
     house.state.workerAnswer = priorWorker;
     if (was) await db.connections.update(was.id, { smallModel: null, presencePenalty: null, topK: null });
     await db.stories.update(st.id, { connectionId: null });
+    await db.settings.set('activeConnectionId', activeId); /* M510-8: the Quick switch chooses for the house now — the walk's own connection back */
     if (other) await db.connections.remove(other.id);
     await closeSettings();
     await env.ctx.chat.refreshQuickSwitch();
