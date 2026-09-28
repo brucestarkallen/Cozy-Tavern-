@@ -64,6 +64,8 @@ const MARKER_NAMES = [
  * stays empty on purpose — an unknown preset's craft still forks the core
  * through heuristicSort, by the writer's choice. */
 const CRAFT_NAMES = [];
+/* M510-29: 'Banned Words' stays on this list though the craft no longer carries it — a preset brought in again leaves its
+ * banned words out, as he asked; the rest of his preset is untouched */
 const DISTILLED_CRAFT = [
   'Main Prompt', 'Time and Place', 'Writing Guidelines (Anti-Slop)', 'Banned Words', 'Simulation Core',
   'Character Integrity', 'Information Quarantine', 'NPC Psychology', 'Living World', 'HQ NPC Genesis',

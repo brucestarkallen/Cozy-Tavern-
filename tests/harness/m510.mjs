@@ -719,3 +719,17 @@ test('M510-28 THE HOUSEKEEPER HOLDS THE LIVE LEDGER (he asked why it kept saying
   const here2 = (seen[seen.length - 1].match(/Here now: [^\n]*/) || [''])[0];
   assert(!/Kaelen/.test(here2) && /Rukia/.test(here2), 'the next turn holds the ledger as it stands now: ' + here2);
 });
+
+test('M510-29 THE BANNED WORDS LET GO (his word: "I never felt the banned words were bad, and banning them could make it worse"): the craft carries no list and the last look names none; the house’s eye no longer counts them; an unedited saved copy of the old craft follows the new one, an edited one keeps his words; everything else in the craft is as it was', async () => {
+  const { lintPage } = await import('../../js/agents/lint.js');
+  const { followsBuiltin, fingerprint, SHIPPED_BEFORE, listModules } = await import('../../js/assemble/modules.js');
+  assert(!/^Banned Words =/m.test(CRAFT_TEXT) && !/Banned Words\)/.test(CRAFT_TEXT), 'no list, and not named in the last look');
+  assert(/Banned Constructs \(narration only\) =/.test(CRAFT_TEXT) && /Sound As Onomatopoeia =/.test(CRAFT_TEXT), 'the other bans stand as they were');
+  const page = '[The yard — Monday, March 3, 2025 | 09:00 | wind | coat | by the gate]\n\nHer husky voice broke; his breath hitching, a beat passed, and the predatory grin stayed.';
+  eq(lintPage({ mc: 'Jovan', userText: 'I wait.', assistantText: page }).findings.filter((f) => f.law === 'Banned Words').length, 0, 'the eye counts none of them');
+  const craft = (await listModules()).find((m) => m.id === 'core-craft');
+  assert(SHIPPED_BEFORE['core-craft'].includes('1gzud8e'), 'the craft as it shipped is known');
+  eq(followsBuiltin(craft, craft.text), true, 'the craft as it stands follows');
+  eq(followsBuiltin(craft, CRAFT_TEXT + '\nMy own line.'), false, 'a copy he edited keeps his words');
+});
+

@@ -11,7 +11,7 @@ test('M36-1 the core is bounded, keeps the laws, and emits nothing the house now
   assert(CRAFT_TEXT.length > 40000 && CRAFT_TEXT.length < 90000, 'about 20k tokens (M85 restored the NSFW law, the commands, the page): ' + CRAFT_TEXT.length);
   for (const law of ['Symmetry Law', 'No Moral Parachutes', 'Ghost Dialogue', 'Stop At The Slot', 'The 3 Part Trace', 'Secret Identity Quarantine',
     'Ledger Law', 'Tone Is Output Never Input', 'Invention Is The Default', 'Intervention Windows', 'One Significant Beat', 'Sound As Onomatopoeia',
-    'Voice Fingerprints', 'Banned Words', 'Header Protocol', 'NPC Private Thoughts', 'Real People, Real Record', 'A Turn Moves The World']) {
+    'Voice Fingerprints', 'Header Protocol', 'NPC Private Thoughts', 'Real People, Real Record', 'A Turn Moves The World']) {
     assert(CRAFT_TEXT.includes(law), 'the law survives: ' + law);
   }
   for (const gone of ['{PULSE}', '{WATCHLIST}', 'Plot Momentum', 'Emit Order', '<details>', 'ACW Active Character Watchlist', 'TWB the World Beyond']) {

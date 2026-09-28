@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-028)
+# Cozy Tavern — handoff for the next session (state at m510-029)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1026,4 +1026,10 @@ founding design lives in AGENTS.md's first entries.)
   is the live ledger text, so presence.leave fires blind". The block is headed "THE LEDGER — LIVE: read fresh from the
   store the moment the writer spoke to you…", and its standing words say the ledger is live, every applied card shows in
   it, and to look at "Here now" before taking anyone out. Law M510-28.
+- M510-29 — THE BANNED WORDS LET GO (his word): the "Banned Words" law is out of the built-in craft (craft.js) and out of
+  the last look's list; the house's eye (agents/lint.js) no longer counts banned phrases or words; SHIPPED_BEFORE
+  ['core-craft'] holds the craft as it shipped through M510-28 ('1gzud8e'), so an unedited saved copy follows — an edited
+  copy keeps his words; v176map's DISTILLED_CRAFT keeps 'Banned Words' so a preset brought in again leaves them out. His
+  preset's other rules are untouched (the frontier wire differs from m509-016 by exactly the two removed pieces). Laws
+  M510-29, M36-1, M85-2, M88-1, LONG-7 updated.
 

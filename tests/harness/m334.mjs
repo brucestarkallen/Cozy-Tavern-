@@ -24,7 +24,11 @@ test('M334-1 a frame written as "I": the tavern’s own rules become the teller�
   assert(/Bruce authors the fiction; I RUN the simulation/.test(craft) && /hands me the truth each turn/.test(craft) && /REPLACES my own outcome assignment/.test(craft) && /I do not re-derive it, soften it, or improve on it — I render it/.test(craft), 'subject, object and possessive each land right');
   const left = unquoted(craft).match(/[^.\n]{0,25}\byou(r|rs|rself)?\b[^.\n]{0,25}/gi) || [];
   eq(left.filter((x) => !/\(you\/I\/he\/she\/name\)/.test(x)).length, 0, 'no "you" is left speaking to the teller: ' + JSON.stringify(left.slice(0, 3)));
-  assert(/ruin you, don't you dare/.test(craft), 'a list of banned PHRASES is prose being named, and is left alone');
+  /* M510-29: the craft's banned-words line was this law's example of a phrase list; it is gone from the craft, so the
+   * rule is proved on a list of his own that a rule of his could carry */
+  const listed = buildRequest({ story: { brief: 'x' }, messages: [{ id: 'u1', role: 'user', text: 'I wait.' }], settings: { noteText: STARTER_NOTE, frameText: I_FRAME, tellerName: 'Tony Stark', writerName: 'Bruce' }, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }, { mod: { id: 'his-list', name: 'His list', text: "Dead Phrases = fresh meat, breath hitching, breath catching, ruin you, don't you dare, the first time anyone, velvet voice, velvet skin, vise grip, jaw clenched, jaw working, his musk, a beat passed, nobody just, predatory grin." }, reason: 'pinned' }] });
+  const active = listed.receipt.slots.find((s) => s.name === 'Active modules').text;
+  assert(/ruin you, don't you dare/.test(active), 'a list of PHRASES is prose being named, and is left alone: ' + active.slice(0, 160));
   assert(/\(you\/I\/he\/she\/name\)/.test(craft), 'so is the word "you" itself, in a list of pronouns');
   /* M379: the shortcuts ride the same block now, with their own quoted example — left alone like every other */
   const quotedYou = (t) => (String(t).match(/"[^"\n]*\byou\b[^"\n]*"/gi) || []).length;

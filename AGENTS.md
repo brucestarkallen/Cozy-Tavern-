@@ -12775,3 +12775,16 @@ name not there has already gone — engine/apply.js refuses a leave for someone 
 a surface hidden when it stands above. Law M510-28 proves it by behaviour: a reader's write between two of his turns
 shows in the second turn's "Here now".
 
+# M510-29 — the banned words, let go
+He: "please just delete banned words — you don't need to edit my preset to do this, right? I never felt the banned words
+were bad, and banning them could make the experience worse." Found them in three places: (1) the craft's own law
+"Banned Words = dead collocations …" (the built-in craft, distilled from his preset) and the last look's list of bans;
+(2) the house's eye (agents/lint.js), which counted the phrases on every finished page and handed the next turn a recolor
+("the dead phrase … is on the page"); (3) the preset importer's list of sections the craft already holds. The eye is the
+house's own and went without touching anything of his. The ban itself lives in the craft text, so the one line and the
+one mention in the last look had to go from the craft — nothing else in it changed (Banned Constructs, Plain Prose and the
+sound laws stand). SHIPPED_BEFORE['core-craft'] gets the old craft's fingerprint, so a saved copy he never edited follows
+the new one; a copy he edited keeps his words. 'Banned Words' stays on the importer's distilled list, so bringing his
+preset in again leaves them out and the rest of it comes in as before. Laws that asserted the ban (M36-1, M85-2, M88-1,
+LONG-7) now assert it is gone; M510-29 proves it.
+

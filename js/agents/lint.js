@@ -10,7 +10,6 @@ const WINDOW_LINE_ALL = new RegExp(WINDOW_LINE.source, 'gim');
  *   - Ghost Dialogue: a quoted line attributed to the main character that
  *     the writer did not type (MC Agency)
  *   - No Echo: the writer's typed line rendered twice
- *   - Banned Words: the dead collocations, by the list
  *   - Marks On The Page: markdown headers, bold, backticks, a <think> or a
  *     <details> leaking into the prose, an action wrapped in asterisks,
  *     a private thought's markup left unbalanced
@@ -101,11 +100,8 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
   const actions = spans.filter((s) => s.slice(1, -1).trim().split(/\s+/).length >= 4);
   if (actions.length) push('warn', 'Sound As Onomatopoeia', `An action is wrapped in asterisks (${actions[0].slice(0, 60)}) — asterisks wrap contact sounds and nothing else.`);
 
-  /* Banned Words */
-  for (const phrase of BANNED_PHRASES) {
-    const re = new RegExp('\\b' + escapeRe(phrase).replace(/\\ /g, '\\s+') + '\\b', 'i');
-    if (re.test(page)) push('warn', 'Banned Words', `The dead phrase "${phrase}" is on the page.`);
-  }
+  /* M510-29: Banned Words — let go at his word ("I never felt the banned words were bad, and banning them could make
+   * it worse"): the craft no longer carries the list, and the house's eye no longer counts it */
   {
     const lower = page.toLowerCase();
     const hits = ACCORD_TELLS.filter((t) => lower.includes(t));
@@ -135,9 +131,6 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
     const plainHeaders = (page.match(/^\s*\[[^\]\n]+ — [^\]\n]+\]\s*$/gm) || []).length;
     if (windows >= 2 || /The Window Beyond [Tt]he Page/.test(page)) push('warn', 'The Window Beyond The Page', 'The window was written twice (or titled after the rule) — one window, in the exact form, and nothing follows it.');
     else if (windows === 1 && plainHeaders >= 3) push('note', 'The Window Beyond The Page', 'More than one [Location — Day, Time] line beyond the header — a window is one cut, not two.');
-  }
-  for (const word of BANNED_WORDS) {
-    if (new RegExp('\\b' + word + '\\b', 'i').test(page)) push('note', 'Banned Words', `The dead modifier "${word}" is on the page.`);
   }
 
   /* Ghost Dialogue and No Echo */

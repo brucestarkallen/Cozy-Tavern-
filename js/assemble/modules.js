@@ -319,7 +319,10 @@ export function withoutQuotaLines(text) {
  * to that built-in never reached him. The words each built-in shipped with before are known by their fingerprint; a saved
  * copy that is one of them — pinned, never edited — is his pin, not his words, and rides the built-in as it stands now.
  * A copy he edited keeps his words. And a pin now stores no copy at all (saveModule). */
-export const SHIPPED_BEFORE = { nsfw: ['95zud8', '1wkzq1s', '1pp0p8w'] }; /* "When The Scene Turns Intimate" as it shipped through M510-2, at M510-3, at M510-4 */
+export const SHIPPED_BEFORE = {
+  nsfw: ['95zud8', '1wkzq1s', '1pp0p8w'], /* "When The Scene Turns Intimate" as it shipped through M510-2, at M510-3, at M510-4 */
+  'core-craft': ['1gzud8e'], /* M510-29: the craft as it shipped through M510-28, with its Banned Words */
+};
 export function fingerprint(text) {
   let h = 5381;
   const s = String(text == null ? '' : text);

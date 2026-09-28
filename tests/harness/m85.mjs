@@ -68,7 +68,7 @@ test('M85-2 the page’s marks, readable media, the laws the pass alone had carr
     assert(CRAFT_TEXT.includes(law), 'restored: ' + law);
   }
   assert(/Therapy speak, psychoanalysis, emotional validation/.test(CRAFT_TEXT), 'no therapy speak');
-  assert(/nobody has ever, nobody just, ruin you, don't you dare/.test(CRAFT_TEXT), 'the dead phrases joined the list');
+  assert(!/Banned Words =/.test(CRAFT_TEXT) && !/, Banned Words\)/.test(CRAFT_TEXT), 'M510-29: the banned words are let go at his word — no list in the craft, none named in the last look');
   assert(/never another NPC's private observation as their own/.test(CRAFT_TEXT), 'the dialogue pre-check');
   /* the pass reads the command and the page's marks */
   assert(/B — BEAT: which command's law governs this turn/.test(CRAFT_TEXT) && /the page carries no mark but the header/.test(CRAFT_TEXT));
@@ -264,7 +264,8 @@ test('M88-1 the house’s eye: the craft’s mechanical laws checked in code —
   assert(echo.findings.some((f) => f.law === 'No Echo'), 'the typed line rendered twice is caught');
   const marks = lintPage({ mc: 'Jovan', userText: 'I wait.', assistantText: '## The Kitchen\n\n**He waits.** *he steps closer to her* Her breath hitching. ~t~*never*' });
   const laws = marks.findings.map((f) => f.law);
-  for (const law of ['Header Protocol', 'Marks On The Page', 'Sound As Onomatopoeia', 'Banned Words', 'NPC Private Thoughts']) assert(laws.includes(law), 'caught: ' + law);
+  for (const law of ['Header Protocol', 'Marks On The Page', 'Sound As Onomatopoeia', 'NPC Private Thoughts']) assert(laws.includes(law), 'caught: ' + law);
+  assert(!laws.includes('Banned Words'), 'M510-29: “breath hitching” is his to write now — the eye no longer counts banned words');
   assert(!marks.findings.some((f) => /SLAP/.test(f.words)), 'a sound in asterisks is never an action');
   const sound = lintPage({ mc: 'Jovan', userText: 'I wait.', assistantText: hdr + 'She hits him. *SLAP!* Then *thud thud thud* on the stairs. ~t~*He will not stay.*~/t~ She turns.' });
   eq(sound.findings.length, 0, 'a clean page passes: ' + JSON.stringify(sound.findings));

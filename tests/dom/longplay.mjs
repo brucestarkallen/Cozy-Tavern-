@@ -315,7 +315,7 @@ test('LONG-7 the house’s eye: the slipped page carries its findings, the next 
   assert(slipped && Array.isArray(slipped.findings), 'the slipped page has findings');
   const laws = slipped.findings.map((f) => f.law);
   const st = await db.settings.get('state:' + sid);
-  assert(laws.includes('Ghost Dialogue') && laws.includes('Banned Words'), 'both slips caught: ' + laws.join(', ') + ' | mc=' + JSON.stringify(st.sheet && st.sheet.playerName) + ' | findings=' + JSON.stringify(slipped.findings));
+  assert(laws.includes('Ghost Dialogue') && !laws.includes('Banned Words'), 'the ghost line caught; “breath hitching” his to write now (M510-29): ' + laws.join(', ') + ' | mc=' + JSON.stringify(st.sheet && st.sheet.playerName) + ' | findings=' + JSON.stringify(slipped.findings));
   const clean = pages.find((m) => /Person21 entered/.test(m.text));
   assert(!(clean.findings || []).some((f) => f.kind === 'craft'), 'a clean page carries no craft finding');
   const eyeTurn = receipts.find((r) => r.turn === 21);
