@@ -16,8 +16,9 @@ import { db } from '../store.js';
 import { callWorker } from './call.js';
 
 export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
-export const ESSENTIALS_MAX_CHARS = 10000;   /* about 2,500 tokens — the whole story, streamlined */
-export const ESSENTIALS_MAX_TOKENS = 3500;
+/* M510-16: the same room the record's newest lines had (M510-14, about 4,000 tokens) — now spent on the whole story */
+export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
+export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 2;
 
 const fp = (t) => { let h = 5381; const s = String(t == null ? '' : t); for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
@@ -45,7 +46,7 @@ export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
     'What still stands:',
     'Where things were left:',
     '"What still stands" keeps every promise, debt, secret, wound, grudge, bond and who-knows-what a later page could depend on. Leave out what nothing later depends on.',
-    'Use every person\'s name as the record spells it. Invent nothing the record does not say. At most 1,200 words. Answer with the essentials only.',
+    'Use every person\'s name as the record spells it. Invent nothing the record does not say. At most 2,000 words — fewer when the story is young. Answer with the essentials only.',
   ].join('\n');
   const user = [
     mc ? 'The main character (the writer plays him): ' + mc : '',

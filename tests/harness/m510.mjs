@@ -412,7 +412,11 @@ test('M510-17 THE STORY’S ESSENTIALS (his design): the whole record streamline
   const bad = thinkingHouse({ answer: '{"sorry": true}' });
   const failed = await withHouse(bad, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes: [...grown, { span: [24, 29], text: 'A new fold.', level: 1, at: 5 }], mc: 'Jovan' }));
   assert(!failed.wrote && bad.calls.length === 2 && (await loadEssentials('s-ess')).upTo === 23, 'an unusable answer: asked once more, then the essentials already kept stand');
-  assert(/Where things were left:/.test(essentialsAsk({ record: 'x' }).system), 'the four lines are asked for');
+  assert(/Where things were left:/.test(essentialsAsk({ record: 'x' }).system) && /At most 2,000 words/.test(essentialsAsk({ record: 'x' }).system), 'the four lines are asked for, in the room the record’s newest lines had');
+  const { readEssentials, ESSENTIALS_MAX_CHARS } = await import('../../js/agents/essentials.js');
+  eq(ESSENTIALS_MAX_CHARS, 16000);
+  const long = readEssentials('Who they are to each other:\n' + 'Kaelen resents Jovan. '.repeat(1500));
+  assert(long.length === ESSENTIALS_MAX_CHARS && long.endsWith('…'), 'a longer answer is kept to about 4,000 tokens: ' + long.length);
   /* the small request: the essentials in front, the detailed lines only when named or folded since */
   const withLater = [...grown, { span: [24, 29], text: 'LATER-LINE Jovan trained with Rukia at night.', level: 1, at: 5 }];
   const msgs = pages(40);

@@ -12566,3 +12566,11 @@ the chain's last link and planAhead run it for a small teller only; worker row '
 sw.js carries the module; the walk's house knows its prompt. An unusable answer: asked once more, then the kept
 essentials stand. Law M510-17. The frontier request is unchanged.
 
+# M510-16 — the essentials get the room the record's newest lines had
+He: "why 2,500 tokens and not the 4,000 you used before?" No reason that held: the 4,000 tokens M510-14 gave the record's
+newest lines are now the essentials' own (ESSENTIALS_MAX_CHARS 16,000 characters, at most 2,000 words — "fewer when the
+story is young"; max tokens 5,000). A rebuild runs only when the record changed, in the background; while it writes, the
+essentials already kept and the lines folded since carry the page. Answered with it: the essentials are built only while a
+small model tells the tale (the frontier model reads the whole detailed record, as always) and are made again the moment a
+tale is opened with, or handed to, a small model — his ongoing tale builds them by itself, no button. Law M510-17 extended.
+

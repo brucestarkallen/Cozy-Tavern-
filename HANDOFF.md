@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-015)
+# Cozy Tavern — handoff for the next session (state at m510-016)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -518,7 +518,8 @@ founding design lives in AGENTS.md's first entries.)
   helper rewrites it every page — a long rewrite would take minutes a page and shift its details each time.
   M510-15 — THE STORY'S ESSENTIALS (his design, like his Plot Essential Maker): agents/essentials.js streamlines the
   WHOLE record (Summaryception) into four parts — who they are to each other, what has happened in order, what still
-  stands (promises, debts, secrets, wounds, who knows what), where things were left — at most ~2,500 tokens; rebuilt
+  stands (promises, debts, secrets, wounds, who knows what), where things were left — at most ~4,000 tokens (M510-16:
+  the room the record's newest lines had; at most 2,000 words, fewer while the story is young); rebuilt
   whenever the record's fingerprint changes, always from the record itself (never from its last version, so it cannot
   drift). It rides in front of a small model on every page (receipt "Story essentials"); the record's detailed lines
   ride only when a move names them (the recall) or when folded since the essentials were made. No essentials yet: the
