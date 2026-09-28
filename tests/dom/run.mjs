@@ -5729,6 +5729,13 @@ test('DOM-110 USAGE AND COST, IN SETTINGS: what the calls took today, over 7 and
   click([...box.querySelectorAll('.usage-periods button')].find((b) => b.dataset.period === 'month'));
   assert(/Claude · claude-opus-5-5/.test(box.querySelector('.usage-table').textContent), 'its row, by connection and model');
   assert(q('#conn-price-in') && q('#conn-price-out'), 'the price boxes stand in the connection editor');
+  /* M510-25: his busiest day, per model — and a month of days like it; and the cache's own price box */
+  const busiest = [...box.querySelectorAll('.usage-busiest-table tr')].find((r) => r.dataset.model === 'claude-opus-5-5');
+  assert(busiest, 'the busiest-day row for Claude · claude-opus-5-5 stands');
+  const cells = [...busiest.querySelectorAll('td')].map((c) => c.textContent);
+  assert(/2M in · 100k out · \$7\.50/.test(cells[2]) && /60M in · 3M out · \$225/.test(cells[3]), 'that day, and thirty of it a month: ' + cells.join(' | '));
+  assert(/Your busiest day, per model/.test(box.textContent), 'the section says what it is');
+  assert(q('#conn-price-cached'), 'the cached-input price box stands in the connection editor');
   await closeSettings();
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

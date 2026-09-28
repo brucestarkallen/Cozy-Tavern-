@@ -309,7 +309,7 @@ const connections = {
     });
     /* M8: sampling dials and the ember bar's idea of the model's room — a number or nothing; M457: its prices. Unset
      * means "the storyteller's own defaults" — the providers send nothing for a dial that was never turned. */
-    for (const key of ['temperature', 'topP', 'maxTokens', 'contextSize', 'priceIn', 'priceOut', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'seed']) {
+    for (const key of ['temperature', 'topP', 'maxTokens', 'contextSize', 'priceIn', 'priceOut', 'priceCached', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'seed']) {
       if (key in row && !(typeof row[key] === 'number' && Number.isFinite(row[key]))) delete row[key];
     }
     /* M8.5: the thinking voice — {effort, budgetTokens?}; 'off' (or absence) sends nothing */

@@ -27,6 +27,10 @@ function settle(meta, reported, outChars) {
     inTok: inTok !== null ? inTok : Math.round(meta.inChars / CHARS_PER_TOKEN),
     outTok: outTok !== null ? outTok : Math.round(outChars / CHARS_PER_TOKEN),
     estimated: inTok === null || outTok === null,
+    /* M510-25: the cache, as the provider counted it; the prices the connection had; Claude's cache-write rate */
+    cachedTok: reported && Number.isFinite(reported.cachedTok) ? reported.cachedTok : 0,
+    writeTok: reported && Number.isFinite(reported.writeTok) ? reported.writeTok : 0,
+    prices: meta.prices, anthropic: meta.anthropic,
   });
 }
 
@@ -44,7 +48,7 @@ async function readStream(stream, meta) {
   const dec = new TextDecoder();
   let buf = '';
   let outChars = 0;
-  const reported = { inTok: null, outTok: null };
+  const reported = { inTok: null, outTok: null, cachedTok: null, writeTok: null };
   const take = (line) => {
     const t = line.trim();
     if (!t.startsWith('data:')) return;
@@ -54,7 +58,12 @@ async function readStream(stream, meta) {
     try { j = JSON.parse(data); } catch (err) { return; }
     outChars += textOf(j).length;
     const u = usageFrom(j);
-    if (u) { if (u.inTok !== null && (u.inTok > 0 || reported.inTok === null)) reported.inTok = u.inTok; if (u.outTok !== null) reported.outTok = u.outTok; }
+    if (u) {
+      if (u.inTok !== null && (u.inTok > 0 || reported.inTok === null)) reported.inTok = u.inTok;
+      if (u.outTok !== null) reported.outTok = u.outTok;
+      if (u.cachedTok !== null && u.cachedTok !== undefined && (u.cachedTok > 0 || reported.cachedTok === null)) reported.cachedTok = u.cachedTok; /* M510-25 */
+      if (u.writeTok !== null && u.writeTok !== undefined && (u.writeTok > 0 || reported.writeTok === null)) reported.writeTok = u.writeTok;
+    }
   };
   try {
     for (;;) {
@@ -82,6 +91,8 @@ export function watchUsage(url, init, conn, res) {
       connName: conn ? String(conn.label || conn.name || '') : '',
       model: String(body.model || (conn && conn.model) || ''),
       inChars: JSON.stringify(body.messages).length + (body.system ? JSON.stringify(body.system).length : 0),
+      prices: conn ? { in: conn.priceIn ?? null, out: conn.priceOut ?? null, cached: conn.priceCached ?? null } : null, /* M510-25 */
+      anthropic: /\/v1\/messages(?:\?|$)/.test(String(url)) && !/chat\/completions/.test(String(url)),
     };
     if (body.stream && res.body && typeof res.body.tee === 'function' && typeof Response === 'function') {
       const [mine, theirs] = res.body.tee();

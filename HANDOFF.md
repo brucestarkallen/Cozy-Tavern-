@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-024)
+# Cozy Tavern — handoff for the next session (state at m510-025)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -997,4 +997,14 @@ founding design lives in AGENTS.md's first entries.)
   compact view and the whole section was shed (measured on a Bleach-sized ledger: 0 facts; now 16, 8 of them on the
   scene's own question, 900 tokens). A whole view (the frontier model in a large room) never overflows: unchanged. Law
   M510-24.
+- M510-25 — USAGE AND COST, AUDITED (engine/usage.js, providers/meter.js, ui/usage.js, providers/openai.js): (1) streamed
+  storyteller and worker calls now ask for their usage (stream_options.include_usage) — most OpenAI-compatible providers
+  (OpenAI, DeepSeek) report it only when asked, so those pages were estimated (≈); an address that refuses it (by name,
+  or with a 400 naming nothing, tried once more without) is taught and left out (learnedDrop 'stream_options');
+  (2) Kimi's stream puts its usage inside the choice — read; (3) cached input is read in every shape (OpenAI
+  prompt_tokens_details.cached_tokens, DeepSeek prompt_cache_hit_tokens, Kimi cached_tokens, Claude cache_read / its
+  writes apart) and priced at the connection's new "Cached input price" (the input price when unset), Claude's cache
+  writes at 1.25x — it was all priced as full input; (4) the prices a connection had ride with each day's row, so a
+  connection let go keeps its money; (5) "Your busiest day, per model — and a month of days like it": of every day
+  recorded, each model's day with the most tokens, and that day thirty times. Laws M457-4..6, M510-25, DOM-110.
 

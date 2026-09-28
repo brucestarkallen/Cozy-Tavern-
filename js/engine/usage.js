@@ -20,16 +20,35 @@ export function addToDay(day, entry) {
   const was = book[key] && typeof book[key] === 'object' ? book[key] : { connId: String(e.connId || ''), name: String(e.connName || ''), model, in: 0, out: 0, calls: 0, estimated: 0 };
   const inTok = Math.max(0, Math.round(Number(e.inTok) || 0));
   const outTok = Math.max(0, Math.round(Number(e.outTok) || 0));
-  book[key] = { ...was, name: String(e.connName || was.name || ''), in: was.in + inTok, out: was.out + outTok, calls: was.calls + 1, estimated: was.estimated + (e.estimated ? 1 : 0) };
+  /* M510-25: the part of the input the provider served from its cache (and, for Claude, wrote into it), and the prices
+   * the connection had when the call was made — a connection since let go still has its money */
+  const cached = Math.max(0, Math.round(Number(e.cachedTok) || 0));
+  const write = Math.max(0, Math.round(Number(e.writeTok) || 0));
+  book[key] = {
+    ...was, name: String(e.connName || was.name || ''), in: was.in + inTok, out: was.out + outTok, calls: was.calls + 1, estimated: was.estimated + (e.estimated ? 1 : 0),
+    cached: (was.cached || 0) + cached, cacheWrite: (was.cacheWrite || 0) + write,
+    ...(e.anthropic || was.anthropic ? { anthropic: true } : {}),
+    ...(e.prices && typeof e.prices === 'object' ? { prices: e.prices } : (was.prices ? { prices: was.prices } : {})),
+  };
   return book;
 }
 
-/* the money for a row, from its connection's prices — null when no price is set */
+/* the money for a row, from its connection's prices — null when no price is set. M510-25: input served from the
+ * provider's cache is priced at the connection's cached-input price (the input price when none is set); Claude's cache
+ * writes at 1.25 times the input price, as Anthropic charges them; a connection since let go is priced as it was when
+ * its calls were made */
+const priceOf = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 export function costOf(row, conn) {
-  const pin = conn && Number.isFinite(Number(conn.priceIn)) && conn.priceIn !== null && conn.priceIn !== '' ? Number(conn.priceIn) : null;
-  const pout = conn && Number.isFinite(Number(conn.priceOut)) && conn.priceOut !== null && conn.priceOut !== '' ? Number(conn.priceOut) : null;
+  const src = conn ? { in: conn.priceIn, out: conn.priceOut, cached: conn.priceCached } : ((row && row.prices) || {});
+  const pin = priceOf(src.in);
+  const pout = priceOf(src.out);
+  const pcached = priceOf(src.cached);
   if (pin === null && pout === null) return null;
-  return (row.in / 1e6) * (pin || 0) + (row.out / 1e6) * (pout || 0);
+  const cached = Math.max(0, Number(row.cached) || 0);
+  const write = Math.max(0, Number(row.cacheWrite) || 0);
+  const plain = Math.max(0, (Number(row.in) || 0) - cached - write);
+  return (plain / 1e6) * (pin || 0) + (cached / 1e6) * (pcached !== null ? pcached : (pin || 0))
+    + (write / 1e6) * (pin || 0) * (row.anthropic ? 1.25 : 1) + ((Number(row.out) || 0) / 1e6) * (pout || 0);
 }
 
 /* the days (ending today) a period covers */
@@ -48,12 +67,16 @@ function sumDays(books, keys, conns) {
     if (!day || typeof day !== 'object') continue;
     for (const [rk, r] of Object.entries(day)) {
       if (!r || typeof r !== 'object') continue;
-      const was = rows[rk] || { connId: r.connId, name: r.name, model: r.model, in: 0, out: 0, calls: 0, estimated: 0 };
-      rows[rk] = { ...was, name: r.name || was.name, in: was.in + (r.in || 0), out: was.out + (r.out || 0), calls: was.calls + (r.calls || 0), estimated: was.estimated + (r.estimated || 0) };
+      const was = rows[rk] || { connId: r.connId, name: r.name, model: r.model, in: 0, out: 0, calls: 0, estimated: 0, cached: 0, cacheWrite: 0 };
+      rows[rk] = {
+        ...was, name: r.name || was.name, in: was.in + (r.in || 0), out: was.out + (r.out || 0), calls: was.calls + (r.calls || 0), estimated: was.estimated + (r.estimated || 0),
+        cached: was.cached + (r.cached || 0), cacheWrite: was.cacheWrite + (r.cacheWrite || 0), /* M510-25 */
+        ...(was.anthropic || r.anthropic ? { anthropic: true } : {}), ...(was.prices || r.prices ? { prices: was.prices || r.prices } : {}),
+      };
     }
   }
   const byId = new Map((Array.isArray(conns) ? conns : []).map((c) => [String(c.id), c]));
-  const list = Object.values(rows).map((r) => { const c = byId.get(String(r.connId)); return { ...r, name: (c && (c.label || c.name)) || r.name || 'a connection', cost: costOf(r, c) }; })
+  const list = Object.values(rows).map((r) => { const c = byId.get(String(r.connId)); return { ...r, name: (c && (c.label || c.name)) || r.name || 'a connection', cost: costOf(r, c) }; }) /* M510-25: prices as they stand, or as they were */
     .sort((a, b) => (b.in + b.out) - (a.in + a.out));
   const total = list.reduce((t, r) => ({ in: t.in + r.in, out: t.out + r.out, calls: t.calls + r.calls, estimated: t.estimated + r.estimated, cost: r.cost === null ? t.cost : (t.cost || 0) + r.cost, unpriced: t.unpriced || r.cost === null }), { in: 0, out: 0, calls: 0, estimated: 0, cost: null, unpriced: false });
   return { rows: list, total };
@@ -76,12 +99,45 @@ export function summarize(books, conns, nowMs = Date.now()) {
   return out;
 }
 
-/* what a call reported, from one JSON body or one stream event (OpenAI-compatible and Anthropic shapes) */
+/* what a call reported, from one JSON body or one stream event (OpenAI-compatible and Anthropic shapes). M510-25: Kimi's
+ * stream puts its usage inside the choice; and the input served from the cache is read in every shape it comes in —
+ * OpenAI's (prompt_tokens_details.cached_tokens), DeepSeek's (prompt_cache_hit_tokens), Kimi's (cached_tokens),
+ * Claude's (cache_read_input_tokens; its cache writes, cache_creation_input_tokens, apart) */
+const numOr = (v) => (v === undefined || v === null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 export function usageFrom(j) {
   if (!j || typeof j !== 'object') return null;
-  const u = j.usage || (j.message && j.message.usage) || null;
+  const choice = Array.isArray(j.choices) && j.choices[0] && typeof j.choices[0] === 'object' ? j.choices[0] : null;
+  const u = j.usage || (j.message && j.message.usage) || (choice && choice.usage) || null;
   if (!u || typeof u !== 'object') return null;
   const inTok = Number(u.prompt_tokens ?? ((u.input_tokens ?? NaN) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0)));
   const outTok = Number(u.completion_tokens ?? u.output_tokens);
-  return { inTok: Number.isFinite(inTok) ? inTok : null, outTok: Number.isFinite(outTok) ? outTok : null };
+  const details = u.prompt_tokens_details && typeof u.prompt_tokens_details === 'object' ? u.prompt_tokens_details : {};
+  const cachedTok = numOr(details.cached_tokens) ?? numOr(u.prompt_cache_hit_tokens) ?? numOr(u.cached_tokens) ?? numOr(u.cache_read_input_tokens);
+  const writeTok = numOr(u.cache_creation_input_tokens);
+  return { inTok: Number.isFinite(inTok) ? inTok : null, outTok: Number.isFinite(outTok) ? outTok : null, cachedTok, writeTok };
+}
+
+/* M510-25: HIS BUSIEST DAY, PER MODEL — of every day recorded, the one each connection and model used the most tokens
+ * on, and what a month of days like it would come to (that day, thirty times) */
+export function busiestDays(books, conns) {
+  const safe = books && typeof books === 'object' ? books : {};
+  const best = {};
+  for (const [day, book] of Object.entries(safe)) {
+    if (!book || typeof book !== 'object') continue;
+    for (const [rk, r] of Object.entries(book)) {
+      if (!r || typeof r !== 'object') continue;
+      const tokens = (Number(r.in) || 0) + (Number(r.out) || 0);
+      if (!best[rk] || tokens > best[rk].tokens || (tokens === best[rk].tokens && day > best[rk].day)) best[rk] = { day, tokens, row: r };
+    }
+  }
+  const byId = new Map((Array.isArray(conns) ? conns : []).map((c) => [String(c.id), c]));
+  return Object.values(best).map(({ day, row }) => {
+    const c = byId.get(String(row.connId));
+    const cost = costOf(row, c);
+    return {
+      day, name: (c && (c.label || c.name)) || row.name || 'a connection', model: row.model, in: row.in || 0, out: row.out || 0, calls: row.calls || 0,
+      cached: row.cached || 0, estimated: row.estimated || 0, cost,
+      month: { in: (row.in || 0) * 30, out: (row.out || 0) * 30, cost: cost === null ? null : cost * 30 },
+    };
+  }).sort((a, b) => (((b.month.cost === null ? -1 : b.month.cost) - (a.month.cost === null ? -1 : a.month.cost)) || ((b.in + b.out) - (a.in + a.out))));
 }

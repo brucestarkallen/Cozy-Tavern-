@@ -651,3 +651,25 @@ test('M510-24 A CROWDED SCENE KEEPS WHO KNOWS WHAT: eight people here, each know
   const few = { ...applyMutations({ ...emptyState(), page: 20 }, [...muts.slice(0, 3), { type: 'presence.enter', name: 'Kaelen' }, ...Array.from({ length: 6 }, (_, k) => ({ type: 'knowledge.add', name: 'Kaelen', fact: 'Kaelen knows small thing ' + k })) ]).state, page: 20 };
   eq((renderStateFacts(few, { scenePages: scene }).match(/small thing \d/g) || []).length, 4, 'room enough: the newest four, as before');
 });
+
+test('M510-25 THE USAGE, ASKED FOR: every streamed call asks the provider for what it used (most say it only when asked); an address that refuses it by name — or with a refusal that names nothing — is taught once, and asked without it from then on', async () => {
+  const plain = thinkingHouse({ answer: '{"ok":true}' });
+  await withHouse(plain, () => callWorker(CONN, { system: 's', user: 'u' }));
+  const sent = plain.calls[plain.calls.length - 1].body;
+  assert(sent.stream && sent.stream_options && sent.stream_options.include_usage === true, 'asked for: ' + JSON.stringify(sent.stream_options));
+  const { id: _drop, ...bare } = CONN;
+  for (const [label, detail] of [['by name', 'Unrecognized request argument supplied: stream_options'], ['naming nothing', 'Bad request']]) {
+    const inner = thinkingHouse({ answer: '{"ok":true}' });
+    const calls = [];
+    const refusing = { calls, fetch: async (url, opts) => { const body = JSON.parse(opts.body); calls.push(body); if (body.stream_options) return new Response(JSON.stringify({ error: { message: detail } }), { status: 400, headers: { 'content-type': 'application/json' } }); return inner.fetch(url, opts); } };
+    const taught = await db.connections.add({ ...bare, label: 'Refuses the usage request ' + label });
+    const out = await withHouse(refusing, () => callWorker(taught, { system: 's', user: 'u' }));
+    eq(out.text, '{"ok":true}', label + ': the turn went again and answered');
+    assert(calls.length === 2 && calls[0].stream_options && !calls[1].stream_options, label + ': first with it, then without');
+    const back = (await db.connections.list()).find((c) => c.id === taught.id);
+    assert(back && Array.isArray(back.learnedDrop) && back.learnedDrop.includes('stream_options'), label + ': remembered: ' + JSON.stringify(back && back.learnedDrop));
+    const later = thinkingHouse({ answer: '{"ok":true}' });
+    await withHouse(later, () => callWorker(back, { system: 's', user: 'u' }));
+    assert(!later.calls[later.calls.length - 1].body.stream_options, label + ': not asked again');
+  }
+});

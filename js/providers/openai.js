@@ -167,6 +167,7 @@ function requestBody(connection, wireMessages, opts = {}) {
     messages: pf.messages,
     stream: true,
   };
+
   if (typeof connection.temperature === 'number') body.temperature = connection.temperature;
   if (typeof connection.topP === 'number') body.top_p = connection.topP;
   Object.assign(body, knobsOf(connection)); /* M510: top-k, min-p, the penalties, stop texts, a seed — only what he set */
@@ -260,7 +261,7 @@ function requestBody(connection, wireMessages, opts = {}) {
   }
   /* M510: a dial this house refused is left out whatever the thinking's state (the block above stands aside when the
    * thinking is withheld) */
-  { const taught = learnedFacts(connection); if (taught) for (const f of taught.drop) if (KNOB_FIELDS.includes(f)) delete body[f]; }
+  { const taught = learnedFacts(connection); if (taught) for (const f of taught.drop) if (KNOB_FIELDS.includes(f) || f === 'stream_options') delete body[f]; } /* M510-25: and the usage request */
   /* M22-C: "let it look things up" — OpenRouter's web plugin. Only the
    * openrouter host shape carries it; other openai-compatible addresses
    * hide the control in the form. */
@@ -447,6 +448,11 @@ export function createOpenAIProvider(connection) {
     let askedPlan = null; /* M350: what was asked of the model's thinking on the turn it took */
     for (let attempt = 0; attempt < 5 && !res; attempt += 1) { /* M318: the beta address may say no, and the ordinary one may still refuse a dial; M350: a refusal may teach twice (values, a field) before the last resort */
       const { body, prefill, asked } = requestBody(connection, wire, opts);
+      /* M510-25: THE USAGE, ASKED FOR — most OpenAI-compatible providers say what a streamed call used only when asked;
+       * without it the meter could only estimate the page (≈) and never saw the cache. Asked here, on the send loop's own
+       * streamed body — never in requestBody, whose other callers (the Test, the speed probe) send their own or none, and
+       * a body that does not stream must not carry it. An address that will not take it is taught once, below. */
+      if (body.stream === true && !opts.noUsage) { const taught = learnedFacts(connection); if (!(taught && Array.isArray(taught.drop) && taught.drop.includes('stream_options'))) body.stream_options = { include_usage: true }; }
       /* M307: a started reply goes to DeepSeek's beta address, the only one that takes it */
       const beta = prefill.applied && prefillProfile(connection) === 'deepseek' ? deepseekBetaBase(connection.baseUrl) : '';
       const sentUrl = beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`; /* M347: outside the try — the answer's branch reads it */
@@ -463,6 +469,7 @@ export function createOpenAIProvider(connection) {
         throw new Error(`Couldn’t reach ${name} — check the connection and try again.`);
       }
       if (out.ok) {
+        if (opts.usageTried && opts.noUsage) await learnFact(connection, { drop: ['stream_options'] }); /* M510-25 */
         sentWire = { url: sentUrl, body };
         askedPlan = asked;
         if (prefill.note) notes.push(prefill.note);
@@ -484,6 +491,11 @@ export function createOpenAIProvider(connection) {
       if (fourHundred && lateSystem && !lateSystemRefused(connection) && /system/i.test(detail)) {
         await rememberLateSystemRefused(connection); /* M385: for THIS model at this address */
         for (let i = 1; i < wire.length; i += 1) if (wire[i] && wire[i].role === 'system') wire[i] = { ...wire[i], role: 'user' };
+        continue;
+      }
+      /* M510-25: the usage request refused by name — remembered for this address, and the turn goes again without it */
+      if (fourHundred && body.stream_options && /stream_options|include_usage/i.test(detail)) {
+        await learnFact(connection, { drop: ['stream_options'] });
         continue;
       }
       /* M510: A DIAL THIS HOUSE DOES NOT TAKE — read BEFORE the thinking's lesson, so a refusal that names a dial ("top_k
@@ -551,6 +563,9 @@ export function createOpenAIProvider(connection) {
         opts = { ...opts, suppressPrefill: true };
         continue;
       }
+      /* M510-25: a refusal that names nothing while the usage request rode: once more without it before giving up — and
+       * when that goes through, the address is taught */
+      if (fourHundred && body.stream_options && !opts.usageTried) { opts = { ...opts, noUsage: true, usageTried: true }; continue; }
       throw transportError(out, await explain(out, name));
     }
     if (!res) throw new Error(`The answer was no, without a reason (400).`);

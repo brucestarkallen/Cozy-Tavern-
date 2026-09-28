@@ -74,3 +74,60 @@ test('M457-3 THE SUMS AND THE MONEY — today, 7 days, 30 days; per day over the
   const unpriced = summarize(books, [{ id: 'a', label: 'Claude' }], now);
   assert(unpriced.today.total.unpriced === true && unpriced.today.rows.every((r) => r.cost === null), 'no price set: said, never guessed');
 });
+
+test('M457-4 (M510-25) KIMI’S STREAM, AND THE CACHE IN EVERY SHAPE: usage inside the choice is read (not estimated); the input a provider served from its cache is kept apart — OpenAI’s, DeepSeek’s, Kimi’s and Claude’s shapes', async () => {
+  const { usageFrom } = await import('../../js/engine/usage.js');
+  const before = await book();
+  const body = sse([{ choices: [{ delta: { content: 'Rukia bowed.' } }] }, { choices: [{ index: 0, delta: {}, finish_reason: 'stop', usage: { prompt_tokens: 9000, completion_tokens: 700, cached_tokens: 6000 } }] }, '[DONE]']);
+  const was = globalThis.fetch;
+  globalThis.fetch = wire(body);
+  try {
+    const res = await houseFetch('https://api.moonshot.ai/v1/chat/completions', { method: 'POST', body: JSON.stringify({ model: 'kimi-k2', stream: true, messages: [{ role: 'user', content: 'hi' }] }) }, { id: 'c-kimi', label: 'Kimi', priceIn: 0.6, priceOut: 2.5, priceCached: 0.15 });
+    eq(await readAll(res), body, 'the caller’s stream is untouched');
+  } finally { globalThis.fetch = was; }
+  await new Promise((r) => setTimeout(r, 60));
+  const row = (await book())['c-kimi|kimi-k2'];
+  const old = before['c-kimi|kimi-k2'] || { in: 0, out: 0, calls: 0, cached: 0, estimated: 0 };
+  eq(row.in - old.in, 9000, 'Kimi’s usage, read from inside the choice');
+  eq(row.cached - (old.cached || 0), 6000, 'the cached part kept apart');
+  eq(row.estimated - (old.estimated || 0), 0, 'reported, not estimated');
+  eq(JSON.stringify(row.prices), JSON.stringify({ in: 0.6, out: 2.5, cached: 0.15 }), 'the prices the connection had, kept with the row');
+  eq(usageFrom({ usage: { prompt_tokens: 1000, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 700 } } }).cachedTok, 700, 'OpenAI’s shape');
+  eq(usageFrom({ usage: { prompt_tokens: 1000, completion_tokens: 5, prompt_cache_hit_tokens: 800, prompt_cache_miss_tokens: 200 } }).cachedTok, 800, 'DeepSeek’s shape');
+  const claude = usageFrom({ message: { usage: { input_tokens: 50, cache_creation_input_tokens: 2000, cache_read_input_tokens: 18000, output_tokens: 1 } } });
+  assert(claude.inTok === 20050 && claude.cachedTok === 18000 && claude.writeTok === 2000, 'Claude’s: read and written apart, all counted in');
+});
+
+test('M457-5 (M510-25) THE CACHE PRICED AS PROVIDERS CHARGE IT; A CONNECTION LET GO KEEPS ITS MONEY', () => {
+  const { costOf } = globalThis.__usage || {};
+  return import('../../js/engine/usage.js').then(({ costOf: cost, addToDay: add }) => {
+    const ds = add({}, { connId: 'd', connName: 'DeepSeek', model: 'chat', inTok: 1_000_000, outTok: 100_000, cachedTok: 800_000, prices: { in: 0.28, out: 0.42, cached: 0.028 } });
+    const row = ds['d|chat'];
+    eq(Math.round(cost(row, { id: 'd', priceIn: 0.28, priceOut: 0.42, priceCached: 0.028 }) * 1e5) / 1e5, Math.round((0.2 * 0.28 + 0.8 * 0.028 + 0.1 * 0.42) * 1e5) / 1e5, 'the cached 800k at the cached price, the other 200k at the input price');
+    eq(Math.round(cost(row, { id: 'd', priceIn: 0.28, priceOut: 0.42 }) * 1e5) / 1e5, Math.round((1 * 0.28 + 0.1 * 0.42) * 1e5) / 1e5, 'no cached price set: all of it at the input price, as before');
+    const cl = add({}, { connId: 'a', connName: 'Claude', model: 'opus', inTok: 1_000_000, outTok: 0, cachedTok: 600_000, writeTok: 200_000, anthropic: true })['a|opus'];
+    eq(Math.round(cost(cl, { id: 'a', priceIn: 5, priceOut: 25, priceCached: 0.5 }) * 1e4) / 1e4, Math.round((0.2 * 5 + 0.6 * 0.5 + 0.2 * 5 * 1.25) * 1e4) / 1e4, 'Claude: reads at the cached price, writes at 1.25 times the input');
+    eq(Math.round(cost(row, undefined) * 1e5) / 1e5, Math.round((0.2 * 0.28 + 0.8 * 0.028 + 0.1 * 0.42) * 1e5) / 1e5, 'the connection let go: priced as it was when the calls were made');
+    eq(cost({ in: 5, out: 5 }, undefined), null, 'no prices anywhere: said, never guessed');
+    void costOf;
+  });
+});
+
+test('M457-6 (M510-25) HIS BUSIEST DAY, PER MODEL — the day each model used the most, and a month of days like it', async () => {
+  const { busiestDays } = await import('../../js/engine/usage.js');
+  const now = new Date(2026, 8, 24, 15, 0).getTime();
+  const day = (offset) => dayKey(now - offset * 86400000);
+  const books = {};
+  books[day(0)] = addToDay(addToDay({}, { connId: 'a', connName: 'Kimi', model: 'k2', inTok: 2_000_000, outTok: 100_000 }), { connId: 'b', connName: 'DeepSeek', model: 'chat', inTok: 500_000, outTok: 50_000 });
+  books[day(5)] = addToDay({}, { connId: 'a', connName: 'Kimi', model: 'k2', inTok: 6_000_000, outTok: 300_000 });
+  books[day(50)] = addToDay({}, { connId: 'b', connName: 'DeepSeek', model: 'chat', inTok: 9_000_000, outTok: 400_000 });
+  const conns = [{ id: 'a', label: 'Kimi', priceIn: 0.6, priceOut: 2.5 }, { id: 'b', label: 'DeepSeek', priceIn: 0.28, priceOut: 0.42 }];
+  const peak = busiestDays(books, conns);
+  const kimi = peak.find((p) => p.model === 'k2');
+  const ds = peak.find((p) => p.model === 'chat');
+  eq(kimi.day, day(5), 'Kimi’s busiest: five days ago');
+  eq(ds.day, day(50), 'DeepSeek’s: fifty days ago — of every day recorded, not the last thirty');
+  eq(kimi.month.in, 180_000_000, 'a month of days like it: that day thirty times');
+  eq(Math.round(kimi.month.cost * 100) / 100, Math.round((6 * 0.6 + 0.3 * 2.5) * 30 * 100) / 100, 'and its money');
+  eq(peak[0].model, 'k2', 'the dearest month first');
+});

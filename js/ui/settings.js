@@ -141,6 +141,7 @@ export function initSettings(ctx) {
     connMaxTokens: document.getElementById('conn-maxtokens'),
     connPriceIn: document.getElementById('conn-price-in'), /* M457 */
     connPriceOut: document.getElementById('conn-price-out'),
+    connPriceCached: document.getElementById('conn-price-cached'), /* M510-25 */
     connContextSize: document.getElementById('conn-contextsize'),
     btnCancel: document.getElementById('btn-conn-cancel'),
     frameGlobal: document.getElementById('frame-global'),
@@ -727,6 +728,7 @@ export function initSettings(ctx) {
       els.connMaxTokens.value = typeof conn.maxTokens === 'number' ? String(conn.maxTokens) : '';
       if (els.connPriceIn) els.connPriceIn.value = Number.isFinite(conn.priceIn) ? String(conn.priceIn) : ''; /* M457 */
       if (els.connPriceOut) els.connPriceOut.value = Number.isFinite(conn.priceOut) ? String(conn.priceOut) : '';
+      if (els.connPriceCached) els.connPriceCached.value = Number.isFinite(conn.priceCached) ? String(conn.priceCached) : ''; /* M510-25 */
       els.connContextSize.value = typeof conn.contextSize === 'number' ? String(conn.contextSize) : '';
       /* M289: left empty, the room the provider reports for this model is what the house plans in — say it */
       if (typeof conn.contextSize !== 'number' && Number(conn.detectedContext) > 0 && conn.detectedFor === detectKey(conn)) {
@@ -952,6 +954,7 @@ export function initSettings(ctx) {
       contextSize: numOrUnset(els.connContextSize),
       priceIn: priceOrUnset(els.connPriceIn), /* M457: $ per million tokens, for Usage and cost */
       priceOut: priceOrUnset(els.connPriceOut),
+      priceCached: priceOrUnset(els.connPriceCached), /* M510-25: the cache's own price */
     };
     /* M510: Claude's house takes none of the extra dials — they are not offered for it, and never kept for it */
     if (p.type === 'anthropic') for (const key of ['topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'stop', 'seed']) fields[key] = undefined;
@@ -981,7 +984,7 @@ export function initSettings(ctx) {
     if (editingId) {
       /* update() treats null as "let the dial go" (store.js, M8). */
       const patch = { ...fields };
-      for (const key of ['priceIn', 'priceOut', 'temperature', 'topP', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'stop', 'seed', 'smallModel', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
+      for (const key of ['priceIn', 'priceOut', 'priceCached', 'temperature', 'topP', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'stop', 'seed', 'smallModel', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
         if (patch[key] === undefined) patch[key] = null;
       }
       /* M22-A/D: the refusal memories stand until the model field

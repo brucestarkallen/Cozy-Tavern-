@@ -2,7 +2,7 @@
  * 30 days, and on average per day, per week and per month at the rate so far — each connection and model on its own
  * row, and the total. Prices are each connection's own ($ per million tokens, set in its editor). */
 import { db } from '../store.js';
-import { summarize, USAGE_PREFIX } from '../engine/usage.js';
+import { summarize, busiestDays, USAGE_PREFIX } from '../engine/usage.js';
 
 const tok = (n) => (n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 1 : 2).replace(/\.?0+$/, '') + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(Math.round(n)));
 const money = (c) => (c === null || c === undefined ? '—' : '$' + (c >= 100 ? c.toFixed(0) : c >= 1 ? c.toFixed(2) : c.toFixed(3)));
@@ -24,7 +24,7 @@ function table(period) {
   for (const r of period.rows) {
     const tr = mk('tr');
     tr.appendChild(mk('td', '', r.name + ' · ' + r.model + (r.estimated ? ' ≈' : '')));
-    tr.appendChild(mk('td', 'num', tok(r.in)));
+    tr.appendChild(mk('td', 'num', tok(r.in) + (r.cached ? ' (' + tok(r.cached) + ' cached)' : ''))); /* M510-25 */
     tr.appendChild(mk('td', 'num', tok(r.out)));
     tr.appendChild(mk('td', 'num', r.cost === null ? 'no price' : money(r.cost)));
     t.appendChild(tr);
@@ -72,5 +72,29 @@ export async function renderUsage(box, { now = Date.now() } = {}) {
     avg.appendChild(line);
   }
   box.appendChild(avg);
+  /* M510-25: HIS BUSIEST DAY, PER MODEL — and what a month of days like it would come to */
+  const peak = busiestDays(books, conns);
+  const busy = mk('div', 'usage-busiest');
+  busy.appendChild(mk('p', 'stack-label', 'Your busiest day, per model — and a month of days like it'));
+  if (!peak.length) busy.appendChild(mk('p', 'quiet', 'No calls yet.'));
+  else {
+    const t = mk('table', 'usage-table usage-busiest-table');
+    const head = mk('tr');
+    for (const h of ['Connection · model', 'Busiest day', 'That day', 'Every day like it, a month']) head.appendChild(mk('th', '', h));
+    t.appendChild(head);
+    const dayWords = (k) => { const [y, m, d] = String(k).split('-').map(Number); const at = new Date(y, (m || 1) - 1, d || 1); return Number.isFinite(at.getTime()) ? at.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : String(k); };
+    for (const p of peak) {
+      const tr = mk('tr');
+      tr.dataset.model = p.model;
+      tr.appendChild(mk('td', '', p.name + ' · ' + p.model + (p.estimated ? ' ≈' : '')));
+      tr.appendChild(mk('td', '', dayWords(p.day)));
+      tr.appendChild(mk('td', 'num', tok(p.in) + ' in · ' + tok(p.out) + ' out · ' + (p.cost === null ? 'no price' : money(p.cost))));
+      tr.appendChild(mk('td', 'num', tok(p.month.in) + ' in · ' + tok(p.month.out) + ' out · ' + (p.month.cost === null ? 'no price' : money(p.month.cost))));
+      t.appendChild(tr);
+    }
+    busy.appendChild(t);
+    busy.appendChild(mk('p', 'quiet', 'Of every day recorded. A month of days like it is that day thirty times, at each connection’s prices as they stand.'));
+  }
+  box.appendChild(busy);
   box.appendChild(mk('p', 'quiet', '≈ where a provider did not say, tokens are estimated at four characters each.'));
 }

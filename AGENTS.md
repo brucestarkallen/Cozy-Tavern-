@@ -12705,3 +12705,28 @@ facts, in exactly the crowded scene where who knows what matters most. renderSta
 with 2, then 1 facts each (the newest and the ones the scene calls back), and the blind spots likewise, before any
 section is shed whole: 900 tokens, 16 facts, 8 on the scene's question. Law M510-24.
 
+# M510-25 — usage and cost, audited; his busiest day per model
+He: "analyze the usage token meter for bugs; and add my highest day of usage for a specific model, and what a month of
+it would cost". Read the whole road — engine/usage.js (the books and sums), providers/meter.js (every call through
+houseFetch), ui/usage.js (the Settings room), and what the providers send. Found and fixed:
+1. Streamed calls never asked for their usage. OpenAI and DeepSeek report a stream's usage only when asked
+   (stream_options.include_usage) — the speed test asked, the storyteller and the workers did not — so those pages were
+   estimated at four characters a token (≈) and the cache was never seen. openai.js requestBody asks on every stream; a
+   refusal naming it is learned and the turn goes again without it; a 400 that names nothing is tried once more without
+   it before giving up, and learned when that goes through. Left out from then on (learnedDrop, per model and address).
+   Asked on the send loop's own streamed body, never in requestBody: my first version put it there, and M373-3 caught it —
+   the connection Test's speed probe builds its body there too and its "without" attempt still carried the request (and a
+   body that does not stream must never carry it).
+2. Kimi's stream carries its usage inside the choice (choices[0].usage) — usageFrom read only the top level.
+3. The cache was priced as full input. The long stable front of every request (the craft) is served from the provider's
+   cache at a fraction of the price; usageFrom now reads the cached part in every shape (OpenAI, DeepSeek, Kimi, Claude —
+   Claude's cache writes apart, priced at 1.25x input as Anthropic charges them), the day's row keeps it, and a new
+   "Cached input price, $ per million tokens" in the connection editor prices it (empty: the input price — as before).
+   The table shows the cached part beside the input.
+4. A connection let go lost its money (priced from the live connection only). Each day's row keeps the prices the
+   connection had when its calls were made; the live connection's prices still win while it exists.
+Added: "Your busiest day, per model — and a month of days like it" (engine/usage.js busiestDays): of every day
+recorded, the day each connection and model used the most tokens, that day's tokens and money, and thirty of it; the
+dearest month first. Laws M457-4..6 (Kimi's stream, the cache in every shape, its price, a let-go connection, the
+busiest day), M510-25 (the usage request asked and learned), DOM-110 (the section and the price box in the app).
+
