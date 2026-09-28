@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-010)
+# Cozy Tavern — handoff for the next session (state at m510-011)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -495,7 +495,12 @@ founding design lives in AGENTS.md's first entries.)
   Plans are kept per page (id:version — M510-6: never the words' hash, or any mend dropped the small model back on the
   whole story; the words' fingerprint rides beside the plan and the helper reads a changed page again), the last four by
   order, so Try again finds the one before. M510-10: walking to a version (swipe back or forward on the last page)
-  reads ahead too — a version whose plan was pushed out is read again, never sent whole. The plan says it was made BEFORE his move ("how things stood before my move
+  reads ahead too — a version whose plan was pushed out is read again, never sent whole.
+  M510-11 — A SMALL MODEL REMEMBERS THE WHOLE STORY: the helper also writes "story", the whole tale the way a person
+  remembers it (under 180 words, rewritten each page from the whole record and thirty pages), riding at the head of
+  the notes ("Our story so far, the way I remember it:", receipt row "The story in short"); and at send time the M344
+  recall (anchor.js: record lines whose rare words this scene and his message speak, up to three, each with its pages)
+  rides word for word after the plan — the fold his move names, which the helper planned too early to know. The plan says it was made BEFORE his move ("how things stood before my move
   above"; "before my move, that looked like: …") — after his message, a small model must never take it over his move.
   WITH A PLAN — THE SMALL REQUEST (stack.js smallB, his choice B): the craft rides as laws.js ALWAYS_LAWS (The Telling,
   Header Protocol, MC Agency and its companions, Intent Horizon, the Page's three laws) plus the helper's laws, WORD FOR

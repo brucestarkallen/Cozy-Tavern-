@@ -300,3 +300,28 @@ test('M510-12 A FIGHT HE STARTS IN HIS OWN WORDS IS A FIGHT ON THAT PAGE for a s
   assert(!cw.includes('Combat Calibration = ') && !calm.messages[calm.messages.length - 1].content.includes('Sound As Onomatopoeia = '), 'a calm page carries neither');
 });
 
+test('M510-13 A SMALL MODEL REMEMBERS THE WHOLE STORY: the helper keeps it short, the way a person remembers it, at the head of the notes; and the old fold his move names comes back word for word, with its pages — the others stay out', async () => {
+  const lawNames = lawsOf(CRAFT_TEXT).filter((l) => !l.preamble).map((l) => l.name);
+  const plan = readPlan(JSON.stringify({ ...PLAN, story: 'Jovan came to the Seireitei a stranger. ' + 'x '.repeat(2000) }), { present: ['Kaelen'], mc: 'Jovan', lawNames });
+  assert(plan.story.startsWith('Jovan came to the Seireitei a stranger.') && plan.story.length <= 1600, 'the story in short is kept, and kept short: ' + plan.story.length);
+  const STORY = 'Jovan came to the Seireitei a stranger and took the fourth seat Kaelen had trained for; Kaelen has not forgiven it.';
+  const nodes = [
+    { span: [0, 5], text: 'Kaelen swore an oath on the broken lantern at the mountain shrine, and hid the lantern under the stair.' },
+    { span: [6, 11], text: 'Rukia drilled the recruits with wooden practice spears until the bell.' },
+    { span: [12, 17], text: 'The captain named the new seat at the autumn review before the whole division.' },
+    { span: [18, 23], text: 'A storm flooded the lower barracks and the recruits bailed water all night.' },
+    { span: [24, 29], text: 'Kaelen walked the wall alone after the review.' },
+  ];
+  const msgs = pages(12);
+  msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], text: 'I set the broken lantern from the mountain shrine on the table between us.' };
+  const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlan: { ...PLAN, intense: false, story: STORY } });
+  const notes = String(r.messages[0].content);
+  assert(notes.includes('Our story so far, the way I remember it:\n' + STORY), 'the story in short heads the notes: ' + notes.slice(0, 200));
+  assert(r.receipt.slots.some((s) => s.name === 'The story in short' && s.tokens > 0), 'with its own receipt row');
+  const last = String(r.messages[r.messages.length - 1].content);
+  assert(/And from our story so far, each from its own time — \(pages 1–6\) Kaelen swore an oath on the broken lantern at the mountain shrine/.test(last), 'the fold his move names, word for word, with its pages: ' + last.slice(last.indexOf('And from'), last.indexOf('And from') + 160));
+  assert(!/drilled the recruits|flooded the lower barracks/.test(last), 'the folds nothing named stay out');
+  const calm = buildRequest({ story: {}, messages: pages(12), settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlan: { ...PLAN, intense: false } });
+  assert(!/And from our story so far/.test(String(calm.messages[calm.messages.length - 1].content)) && !calm.receipt.slots.some((s) => s.name === 'The story in short'), 'nothing named, nothing called back; no story kept, no row');
+});
+

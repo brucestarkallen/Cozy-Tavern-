@@ -64,7 +64,8 @@ export function plannerAsk({ craft = '', brief = '', castNotes = '', facts = '',
   const system = [
     'You prepare a storyteller for the next page of a long collaborative story. You do not write the page. You read everything the storyteller would need, then write down briefly and concretely what the next page must keep in front of it.',
     'Answer with ONE JSON object and nothing else, in exactly this shape:',
-    '{"scene":"","people":[{"name":"","now":"","wants":"","against":""}],"unknown":[{"name":"","fact":""}],"pressing":[""],"earlier":[""],"laws":[""],"intense":false,"loud":true,"loudWhy":"","sounds":[""],"leaveTo":""}',
+    '{"story":"","scene":"","people":[{"name":"","now":"","wants":"","against":""}],"unknown":[{"name":"","fact":""}],"pressing":[""],"earlier":[""],"laws":[""],"intense":false,"loud":true,"loudWhy":"","sounds":[""],"leaveTo":""}',
+    'story — the whole story so far the way a person remembers it, in plain sentences, under 180 words: who these people are to each other, what has happened that still matters, how things came to stand where they stand. Keep what the later pages depend on; let go of what no longer matters.',
     'scene — one or two plain sentences: where we are and what is happening this moment.',
     'people — only people present in the scene right now, never the main character. now: what they are doing or feeling this moment. wants: what they want right now. against: what they are set against the main character over, or "" — someone hostile stays hostile; nobody softens because he showed up.',
     'unknown — facts that people present have NOT learned (the ledger names them), so the page never lets them know.',
@@ -135,6 +136,7 @@ export function readPlan(raw, { present = [], mc = '', lawNames = [] } = {}) {
     if (laws.length >= MAX_LAWS) break;
   }
   const plan = {
+    story: clip(j.story, 1600), /* M510-11: the whole story, the way a person remembers it */
     scene: clip(j.scene, 400),
     people,
     unknown,

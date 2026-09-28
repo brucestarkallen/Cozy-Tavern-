@@ -646,6 +646,11 @@ export function buildRequest({
   const scenePages = wireable(history).slice(-10).map((m) => m.content); /* M283: who the story keeps naming */
   const people = renderPeopleTiers(state, { recentPages, rotation: history.length, view: smallB ? SMALL_PEOPLE_VIEW : peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
   const peopleText = people ? people.text : '';
+  /* M510-11: THE STORY IN SHORT — a small model reads eight pages; the rest of the tale reached it only as the plan's
+   * three facts from earlier. The helper keeps the whole story the way a person remembers it (under 180 words, rewritten
+   * each page from the whole record and thirty pages), and it rides at the head of the notes. */
+  const storyShort = smallB && typeof smallPlan.story === 'string' ? smallPlan.story.trim() : '';
+  if (storyShort) pushSlot('The story in short', storyShort, 'the planning helper keeps it every page — the whole story as a person remembers it (small model)');
   if (peopleText) {
     const t = people.tiers;
     const said = [];
@@ -723,6 +728,7 @@ export function buildRequest({
   /* M356: the sensors' one line — what the readings noticed drifting, said as the writer would say it, once */
   const sensorLine = typeof sensorNote === 'string' && sensorNote.trim() ? toTeller(sensorNote.trim(), voice) : '';
   const canonText = typeof canonNote === 'string' && canonNote.trim() ? canonNote.trim().replace(/^[^\n]{0,42}'s note — /, '').replace(/^./, (c) => c.toUpperCase()) : '';
+  if (storyShort) stateParts.push('Our story so far, the way I remember it:\n' + storyShort); /* M510-11 */
   if (canonText) stateParts.push(canonText);
   /* M281: THE PEOPLE RIDE. The character ledger's block was built, and counted
    * on the receipt as "On their mind", since M12 — and never put in the
@@ -949,6 +955,16 @@ export function buildRequest({
     const cores = {};
     for (const p of smallPlan.people || []) { const k = findPersonKey(chars, p.name) || p.name; const c = chars[k] && typeof chars[k].core === 'string' ? chars[k].core : ''; if (c) cores[p.name] = c; }
     anchorLine = renderPlan(smallPlan, { voice, anchor, cores, mc: mcNameOf(state) });
+    /* M510-11: THE OLD FOLD HIS MOVE CALLS BACK — the record lines whose rare words this scene and his message speak (M344's
+     * recall, each with its pages), word for word, at send time: the helper planned before his move and cannot know what
+     * it will name. The small request carries no record, so every line of it is far here. */
+    {
+      const lastUserB = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
+      const sceneNowB = [...recentPages, lastUserB ? String(lastUserB.text || '') : ''].filter(Boolean);
+      const namesB = [...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : []), mcNameOf(state)].filter(Boolean);
+      const recallB = recallLine(recallFromRecord(windowInfo && windowInfo.nodes, sceneNowB, { ignore: namesB }));
+      if (recallB) anchorLine += '\n' + recallB;
+    }
     if (smallIntense === true || smallPlan.intense === true) {
       const wentQuiet = Boolean(lastSound && lastSound.intense === true && !lastSound.effects && !lastSound.voiced);
       soundsLine = renderSounds(smallPlan, { voice, laws: joinLaws(lawsNamed(smallLaws, SOUND_LAWS)), wentQuiet });

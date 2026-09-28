@@ -12493,3 +12493,18 @@ pushed out started no reading — the next page went to the small model whole. s
 (planAhead; nothing is asked for another storyteller). DOM-67 walks a new version and back with the plans gone: the
 helper reads the version walked back to, and the ledger is that version's.
 
+# M510-11 — a small model remembers the whole story: the story in short, and the old fold his move names
+He: "a new window, our story so far managed by an agent — a super-concise human memory of the whole polished story — and
+when a scene happens, inject the fold from the larger part, the specific one (turns 1–6, or 1–6 and 10–16), the others
+not". Measured against what the small request carried: eight pages, the ledger's scene view, and the plan's three facts
+from earlier — the rest of the tale reached a small model only through what the helper chose, and nothing at send time
+could pull a far fold back, although M344's recall (anchor.js) does exactly that on the whole-request path.
+- planner.js: the helper also answers "story" — the whole story the way a person remembers it, under 180 words (who these
+  people are to each other, what has happened that still matters, how things came to stand where they stand), rewritten
+  each page from the whole record and thirty pages; readPlan clips it at 1,600 characters.
+- stack.js: it heads the notes ("Our story so far, the way I remember it:"), receipt row "The story in short"; and after
+  the plan, M344's recall runs at send time over the record's lines with this scene and HIS MESSAGE — up to three far
+  lines whose rare words they speak, word for word, each with its pages ("(pages 1–6) …"). The small request carries no
+  record, so every line of it is far here. Nothing named: nothing called back.
+- Law M510-13. The frontier request is unchanged (its record rides whole, as it always did).
+
