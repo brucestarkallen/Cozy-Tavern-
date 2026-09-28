@@ -65,3 +65,18 @@ export const SOUND_LAWS = ['Sound As Onomatopoeia', 'High Intensity Scenes'];
  * is not built (the whole craft rides instead) */
 export const LOAD_BEARING = ['Header Protocol', 'Marks On The Page'];
 export const MAX_CHOSEN_LAWS = 12;
+
+/* M510-7: A FIGHT BEGINS IN HIS OWN WORDS a beat before the ledger marks it (the ledger reads the page AFTER it is written;
+ * the combat rule woke only from the ledger's mark) — so the page where he draws his blade reached a small model with no
+ * fight laws and no sound. A local read of his message, no call — the M85-002 way the intimacy rule wakes. For a small
+ * model's page only; the frontier request is unchanged. An out-of-character line or a house command is not intent. */
+const COMBAT_RE = /\b(?:attack(?:s|ed|ing)?\b(?!\s+(?:of|on)\s+(?:nerves|panic))|punch(?:es|ed|ing)?\s+(?:him|her|them|it|at|back|through)|kick(?:s|ed|ing)?\s+(?:him|her|them|at)|strik(?:e|es|ing)\s+(?:him|her|them|at|first|back)|stab(?:s|bed|bing)?|slash(?:es|ed|ing)?|lung(?:e|es|ed|ing)|tackl(?:e|es|ed|ing)|headbutt(?:s|ed|ing)?|uppercut|draw(?:s|ing)?\s+(?:my|his|her|the)\s+(?:sword|blade|zanpakuto|katana|knife|dagger|gun|pistol|weapon)|swing(?:s|ing)?\s+(?:my|his|her|the)\s+(?:sword|blade|zanpakuto|katana|staff|fist|axe|hammer)|(?:shoot|shoots|shot|fire|fires|fired)\s+(?:at\s+)?(?:him|her|them)|hit(?:s|ting)?\s+(?:him|her|them)\b|fight(?:s|ing)?\s+(?:him|her|them|back)|bankai|shikai)/i;
+export function typedCombat(text) {
+  const t = typeof text === 'string' ? text : '';
+  if (!t || t.length > 6000) return false;
+  if (/^\s*(?:#question|\(\(|\/\/)/.test(t)) return false;
+  return COMBAT_RE.test(t);
+}
+/* the fight laws a small model carries on a fight's page, whatever the helper picked before the fight began */
+export const FIGHT_LAWS = ['Combat Calibration', 'Injury Resolution', 'Symmetry Law'];
+

@@ -12440,3 +12440,16 @@ defects in the design, both fixed:
   it is: "how things stood before my move above", and "Leave off where Jovan has the next choice — before my move, that
   looked like: …". Laws M510-5 (a mend keeps the plan; another version is another page), M510-6 and DOM-67 re-pinned.
 
+# M510-7 — a fight he starts in his own words is a fight on that page
+From the brainstorm he approved: the combat rule woke only from the ledger's combat mark, which the page reader sets
+AFTER a page shows the fight, and the helper planned before his move — so the page where he drew his blade reached a
+small model with no fight laws and, unless the plan foresaw it, no sounds. laws.js typedCombat reads his message
+locally (no call; out-of-character lines and house commands are not intent; "strike a deal", "hit the road" and a
+punchline are not fights), and heatedNow takes it with the ledger's combat mark; stack.js carries FIGHT_LAWS (Combat
+Calibration, Injury Resolution, Symmetry Law — 1,837 characters) on a small model's fight page. The frontier request is
+unchanged (the typed read only feeds the small request). Law M510-12.
+Considered and left, with reasons: a send-time second plan (adds a model call to every send — the background plan and
+the send-time reads cover it); quoting overused phrases back (M355's lesson: quoting primes the repeat); more always-
+laws such as No Echo or The Pass (no evidence of those failures on his pages, and every always-law thins the rest);
+automatic re-asks of a weak page (M377: never).
+

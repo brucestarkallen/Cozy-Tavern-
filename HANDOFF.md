@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-006)
+# Cozy Tavern — handoff for the next session (state at m510-007)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -460,6 +460,10 @@ founding design lives in AGENTS.md's first entries.)
   M510-5: an intimate scene on a small model carries the craft's WHOLE Intimacy section (pacing, limits, Body Veto,
   Erotic Momentum, Power Dynamic, Line-Cross Vertigo, Inexperience…) whatever the helper picked — the woken rule says its
   people half rides in the craft every turn; the sound is braided where the action puts it, never parked in one spot.
+  M510-7: a fight's page carries the craft's fight laws (laws.js FIGHT_LAWS: Combat Calibration, Injury Resolution,
+  Symmetry Law) and the sounds — from the ledger's combat mark, a woken contest rule, a live fight, or HIS OWN WORDS
+  starting one (laws.js typedCombat, a local read like typedIntimacy; the ledger marks a fight only after its page).
+  Small model only: the frontier request is unchanged.
 - THE FRAME SWITCHED OFF IS OFF WHOLE (M510): no teller name leading the house's lines, no grounding phrase planted.
   Frame on: nothing changed.
 - db.connections.add KEEPS EVERY FIELD IT IS GIVEN (M510): it kept an M22-era list and a NEW connection lost its prefill

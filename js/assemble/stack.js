@@ -99,7 +99,7 @@ import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main chara
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { voiceOf, inVoice, toTeller, briefingOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
-import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, SOUND_LAWS, LOAD_BEARING } from './laws.js'; /* M510: his craft, law by law */
+import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
 import { renderPlan, renderSounds } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -416,10 +416,10 @@ export const SMALL_PAGES = 8;
 /* M510-3: IS THIS A HEATED SCENE — read from what woke, never from two built-in ids (his own imported intimacy rule wakes
  * by the same key and was not seen): any rule that woke for intimacy or a contest, the ledger's own intimate mode, a
  * live fight. A rule he pinned on for a whole arc (spectacle combat) is not a heated page by itself. */
-export function heatedNow(selected, state) {
+export function heatedNow(selected, state, typed = '') {
   const woke = (Array.isArray(selected) ? selected : []).some((s) => s && s.mod && (s.mod.whenKey === 'intimate' || s.mod.whenKey === 'combat' || s.mod.id === 'nsfw' || s.mod.id === 'contested-resolution'));
   const st = state && typeof state === 'object' ? state : {};
-  return woke || Boolean(st.mode && st.mode.intimate) || Boolean(st.duel || st.battle || st.war);
+  return woke || Boolean(st.mode && (st.mode.intimate || st.mode.combat)) || Boolean(st.duel || st.battle || st.war) || typedCombat(typed); /* M510-7: his words starting a fight */
 }
 /* M510-2: WHAT THE LEDGER KNOWS OF THE PEOPLE IN THE SCENE RIDES IN THE LEDGER'S OWN WORDS. M510 left a small model the
  * helper's summary alone — a hurt, a secret someone saw, a live grudge of someone standing right there reached it only
@@ -534,8 +534,13 @@ export function buildRequest({
    * without the limits, the pacing and the body's truth that keep it real */
   const intimateNow = selected.some((s) => s && s.mod && (s.mod.whenKey === 'intimate' || s.mod.id === 'nsfw')) || Boolean(state && state.mode && state.mode.intimate);
   const sceneSection = smallB && intimateNow ? smallLaws.filter((l) => l.section === 'Intimacy') : [];
+  /* M510-7: a fight's page carries the craft's fight laws — the ledger's mark, a woken contest rule, a live fight, or his
+   * own words starting one (the helper planned before his move) */
+  const typedNow = (() => { const u = [...history].reverse().find((m) => m && m.role === 'user' && !m.hidden); return u ? String(u.text || '') : ''; })();
+  const fightNow = selected.some((s) => s && s.mod && (s.mod.whenKey === 'combat' || s.mod.id === 'contested-resolution')) || Boolean(state && state.mode && state.mode.combat) || Boolean(state && (state.duel || state.battle || state.war)) || typedCombat(typedNow);
+  const fightSection = smallB && fightNow ? lawsNamed(smallLaws, FIGHT_LAWS) : [];
   const craftForTurn = smallB
-    ? joinLaws([...lawsNamed(smallLaws, [...ALWAYS_LAWS, ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))), ...sceneSection])
+    ? joinLaws([...lawsNamed(smallLaws, [...ALWAYS_LAWS, ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))), ...sceneSection, ...fightSection])
     : craftText;
   const craftWhole = [craftForTurn, shortcuts, starterStanding].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
   pushSlot('The craft', craftWhole, smallB ? 'the laws this scene needs, word for word, with the shortcuts — small model' : 'the rulebook, with the shortcuts', craft ? craft.reason : '');

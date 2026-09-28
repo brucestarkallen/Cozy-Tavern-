@@ -270,3 +270,21 @@ test('M510-11 AN INTIMATE SCENE ON A SMALL MODEL CARRIES THE CRAFT’S WHOLE INT
   assert(!calm.includes('Body Veto Root Rule = ') && !calm.includes('Limits Are Real = '), 'a calm scene carries none of it');
 });
 
+test('M510-12 A FIGHT HE STARTS IN HIS OWN WORDS IS A FIGHT ON THAT PAGE for a small model — the craft’s fight laws and the sounds ride before the ledger has marked it; a deal struck or a question asked is not a fight', async () => {
+  const { typedCombat } = await import('../../js/assemble/laws.js');
+  const { heatedNow } = await import('../../js/assemble/stack.js');
+  for (const t of ['I draw my zanpakuto and lunge at Kaelen.', 'I punch him in the jaw.', 'I swing my staff low.', 'Bankai.', 'I fight back.']) eq(typedCombat(t), true, 'a fight: ' + t);
+  for (const t of ['I strike a deal with the merchant.', 'I kiss her.', '(( is Kaelen stronger than Jovan? ))', 'The punchline lands and everyone laughs.', 'I hit the road at dawn.']) eq(typedCombat(t), false, 'not a fight: ' + t);
+  eq(heatedNow([], {}, 'I draw my sword and attack Kaelen.'), true, 'his words make the page heated');
+  eq(heatedNow([], { mode: { combat: true } }), true, 'so does the ledger’s own combat mark');
+  const calmPlan = { ...PLAN, intense: false, laws: ['Voice Fingerprints'] };
+  const mk = (typed) => { const msgs = pages(12); msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], text: typed }; return build({ smallModelNow: true, frameOn: false, noteOn: false }, { messages: msgs, smallPlan: calmPlan, smallIntense: heatedNow([], yard(), typed) }); };
+  const fight = mk('I draw my zanpakuto and lunge at Kaelen.');
+  const fw = wireOf(fight);
+  for (const law of ['Combat Calibration = ', 'Injury Resolution = ', 'Symmetry Law = ']) assert(fw.includes(law), 'rides on the fight’s page: ' + law);
+  assert(fight.messages[fight.messages.length - 1].content.includes('Sound As Onomatopoeia = two lanes, never mixed'), 'and the sounds ride before the page');
+  const calm = mk('I nod and say good morning.');
+  const cw = wireOf(calm);
+  assert(!cw.includes('Combat Calibration = ') && !calm.messages[calm.messages.length - 1].content.includes('Sound As Onomatopoeia = '), 'a calm page carries neither');
+});
+

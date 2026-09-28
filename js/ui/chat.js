@@ -4300,7 +4300,7 @@ export function initChat(ctx) {
       if (settingsValues.smallModelNow === true) {
         const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
         smallPlan = await loadPlan(story.id, planKey(before)); /* M510-6: the plan of the page this follows, mended or not */
-        smallIntense = heatedNow(selected, state); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode */
+        smallIntense = heatedNow(selected, state, userText); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode; M510-7: his words starting a fight */
         lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
       }
       const probeReceipt = buildRequest({
