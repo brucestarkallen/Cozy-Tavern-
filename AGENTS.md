@@ -12692,3 +12692,16 @@ move and is not said twice; counted in the room before the eight are trimmed. Fo
 lines too (M510-21): a title matched as a name — "Lord Varen" called back every line with "Lord" in it; nameAsWord skips
 titles (Lord, Lady, Sir, Captain, Duke …) to the name itself. The frontier request is unchanged. Law M510-23.
 
+# M510-24 — a crowded scene keeps who knows what
+He: "with all of normal mode's 100k tokens, is the frontier model still coherent? My testing says yes, but my gut says
+the state of things — who knows what — could overwhelm it; on my Bleach tale it is 10k tokens." Measured on a
+Bleach-sized ledger (40 people, 8 in the scene, 14 facts each, threads, wounds, elsewhere): the frontier's state of
+things is 3,046 tokens, 98 facts of who knows what, 12 of them on the page's own question — the ledger's whole view is
+bounded per person (the newest 12 and 4 the scene calls back), and the scene stands first. Not changed: it is proven in
+his play, and the byte-for-byte fixtures hold. The same measurement found a real fault in the COMPACT view (the small
+model's, and a frontier model's in a small room): each person's line of what they know runs long, eight of them
+overflowed the view even trimmed to eight lines, and the shedding loop dropped the whole section — 56 tokens left, 0
+facts, in exactly the crowded scene where who knows what matters most. renderStateFacts now tells what they know again
+with 2, then 1 facts each (the newest and the ones the scene calls back), and the blind spots likewise, before any
+section is shed whole: 900 tokens, 16 facts, 8 on the scene's question. Law M510-24.
+

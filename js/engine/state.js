@@ -962,8 +962,10 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M305: the newest, and the older facts that bear on the scene the last pages tell */
   const known = {};
   const wasThere = wasThereFn(state); /* M509-15 */
-  const knowledgeLines = renderKnowledge(state.knowledge, present, whole ? Infinity : undefined, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, wasThere }, known); /* M336: the present page, so an old fact can say its age; M508: the main character's book is the writer's */
-  if (knowledgeLines) sections.push({ shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'Who knows what: ' });
+  const knowledgeAt = (per) => renderKnowledge(state.knowledge, present, per, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, wasThere }, known); /* M510-24: told again with fewer facts when a crowded scene overflows */
+  const knowledgeLines = knowledgeAt(whole ? Infinity : undefined);
+  const knowSec = knowledgeLines ? { shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'Who knows what: ' } : null;
+  if (knowSec) sections.push(knowSec);
   /* M338: and what each person here has NOT been shown learning — computed from the same lines, no model */
   /* M509: a fact that stands above as a shared line — "Everyone here but X knows" / "Known to A, B, C" — has already
    * said who is out of it; the blind spots name only what the lines above do not */
@@ -972,7 +974,8 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
     .map((s) => ({ ...s, lacks: s.lacks.filter((l) => !(known.shared && known.shared.has(normFact(l.fact)))) }))
     .filter((s) => s.lacks.length);
   const blind = renderBlindSpots(spots);
-  if (blind) sections.push({ shed: 2, text: BLIND_HEAD + blind, trimTo: whole ? Infinity : 8, head: BLIND_HEAD });
+  const blindSec = blind ? { shed: 2, text: BLIND_HEAD + blind, trimTo: whole ? Infinity : 8, head: BLIND_HEAD } : null;
+  if (blindSec) sections.push(blindSec);
 
   /* M86: the living world is not the first thing the budget drops — who is
    * moving toward the scene stands with the body ledger (shed 3); the
@@ -1019,6 +1022,22 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
       const lines = sec.text.slice(sec.head.length).split('\n');
       if (lines.length <= sec.trimTo) continue;
       sec.text = sec.head + lines.slice(0, sec.trimTo).join('\n') + '\n(and ' + (lines.length - sec.trimTo) + ' more present, not written here)';
+    }
+  }
+  /* M510-24: A CROWDED SCENE KEEPS WHO KNOWS WHAT. Each person's line of what they know runs long, and eight of them
+   * overflowed the compact view even trimmed to eight lines — so the whole section was shed, and in a council of eight a
+   * small model read not one line of who knows what (measured: 0 facts; the scene's own question among them). Before any
+   * section is shed whole, what they know is told again with fewer facts each — the newest, and the ones this scene calls
+   * back — and what they have not found out likewise. A whole view never overflows and never comes here. */
+  const fitLines = (sec, text) => {
+    const lines = text.split('\n');
+    sec.text = sec.head + lines.slice(0, sec.trimTo).join('\n') + (lines.length > sec.trimTo ? '\n(and ' + (lines.length - sec.trimTo) + ' more present, not written here)' : '');
+  };
+  if (!whole && join().length > budget) {
+    for (const per of [2, 1]) {
+      if (knowSec) { const again = knowledgeAt(per); if (again) fitLines(knowSec, again); }
+      if (blindSec) { const fewer = renderBlindSpots(spots.map((sp) => ({ ...sp, lacks: sp.lacks.slice(0, per) }))); if (fewer) fitLines(blindSec, fewer); }
+      if (join().length <= budget) break;
     }
   }
   while (join().length > budget && kept.some((s) => s.shed > 0)) {

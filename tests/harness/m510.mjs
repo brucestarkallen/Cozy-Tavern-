@@ -631,3 +631,23 @@ test('M510-23 WHO’S HERE, IN THE RECENT PAGES (his duchy): the storyteller’s
   assert(rec.text.includes('Lord Varen paid') && !rec.text.includes('Aldric'), 'the record’s lines: Varen’s, not every lord’s');
   eq(pagesOfWhoIsHere([], here, { from: 0, to: 0 }).text, '', 'nothing between: nothing');
 });
+
+test('M510-24 A CROWDED SCENE KEEPS WHO KNOWS WHAT: eight people here, each knowing much, overflowed the compact view and it shed the whole section — a small model read not one line of it; now what they know is told again with fewer facts each (the newest and the ones the scene calls back) before anything is shed whole; a whole view is untouched', async () => {
+  const { renderStateFacts } = await import('../../js/engine/state.js');
+  const topics = ['the shrine lantern', 'the captain’s quarters at dawn', 'the seat trial', 'the duel at the autumn review', 'the debt to the Kuchiki', 'the stolen comb', 'the hollow attack in the west district'];
+  const who = ['Rukia Kuchiki', 'Renji Abarai', 'Byakuya Kuchiki', 'Ichigo Kurosaki', 'Orihime Inoue', 'Uryu Ishida', 'Yasutora Sado', 'Toshiro Hitsugaya'];
+  const muts = [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Squad Thirteen barracks' }, { type: 'presence.enter', name: 'Jovan' }];
+  who.forEach((n, i) => { muts.push({ type: 'presence.enter', name: n }); for (let k = 0; k < 14; k += 1) muts.push({ type: 'knowledge.add', name: n, fact: n.split(' ')[0] + ' knows ' + topics[(i + k) % topics.length] + ' — learned when Jovan and ' + who[(i + k + 1) % who.length].split(' ')[0] + ' spoke of it (fact ' + k + ')' }); });
+  const st = { ...applyMutations({ ...emptyState(), page: 200 }, muts).state, page: 200 };
+  const scene = ['I ask Rukia what she saw at the captain’s quarters at dawn.'];
+  const compact = renderStateFacts(st, { scenePages: scene });
+  const facts = compact.match(/\(fact \d+\)/g) || [];
+  assert(/Who knows what: /.test(compact) && facts.length >= who.length, 'the section stands, a fact or two for each of the eight: ' + facts.length);
+  assert(/captain’s quarters at dawn[^\n]*\(fact \d+\)/.test(compact), 'and the scene’s own question among them');
+  assert(compact.length <= 4000 + 200, 'within its room: ' + compact.length);
+  const whole = renderStateFacts(st, { whole: true, budget: 400000, scenePages: scene });
+  assert((whole.match(/\(fact \d+\)/g) || []).length > facts.length, 'a whole view is told whole, as before');
+  /* a scene that fits is told as before: the newest four each */
+  const few = { ...applyMutations({ ...emptyState(), page: 20 }, [...muts.slice(0, 3), { type: 'presence.enter', name: 'Kaelen' }, ...Array.from({ length: 6 }, (_, k) => ({ type: 'knowledge.add', name: 'Kaelen', fact: 'Kaelen knows small thing ' + k })) ]).state, page: 20 };
+  eq((renderStateFacts(few, { scenePages: scene }).match(/small thing \d/g) || []).length, 4, 'room enough: the newest four, as before');
+});

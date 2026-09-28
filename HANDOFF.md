@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-023)
+# Cozy Tavern — handoff for the next session (state at m510-024)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -991,4 +991,10 @@ founding design lives in AGENTS.md's first entries.)
   skipped (it stays beside his move, M510-13); receipt row "Who’s here, in the recent pages" (placeRow puts a late row
   where its part rides). A TITLE IS NOT A NAME (nameAsWord, shared with recordOfWhoIsHere): "Lord Varen" is found as
   "Lord Varen" or "Varen", never "Lord". Law M510-23.
+- M510-24 — A CROWDED SCENE KEEPS WHO KNOWS WHAT (engine/state.js renderStateFacts): when a view that is not whole
+  overflows, what the people here know (and what they have not found out) is told again with 2, then 1 facts each — the
+  newest and the ones the scene calls back — BEFORE any section is shed whole. Before: eight present people overflowed the
+  compact view and the whole section was shed (measured on a Bleach-sized ledger: 0 facts; now 16, 8 of them on the
+  scene's own question, 900 tokens). A whole view (the frontier model in a large room) never overflows: unchanged. Law
+  M510-24.
 
