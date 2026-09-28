@@ -5736,6 +5736,16 @@ test('DOM-110 USAGE AND COST, IN SETTINGS: what the calls took today, over 7 and
   assert(/2M in · 100k out · \$7\.50/.test(cells[2]) && /60M in · 3M out · \$225/.test(cells[3]), 'that day, and thirty of it a month: ' + cells.join(' | '));
   assert(/Your busiest day, per model/.test(box.textContent), 'the section says what it is');
   assert(q('#conn-price-cached'), 'the cached-input price box stands in the connection editor');
+  /* M510-30: the busiest day folds until he opens it, and stays as he left it; the fallback for every worker stands in The workers */
+  const fold = box.querySelector('details.usage-busiest');
+  assert(fold && !fold.open && /Your busiest day, per model/.test(fold.querySelector('summary').textContent), 'folded, its name showing');
+  fold.open = true; fold.dispatchEvent(new env.window.Event('toggle'));
+  await until(async () => (await db.settings.get('usageBusiestOpen')) === true, 'opened, and remembered');
+  const fb = q('#worker-fallback');
+  assert(fb && fb.options.length >= 2 && fb.options[0].value === '' && /No fallback/.test(fb.options[0].textContent), 'the fallback picker: none, or any connection');
+  fb.value = fb.options[1].value; fb.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+  await until(async () => (await db.settings.get('workerFallbackId')) === fb.options[1].value, 'the fallback saved');
+  await db.settings.set('workerFallbackId', null); await db.settings.set('usageBusiestOpen', false);
   await closeSettings();
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

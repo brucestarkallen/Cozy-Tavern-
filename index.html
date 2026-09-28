@@ -616,6 +616,10 @@
           <select id="worker-connection"></select>
           <p class="quiet">Or give any of them hands of their own — cheap, quick work can ride a cheap, quick model:</p>
           <div id="worker-assignments" class="stack"></div>
+          <label class="stack-label" for="worker-fallback">Fallback for every worker</label>
+          <p class="quiet">When a worker’s own connection fails — down, out of credit, too busy — its call goes again at once on this one.</p>
+          <select id="worker-fallback"></select>
+          <p class="quiet" id="worker-fallback-last" hidden></p>
           <label class="stack-label" for="story-connection">Who tells <span id="story-conn-name">this story</span></label>
           <p class="quiet">The storyteller's connection for this tale alone — overrides the house's active one here.</p>
           <select id="story-connection"></select>

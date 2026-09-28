@@ -12788,3 +12788,15 @@ the new one; a copy he edited keeps his words. 'Banned Words' stays on the impor
 preset in again leaves them out and the rest of it comes in as before. Laws that asserted the ban (M36-1, M85-2, M88-1,
 LONG-7) now assert it is gone; M510-29 proves it.
 
+# M510-30 — a fallback for every worker; the busiest day folded
+He: "add a fallback model for the workers, universal, so if anything is down it moves to this one; and in usage and cost,
+a way to hide the busiest day — it makes everything so cluttered." Every worker speaks through one door (agents/call.js
+callWorker, M28) and the housekeeper through its own (callModel); the fallback sits in both. When the worker's connection
+fails — any failure but a call he stopped — the same call goes at once to the connection chosen under Settings → The
+workers → "Fallback for every worker"; never onto itself. If the fallback fails too, the FIRST failure is thrown, and the
+queue retries with its backoff exactly as before. The housekeeper falls back only when its call failed before a word came
+back — a reply cut mid-stream is already on his screen. The last time (who failed, why, who answered) is kept and shown
+under the picker, so it never happens unseen. The busiest day is a folded section (details/summary), closed until he
+opens it, and it stays as he left it. Laws M510-30 (through a house whose reader answers 503), DOM-110 (the picker saves,
+the fold is remembered).
+

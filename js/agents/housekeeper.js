@@ -60,6 +60,7 @@ import { pageText } from '../assemble/stack.js';
 import { renderWholeLedger } from '../engine/whole.js';
 import { createProvider } from '../providers/index.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
+import { fallbackFor, noteFallback, nameOfConnection } from './call.js'; /* M510-30: the fallback for every worker */
 
 const SESSION_PREFIX = 'hk:';
 const SESSION_TURNS_CAP = 60;
@@ -2848,7 +2849,21 @@ export async function housekeeperEffort() {
     return typeof v === 'string' ? v : HK_DEFAULT_EFFORT;
   } catch (err) { return HK_DEFAULT_EFFORT; }
 }
-export async function callModel(connection, { system, messages, maxTokens, signal, onToken, effort } = {}) {
+/* M510-30: the housekeeper falls back too — when its connection fails before a word came back (a reply cut mid-stream
+ * stands as it came: its words are already on his screen) */
+export async function callModel(connection, opts = {}) {
+  let streamed = false;
+  const onToken = typeof opts.onToken === 'function' ? (t) => { streamed = true; opts.onToken(t); } : undefined;
+  const first = await callModelOn(connection, { ...opts, onToken });
+  if (!first.error || streamed || (opts.signal && opts.signal.aborted)) return first;
+  const fb = await fallbackFor(connection);
+  if (!fb) return first;
+  const second = await callModelOn(fb, opts);
+  if (second.error) return first;
+  await noteFallback(connection, fb, { message: first.error });
+  return { ...second, fellBack: nameOfConnection(fb) };
+}
+async function callModelOn(connection, { system, messages, maxTokens, signal, onToken, effort } = {}) {
   try {
     if (!connection || typeof connection !== 'object') return { error: 'no connection' };
     const conn = { ...connection };

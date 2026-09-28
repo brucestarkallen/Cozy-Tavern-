@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-029)
+# Cozy Tavern — handoff for the next session (state at m510-030)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1032,4 +1032,9 @@ founding design lives in AGENTS.md's first entries.)
   copy keeps his words; v176map's DISTILLED_CRAFT keeps 'Banned Words' so a preset brought in again leaves them out. His
   preset's other rules are untouched (the frontier wire differs from m509-016 by exactly the two removed pieces). Laws
   M510-29, M36-1, M85-2, M88-1, LONG-7 updated.
+- M510-30 — THE FALLBACK FOR EVERY WORKER (agents/call.js callWorker, housekeeper.js callModel): Settings → The workers →
+  "Fallback for every worker" (settings workerFallbackId). A worker whose connection fails is sent again at once on the
+  fallback; never onto itself; a stopped call is never resent; both down, the first failure stands and the queue retries;
+  the housekeeper falls back only before a word came back. workerFallbackLast is shown under the picker. And the busiest
+  day in Usage and cost is folded (details) until he opens it — remembered (usageBusiestOpen). Laws M510-30, DOM-110.
 

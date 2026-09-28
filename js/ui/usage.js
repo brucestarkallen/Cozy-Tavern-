@@ -74,8 +74,15 @@ export async function renderUsage(box, { now = Date.now() } = {}) {
   box.appendChild(avg);
   /* M510-25: HIS BUSIEST DAY, PER MODEL — and what a month of days like it would come to */
   const peak = busiestDays(books, conns);
-  const busy = mk('div', 'usage-busiest');
-  busy.appendChild(mk('p', 'stack-label', 'Your busiest day, per model — and a month of days like it'));
+  /* M510-30: folded until he opens it ("it makes everything so cluttered") — and it stays as he left it */
+  const busy = document.createElement('details');
+  busy.className = 'usage-busiest';
+  busy.open = (await db.settings.get('usageBusiestOpen')) === true;
+  const fold = document.createElement('summary');
+  fold.className = 'stack-label';
+  fold.textContent = 'Your busiest day, per model — and a month of days like it';
+  busy.appendChild(fold);
+  busy.addEventListener('toggle', () => { db.settings.set('usageBusiestOpen', busy.open).catch(() => {}); });
   if (!peak.length) busy.appendChild(mk('p', 'quiet', 'No calls yet.'));
   else {
     const t = mk('table', 'usage-table usage-busiest-table');

@@ -189,6 +189,8 @@ export function initSettings(ctx) {
     backupNote: document.getElementById('backup-note'),
     booksLive: document.getElementById('books-live'),
     workerConn: document.getElementById('worker-connection'),
+    workerFallback: document.getElementById('worker-fallback'), /* M510-30 */
+    workerFallbackLast: document.getElementById('worker-fallback-last'),
     workerAssignments: document.getElementById('worker-assignments'),
     workerExtraction: document.getElementById('worker-extraction'),
     workerStoryName: document.getElementById('worker-story-name'),
@@ -1483,6 +1485,27 @@ export function initSettings(ctx) {
       els.workerConn.appendChild(opt);
     }
     els.workerConn.value = wanted && all.some((c) => c.id === wanted) ? wanted : '';
+    /* M510-30: the fallback for every worker, and when it was last used */
+    if (els.workerFallback) {
+      const fbWanted = await db.settings.get('workerFallbackId');
+      els.workerFallback.textContent = '';
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = 'No fallback — wait and try again';
+      els.workerFallback.appendChild(none);
+      for (const conn of all) {
+        const opt = document.createElement('option');
+        opt.value = conn.id;
+        opt.textContent = conn.label;
+        els.workerFallback.appendChild(opt);
+      }
+      els.workerFallback.value = fbWanted && all.some((c) => c.id === fbWanted) ? fbWanted : '';
+      const last = await db.settings.get('workerFallbackLast');
+      if (els.workerFallbackLast) {
+        els.workerFallbackLast.hidden = !(last && last.at);
+        if (last && last.at) els.workerFallbackLast.textContent = 'Last used ' + new Date(last.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ': ' + last.from + ' failed (' + last.why + '), and ' + last.to + ' answered.';
+      }
+    }
 
     /* M17: per-worker hands — each quiet helper may ride a connection of its own */
     /* M245: AN ASYNC RENDER RACE PUT THE SAME DIAL ON THE PAGE TWICE. The list
@@ -1602,6 +1625,9 @@ export function initSettings(ctx) {
 
   els.workerConn.addEventListener('change', async () => {
     await db.settings.set('workerConnectionId', els.workerConn.value || null);
+  });
+  if (els.workerFallback) els.workerFallback.addEventListener('change', async () => { /* M510-30 */
+    await db.settings.set('workerFallbackId', els.workerFallback.value || null);
   });
 
   els.storyConn.addEventListener('change', async () => {

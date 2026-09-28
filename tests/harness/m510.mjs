@@ -733,3 +733,38 @@ test('M510-29 THE BANNED WORDS LET GO (his word: "I never felt the banned words 
   eq(followsBuiltin(craft, CRAFT_TEXT + '\nMy own line.'), false, 'a copy he edited keeps his words');
 });
 
+
+test('M510-30 THE FALLBACK FOR EVERY WORKER (his word: "if anything is down it moves to this one"): a worker whose connection fails is answered at once by the fallback; no fallback set, the failure stands as before; both down, it throws and the queue retries; a call he stopped is never sent again; the housekeeper falls back too; the last time is kept', async () => {
+  const { callWorker, fallbackFor } = await import('../../js/agents/call.js');
+  const { callModel } = await import('../../js/agents/housekeeper.js');
+  const { db: store } = await import('../../js/store.js');
+  const primary = await store.connections.add({ type: 'openai', preset: 'custom', baseUrl: 'https://down.example/v1', apiKey: 'k', model: 'reader', label: 'The reader' });
+  const backup = await store.connections.add({ type: 'openai', preset: 'custom', baseUrl: 'https://backup.example/v1', apiKey: 'k', model: 'backup', label: 'The backup' });
+  const inner = thinkingHouse({ answer: '{"ok":true}' });
+  const hits = [];
+  const down = () => new Response(JSON.stringify({ error: { message: 'Service Unavailable' } }), { status: 503, headers: { 'content-type': 'application/json' } });
+  const house = { calls: inner.calls, fetch: async (url, opts) => { hits.push(String(url)); return /down\.example/.test(String(url)) ? down() : inner.fetch(url, opts); } };
+  await store.settings.set('workerFallbackId', null);
+  let threw = null;
+  try { await withHouse(house, () => callWorker(primary, { system: 's', user: 'u' })); } catch (e) { threw = e; }
+  assert(threw, 'no fallback set: the failure stands, as before');
+  await store.settings.set('workerFallbackId', backup.id);
+  const out = await withHouse(house, () => callWorker(primary, { system: 's', user: 'u' }));
+  eq(out.text, '{"ok":true}', 'the fallback answered');
+  eq(out.fellBack, 'The backup');
+  assert(hits.some((u) => /down\.example/.test(u)) && hits.some((u) => /backup\.example/.test(u)), 'its own connection first, then the fallback');
+  const last = await store.settings.get('workerFallbackLast');
+  assert(last && last.from === 'The reader' && last.to === 'The backup' && /503|Unavailable/i.test(last.why), 'the last time is kept: ' + JSON.stringify(last));
+  eq(await fallbackFor(backup), null, 'the fallback never falls back onto itself');
+  let both = null;
+  try { await withHouse({ calls: [], fetch: async () => down() }, () => callWorker(primary, { system: 's', user: 'u' })); } catch (e) { both = e; }
+  assert(both, 'both down: it throws, and the queue retries as it always did');
+  const ctl = new AbortController(); ctl.abort();
+  const before = hits.length;
+  let stopped = null;
+  try { await withHouse(house, () => callWorker(primary, { system: 's', user: 'u', signal: ctl.signal })); } catch (e) { stopped = e; }
+  assert(stopped && !hits.slice(before).some((u) => /backup\.example/.test(u)), 'a call he stopped is never sent again');
+  const hk = await withHouse(house, () => callModel(primary, { system: 's', messages: [{ role: 'user', content: 'hi' }] }));
+  assert(!hk.error && hk.fellBack === 'The backup' && hk.text === '{"ok":true}', 'the housekeeper falls back too: ' + JSON.stringify(hk).slice(0, 160));
+  await store.settings.set('workerFallbackId', null);
+});

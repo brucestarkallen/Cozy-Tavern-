@@ -32,6 +32,7 @@
  * passes its own level; the ladder still decides what the house can say.
  */
 
+import { db } from '../store.js'; /* M510-30: the fallback is a setting */
 import { createProvider } from '../providers/index.js';
 import { alwaysThinks } from '../providers/effort.js';
 import { WORKER_UNSAFE } from '../providers/knobs.js'; /* M510 */
@@ -114,7 +115,42 @@ export function workerConnection(connection, { maxTokens, effort, temperature } 
   return c;
 }
 
-export async function callWorker(connection, { system, user, messages, maxTokens, effort, temperature, signal } = {}) {
+/* M510-30: THE FALLBACK FOR EVERY WORKER — his word: "add a fallback model for the workers, universal, so if anything is
+ * down it moves to this one". Settings → The workers → "Fallback for every worker" (settings workerFallbackId). When a
+ * worker's own connection fails — down, out of credit, too busy, gone — its call goes again at once on the fallback; a
+ * call he stopped is never sent again. If the fallback fails too, the first failure stands and the queue retries as it
+ * always did. The last time it was used is kept (workerFallbackLast) and shown under the picker. */
+export const FALLBACK_KEY = 'workerFallbackId';
+export const FALLBACK_LAST_KEY = 'workerFallbackLast';
+export const nameOfConnection = (c) => (c && (c.label || c.name || c.model)) || 'a connection';
+const whyOf = (err) => String((err && err.message) || err || 'no answer').split('\n')[0].slice(0, 160);
+export async function fallbackFor(connection) {
+  try {
+    const id = await db.settings.get(FALLBACK_KEY);
+    if (!id) return null;
+    const fb = (await db.connections.list()).find((c) => c && c.id === id);
+    if (!fb || (connection && fb.id === connection.id)) return null;
+    return fb;
+  } catch { return null; }
+}
+export async function noteFallback(from, to, err) {
+  try { await db.settings.set(FALLBACK_LAST_KEY, { at: Date.now(), from: nameOfConnection(from), to: nameOfConnection(to), why: whyOf(err) }); } catch { /* best effort */ }
+}
+export async function callWorker(connection, opts = {}) {
+  try {
+    return await callWorkerOn(connection, opts);
+  } catch (err) {
+    if ((opts.signal && opts.signal.aborted) || (err && err.name === 'AbortError')) throw err;
+    const fb = await fallbackFor(connection);
+    if (!fb) throw err;
+    let out;
+    try { out = await callWorkerOn(fb, opts); } catch { throw err; }
+    await noteFallback(connection, fb, err);
+    return { ...out, fellBack: nameOfConnection(fb), notes: [...out.notes, 'fell back to ' + nameOfConnection(fb) + ' — ' + nameOfConnection(connection) + ' failed: ' + whyOf(err)] };
+  }
+}
+
+async function callWorkerOn(connection, { system, user, messages, maxTokens, effort, temperature, signal } = {}) {
   if (!connection || typeof connection !== 'object') throw new Error('no connection');
   const conn = workerConnection(connection, { maxTokens, effort, temperature });
   const provider = createProvider(conn);
