@@ -2839,6 +2839,12 @@ export function initChat(ctx) {
     return true;
   }
 
+  /* M510-34: what the finisher took off, in his words for the drawer's list of mended pages */
+  function tidyWhy(removed) {
+    const shown = removed.slice(0, 3).map((r) => (/^(?:a World Beyond|\d+ World Beyond)/.test(r) ? r : '“' + (r.length > 90 ? r.slice(0, 89).trimEnd() + '…' : r) + '”'));
+    return 'tidied — took off ' + shown.join('; ') + (removed.length > 3 ? ' and ' + (removed.length - 3) + ' more' : '') + ' (not the story)';
+  }
+
   /* M477: "Mend the pages' marks" — the page repair over every page already kept, by hand. tidyPage is marks and
    * white space only (brackets, the window's marker, a stray or open quote, an asterisk, a soft wrap); a page it would
    * not change is not written. No model, no ledger work; the readers need no re-read for a mark. */
@@ -2846,13 +2852,15 @@ export function initChat(ctx) {
     const story = given || await activeStory();
     if (!story) return { mended: 0, of: 0 };
     const pages = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden);
+    const mcOfTale = mcName(await loadState(story.id));
     let mended = 0;
     for (const page of pages) {
       const before = String(pageText(page) || '');
       if (!before.trim()) continue;
-      const t = tidyPage(before, {});
+      const t = tidyPage(before, { mc: mcOfTale, finish: !page.ooc }); /* M510-34: finished too — never an out-of-character answer */
       if (t.text === before) continue;
       const patch = { text: t.text };
+      if (Array.isArray(t.removed) && t.removed.length && !page.mended) patch.mended = { before, why: tidyWhy(t.removed), at: Date.now() };
       if (Array.isArray(page.swipes) && page.swipes.length) {
         const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
         const swipes = page.swipes.slice();
@@ -4880,11 +4888,16 @@ export function initChat(ctx) {
       /* M340: THE PAGE IS MADE WHOLE BEFORE IT IS KEPT — what he reads, and what the next turn copies. Brackets round a header
        * that lost them; the ledger's ground in front of a header that lost its place; blank lines between paragraphs that
        * came with single newlines. Never a word. (Out-of-character answers are not pages.) */
+      let tidyMend = null; /* M510-34 */
       if (full.trim() && !ooc) {
         try {
           const ground = state && state.place && typeof state.place.name === 'string' ? state.place.name : '';
-          const tidied = tidyPage(full, { place: ground });
+          const untidied = full;
+          const tidied = tidyPage(full, { place: ground, mc: mcName(state) });
           full = tidied.text;
+          /* M510-34: what the finisher took off (an empty window, his storyteller's note to him at the end) is kept with the
+           * page as its earlier words — the drawer lists it, and a tap puts it back */
+          if (Array.isArray(tidied.removed) && tidied.removed.length) tidyMend = { before: untidied, why: tidyWhy(tidied.removed), at: Date.now() };
           /* M510-17: A NEW STORY PAGE WITH NO HEADER STILL GETS ITS PARAGRAPHS — tidyPage leaves header-less text as it is
            * (it mends stored pages and out-of-character answers too), and a first page without a header kept its single
            * line breaks, or one unbroken block */
@@ -4919,6 +4932,7 @@ export function initChat(ctx) {
             sources: streamSources || undefined,
             cutShort: cutShort || undefined,
             stopped: stoppedByHand || undefined,
+            ...(tidyMend ? { mended: tidyMend } : {}), /* M510-34 */
           });
           pending.remove();
           await clearCutThinking(story.id); /* M301: a page landed — it carries its own thinking */
@@ -4955,6 +4969,7 @@ export function initChat(ctx) {
           ooc: ooc || undefined,
           /* M22-C: where it looked things up, folded under the page. */
           sources: streamSources || undefined,
+          ...(tidyMend ? { mended: tidyMend } : {}), /* M510-34 */
         });
         const landedNode = msgNode(saved, showThinking, { isLastAssistant: true, mastheadOn: (await db.settings.get('masthead')) !== false });
         numberPage(landedNode, saved, await db.messages.list(story.id)); /* M483: the page that just landed is numbered — it was the one page the mark never saw ("18 of 19" at the end) */

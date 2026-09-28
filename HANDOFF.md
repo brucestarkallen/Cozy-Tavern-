@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-033)
+# Cozy Tavern — handoff for the next session (state at m510-034)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1048,4 +1048,14 @@ founding design lives in AGENTS.md's first entries.)
 - M510-33 — MOVE A TALE TO ANOTHER SHELF, ITS OWN BUTTON: each tale's row has ⇄ ("Move to another shelf") opening the
   shelves alone; ⇩ ("Take this tale with you") shows only the ways to take it; a long press on the row shows both.
   (Shelves are his "projects" — db.projects.) DOM-10's shelf check updated.
+- M510-34 — THE PAGE FINISHED (ui/pageshape.js finishPage, run at the head of tidyPage): an empty World Beyond (nothing up
+  to the next marker or the end) goes; of the markers that stand only the first opens the window (a later one goes, its
+  words kept); the storyteller's notes to him at the page's END go — the last paragraphs, from the end back, each a note
+  and nothing else (questions or offers to "you", what does <MC> do, OOC/author's notes/"note:", "to be continued", "your
+  move", a word count, a bare separator, a header with no page under it; a paragraph of a few sentences when every one is
+  such a note). Speech (a quote at its start or inside) and anything past 400 characters are story. At most four
+  paragraphs and 900 characters, never leaving under 200; never an out-of-character answer (finish:false). What came off
+  is returned (removed) and kept as the page's earlier words (msg.mended, "tidied — took off …") — the drawer lists it,
+  a tap puts it back — for a new page (chat.js landing) and for stored pages (mendAllPages, once per build on open, never
+  over an existing mend). Laws M510-34, DOM-140.
 

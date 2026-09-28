@@ -12828,3 +12828,31 @@ row now has its own ⇄ button, "Move to another shelf", which opens the shelves
 not at rest); ⇩ shows only the ways to take the tale with you; a long press on the row still shows both. The walk's
 shelf check now moves the tale with ⇄ and proves ⇩ offers no shelf.
 
+# M510-34 — the page finished: careful, autonomous, never the story
+He: "the AI is getting more unstable — make something careful that never changes the story but absolutely makes sure no
+stupid things are on the page: several *** The World Beyond *** doubled at the end with nothing under them; the
+storyteller breaking the fourth wall talking nonsense at the end — something smart, not flex tape, that fixes the whole
+page autonomously without breaking or destroying the story." Found: nothing looked at either. engine/window.js only
+wrote the marker in its exact form; nothing asked whether a window had anything in it, or whether the page's last
+paragraphs were the storyteller talking to him. ui/pageshape.js finishPage, run first in tidyPage (so every new page, and
+every stored page on the once-per-build mend):
+- THE WINDOW: a marker with nothing under it (to the next marker or the end) goes; of the markers that stand, only the
+  first opens the window and a later one goes — its words stay, in the one window (the lint's "one window a page").
+- THE TAIL: from the page's end back, a paragraph goes only when it is a note to him and nothing else — a question or
+  offer to "you" ("What will you do?", "Would you like me to…", "Shall I continue?", "Let me know…"), "What does <his
+  character> do?", OOC / an author's note / "Note:", "to be continued", "your move", a word count, a separator left with
+  nothing after it, a header with no page under it; a paragraph of up to four sentences when every one is such a note.
+- NEVER: a paragraph that opens on or carries a line of speech (story); anything past 400 characters; more than four
+  paragraphs or 900 characters; anything that would leave under 200 characters of page; an out-of-character answer.
+- RECORDED AND REVERSIBLE: what came off is returned and kept as the page's earlier words (msg.mended — "tidied — took off
+  …"); the drawer's list of mended pages shows it, and "Put the earlier words back" restores it. A stored page that
+  already carries a mend keeps its own. His old pages are finished on the next open (the M488 mend, once per build).
+Law M510-34 (what goes, what always stays, the limits); DOM-140 (a new page through the app: the empty windows and the
+note come off, the story is whole, and the tap puts them back).
+Found while building it: (1) the two parts met in one order in the app — the windows first, then the tail — so a note
+under the last marker came off and left that marker empty; a window marker standing last with nothing under it is now a
+tail piece itself (M510-34b proves the app's order). (2) tidyPage's return gained "removed" on every page and M458-2,
+which compares it whole, failed; "removed" is there only when something came off. (3) DOM-139 (copy the words) left his
+frame changed for every test after it — the walk's house then took the storyteller's request for a worker's; it now puts
+the frame and the note back as it found them.
+

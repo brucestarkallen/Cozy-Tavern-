@@ -788,3 +788,36 @@ test('M510-32b a right-shaped closer standing alone on a line with no thought go
   eq(mendMarks('"Fine," Rukia said. ~/t~').text, '"Fine," Rukia said.', 'alone on its line: it goes');
   eq(mendMarks('~t~*a*~/t~ she says. *emph*~/t~').text, '~t~*a*~/t~ she says. *emph*~/t~', 'on a line with a thought: left to the letter');
 });
+
+test('M510-34 THE PAGE FINISHED (his word: "no stupid things on the page — never changing the story"): an empty or doubled World Beyond, and the storyteller’s note to him at the page’s end, come off; speech, a letter, the story and a short page never do; at most four paragraphs and 900 characters, and never leaving under 200; never an out-of-character answer; what came off is returned', async () => {
+  const { tidyPage, finishPage } = await import('../../js/ui/pageshape.js');
+  const H = '[The yard — Monday, March 3, 2025 | 09:00 | wind | coat | by the gate]\n\n';
+  const story = 'Rukia turned from the gate, the wind pulling at her sleeve. The courtyard was empty now, the lanterns guttering one by one as the night came down over the barracks.\n\nShe did not look back. Somewhere behind her the bell of the Thirteenth rang the hour, and the sound followed her all the way to the stair.';
+  const fin = (body, opts = {}) => { const r = tidyPage(H + body, { mc: 'Jovan', ...opts }); return { page: r.text.slice(H.length), removed: r.removed || [], did: r.did }; };
+  let r = fin(story + '\n\n*** The World Beyond ***\n\n*** The World Beyond ***');
+  eq(r.page, story, 'two empty windows at the end: gone');
+  r = fin(story + '\n\n*** The World Beyond ***\n\nAcross the Seireitei, Byakuya read the report twice.\n\n*** The World Beyond ***\n\nIn the west district, a hollow stirred.');
+  eq(r.page, story + '\n\n*** The World Beyond ***\n\nAcross the Seireitei, Byakuya read the report twice.\n\nIn the west district, a hollow stirred.', 'a second window inside the first: one window, every word kept');
+  for (const note of ['What will you do next? Let me know!', '*(OOC: I kept the pacing slow to build tension. Would you like me to speed things up?)*', 'What does Jovan do?', 'Would you like me to continue the scene?', 'Your move.', '[What do you do?]', "Author's note: this chapter sets up the duel.", '---']) {
+    r = fin(story + '\n\n' + note);
+    eq(r.page, story, 'a note to him goes: ' + note);
+    assert(r.removed.includes(note.trim()) && r.did.includes('tail'), 'and what came off is returned: ' + JSON.stringify(r.removed));
+  }
+  eq(fin(story + '\n\n---\n\n*(OOC: slow on purpose.)*').removed.length, 2, 'the separator and the note after it');
+  for (const kept of ['"What will you do next?" Rukia asked, not turning.', 'I hope this finds you well, brother.', 'She wondered what would come next, and whether Jovan would follow.', 'What will you do? she thought, and did not ask it aloud, though the words sat on her tongue a long while.']) {
+    r = fin(story + '\n\n' + kept);
+    assert(r.page.endsWith(kept) && !r.did.includes('tail'), 'story stays: ' + kept);
+  }
+  eq(fin('Rukia nodded.\n\nWhat will you do?').page, 'Rukia nodded.\n\nWhat will you do?', 'a short page is left as it came');
+  const long = Array.from({ length: 6 }, () => 'Let me know if you want more.').join('\n\n');
+  assert(fin(story + '\n\n' + long).page.includes('Let me know if you want more.'), 'never more than four paragraphs');
+  eq(tidyPage('Here is what I think.\n\nLet me know if you want more detail!', { finish: false }).text, 'Here is what I think.\n\nLet me know if you want more detail!', 'an out-of-character answer is never finished');
+  eq(finishPage(story).removed.length, 0, 'a clean page: nothing');
+});
+test('M510-34b the finisher’s two parts in either order: a note under the last window comes off, and so does the window it leaves empty', async () => {
+  const { tidyPage } = await import('../../js/ui/pageshape.js');
+  const H = '[The yard — Monday, March 3, 2025 | 09:00 | wind | coat | by the gate]\n\n';
+  const story = 'Rukia turned from the gate, the wind pulling at her sleeve. The courtyard was empty now, the lanterns guttering one by one as the night came down over the barracks.\n\nShe did not look back. Somewhere behind her the bell of the Thirteenth rang the hour, and the sound followed her all the way to the stair.';
+  const r = tidyPage(H + story + '\n\n*** The World Beyond ***\n\n*** The World Beyond ***\n\nWhat will you do next? Let me know!', { mc: 'Jovan' });
+  eq(r.text.slice(H.length), story, 'the empty windows and the note under them, all gone: ' + JSON.stringify(r.text.slice(-60)));
+});

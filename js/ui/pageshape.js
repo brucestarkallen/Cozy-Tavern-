@@ -20,7 +20,7 @@
  *   3. a display rule for the five-field header (regex-styles.js), for the one page where nobody knows the place yet.
  * Pure: no store, no DOM. */
 import { isHeaderLine } from './headergate.js';
-import { normalizeWindowMark } from '../engine/window.js'; /* M467 */
+import { normalizeWindowMark, WINDOW_LINE } from '../engine/window.js'; /* M467; M510-34 */
 
 const DATEISH = /^(?:\p{Extended_Pictographic}\s*)?(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d|^\d{4}-\d{2}-\d{2}|^\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/iu;
 const FENCED = /<!--\s*GFX_START|\{PULSE\}|\{WATCHLIST\}|\{VOICES\}|```/;
@@ -232,19 +232,117 @@ export function partParagraphs(text) {
 }
 
 /* before the page is kept: brackets, the place the ledger already holds, white space — never a word */
-export function tidyPage(text, { place = '' } = {}) {
+/* M510-34: THE PAGE FINISHED — his word: "make something careful, not changing the story, that absolutely makes sure no
+ * stupid things are on the page: several *** The World Beyond *** at the end with nothing under them; the storyteller
+ * breaking the fourth wall, talking nonsense at the end — something smart, not flex tape, autonomous, that never breaks
+ * the story." Two kinds of thing, and only these, leave a page — never a word of the story:
+ *   THE WINDOW'S MARKER WITH NOTHING UNDER IT (up to the next marker or the page's end) goes; and of the markers that
+ *   stand, only the first opens the window — a later one inside it goes, its words staying in the one window.
+ *   THE STORYTELLER TALKING TO HIM AT THE PAGE'S END — the last paragraphs only, from the end back, each one a note to the
+ *   writer and nothing else: a question or offer to "you" ("What will you do?", "Would you like me to…", "Let me know…",
+ *   "Shall I continue?"), what does <his character> do next, a note, OOC, an author's note, "to be continued", "your
+ *   move", a word count, a separator left with nothing after it, a header with no page under it. A paragraph that opens
+ *   on a line of speech, or carries one, is story — never touched; so is anything past 400 characters.
+ * Careful by construction: at most four paragraphs and 900 characters come off, and never when less than 200 characters
+ * of page would be left — then the page stands as it came. What came off is returned (removed), so it is kept with the
+ * page and a tap puts it back (chat.js: the page's earlier words, msg.mended). */
+const TAIL_SEPARATOR = /^[ \t]*(?:[-–—_=~•·*][ \t]*){3,}$/;
+const TAIL_META = [
+  /^(?:so,?\s+|now,?\s+|and\s+)?(?:what|how|where)\s+(?:will|would|do|does|should|shall)\s+(?:you|we)\b[^"“”]{0,140}\?$/i,
+  /^(?:would|do)\s+you\s+(?:like|want)\s+(?:me\s+)?to\b/i,
+  /^(?:shall|should)\s+i\s+(?:continue|go\s+on|keep\s+going|proceed|write|carry\s+on)\b/i,
+  /^let\s+me\s+know\s+(?:if|what|how|whether|when)\b/i,
+  /^feel\s+free\s+to\b/i,
+  /^i\s+hope\s+(?:this|that|the\s+(?:scene|page|chapter|response|continuation))\s+(?:captures|works|fits|meets|continues|is\s+what\s+you|helps|flows|feels|reads)\b/i,
+  /^i\s+hope\s+you\s+(?:enjoy|like|liked|enjoyed)\b/i,
+  /^i(?:'ve|’ve|\s+have)\s+(?:written|kept|tried\s+to|focused\s+on|made\s+sure|included|continued)\b[^"“”]{0,200}\b(?:scene|page|response|story|chapter|tone|pacing|character|continuation)\b/i,
+  /^here(?:'s|’s|\s+is)\s+(?:the|your|a)\s+(?:next|continuation|scene|page|chapter|response)\b/i,
+  /^(?:ooc|out\s+of\s+character|author'?s?\s+note|author’s\s+note|a\/n|note\s+to\s+(?:the\s+)?(?:writer|reader|user)|note)\s*[:\-—–]/i,
+  /^(?:to\s+be\s+continued|continued?|end\s+of\s+(?:the\s+)?(?:page|scene|chapter|response|part)|awaiting\s+your\s+(?:response|input|move|reply)|your\s+(?:turn|move)(?:,\s*[^.!?]{1,40})?|(?:what|how)\s+(?:do|will)\s+you\s+respond)\s*[.!?…]*$/i,
+  /^word\s+count\s*[:\-—–]?\s*\d/i,
+];
+const TAIL_WRAPS = /^[\s>*_~#(\[]+|[\s*_~)\].]+$/g;
+function tailIsNote(para, mc) {
+  const raw = String(para || '').trim();
+  if (!raw || raw.length > 400) return false;
+  if (/^[\s>*_~(\[]*["“'‘]/.test(raw) || /["“][^"”\n]{2,}["”]/.test(raw)) return false; /* speech is story */
+  if (TAIL_SEPARATOR.test(raw)) return true;
+  if (WINDOW_LINE.test(raw) && !/\n/.test(raw)) return true; /* the window's marker as the page's last paragraph: nothing under it */
+  if (isHeaderLine(raw) && !/\n/.test(raw)) return true; /* a header with no page under it */
+  const b = raw.replace(TAIL_WRAPS, '').trim() + (/[?!]$/.test(raw.replace(/[\s*_~)\]]+$/, '')) ? raw.replace(/[\s*_~)\]]+$/, '').slice(-1) : '');
+  const bare = b.replace(/([?!])\1$/, '$1');
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const mcAsk = mc ? new RegExp('^(?:so,?\\s+|now,?\\s+)?(?:what|how)\\s+(?:do|does|will|would|should)\\s+(?:' + esc(mc) + '|' + esc(mc.split(/\s+/)[0]) + ')\\s+(?:do|say|respond|react|choose|decide|want)\\b[^"“”]{0,100}\\?$', 'i') : null;
+  const isNote = (x) => TAIL_META.some((re) => re.test(x)) || (mcAsk && mcAsk.test(x)) || /^let\s+me\s+know[.!…]*$/i.test(x);
+  if (isNote(bare)) return true;
+  /* a paragraph of a few sentences, every one of them a note to him ("What will you do next? Let me know!") */
+  const sentences = bare.split(/(?<=[.!?…])\s+/).map((x) => x.replace(TAIL_WRAPS, '').trim()).filter(Boolean);
+  if (sentences.length > 1 && sentences.length <= 4 && sentences.every((x) => isNote(x.replace(/([?!])\1$/, '$1')) || isNote(x + (/[?!.]$/.test(x) ? '' : '?')))) return true;
+  /* a paragraph wholly in brackets, addressed to "you": a note to the writer */
+  if (/^[\s*_]*[(\[][^\n|]{3,300}[)\]][\s*_.!?]*$/.test(raw) && /\byou(?:r)?\b/i.test(raw)) return true;
+  return false;
+}
+export function finishPage(text, { mc = '' } = {}) {
+  const given = String(text == null ? '' : text);
+  const removed = [];
+  const did = [];
+  let lines = given.split('\n');
+  const marks = lines.map((l, i) => (WINDOW_LINE.test(l) ? i : -1)).filter((i) => i >= 0);
+  if (marks.length) {
+    const drop = new Set();
+    marks.forEach((i, k) => {
+      const end = k + 1 < marks.length ? marks[k + 1] : lines.length;
+      if (!lines.slice(i + 1, end).join('\n').trim()) drop.add(i);
+    });
+    marks.filter((i) => !drop.has(i)).slice(1).forEach((i) => drop.add(i));
+    if (drop.size) {
+      const empties = marks.filter((i) => drop.has(i)).length;
+      lines = lines.filter((_, i) => !drop.has(i));
+      removed.push(empties === 1 ? 'a World Beyond with nothing under it, or a second one inside the first' : empties + ' World Beyond markers with nothing under them, or inside the first');
+      did.push('windows');
+    }
+  }
+  let page = lines.join('\n').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+  const paras = page.split(/\n[ \t]*\n/);
+  const taken = [];
+  while (paras.length > 1 && taken.length < 4) {
+    const last = paras[paras.length - 1];
+    if (!last.trim()) { paras.pop(); continue; }
+    if (!tailIsNote(last, mc)) break;
+    taken.unshift(last.trim());
+    paras.pop();
+  }
+  if (taken.length) {
+    const left = paras.join('\n\n');
+    if (taken.join('\n').length <= 900 && left.replace(/\s+/g, ' ').trim().length >= 200) {
+      page = left;
+      removed.push(...taken);
+      did.push('tail');
+    }
+  }
+  if (!did.length) return { text: given, removed: [], did: [] };
+  return { text: page + (given.endsWith('\n') ? '\n' : ''), removed, did };
+}
+
+export function tidyPage(text, { place = '' , mc = '', finish = true } = {}) {
   /* M467: the window's marker in the exact form, whatever dressing the model gave it ("The World Beyond" bare, bold, a
    * heading) — marks only, the three words as they are — so the 🎨 box, the readers' cut and the lint all see it */
   const given = String(text == null ? '' : text);
-  const src = normalizeWindowMark(given);
-  const did = src !== given ? ['window'] : [];
+  const windowed = normalizeWindowMark(given);
+  const did = windowed !== given ? ['window'] : [];
+  /* M510-34: the page finished — the empty or doubled window and the storyteller's note to him at the end, and nothing
+   * else (never for an out-of-character answer: finish false) */
+  const fin = finish ? finishPage(windowed, { mc }) : { text: windowed, removed: [], did: [] };
+  const src = fin.text;
+  did.push(...fin.did);
+  const removed = fin.removed;
   const h = readHeader(src);
   if (!h) { /* M458/M476 — a text with no header keeps its line breaks here: this mend also runs over every stored page and
      * out-of-character answer (M477/M488), whose line breaks are theirs (M340-1). A NEW story page with no header is
      * given its paragraphs where it is kept (chat.js, M510-17). */
     const j = joinSoftWraps(src); const m = mendMarks(j.text);
     const done = [...did]; if (j.changed) done.push('wraps'); if (m.changed) done.push('marks');
-    return done.length ? { text: m.text, did: done } : { text: src, did };
+    return done.length ? { text: m.text, did: done, ...(removed.length ? { removed } : {}) } : { text: src, did };
   }
   let inner = h.inner;
   const ground = String(place || '').replace(/[\[\]|\n]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -259,5 +357,5 @@ export function tidyPage(text, { place = '' } = {}) {
   if (marked.changed) { body = marked.text; did.push('marks'); }
   if (!did.length) return { text: src, did };
   const out = h.lead + '[' + inner + ']' + (body.trim() ? '\n\n' + body.replace(/\s+$/, '') : '');
-  return { text: out, did };
+  return { text: out, did, ...(removed.length ? { removed } : {}) }; /* M510-34: what came off, only when something did */
 }

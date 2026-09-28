@@ -6941,9 +6941,12 @@ test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s
   const before = errors.length;
   const clip = clipboardSpy();
   const priorConfirm = env.window.confirm;
+  /* the boxes keep what is typed into them — his frame and note are put back as they were, for every test after this one
+   * (DOM-140 caught the frame left behind: a storyteller's request that no longer opened on the house's frame) */
+  const keptFrame = await db.settings.get('frameText'); const keptNote = await db.settings.get('noteText');
   try {
     await openSettings();
-    const put = (id, words) => { const box = q(id); box.value = words; box.dispatchEvent(new env.window.Event('input', { bubbles: true })); };
+    const put = (id, words) => { const box = q(id); box.value = words; };
     put('#frame-global', 'FRAME-WORDS I am Tony Stark, and I tell it fast.');
     click(q('#btn-copy-frame'));
     await until(() => clip.taken.includes('FRAME-WORDS I am Tony Stark, and I tell it fast.'), 'the frame, as it stands in its box');
@@ -6963,6 +6966,33 @@ test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s
     await until(async () => !((await db.settings.get('ownWords')) || []).some((w) => w && w.text === 'OWN-WORDS right, still me.'), 'the card let go again');
   } finally { clip.restore(); env.window.confirm = priorConfirm; }
   await closeSettings();
+  if (keptFrame == null) await db.settings.delete('frameText'); else await db.settings.set('frameText', keptFrame);
+  if (keptNote == null) await db.settings.delete('noteText'); else await db.settings.set('noteText', keptNote);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-140 THE PAGE FINISHED, IN THE APP (M510-34): a page that ends in an empty World Beyond and a note to him is kept without them — the story whole — and what came off is its earlier words, a tap away', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the finished page' });
+  await db.stories.update(st.id, { extraction: false, keeper: false });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = house.state.storyAnswer;
+  const STORY = 'Rukia turned from the gate, the wind pulling at her sleeve. The courtyard was empty now, the lanterns guttering one by one as the night came down.\n\nShe did not look back. Somewhere behind her the bell of the Thirteenth rang the hour, and the sound followed her all the way to the stair.';
+  house.state.storyAnswer = () => '[The yard — Monday, March 3, 2025 | 21:00 | wind | coat | by the gate]\n\n' + STORY + '\n\n*** The World Beyond ***\n\n*** The World Beyond ***\n\nWhat will you do next? Let me know!';
+  try {
+    type(q('#composer-input'), 'I watch her go.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0, 'readers', 40000);
+    const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    assert(page.text.endsWith('all the way to the stair.'), 'kept without the empty windows and the note: ' + JSON.stringify(page.text.slice(-80)));
+    assert(page.text.includes('She did not look back.'), 'the story whole');
+    assert(page.mended && /tidied — took off/.test(page.mended.why) && /What will you do next\? Let me know!/.test(page.mended.why) && /World Beyond/.test(page.mended.before), 'what came off is its earlier words: ' + JSON.stringify(page.mended && page.mended.why));
+    await env.ctx.chat.unmend(page.id);
+    const back = (await db.messages.list(st.id)).find((m) => m.id === page.id);
+    assert(back.text.endsWith('What will you do next? Let me know!') && !back.mended, 'a tap puts it back');
+  } finally { house.state.storyAnswer = prior; }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
