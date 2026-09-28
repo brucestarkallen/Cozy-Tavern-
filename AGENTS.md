@@ -12800,3 +12800,13 @@ under the picker, so it never happens unseen. The busiest day is a folded sectio
 opens it, and it stays as he left it. Laws M510-30 (through a house whose reader answers 503), DOM-110 (the picker saves,
 the fold is remembered).
 
+# M510-31 — copy the words
+He: "add copy for the frame and the notes and what the storyteller's words are, so I can copy-paste it." Settings → The
+frame and The note at the end — the house's and this story's own — each carry "Copy the words" beside "Keep it": what
+stands in the box, kept or not yet. Each of his own words (ownwords.js) carries one too. "What the storyteller saw" had
+a Copy for each part, but only inside the part once it was tapped open — he did not find it ("a control I cannot find does
+not exist"): the Copy now stands on every part's row, one per part (none repeated inside), and Raw keeps its Copy per
+message and Copy all. Every one goes through receiptview.js copyWords, which also copies on the phone's own address,
+where the clipboard API is refused. DOM-70 now copies from the row; DOM-139 copies the frame, the note and his own words
+through the real Settings screen.
+

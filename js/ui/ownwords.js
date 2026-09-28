@@ -12,6 +12,7 @@
  * land under a typing hand — M428's law); the switch and the two choices are
  * kept the moment they change. Letting an entry go asks first — it erases
  * words he wrote (M175's law). */
+import { copyWords } from './receiptview.js'; /* M510-31 */
 import { db } from '../store.js';
 import { OWN_WORDS_PLACES } from '../assemble/stack.js';
 
@@ -130,7 +131,13 @@ export function initOwnWords(ctx) {
       await save();
       render();
     });
-    actions.append(keep, kept, drop);
+    /* M510-31: copy the words, as they stand in the box */
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'text-btn own-words-copy';
+    copy.textContent = 'Copy the words';
+    copy.addEventListener('click', () => { copyWords(text.value || '', copy); });
+    actions.append(keep, kept, copy, drop);
 
     box.append(head, choices, text, actions);
     return box;

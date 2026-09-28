@@ -14,6 +14,7 @@
  * and the real thinking control — no placeholders.
  */
 
+import { copyWords as copyToClipboard } from './receiptview.js'; /* M510-31: copy that works on the phone's own address too */
 import { withMacros } from '../assemble/voice.js'; /* M361 */
 import { loadState } from '../engine/state.js'; /* M361: whose name {{user}} is */
 import { mcName } from '../engine/duels.js'; /* M361 */
@@ -1123,6 +1124,11 @@ export function initSettings(ctx) {
   }
   /* a box he kept with its own button is no draft any more (a later change by another hand is then drawn, never
    * written over) */
+  /* M510-31: COPY THE WORDS — his frame and his notes, as they stand in their boxes, to paste elsewhere */
+  for (const [id, box] of [['btn-copy-frame', els.frameGlobal], ['btn-copy-frame-story', els.frameStory], ['btn-copy-note', els.noteGlobal], ['btn-copy-note-story', els.noteStory]]) {
+    const btn = document.getElementById(id);
+    if (btn && box) btn.addEventListener('click', () => { copyToClipboard(box.value || '', btn); });
+  }
   for (const [id, boxes] of [['btn-save-frame', [els.frameGlobal]], ['btn-save-note', [els.noteGlobal]], ['btn-save-frame-story', [els.frameStory]],
     ['btn-save-note-story', [els.noteStory]], ['btn-save-brief', [els.briefStory]], ['btn-save-cast', [els.castStory]]]) {
     const button = document.getElementById(id);

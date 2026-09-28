@@ -3868,7 +3868,9 @@ test('DOM-70 WHAT THE STORYTELLER SAW, WORD FOR WORD: the sheet opens on Normal;
     const words = body.querySelector('.receipt-text').textContent;
     const systemSent = (told.body.messages || []).filter((m) => m.role === 'system').map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n');
     assert(words.length > 20 && systemSent.includes(words.slice(0, 200)), 'the frame’s words are the words sent: ' + words.slice(0, 80));
-    click(body.querySelector('.receipt-copy'));
+    /* M510-31: Copy stands on the row itself, one per part — it copied without the part being opened first */
+    eq(body.querySelectorAll('.receipt-copy').length, 0, 'one Copy per part, on its row — none repeated inside');
+    click(frameRow.querySelector('.receipt-slot-head .receipt-copy'));
     await until(() => copied.length === 1, 'copied', 3000);
     eq(copied[0], words, 'Copy takes exactly what the part said');
     /* Raw */
@@ -6924,6 +6926,35 @@ test('DOM-138 A BATTLE PLAN, KEPT WHOLE, THROUGH THE APP (M510-22): laid out on 
     await db.connections.update(activeId, { smallModel: null });
     await env.ctx.chat.refreshQuickSwitch();
   }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
+  const before = errors.length;
+  const clip = clipboardSpy();
+  const priorConfirm = env.window.confirm;
+  try {
+    await openSettings();
+    const put = (id, words) => { const box = q(id); box.value = words; box.dispatchEvent(new env.window.Event('input', { bubbles: true })); };
+    put('#frame-global', 'FRAME-WORDS I am Tony Stark, and I tell it fast.');
+    click(q('#btn-copy-frame'));
+    await until(() => clip.taken.includes('FRAME-WORDS I am Tony Stark, and I tell it fast.'), 'the frame, as it stands in its box');
+    put('#note-global', 'NOTE-WORDS keep the fight loud.');
+    click(q('#btn-copy-note'));
+    await until(() => clip.taken.includes('NOTE-WORDS keep the fight loud.'), 'the note');
+    assert(q('#btn-copy-frame-story') && q('#btn-copy-note-story'), 'and this story’s own frame and note have theirs');
+    click(q('#btn-own-words-add'));
+    const card = await until(() => qa('#own-words-list .own-words-card').pop(), 'a card for his own words');
+    const words = card.querySelector('textarea');
+    words.value = 'OWN-WORDS right, still me.';
+    click(card.querySelector('.own-words-copy'));
+    await until(() => clip.taken.includes('OWN-WORDS right, still me.'), 'his own words');
+    env.window.confirm = () => true;
+    const drop = [...card.querySelectorAll('button')].find((b) => /Let these words go/.test(b.textContent));
+    click(drop);
+    await until(async () => !((await db.settings.get('ownWords')) || []).some((w) => w && w.text === 'OWN-WORDS right, still me.'), 'the card let go again');
+  } finally { clip.restore(); env.window.confirm = priorConfirm; }
+  await closeSettings();
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

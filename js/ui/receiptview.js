@@ -222,18 +222,16 @@ function attachWords(sent, receipt) {
     toggle.setAttribute('aria-expanded', 'false');
     while (head.firstChild) toggle.appendChild(head.firstChild);
     head.appendChild(toggle);
+    /* M510-31: Copy stands on the row itself — the part's words, exactly as sent, without opening it first ("a control I
+     * cannot find does not exist"); opening the part is for reading them */
+    head.appendChild(copyButton('Copy', () => text));
     const body = document.createElement('div');
     body.className = 'receipt-slot-body';
     body.hidden = true;
     li.appendChild(body);
     toggle.addEventListener('click', () => {
       const open = toggle.getAttribute('aria-expanded') !== 'true';
-      if (open && !body.firstChild) {
-        const tools = document.createElement('div');
-        tools.className = 'receipt-tools';
-        tools.appendChild(copyButton('Copy', () => text));
-        body.append(tools, wordsBlock(text));
-      }
+      if (open && !body.firstChild) body.append(wordsBlock(text));
       toggle.setAttribute('aria-expanded', String(open));
       body.hidden = !open;
     });

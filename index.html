@@ -339,7 +339,7 @@
           <p class="quiet" id="names-note">With a name here the tavern stops talking like a form. Everything it says to the storyteller in its own words greets them by that name and speaks as you — “Tony — Bruce here. This is where things stand in our story…” — and wherever its rules said “the writer” they say your name. It only ever uses the name; who they are is yours to say in the frame below. Change a name and the next page already uses it.</p>
           <label class="stack-label" for="frame-global">For every story</label>
           <textarea id="frame-global" rows="8" spellcheck="false"></textarea>
-          <div class="row"><button id="btn-save-frame" class="btn" type="button">Keep it</button><span id="frame-saved" class="quiet" hidden>Kept.</span></div>
+          <div class="row"><button id="btn-save-frame" class="btn" type="button">Keep it</button><button id="btn-copy-frame" class="text-btn" type="button">Copy the words</button><span id="frame-saved" class="quiet" hidden>Kept.</span></div>
 
           <!-- M509-14: the frame can be switched off whole; M21: its end-of-request echo. (The "purpose line" is gone — he never used it.) -->
           <div class="row">
@@ -356,7 +356,7 @@
           <div class="override-block">
             <span class="lbl">Just for <span id="frame-story-name">this story</span></span>
             <textarea id="frame-story" rows="6" spellcheck="false" aria-label="The frame, just for this story" placeholder="Leave empty and the story borrows the one above."></textarea>
-            <div class="row"><button id="btn-save-frame-story" class="btn" type="button">Keep it</button><span id="frame-story-saved" class="quiet" hidden>Kept.</span></div>
+            <div class="row"><button id="btn-save-frame-story" class="btn" type="button">Keep it</button><button id="btn-copy-frame-story" class="text-btn" type="button">Copy the words</button><span id="frame-story-saved" class="quiet" hidden>Kept.</span></div>
           </div>
         </section>
 
@@ -371,12 +371,12 @@
           </div>
           <label class="stack-label" for="note-global">For every story</label>
           <textarea id="note-global" rows="5" spellcheck="false"></textarea>
-          <div class="row"><button id="btn-save-note" class="btn" type="button">Keep it</button><span id="note-saved" class="quiet" hidden>Kept.</span></div>
+          <div class="row"><button id="btn-save-note" class="btn" type="button">Keep it</button><button id="btn-copy-note" class="text-btn" type="button">Copy the words</button><span id="note-saved" class="quiet" hidden>Kept.</span></div>
 
           <div class="override-block">
             <span class="lbl">Just for <span id="note-story-name">this story</span></span>
             <textarea id="note-story" rows="4" spellcheck="false" aria-label="The note at the end, just for this story" placeholder="Leave empty and the story borrows the one above."></textarea>
-            <div class="row"><button id="btn-save-note-story" class="btn" type="button">Keep it</button><span id="note-story-saved" class="quiet" hidden>Kept.</span></div>
+            <div class="row"><button id="btn-save-note-story" class="btn" type="button">Keep it</button><button id="btn-copy-note-story" class="text-btn" type="button">Copy the words</button><span id="note-story-saved" class="quiet" hidden>Kept.</span></div>
           </div>
           <!-- M380: the role of everything sent after his message -->
           <label class="stack-label" for="after-role">Sent after your message as

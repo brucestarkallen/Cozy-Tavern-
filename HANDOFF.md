@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-030)
+# Cozy Tavern — handoff for the next session (state at m510-031)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1037,4 +1037,8 @@ founding design lives in AGENTS.md's first entries.)
   fallback; never onto itself; a stopped call is never resent; both down, the first failure stands and the queue retries;
   the housekeeper falls back only before a word came back. workerFallbackLast is shown under the picker. And the busiest
   day in Usage and cost is folded (details) until he opens it — remembered (usageBusiestOpen). Laws M510-30, DOM-110.
+- M510-31 — COPY THE WORDS: Settings → The frame and The note at the end (the house's and this story's) each have "Copy
+  the words" beside "Keep it" (copies the box as it stands); each of his own words has one; "What the storyteller saw"
+  puts one Copy on every part's row (no longer only inside the opened part — one per part). All use receiptview.js
+  copyWords (works on the phone's own address too). DOM-70 updated, DOM-139.
 
