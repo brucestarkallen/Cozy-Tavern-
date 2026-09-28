@@ -609,9 +609,10 @@ export function buildRequest({
     whosHere,
     whosHere
       ? (invitedNames.length
-        ? 'cast notes, and the cards of ' + invitedNames.join(', ') + ' (here now)'
+        ? (smallB ? 'the cards of ' + invitedNames.join(', ') + ' (here now) — your cast notes go to the planning helper, not the small model' : 'cast notes, and the cards of ' + invitedNames.join(', ') + ' (here now)')
         : 'cast notes')
-      : ''
+      : '',
+    smallB && castNotes && !whosHere ? 'your cast notes go to the planning helper, not the small model' : ''
   );
 
   /* Slots 1–4 join into systemBlocks. M9 (A4): the cache breakpoint sits at
@@ -745,6 +746,10 @@ export function buildRequest({
    * when it has something to say; M9 names the lore entries that fired. --- */
   if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
+  } else if (memoryText && smallB) {
+    /* M510-9: A ROW HELD BACK FROM A SMALL MODEL STILL STANDS ON THE RECEIPT, with why — he looked at what the storyteller
+     * saw, found no folded record, and could not tell whether it had been lost */
+    pushSlot('What remains', '', '', 'not sent to the small model — the planning helper reads the whole record every page and passes on what still matters (“From earlier, still true” in the plan)');
   }
   if (loreText) {
     pushSlot(
@@ -764,16 +769,16 @@ export function buildRequest({
   if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */
   if (worldText && !smallB) {
     pushSlot('The world’s word', worldText, 'the world agent’s brief — what could reach this scene, what ripened out of sight');
-  }
+  } else if (worldText) pushSlot('The world’s word', '', '', 'not sent to the small model — the planning helper reads it every page and passes on what matters in the plan'); /* M510-9 */
   if (directorText && !smallB) {
     pushSlot('The director’s note', directorText, 'the showrunner’s marching orders for the episode that stands');
-  }
+  } else if (directorText) pushSlot('The director’s note', '', '', 'not sent to the small model — the planning helper reads it every page and passes on what matters in the plan'); /* M510-9 */
   if (editorText && !smallB) {
     pushSlot('The editor’s eye', editorText, 'the standing craft critique');
-  }
+  } else if (editorText) pushSlot('The editor’s eye', '', '', 'not sent to the small model'); /* M510-9: the helper does not read the critique */
   if (eyeText && !smallB) {
     pushSlot('The house’s eye', eyeText, 'the last page’s slips against the craft, checked in code — recolored this turn');
-  }
+  } else if (eyeText) pushSlot('The house’s eye', '', '', 'not sent to the small model'); /* M510-9 */
   if (rulingText && safeSettings.refereeOn !== false) {
     pushSlot('The house has ruled', rulingText, 'the referee’s settled outcome for this turn — first in the closing words, right after your page');
   }
@@ -862,6 +867,7 @@ export function buildRequest({
   const ownWords = ownWordsFor(safeSettings, voice);
   const ownRows = (place) => { for (const w of ownWords) if (w.place === place) pushSlot('Own words — ' + w.name, w.text, (w.role === 'assistant' ? 'the storyteller’s own words' : w.role === 'user' ? 'your words' : 'the house’s words') + ', ' + OWN_WORDS_PLACES[w.place]); };
   ownRows('before-pages');
+  if (safeSettings.ownWordsHeldForSmall === true) pushSlot('Own words', '', '', 'not sent to the small model — its switch in Settings (“Send them to a small model”) is off'); /* M510-9 */
   if (smallWindow) historySource = 'the last ' + smallWindow.filter((m) => m.role === 'assistant').length + ' pages word for word — small model; the planning helper read the whole story';
   pushSlot('The story so far', historyText, win.total ? historySource : '');
   ownRows('before-your-message');

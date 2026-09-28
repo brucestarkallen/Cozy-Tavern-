@@ -161,6 +161,18 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   const withNote = build({ smallModelNow: true, noteOn: true }, { smallPlan: PLAN, smallIntense: true });
   assert(withNote.messages[withNote.messages.length - 1].content.trimEnd().endsWith('MY NOTE.'), 'his note, switched on for a small model, still has the last word');
   assert(small.receipt.slots.some((s) => s.name === 'The plan for this page') && hot.receipt.slots.some((s) => s.name === 'The sounds'), 'each wears its own receipt row');
+  /* M510-9: what a small model is not sent still stands on the receipt, with why */
+  const held = (r, name) => r.receipt.slots.find((s) => s.name === name);
+  assert(held(full, 'What remains') && held(full, 'What remains').tokens > 0, 'the frontier model’s receipt carries the folded record');
+  const wr = held(small, 'What remains');
+  assert(wr && wr.tokens === 0 && /not sent to the small model — the planning helper reads the whole record every page/.test(wr.reason), 'the small one’s says it was held back and who read it: ' + JSON.stringify(wr));
+  const ww = held(small, 'The world’s word');
+  assert(ww && ww.tokens === 0 && /planning helper reads it/.test(ww.reason), 'so does the world’s word');
+  const who = held(small, 'Who’s here');
+  assert(who && /your cast notes go to the planning helper/.test(who.source + ' ' + who.reason), 'and who is here says where the cast notes went: ' + JSON.stringify(who));
+  const ow = held(build({ smallModelNow: true, frameOn: false, noteOn: false, ownWordsHeldForSmall: true }, { smallPlan: PLAN }), 'Own words');
+  assert(ow && ow.tokens === 0 && /Send them to a small model/.test(ow.reason), 'and his own-voice words say they were held back, and where the switch is');
+  assert(!held(full, 'Own words'), 'a frontier page never shows that row');
 });
 
 test('M510-7 OFF IS BYTE FOR BYTE: a storyteller that is not a small model gets exactly the request it always did, plan or no plan; a small model with no plan yet gets the whole request with the scene said once more', () => {

@@ -4134,7 +4134,11 @@ export function initChat(ctx) {
       if (smallTeller) {
         settingsValues.frameOn = (await db.settings.get('frameOnSmall')) === true;
         settingsValues.noteOn = (await db.settings.get('noteOnSmall')) === true;
-        if ((await db.settings.get('ownWordsOnSmall')) !== true) settingsValues.ownWords = [];
+        if ((await db.settings.get('ownWordsOnSmall')) !== true) {
+          /* M510-9: held back, and the receipt says so — his own-voice words did not vanish */
+          if (Array.isArray(settingsValues.ownWords) && settingsValues.ownWords.some((w) => w && w.on !== false && String(w.text || '').trim())) settingsValues.ownWordsHeldForSmall = true;
+          settingsValues.ownWords = [];
+        }
       }
       const thinkingOffNow = String((effectiveReasoning(connection, story) || {}).effort || 'off') === 'off';
       settingsValues.thinkOnPageNow = !ooc && thinkingOffNow && (await db.settings.get('thinkOnPage')) === true;

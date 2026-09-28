@@ -12471,3 +12471,14 @@ the connection in use.
   follows; Settings' picker then shows it; a Settings pick moves the Quick switch; a story with its own storyteller is
   shown as such and a pick lets it go.
 
+# M510-9 — what a small model is not sent still stands on the receipt, with why
+He looked at "What the storyteller saw" and asked whether the folded summary of the story so far was included. On his
+frontier model it is ("What remains", the keeper's record, beside the recent pages). On the small model it is not — by
+design the planning helper reads the whole record every page and passes on what still matters ("From earlier, still
+true") — but the small request's receipt simply had no such row, so he could not tell held back from lost. Every part
+the small request holds back now stands as a 0-token row with the reason: What remains, the world's word and the
+director's note ("the planning helper reads it every page and passes on what matters in the plan"), the editor's eye and
+the house's eye ("not sent to the small model" — the helper does not read them), his own-voice words (held by their
+Settings switch; chat.js marks ownWordsHeldForSmall), and "Who's here" names where the cast notes went. The frontier
+receipt is unchanged. Law M510-6 extended.
+

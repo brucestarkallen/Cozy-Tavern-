@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-008)
+# Cozy Tavern — handoff for the next session (state at m510-009)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -507,7 +507,9 @@ founding design lives in AGENTS.md's first entries.)
   with anyone the latest pages named — ride too (before, a hurt, a secret seen or a live thread of someone standing in the
   room reached a small model only if the helper happened to name it); the cast notes, the record, the absent crowd (the
   roster, "away and much on the story's mind"), the world, the director, the editor, the eye and older pages stay with the
-  helper. NO PLAN (first page, helper not back in the five seconds, an unusable answer, a craft without the
+  helper — M510-9: and each stands on the receipt as a 0-token row saying it was not sent to the small model and who
+  read it (What remains, the world's word, the director, the editor, the eye, his own words, the cast notes). NO PLAN
+  (first page, helper not back in the five seconds, an unusable answer, a craft without the
   load-bearing laws): the whole request with the scene said once more (A: anchor.js + the M344 recall). With no teller
   (the frame off, a small model's default) that line opens "Right now, …" — match it case-blind.
   The frame, the note and his own-voice words reach a small model only through their own switches (frameOnSmall,
