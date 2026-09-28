@@ -100,7 +100,7 @@ import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main chara
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { voiceOf, inVoice, toTeller, briefingOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
-import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, FIGHT_SOUND_TEXT, typedCombat } from './laws.js'; /* M510: his craft, law by law; M510-26: how a fight sounds */
+import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
 import { renderPlan, renderSounds } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -691,8 +691,8 @@ export function buildRequest({
    * own words starting one (the helper planned before his move) */
   const typedNow = (() => { const u = [...history].reverse().find((m) => m && m.role === 'user' && !m.hidden); return u ? String(u.text || '') : ''; })();
   const fightNow = selected.some((s) => s && s.mod && (s.mod.whenKey === 'combat' || s.mod.id === 'contested-resolution')) || Boolean(state && state.mode && state.mode.combat) || Boolean(state && (state.duel || state.battle || state.war)) || typedCombat(typedNow);
-  /* M510-26: and how a fight sounds — the fight's own acoustics, as an intimate page has sex's */
-  const fightSection = smallB && fightNow ? [...lawsNamed(smallLaws, FIGHT_LAWS), { name: 'How A Fight Sounds', text: FIGHT_SOUND_TEXT, section: 'How a fight sounds', index: 1e9 }] /* after every law of his (joinLaws orders and dedupes by index) */ : [];
+  /* M510-26/27: how a fight sounds rides as its own woken rule now (modules.js 'fight-acoustics'), for every storyteller */
+  const fightSection = smallB && fightNow ? lawsNamed(smallLaws, FIGHT_LAWS) : [];
   const craftForTurn = smallB
     ? joinLaws([...lawsNamed(smallLaws, [...ALWAYS_LAWS, ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))), ...sceneSection, ...fightSection])
     : craftText;

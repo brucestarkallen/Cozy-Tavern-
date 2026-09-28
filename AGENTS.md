@@ -12747,3 +12747,17 @@ onlookers are heard. Palettes to rotate, not lines to copy — the M510-4 lesson
 moves: parry, dodge, grapple, counterattack, duel/spar with, block his blade, "we fight" (never "fight for / over / about"),
 choke, strangle, throttle, slam into. The frontier request is unchanged. Law M510-26.
 
+# M510-27 — how a fight sounds, for every storyteller
+He: "normal mode is also bad — so boring; there's a bam or a whelch, but it's one word, and my enemy literally makes no
+noise. Can your fix help normal mode?" It can, and he asked: the frontier request changes on a fight's page, on purpose.
+The same trace held for the frontier model: its craft has his two sound laws (examples all sex) and Injury Resolution's
+one clause; the rule that wakes on a fight (the contest rule) says nothing of sound; and it woke only from the ledger's
+mark, set after the page — the page where the fight began went without it. Now "How a fight sounds" is a built-in rule
+(modules.js 'fight-acoustics', whenKey combat) that wakes on a fight for every storyteller, as the intimacy rule does for
+sex; the combat predicate also wakes on his typed fight words (typedCombat — the M85-002 way the intimacy rule wakes), so
+the contest rule and this one ride from the first blow. The text now says every fighter is heard — the enemy as much as
+his character (war cry, the grunt when a blow lands on them, their pain, taunts, fear) — and that a single sound for a
+whole exchange is a failure (a flurry is a burst, a beating a rhythm). The small request's own copy (M510-26) is gone: the
+woken rule rides in both, said once. He can pin, edit or turn it off in the rulebook like any built-in. A page that is no
+fight is unchanged (nine fixtures byte for byte). Law M510-26/27.
+

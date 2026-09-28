@@ -27,6 +27,7 @@
  * triggers (see js/import/sillytavern.js).
  */
 
+import { typedCombat, FIGHT_SOUND_TEXT } from './laws.js'; /* M510-27: a fight begins in his words; how a fight sounds */
 import { CRAFT_TEXT, looksLikeImportedCraft } from './craft.js'; /* M36: the craft core */
 import { db } from '../store.js';
 
@@ -62,7 +63,12 @@ const PREDICATES = {
 
   combat: (state) => {
     const on = Boolean(state && state.mode && state.mode.combat);
-    return { load: on, reason: on ? 'talk has given way — the moment is contested' : '' };
+    if (on) return { load: true, reason: 'talk has given way — the moment is contested' };
+    /* M510-27: the ledger marks a fight from the page AFTER it is written, so the page where he draws his blade went
+     * without the fight's rules — for every storyteller now (M510-7 did it for a small model only). His own words for
+     * THIS turn are read first, the way the intimacy rule wakes (M85-002): a local read, no call. */
+    const typed = typedCombat(state && state.turnText);
+    return { load: typed, reason: typed ? 'his words start a fight' : '' };
   },
 
   /* socialField (M5) — a room full of voices: crowds, parties, group chats. */
@@ -214,6 +220,13 @@ const BUILTIN_MODULES = [
     text: CONTESTED_TEXT,
     whenKey: 'combat',
     whenWords: 'wakes when talk gives way to contest',
+  },
+  {
+    id: 'fight-acoustics', /* M510-27: how a fight sounds — the fight's own acoustics, as the intimacy rule has sex's */
+    name: 'How a fight sounds',
+    text: FIGHT_SOUND_TEXT,
+    whenKey: 'combat',
+    whenWords: 'wakes when a fight begins — the ledger’s mark, or your own words starting one',
   },
   {
     id: 'vocal-acoustics',

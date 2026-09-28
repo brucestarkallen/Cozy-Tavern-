@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-026)
+# Cozy Tavern — handoff for the next session (state at m510-027)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1013,4 +1013,11 @@ founding design lives in AGENTS.md's first entries.)
   the loser's pleading; a lone "Ugh." or a narrated sound is a failure; a fight paragraph without sound is failed; rotate,
   never reuse the last page's. typedCombat now reads parry, dodge, grapple, counterattack, duel/spar with, block his
   blade, "we fight" (not "fight for/over/about"), choke/strangle/throttle, slam into. Frontier unchanged. Law M510-26.
+- M510-27 — HOW A FIGHT SOUNDS, FOR EVERY STORYTELLER (his request: "normal mode is boring too — one bam, and my enemy
+  makes no noise"): FIGHT_SOUND_TEXT is a built-in rule now (modules.js 'fight-acoustics', "How a fight sounds",
+  whenKey combat), riding as a woken rule for the frontier model and the small model alike (said once — the small
+  request's own copy is gone); it adds "every fighter is heard — the enemy as much as his character" and "a single sound
+  for a whole exchange is a failure". The combat predicate wakes on his own typed fight words too (typedCombat, as the
+  intimacy rule wakes on his words — M85-002), so the contest rule and this one ride on the page where he draws his blade,
+  for every storyteller. A page that is no fight is byte for byte as before (the nine fixtures). Law M510-26/27.
 
