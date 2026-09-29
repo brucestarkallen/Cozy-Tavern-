@@ -7386,6 +7386,54 @@ test('DOM-149 AN ONGOING STORY GETS ITS ESSENTIALS BY ITSELF (M510-56, his repor
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-150 AN EDITED #q IS READ AGAIN (M510-61, his report: "I branch at a #q, edit the message, Try again — it keeps #q"): "#q" (the next scene) is kept as he typed it and that is what the storyteller is sent; his message edited into a move, asked again → the storyteller is sent his edited words, not "#q"; and "#question …" edited into a move is answered as story, not out of character', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'a #q edited' });
+  const prior = house.state.storyAnswer;
+  let calls = 0;
+  house.state.storyAnswer = () => { calls += 1; return '[The gate — Monday, March 3, 2025 | 09:0' + (calls % 10) + ' | clear]\n\nANSWER-' + calls + ': Rukia looked up.'; };
+  const lastMove = (c) => { const us = (c.body.messages || []).filter((m) => m.role === 'user'); return String(us.length ? us[us.length - 1].content : ''); };
+  try {
+    await env.ctx.chat.refreshStories(true);
+    await env.ctx.chat.openStory(st.id);
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+    let from = house.state.calls.length;
+    type(q('#composer-input'), '#q'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the next scene asked');
+    assert(/^#q\b/.test(lastMove(house.state.calls.slice(from).find((c) => !c.isWorker))), 'the storyteller is sent #q as he typed it');
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'free', 20000);
+    const u = userPages()[0];
+    click(q('.msg-act[data-act="edit"]', u));
+    const box = await until(() => q('.edit-box', u), 'his edit box');
+    type(box, 'I greet Rukia at the gate.');
+    click(q('.edit-row .btn', u));
+    await until(async () => (await db.messages.list(st.id)).find((m) => m.role === 'user').text === 'I greet Rukia at the gate.', 'the edit kept');
+    from = house.state.calls.length;
+    click(q('.msg-act[data-act="try again"]', userPages()[0]));
+    await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'asked again');
+    const sent = lastMove(house.state.calls.slice(from).find((c) => !c.isWorker));
+    assert(/I greet Rukia at the gate\./.test(sent) && !/^#q\b/.test(sent), 'asked again, the storyteller is sent his edited words — not #q: ' + sent.slice(0, 80));
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'free again', 20000);
+    /* and an out-of-character question edited into a move is a story turn */
+    click(q('.msg-act[data-act="edit"]', userPages()[0]));
+    const box2 = await until(() => q('.edit-box', userPages()[0]), 'his edit box again');
+    type(box2, '#question Who is Rukia to Byakuya?');
+    click(q('.edit-row .btn', userPages()[0]));
+    await until(async () => (await db.messages.list(st.id)).find((m) => m.role === 'user').ooc === true, 'edited into a question: out of character');
+    click(q('.msg-act[data-act="edit"]', userPages()[0]));
+    const box3 = await until(() => q('.edit-box', userPages()[0]), 'his edit box a third time');
+    type(box3, 'I ask Rukia to walk with me.');
+    click(q('.edit-row .btn', userPages()[0]));
+    await until(async () => (await db.messages.list(st.id)).find((m) => m.role === 'user').ooc !== true, 'edited back into a move: a story turn');
+  } finally {
+    house.state.storyAnswer = prior;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

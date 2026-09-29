@@ -5659,6 +5659,17 @@ export function initChat(ctx) {
       if (keep) {
         const text = editor.value;
         const patch = { text };
+        /* M510-61: HIS WORDS, EDITED, ARE READ AGAIN. His report: "I branch at a #q, edit the message, Try again — and it
+         * keeps #q." A shortcut ("#q", the next scene) is kept as he TYPED it beside the words shown, and the typed form is
+         * what the storyteller is sent (M379); an out-of-character question keeps its mark the same way. The edit changed
+         * only the shown words — the typed "#q" (and a question's mark) stayed, and every Try again sent "#q" again. An
+         * edited message of his is what it now says: the command is read from the new words; the typed form and the mark
+         * follow them — a shortcut kept, still the shortcut; taken out, his words go; "#question …" in, out of character. */
+        if (msg.role === 'user') {
+          const reread = parseCommand(String(text || ''));
+          patch.ooc = reread.ooc === true ? true : undefined;
+          if (msg.typed !== undefined) patch.typed = reread.kind && reread.kind !== 'question' ? String(text).trim() : undefined;
+        }
         /* An edited shown swipe keeps the versions in step. */
         if (Array.isArray(msg.swipes) && msg.swipes.length) {
           const idx = Number.isFinite(msg.swipeIdx)

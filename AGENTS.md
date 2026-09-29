@@ -13238,3 +13238,12 @@ already calls the record "Our story so far" and the notes "Where things stand ri
 notes (his words), canon (the series) and On their mind (the story's own page) on purpose — three authorities, not bloat.
 Law M510-60.
 
+# M510-61 — an edited message is read again
+His report: "I branch the chat at a #q, edit the message, Try again — it keeps #q." In this house "#q" is the next-scene
+shortcut; a shortcut is kept as he TYPED it beside the words the thread shows, and the typed form is what the storyteller
+is sent (M379). The edit changed only the shown words: the typed "#q" stayed, and every Try again sent "#q" again — his
+edit never reached the storyteller. (An out-of-character "#question …" has the same shape: its mark stayed after an edit.)
+Now an edited message of his is what it now says: the command is read from the new words; the typed form follows (a
+shortcut kept → the new typed words; none → gone) and so does the out-of-character mark. DOM-150 reproduces his case
+(on m510-060 the storyteller was sent "#q" after the edit) and walks a "#question" edited in and out.
+

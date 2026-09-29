@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-060)
+# Cozy Tavern — handoff for the next session (state at m510-061)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1248,4 +1248,9 @@ founding design lives in AGENTS.md's first entries.)
   move is about" (was "my move" — in the notebook, the storyteller claiming his move). Checked and sound: the rulebook
   already names the record "Our story so far" and the notes' opening; the people are said three ways on purpose (his cast
   notes, canon, the tracker's page), each its own authority. Law M510-60.
+- M510-61 — AN EDITED MESSAGE IS READ AGAIN. A shortcut ("#q" = the next scene) is kept as typed beside the shown words
+  and the typed form is what the storyteller gets (M379 typedOf); a "#question …" keeps its ooc mark. An edit changed only
+  msg.text — typed and ooc stayed, so Try again sent "#q" again. chat.js finish(keep): for his message, parseCommand(new
+  words) sets typed (a shortcut kept → the new typed words; none → gone) and ooc (a question → true; not → gone). DOM-150
+  reproduces (on m510-060 the storyteller was sent "#q" after the edit).
 
