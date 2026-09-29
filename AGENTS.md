@@ -12998,3 +12998,17 @@ He: "final audit — not just this session; brainstorm for bugs." Hunted across 
 Probed and sound: a tale opened while a page is being written (DOM-144 — the page lands whole in its own tale; the tale
 opened meanwhile shows and gets nothing).
 
+# M510-44 — who knows what has a room of its own in the whole view
+He: "does who knows what get updated, or just appended and appended? My Bleach duel with Zaraki lists eleven people and
+who knows what — ~10k tokens. Will the next scenes balloon it to 20k with useless things the storyteller can work out?"
+Measured, not guessed: a person keeps up to 60 facts (KNOWLEDGE_GUARD); normal mode tells each person present their
+newest 12 and up to 4 older ones bearing on the scene; facts shared by most of the scene are said once ("Everyone here
+knows…"). So it does NOT grow with the story (11 people with 30 facts each and with 60: the same ~7,500 tokens) — but it
+grows with the crowd (20 people: ~13,500), and most of those newest facts come from the very pages the storyteller reads
+whole beside it. engine/state.js now gives the section a room in the whole view (KNOWLEDGE_WHOLE_CHARS 16,000 ≈ 4,000
+tokens): past it, each person is told with fewer newest (8, 6, 4, 3, 2, then 1) and fewer called back (≤2), shared facts
+still said once, the note of how many more each keeps in the ledger standing, the section never shed (M510-24). Measured
+after: 11 people 3,823 tokens, 20 people 3,521, every person still named; a scene of a few, under the room, is told
+exactly as before. Only the storyteller's whole view (stateView) changes — the housekeeper's whole ledger and every
+worker's view are as they were. Law M510-44.
+

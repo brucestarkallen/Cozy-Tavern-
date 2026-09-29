@@ -982,3 +982,30 @@ test('M510-41 THE DAY TURNS AT HIS MIDNIGHT (his question: "does it know which d
   eq(nextMorning.week.total.calls, 2, 'and the week still holds both');
   for (const k of await usageKeys()) await store.settings.delete(k);
 });
+
+test('M510-44 WHO KNOWS WHAT HAS A ROOM OF ITS OWN IN THE WHOLE VIEW (his Bleach duel: eleven in the scene, ~10,000 tokens a page): a crowd is told in fewer facts a person until it fits (~4,000 tokens), every person still named and the rest noted as kept; a longer story never makes it bigger; a scene of a few is told exactly as before', async () => {
+  const { renderStateFacts, emptyState, KNOWLEDGE_WHOLE_CHARS } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const ALL = ['Kenpachi Zaraki', 'Yachiru Kusajishi', 'Ikkaku Madarame', 'Yumichika Ayasegawa', 'Rukia Kuchiki', 'Renji Abarai', 'Byakuya Kuchiki', 'Shunsui Kyoraku', 'Nanao Ise', 'Toshiro Hitsugaya', 'Rangiku Matsumoto', 'Kisuke Urahara', 'Yoruichi Shihoin', 'Soi Fon', 'Mayuri Kurotsuchi', 'Nemu Kurotsuchi', 'Jushiro Ukitake', 'Sajin Komamura', 'Tetsuzaemon Iba', 'Isane Kotetsu'];
+  const scene = (count, per) => {
+    const people = ALL.slice(0, count);
+    let st = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Eleventh Division training ground' }, { type: 'presence.enter', name: 'Jovan' }, ...people.map((n) => ({ type: 'presence.enter', name: n }))]).state;
+    const knowledge = {};
+    people.forEach((n, i) => { knowledge[n] = []; for (let t = 0; t < per; t += 1) knowledge[n].push({ fact: 'Jovan did thing ' + ((t + i) % 12) + ' in front of ' + n.split(' ')[0] + ', who took it as a sign of how he would stand with the Eleventh Division when the captains next met (' + t + ')', atTurn: 2 + t + (i % 2) }); });
+    st = { ...st, knowledge, page: per + 4 };
+    const text = renderStateFacts(st, { whole: true, budget: Infinity, scenePages: ['Zaraki grinned and drew his notched blade.'] });
+    return { people, kw: text.split('\n').filter((l) => /knows/.test(l)).join('\n') };
+  };
+  const crowd = scene(11, 30);
+  assert(crowd.kw.length <= KNOWLEDGE_WHOLE_CHARS, 'eleven in the scene fit the room: ' + crowd.kw.length + ' characters');
+  eq(crowd.people.filter((n) => crowd.kw.includes(n)).length, 11, 'every one of them still named');
+  assert(/older things? they know, kept in the ledger/.test(crowd.kw), 'and what is not told is said to be kept');
+  const longer = scene(11, 60).kw.length; /* a fact's age reads in pages ("learned about 9 pages ago" / "…12…"): a digit or two */
+  assert(Math.abs(longer - crowd.kw.length) <= crowd.kw.length * 0.01, 'a story twice as long: the same room (' + crowd.kw.length + ' → ' + longer + ' characters)');
+  const twenty = scene(20, 60);
+  assert(twenty.kw.length <= KNOWLEDGE_WHOLE_CHARS && twenty.people.every((n) => twenty.kw.includes(n)), 'twenty in the scene: still the room, still everyone');
+  const few = scene(3, 30);
+  const { renderKnowledge } = await import('../../js/engine/world.js');
+  assert(few.kw.length < KNOWLEDGE_WHOLE_CHARS && few.people.every((n) => few.kw.includes(n)), 'a scene of a few is under the room — told whole, as before');
+  assert(typeof renderKnowledge === 'function');
+});

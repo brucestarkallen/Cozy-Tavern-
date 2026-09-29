@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-043)
+# Cozy Tavern — handoff for the next session (state at m510-044)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1117,4 +1117,10 @@ founding design lives in AGENTS.md's first entries.)
   they were. Kept: the ledger light counts "behind" exactly as the reader counts unread pages (a page read ahead of the
   mark is read) — it no longer shows behind while the reader finds nothing. (3) DOM-144 proves a tale
   opened while a page is written: the page lands whole in its own tale; the other shows and gets nothing (no fault).
+- M510-44 — WHO KNOWS WHAT HAS A ROOM OF ITS OWN IN THE WHOLE VIEW (engine/state.js KNOWLEDGE_WHOLE_CHARS = 16,000,
+  about 4,000 tokens). Normal mode's who knows what never grew with the story (each person: newest 12 + 4 called back of
+  the 60 kept) but grew with the crowd. Past the room, each person is told with fewer newest (8, 6, 4, 3, 2, 1) and fewer
+  called back; shared facts said once; "(and N older things they know, kept in the ledger)"; never shed whole. Measured:
+  11 people 7,493 → 3,823 tokens; 20 people 13,515 → 3,521; a few people unchanged. Only the storyteller's whole view —
+  the housekeeper and every worker read as before. Law M510-44.
 

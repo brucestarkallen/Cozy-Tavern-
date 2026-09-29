@@ -866,6 +866,8 @@ export async function restoreSnapshot(storyId, turnId) {
  * four facts a person knows, six seats, four factions — and a 300k context was
  * sent that and no more. `whole` shows every item; `budget` is the room the
  * section may take before it sheds. */
+/* M510-44: who knows what's own room in the whole view — about 4,000 tokens (four characters a token) */
+export const KNOWLEDGE_WHOLE_CHARS = 16000;
 export function stateView(budgetTokens) {
   const tokens = Number.isFinite(budgetTokens) && budgetTokens > 0 ? budgetTokens : 0;
   const budget = Math.max(STATE_BUDGET, Math.min(60000, Math.floor(tokens * 3 * 0.1)));
@@ -963,7 +965,23 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   const known = {};
   const wasThere = wasThereFn(state); /* M509-15 */
   const knowledgeAt = (per) => renderKnowledge(state.knowledge, present, per, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, wasThere }, known); /* M510-24: told again with fewer facts when a crowded scene overflows */
-  const knowledgeLines = knowledgeAt(whole ? Infinity : undefined);
+  let knowledgeLines = knowledgeAt(whole ? Infinity : undefined);
+  /* M510-44: WHO KNOWS WHAT HAS A ROOM OF ITS OWN IN THE WHOLE VIEW. His Bleach duel: eleven people in the scene, and
+   * who knows what was ~10,000 tokens a page — each person's newest twelve and four called back, most of them from the
+   * very pages the storyteller reads whole beside it. It never grew with the story (each person's view is capped; a
+   * longer tale kept the same ~7,500 tokens in the measure) but it grew with the crowd (twenty people: ~13,500). In the
+   * whole view the section now fits a room of its own: when it would pass KNOWLEDGE_WHOLE_CHARS, each person is told with
+   * fewer of their newest (8, 6, 4, 3, 2, then 1) and fewer called back — the facts shared by most of the scene still said
+   * once, the note of how many more each keeps in the ledger standing — never the section shed whole (M510-24). A scene
+   * of a few people is told exactly as before. */
+  if (whole && knowledgeLines && knowledgeLines.length > KNOWLEDGE_WHOLE_CHARS) {
+    for (const per of [8, 6, 4, 3, 2, 1]) {
+      const fewer = knowledgeAt(per);
+      if (!fewer) break;
+      knowledgeLines = fewer;
+      if (fewer.length <= KNOWLEDGE_WHOLE_CHARS) break;
+    }
+  }
   const knowSec = knowledgeLines ? { shed: 2, text: 'Who knows what: ' + knowledgeLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'Who knows what: ' } : null;
   if (knowSec) sections.push(knowSec);
   /* M338: and what each person here has NOT been shown learning — computed from the same lines, no model */
