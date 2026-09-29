@@ -13058,3 +13058,25 @@ against the real serve.py: take the zip; a tale made after it and a setting chan
 Settings' own file button; the browser and the device's books hold exactly the copy — the later tale gone from both, the
 setting and the presets as copied, the copied pages whole — and the library as it stood kept in backups).
 
+# M510-48 — the hybrid memory, always on; the Exposed law
+He: "the hybrid should always start — even a frontier model needs information that is not overwhelming, a coherent
+timeline like Endgame's; you decide the rules as the storyteller." And his Bleach story at 80%: MC, a new captain, told
+the 13th Division he was only a recruit — at the Zaraki fight the people fooled just said "cool"; Byakuya asked, as news,
+what MC had told every captain long before (that he is Yamamoto's personal attendant).
+The memory (for every storyteller, once the essentials exist — before, the whole record as always): the essentials (the
+whole story as a timeline), the record's newest lines word for word (~8,000 tokens), the record's lines about each person
+here (6 each, ~6,000 tokens), the older lines this scene names — his "research it and inject it" — WHOLE under their own
+pages (not the 280-character glimpses of M344), and the plans standing (now for every storyteller whenever one stands).
+Nothing is merged away: every detailed line stays on the device. Measured in M510-48: lighter than the whole record, the
+older attendant line his move names comes back whole. Cost: the essentials keeper reads the whole record when the record
+changes — on the worker's connection.
+The Bleach faults were the ledger and the rules, not the memory's size: nothing represented a lie believed (the reader
+would write "Rukia knows Jovan is a recruit" — a falsehood filed as knowledge), and no rule said what the fooled do when
+the truth comes out, or that what was told long ago is still known. The page reader now writes "believes Jovan is only a
+recruit — untrue: Jovan is the new captain" and, at the reveal, what they learned; the rulebook's Exposed law (and the
+small model's always-laws) says how the fooled react and to check who knows what before anyone asks.
+Found on the way: the test house took the essentials keeper for the storyteller (its words are "You condense the record of
+a long collaborative story", not "keep the essentials") — LONG-7 counted its calls as pages; and the essentials and plans
+books share the record's row style in the drawer — LONG-4 counted their rows as record lines (LONG-8 fell behind LONG-4's
+open drawer). Both are the tests' own reading, fixed there.
+

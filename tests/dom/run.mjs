@@ -3075,7 +3075,7 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
     const sys = body ? String(((body.messages || [])[0] || {}).content || '') : '';
     /* every worker's system opens with the house's fiction frame; the storyteller's never does (a worker counted as the
      * storyteller made this scenario fail once, by timing alone) */
-    const worker = /^\s*This is fiction craft/i.test(sys) || /keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record li|housekeeper of a cozy tavern/i.test(sys);
+    const worker = /^\s*This is fiction craft/i.test(sys) || /condense the record of a long collaborative story|keep the essentials of a long collaborative story|keep the plans of a long collaborative story|keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record li|housekeeper of a cozy tavern/i.test(sys);
     if (!script || !body || worker || !/chat\/completions|\/messages/.test(String(url))) return housed(url, opts);
     asks.push(body);
     const m = script(asks.length, body);

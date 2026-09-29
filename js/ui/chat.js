@@ -2595,9 +2595,9 @@ export function initChat(ctx) {
     if (!plan) return { detail: 'its answer could not be used', raw }; /* the next page goes whole, as before a plan existed */
     return { detail: 'read the story and planned the next page' + (plan.intense ? ' — a heated one' : '') };
   }
-  /* M510-15: THE ESSENTIALS KEEPER — the whole record streamlined, rebuilt when the record changed; a small model only */
+  /* M510-15: THE ESSENTIALS KEEPER — the whole record streamlined, rebuilt when the record changed; M510-48: for every
+   * storyteller (his word: the hybrid always on) */
   async function essentialsNext(story, { signal, stale = () => false } = {}) {
-    if (!isSmallModel(await resolveConnection(story))) return { silent: true };
     const connection = await resolveWorkerConnection(story, 'essentials');
     if (!connection) return { silent: true };
     const mem = await loadMemory(story.id);
@@ -2608,9 +2608,8 @@ export function initChat(ctx) {
     if (out.wrote) return { detail: 'streamlined the whole record into the story’s essentials' };
     return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
   }
-  /* M510-22: THE PLANS KEEPER — a plan laid out on the page, written down whole; a small model only */
+  /* M510-22: THE PLANS KEEPER — a plan laid out on the page, written down whole; M510-48: for every storyteller */
   async function plansNext(story, { signal, stale = () => false } = {}) {
-    if (!isSmallModel(await resolveConnection(story))) return { silent: true };
     const connection = await resolveWorkerConnection(story, 'plans');
     if (!connection) return { silent: true };
     const pages = visiblePages(await db.messages.list(story.id)).map((m, i) => ({ n: i + 1, who: m.role === 'user' ? 'the writer' : 'the storyteller', text: typeof m.text === 'string' ? m.text : '' }));
@@ -4393,9 +4392,10 @@ export function initChat(ctx) {
         smallPlan = await loadPlan(story.id, planKey(before)); /* M510-6: the plan of the page this follows, mended or not */
         smallIntense = heatedNow(selected, state, userText); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode; M510-7: his words starting a fight */
         lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
-        smallEssentials = await loadEssentials(story.id); /* M510-15 */
-        smallPlansBook = await loadPlansBook(story.id); /* M510-22 */
       }
+      /* M510-48: the essentials and the plans ride for every storyteller (the hybrid, always on) */
+      smallEssentials = await loadEssentials(story.id);
+      smallPlansBook = await loadPlansBook(story.id);
       const probeReceipt = buildRequest({
         story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,

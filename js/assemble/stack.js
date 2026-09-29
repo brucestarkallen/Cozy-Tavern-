@@ -468,6 +468,16 @@ export function refereeCraft(text, on) {
 /* M510-21: the record's lines that name who is here — the newest few per person, the MC left out (he is in every line) */
 export const PRESENT_LINES_EACH = 5;
 export const PRESENT_RECORD_CHARS = 6000;   /* about 1,500 tokens */
+/* M510-48: THE STORY'S MEMORY, THE SAME SHAPE FOR EVERY STORYTELLER — his word: "the hybrid should always start: even a
+ * frontier model needs information that isn't overwhelming — a coherent timeline, like Endgame's". Once the essentials
+ * exist, a frontier storyteller reads the whole story as a timeline (the essentials), the record's newest lines word for
+ * word, what the record holds of each person here, the older lines this scene names — whole, not excerpts — and the
+ * plans standing; the rest of the record stays on the device, every line of it, never merged away. Rooms, larger than the
+ * small model's: */
+export const HYBRID_RECENT_CHARS = 32000;    /* about 8,000 tokens of the record's newest lines, word for word */
+export const HYBRID_PRESENT_EACH = 6;        /* the newest lines naming each person here */
+export const HYBRID_PRESENT_CHARS = 24000;   /* about 6,000 tokens */
+export const HYBRID_RECALL_LINES = 6;        /* older lines this scene names, whole */
 /* who is in the scene besides the MC, and a whole-word pattern for each (the full name, or the first name alone) */
 function namesHere(state) {
   const mc = String(mcNameOf(state) || '').trim().toLowerCase();
@@ -545,14 +555,14 @@ function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
     case 'The story in short': return !c.small ? 'small model only — your storyteller reads the pages themselves' : !c.planned ? noPlan : 'not written yet — the planning helper writes it with each plan';
-    case 'Story essentials': return !c.small ? 'small model only — your storyteller reads the whole record (What remains)'
+    case 'Story essentials': return !c.small ? (!c.keeperOn ? 'the memory keeper is off for this story — there is no record to streamline' : 'being made — the essentials keeper streamlines the record in the background; until then the whole record rides under What remains')
       : !c.planned ? noPlan + ', with the whole record'
       : !c.keeperOn ? 'the memory keeper is off for this story — there is no record to streamline'
       : !c.hasRecord ? 'not made yet — the record is still empty: the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window'
       : 'being made — the essentials keeper streamlines the record in the background; until then its newest lines ride under What remains';
-    case 'Plans standing': return !c.small ? 'small model only — your storyteller reads the pages and the record' : !c.planned ? noPlan : 'no plan standing — the plans keeper writes one down the moment a page lays it out';
+    case 'Plans standing': return !c.small ? 'no plan standing — the plans keeper writes one down the moment a page lays it out' : !c.planned ? noPlan : 'no plan standing — the plans keeper writes one down the moment a page lays it out'; /* M510-48: every storyteller */
     case 'Who’s here, in the recent pages': return !c.small ? 'small model only — your storyteller reads those pages whole' : !c.planned ? noPlan + ', with the pages whole' : 'no one here is named in the pages between the last eight and the record (or the story is still short enough for the eight)';
-    case 'Who’s here, in the record': return !c.small ? 'small model only — your storyteller reads the whole record' : !c.planned ? noPlan + ', with the whole record' : 'no one here is named in the record yet, or their lines already ride above';
+    case 'Who’s here, in the record': return !c.small ? 'no one here is named in the record’s older lines — or the essentials are still being made, and the whole record rides' : !c.planned ? noPlan + ', with the whole record' : 'no one here is named in the record yet, or their lines already ride above';
     case 'The plan for this page': return !c.small ? 'small model only — the planning helper writes one for a small storyteller' : noPlan + ', with the scene said once more';
     case 'The sounds': return !c.small ? 'small model only — on a heated page' : !c.planned ? noPlan + ', with the whole craft' : 'a calm page — no sound laws needed';
     case 'On their mind': return 'no one’s page to show — the ledger has no one in it yet';
@@ -899,7 +909,7 @@ export function buildRequest({
   /* M510-15: THE STORY'S ESSENTIALS — his design: the whole record streamlined (agents/essentials.js), always in front of
    * a small model; the record's own lines only when a move names them (the recall after the plan), and only the few lines
    * folded since the essentials were made ride as they stand. No essentials yet: the record's newest lines (M510-14). */
-  const essentialsText = smallB && smallEssentials && typeof smallEssentials.text === 'string' ? smallEssentials.text.trim() : '';
+  const essentialsText = smallEssentials && typeof smallEssentials.text === 'string' ? smallEssentials.text.trim() : ''; /* M510-48: every storyteller */
   const essentialsUpTo = essentialsText && Number.isFinite(smallEssentials.upTo) ? smallEssentials.upTo : -1;
   const sinceEssentials = essentialsText
     ? (Array.isArray(windowInfo && windowInfo.nodes) ? windowInfo.nodes : [])
@@ -908,7 +918,14 @@ export function buildRequest({
     : '';
   const smallRecord = smallB && !essentialsText && memoryText ? newestLines(memoryText, SMALL_RECORD_CHARS) : (sinceEssentials ? newestLines(sinceEssentials, SMALL_RECORD_CHARS) : null);
   if (essentialsText) stateParts.push('What our story holds, in essentials:\n' + essentialsText);
-  if (memoryText && !smallB) stateParts.push('What remains of the older pages:\n' + memoryText);
+  /* M510-48: a frontier storyteller with the essentials made: the record's newest lines word for word (recent detail), not
+   * the whole record; before the essentials exist, the whole record rides as it always did */
+  const hybridB = !smallB && Boolean(essentialsText);
+  const recordNodes = (Array.isArray(windowInfo && windowInfo.nodes) ? windowInfo.nodes : [])
+    .filter((n) => n && !n.empty && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span));
+  const hybridRecent = hybridB && memoryText ? newestLines(memoryText, HYBRID_RECENT_CHARS) : null;
+  if (hybridB && hybridRecent && hybridRecent.text) stateParts.push('The newest of the record, word for word' + (hybridRecent.rested ? ' (the ' + hybridRecent.rested + ' older lines are in the essentials above, each kept whole on the device)' : '') + ':\n' + hybridRecent.text);
+  if (memoryText && !smallB && !hybridB) stateParts.push('What remains of the older pages:\n' + memoryText);
   else if (smallRecord && smallRecord.text) stateParts.push((essentialsText ? 'Folded since the essentials were made' : 'What remains of the older pages' + (smallRecord.rested ? ' (the newest of them; ' + smallRecord.rested + ' older lines rest outside this page)' : '')) + ':\n' + smallRecord.text);
   /* M510-21: WHO'S HERE, IN THE RECORD — his idea: while someone is in the scene, the record's own lines that name them ride
    * word for word; once they are gone, not any more. Bounded, the newest few per person (recordOfWhoIsHere): someone who
@@ -916,11 +933,28 @@ export function buildRequest({
    * are not said twice. Small model only — the frontier model reads the whole record. */
   const presentRecord = smallB ? recordOfWhoIsHere(windowInfo && windowInfo.nodes, state, {
     skip: (n) => (essentialsText && n.span[0] > essentialsUpTo) || Boolean(smallRecord && smallRecord.text && smallRecord.text.includes(n.text.trim())),
+  }) : hybridB ? recordOfWhoIsHere(windowInfo && windowInfo.nodes, state, {
+    skip: (n) => Boolean(hybridRecent && hybridRecent.text && hybridRecent.text.includes(n.text.trim())),
+    each: HYBRID_PRESENT_EACH, cap: HYBRID_PRESENT_CHARS,
   }) : null;
   if (presentRecord && presentRecord.text) stateParts.push('What the record holds of who is here, word for word:\n' + presentRecord.text);
+  /* M510-48: HIS "RESEARCH IT AND INJECT IT" — the older lines this scene names (the last pages and his move: the M344
+   * scoring, a name that is everywhere counting for nothing), given whole under their own pages, for the teller to weigh */
+  let recalledOlder = '';
+  if (hybridB) {
+    const lastUserH = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
+    const sceneH = [...recentPages, lastUserH ? String(lastUserH.text || '') : ''].filter(Boolean);
+    const namesH = [...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : []), mcNameOf(state)].filter(Boolean);
+    const already = (t) => Boolean((hybridRecent && hybridRecent.text && hybridRecent.text.includes(t)) || (presentRecord && presentRecord.text && presentRecord.text.includes(t)));
+    const older = recordNodes.filter((n) => !already(n.text.trim()));
+    const picked = recallFromRecord(older, sceneH, { ignore: namesH, max: HYBRID_RECALL_LINES });
+    const wholeOf = (hit) => { const node = hit ? older.find((n) => n.span[0] + 1 === hit.from && n.span[1] + 1 === hit.to) : null; return node ? '(pages ' + hit.from + '–' + hit.to + ') ' + node.text.trim() : ''; }; /* the recall cuts a line to a glimpse — the line itself rides whole */
+    recalledOlder = (Array.isArray(picked) ? picked : []).map(wholeOf).filter(Boolean).join('\n');
+    if (recalledOlder) stateParts.push('From the older record, word for word — lines this scene names (each is about its own pages, not this one):\n' + recalledOlder);
+  }
   /* M510-22: THE PLANS STANDING — laid out on the page, kept whole by the plans keeper until carried out: part by part, with
    * the exact words to be said. A summary retells history; a plan is what is still to happen, and every part of it matters. */
-  const standingText = smallB ? renderStanding(smallPlansBook) : '';
+  const standingText = renderStanding(smallPlansBook); /* M510-48: every storyteller, whenever a plan stands */
   if (standingText) stateParts.push('Plans standing — laid out on the page, kept whole until carried out:\n' + standingText);
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
@@ -934,7 +968,11 @@ export function buildRequest({
   /* --- 7. What remains (M6) — the newest memory nodes; then (M7) the lore
    * hits, sharing the slot's budget. The receipt lists each sub-part only
    * when it has something to say; M9 names the lore entries that fired. --- */
-  if (memoryText && !smallB) {
+  if (hybridB) {
+    /* M510-48: the hybrid, for a frontier storyteller — the essentials, the newest lines word for word, the older lines named */
+    pushSlot('Story essentials', essentialsText, 'your whole record (Summaryception), streamlined by the essentials keeper — a timeline of the whole story; every detailed line stays on the device');
+    pushSlot('What remains', [hybridRecent && hybridRecent.text, recalledOlder].filter(Boolean).join('\n'), 'the record’s newest lines word for word' + (recalledOlder ? ', and the older lines this scene names, whole' : '') + ' — the rest is in the essentials above', hybridRecent && hybridRecent.rested ? hybridRecent.rested + ' older lines ride in the essentials, kept whole on the device' : '');
+  } else if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
   } else if (essentialsText) {
     /* M510-15: the essentials stand for the record; only what was folded since rides as it is */
@@ -958,8 +996,8 @@ export function buildRequest({
    * dynamic tail before history; empty = omitted (the slot-7 law). --- */
   /* M486: the row stands whenever canon verification is ON for the tale — with the note, or empty with the reason it
    * had nothing to say (the writer could not tell whether canon ran at all) */
-  if (standingText) pushSlot('Plans standing', standingText, 'the plans keeper — each plan laid out on the page, kept whole until it is carried out or dropped (small model)', standingPlans(smallPlansBook).map((p) => p.title).join('; ')); /* M510-22 */
-  if (presentRecord && presentRecord.text) pushSlot('Who’s here, in the record', presentRecord.text, 'the record’s own lines that name who is here — word for word, while they are here (small model)', presentRecord.who.join(', ')); /* M510-21 */
+  if (standingText) pushSlot('Plans standing', standingText, 'the plans keeper — each plan laid out on the page, kept whole until it is carried out or dropped', standingPlans(smallPlansBook).map((p) => p.title).join('; ')); /* M510-22 */
+  if (presentRecord && presentRecord.text) pushSlot('Who’s here, in the record', presentRecord.text, 'the record’s own lines that name who is here — word for word, while they are here', presentRecord.who.join(', ')); /* M510-21 */
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
   else if (canonOn) pushSlot('What canon says', '', '', canonWhy || 'canon verification gave no note this turn');
   if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */

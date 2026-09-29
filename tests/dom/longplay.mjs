@@ -278,7 +278,7 @@ test('LONG-4 the context handed to the storyteller stays flat: turns 60-89 cost 
   click(q('#btn-ledger'));
   await until(() => !q('#drawer').hidden, 'the drawer opens'); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
   await until(() => qa('#drawer-panels .record-row').length >= 3 && /Pages \d+–\d+/.test(q('#drawer-panels').textContent), 'the record’s lines, with the pages each folds', 10000);
-  const rows = qa('#drawer-panels .record-row');
+  const rows = qa('#drawer-panels .record-row:not(.essentials-row):not(.plan-row)'); /* M510-48: the essentials and the plans are books of their own now, for every storyteller */
   assert(rows.some((r) => /Fold at turn/.test(r.textContent)), 'the lines are the keeper’s own words');
   assert(rows.every((r) => qa('button', r).some((b) => /Rewrite/.test(b.textContent))), 'every line can be rewritten by hand');
   click(q('#btn-ledger'));

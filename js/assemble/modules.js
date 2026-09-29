@@ -321,7 +321,7 @@ export function withoutQuotaLines(text) {
  * A copy he edited keeps his words. And a pin now stores no copy at all (saveModule). */
 export const SHIPPED_BEFORE = {
   nsfw: ['95zud8', '1wkzq1s', '1pp0p8w'], /* "When The Scene Turns Intimate" as it shipped through M510-2, at M510-3, at M510-4 */
-  'core-craft': ['1gzud8e'], /* M510-29: the craft as it shipped through M510-28, with its Banned Words */
+  'core-craft': ['1gzud8e', '99fpod'], /* M510-29: the craft as it shipped through M510-28, with its Banned Words; M510-48: as it shipped through M510-47, before Exposed */
 };
 export function fingerprint(text) {
   let h = 5381;

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-047)
+# Cozy Tavern — handoff for the next session (state at m510-048)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1144,4 +1144,18 @@ founding design lives in AGENTS.md's first entries.)
   real folder) and tests/restore_zip.py (real browser + real serve.py: take the zip, make a later tale and change a
   setting, bring the zip back through Settings' own file button — the device and the browser hold exactly the copy; the
   library as it stood kept in backups).
+- M510-48 — THE HYBRID MEMORY, ALWAYS ON, FOR EVERY STORYTELLER (his decision: no threshold). The essentials keeper and
+  the plans keeper run for every tale (chat.js essentialsNext/plansNext lost their small-model gate); their books ride
+  every request. A frontier storyteller WITH the essentials made reads: the essentials (the whole story as a timeline),
+  "The newest of the record, word for word" (HYBRID_RECENT_CHARS 32,000), what the record holds of who is here
+  (HYBRID_PRESENT_EACH 6, 24,000 chars), "From the older record, word for word" — the older lines this scene (last pages +
+  his move) names, WHOLE, under their pages (recallFromRecord, HYBRID_RECALL_LINES 6), and the plans standing. Before the
+  essentials exist the whole record rides as it always did. No record line is ever deleted by this. The receipt tells it.
+  Bonus (his Bleach story): the rulebook's new law "Exposed" (a lie or cover story MC told is believed and untrue; when
+  the truth comes out in front of the fooled, they react — never a flat "cool"; what someone was told long ago they still
+  know — check who knows what before anyone asks), in ALWAYS_LAWS too; SHIPPED_BEFORE core-craft gains '99fpod' so an
+  unedited saved rulebook follows. The page reader writes a believed lie as "believes X — untrue: Y" and the exposure as
+  what they learned. Tests: M510-48; M510-20/21/22 restated; the test house knows the essentials keeper's real words
+  ("condense the record of a long collaborative story" — it had been taken for the storyteller); LONG-4 counts the
+  record's own rows (the essentials and plans books share the row style).
 

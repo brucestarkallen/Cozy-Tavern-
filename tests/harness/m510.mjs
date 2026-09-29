@@ -490,7 +490,7 @@ test('M510-20 EVERY ROW, EVERY PAGE: "What the storyteller saw" names every part
     eq(silent.map((s) => s.name).join(', '), '', label + ': every empty row says why');
   }
   const row = (r, n) => r.receipt.slots.find((s) => s.name === n);
-  assert(/^small model only/.test(row(mk(false), 'Story essentials').reason) && /^small model only/.test(row(mk(false), 'The plan for this page').reason), 'on the normal model the small model’s parts say whose they are');
+  assert(/^being made|^the memory keeper is off/.test(row(mk(false), 'Story essentials').reason) && /^small model only/.test(row(mk(false), 'The plan for this page').reason), 'on the normal model: the essentials are every storyteller’s now (M510-48), the plan the small model’s');
   assert(/not made yet — the record is still empty: the memory keeper folds pages once they are older than its 30-page window/.test(row(mk(true), 'Story essentials').reason), 'his first scene: ' + row(mk(true), 'Story essentials').reason);
   const withRecord = mk(true, { memory: '- Jovan arrived.', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [{ span: [0, 5], text: 'Jovan arrived.', level: 1, at: 1 }] } });
   assert(/^being made/.test(row(withRecord, 'Story essentials').reason), 'a record, no essentials yet: being made');
@@ -526,7 +526,7 @@ test('M510-21 WHO’S HERE, IN THE RECORD (his idea, bounded): while someone is 
   const row = small.receipt.slots.find((s) => s.name === 'Who’s here, in the record');
   assert(row && row.tokens > 0 && /Rukia Kuchiki/.test(row.reason), 'with its row: ' + JSON.stringify(row && row.reason));
   const normal = mk(false, here);
-  assert(!/What the record holds of who is here/.test(JSON.stringify(normal.messages)) && /^small model only/.test(normal.receipt.slots.find((s) => s.name === 'Who’s here, in the record').reason), 'the frontier model is untouched; its row says whose it is');
+  assert(!/What the record holds of who is here/.test(notesOf(normal)) && /essentials are still being made/.test(normal.receipt.slots.find((s) => s.name === 'Who’s here, in the record').reason), 'the frontier model, before its essentials are made, reads the whole record — its row says so (M510-48)');
 });
 
 
@@ -576,14 +576,14 @@ test('M510-22 A PLAN, KEPT WHOLE (his battle plan): written down the moment a pa
   assert(/A hope, a threat, or one person saying what they will do next is not a plan/.test(plansAsk({}).system), 'what a plan is, said');
   /* through the request */
   const plansBook = await loadPlansBook('s-plans');
-  const mk = (small) => buildRequest({ story: {}, messages: pages(40), settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, ...(small ? { smallPlan: { ...PLAN, intense: false }, smallPlansBook: plansBook } : {}) });
+  const mk = (small) => buildRequest({ story: {}, messages: pages(40), settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, ...(small ? { smallPlan: { ...PLAN, intense: false }, smallPlansBook: plansBook } : { smallPlansBook: plansBook /* M510-48: every storyteller reads the plans the keeper wrote down */ }) });
   const small = mk(true);
   const notes = notesOf(small);
   assert(notes.includes('Plans standing — laid out on the page, kept whole until carried out:\nThe feint at the forest — Jovan’s plan') && notes.includes('“Retreat! Protect the gold convoy!”'), 'the small storyteller reads it word for word');
   const row = small.receipt.slots.find((s) => s.name === 'Plans standing');
   assert(row && row.tokens > 0 && /The feint at the forest/.test(row.reason), 'with its row');
   const normal = mk(false);
-  assert(!/Plans standing/.test(JSON.stringify(normal.messages)) && /^small model only/.test(normal.receipt.slots.find((s) => s.name === 'Plans standing').reason), 'the frontier model is untouched');
+  assert(/Plans standing[\s\S]*The feint at the forest/.test(notesOf(normal)), 'a frontier storyteller reads the plans standing too (M510-48)');
 });
 
 test('M510-23 WHO’S HERE, IN THE RECENT PAGES (his duchy): the storyteller’s own paragraphs that name each person in the scene, from the pages between the last eight and the record — the newest two each, word for word, while they are here; never twice; a title is not a name; the frontier model is untouched', async () => {
@@ -1053,4 +1053,29 @@ test('M510-46 "TAKE A COPY" / "BRING A COPY BACK" — EVERYTHING, AND ONLY THE C
   const told = keepWhatWasNeverLetGo(local, device, spoke);
   eq(told.adopt.settings.length + told.adopt.connections.length, 0, 'now: the restore spoke for every row it replaced — nothing comes back');
   await store.stories.remove(tale.id).catch(() => {});
+});
+
+test('M510-48 THE HYBRID, ALWAYS ON (his word: "even a frontier model needs information that is not overwhelming — a coherent timeline"): with the essentials made, a frontier storyteller reads the essentials, the record’s newest lines word for word, the record’s lines about who is here, the older lines this scene names WHOLE, and the plans standing — not the whole record; before the essentials exist, the whole record rides as always; and the rulebook’s Exposed law rides every storyteller', async () => {
+  const st = { ...applyMutations({ ...emptyState(), page: 200 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Byakuya Kuchiki' }]).state, page: 200 };
+  const nodes = [];
+  for (let i = 0; i < 120; i += 1) nodes.push({ id: 'n' + i, span: [i * 2, i * 2 + 1], level: 1, text: 'Line ' + i + ': Jovan trained with the Thirteenth Division; ' + 'the drills went on and the yard rang. '.repeat(30) /* long enough that the newest lines' room holds only the last few dozen */ + (i === 7 ? 'At the captains’ meeting Jovan told every captain he serves as Head Captain Yamamoto’s personal attendant.' : '') + (i === 30 ? 'Byakuya Kuchiki watched Jovan spar and said nothing.' : '') });
+  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
+  const msgs = pages(15);
+  msgs.push({ id: 'ux', role: 'user', text: 'Byakuya asks me whose attendant I really am, in front of the whole Thirteenth Division.' });
+  const args = (essentials) => ({ story: {}, messages: msgs, settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: essentials, smallPlansBook: { plans: [{ id: 'p1', title: 'The duel with Zaraki', whose: 'Jovan', aim: 'prove he is fit to be captain', parts: [{ who: 'Jovan', does: 'meets Zaraki at noon' }], status: 'standing' }] } });
+  const whole = buildRequest(args(null));
+  assert(/What remains of the older pages:/.test(notesOf(whole)) && /Line 0:/.test(notesOf(whole)), 'before the essentials exist: the whole record, as always');
+  const hybrid = buildRequest(args({ text: '[Seireitei · spring] (pages 1–240) Jovan arrives; serves as Yamamoto’s personal attendant (told the captains); trains with the Thirteenth.', upTo: 239 }));
+  const notes = notesOf(hybrid);
+  assert(/What our story holds, in essentials:\n\[Seireitei/.test(notes), 'the essentials: the whole story as a timeline');
+  assert(/The newest of the record, word for word/.test(notes) && /Line 119:/.test(notes) && !/What remains of the older pages:/.test(notes), 'the newest lines word for word — not the whole record');
+  assert(!/Line 1: /.test(notes.split('From the older record')[0]), 'the oldest lines are not in the newest part');
+  assert(/From the older record, word for word[^\n]*\n[\s\S]*personal attendant/.test(notes), 'the older line this scene names (his move: attendant) comes back WHOLE: ' + (notes.match(/From the older record[\s\S]{0,300}/) || [''])[0].slice(0, 300));
+  assert(/Plans standing[\s\S]*The duel with Zaraki/.test(notes), 'the plans standing ride for a frontier storyteller');
+  const wordsWhole = notesOf(whole).length; const wordsHybrid = notes.length;
+  assert(wordsHybrid < wordsWhole, 'lighter than the whole record: ' + wordsWhole + ' → ' + wordsHybrid + ' characters');
+  const { ALWAYS_LAWS } = await import('../../js/assemble/laws.js');
+  assert(/^Exposed = /m.test(CRAFT_TEXT) && ALWAYS_LAWS.includes('Exposed'), 'the Exposed law: in the rulebook, and among the small model’s always-laws');
+  const { SHIPPED_BEFORE } = await import('../../js/assemble/modules.js');
+  assert(SHIPPED_BEFORE['core-craft'].includes('99fpod'), 'an unedited saved rulebook follows the new one');
 });
