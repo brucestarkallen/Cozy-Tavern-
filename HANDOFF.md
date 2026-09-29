@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-052)
+# Cozy Tavern — handoff for the next session (state at m510-053)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1189,4 +1189,15 @@ founding design lives in AGENTS.md's first entries.)
   spot SHOWS a telling as its news ("was told Jovan serves…" → "Jovan serves…", only when a capital-led sentence follows;
   "heard X say…" keeps its verb) while its tests still read the fact as written; a belief is no one's blind spot. Every
   age is in pages ("Last noted N pages ago", the world's "as of N pages ago"). The small model's request is unchanged.
+- M510-53 — THE SMALL MODEL'S STORY SO FAR, the same one part as the frontier's, in the same place (after canon; then On
+  their mind; then the state of things; the helper's plan still closes the request). Its pieces: "In brief, from the
+  beginning (pages 1–N)" (the essentials) or, before they exist, "In brief, as I remember it" (the helper's story in
+  short) — never both (the receipt's "The story in short" row says the essentials stand for it); "In full, since then"
+  (or "the newest of it"), each line with its pages when the record's lines are handed over; "In full, the people here in
+  the pages just before the ones you have" (M510-23's paragraphs, set at RECENT_HERE_MARK once the window is known, or the
+  mark taken out); "In full, earlier moments with the people here"; the plans. Gone: "Our story so far, the way I
+  remember it" at the head, "What our story holds, in essentials", "Folded since the essentials were made", "What remains
+  of the older pages (… N older lines rest outside this page)", "What the record holds of who is here", "What the recent
+  pages hold of who is here" at the tail. A belief's age reads "since about N pages ago". The plan's "Set against Jovan:
+  Jovan" says him once. Laws M510-6/13/16/17/21/23 restated.
 

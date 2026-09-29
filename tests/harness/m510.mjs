@@ -318,7 +318,7 @@ test('M510-13 A SMALL MODEL REMEMBERS THE WHOLE STORY: the helper keeps it short
   msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], text: 'I set the broken lantern from the mountain shrine on the table between us.' };
   const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlan: { ...PLAN, intense: false, story: STORY } });
   const notes = notesOf(r);
-  assert(notes.includes('Our story so far, the way I remember it:\n' + STORY), 'the story in short heads the notes: ' + notes.slice(0, 200));
+  assert(notes.includes('In brief, as I remember it:\n' + STORY) && notes.indexOf('Our story so far') < notes.indexOf('In brief, as I remember it'), 'the story in short is the brief of our story so far (M510-53): ' + notes.slice(0, 200));
   assert(r.receipt.slots.some((s) => s.name === 'The story in short' && s.tokens > 0), 'with its own receipt row');
   const last = String(r.messages[r.messages.length - 1].content);
   assert(/And from our story so far, each from its own time — \(pages 1–6\) Kaelen swore an oath on the broken lantern at the mountain shrine/.test(last), 'the fold his move names, word for word, with its pages: ' + last.slice(last.indexOf('And from'), last.indexOf('And from') + 160));
@@ -379,7 +379,7 @@ test('M510-16 THE RECORD RIDES FOR A SMALL MODEL — the keeper’s folds, writt
   eq(newestLines('A\nB', 100).rested, 0, 'a short record rides whole');
   const r = build({ smallModelNow: true, frameOn: false, noteOn: false }, { smallPlan: { ...PLAN, intense: false }, memory: lines.join('\n') });
   const w = wireOf(r);
-  assert(w.includes('LINE-399 ') && !w.includes('LINE-0 ') && /What remains of the older pages \(the newest of them; \d+ older lines rest outside this page\):/.test(w), 'the newest folds ride, the oldest said to rest');
+  assert(w.includes('LINE-399 ') && !w.includes('LINE-0 ') && /In full, the newest of it/.test(w), 'the newest folds ride (M510-53: no count of the rest — the brief stands for them)');
   const row = r.receipt.slots.find((s) => s.name === 'What remains');
   assert(row && row.tokens > 3000 && row.tokens <= 4100 && /older lines rest outside this page/.test(row.reason), 'about 4,000 tokens, and the receipt says the rest rests: ' + (row && row.tokens));
   const bad = w.match(/\b(the house|helper|worker|JSON)\b/gi);
@@ -428,9 +428,9 @@ test('M510-17 THE STORY’S ESSENTIALS (his design): the whole record streamline
   const alone = { ...applyMutations({ ...emptyState(), page: 20 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 20 };
   const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: alone, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: withLater.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: withLater }, smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: ESS, upTo: 23 } });
   const notes = notesOf(r);
-  assert(notes.includes('What our story holds, in essentials:\n' + ESS), 'the essentials are in front');
+  assert(/In brief, from the beginning \(pages 1–\d+\):\n/.test(notes) && notes.includes(ESS), 'the essentials are in front — the brief of our story so far (M510-53)');
   assert(!notes.includes('NEWEST-LINE') && !notes.includes('Rukia saw Jovan leave'), 'the lines the essentials stand for do not ride as they are');
-  assert(/Folded since the essentials were made:\n- LATER-LINE/.test(notes), 'what was folded since rides as it is');
+  assert(/In full, since then \(pages \d+–\d+\):\n- \(pages \d+–\d+\) LATER-LINE/.test(notes), 'what was folded since rides as it is — in full, with its pages (M510-53): ' + (notes.match(/In full, since then[\s\S]{0,160}/) || [''])[0]);
   const last = String(r.messages[r.messages.length - 1].content);
   assert(/\(pages 1–6\) OLDEST-LINE Jovan arrived at the Seireitei; Kaelen swore an oath on the broken lantern/.test(last), 'a line his move names comes back in detail, word for word');
   assert(r.receipt.slots.some((s) => s.name === 'Story essentials' && s.tokens > 0) && r.receipt.slots.some((s) => s.name === 'What remains' && /folded since the essentials/.test(s.source)), 'each with its receipt row');
@@ -522,7 +522,7 @@ test('M510-21 WHO’S HERE, IN THE RECORD (his idea, bounded): while someone is 
   const mk = (small, state) => buildRequest({ story: {}, messages: msgs, settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: lines.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: lines }, ...(small ? { smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: '- [Day 1 · the yard] (pages 1–42) Jovan trained with Rukia; Kaelen swore on the lantern.', upTo: 41 } } : {}) });
   const small = mk(true, here);
   const notes = notesOf(small);
-  assert(/What the record holds of who is here, word for word:\n- \(pages/.test(notes) && notes.includes('RUKIA-12'), 'it rides for the small model');
+  assert(/In full, earlier moments with the people here:\n- \(pages/.test(notes) && notes.includes('RUKIA-12'), 'it rides for the small model — inside our story so far (M510-53)');
   const row = small.receipt.slots.find((s) => s.name === 'Who’s here, in the record');
   assert(row && row.tokens > 0 && /Rukia Kuchiki/.test(row.reason), 'with its row: ' + JSON.stringify(row && row.reason));
   const normal = mk(false, here);
@@ -610,7 +610,7 @@ test('M510-23 WHO’S HERE, IN THE RECENT PAGES (his duchy): the storyteller’s
   const mk = (small, state) => buildRequest({ story: {}, messages: msgs, settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [] }, ...(small ? { smallPlan: { ...PLAN, intense: false } } : {}) });
   const small = mk(true, here);
   const notes = notesOf(small);
-  const part = (notes.split('What the recent pages hold of who is here, word for word:\n')[1] || '');
+  const part = (notes.split('In full, the people here in the pages just before the ones you have:\n')[1] || ''); /* M510-53: inside our story so far */
   assert(part.includes('(page 16) Lord Varen VAREN-16') && part.includes('(page 24) Lord Varen VAREN-24'), 'Varen’s newest two in the pages between: the purse, the oath:\n' + part.slice(0, 600));
   assert(!part.includes('VAREN-10'), 'the newest two, not every one');
   assert(part.includes('(page 12) Lady Mira MIRA-12') && !part.includes('MIRA-28') && JSON.stringify(small.messages).includes('MIRA-28'), 'Mira: she never came (the pages between); her test is within the last eight and rides whole');

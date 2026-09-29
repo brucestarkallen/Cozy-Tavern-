@@ -13146,3 +13146,18 @@ persona." Read one full frontier request (Hulk telling Bruce's Bleach story) top
   added in this session speaks as his notes (no "the house", no device, no counts); the closing is his note.
 Law M510-52; the laws that named "turns ago" say pages; M510-48/49 name the whole record's new heading.
 
+# M510-53 — the small model's story so far: the same part, its own pieces
+He: "do this to the small mode — perfect, coherent, the best for a small model, ready to be played." Read a full small
+request (Bruce's Bleach scene, the helper's plan, the essentials, a long record, plans, people, the tracker). It had the
+frontier's old faults and one of its own: six headings in six vocabularies ("Our story so far, the way I remember it" at
+the very top, "What our story holds, in essentials", "Folded since the essentials were made", "What remains of the older
+pages (the newest of them; N older lines rest outside this page)", "What the record holds of who is here", and "What the
+recent pages hold of who is here" tacked on after everything); two tellings of the whole story (the helper's story in
+short AND the essentials); the past after the present; record lines with no pages.
+Now the small model reads the one part a frontier storyteller reads, in the same place — canon, then OUR STORY SO FAR
+(how to read it; "In brief, from the beginning (pages 1–N)" — the essentials, or before they exist the helper's "In
+brief, as I remember it", never both; "In full, since then" with each line's pages; "In full, the people here in the pages
+just before the ones you have"; "In full, earlier moments with the people here"; the plans), then On their mind, then the
+state of things; the helper's plan still closes the request in his voice (and its "Set against Jovan: Jovan" now says his
+name once). A belief is held "since about N pages ago", not "learned". The frontier request is untouched (9 of 9).
+

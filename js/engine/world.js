@@ -588,7 +588,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     if (!own.length && !ownOld.length && p.rest <= 0) continue;
     /* the final audit: a belief written as one (M510-48: "believes X — untrue: Y") reads as one, not "knows: believes" */
     const isBelief = (f) => /^believes\b/i.test(f);
-    const beliefs = own.filter(isBelief).map((f) => f.replace(/^believes\s+/i, ''));
+    const beliefs = own.filter(isBelief).map((f) => f.replace(/^believes\s+/i, '').replace(/ \(learned about (\d+) pages ago\)$/, ' (since about $1 pages ago)')); /* a belief is held since, not learned */
     const knownOwn = own.filter((f) => !isBelief(f));
     lines.push(p.key + (knownOwn.length || !beliefs.length ? ' knows' + (knownOwn.length ? ': ' + knownOwn.join('; ') + '.' : ' what is shared above.') : '')
       + (beliefs.length ? (knownOwn.length || !beliefs.length ? ' ' + p.key.split(/\s+/)[0] : '') + ' believes: ' + beliefs.join('; ') + '.' : '')
