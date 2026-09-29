@@ -938,3 +938,16 @@ test('M510-39 HIS SWITCH FOR THE NOTES’ ROLE (his word: "the notes as user or 
   const small = build('assistant', { smallModelNow: true, frameOn: false, noteOn: false });
   eq(small.messages[0].role, 'assistant', 'a small model’s notes follow the switch too');
 });
+
+test('M510-40 (final audit) THE STEP BACK TO HIS MOVE NEVER OVERFLOWS: with the keeper off the window is cut to the budget — a long move of his behind a window that opens on the teller’s page is not stepped back over the room (m510-037..039 sent 35,673 tokens into a 30,000 budget); a move that fits is', async () => {
+  const { estimateTokens } = await import('../../js/assemble/receipt.js');
+  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
+  const long = 'He speaks at length. '.repeat(3000);
+  const mk = (longAt) => { const p = []; for (let i = 0; i < 6; i += 1) { p.push({ id: 'u' + i, role: 'user', text: i === longAt ? long : 'move ' + i }); p.push({ id: 'a' + i, role: 'assistant', text: 'page ' + i + ' ' + 'word '.repeat(300) }); } p.push({ id: 'ux', role: 'user', text: 'I wait.' }); return p; };
+  const tokensOf = (r) => r.systemBlocks.reduce((s, b) => s + estimateTokens(b.text || ''), 0) + r.messages.reduce((s, m) => s + estimateTokens(String(m.content)), 0);
+  const tight = buildRequest({ story: {}, messages: mk(4), settings: {}, state: { ...yard(), page: 6 }, modules: mods, memory: '', window: { keeperOn: false, budgetTokens: 30000 } });
+  assert(tokensOf(tight) <= 30000, 'within the budget: ' + tokensOf(tight));
+  eq(tight.messages[0].role, 'assistant', 'the window stays as it was cut — the provider opens it with his line where a house insists');
+  const roomy = buildRequest({ story: {}, messages: mk(-1), settings: {}, state: { ...yard(), page: 6 }, modules: mods, memory: '', window: { keeperOn: false, budgetTokens: 22000 } });
+  assert(tokensOf(roomy) <= 22000 && roomy.messages[0].role === 'user', 'a short move that fits is stepped back: ' + roomy.messages[0].role + ' ' + tokensOf(roomy));
+});

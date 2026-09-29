@@ -1062,7 +1062,16 @@ export function buildRequest({
     const at = pages.indexOf(storyWindow[0]);
     let from = at;
     while (from > 0 && pages[from] && pages[from].role !== 'user') from -= 1;
-    if (at > 0 && pages[from] && pages[from].role === 'user') storyWindow = pages.slice(from, at).concat(storyWindow);
+    /* final audit: only where his move FITS — the window was cut to the room (the budget with the keeper off, the stretch
+     * with it on), and a long move of his stepped back over it would overflow the model's context. Where it does not fit,
+     * the window stays as it was cut, opening on the teller's page; the provider opens it with his one line where a house
+     * insists (providers/userfirst.js) */
+    if (at > 0 && pages[from] && pages[from].role === 'user') {
+      const tokensOf = (list) => list.reduce((sum, m) => sum + estimateTokens(typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')), 0);
+      const step = pages.slice(from, at);
+      const room = Number.isFinite(w.budgetTokens) && w.budgetTokens > 0 ? w.budgetTokens - prefixTokens - tokensOf(storyWindow) : Infinity;
+      if (tokensOf(step) <= room) storyWindow = step.concat(storyWindow);
+    }
   }
   const wire = storyWindow.map((m) => ({ role: m.role, content: m.content }));
   const historyText = wire.map((m) => m.content).join('\n');

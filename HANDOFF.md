@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-039)
+# Cozy Tavern — handoff for the next session (state at m510-040)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1094,4 +1094,11 @@ founding design lives in AGENTS.md's first entries.)
   notebook (assistant, voice.js notebookOpening), seats 2–3 then empty. "Before the pages" own words stand right after
   that message. An assistant-first request gets "(Our story begins.)" only where a house insists (M510-38). Laws M510-39,
   DOM-142; A4 and M386-4 count the seats.
+- M510-40 — FINAL AUDIT of M510-34..39. One real fault: the M510-37 step back to his move (so the story opens on his
+  page) ignored the room the window was cut to — with the keeper off and a tight budget, a long move behind the cut was
+  stepped back over it (a 30,000-token budget sent 35,673). It steps back now only where the move fits; otherwise the
+  window stays as cut, opening on the teller's page, and the provider adds his line where a house insists (M510-38).
+  Law M510-40. Checked and sound: the backup takes every setting (his presets, notesRole) and every connection field
+  (userFirstFor); reset leaves his presets (his writing) and resets notesRole; the page finisher keeps second-person
+  narration, narrative questions, speech and letters, and takes off only notes to him (9 of 9 in a probe).
 

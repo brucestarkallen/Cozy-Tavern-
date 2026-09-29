@@ -12943,3 +12943,16 @@ small model's too, and the backup. Laws M510-39 (all three roles, the rules alwa
 notes, the small request), DOM-142 (the switch in Settings, the notebook on the wire, back to the system); A4 and M386-4
 count the seats; lib.mjs notesOf and the walk's reader find the notes by their opening.
 
+# M510-40 — final audit of the session's work (M510-34..39)
+He: "final session audit — everything, no bugs, no regression, the highest standard". Read every change of the session
+again (35 files since m510-033) and probed the risky joins. One real fault, fixed: the step back to his move (M510-37: a
+window opening on the teller's page steps back to the move that led to it) did not ask whether the move FITS — with the
+keeper off the window is cut to the budget, and a long move right behind the cut went over it: a 30,000-token budget sent
+35,673 (measured, m510-039). It steps back only where the move fits in the room left; where it does not, the window stays
+as it was cut and the provider opens it with his line where a house insists (M510-38). Law M510-40.
+Checked and sound, with the evidence: a backup is exportAll — every setting row (voicePresets, voicePresetActive,
+notesRole) and every connection field (userFirstFor); "reset to the house's defaults" resets notesRole and leaves his
+presets and own words (his writing); the page finisher probed with second-person narration ("You could go after her…",
+"You wonder whether she saw it too. Did she?"), a narrative question, speech with a question and a letter — all kept —
+and "What do you do?", an offer to continue and an OOC note — taken off (9 of 9).
+
