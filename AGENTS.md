@@ -13185,3 +13185,16 @@ record rows say what they are sent under ("sent as “Our story so far — In br
 story so far” as “In full, just before the pages you have”"…), the state of things says it is sent nearest the pages, and
 the pages' row is "The pages, word for word". Law M510-55.
 
+# M510-56 — an ongoing story gets its essentials by itself
+He: "my ongoing story, from before the memory update — why doesn't it use the new system? why no essentials?" Traced:
+the hybrid only begins once the essentials exist, and they are made in the background — after a page (the page chain's
+step 9, open to every storyteller since M510-48) or when the story is opened (planAhead). planAhead still returned before
+queueing anything unless the storyteller was a small model (M510's gate, kept for the planning helper and never lifted for
+the two keepers), so a frontier story opened after the update did nothing until his next page was written — and that page
+was built before its own chain ran, so it went with the whole record; only the page after could use them. Now opening the
+story (or switching its storyteller, or walking a page's versions) queues the essentials keeper for every storyteller —
+it asks a model only when the record changed or none were made; the planning helper and the plans keeper's reading on
+open stay the small model's (the plans keeper reads every page after it is written, for everyone — and DOM-105 holds:
+opening a story just to look asks no model). DOM-149 reproduces his case (failed on m510-055) and also proves
+the after-page path.
+

@@ -7346,6 +7346,46 @@ test('DOM-148 ONE RUKIA (M510-54): a canon memory that kept the same wiki page u
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-149 AN ONGOING STORY GETS ITS ESSENTIALS BY ITSELF (M510-56, his report: "my ongoing story, from before the memory update, doesn\'t use the new system — no essentials"): a frontier story with a long record and no essentials — opening it asks the essentials keeper, the essentials are kept, and the next page is sent with "Our story so far — In brief, from the beginning"', async () => {
+  const before = errors.length;
+  const DEFAULT = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
+  const st = await db.stories.create({ title: 'ongoing, before the update' });
+  const nodes = [];
+  for (let i = 0; i < 60; i += 1) nodes.push({ id: 'og' + i, span: [i * 4, i * 4 + 3], level: 1, at: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) });
+  await db.settings.set('memory:' + st.id, { window: 30, nodes });
+  for (let i = 0; i < 3; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I train. (' + i + ')' }); await db.messages.append(st.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 09:0' + i + ' | clear]\n\nThe bells rang. (' + i + ')' }); }
+  const prior = house.state.workerAnswer;
+  let asked = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/condense the record of a long collaborative story/.test(sys)) { asked += 1; return '[Day 1–60 · the yard] (pages 1–240) ONGOING-ESSENTIALS: Jovan trains for sixty days; the bells ring; the yard holds.'; }
+    return typeof prior === 'function' ? prior(body, sys) : (prior || DEFAULT);
+  };
+  try {
+    await env.ctx.chat.refreshStories(true);
+    await env.ctx.chat.openStory(st.id);
+    await until(async () => /ONGOING-ESSENTIALS/.test(((await db.settings.get('essentials:' + st.id)) || {}).text || ''), 'opening the story made its essentials', 30000);
+    assert(asked >= 1, 'the essentials keeper was asked by itself');
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I ring the bell myself.'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked');
+    const teller = house.state.calls.slice(from).find((c) => !c.isWorker);
+    assert(/Our story so far — first the whole of it in brief[\s\S]*In brief, from the beginning[\s\S]*ONGOING-ESSENTIALS/.test(notesInBody(teller.body)), 'the next page is sent with the new memory');
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
+    /* and after a page, by itself too: with the essentials let go, the page's own chain makes them again */
+    await db.settings.delete('essentials:' + st.id);
+    const askedBefore = asked;
+    type(q('#composer-input'), 'I wait for the bells to stop.'); submit(q('#composer'));
+    await until(async () => asked > askedBefore && /ONGOING-ESSENTIALS/.test(((await db.settings.get('essentials:' + st.id)) || {}).text || ''), 'the page’s chain made them again', 40000);
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the second page landed', 20000);
+  } finally {
+    house.state.workerAnswer = prior;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

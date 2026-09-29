@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-055)
+# Cozy Tavern — handoff for the next session (state at m510-056)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1216,4 +1216,13 @@ founding design lives in AGENTS.md's first entries.)
   state of things, …). The record rows' explanations name the words they are sent under ("sent as “Our story so far — In
   brief…”"); the pages' row is "The pages, word for word" (was "The story so far", which now named the record in the
   raw). Law M510-55; M510-23 and M21-B read the new order.
+- M510-56 — AN ONGOING STORY GETS ITS ESSENTIALS BY ITSELF. chat.js planAhead() (run when a story is opened, when the
+  storyteller changes, and when a page's version is walked to) queued the essentials and plans keepers only after the
+  small-model gate — so a frontier story opened after the update waited for its next page's chain before its essentials
+  were made, and that page still went with the whole record. Now planAhead queues the essentials keeper for every
+  storyteller (a model is asked only when the record changed or none exist); the planning helper and the plans keeper's
+  reading on open stay the small model's (the plans keeper reads every page after it is written, for everyone; DOM-105:
+  opening a story to look asks no model). DOM-149: a frontier story with a long record and no essentials — opening
+  it makes them and the next page is sent with "Our story so far — In brief…"; with them let go, the page's own chain
+  makes them again (failed on m510-055: "waited too long for opening the story made its essentials").
 

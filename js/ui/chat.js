@@ -2635,13 +2635,26 @@ export function initChat(ctx) {
   function planAhead() {
     (async () => {
       const story = await activeStory();
-      if (!story || !isSmallModel(await resolveConnection(story))) return;
-      const promise = enqueueWork(story.id, { name: 'planner', run: async ({ signal, stale }) => planNext(story, { signal, stale }) });
-      noteWork(story.id, promise);
+      if (!story) return;
+      /* M510-56: THE KEEPERS RUN FOR EVERY STORYTELLER. His ongoing story, told by a frontier model, never got its
+       * essentials: M510-48 opened the essentials and plans keepers to every storyteller — but they were queued only from
+       * here, after the small model's gate, so for a frontier storyteller they were never asked, the essentials never
+       * made, and the hybrid never began. The essentials keeper is asked here for every storyteller (it asks a model only when
+       * the record changed or none were made); the planning helper and the plans keeper's reading on open stay the small
+       * model's — the plans keeper reads every page after it is written, for everyone. */
+      const small = isSmallModel(await resolveConnection(story));
+      if (small) {
+        const promise = enqueueWork(story.id, { name: 'planner', run: async ({ signal, stale }) => planNext(story, { signal, stale }) });
+        noteWork(story.id, promise);
+      }
       const kept = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale }) => essentialsNext(story, { signal, stale }) }); /* M510-15 */
       noteWork(story.id, kept);
-      const plans = enqueueWork(story.id, { name: 'plans', run: async ({ signal, stale }) => plansNext(story, { signal, stale }) }); /* M510-22 */
-      noteWork(story.id, plans);
+      /* the plans keeper reads each page after it is written (the page chain, every storyteller); asked on open only for a
+       * small model, whose helper plans before the first send — opening a story to look at it asks no one else anything */
+      if (small) {
+        const plans = enqueueWork(story.id, { name: 'plans', run: async ({ signal, stale }) => plansNext(story, { signal, stale }) }); /* M510-22 */
+        noteWork(story.id, plans);
+      }
     })().catch(() => {});
   }
   const roomOf = (connection) => contextOf(connection);
