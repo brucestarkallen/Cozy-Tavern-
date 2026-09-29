@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-059)
+# Cozy Tavern — handoff for the next session (state at m510-060)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1241,4 +1241,11 @@ founding design lives in AGENTS.md's first entries.)
   room of their own; with a fold of 30 pages a line, ten whole lines ballooned the memory (a 600-page story: 28,000 tokens
   at 30 pages a fold vs 15,500 at 6, measured on m510-058). HYBRID_RECALL_CHARS = 16,000 (~4,000 tokens): the smart picks
   first, then the word-matched, at least one always; shown in page order. Now 12,500–16,000 at every fold size. Law M510-59.
+- M510-60 — THE DEEP AUDIT, READ AS THE STORYTELLER. The lore shelf (the world's standing facts, woken by the pages) now
+  stands with canon, before our story so far — reference first, then the past, the plans, the people, the state of things
+  now; it stood between the state of things and the pages. The story part's words hold in every voice the notes take
+  (system, his user message, the storyteller's own notebook): "the pages that follow" (was "you have"), "what the newest
+  move is about" (was "my move" — in the notebook, the storyteller claiming his move). Checked and sound: the rulebook
+  already names the record "Our story so far" and the notes' opening; the people are said three ways on purpose (his cast
+  notes, canon, the tracker's page), each its own authority. Law M510-60.
 

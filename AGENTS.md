@@ -13226,3 +13226,15 @@ smart recall) rode WHOLE with no room of their own — a 30-page line is a stret
 the memory 28,000 tokens (6-page folds: 15,500). They now share a room of ~4,000 tokens (HYBRID_RECALL_CHARS), the smart
 recall's picks first, at least one always, in page order: 12,500–16,000 tokens at every fold size. Law M510-59.
 
+# M510-60 — the deep audit, read as the storyteller
+He asked for a deep audit — the order and the storyteller's understanding, the persona, the memory, the ledger, the people,
+the world, the books. Read a fully-populated frontier request (the brief, his cast notes, canon, a believed lie, the
+tracker, the hybrid memory, the plans, the lore, the note) in each voice the notes can take, beside the rulebook's own
+description of them. Found and fixed: (1) the lore shelf — reference, like canon — stood between the state of things and
+the pages; it stands with canon now, before our story so far. (2) Two phrases broke the storyteller's own notebook voice:
+"the pages you have" and "what MY move is about" (in the notebook, the storyteller would claim his move) — now "the pages
+that follow" and "what the newest move is about", true in every voice. Checked and sound: the rulebook's House's Truth
+already calls the record "Our story so far" and the notes "Where things stand right now"; the people appear in his cast
+notes (his words), canon (the series) and On their mind (the story's own page) on purpose — three authorities, not bloat.
+Law M510-60.
+

@@ -1056,10 +1056,10 @@ export function buildRequest({
     const earlier = [...new Set([...(presentRecord && presentRecord.text ? presentRecord.text.split('\n') : []), ...(recalledOlder ? recalledOlder.split('\n') : [])].map(bare).filter(Boolean))]
       .sort((a, b) => pagesOf(a) - pagesOf(b));
     const block = [
-      'Our story so far — first the whole of it in brief; then, in full, the stretch just before the pages you have, and the earlier moments this scene touches. Where the brief and a full line differ, the full line is right; the pages you have are right over both. Every line tells what happened on its own pages — the past, not now.',
+      'Our story so far — first the whole of it in brief; then, in full, the stretch just before the pages that follow, and the earlier moments this scene touches. Where the brief and a full line differ, the full line is right; the pages that follow are right over both. Every line tells what happened on its own pages — the past, not now.',
       'In brief, from the beginning (pages 1–' + (essentialsUpTo + 1) + '):\n' + essentialsText,
-      recentLines.length ? 'In full, just before the pages you have (' + span(recentNodes) + '):\n' + recentLines.map((l) => '- ' + l).join('\n') : '',
-      earlier.length ? 'In full, earlier moments this scene touches — the people here, and what my move is about:\n' + earlier.map((l) => '- ' + l).join('\n') : '',
+      recentLines.length ? 'In full, just before the pages that follow (' + span(recentNodes) + '):\n' + recentLines.map((l) => '- ' + l).join('\n') : '',
+      earlier.length ? 'In full, earlier moments this scene touches — the people here, and what the newest move is about:\n' + earlier.map((l) => '- ' + l).join('\n') : '',
       standingText ? 'Plans standing — laid out on the page, kept whole until carried out:\n' + standingText : '',
     ].filter(Boolean).join('\n\n');
     const at = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
@@ -1079,7 +1079,7 @@ export function buildRequest({
     const spanOf = (list) => (list.length ? 'pages ' + (list[0].span[0] + 1) + '–' + (list[list.length - 1].span[1] + 1) : '');
     const earlierS = presentRecord && presentRecord.text ? presentRecord.text.split('\n').map((l) => l.replace(/^\s*-\s*/, '').trim()).filter(Boolean) : [];
     const block = [
-      'Our story so far — first the whole of it in brief; then, in full, what came since and the moments with the people here. Where the brief and a full line differ, the full line is right; the pages you have are right over both. Every line tells what happened on its own pages — the past, not now.',
+      'Our story so far — first the whole of it in brief; then, in full, what came since and the moments with the people here. Where the brief and a full line differ, the full line is right; the pages that follow are right over both. Every line tells what happened on its own pages — the past, not now.',
       essentialsText ? 'In brief, from the beginning (pages 1–' + (essentialsUpTo + 1) + '):\n' + essentialsText : (storyShort ? 'In brief, as I remember it:\n' + storyShort : ''),
       sinceNodes.length ? 'In full, ' + (essentialsText ? 'since then' : 'the newest of it') + ' (' + spanOf(sinceNodes) + '):\n' + sinceNodes.map((n) => '- ' + pagesOfNode(n)).join('\n')
         : (smallRecord && smallRecord.text ? 'In full, ' + (essentialsText ? 'since then' : 'the newest of it') + ':\n' + smallRecord.text.split('\n').map((l) => '- ' + l.replace(/^\s*-\s*/, '').trim()).filter((l) => l !== '- ').join('\n') : ''), /* the record handed over without its lines' pages: as it stands */
@@ -1093,13 +1093,19 @@ export function buildRequest({
     /* the final audit: the whole record (before the essentials exist, or when it fits in full) stands where the hybrid does
      * and is named as it is — the past first, then the plans, then the people and the state of things now */
     const block = [
-      memoryText ? 'Our story so far, in full — everything before the pages you have, in the order it happened:\n' + memoryText : '',
+      memoryText ? 'Our story so far, in full — everything before the pages that follow, in the order it happened:\n' + memoryText : '',
       standingText ? 'Plans standing — laid out on the page, kept whole until carried out:\n' + standingText : '',
     ].filter(Boolean).join('\n\n');
     const at = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
     stateParts.splice(at, 0, block);
   }
-  if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
+  /* the final audit: the lore is reference, as canon is — the world's standing facts, woken by the pages; it stands with
+   * canon before our story so far, not between the state of things and the pages (M510-60) */
+  if (loreText) {
+    const lorePart = 'The lore shelf, woken by the latest pages:\n' + loreText;
+    const atLore = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
+    stateParts.splice(atLore, 0, lorePart);
+  }
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
   if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
   if (editorText) stateParts.push(editorText); /* M495: "My notes on the telling…" — his, not an editor's */
@@ -1114,7 +1120,7 @@ export function buildRequest({
   if (hybridB) {
     /* M510-48: the hybrid, for a frontier storyteller — the essentials, the newest lines word for word, the older lines named */
     pushSlot('Story essentials', essentialsText, 'sent as “Our story so far — In brief, from the beginning”: your whole record (Summaryception), streamlined by the essentials keeper — the whole story as a timeline; every detailed line stays on the device');
-    pushSlot('What remains', [hybridRecent && hybridRecent.text, recalledOlder].filter(Boolean).join('\n'), 'sent inside “Our story so far” as “In full, just before the pages you have” and “In full, earlier moments this scene touches”: the record’s newest lines word for word' + (recalledOlder ? ', and the older lines this scene names, whole' + (recallSmart ? ' (' + recallSmart + ' picked by the smart recall for what your move means)' : '') : '') + ' — the rest is in the essentials above', hybridRecent && hybridRecent.rested ? hybridRecent.rested + ' older lines ride in the essentials, kept whole on the device' : '');
+    pushSlot('What remains', [hybridRecent && hybridRecent.text, recalledOlder].filter(Boolean).join('\n'), 'sent inside “Our story so far” as “In full, just before the pages that follow” and “In full, earlier moments this scene touches”: the record’s newest lines word for word' + (recalledOlder ? ', and the older lines this scene names, whole' + (recallSmart ? ' (' + recallSmart + ' picked by the smart recall for what your move means)' : '') : '') + ' — the rest is in the essentials above', hybridRecent && hybridRecent.rested ? hybridRecent.rested + ' older lines ride in the essentials, kept whole on the device' : '');
   } else if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'sent as “Our story so far, in full”, after canon: everything the keeper has folded of the older pages');
     /* the final audit: with the whole record sent, every line about the people here is in it — said so, not guessed at */
