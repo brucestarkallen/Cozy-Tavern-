@@ -185,6 +185,7 @@ import './m505.mjs';
 import './m507.mjs';
 import './m508.mjs';
 import './m510.mjs'; /* M510: the small-model mode */
+import './m511.mjs'; /* M511: after the crash — a branch keeps its pages whole; what the storyteller saw is what was sent */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

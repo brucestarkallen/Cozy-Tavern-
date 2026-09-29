@@ -558,6 +558,20 @@ const messages = {
     messagesCache.delete(storyId);
     return out;
   },
+  /* M511: A BRANCH CARRIES ITS PAGES WHOLE. The branch copied each page through append — the maker of NEW pages, which
+   * keeps only the fields it lists — so a field a later build wrote onto a page was lost in every branch until someone
+   * added it to that list (M26/M35 the masthead and the mend, M382 what he typed; M510-43's `keptText` never was: a
+   * page he had put back was mended again the first time the branch opened). A copy is the page as it stands, every
+   * field of it; only its id and its tale are new. */
+  async copy(storyId, msg) {
+    if (!storyId || !msg || typeof msg !== 'object') return undefined;
+    const row = { ...msg, id: uid(), storyId };
+    await run('messages', 'readwrite', (s) => s.put(row));
+    messagesCache.delete(storyId);
+    const story = await stories.get(storyId);
+    if (story) await stories.update(storyId, {});
+    return row;
+  },
   /* M9 additive helper (B17): write many pages of one story in a SINGLE
    * transaction — a chat import either lands whole or not at all. */
   async appendAll(storyId, msgs) {

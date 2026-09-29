@@ -93,7 +93,8 @@ try:
         WHOLE = """async (pid) => { const db = window.__cozy.db; const all = (await db.stories.list()).filter((s) => s.id !== pid && !s.building); if (all.length !== 1) return false; const m = await db.settings.get('memory:' + all[0].id); return Boolean(m && m.nodes && m.nodes.length && (await db.settings.get('state:' + all[0].id)) && (await db.messages.count(all[0].id)) === 12); }"""
         # (1) THE WRITER'S REPORT: branch — and the page is refreshed while the branch is still being made
         # a branch of a long tale takes seconds on a phone; here each page copied is slowed so the refresh lands MID-branch for certain
-        page.evaluate("""() => { const db = window.__cozy.db; const append = db.messages.append.bind(db.messages); db.messages.append = async (...a) => { await new Promise((r) => setTimeout(r, 250)); return append(...a); }; }""")
+        # (M511: a branch copies its pages whole through db.messages.copy — the fixture slows the copy the branch really makes)
+        page.evaluate("""() => { const db = window.__cozy.db; const copy = db.messages.copy.bind(db.messages); db.messages.copy = async (...a) => { await new Promise((r) => setTimeout(r, 250)); return copy(...a); }; }""")
         page.evaluate(BRANCH)
         wait_until(page, """async (pid) => { const db = window.__cozy.db; const b = (await db.stories.list()).find((s) => s.id !== pid); return Boolean(b) && (await db.messages.count(b.id)) >= 3; }""", parent, 20, 'the branch to be part-made')
         cut = page.evaluate(STATE, parent)

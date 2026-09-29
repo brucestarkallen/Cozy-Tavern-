@@ -7028,6 +7028,29 @@ test('DOM-140 THE PAGE FINISHED, IN THE APP (M510-34): a page that ends in an em
     await env.ctx.chat.mendAllPages({ quiet: true });
     const after = (await db.messages.list(st.id)).find((m) => m.id === page.id);
     assert(after.text.endsWith('What will you do next? Let me know!') && !after.mended, 'the mend of stored pages leaves his words: ' + after.text.slice(-60));
+    /* M511: AND IN A BRANCH. The branch copied each page through the maker of new pages, which keeps only the fields it
+     * lists — the words he put back (keptText) were not among them, so the branch's first open from the shelf finished
+     * the page again (m510-063). The branch carries the page whole: every field it has, one no build has named included. */
+    await db.messages.update(st.id, page.id, { copyProbe: 'every field rides' });
+    await env.ctx.chat.renderThread({ structural: true });
+    const talesBefore = (await db.stories.list()).length;
+    const node = await until(() => assistantPages().find((n) => n.dataset.id === page.id), 'the page on screen');
+    click(q('.msg-act[data-act="branch"]', node));
+    await until(async () => (await db.stories.list()).length === talesBefore + 1 && (await storyId()) !== st.id, 'the branch is made and open', 30000);
+    const bid = await storyId();
+    await until(async () => !((await db.stories.get(bid)) || {}).building, 'the branch whole', 30000);
+    await db.settings.delete('pagesMended:' + bid).catch(() => {});
+    await env.ctx.chat.openStory(bid); /* what tapping it on the shelf does — the stored-page mend runs for this tale */
+    const V = (await import('../../js/version.js')).VERSION;
+    await until(async () => (await db.settings.get('pagesMended:' + bid)) === V, 'the branch opened and its pages looked at', 8000);
+    const copy = (await db.messages.list(bid)).find((m) => m.role === 'assistant');
+    assert(copy && copy.id !== page.id, 'the branch has its own copy of the page');
+    assert(copy.text.endsWith('What will you do next? Let me know!') && !copy.mended, 'his words stay back in the branch: ' + JSON.stringify(copy.text.slice(-60)));
+    eq(copy.keptText, after.text, 'the branch knows the words he put back');
+    eq(copy.copyProbe, 'every field rides', 'the branch carries every field of the page');
+    eq(copy.storyId, bid, 'the copy is the branch’s');
+    const orig = (await db.messages.list(st.id)).find((m) => m.id === page.id);
+    assert(orig && orig.storyId === st.id && orig.text === after.text, 'the page it was copied from is untouched');
   } finally { house.state.storyAnswer = prior; }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
@@ -7295,7 +7318,7 @@ test('DOM-147 SMART RECALL THROUGH THE APP (M510-50): with the essentials made, 
     await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked');
     const teller = house.state.calls.slice(from).find((c) => !c.isWorker);
     eq(picks, 1, 'the picker was asked once, before the page');
-    assert(/In full, earlier moments this scene touches[\s\S]*SMART-LINE: Jovan told every captain/.test(notesInBody(teller.body)), 'the line it named rides word for word in the storyteller’s request');
+    assert(/In full, earlier moments that matter now[\s\S]*SMART-LINE: Jovan told every captain/.test(notesInBody(teller.body)), 'the line it named rides word for word in the storyteller’s request');
     await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
     await db.settings.set('smartRecall', false);
     const from2 = house.state.calls.length; const picks2 = picks;

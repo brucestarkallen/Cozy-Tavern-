@@ -514,6 +514,20 @@ function nameAsWord(name, known = []) {
   });
   return new RegExp('(?<![\\p{L}\\p{N}])(?:' + [...parts].sort((a, b) => b.length - a.length).map(esc).join('|') + ')(?![\\p{L}\\p{N}])', 'u');
 }
+/* M511: A RECORD LINE AS IT RIDES, ONE WAY EVERYWHERE — its pages, its words, and the detail the auditor kept beneath it
+ * (M12: "the detail rides with its line"). "Our story so far" (M510-51/53) wrote its lines by hand as pages and words, and
+ * every detail was lost from the request while the receipt, built from the record's own text, still showed them: his
+ * "on normal there's detail worth keeping but in raw none". */
+export function recordLine(n) {
+  const a = n.span[0] + 1; const b = n.span[1] + 1;
+  const head = (b > a ? '(pages ' + a + '–' + b + ') ' : '(page ' + a + ') ') + String(n.text || '').trim();
+  return typeof n.detail === 'string' && n.detail.trim() ? head + '\n  • Detail worth keeping: ' + n.detail.trim() : head;
+}
+/* M511: each person here, their pattern built once a call — the names the ledger knows are the same for every line */
+function patternsOf(here, state) {
+  const known = knownNames(state);
+  return new Map(here.map((name) => [name, nameAsWord(name, known)]));
+}
 /* everyone the ledger knows by name — who a shared family name might belong to */
 function knownNames(state) {
   const s = state || {};
@@ -546,9 +560,10 @@ export function pagesOfWhoIsHere(pages, state, { from = 0, to = 0, each = RECENT
       if (t.length >= RECENT_PARA_MIN && !skip(t)) paras.push({ page: i + 1, k, text: t.length > RECENT_PARA_MAX ? t.slice(0, RECENT_PARA_MAX - 1).trimEnd() + '…' : t });
     });
   }
+  const patterns = patternsOf(here, state);
   const picked = new Set(); const who = [];
   for (const name of here) {
-    const re = nameAsWord(name, knownNames(state));
+    const re = patterns.get(name);
     let n = 0;
     for (let j = paras.length - 1; j >= 0 && n < each; j -= 1) if (re.test(paras[j].text)) { picked.add(paras[j]); n += 1; }
     if (n) who.push(name);
@@ -556,15 +571,16 @@ export function pagesOfWhoIsHere(pages, state, { from = 0, to = 0, each = RECENT
   const render = (p) => '- (page ' + p.page + ') ' + p.text;
   let chosen = [...picked].sort((a, b) => (a.page - b.page) || (a.k - b.k));
   while (chosen.length && chosen.map(render).join('\n').length > cap) chosen = chosen.slice(1);
-  return { text: chosen.map(render).join('\n'), who: who.filter((n) => chosen.some((p) => nameAsWord(n, knownNames(state)).test(p.text))), texts: chosen.map((p) => p.text) };
+  return { text: chosen.map(render).join('\n'), who: who.filter((n) => chosen.some((p) => patterns.get(n).test(p.text))), texts: chosen.map((p) => p.text) };
 }
 
 export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRESENT_LINES_EACH, cap = PRESENT_RECORD_CHARS } = {}) {
   const here = namesHere(state);
   const lines = (Array.isArray(nodes) ? nodes : []).filter((n) => n && !n.empty && !n.correction && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span)).sort((a, b) => a.span[0] - b.span[0]);
+  const patterns = patternsOf(here, state);
   const picked = new Set(); const who = [];
   for (const name of here) {
-    const re = nameAsWord(name, knownNames(state));
+    const re = patterns.get(name);
     let n = 0;
     for (let i = lines.length - 1; i >= 0 && n < each; i -= 1) {
       if (!re.test(lines[i].text) || skip(lines[i])) continue;
@@ -572,27 +588,32 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
     }
     if (n) who.push(name);
   }
-  const render = (l) => '- (pages ' + (l.span[0] + 1) + (l.span[1] !== l.span[0] ? '–' + (l.span[1] + 1) : '') + ') ' + l.text.trim();
+  const render = (l) => '- ' + recordLine(l);
   let chosen = [...picked].sort((a, b) => a.span[0] - b.span[0]);
   /* final audit: FAIR WHEN THE ROOM IS TIGHT. Long lines (a dense record: ~7,000 characters a line) filled the room with the
    * newest few and let the oldest go first — someone last named fifty pages back (the captain the scene turns on) lost
    * every line to people named yesterday. Now the lines go from whoever still has the most, oldest first, so each person
    * keeps their newest line as long as the room can hold one each; past that, the oldest. */
-  const knownHere = knownNames(state);
-  const namedIn = (l) => here.filter((name) => nameAsWord(name, knownHere).test(l.text));
-  while (chosen.length && chosen.map(render).join('\n').length > cap) {
+  /* M511: each line is read for its names ONCE, and its length measured once — the room was measured by joining every
+   * chosen line again, and every line searched again for every person, on each pass (a dense record: ~14,000 name
+   * patterns and ~250 ms a call, twice a send; ×6 on his phone) */
+  const namesOfLine = new Map();
+  const namedIn = (l) => { let got = namesOfLine.get(l); if (!got) { got = here.filter((name) => patterns.get(name).test(l.text)); namesOfLine.set(l, got); } return got; };
+  const lengthOf = new Map(chosen.map((l) => [l, render(l).length]));
+  const sizeOf = (list) => (list.length ? list.reduce((sum, l) => sum + lengthOf.get(l), 0) + list.length - 1 : 0); /* = list.map(render).join('\n').length */
+  while (chosen.length && sizeOf(chosen) > cap) {
     const count = new Map();
     for (const l of chosen) for (const name of namedIn(l)) count.set(name, (count.get(name) || 0) + 1);
     const spare = chosen.find((l) => namedIn(l).every((name) => (count.get(name) || 0) > 1));
     chosen = chosen.filter((l) => l !== (spare || chosen[0]));
   }
-  return { text: chosen.map(render).join('\n'), who, lines: chosen.length };
+  return { text: chosen.map(render).join('\n'), who, lines: chosen.length, nodes: chosen };
 }
 
 /* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
 /* M510-55: in the order the request is sent now — the system's blocks, then the notes (canon, our story so far, the
  * plans, the people, the state of things, the rest), the pages, his move, the closing */
-export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'Active modules', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Who’s here, in the record', 'Plans standing', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
+export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'Active modules', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Earlier moments, in full', 'Plans standing', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
 function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
@@ -604,7 +625,7 @@ function emptyWhy(name, c) {
       : 'being made — the essentials keeper streamlines the record in the background; until then its newest lines ride under What remains';
     case 'Plans standing': return !c.small ? 'no plan standing — the plans keeper writes one down the moment a page lays it out' : !c.planned ? noPlan : 'no plan standing — the plans keeper writes one down the moment a page lays it out'; /* M510-48: every storyteller */
     case 'Who’s here, in the recent pages': return !c.small ? 'small model only — your storyteller reads those pages whole' : !c.planned ? noPlan + ', with the pages whole' : 'no one here is named in the pages between the last eight and the record (or the story is still short enough for the eight)';
-    case 'Who’s here, in the record': return !c.small ? 'no one here is named in the record’s older lines — or the essentials are still being made, and the whole record rides' : !c.planned ? noPlan + ', with the whole record' : 'no one here is named in the record yet, or their lines already ride above';
+    case 'Earlier moments, in full': return !c.small ? 'no older line names the people here or what your newest move brings up — or the essentials are still being made, and the whole record rides' : !c.planned ? noPlan + ', with the whole record' : 'no one here is named in the record yet, or their lines already ride above'; /* M511: was “Who’s here, in the record” */
     case 'The plan for this page': return !c.small ? 'small model only — the planning helper writes one for a small storyteller' : noPlan + ', with the scene said once more';
     case 'The sounds': return !c.small ? 'small model only — on a heated page' : !c.planned ? noPlan + ', with the whole craft' : 'a calm page — no sound laws needed';
     case 'On their mind': return 'no one’s page to show — the ledger has no one in it yet';
@@ -987,7 +1008,7 @@ export function buildRequest({
   const sinceEssentials = essentialsText
     ? (Array.isArray(windowInfo && windowInfo.nodes) ? windowInfo.nodes : [])
       .filter((n) => n && !n.empty && !n.correction && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span) && n.span[0] > essentialsUpTo)
-      .sort((a, b) => a.span[0] - b.span[0]).map((n) => '- ' + n.text.trim()).join('\n')
+      .sort((a, b) => a.span[0] - b.span[0]).map((n) => '- ' + recordLine(n)).join('\n') /* M511: as they ride, each detail with its line — the room that must hold them all measures them whole */
     : '';
   const smallRecord = smallB && !essentialsText && memoryText ? newestLines(memoryText, SMALL_RECORD_CHARS) : (sinceEssentials ? newestLines(sinceEssentials, SMALL_RECORD_CHARS) : null);
   /* M510-48: a frontier storyteller with the essentials made: the record's newest lines word for word (recent detail), not
@@ -1027,7 +1048,8 @@ export function buildRequest({
 
   /* M510-48: HIS "RESEARCH IT AND INJECT IT" — the older lines this scene names (the last pages and his move: the M344
    * scoring, a name that is everywhere counting for nothing), given whole under their own pages, for the teller to weigh */
-  let recalledOlder = '';
+  let recentRows = ''; let earlierRows = ''; let earlierCalled = 0; let smallSinceRows = ''; /* M511: each part's lines exactly as they ride — the receipt's words */
+  let recalledNodes = []; /* M511: the older lines called back, as the record's own lines (each rendered as it rides) */
   let recallSmart = 0; /* M510-50 */
   if (hybridB) {
     const lastUserH = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
@@ -1036,25 +1058,23 @@ export function buildRequest({
     const already = (t) => Boolean((hybridRecent && hybridRecent.text && hybridRecent.text.includes(t)) || (presentRecord && presentRecord.text && presentRecord.text.includes(t)));
     const older = recordNodes.filter((n) => !already(n.text.trim()));
     const picked = recallFromRecord(older, sceneH, { ignore: namesH, max: HYBRID_RECALL_LINES });
-    const wholeOf = (hit) => { const node = hit ? older.find((n) => n.span[0] + 1 === hit.from && n.span[1] + 1 === hit.to) : null; return node ? '(pages ' + hit.from + '–' + hit.to + ') ' + node.text.trim() : ''; }; /* the recall cuts a line to a glimpse — the line itself rides whole */
-    const byWords = (Array.isArray(picked) ? picked : []).map(wholeOf).filter(Boolean);
+    const wholeOf = (hit) => (hit ? older.find((n) => n.span[0] + 1 === hit.from && n.span[1] + 1 === hit.to) || null : null); /* the recall cuts a line to a glimpse — the line itself rides whole */
+    const byWords = [...new Set((Array.isArray(picked) ? picked : []).map(wholeOf).filter(Boolean))];
     /* M510-50: and the lines the smart recall named — his move read for what it means, not only its words; each the
      * record's own line, never said twice */
-    const named = (Array.isArray(recallPicked) ? recallPicked : [])
-      .map((id) => older.find((n) => n.id === id))
-      .filter((n) => n && !byWords.some((t) => t.includes(n.text.trim())))
-      .sort((a, b) => a.span[0] - b.span[0])
-      .map((n) => '(pages ' + (n.span[0] + 1) + '–' + (n.span[1] + 1) + ') ' + n.text.trim());
-    recallSmart = named.length;
+    const named = [...new Set((Array.isArray(recallPicked) ? recallPicked : []).map((id) => older.find((n) => n.id === id)))]
+      .filter((n) => n && !byWords.includes(n))
+      .sort((a, b) => a.span[0] - b.span[0]);
     const within = [];
     let used = 0;
-    for (const line of [...named, ...byWords]) {
-      if (within.length && used + line.length + 1 > HYBRID_RECALL_CHARS) continue;
-      within.push(line);
-      used += line.length + 1;
+    for (const n of [...named, ...byWords]) {
+      const size = recordLine(n).length + 1; /* measured as it rides, its detail with it (M511) */
+      if (within.length && used + size > HYBRID_RECALL_CHARS) continue;
+      within.push(n);
+      used += size;
     }
-    recallSmart = named.filter((l) => within.includes(l)).length;
-    recalledOlder = within.sort((a, b) => Number((a.match(/\(pages (\d+)/) || [0, 0])[1]) - Number((b.match(/\(pages (\d+)/) || [0, 0])[1])).join('\n');
+    recallSmart = named.filter((n) => within.includes(n)).length;
+    recalledNodes = within.sort((a, b) => a.span[0] - b.span[0]);
   }
   /* M510-22: THE PLANS STANDING — laid out on the page, kept whole by the plans keeper until carried out: part by part, with
    * the exact words to be said. A summary retells history; a plan is what is still to happen, and every part of it matters. */
@@ -1070,19 +1090,20 @@ export function buildRequest({
    * plans. And it stands in the order a storyteller needs: after canon, the past; then the plans; then the people's minds
    * and the state of things now — nearest the pages. */
   if (hybridB) {
-    const pagesOf = (line) => { const m = String(line).match(/\(pages? (\d+)(?:[–-](\d+))?\)/); return m ? Number(m[1]) : 0; };
-    const bare = (line) => String(line).replace(/^\s*-\s*/, '').trim();
     const recentNodes = recordNodes.filter((n) => hybridRecent && hybridRecent.text && hybridRecent.text.includes(n.text.trim())).sort((a, b) => a.span[0] - b.span[0]);
-    /* each line with its own pages, as every other line of the part — the storyteller places it in time the same way */
-    const recentLines = recentNodes.map((n) => '(pages ' + (n.span[0] + 1) + '–' + (n.span[1] + 1) + ') ' + n.text.trim());
     const span = (list) => (list.length ? 'pages ' + (Math.min(...list.map((n) => n.span[0])) + 1) + '–' + (Math.max(...list.map((n) => n.span[1])) + 1) : '');
-    const earlier = [...new Set([...(presentRecord && presentRecord.text ? presentRecord.text.split('\n') : []), ...(recalledOlder ? recalledOlder.split('\n') : [])].map(bare).filter(Boolean))]
-      .sort((a, b) => pagesOf(a) - pagesOf(b));
+    /* M511: each line as it rides — its pages, its words, the detail beneath it (recordLine); the earlier moments are ONE
+     * list of the record's own lines, the people here and the lines the move brings up, each once, in the order they
+     * happened — and the receipt's rows hold exactly these words */
+    const earlierNodes = [...new Set([...((presentRecord && presentRecord.nodes) || []), ...recalledNodes])].sort((a, b) => a.span[0] - b.span[0]);
+    recentRows = recentNodes.map((n) => '- ' + recordLine(n)).join('\n');
+    earlierRows = earlierNodes.map((n) => '- ' + recordLine(n)).join('\n');
+    earlierCalled = earlierNodes.filter((n) => recalledNodes.includes(n)).length;
     const block = [
-      'Our story so far — first the whole of it in brief; then, in full, the stretch just before the pages that follow, and the earlier moments this scene touches. Where the brief and a full line differ, the full line is right; the pages that follow are right over both. Every line tells what happened on its own pages — the past, not now.',
+      'Our story so far — first the whole of it in brief; then, in full, the stretch just before the pages that follow, and the earlier moments that matter now. Where the brief and a full line differ, the full line is right; the pages that follow are right over both. Every line tells what happened on its own pages — the past, not now.',
       'In brief, from the beginning (pages 1–' + (essentialsUpTo + 1) + '):\n' + essentialsText,
-      recentLines.length ? 'In full, just before the pages that follow (' + span(recentNodes) + '):\n' + recentLines.map((l) => '- ' + l).join('\n') : '',
-      earlier.length ? 'In full, earlier moments this scene touches — the people here, and what the newest move is about:\n' + earlier.map((l) => '- ' + l).join('\n') : '',
+      recentRows ? 'In full, just before the pages that follow (' + span(recentNodes) + '):\n' + recentRows : '',
+      earlierRows ? 'In full, earlier moments that matter now — with the people here, and the ones the newest move brings up:\n' + earlierRows : '',
       standingText ? 'Plans standing — laid out on the page, kept whole until carried out:\n' + standingText : '',
     ].filter(Boolean).join('\n\n');
     const at = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
@@ -1094,20 +1115,21 @@ export function buildRequest({
      * with its pages); the people here in the pages just before the eight (filled in below, once the window is known);
      * the earlier moments with the people here; the plans. Past first — the people's minds and the state of things now
      * follow it, nearest the pages. */
-    const pagesOfNode = (n) => '(pages ' + (n.span[0] + 1) + '–' + (n.span[1] + 1) + ') ' + n.text.trim();
     const sinceNodes = (Array.isArray(windowInfo && windowInfo.nodes) ? windowInfo.nodes : [])
       .filter((n) => n && !n.empty && !n.correction && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span) && (!essentialsText || n.span[0] > essentialsUpTo))
       .sort((a, b) => a.span[0] - b.span[0])
       .filter((n) => smallRecord && smallRecord.text && smallRecord.text.includes(n.text.trim()));
     const spanOf = (list) => (list.length ? 'pages ' + (list[0].span[0] + 1) + '–' + (list[list.length - 1].span[1] + 1) : '');
-    const earlierS = presentRecord && presentRecord.text ? presentRecord.text.split('\n').map((l) => l.replace(/^\s*-\s*/, '').trim()).filter(Boolean) : [];
+    /* M511: each line as it rides (recordLine: its detail beneath it), and the receipt's rows are these very words */
+    smallSinceRows = sinceNodes.length ? sinceNodes.map((n) => '- ' + recordLine(n)).join('\n')
+      : (smallRecord && smallRecord.text ? smallRecord.text.split('\n').map((l) => (/^\s*•/.test(l) ? '  ' + l.trim() : '- ' + l.replace(/^\s*-\s*/, '').trim())).filter((l) => l !== '- ').join('\n') : ''); /* the record handed over without its lines' pages: as it stands, a detail kept beneath its line */
+    earlierRows = ((presentRecord && presentRecord.nodes) || []).map((n) => '- ' + recordLine(n)).join('\n');
     const block = [
       'Our story so far — first the whole of it in brief; then, in full, what came since and the moments with the people here. Where the brief and a full line differ, the full line is right; the pages that follow are right over both. Every line tells what happened on its own pages — the past, not now.',
       essentialsText ? 'In brief, from the beginning (pages 1–' + (essentialsUpTo + 1) + '):\n' + essentialsText : (storyShort ? 'In brief, as I remember it:\n' + storyShort : ''),
-      sinceNodes.length ? 'In full, ' + (essentialsText ? 'since then' : 'the newest of it') + ' (' + spanOf(sinceNodes) + '):\n' + sinceNodes.map((n) => '- ' + pagesOfNode(n)).join('\n')
-        : (smallRecord && smallRecord.text ? 'In full, ' + (essentialsText ? 'since then' : 'the newest of it') + ':\n' + smallRecord.text.split('\n').map((l) => '- ' + l.replace(/^\s*-\s*/, '').trim()).filter((l) => l !== '- ').join('\n') : ''), /* the record handed over without its lines' pages: as it stands */
+      smallSinceRows ? 'In full, ' + (essentialsText ? 'since then' : 'the newest of it') + (sinceNodes.length ? ' (' + spanOf(sinceNodes) + ')' : '') + ':\n' + smallSinceRows : '',
       RECENT_HERE_MARK,
-      earlierS.length ? 'In full, earlier moments with the people here:\n' + earlierS.map((l) => '- ' + l).join('\n') : '',
+      earlierRows ? 'In full, earlier moments with the people here:\n' + earlierRows : '',
       standingText ? 'Plans standing — laid out on the page, kept whole until carried out:\n' + standingText : '',
     ].filter(Boolean).join('\n\n');
     const at = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
@@ -1143,21 +1165,23 @@ export function buildRequest({
   if (hybridB) {
     /* M510-48: the hybrid, for a frontier storyteller — the essentials, the newest lines word for word, the older lines named */
     pushSlot('Story essentials', essentialsText, 'sent as “Our story so far — In brief, from the beginning”: your whole record (Summaryception), streamlined by the essentials keeper — the whole story as a timeline; every detailed line stays on the device');
-    pushSlot('What remains', [hybridRecent && hybridRecent.text, recalledOlder].filter(Boolean).join('\n'), 'sent inside “Our story so far” as “In full, just before the pages that follow” and “In full, earlier moments this scene touches”: the record’s newest lines word for word' + (recalledOlder ? ', and the older lines this scene names, whole' + (recallSmart ? ' (' + recallSmart + ' picked by the smart recall for what your move means)' : '') : '') + ' — the rest is in the essentials above', hybridRecent && hybridRecent.rested ? hybridRecent.rested + ' older lines ride in the essentials, kept whole on the device' : '');
+    /* M511: the row holds exactly the lines of the part it names — the earlier moments are their own row, as in the request */
+    if (recentRows) pushSlot('What remains', recentRows, 'sent inside “Our story so far” as “In full, just before the pages that follow”: the record’s newest lines word for word, each with any detail kept beneath it — the rest is in the essentials above', hybridRecent && hybridRecent.rested ? hybridRecent.rested + ' older lines ride in the essentials, kept whole on the device' : '');
+    else pushSlot('What remains', '', '', 'nothing to add in full — the record’s newest lines are about the pages that follow, which ride word for word'); /* never “sent” beside no words */
   } else if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'sent as “Our story so far, in full”, after canon: everything the keeper has folded of the older pages');
     /* the final audit: with the whole record sent, every line about the people here is in it — said so, not guessed at */
-    pushSlot('Who’s here, in the record', '', '', 'your whole record is sent in full — every line about the people here is in it');
+    pushSlot('Earlier moments, in full', '', '', 'your whole record is sent in full — every earlier moment is in it');
     /* the final audit: essentials made but not sent — say why on their row */
     if (essentialsText) pushSlot('Story essentials', '', '', 'the essentials are far behind the record — your storyteller reads the whole record until they are made again (they are made again after the next page, or with “Make the essentials again”)');
-  } else if (essentialsText) {
+  } else if (essentialsText && smallB) { /* M511: the small model's parts — never said to have ridden for anyone else */
     /* M510-15: the essentials stand for the record; only what was folded since rides as it is */
     pushSlot('Story essentials', essentialsText, 'sent as “Our story so far — In brief, from the beginning”: your whole record (Summaryception), streamlined by the essentials keeper — the detailed lines come back when your move names them (small model)');
-    if (smallRecord && smallRecord.text) pushSlot('What remains', smallRecord.text, 'sent inside “Our story so far” as “In full, since then”: the lines folded since the essentials were made (small model)');
+    if (smallRecord && smallRecord.text) pushSlot('What remains', smallSinceRows || smallRecord.text, 'sent inside “Our story so far” as “In full, since then”: the lines folded since the essentials were made (small model)');
     else if (memoryText) pushSlot('What remains', '', '', 'the whole record is in the essentials above; its detailed lines come back word for word when your move names them');
-  } else if (smallRecord && smallRecord.text) {
+  } else if (smallB && smallRecord && smallRecord.text) {
     /* M510-14: the keeper's record rides for a small model too, its newest folds first (M510-9 held it back) */
-    pushSlot('What remains', smallRecord.text, 'sent inside “Our story so far” as “In full, the newest of it”: what the keeper has folded of the older pages — the newest, up to about 4,000 tokens (small model)', smallRecord.rested ? smallRecord.rested + ' older lines rest outside this page — read by the planning helper, and called back when your move names them' : '');
+    pushSlot('What remains', smallSinceRows || smallRecord.text, 'sent inside “Our story so far” as “In full, the newest of it”: what the keeper has folded of the older pages — the newest, up to about 4,000 tokens (small model)', smallRecord.rested ? smallRecord.rested + ' older lines rest outside this page — read by the planning helper, and called back when your move names them' : '');
   }
   if (loreText) {
     pushSlot(
@@ -1173,7 +1197,12 @@ export function buildRequest({
   /* M486: the row stands whenever canon verification is ON for the tale — with the note, or empty with the reason it
    * had nothing to say (the writer could not tell whether canon ran at all) */
   if (standingText) pushSlot('Plans standing', standingText, 'the plans keeper — each plan laid out on the page, kept whole until it is carried out or dropped', standingPlans(smallPlansBook).map((p) => p.title).join('; ')); /* M510-22 */
-  if (presentRecord && presentRecord.text) pushSlot('Who’s here, in the record', presentRecord.text, 'sent inside “Our story so far” as the earlier moments with the people here: the record’s own lines that name them — word for word, while they are here', presentRecord.who.join(', ')); /* M510-21 */
+  /* M510-21; M511: one row for the one part the request sends — its lines exactly as they ride */
+  if (earlierRows) {
+    const ofPeople = presentRecord && presentRecord.text ? 'the record’s own lines that name the people here (the newest few of each), word for word while they are here' : '';
+    const called = earlierCalled ? earlierCalled + (earlierCalled === 1 ? ' older line' : ' older lines') + ' your newest move brings up' + (recallSmart ? ' (' + recallSmart + ' of them named by the smart recall for what your move means)' : '') : '';
+    pushSlot('Earlier moments, in full', earlierRows, (hybridB ? 'sent inside “Our story so far” as “In full, earlier moments that matter now”: ' : 'sent inside “Our story so far” as “In full, earlier moments with the people here”: ') + [ofPeople, called].filter(Boolean).join('; and '), presentRecord && presentRecord.who ? presentRecord.who.join(', ') : '');
+  }
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
   else if (canonOn) pushSlot('What canon says', '', '', canonWhy || 'canon verification gave no note this turn');
   if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */

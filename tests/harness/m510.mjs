@@ -523,10 +523,10 @@ test('M510-21 WHO’S HERE, IN THE RECORD (his idea, bounded): while someone is 
   const small = mk(true, here);
   const notes = notesOf(small);
   assert(/In full, earlier moments with the people here:\n- \(pages/.test(notes) && notes.includes('RUKIA-12'), 'it rides for the small model — inside our story so far (M510-53)');
-  const row = small.receipt.slots.find((s) => s.name === 'Who’s here, in the record');
+  const row = small.receipt.slots.find((s) => s.name === 'Earlier moments, in full'); /* M511: the row is named for the part it holds */
   assert(row && row.tokens > 0 && /Rukia Kuchiki/.test(row.reason), 'with its row: ' + JSON.stringify(row && row.reason));
   const normal = mk(false, here);
-  assert(!/What the record holds of who is here/.test(notesOf(normal)) && /every line about the people here is in it|essentials are still being made/.test(normal.receipt.slots.find((s) => s.name === 'Who’s here, in the record').reason), 'the frontier model, before its essentials are made, reads the whole record — its row says so, exactly (M510-48/57)');
+  assert(!/What the record holds of who is here/.test(notesOf(normal)) && /every earlier moment is in it|essentials are still being made/.test(normal.receipt.slots.find((s) => s.name === 'Earlier moments, in full').reason), 'the frontier model, before its essentials are made, reads the whole record — its row says so, exactly (M510-48/57)');
 });
 
 
@@ -1070,7 +1070,7 @@ test('M510-48 THE HYBRID, ALWAYS ON (his word: "even a frontier model needs info
   assert(/In brief, from the beginning \(pages 1–240\):\n\[Seireitei/.test(notes), 'the essentials: the whole story as a timeline, with the pages it covers (M510-51)');
   assert(/In full, just before the pages that follow \(pages \d+–240\)/.test(notes) && /Line 119:/.test(notes) && !/Our story so far, in full — everything before the pages that follow/.test(notes), 'the newest lines word for word — not the whole record');
   assert(!/Line 1: /.test(notes.split('In full, earlier moments')[0]), 'the oldest lines are not in the newest part');
-  assert(/In full, earlier moments this scene touches[^\n]*\n[\s\S]*personal attendant/.test(notes), 'the older line this scene names (his move: attendant) comes back WHOLE: ' + (notes.match(/In full, earlier moments[\s\S]{0,300}/) || [''])[0].slice(0, 300));
+  assert(/In full, earlier moments that matter now[^\n]*\n[\s\S]*personal attendant/.test(notes), 'the older line this scene names (his move: attendant) comes back WHOLE: ' + (notes.match(/In full, earlier moments[\s\S]{0,300}/) || [''])[0].slice(0, 300));
   assert(/Plans standing[\s\S]*The duel with Zaraki/.test(notes), 'the plans standing ride for a frontier storyteller');
   const wordsWhole = notesOf(whole).length; const wordsHybrid = notes.length;
   assert(wordsHybrid < wordsWhole, 'lighter than the whole record: ' + wordsWhole + ' → ' + wordsHybrid + ' characters');
@@ -1135,8 +1135,8 @@ test('M510-50 SMART RECALL (his word: "can the AI smartly think: Bruce probably 
   const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 300 };
   const many = []; for (let i = 0; i < 60; i += 1) many.push({ id: 'n' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) /* no word of the scene: only the smart recall can name it */ + (i === 3 ? 'SMART-MARK: Jovan tells the captains he serves Yamamoto.' : '') });
   const r = buildRequest({ story: {}, messages: pages(12), settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: many.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: many }, smallEssentials: { text: '[Seireitei] (pages 1–240) essentials', upTo: 239 }, recallPicked: ['n3'] });
-  assert(/In full, earlier moments this scene touches[\s\S]*\(pages 13–16\) Line 3:[\s\S]*SMART-MARK/.test(notesOf(r)), 'the named line rides whole, under its pages');
-  assert(/1 picked by the smart recall/.test(r.receipt.slots.find((s) => s.name === 'What remains').source), 'the receipt says the smart recall picked it (the row’s source line)');
+  assert(/In full, earlier moments that matter now[\s\S]*\(pages 13–16\) Line 3:[\s\S]*SMART-MARK/.test(notesOf(r)), 'the named line rides whole, under its pages');
+  assert(/1 of them named by the smart recall/.test(r.receipt.slots.find((s) => s.name === 'Earlier moments, in full').source), 'the receipt says the smart recall picked it (the source line of the row that holds it — M511: the lines called back are the earlier moments’ row, as in the request)');
 });
 
 test('M510-51 OUR STORY SO FAR, ONE PART READ ONE WAY (his look at the raw request: "does the storyteller understand \'the 54 older lines are in the essentials above, each kept whole on the device\'? even I am confused"): it says first how to read it; then the whole story in brief, the stretch just before the pages in full and the earlier moments in full — each line with its own pages, the earlier ones in the order they happened, never twice — then the plans; it stands after canon and before the people and the state of things; no count, no device', async () => {
@@ -1146,7 +1146,7 @@ test('M510-51 OUR STORY SO FAR, ONE PART READ ONE WAY (his look at the raw reque
   const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: { text: '- [Seireitei] (pages 1–240) Jovan arrives; serves Yamamoto; trains.', upTo: 239 }, recallPicked: ['n3'], smallPlansBook: { plans: [{ id: 'p', title: 'The duel with Zaraki', whose: 'Jovan', aim: 'prove himself', parts: [{ who: 'Jovan', does: 'meets Zaraki at noon' }], status: 'standing' }] } });
   const notes = notesOf(r);
   const at = (t) => notes.indexOf(t);
-  const order = ['Our story so far — first the whole of it in brief', 'In brief, from the beginning (pages 1–240):', 'In full, just before the pages that follow (pages ', 'In full, earlier moments this scene touches', 'Plans standing', 'The ground: '];
+  const order = ['Our story so far — first the whole of it in brief', 'In brief, from the beginning (pages 1–240):', 'In full, just before the pages that follow (pages ', 'In full, earlier moments that matter now', 'Plans standing', 'The ground: '];
   assert(order.every((t) => at(t) !== -1), 'every piece is there: ' + order.filter((t) => at(t) === -1).join(' | '));
   assert(order.every((t, i) => i === 0 || at(order[i - 1]) < at(t)), 'in that order — the past, the plans, then the state of things now');
   assert(/Where the brief and a full line differ, the full line is right; the pages that follow are right over both/.test(notes), 'it says how to read it');
@@ -1229,7 +1229,7 @@ test('M510-57 THE RECEIPT EXPLAINS EXACTLY (his word: "make sure the explanation
   const row = (n) => r.receipt.slots.find((s) => s.name === n);
   assert(/when the story opens, and after each page/.test(row('Story essentials').reason) && /“Our story so far, in full”/.test(row('Story essentials').reason), 'the essentials’ row: when they are made, and what is sent meanwhile, in the raw’s words');
   assert(/Our story so far, in full — everything before the pages that follow/.test(notesOf(r)), 'which is what the raw says');
-  eq(row('Who’s here, in the record').reason, 'your whole record is sent in full — every line about the people here is in it', 'no "or"');
+  eq(row('Earlier moments, in full').reason, 'your whole record is sent in full — every earlier moment is in it', 'no "or"');
   assert(/are in Our story so far \(the What remains row\)/.test(row('The pages, word for word').source), 'the pages’ row points to what the raw calls it: ' + row('The pages, word for word').source);
 });
 
@@ -1261,7 +1261,7 @@ test('M510-59 THE FOLD SIZE DOES NOT MATTER (his question: "what if my fold is e
     const earlier = notes.slice(notes.indexOf('In full, earlier moments'), notes.indexOf('Plans standing') === -1 ? undefined : notes.indexOf('Plans standing'));
     assert(earlier.length > 0, 'fold every ' + batch + ': older moments still called back');
     const rows = Object.fromEntries(r.receipt.slots.map((s) => [s.name, s.tokens]));
-    sizes.push(rows['What remains'] + rows['Who’s here, in the record']);
+    sizes.push(rows['What remains'] + rows['Earlier moments, in full']); /* M511: the lines called back are the earlier moments' row now, as in the request */
   }
   assert(sizes[1] <= sizes[0] * 1.3, 'a 30-page fold is about the size of a 6-page fold: ' + sizes.join(' vs ') + ' tokens');
   assert(HYBRID_RECALL_CHARS === 16000, 'the room for lines called back: about 4,000 tokens');
@@ -1275,7 +1275,7 @@ test('M510-60 (the deep audit, read as the storyteller) THE REFERENCE BEFORE THE
     const notes = notesRole ? String(r.messages[0].content) : notesOf(r);
     const at = (t) => notes.indexOf(t);
     assert(at('CANON-MARK') !== -1 && at('CANON-MARK') < at('LORE-MARK') && at('LORE-MARK') < at('Our story so far'), (notesRole || 'system') + ': canon, then the lore, then our story so far');
-    assert(!/the pages you have|my move is about/.test(notes) && /the pages that follow/.test(notes) && /what the newest move is about/.test(notes), (notesRole || 'system') + ': the headings hold in this voice');
+    assert(!/the pages you have|my move is about/.test(notes) && /the pages that follow/.test(notes) && /the newest move brings up/.test(notes), (notesRole || 'system') + ': the headings hold in this voice');
   }
 });
 

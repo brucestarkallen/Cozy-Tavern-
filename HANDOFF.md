@@ -1,6 +1,16 @@
-# Cozy Tavern — handoff for the next session (state at m510-063)
+# Cozy Tavern — handoff for the next session (state at m511-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+00. M511 (after a platform crash cut the m510 session short; nothing of the crash reached GitHub — m510-063 was whole).
+   A BRANCH COPIES ITS PAGES WHOLE: chat.js branchFrom writes each page with db.messages.copy (store.js), never through
+   messages.append — append is the maker of NEW pages and keeps only the fields it lists (a field on a page never
+   listed there is lost in every branch: M510-43's keptText was, and the branch's first open mended his put-back page
+   again). WHAT THE STORYTELLER SAW IS WHAT WAS SENT: a record line reaches the request only through stack.js
+   recordLine (pages, words, the auditor's detail beneath it) — "Our story so far" once wrote its lines by hand and
+   dropped every detail while the rows showed them; each notes row holds exactly its part's lines (What remains = "In
+   full, just before the pages that follow"; "Earlier moments, in full" = the one list of the people here and the lines
+   his move brings up; the small model's rows likewise). Law M511-1 checks every row line is in the request, in every
+   voice and notes role. NEVER build "who's here" name patterns per line or per pass (patternsOf, once a call).
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
    M112's inexact mark, so the branch kept a ledger without the page's reads and its incomplete ledger became the page's
    checkpoint. Now (chat.js branchFrom): still running = the 8s wait ran out AND extractor.js workInFlight(storyId); such
@@ -1266,4 +1276,28 @@ founding design lives in AGENTS.md's first entries.)
   saying "Zaraki" or "Captain Hitsugaya" were never found. Now any part of the name counts (titles never), a part other
   than the first only when no other name the ledger knows (present, characters, knowledge, the MC) shares it — "Kuchiki"
   alone is neither Rukia's nor Byakuya's. Law M510-63.
+- M511-1 — AFTER THE CRASH. The crash (Sep 29, during his "Normal vs Raw" question) left GitHub at m510-063, whole: every
+  module parses and links, harness/walk/long play/lint were green on it. Found by reading that session's code: (1) a
+  branch lost `keptText` (store.js append's list) — db.messages.copy now, walk DOM-140 proves it through the branch
+  button and the shelf's open (fails on m510-063); (2) "Who's here, in the record" built ~14,000 name patterns a call on
+  a dense record (~300 ms, twice a send) — patternsOf, once per person (16); (3) his question: the auditor's details
+  never reached the storyteller in "Our story so far" (frontier with essentials, and the small model) while the receipt
+  showed them; the rows showed a different copy of the record than the one sent; the one "earlier moments" part was
+  split over two rows; and the room kept for every line folded since the essentials was measured without the details,
+  so the oldest of them fell out of the request (a hole: 9 of 30 lines in the m510-063 fixture). All fixed with one
+  renderer (recordLine) and rows that are the parts; the row "Who's here, in the record" is now "Earlier moments, in
+  full"; the heading reads "In full, earlier moments that matter now — with the people here, and the ones the newest
+  move brings up". Laws M511-1…4 (tests/harness/m511.mjs).
+  Browser proofs at m511-001: all green but paint_magma (below). tests/branchrefresh.py now slows db.messages.copy (the
+  copy the branch makes) to land its refresh mid-branch — it slowed append, which the branch no longer calls, so the
+  refresh never landed mid-branch and its own fixture check said so. tests/twobrowsers.py "one whole book, not one per
+  page" now checks that every version the device kept of the branch holds all its carried pages — "no second write at
+  all" also failed on m510-063 (1 run in 3): the branch's house's eye writes its findings onto the last page the moment
+  the branch is whole, a new version of the WHOLE book (the two writes diffed: findings on one page and the workers row).
+  tests/paint_magma.py (M302/M303) has failed since M465 redesigned the coats (identical on m510-063): its darker-room
+  checks measure the pre-M465 magma; its contrast line flags the DISABLED "◂" of a one-version page (opacity .35 by
+  design; WCAG exempts inactive controls). It is not in the gate list; paint_coats.py and contrast.py are, and pass.
+  Send (tests/perf_send.py, SENDS=2, 6x, four runs each, keeper off — the changed paths do not run there): request
+  1027 ms mean on m510-063 vs 1087 on m511, done 1788 vs 1774 — within the VM's noise; the profile has none of M511's
+  functions among its top self-time.
 

@@ -5764,7 +5764,7 @@ export function initChat(ctx) {
       const page = { ...m };
       delete page.id;
       delete page.storyId;
-      const saved = await db.messages.append(branch.id, page);
+      const saved = await db.messages.copy(branch.id, page); /* M511: the page whole — every field it carries */
       if (saved && saved.id) idMap[m.id] = saved.id;
     }
     /* M43: the branch carries its checkpoint (Summaryception's law). The

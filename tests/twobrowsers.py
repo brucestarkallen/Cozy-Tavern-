@@ -268,7 +268,14 @@ try:
         t0 = time.time()
         while time.time() - t0 < 10 and not os.path.exists(bfile): time.sleep(0.2)
         check('whole, its book reached the device at once', os.path.exists(bfile))
-        check('one whole book, not one per page (no second whole push has landed)', not os.path.exists(bfile + '.bak1'))
+        # M511: "one whole book, not one per page" was checked as "no second write at all" — and the branch's own readers
+        # write onto it the moment it is whole (its house's eye leaves its findings on the last page, its workers row):
+        # that later write is a new version of the WHOLE book, and it landed inside this window on m510-063 too (1 run in
+        # 3, measured). What the law forbids is the device ever holding the branch a page at a time — so every version the
+        # device kept of it holds all its carried pages.
+        versions = [pth for pth in (bfile + '.bak1', bfile) if os.path.exists(pth)]
+        counts = [len((json.load(open(pth)) or {}).get('messages') or []) for pth in versions]
+        check('one whole book, not one per page (every version the device kept holds all 120 carried pages)', bool(counts) and all(c == 120 for c in counts), 'pages in each version: ' + str(counts))
         on_device = json.loads(a.evaluate("async (id) => { const r = await fetch('api/books/one/' + id); return r.ok ? JSON.stringify(await r.json()) : '{\"messages\": []}'; }", branch_id))
         check('and every carried page is on the device, in that one book', len(on_device['messages']) == 120, '%d pages' % len(on_device['messages']))
 

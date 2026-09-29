@@ -13271,3 +13271,39 @@ never), a part other than the first only when no other name the ledger knows sha
 alone is neither Rukia's nor Byakuya's. The small model's paragraphs of the recent pages use the same finder. Law
 M510-63.
 
+# M511-1 — after the crash: a branch keeps its pages whole; what the storyteller saw is what was sent
+The platform crashed during the m510 session while it was reading code for his question ("why is Normal slightly
+different from Raw — detail worth keeping in Normal but not in Raw; the earlier moments put half in What remains and half
+in Who's here, in the record; what does that heading mean, does the storyteller understand it"). Nothing of the crash
+reached GitHub: main was m510-063, whole (every module parses and links; harness 1036, walk 168, long play 8, lint 0).
+Reading that session's code found:
+- A BRANCH LOST WHAT HE PUT BACK. branchFrom copied each page through messages.append — the maker of new pages, which keeps
+  only the fields it lists; M510-43's keptText was never listed, so a branch's first open from the shelf mended the page
+  he had put back. The class, not the field: every field the code writes onto a page was listed and compared — keptText
+  was the one lost — and a branch now writes each page whole through db.messages.copy (any field, one no build has named
+  included). Walk DOM-140 drives it through the branch button and the shelf's open; it fails on m510-063.
+- A LAG: "Who's here, in the record" searched every line for every person again on every pass of its fair trim, and built
+  every person's pattern again for each line — a dense record (40 lines of ~7,000 characters, 15 people here): 13,920
+  patterns and ~300 ms a call, twice a send. Now each pattern once a call, each line read for names once, its length
+  measured once: 16 patterns, 16 ms; the choice identical (800 random scenes compared with m510-063, 0 differences).
+- HIS QUESTION, answered in code: "Our story so far" (M510-51/53) wrote each record line by hand as pages and words — the
+  auditor's detail beneath a line (M12) never reached the storyteller, for the frontier model with its essentials made
+  (his play since M510-48/56) and the small model alike, while the receipt, built from the record's own text, showed the
+  details (fixture: 0 of 4 sent, 4 shown). The rows held a different copy of the record from the one sent (33 of 34
+  lines of What remains not in the request); the one part "earlier moments" was split over What remains and Who's here,
+  in the record; and the room kept for every line folded since the essentials was measured without the details, so on a
+  record whose lines carry details the oldest of them fell out of the request altogether (9 of 30 lines in the fixture).
+  Now one renderer, recordLine (pages — "page" for one — words, the detail beneath), for every part and every measure;
+  each row holds exactly its part's lines; the row is named for its part ("Earlier moments, in full"); the heading reads
+  "In full, earlier moments that matter now — with the people here, and the ones the newest move brings up"; an empty
+  record part says why instead of "sent". The opening "Bruce here. This is where things stand…" is his M327 voice, on
+  purpose — the notes as the writer's own, private, never quoted on the page; the rows show the parts, the Raw the words
+  between them. Laws M511-1 (every row line is in the request; every riding line's detail rides — four voices × three
+  shapes), M511-2 (one part, one row), M511-3 (recordLine; no hole), M511-4 (one pattern per person).
+Two browser proofs followed the branch's copy: branchrefresh.py's fixture slowed messages.append to land a refresh
+mid-branch (the branch no longer calls it — the fixture now slows the copy it makes: 13 of 13), and twobrowsers.py's "one
+whole book, not one per page" had been checked as "no second write at all", which also failed on m510-063 one run in
+three — the branch's own eye writes its findings the moment the branch is whole (a new version of the whole book, not a
+page at a time); it now checks that every version the device kept holds all the carried pages (3 of 3). paint_magma.py
+has failed since M465's coats (identical on m510-063; not a gate; its contrast line is the disabled "◂").
+
