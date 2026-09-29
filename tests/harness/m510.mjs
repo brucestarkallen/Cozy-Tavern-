@@ -1166,13 +1166,20 @@ test('M510-52 (the whole request read top to bottom, as the storyteller) PAST, P
   st = { ...st, page: 300, knowledge: { 'Rukia Kuchiki': [{ fact: 'believes Jovan is only a recruit — untrue: Jovan is the new captain', atTurn: 299 }], 'Byakuya Kuchiki': [{ fact: 'was told Jovan serves Yamamoto as his personal attendant', atTurn: 299 }] } };
   const small = []; for (let i = 0; i < 10; i += 1) small.push({ id: 's' + i, span: [i * 6, i * 6 + 5], level: 1, text: '[Day ' + (i + 1) + '] Jovan trains with the Thirteenth.' });
   const build = (essentials) => buildRequest({ story: {}, messages: pages(6), settings: { tellerName: 'Hulk', writerName: 'Bruce' }, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: small.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: small }, smallEssentials: essentials, smallPlansBook: { plans: [{ id: 'p', title: 'The duel with Zaraki', whose: 'Jovan', aim: 'prove himself', parts: [{ who: 'Jovan', does: 'meets Zaraki at noon' }], status: 'standing' }] } });
-  for (const essentials of [null, { text: '- [Day 1–10] (pages 1–60) Jovan trains.', upTo: 59 }]) {
-    const r = build(essentials);
-    const notes = notesOf(r);
+  {
+    const notes = notesOf(build(null));
     const at = (t) => notes.indexOf(t);
-    assert(at('Our story so far, in full — everything before the pages you have') !== -1 && at('Our story so far, in full') < at('Plans standing') && at('Plans standing') < at('The ground: '), (essentials ? 'with' : 'without') + ' essentials: the whole record after canon, then the plans, then the state of things now');
-    assert(!/In brief, from the beginning|What our story holds, in essentials/.test(notes), (essentials ? 'with essentials but a record that fits in full: no brief beside it' : 'no essentials: no brief'));
-    if (essentials) assert(/fits in full/.test(r.receipt.slots.find((s) => s.name === 'Story essentials').reason), 'the receipt says why the essentials did not ride');
+    assert(at('Our story so far, in full — everything before the pages you have') !== -1 && at('Our story so far, in full') < at('Plans standing') && at('Plans standing') < at('The ground: '), 'without essentials: the whole record after canon, then the plans, then the state of things now');
+    assert(!/In brief, from the beginning|What our story holds, in essentials/.test(notes), 'no essentials: no brief');
+  }
+  /* M510-58: with the essentials made the hybrid ALWAYS starts — his decision — even for a record this short; the full part
+   * is at most half the record, the older half in the brief */
+  {
+    const notes = notesOf(build({ text: '- [Day 1–10] (pages 1–60) Jovan trains.', upTo: 59 }));
+    const at = (t) => notes.indexOf(t);
+    assert(at('In brief, from the beginning') !== -1 && at('In full, just before the pages you have') > at('In brief, from the beginning') && at('Plans standing') < at('The ground: '), 'with essentials, a short record: the hybrid, then the plans, then the state of things now');
+    const full = notes.slice(at('In full, just before the pages you have'), at('Plans standing')).split('\n').filter((l) => /^- \(pages/.test(l));
+    assert(full.length >= 1 && full.length <= 5, 'at most half of the ten lines in full: ' + full.length);
   }
   /* "fits in full" is the record's own size, not the text handed over (cut to a small context's room): a long record cut
    * short is the one the essentials stand in for */
@@ -1224,4 +1231,18 @@ test('M510-57 THE RECEIPT EXPLAINS EXACTLY (his word: "make sure the explanation
   assert(/Our story so far, in full — everything before the pages you have/.test(notesOf(r)), 'which is what the raw says');
   eq(row('Who’s here, in the record').reason, 'your whole record is sent in full — every line about the people here is in it', 'no "or"');
   assert(/are in Our story so far \(the What remains row\)/.test(row('The pages, word for word').source), 'the pages’ row points to what the raw calls it: ' + row('The pages, word for word').source);
+});
+
+test('M510-58 THE HYBRID ALWAYS STARTS (his word, angry and right: "the essentials are made but everything still uses the old system — story essentials not part of this turn"): with the essentials made, the hybrid rides at every record size — a short record included (M510-52 had put a threshold back); the full part is at most half the record and never past its room; only essentials far behind give way', async () => {
+  const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Yard' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 300 };
+  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
+  for (const [count, width] of [[8, 1], [40, 3], [60, 40]]) {
+    const nodes = []; for (let i = 0; i < count; i += 1) nodes.push({ id: 'h' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(width) });
+    const r = buildRequest({ story: {}, messages: pages(20), settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: { text: '- [Day 1] (pages 1–' + (count * 4) + ') Jovan trains.', upTo: count * 4 - 1 } });
+    const notes = notesOf(r);
+    const ess = r.receipt.slots.find((s) => s.name === 'Story essentials');
+    assert(/In brief, from the beginning/.test(notes) && ess.tokens > 0, count + ' lines of ' + width + ': the essentials ride (' + ess.tokens + ' tokens)');
+    const full = notes.split('\n').filter((l) => /^- \(pages \d+–\d+\) Line \d+:/.test(l)).length;
+    assert(full <= Math.ceil(count / 2) && full >= 1, count + ' lines: at most half in full (' + full + ')');
+  }
 });

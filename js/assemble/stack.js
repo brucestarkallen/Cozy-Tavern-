@@ -976,10 +976,17 @@ export function buildRequest({
   /* measured on the record's own lines — the text the page code hands over may already be cut to the room (a small
    * context), and a record cut short is exactly the one the essentials must stand in for (DOM-147 caught it) */
   const recordChars = recordNodes.reduce((sum, n) => sum + n.text.trim().length + 3, 0);
-  const fitsWhole = !smallB && recordChars <= Math.max(HYBRID_RECENT_CHARS, sinceChars + 1);
-  const hybridB = !smallB && Boolean(essentialsText) && sinceChars <= HYBRID_RECENT_CHARS * 2 && !fitsWhole;
+  /* M510-58: THE HYBRID ALWAYS STARTS — his decision (M510-48: "we don't need a threshold; the hybrid should always
+   * start"). M510-52 put a threshold back: a record that fit the full-detail room (~8,000 tokens) rode whole and the
+   * essentials were "not part of this turn" — his story went on in the old system with its essentials made. No threshold
+   * now: with the essentials made, the hybrid rides whatever the record's size. So the brief never repeats a whole small
+   * record, the full-detail part is at most HALF the record (his own first design: the older half in the essentials, the
+   * newer half in full) and never more than its room; every line folded since the essentials always rides in full. Only
+   * essentials far behind the record give way to the whole record, until they are made again. */
+  const hybridB = !smallB && Boolean(essentialsText) && sinceChars <= HYBRID_RECENT_CHARS * 2;
+  const hybridRoom = Math.max(sinceChars + 1, Math.min(HYBRID_RECENT_CHARS, Math.floor(recordChars / 2)));
 
-  const hybridRecent = hybridB && memoryText ? newestLines(memoryText, Math.max(HYBRID_RECENT_CHARS, sinceChars + 1)) : null;
+  const hybridRecent = hybridB && memoryText ? newestLines(memoryText, hybridRoom) : null;
   /* M510-21: WHO'S HERE, IN THE RECORD — his idea: while someone is in the scene, the record's own lines that name them ride
    * word for word; once they are gone, not any more. Bounded, the newest few per person (recordOfWhoIsHere): someone who
    * is always there is named in nearly every line, and all of them would be the whole record again. Lines already riding
@@ -1101,7 +1108,7 @@ export function buildRequest({
     /* the final audit: with the whole record sent, every line about the people here is in it — said so, not guessed at */
     pushSlot('Who’s here, in the record', '', '', 'your whole record is sent in full — every line about the people here is in it');
     /* the final audit: essentials made but not sent — say why on their row */
-    if (essentialsText) pushSlot('Story essentials', '', '', fitsWhole ? 'your whole record fits in full — the brief beside it would say it twice' : 'the essentials are far behind the record — your storyteller reads the whole record until they are made again');
+    if (essentialsText) pushSlot('Story essentials', '', '', 'the essentials are far behind the record — your storyteller reads the whole record until they are made again (they are made again after the next page, or with “Make the essentials again”)');
   } else if (essentialsText) {
     /* M510-15: the essentials stand for the record; only what was folded since rides as it is */
     pushSlot('Story essentials', essentialsText, 'sent as “Our story so far — In brief, from the beginning”: your whole record (Summaryception), streamlined by the essentials keeper — the detailed lines come back when your move names them (small model)');

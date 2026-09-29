@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-057)
+# Cozy Tavern — handoff for the next session (state at m510-058)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1231,4 +1231,10 @@ founding design lives in AGENTS.md's first entries.)
   so far, in full" — the What remains row); with the whole record sent, "Who's here, in the record" says every line about
   the people here is in it (was "…— or the essentials are still being made…"); the pages' row points to "Our story so far
   (the What remains row)". Law M510-57.
+- M510-58 — THE HYBRID ALWAYS STARTS (his standing decision since M510-48: no threshold). M510-52's "fits in full" rule
+  (a record under ~8,000 tokens rode whole, the essentials "not part of this turn") was a threshold he had refused; it is
+  gone (fitsWhole = false). With the essentials made the hybrid rides at every size; the full-detail part is at most HALF
+  the record (hybridRoom = max(since + 1, min(HYBRID_RECENT_CHARS, recordChars / 2))), the older half in the brief; every
+  line since the essentials in full; only essentials more than twice the room behind give way to the whole record. Law
+  M510-58; M510-52 restated.
 

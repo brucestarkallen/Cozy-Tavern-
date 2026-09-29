@@ -13209,3 +13209,13 @@ Then every memory row's explanation, audited in six situations; three made exact
 made and what the raw sends meanwhile; "Who's here, in the record" no longer guesses with "or"; the pages' row points to
 "Our story so far"). Law M510-57.
 
+# M510-58 — the hybrid always starts
+He, angry and right: "the essentials are literally made but everything still uses the old system — story essentials
+not part of this turn." Cause: M510-52 ("no brief beside a record that fits in full") put back a THRESHOLD he had refused
+in M510-48 ("we don't need a threshold; the hybrid should always start"): a record under ~8,000 tokens rode whole and the
+essentials stayed out. His story's record was under it, so with its essentials made it still went in the old system.
+My audit optimised for "nothing said twice" over his explicit rule. Now the hybrid always rides once the essentials exist;
+to keep the brief from repeating a whole small record, the full-detail part is at most half the record (his own first
+design — the older half in the essentials, the newer half in full) and never past its ~8,000-token room; every line since
+the essentials rides in full; only essentials far behind the record give way to the whole record. Law M510-58.
+
