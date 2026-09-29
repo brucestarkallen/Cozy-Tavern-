@@ -13080,3 +13080,14 @@ a long collaborative story", not "keep the essentials") — LONG-7 counted its c
 books share the record's row style in the drawer — LONG-4 counted their rows as record lines (LONG-8 fell behind LONG-4's
 open drawer). Both are the tests' own reading, fixed there.
 
+# M510-49 — final audit of the hybrid: as the storyteller, as the reader, as the one pressing buttons
+As the storyteller: (1) essentials that fall behind (their keeper failing) left a HOLE — lines newer than the essentials
+but older than the newest-lines room were in neither; now every line folded since the essentials rides word for word, and
+essentials more than twice that room behind give way to the whole record. (2) "Who's here, in the record" trimmed a tight
+room oldest-first, so with dense lines (~7,000 characters each) the person the scene turns on, last named long ago, lost
+every line to people named yesterday; now lines go from whoever still has most, so each keeps their newest. Checked: no
+old-line glimpse is said twice (a frontier storyteller has no closing recall). As the reader: the drawer's essentials and
+plans books, and The workers, said "small model" — they say what is true now. As the one pressing buttons: the essentials
+book has one button, "Make the essentials again" — the keeper asked now, from the whole record, whatever it kept (shown
+whenever there is a record, before the first page has made them too). Laws M510-49; DOM-146.
+

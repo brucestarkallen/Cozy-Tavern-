@@ -7238,6 +7238,38 @@ test('DOM-145 HIS MANY SAVED PRESETS, FOLDED (M510-45): twelve saved presets —
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-146 "MAKE THE ESSENTIALS AGAIN" (final audit): the essentials book has its one button; a tap asks the essentials keeper now, from the whole record, whatever it kept — and the book shows what it made', async () => {
+  const before = errors.length;
+  const DEFAULT = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
+  const st = await db.stories.create({ title: 'essentials made again' });
+  await db.settings.set('memory:' + st.id, { window: 30, nodes: [{ id: 'm1', span: [0, 5], level: 1, text: 'Jovan arrives at the Seireitei and tells the captains he serves Yamamoto.' }, { id: 'm2', span: [6, 11], level: 1, text: 'Byakuya names Jovan a liar before the captains.' }] });
+  await db.settings.set('essentials:' + st.id, { text: '- [Day 1 · the Seireitei] (pages 1–12) OLD-ESSENTIALS: Jovan arrives; tells the captains he serves Yamamoto; is named a liar before them all.', print: 'as-kept', upTo: 11, at: 1 });
+  const prior = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => (/condense the record of a long collaborative story/.test(sys) ? '[Day 1 · the Seireitei] (pages 1–12) NEW-ESSENTIALS: Jovan arrives at the Seireitei; tells every captain he serves Yamamoto; Byakuya names him a liar before them.' : (typeof prior === 'function' ? prior(body, sys) : (prior || DEFAULT)));
+  try {
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); }
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer');
+    await env.ctx.drawer.renderAllRooms(); await tick(400);
+    const panel = () => qa('#drawer-panels .ledger-panel').find((x) => /Story essentials — the record, told shorter/.test(x.textContent));
+    await until(() => panel() && /OLD-ESSENTIALS/.test(panel().textContent), 'the book shows what was kept');
+    const btn = panel().querySelector('button.essentials-again');
+    assert(btn && btn.textContent === 'Make the essentials again', 'the one button, in the book itself');
+    const from = house.state.calls.length;
+    click(btn);
+    await until(() => house.state.calls.slice(from).some((c) => /condense the record of a long collaborative story/.test(JSON.stringify(c.body))), 'the essentials keeper asked now');
+    await until(async () => /NEW-ESSENTIALS/.test(((await db.settings.get('essentials:' + st.id)) || {}).text || ''), 'made again, whatever it kept');
+    await until(() => panel() && /NEW-ESSENTIALS/.test(panel().textContent), 'and the book shows it');
+  } finally {
+    house.state.workerAnswer = prior;
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); }
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

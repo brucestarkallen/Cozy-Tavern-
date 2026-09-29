@@ -545,7 +545,17 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
   }
   const render = (l) => '- (pages ' + (l.span[0] + 1) + (l.span[1] !== l.span[0] ? '–' + (l.span[1] + 1) : '') + ') ' + l.text.trim();
   let chosen = [...picked].sort((a, b) => a.span[0] - b.span[0]);
-  while (chosen.length && chosen.map(render).join('\n').length > cap) chosen = chosen.slice(1);
+  /* final audit: FAIR WHEN THE ROOM IS TIGHT. Long lines (a dense record: ~7,000 characters a line) filled the room with the
+   * newest few and let the oldest go first — someone last named fifty pages back (the captain the scene turns on) lost
+   * every line to people named yesterday. Now the lines go from whoever still has the most, oldest first, so each person
+   * keeps their newest line as long as the room can hold one each; past that, the oldest. */
+  const namedIn = (l) => here.filter((name) => nameAsWord(name).test(l.text));
+  while (chosen.length && chosen.map(render).join('\n').length > cap) {
+    const count = new Map();
+    for (const l of chosen) for (const name of namedIn(l)) count.set(name, (count.get(name) || 0) + 1);
+    const spare = chosen.find((l) => namedIn(l).every((name) => (count.get(name) || 0) > 1));
+    chosen = chosen.filter((l) => l !== (spare || chosen[0]));
+  }
   return { text: chosen.map(render).join('\n'), who, lines: chosen.length };
 }
 
@@ -920,10 +930,14 @@ export function buildRequest({
   if (essentialsText) stateParts.push('What our story holds, in essentials:\n' + essentialsText);
   /* M510-48: a frontier storyteller with the essentials made: the record's newest lines word for word (recent detail), not
    * the whole record; before the essentials exist, the whole record rides as it always did */
-  const hybridB = !smallB && Boolean(essentialsText);
+  /* final audit: essentials far behind the record (their keeper failing again and again) must not leave a hole between
+   * what they cover and the newest lines — every line folded since them rides word for word; and when those alone are
+   * more than twice the newest lines' room, the essentials are stale and the whole record rides, as before they existed */
+  const sinceChars = essentialsText ? sinceEssentials.length : 0;
+  const hybridB = !smallB && Boolean(essentialsText) && sinceChars <= HYBRID_RECENT_CHARS * 2;
   const recordNodes = (Array.isArray(windowInfo && windowInfo.nodes) ? windowInfo.nodes : [])
     .filter((n) => n && !n.empty && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span));
-  const hybridRecent = hybridB && memoryText ? newestLines(memoryText, HYBRID_RECENT_CHARS) : null;
+  const hybridRecent = hybridB && memoryText ? newestLines(memoryText, Math.max(HYBRID_RECENT_CHARS, sinceChars + 1)) : null;
   if (hybridB && hybridRecent && hybridRecent.text) stateParts.push('The newest of the record, word for word' + (hybridRecent.rested ? ' (the ' + hybridRecent.rested + ' older lines are in the essentials above, each kept whole on the device)' : '') + ':\n' + hybridRecent.text);
   if (memoryText && !smallB && !hybridB) stateParts.push('What remains of the older pages:\n' + memoryText);
   else if (smallRecord && smallRecord.text) stateParts.push((essentialsText ? 'Folded since the essentials were made' : 'What remains of the older pages' + (smallRecord.rested ? ' (the newest of them; ' + smallRecord.rested + ' older lines rest outside this page)' : '')) + ':\n' + smallRecord.text);

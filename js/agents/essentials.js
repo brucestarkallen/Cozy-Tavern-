@@ -83,12 +83,12 @@ export async function loadEssentials(storyId) {
 }
 
 /* one reading: when the record has changed since the essentials were made, make them again from the whole record */
-export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, callLLM = callWorker } = {}) {
+export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, callLLM = callWorker, force = false } = {}) {
   if (!connection || !storyId) return { wrote: false, why: 'no connection' };
   const rec = recordOf(nodes);
   if (!rec.lines.length) return { wrote: false, why: 'no record yet' };
   const kept = await loadEssentials(storyId);
-  if (kept && kept.print === rec.print) return { wrote: false, why: 'unchanged' };
+  if (kept && kept.print === rec.print && !force) return { wrote: false, why: 'unchanged' }; /* final audit: made again by hand, whatever the print */
   const ask = essentialsAsk({ record: rec.text, brief, mc });
   let user = ask.user;
   for (let tries = 0; tries < ESSENTIALS_TRIES; tries += 1) {

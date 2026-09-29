@@ -2522,7 +2522,7 @@ function recordPanel(ctx) {
 }
 
 /* M510-21: THE STORY ESSENTIALS, WHERE HE CAN READ THEM — his word: "why not put them in the ledger, so I can see them".
- * What a small storyteller reads on every page in place of the whole record; or, when there are none, why. */
+ * What every storyteller reads on every page in place of the whole record (M510-48); or, when there are none, why. */
 function essentialsPanel(ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'record-panel essentials-panel';
@@ -2530,6 +2530,23 @@ function essentialsPanel(ctx) {
   const list = document.createElement('ul');
   list.className = 'present-list record-list essentials-list';
   wrap.append(note, list);
+  /* final audit: when they read wrong — or before the first page has made them — he has them made now, from the whole
+   * record: the one button, in the book itself */
+  let redraw = () => {}; /* the book's own render, once it stands (below) */
+  const addAgain = () => {
+      if (wrap.querySelector('.essentials-again')) return;
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'text-btn essentials-again';
+      again.textContent = 'Make the essentials again';
+      again.addEventListener('click', async () => {
+        if (!(ctx.chat && typeof ctx.chat.remakeEssentials === 'function')) return;
+        again.disabled = true;
+        note.textContent = 'Making the essentials again from the whole record…';
+        try { await ctx.chat.remakeEssentials(); } finally { again.disabled = false; redraw(); }
+      });
+      wrap.insertBefore(again, list);
+  };
   const render = latestWins(async () => {
     const story = await currentStory(ctx);
     list.textContent = '';
@@ -2539,12 +2556,14 @@ function essentialsPanel(ctx) {
     if (!kept) {
       note.textContent = !orderedLines(mem).some((n) => !n.correction)
         ? 'Not made yet — the record is still empty: the memory keeper folds pages once they are older than its window (' + windowFor(mem, await db.settings.get('memoryWindow')) + ' pages), and the essentials are made from the record.'
-        : 'Not made yet — the essentials keeper makes them while a small model tells this story (a model marked “small model” in the Quick switch); your normal model reads the whole record above.';
+        : 'Not made yet — the essentials keeper makes them after your next page; until then your storyteller reads the whole record.';
+      if (orderedLines(mem).some((n) => !n.correction)) addAgain();
       return;
     }
     const current = recordOf(mem.nodes).print === kept.print;
-    note.textContent = 'The whole record, told shorter — what a small storyteller reads on every page; a line of the record comes back word for word when your move names it. Made from the record through page ' + (kept.upTo + 1)
-      + (current ? '.' : ' — the record has grown since; they are made again while a small model tells the story.');
+    note.textContent = 'The whole record, told shorter — what your storyteller reads on every page as the story’s timeline, beside the record’s newest lines word for word; an older line comes back word for word when the scene names it. Made from the record through page ' + (kept.upTo + 1)
+      + (current ? '.' : ' — the record has grown since; they are made again after your next page.');
+    addAgain();
     for (const line of kept.text.split('\n').map((l) => l.trim()).filter(Boolean)) {
       const li = document.createElement('li');
       li.className = 'present-row mind-row record-row essentials-row';
@@ -2555,6 +2574,7 @@ function essentialsPanel(ctx) {
       list.appendChild(li);
     }
   });
+  redraw = render;
   render();
   return wrap;
 }
@@ -2576,10 +2596,10 @@ function plansPanel(ctx) {
     const standing = book.plans.filter((p) => p.status === 'standing');
     const ended = book.plans.filter((p) => p.status !== 'standing');
     if (!book.plans.length) {
-      note.textContent = 'No plan written down yet — the plans keeper writes one down the moment a page lays it out: who does what, on what signal (while a small model tells the story).';
+      note.textContent = 'No plan written down yet — the plans keeper writes one down the moment a page lays it out: who does what, on what signal.';
       return;
     }
-    note.textContent = standing.length + (standing.length === 1 ? ' plan standing' : ' plans standing') + (ended.length ? ', ' + ended.length + ' ended' : '') + ' — a small storyteller reads every plan standing, word for word, on every page.';
+    note.textContent = standing.length + (standing.length === 1 ? ' plan standing' : ' plans standing') + (ended.length ? ', ' + ended.length + ' ended' : '') + ' — your storyteller reads every plan standing, word for word, on every page.';
     for (const p of [...standing, ...ended]) {
       const li = document.createElement('li');
       li.className = 'present-row mind-row record-row plan-row';

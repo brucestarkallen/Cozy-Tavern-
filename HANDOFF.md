@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-048)
+# Cozy Tavern — handoff for the next session (state at m510-049)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1158,4 +1158,12 @@ founding design lives in AGENTS.md's first entries.)
   what they learned. Tests: M510-48; M510-20/21/22 restated; the test house knows the essentials keeper's real words
   ("condense the record of a long collaborative story" — it had been taken for the storyteller); LONG-4 counts the
   record's own rows (the essentials and plans books share the row style).
+- M510-49 — FINAL AUDIT OF THE HYBRID, as storyteller, reader and the one pressing buttons. (1) No hole behind stale
+  essentials: every record line folded since the essentials rides word for word (hybridRecent's room grows to hold them);
+  if those alone pass twice HYBRID_RECENT_CHARS the essentials are stale and the whole record rides. (2) recordOfWhoIsHere
+  shares a tight room fairly: lines go from whoever still has the most, oldest first, so each person keeps their newest
+  line (long dense lines let the oldest-named person lose everything). (3) The drawer's essentials book: "Make the
+  essentials again" (chat.remakeEssentials → runEssentials force), shown whenever there is a record; its words and the
+  plans book's and The workers' no longer say "small model". Checked, sound: a frontier storyteller gets no closing
+  recall glimpses (anchorLine is the small model's), so nothing is said twice. Laws M510-49, DOM-146.
 

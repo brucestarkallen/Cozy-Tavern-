@@ -1079,3 +1079,34 @@ test('M510-48 THE HYBRID, ALWAYS ON (his word: "even a frontier model needs info
   const { SHIPPED_BEFORE } = await import('../../js/assemble/modules.js');
   assert(SHIPPED_BEFORE['core-craft'].includes('99fpod'), 'an unedited saved rulebook follows the new one');
 });
+
+test('M510-49 (final audit of the hybrid) NO HOLE, FAIR ROOM, MADE AGAIN BY HAND: every line folded since the essentials rides word for word; essentials far behind the record give way to the whole record; who is here shares a tight room so each person keeps their newest line; the essentials keeper makes them again when asked, whatever it kept', async () => {
+  const { recordOfWhoIsHere, HYBRID_RECENT_CHARS } = await import('../../js/assemble/stack.js');
+  const { runEssentials, ESSENTIALS_KEY } = await import('../../js/agents/essentials.js');
+  const { db: store } = await import('../../js/store.js');
+  const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Byakuya Kuchiki' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 300 };
+  const long = (i, extra = '') => 'Line ' + i + ': ' + 'the drills went on and the yard rang with it. '.repeat(40) + extra;
+  const nodes = []; for (let i = 0; i < 60; i += 1) nodes.push({ id: 'n' + i, span: [i * 4, i * 4 + 3], level: 1, text: long(i, i === 5 ? 'Byakuya named Jovan a liar before the captains.' : i >= 50 ? 'Rukia sparred beside Jovan.' : '') });
+  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
+  const build = (upTo) => buildRequest({ story: {}, messages: pages(12), settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: { text: '[Seireitei] (pages 1–' + (upTo + 1) + ') essentials', upTo } });
+  /* the essentials made through line 49's pages; lines 50–59 folded since (~19,000 characters): all ride */
+  const recent = notesOf(build(nodes[49].span[1]));
+  assert(/What our story holds, in essentials/.test(recent) && nodes.slice(50).every((n) => recent.includes(n.text.slice(0, 20) + ' ') || recent.includes('Line ' + n.id.slice(1) + ':')), 'every line folded since the essentials rides word for word');
+  /* made through line 5 only (the keeper failing since): ~100,000 characters folded since — more than twice the room: the whole record */
+  const stale = notesOf(build(nodes[5].span[1]));
+  assert(/What remains of the older pages:/.test(stale) && !/The newest of the record, word for word/.test(stale), 'essentials far behind give way to the whole record (' + HYBRID_RECENT_CHARS * 2 + ' characters the limit)');
+  /* fair: Byakuya named only in line 5, Rukia in the ten newest — a room for two long lines keeps one each */
+  const fair = recordOfWhoIsHere(nodes, st, { each: 6, cap: long(0).length * 2 + 400 });
+  assert(/Byakuya named Jovan a liar/.test(fair.text) && /Rukia sparred beside Jovan/.test(fair.text), 'each person here keeps their newest line: ' + fair.lines + ' lines');
+  /* made again by hand */
+  const sid = 'story-remake';
+  let asked = 0;
+  const fake = async () => { asked += 1; return '[Monday · Seireitei] (pages 1–4) Jovan arrives at the gate; tells the captains he serves Yamamoto; Byakuya names him a liar before them all.'; }; /* the keeper’s own shape, long enough to be kept */
+  const recNodes = [{ id: 'a', span: [0, 3], level: 1, text: 'Jovan arrives.' }];
+  await runEssentials({ connection: CONN, storyId: sid, nodes: recNodes, callLLM: fake });
+  const again = await runEssentials({ connection: CONN, storyId: sid, nodes: recNodes, callLLM: fake });
+  eq(again.why, 'unchanged', 'the record unchanged: the keeper does not ask by itself');
+  const forced = await runEssentials({ connection: CONN, storyId: sid, nodes: recNodes, callLLM: fake, force: true });
+  assert(forced.wrote && asked === 2, 'asked by hand: made again (' + asked + ' asks)');
+  await store.settings.delete(ESSENTIALS_KEY(sid));
+});

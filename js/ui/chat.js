@@ -2597,16 +2597,25 @@ export function initChat(ctx) {
   }
   /* M510-15: THE ESSENTIALS KEEPER — the whole record streamlined, rebuilt when the record changed; M510-48: for every
    * storyteller (his word: the hybrid always on) */
-  async function essentialsNext(story, { signal, stale = () => false } = {}) {
+  async function essentialsNext(story, { signal, stale = () => false, force = false } = {}) {
     const connection = await resolveWorkerConnection(story, 'essentials');
     if (!connection) return { silent: true };
     const mem = await loadMemory(story.id);
     const fresh = (await db.stories.get(story.id)) || story;
     if (stale()) return { silent: true };
-    const out = await runEssentials({ connection, storyId: story.id, nodes: mem && mem.nodes, brief: fresh.brief || '', mc: mcName(await loadState(story.id)), signal });
+    const out = await runEssentials({ connection, storyId: story.id, nodes: mem && mem.nodes, brief: fresh.brief || '', mc: mcName(await loadState(story.id)), signal, force });
     if (stale()) return { silent: true };
     if (out.wrote) return { detail: 'streamlined the whole record into the story’s essentials' };
     return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
+  }
+  /* final audit: "Make the essentials again" — the essentials keeper asked now, from the whole record, whatever it kept */
+  async function remakeEssentials() {
+    const story = await activeStory();
+    if (!story) return { ok: false };
+    const promise = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale }) => essentialsNext(story, { signal, stale, force: true }) });
+    noteWork(story.id, promise);
+    try { await promise; } catch (err) { /* the book says what stands */ }
+    return { ok: true };
   }
   /* M510-22: THE PLANS KEEPER — a plan laid out on the page, written down whole; M510-48: for every storyteller */
   async function plansNext(story, { signal, stale = () => false } = {}) {
@@ -6650,6 +6659,7 @@ export function initChat(ctx) {
     restoreRecordNow,
     restorePeopleNow,
     unmend,
+    remakeEssentials, /* final audit */
     renderPromptChips,
     refreshStories,
     renderThread,
