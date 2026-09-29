@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-046)
+# Cozy Tavern — handoff for the next session (state at m510-047)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1134,9 +1134,14 @@ founding design lives in AGENTS.md's first entries.)
   the tales known BEFORE it. Now the restore notes every settings key and connection held before or after it as this
   browser's word, refreshes knownIds, and pushes the restored tales and the house. Law M510-46 (every store round-trips
   byte for byte, keys included; nothing adopted back; the fault shown on the blind merge).
-- OPEN (not done): in his setup "Take a copy" is the SERVER's zip of the books folder (api/backup/now; five kept, one a
-  day by itself), and "Bring a copy back" reads only the browser's .json — there is no in-app restore of the zip. A right
-  restore must replace the device's books AND leave the browser holding exactly them (pullNow keeps browser-only tales,
-  which boot then pushes back). Needs: a server restore endpoint (safety zip first, path-guarded extraction), and a
-  browser flow that clears its own tales not in the copy before the whole pull.
+- M510-47 — THE DEVICE'S ZIP COMES HOME (DONE — was the open item). "Bring a copy back" takes the server's .zip:
+  POST api/backup/restore (serve.py restore_backup: refuses a non-zip, a path outside the library, a zip with no
+  books/_house.json, or one that cannot be read whole — nothing touched; zips the library as it stands into backups/
+  first; reads the copy out into .restore-stage; only then removes the library's files and moves the copy's in; never
+  touches backups/). Then booksStatus.mirrorDevice(): every push held (a push would lay the browser's old books over the
+  copy), the worker's pull {exact:true} reads every device book whole and lets go of tales the device does not hold, the
+  page reloads. A .json still goes through importAll (M510-46). Tests: tests/restore_backup_unit.py (the server, on a
+  real folder) and tests/restore_zip.py (real browser + real serve.py: take the zip, make a later tale and change a
+  setting, bring the zip back through Settings' own file button — the device and the browser hold exactly the copy; the
+  library as it stood kept in backups).
 

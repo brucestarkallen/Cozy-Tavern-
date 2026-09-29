@@ -13042,3 +13042,19 @@ kept, in <data>/backups) — and Bring a copy back reads only a browser .json. T
 one must replace the device's books and leave the browser holding exactly them (pullNow keeps browser-only tales, and
 boot pushes those back).
 
+# M510-47 — the device's zip comes home ("Bring a copy back" takes the zip)
+He: "I'm confused — is it done or not?" It was not: M510-46 left the zip without a way back. Now it is done.
+With the tavern's server, "Take a copy" hands over the device's zip of the library (M310). "Bring a copy back" now takes
+that zip as well as a browser's .json. The zip goes to the device (POST api/backup/restore → serve.py restore_backup): it
+is read whole first — not a zip, a path outside the library, no house book, or unreadable, and nothing is touched; the
+library as it stands is zipped into backups/ before anything goes; the copy is read out into .restore-stage beside the
+library; only then do the library's files go and the copy's take their place (backups/ is never touched). The browser
+then becomes the device's copy exactly (sync.js status.mirrorDevice): every push is held and the waiting ones dropped (a
+push then would lay this browser's old books over the copy), the worker's pull {exact:true} reads every device book whole
+and lets go of every tale the device does not hold (the old whole pull kept them, and boot pushed them back), and the
+page reloads on the copy. Proved: tests/restore_backup_unit.py (the server on a real folder: three refusals change
+nothing, the copy replaces the library exactly, the old library is kept first) and tests/restore_zip.py (a real browser
+against the real serve.py: take the zip; a tale made after it and a setting changed after it; the zip brought back through
+Settings' own file button; the browser and the device's books hold exactly the copy — the later tale gone from both, the
+setting and the presets as copied, the copied pages whole — and the library as it stood kept in backups).
+

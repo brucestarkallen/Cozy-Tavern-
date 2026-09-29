@@ -600,6 +600,16 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         if path == '/api/relay':  # M353
             self._relay()
             return
+        if path == '/api/backup/restore':  # M510-47: bring a copy back, on the device
+            try:
+                n = int(self.headers.get('content-length', 0))
+            except ValueError:
+                n = 0
+            r = restore_backup(self.rfile.read(n) if n > 0 else b'')
+            r = dict(r)
+            r['folder'] = BACKUPS_DIR
+            self._send_bytes(json.dumps(r).encode('utf-8'))
+            return
         if path.startswith('/api/books/one/'):
             bp = self._book_path(path[len('/api/books/one/'):])
             if bp is None:
@@ -817,10 +827,13 @@ BACKUPS_DIR = os.path.join(DATA_DIR, 'backups')
 BACKUPS_KEPT = 5
 
 
+RESTORE_STAGE = os.path.join(DATA_DIR, '.restore-stage')  # M510-47: a copy is read out here, whole, before it replaces anything
+
+
 def _library_files():
     out = []
     for root, dirs, files in os.walk(DATA_DIR):
-        if os.path.abspath(root).startswith(os.path.abspath(BACKUPS_DIR)):
+        if os.path.abspath(root).startswith(os.path.abspath(BACKUPS_DIR)) or os.path.abspath(root).startswith(os.path.abspath(RESTORE_STAGE)):
             continue
         for name in files:
             if name.endswith('.tmp'):
@@ -894,6 +907,67 @@ def make_backup(force=False):
                 pass
         return {'ok': True, 'made': True, 'path': final, 'bytes': os.path.getsize(final), 'files': count}
     except Exception as err:  # never take the server down for a backup
+        return {'ok': False, 'why': str(err)}
+
+
+def restore_backup(data):
+    """M510-47: BRING A COPY BACK, ON THE DEVICE. "Take a copy" hands the writer the device's zip of the library (M310) —
+    and "Bring a copy back" read only a browser's .json, so the zip had no way home. Here the zip replaces the library:
+    it is read whole first (a zip that is not one, holds a path outside the library, holds no house book, or cannot be
+    read back changes nothing); the library as it stands is zipped into backups/ before anything goes (the restore can be
+    undone from there); the copy is read out beside the library, and only then do the library's files go and the copy's
+    take their place. The backups folder is never touched. Returns {ok, files, safety} or {ok: False, why}; never raises."""
+    import io, shutil, zipfile
+    try:
+        try:
+            z = zipfile.ZipFile(io.BytesIO(data or b''))
+        except zipfile.BadZipFile:
+            return {'ok': False, 'why': 'that file is not a copy of the tavern (it is not a zip) — nothing was touched'}
+        with z:
+            plan = []
+            for info in z.infolist():
+                if info.is_dir():
+                    continue
+                rel = os.path.normpath(info.filename.replace('\\', '/')).replace('\\', '/')
+                parts = rel.split('/')
+                if os.path.isabs(rel) or rel.startswith('/') or '..' in parts or parts[0] in ('backups', '.restore-stage') or rel.endswith('.tmp'):
+                    return {'ok': False, 'why': 'that copy holds a path outside the library (%s) — nothing was touched' % info.filename}
+                plan.append((info, rel))
+            if not any(rel == 'books/_house.json' for _, rel in plan):
+                return {'ok': False, 'why': 'that copy holds no house book — it is not a copy of the tavern; nothing was touched'}
+            bad = z.testzip()
+            if bad is not None:
+                return {'ok': False, 'why': 'that copy cannot be read whole (%s) — nothing was touched' % bad}
+            safety = make_backup(force=True) if _library_files() else {'ok': True}
+            if not safety.get('ok'):
+                return {'ok': False, 'why': 'the library as it stands could not be kept first (%s) — nothing was touched' % safety.get('why')}
+            stage = os.path.abspath(RESTORE_STAGE)
+            shutil.rmtree(stage, ignore_errors=True)
+            os.makedirs(stage)
+            for info, rel in plan:
+                dest = os.path.abspath(os.path.join(stage, rel))
+                if not dest.startswith(stage + os.sep):
+                    shutil.rmtree(stage, ignore_errors=True)
+                    return {'ok': False, 'why': 'that copy holds a path outside the library (%s) — nothing was touched' % info.filename}
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with z.open(info) as src, open(dest, 'wb') as out:
+                    shutil.copyfileobj(src, out)
+        for f in _library_files():
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+        placed = 0
+        for root, dirs, files in os.walk(stage):
+            for name in files:
+                src = os.path.join(root, name)
+                dest = os.path.join(DATA_DIR, os.path.relpath(src, stage))
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                os.replace(src, dest)
+                placed += 1
+        shutil.rmtree(stage, ignore_errors=True)
+        return {'ok': True, 'files': placed, 'safety': os.path.basename(safety['path']) if safety.get('path') else None}
+    except Exception as err:  # never take the server down for a restore
         return {'ok': False, 'why': str(err)}
 
 

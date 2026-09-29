@@ -147,7 +147,9 @@ export async function initSync(ctx) {
    * runner keeps going while anything is dirty, so a mark made during a push
    * rides the same drain, and every caller awaits a promise that is only
    * done when the shelf is clean. */
+  let holding = false; /* M510-47: while the device's restored copy is read in, nothing of this browser's is pushed */
   const pushNow = () => {
+    if (holding) { dirty.clear(); return Promise.resolve(); }
     if (running) return running;
     if (!dirty.size) return Promise.resolve();
     running = (async () => {
@@ -416,6 +418,20 @@ export async function initSync(ctx) {
   status.pullNow = async () => {
     const r = await ask({ kind: 'pull', expect: 'pulled' });
     if (r && r.ok) { dropCaches(); location.reload(); }
+    return r;
+  };
+  /* M510-47: THE BROWSER BECOMES THE DEVICE'S COPY, EXACTLY — after the device took a copy back (api/backup/restore).
+   * Every push is held first (a push now would lay this browser's old books over the copy); every book the device holds
+   * is read in whole; a tale this browser holds that the copy does not is let go here (the whole pull alone kept it, and
+   * boot would have pushed it back to the device); then the page reloads on the copy. */
+  status.mirrorDevice = async () => {
+    holding = true;
+    dirty.clear();
+    clearTimeout(timer);
+    try { if (running) await running; } catch (err) { /* what was in flight is overwritten by the copy */ }
+    const r = await ask({ kind: 'pull', exact: true, expect: 'pulled' });
+    if (r && r.ok) { dropCaches(); location.reload(); return r; }
+    holding = false;
     return r;
   };
   /* on demand: push every tale now (a first save of a browser's whole shelf) */

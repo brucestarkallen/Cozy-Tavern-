@@ -2790,6 +2790,33 @@ export function initSettings(ctx) {
       'Bringing a copy back replaces everything currently here — stories, words, connections. Carry on?'
     );
     if (!sure) return;
+    /* M510-47: THE DEVICE'S ZIP COMES HOME. With the tavern's server, "Take a copy" is the device's zip of the library,
+     * and this button read only a browser's .json — the copy he was handed had no way back. A zip goes to the device,
+     * which checks it whole, keeps the library as it stands first, and puts the copy in its place; then this browser
+     * becomes the device's copy exactly (every push held, every book read in, a tale the copy does not hold let go) and
+     * the page reloads on it. */
+    const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+    const isZip = /\.zip$/i.test(file.name || '') || (head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04);
+    if (isZip) {
+      const st = ctx.booksStatus;
+      els.backupNote.hidden = false;
+      if (!st || !st.backed || typeof st.mirrorDevice !== 'function') {
+        els.backupNote.textContent = 'A .zip copy is the device’s — it is brought back by the tavern’s server. Start the tavern (cozytavern), open it, and bring the copy back there.';
+        return;
+      }
+      els.backupNote.textContent = 'Bringing the copy back onto the device…';
+      try {
+        const res = await fetch(new URL('api/backup/restore', document.baseURI), { method: 'POST', body: file, headers: { 'content-type': 'application/zip' }, cache: 'no-store' });
+        const r = await res.json();
+        if (!(r && r.ok)) { els.backupNote.textContent = 'The copy was not brought back: ' + ((r && r.why) || 'the server did not answer') + '.'; return; }
+        els.backupNote.textContent = 'The copy is back on the device' + (r.safety ? ' — the library as it stood is kept as ' + r.safety : '') + '. Reading it into this browser; the page reloads when it is in.';
+        const m = await st.mirrorDevice();
+        if (!(m && m.ok)) els.backupNote.textContent = 'The copy is on the device, but this browser could not read it in (' + ((m && m.why) || 'no answer') + ') — refresh the page and it is read in.';
+      } catch (err) {
+        els.backupNote.textContent = 'The copy was not brought back: ' + ((err && err.message) || 'the server did not answer') + '.';
+      }
+      return;
+    }
     try {
       const text = await file.text();
       await db.importAll(text);

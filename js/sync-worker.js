@@ -232,7 +232,15 @@ self.onmessage = async (e) => {
       if (!books) { reply({ kind: 'pulled', ok: false, why: 'the server did not answer' }); return; }
       if (!books.length) { reply({ kind: 'pulled', ok: false, why: 'the device holds no books yet — play a turn in the browser that has them, and wait a moment for the save' }); return; }
       const count = await pullBooks(books, { all: true, replace: true });
-      reply({ kind: 'pulled', ok: true, count });
+      /* M510-47: exact — the tales the device does not hold are let go here too, with their pages and rows */
+      let letGo = 0;
+      if (msg.exact) {
+        const onDevice = new Set(books.map((b) => b && b.id).filter((id) => id && id !== HOUSE));
+        for (const st of (await db.stories.list()) || []) {
+          if (st && st.id && !onDevice.has(st.id)) { await db.stories.remove(st.id); try { await db.settings.delete('bookStamp:' + st.id); } catch (err) { /* fine */ } letGo += 1; }
+        }
+      }
+      reply({ kind: 'pulled', ok: true, count, letGo });
       return;
     }
     /* M182: one book, because the device said it changed. The stamp still
